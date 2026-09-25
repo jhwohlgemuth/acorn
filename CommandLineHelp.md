@@ -542,6 +542,9 @@ Export research activity data to a specific target
     Export folder as a BagIt archive to /path/to/bag.zip
     $> acorn export /path/to/data --format bag --output /path/to/bag
 
+    Export an ordered JSON Lines metadata batch
+    $> acorn export /path/to/data.ndjson --format jsonl --from datacite --to dcat
+
     Export file(s) that were changed in a given Git commit
     $> acorn export --commit <commit hash>
 
@@ -569,7 +572,7 @@ Export research activity data to a specific target
 
   Default value: `pdf`
 
-  Possible values: `pdf`, `bag`, `cff`, `docx`, `json`, `markdown`, `powerpoint`, `yaml`, `zon`
+  Possible values: `pdf`, `bag`, `cff`, `docx`, `json`, `jsonl`, `markdown`, `powerpoint`, `yaml`, `zon`
 
 * `--archive-format <FORMAT>` — BagIt archive container format
 

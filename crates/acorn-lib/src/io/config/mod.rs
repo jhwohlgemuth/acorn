@@ -23,7 +23,7 @@ use acorn_schema::{
 };
 pub use application::{ApplicationConfiguration, WhitelistLookup};
 use bon::Builder;
-pub use bucket::{Bucket, BucketExtension, BucketOptions, Buckets};
+pub use bucket::{Bucket, BucketExtension, BucketOptions, BucketSource, Buckets};
 use color_eyre::eyre::{eyre, Report};
 use core::fmt::{self, Debug};
 use derive_more::Display;
@@ -329,48 +329,6 @@ pub struct RunnerTarget {
     pub host: Remote,
 }
 struct RunnerTargetVisitor;
-impl<'de> Deserialize<'de> for RunnerTarget {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        deserializer.deserialize_any(RunnerTargetVisitor)
-    }
-}
-impl<'de> Visitor<'de> for RunnerTargetVisitor {
-    type Value = RunnerTarget;
-    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("an SSH alias, SSH URI, or object containing a host field")
-    }
-    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-    where
-        A: MapAccess<'de>,
-    {
-        let key = map.next_key::<String>()?.ok_or_else(|| A::Error::missing_field("host"))?;
-        if key != "host" {
-            Err(A::Error::unknown_field(&key, &["host"]))
-        } else {
-            let host = map.next_value::<Remote>()?;
-            match map.next_key::<String>()? {
-                | None => Ok(RunnerTarget { host }),
-                | Some(key) if key == "host" => Err(A::Error::duplicate_field("host")),
-                | Some(key) => Err(A::Error::unknown_field(&key, &["host"])),
-            }
-        }
-    }
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        value.parse().map(|host| RunnerTarget { host }).map_err(E::custom)
-    }
-    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        self.visit_str(&value)
-    }
-}
 impl FilterSet {
     /// Compile the bucket options' ignore and filter regex patterns into a filter set.
     pub fn compile(options: &BucketOptions) -> ApiResult<Self> {
@@ -553,6 +511,48 @@ impl RunnerDetails {
         }
     }
 }
+impl<'de> Deserialize<'de> for RunnerTarget {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_any(RunnerTargetVisitor)
+    }
+}
+impl<'de> Visitor<'de> for RunnerTargetVisitor {
+    type Value = RunnerTarget;
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("an SSH alias, SSH URI, or object containing a host field")
+    }
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let key = map.next_key::<String>()?.ok_or_else(|| A::Error::missing_field("host"))?;
+        if key != "host" {
+            Err(A::Error::unknown_field(&key, &["host"]))
+        } else {
+            let host = map.next_value::<Remote>()?;
+            match map.next_key::<String>()? {
+                | None => Ok(RunnerTarget { host }),
+                | Some(key) if key == "host" => Err(A::Error::duplicate_field("host")),
+                | Some(key) => Err(A::Error::unknown_field(&key, &["host"])),
+            }
+        }
+    }
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        value.parse().map(|host| RunnerTarget { host }).map_err(E::custom)
+    }
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        self.visit_str(&value)
+    }
+}
 impl fmt::Display for RunnerType {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value = match self {
@@ -582,12 +582,6 @@ fn default_docker_image() -> String {
 }
 fn default_executor() -> Executor {
     Executor::Docker
-}
-pub(crate) fn filter_paths(paths: Vec<String>, filters: &FilterSet) -> Vec<String> {
-    paths
-        .into_iter()
-        .filter(|path| !is_ignored_path(path, &filters.ignore) && is_filtered_path(path, &filters.filter))
-        .collect()
 }
 pub(crate) fn is_filtered_path(path: &str, filter: &[Regex]) -> bool {
     filter.is_empty() || filter.iter().any(|pattern| pattern.is_match(path).unwrap_or(false))

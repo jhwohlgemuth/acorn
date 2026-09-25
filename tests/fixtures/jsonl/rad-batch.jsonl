@@ -1,0 +1,2 @@
+{"meta":{"identifier":"batch-one"},"title":"Batch activity one","contact":{"jobTitle":"Researcher","givenName":"First","familyName":"Last","email":"first.last@example.com","telephone":"123-456-7890","url":"https://example.com/one","organization":"Example Organization"}}
+{"meta":{"identifier":"batch-two"},"title":"Batch activity two","contact":{"jobTitle":"Researcher","givenName":"Second","familyName":"Researcher","email":"second.researcher@example.com","telephone":"123-456-7890","url":"https://example.com/two","organization":"Example Organization"}}

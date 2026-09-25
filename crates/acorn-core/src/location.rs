@@ -11,9 +11,10 @@ use serde::{Deserialize, Serialize};
 use strum::EnumIs;
 use urlencoding::encode;
 
+type LocationInput = SimpleOrDetailed<String, LocationDetails>;
 /// Descriptive location reference for configuration and serialization.
 #[derive(Clone, Debug, Deserialize, Display, Eq, PartialEq, Serialize)]
-#[serde(untagged)]
+#[serde(from = "LocationInput", untagged)]
 pub enum Location {
     /// Raw URI or path string.
     Simple(String),
@@ -94,6 +95,22 @@ pub enum Scheme {
     /// Unsupported scheme.
     Unsupported,
 }
+/// Value represented by either a concise or expanded form.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum SimpleOrDetailed<S, D> {
+    /// Concise representation.
+    Simple(S),
+    /// Expanded representation.
+    Detailed(D),
+}
+#[derive(Deserialize)]
+struct LocationDetails {
+    scheme: Scheme,
+    uri: String,
+    #[serde(default)]
+    revision: Option<String>,
+}
 /// Release data returned by repository providers.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Release {
@@ -112,13 +129,6 @@ pub struct Release {
     /// Provider response message.
     pub message: Option<String>,
 }
-impl<'a> From<&'a Location> for &'a str {
-    fn from(value: &'a Location) -> Self {
-        match value {
-            | Location::Simple(value) | Location::Detailed { uri: value, .. } => value,
-        }
-    }
-}
 impl From<&str> for Location {
     fn from(value: &str) -> Self {
         match UriRef::parse(value).ok().and_then(|uri| uri.scheme()) {
@@ -134,6 +144,14 @@ impl From<&str> for Location {
 impl From<&String> for Location {
     fn from(value: &String) -> Self {
         Self::from(value.as_str())
+    }
+}
+impl From<LocationInput> for Location {
+    fn from(value: LocationInput) -> Self {
+        match value {
+            | SimpleOrDetailed::Simple(value) => Self::Simple(value),
+            | SimpleOrDetailed::Detailed(LocationDetails { scheme, uri, revision }) => Self::Detailed { scheme, uri, revision },
+        }
     }
 }
 impl FromStr for Location {
@@ -450,6 +468,13 @@ impl From<&str> for Scheme {
             | "file" => Self::File,
             | "ssh" => Self::SSH,
             | _ => Self::Unsupported,
+        }
+    }
+}
+impl<'a> From<&'a Location> for &'a str {
+    fn from(value: &'a Location) -> Self {
+        match value {
+            | Location::Simple(value) | Location::Detailed { uri: value, .. } => value,
         }
     }
 }

@@ -759,97 +759,6 @@ impl Validate for MediaObject {
         }
     }
 }
-impl<T> OneOrMany<T> {
-    /// Borrow the contained items as a slice.
-    pub fn as_slice(&self) -> &[T] {
-        match self {
-            | Self::One(value) => core::slice::from_ref(value),
-            | Self::Many(values) => values.as_slice(),
-        }
-    }
-    /// Borrow the first contained item, if one exists.
-    pub fn first(&self) -> Option<&T> {
-        self.as_slice().first()
-    }
-    /// Return true when there are no contained items.
-    pub fn is_empty(&self) -> bool {
-        self.as_slice().is_empty()
-    }
-    /// Convert to a vector of items.
-    pub fn into_vec(self) -> Vec<T> {
-        match self {
-            | Self::One(value) => vec![value],
-            | Self::Many(values) => values,
-        }
-    }
-    /// Normalize the contained items to the multiple-values representation.
-    pub fn into_many(self) -> Self {
-        Self::Many(self.into_vec())
-    }
-    /// Iterate over contained items by reference.
-    pub fn iter(&self) -> Iter<'_, T> {
-        self.as_slice().iter()
-    }
-    /// Return the number of contained items.
-    pub fn len(&self) -> usize {
-        self.as_slice().len()
-    }
-    /// Transform every contained item while preserving the one-or-many shape.
-    pub fn map_items<U, F>(self, mut f: F) -> OneOrMany<U>
-    where
-        F: FnMut(T) -> U,
-    {
-        match self {
-            | Self::One(value) => OneOrMany::One(f(value)),
-            | Self::Many(values) => OneOrMany::Many(values.into_iter().map(f).collect()),
-        }
-    }
-    /// Transform each item, propagating crosswalk failures.
-    pub fn map<U, F>(self, f: F) -> Result<OneOrMany<U>, standard::crosswalk::CrosswalkError>
-    where
-        F: Fn(T) -> Result<U, standard::crosswalk::CrosswalkError>,
-    {
-        match self {
-            | Self::One(value) => f(value).map(OneOrMany::One),
-            | Self::Many(values) => values
-                .into_iter()
-                .enumerate()
-                .map(|(index, value)| {
-                    f(value).map_err(|e| standard::crosswalk::CrosswalkError::BuildFailed(format!("Failed to convert record at index {index} — {e}")))
-                })
-                .collect::<Result<Vec<_>, _>>()
-                .map(OneOrMany::Many),
-        }
-    }
-    /// Parse a JSON, YAML, or ZON string into one or many items.
-    pub fn parse(content: &str, mime: MimeType) -> Result<OneOrMany<T>, standard::crosswalk::CrosswalkError>
-    where
-        T: DeserializeOwned,
-    {
-        match mime {
-            | MimeType::Json => serde_json::from_str(content).map_err(|e| standard::crosswalk::CrosswalkError::ParseFailed(e.to_string())),
-            | MimeType::Yaml => serde_norway::from_str(content).map_err(|e| standard::crosswalk::CrosswalkError::ParseFailed(e.to_string())),
-            | MimeType::Zon => zon::decode(content).map_err(|e| standard::crosswalk::CrosswalkError::ParseFailed(e.to_string())),
-            | _ => Err(standard::crosswalk::CrosswalkError::ParseFailed(
-                "Content must be JSON, YAML, or ZON".into(),
-            )),
-        }
-    }
-    /// Serialize one or many items to a JSON, YAML, or ZON string.
-    pub fn serialize(&self, mime: MimeType) -> Result<String, standard::crosswalk::CrosswalkError>
-    where
-        T: Serialize,
-    {
-        match mime {
-            | MimeType::Json => serde_json::to_string_pretty(self).map_err(|e| standard::crosswalk::CrosswalkError::SerializeFailed(e.to_string())),
-            | MimeType::Yaml => serde_norway::to_string(self).map_err(|e| standard::crosswalk::CrosswalkError::SerializeFailed(e.to_string())),
-            | MimeType::Zon => zon::encode(self).map_err(|e| standard::crosswalk::CrosswalkError::SerializeFailed(e.to_string())),
-            | _ => Err(standard::crosswalk::CrosswalkError::SerializeFailed(
-                "Output must be JSON, YAML, or ZON".into(),
-            )),
-        }
-    }
-}
 impl<T> Default for OneOrMany<T> {
     fn default() -> Self {
         Self::Many(Vec::new())
@@ -896,6 +805,154 @@ impl<T> IntoIterator for OneOrMany<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.into_vec().into_iter()
+    }
+}
+impl<T> OneOrMany<T> {
+    /// Borrow the contained items as a slice.
+    pub fn as_slice(&self) -> &[T] {
+        match self {
+            | Self::One(value) => core::slice::from_ref(value),
+            | Self::Many(values) => values.as_slice(),
+        }
+    }
+    /// Borrow the first contained item, if one exists.
+    pub fn first(&self) -> Option<&T> {
+        self.as_slice().first()
+    }
+    /// Return true when there are no contained items.
+    pub fn is_empty(&self) -> bool {
+        self.as_slice().is_empty()
+    }
+    /// Convert to a vector of items.
+    pub fn into_vec(self) -> Vec<T> {
+        match self {
+            | Self::One(value) => vec![value],
+            | Self::Many(values) => values,
+        }
+    }
+    /// Normalize the contained items to the multiple-values representation.
+    pub fn into_many(self) -> Self {
+        Self::Many(self.into_vec())
+    }
+    /// Iterate over contained items by reference.
+    pub fn iter(&self) -> Iter<'_, T> {
+        self.as_slice().iter()
+    }
+    /// Return the number of contained items.
+    pub fn len(&self) -> usize {
+        self.as_slice().len()
+    }
+    /// Transform every contained item while preserving the one-or-many shape.
+    pub fn map_items<U, F>(self, mut f: F) -> OneOrMany<U>
+    where
+        F: FnMut(T) -> U,
+    {
+        match self {
+            | Self::One(value) => OneOrMany::One(f(value)),
+            | Self::Many(values) => OneOrMany::Many(values.into_iter().map(f).collect()),
+        }
+    }
+    /// Transform each item while preserving shape and labeling failures in batches.
+    pub fn try_map_with_label<U, F, L>(self, convert: F, label: L) -> Result<OneOrMany<U>, standard::crosswalk::CrosswalkError>
+    where
+        F: Fn(T) -> Result<U, standard::crosswalk::CrosswalkError>,
+        L: Fn(usize) -> String,
+    {
+        match self {
+            | Self::One(value) => convert(value).map(OneOrMany::One),
+            | Self::Many(values) => values
+                .into_iter()
+                .enumerate()
+                .map(|(index, value)| {
+                    convert(value)
+                        .map_err(|error| standard::crosswalk::CrosswalkError::BuildFailed(format!("Failed to convert {} — {error}", label(index))))
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map(OneOrMany::Many),
+        }
+    }
+    /// Parse a JSON, JSON Lines, YAML, or ZON string into one or many items.
+    pub fn parse(content: &str, mime: MimeType) -> Result<OneOrMany<T>, standard::crosswalk::CrosswalkError>
+    where
+        T: DeserializeOwned,
+    {
+        match mime {
+            | MimeType::Json => serde_json::from_str(content).map_err(|e| standard::crosswalk::CrosswalkError::ParseFailed(e.to_string())),
+            | MimeType::JsonLines => Self::parse_json_lines(content),
+            | MimeType::Yaml => serde_norway::from_str(content).map_err(|e| standard::crosswalk::CrosswalkError::ParseFailed(e.to_string())),
+            | MimeType::Zon => zon::decode(content).map_err(|e| standard::crosswalk::CrosswalkError::ParseFailed(e.to_string())),
+            | _ => Err(standard::crosswalk::CrosswalkError::ParseFailed(
+                "Content must be JSON, JSON Lines, YAML, or ZON".into(),
+            )),
+        }
+    }
+    fn parse_json_lines(content: &str) -> Result<OneOrMany<T>, standard::crosswalk::CrosswalkError>
+    where
+        T: DeserializeOwned,
+    {
+        match content.is_empty() {
+            | true => Err(standard::crosswalk::CrosswalkError::ParseFailed(
+                "JSON Lines input cannot be empty".to_string(),
+            )),
+            | false => content
+                .lines()
+                .enumerate()
+                .map(|(index, line)| {
+                    let line_number = index.saturating_add(1);
+                    match (line.trim().is_empty(), line.contains('\r')) {
+                        | (true, _) => Err(standard::crosswalk::CrosswalkError::ParseFailed(format!(
+                            "JSON Lines record at line {line_number} cannot be blank"
+                        ))),
+                        | (_, true) => Err(standard::crosswalk::CrosswalkError::ParseFailed(format!(
+                            "JSON Lines record at line {line_number} contains an unsupported carriage return"
+                        ))),
+                        | _ => serde_json::from_str(line).map_err(|error| {
+                            standard::crosswalk::CrosswalkError::ParseFailed(format!(
+                                "Failed to parse JSON Lines record at line {line_number} — {error}"
+                            ))
+                        }),
+                    }
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map(OneOrMany::Many),
+        }
+    }
+    /// Serialize one or many items to a JSON, JSON Lines, YAML, or ZON string.
+    pub fn serialize(&self, mime: MimeType) -> Result<String, standard::crosswalk::CrosswalkError>
+    where
+        T: Serialize,
+    {
+        match mime {
+            | MimeType::Json => serde_json::to_string_pretty(self).map_err(|e| standard::crosswalk::CrosswalkError::SerializeFailed(e.to_string())),
+            | MimeType::JsonLines => self.serialize_json_lines(),
+            | MimeType::Yaml => serde_norway::to_string(self).map_err(|e| standard::crosswalk::CrosswalkError::SerializeFailed(e.to_string())),
+            | MimeType::Zon => zon::encode(self).map_err(|e| standard::crosswalk::CrosswalkError::SerializeFailed(e.to_string())),
+            | _ => Err(standard::crosswalk::CrosswalkError::SerializeFailed(
+                "Output must be JSON, JSON Lines, YAML, or ZON".into(),
+            )),
+        }
+    }
+    fn serialize_json_lines(&self) -> Result<String, standard::crosswalk::CrosswalkError>
+    where
+        T: Serialize,
+    {
+        self.iter()
+            .enumerate()
+            .map(|(index, value)| {
+                serde_json::to_string(value).map_err(|error| {
+                    standard::crosswalk::CrosswalkError::SerializeFailed(format!(
+                        "Failed to serialize JSON Lines record at line {} — {error}",
+                        index.saturating_add(1)
+                    ))
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .and_then(|records| match records.is_empty() {
+                | true => Err(standard::crosswalk::CrosswalkError::SerializeFailed(
+                    "JSON Lines output cannot be empty".to_string(),
+                )),
+                | false => Ok(format!("{}\n", records.join("\n"))),
+            })
     }
 }
 impl<T> Validate for OneOrMany<T>

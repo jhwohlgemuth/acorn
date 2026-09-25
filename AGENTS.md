@@ -6,6 +6,17 @@ This file provides guidance to agents (including WARP) when working with code in
 
 ACORN (Accessible Content Optimization for Research Needs) is a Rust-based CLI tool and library for maintaining and validating research activity data (RAD).
 
+## Concurrent Implementation Coordination
+
+When multiple implementations share a working tree:
+
+- Declare and stay within the exact write set for each assignment.
+- Do not edit files owned by concurrent work unless the owners explicitly coordinate the overlap.
+- Do not run workspace-wide formatting while another implementation is actively editing.
+- Run focused tests independently. Serialize final `make lint`, `make test`, and portability gates through one agent after all implementations are stable.
+- If an intermediate concurrent change temporarily breaks compilation, wait or coordinate with its owner instead of patching their files.
+- Respect dependencies and exclusive locks recorded in the active plans before starting work.
+
 ## Quick Start Decision Tree
 
 When assigned a task:

@@ -21,6 +21,52 @@ use color_eyre::eyre::{eyre, Report, Result};
 use futures::{future, stream, StreamExt, TryStreamExt};
 use std::path::PathBuf;
 
+enum InputSource {
+    Bucket(Bucket),
+    Uri(String),
+}
+impl From<Bucket> for InputSource {
+    fn from(value: Bucket) -> Self {
+        Self::Bucket(value)
+    }
+}
+impl From<String> for InputSource {
+    fn from(value: String) -> Self {
+        Self::Uri(value)
+    }
+}
+impl InputSource {
+    async fn import(self, format: Option<ArchiveType>, options: &BucketOptions) -> Result<usize, Report> {
+        match self {
+            | Self::Bucket(bucket) => bucket.import(options, None).await,
+            | Self::Uri(source) => {
+                let path = file_uri_to_path(&source).unwrap_or_else(|_| PathBuf::from(&source));
+                let forced = format.map(MimeType::from);
+                let inferred = MimeType::from(source.as_str());
+                match (path.is_dir(), path.is_file(), forced.clone(), inferred) {
+                    | (true, _, None, _) => match path.canonicalize() {
+                        | Ok(path) => Bucket::from(path.as_path()).import(options, Some(source.as_str())).await,
+                        | Err(why) => Err(why.into()),
+                    },
+                    | (_, true, _, _) | (_, _, Some(_), _) | (_, _, _, MimeType::Gzip | MimeType::SevenZip | MimeType::Tar | MimeType::Zip) => {
+                        match TemporaryDirectory::create("acorn-import") {
+                            | Ok(temporary) => match Bucket::archive(&source, forced, &temporary, options.common.offline).await {
+                                | Ok((bucket, provenance)) => bucket.import(options, Some(&provenance)).await,
+                                | Err(why) => Err(why),
+                            },
+                            | Err(why) => Err(why.into()),
+                        }
+                    }
+                    | (_, _, _, _) if source.contains("://") => match Bucket::try_from(source.as_str()) {
+                        | Ok(bucket) => bucket.import(options, Some(source.as_str())).await,
+                        | Err(why) => Err(why),
+                    },
+                    | _ => Err(eyre!("Import source does not exist or has an unsupported format: {source}")),
+                }
+            }
+        }
+    }
+}
 /// Imports local buckets, remote repositories, and BagIt archives.
 pub(crate) async fn run(
     arguments: &Import,
@@ -97,49 +143,6 @@ pub(crate) async fn run(
                 }
             }),
         | Err(why) => Err(why),
-    }
-}
-enum InputSource {
-    Bucket(Bucket),
-    Uri(String),
-}
-impl From<Bucket> for InputSource {
-    fn from(value: Bucket) -> Self {
-        Self::Bucket(value)
-    }
-}
-impl From<String> for InputSource {
-    fn from(value: String) -> Self {
-        Self::Uri(value)
-    }
-}
-impl InputSource {
-    async fn import(self, format: Option<ArchiveType>, options: &BucketOptions) -> Result<usize, Report> {
-        match self {
-            | Self::Bucket(bucket) => bucket.import(options, None).await,
-            | Self::Uri(source) => {
-                let path = file_uri_to_path(&source).unwrap_or_else(|_| PathBuf::from(&source));
-                let forced = format.map(MimeType::from);
-                let inferred = MimeType::from(source.as_str());
-                match (path.is_dir(), path.is_file(), forced.clone(), inferred) {
-                    | (true, _, None, _) => match path.canonicalize() {
-                        | Ok(path) => Bucket::from(path.as_path()).import(options, Some(source.as_str())).await,
-                        | Err(why) => Err(why.into()),
-                    },
-                    | (_, true, _, _) | (_, _, Some(_), _) | (_, _, _, MimeType::Gzip | MimeType::SevenZip | MimeType::Tar | MimeType::Zip) => {
-                        match TemporaryDirectory::create("acorn-import") {
-                            | Ok(temporary) => match Bucket::archive(&source, forced, &temporary, options.common.offline).await {
-                                | Ok((bucket, provenance)) => bucket.import(options, Some(&provenance)).await,
-                                | Err(why) => Err(why),
-                            },
-                            | Err(why) => Err(why.into()),
-                        }
-                    }
-                    | (_, _, _, _) if source.contains("://") => Bucket::from(source.as_str()).import(options, Some(source.as_str())).await,
-                    | _ => Err(eyre!("Import source does not exist or has an unsupported format: {source}")),
-                }
-            }
-        }
     }
 }
 

@@ -11,4 +11,4 @@ pub mod util;
 pub mod validation;
 
 pub use error::{AcornError, AcornResult};
-pub use location::{Location, Release, Repository, Scheme};
+pub use location::{Location, Release, Repository, Scheme, SimpleOrDetailed};

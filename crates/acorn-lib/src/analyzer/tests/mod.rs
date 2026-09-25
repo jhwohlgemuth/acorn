@@ -1,11 +1,12 @@
 use super::error::ErrorKind;
 use super::fair::{indicator, FairCounts, FairEvidence, FairEvidenceItem, FairIndicatorId, FairPrinciple, FairPriority, FairState};
 use super::model::ValeOutputItem;
-use super::{Check, CheckBatch, CheckCategory, CheckSeverity, CheckSummary, Finding};
+use super::{Check, CheckBatch, CheckCategory, CheckSeverity, CheckSummary, Finding, Standard};
 use crate::{check_err, check_ok};
+use acorn_core::util::MimeType;
 use acorn_core::validation::ValidationError;
-use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::validation::{Validate, ValidationReport};
+use acorn_schema::{research_activity::ResearchActivity, OneOrMany};
 use alloc::string::{String, ToString};
 use alloc::{vec, vec::Vec};
 
@@ -296,6 +297,52 @@ fn fair_terse_output_uses_shared_columns_and_metadata() {
     assert!(output.contains("indicator=F1"));
     assert!(output.contains("state=supported"));
     assert!(output.contains("priority=essential"));
+}
+#[test]
+fn json_lines_crosswalk_conversion_failures_include_record_index_and_line() {
+    let content = "{\"identifier\":\"https://doi.org/10.5072/one\"}\n{\"title\":\"Missing identifier\"}\n";
+    let error = Standard::Dcat
+        .crosswalk(content, MimeType::JsonLines, Standard::Datacite, MimeType::JsonLines)
+        .expect_err("the second DCAT record should fail conversion");
+    let message = error.to_string();
+    assert!(message.contains("index 1"), "unexpected error: {message}");
+    assert!(message.contains("line 2"), "unexpected error: {message}");
+}
+#[test]
+fn json_lines_crosswalk_preserves_order_and_cardinality() {
+    let content = concat!(
+        "{\"id\":\"10.5072/one\",\"type\":\"dois\",\"attributes\":{\"doi\":\"10.5072/one\"}}\n",
+        "{\"id\":\"10.5072/two\",\"type\":\"dois\",\"attributes\":{\"doi\":\"10.5072/two\"}}\n",
+    );
+    let output = Standard::Datacite
+        .crosswalk(content, MimeType::JsonLines, Standard::Datacite, MimeType::JsonLines)
+        .expect("identity crosswalk should succeed");
+    let records = OneOrMany::<serde_json::Value>::parse(&output, MimeType::JsonLines).expect("output should be valid JSON Lines");
+    let identifiers = records
+        .into_vec()
+        .into_iter()
+        .filter_map(|record| record.get("id").and_then(serde_json::Value::as_str).map(ToString::to_string))
+        .collect::<Vec<_>>();
+    assert_eq!(identifiers, vec!["10.5072/one", "10.5072/two"]);
+    assert!(output.ends_with('\n'));
+}
+#[test]
+fn json_lines_crosswalk_warnings_include_record_index_and_line() {
+    let content = concat!(
+        "{\"id\":\"10.5072/one\",\"type\":\"dois\",\"attributes\":{\"doi\":\"10.5072/one\"}}\n",
+        "{\"id\":\"10.5072/two\",\"type\":\"dois\",\"attributes\":{\"doi\":\"10.5072/two\"}}\n",
+    );
+    let conversion = Standard::Datacite
+        .crosswalk_with_warnings(content, MimeType::JsonLines, Standard::Dcat, MimeType::JsonLines)
+        .expect("DataCite JSON Lines should crosswalk to DCAT");
+    assert!(conversion
+        .warnings()
+        .iter()
+        .any(|warning| warning.field.starts_with("record[0].line[1].")));
+    assert!(conversion
+        .warnings()
+        .iter()
+        .any(|warning| warning.field.starts_with("record[1].line[2].")));
 }
 #[test]
 fn minimum_valid_rad_fixture_validates() {

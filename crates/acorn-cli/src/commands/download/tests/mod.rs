@@ -64,145 +64,37 @@ use std::{
 use temp_env::{with_var, with_vars};
 use tracing_subscriber::fmt::MakeWriter;
 
+static HF_ENDPOINT_TEST_LOCK: Mutex<()> = Mutex::new(());
 const OFFLINE: bool = false;
 const TEST_THREADS: usize = 2;
-static HF_ENDPOINT_TEST_LOCK: Mutex<()> = Mutex::new(());
 
-#[allow(clippy::too_many_arguments)]
-async fn import_local(
-    config: &Option<PathBuf>,
-    uri: &[String],
-    filter: &[String],
-    ignore: &[String],
-    output: &Option<PathBuf>,
-    flatten: bool,
-    clobber: bool,
-    database_path: &Option<PathBuf>,
-    threads: usize,
-    verbose: &Verbosity,
-    offline: bool,
-    no_local_database: bool,
-) -> crate::cli::Void {
-    let arguments = Import {
-        command: None,
-        uri: uri.to_vec(),
-        config: config.clone(),
-        filter: filter.to_vec(),
-        ignore: ignore.to_vec(),
-        output: output.clone(),
-        flatten,
-        clobber,
-        archive_format: None,
-        verbose: *verbose,
-    };
-    crate::commands::import::run(&arguments, database_path, threads, offline, no_local_database).await
-}
+#[derive(Clone)]
+struct SharedWriter(Arc<Mutex<Vec<u8>>>);
 
-fn write_rad(path: &std::path::Path, identifier: &str) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        create_dir_all(parent)?;
+struct SharedWriterGuard(Arc<Mutex<Vec<u8>>>);
+
+impl<'a> MakeWriter<'a> for SharedWriter {
+    type Writer = SharedWriterGuard;
+    fn make_writer(&'a self) -> Self::Writer {
+        SharedWriterGuard(self.0.clone())
     }
-    let mut rad = ResearchActivity::default();
-    rad.meta.identifier = identifier.to_string();
-    rad.title = format!("Project {identifier}");
-    let content = match path.extension().and_then(|value| value.to_str()) {
-        | Some("yaml" | "yml") => serde_norway::to_string(&rad)?,
-        | Some("md" | "markdown") => rad.to_markdown(),
-        | _ => serde_json::to_string_pretty(&rad)?,
-    };
-    write(path, content)?;
-    Ok(())
 }
 
-#[test]
-fn test_download_zero_items_prints_warning() {
-    let temp_dir = temp_test_dir("download_zero_items_warning");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let bucket = format!("file:{}/", fixture_path("data/bucket").display());
-    let output = Command::cargo_bin("acorn")
-        .expect("locate acorn binary")
-        .args(["--no-local-database", "import"])
-        .arg(bucket)
-        .args(["--filter", "^does-not-match$"])
-        .arg("--output")
-        .arg(temp_dir.join("output"))
-        .output()
-        .expect("run zero-item bucket download");
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let combined = format!("{stdout}{stderr}");
-    assert!(combined.contains("CAUTION"));
-    assert!(!combined.contains("SUCCESS"));
-    assert!(combined.contains("Download complete"));
-    assert!(combined.contains("0") && combined.contains("processed"));
-    assert!(combined.contains("hint:"));
+impl Write for SharedWriterGuard {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().expect("lock log buffer").extend_from_slice(buf);
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 
-fn with_hf_endpoint<T>(endpoint: String, test: impl FnOnce() -> T) -> T {
-    let guard = HF_ENDPOINT_TEST_LOCK.lock().expect("lock Hugging Face endpoint tests");
-    let result = with_vars(
-        [
-            ("HF_ENDPOINT", Some(endpoint.as_str())),
-            (HUGGINGFACE_TOKEN_VARIABLE_NAMES[0], Some("")),
-            (HUGGINGFACE_TOKEN_VARIABLE_NAMES[1], Some("")),
-            (HUGGINGFACE_TOKEN_VARIABLE_NAMES[2], Some("")),
-        ],
-        test,
-    );
-    drop(guard);
-    result
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn run_model(
-    model: &[String],
-    filter: &[String],
-    ignore: &[String],
-    config: &Option<PathBuf>,
-    output: &Option<PathBuf>,
-    database_path: &Option<PathBuf>,
-    verbose: &Verbosity,
-    offline: bool,
-    copy: bool,
-    symlink: bool,
-    skip_verify_checksum: bool,
-    whitelist: &[String],
-    no_fallback: bool,
-    search_limit: usize,
-    interactive: bool,
-    dry_run: bool,
-    raw: bool,
-    format: &OutputFormat,
-) -> crate::cli::Void {
-    execute_model(
-        model,
-        &None,
-        &None,
-        false,
-        filter,
-        ignore,
-        config,
-        output,
-        database_path,
-        verbose,
-        offline,
-        copy,
-        symlink,
-        skip_verify_checksum,
-        whitelist,
-        no_fallback,
-        false,
-        &[],
-        &None,
-        search_limit,
-        100,
-        interactive,
-        dry_run,
-        raw,
-        format,
-    )
-    .await
+fn candidate_file(path: &str) -> HuggingFaceRepositoryFile {
+    HuggingFaceRepositoryFile {
+        path: path.to_string(),
+        size: None,
+    }
 }
 #[allow(clippy::too_many_arguments)]
 async fn execute_model(
@@ -269,57 +161,34 @@ async fn execute_model(
     .await
 }
 
-#[derive(Clone)]
-struct SharedWriter(Arc<Mutex<Vec<u8>>>);
-impl<'a> MakeWriter<'a> for SharedWriter {
-    type Writer = SharedWriterGuard;
-    fn make_writer(&'a self) -> Self::Writer {
-        SharedWriterGuard(self.0.clone())
-    }
-}
-struct SharedWriterGuard(Arc<Mutex<Vec<u8>>>);
-impl Write for SharedWriterGuard {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.0.lock().expect("lock log buffer").extend_from_slice(buf);
-        Ok(buf.len())
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-fn candidate_file(path: &str) -> HuggingFaceRepositoryFile {
-    HuggingFaceRepositoryFile {
-        path: path.to_string(),
-        size: None,
-    }
-}
-fn repository_files(files: Vec<HuggingFaceRepositoryFile>) -> HuggingFaceRepositoryFiles {
-    HuggingFaceRepositoryFiles::new("acme/model", "main", files)
-}
-#[test]
-fn test_downloaded_gguf_quantization_is_merged_into_weights() {
-    let existing = Weights(vec![Weight {
-        label: "Hugging Face".to_string(),
-        url: "https://huggingface.co/openai/gpt-oss-20b".to_string(),
-        is_open: Some(true),
-        quantization: None,
-        size: None,
-    }]);
-    let repository = Downloaded {
-        identifier: "unsloth/gpt-oss-20b-GGUF".to_string(),
-        revision: "main".to_string(),
-        files: vec!["gpt-oss-20b-Q4_K_M.gguf".to_string(), "README.md".to_string()],
+#[allow(clippy::too_many_arguments)]
+async fn import_local(
+    config: &Option<PathBuf>,
+    uri: &[String],
+    filter: &[String],
+    ignore: &[String],
+    output: &Option<PathBuf>,
+    flatten: bool,
+    clobber: bool,
+    database_path: &Option<PathBuf>,
+    threads: usize,
+    verbose: &Verbosity,
+    offline: bool,
+    no_local_database: bool,
+) -> crate::cli::Void {
+    let arguments = Import {
+        command: None,
+        uri: uri.to_vec(),
+        config: config.clone(),
+        filter: filter.to_vec(),
+        ignore: ignore.to_vec(),
+        output: output.clone(),
+        flatten,
+        clobber,
+        archive_format: None,
+        verbose: *verbose,
     };
-    let weights = repository.merge_weights(existing);
-    assert_eq!(weights.0.len(), 2);
-    assert_eq!(
-        weights.0.last().and_then(|weight| weight.quantization.as_ref()),
-        Some(&Quantization::Q4kM)
-    );
-    assert_eq!(
-        weights.0.last().map(|weight| weight.url.as_str()),
-        Some("https://huggingface.co/unsloth/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-Q4_K_M.gguf")
-    );
+    crate::commands::import::run(&arguments, database_path, threads, offline, no_local_database).await
 }
 fn model_plan_matches_base(base_model: &str) -> bool {
     let identifier = "unsloth/gpt-oss-2b-gguf";
@@ -343,89 +212,88 @@ fn model_plan_matches_base(base_model: &str) -> bool {
     handle.join().expect("join metadata server");
     result
 }
-#[test]
-fn test_model_plan_logs_whitelist_rejection() {
-    let identifier = "mozilla/test-llama";
-    let (endpoint, handle) = spawn_huggingface_model_info_server(identifier, "meta-llama/other");
-    let whitelist = HashSet::from(["openai/gpt-oss-20b".to_string()]);
-    let logs = Arc::new(Mutex::new(Vec::new()));
-    let subscriber = tracing_subscriber::fmt()
-        .with_ansi(false)
-        .with_writer(SharedWriter(logs.clone()))
-        .finish();
-    let matches = with_hf_endpoint(endpoint, || {
-        tracing::subscriber::with_default(subscriber, || {
-            tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
-                let entries = vec![ModelEntry::Selector(identifier.to_string())];
-                let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, &Default::default(), None, &None, false, false)
-                    .await
-                    .expect("resolve model plan");
-                plans
-                    .into_iter()
-                    .next()
-                    .expect("model plan")
-                    .matches(&whitelist, false)
-                    .await
-                    .expect("match model whitelist")
-            })
-        })
-    });
-    handle.join().expect("join metadata server");
-    let text = String::from_utf8(logs.lock().expect("lock logs").clone()).unwrap_or_default();
-    assert!(!matches);
-    assert!(text.contains("REJECTED"));
-    assert!(text.contains(identifier));
-    assert!(text.contains("did not match whitelist"));
+fn repository_files(files: Vec<HuggingFaceRepositoryFile>) -> HuggingFaceRepositoryFiles {
+    HuggingFaceRepositoryFiles::new("acme/model", "main", files)
 }
-#[test]
-fn test_download_model_basic_config_dry_run_output_snapshot() {
-    let temp_dir = temp_test_dir("download_model_basic_config_snapshot");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let config_path = temp_dir.join("basic.jsonc");
-    let config = read_to_string(fixture_path("config/basic.jsonc"))
-        .expect("read basic model config")
-        .replace(
-            r#""https://research.ornl.gov/api/models.json""#,
-            r#"["openai/gpt-oss-20b", "openai/gpt-oss-120b"]"#,
-        );
-    write(&config_path, config).expect("write deterministic basic model config");
-    let (endpoint, shutdown, handle) = spawn_basic_model_config_server();
-    let mut command = Command::cargo_bin("acorn").expect("locate acorn binary");
-    for variable in HUGGINGFACE_TOKEN_VARIABLE_NAMES {
-        command.env(variable, "");
-    }
-    let output = command
-        .env("HF_ENDPOINT", endpoint)
-        .args(["--no-local-database", "-vv", "download", "model", "--config"])
-        .arg(config_path)
-        .arg("--dry-run")
-        .output()
-        .expect("run model download dry run");
-    shutdown.send(()).expect("stop basic model config server");
-    handle.join().expect("join basic model config server");
-    assert!(
-        output.status.success(),
-        "dry-run basic model config failed: {}",
-        String::from_utf8_lossy(&output.stderr)
+#[allow(clippy::too_many_arguments)]
+async fn run_model(
+    model: &[String],
+    filter: &[String],
+    ignore: &[String],
+    config: &Option<PathBuf>,
+    output: &Option<PathBuf>,
+    database_path: &Option<PathBuf>,
+    verbose: &Verbosity,
+    offline: bool,
+    copy: bool,
+    symlink: bool,
+    skip_verify_checksum: bool,
+    whitelist: &[String],
+    no_fallback: bool,
+    search_limit: usize,
+    interactive: bool,
+    dry_run: bool,
+    raw: bool,
+    format: &OutputFormat,
+) -> crate::cli::Void {
+    execute_model(
+        model,
+        &None,
+        &None,
+        false,
+        filter,
+        ignore,
+        config,
+        output,
+        database_path,
+        verbose,
+        offline,
+        copy,
+        symlink,
+        skip_verify_checksum,
+        whitelist,
+        no_fallback,
+        false,
+        &[],
+        &None,
+        search_limit,
+        100,
+        interactive,
+        dry_run,
+        raw,
+        format,
+    )
+    .await
+}
+fn with_hf_endpoint<T>(endpoint: String, test: impl FnOnce() -> T) -> T {
+    let guard = HF_ENDPOINT_TEST_LOCK.lock().expect("lock Hugging Face endpoint tests");
+    let result = with_vars(
+        [
+            ("HF_ENDPOINT", Some(endpoint.as_str())),
+            (HUGGINGFACE_TOKEN_VARIABLE_NAMES[0], Some("")),
+            (HUGGINGFACE_TOKEN_VARIABLE_NAMES[1], Some("")),
+            (HUGGINGFACE_TOKEN_VARIABLE_NAMES[2], Some("")),
+        ],
+        test,
     );
-    let text = String::from_utf8(output.stderr)
-        .expect("UTF-8 logs")
-        .replace("\u{1b}[33m WARN\u{1b}[0m", " WARN")
-        .replace("\u{1b}[32m INFO\u{1b}[0m", " INFO")
-        .replace('\u{1b}', r"\x1b");
-    let text = text
-        .lines()
-        .filter(|line| {
-            !line.contains("SPDX metadata")
-                && !line.contains("GitLab programming language metadata")
-                && !line.contains("Models.dev catalog")
-                && !line.contains("Saved metadata for")
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    insta::assert_snapshot!("download_model_basic_config_dry_run_output", text.trim_end());
+    drop(guard);
+    result
 }
-
+fn write_rad(path: &std::path::Path, identifier: &str) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        create_dir_all(parent)?;
+    }
+    let mut rad = ResearchActivity::default();
+    rad.meta.identifier = identifier.to_string();
+    rad.title = format!("Project {identifier}");
+    let content = match path.extension().and_then(|value| value.to_str()) {
+        | Some("yaml" | "yml") => serde_norway::to_string(&rad)?,
+        | Some("md" | "markdown") => rad.to_markdown(),
+        | _ => serde_json::to_string_pretty(&rad)?,
+    };
+    write(path, content)?;
+    Ok(())
+}
 #[tokio::test]
 async fn test_config_fixture_resolves_model_fallbacks() {
     let config = ApplicationConfiguration::read(fixture_path("config/with_models.json")).unwrap();
@@ -522,12 +390,7 @@ fn test_config_parses_hugging_face_location_model_entry() {
     let models = config.models.unwrap();
     assert_eq!(models.len(), 1);
 }
-#[test]
-fn test_config_parses_single_model_whitelist_url() {
-    let url = "https://example.com/models.json";
-    let config = ApplicationConfiguration::parse(format!(r#"{{"whitelist":{{"models":"{url}"}}}}"#).as_str()).unwrap();
-    assert_eq!(config.whitelist.and_then(|lookup| lookup.models), Some(OneOrMany::One(url.to_string())));
-}
+
 #[test]
 fn test_config_parses_local_model_entry() {
     let content = r#"{"models": [{"name": "qwen-local", "source": {"provider": "git", "location": "file:./models/qwen.gguf"}}]}"#;
@@ -619,149 +482,25 @@ models:
     assert_eq!(models.len(), 2);
 }
 #[test]
-fn test_download_item_checksum_mismatch_returns_incomplete_download_error() {
-    let temp_dir = temp_test_dir("download_model_checksum_mismatch");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let file_path = temp_dir.join("model.gguf.part");
-    write(&file_path, b"abc").expect("write model part");
-    let item = DownloadItem {
-        url: "https://example.test/model.gguf".to_string(),
-        path: "model.gguf".to_string(),
-        size: Some(3),
-        sha: Some("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
-        headers: None,
-    };
-    let result = item.verify_checksum(&file_path, false);
-    assert!(result.is_err());
-    let text = format!("{}", result.expect_err("checksum error"));
-    assert!(text.contains("Model download is incomplete"));
-}
-#[tokio::test]
-async fn test_download_rejects_local_source() {
-    let result = super::run(
-        &None,
-        &["file:./tests/fixtures/data/bucket/".to_string()],
-        &[],
-        &[],
-        &Some(PathBuf::from("unused")),
-        false,
-        false,
-        false,
-        false,
-        &None,
-        TEST_THREADS,
-        &Verbosity::new(0, 1),
-        false,
-        true,
-    )
-    .await;
-    assert!(result.is_err());
-}
-#[tokio::test]
-async fn test_import_local_config_silent() -> Result<()> {
-    let temp_dir = temp_test_dir("download_local_config_silent");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let output_dir = temp_dir.join("output");
-    create_dir_all(&output_dir)?;
-    let config_path = temp_dir.join("config.json");
-    let bucket_path = fixture_path("data/bucket");
-    let bucket_uri = format!("file:{}", bucket_path.display()).replace('\\', "/");
-    let config = read_to_string(fixture_path("config/with_local_buckets.json"))?.replace("file:./tests/fixtures/data/bucket/", &bucket_uri);
-    write(&config_path, config)?;
-    let filter: Vec<String> = vec![];
-    let ignore: Vec<String> = vec![];
-    let verbose = Verbosity::new(0, 1);
-    let result = import_local(
-        &Some(config_path),
-        &[],
-        &filter,
-        &ignore,
-        &Some(output_dir.clone()),
-        false,
-        false,
-        &None,
-        TEST_THREADS,
-        &verbose,
-        OFFLINE,
-        true,
-    )
-    .await;
-    assert!(result.is_ok(), "download from local config should succeed");
-    assert!(has_any_file(&output_dir), "output should contain copied files");
-    Ok(())
-}
-#[tokio::test]
-async fn test_import_local_url_silent() -> Result<()> {
-    let temp_dir = temp_test_dir("download_local_url_silent");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let output_dir = temp_dir.join("output");
-    create_dir_all(&output_dir)?;
-    let url = vec![format!("file:{}/", fixture_path("data/bucket").display())];
-    let filter: Vec<String> = vec![];
-    let ignore: Vec<String> = vec![];
-    let verbose = Verbosity::new(0, 1);
-    let result = import_local(
-        &None,
-        &url,
-        &filter,
-        &ignore,
-        &Some(output_dir.clone()),
-        false,
-        false,
-        &None,
-        TEST_THREADS,
-        &verbose,
-        OFFLINE,
-        true,
-    )
-    .await;
-    assert!(result.is_ok(), "import from local URL should succeed");
-    assert!(output_dir.exists(), "output directory should exist");
-    Ok(())
-}
-#[tokio::test]
-async fn test_import_local_url_flattens_and_ingests_rad() -> Result<()> {
-    let temp_dir = temp_test_dir("download_local_url_flatten");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let bucket_dir = temp_dir.join("bucket");
-    let output_dir = temp_dir.join("output");
-    let database_path = Some(temp_dir.join("acorn.db"));
-    write_rad(&bucket_dir.join("nested/index.json"), "flattened-project")?;
-    import_local(
-        &None,
-        &[format!("file:{}/", bucket_dir.display())],
-        &[],
-        &[],
-        &Some(output_dir.clone()),
-        true,
-        false,
-        &database_path,
-        TEST_THREADS,
-        &Verbosity::new(0, 1),
-        OFFLINE,
-        false,
-    )
-    .await?;
-    let database = Database::<Table>::from_path(database_path);
-    assert_eq!(database.row_count(Table::ResearchActivities)?, 1);
-    assert!(output_dir.join("index.json").is_file());
-    assert!(!output_dir.join("nested").exists());
-    Ok(())
+fn test_config_parses_single_model_whitelist_url() {
+    let url = "https://example.com/models.json";
+    let config = ApplicationConfiguration::parse(format!(r#"{{"whitelist":{{"models":"{url}"}}}}"#).as_str()).unwrap();
+    assert_eq!(config.whitelist.and_then(|lookup| lookup.models), Some(OneOrMany::One(url.to_string())));
 }
 #[test]
-fn test_download_flatten_rejects_model_subcommand() {
-    let temp_dir = temp_test_dir("download_flatten_model_rejection");
+fn test_download_canonicalize_rejects_model_subcommand() {
+    let temp_dir = temp_test_dir("download_canonicalize_model_rejection");
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let database_path = temp_dir.join("acorn.db");
     let output = Command::cargo_bin("acorn")
         .expect("locate acorn binary")
         .arg("--database-path")
         .arg(&database_path)
-        .args(["download", "--flatten", "model", "acme/model", "--dry-run"])
+        .args(["download", "--canonicalize", "model", "acme/model", "--dry-run"])
         .output()
         .expect("run model download with bucket-only flag");
     assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("--flatten is only supported for bucket downloads"));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("--canonicalize is only supported for bucket downloads"));
     assert!(!database_path.exists());
 }
 #[test]
@@ -778,38 +517,6 @@ fn test_download_clobber_rejects_model_subcommand() {
         .expect("run model download with bucket-only flag");
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("--clobber is only supported for bucket downloads"));
-    assert!(!database_path.exists());
-}
-#[test]
-fn test_download_strict_rejects_model_subcommand() {
-    let temp_dir = temp_test_dir("download_strict_model_rejection");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let database_path = temp_dir.join("acorn.db");
-    let output = Command::cargo_bin("acorn")
-        .expect("locate acorn binary")
-        .arg("--database-path")
-        .arg(&database_path)
-        .args(["download", "--strict", "model", "acme/model", "--dry-run"])
-        .output()
-        .expect("run model download with bucket-only flag");
-    assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("--strict is only supported for bucket downloads"));
-    assert!(!database_path.exists());
-}
-#[test]
-fn test_download_canonicalize_rejects_model_subcommand() {
-    let temp_dir = temp_test_dir("download_canonicalize_model_rejection");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let database_path = temp_dir.join("acorn.db");
-    let output = Command::cargo_bin("acorn")
-        .expect("locate acorn binary")
-        .arg("--database-path")
-        .arg(&database_path)
-        .args(["download", "--canonicalize", "model", "acme/model", "--dry-run"])
-        .output()
-        .expect("run model download with bucket-only flag");
-    assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("--canonicalize is only supported for bucket downloads"));
     assert!(!database_path.exists());
 }
 #[test]
@@ -841,128 +548,157 @@ fn test_download_clobber_replaces_selected_file_and_preserves_unrelated_file() {
         .contains("replacement"));
     assert_eq!(read_to_string(output_dir.join("unrelated.txt")).expect("read unrelated file"), "keep");
 }
-#[tokio::test]
-async fn test_import_ingests_and_replays_valid_rad() -> Result<()> {
-    let temp_dir = temp_test_dir("download_ingests_valid_rad");
+#[test]
+fn test_download_flatten_rejects_model_subcommand() {
+    let temp_dir = temp_test_dir("download_flatten_model_rejection");
     let _cleanup = TestCleanup::new(temp_dir.clone());
-    let bucket_dir = temp_dir.join("bucket");
-    let output_dir = temp_dir.join("output");
-    let database_path = Some(temp_dir.join("acorn.db"));
-    create_dir_all(&bucket_dir)?;
-    write_rad(&bucket_dir.join("index.json"), "downloaded-project")?;
-    let url = vec![format!("file:{}/", bucket_dir.display())];
-    let verbose = Verbosity::new(0, 1);
-    for index in 0..2 {
-        let run_output = output_dir.join(index.to_string());
-        import_local(
-            &None,
-            &url,
-            &[],
-            &[],
-            &Some(run_output),
-            false,
-            false,
-            &database_path,
-            TEST_THREADS,
-            &verbose,
-            OFFLINE,
-            false,
-        )
-        .await?;
-    }
-    let database = Database::<Table>::from_path(database_path);
-    assert_eq!(database.row_count(Table::ResearchActivities)?, 1);
-    assert!(output_dir.join("0/index.json").exists());
-    assert!(output_dir.join("1/index.json").exists());
-    Ok(())
-}
-#[tokio::test]
-async fn test_import_preserves_malformed_rad_and_fails_ingestion() -> Result<()> {
-    let temp_dir = temp_test_dir("download_malformed_rad");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let bucket_dir = temp_dir.join("bucket");
-    let output_dir = temp_dir.join("output");
-    create_dir_all(&bucket_dir)?;
-    write(bucket_dir.join("index.json"), "{ malformed")?;
-    let result = import_local(
-        &None,
-        &[format!("file:{}/", bucket_dir.display())],
-        &[],
-        &[],
-        &Some(output_dir.clone()),
-        false,
-        false,
-        &Some(temp_dir.join("acorn.db")),
-        TEST_THREADS,
-        &Verbosity::new(0, 1),
-        OFFLINE,
-        false,
-    )
-    .await;
-    assert!(result.is_err());
-    assert!(output_dir.join("index.json").exists());
-    Ok(())
-}
-#[tokio::test]
-async fn test_import_ingests_multiple_rad_formats_and_honors_filter() -> Result<()> {
-    let temp_dir = temp_test_dir("download_multiple_rad");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let bucket_dir = temp_dir.join("bucket");
-    let output_dir = temp_dir.join("output");
-    let database_path = Some(temp_dir.join("acorn.db"));
-    write_rad(&bucket_dir.join("keep/index.json"), "kept-json")?;
-    write_rad(&bucket_dir.join("keep/project.yaml"), "kept-yaml")?;
-    write_rad(&bucket_dir.join("keep/project.md"), "kept-markdown")?;
-    write(bucket_dir.join("keep/README.md"), "# Documentation\n")?;
-    write_rad(&bucket_dir.join("skip/index.json"), "filtered-out")?;
-    import_local(
-        &None,
-        &[format!("file:{}/", bucket_dir.display())],
-        &["keep".to_string()],
-        &[],
-        &Some(output_dir.clone()),
-        false,
-        false,
-        &database_path,
-        TEST_THREADS,
-        &Verbosity::new(0, 1),
-        OFFLINE,
-        false,
-    )
-    .await?;
-    let database = Database::<Table>::from_path(database_path);
-    assert_eq!(database.row_count(Table::ResearchActivities)?, 3);
-    assert!(output_dir.join("keep/index.json").exists());
-    assert!(output_dir.join("keep/project.yaml").exists());
-    assert!(output_dir.join("keep/project.md").exists());
-    assert!(!output_dir.join("keep/README.md").exists());
-    assert!(!output_dir.join("skip/index.json").exists());
-    Ok(())
-}
-#[tokio::test]
-async fn test_import_no_local_database_disables_candidate_persistence() -> Result<()> {
-    let temp_dir = temp_test_dir("download_no_candidate_persistence");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let bucket_dir = temp_dir.join("bucket");
     let database_path = temp_dir.join("acorn.db");
-    write_rad(&bucket_dir.join("index.json"), "not-persisted")?;
-    import_local(
+    let output = Command::cargo_bin("acorn")
+        .expect("locate acorn binary")
+        .arg("--database-path")
+        .arg(&database_path)
+        .args(["download", "--flatten", "model", "acme/model", "--dry-run"])
+        .output()
+        .expect("run model download with bucket-only flag");
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("--flatten is only supported for bucket downloads"));
+    assert!(!database_path.exists());
+}
+#[tokio::test]
+async fn test_download_invalid_source_returns_error() {
+    let result = super::run(
         &None,
-        &[format!("file:{}/", bucket_dir.display())],
+        &["ssh://git@github.com/acme/science".to_string()],
         &[],
         &[],
-        &Some(temp_dir.join("output")),
+        &Some(PathBuf::from("unused")),
         false,
         false,
-        &Some(database_path.clone()),
+        false,
+        false,
+        &None,
         TEST_THREADS,
         &Verbosity::new(0, 1),
-        OFFLINE,
+        false,
         true,
     )
-    .await?;
-    assert!(!database_path.exists());
-    Ok(())
+    .await;
+    assert!(result.unwrap_err().to_string().contains("Invalid bucket source"));
+}
+#[test]
+fn test_download_item_checksum_mismatch_returns_incomplete_download_error() {
+    let temp_dir = temp_test_dir("download_model_checksum_mismatch");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let file_path = temp_dir.join("model.gguf.part");
+    write(&file_path, b"abc").expect("write model part");
+    let item = DownloadItem {
+        url: "https://example.test/model.gguf".to_string(),
+        path: "model.gguf".to_string(),
+        size: Some(3),
+        sha: Some("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
+        headers: None,
+    };
+    let result = item.verify_checksum(&file_path, false);
+    assert!(result.is_err());
+    let text = format!("{}", result.expect_err("checksum error"));
+    assert!(text.contains("Model download is incomplete"));
+}
+#[tokio::test]
+async fn test_download_items_with_progress_are_concurrent() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind concurrent download server");
+    let address = format!("http://{}", listener.local_addr().expect("concurrent download server address"));
+    let active = Arc::new(AtomicUsize::new(0));
+    let maximum_active = Arc::new(AtomicUsize::new(0));
+    let server_active = active.clone();
+    let server_maximum_active = maximum_active.clone();
+    let handle = thread::spawn(move || {
+        listener
+            .incoming()
+            .take(2)
+            .map(|stream| {
+                let active = server_active.clone();
+                let maximum_active = server_maximum_active.clone();
+                thread::spawn(move || {
+                    let mut stream = stream.expect("accept model download request");
+                    let mut request = [0_u8; 4096];
+                    let _ = stream.read(&mut request).expect("read model download request");
+                    let active_count = active.fetch_add(1, Ordering::SeqCst) + 1;
+                    maximum_active.fetch_max(active_count, Ordering::SeqCst);
+                    thread::sleep(Duration::from_millis(150));
+                    stream
+                        .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\nConnection: close\r\n\r\nx")
+                        .expect("write model download response");
+                    active.fetch_sub(1, Ordering::SeqCst);
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .for_each(|handle| handle.join().expect("join model download handler"));
+    });
+    let destination = temp_test_dir("download_model_concurrent_progress");
+    let _cleanup = TestCleanup::new(destination.clone());
+    let items = ["first.gguf", "second.gguf"]
+        .into_iter()
+        .map(|path| DownloadItem {
+            url: format!("{address}/{path}"),
+            path: path.to_string(),
+            size: Some(1),
+            sha: None,
+            headers: None,
+        })
+        .collect();
+    let result = DownloadItems::new(&destination, items, false, false).download().await;
+    assert!(result.is_ok(), "model shard downloads should succeed: {result:?}");
+    handle.join().expect("join concurrent download server");
+    assert_eq!(maximum_active.load(Ordering::SeqCst), 2, "visible model downloads should overlap");
+}
+#[test]
+fn test_download_model_basic_config_dry_run_output_snapshot() {
+    let temp_dir = temp_test_dir("download_model_basic_config_snapshot");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let config_path = temp_dir.join("basic.jsonc");
+    let config = read_to_string(fixture_path("config/basic.jsonc"))
+        .expect("read basic model config")
+        .replace(
+            r#""https://research.ornl.gov/api/models.json""#,
+            r#"["openai/gpt-oss-20b", "openai/gpt-oss-120b"]"#,
+        );
+    write(&config_path, config).expect("write deterministic basic model config");
+    let (endpoint, shutdown, handle) = spawn_basic_model_config_server();
+    let mut command = Command::cargo_bin("acorn").expect("locate acorn binary");
+    for variable in HUGGINGFACE_TOKEN_VARIABLE_NAMES {
+        command.env(variable, "");
+    }
+    let output = command
+        .env("HF_ENDPOINT", endpoint)
+        .args(["--no-local-database", "-vv", "download", "model", "--config"])
+        .arg(config_path)
+        .arg("--dry-run")
+        .output()
+        .expect("run model download dry run");
+    shutdown.send(()).expect("stop basic model config server");
+    handle.join().expect("join basic model config server");
+    assert!(
+        output.status.success(),
+        "dry-run basic model config failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let text = String::from_utf8(output.stderr)
+        .expect("UTF-8 logs")
+        .replace("\u{1b}[33m WARN\u{1b}[0m", " WARN")
+        .replace("\u{1b}[32m INFO\u{1b}[0m", " INFO")
+        .replace('\u{1b}', r"\x1b");
+    let text = text
+        .lines()
+        .filter(|line| {
+            !line.contains("SPDX metadata")
+                && !line.contains("GitLab programming language metadata")
+                && !line.contains("Models.dev catalog")
+                && !line.contains("Saved metadata for")
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    insta::assert_snapshot!("download_model_basic_config_dry_run_output", text.trim_end());
 }
 #[tokio::test]
 async fn test_download_model_config_resolves_models() -> Result<()> {
@@ -1090,6 +826,81 @@ async fn test_download_model_config_whitelist_keeps_matching_name() -> Result<()
     assert!(result.is_ok(), "matching configuration whitelist entry should succeed");
     assert!(output_dir.join("keep").join("keep.gguf").exists());
     assert!(!output_dir.join("drop").join("drop.gguf").exists());
+    Ok(())
+}
+#[test]
+fn test_download_model_dry_run_fails_when_only_model_is_unavailable() {
+    let temp_dir = temp_test_dir("download_model_only_unavailable");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let config_path = temp_dir.join(".acorn.json");
+    let identifier = "acme/missing";
+    write(&config_path, format!(r#"{{"models": ["{identifier}"]}}"#)).expect("write model config");
+    let (endpoint, handle) = spawn_huggingface_model_unavailable_server(identifier);
+    let result = with_hf_endpoint(endpoint, || {
+        tokio::runtime::Runtime::new().expect("create runtime").block_on(run_model(
+            &[],
+            &[],
+            &[],
+            &Some(config_path),
+            &Some(temp_dir.join("models")),
+            &None,
+            &Verbosity::new(0, 1),
+            false,
+            false,
+            false,
+            false,
+            &[],
+            false,
+            20,
+            false,
+            true,
+            false,
+            &OutputFormat::default(),
+        ))
+    });
+    handle.join().expect("join unavailable model server");
+    let message = result.expect_err("an unavailable-only dry run should fail").to_string();
+    assert_eq!(message, "No models found");
+}
+#[tokio::test]
+async fn test_download_model_file_overrides_config() -> Result<()> {
+    let temp_dir = temp_test_dir("download_model_file_override");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let config_path = temp_dir.join(".acorn.json");
+    let model = temp_dir.join("tiny.gguf");
+    let model_file = temp_dir.join("models.txt");
+    write(&model, b"fake model data")?;
+    write(&model_file, model.display().to_string())?;
+    write(&config_path, r#"{"models": ["configured/remote-model"]}"#)?;
+    let result = execute_model(
+        &[],
+        &Some(model_file.display().to_string()),
+        &None,
+        false,
+        &[],
+        &[],
+        &Some(config_path),
+        &None,
+        &None,
+        &Verbosity::new(0, 1),
+        true,
+        false,
+        false,
+        false,
+        &[],
+        false,
+        true,
+        &[],
+        &None,
+        20,
+        100,
+        false,
+        true,
+        false,
+        &OutputFormat::default(),
+    )
+    .await;
+    assert!(result.is_ok(), "--model-file should prevent automatic config resolution");
     Ok(())
 }
 #[tokio::test]
@@ -1263,61 +1074,6 @@ async fn test_download_model_local_file_copy() -> Result<()> {
     Ok(())
 }
 #[tokio::test]
-async fn test_download_model_syncs_downloaded_model() -> Result<()> {
-    let temp_dir = temp_test_dir("download_model_sync");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let output_dir = temp_dir.join("models");
-    let model_file = temp_dir.join("tiny.gguf");
-    let config_path = temp_dir.join("acorn.json");
-    let opencode_path = temp_dir.join("opencode.json");
-    write(&model_file, b"fake model data")?;
-    write(
-        &config_path,
-        serde_json::json!({"config":{"opencode":{"path":opencode_path.display().to_string()}}}).to_string(),
-    )?;
-    let result = execute_model(
-        &[model_file.display().to_string()],
-        &None,
-        &Some(SyncTarget::Opencode),
-        true,
-        &[],
-        &[],
-        &Some(config_path.clone()),
-        &Some(output_dir),
-        &None,
-        &Verbosity::new(0, 1),
-        true,
-        true,
-        false,
-        false,
-        &[],
-        false,
-        true,
-        &[],
-        &None,
-        20,
-        100,
-        false,
-        false,
-        false,
-        &OutputFormat::default(),
-    )
-    .await;
-    assert!(result.is_ok());
-    assert!(read_to_string(opencode_path)?.contains("tiny"));
-    let identifiers = ApplicationConfiguration::read(config_path)?
-        .models
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|entry| match entry {
-            | ModelEntry::Selector(identifier) => Some(identifier),
-            | ModelEntry::Entry(_) => None,
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(identifiers, vec!["tiny"]);
-    Ok(())
-}
-#[tokio::test]
 async fn test_download_model_local_file_reference() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_local_reference");
     let _cleanup = TestCleanup::new(temp_dir.clone());
@@ -1448,72 +1204,6 @@ async fn test_download_model_local_offline_succeeds() -> Result<()> {
     Ok(())
 }
 #[tokio::test]
-async fn test_download_model_no_models_errors() -> Result<()> {
-    let verbose = Verbosity::new(0, 1);
-    let result = run_model(
-        &[],
-        &[],
-        &[],
-        &None,
-        &None,
-        &None,
-        &verbose,
-        false,
-        false,
-        false,
-        false,
-        &[],
-        false,
-        200,
-        false,
-        false,
-        false,
-        &OutputFormat::default(),
-    )
-    .await;
-    assert!(result.is_err(), "empty model list should return an error");
-    Ok(())
-}
-#[tokio::test]
-async fn test_download_model_reads_model_file() -> Result<()> {
-    let temp_dir = temp_test_dir("download_model_file");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let model = temp_dir.join("tiny.gguf");
-    let model_file = temp_dir.join("models.txt");
-    write(&model, b"fake model data")?;
-    write(&model_file, model.display().to_string())?;
-    let result = execute_model(
-        &[],
-        &Some(model_file.display().to_string()),
-        &None,
-        false,
-        &[],
-        &[],
-        &None,
-        &None,
-        &None,
-        &Verbosity::new(0, 1),
-        true,
-        false,
-        false,
-        false,
-        &[],
-        false,
-        true,
-        &[],
-        &None,
-        20,
-        100,
-        false,
-        true,
-        false,
-        &OutputFormat::default(),
-    )
-    .await;
-    assert!(result.is_ok(), "local model from --model-file should resolve in offline mode");
-    Ok(())
-}
-#[tokio::test]
 async fn test_download_model_missing_config_reports_missing_file() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_missing_config");
     let _cleanup = TestCleanup::new(temp_dir.clone());
@@ -1544,6 +1234,33 @@ async fn test_download_model_missing_config_reports_missing_file() -> Result<()>
         result.unwrap_err().to_string(),
         format!("Configuration file does not exist — {}", missing.display())
     );
+    Ok(())
+}
+#[tokio::test]
+async fn test_download_model_no_models_errors() -> Result<()> {
+    let verbose = Verbosity::new(0, 1);
+    let result = run_model(
+        &[],
+        &[],
+        &[],
+        &None,
+        &None,
+        &None,
+        &verbose,
+        false,
+        false,
+        false,
+        false,
+        &[],
+        false,
+        200,
+        false,
+        false,
+        false,
+        &OutputFormat::default(),
+    )
+    .await;
+    assert!(result.is_err(), "empty model list should return an error");
     Ok(())
 }
 #[tokio::test]
@@ -1612,15 +1329,13 @@ async fn test_download_model_positional_overrides_config() -> Result<()> {
     Ok(())
 }
 #[tokio::test]
-async fn test_download_model_file_overrides_config() -> Result<()> {
-    let temp_dir = temp_test_dir("download_model_file_override");
+async fn test_download_model_reads_model_file() -> Result<()> {
+    let temp_dir = temp_test_dir("download_model_file");
     let _cleanup = TestCleanup::new(temp_dir.clone());
-    let config_path = temp_dir.join(".acorn.json");
     let model = temp_dir.join("tiny.gguf");
     let model_file = temp_dir.join("models.txt");
     write(&model, b"fake model data")?;
     write(&model_file, model.display().to_string())?;
-    write(&config_path, r#"{"models": ["configured/remote-model"]}"#)?;
     let result = execute_model(
         &[],
         &Some(model_file.display().to_string()),
@@ -1628,7 +1343,7 @@ async fn test_download_model_file_overrides_config() -> Result<()> {
         false,
         &[],
         &[],
-        &Some(config_path),
+        &None,
         &None,
         &None,
         &Verbosity::new(0, 1),
@@ -1649,25 +1364,63 @@ async fn test_download_model_file_overrides_config() -> Result<()> {
         &OutputFormat::default(),
     )
     .await;
-    assert!(result.is_ok(), "--model-file should prevent automatic config resolution");
+    assert!(result.is_ok(), "local model from --model-file should resolve in offline mode");
     Ok(())
 }
-#[test]
-fn test_model_whitelist_precedence_is_cli_config_environment() {
-    with_var(MODEL_WHITELIST, Some("environment-one, environment-two"), || {
-        let configured = Some(OneOrMany::One("configuration".to_string()));
-        let cli = futures::executor::block_on(super::model::Whitelist::prioritized(
-            &["command-line".to_string()],
-            configured.clone(),
-            true,
-        ))
-        .unwrap();
-        let config = futures::executor::block_on(super::model::Whitelist::prioritized(&[], configured, true)).unwrap();
-        let environment = futures::executor::block_on(super::model::Whitelist::prioritized(&[], None, true)).unwrap();
-        assert_eq!(cli.0, vec!["command-line"]);
-        assert_eq!(config.0, vec!["configuration"]);
-        assert_eq!(environment.0, vec!["environment-one", "environment-two"]);
-    });
+#[tokio::test]
+async fn test_download_model_syncs_downloaded_model() -> Result<()> {
+    let temp_dir = temp_test_dir("download_model_sync");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output_dir = temp_dir.join("models");
+    let model_file = temp_dir.join("tiny.gguf");
+    let config_path = temp_dir.join("acorn.json");
+    let opencode_path = temp_dir.join("opencode.json");
+    write(&model_file, b"fake model data")?;
+    write(
+        &config_path,
+        serde_json::json!({"config":{"opencode":{"path":opencode_path.display().to_string()}}}).to_string(),
+    )?;
+    let result = execute_model(
+        &[model_file.display().to_string()],
+        &None,
+        &Some(SyncTarget::Opencode),
+        true,
+        &[],
+        &[],
+        &Some(config_path.clone()),
+        &Some(output_dir),
+        &None,
+        &Verbosity::new(0, 1),
+        true,
+        true,
+        false,
+        false,
+        &[],
+        false,
+        true,
+        &[],
+        &None,
+        20,
+        100,
+        false,
+        false,
+        false,
+        &OutputFormat::default(),
+    )
+    .await;
+    assert!(result.is_ok());
+    assert!(read_to_string(opencode_path)?.contains("tiny"));
+    let identifiers = ApplicationConfiguration::read(config_path)?
+        .models
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|entry| match entry {
+            | ModelEntry::Selector(identifier) => Some(identifier),
+            | ModelEntry::Entry(_) => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(identifiers, vec!["tiny"]);
+    Ok(())
 }
 #[tokio::test]
 async fn test_download_model_whitelist_errors_when_no_name_matches() -> Result<()> {
@@ -1705,51 +1458,6 @@ async fn test_download_model_whitelist_errors_when_no_name_matches() -> Result<(
     Ok(())
 }
 #[test]
-fn test_download_model_whitelist_skips_unavailable_model_when_another_matches() {
-    let temp_dir = temp_test_dir("download_model_whitelist_skips_unavailable");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let config_path = temp_dir.join(".acorn.json");
-    let keep_file = temp_dir.join("keep.gguf");
-    let identifier = "acme/missing";
-    write(&keep_file, b"fake keep model data").expect("write local model");
-    write(
-        &config_path,
-        format!(
-            r#"{{"models": [
-            {{"name": "keep", "source": {{"provider": "git", "location": "file:{}"}}}},
-            "{identifier}"
-        ]}}"#,
-            keep_file.display().to_string().replace('\\', "/")
-        ),
-    )
-    .expect("write model config");
-    let (endpoint, handle) = spawn_huggingface_model_unavailable_server(identifier);
-    let result = with_hf_endpoint(endpoint, || {
-        tokio::runtime::Runtime::new().expect("create runtime").block_on(run_model(
-            &[],
-            &[],
-            &[],
-            &Some(config_path),
-            &Some(temp_dir.join("models")),
-            &None,
-            &Verbosity::new(0, 1),
-            false,
-            false,
-            false,
-            false,
-            &["keep".to_string()],
-            false,
-            20,
-            false,
-            true,
-            false,
-            &OutputFormat::default(),
-        ))
-    });
-    handle.join().expect("join unavailable model server");
-    assert!(result.is_ok(), "an unavailable model should not fail a batch containing a matching model");
-}
-#[test]
 fn test_download_model_whitelist_fails_when_only_model_is_unavailable() {
     let temp_dir = temp_test_dir("download_model_whitelist_only_unavailable");
     let _cleanup = TestCleanup::new(temp_dir.clone());
@@ -1782,40 +1490,6 @@ fn test_download_model_whitelist_fails_when_only_model_is_unavailable() {
     handle.join().expect("join unavailable model server");
     let message = result.expect_err("an unavailable-only batch should fail").to_string();
     assert!(message.contains("No models were found"), "unexpected error: {message}");
-}
-#[test]
-fn test_download_model_dry_run_fails_when_only_model_is_unavailable() {
-    let temp_dir = temp_test_dir("download_model_only_unavailable");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let config_path = temp_dir.join(".acorn.json");
-    let identifier = "acme/missing";
-    write(&config_path, format!(r#"{{"models": ["{identifier}"]}}"#)).expect("write model config");
-    let (endpoint, handle) = spawn_huggingface_model_unavailable_server(identifier);
-    let result = with_hf_endpoint(endpoint, || {
-        tokio::runtime::Runtime::new().expect("create runtime").block_on(run_model(
-            &[],
-            &[],
-            &[],
-            &Some(config_path),
-            &Some(temp_dir.join("models")),
-            &None,
-            &Verbosity::new(0, 1),
-            false,
-            false,
-            false,
-            false,
-            &[],
-            false,
-            20,
-            false,
-            true,
-            false,
-            &OutputFormat::default(),
-        ))
-    });
-    handle.join().expect("join unavailable model server");
-    let message = result.expect_err("an unavailable-only dry run should fail").to_string();
-    assert_eq!(message, "No models found");
 }
 #[tokio::test]
 async fn test_download_model_whitelist_file_keeps_matching_name() -> Result<()> {
@@ -1918,54 +1592,87 @@ async fn test_download_model_whitelist_keeps_matching_name() -> Result<()> {
     assert!(!output_dir.join("drop").join("drop.gguf").exists());
     Ok(())
 }
-#[tokio::test]
-async fn test_download_items_with_progress_are_concurrent() {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind concurrent download server");
-    let address = format!("http://{}", listener.local_addr().expect("concurrent download server address"));
-    let active = Arc::new(AtomicUsize::new(0));
-    let maximum_active = Arc::new(AtomicUsize::new(0));
-    let server_active = active.clone();
-    let server_maximum_active = maximum_active.clone();
-    let handle = thread::spawn(move || {
-        listener
-            .incoming()
-            .take(2)
-            .map(|stream| {
-                let active = server_active.clone();
-                let maximum_active = server_maximum_active.clone();
-                thread::spawn(move || {
-                    let mut stream = stream.expect("accept model download request");
-                    let mut request = [0_u8; 4096];
-                    let _ = stream.read(&mut request).expect("read model download request");
-                    let active_count = active.fetch_add(1, Ordering::SeqCst) + 1;
-                    maximum_active.fetch_max(active_count, Ordering::SeqCst);
-                    thread::sleep(Duration::from_millis(150));
-                    stream
-                        .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\nConnection: close\r\n\r\nx")
-                        .expect("write model download response");
-                    active.fetch_sub(1, Ordering::SeqCst);
-                })
-            })
-            .collect::<Vec<_>>()
-            .into_iter()
-            .for_each(|handle| handle.join().expect("join model download handler"));
+#[test]
+fn test_download_model_whitelist_skips_unavailable_model_when_another_matches() {
+    let temp_dir = temp_test_dir("download_model_whitelist_skips_unavailable");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let config_path = temp_dir.join(".acorn.json");
+    let keep_file = temp_dir.join("keep.gguf");
+    let identifier = "acme/missing";
+    write(&keep_file, b"fake keep model data").expect("write local model");
+    write(
+        &config_path,
+        format!(
+            r#"{{"models": [
+            {{"name": "keep", "source": {{"provider": "git", "location": "file:{}"}}}},
+            "{identifier}"
+        ]}}"#,
+            keep_file.display().to_string().replace('\\', "/")
+        ),
+    )
+    .expect("write model config");
+    let (endpoint, handle) = spawn_huggingface_model_unavailable_server(identifier);
+    let result = with_hf_endpoint(endpoint, || {
+        tokio::runtime::Runtime::new().expect("create runtime").block_on(run_model(
+            &[],
+            &[],
+            &[],
+            &Some(config_path),
+            &Some(temp_dir.join("models")),
+            &None,
+            &Verbosity::new(0, 1),
+            false,
+            false,
+            false,
+            false,
+            &["keep".to_string()],
+            false,
+            20,
+            false,
+            true,
+            false,
+            &OutputFormat::default(),
+        ))
     });
-    let destination = temp_test_dir("download_model_concurrent_progress");
-    let _cleanup = TestCleanup::new(destination.clone());
-    let items = ["first.gguf", "second.gguf"]
-        .into_iter()
-        .map(|path| DownloadItem {
-            url: format!("{address}/{path}"),
-            path: path.to_string(),
-            size: Some(1),
-            sha: None,
-            headers: None,
-        })
-        .collect();
-    let result = DownloadItems::new(&destination, items, false, false).download().await;
-    assert!(result.is_ok(), "model shard downloads should succeed: {result:?}");
-    handle.join().expect("join concurrent download server");
-    assert_eq!(maximum_active.load(Ordering::SeqCst), 2, "visible model downloads should overlap");
+    handle.join().expect("join unavailable model server");
+    assert!(result.is_ok(), "an unavailable model should not fail a batch containing a matching model");
+}
+#[tokio::test]
+async fn test_download_rejects_local_source() {
+    let result = super::run(
+        &None,
+        &["file:./tests/fixtures/data/bucket/".to_string()],
+        &[],
+        &[],
+        &Some(PathBuf::from("unused")),
+        false,
+        false,
+        false,
+        false,
+        &None,
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        false,
+        true,
+    )
+    .await;
+    assert!(result.is_err());
+}
+#[test]
+fn test_download_strict_rejects_model_subcommand() {
+    let temp_dir = temp_test_dir("download_strict_model_rejection");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let database_path = temp_dir.join("acorn.db");
+    let output = Command::cargo_bin("acorn")
+        .expect("locate acorn binary")
+        .arg("--database-path")
+        .arg(&database_path)
+        .args(["download", "--strict", "model", "acme/model", "--dry-run"])
+        .output()
+        .expect("run model download with bucket-only flag");
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("--strict is only supported for bucket downloads"));
+    assert!(!database_path.exists());
 }
 #[test]
 fn test_download_task_rejects_unsafe_paths() {
@@ -2183,6 +1890,55 @@ async fn test_download_task_truncates_when_range_request_returns_200() {
     handle.join().expect("join ignored-range server thread");
 }
 #[test]
+fn test_download_zero_items_prints_warning() {
+    let temp_dir = temp_test_dir("download_zero_items_warning");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let bucket = format!("file:{}/", fixture_path("data/bucket").display());
+    let output = Command::cargo_bin("acorn")
+        .expect("locate acorn binary")
+        .args(["--no-local-database", "import"])
+        .arg(bucket)
+        .args(["--filter", "^does-not-match$"])
+        .arg("--output")
+        .arg(temp_dir.join("output"))
+        .output()
+        .expect("run zero-item bucket download");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{stdout}{stderr}");
+    assert!(combined.contains("CAUTION"));
+    assert!(!combined.contains("SUCCESS"));
+    assert!(combined.contains("Download complete"));
+    assert!(combined.contains("0") && combined.contains("processed"));
+    assert!(combined.contains("hint:"));
+}
+#[test]
+fn test_downloaded_gguf_quantization_is_merged_into_weights() {
+    let existing = Weights(vec![Weight {
+        label: "Hugging Face".to_string(),
+        url: "https://huggingface.co/openai/gpt-oss-20b".to_string(),
+        is_open: Some(true),
+        quantization: None,
+        size: None,
+    }]);
+    let repository = Downloaded {
+        identifier: "unsloth/gpt-oss-20b-GGUF".to_string(),
+        revision: "main".to_string(),
+        files: vec!["gpt-oss-20b-Q4_K_M.gguf".to_string(), "README.md".to_string()],
+    };
+    let weights = repository.merge_weights(existing);
+    assert_eq!(weights.0.len(), 2);
+    assert_eq!(
+        weights.0.last().and_then(|weight| weight.quantization.as_ref()),
+        Some(&Quantization::Q4kM)
+    );
+    assert_eq!(
+        weights.0.last().map(|weight| weight.url.as_str()),
+        Some("https://huggingface.co/unsloth/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-Q4_K_M.gguf")
+    );
+}
+#[test]
 fn test_gguf_fallback_trigger_conditions() {
     let _error = color_eyre::eyre::eyre!(HuggingFaceError::NoGgufModelFiles);
     let files = repository_files(vec![candidate_file("config.json")]);
@@ -2330,6 +2086,266 @@ fn test_huggingface_filter_works_with_complex_patterns() {
     let result = files.filter(Some("[a-z]+"), None);
     assert!(result.is_ok());
 }
+#[tokio::test]
+async fn test_import_ingests_and_replays_valid_rad() -> Result<()> {
+    let temp_dir = temp_test_dir("download_ingests_valid_rad");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let bucket_dir = temp_dir.join("bucket");
+    let output_dir = temp_dir.join("output");
+    let database_path = Some(temp_dir.join("acorn.db"));
+    create_dir_all(&bucket_dir)?;
+    write_rad(&bucket_dir.join("index.json"), "downloaded-project")?;
+    let url = vec![format!("file:{}/", bucket_dir.display())];
+    let verbose = Verbosity::new(0, 1);
+    for index in 0..2 {
+        let run_output = output_dir.join(index.to_string());
+        import_local(
+            &None,
+            &url,
+            &[],
+            &[],
+            &Some(run_output),
+            false,
+            false,
+            &database_path,
+            TEST_THREADS,
+            &verbose,
+            OFFLINE,
+            false,
+        )
+        .await?;
+    }
+    let database = Database::<Table>::from_path(database_path);
+    assert_eq!(database.row_count(Table::ResearchActivities)?, 1);
+    assert!(output_dir.join("0/index.json").exists());
+    assert!(output_dir.join("1/index.json").exists());
+    Ok(())
+}
+#[tokio::test]
+async fn test_import_ingests_multiple_rad_formats_and_honors_filter() -> Result<()> {
+    let temp_dir = temp_test_dir("download_multiple_rad");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let bucket_dir = temp_dir.join("bucket");
+    let output_dir = temp_dir.join("output");
+    let database_path = Some(temp_dir.join("acorn.db"));
+    write_rad(&bucket_dir.join("keep/index.json"), "kept-json")?;
+    write_rad(&bucket_dir.join("keep/project.yaml"), "kept-yaml")?;
+    write_rad(&bucket_dir.join("keep/project.md"), "kept-markdown")?;
+    write(bucket_dir.join("keep/README.md"), "# Documentation\n")?;
+    write_rad(&bucket_dir.join("skip/index.json"), "filtered-out")?;
+    import_local(
+        &None,
+        &[format!("file:{}/", bucket_dir.display())],
+        &["keep".to_string()],
+        &[],
+        &Some(output_dir.clone()),
+        false,
+        false,
+        &database_path,
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        OFFLINE,
+        false,
+    )
+    .await?;
+    let database = Database::<Table>::from_path(database_path);
+    assert_eq!(database.row_count(Table::ResearchActivities)?, 3);
+    assert!(output_dir.join("keep/index.json").exists());
+    assert!(output_dir.join("keep/project.yaml").exists());
+    assert!(output_dir.join("keep/project.md").exists());
+    assert!(!output_dir.join("keep/README.md").exists());
+    assert!(!output_dir.join("skip/index.json").exists());
+    Ok(())
+}
+#[tokio::test]
+async fn test_import_invalid_remote_source_returns_error() {
+    let result = import_local(
+        &None,
+        &["http://github.com/acme/science".to_string()],
+        &[],
+        &[],
+        &Some(PathBuf::from("unused")),
+        false,
+        false,
+        &None,
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        false,
+        true,
+    )
+    .await;
+    assert!(result.unwrap_err().to_string().contains("Invalid bucket source"));
+}
+#[tokio::test]
+async fn test_import_local_config_accepts_bare_bucket_source() -> Result<()> {
+    let temp_dir = temp_test_dir("import_local_config_bare_source");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output_dir = temp_dir.join("output");
+    let config_path = temp_dir.join("config.json");
+    let bucket_uri = format!("file:{}/", fixture_path("data/bucket").display()).replace('\\', "/");
+    write(&config_path, format!(r#"{{"buckets":["{bucket_uri}"]}}"#))?;
+    let result = import_local(
+        &Some(config_path),
+        &[],
+        &[],
+        &[],
+        &Some(output_dir.clone()),
+        false,
+        false,
+        &None,
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        OFFLINE,
+        true,
+    )
+    .await;
+    assert!(result.is_ok(), "bare bucket source should import through configuration");
+    assert!(has_any_file(&output_dir), "output should contain copied files");
+    Ok(())
+}
+#[tokio::test]
+async fn test_import_local_config_silent() -> Result<()> {
+    let temp_dir = temp_test_dir("download_local_config_silent");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output_dir = temp_dir.join("output");
+    create_dir_all(&output_dir)?;
+    let config_path = temp_dir.join("config.json");
+    let bucket_path = fixture_path("data/bucket");
+    let bucket_uri = format!("file:{}", bucket_path.display()).replace('\\', "/");
+    let config = read_to_string(fixture_path("config/with_local_buckets.json"))?.replace("file:./tests/fixtures/data/bucket/", &bucket_uri);
+    write(&config_path, config)?;
+    let filter: Vec<String> = vec![];
+    let ignore: Vec<String> = vec![];
+    let verbose = Verbosity::new(0, 1);
+    let result = import_local(
+        &Some(config_path),
+        &[],
+        &filter,
+        &ignore,
+        &Some(output_dir.clone()),
+        false,
+        false,
+        &None,
+        TEST_THREADS,
+        &verbose,
+        OFFLINE,
+        true,
+    )
+    .await;
+    assert!(result.is_ok(), "download from local config should succeed");
+    assert!(has_any_file(&output_dir), "output should contain copied files");
+    Ok(())
+}
+#[tokio::test]
+async fn test_import_local_url_flattens_and_ingests_rad() -> Result<()> {
+    let temp_dir = temp_test_dir("download_local_url_flatten");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let bucket_dir = temp_dir.join("bucket");
+    let output_dir = temp_dir.join("output");
+    let database_path = Some(temp_dir.join("acorn.db"));
+    write_rad(&bucket_dir.join("nested/index.json"), "flattened-project")?;
+    import_local(
+        &None,
+        &[format!("file:{}/", bucket_dir.display())],
+        &[],
+        &[],
+        &Some(output_dir.clone()),
+        true,
+        false,
+        &database_path,
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        OFFLINE,
+        false,
+    )
+    .await?;
+    let database = Database::<Table>::from_path(database_path);
+    assert_eq!(database.row_count(Table::ResearchActivities)?, 1);
+    assert!(output_dir.join("index.json").is_file());
+    assert!(!output_dir.join("nested").exists());
+    Ok(())
+}
+#[tokio::test]
+async fn test_import_local_url_silent() -> Result<()> {
+    let temp_dir = temp_test_dir("download_local_url_silent");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output_dir = temp_dir.join("output");
+    create_dir_all(&output_dir)?;
+    let url = vec![format!("file:{}/", fixture_path("data/bucket").display())];
+    let filter: Vec<String> = vec![];
+    let ignore: Vec<String> = vec![];
+    let verbose = Verbosity::new(0, 1);
+    let result = import_local(
+        &None,
+        &url,
+        &filter,
+        &ignore,
+        &Some(output_dir.clone()),
+        false,
+        false,
+        &None,
+        TEST_THREADS,
+        &verbose,
+        OFFLINE,
+        true,
+    )
+    .await;
+    assert!(result.is_ok(), "import from local URL should succeed");
+    assert!(output_dir.exists(), "output directory should exist");
+    Ok(())
+}
+#[tokio::test]
+async fn test_import_no_local_database_disables_candidate_persistence() -> Result<()> {
+    let temp_dir = temp_test_dir("download_no_candidate_persistence");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let bucket_dir = temp_dir.join("bucket");
+    let database_path = temp_dir.join("acorn.db");
+    write_rad(&bucket_dir.join("index.json"), "not-persisted")?;
+    import_local(
+        &None,
+        &[format!("file:{}/", bucket_dir.display())],
+        &[],
+        &[],
+        &Some(temp_dir.join("output")),
+        false,
+        false,
+        &Some(database_path.clone()),
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        OFFLINE,
+        true,
+    )
+    .await?;
+    assert!(!database_path.exists());
+    Ok(())
+}
+#[tokio::test]
+async fn test_import_preserves_malformed_rad_and_fails_ingestion() -> Result<()> {
+    let temp_dir = temp_test_dir("download_malformed_rad");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let bucket_dir = temp_dir.join("bucket");
+    let output_dir = temp_dir.join("output");
+    create_dir_all(&bucket_dir)?;
+    write(bucket_dir.join("index.json"), "{ malformed")?;
+    let result = import_local(
+        &None,
+        &[format!("file:{}/", bucket_dir.display())],
+        &[],
+        &[],
+        &Some(output_dir.clone()),
+        false,
+        false,
+        &Some(temp_dir.join("acorn.db")),
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        OFFLINE,
+        false,
+    )
+    .await;
+    assert!(result.is_err());
+    assert!(output_dir.join("index.json").exists());
+    Ok(())
+}
 #[test]
 fn test_model_download_plan_matches_base() {
     assert!(model_plan_matches_base("openai/gpt-oss-2b"));
@@ -2339,6 +2355,40 @@ fn test_model_download_plan_matches_base() {
 fn test_model_merge_patterns_keeps_config_and_cli_patterns() {
     let merged = merge(&["Q4".to_string()], Some(&["\\.gguf$".to_string(), "Q4".to_string()]));
     assert_eq!(merged, vec!["Q4".to_string(), "\\.gguf$".to_string()]);
+}
+#[test]
+fn test_model_plan_logs_whitelist_rejection() {
+    let identifier = "mozilla/test-llama";
+    let (endpoint, handle) = spawn_huggingface_model_info_server(identifier, "meta-llama/other");
+    let whitelist = HashSet::from(["openai/gpt-oss-20b".to_string()]);
+    let logs = Arc::new(Mutex::new(Vec::new()));
+    let subscriber = tracing_subscriber::fmt()
+        .with_ansi(false)
+        .with_writer(SharedWriter(logs.clone()))
+        .finish();
+    let matches = with_hf_endpoint(endpoint, || {
+        tracing::subscriber::with_default(subscriber, || {
+            tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
+                let entries = vec![ModelEntry::Selector(identifier.to_string())];
+                let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, &Default::default(), None, &None, false, false)
+                    .await
+                    .expect("resolve model plan");
+                plans
+                    .into_iter()
+                    .next()
+                    .expect("model plan")
+                    .matches(&whitelist, false)
+                    .await
+                    .expect("match model whitelist")
+            })
+        })
+    });
+    handle.join().expect("join metadata server");
+    let text = String::from_utf8(logs.lock().expect("lock logs").clone()).unwrap_or_default();
+    assert!(!matches);
+    assert!(text.contains("REJECTED"));
+    assert!(text.contains(identifier));
+    assert!(text.contains("did not match whitelist"));
 }
 #[tokio::test]
 async fn test_model_resolve_plan_matches_config_name() {
@@ -2371,19 +2421,34 @@ fn test_model_select_preferred_file_errors_when_ambiguous() {
     assert!(selected.is_err());
 }
 #[test]
-fn test_model_select_preferred_file_summarizes_large_ambiguity() {
+fn test_model_select_preferred_file_keeps_complete_shard_set() {
     let policy = FileSelectionPolicy {
         preferred_marker: "Q4_K_M",
         no_match_message: "No GGUF model files found",
     };
     let files = repository_files(vec![
-        candidate_file("model.Q2_K.gguf"),
-        candidate_file("model.Q3_K_M.gguf"),
-        candidate_file("model.Q5_K_M.gguf"),
+        candidate_file("Q4_K_M/model-Q4_K_M-00001-of-00002.gguf"),
+        candidate_file("Q4_K_M/model-Q4_K_M-00002-of-00002.gguf"),
+        candidate_file("Q5_K_M/model-Q5_K_M.gguf"),
     ]);
-    let error = files.select(&policy).unwrap_err().to_string();
-    assert!(error.contains("3 GGUF files"));
-    assert!(!error.contains("model.Q2_K.gguf"));
+    let selected = files.select(&policy).unwrap();
+    assert_eq!(selected.len(), 2);
+    assert!(selected.iter().all(|file| file.path.contains("Q4_K_M")));
+}
+#[test]
+fn test_model_select_preferred_file_keeps_complete_shard_set_without_preferred_marker() {
+    let policy = FileSelectionPolicy {
+        preferred_marker: "Q4_K_M",
+        no_match_message: "No GGUF model files found",
+    };
+    let files = repository_files(vec![
+        candidate_file("model-MXFP4-00001-of-00003.gguf"),
+        candidate_file("model-MXFP4-00002-of-00003.gguf"),
+        candidate_file("model-MXFP4-00003-of-00003.gguf"),
+    ]);
+    let selected = files.select(&policy).unwrap();
+    assert_eq!(selected.len(), 3);
+    assert!(selected.iter().all(|file| file.path.contains("MXFP4")));
 }
 #[test]
 fn test_model_select_preferred_file_prefers_marker() {
@@ -2416,36 +2481,6 @@ fn test_model_select_preferred_file_prefers_repository_model_over_auxiliary_mode
     assert_eq!(selected.first().map(|file| file.path.as_str()), Some("gpt-oss-120b-MXFP4.gguf"));
 }
 #[test]
-fn test_model_select_preferred_file_keeps_complete_shard_set() {
-    let policy = FileSelectionPolicy {
-        preferred_marker: "Q4_K_M",
-        no_match_message: "No GGUF model files found",
-    };
-    let files = repository_files(vec![
-        candidate_file("Q4_K_M/model-Q4_K_M-00001-of-00002.gguf"),
-        candidate_file("Q4_K_M/model-Q4_K_M-00002-of-00002.gguf"),
-        candidate_file("Q5_K_M/model-Q5_K_M.gguf"),
-    ]);
-    let selected = files.select(&policy).unwrap();
-    assert_eq!(selected.len(), 2);
-    assert!(selected.iter().all(|file| file.path.contains("Q4_K_M")));
-}
-#[test]
-fn test_model_select_preferred_file_keeps_complete_shard_set_without_preferred_marker() {
-    let policy = FileSelectionPolicy {
-        preferred_marker: "Q4_K_M",
-        no_match_message: "No GGUF model files found",
-    };
-    let files = repository_files(vec![
-        candidate_file("model-MXFP4-00001-of-00003.gguf"),
-        candidate_file("model-MXFP4-00002-of-00003.gguf"),
-        candidate_file("model-MXFP4-00003-of-00003.gguf"),
-    ]);
-    let selected = files.select(&policy).unwrap();
-    assert_eq!(selected.len(), 3);
-    assert!(selected.iter().all(|file| file.path.contains("MXFP4")));
-}
-#[test]
 fn test_model_select_preferred_file_rejects_incomplete_shard_set() {
     let policy = FileSelectionPolicy {
         preferred_marker: "Q4_K_M",
@@ -2458,10 +2493,36 @@ fn test_model_select_preferred_file_rejects_incomplete_shard_set() {
     assert!(files.select(&policy).is_err());
 }
 #[test]
-fn test_parse_model_whitelist_file_from_json_model_details() -> Result<()> {
-    let names = super::model::Whitelist::parse(r#"[{"name":"Keep","id":"acme/keep"},{"id":"drop"}]"#.to_string())?;
-    assert_eq!(names.0, vec!["Keep".to_string(), "acme/keep".to_string(), "drop".to_string()]);
-    Ok(())
+fn test_model_select_preferred_file_summarizes_large_ambiguity() {
+    let policy = FileSelectionPolicy {
+        preferred_marker: "Q4_K_M",
+        no_match_message: "No GGUF model files found",
+    };
+    let files = repository_files(vec![
+        candidate_file("model.Q2_K.gguf"),
+        candidate_file("model.Q3_K_M.gguf"),
+        candidate_file("model.Q5_K_M.gguf"),
+    ]);
+    let error = files.select(&policy).unwrap_err().to_string();
+    assert!(error.contains("3 GGUF files"));
+    assert!(!error.contains("model.Q2_K.gguf"));
+}
+#[test]
+fn test_model_whitelist_precedence_is_cli_config_environment() {
+    with_var(MODEL_WHITELIST, Some("environment-one, environment-two"), || {
+        let configured = Some(OneOrMany::One("configuration".to_string()));
+        let cli = futures::executor::block_on(super::model::Whitelist::prioritized(
+            &["command-line".to_string()],
+            configured.clone(),
+            true,
+        ))
+        .unwrap();
+        let config = futures::executor::block_on(super::model::Whitelist::prioritized(&[], configured, true)).unwrap();
+        let environment = futures::executor::block_on(super::model::Whitelist::prioritized(&[], None, true)).unwrap();
+        assert_eq!(cli.0, vec!["command-line"]);
+        assert_eq!(config.0, vec!["configuration"]);
+        assert_eq!(environment.0, vec!["environment-one", "environment-two"]);
+    });
 }
 #[test]
 fn test_parse_model_whitelist_file_from_json_model_detail() -> Result<()> {
@@ -2469,13 +2530,10 @@ fn test_parse_model_whitelist_file_from_json_model_detail() -> Result<()> {
     assert_eq!(names.0, vec!["Keep".to_string(), "acme/keep".to_string()]);
     Ok(())
 }
-#[tokio::test]
-async fn test_resolve_configured_model_whitelist_url() -> Result<()> {
-    let (endpoint, handle) = spawn_huggingface_model_info_server("keep", "acme/base");
-    let source = format!("{endpoint}/api/models/keep");
-    let names = super::model::Whitelist::from_configuration(Some(OneOrMany::One(source)), false).await?;
-    handle.join().expect("join whitelist server");
-    assert_eq!(names.0, vec!["keep".to_string()]);
+#[test]
+fn test_parse_model_whitelist_file_from_json_model_details() -> Result<()> {
+    let names = super::model::Whitelist::parse(r#"[{"name":"Keep","id":"acme/keep"},{"id":"drop"}]"#.to_string())?;
+    assert_eq!(names.0, vec!["Keep".to_string(), "acme/keep".to_string(), "drop".to_string()]);
     Ok(())
 }
 #[test]
@@ -2506,6 +2564,15 @@ fn test_resolve_cli_action() {
     assert_eq!(SourceAction::from_options(false, false), None);
     assert_eq!(SourceAction::from_options(true, false), Some(SourceAction::Copy));
     assert_eq!(SourceAction::from_options(false, true), Some(SourceAction::Symlink));
+}
+#[tokio::test]
+async fn test_resolve_configured_model_whitelist_url() -> Result<()> {
+    let (endpoint, handle) = spawn_huggingface_model_info_server("keep", "acme/base");
+    let source = format!("{endpoint}/api/models/keep");
+    let names = super::model::Whitelist::from_configuration(Some(OneOrMany::One(source)), false).await?;
+    handle.join().expect("join whitelist server");
+    assert_eq!(names.0, vec!["keep".to_string()]);
+    Ok(())
 }
 #[test]
 fn test_resolve_default_config_path_none_when_missing() -> Result<()> {

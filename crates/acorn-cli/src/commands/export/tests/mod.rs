@@ -21,18 +21,19 @@ use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
 use acorn::analyzer::Standard;
 #[cfg(feature = "pdf")]
 use acorn::util::constants::env::CHROME_PATH;
+use acorn_core::util::MimeType;
 use acorn_schema::pid::raid;
 use acorn_schema::research_activity::{
     ActivityContributor, ActivityDateType, ActivityOrganization, AgentIdentifier, DatedAgentRole, DatedOrganizationRole, Logbook, LogbookEntry,
     ResearchActivity, ResearchActivityMetadata, RightsAccess, StructuredRights, TypedActivityDate, TypedIdentifier,
 };
 use acorn_schema::standard::datacite;
+use acorn_schema::standard::dcat;
 use acorn_schema::standard::invenio;
 use acorn_schema::standard::zon;
 use acorn_schema::validation::Validate;
 use acorn_schema::{ContactPoint, OneOrMany};
 use clap_verbosity_flag::Verbosity;
-#[cfg(feature = "pdf")]
 use color_eyre::eyre::eyre;
 use color_eyre::eyre::Result;
 #[cfg(feature = "pdf")]
@@ -42,9 +43,7 @@ use std::env::var_os;
 #[cfg(feature = "pdf")]
 use std::fs::canonicalize;
 use std::fs::{copy, create_dir_all, read, read_dir, read_to_string, write};
-#[cfg(feature = "pdf")]
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 #[cfg(feature = "pdf")]
 use std::process::Command;
 #[cfg(feature = "pdf")]
@@ -229,6 +228,42 @@ fn render_first_pdf_page(pdf: &Path, output_prefix: &Path) -> Result<Vec<u8>> {
             | true => read(output_prefix.with_extension("png")).map_err(|why| eyre!("Read rendered PDF visual snapshot — {why}")),
             | false => Err(eyre!("pdftoppm failed to render PDF visual snapshot with status {status}")),
         })
+}
+async fn run_structured_export(
+    source: &Path,
+    output: Option<PathBuf>,
+    format: FileFormat,
+    from: Option<Standard>,
+    to: Option<Standard>,
+) -> Result<()> {
+    run(
+        &output,
+        &Some(source.to_path_buf()),
+        &None,
+        &None,
+        &None,
+        &[],
+        &[],
+        false,
+        false,
+        &format,
+        None,
+        &None,
+        &from,
+        &to,
+        &false,
+        &false,
+        &false,
+        &[],
+        false,
+        false,
+        Target::FactSheet,
+        None,
+        TEST_THREADS,
+        &silent(),
+        OFFLINE,
+    )
+    .await
 }
 fn silent() -> Verbosity {
     Verbosity::new(0, 1)
@@ -593,6 +628,24 @@ async fn test_export_crosswalk_strict_rejects_losses_before_writing() -> Result<
     Ok(())
 }
 #[tokio::test]
+async fn test_export_json_array_to_json_lines() -> Result<()> {
+    let temp_dir = temp_test_dir("export_json_array_to_json_lines");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let json_lines = read_to_string(fixture_path("jsonl/rad-batch.jsonl"))?;
+    let activities = OneOrMany::<ResearchActivity>::parse(&json_lines, MimeType::JsonLines)
+        .map_err(|why| eyre!(why.to_string()))?
+        .into_vec();
+    let source = temp_dir.join("activities.json");
+    write(&source, serde_json::to_string(&activities)?)?;
+    run_structured_export(&source, None, FileFormat::JsonLines, None, None).await?;
+    let output = read_to_string(temp_dir.join("activities.jsonl"))?;
+    let parsed = OneOrMany::<ResearchActivity>::parse(&output, MimeType::JsonLines).map_err(|why| eyre!(why.to_string()))?;
+    let identifiers = parsed.iter().map(|activity| activity.meta.identifier.as_str()).collect::<Vec<_>>();
+    assert_eq!(identifiers, ["batch-one", "batch-two"]);
+    assert!(output.ends_with('\n'));
+    Ok(())
+}
+#[tokio::test]
 async fn test_export_json_format() -> Result<()> {
     let temp_dir = temp_test_dir("export_json");
     let _cleanup = TestCleanup::new(temp_dir.clone());
@@ -635,6 +688,64 @@ async fn test_export_json_format() -> Result<()> {
     assert!(result.is_ok(), "Export to JSON format should succeed");
     let json_file = test_data_dir.join("index.json");
     assert!(json_file.exists(), "JSON file should be created");
+    Ok(())
+}
+#[tokio::test]
+async fn test_export_json_lines_alias_uses_canonical_extension() -> Result<()> {
+    let temp_dir = temp_test_dir("export_json_lines_alias");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = temp_dir.join("activities.ndjson");
+    copy(fixture_path("jsonl/rad-batch.jsonl"), &source)?;
+    run_structured_export(&source, None, FileFormat::JsonLines, None, None).await?;
+    let output_path = temp_dir.join("activities.jsonl");
+    let output = read_to_string(output_path)?;
+    let parsed = OneOrMany::<ResearchActivity>::parse(&output, MimeType::JsonLines).map_err(|why| eyre!(why.to_string()))?;
+    assert_eq!(parsed.len(), 2);
+    Ok(())
+}
+#[tokio::test]
+async fn test_export_json_lines_canonical_source_is_a_no_op() -> Result<()> {
+    let temp_dir = temp_test_dir("export_json_lines_no_op");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = temp_dir.join("activities.jsonl");
+    let expected = read_to_string(fixture_path("jsonl/rad-batch.jsonl"))?;
+    write(&source, &expected)?;
+    run_structured_export(&source, None, FileFormat::JsonLines, None, None).await?;
+    assert_eq!(read_to_string(source)?, expected);
+    Ok(())
+}
+#[tokio::test]
+async fn test_export_json_lines_crosswalk_preserves_batch() -> Result<()> {
+    let temp_dir = temp_test_dir("export_json_lines_crosswalk");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = temp_dir.join("records.ndjson");
+    let output_dir = temp_dir.join("output");
+    create_dir_all(&output_dir)?;
+    copy(fixture_path("jsonl/datacite-batch.ndjson"), &source)?;
+    run_structured_export(&source, Some(output_dir.clone()), FileFormat::JsonLines, None, Some(Standard::Dcat)).await?;
+    let output = read_to_string(output_dir.join("records.jsonl"))?;
+    let parsed = OneOrMany::<dcat::Dataset>::parse(&output, MimeType::JsonLines).map_err(|why| eyre!(why.to_string()))?;
+    assert_eq!(parsed.len(), 2);
+    assert!(output.ends_with('\n'));
+    Ok(())
+}
+#[tokio::test]
+async fn test_export_json_lines_to_existing_batch_formats() -> Result<()> {
+    let temp_dir = temp_test_dir("export_json_lines_to_batches");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = temp_dir.join("activities.jsonl");
+    copy(fixture_path("jsonl/rad-batch.jsonl"), &source)?;
+    for (format, mime, extension) in [
+        (FileFormat::Json, MimeType::Json, "json"),
+        (FileFormat::Yaml, MimeType::Yaml, "yaml"),
+        (FileFormat::Zon, MimeType::Zon, "zonf"),
+    ] {
+        run_structured_export(&source, None, format, None, None).await?;
+        let output = read_to_string(temp_dir.join(format!("activities.{extension}")))?;
+        let parsed = OneOrMany::<ResearchActivity>::parse(&output, mime).map_err(|why| eyre!(why.to_string()))?;
+        let identifiers = parsed.iter().map(|activity| activity.meta.identifier.as_str()).collect::<Vec<_>>();
+        assert_eq!(identifiers, ["batch-one", "batch-two"]);
+    }
     Ok(())
 }
 #[tokio::test]

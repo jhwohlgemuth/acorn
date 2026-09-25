@@ -4,7 +4,13 @@
 use crate::{
     io::{
         adapter::migrate::Migration,
-        config::bucket::{BucketExtension, BucketOptions},
+        config::{
+            bucket::{
+                source::{BucketSourceAdapter, BucketSourceItem},
+                BucketExtension, BucketOptions,
+            },
+            is_filtered_path, is_ignored_path, FilterSet,
+        },
         database::{schema::Table, Database, Provenance, ResearchActivityCandidate},
         read_file, with_progress, ApiResult, FromPath, InputOutput, ProgressType,
     },
@@ -14,18 +20,24 @@ use acorn_core::{
     options::{CommonRuntime, RuntimeOptions},
     prelude::HashMap,
     util::{suffix, MimeType},
-    Repository,
 };
-use acorn_host::terminal::Label;
+use acorn_host::{
+    fs::{FsError, SafePath, TemporaryDirectory},
+    terminal::Label,
+};
 use acorn_schema::{
     pid::{Identifier, PID},
     research_activity::ResearchActivity,
 };
 use color_eyre::eyre::{eyre, Report};
-use core::{future::Future, iter::once};
+use core::iter::once;
 use jiff::Timestamp;
 use owo_colors::OwoColorize;
-use std::path::{Component, Path, PathBuf};
+use std::{
+    fs::read,
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
 
 /// Policy controlling which bucket sources a transfer accepts.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -35,18 +47,10 @@ pub enum TransferPolicy {
     /// Permit local and remote sources.
     Import,
 }
-pub(crate) struct DownloadOptions<'a> {
-    pub(crate) repository: &'a Repository,
-    pub(crate) output: &'a Path,
-    pub(crate) source: &'a Path,
-    pub(crate) destination: &'a Path,
-    pub(crate) branch: Option<&'a str>,
-    pub(crate) clobber: bool,
-}
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct TransferItem {
-    pub(crate) source: PathBuf,
-    pub(crate) destination: PathBuf,
+    pub(crate) source: BucketSourceItem,
+    pub(crate) destination: SafePath,
 }
 /// Files successfully transferred from one configured bucket.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -58,20 +62,48 @@ pub struct TransferManifest {
     /// Relative paths written beneath the output directory.
     pub files: Vec<PathBuf>,
 }
-impl From<&Path> for TransferItem {
-    fn from(source: &Path) -> Self {
-        Self {
-            source: source.to_path_buf(),
-            destination: source.to_path_buf(),
+impl TransferItem {
+    async fn apply<A>(self, adapter: &A, output: &Path, staging: Option<&TemporaryDirectory>, clobber: bool, write_lock: &Mutex<()>) -> ApiResult<()>
+    where
+        A: BucketSourceAdapter + Sync,
+    {
+        match (adapter.is_local(), clobber, staging) {
+            | (true, true, Some(staging)) => match self.destination.materialize_under(staging.path()) {
+                | Ok(staged) => match adapter.retrieve(&self.source, &staged).await {
+                    | Ok(()) => self
+                        .destination
+                        .write_file(output, true, write_lock, || async {
+                            read(&staged).map_err(|source| FsError::Io { path: staged, source })
+                        })
+                        .await
+                        .map_err(Report::from),
+                    | Err(why) => Err(why),
+                },
+                | Err(why) => Err(why.into()),
+            },
+            | (false, true, _) => {
+                let target = match write_lock.lock() {
+                    | Ok(_guard) => self.destination.prepare(output).map_err(Report::from),
+                    | Err(why) => Err(eyre!("Failed to lock bucket output — {why}")),
+                };
+                match target {
+                    | Ok(target) => adapter.retrieve(&self.source, &target).await,
+                    | Err(why) => Err(why),
+                }
+            }
+            | _ => match self.destination.materialize_under(output) {
+                | Ok(target) => adapter.retrieve(&self.source, &target).await,
+                | Err(why) => Err(why.into()),
+            },
         }
     }
-}
-impl TransferItem {
-    pub(crate) fn collect(paths: Vec<String>, flatten: bool) -> ApiResult<Vec<Self>> {
-        let items = paths
+    pub(crate) fn collect(items: Vec<BucketSourceItem>, flatten: bool) -> ApiResult<Vec<Self>> {
+        let items = items
             .into_iter()
-            .map(PathBuf::from)
-            .map(|path| Self::from(path.as_path()))
+            .map(|source| Self {
+                destination: source.path.clone(),
+                source,
+            })
             .map(|item| match flatten {
                 | true => item.flatten(),
                 | false => Ok(item),
@@ -80,20 +112,16 @@ impl TransferItem {
         match items {
             | Ok(items) => items
                 .iter()
-                .try_fold(HashMap::<PathBuf, PathBuf>::new(), |mut destinations, item| {
+                .try_fold(HashMap::<SafePath, SafePath>::new(), |mut destinations, item| {
                     let destination = &item.destination;
-                    let safe = !destination.as_os_str().is_empty() && destination.components().all(|part| matches!(part, Component::Normal(_)));
-                    match safe {
-                        | false => Err(eyre!("Output path is unsafe — '{}'", item.destination.display())),
-                        | true => match destinations.insert(item.destination.clone(), item.source.clone()) {
-                            | Some(source) => Err(eyre!(
-                                "Output path collision for '{}' — '{}' and '{}'",
-                                item.destination.display(),
-                                source.display(),
-                                item.source.display()
-                            )),
-                            | None => Ok(destinations),
-                        },
+                    match destinations.insert(destination.clone(), item.source.path.clone()) {
+                        | Some(source) => Err(eyre!(
+                            "Output path collision for '{}' — '{}' and '{}'",
+                            destination.as_path().display(),
+                            source.as_path().display(),
+                            item.source.path.as_path().display()
+                        )),
+                        | None => Ok(destinations),
                     }
                 })
                 .map(|_| items),
@@ -101,9 +129,13 @@ impl TransferItem {
         }
     }
     fn flatten(self) -> ApiResult<Self> {
-        match self.source.file_name().map(PathBuf::from) {
-            | Some(destination) => Ok(Self { destination, ..self }),
-            | None => Err(eyre!("Cannot flatten repository path without a filename — {}", self.source.display())),
+        match self.source.path.as_path().file_name().map(PathBuf::from).map(SafePath::new) {
+            | Some(Ok(destination)) => Ok(Self { destination, ..self }),
+            | Some(Err(why)) => Err(why.into()),
+            | None => Err(eyre!(
+                "Cannot flatten bucket path without a filename — {}",
+                self.source.path.as_path().display()
+            )),
         }
     }
 }
@@ -249,35 +281,67 @@ pub(crate) fn operations_complete_message(name: Option<String>, json_count: usiz
         message,
     )
 }
-pub(crate) async fn transfer_bucket_files<F, Fut>(
-    name: Option<String>,
-    repository: String,
-    items: Vec<TransferItem>,
-    options: &BucketOptions,
-    verb: &'static str,
-    operation: F,
-) -> ApiResult<TransferManifest>
+pub(crate) async fn transfer_bucket_files<A>(name: Option<String>, adapter: &A, options: &BucketOptions) -> ApiResult<TransferManifest>
 where
-    F: Fn(TransferItem) -> Fut,
-    Fut: Future<Output = ApiResult<()>>,
+    A: BucketSourceAdapter + Sync,
+{
+    match (FilterSet::compile(options), adapter.items().await) {
+        | (Ok(filters), Ok(items)) => {
+            let selected = items
+                .into_iter()
+                .filter(|item| {
+                    let path = item.path.as_path().display().to_string();
+                    !is_ignored_path(&path, &filters.ignore) && is_filtered_path(&path, &filters.filter)
+                })
+                .collect::<Vec<_>>();
+            match TransferItem::collect(selected, options.extension.flatten) {
+                | Ok(items) => transfer_selected(name, adapter, items, options).await,
+                | Err(why) => Err(why),
+            }
+        }
+        | (Err(why), _) | (_, Err(why)) => Err(why),
+    }
+}
+async fn transfer_selected<A>(name: Option<String>, adapter: &A, items: Vec<TransferItem>, options: &BucketOptions) -> ApiResult<TransferManifest>
+where
+    A: BucketSourceAdapter + Sync,
 {
     let CommonRuntime { quiet, threads, .. } = &options.common;
-    let source_paths = items.iter().map(|item| item.source.display().to_string()).collect::<Vec<_>>();
+    let source_paths = items
+        .iter()
+        .map(|item| item.source.path.as_path().display().to_string())
+        .collect::<Vec<_>>();
     let total_data = count_json_files(&source_paths);
     let total_images = count_image_files(&source_paths);
-    let message = move |item: &TransferItem| format!("{verb} {}", item.source.display());
+    let verb = match adapter.is_local() {
+        | true => "Copying",
+        | false => "Downloading",
+    };
+    let message = move |item: &TransferItem| format!("{verb} {}", item.source.path.as_path().display());
     let finish_name = name.clone();
     let finish_message = |_| operations_complete_message(finish_name, total_data, total_images);
     let progress_type = match quiet {
         | true => ProgressType::Silent,
         | false => ProgressType::Bar,
     };
-    let files = items.iter().map(|item| item.destination.clone()).collect::<Vec<_>>();
-    with_progress(items, message, operation, finish_message, Some(*threads), progress_type)
-        .await
-        .map(|_| TransferManifest {
-            bucket: name,
-            repository,
-            files,
-        })
+    let files = items.iter().map(|item| item.destination.clone().into_path_buf()).collect::<Vec<_>>();
+    let output = options.output.clone().unwrap_or_default();
+    let staging = match (adapter.is_local(), options.extension.clobber, items.is_empty()) {
+        | (true, true, false) => TemporaryDirectory::create("acorn-bucket-transfer").map(Some).map_err(Report::from),
+        | _ => Ok(None),
+    };
+    match staging {
+        | Ok(staging) => {
+            let write_lock = Mutex::new(());
+            let operation = |item: TransferItem| item.apply(adapter, &output, staging.as_ref(), options.extension.clobber, &write_lock);
+            with_progress(items, message, operation, finish_message, Some(*threads), progress_type)
+                .await
+                .map(|_| TransferManifest {
+                    bucket: name,
+                    repository: adapter.manifest_identity(),
+                    files,
+                })
+        }
+        | Err(why) => Err(why),
+    }
 }

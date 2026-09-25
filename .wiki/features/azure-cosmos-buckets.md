@@ -26,7 +26,7 @@ status: planned
 
 # Dependencies
 
-This plan requires the [provider-neutral bucket source abstraction](../refactors/bucket-source-abstraction.md), which in turn consumes the stable manifest, filtering, destination-safety, canonicalization, provenance, and ingestion contracts from [unified import and download with BagIt archives](unified-import-download-bagit.md). Cosmos integration must extend the landed source and item contracts rather than revise them in the provider plan.
+This plan requires the implemented provider-neutral `BucketSource` and `BucketSourceAdapter` contracts, which consume the stable manifest, filtering, destination-safety, canonicalization, provenance, and ingestion contracts from [unified import and download with BagIt archives](unified-import-download-bagit.md). Cosmos integration must extend the landed source and item contracts rather than revise them in the provider plan.
 
 It must preserve [dependency feature defaults](../refactors/portability/dependency-feature-defaults.md), the existing HTTP/offline policy, and the provider/authentication boundaries coordinated by the [API roadmap](../refactors/api/roadmap.md).
 

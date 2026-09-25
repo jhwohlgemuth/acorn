@@ -257,13 +257,6 @@ pub struct Findings {
     #[cfg_attr(feature = "exec", validate(nested))]
     values: Vec<Finding>,
 }
-impl<'a> IntoIterator for &'a CheckBatch {
-    type Item = &'a Check;
-    type IntoIter = core::slice::Iter<'a, Check>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
 impl Check {
     /// Returns whether this check represents a failure (not successful and severity warrants failure)
     pub fn is_failure(&self) -> bool {
@@ -431,6 +424,13 @@ impl core::iter::FromIterator<CheckBatch> for CheckBatch {
 impl From<Vec<Check>> for CheckBatch {
     fn from(checks: Vec<Check>) -> Self {
         Self(checks)
+    }
+}
+impl<'a> IntoIterator for &'a CheckBatch {
+    type Item = &'a Check;
+    type IntoIter = core::slice::Iter<'a, Check>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 impl IntoIterator for CheckBatch {
@@ -743,57 +743,78 @@ impl Standard {
     /// - A record fails conversion
     /// - Output serialization fails
     pub fn crosswalk(&self, content: &str, mime: MimeType, target: Standard, target_mime: MimeType) -> Result<String, CrosswalkError> {
+        let source_mime = mime.clone();
+        let label = |index: usize| match source_mime {
+            | MimeType::JsonLines => format!("record at index {index} (line {})", index.saturating_add(1)),
+            | _ => format!("record at index {index}"),
+        };
         match *self {
             | Standard::Datacite => OneOrMany::<datacite::Record>::parse(content, mime).and_then(|source| match target {
                 | Standard::Datacite => source.serialize(target_mime),
-                | Standard::Dcat => source.map(dcat::Dataset::try_from).and_then(|b| b.serialize(target_mime)),
-                | Standard::Invenio => source.map(invenio::Record::try_from).and_then(|b| b.serialize(target_mime)),
-                | Standard::Huwise => source.map(huwise::Dataset::try_from).and_then(|b| b.serialize(target_mime)),
+                | Standard::Dcat => source
+                    .try_map_with_label(dcat::Dataset::try_from, label)
+                    .and_then(|batch| batch.serialize(target_mime)),
+                | Standard::Invenio => source
+                    .try_map_with_label(invenio::Record::try_from, label)
+                    .and_then(|batch| batch.serialize(target_mime)),
+                | Standard::Huwise => source
+                    .try_map_with_label(huwise::Dataset::try_from, label)
+                    .and_then(|batch| batch.serialize(target_mime)),
                 | _ => Err(self.unsupported_crosswalk(target)),
             }),
             | Standard::Dcat => OneOrMany::<dcat::Dataset>::parse(content, mime).and_then(|source| match target {
                 | Standard::Dcat => source.serialize(target_mime),
-                | Standard::Datacite => source.map(datacite::Record::try_from).and_then(|b| b.serialize(target_mime)),
+                | Standard::Datacite => source
+                    .try_map_with_label(datacite::Record::try_from, label)
+                    .and_then(|batch| batch.serialize(target_mime)),
                 | Standard::Invenio => source
-                    .map(|v| datacite::Record::try_from(v).and_then(invenio::Record::try_from))
-                    .and_then(|b| b.serialize(target_mime)),
+                    .try_map_with_label(|value| datacite::Record::try_from(value).and_then(invenio::Record::try_from), label)
+                    .and_then(|batch| batch.serialize(target_mime)),
                 | Standard::Huwise => source
-                    .map(|v| datacite::Record::try_from(v).and_then(huwise::Dataset::try_from))
-                    .and_then(|b| b.serialize(target_mime)),
+                    .try_map_with_label(|value| datacite::Record::try_from(value).and_then(huwise::Dataset::try_from), label)
+                    .and_then(|batch| batch.serialize(target_mime)),
                 | _ => Err(self.unsupported_crosswalk(target)),
             }),
             | Standard::Invenio => OneOrMany::<invenio::Record>::parse(content, mime).and_then(|source| match target {
                 | Standard::Invenio => source.serialize(target_mime),
-                | Standard::Datacite => source.map(datacite::Record::try_from).and_then(|b| b.serialize(target_mime)),
+                | Standard::Datacite => source
+                    .try_map_with_label(datacite::Record::try_from, label)
+                    .and_then(|batch| batch.serialize(target_mime)),
                 | Standard::Dcat => source
-                    .map(|v| datacite::Record::try_from(v).and_then(dcat::Dataset::try_from))
-                    .and_then(|b| b.serialize(target_mime)),
+                    .try_map_with_label(|value| datacite::Record::try_from(value).and_then(dcat::Dataset::try_from), label)
+                    .and_then(|batch| batch.serialize(target_mime)),
                 | Standard::Huwise => source
-                    .map(|v| datacite::Record::try_from(v).and_then(huwise::Dataset::try_from))
-                    .and_then(|b| b.serialize(target_mime)),
+                    .try_map_with_label(|value| datacite::Record::try_from(value).and_then(huwise::Dataset::try_from), label)
+                    .and_then(|batch| batch.serialize(target_mime)),
                 | _ => Err(self.unsupported_crosswalk(target)),
             }),
             | Standard::Huwise => OneOrMany::<huwise::Dataset>::parse(content, mime).and_then(|source| match target {
                 | Standard::Huwise => source.serialize(target_mime),
-                | Standard::Datacite => source.map(datacite::Record::try_from).and_then(|b| b.serialize(target_mime)),
+                | Standard::Datacite => source
+                    .try_map_with_label(datacite::Record::try_from, label)
+                    .and_then(|batch| batch.serialize(target_mime)),
                 | Standard::Dcat => source
-                    .map(|v| datacite::Record::try_from(v).and_then(dcat::Dataset::try_from))
-                    .and_then(|b| b.serialize(target_mime)),
+                    .try_map_with_label(|value| datacite::Record::try_from(value).and_then(dcat::Dataset::try_from), label)
+                    .and_then(|batch| batch.serialize(target_mime)),
                 | Standard::Invenio => source
-                    .map(|v| datacite::Record::try_from(v).and_then(invenio::Record::try_from))
-                    .and_then(|b| b.serialize(target_mime)),
+                    .try_map_with_label(|value| datacite::Record::try_from(value).and_then(invenio::Record::try_from), label)
+                    .and_then(|batch| batch.serialize(target_mime)),
                 | _ => Err(self.unsupported_crosswalk(target)),
             }),
             | Standard::Raid => OneOrMany::<raid::Metadata>::parse(content, mime).and_then(|source| match target {
                 | Standard::Raid => source.serialize(target_mime),
                 | Standard::ResearchActivityData => {
-                    crosswalk_batch::<raid::Metadata, ResearchActivity>(source, target_mime).map(Conversion::into_value)
+                    crosswalk_batch::<raid::Metadata, ResearchActivity>(source, &source_mime, target_mime).map(Conversion::into_value)
                 }
                 | _ => Err(self.unsupported_crosswalk(target)),
             }),
             | Standard::ResearchActivityData => OneOrMany::<ResearchActivity>::parse(content, mime).and_then(|source| match target {
-                | Standard::Datacite => crosswalk_batch::<ResearchActivity, datacite::Record>(source, target_mime).map(Conversion::into_value),
-                | Standard::Raid => crosswalk_batch::<ResearchActivity, raid::Metadata>(source, target_mime).map(Conversion::into_value),
+                | Standard::Datacite => {
+                    crosswalk_batch::<ResearchActivity, datacite::Record>(source, &source_mime, target_mime).map(Conversion::into_value)
+                }
+                | Standard::Raid => {
+                    crosswalk_batch::<ResearchActivity, raid::Metadata>(source, &source_mime, target_mime).map(Conversion::into_value)
+                }
                 | Standard::ResearchActivityData => source.serialize(target_mime),
                 | _ => Err(self.unsupported_crosswalk(target)),
             }),
@@ -813,12 +834,12 @@ impl Standard {
         target_mime: MimeType,
     ) -> Result<Conversion<String>, CrosswalkError> {
         match (*self, target) {
-            | (Standard::Raid, Standard::ResearchActivityData) => OneOrMany::<raid::Metadata>::parse(content, mime)
-                .and_then(|source| crosswalk_batch::<raid::Metadata, ResearchActivity>(source, target_mime)),
-            | (Standard::ResearchActivityData, Standard::Datacite) => OneOrMany::<ResearchActivity>::parse(content, mime)
-                .and_then(|source| crosswalk_batch::<ResearchActivity, datacite::Record>(source, target_mime)),
-            | (Standard::ResearchActivityData, Standard::Raid) => OneOrMany::<ResearchActivity>::parse(content, mime)
-                .and_then(|source| crosswalk_batch::<ResearchActivity, raid::Metadata>(source, target_mime)),
+            | (Standard::Raid, Standard::ResearchActivityData) => OneOrMany::<raid::Metadata>::parse(content, mime.clone())
+                .and_then(|source| crosswalk_batch::<raid::Metadata, ResearchActivity>(source, &mime, target_mime)),
+            | (Standard::ResearchActivityData, Standard::Datacite) => OneOrMany::<ResearchActivity>::parse(content, mime.clone())
+                .and_then(|source| crosswalk_batch::<ResearchActivity, datacite::Record>(source, &mime, target_mime)),
+            | (Standard::ResearchActivityData, Standard::Raid) => OneOrMany::<ResearchActivity>::parse(content, mime.clone())
+                .and_then(|source| crosswalk_batch::<ResearchActivity, raid::Metadata>(source, &mime, target_mime)),
             | _ => self.collect_crosswalk_warnings(content, &mime, target).and_then(|warnings| {
                 self.crosswalk(content, mime, target, target_mime)
                     .map(|content| Conversion::new(content, warnings))
@@ -969,7 +990,7 @@ fn contains_layer_identity(value: &Value) -> bool {
     }
 }
 #[cfg(any(feature = "analysis", feature = "std"))]
-fn crosswalk_batch<S, T>(source: OneOrMany<S>, target_mime: MimeType) -> Result<Conversion<String>, CrosswalkError>
+fn crosswalk_batch<S, T>(source: OneOrMany<S>, source_mime: &MimeType, target_mime: MimeType) -> Result<Conversion<String>, CrosswalkError>
 where
     S: Crosswalk<T>,
     T: Serialize,
@@ -984,9 +1005,13 @@ where
             .into_iter()
             .enumerate()
             .map(|(index, source)| {
+                let label = match source_mime {
+                    | MimeType::JsonLines => format!("record at index {index} (line {})", index.saturating_add(1)),
+                    | _ => format!("record at index {index}"),
+                };
                 source
                     .crosswalk()
-                    .map_err(|error| CrosswalkError::BuildFailed(format!("Failed to convert record at index {index} — {error}")))
+                    .map_err(|error| CrosswalkError::BuildFailed(format!("Failed to convert {label} — {error}")))
             })
             .collect::<Result<Vec<_>, _>>()
             .and_then(|converted| {
@@ -1037,7 +1062,10 @@ where
                 .enumerate()
                 .flat_map(|(i, record)| {
                     let fields = record.extract_fields();
-                    let prefix = format!("record[{i}].");
+                    let prefix = match mime {
+                        | MimeType::JsonLines => format!("record[{i}].line[{}].", i.saturating_add(1)),
+                        | _ => format!("record[{i}]."),
+                    };
                     missing_warnings(&fields, &prefix).into_iter().chain(unmapped_warnings(&fields, &prefix))
                 })
                 .collect(),

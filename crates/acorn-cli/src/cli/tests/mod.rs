@@ -9,11 +9,14 @@
 // version flag (used after removing the problematic custom `version` + `disable_version_flag`)
 // returns Err during `try_parse_from` as a signal to display version info.
 use crate::cli::arguments::osti::DoeLab;
-use crate::cli::arguments::SyncTarget;
+use crate::cli::arguments::{FileFormat, SyncTarget};
+use crate::cli::parse::infer_standard_from_content;
 use crate::cli::{
-    resolve_paths, resolve_paths_including, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, ServeCommands,
+    resolve_export_paths, resolve_paths, resolve_paths_including, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands,
+    ImportCommands, ServeCommands,
 };
 use crate::test::util::{temp_test_dir, TestCleanup};
+use acorn::analyzer::Standard;
 use acorn::io::filter_ignored_with_root;
 use acorn::util::constants::env::CHROME_PATH;
 use acorn_core::util::{MarkdownSupport, MimeType};
@@ -186,6 +189,16 @@ fn test_cli() {
         "api.example.com"
     ])
     .is_err());
+}
+#[test]
+fn test_cli_accepts_json_lines_export_names() {
+    ["jsonl", "ndjson"].into_iter().for_each(|format| {
+        let arguments = Arguments::try_parse_from(["acorn", "export", "records.jsonl", "--format", format]).expect("parse JSON Lines export format");
+        match arguments.command {
+            | Some(Commands::Export(arguments)) => assert!(matches!(arguments.format, FileFormat::JsonLines)),
+            | _ => panic!("expected export arguments"),
+        }
+    });
 }
 #[test]
 fn test_create_bot_domain_from_ci_server_host_env() {
@@ -820,6 +833,28 @@ fn test_import_model_sync_argument_defaults_to_all() {
     }
 }
 #[test]
+fn test_json_lines_standard_inference_rejects_mixed_records_with_line() {
+    let content = concat!(
+        "{\"id\":\"10.5072/one\",\"type\":\"dois\",\"attributes\":{}}\n",
+        "{\"contact\":{},\"meta\":{},\"title\":\"Activity\"}\n",
+    );
+    let error = infer_standard_from_content(Path::new("records.jsonl"), content, &MimeType::JsonLines)
+        .expect_err("mixed JSON Lines standards should fail inference");
+    let message = error.to_string();
+    assert!(message.contains("index 1"), "unexpected error: {message}");
+    assert!(message.contains("line 2"), "unexpected error: {message}");
+}
+#[test]
+fn test_json_lines_standard_inference_uses_all_records() {
+    let content = concat!(
+        "{\"id\":\"10.5072/one\",\"type\":\"dois\",\"attributes\":{}}\n",
+        "{\"id\":\"10.5072/two\",\"type\":\"dois\",\"attributes\":{}}\n",
+    );
+    let standard =
+        infer_standard_from_content(Path::new("records.ndjson"), content, &MimeType::JsonLines).expect("uniform JSON Lines records should infer");
+    assert_eq!(standard, Standard::Datacite);
+}
+#[test]
 fn test_model_commands_share_resolution_arguments() {
     let flags = [
         "acme/model",
@@ -899,6 +934,27 @@ fn test_report_command_requires_fixed_bounds_and_accepts_project_selection() {
         }
         | _ => panic!("expected report command"),
     }
+}
+#[test]
+fn test_resolve_export_paths_discovers_json_lines_without_broadening_defaults() {
+    let root = temp_test_dir("resolve-json-lines");
+    let _cleanup = TestCleanup::new(root.clone());
+    create_dir_all(&root).unwrap();
+    let json = root.join("activity.json");
+    let jsonl = root.join("activity.jsonl");
+    let ndjson = root.join("activity.ndjson");
+    write(&json, "{}").unwrap();
+    write(&jsonl, "{}\n").unwrap();
+    write(&ndjson, "{}\n").unwrap();
+    let options = CommandOptions::init().build();
+    let default_paths = block_on(resolve_paths(&Some(root.clone()), &options)).unwrap();
+    let export_paths = block_on(resolve_export_paths(&Some(root), &options)).unwrap();
+    assert!(default_paths.contains(&json));
+    assert!(!default_paths.contains(&jsonl));
+    assert!(!default_paths.contains(&ndjson));
+    assert!(export_paths.contains(&json));
+    assert!(export_paths.contains(&jsonl));
+    assert!(export_paths.contains(&ndjson));
 }
 #[test]
 fn test_resolve_paths_applies_filter_to_relative_local_paths() {

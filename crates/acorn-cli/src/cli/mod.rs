@@ -27,6 +27,14 @@ const STYLES: Styles = Styles::styled()
     .usage(Ansi256Color(PRIMARY_COLOR).on_default().bold())
     .literal(AnsiColor::White.on_default())
     .placeholder(Ansi256Color(183).on_default());
+const SUPPORTED_EXTENSIONS: [MimeType; 6] = [
+    MimeType::Json,
+    MimeType::Jsonc,
+    MimeType::Markdown,
+    MimeType::Pdf,
+    MimeType::Yaml,
+    MimeType::Zon,
+];
 /// Return type for main function
 pub type Void = eyre::Result<(), eyre::Report>;
 #[derive(Debug, Subcommand)]
@@ -139,6 +147,9 @@ pub enum Commands {
     ///
     ///     Export folder as a BagIt archive to /path/to/bag.zip
     ///     $> acorn export /path/to/data --format bag --output /path/to/bag
+    ///
+    ///     Export an ordered JSON Lines metadata batch
+    ///     $> acorn export /path/to/data.ndjson --format jsonl --from datacite --to dcat
     ///
     ///     Export file(s) that were changed in a given Git commit
     ///     $> acorn export --commit <commit hash>
@@ -550,6 +561,11 @@ pub struct WatchOptions {
     /// Whether any watched source requires network polling.
     pub network: bool,
 }
+/// Resolve paths supported by structured export, including JSON Lines batches.
+pub(crate) async fn resolve_export_paths(path: &Option<PathBuf>, options: &CommandOptions) -> ApiResult<Vec<PathBuf>> {
+    let supported_extensions = SUPPORTED_EXTENSIONS.iter().cloned().chain([MimeType::JsonLines]).collect();
+    resolve_paths_with_extensions(path, options, &[], supported_extensions).await
+}
 /// Returns a vector of PathBuf from the given options
 ///
 /// If the options specify a merge request, the files from the current branch are returned.
@@ -563,15 +579,21 @@ pub async fn resolve_paths(path: &Option<PathBuf>, options: &CommandOptions) -> 
 }
 /// Resolve supported paths while also accepting exact extensionless file names.
 pub(crate) async fn resolve_paths_including(path: &Option<PathBuf>, options: &CommandOptions, file_names: &[&str]) -> ApiResult<Vec<PathBuf>> {
-    let supported_extensions = vec![
-        MimeType::Json,
-        MimeType::Jsonc,
-        MimeType::Markdown,
-        MimeType::Pdf,
-        MimeType::Yaml,
-        MimeType::Zon,
-    ];
-    let extensions = file_names.is_empty().then(|| supported_extensions.clone());
+    resolve_paths_with_extensions(path, options, file_names, SUPPORTED_EXTENSIONS.to_vec()).await
+}
+async fn resolve_paths_with_extensions(
+    path: &Option<PathBuf>,
+    options: &CommandOptions,
+    file_names: &[&str],
+    supported_extensions: Vec<MimeType>,
+) -> ApiResult<Vec<PathBuf>> {
+    let extensions = file_names.is_empty().then(|| {
+        supported_extensions
+            .iter()
+            .map(MimeType::file_type)
+            .chain(supported_extensions.contains(&MimeType::JsonLines).then(|| "ndjson".to_string()))
+            .collect::<Vec<_>>()
+    });
     let CommandOptions {
         branch,
         commit,

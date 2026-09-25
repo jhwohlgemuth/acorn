@@ -9,8 +9,7 @@ use acorn::io::ApiResult;
 use acorn::io::{jsonc_parse_value, FromPath};
 use acorn::io::{Executor, Platform, Remote};
 use acorn_core::util::MimeType;
-use acorn_schema::enrichment::Provider;
-use acorn_schema::standard::zon;
+use acorn_schema::{enrichment::Provider, standard::zon, OneOrMany};
 use color_eyre::eyre::eyre;
 use jiff::SignedDuration;
 use serde_json;
@@ -19,24 +18,70 @@ use serde_norway;
 use std::path::Path;
 use strum::VariantNames;
 
-/// Infer the metadata standard from JSON, YAML, or ZON content.
+fn infer_json_lines_standard(path: &Path, content: &str) -> ApiResult<Standard> {
+    OneOrMany::<Value>::parse(content, MimeType::JsonLines)
+        .map_err(|why| {
+            eyre!(
+                "Unable to infer source schema for {} — invalid {} ({why})",
+                path.display(),
+                MimeType::JsonLines
+            )
+        })
+        .and_then(|records| {
+            records
+                .into_vec()
+                .into_iter()
+                .enumerate()
+                .map(|(index, value)| match value {
+                    | Value::Object(map) => Ok((index, Standard::from(&map))),
+                    | _ => Err(eyre!(
+                        "Unable to infer source schema for {} — record at index {index} (line {}) must be an object",
+                        path.display(),
+                        index.saturating_add(1)
+                    )),
+                })
+                .collect::<ApiResult<Vec<_>>>()
+                .and_then(|standards| match standards.split_first() {
+                    | Some(((_, expected), remaining)) => remaining
+                        .iter()
+                        .find(|(_, actual)| actual != expected)
+                        .map_or(Ok(*expected), |(index, actual)| {
+                            Err(eyre!(
+                                "Unable to infer source schema for {} — mixed standards at record index {index} (line {}): expected {expected}, inferred {actual}",
+                                path.display(),
+                                index.saturating_add(1)
+                            ))
+                        }),
+                    | None => Err(eyre!("Unable to infer source schema for {} — empty JSON Lines document", path.display())),
+                })
+        })
+}
+/// Infer the metadata standard from JSON, JSON Lines, YAML, or ZON content.
 ///
 /// Returns `ApiResult<Standard>` — the inferred standard based on
 /// the decoded object structure.
 pub(crate) fn infer_standard_from_content(path: &Path, content: &str, mime: &MimeType) -> ApiResult<Standard> {
-    let root = match mime {
-        | mime @ MimeType::Json => serde_json::from_str::<Value>(content)
-            .map_err(|why| eyre!("Unable to infer source schema for {} — invalid {mime} ({why})", path.display())),
-        | mime @ MimeType::Yaml => serde_norway::from_str::<Value>(content)
-            .map_err(|why| eyre!("Unable to infer source schema for {} — invalid {mime} ({why})", path.display())),
-        | mime @ MimeType::Zon => {
-            zon::decode_value(content).map_err(|why| eyre!("Unable to infer source schema for {} — invalid {mime} ({why})", path.display()))
+    match mime {
+        | MimeType::JsonLines => infer_json_lines_standard(path, content),
+        | _ => {
+            let root = match mime {
+                | mime @ MimeType::Json => serde_json::from_str::<Value>(content)
+                    .map_err(|why| eyre!("Unable to infer source schema for {} — invalid {mime} ({why})", path.display())),
+                | mime @ MimeType::Yaml => serde_norway::from_str::<Value>(content)
+                    .map_err(|why| eyre!("Unable to infer source schema for {} — invalid {mime} ({why})", path.display())),
+                | mime @ MimeType::Zon => {
+                    zon::decode_value(content).map_err(|why| eyre!("Unable to infer source schema for {} — invalid {mime} ({why})", path.display()))
+                }
+                | _ => Err(eyre!("Unable to infer source schema for {} — unsupported file type", path.display())),
+            };
+            root.and_then(|value| infer_standard_from_value(path, value))
         }
-        | _ => Err(eyre!("Unable to infer source schema for {} — unsupported file type", path.display())),
-    };
+    }
+}
+fn infer_standard_from_value(path: &Path, root: Value) -> ApiResult<Standard> {
     match root {
-        | Ok(Value::Object(map)) => Ok(Standard::from(&map)),
-        | Ok(Value::Array(values)) => match values.into_iter().next() {
+        | Value::Object(map) => Ok(Standard::from(&map)),
+        | Value::Array(values) => match values.into_iter().next() {
             | Some(Value::Object(map)) => Ok(Standard::from(&map)),
             | Some(_) => Err(eyre!(
                 "Unable to infer source schema for {} — array items must be objects",
@@ -44,11 +89,10 @@ pub(crate) fn infer_standard_from_content(path: &Path, content: &str, mime: &Mim
             )),
             | None => Err(eyre!("Unable to infer source schema for {} — empty array", path.display())),
         },
-        | Ok(_) => Err(eyre!(
+        | _ => Err(eyre!(
             "Unable to infer source schema for {} — expected object or array of objects",
             path.display()
         )),
-        | Err(why) => Err(why),
     }
 }
 /// Parse a CLI check-category name into an `analyzer::CheckCategory` variant.

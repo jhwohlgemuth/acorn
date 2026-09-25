@@ -20,6 +20,17 @@ Archive type is inferred from a bounded content header. `--archive-format 7z|zip
 
 `--filter`, `--ignore`, `--flatten`, and `--clobber` have the same transfer meaning as bucket download. `--config` loads bucket sources from an ACORN configuration. Offline import is accepted only when every selected source is local. The original archive URI is retained as transfer provenance.
 
+Configuration accepts bare bucket paths and URLs, or a named `source` string when a stable label is useful:
+
+```yaml
+buckets:
+  - ./local-bucket
+  - name: shared-research
+    source: https://github.com/example/research-data
+```
+
+Use a detailed `codeRepository` object for provider-specific fields. The existing `repository` key remains accepted, and all forms use the same fallible source parser as positional command input.
+
 Top-level `acorn download` remains for remote repository transfers and rejects local sources and offline operation. Model commands retain their own local and offline behavior.
 
 ## Model metadata

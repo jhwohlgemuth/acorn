@@ -367,6 +367,11 @@ pub enum MimeType {
     /// See <https://code.visualstudio.com/docs/languages/json#_json-with-comments>
     #[display("application/jsonc")]
     Jsonc,
+    /// Newline-delimited JSON records.
+    ///
+    /// See <https://github.com/ndjson/ndjson-spec>
+    #[display("application/x-ndjson")]
+    JsonLines,
     /// Markdown
     #[display("text/markdown")]
     Markdown,
@@ -623,8 +628,10 @@ impl From<&str> for MimeType {
     /// | jpeg | image/jpeg |
     /// | json | application/json |
     /// | jsonc | application/jsonc |
+    /// | jsonl | application/x-ndjson |
     /// | jsonld | application/ld+json |
     /// | md | text/markdown |
+    /// | ndjson | application/x-ndjson |
     /// | otf | font/otf |
     /// | ttf | font/ttf |
     /// | pdf | application/pdf |
@@ -654,6 +661,7 @@ impl From<&str> for MimeType {
             | "jpg" | "jpeg" => MimeType::Jpeg,
             | "json" => MimeType::Json,
             | "jsonc" => MimeType::Jsonc,
+            | "jsonl" | "ndjson" => MimeType::JsonLines,
             | "jsonld" | "json-ld" => MimeType::LdJson,
             | "md" | "markdown" => MimeType::Markdown,
             | "onnx" => MimeType::Onnx,
@@ -798,6 +806,7 @@ impl MimeType {
             | MimeType::Jpeg => "jpeg",
             | MimeType::Json => "json",
             | MimeType::Jsonc => "jsonc",
+            | MimeType::JsonLines => "jsonl",
             | MimeType::LdJson => "jsonld",
             | MimeType::Markdown => "md",
             | MimeType::ModelCard => "modelcard",
@@ -1105,17 +1114,6 @@ impl StringExt for Vec<&str> {
         self.into_iter().map(str::trim).filter(|value| !value.is_empty()).collect()
     }
 }
-impl StringExt for Vec<String> {
-    fn is_numeric(&self) -> bool {
-        self.iter().any(|value| value.is_numeric())
-    }
-    fn trim_and_compact(self) -> Self {
-        self.into_iter()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
-            .collect()
-    }
-}
 impl<P: AsRef<str>> MarkdownSupport for Vec<P> {
     fn to_markdown(&self) -> String {
         if self.is_empty() {
@@ -1126,6 +1124,17 @@ impl<P: AsRef<str>> MarkdownSupport for Vec<P> {
                 .collect::<Vec<String>>()
                 .join("")
         }
+    }
+}
+impl StringExt for Vec<String> {
+    fn is_numeric(&self) -> bool {
+        self.iter().any(|value| value.is_numeric())
+    }
+    fn trim_and_compact(self) -> Self {
+        self.into_iter()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .collect()
     }
 }
 /// Decode a base32 Crockford string into a u128 value.
@@ -1652,9 +1661,18 @@ mod tests {
     #[test]
     fn test_mime_type_from_resolves_file_type_names_and_aliases() {
         assert_eq!(MimeType::from("json"), MimeType::Json);
+        assert_eq!(MimeType::from("activity.JSONL"), MimeType::JsonLines);
         assert_eq!(MimeType::from("markdown"), MimeType::Markdown);
+        assert_eq!(MimeType::from("activity.ndjson"), MimeType::JsonLines);
         assert_eq!(MimeType::from("powerpoint"), MimeType::Powerpoint);
         assert_eq!(MimeType::from("zon"), MimeType::Zon);
+        assert_eq!(MimeType::JsonLines.file_type(), "jsonl");
+        assert_eq!(MimeType::JsonLines.to_string(), "application/x-ndjson");
+        assert_eq!(
+            serde_json::to_string(&MimeType::JsonLines).expect("serialize MIME type"),
+            r#""json-lines""#
+        );
+        assert!(!MimeType::JsonLines.is_repository_file());
     }
     #[test]
     fn test_mime_type_infers_rhai_from_abi_header() {

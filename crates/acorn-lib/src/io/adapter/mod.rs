@@ -39,6 +39,17 @@ use owo_colors::OwoColorize;
 use std::path::{Path, PathBuf};
 use tracing::debug;
 
+/// Host-side batch input and output operations for schema types.
+pub trait Batch {
+    /// Read one or many research activity records from a supported path.
+    fn batch_read(_path: impl AsRef<Path>) -> ApiResult<OneOrMany<ResearchActivity>> {
+        Err(eyre!("Batch reading is not implemented for this type"))
+    }
+    /// Write one or many research activity records using the target path format.
+    fn batch_write(&self, _path: impl Into<PathBuf>) -> ApiResult<()> {
+        Err(eyre!("Batch writing is not implemented for this type"))
+    }
+}
 /// Host-side filesystem operations for authoring Kitfiles.
 pub trait KitfileExt {
     /// Resolve the model content declared by a Kitfile against an OCI manifest.
@@ -168,6 +179,80 @@ impl InputOutput for Cff {
         let output = path.into().with_extension("yaml");
         serde_norway::to_string(self)
             .map_err(|why| eyre!("Failed to serialize YAML CFF — {why}"))
+            .and_then(|content| write_file(output, content))
+    }
+}
+impl InputOutput for datacite::Record {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<datacite::Record> {
+        let source = path.into();
+        match MimeType::from(source.display().to_string()) {
+            | MimeType::Json => datacite::Record::read_json(source),
+            | MimeType::Yaml => datacite::Record::read_yaml(source),
+            | _ => Err(eyre!("Unsupported DataCite data file extension")),
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<datacite::Record> {
+        #[derive(serde::Deserialize)]
+        #[serde(untagged)]
+        enum JsonInput {
+            One(Box<datacite::Record>),
+            Many(Vec<datacite::Record>),
+        }
+        read_file(path).and_then(|content| {
+            serde_json::from_str::<JsonInput>(&content)
+                .map_err(|why| eyre!("Failed to parse JSON DataCite record — {why}"))
+                .and_then(|value| match value {
+                    | JsonInput::One(record) => Ok(*record),
+                    | JsonInput::Many(records) => match records.len() {
+                        | 1 => records
+                            .into_iter()
+                            .next()
+                            .ok_or_else(|| eyre!("Expected one DataCite record but found none")),
+                        | len => Err(eyre!("Expected one DataCite record but found {len}")),
+                    },
+                })
+        })
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<datacite::Record> {
+        #[derive(serde::Deserialize)]
+        #[serde(untagged)]
+        enum YamlInput {
+            One(Box<datacite::Record>),
+            Many(Vec<datacite::Record>),
+        }
+        read_file(path).and_then(|content| {
+            serde_norway::from_str::<YamlInput>(&content)
+                .map_err(|why| eyre!("Failed to parse YAML DataCite record — {why}"))
+                .and_then(|value| match value {
+                    | YamlInput::One(record) => Ok(*record),
+                    | YamlInput::Many(records) => match records.len() {
+                        | 1 => records
+                            .into_iter()
+                            .next()
+                            .ok_or_else(|| eyre!("Expected one DataCite record but found none")),
+                        | len => Err(eyre!("Expected one DataCite record but found {len}")),
+                    },
+                })
+        })
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into();
+        match MimeType::from(output.display().to_string()) {
+            | MimeType::Json => self.write_json(output),
+            | MimeType::Yaml => self.write_yaml(output),
+            | _ => Err(eyre!("Unsupported DataCite data file extension for writing")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("json");
+        serde_json::to_string_pretty(self)
+            .map_err(|why| eyre!("Failed to serialize JSON DataCite record — {why}"))
+            .and_then(|content| write_file(output, content))
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("yaml");
+        serde_norway::to_string(self)
+            .map_err(|why| eyre!("Failed to serialize YAML DataCite record — {why}"))
             .and_then(|content| write_file(output, content))
     }
 }
@@ -307,151 +392,6 @@ impl InputOutput for huwise::Dataset {
             .and_then(|content| write_file(output, content))
     }
 }
-impl InputOutput for Kitfile {
-    fn parse(content: &str) -> Option<Self> {
-        Self::from_yaml(content).ok()
-    }
-    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        let path = path.into();
-        match MimeType::from_path(&path) {
-            | MimeType::Json => Self::read_json(path),
-            | MimeType::Yaml => Self::read_yaml(path),
-            | _ => Err(eyre!("Unsupported Kitfile extension")),
-        }
-    }
-    fn read_json(path: PathBuf) -> ApiResult<Self> {
-        read_file(path).and_then(|content| Self::from_resolved_json(content.as_bytes()).map_err(|why| eyre!(why)))
-    }
-    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
-        read_file(path).and_then(|content| Self::from_yaml(&content).map_err(|why| eyre!(why)))
-    }
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let path = path.into();
-        match MimeType::from_path(&path) {
-            | MimeType::Json => self.write_json(path),
-            | MimeType::Yaml => self.write_yaml(path),
-            | _ => Err(eyre!("Unsupported Kitfile extension")),
-        }
-    }
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        self.to_resolved_json()
-            .map_err(|why| eyre!(why))
-            .and_then(|content| write_file(path, content))
-    }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        self.to_yaml().map_err(|why| eyre!(why)).and_then(|content| write_file(path, content))
-    }
-}
-impl KitfileExt for Kitfile {
-    fn modelkit_content(&self, manifest: &Manifest) -> ApiResult<OciPlan> {
-        OciPlan::from_kitfile(self, manifest)
-    }
-    fn update(mut self, path: impl AsRef<Path>, bundle: impl AsRef<Path>) -> ApiResult<()> {
-        let path = path.as_ref();
-        let directory = path.parent().unwrap_or_else(|| Path::new("."));
-        directory
-            .canonicalize()
-            .map_err(|why| eyre!("Failed to resolve Kitfile directory — {why}"))
-            .and_then(|directory| {
-                bundle
-                    .as_ref()
-                    .canonicalize()
-                    .map_err(|why| eyre!("Failed to resolve MCPB output — {why}"))
-                    .map(|bundle| (directory, bundle))
-            })
-            .and_then(|(directory, bundle)| {
-                SafePath::new(bundle.to_relative(&directory)).map_err(Into::into).and_then(|relative| {
-                    let entry = McpServer {
-                        name: APPLICATION.to_string(),
-                        path: relative.as_path().to_string_lossy().replace('\\', "/"),
-                        description: "ACORN Model Context Protocol server".to_string(),
-                        layer: LayerInfo::default(),
-                    };
-                    match self.mcp_servers.iter_mut().find(|candidate| candidate.name == APPLICATION) {
-                        | Some(candidate) => *candidate = entry,
-                        | None => self.mcp_servers.push(entry),
-                    }
-                    self.mcp_servers.sort_by(|left, right| left.name.cmp(&right.name));
-                    self.to_yaml().map_err(|why| eyre!(why))
-                })
-            })
-            .and_then(|content| replace_file(path, content))
-    }
-}
-impl InputOutput for datacite::Record {
-    fn read(path: impl Into<PathBuf>) -> ApiResult<datacite::Record> {
-        let source = path.into();
-        match MimeType::from(source.display().to_string()) {
-            | MimeType::Json => datacite::Record::read_json(source),
-            | MimeType::Yaml => datacite::Record::read_yaml(source),
-            | _ => Err(eyre!("Unsupported DataCite data file extension")),
-        }
-    }
-    fn read_json(path: PathBuf) -> ApiResult<datacite::Record> {
-        #[derive(serde::Deserialize)]
-        #[serde(untagged)]
-        enum JsonInput {
-            One(Box<datacite::Record>),
-            Many(Vec<datacite::Record>),
-        }
-        read_file(path).and_then(|content| {
-            serde_json::from_str::<JsonInput>(&content)
-                .map_err(|why| eyre!("Failed to parse JSON DataCite record — {why}"))
-                .and_then(|value| match value {
-                    | JsonInput::One(record) => Ok(*record),
-                    | JsonInput::Many(records) => match records.len() {
-                        | 1 => records
-                            .into_iter()
-                            .next()
-                            .ok_or_else(|| eyre!("Expected one DataCite record but found none")),
-                        | len => Err(eyre!("Expected one DataCite record but found {len}")),
-                    },
-                })
-        })
-    }
-    fn read_yaml(path: PathBuf) -> ApiResult<datacite::Record> {
-        #[derive(serde::Deserialize)]
-        #[serde(untagged)]
-        enum YamlInput {
-            One(Box<datacite::Record>),
-            Many(Vec<datacite::Record>),
-        }
-        read_file(path).and_then(|content| {
-            serde_norway::from_str::<YamlInput>(&content)
-                .map_err(|why| eyre!("Failed to parse YAML DataCite record — {why}"))
-                .and_then(|value| match value {
-                    | YamlInput::One(record) => Ok(*record),
-                    | YamlInput::Many(records) => match records.len() {
-                        | 1 => records
-                            .into_iter()
-                            .next()
-                            .ok_or_else(|| eyre!("Expected one DataCite record but found none")),
-                        | len => Err(eyre!("Expected one DataCite record but found {len}")),
-                    },
-                })
-        })
-    }
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into();
-        match MimeType::from(output.display().to_string()) {
-            | MimeType::Json => self.write_json(output),
-            | MimeType::Yaml => self.write_yaml(output),
-            | _ => Err(eyre!("Unsupported DataCite data file extension for writing")),
-        }
-    }
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("json");
-        serde_json::to_string_pretty(self)
-            .map_err(|why| eyre!("Failed to serialize JSON DataCite record — {why}"))
-            .and_then(|content| write_file(output, content))
-    }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("yaml");
-        serde_norway::to_string(self)
-            .map_err(|why| eyre!("Failed to serialize YAML DataCite record — {why}"))
-            .and_then(|content| write_file(output, content))
-    }
-}
 impl InputOutput for invenio::Record {
     fn read(path: impl Into<PathBuf>) -> ApiResult<invenio::Record> {
         let source = path.into();
@@ -526,8 +466,124 @@ impl InputOutput for invenio::Record {
             .and_then(|content| write_file(output, content))
     }
 }
+impl InputOutput for Kitfile {
+    fn parse(content: &str) -> Option<Self> {
+        Self::from_yaml(content).ok()
+    }
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
+        let path = path.into();
+        match MimeType::from_path(&path) {
+            | MimeType::Json => Self::read_json(path),
+            | MimeType::Yaml => Self::read_yaml(path),
+            | _ => Err(eyre!("Unsupported Kitfile extension")),
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<Self> {
+        read_file(path).and_then(|content| Self::from_resolved_json(content.as_bytes()).map_err(|why| eyre!(why)))
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
+        read_file(path).and_then(|content| Self::from_yaml(&content).map_err(|why| eyre!(why)))
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let path = path.into();
+        match MimeType::from_path(&path) {
+            | MimeType::Json => self.write_json(path),
+            | MimeType::Yaml => self.write_yaml(path),
+            | _ => Err(eyre!("Unsupported Kitfile extension")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        self.to_resolved_json()
+            .map_err(|why| eyre!(why))
+            .and_then(|content| write_file(path, content))
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        self.to_yaml().map_err(|why| eyre!(why)).and_then(|content| write_file(path, content))
+    }
+}
+impl KitfileExt for Kitfile {
+    fn modelkit_content(&self, manifest: &Manifest) -> ApiResult<OciPlan> {
+        OciPlan::from_kitfile(self, manifest)
+    }
+    fn update(mut self, path: impl AsRef<Path>, bundle: impl AsRef<Path>) -> ApiResult<()> {
+        let path = path.as_ref();
+        let directory = path.parent().unwrap_or_else(|| Path::new("."));
+        directory
+            .canonicalize()
+            .map_err(|why| eyre!("Failed to resolve Kitfile directory — {why}"))
+            .and_then(|directory| {
+                bundle
+                    .as_ref()
+                    .canonicalize()
+                    .map_err(|why| eyre!("Failed to resolve MCPB output — {why}"))
+                    .map(|bundle| (directory, bundle))
+            })
+            .and_then(|(directory, bundle)| {
+                SafePath::new(bundle.to_relative(&directory)).map_err(Into::into).and_then(|relative| {
+                    let entry = McpServer {
+                        name: APPLICATION.to_string(),
+                        path: relative.as_path().to_string_lossy().replace('\\', "/"),
+                        description: "ACORN Model Context Protocol server".to_string(),
+                        layer: LayerInfo::default(),
+                    };
+                    match self.mcp_servers.iter_mut().find(|candidate| candidate.name == APPLICATION) {
+                        | Some(candidate) => *candidate = entry,
+                        | None => self.mcp_servers.push(entry),
+                    }
+                    self.mcp_servers.sort_by(|left, right| left.name.cmp(&right.name));
+                    self.to_yaml().map_err(|why| eyre!(why))
+                })
+            })
+            .and_then(|content| replace_file(path, content))
+    }
+}
 impl_logbook_input_output!(Logbook, "logbook");
 impl_logbook_input_output!(LogbookEntry, "logbook entry");
+impl InputOutput for Metadata {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
+        let path = path.into();
+        match MimeType::from_path(&path) {
+            | MimeType::Json | MimeType::Jsonc => Self::read_json(path),
+            | MimeType::Yaml => Self::read_yaml(path),
+            | _ => Err(eyre!("Unsupported RAiD metadata file extension")),
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<Self> {
+        read_file(path).and_then(|content| {
+            eserde::json::from_str::<Self>(&content).map_err(|errors| {
+                eyre!(errors
+                    .iter()
+                    .map(|error| format!("{}: {}", error.path().map_or("root".into(), |path| path.to_string()), error.message()))
+                    .collect::<Vec<_>>()
+                    .join("\n"))
+            })
+        })
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
+        read_file(path).and_then(|content| serde_norway::from_str(&content).map_err(|why| eyre!(why)))
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        self.write_json(path)
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        serde_json::to_string_pretty(self)
+            .map_err(|why| eyre!(why))
+            .and_then(|content| write_file(path, content))
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        serde_norway::to_string(self)
+            .map_err(|why| eyre!(why))
+            .and_then(|content| write_file(path, content))
+    }
+}
+impl Batch for OneOrMany<ResearchActivity> {
+    fn batch_write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into();
+        self.serialize(MimeType::from_path(&output))
+            .map_err(|why| eyre!("Serialize research activity data — {why}"))
+            .and_then(|content| write_file(output, content))
+    }
+}
 impl InputOutput for opencode::Config {
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into();
@@ -567,85 +623,18 @@ impl InputOutput for opencode::Config {
         Err(eyre!("YAML format is not supported for OpenCode configuration"))
     }
 }
-impl InputOutput for text::Document {
-    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        let source = path.into();
-        match DocumentFormat::try_from(&MimeType::from(source.display().to_string())) {
-            | Ok(_) => read_document(source),
-            | Err(_) => match file_extension(source.display().to_string()).as_deref() {
-                | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => read_document_text(source),
-                | _ => Err(eyre!("Unsupported document file extension")),
-            },
-        }
-    }
-    fn read_json(path: PathBuf) -> ApiResult<Self> {
-        read_document_text(path)
-    }
-    fn read_markdown(path: PathBuf) -> ApiResult<Self> {
-        read_document_text(path)
-    }
-    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
-        read_document_text(path)
-    }
-    fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
+impl Batch for ResearchActivity {
+    fn batch_read(path: impl AsRef<Path>) -> ApiResult<OneOrMany<ResearchActivity>> {
+        let source = path.as_ref();
+        let mime = MimeType::from_path(source);
         match mime {
-            | MimeType::Json | MimeType::Markdown | MimeType::Text | MimeType::Yaml => Ok(self.content.clone()),
-            | _ => Err(eyre!("Unsupported document workflow serialization mime type: {mime:?}")),
+            | MimeType::Json | MimeType::JsonLines | MimeType::Yaml | MimeType::Zon => read_file(source)
+                .map_err(|why| eyre!("Read research activity data — {why}"))
+                .and_then(|content| OneOrMany::parse(&content, mime).map_err(|why| eyre!("Read research activity data — {why}"))),
+            | _ => ResearchActivity::read(source)
+                .map(OneOrMany::One)
+                .map_err(|why| eyre!("Read research activity data — {why}")),
         }
-    }
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into();
-        match file_extension(output.display().to_string()).as_deref() {
-            | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => write_document_text(self, output),
-            | Some("docx") => Err(eyre!("Document writing is not implemented for DOCX")),
-            | _ => Err(eyre!("Unsupported document file extension for writing")),
-        }
-    }
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        write_document_text(self, path)
-    }
-    fn write_markdown(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        write_document_text(self, path)
-    }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        write_document_text(self, path)
-    }
-}
-impl InputOutput for Metadata {
-    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        let path = path.into();
-        match MimeType::from_path(&path) {
-            | MimeType::Json | MimeType::Jsonc => Self::read_json(path),
-            | MimeType::Yaml => Self::read_yaml(path),
-            | _ => Err(eyre!("Unsupported RAiD metadata file extension")),
-        }
-    }
-    fn read_json(path: PathBuf) -> ApiResult<Self> {
-        read_file(path).and_then(|content| {
-            eserde::json::from_str::<Self>(&content).map_err(|errors| {
-                eyre!(errors
-                    .iter()
-                    .map(|error| format!("{}: {}", error.path().map_or("root".into(), |path| path.to_string()), error.message()))
-                    .collect::<Vec<_>>()
-                    .join("\n"))
-            })
-        })
-    }
-    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
-        read_file(path).and_then(|content| serde_norway::from_str(&content).map_err(|why| eyre!(why)))
-    }
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        self.write_json(path)
-    }
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        serde_json::to_string_pretty(self)
-            .map_err(|why| eyre!(why))
-            .and_then(|content| write_file(path, content))
-    }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        serde_norway::to_string(self)
-            .map_err(|why| eyre!(why))
-            .and_then(|content| write_file(path, content))
     }
 }
 impl InputOutput for ResearchActivity {
@@ -841,6 +830,50 @@ impl InputOutput for Text {
     }
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         write_text(self, path)
+    }
+}
+impl InputOutput for text::Document {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
+        let source = path.into();
+        match DocumentFormat::try_from(&MimeType::from(source.display().to_string())) {
+            | Ok(_) => read_document(source),
+            | Err(_) => match file_extension(source.display().to_string()).as_deref() {
+                | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => read_document_text(source),
+                | _ => Err(eyre!("Unsupported document file extension")),
+            },
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<Self> {
+        read_document_text(path)
+    }
+    fn read_markdown(path: PathBuf) -> ApiResult<Self> {
+        read_document_text(path)
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
+        read_document_text(path)
+    }
+    fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
+        match mime {
+            | MimeType::Json | MimeType::Markdown | MimeType::Text | MimeType::Yaml => Ok(self.content.clone()),
+            | _ => Err(eyre!("Unsupported document workflow serialization mime type: {mime:?}")),
+        }
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into();
+        match file_extension(output.display().to_string()).as_deref() {
+            | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => write_document_text(self, output),
+            | Some("docx") => Err(eyre!("Document writing is not implemented for DOCX")),
+            | _ => Err(eyre!("Unsupported document file extension for writing")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        write_document_text(self, path)
+    }
+    fn write_markdown(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        write_document_text(self, path)
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        write_document_text(self, path)
     }
 }
 impl WeightsExt for Weights {

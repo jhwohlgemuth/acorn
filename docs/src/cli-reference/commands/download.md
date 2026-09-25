@@ -36,7 +36,7 @@ Repeated transfers are idempotent. A matching candidate gains missing fields and
 
 Use `--flatten` to discard repository directory components and save every selected file as a direct child of the output directory. Filters and ignore rules continue to match the original repository-relative paths. If multiple selected paths have the same filename, the command fails.
 
-By default, a bucket transfer also fails rather than overwrite an existing destination. Add `--clobber` to replace files, symlinks, or directories that conflict with selected output paths. ACORN obtains the replacement content before removing an existing destination, preserves unrelated contents beneath the output directory, and does not clear the output directory itself. This flag applies only to bucket downloads; the model subcommand's existing `--force` flag retains its synchronization-specific meaning.
+By default, a local bucket copy fails rather than overwrite an existing destination, while a complete existing remote file is skipped. Add `--clobber` to replace files, symlinks, or directories that conflict with selected output paths. Local imports obtain the replacement content before removing the old destination; remote downloads remove the selected destination before streaming its replacement. Unrelated contents beneath the output directory are preserved. This flag applies only to bucket transfers; the model subcommand's existing `--force` flag retains its synchronization-specific meaning.
 
 If a transferred RAD file cannot be parsed or persisted, the files already written to the output directory are preserved and the command fails. Deprecated RAD fields are accepted with warnings and serialized under their canonical names in the database. Pass `--canonicalize` to rewrite deprecated fields in transferred files before ingestion, or `--strict` to reject them. Combining both flags canonicalizes first and then verifies the rewritten files with strict ingestion. Global `--no-local-database` performs the transfer but skips RAD parsing and candidate persistence; `--canonicalize` still rewrites deprecated fields when database access is disabled.
 
@@ -56,24 +56,24 @@ Top-level `download` accepts remote bucket repositories only and requires online
 ```json
 "buckets": [
     {
+        "name": "nssd (remote)",
+        "repository": {
+            "provider": "gitlab",
+            "id": 17411,
+            "uri": "https://code.ornl.gov/research-enablement/buckets/nssd"
+        }
+    },
+    {
         "name": "test (local)",
         "repository": {
             "provider": "git",
             "location": "file:./tests/fixtures/data/bucket/"
         }
-    },
-    {
-        "name": "nssd (remote)",
-        "repository": {
-            "provider": "gitlab",
-            "location": {
-                "scheme": "https",
-                "uri": "https://code.ornl.gov/research-enablement/buckets/nssd"
-            }
-        }
     }
 ]
 ```
+
+Bare paths and URLs are the concise form. Use a detailed `repository` object when a provider-specific field such as a GitLab project ID is required; the `codeRepository` key is also accepted.
 
 ### GitLab and GitHub
 The `download` command supports both GitLab and GitHub remote repositories for ACORN buckets. The configuration for each is similar, with the main difference being the `provider` field in the `repository` object.

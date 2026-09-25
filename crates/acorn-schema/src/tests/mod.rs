@@ -17,66 +17,8 @@ use glob::glob;
 use pretty_assertions::assert_eq;
 
 mod infrastructure;
+mod types;
 
-#[test]
-fn test_dcat_us_dataset_deserialization() {
-    let content = include_str!("../../../../tests/fixtures/schema/dcat/dcat-us-dataset.json");
-    let dataset: Dataset = serde_json::from_str(content).unwrap();
-    assert_eq!(dataset.jsonld_type.as_deref(), Some("dcat:Dataset"));
-    assert!(matches!(dataset.publisher, Some(Publisher::Organization(_))));
-    assert!(matches!(
-        dataset.contact_point.as_ref().and_then(|values| values.first()),
-        Some(ContactPoint::Kind(_))
-    ));
-    assert!(matches!(
-        dataset.conforms_to.as_ref().and_then(|values| values.first()),
-        Some(ConformsTo::Standard(_))
-    ));
-    assert!(matches!(
-        dataset.landing_page.as_ref().and_then(|values| values.first()),
-        Some(DocumentRef::Document(_))
-    ));
-    assert!(dataset.validate().is_ok());
-}
-#[test]
-fn test_dcat_us_catalog_deserialization() {
-    let content = include_str!("../../../../tests/fixtures/schema/dcat/dcat-us-catalog.json");
-    let catalog: Catalog = serde_json::from_str(content).unwrap();
-    assert_eq!(catalog.jsonld_type.as_deref(), Some("dcat:Catalog"));
-    assert!(matches!(catalog.publisher, Some(Publisher::Organization(_))));
-    assert_eq!(catalog.service.as_ref().map(Vec::len), Some(1));
-    assert!(matches!(
-        catalog.homepage.as_ref().and_then(|values| values.first()),
-        Some(DocumentRef::Document(_))
-    ));
-    assert!(catalog.validate().is_ok());
-}
-#[test]
-fn test_dcat_us_data_service_deserialization() {
-    let content = include_str!("../../../../tests/fixtures/schema/dcat/dcat-us-data-service.json");
-    let service: DataService = serde_json::from_str(content).unwrap();
-    assert_eq!(service.jsonld_type.as_deref(), Some("dcat:DataService"));
-    assert!(matches!(service.publisher, Some(Publisher::Organization(_))));
-    assert!(matches!(
-        service.contact_point.as_ref().and_then(|values| values.first()),
-        Some(ContactPoint::Kind(_))
-    ));
-    assert!(matches!(
-        service.landing_page.as_ref().and_then(|values| values.first()),
-        Some(DocumentRef::Uri(_))
-    ));
-    assert!(service.validate().is_ok());
-}
-#[test]
-fn test_dcat_w3c_backward_compat_deserialization() {
-    let content = include_str!("../../../../tests/fixtures/schema/dcat.json");
-    let dataset: Dataset = serde_json::from_str(content).unwrap();
-    assert!(matches!(
-        dataset.landing_page.as_ref().and_then(|values| values.first()),
-        Some(DocumentRef::Uri(_))
-    ));
-    assert!(dataset.validate().is_ok());
-}
 #[test]
 fn test_classification() {
     assert_eq!(ClassificationLevel::Secret.to_string(), "SECRET");
@@ -86,196 +28,11 @@ fn test_classification() {
     assert!(ClassificationLevel::Secret < ClassificationLevel::TopSecret);
 }
 #[test]
-fn test_fuzzy_matching_keywords() {
-    let name = "keywords".to_string();
-    let exact: String = "critical-infrastructure".into();
-    let misspelled: String = "cyb".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    assert_eq!(resolve_from_csv_asset(name.clone(), misspelled), Some("cyber".into()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "machine-learn".into()),
-        Some("machine-learning".into())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), "Automation".into()), Some("automation".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "math".into()), Some("mathematics".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "mathematics".into()), Some("mathematics".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "ml".into()), Some("machine-learning".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "ai".into()), Some("artificial-intelligence".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "stats".into()), Some("statistics".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "statistics".into()), Some("statistics".into()));
-    let exact: String = "high-performance-computing".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "hpc".into()), Some(exact.clone()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "high-performance-computi".into()),
-        Some(exact.clone())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-}
-#[test]
 fn test_controlled_vocabulary_normalizes_aliases_and_discards_unknown_values() {
     assert_eq!(
         ControlledVocabulary::normalize("keywords", ["AI", "unknown-value", "hpc", "AI"]).into_values(),
         ["artificial-intelligence", "high-performance-computing"]
     );
-}
-#[test]
-fn test_fuzzy_matching_organizations() {
-    let exact: String = "Oak Ridge National Laboratory".into();
-    assert_eq!(resolve_from_organization_json(exact.clone()), Some(exact.clone()));
-    assert_eq!(resolve_from_organization_json("ORNL".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_organization_json("Oak Ridge National Laborato".into()), Some(exact.clone()));
-    let exact: String = "Geospatial Science and Human Security Division".into();
-    assert_eq!(resolve_from_organization_json("GSHS".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_organization_json(exact.clone()), Some(exact.clone()));
-    assert_eq!(
-        resolve_from_organization_json("Geospatial Science & Human Security".into()),
-        Some(exact.clone())
-    );
-    assert_eq!(
-        resolve_from_organization_json("Geospatial Science and Human Security".into()),
-        Some(exact.clone())
-    );
-    assert_eq!(
-        resolve_from_organization_json("Geospatial Science and Human Security".to_lowercase()),
-        Some(exact.clone())
-    );
-    assert_eq!(resolve_from_organization_json("PSD".into()), Some("Physical Sciences Directorate".into()));
-    assert_eq!(
-        resolve_from_organization_json("Research Accelerator Division".into()),
-        Some("Research Accelerator Division".into())
-    );
-}
-#[cfg(feature = "std")]
-#[test]
-fn test_fuzzy_matching_retains_nucleo_pattern_semantics() {
-    let values = || vec![vec!["Alpha Beta".to_string()], vec!["Beta Alpha".to_string()]];
-    assert_eq!(resolve_from_list_of_lists("^alpha".to_string(), values()), Some("Alpha Beta".to_string()));
-    assert_eq!(resolve_from_list_of_lists("alpha$".to_string(), values()), Some("Beta Alpha".to_string()));
-}
-#[test]
-fn test_fuzzy_matching_partners() {
-    let name = "partners".to_string();
-    let exact: String = "National Renewable Energy Laboratory".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "NREL".into()), Some(exact.clone()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "National Renewable Energy Lab".into()),
-        Some(exact.clone())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Indiana University".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "iu".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Kitware Inc".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "kitware".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "Kitware, Inc.".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-}
-#[test]
-fn test_fuzzy_matching_sponsors() {
-    let name = "sponsors".to_string();
-    let exact: String = "Oak Ridge National Laboratory".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "ORNL".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Department of Energy".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "Dept of Energy".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "Dept. of Energy".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Department of Homeland Security".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "DHS".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Environmental Protection Agency".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), " epa".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Office of Intelligence and Counterintelligence".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "DOE-IN".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Defense Advanced Research Projects Agency".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "darpa".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Office of Energy Efficiency and Renewable Energy".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "eere".into()), Some(exact.clone()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "Energy Efficiency and Renewable Energy".into()),
-        Some(exact.clone())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-}
-#[test]
-fn test_fuzzy_matching_techology() {
-    let name = "technology".to_string();
-    let exact: String = "react".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "astro".into()), Some("astro".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "CSS".into()), Some("css".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "React.js".into()), Some("react".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "ReactJS".into()), Some("react".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "rs".into()), Some("rust".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "jl".into()), Some("julia".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "VHDL".into()), Some("vhdl".into()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "programming_language::Rust".into()),
-        Some("rust".into())
-    );
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "programming_language::R_language".into()),
-        Some("r".into())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), "r".into()), Some("r".into()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "Geospatial Data Abstraction Lib".into()),
-        Some("gdal".into())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), "node.js".into()), Some("node".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "js".into()), Some("javascript".into()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "language::Ecmascript".into()),
-        Some("javascript".into())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), "kt".into()), Some("kotlin".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "Redis Open Source".into()), Some("redis".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "scss".into()), Some("sass".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "TypeSpec".into()), Some("typespec".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "pwsh".into()), Some("powershell".into()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "https://airflow.apache.org".into()),
-        Some("airflow".into())
-    );
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "http://airflow.apache.org".into()),
-        Some("airflow".into())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), "airflow.apache.org".into()), Some("airflow".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "foobarbaz".into()), None);
-    assert_eq!(resolve_from_csv_asset(name.clone(), "".into()), None);
-}
-#[test]
-fn test_geonames() {
-    let countries = Constant::country_data();
-    assert!(!countries.is_empty(), "Expected at least one GeoNames row");
-    let us = countries.find_by_iso("US").expect("US row not found in GeoNames data");
-    let Country {
-        name,
-        top_level_domain,
-        population,
-        ..
-    } = us;
-    assert_eq!(name, "United States");
-    assert_eq!(top_level_domain, ".us");
-    assert!(population.unwrap_or(0) > 0);
-    assert_eq!(countries.find_by_name("Germany").unwrap().iso, "DE");
-    assert_eq!(countries.find_by_name("germany").unwrap().iso, "DE");
-    assert!(countries.contains("FR"), "Expected to find France in GeoNames data");
-    assert!(countries.contains("fr"), "Expected to find France in GeoNames data");
-    assert!(countries.contains("FRA"), "Expected to find France in GeoNames data");
-    assert!(!countries.contains("XYZ"), "Expected not to find XYZ in GeoNames data");
-    let alpha2_codes = Constant::country_codes(CodeFormat::Alpha2);
-    assert!(alpha2_codes.contains(&"us".to_string()));
-    let alpha3_codes = Constant::country_codes(CodeFormat::Alpha3);
-    assert!(alpha3_codes.contains(&"usa".to_string()));
-    let alpha2_languages = Constant::languages(CodeFormat::Alpha2);
-    assert!(alpha2_languages.iter().all(|value| value.len() == 2));
-    let alpha3_languages = Constant::languages(CodeFormat::Alpha3);
-    assert!(alpha3_languages.iter().all(|value| value.contains('-')));
 }
 #[test]
 fn test_dcat_url_field_validation() {
@@ -480,6 +237,250 @@ fn test_dcat_url_field_validation() {
     assert!(catalog_invalid_homepage.validate().is_err());
 }
 #[test]
+fn test_dcat_us_catalog_deserialization() {
+    let content = include_str!("../../../../tests/fixtures/schema/dcat/dcat-us-catalog.json");
+    let catalog: Catalog = serde_json::from_str(content).unwrap();
+    assert_eq!(catalog.jsonld_type.as_deref(), Some("dcat:Catalog"));
+    assert!(matches!(catalog.publisher, Some(Publisher::Organization(_))));
+    assert_eq!(catalog.service.as_ref().map(Vec::len), Some(1));
+    assert!(matches!(
+        catalog.homepage.as_ref().and_then(|values| values.first()),
+        Some(DocumentRef::Document(_))
+    ));
+    assert!(catalog.validate().is_ok());
+}
+#[test]
+fn test_dcat_us_data_service_deserialization() {
+    let content = include_str!("../../../../tests/fixtures/schema/dcat/dcat-us-data-service.json");
+    let service: DataService = serde_json::from_str(content).unwrap();
+    assert_eq!(service.jsonld_type.as_deref(), Some("dcat:DataService"));
+    assert!(matches!(service.publisher, Some(Publisher::Organization(_))));
+    assert!(matches!(
+        service.contact_point.as_ref().and_then(|values| values.first()),
+        Some(ContactPoint::Kind(_))
+    ));
+    assert!(matches!(
+        service.landing_page.as_ref().and_then(|values| values.first()),
+        Some(DocumentRef::Uri(_))
+    ));
+    assert!(service.validate().is_ok());
+}
+#[test]
+fn test_dcat_us_dataset_deserialization() {
+    let content = include_str!("../../../../tests/fixtures/schema/dcat/dcat-us-dataset.json");
+    let dataset: Dataset = serde_json::from_str(content).unwrap();
+    assert_eq!(dataset.jsonld_type.as_deref(), Some("dcat:Dataset"));
+    assert!(matches!(dataset.publisher, Some(Publisher::Organization(_))));
+    assert!(matches!(
+        dataset.contact_point.as_ref().and_then(|values| values.first()),
+        Some(ContactPoint::Kind(_))
+    ));
+    assert!(matches!(
+        dataset.conforms_to.as_ref().and_then(|values| values.first()),
+        Some(ConformsTo::Standard(_))
+    ));
+    assert!(matches!(
+        dataset.landing_page.as_ref().and_then(|values| values.first()),
+        Some(DocumentRef::Document(_))
+    ));
+    assert!(dataset.validate().is_ok());
+}
+#[test]
+fn test_dcat_w3c_backward_compat_deserialization() {
+    let content = include_str!("../../../../tests/fixtures/schema/dcat.json");
+    let dataset: Dataset = serde_json::from_str(content).unwrap();
+    assert!(matches!(
+        dataset.landing_page.as_ref().and_then(|values| values.first()),
+        Some(DocumentRef::Uri(_))
+    ));
+    assert!(dataset.validate().is_ok());
+}
+#[test]
+fn test_fuzzy_matching_keywords() {
+    let name = "keywords".to_string();
+    let exact: String = "critical-infrastructure".into();
+    let misspelled: String = "cyb".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    assert_eq!(resolve_from_csv_asset(name.clone(), misspelled), Some("cyber".into()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "machine-learn".into()),
+        Some("machine-learning".into())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), "Automation".into()), Some("automation".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "math".into()), Some("mathematics".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "mathematics".into()), Some("mathematics".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "ml".into()), Some("machine-learning".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "ai".into()), Some("artificial-intelligence".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "stats".into()), Some("statistics".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "statistics".into()), Some("statistics".into()));
+    let exact: String = "high-performance-computing".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "hpc".into()), Some(exact.clone()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "high-performance-computi".into()),
+        Some(exact.clone())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+}
+#[test]
+fn test_fuzzy_matching_organizations() {
+    let exact: String = "Oak Ridge National Laboratory".into();
+    assert_eq!(resolve_from_organization_json(exact.clone()), Some(exact.clone()));
+    assert_eq!(resolve_from_organization_json("ORNL".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_organization_json("Oak Ridge National Laborato".into()), Some(exact.clone()));
+    let exact: String = "Geospatial Science and Human Security Division".into();
+    assert_eq!(resolve_from_organization_json("GSHS".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_organization_json(exact.clone()), Some(exact.clone()));
+    assert_eq!(
+        resolve_from_organization_json("Geospatial Science & Human Security".into()),
+        Some(exact.clone())
+    );
+    assert_eq!(
+        resolve_from_organization_json("Geospatial Science and Human Security".into()),
+        Some(exact.clone())
+    );
+    assert_eq!(
+        resolve_from_organization_json("Geospatial Science and Human Security".to_lowercase()),
+        Some(exact.clone())
+    );
+    assert_eq!(resolve_from_organization_json("PSD".into()), Some("Physical Sciences Directorate".into()));
+    assert_eq!(
+        resolve_from_organization_json("Research Accelerator Division".into()),
+        Some("Research Accelerator Division".into())
+    );
+}
+#[test]
+fn test_fuzzy_matching_partners() {
+    let name = "partners".to_string();
+    let exact: String = "National Renewable Energy Laboratory".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "NREL".into()), Some(exact.clone()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "National Renewable Energy Lab".into()),
+        Some(exact.clone())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Indiana University".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "iu".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Kitware Inc".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "kitware".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "Kitware, Inc.".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+}
+#[cfg(feature = "std")]
+#[test]
+fn test_fuzzy_matching_retains_nucleo_pattern_semantics() {
+    let values = || vec![vec!["Alpha Beta".to_string()], vec!["Beta Alpha".to_string()]];
+    assert_eq!(resolve_from_list_of_lists("^alpha".to_string(), values()), Some("Alpha Beta".to_string()));
+    assert_eq!(resolve_from_list_of_lists("alpha$".to_string(), values()), Some("Beta Alpha".to_string()));
+}
+#[test]
+fn test_fuzzy_matching_sponsors() {
+    let name = "sponsors".to_string();
+    let exact: String = "Oak Ridge National Laboratory".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "ORNL".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Department of Energy".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "Dept of Energy".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "Dept. of Energy".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Department of Homeland Security".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "DHS".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Environmental Protection Agency".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), " epa".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Office of Intelligence and Counterintelligence".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "DOE-IN".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Defense Advanced Research Projects Agency".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "darpa".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Office of Energy Efficiency and Renewable Energy".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "eere".into()), Some(exact.clone()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "Energy Efficiency and Renewable Energy".into()),
+        Some(exact.clone())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+}
+#[test]
+fn test_fuzzy_matching_techology() {
+    let name = "technology".to_string();
+    let exact: String = "react".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "astro".into()), Some("astro".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "CSS".into()), Some("css".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "React.js".into()), Some("react".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "ReactJS".into()), Some("react".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "rs".into()), Some("rust".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "jl".into()), Some("julia".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "VHDL".into()), Some("vhdl".into()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "programming_language::Rust".into()),
+        Some("rust".into())
+    );
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "programming_language::R_language".into()),
+        Some("r".into())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), "r".into()), Some("r".into()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "Geospatial Data Abstraction Lib".into()),
+        Some("gdal".into())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), "node.js".into()), Some("node".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "js".into()), Some("javascript".into()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "language::Ecmascript".into()),
+        Some("javascript".into())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), "kt".into()), Some("kotlin".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "Redis Open Source".into()), Some("redis".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "scss".into()), Some("sass".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "TypeSpec".into()), Some("typespec".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "pwsh".into()), Some("powershell".into()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "https://airflow.apache.org".into()),
+        Some("airflow".into())
+    );
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "http://airflow.apache.org".into()),
+        Some("airflow".into())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), "airflow.apache.org".into()), Some("airflow".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "foobarbaz".into()), None);
+    assert_eq!(resolve_from_csv_asset(name.clone(), "".into()), None);
+}
+#[test]
+fn test_geonames() {
+    let countries = Constant::country_data();
+    assert!(!countries.is_empty(), "Expected at least one GeoNames row");
+    let us = countries.find_by_iso("US").expect("US row not found in GeoNames data");
+    let Country {
+        name,
+        top_level_domain,
+        population,
+        ..
+    } = us;
+    assert_eq!(name, "United States");
+    assert_eq!(top_level_domain, ".us");
+    assert!(population.unwrap_or(0) > 0);
+    assert_eq!(countries.find_by_name("Germany").unwrap().iso, "DE");
+    assert_eq!(countries.find_by_name("germany").unwrap().iso, "DE");
+    assert!(countries.contains("FR"), "Expected to find France in GeoNames data");
+    assert!(countries.contains("fr"), "Expected to find France in GeoNames data");
+    assert!(countries.contains("FRA"), "Expected to find France in GeoNames data");
+    assert!(!countries.contains("XYZ"), "Expected not to find XYZ in GeoNames data");
+    let alpha2_codes = Constant::country_codes(CodeFormat::Alpha2);
+    assert!(alpha2_codes.contains(&"us".to_string()));
+    let alpha3_codes = Constant::country_codes(CodeFormat::Alpha3);
+    assert!(alpha3_codes.contains(&"usa".to_string()));
+    let alpha2_languages = Constant::languages(CodeFormat::Alpha2);
+    assert!(alpha2_languages.iter().all(|value| value.len() == 2));
+    let alpha3_languages = Constant::languages(CodeFormat::Alpha3);
+    assert!(alpha3_languages.iter().all(|value| value.contains('-')));
+}
+#[test]
 fn test_organization() {
     const ORNL_ORGANIZATION_COUNT: usize = 368;
     let data = Organization::load();
@@ -552,11 +553,6 @@ fn test_trl() {
     assert!(TechnologyReadinessLevel::Research < TechnologyReadinessLevel::MissionCapable);
 }
 #[test]
-#[should_panic]
-fn test_trl_panic() {
-    assert_eq!(TechnologyReadinessLevel::Principles, serde_json::from_str("10").unwrap());
-}
-#[test]
 fn test_trl_into_maturity() {
     let cases = [
         (TechnologyReadinessLevel::Principles, Maturity::Discovery),
@@ -573,4 +569,9 @@ fn test_trl_into_maturity() {
     cases
         .iter()
         .for_each(|(trl, maturity)| assert_eq!(Maturity::from(trl.clone()), *maturity));
+}
+#[test]
+#[should_panic]
+fn test_trl_panic() {
+    assert_eq!(TechnologyReadinessLevel::Principles, serde_json::from_str("10").unwrap());
 }

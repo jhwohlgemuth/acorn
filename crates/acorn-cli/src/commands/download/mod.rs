@@ -162,12 +162,18 @@ pub async fn run(
                     }
                 },
                 | None if !url.is_empty() => {
-                    let buckets = url.iter().map(|value| Bucket::from(value.as_str())).collect::<Vec<_>>();
-                    Buckets::from(buckets)
-                        .transfer(&options, TransferPolicy::Download)
-                        .await
-                        .inspect_err(|why| error!("=> {} Download data — {why}", Label::fail()))
-                        .and_then(|total| finish_transfer(total, &options))
+                    let buckets = url
+                        .iter()
+                        .map(|value| Bucket::try_from(value.as_str()))
+                        .collect::<core::result::Result<Vec<_>, Report>>();
+                    match buckets {
+                        | Ok(buckets) => Buckets::from(buckets)
+                            .transfer(&options, TransferPolicy::Download)
+                            .await
+                            .inspect_err(|why| error!("=> {} Download data — {why}", Label::fail()))
+                            .and_then(|total| finish_transfer(total, &options)),
+                        | Err(why) => Err(why),
+                    }
                 }
                 | None if !quiet => {
                     warn!(

@@ -1,0 +1,2 @@
+{"identifier":"experiment-completed","timestamp":"2026-09-01T12:00:00Z","category":"research","state":"completed","origin":"manual","summary":"Completed the first experiment.","archived":false}
+{"identifier":"software-released","timestamp":"2026-09-02T15:30:00Z","category":"software","state":"completed","origin":"manual","summary":"Released the analysis software.","items":["Published version 1.0.0."],"archived":false}

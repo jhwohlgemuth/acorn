@@ -220,6 +220,9 @@ pub enum FileFormat {
     Docx,
     #[display("JSON")]
     Json,
+    #[value(name = "jsonl", alias = "ndjson")]
+    #[display("JSONL")]
+    JsonLines,
     #[display("MD")]
     Markdown,
     #[display("PPTX")]
@@ -1314,6 +1317,16 @@ pub(crate) struct Sync {
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }
+impl From<&GatherOutputFormat> for analyzer::OutputFormat {
+    fn from(format: &GatherOutputFormat) -> Self {
+        match format {
+            | GatherOutputFormat::Console => Self::Console,
+            | GatherOutputFormat::Json => Self::Json,
+            | GatherOutputFormat::Markdown => Self::Markdown,
+            | GatherOutputFormat::Yaml => Self::Yaml,
+        }
+    }
+}
 impl From<SwhidKind> for CalculationKind {
     fn from(value: SwhidKind) -> Self {
         match value {
@@ -1329,11 +1342,13 @@ impl From<SwhidKind> for CalculationKind {
     }
 }
 impl FileFormat {
+    /// Return whether the format supports batches of structured records.
+    pub fn is_batch(&self) -> bool {
+        self.is_json() || self.is_json_lines() || self.is_yaml() || self.is_zon()
+    }
+    /// Return whether the format is structured data.
     pub fn is_structured(&self) -> bool {
-        match self {
-            | FileFormat::Cff | FileFormat::Json | FileFormat::Yaml | FileFormat::Zon => true,
-            | _ => false,
-        }
+        self.is_cff() || self.is_batch()
     }
 }
 impl From<&FileFormat> for MimeType {
@@ -1344,6 +1359,7 @@ impl From<&FileFormat> for MimeType {
             | FileFormat::Cff => MimeType::Cff,
             | FileFormat::Docx => MimeType::Docx,
             | FileFormat::Json => MimeType::Json,
+            | FileFormat::JsonLines => MimeType::JsonLines,
             | FileFormat::Markdown => MimeType::Markdown,
             | FileFormat::Powerpoint => MimeType::Powerpoint,
             | FileFormat::Yaml => MimeType::Yaml,
@@ -1372,16 +1388,6 @@ impl From<&FileFormat> for OutputFormat {
             | FileFormat::Json => Self::Json,
             | FileFormat::Yaml => Self::Yaml,
             | _ => Self::default(),
-        }
-    }
-}
-impl From<&GatherOutputFormat> for analyzer::OutputFormat {
-    fn from(format: &GatherOutputFormat) -> Self {
-        match format {
-            | GatherOutputFormat::Console => Self::Console,
-            | GatherOutputFormat::Json => Self::Json,
-            | GatherOutputFormat::Markdown => Self::Markdown,
-            | GatherOutputFormat::Yaml => Self::Yaml,
         }
     }
 }

@@ -86,6 +86,46 @@ Runner containers always start detached. Command-line `--host` or `--context` ov
 > [!TIP]
 > ACORN looks for `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, then `.acorn.yml` in the current working directory. You can also specify a different configuration file using the `--config <FILE>` flag when running ACORN commands.
 
+### Bucket sources
+
+Repository-backed buckets accept a bare path or HTTPS URL when no label is needed:
+
+```json
+{
+    "buckets": [
+        "./science",
+        "https://github.com/example/research-activities",
+        "https://gitlab.example/research/science"
+    ]
+}
+```
+
+Use a `source` string to add a name or description:
+
+```yaml
+buckets:
+  - name: science
+    description: Reviewed science activities
+    source: https://gitlab.example/research/science
+```
+
+Provider-specific fields use the detailed form. `repository` remains an accepted input alias, while ACORN writes the canonical `codeRepository` key:
+
+```json
+{
+    "buckets": [{
+        "name": "science",
+        "codeRepository": {
+            "provider": "gitlab",
+            "id": 42,
+            "location": "https://gitlab.example/research/science"
+        }
+    }]
+}
+```
+
+Do not specify more than one of `source`, `repository`, and `codeRepository` on the same bucket. Concise remote sources must be credential-free HTTPS URLs; use local paths or `file:` URIs for local buckets.
+
 ## .env file and Environment Variables
 The ACORN CLI tool can also be configured using `.env` files and/or environment variables.
 

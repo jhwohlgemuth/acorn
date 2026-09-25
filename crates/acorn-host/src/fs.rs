@@ -1,13 +1,15 @@
 //! Native filesystem primitives
 use acorn_core::util::{Checksum, ChecksumAlgorithm};
+use core::future::Future;
 use data_encoding::HEXLOWER;
 use ring::digest::{Algorithm, Context, SHA256};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::{
-    fs::{self, create_dir_all, read_to_string, remove_dir_all, set_permissions, File},
-    io::{BufReader, Read},
+    fs::{self, create_dir_all, read_to_string, remove_dir_all, set_permissions, File, OpenOptions},
+    io::{BufReader, Read, Write},
     path::{Component, Path, PathBuf},
+    sync::Mutex,
 };
 use thiserror::Error;
 
@@ -31,6 +33,9 @@ pub enum FsError {
         #[source]
         source: std::io::Error,
     },
+    /// A filesystem write lock was poisoned.
+    #[error("filesystem write lock is poisoned")]
+    PoisonedLock,
     /// A relative path can escape its trusted root.
     #[error("unsafe relative path: {0:?}")]
     UnsafePath(PathBuf),
@@ -92,6 +97,94 @@ impl SafePath {
                 | Err(source) => Err(FsError::Io { path: parent, source }),
             })
             .map(|()| root.join(&self.0))
+    }
+    /// Prepare this path beneath `root`, replacing conflicting destinations without following links.
+    pub fn prepare(&self, root: &Path) -> Result<PathBuf, FsError> {
+        let remove = |path: &Path| match path.symlink_metadata() {
+            | Ok(metadata) if metadata.file_type().is_symlink() || metadata.is_file() => fs::remove_file(path).map_err(|source| FsError::Io {
+                path: path.to_path_buf(),
+                source,
+            }),
+            | Ok(_) => remove_dir_all(path).map_err(|source| FsError::Io {
+                path: path.to_path_buf(),
+                source,
+            }),
+            | Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            | Err(source) => Err(FsError::Io {
+                path: path.to_path_buf(),
+                source,
+            }),
+        };
+        let target = root.join(&self.0);
+        self.0
+            .parent()
+            .into_iter()
+            .flat_map(Path::ancestors)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .map(|parent| root.join(parent))
+            .try_for_each(|parent| match parent.symlink_metadata() {
+                | Ok(metadata) if metadata.is_dir() => Ok(()),
+                | Ok(_) => remove(&parent).and_then(|()| create_dir_all(&parent).map_err(|source| FsError::Io { path: parent, source })),
+                | Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
+                    create_dir_all(&parent).map_err(|source| FsError::Io { path: parent, source })
+                }
+                | Err(source) => Err(FsError::Io { path: parent, source }),
+            })
+            .and_then(|()| remove(&target))
+            .map(|()| target)
+    }
+    /// Write bytes to this path beneath `root`, optionally replacing an existing destination.
+    pub async fn write_file<F, Fut>(&self, root: &Path, clobber: bool, write_lock: &Mutex<()>, get_bytes: F) -> Result<(), FsError>
+    where
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = Result<Vec<u8>, FsError>>,
+    {
+        match clobber {
+            | false => match self.materialize_under(root) {
+                | Ok(target) => {
+                    let file = target.parent().map_or_else(
+                        || Err(FsError::UnsafeDestination(target.clone())),
+                        |parent| {
+                            create_dir_all(parent)
+                                .map_err(|source| FsError::Io {
+                                    path: parent.to_path_buf(),
+                                    source,
+                                })
+                                .and_then(|()| {
+                                    OpenOptions::new()
+                                        .write(true)
+                                        .create_new(true)
+                                        .open(&target)
+                                        .map_err(|source| FsError::Io {
+                                            path: target.clone(),
+                                            source,
+                                        })
+                                })
+                        },
+                    );
+                    match file {
+                        | Ok(mut file) => match get_bytes().await {
+                            | Ok(bytes) => file.write_all(&bytes).map_err(|source| FsError::Io { path: target, source }),
+                            | Err(why) => Err(why),
+                        },
+                        | Err(why) => Err(why),
+                    }
+                }
+                | Err(why) => Err(why),
+            },
+            | true => match get_bytes().await {
+                | Ok(bytes) => match write_lock.lock() {
+                    | Ok(_guard) => match self.prepare(root) {
+                        | Ok(target) => fs::write(&target, bytes).map_err(|source| FsError::Io { path: target, source }),
+                        | Err(why) => Err(why),
+                    },
+                    | Err(_) => Err(FsError::PoisonedLock),
+                },
+                | Err(why) => Err(why),
+            },
+        }
     }
 }
 impl AsRef<Path> for TempDir {

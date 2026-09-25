@@ -2,7 +2,7 @@ use crate::{
     cli::{
         arguments::{ArchiveType, FileFormat, Target},
         parse::infer_standard_from_content,
-        resolve_paths, CommandOptions,
+        resolve_export_paths, resolve_paths, CommandOptions,
     },
     commands::preflight,
 };
@@ -12,6 +12,7 @@ use acorn::{
     analyzer::{Check, CheckCategory, CheckSummary, IntoChecks, Standard},
     fail,
     io::{
+        adapter::Batch,
         bagit::{Bag, BagInfo, Save},
         create_progress_bar, current_date, finish_progress_bar, folder_size, sidecar, with_progress, write_file, ApiFuture, ApiResult, FromPath,
         InputOutput, ProgressType,
@@ -55,7 +56,7 @@ trait ExportHandler {
             let _from = from;
             let _to = to;
             Err(eyre!(
-                "Crosswalk export is only supported for structured output formats (json, yaml, zon)"
+                "Crosswalk export is only supported for structured output formats (json, jsonl, yaml, zon)"
             ))
         })
     }
@@ -163,7 +164,9 @@ impl ExportRequest {
         match (self.target, &self.format) {
             | (Target::Updates, _) | (_, FileFormat::Docx) => Box::new(UpdatesExportHandler),
             | (_, FileFormat::Cff) => Box::new(CffExportHandler),
-            | (_, FileFormat::Json | FileFormat::Markdown | FileFormat::Yaml | FileFormat::Zon) => Box::new(StructuredExportHandler),
+            | (_, FileFormat::Json | FileFormat::JsonLines | FileFormat::Markdown | FileFormat::Yaml | FileFormat::Zon) => {
+                Box::new(StructuredExportHandler)
+            }
             | (_, FileFormat::Bag) => Box::new(BagExportHandler),
             | (_, FileFormat::Pdf) => Box::new(PdfExportHandler),
             | (_, FileFormat::Powerpoint) => Box::new(PowerPointExportHandler),
@@ -379,11 +382,17 @@ async fn export_as_format(
     progress_type: ProgressType,
 ) -> ApiResult<()> {
     let threads = options.threads;
-    match resolve_paths(path, &options).await {
+    let resolved = match format.is_batch() {
+        | true => resolve_export_paths(path, &options).await,
+        | false => resolve_paths(path, &options).await,
+    };
+    match resolved {
         | Ok(resolved_paths) => {
-            let (skipped, paths): (Vec<_>, Vec<_>) = resolved_paths
-                .iter()
-                .partition(|path| MimeType::from_path(path) == MimeType::from(format.clone()));
+            let (skipped, paths): (Vec<_>, Vec<_>) = resolved_paths.iter().partition(|path| {
+                let target_mime = MimeType::from(format);
+                let is_same_json_lines_path = !format.is_json_lines() || output_path(path, extension).as_path() == path.as_path();
+                MimeType::from_path(path) == target_mime && is_same_json_lines_path
+            });
             skipped.iter().for_each(|path| {
                 skip!("{} is already in {format} format", path.display());
             });
@@ -398,15 +407,18 @@ async fn export_as_format(
                     let ext = ext.clone();
                     async move {
                         let output = output_path(&item, &ext);
-                        match ResearchActivity::read(&item) {
-                            | Ok(data) => match data.write(output) {
-                                | Ok(_) => Ok(()),
-                                | Err(_) => Err(eyre!("Failed to write output file")),
+                        match format.is_batch() {
+                            | true => ResearchActivity::batch_read(&item).and_then(|data| data.batch_write(output)),
+                            | false => match ResearchActivity::read(&item) {
+                                | Ok(data) => match data.write(output) {
+                                    | Ok(_) => Ok(()),
+                                    | Err(_) => Err(eyre!("Failed to write output file")),
+                                },
+                                | Err(why) => {
+                                    fail!("Read research activity data — {why}");
+                                    Err(eyre!("Read research activity data — {why}"))
+                                }
                             },
-                            | Err(why) => {
-                                fail!("Read research activity data — {why}");
-                                Err(eyre!("Read research activity data — {why}"))
-                            }
                         }
                     }
                 },
@@ -446,10 +458,7 @@ async fn export_as_format_crosswalk(
     match to {
         | Some(target) => {
             let threads = options.threads;
-            let resolved_paths = match path {
-                | Some(p) if p.is_file() => Ok(vec![p.clone()]),
-                | _ => resolve_paths(path, &options).await,
-            };
+            let resolved_paths = resolve_export_paths(path, &options).await;
             match resolved_paths {
                 | Ok(resolved_paths) => {
                     let mut seen = HashSet::new();

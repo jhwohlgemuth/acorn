@@ -9,19 +9,22 @@ use super::*;
 use crate::{
     io::{
         api::{Authenticator, Credential},
-        config::transfer::{count_image_files, count_json_files, has_image_extension, operations_complete_message, DownloadOptions, TransferItem},
-        read_file, InputOutput,
+        config::{
+            bucket::source::{BucketSourceItem, DownloadOptions, RepositoryBucketSource},
+            transfer::{count_image_files, count_json_files, has_image_extension, operations_complete_message, TransferItem},
+        },
+        read_file, InputOutput, Parse,
     },
     util::constants::app::{DEFAULT_CONFIG_FILENAMES, GITLAB_CREDENTIAL_VARIABLE_PAIRS},
 };
 use acorn_core::{options::CommonRuntime, Location, Repository};
-use color_eyre::{eyre::eyre, Report};
+use acorn_host::fs::{FsError, SafePath};
 use fancy_regex::Regex;
 use secrecy::ExposeSecret;
 #[cfg(unix)]
 use std::os::unix::fs::symlink;
 use std::{
-    fs::{create_dir_all, read_to_string, remove_dir_all, write},
+    fs::{create_dir_all, read, read_to_string, remove_dir_all, write},
     path::{Path, PathBuf},
     sync::Mutex,
 };
@@ -121,6 +124,12 @@ const ENDPOINTS: &str = r#"{
 fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures")
 }
+fn source_items(paths: &[&str]) -> Vec<BucketSourceItem> {
+    paths
+        .iter()
+        .map(|path| BucketSourceItem::new((*path).to_string(), path, None, None).unwrap())
+        .collect()
+}
 fn temp_resolve_dir(name: &str) -> PathBuf {
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -137,18 +146,20 @@ fn test_bucket() {
     let bucket = Bucket {
         name: Some("nssd".to_string()),
         description: Some("Bucket for NSSD".to_string()),
-        code_repository: Repository::GitLab {
+        source: Repository::GitLab {
             id: Some(1234_u64),
             location: Box::new(Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".to_string())),
-        },
+        }
+        .into(),
     };
     assert_eq!(bucket.domain().unwrap(), "code.ornl.gov".to_string());
     let bucket = Bucket {
         name: Some("nssd".to_string()),
         description: Some("Bucket for NSSD".to_string()),
-        code_repository: Repository::GitHub {
+        source: Repository::GitHub {
             location: Box::new(Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".to_string())),
-        },
+        }
+        .into(),
     };
     assert_eq!(bucket.domain().unwrap(), "code.ornl.gov".to_string());
 }
@@ -175,6 +186,108 @@ fn test_bucket_config_yaml() {
     assert_eq!(config.buckets.as_ref().map_or(0, |b| b.len()), 3);
 }
 #[test]
+fn test_bucket_legacy_aliases_normalize_and_serialize_canonically() {
+    let repository = r#"{"provider":"git","location":"file:./science"}"#;
+    let legacy = ApplicationConfiguration::parse(format!(r#"{{"buckets":[{{"repository":{repository}}}]}}"#).as_str()).unwrap();
+    let canonical = ApplicationConfiguration::parse(format!(r#"{{"buckets":[{{"codeRepository":{repository}}}]}}"#).as_str()).unwrap();
+    let legacy_bucket = &legacy.buckets.unwrap()[0];
+    let canonical_bucket = &canonical.buckets.unwrap()[0];
+    assert_eq!(legacy_bucket.source, canonical_bucket.source);
+    assert_eq!(
+        serde_json::to_value(legacy_bucket).unwrap(),
+        serde_json::json!({
+            "codeRepository": {
+                "provider": "git",
+                "location": "file:./science"
+            }
+        })
+    );
+}
+#[test]
+fn test_bucket_shorthand_classification_is_exact_and_fallible() {
+    let local = Bucket::try_from("../science").unwrap();
+    let github = Bucket::try_from("https://www.github.com/acme/science").unwrap();
+    let lookalike = Bucket::try_from("https://github.com.example/acme/science").unwrap();
+    assert!(Repository::parse("https://github.com/acme/science").unwrap().is_git_hub());
+    assert!(matches!(local.source, BucketSource::Repository(Repository::Git { .. })));
+    assert!(matches!(github.source, BucketSource::Repository(Repository::GitHub { .. })));
+    assert!(matches!(lookalike.source, BucketSource::Repository(Repository::GitLab { id: None, .. })));
+    [
+        "",
+        " https://github.com/acme/science",
+        "http://github.com/acme/science",
+        "ssh://git@github.com/acme/science",
+        "https://user:secret@github.com/acme/science",
+        "https://",
+        "oci://registry.example/acme/science:latest",
+    ]
+    .into_iter()
+    .for_each(|value| assert!(Bucket::try_from(value).is_err(), "{value} should be rejected"));
+}
+#[test]
+fn test_bucket_shorthand_normalizes_across_json_jsonc_and_yaml() {
+    let json = ApplicationConfiguration::parse(r#"{"buckets":["./science",{"name":"remote","source":"https://github.com/acme/science"}]}"#).unwrap();
+    let jsonc = ApplicationConfiguration::parse(
+        r#"{
+            // Concise bucket definitions use the same normalization path.
+            "buckets": ["./science", {"name": "remote", "source": "https://github.com/acme/science"}],
+        }"#,
+    )
+    .unwrap();
+    let yaml = serde_norway::from_str::<ApplicationConfiguration>(
+        "buckets:\n  - ./science\n  - name: remote\n    source: https://github.com/acme/science\n",
+    )
+    .unwrap();
+    let expected = json.buckets.unwrap();
+    [jsonc, yaml].into_iter().for_each(|configuration| {
+        let buckets = configuration.buckets.unwrap();
+        assert_eq!(buckets.len(), expected.len());
+        assert_eq!(buckets[0].source, expected[0].source);
+        assert_eq!(buckets[1].source, expected[1].source);
+        assert_eq!(buckets[1].name, expected[1].name);
+    });
+    assert_eq!(
+        serde_json::to_value(&expected[1]).unwrap(),
+        serde_json::json!({
+            "name": "remote",
+            "codeRepository": {
+                "provider": "github",
+                "location": "https://github.com/acme/science"
+            }
+        })
+    );
+}
+#[test]
+fn test_bucket_source_aliases_conflict_instead_of_using_precedence() {
+    let content = r#"{
+        "buckets": [{
+            "source": "./science",
+            "repository": {"provider": "git", "location": "file:./other"}
+        }]
+    }"#;
+    assert!(ApplicationConfiguration::parse(content).is_err());
+}
+#[test]
+fn test_bucket_source_items_validate_paths_duplicates_and_order() {
+    ["", "/absolute.json", "../outside.json", "C:\\outside.json"]
+        .into_iter()
+        .for_each(|path| assert!(BucketSourceItem::new("key".to_string(), path, None, None).is_err()));
+    let ordered = source_items(&["second.json", "first.json"]);
+    assert_eq!(
+        BucketSourceItem::validate(ordered)
+            .unwrap()
+            .into_iter()
+            .map(|item| item.path.into_path_buf())
+            .collect::<Vec<_>>(),
+        vec![PathBuf::from("second.json"), PathBuf::from("first.json")]
+    );
+    let duplicates = vec![
+        BucketSourceItem::new("first".to_string(), "docs/./index.json", None, None).unwrap(),
+        BucketSourceItem::new("second".to_string(), "docs/index.json", None, None).unwrap(),
+    ];
+    assert!(BucketSourceItem::validate(duplicates).unwrap_err().to_string().contains("duplicate path"));
+}
+#[test]
 fn test_builtin_endpoints() {
     let config = ApplicationConfiguration::parse(ENDPOINTS).unwrap();
     insta::assert_snapshot!("builtin_endpoints", format!("{:#?}", config.endpoints));
@@ -185,10 +298,13 @@ async fn test_clobber_preserves_destination_when_source_read_fails() {
     create_dir_all(&output).unwrap();
     write(output.join("index.json"), "old").unwrap();
     let write_lock = Mutex::new(());
-    let result = Bucket::write_file(&output, Path::new("index.json"), true, &write_lock, || async {
-        Err::<Vec<u8>, Report>(eyre!("source failure"))
-    })
-    .await;
+    let destination = SafePath::new("index.json").unwrap();
+    let source = output.join("missing.json");
+    let result = destination
+        .write_file(&output, true, &write_lock, || async move {
+            read(&source).map_err(|error| FsError::Io { path: source, source: error })
+        })
+        .await;
     assert!(result.is_err());
     assert_eq!(read_to_string(output.join("index.json")).unwrap(), "old");
     let _ = remove_dir_all(output);
@@ -214,9 +330,12 @@ async fn test_copy_files_clobbers_selected_path_conflicts_only() {
     write(output.join("nested"), "old parent file").unwrap();
     write(output.join("unrelated.json"), "keep").unwrap();
     let bucket = Bucket::init()
-        .code_repository(Repository::Git {
-            location: Box::new(Location::Simple(format!("file:{}", source.display()))),
-        })
+        .source(
+            Repository::Git {
+                location: Box::new(Location::Simple(format!("file:{}", source.display()))),
+            }
+            .into(),
+        )
         .build();
     let options = BucketOptions::init()
         .common(CommonRuntime {
@@ -246,9 +365,12 @@ async fn test_copy_files_flattens_destinations_and_manifest() {
     write(source.join("docs/quest/index.json"), "{}").unwrap();
     write(source.join("docs/quest/image.png"), "image").unwrap();
     let bucket = Bucket::init()
-        .code_repository(Repository::Git {
-            location: Box::new(Location::Simple(format!("file:{}", source.display()))),
-        })
+        .source(
+            Repository::Git {
+                location: Box::new(Location::Simple(format!("file:{}", source.display()))),
+            }
+            .into(),
+        )
         .build();
     let options = BucketOptions::init()
         .common(CommonRuntime {
@@ -280,9 +402,12 @@ async fn test_copy_files_preserves_existing_destination_without_clobber() {
     write(source.join("index.json"), "new").unwrap();
     write(output.join("index.json"), "old").unwrap();
     let bucket = Bucket::init()
-        .code_repository(Repository::Git {
-            location: Box::new(Location::Simple(format!("file:{}", source.display()))),
-        })
+        .source(
+            Repository::Git {
+                location: Box::new(Location::Simple(format!("file:{}", source.display()))),
+            }
+            .into(),
+        )
         .build();
     let options = BucketOptions::init()
         .common(CommonRuntime {
@@ -333,9 +458,9 @@ async fn test_download_file_skips_existing_file_without_clobber() {
         source: Path::new("data.txt"),
         destination: Path::new("data.txt"),
         branch: None,
-        clobber: false,
+        size: None,
     };
-    Bucket::download_file(&options)
+    RepositoryBucketSource::download_file(&options)
         .await
         .expect("existing file should be skipped without network transfer");
     assert_eq!(
@@ -355,9 +480,9 @@ fn test_download_item_github_uses_raw_url() {
         source: Path::new("index.json"),
         destination: Path::new("index.json"),
         branch: None,
-        clobber: false,
+        size: None,
     };
-    let item = Bucket::download_item(&options).expect("GitHub raw URL should build");
+    let item = RepositoryBucketSource::download_item(&options).expect("GitHub raw URL should build");
     assert_eq!(item.url, "https://raw.githubusercontent.com/acme/quest/refs/heads/main/index.json");
     assert!(item.headers.is_none());
 }
@@ -373,9 +498,9 @@ fn test_download_item_gitlab_defaults_to_head_and_percent_encodes_path() {
         source: Path::new("content/data set/index.json"),
         destination: Path::new("index.json"),
         branch: None,
-        clobber: false,
+        size: None,
     };
-    let item = Bucket::download_item(&options).expect("GitLab raw URL should build");
+    let item = RepositoryBucketSource::download_item(&options).expect("GitLab raw URL should build");
     assert_eq!(
         item.url,
         "https://code.ornl.gov/api/v4/projects/group%2Fproject/repository/files/content%2Fdata%20set%2Findex.json/raw?ref=HEAD"
@@ -393,9 +518,9 @@ async fn test_download_item_gitlab_raw_url_uses_resolved_branch_and_encodes_path
         source: Path::new("content/quest/index.json"),
         destination: Path::new("index.json"),
         branch: Some("develop"),
-        clobber: false,
+        size: None,
     };
-    let item = Bucket::download_item(&options).expect("GitLab raw URL should build");
+    let item = RepositoryBucketSource::download_item(&options).expect("GitLab raw URL should build");
     assert_eq!(
         item.url,
         "https://code.ornl.gov/api/v4/projects/group%2Fproject/repository/files/content%2Fquest%2Findex.json/raw?ref=develop"
@@ -595,7 +720,8 @@ fn test_prepare_destination_replaces_parent_symlink_without_following_it() {
     create_dir_all(&external).unwrap();
     write(external.join("index.json"), "outside").unwrap();
     symlink(&external, output.join("linked")).unwrap();
-    let target = Bucket::prepare_destination(&output, Path::new("linked/index.json")).unwrap();
+    let destination = SafePath::new("linked/index.json").unwrap();
+    let target = destination.prepare(&output).unwrap();
     assert_eq!(target, output.join("linked/index.json"));
     assert!(output.join("linked").is_dir());
     assert!(!output.join("linked").symlink_metadata().unwrap().file_type().is_symlink());
@@ -678,21 +804,20 @@ fn test_runners() {
 }
 #[test]
 fn test_transfer_item_collect_preserves_or_flattens_paths() {
-    let paths = vec!["docs/quest/index.json".to_string(), "docs/quest/image.png".to_string()];
-    let preserved = TransferItem::collect(paths.clone(), false).unwrap();
-    let flattened = TransferItem::collect(paths, true).unwrap();
+    let preserved = TransferItem::collect(source_items(&["docs/quest/index.json", "docs/quest/image.png"]), false).unwrap();
+    let flattened = TransferItem::collect(source_items(&["docs/quest/index.json", "docs/quest/image.png"]), true).unwrap();
     assert_eq!(
-        preserved.iter().map(|item| item.destination.clone()).collect::<Vec<_>>(),
+        preserved.iter().map(|item| item.destination.clone().into_path_buf()).collect::<Vec<_>>(),
         vec![PathBuf::from("docs/quest/index.json"), PathBuf::from("docs/quest/image.png")]
     );
     assert_eq!(
-        flattened.iter().map(|item| item.destination.clone()).collect::<Vec<_>>(),
+        flattened.iter().map(|item| item.destination.clone().into_path_buf()).collect::<Vec<_>>(),
         vec![PathBuf::from("index.json"), PathBuf::from("image.png")]
     );
 }
 #[test]
 fn test_transfer_item_collect_rejects_flattened_filename_collisions() {
-    let message = TransferItem::collect(vec!["one/index.json".to_string(), "two/index.json".to_string()], true)
+    let message = TransferItem::collect(source_items(&["one/index.json", "two/index.json"]), true)
         .unwrap_err()
         .to_string();
     assert!(message.contains("index.json"));
@@ -701,7 +826,7 @@ fn test_transfer_item_collect_rejects_flattened_filename_collisions() {
 }
 #[test]
 fn test_transfer_item_collect_rejects_unsafe_destination() {
-    let result = TransferItem::collect(vec!["../outside.json".to_string()], false);
+    let result = BucketSourceItem::new("unsafe".to_string(), "../outside.json", None, None);
     assert!(result.unwrap_err().to_string().contains("unsafe"));
 }
 #[test]

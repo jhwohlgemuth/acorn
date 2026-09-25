@@ -4,9 +4,9 @@
 <p>Turn one RAD source into a shareable artifact with <code>acorn export &lt;PATH&gt; --format &lt;FORMAT&gt;</code>.</p>
 </blockquote>
 
-`acorn export` converts one RAD record or a directory of records into formats such as CFF, PDF, PowerPoint, Markdown, JSON, YAML, or ZON.
+`acorn export` converts one RAD record or a directory of records into formats such as CFF, PDF, PowerPoint, Markdown, JSON, JSON Lines, YAML, or ZON.
 
-Markdown and `.zonf` RAD are accepted as inputs for the same RAD export targets as JSON and YAML. Exported Markdown uses YAML frontmatter with `schema: acorn/research-activity`; its generated `## ASPECT` section includes nested data and model details.
+Markdown, `.zonf`, `.jsonl`, and `.ndjson` RAD are accepted as inputs for their supported RAD export targets alongside JSON and YAML. Exported Markdown uses YAML frontmatter with `schema: acorn/research-activity`; its generated `## ASPECT` section includes nested data and model details.
 
 The command creates each selected artifact from the same source record, so a project can maintain its data once and regenerate its public outputs when that data changes.
 
@@ -58,6 +58,9 @@ acorn export /path/to/project/ --format powerpoint
 
 # Create a CITATION.cff file from a research activity index
 acorn export /path/to/project/index.json --format cff
+
+# Convert a JSON array or JSON Lines batch to canonical .jsonl output
+acorn export /path/to/project/activities.json --format jsonl
 ```
 
 > [!NOTE]
@@ -73,9 +76,28 @@ acorn export ./research --format bag --archive-format tar --output ./deposit
 
 An explicit format that conflicts with an output suffix is rejected. `--archive-format` is not accepted for non-BagIt exports.
 
+## JSON Lines batches
+
+Use `--format jsonl` to write newline-delimited JSON. `--format ndjson` is an alias for the same format; output always uses the canonical `.jsonl` suffix.
+
+```sh
+# Convert a JSON array to one compact JSON object per line
+acorn export activities.json --format jsonl
+
+# Normalize an .ndjson batch to the canonical .jsonl suffix
+acorn export activities.ndjson --format jsonl
+
+# Convert a JSON Lines RAD batch to a JSON array
+acorn export activities.jsonl --format json
+```
+
+Each nonblank physical line must contain exactly one complete JSON record. LF and CRLF line endings are accepted, the final newline is optional on input, and output always ends with one newline. Empty input, blank record lines, malformed JSON, and records that do not match the selected schema fail the entire export with a one-based line number.
+
+Record order and cardinality are preserved when converting among JSON Lines, JSON, YAML, and ZON batch representations. Directory export still writes one output file per source file; it does not combine unrelated sources into one batch. Export discovery recognizes both `.jsonl` and `.ndjson`, while commands such as `check` and `format` keep their existing input sets.
+
 ## Standard crosswalks
 
-Use `--to` with JSON, YAML, or ZON export to convert metadata between DataCite, DCAT, InvenioRDM, and HuWise. ACORN can infer the source standard from recognizable fields, but `--from` is recommended for repeatable scripts and for records with an ambiguous shape.
+Use `--to` with JSON, JSON Lines, YAML, or ZON export to convert metadata between DataCite, DCAT, InvenioRDM, and HuWise. ACORN can infer the source standard from recognizable fields, but `--from` is recommended for repeatable scripts and for records with an ambiguous shape.
 
 ```sh
 # Convert one DataCite JSON record to DCAT JSON
@@ -86,6 +108,9 @@ acorn export dataset.json --format yaml --from dcat --to datacite --output ./exp
 
 # Convert DataCite ZON to DCAT ZON; output uses .zonf
 acorn export datacite.zonf --format zon --from datacite --to dcat --output ./export
+
+# Convert an ordered DataCite JSON Lines batch to DCAT JSON Lines
+acorn export datacite.ndjson --format jsonl --from datacite --to dcat --output ./export
 
 # Preview a directory conversion without writing files
 acorn export ./metadata --format json --from invenio --to dcat --dry-run
@@ -102,8 +127,9 @@ The source and target may each be `datacite`, `dcat`, `invenio`, or `huwise`. Ev
 
 Crosswalk export has these constraints:
 
-- The input and output must be JSON, YAML, or ZON. PDF, PowerPoint, CFF, BagIt, and Markdown are not crosswalk targets.
-- A single object or an array of objects is accepted. Directory export writes one target file for each resolved source file.
+- The input and output must be JSON, JSON Lines, YAML, or ZON. PDF, PowerPoint, CFF, BagIt, and Markdown are not crosswalk targets.
+- A single object, an array of objects, or one object per JSON Lines record is accepted. Directory export writes one target file for each resolved source file.
+- Source-standard inference checks every JSON Lines record. A batch containing mixed standards fails at the first conflicting record and reports its record index and physical line.
 - Conversion can be lossy because the standards have different fields and cardinalities. Normal direct conversions report field-level crosswalk warnings when ACORN has a mapping for that pair.
 - Warning collection is currently limited to direct DataCite mappings and DCAT → DataCite. Routed conversions can lose metadata without a complete end-to-end warning report.
 - `--strict` is intended to fail when conversion loses data, but the current export path does not retain warnings in strict mode. Do not use it as a lossless-conversion guarantee until that behavior is corrected.
