@@ -12,6 +12,7 @@
 
 ## Planned groups and independent work
 
+- [Provider-neutral bucket source abstraction](bucket-source-abstraction.md) - Add concise bucket definitions and separate provider discovery and retrieval from shared transfer processing without changing repository-backed behavior.
 - [ZON codec hardening](zon-codec-hardening.md) - Review the pinned encoder and decoder, consolidate duplicated grammar logic, and strengthen conformance evidence.
 - [Workspace duplication consolidation](workspace-duplication-consolidation.md) - Assign one explicit owner to JSONC policy, PID helpers, model synchronization, TUI gather and controls, remote serve dispatch, Rhai check projection, and CLI test utilities.
 - [Portability](portability/) - Dependency-feature narrowing and measured macOS size work on top of the implemented portability matrix.

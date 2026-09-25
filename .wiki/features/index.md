@@ -9,8 +9,9 @@
 
 ## Planned
 
-- [Azure Cosmos DB bucket downloads](azure-cosmos-buckets.md) - Treat a Cosmos DB for NoSQL container or logical partition as a read-only bucket source through the existing transfer pipeline.
+- [Azure Cosmos DB bucket downloads](azure-cosmos-buckets.md) - After the provider-neutral source prerequisite, add a Cosmos DB for NoSQL container or logical partition as a read-only bucket source.
 - [Deterministic gather scraping](deterministic-gather-scraping.md) - Extend gather with bounded HTTP fetching and typed CSS extraction without scripting or inference.
+- [JSON Lines recognition and export crosswalk](json-lines-export-crosswalk.md) - Recognize `.jsonl` and `.ndjson` as one structured batch format and support deterministic JSON Lines export and standards crosswalks.
 - [Structured extraction inference](structured-extraction-inference.md) - Add typed, provenance-preserving inference fallback for incomplete deterministic gather extraction.
 - [ACP inference and verified fixes](opencode-acp-inference.md) - Finish bounded fix suggestions, trusted deterministic remediation, opt-in interoperability, and CLI/doctor/TUI integration on the implemented ACP and OpenAI inference foundation.
 - [MCP client](mcp-client.md) - Add outbound RMCP client sessions that reuse the shared operation and policy boundaries.
