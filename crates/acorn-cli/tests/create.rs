@@ -12,6 +12,7 @@ fn test_create_secret_prints_one_lowercase_hex_value() {
     let secret = String::from_utf8(output.stdout).expect("UTF-8 secret output");
     let secret = secret.trim();
     assert!(output.status.success());
+    assert!(output.stderr.is_empty());
     assert_eq!(secret.len(), 64);
     assert!(secret
         .chars()

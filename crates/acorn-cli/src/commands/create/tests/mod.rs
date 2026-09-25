@@ -55,12 +55,69 @@ fn test_create_mcp_upserts_kitfile_idempotently() {
     assert!(server.layer.digest.is_none());
 }
 #[test]
+fn test_deliver_combines_clipboard_and_piped_stdout() {
+    let copied = RefCell::new(String::new());
+    let written = RefCell::new(String::new());
+    deliver(
+        "generated-secret",
+        true,
+        true,
+        |value| {
+            copied.replace(value.to_string());
+            Ok(())
+        },
+        |value| {
+            written.replace(value.to_string());
+        },
+    )
+    .expect("combined delivery");
+    assert_eq!(copied.into_inner(), "generated-secret");
+    assert_eq!(written.into_inner(), "generated-secret");
+}
+#[test]
 fn test_deliver_copies_without_printing_the_secret() {
     let copied = RefCell::new(String::new());
-    let result = deliver("generated-secret".to_string(), true, |value| {
-        copied.replace(value);
-        Ok(())
-    });
+    let written = RefCell::new(String::new());
+    let result = deliver(
+        "generated-secret",
+        true,
+        false,
+        |value| {
+            copied.replace(value.to_string());
+            Ok(())
+        },
+        |value| {
+            written.replace(value.to_string());
+        },
+    );
     assert!(result.is_ok());
     assert_eq!(copied.into_inner(), "generated-secret");
+    assert!(written.into_inner().is_empty());
+}
+#[test]
+fn test_deliver_writes_only_when_stdout_is_piped() {
+    let silent = RefCell::new(String::new());
+    deliver(
+        "generated-secret",
+        false,
+        false,
+        |_| Ok(()),
+        |value| {
+            silent.replace(value.to_string());
+        },
+    )
+    .expect("silent delivery");
+    assert!(silent.into_inner().is_empty());
+    let written = RefCell::new(String::new());
+    deliver(
+        "generated-secret",
+        false,
+        true,
+        |_| Ok(()),
+        |value| {
+            written.replace(value.to_string());
+        },
+    )
+    .expect("piped delivery");
+    assert_eq!(written.into_inner(), "generated-secret");
 }

@@ -945,8 +945,8 @@ pub(crate) struct ImportModel {
 #[command(long_about = None)]
 pub(crate) struct Infer {
     /// Prompt used to select and invoke ACORN tools
-    #[arg(value_name = "PROMPT")]
-    pub(crate) prompt: String,
+    #[arg(required = false, value_name = "PROMPT")]
+    pub(crate) prompt: Option<String>,
     /// ModelKit directory, file:// URI, HTTP(S) manifest URI, or digest-pinned oci:// reference
     #[arg(long, value_name = "LOCATION", help_heading = "OPTIONS")]
     pub(crate) custom_location: Option<String>,

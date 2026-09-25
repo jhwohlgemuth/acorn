@@ -28,7 +28,7 @@ sequenceDiagram
     participant Notify as Power Automate notifications
     actor Recipient
 
-    Operator->>ACORN: Run acorn create secret --clipboard
+    Operator->>ACORN: Run acorn create secret --paste
     ACORN-->>Operator: Copy 256-bit hexadecimal secret
     Operator->>ACORN: Set POWER_AUTOMATE_INBOUND_SECRET
     Operator->>Intake: Set x-acorn-webhook-secret
@@ -85,7 +85,7 @@ The direct callback requires the HTTP trigger's legacy `Anyone` mode. If tenant 
 Use ACORN to generate one random value for authenticating form submissions:
 
 ```bash
-acorn create secret --clipboard
+acorn create secret --paste
 ```
 
 The command generates one 64-character lowercase hexadecimal value from the operating system's cryptographic random-number generator and copies it to the system clipboard without printing the value. Paste it into the two protected settings below, then clear or replace the clipboard contents. ACORN does not store the generated value.
@@ -96,6 +96,8 @@ For a headless session without clipboard access, omit the option and capture sta
 POWER_AUTOMATE_INBOUND_SECRET="$(acorn create secret)"
 export POWER_AUTOMATE_INBOUND_SECRET
 ```
+
+The command writes the secret only when standard output is redirected or piped. Running `acorn create secret` directly in an interactive terminal is intentionally silent. `--clipboard` remains an alias for `--paste`.
 
 Store the same value in two places:
 

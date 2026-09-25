@@ -210,7 +210,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 )
                 .await
             }),
-            | Some(CreateCommands::Secret { clipboard }) => create::secret::run(*clipboard),
+            | Some(CreateCommands::Secret { paste }) => create::secret::run(*paste),
             | None => Err(eyre::eyre!("No subcommand provided for 'create'")),
         },
         | Some(Commands::Doctor(arguments)) => {
@@ -356,7 +356,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
         },
         | Some(Commands::Infer(arguments)) => with_runtime(async {
             infer::run(
-                &arguments.prompt,
+                arguments.prompt.as_deref(),
                 arguments.custom_location.as_deref(),
                 arguments.threshold,
                 arguments.max_rounds,

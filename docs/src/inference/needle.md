@@ -10,6 +10,12 @@ The integration is pinned to upstream revision `b274efcb211a9eef48c9a88da4b43bd5
 acorn infer "Return the running ACORN version"
 ```
 
+The prompt can also be read from standard input:
+
+```console
+echo "Return the running ACORN version" | acorn infer
+```
+
 The first online run downloads the engine for the current platform, the model, and its Apache-2.0 license. ACORN verifies the published byte length and SHA-256 of every file before execution and caches them outside the repository. Download and verify the bundle without starting inference:
 
 ```console

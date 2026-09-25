@@ -228,7 +228,7 @@ Create research resources like GitLab runners, MCP servers, etc.
     $> acorn create runner --group 12345
 
     Generate a secret and copy it to the system clipboard
-    $> acorn create secret --clipboard
+    $> acorn create secret --paste
 
 **Usage:** `acorn-cli create [COMMAND]`
 
@@ -347,7 +347,7 @@ Cryptographically secure 256-bit secret
 
 ###### **Options:**
 
-* `--clipboard` — Copy the generated value to the system clipboard instead of standard output
+* `--paste` [alias: `clipboard`] — Copy the generated value to the system clipboard
 
 
 
@@ -647,10 +647,13 @@ Run bounded local tool inference through the managed Needle sidecar
     Use the pinned official runner
     $> acorn infer "Validate this research activity"
 
+    Read the prompt from standard input
+    $> echo "Validate this research activity" | acorn infer
+
     Use a local or private-registry ModelKit
     $> acorn infer "Validate this" --custom-location oci://harbor.example/acorn/needle@sha256:...
 
-**Usage:** `acorn-cli infer [OPTIONS] <PROMPT>`
+**Usage:** `acorn-cli infer [OPTIONS] [PROMPT]`
 
 **Command Alias:** `ask`
 

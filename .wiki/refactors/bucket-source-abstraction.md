@@ -18,9 +18,13 @@ status: planned
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-lib/src/io/config/{bucket,mod,transfer}.rs`; focused configuration, transfer, manifest, and provenance tests under `crates/acorn-lib/src/io/config/tests/`; production import and download code and tests under `crates/acorn-cli/src/commands/{import,download}/`; configuration and download documentation.
-- **Create:** `crates/acorn-lib/src/io/config/bucket_source.rs`; dedicated compatibility fixtures under `tests/fixtures/config/` only when existing fixtures cannot express the required aliases and conflicts.
+- **Update, configuration and adapter slices:** `crates/acorn-lib/src/io/config/bucket.rs`, `crates/acorn-lib/src/io/config/transfer.rs`, `crates/acorn-lib/src/io/config/mod.rs`, and `crates/acorn-lib/src/io/config/tests/mod.rs`.
+- **Update, CLI integration slice:** `crates/acorn-cli/src/commands/import/mod.rs`, `crates/acorn-cli/src/commands/download/mod.rs`, and `crates/acorn-cli/src/commands/download/tests/mod.rs`.
+- **Update, documentation slice:** `docs/src/cli-reference/configuration.md`, `docs/src/cli-reference/commands/download.md`, and `docs/src/cli-reference/commands/import.md`.
+- **Create:** `crates/acorn-lib/src/io/config/bucket_source.rs`; dedicated compatibility fixtures under `tests/fixtures/config/` only when the existing JSON, JSONC, and YAML fixtures cannot express a required alias or conflict case.
 - **Delete:** None.
+
+This plan adds no dependency, feature, CLI argument, or generated-help change. Do not edit workspace manifests, `Cargo.lock`, CLI parser roots, or `CommandLineHelp.md` for this refactor.
 
 # Dependencies
 
@@ -41,6 +45,9 @@ Give `Bucket` a bucket-specific source type and a provider-neutral discovery and
 - Repository-specific branch resolution, raw-URL construction, authentication, and GitLab fallback behavior are implemented inside `bucket.rs`, so another bucket provider would have to duplicate orchestration or add unrelated variants to `acorn_core::Repository`.
 - `TransferManifest` already owns transferred paths and drives canonicalization, provenance, and ingestion. The provider abstraction should feed that pipeline rather than replace it.
 - `acorn_core::Repository` is used outside bucket transfer for source-code and artifact repositories. Expanding it with document databases or record files would increase exhaustive-match coupling in unrelated domains.
+- `ApplicationConfiguration.buckets` is an `eserde` compatibility field containing `Vec<Bucket>`, while JSONC and YAML use the same vanilla `Deserialize` implementation. One `BucketInput` normalization path can therefore cover all three formats without changing the top-level configuration type.
+- `SafePath` already normalizes `.` components and rejects empty, absolute, parent-traversal, and foreign-drive paths. `TransferItem` currently repeats only part of that validation with `PathBuf` components.
+- The focused `acorn-lib` configuration suite passed all 44 tests and the six focused CLI import/download policy and ingestion tests passed on 2026-09-24. The worktree contained no bucket-source implementation at that point.
 
 # Decisions
 
@@ -220,6 +227,18 @@ impl TryFrom<&str> for Bucket {
 
 Preserve the current classification behavior for supported shorthand values: filesystem paths and `file:` URIs become local Git sources, `github.com` URLs become GitHub sources, and other valid remote repository URLs use the existing GitLab fallback. Relative paths retain the same project/current-directory resolution semantics as detailed repository locations; this plan does not silently rebase them to the configuration file's parent. Empty strings, malformed locations, embedded URL credentials, and unsupported schemes return configuration errors; parsing must never call `process::exit`. Provider-specific options such as GitLab numeric IDs, revisions, Cosmos coordinates, and future credentials require the detailed object form.
 
+Use one explicit classification table in the parser:
+
+| Input | Normalized repository | Rule |
+|---|---|---|
+| Absolute or relative filesystem path, including `./`, `../`, and an unprefixed relative path | `Repository::Git` | Preserve the authored path and resolve it at transfer time with the existing current/project-directory behavior. |
+| `file:` URI | `Repository::Git` | Require a valid credential-free file URI. |
+| Credential-free HTTPS URL whose normalized host is exactly `github.com` or `www.github.com` | `Repository::GitHub` | Do not use substring host matching. |
+| Other credential-free HTTPS URL with a host | `Repository::GitLab { id: None, .. }` | Preserve the existing self-managed GitLab fallback and derive its project identifier from the path. |
+| Empty or surrounding-whitespace-only input, malformed URI, URI with userinfo, HTTP, SSH, OCI, S3, or another scheme | Error | Return an actionable `Report` before constructing a bucket or reading credentials. |
+
+Detailed repository objects retain their existing deserialization and transfer-time validation. The stricter table applies only to new shorthand and CLI string parsing, where currently effective bucket transfers already require HTTPS for remote repository access.
+
 Keep the shorthand deliberately small. Do not add a name-to-source map form, shell expansion, environment interpolation, provider guessing from file contents, or a second parser for CLI arguments. Canonical serialization and configuration rewriting always use the detailed object form so shorthand is an authoring convenience rather than another persistent schema.
 
 ## Provider-neutral item contract
@@ -248,6 +267,8 @@ pub(crate) struct BucketSourceItem {
 
 Construction must call `SafePath::new` and reject empty, absolute, traversal, and foreign-drive paths. Listing validation rejects duplicate normalized paths before filtering or writing. Keep fields crate-visible only if that is required by adjacent config modules; otherwise use a validating constructor plus read-only accessors.
 
+Validation must preserve the repository adapter's existing item sequence while rejecting duplicates; it must not silently sort the prerequisite's manifests or progress order. Characterization tests freeze local glob order and GitHub/GitLab response and pagination order before the cutover. If those tests prove that an existing provider is not deterministic, stop and revise this plan with an explicit compatibility decision rather than introducing an incidental shared sort. New provider adapters are responsible for returning deterministic order.
+
 The adapter surface remains crate-private and statically dispatched:
 
 ```rust
@@ -265,6 +286,8 @@ pub(crate) struct RepositoryBucketSource<'a> {
 
 The shared transfer layer, not the adapter, selects and prepares `destination`. `retrieve` receives that already validated target so the repository adapter can preserve streaming downloads and GitLab fallback behavior without gaining control of filtering, flattening, clobbering, or manifest construction. Implementations use static enum matching; the plan does not create `Box<dyn BucketSourceAdapter>` or a registry.
 
+`TransferItem` must retain the complete `BucketSourceItem`, not reduce it to its virtual path. The opaque provider key and resolved revision are required when the transfer closure later calls `retrieve`; looking an item up again by path or assuming that every provider key equals its output path would defeat the abstraction. Its destination is a second `SafePath`, derived from the source path or its validated filename when flattening. `TransferManifest.files` remains `Vec<PathBuf>` and receives those destinations only after successful transfer planning.
+
 The planned ownership of the data structures is:
 
 | Structure | Owner | Responsibility |
@@ -273,7 +296,7 @@ The planned ownership of the data structures is:
 | `BucketInput` / `BucketSourceInput` | `config/bucket_source.rs` | Input-only shorthand normalization; never exposed to runtime consumers or serialization. |
 | `RepositoryBucketSource` | `config/bucket_source.rs` | Existing repository enumeration, revision resolution, authentication, and retrieval. |
 | `BucketSourceItem` | `config/bucket_source.rs` | Provider key plus safe, deterministic transfer metadata. |
-| `TransferItem` | `config/transfer.rs` | Selected source path and resolved destination after filtering and flattening. |
+| `TransferItem` | `config/transfer.rs` | Complete selected source item plus its resolved safe destination after filtering and flattening. |
 | `TransferManifest` | `config/transfer.rs` | Successfully written relative paths, existing source identity, canonicalization, provenance, and ingestion. |
 
 ## Repository adapter and transfer ownership
@@ -282,6 +305,7 @@ The planned ownership of the data structures is:
 - Apply shared filters only after deterministic item discovery and before provider retrieval. Convert selected items to the existing `TransferItem` and `TransferManifest` flow so destination safety, collision handling, concurrency, canonicalization, provenance, and ingestion keep one owner.
 - Preserve the existing local-versus-remote and import-versus-download policy: download rejects local sources, offline mode rejects remote sources before network or credential access, and import continues to accept local repositories and verified archive payloads.
 - Preserve the current transfer-manifest and bucket-provenance wire contracts in this refactor. Provider-specific provenance extensions belong to the concrete provider plan that needs them.
+- Preserve the current destination compatibility rules in the shared executor. Without clobber, an existing local-copy destination remains an error and an existing complete remote-download destination remains a successful skip. With clobber, local copying obtains bytes before replacing the old destination, while remote downloading retains its existing remove-then-stream behavior. The adapter may use the target or staging path selected by the shared layer, but it does not decide whether an existing destination is skipped, rejected, or replaced. Unifying these pre-existing local and remote semantics is outside this refactor.
 
 The orchestration remains a single directional pipeline:
 
@@ -299,6 +323,8 @@ BucketSourceAdapter::items
 
 For repository-backed buckets, `manifest_identity()` returns the same repository location string currently passed to `transfer_bucket_files`. The existing `TransferManifest::repository` and `Provenance::Bucket::repository` fields therefore remain unchanged in this prerequisite even though the runtime selector is now named `BucketSource`.
 
+Repository item discovery retains the current call sequence: list the provider paths, then resolve the branch once and stamp the resulting revision onto every validated item. GitHub remains `main`; GitLab keeps its project-default lookup and `HEAD` fallback when that lookup fails. Retrieval uses the revision carried by the item, preserving current raw-URL construction, token headers, streaming, and buffered GitLab fallback without resolving the branch separately for every file.
+
 ## Scope boundary
 
 - Do not add Cosmos DB, JSON Lines, object storage, SQL, or any other new source variant.
@@ -310,6 +336,16 @@ For repository-backed buckets, `manifest_identity()` returns the same repository
 # Recommendation
 
 Freeze configuration and transfer behavior with characterization tests first. Add the source type and one fallible string parser, normalize shorthand during deserialization, then adapt repositories behind the narrow list/retrieve contract. Switch `Bucket` orchestration only after the adapter produces equivalent items and manifests. Keep the provider contract crate-private until a second implementation proves that a larger public interface is necessary.
+
+# Implementation readiness
+
+Evidence and write boundaries were reconciled with the current code on 2026-09-24. The shared manifest, filtering, destination-safety, canonicalization, provenance, and ingestion baseline required from the BagIt/import plan is present and its focused tests are green. That broader plan is still `in-progress`, so bucket-source work may begin only after acquiring the single-writer lock for `config/{bucket,transfer,mod}.rs`, the shared configuration tests and fixtures, and the import/download command tests. This plan remains `planned` until the first code slice lands.
+
+1. **Characterization slice:** own only `crates/acorn-lib/src/io/config/tests/mod.rs`, the existing bucket fixtures, and the named CLI tests. Freeze both accepted legacy field names, canonical `codeRepository` serialization, current command-boundary failure behavior, local/remote policy, item sequence, selected paths, manifests, provenance, filters, flattening, clobbering, and ingestion. Record the current process exit as the behavior intentionally replaced by slice 4 rather than carrying it forward. Add a dedicated fixture only if an inline case cannot express a conflict clearly.
+2. **Configuration/parser slice:** create `bucket_source.rs`; update `bucket.rs`, `mod.rs`, and focused configuration tests. Add `BucketSource`, input-only normalization types, the classification table above, conversions, public re-export, shorthand coverage, conflict diagnostics, and canonical serialization. Do not move provider I/O yet.
+3. **Repository-adapter slice:** serialize after slice 2 and own `bucket_source.rs`, `bucket.rs`, `transfer.rs`, and focused transfer tests. Add validated items and static adapter dispatch, retain the full source item in each transfer item, move repository listing/retrieval, and cut orchestration over without changing manifests or provenance.
+4. **CLI error-boundary slice:** update only the import/download command modules and their shared test module after the parser API is stable. Replace infallible `Bucket::from(&str)` calls with `TryFrom`, collect URL parse errors before transfer, and prove invalid input returns through `Result` without terminating inside `acorn-lib`.
+5. **Documentation slice:** document bare, named, and detailed forms in the three named guides after behavior is final. Do not regenerate command help because the CLI surface does not change.
 
 # Implementation sequence
 

@@ -71,7 +71,7 @@ pub enum Commands {
     ///     $> acorn create runner --group 12345
     ///
     ///     Generate a secret and copy it to the system clipboard
-    ///     $> acorn create secret --clipboard
+    ///     $> acorn create secret --paste
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Create {
@@ -152,6 +152,9 @@ pub enum Commands {
     ///
     ///     Use the pinned official runner
     ///     $> acorn infer "Validate this research activity"
+    ///
+    ///     Read the prompt from standard input
+    ///     $> echo "Validate this research activity" | acorn infer
     ///
     ///     Use a local or private-registry ModelKit
     ///     $> acorn infer "Validate this" --custom-location oci://harbor.example/acorn/needle@sha256:...
@@ -295,9 +298,9 @@ pub enum CreateCommands {
     Bot(Box<arguments::bot::Create>),
     /// Cryptographically secure 256-bit secret
     Secret {
-        /// Copy the generated value to the system clipboard instead of standard output
-        #[arg(long)]
-        clipboard: bool,
+        /// Copy the generated value to the system clipboard
+        #[arg(long, visible_alias = "clipboard")]
+        paste: bool,
     },
 }
 #[derive(Clone, Debug, Subcommand)]

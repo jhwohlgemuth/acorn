@@ -56,7 +56,7 @@ Let ACORN hydrate embedded prompt templates with typed configuration and seriali
 - Deterministic fixes produced by an analyzer take precedence over model-generated suggestions. Inference is used only where a check lacks a complete deterministic correction or the user explicitly requests alternatives.
 - The first release rejects ACP inference in offline mode because ACORN cannot prove that OpenCode's selected provider is local. Prompt hydration/dry-run remains available, and OpenAI-compatible HTTP is allowed offline only for an explicitly configured loopback endpoint. A later verified local-only agent descriptor may relax ACP policy without changing the request contract.
 - The in-tree completion does not create `acorn-api` or `acorn-service`. Keep contracts separable so those later extractions remain mechanical.
-- The existing `acorn infer` command remains the Needle tool-selection workflow. ACP prompt execution uses the separate `acorn prompt run` command.
+- The existing `acorn infer` command remains the Needle tool-selection workflow and accepts its prompt either positionally or from piped standard input. ACP prompt execution uses the separate `acorn prompt run` command.
 - Suggestion defaults are 32 findings per batch, 4 KiB per excerpt, and 128 KiB of total prompt context. Callers may lower these limits but cannot exceed them through a remote operation.
 - The first trusted package-manager recipes are Node through WinGet on Windows and Homebrew on macOS. Linux and other package managers, Git, Pandoc, and OpenCode remain manual. Vale and Chromium reuse their existing ACORN-owned installers.
 
@@ -77,6 +77,8 @@ Let ACORN hydrate embedded prompt templates with typed configuration and seriali
 - `Check` is not currently a serialization contract and contains private, renderer-specific payloads. Inference should receive a normalized check reference DTO rather than serializing the internal check object or its entire source file.
 - `io::api::openai` preserves its raw endpoint functions and now also exposes a typed `InferenceBackend` client with explicitly selected Responses or Chat Completions mode, configured structured-output capability, bounded non-redirecting HTTP, secret-bearing authentication, typed refusals/provider failures, and loopback-only offline access. Private endpoint-specific DTOs map both wire formats into the shared result contract, and every requested structured result is parsed and JSON-Schema-validated locally.
 - The OpenAI adapter contract suite uses deterministic in-repository `/v1/responses` and `/v1/chat/completions` routes to prove equivalent normalized results, distinct structured-output request shapes, explicit capability/debug state without secret disclosure, fallback parsing, refusal/error mapping, timeout, malformed-response handling, authentication and transport preflight, and offline policy without external network access.
+- The Needle-oriented `acorn infer` CLI resolves a non-empty positional prompt before consulting piped standard input, trims the selected input, and fails before sidecar startup when neither source supplies a prompt.
+- The positional/stdin resolver, optional CLI prompt, generated help, and Needle documentation pass focused CLI tests, `make lint`, all 1,914 workspace tests, and `make book` on 2026-09-24.
 - `acorn doctor` already accepts `--fix` and `--interactive`, but `--fix` currently returns `Autofix is not implemented yet`. Software diagnostics detect ACORN, Git, Node.js, npm, npx, Pandoc, and Vale, but expose installation state as a display-oriented table rather than structured findings.
 - `doctor --interactive` currently opens `acorn-tui`, whose `DoctorData` and JSON export duplicate the CLI's display-oriented diagnostic data. Phase 8 must make both interfaces views over the shared structured `DoctorReport` rather than adding a third report model.
 - Several deterministic remediation mechanisms already exist: `ResearchActivity::format_with` normalizes RAD metadata, Vale output carries action parameters and exact spans, Vale resolution can download its binary, and PDF export can install Chromium. These should become registered fix providers/executors instead of being reimplemented by an inference layer.
@@ -789,7 +791,7 @@ acorn check activity.json --suggest-fixes --backend acp --agent opencode
 acorn check activity.json --suggest-fixes --backend openai --model local-model
 ```
 
-Keep the existing Needle-oriented `acorn infer` command unchanged. The first CLI slice must:
+Keep the existing Needle-oriented `acorn infer` backend and output contract unchanged, including its positional-or-stdin prompt input. The first CLI slice must:
 
 - select only known embedded `PromptFileAsset` values;
 - expose an agent selector whose first accepted value is `opencode` and whose dispatch boundary can later register verified Codex, Goose, or Pi adapters without changing prompt hydration or ACP result handling;
@@ -913,7 +915,7 @@ Exit gate: a hydrated prompt and one check-fix request produce non-empty, schema
 
 ## 8. Expose the CLI and reusable task hooks
 
-- Add `acorn prompt run <asset>` with `--data <PATH|->`, stdin fallback, repeated `--set KEY=VALUE`, `--backend acp|openai` defaulting to ACP, `--prompt-data-format zon|json`, agent/model/timeout/working-directory controls, explicit OpenAI endpoint mode/base URL, `--dry-run`, and JSON result output. Preserve `acorn infer` unchanged.
+- Add `acorn prompt run <asset>` with `--data <PATH|->`, stdin fallback, repeated `--set KEY=VALUE`, `--backend acp|openai` defaulting to ACP, `--prompt-data-format zon|json`, agent/model/timeout/working-directory controls, explicit OpenAI endpoint mode/base URL, `--dry-run`, and JSON result output. Preserve the Needle backend and output contract of `acorn infer`, including positional-or-stdin prompt input.
 - Wire the shared installation preflight into `acorn doctor` with capability-scoped pass, warning, and failure messaging.
 - Add `check --suggest-fixes` after normal analysis, including backend/model/agent selection, the fixed batch/context ceilings, minimum confidence, console/JSON output, and suggestion-only messaging.
 - Complete the three doctor modes over the shared `DoctorReport` and planner: report-only interactive TUI, safe non-interactive fix, and interactive selection/confirmation.
@@ -937,9 +939,10 @@ The prompt/inference foundation, fake ACP transport, and OpenAI-compatible adapt
 7. Add HTTP tests for Responses and Chat Completions modes, custom base URLs, missing authentication, structured-output capability, JSON fallback validation, refusals, usage, rate/provider errors, timeouts, and offline rejection of remote endpoints.
 8. Add executor tests for atomic document edits and rollback, fixed command/argument invocation, offline/network policy, approval/elevation gates, timeouts, non-zero exits, redaction, and mandatory post-fix verification. Use fake WinGet, Homebrew, Vale, and Chromium runners with isolated `PATH` values; never install software on the test host.
 9. Add CLI parsing, command, doctor, and TUI tests for file input, stdin, dry-run without OpenCode installed, missing OpenCode during ACP inference, unavailable API endpoints, capability-scoped doctor output, fix JSON output, safe-only non-interactive fixes, interactive install selection, declined approval, shared doctor export data, invalid data, timeout, model/agent selection, and clean stdout.
-10. Run focused tests for `acorn_schema::agent`, `agent`, `fix`, `analyzer`, `doctor`, `io::acp`, and `io::api::openai`, then `make lint` and `make test`.
-11. Run `cargo check -p acorn-lib --no-default-features`, the existing alloc and WASM checks, `cargo check -p acorn-lib --no-default-features --features acp`, and independent `agentic`/`acp`/combined feature checks. Inspect feature trees to prove the default library and portable builds do not select the ACP SDK or Tokio process support. Confirm the OpenAI-compatible client and host fix executors stay behind native capability boundaries.
-12. Run `make audit` or the repository's equivalent dependency policy checks after adding the ACP SDK.
+10. Keep focused `acorn infer` parser and prompt-resolution tests for positional input, piped standard input, argument precedence, and empty input rejection before the Needle sidecar starts.
+11. Run focused tests for `acorn_schema::agent`, `agent`, `fix`, `analyzer`, `doctor`, `io::acp`, and `io::api::openai`, then `make lint` and `make test`.
+12. Run `cargo check -p acorn-lib --no-default-features`, the existing alloc and WASM checks, `cargo check -p acorn-lib --no-default-features --features acp`, and independent `agentic`/`acp`/combined feature checks. Inspect feature trees to prove the default library and portable builds do not select the ACP SDK or Tokio process support. Confirm the OpenAI-compatible client and host fix executors stay behind native capability boundaries.
+13. Run `make audit` or the repository's equivalent dependency policy checks after adding the ACP SDK.
 13. Regenerate CLI help and build documentation when the CLI surface lands.
 
 # Acceptance criteria
@@ -984,7 +987,7 @@ The foundation now satisfies strict prompt hydration, legacy render compatibilit
 - Existing prompt rendering and OpenCode configuration synchronization remain compatible.
 - Minimal, alloc, and WASM builds do not resolve ACP or subprocess dependencies.
 - Host fix executors remain outside portable schema/analysis builds, and tests never install packages or modify the real host environment.
-- `acorn prompt run` supports prompt preview and one-shot inference without changing the existing `acorn infer` workflow; `check --suggest-fixes` returns suggestion-only console or JSON reports.
+- `acorn prompt run` supports prompt preview and one-shot inference without changing the existing Needle-backed `acorn infer` workflow; `acorn infer` accepts a positional or piped prompt, and `check --suggest-fixes` returns suggestion-only console or JSON reports.
 - `doctor --fix`, `doctor --fix --interactive`, and `doctor --interactive` follow the fixed safe-auto, interactive-fix, and report-only policies defined above.
 
 # Completion handling

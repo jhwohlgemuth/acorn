@@ -134,13 +134,14 @@ fn test_cli() {
     .is_ok());
     assert!(Arguments::try_parse_from(["acorn", "create", "runner", "--group", "12345", "--repo", "code.ornl.gov"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "create", "secret"]).is_ok());
-    let secret = Arguments::try_parse_from(["acorn", "create", "secret", "--clipboard"]).expect("parse secret clipboard option");
+    let secret = Arguments::try_parse_from(["acorn", "create", "secret", "--paste"]).expect("parse secret paste option");
     match secret.command {
         | Some(Commands::Create {
-            command: Some(CreateCommands::Secret { clipboard }),
-        }) => assert!(clipboard),
+            command: Some(CreateCommands::Secret { paste }),
+        }) => assert!(paste),
         | other => panic!("unexpected command: {other:?}"),
     }
+    assert!(Arguments::try_parse_from(["acorn", "create", "secret", "--clipboard"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "export", "./", "--format", "pdf", "--filter", "json"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "export", "./", "--format", "pdf", "--ignore", "png", "--filter", "json"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "format", "./", "--filter", "json"]).is_ok());
@@ -1110,13 +1111,19 @@ fn test_tools_export_and_needle_custom_location_arguments() {
     .expect("parse Needle inference");
     match infer.command {
         | Some(Commands::Infer(arguments)) => {
-            assert_eq!(arguments.prompt, "validate this");
+            assert_eq!(arguments.prompt.as_deref(), Some("validate this"));
             assert_eq!(arguments.custom_location.as_deref(), Some("oci://harbor.example/acorn/needle@sha256:abc"));
             assert_eq!(arguments.threshold, 0.9);
             assert_eq!(arguments.max_rounds, 4);
         }
         | other => panic!("unexpected command: {other:?}"),
     }
+    assert!(matches!(
+        Arguments::try_parse_from(["acorn", "infer"])
+            .expect("parse piped Needle inference")
+            .command,
+        Some(Commands::Infer(_))
+    ));
     assert!(matches!(
         Arguments::try_parse_from(["acorn", "ask", "validate this"])
             .expect("parse ask alias")
