@@ -1,6 +1,4 @@
 //! PDF export helpers
-// `std::io::ErrorKind` has no stable `core` equivalent, so this lint is unfixable here.
-#![allow(clippy::std_instead_of_core)]
 //!
 //! This module renders Research Activity data to HTML and uses Chromium to generate a PDF output file.
 use crate::{cli::CommandOptions, io::chromium_cache_dir, template::Convert};

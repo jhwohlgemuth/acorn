@@ -1,6 +1,4 @@
 //! Archive creation and extraction utilities.
-// std::io items used here have no stable core equivalent, so clippy --fix cannot apply this.
-#![allow(clippy::std_instead_of_core)]
 use crate::{
     io::{files_all, remove_any, standard_project_folder, ApiResult},
     util::constants::app::{ARCHIVE_INFERENCE_BYTES, MAX_ARCHIVE_ENTRIES, MAX_ARCHIVE_EXPANDED_BYTES},
@@ -745,25 +743,25 @@ fn publish_children(from: &Path, to: &Path) -> ApiResult<()> {
 fn publish_entry(entry: &DirEntry, to: &Path) -> ApiResult<()> {
     let target = to.join(entry.file_name());
     let source = entry.path();
-    entry.file_type().map_err(Into::into).and_then(|kind| match kind.is_dir() {
-        | true => match target.symlink_metadata() {
-            | Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
-                remove_any(&target).and_then(|()| create_dir_all(&target).map_err(Into::into))
+    validate_publish_target(&target).and_then(|()| {
+        entry.file_type().map_err(Into::into).and_then(|kind| match kind.is_dir() {
+            | true => match target.symlink_metadata() {
+                | Ok(metadata) if !metadata.is_dir() => remove_any(&target).and_then(|()| create_dir_all(&target).map_err(Into::into)),
+                | Ok(_) => Ok(()),
+                | Err(why) if why.kind() == ErrorKind::NotFound => create_dir_all(&target).map_err(Into::into),
+                | Err(why) => Err(why.into()),
             }
-            | Ok(_) => Ok(()),
-            | Err(why) if why.kind() == ErrorKind::NotFound => create_dir_all(&target).map_err(Into::into),
-            | Err(why) => Err(why.into()),
-        }
-        .and_then(|()| publish_children(&source, &target)),
-        | false => remove_any(&target).and_then(|()| {
-            rename(&source, &target).map_err(|why| {
-                ArchiveError::PublishOutput {
-                    path: target,
-                    reason: why.to_string().into(),
-                }
-                .into()
-            })
-        }),
+            .and_then(|()| publish_children(&source, &target)),
+            | false => remove_any(&target).and_then(|()| {
+                rename(&source, &target).map_err(|why| {
+                    ArchiveError::PublishOutput {
+                        path: target,
+                        reason: why.to_string().into(),
+                    }
+                    .into()
+                })
+            }),
+        })
     })
 }
 fn validate_entry(root: &Path, seen: Vec<SafePath>, relative: SafePath, size: u64) -> ApiResult<(Vec<SafePath>, PathBuf)> {
@@ -774,6 +772,14 @@ fn validate_entry(root: &Path, seen: Vec<SafePath>, relative: SafePath, size: u6
             .materialize_under(root)
             .map(|target| (seen.into_iter().chain(once(relative)).collect(), target))
             .map_err(Into::into),
+    }
+}
+fn validate_publish_target(target: &Path) -> ApiResult<()> {
+    match target.symlink_metadata() {
+        | Ok(metadata) if metadata.file_type().is_symlink() => Err(ArchiveError::DestinationInvalid.into()),
+        | Ok(_) => Ok(()),
+        | Err(why) if why.kind() == ErrorKind::NotFound => Ok(()),
+        | Err(why) => Err(why.into()),
     }
 }
 fn write_entry(reader: &mut dyn Read, target: &Path, is_directory: bool) -> ApiResult<()> {

@@ -1,6 +1,4 @@
 //! Deterministic MCP Bundle planning, creation, and inspection.
-// std::io items used here have no stable core equivalent, so clippy --fix cannot apply this.
-#![allow(clippy::std_instead_of_core)]
 use super::{ToolCallContext, ToolRegistry};
 use crate::{
     error::ApiResult,

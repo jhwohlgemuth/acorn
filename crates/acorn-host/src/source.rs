@@ -1,6 +1,4 @@
 //! Local and remote source loading.
-// `std::io::ErrorKind` has no stable `core` equivalent, so this lint is unfixable here.
-#![allow(clippy::std_instead_of_core)]
 use crate::{
     fs::{file_uri_to_path, FsError},
     http::{redact_url, HttpClient, HttpError},

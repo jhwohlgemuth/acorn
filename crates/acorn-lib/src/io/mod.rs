@@ -1,6 +1,4 @@
 //! # IO Utilities
-// std::io items used here have no stable core equivalent, so clippy --fix cannot apply this.
-#![allow(clippy::std_instead_of_core)]
 //!
 //! Module to isolate input/output operations to enhance portability
 //!
@@ -223,7 +221,7 @@ pub trait Parse<T>: Sized {
     /// Parse the supplied source into this value.
     fn parse(value: T) -> ApiResult<Self>;
 }
-/// Convert filesystem paths to portable configuration strings.
+/// Convert filesystem paths without accessing the filesystem.
 pub trait PathConversion: AsRef<Path> {
     /// Borrow this value as a filesystem path.
     fn to_path(&self) -> &Path {
@@ -232,6 +230,23 @@ pub trait PathConversion: AsRef<Path> {
     /// Render a path using native separators without a Windows extended-length prefix
     fn cross_platform_display(&self) -> String {
         self.to_path().display().to_string()
+    }
+    /// Normalize `.` and `..` components, returning an error when `..` would escape the path root.
+    ///
+    /// This operation is purely lexical and does not resolve symbolic links.
+    fn lexically_normalized(&self) -> ApiResult<PathBuf> {
+        let path = self.to_path();
+        path.components().try_fold(PathBuf::new(), |mut normalized, component| match component {
+            | Component::CurDir => Ok(normalized),
+            | Component::ParentDir => match normalized.pop() {
+                | true => Ok(normalized),
+                | false => Err(eyre!("Path cannot be lexically normalized without escaping its root: {}", path.display())),
+            },
+            | value => {
+                normalized.push(value.as_os_str());
+                Ok(normalized)
+            }
+        })
     }
     /// Express this path relative to a base directory without filesystem access.
     fn to_relative(&self, base: &Path) -> PathBuf {

@@ -1,6 +1,4 @@
 //! Open Container Initiative (OCI) model artifact references, manifests, and ORAS-backed transport
-// std::io items used here have no stable core equivalent, so clippy --fix cannot apply this.
-#![allow(clippy::std_instead_of_core)]
 use crate::{
     io::{adapter::KitfileExt, api, config::RegistryProfile, extract, gguf, move_file, retry, walk, ApiResult, FromCommand, PathExt},
     util::constants::oci::{

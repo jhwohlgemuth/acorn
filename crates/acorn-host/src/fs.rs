@@ -1,7 +1,4 @@
 //! Native filesystem primitives
-// `std::io` has no stable `core` equivalent for `ErrorKind`, `Cursor`, or `BufReader`, so the
-// `std_instead_of_core` suggestion is unfixable here and `clippy --fix` would break the build.
-#![allow(clippy::std_instead_of_core)]
 use acorn_core::util::{Checksum, ChecksumAlgorithm};
 use core::future::Future;
 use data_encoding::HEXLOWER;

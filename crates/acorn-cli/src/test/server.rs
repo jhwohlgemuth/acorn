@@ -1,10 +1,9 @@
 #![allow(
+    clippy::arithmetic_side_effects,
     clippy::expect_used,
     clippy::indexing_slicing,
     clippy::panic,
-    clippy::std_instead_of_core,
-    clippy::unwrap_used,
-    clippy::arithmetic_side_effects
+    clippy::unwrap_used
 )]
 use core::time::Duration;
 use std::fs::OpenOptions;

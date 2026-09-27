@@ -7,9 +7,11 @@
 )]
 use super::{create_progress_bar_with_renderer, finish_progress_bar, retry, ProgressType};
 #[cfg(unix)]
+use crate::io::{adapter::KitfileExt, oci::OciTransport};
+#[cfg(unix)]
 use crate::util::constants::oci::{
-    KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MCPB_RAW, KITOPS_MODELKIT_MODEL_GZIP, KITOPS_MODELKIT_MODEL_PART_GZIP, MODELPACK_MANIFEST,
-    OCI_IMAGE_INDEX,
+    KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MCPB_RAW, KITOPS_MODELKIT_MODEL_GZIP, KITOPS_MODELKIT_MODEL_PART_GZIP, MODELPACK_DOC_RAW,
+    MODELPACK_MANIFEST, MODELPACK_WEIGHT_CONFIG_RAW, OCI_IMAGE_INDEX,
 };
 use crate::{
     io::{
@@ -84,6 +86,14 @@ mod swhid;
 
 const OCI_TEST_DIGEST: &str = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const TEST_BAGGING_DATE: &str = "2026-02-22";
+fn directory_entry_names(path: &Path) -> Vec<String> {
+    let mut names = read_dir(path)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().to_string())
+        .collect::<Vec<_>>();
+    names.sort();
+    names
+}
 fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures")
 }
@@ -127,10 +137,7 @@ fn test_archive_creation_leaves_no_staging_directories_behind() {
     let destination = temporary.path().join("bundle.zip");
     archive(source, Some(destination.clone()), MimeType::Zip).unwrap();
     assert!(destination.is_file());
-    let siblings = read_dir(temporary.path())
-        .unwrap()
-        .map(|entry| entry.unwrap().file_name().to_string_lossy().to_string())
-        .collect::<Vec<_>>();
+    let siblings = directory_entry_names(temporary.path());
     assert_eq!(siblings, vec!["bundle.zip".to_string(), "source".to_string()]);
 }
 
@@ -198,10 +205,7 @@ fn test_archive_extraction_preserves_existing_destination_on_failure() {
     assert_eq!(read_to_string(destination.join("data.txt")).unwrap(), "archive content");
     assert_eq!(read_to_string(destination.join("existing.txt")).unwrap(), "keep me");
     assert_eq!(read_to_string(destination.join("nested/keep.txt")).unwrap(), "keep me too");
-    let siblings = read_dir(temporary.path())
-        .unwrap()
-        .map(|entry| entry.unwrap().file_name().to_string_lossy().to_string())
-        .collect::<Vec<_>>();
+    let siblings = directory_entry_names(temporary.path());
     assert_eq!(
         siblings,
         vec![
@@ -1717,6 +1721,20 @@ fn test_oci_validates_minimum_oras_version() {
     assert!(SemanticVersion::from("Version: 1.3.0\nGo version: go1.24").is_supported(minimum).is_ok());
     assert!(SemanticVersion::from("Version: 1.2.3").is_supported(minimum).is_err());
     assert!(SemanticVersion::from("unexpected output").is_supported(minimum).is_err());
+}
+#[test]
+fn test_path_conversion_normalizes_lexically() {
+    let path = Path::new("./data/./nested/../input.json");
+    assert_eq!(path.lexically_normalized().expect("normalize path"), PathBuf::from("data/input.json"));
+    assert_eq!(
+        PathBuf::from("data/child/..").lexically_normalized().expect("normalize path"),
+        PathBuf::from("data")
+    );
+}
+#[test]
+fn test_path_conversion_rejects_lexical_escape() {
+    assert!(Path::new("../data/input.json").lexically_normalized().is_err());
+    assert!(Path::new("data/../../input.json").lexically_normalized().is_err());
 }
 #[test]
 fn test_path_conversion_uses_platform_string_paths() {

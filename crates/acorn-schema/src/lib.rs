@@ -4,7 +4,6 @@
 //! validation, crosswalks, and string/byte codecs. Path and URL I/O remain
 //! in host adapters (`acorn-lib` / `acorn-host`).
 #![cfg_attr(not(feature = "std"), no_std)]
-#![allow(clippy::std_instead_of_core)]
 #![allow(clippy::std_instead_of_alloc)]
 #![allow(missing_docs)]
 #![allow(dead_code)]

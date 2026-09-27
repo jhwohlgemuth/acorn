@@ -7,6 +7,7 @@ use serde_json::{Map, Number, Value};
 pub mod client;
 pub mod server;
 /// Generated `acorn.rpc.v1` protocol messages and services.
+// Tonic emits `std` paths for core types, so keep this exception scoped to generated code.
 #[allow(missing_docs, clippy::std_instead_of_core)]
 pub mod proto {
     tonic::include_proto!("acorn.rpc.v1");

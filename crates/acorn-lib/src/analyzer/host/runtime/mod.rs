@@ -1,6 +1,4 @@
 //! # Prose analyzer module
-// std::io items used here have no stable core equivalent, so clippy --fix cannot apply this.
-#![allow(clippy::std_instead_of_core)]
 //!
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
