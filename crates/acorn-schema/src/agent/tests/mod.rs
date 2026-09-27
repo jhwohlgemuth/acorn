@@ -15,11 +15,12 @@ use crate::research_activity::aspect::data::Modality;
 use crate::OneOrMany;
 use acorn_core::util::MarkdownSupport;
 
-fn all_known_assets() -> [PromptFileAsset; 6] {
+fn all_known_assets() -> [PromptFileAsset; 7] {
     [
         PromptFileAsset::Eli5,
         PromptFileAsset::ExtractClaim,
         PromptFileAsset::FindGaps,
+        PromptFileAsset::SuggestFixes,
         PromptFileAsset::Summarize,
         PromptFileAsset::Teach,
         PromptFileAsset::Translate,

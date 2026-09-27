@@ -117,6 +117,7 @@ fn test_hydrate_renders_every_embedded_prompt() {
         (PromptFileAsset::Eli5, "eli5", "Keep output under 42 words"),
         (PromptFileAsset::ExtractClaim, "extract-claim", "Extract at most 3 distinct claims"),
         (PromptFileAsset::FindGaps, "find-gaps", "hydrated source text"),
+        (PromptFileAsset::SuggestFixes, "suggest-fixes", "Return one JSON object"),
         (PromptFileAsset::Summarize, "summarize", "Keep output under 42 words"),
         (PromptFileAsset::Teach, "teach", "If true, provide 2-3 concrete"),
         (PromptFileAsset::Translate, "translate", "English-to-French"),
@@ -186,4 +187,20 @@ async fn test_inference_service_rejects_empty_prompts_and_zero_timeouts() {
         .unwrap_err()
         .to_string()
         .contains("greater than zero"));
+}
+#[tokio::test]
+async fn test_readiness_returns_secret_free_backend_summary() {
+    let expected = result();
+    let backend = InMemoryBackend::new(expected.clone()).with_capabilities(InferenceCapabilities {
+        structured_output: true,
+        ..InferenceCapabilities::default()
+    });
+    let readiness = InferenceReadiness::run(&backend, &request()).await.unwrap();
+    assert!(readiness.ready);
+    assert!(readiness.capabilities.structured_output);
+    assert_eq!(readiness.finish_reason, expected.finish_reason);
+    assert_eq!(readiness.provenance, expected.provenance);
+    let encoded = serde_json::to_string(&readiness).unwrap();
+    assert!(!encoded.contains("api_key"));
+    assert!(!encoded.contains("Summarize this source"));
 }

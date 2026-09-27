@@ -22,7 +22,7 @@ pub trait InferenceBackend: Send + Sync {
     fn infer<'a>(&'a self, request: &'a InferenceRequest) -> InferenceFuture<'a>;
 }
 /// Normalized reason an inference request finished.
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, strum::EnumIs)]
 #[serde(rename_all = "kebab-case")]
 pub enum InferenceFinishReason {
     /// The backend reached a configured output limit.
@@ -90,6 +90,19 @@ pub struct InferenceProvenance {
     /// Secret-free request or session correlation identifier.
     pub request_id: Option<String>,
 }
+/// Secret-free result of a bounded inference readiness request.
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct InferenceReadiness {
+    /// Capabilities reported by the configured backend.
+    pub capabilities: InferenceCapabilities,
+    /// Normalized completion reason.
+    pub finish_reason: InferenceFinishReason,
+    /// Secret-free backend provenance.
+    pub provenance: InferenceProvenance,
+    /// Whether the backend completed the bounded request without refusal.
+    pub ready: bool,
+}
 /// Transport-neutral one-shot inference request.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -146,6 +159,31 @@ pub struct PromptContext<T> {
     /// Caller-owned prompt input data.
     pub data: T,
 }
+impl InferenceReadiness {
+    /// Run one bounded request and return only a secret-free readiness summary.
+    pub async fn run<B>(backend: &B, request: &InferenceRequest) -> ApiResult<Self>
+    where
+        B: InferenceBackend,
+    {
+        run_inference(backend, request).await.map(|result| {
+            let ready = !result.finish_reason.is_refusal();
+            Self {
+                capabilities: backend.capabilities(),
+                finish_reason: result.finish_reason,
+                provenance: result.provenance,
+                ready,
+            }
+        })
+    }
+}
+impl InferenceBackend for InMemoryBackend {
+    fn capabilities(&self) -> InferenceCapabilities {
+        self.capabilities
+    }
+    fn infer<'a>(&'a self, _request: &'a InferenceRequest) -> InferenceFuture<'a> {
+        Box::pin(core::future::ready(Ok(self.result.clone())))
+    }
+}
 impl InMemoryBackend {
     /// Construct a backend that returns one deterministic result.
     pub fn new(result: InferenceResult) -> Self {
@@ -157,14 +195,6 @@ impl InMemoryBackend {
     /// Replace the capabilities reported by this backend.
     pub fn with_capabilities(self, capabilities: InferenceCapabilities) -> Self {
         Self { capabilities, ..self }
-    }
-}
-impl InferenceBackend for InMemoryBackend {
-    fn capabilities(&self) -> InferenceCapabilities {
-        self.capabilities
-    }
-    fn infer<'a>(&'a self, _request: &'a InferenceRequest) -> InferenceFuture<'a> {
-        Box::pin(core::future::ready(Ok(self.result.clone())))
     }
 }
 /// Validate and run one transport-neutral inference request.
@@ -180,6 +210,5 @@ where
         | (false, _) => backend.infer(request),
     }
 }
-
 #[cfg(test)]
 mod tests;

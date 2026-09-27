@@ -155,6 +155,8 @@ pub trait StringConversion {
     fn to_portable_path(&self) -> String {
         self.to_cross_platform_path().replace('\\', "/")
     }
+    /// Truncate text to a UTF-8 byte boundary no greater than `max_bytes`.
+    fn truncate_utf8(&self, max_bytes: usize) -> String;
 }
 /// Add persistent-identifier utilities to string values.
 pub trait StringExt {
@@ -880,6 +882,9 @@ impl StringConversion for &Path {
     fn to_cross_platform_path(&self) -> String {
         <Path as StringConversion>::to_cross_platform_path(self)
     }
+    fn truncate_utf8(&self, max_bytes: usize) -> String {
+        <Path as StringConversion>::truncate_utf8(self, max_bytes)
+    }
 }
 
 #[cfg(feature = "std")]
@@ -902,6 +907,9 @@ impl StringConversion for Path {
     fn to_cross_platform_path(&self) -> String {
         cross_platform_path(self)
     }
+    fn truncate_utf8(&self, max_bytes: usize) -> String {
+        self.as_os_str().to_string_lossy().as_ref().truncate_utf8(max_bytes)
+    }
 }
 
 #[cfg(feature = "std")]
@@ -923,6 +931,9 @@ impl StringConversion for PathBuf {
     }
     fn to_cross_platform_path(&self) -> String {
         cross_platform_path(self)
+    }
+    fn truncate_utf8(&self, max_bytes: usize) -> String {
+        self.to_string_lossy().as_ref().truncate_utf8(max_bytes)
     }
 }
 impl Default for SemanticVersion {
@@ -1054,6 +1065,9 @@ impl StringConversion for &str {
     fn to_cross_platform_path(&self) -> String {
         <str as StringConversion>::to_cross_platform_path(self)
     }
+    fn truncate_utf8(&self, max_bytes: usize) -> String {
+        <str as StringConversion>::truncate_utf8(self, max_bytes)
+    }
 }
 impl StringConversion for str {
     #[cfg(feature = "std")]
@@ -1079,6 +1093,19 @@ impl StringConversion for str {
     #[cfg(feature = "std")]
     fn to_cross_platform_path(&self) -> String {
         cross_platform_path(Path::new(self))
+    }
+    fn truncate_utf8(&self, max_bytes: usize) -> String {
+        match self.len() <= max_bytes {
+            | true => self.to_string(),
+            | false => self
+                .char_indices()
+                .map(|(index, character)| index.saturating_add(character.len_utf8()))
+                .take_while(|end| *end <= max_bytes)
+                .last()
+                .and_then(|end| self.get(..end))
+                .unwrap_or_default()
+                .to_string(),
+        }
     }
 }
 impl StringExt for str {
@@ -1115,6 +1142,9 @@ impl StringConversion for String {
     #[cfg(feature = "std")]
     fn to_cross_platform_path(&self) -> String {
         <str as StringConversion>::to_cross_platform_path(self.as_str())
+    }
+    fn truncate_utf8(&self, max_bytes: usize) -> String {
+        self.as_str().truncate_utf8(max_bytes)
     }
 }
 impl StringExt for String {
@@ -1768,6 +1798,12 @@ mod tests {
         assert_eq!("2023-02-29".to_complete_date(), None);
         assert_eq!("2024-02".to_complete_date(), None);
         assert_eq!("2024-02-29T00:00:00Z".to_complete_date(), None);
+    }
+    #[test]
+    fn test_string_conversion_truncates_at_utf8_boundary() {
+        assert_eq!("aéz".truncate_utf8(3), "aé");
+        assert_eq!("aéz".truncate_utf8(2), "a");
+        assert_eq!("aéz".truncate_utf8(4), "aéz");
     }
     #[test]
     fn test_string_ext_default_compaction_is_identity() {

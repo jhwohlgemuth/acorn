@@ -3,6 +3,7 @@ use super::*;
 use crate::agent::{
     HydratedPrompt, InMemoryBackend, InferenceFinishReason, InferencePermissionPolicy, InferenceProvenance, InferenceRequest, InferenceResult,
 };
+use crate::analyzer::fix::{CheckReference, FixOptions, FixReport, FixSuggestionRequest, IntoFixes, FIX_ENVELOPE_VERSION};
 use crate::io::api;
 use acorn_schema::agent::{FrontMatter, PromptFileAsset};
 use axum::body::{to_bytes, Body};
@@ -23,22 +24,52 @@ struct AddOutput {
     total: i64,
 }
 
-fn registry() -> OperationRegistry {
-    let definition = OperationDefinition::new::<AddInput, AddOutput>(MethodName::from(["add"]), OperationEffects::default()).unwrap();
-    OperationRegistry::default()
-        .register(definition, |input: AddInput, _| async move {
-            Ok(AddOutput {
-                total: input.left + input.right,
-            })
-        })
-        .unwrap()
+fn fix_reference() -> CheckReference {
+    CheckReference {
+        category: "schema".to_string(),
+        context: Some("Old title".to_string()),
+        fingerprint: "a".repeat(64),
+        id: "check-0001".to_string(),
+        locator: Some("title".to_string()),
+        message: "Title is invalid".to_string(),
+        severity: "error".to_string(),
+        standard: "research-activity-data".to_string(),
+        uri: Some("activity.json".to_string()),
+    }
 }
-fn service() -> http::RpcHttpService {
-    http::RpcHttpService::new(
-        OperationRegistry::acorn().unwrap(),
-        api::Secret::from("secret".to_string()),
-        InvocationContext::default(),
-    )
+fn fix_result(reference: &CheckReference) -> InferenceResult {
+    InferenceResult {
+        structured: Some(serde_json::json!({
+            "fixes": [{
+                "actions": [{
+                    "instructions": "Replace the title with a valid value",
+                    "kind": "manual"
+                }],
+                "automation": "manual",
+                "confidence": 0.9,
+                "effects": {
+                    "elevation": false,
+                    "filesystem_write": false,
+                    "network": false,
+                    "package_manager": false,
+                    "process": false,
+                    "restart": false,
+                    "reversible": true
+                },
+                "finding_id": reference.id,
+                "id": "fix-0001",
+                "rationale": "The title requires human review.",
+                "risk": "low",
+                "source_fingerprint": reference.fingerprint,
+                "status": "proposed",
+                "summary": "Review the title",
+                "target": "activity.json"
+            }],
+            "version": FIX_ENVELOPE_VERSION
+        })),
+        text: String::new(),
+        ..inference_result()
+    }
 }
 fn inference_request() -> InferenceRequest {
     InferenceRequest {
@@ -67,6 +98,23 @@ fn inference_result() -> InferenceResult {
         text: "registered result".to_string(),
         usage: None,
     }
+}
+fn registry() -> OperationRegistry {
+    let definition = OperationDefinition::new::<AddInput, AddOutput>(MethodName::from(["add"]), OperationEffects::default()).unwrap();
+    OperationRegistry::default()
+        .register(definition, |input: AddInput, _| async move {
+            Ok(AddOutput {
+                total: input.left + input.right,
+            })
+        })
+        .unwrap()
+}
+fn service() -> http::RpcHttpService {
+    http::RpcHttpService::new(
+        OperationRegistry::acorn().unwrap(),
+        api::Secret::from("secret".to_string()),
+        InvocationContext::default(),
+    )
 }
 #[tokio::test]
 async fn batch_preserves_order_and_omits_notifications() {
@@ -166,29 +214,6 @@ async fn invalid_documents_return_standard_errors() {
         assert_eq!(value["error"]["code"], code);
     }
 }
-#[tokio::test]
-async fn test_registered_inference_matches_direct_service_and_requires_authorization() {
-    let expected = inference_result();
-    let backend = InMemoryBackend::new(expected.clone());
-    let direct = crate::agent::run_inference(&backend, &inference_request()).await.unwrap();
-    let registry = OperationRegistry::default().register_inference(backend).unwrap();
-    let method = MethodName::from(["inference", "run"]);
-    let params = serde_json::to_value(inference_request()).unwrap();
-    let denied = registry.invoke(&method, params.clone(), InvocationContext::default()).await.unwrap_err();
-    assert_eq!(denied.code, POLICY_DENIED);
-    let registered = registry
-        .invoke(
-            &method,
-            params,
-            InvocationContext {
-                allow_inference: true,
-                ..InvocationContext::default()
-            },
-        )
-        .await
-        .unwrap();
-    assert_eq!(registered, serde_json::to_value(direct).unwrap());
-}
 #[test]
 fn method_names_are_validated() {
     assert!(MethodName::from([""]).validate().is_err());
@@ -268,4 +293,59 @@ async fn repository_workflow_is_equivalent_directly_and_over_json_rpc() {
     let dispatched = registry.dispatch(&request, InvocationContext::default()).await;
     let response: Value = serde_json::from_slice(dispatched.body.as_deref().unwrap()).unwrap();
     assert_eq!(response["result"], direct);
+}
+#[tokio::test]
+async fn test_registered_inference_matches_direct_service_and_requires_authorization() {
+    let expected = inference_result();
+    let backend = InMemoryBackend::new(expected.clone());
+    let direct = crate::agent::run_inference(&backend, &inference_request()).await.unwrap();
+    let registry = OperationRegistry::default().register_inference(backend).unwrap();
+    let method = MethodName::from(["inference", "run"]);
+    let params = serde_json::to_value(inference_request()).unwrap();
+    let denied = registry.invoke(&method, params.clone(), InvocationContext::default()).await.unwrap_err();
+    assert_eq!(denied.code, POLICY_DENIED);
+    let registered = registry
+        .invoke(
+            &method,
+            params,
+            InvocationContext {
+                allow_inference: true,
+                ..InvocationContext::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(registered, serde_json::to_value(direct).unwrap());
+}
+#[tokio::test]
+async fn test_registered_readiness_and_fix_suggestions_require_inference_authorization() {
+    let reference = fix_reference();
+    let registry = OperationRegistry::default()
+        .register_inference(InMemoryBackend::new(fix_result(&reference)))
+        .unwrap();
+    let context = InvocationContext {
+        allow_inference: true,
+        ..InvocationContext::default()
+    };
+    let readiness = registry
+        .invoke(
+            &MethodName::from(["inference", "readiness"]),
+            serde_json::to_value(inference_request()).unwrap(),
+            context.clone(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(readiness["ready"], true);
+    let request = FixSuggestionRequest {
+        options: FixOptions::default(),
+        references: vec![reference],
+    };
+    let method = MethodName::from(["fixes", "suggest"]);
+    let params = serde_json::to_value(request).unwrap();
+    let denied = registry.invoke(&method, params.clone(), InvocationContext::default()).await.unwrap_err();
+    assert_eq!(denied.code, POLICY_DENIED);
+    let value = registry.invoke(&method, params, context).await.unwrap();
+    let report: FixReport = serde_json::from_value(value).unwrap();
+    assert_eq!(report.fixes().len(), 1);
+    assert!(report.diagnostics.is_empty());
 }

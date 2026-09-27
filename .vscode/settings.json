@@ -37,9 +37,9 @@
         "**/.git": true,
         "**/.svn": true,
         "**/.hg": true,
-        "**/.jj": true,
         "**/.DS_Store": true,
         "**/Thumbs.db": true,
+        "**/.jj": true,
         "**/target": true
     },
     "files.watcherExclude": {

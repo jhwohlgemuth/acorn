@@ -175,6 +175,8 @@ pub enum PromptFileAsset {
     ExtractClaim,
     /// Prompt template for identifying gaps in knowledge or arguments
     FindGaps,
+    /// Prompt template for proposing bounded fixes for analyzer findings
+    SuggestFixes,
     /// Prompt template for generating concise summaries of text
     Summarize,
     /// Prompt template for teaching concepts
@@ -1194,6 +1196,7 @@ impl fmt::Display for PromptFileAsset {
             | Self::Eli5 => "eli5.prompt",
             | Self::ExtractClaim => "extract-claim.prompt",
             | Self::FindGaps => "find-gaps.prompt",
+            | Self::SuggestFixes => "suggest-fixes.prompt",
             | Self::Summarize => "summarize.prompt",
             | Self::Teach => "teach.prompt",
             | Self::Translate => "translate.prompt",
@@ -1209,6 +1212,7 @@ impl From<&str> for PromptFileAsset {
             | "eli5" | "eli5.prompt" => Self::Eli5,
             | "extract-claim" | "extract-claim.prompt" => Self::ExtractClaim,
             | "find-gaps" | "find-gaps.prompt" => Self::FindGaps,
+            | "suggest-fixes" | "suggest-fixes.prompt" => Self::SuggestFixes,
             | "summarize" | "summarize.prompt" => Self::Summarize,
             | "teach" | "teach.prompt" => Self::Teach,
             | "translate" | "translate.prompt" => Self::Translate,

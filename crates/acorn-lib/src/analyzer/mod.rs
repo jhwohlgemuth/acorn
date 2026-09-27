@@ -2,6 +2,8 @@
 pub mod check;
 pub mod error;
 pub mod fair;
+#[cfg(any(feature = "analysis", feature = "std"))]
+pub mod fix;
 #[cfg(feature = "analysis")]
 pub mod host;
 pub mod model;

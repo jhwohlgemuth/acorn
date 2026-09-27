@@ -75,7 +75,7 @@ fn serve() {
                 &mut writer,
                 &format!(r#"{{"jsonrpc":"2.0","id":{id},"result":{{"configOptions":{CONFIG_OPTIONS}}}}}"#),
             ),
-            _ if line.contains("\"method\":\"session/prompt\"") && line.contains("hang") => {
+            _ if line.contains("\"method\":\"session/prompt\"") && line.contains("\"text\":\"hang\"") => {
                 thread::sleep(Duration::from_secs(3));
                 send(&mut writer, &format!(r#"{{"jsonrpc":"2.0","id":{id},"result":{{"stopReason":"end_turn"}}}}"#));
             }
@@ -95,6 +95,13 @@ fn serve() {
                 && line.contains(r#"```zon\ntext:ZON-PASSTHROUGH\n```"#) =>
             {
                 send_chunk(&mut writer, "zon prompt received");
+                send(&mut writer, &format!(r#"{{"jsonrpc":"2.0","id":{id},"result":{{"stopReason":"end_turn"}}}}"#));
+            }
+            _ if line.contains("\"method\":\"session/prompt\"") && line.contains("check-0001") => {
+                send_chunk(
+                    &mut writer,
+                    r#"{"fixes":[{"actions":[{"instructions":"Replace the title with a valid value","kind":"manual"}],"automation":"manual","confidence":0.9,"effects":{"elevation":false,"filesystem_write":false,"network":false,"package_manager":false,"process":false,"restart":false,"reversible":true},"finding_id":"check-0001","id":"fix-0001","rationale":"The title requires human review.","risk":"low","source_fingerprint":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","status":"proposed","summary":"Review the title","target":"activity.json"}],"version":"1"}"#,
+                );
                 send(&mut writer, &format!(r#"{{"jsonrpc":"2.0","id":{id},"result":{{"stopReason":"end_turn"}}}}"#));
             }
             _ if line.contains("\"method\":\"session/prompt\"") && line.contains("structured") => {

@@ -1,5 +1,6 @@
 //! Typed operation registry and JSON-RPC 2.0 transport
-use crate::agent::{run_inference, InferenceBackend, InferenceRequest, InferenceResult};
+use crate::agent::{run_inference, InferenceBackend, InferenceReadiness, InferenceRequest, InferenceResult};
+use crate::analyzer::fix::{CheckReferences, FixReport, FixSuggestionRequest};
 use crate::io::api::webhooks::store::OperationQueue;
 use crate::io::workflow::{RepositoryChangeSet, RepositoryInput, RepositoryWorkflowRegistry};
 use crate::io::ApiResult;
@@ -477,11 +478,12 @@ impl OperationRegistry {
             }
         }
     }
-    /// Register `acorn.inference.run` with an injected transport-neutral backend.
+    /// Register the inference run, readiness, and fix-suggestion operations with one backend.
     pub fn register_inference<B>(self, backend: B) -> ApiResult<Self>
     where
         B: InferenceBackend + 'static,
     {
+        let backend = Arc::new(backend);
         OperationDefinition::new::<InferenceRequest, InferenceResult>(
             MethodName::from(["inference", "run"]),
             OperationEffects {
@@ -490,10 +492,42 @@ impl OperationRegistry {
             },
         )
         .and_then(|definition| {
-            let backend = Arc::new(backend);
+            let backend = Arc::clone(&backend);
             self.register(definition, move |request: InferenceRequest, _| {
                 let backend = Arc::clone(&backend);
                 async move { run_inference(backend.as_ref(), &request).await }
+            })
+        })
+        .and_then(|registry| {
+            OperationDefinition::new::<InferenceRequest, InferenceReadiness>(
+                MethodName::from(["inference", "readiness"]),
+                OperationEffects {
+                    inference: true,
+                    ..OperationEffects::default()
+                },
+            )
+            .and_then(|definition| {
+                let backend = Arc::clone(&backend);
+                registry.register(definition, move |request: InferenceRequest, _| {
+                    let backend = Arc::clone(&backend);
+                    async move { InferenceReadiness::run(backend.as_ref(), &request).await }
+                })
+            })
+        })
+        .and_then(|registry| {
+            OperationDefinition::new::<FixSuggestionRequest, FixReport>(
+                MethodName::from(["fixes", "suggest"]),
+                OperationEffects {
+                    inference: true,
+                    ..OperationEffects::default()
+                },
+            )
+            .and_then(|definition| {
+                let backend = Arc::clone(&backend);
+                registry.register(definition, move |request: FixSuggestionRequest, _| {
+                    let backend = Arc::clone(&backend);
+                    async move { request.references.suggest(backend.as_ref(), &request.options).await }
+                })
             })
         })
     }

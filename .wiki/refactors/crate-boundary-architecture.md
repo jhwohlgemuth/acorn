@@ -132,23 +132,19 @@ This architecture plan is coordination-only except when a named migration phase 
 
 # Current migration sequence
 
-## 1. Preserve the completed portable, command, and initial host foundations
-
-Keep the alloc-only analyzer gate, direct `acorn-schema` imports, `acorn-cmd` command boundary, and initial `acorn-host` capabilities green while later contracts stabilize. Do not extract `acorn-analysis` or add a generic host trait family without a demonstrated alternate consumer.
-
-## 2. Stabilize protocol and export boundaries
+## 1. Stabilize protocol and export boundaries
 
 Keep endpoint, authentication, request, response, and provider protocol mechanics in the API boundary. Move GitLab bot decisions, persistence coordination, analysis invocation, and report publication into a service boundary. Make export transformations return in-memory artifacts before extracting provider, store, and export packages.
 
-## 3. Extract adapters
+## 2. Extract adapters
 
 Extract provider protocol logic into `acorn-api`, persistence into `acorn-store`, and renderers into `acorn-export`. Move remaining native operations and concrete native port implementations into the existing feature-gated `acorn-host`. Extend the minimal `acorn-wasm` bindings with target-specific browser adapters only as service ports stabilize. Split one capability at a time and keep every intermediate workspace state buildable.
 
-## 4. Extract application services
+## 3. Extract application services
 
 Move artifact discovery, GitLab bot workflows, and agentic/server coordination into `acorn-service` expressed over injected port traits. Keep CLI parsing, terminal presentation, process exit behavior, and concrete adapter selection in interface composition roots.
 
-## 5. Finish direct consumer migration and the release path
+## 4. Finish direct consumer migration and the release path
 
 Migrate first-party interfaces to direct dependencies, then remove extracted implementation and obsolete features from `acorn-lib`. Publish dependency crates in topological order before their consumers; Cargo requires published path dependencies to include a registry version and be available to downstream resolution ([Cargo dependency documentation](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#specifying-path-dependencies)). Reserve and recheck package names immediately before creating the first public release.
 
@@ -163,7 +159,7 @@ Migrate first-party interfaces to direct dependencies, then remove extracted imp
 # Validation
 
 1. Run focused tests after each boundary change and extraction, followed by `make lint` and `make test`.
-2. Compile the in-tree Phase 1 boundaries and `acorn-schema` without default features and with supported alloc combinations; compile browser composition separately through `acorn-wasm` for `wasm32-unknown-unknown`.
+2. Compile the in-tree portable boundaries and `acorn-schema` without default features and with supported alloc combinations; compile browser composition separately through `acorn-wasm` for `wasm32-unknown-unknown`.
 3. Inspect resolved feature trees and confirm foundational crates do not contain HTTP, database, process, terminal, embedded-asset, or async-runtime dependencies.
 4. Test direct owning-crate imports plus host I/O extension traits, and scan for ownership-masking re-exports.
 5. Build and smoke-test the CLI, TUI, and JS/WASM bindings against their direct dependencies and composition roots.

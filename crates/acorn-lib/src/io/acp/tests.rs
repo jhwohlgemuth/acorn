@@ -1,5 +1,6 @@
 use super::{AgentProcessConfig, Client, Error, OPENCODE_AGENT_ID};
 use crate::agent::{HydratedPrompt, InferencePermissionPolicy, InferenceRequest};
+use crate::analyzer::fix::{CheckReference, CheckReferences, FixOptions, IntoFixes};
 use acorn_cmd::{find_executable, CommandSpec};
 use acorn_schema::agent::{FrontMatter, PromptFileAsset};
 use core::time::Duration;
@@ -36,6 +37,19 @@ impl FakeAgent {
         AgentProcessConfig::new(agent_id, self.executable.clone(), self._directory.path())
             .with_acp_arguments(["acp"])
             .with_timeout(Duration::from_secs(10))
+    }
+}
+fn fix_reference() -> CheckReference {
+    CheckReference {
+        category: "schema".to_string(),
+        context: Some("Old title".to_string()),
+        fingerprint: "a".repeat(64),
+        id: "check-0001".to_string(),
+        locator: Some("title".to_string()),
+        message: "Title is invalid".to_string(),
+        severity: "error".to_string(),
+        standard: "research-activity-data".to_string(),
+        uri: Some("activity.json".to_string()),
     }
 }
 fn request(body: &str) -> InferenceRequest {
@@ -135,6 +149,26 @@ fn test_acp_protocol_readiness_reports_negotiated_capabilities() {
     assert!(readiness.capabilities.streaming);
     assert!(readiness.capabilities.tools);
     assert_eq!(readiness.protocol_version, 1);
+}
+#[test]
+fn test_acp_suggestion_service_returns_validated_fix_report() {
+    let fake = FakeAgent::compile();
+    let report = runtime()
+        .block_on(vec![fix_reference()].suggest(
+            &Client::new(fake.config("fake")),
+            &FixOptions {
+                agent: Some("fake".to_string()),
+                min_confidence: 0.5,
+                model: Some("fake-model".to_string()),
+                ..FixOptions::default()
+            },
+        ))
+        .expect("suggest fixes through ACP");
+    assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
+    let fixes = report.fixes();
+    let fix = fixes.first().expect("one ACP fix proposal");
+    assert_eq!(fix.id, "fix-0001");
+    assert_eq!(fix.provenance.backend, "acp");
 }
 #[test]
 fn test_agent_process_config_opencode_uses_thin_command_defaults() {

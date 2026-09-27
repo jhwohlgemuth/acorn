@@ -2,7 +2,7 @@
 
 ## In progress
 
-- [Needle 2 to Needle 3 upgrade](needle-3-upgrade.md) - Use the landed, Kitfile-versioned runner-plus-asset contract to migrate engine, weights, protocol, and custom bundles behind measured regression gates.
+- [Needle 2 to Needle 3 upgrade](needle-3-upgrade.md) - Validate the shipped Needle 3 workflow on the remaining Windows and Linux release hosts.
 
 ## Planned
 

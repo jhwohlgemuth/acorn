@@ -1,6 +1,7 @@
 use super::{Client, EndpointMode, InferenceError, Options};
 use crate::{
     agent::{HydratedPrompt, InferenceBackend, InferenceFinishReason, InferencePermissionPolicy, InferenceRequest, InferenceUsage},
+    analyzer::fix::{CheckReference, CheckReferences, FixOptions, IntoFixes},
     io::api::Configuration,
     test::server::TestServer,
 };
@@ -9,6 +10,8 @@ use alloc::sync::Arc;
 use axum::{extract::State as AxumState, http::StatusCode, routing::post, Json, Router};
 use serde_json::{json, Value};
 use std::sync::{Mutex, PoisonError};
+
+const FIX_RESPONSE: &str = r#"{"fixes":[{"actions":[{"instructions":"Replace the title with a valid value","kind":"manual"}],"automation":"manual","confidence":0.9,"effects":{"elevation":false,"filesystem_write":false,"network":false,"package_manager":false,"process":false,"restart":false,"reversible":true},"finding_id":"check-0001","id":"fix-0001","rationale":"The title requires human review.","risk":"low","source_fingerprint":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","status":"proposed","summary":"Review the title","target":"activity.json"}],"version":"1"}"#;
 
 #[derive(Clone, Default)]
 struct ServerState {
@@ -30,6 +33,19 @@ async fn chat(AxumState(state): AxumState<ServerState>, Json(body): Json<Value>)
 fn client(server: &TestServer, mode: EndpointMode) -> Client {
     Client::new(Options::default().with_domain(&server.base_url), mode, "fake-model")
 }
+fn fix_reference() -> CheckReference {
+    CheckReference {
+        category: "schema".to_string(),
+        context: Some("Old title".to_string()),
+        fingerprint: "a".repeat(64),
+        id: "check-0001".to_string(),
+        locator: Some("title".to_string()),
+        message: "Title is invalid".to_string(),
+        severity: "error".to_string(),
+        standard: "research-activity-data".to_string(),
+        uri: Some("activity.json".to_string()),
+    }
+}
 fn request(body: &str) -> InferenceRequest {
     InferenceRequest {
         agent: None,
@@ -48,10 +64,13 @@ async fn response_for(mode: EndpointMode, prompt: &str) -> (StatusCode, Json<Val
     if prompt == "slow" {
         tokio::time::sleep(core::time::Duration::from_millis(100)).await;
     }
-    let content = match prompt {
-        | "invalid-structured" => r#"{"wrong":true}"#,
-        | "structured" => r#"{"answer":42}"#,
-        | _ => "same response",
+    let content = match prompt.contains("You propose reviewable fixes") {
+        | true => FIX_RESPONSE,
+        | false => match prompt {
+            | "invalid-structured" => r#"{"wrong":true}"#,
+            | "structured" => r#"{"answer":42}"#,
+            | _ => "same response",
+        },
     };
     match (prompt, mode) {
         | ("error", _) => (
@@ -188,6 +207,33 @@ async fn test_endpoint_modes_return_equivalent_normalized_results() {
     assert_eq!(responses_result.provenance.backend, "openai");
     assert_eq!(chat_result.provenance.backend, "openai");
     assert_eq!(responses_result.provenance.model, chat_result.provenance.model);
+    server.stop().await.expect("stop test server");
+}
+#[tokio::test]
+async fn test_endpoint_modes_return_equivalent_validated_fix_reports() {
+    let (server, _) = server().await;
+    let reference = fix_reference();
+    let options = FixOptions {
+        min_confidence: 0.5,
+        ..FixOptions::default()
+    };
+    let responses = vec![reference.clone()]
+        .suggest(&client(&server, EndpointMode::Responses).with_structured_output(true), &options)
+        .await
+        .expect("responses fix suggestions");
+    let chat = vec![reference]
+        .suggest(&client(&server, EndpointMode::ChatCompletions).with_structured_output(true), &options)
+        .await
+        .expect("chat fix suggestions");
+    assert!(responses.diagnostics.is_empty());
+    assert!(chat.diagnostics.is_empty());
+    let responses_fixes = responses.fixes();
+    let chat_fixes = chat.fixes();
+    let responses_fix = responses_fixes.first().expect("one Responses fix proposal");
+    let chat_fix = chat_fixes.first().expect("one Chat Completions fix proposal");
+    assert_eq!(responses_fix.id, chat_fix.id);
+    assert_eq!(responses_fix.actions, chat_fix.actions);
+    assert_eq!(responses_fix.status, chat_fix.status);
     server.stop().await.expect("stop test server");
 }
 #[tokio::test]
