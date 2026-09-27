@@ -147,7 +147,13 @@ check-wasm: ## Validate the WebAssembly target compatibility of the workspace.
 	@cargo check -p acorn-wasm --target wasm32-unknown-unknown
 
 cover: ## Run coverage analysis with tarpaulin.
-	@cargo tarpaulin --out lcov --line --skip-clean --no-dead-code --engine llvm --profile coverage --locked
+	@cargo tarpaulin $(COVER_JOBS) --out lcov --line --skip-clean --no-dead-code --engine llvm --profile coverage --locked
+
+cover-cli: ## Run scoped coverage analysis for acorn-cli.
+	@cargo tarpaulin $(COVER_JOBS) -p acorn-cli --out lcov --line --skip-clean --no-dead-code --engine llvm --profile coverage --locked
+
+cover-lib: ## Run scoped coverage analysis for acorn-lib.
+	@cargo tarpaulin $(COVER_JOBS) -p acorn-lib --out lcov --line --skip-clean --no-dead-code --engine llvm --profile coverage --locked
 
 doc: ## Build the Rust documentation for the workspace.
 	@cargo clean --doc
@@ -317,9 +323,11 @@ rust-push: ## Push the Rust toolchain images to the configured registries.
 #
 ifeq ($(OS),Windows_NT)
 CLEAN_BIN_CMD = pwsh -NoProfile -Command "if (Test-Path ./bin) { Remove-Item -Recurse -Force ./bin }"
+COVER_JOBS ?= --jobs 1
 WRITE_SHA256 = pwsh -NoProfile -Command "(Get-FileHash -Algorithm SHA256 -LiteralPath '$(1)').Hash.ToLowerInvariant() + '  $(1)' | Set-Content -Encoding ascii -LiteralPath '$(1).sha256'"
 else
 CLEAN_BIN_CMD = rm -rf ./bin
+COVER_JOBS ?=
 WRITE_SHA256 = if command -v sha256sum >/dev/null 2>&1; then sha256sum "$(1)" > "$(1).sha256"; elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$(1)" > "$(1).sha256"; else echo "A SHA-256 utility (sha256sum or shasum) is required" >&2; exit 1; fi
 endif
 PLATFORM = linux/amd64

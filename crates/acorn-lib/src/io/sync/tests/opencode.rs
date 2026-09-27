@@ -8,7 +8,7 @@ use crate::test::utils::temp_dir;
 use crate::util::constants::app::DEFAULT_OPENCODE_CONFIG_PATH;
 use acorn_schema::agent::opencode::{self, McpConfig, McpLocalConfig};
 use serde_json::Value;
-use std::env::current_dir;
+use std::env::{current_dir, current_exe};
 use std::fs::{create_dir_all, remove_dir_all, write};
 use std::path::{Path, PathBuf};
 
@@ -129,7 +129,7 @@ fn test_upsert_is_additive_unless_pruned() {
 }
 #[test]
 fn test_upsert_mcp_preserves_other_servers_and_prunes_only_acorn() {
-    let executable = Path::new("/opt/acorn/bin/acorn");
+    let executable = current_exe().expect("current test executable");
     let existing = opencode::Config {
         mcp: Some(
             [(
@@ -147,12 +147,12 @@ fn test_upsert_mcp_preserves_other_servers_and_prunes_only_acorn() {
         ),
         ..Default::default()
     };
-    let updated = Config::default().upsert_mcp(existing, executable, false).expect("upsert MCP");
+    let updated = Config::default().upsert_mcp(existing, &executable, false).expect("upsert MCP");
     assert!(updated
         .mcp
         .as_ref()
         .is_some_and(|servers| servers.contains_key("acorn") && servers.contains_key("other")));
-    let pruned = Config::default().upsert_mcp(updated, executable, true).expect("prune MCP");
+    let pruned = Config::default().upsert_mcp(updated, &executable, true).expect("prune MCP");
     assert!(pruned
         .mcp
         .as_ref()

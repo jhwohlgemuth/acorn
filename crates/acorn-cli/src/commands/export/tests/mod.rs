@@ -975,7 +975,7 @@ async fn test_export_updates_writes_filtered_markdown_and_docx() -> Result<()> {
         )
         .await?;
     }
-    let stem = "some-research-project-updates-2026-09-01T00:00:00Z";
+    let stem = "some-research-project-updates-2026-09-01T00-00-00Z";
     let markdown = read_to_string(output.join(format!("{stem}.md")))?;
     assert!(markdown.contains("Included update"));
     assert!(!markdown.contains("Excluded update"));

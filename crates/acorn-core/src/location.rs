@@ -180,14 +180,13 @@ impl Location {
     /// Return whether this location is an absolute POSIX or Windows path.
     pub fn is_absolute(&self) -> bool {
         let value = <&str>::from(self);
-        #[cfg(feature = "std")]
-        let platform_absolute = std::path::Path::new(value).is_absolute();
-        #[cfg(not(feature = "std"))]
-        let platform_absolute = value.starts_with('/');
         let bytes = value.as_bytes();
-        let windows_absolute =
-            value.starts_with('\\') || matches!((bytes.first(), bytes.get(1)), (Some(first), Some(b':')) if first.is_ascii_alphabetic());
-        platform_absolute || windows_absolute
+        let windows_absolute = value.starts_with('\\')
+            || matches!(
+                (bytes.first(), bytes.get(1), bytes.get(2)),
+                (Some(first), Some(b':'), Some(b'\\' | b'/')) if first.is_ascii_alphabetic()
+            );
+        value.starts_with('/') || windows_absolute
     }
     /// Return whether this location uses the S3 URI scheme.
     pub fn is_s3(&self) -> bool {
@@ -496,6 +495,7 @@ mod tests {
     #[test]
     fn test_location_classifies_and_normalizes_portable_paths_and_oci_references() {
         assert!(Location::from("model.gguf").is_path());
+        assert!(Location::from("/models/model.gguf").is_absolute());
         assert!(Location::from("C:\\models\\model.gguf").is_absolute());
         assert_eq!(Location::from("docs/../README.md").normalize(), "README.md");
         assert!(Location::from("s3://bucket/key").is_s3());

@@ -5,11 +5,15 @@ use serde_json::{json, Value};
 #[test]
 fn json_lines_logbook_entries_use_the_generic_ordered_codec() {
     let content = include_str!("../../../../tests/fixtures/jsonl/logbook-entries.jsonl");
+    let canonical = content.replace("\r\n", "\n");
     let entries = OneOrMany::<LogbookEntry>::parse(content, MimeType::JsonLines).expect("parse logbook entry records");
     let identifiers = entries.iter().map(|entry| entry.identifier.as_str()).collect::<Vec<_>>();
     assert_eq!(identifiers, vec!["experiment-completed", "software-released"]);
     assert!(entries.iter().all(|entry| entry.validate().is_ok()));
-    assert_eq!(entries.serialize(MimeType::JsonLines).expect("serialize logbook entry records"), content);
+    assert_eq!(
+        entries.serialize(MimeType::JsonLines).expect("serialize logbook entry records"),
+        canonical
+    );
 }
 #[test]
 fn json_lines_parse_accepts_lf_crlf_and_optional_final_newline() {

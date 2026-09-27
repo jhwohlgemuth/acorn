@@ -4,7 +4,13 @@
 //! This module provides utilities to create, verify, and work with BagIt packages containing research
 //! activity data, metadata, and supporting documentation.
 //!
-use crate::io::{archive, files_all, read_file, write_file, ApiResult, StringConversion};
+use crate::{
+    io::{archive, files_all, read_file, write_file, ApiResult, StringConversion},
+    util::constants::app::{
+        BAGIT_DECLARATION_FILE, BAGIT_ENCODING_LABEL, BAGIT_PAYLOAD_DIRECTORY, BAGIT_SUPPORTED_ENCODINGS, BAGIT_SUPPORTED_VERSIONS,
+        BAGIT_VERSION_LABEL,
+    },
+};
 use acorn_core::{
     prelude::HashSet,
     util::{ChecksumAlgorithm, MimeType},
@@ -14,7 +20,7 @@ use acorn_host::{
     terminal::Label,
 };
 use bon::Builder;
-use color_eyre::eyre::eyre;
+use color_eyre::eyre::{eyre, Report};
 use core::fmt;
 use derive_more::Display;
 use schemars::JsonSchema;
@@ -96,26 +102,52 @@ pub struct BagInfo {
     /// T is None if unknown ("?")
     pub count: Option<Vec<(u32, Option<u32>)>>,
 }
+/// A validated BagIt declaration.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Tag {
+    /// BagIt specification version declared by the tag file.
+    field: String,
+    /// Tag file character encoding the tag file declared.
+    encoding: String,
+}
+
 impl Bag {
     /// Verify the completeness and correctness of a bag
     /// ### Checks
-    /// - `bagit.txt` exists
-    /// - `manifest-<algorithm>.txt` exists
+    /// - `bagit.txt` exists and declares a supported version and tag file encoding
+    /// - `manifest-<algorithm>.txt` exists for SHA-256 or SHA-512
     /// - `data/` exists
     /// - Checksum values in manifest file matches checksum values of files in `data/`
     pub fn verify<P>(path: P) -> ApiResult<()>
     where
         P: Into<PathBuf>,
     {
+        Self::verify_payload(path).map(|_| ())
+    }
+    /// Verify a bag and return the absolute path of its verified `data/` payload directory.
+    ///
+    /// Verification completes before the payload is returned so callers can publish payload files only after the whole bag has been proven complete and correct.
+    pub fn verify_payload<P>(path: P) -> ApiResult<PathBuf>
+    where
+        P: Into<PathBuf>,
+    {
         path.into()
             .canonicalize()
             .map_err(|why| eyre!("Failed to resolve BagIt directory - {why}"))
-            .and_then(
-                |base_directory| match (base_directory.join("bagit.txt").is_file(), base_directory.join("data").is_dir()) {
+            .and_then(|base_directory| {
+                match (
+                    base_directory.join(BAGIT_DECLARATION_FILE).is_file(),
+                    base_directory.join(BAGIT_PAYLOAD_DIRECTORY).is_dir(),
+                ) {
                     | (true, true) => Ok(base_directory),
                     | _ => Err(eyre!("Missing required BagIt declaration or payload directory")),
-                },
-            )
+                }
+            })
+            .and_then(|base_directory| {
+                read_file(base_directory.join(BAGIT_DECLARATION_FILE))
+                    .and_then(|declaration| Bag::declaration(&declaration).map(|_| ()))
+                    .map(|()| base_directory)
+            })
             .and_then(|base_directory| {
                 let manifests = [
                     ("manifest-sha256.txt", ChecksumAlgorithm::Sha256),
@@ -128,7 +160,8 @@ impl Bag {
                     | true => Err(eyre!("A complete SHA-256 or SHA-512 BagIt manifest is required")),
                     | false => manifests
                         .into_iter()
-                        .try_for_each(|(name, algorithm)| verify_manifest(&base_directory, name, algorithm)),
+                        .try_for_each(|(name, algorithm)| verify_manifest(&base_directory, name, algorithm))
+                        .map(|()| base_directory.join(BAGIT_PAYLOAD_DIRECTORY)),
                 }
             })
     }
@@ -157,6 +190,91 @@ impl Bag {
             .payload(payload)
             .build()
     }
+
+    /// Write the bag declaration, tag files, payload manifests, and payload copies into `destination`.
+    ///
+    /// The written directory is a complete, self-verifying bag directory that [`Bag::verify`] accepts;
+    /// no archive is created by this method
+    pub fn write(&self, destination: &Path) -> ApiResult<()> {
+        let Bag {
+            info,
+            base_directory,
+            checksum_algorithm,
+            version,
+            encoding,
+            ..
+        } = self;
+        let payload_directory = destination.join(BAGIT_PAYLOAD_DIRECTORY);
+        let base = PathBuf::from(base_directory.clone());
+        let payloads = self.with_payload().payload.iter().map(SafePath::new).collect::<Result<Vec<_>, _>>();
+        payloads.map_err(Into::<color_eyre::Report>::into).and_then(|payloads| {
+            create_dir_all(payload_directory.clone())
+                .map_err(|why| eyre!("Failed to create bag - {why}"))
+                .and_then(|()| {
+                    payloads.iter().try_for_each(|payload| {
+                        let from = base.join(payload);
+                        payload
+                            .materialize_under(&payload_directory)
+                            .map_err(Into::<color_eyre::Report>::into)
+                            .and_then(|to| {
+                                to.parent()
+                                    .map_or(Ok(()), |parent| create_dir_all(parent).map_err(Into::into))
+                                    .and_then(|()| copy(&from, &to).map(|_| ()).map_err(Into::into))
+                            })
+                            .map_err(|why: color_eyre::Report| {
+                                error!(
+                                    from = from.to_absolute_path(),
+                                    to = payload_directory.to_absolute_path(),
+                                    "=> {} Copy - {why}",
+                                    Label::fail()
+                                );
+                                why
+                            })
+                    })
+                })
+                .and_then(|()| {
+                    let declaration = format!("{BAGIT_VERSION_LABEL}: {version}\n{BAGIT_ENCODING_LABEL}: {encoding}\n");
+                    let digest: &'static ring::digest::Algorithm = checksum_algorithm.clone().into();
+                    let manifest = payloads
+                        .into_iter()
+                        .fold(String::new(), |acc, payload| {
+                            let target = payload_directory.join(&payload);
+                            match file_checksum(target.clone(), Some(digest)) {
+                                | Ok(checksum) => format!("{acc}{checksum} {BAGIT_PAYLOAD_DIRECTORY}/{}{LINE_ENDING}", payload.as_path().display()),
+                                | Err(_) => {
+                                    warn!(payload = target.to_absolute_path(), "=> {} Calculate checksum", Label::fail());
+                                    acc
+                                }
+                            }
+                        })
+                        .replace("\\", "/");
+                    write_file(destination.join(BAGIT_DECLARATION_FILE), declaration)
+                        .and_then(|()| match info.clone() {
+                            | Some(bag_info) => bag_info.save(destination).map(|_| ()),
+                            | None => Ok(()),
+                        })
+                        .and_then(|()| write_file(destination.join(format!("manifest-{checksum_algorithm}.txt")), manifest))
+                })
+        })
+    }
+
+    /// Parse and validate a `bagit.txt` declaration.
+    ///
+    /// Both the version and encoding labels are required. The version must be one ACORN supports and the encoding must be UTF-8, in any of its accepted spellings.
+    pub fn declaration(content: &str) -> ApiResult<Tag> {
+        let version = Tag::value(content, BAGIT_VERSION_LABEL).and_then(|version| match BAGIT_SUPPORTED_VERSIONS.contains(&version.as_str()) {
+            | true => Ok(version),
+            | false => Err(eyre!(
+                "Unsupported BagIt version '{version}' — supported versions are {}",
+                BAGIT_SUPPORTED_VERSIONS.join(", ")
+            )),
+        });
+        version.and_then(|version| {
+            Tag::value(content, BAGIT_ENCODING_LABEL)
+                .and_then(|encoding| Tag::encoding_supported(&encoding))
+                .map(|encoding| Tag { field: version, encoding })
+        })
+    }
 }
 impl fmt::Display for Bag {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -175,77 +293,8 @@ impl Save for Bag {
     where
         P: Into<PathBuf> + Clone,
     {
-        let Bag { info, version, encoding, .. } = self;
         let dest = destination.clone().into();
-        let payload_directory = dest.join("data");
-        match create_dir_all(payload_directory.clone()) {
-            | Ok(_) => {
-                let base = PathBuf::from(self.base_directory.clone());
-                let bag = self.with_payload();
-                let checksum_algorithm: &'static ring::digest::Algorithm = self.checksum_algorithm.clone().into();
-                let payloads = bag
-                    .payload
-                    .iter()
-                    .map(SafePath::new)
-                    .collect::<Result<Vec<_>, _>>()
-                    .map_err(Into::<color_eyre::Report>::into);
-                payloads.and_then(|payloads| {
-                    payloads
-                        .iter()
-                        .try_for_each(|payload| {
-                            let from = base.join(payload);
-                            payload
-                                .materialize_under(&payload_directory)
-                                .map_err(Into::<color_eyre::Report>::into)
-                                .and_then(|to| {
-                                    to.parent()
-                                        .map_or(Ok(()), |parent| create_dir_all(parent).map_err(Into::into))
-                                        .and_then(|()| copy(&from, &to).map(|_| ()).map_err(Into::into))
-                                        .map_err(|why: color_eyre::Report| {
-                                            error!(
-                                                from = from.to_absolute_path(),
-                                                to = to.to_absolute_path(),
-                                                "=> {} Copy - {why}",
-                                                Label::fail()
-                                            );
-                                            why
-                                        })
-                                })
-                        })
-                        .and_then(|()| {
-                            let bag_declaration_content = format!("BagIt-Version: {version}\nTag-File-Character-Encoding: {encoding}\n");
-                            let payload_manifest_content = payloads
-                                .into_iter()
-                                .fold(String::new(), |acc, x| {
-                                    let to = payload_directory.join(&x);
-                                    match file_checksum(to.clone(), Some(checksum_algorithm)) {
-                                        | Ok(checksum) => {
-                                            format!("{acc}{checksum} data/{}{LINE_ENDING}", x.as_path().display())
-                                        }
-                                        | Err(_) => {
-                                            warn!(payload = to.to_absolute_path(), "=> {} Calculate checksum", Label::fail());
-                                            acc
-                                        }
-                                    }
-                                })
-                                .replace("\\", "/");
-                            write_file(dest.clone().join("bagit.txt"), bag_declaration_content)
-                                .map(|_| dest.clone())
-                                .and_then(|_| match info.clone() {
-                                    | Some(bag_info) => bag_info.save(destination.clone()),
-                                    | None => Ok(dest.clone()),
-                                })
-                                .and_then(|_| {
-                                    let file_name = format!("manifest-{}.txt", self.checksum_algorithm);
-                                    let file_path = dest.clone().join(&file_name);
-                                    write_file(file_path, payload_manifest_content).map(|_| dest.clone())
-                                })
-                                .and_then(|_| archive(dest.clone(), archive_destination, archive_format))
-                        })
-                })
-            }
-            | Err(why) => Err(eyre!("Failed to create bag - {why}")),
-        }
+        self.write(&dest).and_then(|()| archive(dest, archive_destination, archive_format))
     }
 }
 impl BagInfo {
@@ -313,7 +362,60 @@ impl Save for BagInfo {
         self.save(destination)
     }
 }
+impl Tag {
+    /// BagIt specification version declared by the tag file.
+    pub fn field(&self) -> &str {
+        &self.field
+    }
+    /// Tag file character encoding the tag file declared.
+    pub fn encoding(&self) -> &str {
+        &self.encoding
+    }
+    /// Read the single value that a tag file declares for one label.
+    ///
+    /// Blank lines and `#` comments are skipped.
+    /// Every remaining entry must be `Label: Value`, and a missing, empty, or repeated label is rejected.
+    pub fn value(content: &str, label: &str) -> ApiResult<String> {
+        let expected = label.to_ascii_lowercase();
+        let entries = content
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && !line.starts_with('#'))
+            .map(|line| {
+                line.split_once(':')
+                    .map(|(candidate, value)| (candidate.trim().to_ascii_lowercase(), value.trim().to_string()))
+                    .ok_or_else(|| eyre!("Malformed BagIt declaration entry: {line}"))
+            })
+            .collect::<Result<Vec<_>, Report>>();
+        entries.and_then(|entries| {
+            let values = entries
+                .into_iter()
+                .filter(|(candidate, _)| candidate == &expected)
+                .map(|(_, value)| value)
+                .collect::<Vec<_>>();
+            match values.as_slice() {
+                | [value] if !value.is_empty() => Ok(value.clone()),
+                | [] => Err(eyre!("BagIt declaration is missing {label}")),
+                | _ => Err(eyre!("BagIt declaration repeats {label}")),
+            }
+        })
+    }
+    /// Accept a tag file character encoding, compared without `-` or `_` separators.
+    ///
+    /// ACORN only reads UTF-8, so any spelling of it is accepted and returned unchanged.
+    pub fn encoding_supported(encoding: &str) -> ApiResult<String> {
+        let normalized = encoding.replace(['-', '_'], "").to_ascii_uppercase();
+        match BAGIT_SUPPORTED_ENCODINGS.contains(&normalized.as_str()) {
+            | true => Ok(encoding.to_string()),
+            | false => Err(eyre!("Unsupported BagIt tag file encoding '{encoding}' - only UTF-8 is supported")),
+        }
+    }
+}
+/// Verify one payload manifest against the files it must describe.
 fn verify_manifest(base: &Path, name: &str, algorithm: ChecksumAlgorithm) -> ApiResult<()> {
+    // `files_all` reports canonical paths without the Windows verbatim prefix, so payload
+    // entries are compared against the same spelling rather than the caller's spelling.
+    let root = PathBuf::from(base.to_path_buf().to_absolute_path());
     let expected_length = match algorithm {
         | ChecksumAlgorithm::Sha256 => Ok(64),
         | ChecksumAlgorithm::Sha512 => Ok(128),
@@ -346,10 +448,10 @@ fn verify_manifest(base: &Path, name: &str, algorithm: ChecksumAlgorithm) -> Api
         })
         .and_then(|entries| {
             let listed = entries.iter().map(|(_, path)| path.clone()).collect::<HashSet<_>>();
-            let actual = files_all(base.join("data"), None::<Vec<String>>)
+            let actual = files_all(root.join(BAGIT_PAYLOAD_DIRECTORY), None::<Vec<String>>)
                 .into_iter()
                 .filter(|path| path.is_file())
-                .filter_map(|path| path.strip_prefix(base).ok().map(Path::to_path_buf))
+                .filter_map(|path| path.strip_prefix(&root).ok().map(Path::to_path_buf))
                 .filter_map(|path| SafePath::new(path).ok())
                 .collect::<HashSet<_>>();
             match (listed.len() == entries.len(), listed == actual) {
@@ -362,7 +464,7 @@ fn verify_manifest(base: &Path, name: &str, algorithm: ChecksumAlgorithm) -> Api
             let digest: &'static ring::digest::Algorithm = algorithm.into();
             entries.into_iter().try_for_each(|(expected, relative)| {
                 relative
-                    .materialize_under(base)
+                    .materialize_under(&root)
                     .map_err(Into::<color_eyre::Report>::into)
                     .and_then(|path| file_checksum(path, Some(digest)).map_err(Into::<color_eyre::Report>::into))
                     .map(|checksum| checksum.checksum_value.to_ascii_lowercase())

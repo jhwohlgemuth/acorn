@@ -1,7 +1,7 @@
 # 📥 Download
 <blockquote class="blockquote-tag acorn-nutshell">
 <p class="blockquote-tag-title acorn-nutshell-title">In a nutshell</p>
-<p>Fetch bucket content or local-model weights with <code>acorn download &lt;SOURCE&gt;</code>.</p>
+<p>Fetch bucket content, verified BagIt archives, or local-model weights with <code>acorn download &lt;SOURCE&gt;</code>.</p>
 </blockquote>
 
 - See the [configuration](../configuration.md) documentation for details on configuring ACORN commands.
@@ -11,6 +11,9 @@
 ```sh
 # Download research activity data from a single bucket repository URL
 acorn download https://code.ornl.gov/research-enablement/buckets/nssd
+
+# Download the verified payload of a BagIt archive
+acorn download https://example.org/bags/nssd.zip --output ./content
 
 # Download research activity data from a list of buckets
 acorn download --config /path/to/.acorn.json
@@ -51,7 +54,7 @@ acorn --no-local-database download --config /path/to/.acorn.json
 ```
 
 ### Local and remote sources
-Top-level `download` accepts remote bucket repositories only and requires online mode. Use [`acorn import`](import.md#research-content-and-bagit-archives) for local directories, local bucket entries in configuration, and offline local transfers. This policy does not apply to `download model`, which retains its documented local-file and offline behavior.
+Top-level `download` accepts remote bucket repositories and BagIt archives. Remote repositories require online mode, and local directory or local repository sources are still rejected. Use [`acorn import`](import.md#research-content-and-bagit-archives) for local directories and local bucket entries in configuration. This policy does not apply to `download model`, which retains its documented local-file and offline behavior.
 
 ```json
 "buckets": [
@@ -74,6 +77,30 @@ Top-level `download` accepts remote bucket repositories only and requires online
 ```
 
 Bare paths and URLs are the concise form. Use a detailed `repository` object when a provider-specific field such as a GitLab project ID is required; the `codeRepository` key is also accepted.
+
+### BagIt archives
+
+A local path, `file:` URI, or HTTP(S) URI that names a 7z, ZIP, TAR, or TAR.GZ BagIt archive is verified and downloaded to a folder of project folders. ACORN completes BagIt verification before publishing anything, then writes only the contents of the bag's `data/` directory, preserving the project-directory structure beneath it. A `bagit.zip` containing `data/project-a/index.json` becomes `<output>/project-a/index.json`. BagIt tag files such as `bagit.txt`, `bag-info.txt`, and payload manifests are never copied to the output.
+
+The bag is resolved at the archive root or beneath one enclosing directory. Filters, ignore rules, `--flatten`, `--clobber`, `--canonicalize`, `--strict`, provenance, ingestion, counts, and activity logging all apply to the verified payload paths, exactly as they do for bucket repositories.
+
+Local BagIt archives work offline. A remote BagIt archive requires online mode and is rejected before any network access under `--offline`. An incomplete or incorrect bag fails without publishing payload, and downloaded archives, extraction staging, and unpublished output are cleaned up on both success and failure.
+
+The archive format is inferred from the source name and, for local files, from the content header. Pass `--archive-format` to force 7z, `tar`, `tar.gz`, or `zip` for extensionless or misleading names. The flag applies only to bucket downloads and is rejected by `download model` and `download needle`.
+
+```sh
+# Download a verified local BagIt archive
+acorn download ./bag.zip --output ./content
+
+# Download a BagIt archive over HTTPS
+acorn download https://example.org/bags/nssd.zip --output ./content
+
+# Download a local BagIt archive without network access
+acorn download ./bag.7z --offline --output ./content
+
+# Force the archive format for a source name inference cannot classify
+acorn download ./release-bundle --archive-format zip --output ./content
+```
 
 ### GitLab and GitHub
 The `download` command supports both GitLab and GitHub remote repositories for ACORN buckets. The configuration for each is similar, with the main difference being the `provider` field in the `repository` object.

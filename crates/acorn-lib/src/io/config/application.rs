@@ -10,7 +10,7 @@ use crate::io::api::powerautomate::PowerAutomateConfig;
 use crate::{
     io::{
         api::Endpoint,
-        config::{Bucket, ModelEntry, RegistryProfile, RunnerDetails},
+        config::{Bucket, ModelEntry, RegistryProfile, RunnerDetails, SourceInput},
         parse_jsonc_cst, read_file, sync,
         sync::ConfigExt,
         write_file, ApiResult, CstRootNode, CstValue, FromPath, InputOutput,
@@ -351,6 +351,16 @@ impl ApplicationConfiguration {
     pub fn resolve(path: &Option<PathBuf>) -> Option<PathBuf> {
         let directory = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         Self::resolve_in(path, &directory)
+    }
+    /// Resolve transfer sources from an explicit or discovered configuration file, or from values.
+    ///
+    /// A configuration file takes precedence over `values`, so a discovered file in the working directory shadows positional sources.
+    /// The result may be empty; callers decide whether an empty selection is an error because the message is specific to each command.
+    pub fn sources(config: &Option<PathBuf>, values: &[String]) -> ApiResult<Vec<SourceInput>> {
+        match Self::resolve(config) {
+            | Some(path) => Self::read(path).map(|content| content.buckets.unwrap_or_default().into_iter().map(SourceInput::from).collect()),
+            | None => Ok(values.iter().cloned().map(SourceInput::from).collect()),
+        }
     }
     /// Resolve an application configuration path relative to an explicit directory.
     pub fn resolve_in(path: &Option<PathBuf>, directory: &Path) -> Option<PathBuf> {

@@ -1,12 +1,17 @@
 //! Native filesystem primitives
+// `std::io` has no stable `core` equivalent for `ErrorKind`, `Cursor`, or `BufReader`, so the
+// `std_instead_of_core` suggestion is unfixable here and `clippy --fix` would break the build.
+#![allow(clippy::std_instead_of_core)]
 use acorn_core::util::{Checksum, ChecksumAlgorithm};
 use core::future::Future;
 use data_encoding::HEXLOWER;
 use ring::digest::{Algorithm, Context, SHA256};
 #[cfg(unix)]
+use std::fs::set_permissions;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::{
-    fs::{self, create_dir_all, read_to_string, remove_dir_all, set_permissions, File, OpenOptions},
+    fs::{self, create_dir_all, read_to_string, remove_dir_all, File, OpenOptions},
     io::{BufReader, Read, Write},
     path::{Component, Path, PathBuf},
     sync::Mutex,
@@ -97,6 +102,14 @@ impl SafePath {
                 | Err(source) => Err(FsError::Io { path: parent, source }),
             })
             .map(|()| root.join(&self.0))
+    }
+    /// Return the directory that contains this path, resolving a bare relative name to `.`.
+    ///
+    /// Staging files and directories are written beside their final destination, and a name without a parent component needs the working directory to keep the sibling next to it.
+    pub fn parent_or_current(path: &Path) -> PathBuf {
+        path.parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .map_or_else(|| PathBuf::from("."), Path::to_path_buf)
     }
     /// Prepare this path beneath `root`, replacing conflicting destinations without following links.
     pub fn prepare(&self, root: &Path) -> Result<PathBuf, FsError> {

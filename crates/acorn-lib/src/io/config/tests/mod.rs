@@ -819,7 +819,8 @@ fn test_transfer_item_collect_preserves_or_flattens_paths() {
 fn test_transfer_item_collect_rejects_flattened_filename_collisions() {
     let message = TransferItem::collect(source_items(&["one/index.json", "two/index.json"]), true)
         .unwrap_err()
-        .to_string();
+        .to_string()
+        .replace('\\', "/");
     assert!(message.contains("index.json"));
     assert!(message.contains("one/index.json"));
     assert!(message.contains("two/index.json"));

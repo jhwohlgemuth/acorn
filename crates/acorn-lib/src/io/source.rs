@@ -132,6 +132,15 @@ impl Source {
                 ..
             } => Self::Remote { name: None, identifier: uri },
             | Location::Detailed {
+                scheme: Scheme::Unsupported,
+                uri,
+                ..
+            } if Location::from(uri.as_str()).is_absolute() => Self::Local {
+                name: None,
+                path: PathBuf::from(uri),
+                action: None,
+            },
+            | Location::Detailed {
                 scheme: Scheme::SSH | Scheme::Unsupported,
                 uri,
                 ..

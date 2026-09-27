@@ -10,10 +10,10 @@
 )]
 extern crate alloc;
 use crate::{
-    cli::arguments::{DownloadModel, Import, ModelResolutionArgs, ModelSourceArgs, ModelSyncArgs, OutputFormat, SyncTarget},
+    cli::arguments::{ArchiveType, Download, DownloadModel, Import, ModelResolutionArgs, ModelSourceArgs, ModelSyncArgs, OutputFormat, SyncTarget},
     test::{
         server::{
-            spawn_basic_model_config_server, spawn_huggingface_model_info_server, spawn_huggingface_model_search_server,
+            spawn_basic_model_config_server, spawn_file_server, spawn_huggingface_model_info_server, spawn_huggingface_model_search_server,
             spawn_huggingface_model_unavailable_server, spawn_ignored_range_server, spawn_no_range_server, spawn_range_server,
             spawn_retry_resume_server, spawn_sidecar_server,
         },
@@ -25,6 +25,7 @@ use acorn::{
         api::huggingface::{
             Downloaded, FileSelectionPolicy, HuggingFaceError, HuggingFaceRepository, HuggingFaceRepositoryFile, HuggingFaceRepositoryFiles,
         },
+        bagit::{Bag, Save},
         config::{ApplicationConfiguration, AuthenticationRequirement, ModelEntry},
         database::{
             schema::{ActivityRow, Table},
@@ -37,7 +38,7 @@ use acorn::{
 };
 use acorn_core::{
     prelude::HashSet,
-    util::{merge, MarkdownSupport},
+    util::{merge, MarkdownSupport, MimeType},
 };
 use acorn_schema::{
     agent::{ModelDetails, ModelSelectors, Quantization, Weight, Weights},
@@ -54,10 +55,10 @@ use core::{
     time::Duration,
 };
 use std::{
-    fs::{create_dir_all, read_to_string, write},
+    fs::{create_dir_all, read, read_to_string, write},
     io::{Read, Write},
     net::TcpListener,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Mutex,
     thread,
 };
@@ -96,6 +97,43 @@ fn candidate_file(path: &str) -> HuggingFaceRepositoryFile {
         size: None,
     }
 }
+
+/// Build bucket download arguments and run the download command.
+#[allow(clippy::too_many_arguments)]
+async fn download_bucket(
+    config: &Option<PathBuf>,
+    url: &[String],
+    filter: &[String],
+    ignore: &[String],
+    output: &Option<PathBuf>,
+    flatten: bool,
+    clobber: bool,
+    strict: bool,
+    canonicalize: bool,
+    archive_format: Option<ArchiveType>,
+    database_path: &Option<PathBuf>,
+    threads: usize,
+    verbose: &Verbosity,
+    offline: bool,
+    no_local_database: bool,
+) -> crate::cli::Void {
+    let arguments = Download {
+        command: None,
+        url: url.to_vec(),
+        config: config.clone(),
+        filter: filter.to_vec(),
+        ignore: ignore.to_vec(),
+        output: output.clone(),
+        flatten,
+        clobber,
+        strict,
+        canonicalize,
+        archive_format,
+        verbose: *verbose,
+    };
+    super::run(&arguments, database_path, threads, offline, no_local_database).await
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn execute_model(
     model: &[String],
@@ -190,6 +228,7 @@ async fn import_local(
     };
     crate::commands::import::run(&arguments, database_path, threads, offline, no_local_database).await
 }
+
 fn model_plan_matches_base(base_model: &str) -> bool {
     let identifier = "unsloth/gpt-oss-2b-gguf";
     let (endpoint, handle) = spawn_huggingface_model_info_server(identifier, base_model);
@@ -212,9 +251,11 @@ fn model_plan_matches_base(base_model: &str) -> bool {
     handle.join().expect("join metadata server");
     result
 }
+
 fn repository_files(files: Vec<HuggingFaceRepositoryFile>) -> HuggingFaceRepositoryFiles {
     HuggingFaceRepositoryFiles::new("acme/model", "main", files)
 }
+
 #[allow(clippy::too_many_arguments)]
 async fn run_model(
     model: &[String],
@@ -265,6 +306,7 @@ async fn run_model(
     )
     .await
 }
+
 fn with_hf_endpoint<T>(endpoint: String, test: impl FnOnce() -> T) -> T {
     let guard = HF_ENDPOINT_TEST_LOCK.lock().expect("lock Hugging Face endpoint tests");
     let result = with_vars(
@@ -279,6 +321,54 @@ fn with_hf_endpoint<T>(endpoint: String, test: impl FnOnce() -> T) -> T {
     drop(guard);
     result
 }
+
+/// Build a BagIt archive containing a single research activity file, returning the archive path.
+fn write_bagit_archive(root: &Path, format: MimeType, identifier: &str) -> Result<PathBuf> {
+    let payload_dir = root.join("payload");
+    write_rad(&payload_dir.join("index.json"), identifier)?;
+    let archive = root.join(format!("bag.{}", format.file_type()));
+    Bag::init()
+        .base_directory(payload_dir.to_string_lossy().to_string())
+        .payload(vec!["index.json".to_string()])
+        .build()
+        .save_as(root.join("bag"), format, Some(archive.clone()))?;
+    Ok(archive)
+}
+
+/// Build a BagIt archive whose payload holds one research activity file per project folder.
+///
+/// The bag is written beneath a single enclosing directory when `enclosing` is set, which the
+/// download path must normalize to the same payload layout as a bag at the archive root.
+fn write_nested_bagit_archive(root: &Path, format: MimeType, enclosing: bool) -> Result<PathBuf> {
+    let payload_dir = root.join("payload");
+    let payload = ["project-a/index.json", "project-b/index.yaml"]
+        .into_iter()
+        .map(|relative| {
+            write_rad(&payload_dir.join(relative), &format!("https://example.org/{relative}"))?;
+            Ok(relative.to_string())
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let archive = root.join(format!("bag.{}", format.file_type()));
+    let bag = Bag::init()
+        .base_directory(payload_dir.to_string_lossy().to_string())
+        .payload(payload)
+        .build();
+    match enclosing {
+        | true => {
+            let staged = root.join("staging");
+            bag.write(&staged)?;
+            let container = root.join("container");
+            std::fs::create_dir_all(&container).expect("create enclosing container");
+            std::fs::rename(staged, container.join("bag")).expect("move bag into container");
+            acorn::io::archive(container, Some(archive.clone()), format).expect("archive enclosing container");
+        }
+        | false => {
+            bag.save_as(root.join("bag"), format, Some(archive.clone()))?;
+        }
+    }
+    Ok(archive)
+}
+
 fn write_rad(path: &std::path::Path, identifier: &str) -> Result<()> {
     if let Some(parent) = path.parent() {
         create_dir_all(parent)?;
@@ -331,6 +421,7 @@ async fn test_config_fixture_resolves_model_fallbacks() {
         ]
     );
 }
+
 #[tokio::test]
 async fn test_config_fixture_resolves_models() {
     let config = ApplicationConfiguration::read(fixture_path("config/with_models.json")).unwrap();
@@ -360,6 +451,7 @@ async fn test_config_fixture_resolves_models() {
         ]
     );
 }
+
 #[tokio::test]
 async fn test_config_fixture_resolves_whitelisted_models() -> Result<()> {
     let config = ApplicationConfiguration::read(fixture_path("config/with_models.json"))?;
@@ -383,6 +475,7 @@ async fn test_config_fixture_resolves_whitelisted_models() -> Result<()> {
     assert_eq!(resolved, vec!["meta-llama/Llama-2-7b-hf".to_string()]);
     Ok(())
 }
+
 #[test]
 fn test_config_parses_hugging_face_location_model_entry() {
     let content = r#"{"models": [{"name": "tiny-bert", "source": {"provider": "huggingface", "location": {"scheme": "https", "uri": "https://huggingface.co/hf-internal-testing/tiny-random-bert", "revision": "main"}}}]}"#;
@@ -398,6 +491,7 @@ fn test_config_parses_local_model_entry() {
     let models = config.models.unwrap();
     assert_eq!(models.len(), 1);
 }
+
 #[test]
 fn test_config_parses_mixed_model_entries() {
     let content =
@@ -406,6 +500,7 @@ fn test_config_parses_mixed_model_entries() {
     let models = config.models.unwrap();
     assert_eq!(models.len(), 2);
 }
+
 #[test]
 fn test_config_parses_model_download_options() {
     let content = r#"{
@@ -430,6 +525,7 @@ fn test_config_parses_model_download_options() {
         | ModelEntry::Selector(_) => panic!("expected detailed model entry"),
     }
 }
+
 #[test]
 fn test_config_parses_model_metadata_constraints() {
     let config = ApplicationConfiguration::parse(
@@ -457,12 +553,14 @@ fn test_config_parses_model_metadata_constraints() {
     );
     assert_eq!(options.gpu_memory.and_then(|memory| memory.checked_bytes()), Some(1_610_612_736));
 }
+
 #[test]
 fn test_config_parses_models_field_empty() {
     let content = r#"{"buckets": []}"#;
     let config = ApplicationConfiguration::parse(content).unwrap();
     assert!(config.models.is_none());
 }
+
 #[test]
 fn test_config_parses_models_field_json() {
     let content = r#"{"models": ["meta-llama/Llama-2-7b-hf", "microsoft/phi-2"]}"#;
@@ -470,6 +568,7 @@ fn test_config_parses_models_field_json() {
     let models = config.models.unwrap();
     assert_eq!(models.len(), 2);
 }
+
 #[test]
 fn test_config_parses_models_field_yaml() {
     let content = r#"
@@ -481,12 +580,287 @@ models:
     let models = config.models.unwrap();
     assert_eq!(models.len(), 2);
 }
+
 #[test]
 fn test_config_parses_single_model_whitelist_url() {
     let url = "https://example.com/models.json";
     let config = ApplicationConfiguration::parse(format!(r#"{{"whitelist":{{"models":"{url}"}}}}"#).as_str()).unwrap();
     assert_eq!(config.whitelist.and_then(|lookup| lookup.models), Some(OneOrMany::One(url.to_string())));
 }
+
+#[tokio::test]
+async fn test_download_archive_format_overrides_url_inference() -> Result<()> {
+    let temp_dir = temp_test_dir("download_bagit_archive_override");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output_dir = temp_dir.join("output");
+    let archive = write_bagit_archive(&temp_dir, MimeType::Zip, "https://example.org/archive-override")?;
+    let result = download_bucket(
+        &None,
+        &[archive.to_string_lossy().to_string()],
+        &[],
+        &[],
+        &Some(output_dir.clone()),
+        false,
+        false,
+        false,
+        false,
+        Some(ArchiveType::Zip),
+        &None,
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        false,
+        true,
+    )
+    .await;
+    assert!(result.is_ok());
+    assert!(read_to_string(output_dir.join("index.json"))?.contains("https://example.org/archive-override"));
+    Ok(())
+}
+
+#[test]
+fn test_download_archive_format_rejects_model_subcommand() {
+    let temp_dir = temp_test_dir("download_archive_format_model_rejection");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output = Command::cargo_bin("acorn")
+        .expect("locate acorn binary")
+        .args([
+            "--no-local-database",
+            "download",
+            "--archive-format",
+            "zip",
+            "model",
+            "acme/model",
+            "--dry-run",
+        ])
+        .output()
+        .expect("run model download with bucket-only flag");
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("--archive-format is only supported for bucket downloads"));
+}
+
+#[tokio::test]
+async fn test_download_archive_rejects_unverified_bag() {
+    let temp_dir = temp_test_dir("download_bagit_archive_unverified");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output_dir = temp_dir.join("output");
+    let tampered = temp_dir.join("tampered");
+    let archive = write_bagit_archive(&temp_dir, MimeType::Zip, "https://example.org/archive-unverified").expect("create archive");
+    // Corrupt the payload so the manifest checksum no longer matches.
+    acorn::io::extract(archive.clone(), Some(tampered.clone()), None).expect("extract archive");
+    write(tampered.join("data").join("index.json"), "tampered").expect("tamper with payload");
+    acorn::io::archive(tampered, Some(archive.clone()), MimeType::Zip).expect("re-archive tampered payload");
+    let result = download_bucket(
+        &None,
+        &[archive.to_string_lossy().to_string()],
+        &[],
+        &[],
+        &Some(output_dir.clone()),
+        false,
+        false,
+        false,
+        false,
+        None,
+        &None,
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        false,
+        true,
+    )
+    .await;
+    assert!(result.is_err(), "an archive with a checksum mismatch must be rejected");
+    assert!(!output_dir.exists(), "no payload may be published from an unverified bag");
+}
+
+#[tokio::test]
+async fn test_download_bagit_archive_applies_filter() -> Result<()> {
+    let temp_dir = temp_test_dir("download_bagit_filter");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let archive = write_nested_bagit_archive(&temp_dir, MimeType::Zip, false)?;
+    let output_dir = temp_dir.join("output");
+    let result = download_bucket(
+        &None,
+        &[archive.to_string_lossy().to_string()],
+        &["project-a".to_string()],
+        &[],
+        &Some(output_dir.clone()),
+        false,
+        false,
+        false,
+        false,
+        None,
+        &None,
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        false,
+        true,
+    )
+    .await;
+    assert!(result.is_ok());
+    assert!(output_dir.join("project-a/index.json").is_file());
+    assert!(!output_dir.join("project-b").exists(), "filtered payload must not be published");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_download_bagit_archive_rejects_remote_source_offline() -> Result<()> {
+    let temp_dir = temp_test_dir("download_bagit_remote_offline");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let archive = write_nested_bagit_archive(&temp_dir, MimeType::Zip, false)?;
+    let (address, _handle) = spawn_file_server("bag.zip", read(&archive)?);
+    let output_dir = temp_dir.join("output");
+    let result = download_bucket(
+        &None,
+        &[address],
+        &[],
+        &[],
+        &Some(output_dir.clone()),
+        false,
+        false,
+        false,
+        false,
+        None,
+        &None,
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        true,
+        true,
+    )
+    .await;
+    let why = result.unwrap_err().to_string();
+    assert!(why.contains("Offline mode cannot transfer remote archive"), "unexpected error: {why}");
+    assert!(!output_dir.exists(), "an offline remote archive must not publish payload");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_download_bagit_archive_resolves_single_enclosing_directory() -> Result<()> {
+    for (format, archive_type) in [(MimeType::Zip, ArchiveType::Zip), (MimeType::Tar, ArchiveType::Tar)] {
+        let temp_dir = temp_test_dir(&format!("download_bagit_enclosing_{}", format.file_type()));
+        let _cleanup = TestCleanup::new(temp_dir.clone());
+        let archive = write_nested_bagit_archive(&temp_dir, format.clone(), true)?;
+        let output_dir = temp_dir.join("output");
+        let result = download_bucket(
+            &None,
+            &[archive.to_string_lossy().to_string()],
+            &[],
+            &[],
+            &Some(output_dir.clone()),
+            false,
+            false,
+            false,
+            false,
+            Some(archive_type),
+            &None,
+            TEST_THREADS,
+            &Verbosity::new(0, 1),
+            false,
+            true,
+        )
+        .await;
+        assert!(result.is_ok(), "{} enclosing bag download failed", format.file_type());
+        // The enclosing archive directory must not appear in the published payload.
+        assert!(read_to_string(output_dir.join("project-a/index.json"))?.contains("https://example.org/project-a/index.json"));
+        assert!(!output_dir.join("bag").exists());
+        assert!(!output_dir.join("container").exists());
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_download_bagit_archive_round_trips_every_format() -> Result<()> {
+    for (format, archive_type) in [
+        (MimeType::SevenZip, ArchiveType::SevenZip),
+        (MimeType::Zip, ArchiveType::Zip),
+        (MimeType::Tar, ArchiveType::Tar),
+        (MimeType::Gzip, ArchiveType::TarGzip),
+    ] {
+        let temp_dir = temp_test_dir(&format!("download_bagit_round_trip_{}", format.file_type()));
+        let _cleanup = TestCleanup::new(temp_dir.clone());
+        let archive = write_nested_bagit_archive(&temp_dir, format.clone(), false)?;
+        let output_dir = temp_dir.join("output");
+        let result = download_bucket(
+            &None,
+            &[archive.to_string_lossy().to_string()],
+            &[],
+            &[],
+            &Some(output_dir.clone()),
+            false,
+            false,
+            false,
+            false,
+            Some(archive_type),
+            &None,
+            TEST_THREADS,
+            &Verbosity::new(0, 1),
+            false,
+            true,
+        )
+        .await;
+        assert!(result.is_ok(), "{} archive download failed", format.file_type());
+        // Project folders survive the data/ prefix removal, and tag files stay out of the output.
+        assert!(read_to_string(output_dir.join("project-a/index.json"))?.contains("https://example.org/project-a/index.json"));
+        assert!(read_to_string(output_dir.join("project-b/index.yaml"))?.contains("https://example.org/project-b/index.yaml"));
+        assert!(!output_dir.join("bagit.txt").exists());
+        assert!(!output_dir.join("manifest-sha256.txt").exists());
+        assert!(!output_dir.join("data").exists());
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_download_bagit_archive_without_extension_uses_content_inference() -> Result<()> {
+    let temp_dir = temp_test_dir("download_bagit_no_extension");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let archive = write_nested_bagit_archive(&temp_dir, MimeType::Zip, false)?;
+    let unlabeled = temp_dir.join("unlabeled-bag");
+    std::fs::copy(&archive, &unlabeled)?;
+    // Content inference resolves the archive even though the name carries no extension.
+    let inferred_dir = temp_dir.join("inferred");
+    let inferred = download_bucket(
+        &None,
+        &[unlabeled.to_string_lossy().to_string()],
+        &[],
+        &[],
+        &Some(inferred_dir.clone()),
+        false,
+        false,
+        false,
+        false,
+        None,
+        &None,
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        false,
+        true,
+    )
+    .await;
+    assert!(inferred.is_ok(), "inference should resolve an extensionless archive");
+    assert!(inferred_dir.join("project-a/index.json").is_file());
+    // The explicit override resolves the same archive for names that inference cannot classify.
+    let explicit_dir = temp_dir.join("explicit");
+    let explicit = download_bucket(
+        &None,
+        &[unlabeled.to_string_lossy().to_string()],
+        &[],
+        &[],
+        &Some(explicit_dir.clone()),
+        false,
+        false,
+        false,
+        false,
+        Some(ArchiveType::Zip),
+        &None,
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        false,
+        true,
+    )
+    .await;
+    assert!(explicit.is_ok(), "--archive-format should resolve an extensionless archive");
+    assert!(explicit_dir.join("project-a/index.json").is_file());
+    Ok(())
+}
+
 #[test]
 fn test_download_canonicalize_rejects_model_subcommand() {
     let temp_dir = temp_test_dir("download_canonicalize_model_rejection");
@@ -503,6 +877,7 @@ fn test_download_canonicalize_rejects_model_subcommand() {
     assert!(String::from_utf8_lossy(&output.stderr).contains("--canonicalize is only supported for bucket downloads"));
     assert!(!database_path.exists());
 }
+
 #[test]
 fn test_download_clobber_rejects_model_subcommand() {
     let temp_dir = temp_test_dir("download_clobber_model_rejection");
@@ -519,6 +894,7 @@ fn test_download_clobber_rejects_model_subcommand() {
     assert!(String::from_utf8_lossy(&output.stderr).contains("--clobber is only supported for bucket downloads"));
     assert!(!database_path.exists());
 }
+
 #[test]
 fn test_download_clobber_replaces_selected_file_and_preserves_unrelated_file() {
     let temp_dir = temp_test_dir("download_clobber_bucket");
@@ -548,6 +924,7 @@ fn test_download_clobber_replaces_selected_file_and_preserves_unrelated_file() {
         .contains("replacement"));
     assert_eq!(read_to_string(output_dir.join("unrelated.txt")).expect("read unrelated file"), "keep");
 }
+
 #[test]
 fn test_download_flatten_rejects_model_subcommand() {
     let temp_dir = temp_test_dir("download_flatten_model_rejection");
@@ -564,9 +941,10 @@ fn test_download_flatten_rejects_model_subcommand() {
     assert!(String::from_utf8_lossy(&output.stderr).contains("--flatten is only supported for bucket downloads"));
     assert!(!database_path.exists());
 }
+
 #[tokio::test]
 async fn test_download_invalid_source_returns_error() {
-    let result = super::run(
+    let result = download_bucket(
         &None,
         &["ssh://git@github.com/acme/science".to_string()],
         &[],
@@ -576,6 +954,7 @@ async fn test_download_invalid_source_returns_error() {
         false,
         false,
         false,
+        None,
         &None,
         TEST_THREADS,
         &Verbosity::new(0, 1),
@@ -585,6 +964,7 @@ async fn test_download_invalid_source_returns_error() {
     .await;
     assert!(result.unwrap_err().to_string().contains("Invalid bucket source"));
 }
+
 #[test]
 fn test_download_item_checksum_mismatch_returns_incomplete_download_error() {
     let temp_dir = temp_test_dir("download_model_checksum_mismatch");
@@ -603,6 +983,7 @@ fn test_download_item_checksum_mismatch_returns_incomplete_download_error() {
     let text = format!("{}", result.expect_err("checksum error"));
     assert!(text.contains("Model download is incomplete"));
 }
+
 #[tokio::test]
 async fn test_download_items_with_progress_are_concurrent() {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind concurrent download server");
@@ -652,6 +1033,70 @@ async fn test_download_items_with_progress_are_concurrent() {
     handle.join().expect("join concurrent download server");
     assert_eq!(maximum_active.load(Ordering::SeqCst), 2, "visible model downloads should overlap");
 }
+
+#[tokio::test]
+async fn test_download_local_bagit_archive_extracts_verified_payload() -> Result<()> {
+    let temp_dir = temp_test_dir("download_bagit_archive_local");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output_dir = temp_dir.join("output");
+    let archive = write_bagit_archive(&temp_dir, MimeType::Zip, "https://example.org/archive-local")?;
+    let result = download_bucket(
+        &None,
+        &[archive.to_string_lossy().to_string()],
+        &[],
+        &[],
+        &Some(output_dir.clone()),
+        false,
+        false,
+        false,
+        false,
+        None,
+        &None,
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        false,
+        true,
+    )
+    .await;
+    assert!(result.is_ok());
+    assert!(read_to_string(output_dir.join("index.json"))?.contains("https://example.org/archive-local"));
+    assert!(!output_dir.join("bagit.txt").exists(), "tag files must not reach the output");
+    assert!(
+        !output_dir.join("data").exists(),
+        "the payload directory must not be nested in the output"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_download_local_bagit_archive_works_offline() -> Result<()> {
+    let temp_dir = temp_test_dir("download_bagit_archive_offline");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output_dir = temp_dir.join("output");
+    let archive = write_bagit_archive(&temp_dir, MimeType::Gzip, "https://example.org/archive-offline")?;
+    let result = download_bucket(
+        &None,
+        &[archive.to_string_lossy().to_string()],
+        &[],
+        &[],
+        &Some(output_dir.clone()),
+        false,
+        false,
+        false,
+        false,
+        None,
+        &None,
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        true,
+        true,
+    )
+    .await;
+    assert!(result.is_ok(), "a local archive must download in offline mode");
+    assert!(read_to_string(output_dir.join("index.json"))?.contains("https://example.org/archive-offline"));
+    Ok(())
+}
+
 #[test]
 fn test_download_model_basic_config_dry_run_output_snapshot() {
     let temp_dir = temp_test_dir("download_model_basic_config_snapshot");
@@ -700,6 +1145,7 @@ fn test_download_model_basic_config_dry_run_output_snapshot() {
         .join("\n");
     insta::assert_snapshot!("download_model_basic_config_dry_run_output", text.trim_end());
 }
+
 #[tokio::test]
 async fn test_download_model_config_resolves_models() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_config_resolve");
@@ -734,9 +1180,10 @@ async fn test_download_model_config_resolves_models() -> Result<()> {
         &OutputFormat::default(),
     )
     .await;
-    assert!(result.is_ok(), "config-only model resolution should succeed");
+    assert!(result.is_ok(), "config-only model resolution should succeed: {result:?}");
     Ok(())
 }
+
 #[test]
 fn test_download_model_config_skips_unresolved_models() {
     let temp_dir = temp_test_dir("download_model_config_skips_unresolved");
@@ -780,6 +1227,7 @@ fn test_download_model_config_skips_unresolved_models() {
     assert!(result.is_ok(), "resolved models should download without unresolved model failures");
     assert!(output_dir.join("tiny").join("tiny.gguf").exists());
 }
+
 #[tokio::test]
 async fn test_download_model_config_whitelist_keeps_matching_name() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_config_whitelist_match");
@@ -828,6 +1276,7 @@ async fn test_download_model_config_whitelist_keeps_matching_name() -> Result<()
     assert!(!output_dir.join("drop").join("drop.gguf").exists());
     Ok(())
 }
+
 #[test]
 fn test_download_model_dry_run_fails_when_only_model_is_unavailable() {
     let temp_dir = temp_test_dir("download_model_only_unavailable");
@@ -862,6 +1311,7 @@ fn test_download_model_dry_run_fails_when_only_model_is_unavailable() {
     let message = result.expect_err("an unavailable-only dry run should fail").to_string();
     assert_eq!(message, "No models found");
 }
+
 #[tokio::test]
 async fn test_download_model_file_overrides_config() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_file_override");
@@ -903,6 +1353,7 @@ async fn test_download_model_file_overrides_config() -> Result<()> {
     assert!(result.is_ok(), "--model-file should prevent automatic config resolution");
     Ok(())
 }
+
 #[tokio::test]
 async fn test_download_model_filter_keeps_matching_local_file() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_filter_local");
@@ -936,6 +1387,7 @@ async fn test_download_model_filter_keeps_matching_local_file() -> Result<()> {
     assert!(output_dir.join("tiny").join("tiny.gguf").exists());
     Ok(())
 }
+
 #[tokio::test]
 async fn test_download_model_ignore_removes_matching_local_file() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_ignore_local");
@@ -968,6 +1420,7 @@ async fn test_download_model_ignore_removes_matching_local_file() -> Result<()> 
     assert!(result.is_err(), "ignore should remove the only selected model");
     Ok(())
 }
+
 #[tokio::test]
 async fn test_download_model_invalid_filter_errors() -> Result<()> {
     let verbose = Verbosity::new(0, 1);
@@ -995,6 +1448,7 @@ async fn test_download_model_invalid_filter_errors() -> Result<()> {
     assert!(result.is_err(), "invalid filter regex should fail");
     Ok(())
 }
+
 #[tokio::test]
 async fn test_download_model_local_config_copy() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_local_config_copy");
@@ -1039,6 +1493,7 @@ async fn test_download_model_local_config_copy() -> Result<()> {
     );
     Ok(())
 }
+
 #[tokio::test]
 async fn test_download_model_local_file_copy() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_local_copy");
@@ -1073,6 +1528,7 @@ async fn test_download_model_local_file_copy() -> Result<()> {
     assert!(model_dir.join("tiny.gguf").exists(), "copy mode should place files in output dir");
     Ok(())
 }
+
 #[tokio::test]
 async fn test_download_model_local_file_reference() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_local_reference");
@@ -1108,6 +1564,7 @@ async fn test_download_model_local_file_reference() -> Result<()> {
     assert!(!model_dir.join("tiny.gguf").exists(), "reference mode should not copy files");
     Ok(())
 }
+
 #[tokio::test]
 async fn test_download_model_local_missing_path_errors() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_local_missing");
@@ -1138,6 +1595,7 @@ async fn test_download_model_local_missing_path_errors() -> Result<()> {
     assert!(result.is_err(), "missing local model path should return an error");
     Ok(())
 }
+
 #[tokio::test]
 async fn test_download_model_local_mixed_offline_errors() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_mixed_offline");
@@ -1171,6 +1629,7 @@ async fn test_download_model_local_mixed_offline_errors() -> Result<()> {
     assert!(result.is_err(), "mixed local+remote in offline mode should fail");
     Ok(())
 }
+
 #[tokio::test]
 async fn test_download_model_local_offline_succeeds() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_local_offline");
@@ -1203,6 +1662,7 @@ async fn test_download_model_local_offline_succeeds() -> Result<()> {
     assert!(result.is_ok(), "local model should work in offline mode");
     Ok(())
 }
+
 #[tokio::test]
 async fn test_download_model_missing_config_reports_missing_file() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_missing_config");
@@ -1236,6 +1696,7 @@ async fn test_download_model_missing_config_reports_missing_file() -> Result<()>
     );
     Ok(())
 }
+
 #[tokio::test]
 async fn test_download_model_no_models_errors() -> Result<()> {
     let verbose = Verbosity::new(0, 1);
@@ -1263,6 +1724,7 @@ async fn test_download_model_no_models_errors() -> Result<()> {
     assert!(result.is_err(), "empty model list should return an error");
     Ok(())
 }
+
 #[tokio::test]
 async fn test_download_model_offline_rejects() -> Result<()> {
     let verbose = Verbosity::new(0, 1);
@@ -1290,6 +1752,7 @@ async fn test_download_model_offline_rejects() -> Result<()> {
     assert!(result.is_err(), "offline mode should reject remote model download");
     Ok(())
 }
+
 #[tokio::test]
 async fn test_download_model_positional_overrides_config() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_positional_override");
@@ -1328,6 +1791,7 @@ async fn test_download_model_positional_overrides_config() -> Result<()> {
     assert!(result.is_ok(), "CLI whitelist and positional model should override configuration inputs");
     Ok(())
 }
+
 #[tokio::test]
 async fn test_download_model_reads_model_file() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_file");
@@ -1367,6 +1831,7 @@ async fn test_download_model_reads_model_file() -> Result<()> {
     assert!(result.is_ok(), "local model from --model-file should resolve in offline mode");
     Ok(())
 }
+
 #[tokio::test]
 async fn test_download_model_syncs_downloaded_model() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_sync");
@@ -1422,6 +1887,7 @@ async fn test_download_model_syncs_downloaded_model() -> Result<()> {
     assert_eq!(identifiers, vec!["tiny"]);
     Ok(())
 }
+
 #[tokio::test]
 async fn test_download_model_whitelist_errors_when_no_name_matches() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_whitelist_no_match");
@@ -1457,6 +1923,7 @@ async fn test_download_model_whitelist_errors_when_no_name_matches() -> Result<(
     assert!(result.is_err(), "non-matching whitelist should fail");
     Ok(())
 }
+
 #[test]
 fn test_download_model_whitelist_fails_when_only_model_is_unavailable() {
     let temp_dir = temp_test_dir("download_model_whitelist_only_unavailable");
@@ -1491,6 +1958,7 @@ fn test_download_model_whitelist_fails_when_only_model_is_unavailable() {
     let message = result.expect_err("an unavailable-only batch should fail").to_string();
     assert!(message.contains("No models were found"), "unexpected error: {message}");
 }
+
 #[tokio::test]
 async fn test_download_model_whitelist_file_keeps_matching_name() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_whitelist_file_match");
@@ -1544,6 +2012,7 @@ async fn test_download_model_whitelist_file_keeps_matching_name() -> Result<()> 
     assert!(!output_dir.join("drop").join("drop.gguf").exists());
     Ok(())
 }
+
 #[tokio::test]
 async fn test_download_model_whitelist_keeps_matching_name() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_whitelist_match");
@@ -1592,6 +2061,7 @@ async fn test_download_model_whitelist_keeps_matching_name() -> Result<()> {
     assert!(!output_dir.join("drop").join("drop.gguf").exists());
     Ok(())
 }
+
 #[test]
 fn test_download_model_whitelist_skips_unavailable_model_when_another_matches() {
     let temp_dir = temp_test_dir("download_model_whitelist_skips_unavailable");
@@ -1637,9 +2107,10 @@ fn test_download_model_whitelist_skips_unavailable_model_when_another_matches() 
     handle.join().expect("join unavailable model server");
     assert!(result.is_ok(), "an unavailable model should not fail a batch containing a matching model");
 }
+
 #[tokio::test]
 async fn test_download_rejects_local_source() {
-    let result = super::run(
+    let result = download_bucket(
         &None,
         &["file:./tests/fixtures/data/bucket/".to_string()],
         &[],
@@ -1649,6 +2120,7 @@ async fn test_download_rejects_local_source() {
         false,
         false,
         false,
+        None,
         &None,
         TEST_THREADS,
         &Verbosity::new(0, 1),
@@ -1658,6 +2130,40 @@ async fn test_download_rejects_local_source() {
     .await;
     assert!(result.is_err());
 }
+
+#[tokio::test]
+async fn test_download_remote_bagit_archive_uses_url_inference() -> Result<()> {
+    let temp_dir = temp_test_dir("download_bagit_archive_remote");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output_dir = temp_dir.join("output");
+    let archive = write_bagit_archive(&temp_dir, MimeType::Zip, "https://example.org/archive-remote")?;
+    let (address, handle) = spawn_file_server("bag.zip", read(&archive)?);
+    let result = download_bucket(
+        &None,
+        &[address],
+        &[],
+        &[],
+        &Some(output_dir.clone()),
+        false,
+        false,
+        false,
+        false,
+        None,
+        &None,
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        false,
+        true,
+    )
+    .await;
+    match result {
+        | Ok(()) => handle.join().expect("join archive server"),
+        | Err(why) => panic!("remote archive download failed: {why}"),
+    }
+    assert!(read_to_string(output_dir.join("index.json"))?.contains("https://example.org/archive-remote"));
+    Ok(())
+}
+
 #[test]
 fn test_download_strict_rejects_model_subcommand() {
     let temp_dir = temp_test_dir("download_strict_model_rejection");
@@ -1674,6 +2180,7 @@ fn test_download_strict_rejects_model_subcommand() {
     assert!(String::from_utf8_lossy(&output.stderr).contains("--strict is only supported for bucket downloads"));
     assert!(!database_path.exists());
 }
+
 #[test]
 fn test_download_task_rejects_unsafe_paths() {
     let destination = temp_test_dir("download_model_unsafe_path");
@@ -1694,6 +2201,7 @@ fn test_download_task_rejects_unsafe_paths() {
             );
         });
 }
+
 #[tokio::test]
 async fn test_download_task_restarts_partial_file_without_http_range_support() {
     let payload = b"abcdefghij".to_vec();
@@ -1721,6 +2229,7 @@ async fn test_download_task_restarts_partial_file_without_http_range_support() {
     );
     handle.join().expect("join no-range server thread");
 }
+
 #[tokio::test]
 async fn test_download_task_resumes_partial_file_with_http_range() {
     let payload = b"abcdefghij".to_vec();
@@ -1762,6 +2271,7 @@ async fn test_download_task_resumes_partial_file_with_http_range() {
     assert_eq!(final_bytes, payload, "resumed download should append remaining bytes");
     handle.join().expect("join server thread");
 }
+
 #[tokio::test]
 async fn test_download_task_retry_resumes_from_updated_partial_file_length() {
     let payload = b"abcdefghij".to_vec();
@@ -1786,6 +2296,7 @@ async fn test_download_task_retry_resumes_from_updated_partial_file_length() {
     assert_eq!(final_bytes, payload, "retry should not duplicate bytes from the original resume offset");
     handle.join().expect("join retry-resume server thread");
 }
+
 #[tokio::test]
 async fn test_download_task_skip_verify_checksum_allows_checksum_mismatch() {
     let payload = b"checksum-skip-payload".to_vec();
@@ -1810,6 +2321,7 @@ async fn test_download_task_skip_verify_checksum_allows_checksum_mismatch() {
     assert_eq!(final_bytes, payload);
     handle.join().expect("join range server thread");
 }
+
 #[tokio::test]
 async fn test_download_task_succeeds_with_real_sha256_sidecar_validation() {
     let model_bytes = b"checksum-success-payload".to_vec();
@@ -1865,6 +2377,7 @@ async fn test_download_task_succeeds_with_real_sha256_sidecar_validation() {
     assert_eq!(final_bytes, model_bytes);
     handle.join().expect("join sidecar server thread");
 }
+
 #[tokio::test]
 async fn test_download_task_truncates_when_range_request_returns_200() {
     let payload = b"abcdefghij".to_vec();
@@ -1889,6 +2402,7 @@ async fn test_download_task_truncates_when_range_request_returns_200() {
     assert_eq!(final_bytes, payload, "200 OK to ranged GET should truncate partial file before writing");
     handle.join().expect("join ignored-range server thread");
 }
+
 #[test]
 fn test_download_zero_items_prints_warning() {
     let temp_dir = temp_test_dir("download_zero_items_warning");
@@ -1913,6 +2427,7 @@ fn test_download_zero_items_prints_warning() {
     assert!(combined.contains("0") && combined.contains("processed"));
     assert!(combined.contains("hint:"));
 }
+
 #[test]
 fn test_downloaded_gguf_quantization_is_merged_into_weights() {
     let existing = Weights(vec![Weight {
@@ -1938,6 +2453,7 @@ fn test_downloaded_gguf_quantization_is_merged_into_weights() {
         Some("https://huggingface.co/unsloth/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-Q4_K_M.gguf")
     );
 }
+
 #[test]
 fn test_gguf_fallback_trigger_conditions() {
     let _error = color_eyre::eyre::eyre!(HuggingFaceError::NoGgufModelFiles);
@@ -1963,6 +2479,7 @@ fn test_gguf_fallback_trigger_conditions() {
     assert!(!files.should_use_fallback(&invalid_identifier));
     assert!(!repository_files(vec![candidate_file("model.gguf")]).should_use_fallback(&options));
 }
+
 #[test]
 fn test_hf_token_not_exposed_in_model_download_error_display() {
     let token = "test-secret-token-12345";
@@ -1994,6 +2511,7 @@ fn test_hf_token_not_exposed_in_model_download_error_display() {
         assert!(urls.iter().all(|url| !url.contains(token)));
     });
 }
+
 #[test]
 fn test_hf_token_not_exposed_in_model_resolution_logs() {
     let token = "test-secret-token-12345";
@@ -2016,6 +2534,7 @@ fn test_hf_token_not_exposed_in_model_resolution_logs() {
     let text = String::from_utf8(logs.lock().expect("lock logs").clone()).unwrap_or_default();
     assert!(!text.contains(token));
 }
+
 #[test]
 fn test_hf_token_not_persisted_in_activity_rows() {
     let token = "test-secret-token-12345";
@@ -2044,6 +2563,7 @@ fn test_hf_token_not_persisted_in_activity_rows() {
         assert!(columns.iter().all(|value| !value.contains(token)));
     });
 }
+
 #[test]
 fn test_huggingface_filter_combined() {
     let files = repository_files(vec![
@@ -2056,6 +2576,7 @@ fn test_huggingface_filter_combined() {
     assert_eq!(result.len(), 2);
     assert!(result.iter().all(|f| f.path.ends_with(".gguf") && !f.path.contains("Q2_")));
 }
+
 #[test]
 fn test_huggingface_filter_extension() {
     let files = repository_files(vec![
@@ -2068,6 +2589,7 @@ fn test_huggingface_filter_extension() {
     assert_eq!(result.len(), 2);
     assert!(result.iter().all(|f| f.path.ends_with(".gguf")));
 }
+
 #[test]
 fn test_huggingface_filter_ignore() {
     let files = repository_files(vec![
@@ -2080,12 +2602,43 @@ fn test_huggingface_filter_ignore() {
     assert!(result.iter().all(|f| f.path != "model.Q2_K.gguf"));
     assert_eq!(result.first().map(|f| f.path.as_str()), Some("model.Q4_K_M.gguf"));
 }
+
 #[test]
 fn test_huggingface_filter_works_with_complex_patterns() {
     let files = repository_files(vec![candidate_file("model.gguf")]);
     let result = files.filter(Some("[a-z]+"), None);
     assert!(result.is_ok());
 }
+
+#[tokio::test]
+async fn test_import_bagit_archive_round_trips_every_format() -> Result<()> {
+    for format in [MimeType::SevenZip, MimeType::Zip, MimeType::Tar, MimeType::Gzip] {
+        let temp_dir = temp_test_dir(&format!("import_bagit_round_trip_{}", format.file_type()));
+        let _cleanup = TestCleanup::new(temp_dir.clone());
+        let archive = write_nested_bagit_archive(&temp_dir, format.clone(), false)?;
+        let output_dir = temp_dir.join("output");
+        let result = import_local(
+            &None,
+            &[archive.to_string_lossy().to_string()],
+            &[],
+            &[],
+            &Some(output_dir.clone()),
+            false,
+            false,
+            &None,
+            TEST_THREADS,
+            &Verbosity::new(0, 1),
+            false,
+            true,
+        )
+        .await;
+        assert!(result.is_ok(), "{} archive import failed", format.file_type());
+        assert!(read_to_string(output_dir.join("project-a/index.json"))?.contains("https://example.org/project-a/index.json"));
+        assert!(!output_dir.join("bagit.txt").exists());
+    }
+    Ok(())
+}
+
 #[tokio::test]
 async fn test_import_ingests_and_replays_valid_rad() -> Result<()> {
     let temp_dir = temp_test_dir("download_ingests_valid_rad");
@@ -2121,6 +2674,7 @@ async fn test_import_ingests_and_replays_valid_rad() -> Result<()> {
     assert!(output_dir.join("1/index.json").exists());
     Ok(())
 }
+
 #[tokio::test]
 async fn test_import_ingests_multiple_rad_formats_and_honors_filter() -> Result<()> {
     let temp_dir = temp_test_dir("download_multiple_rad");
@@ -2157,6 +2711,7 @@ async fn test_import_ingests_multiple_rad_formats_and_honors_filter() -> Result<
     assert!(!output_dir.join("skip/index.json").exists());
     Ok(())
 }
+
 #[tokio::test]
 async fn test_import_invalid_remote_source_returns_error() {
     let result = import_local(
@@ -2176,6 +2731,7 @@ async fn test_import_invalid_remote_source_returns_error() {
     .await;
     assert!(result.unwrap_err().to_string().contains("Invalid bucket source"));
 }
+
 #[tokio::test]
 async fn test_import_local_config_accepts_bare_bucket_source() -> Result<()> {
     let temp_dir = temp_test_dir("import_local_config_bare_source");
@@ -2203,6 +2759,7 @@ async fn test_import_local_config_accepts_bare_bucket_source() -> Result<()> {
     assert!(has_any_file(&output_dir), "output should contain copied files");
     Ok(())
 }
+
 #[tokio::test]
 async fn test_import_local_config_silent() -> Result<()> {
     let temp_dir = temp_test_dir("download_local_config_silent");
@@ -2236,6 +2793,7 @@ async fn test_import_local_config_silent() -> Result<()> {
     assert!(has_any_file(&output_dir), "output should contain copied files");
     Ok(())
 }
+
 #[tokio::test]
 async fn test_import_local_url_flattens_and_ingests_rad() -> Result<()> {
     let temp_dir = temp_test_dir("download_local_url_flatten");
@@ -2265,6 +2823,7 @@ async fn test_import_local_url_flattens_and_ingests_rad() -> Result<()> {
     assert!(!output_dir.join("nested").exists());
     Ok(())
 }
+
 #[tokio::test]
 async fn test_import_local_url_silent() -> Result<()> {
     let temp_dir = temp_test_dir("download_local_url_silent");
@@ -2294,6 +2853,7 @@ async fn test_import_local_url_silent() -> Result<()> {
     assert!(output_dir.exists(), "output directory should exist");
     Ok(())
 }
+
 #[tokio::test]
 async fn test_import_no_local_database_disables_candidate_persistence() -> Result<()> {
     let temp_dir = temp_test_dir("download_no_candidate_persistence");
@@ -2319,6 +2879,7 @@ async fn test_import_no_local_database_disables_candidate_persistence() -> Resul
     assert!(!database_path.exists());
     Ok(())
 }
+
 #[tokio::test]
 async fn test_import_preserves_malformed_rad_and_fails_ingestion() -> Result<()> {
     let temp_dir = temp_test_dir("download_malformed_rad");
@@ -2346,16 +2907,19 @@ async fn test_import_preserves_malformed_rad_and_fails_ingestion() -> Result<()>
     assert!(output_dir.join("index.json").exists());
     Ok(())
 }
+
 #[test]
 fn test_model_download_plan_matches_base() {
     assert!(model_plan_matches_base("openai/gpt-oss-2b"));
     assert!(!model_plan_matches_base("other/model"));
 }
+
 #[test]
 fn test_model_merge_patterns_keeps_config_and_cli_patterns() {
     let merged = merge(&["Q4".to_string()], Some(&["\\.gguf$".to_string(), "Q4".to_string()]));
     assert_eq!(merged, vec!["Q4".to_string(), "\\.gguf$".to_string()]);
 }
+
 #[test]
 fn test_model_plan_logs_whitelist_rejection() {
     let identifier = "mozilla/test-llama";
@@ -2390,6 +2954,7 @@ fn test_model_plan_logs_whitelist_rejection() {
     assert!(text.contains(identifier));
     assert!(text.contains("did not match whitelist"));
 }
+
 #[tokio::test]
 async fn test_model_resolve_plan_matches_config_name() {
     let content = r#"{"models": [{"name": "tiny", "revision": "dev", "filter": ["\\.gguf$"], "source": {"provider": "huggingface", "location": "https://huggingface.co/acme/tiny"}}]}"#;
@@ -2410,6 +2975,7 @@ async fn test_model_resolve_plan_matches_config_name() {
     assert_eq!(plans.first().unwrap().revision, "dev");
     assert_eq!(plans.first().unwrap().filter, vec!["\\.gguf$".to_string()]);
 }
+
 #[test]
 fn test_model_select_preferred_file_errors_when_ambiguous() {
     let policy = FileSelectionPolicy {
@@ -2420,6 +2986,7 @@ fn test_model_select_preferred_file_errors_when_ambiguous() {
     let selected = files.select(&policy);
     assert!(selected.is_err());
 }
+
 #[test]
 fn test_model_select_preferred_file_keeps_complete_shard_set() {
     let policy = FileSelectionPolicy {
@@ -2435,6 +3002,7 @@ fn test_model_select_preferred_file_keeps_complete_shard_set() {
     assert_eq!(selected.len(), 2);
     assert!(selected.iter().all(|file| file.path.contains("Q4_K_M")));
 }
+
 #[test]
 fn test_model_select_preferred_file_keeps_complete_shard_set_without_preferred_marker() {
     let policy = FileSelectionPolicy {
@@ -2450,6 +3018,7 @@ fn test_model_select_preferred_file_keeps_complete_shard_set_without_preferred_m
     assert_eq!(selected.len(), 3);
     assert!(selected.iter().all(|file| file.path.contains("MXFP4")));
 }
+
 #[test]
 fn test_model_select_preferred_file_prefers_marker() {
     let policy = FileSelectionPolicy {
@@ -2461,6 +3030,7 @@ fn test_model_select_preferred_file_prefers_marker() {
     assert_eq!(selected.len(), 1);
     assert_eq!(selected.first().map(|file| file.path.as_str()), Some("model.Q4_K_M.gguf"));
 }
+
 #[test]
 fn test_model_select_preferred_file_prefers_repository_model_over_auxiliary_models() {
     let policy = FileSelectionPolicy {
@@ -2480,6 +3050,7 @@ fn test_model_select_preferred_file_prefers_repository_model_over_auxiliary_mode
     assert_eq!(selected.len(), 1);
     assert_eq!(selected.first().map(|file| file.path.as_str()), Some("gpt-oss-120b-MXFP4.gguf"));
 }
+
 #[test]
 fn test_model_select_preferred_file_rejects_incomplete_shard_set() {
     let policy = FileSelectionPolicy {
@@ -2492,6 +3063,7 @@ fn test_model_select_preferred_file_rejects_incomplete_shard_set() {
     ]);
     assert!(files.select(&policy).is_err());
 }
+
 #[test]
 fn test_model_select_preferred_file_summarizes_large_ambiguity() {
     let policy = FileSelectionPolicy {
@@ -2507,6 +3079,7 @@ fn test_model_select_preferred_file_summarizes_large_ambiguity() {
     assert!(error.contains("3 GGUF files"));
     assert!(!error.contains("model.Q2_K.gguf"));
 }
+
 #[test]
 fn test_model_whitelist_precedence_is_cli_config_environment() {
     with_var(MODEL_WHITELIST, Some("environment-one, environment-two"), || {
@@ -2524,47 +3097,55 @@ fn test_model_whitelist_precedence_is_cli_config_environment() {
         assert_eq!(environment.0, vec!["environment-one", "environment-two"]);
     });
 }
+
 #[test]
 fn test_parse_model_whitelist_file_from_json_model_detail() -> Result<()> {
     let names = super::model::Whitelist::parse(r#"{"name":"Keep","id":"acme/keep"}"#.to_string())?;
     assert_eq!(names.0, vec!["Keep".to_string(), "acme/keep".to_string()]);
     Ok(())
 }
+
 #[test]
 fn test_parse_model_whitelist_file_from_json_model_details() -> Result<()> {
     let names = super::model::Whitelist::parse(r#"[{"name":"Keep","id":"acme/keep"},{"id":"drop"}]"#.to_string())?;
     assert_eq!(names.0, vec!["Keep".to_string(), "acme/keep".to_string(), "drop".to_string()]);
     Ok(())
 }
+
 #[test]
 fn test_parse_model_whitelist_file_from_json_names() -> Result<()> {
     let names = super::model::Whitelist::parse(r#"["keep", "drop"]"#.to_string())?;
     assert_eq!(names.0, vec!["keep".to_string(), "drop".to_string()]);
     Ok(())
 }
+
 #[test]
 fn test_parse_model_whitelist_file_from_plain_names() -> Result<()> {
     let names = super::model::Whitelist::parse(" keep \n\ndrop\n".to_string())?;
     assert_eq!(names.0, vec!["keep".to_string(), "drop".to_string()]);
     Ok(())
 }
+
 #[test]
 fn test_parse_model_whitelist_file_from_yaml_model_details() -> Result<()> {
     let names = super::model::Whitelist::parse("- name: keep\n- id: drop\n".to_string())?;
     assert_eq!(names.0, vec!["keep".to_string(), "drop".to_string()]);
     Ok(())
 }
+
 #[test]
 fn test_parse_model_whitelist_file_rejects_model_without_name_or_id() {
     let result = super::model::Whitelist::parse("- family: llama\n".to_string());
     assert!(result.is_err());
 }
+
 #[test]
 fn test_resolve_cli_action() {
     assert_eq!(SourceAction::from_options(false, false), None);
     assert_eq!(SourceAction::from_options(true, false), Some(SourceAction::Copy));
     assert_eq!(SourceAction::from_options(false, true), Some(SourceAction::Symlink));
 }
+
 #[tokio::test]
 async fn test_resolve_configured_model_whitelist_url() -> Result<()> {
     let (endpoint, handle) = spawn_huggingface_model_info_server("keep", "acme/base");
@@ -2574,6 +3155,7 @@ async fn test_resolve_configured_model_whitelist_url() -> Result<()> {
     assert_eq!(names.0, vec!["keep".to_string()]);
     Ok(())
 }
+
 #[test]
 fn test_resolve_default_config_path_none_when_missing() -> Result<()> {
     let temp_dir = temp_test_dir("download_default_config_missing");
@@ -2582,6 +3164,7 @@ fn test_resolve_default_config_path_none_when_missing() -> Result<()> {
     assert!(resolved.is_none(), "resolver should return none when no default config files exist");
     Ok(())
 }
+
 #[test]
 fn test_resolve_default_config_path_prefers_standard_names() -> Result<()> {
     let temp_dir = temp_test_dir("download_default_config_resolution");
@@ -2592,6 +3175,7 @@ fn test_resolve_default_config_path_prefers_standard_names() -> Result<()> {
     let _cleanup = TestCleanup::new(temp_dir.clone());
     Ok(())
 }
+
 #[tokio::test]
 async fn test_resolve_model_whitelist_from_file_uri() -> Result<()> {
     let temp_dir = temp_test_dir("resolve_model_whitelist_file_uri");
@@ -2607,12 +3191,14 @@ async fn test_resolve_model_whitelist_from_file_uri() -> Result<()> {
     assert_eq!(names.0, vec!["inline".to_string(), "keep".to_string()]);
     Ok(())
 }
+
 #[tokio::test]
 async fn test_resolve_model_whitelist_rejects_remote_uri_offline() {
     let source = Some("https://example.com/models.yaml".to_string());
     let result = super::model::Whitelist::from(Vec::new()).resolve(&source, true).await;
     assert!(result.is_err());
 }
+
 #[tokio::test]
 async fn test_resolve_model_whitelist_txt_fixture() -> Result<()> {
     let source = Some(fixture_path("whitelist.txt").display().to_string());
@@ -2620,6 +3206,7 @@ async fn test_resolve_model_whitelist_txt_fixture() -> Result<()> {
     assert_eq!(whitelist.0, vec!["keep".to_string(), "acme/drop".to_string()]);
     Ok(())
 }
+
 #[tokio::test]
 async fn test_resolve_model_whitelist_yaml_fixture() -> Result<()> {
     let source = Some(fixture_path("whitelist.yaml").display().to_string());
@@ -2627,6 +3214,7 @@ async fn test_resolve_model_whitelist_yaml_fixture() -> Result<()> {
     assert_eq!(whitelist.0, vec!["keep".to_string(), "acme/keep".to_string(), "acme/drop".to_string()]);
     Ok(())
 }
+
 #[test]
 fn test_resolve_models_excludes_fallback_below_minimum_download_count() {
     let base_model = "openai/gpt-oss-20b";
@@ -2664,6 +3252,7 @@ fn test_resolve_models_excludes_fallback_below_minimum_download_count() {
     assert!(text.contains("142 below minimum 143 popularity"));
     assert!(!text.contains(format!("{fallback}-secondary").as_str()));
 }
+
 #[test]
 fn test_resolve_models_finds_gemma_fallback_with_object_base_models_metadata() {
     let base_model = "google/gemma-4-31B-it";

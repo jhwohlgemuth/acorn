@@ -146,6 +146,15 @@ pub trait StringConversion {
     /// Render a path string using native separators.
     #[cfg(feature = "std")]
     fn to_cross_platform_path(&self) -> String;
+    /// Render a path string using forward slashes.
+    ///
+    /// Archive entry names, URIs, and manifest records are specified with `/` separators, so a
+    /// Windows path must be converted before it is written into any of them. This is the inverse
+    /// of [`Self::to_cross_platform_path`].
+    #[cfg(feature = "std")]
+    fn to_portable_path(&self) -> String {
+        self.to_cross_platform_path().replace('\\', "/")
+    }
 }
 /// Add persistent-identifier utilities to string values.
 pub trait StringExt {
@@ -690,6 +699,7 @@ impl From<&str> for MimeType {
             | "txt" => MimeType::Text,
             | "xls" | "xlsb" | "xlsm" | "xlsx" => MimeType::Excel,
             | "yml" | "yaml" => MimeType::Yaml,
+            | "zip" => MimeType::Zip,
             | "zon" if extension.is_none() => MimeType::Zon,
             | "zonf" => MimeType::Zon,
             | "zst" | "tzst" => MimeType::Zstd,
@@ -850,6 +860,50 @@ impl<P: AsRef<str>> MarkdownSupport for Option<Vec<P>> {
         }
     }
 }
+#[cfg(feature = "std")]
+impl StringConversion for &Path {
+    fn file_name_with_parent(&self) -> String {
+        <Path as StringConversion>::file_name_with_parent(self)
+    }
+    fn normalized(&self) -> String {
+        <Path as StringConversion>::normalized(self)
+    }
+    fn percent_encode(&self) -> String {
+        <Path as StringConversion>::percent_encode(self)
+    }
+    fn to_absolute_path(&self) -> String {
+        <Path as StringConversion>::to_absolute_path(self)
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        <Path as StringConversion>::to_ascii_alphanumeric(self)
+    }
+    fn to_cross_platform_path(&self) -> String {
+        <Path as StringConversion>::to_cross_platform_path(self)
+    }
+}
+
+#[cfg(feature = "std")]
+impl StringConversion for Path {
+    fn file_name_with_parent(&self) -> String {
+        file_name_with_parent(self)
+    }
+    fn normalized(&self) -> String {
+        self.as_os_str().to_string_lossy().as_ref().normalized()
+    }
+    fn percent_encode(&self) -> String {
+        self.as_os_str().to_string_lossy().as_ref().percent_encode()
+    }
+    fn to_absolute_path(&self) -> String {
+        to_absolute_path(self)
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        to_ascii_alphanumeric(self.as_os_str().to_string_lossy().as_ref())
+    }
+    fn to_cross_platform_path(&self) -> String {
+        cross_platform_path(self)
+    }
+}
+
 #[cfg(feature = "std")]
 impl StringConversion for PathBuf {
     fn file_name_with_parent(&self) -> String {

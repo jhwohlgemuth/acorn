@@ -5,7 +5,6 @@
 - [ModelKit and ModelPack OCI interoperability](oci-model-artifact-downloads.md) - Consume native ModelKits and standards-conformant ModelPacks through a normalized, safely materializing OCI plan while preserving GGUF inference policy.
 - [Power Apps logbook intake and artifact reporting](powerapps-gitlab-logbook-reporting.md) - Complete deployment validation for direct authenticated intake, ACORN-generated secrets, reviewed logbook changes, and bounded artifact notifications.
 - [Small language model (SLM) sidecars](slm-sidecars.md) - Ship explicitly selected, ACORN-owned Tongue, Redact, and Title sidecars after shared ModelKit, licensing, platform, and quality gates pass.
-- [Unified import and download with BagIt archives](unified-import-download-bagit.md) - Finish the shared bucket transfer pipeline and add inferred ZIP, TAR, TAR.GZ, and 7z BagIt import and export.
 
 ## Planned
 

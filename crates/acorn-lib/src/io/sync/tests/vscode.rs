@@ -4,7 +4,7 @@ use crate::util::StringConversion;
 use acorn_schema::agent::ModelDetails;
 use directories::BaseDirs;
 use serde_json::Value;
-use std::path::{Path, PathBuf};
+use std::{env::current_exe, path::PathBuf};
 
 #[test]
 fn test_resolve_path_normalizes_explicit_path() {
@@ -23,10 +23,9 @@ fn test_resolve_path_uses_platform_config_directory() {
 }
 #[test]
 fn test_upsert_mcp_preserves_unrelated_servers_and_sandbox() {
+    let executable = current_exe().expect("current test executable");
     let existing = serde_json::json!({"servers":{"other":{"command":"other"}},"sandbox":{"enabled":true}});
-    let updated = Config::default()
-        .upsert_mcp(existing, Path::new("/opt/acorn/bin/acorn"), false)
-        .expect("upsert MCP");
+    let updated = Config::default().upsert_mcp(existing, &executable, false).expect("upsert MCP");
     assert_eq!(updated.pointer("/servers/acorn/type").and_then(Value::as_str), Some("stdio"));
     assert!(updated.pointer("/servers/other").is_some());
     assert_eq!(updated.pointer("/sandbox/enabled").and_then(Value::as_bool), Some(true));

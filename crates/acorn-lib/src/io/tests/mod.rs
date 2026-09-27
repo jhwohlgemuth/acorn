@@ -8,15 +8,14 @@
 use super::{create_progress_bar_with_renderer, finish_progress_bar, retry, ProgressType};
 #[cfg(unix)]
 use crate::util::constants::oci::{
-    KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MCPB_RAW, KITOPS_MODELKIT_MODEL_GZIP, KITOPS_MODELKIT_MODEL_PART_GZIP, MODELPACK_CONFIG,
-    MODELPACK_MANIFEST, OCI_IMAGE_INDEX,
+    KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MCPB_RAW, KITOPS_MODELKIT_MODEL_GZIP, KITOPS_MODELKIT_MODEL_PART_GZIP, MODELPACK_MANIFEST,
+    OCI_IMAGE_INDEX,
 };
 use crate::{
     io::{
-        adapter::KitfileExt,
         api::{TreeEntry, TreeEntryType},
         archive,
-        bagit::{Bag, BagInfo, Save},
+        bagit::{Bag, BagInfo, Save, Tag},
         create_rsa_keypair, current_date,
         document::{SourceDocument, SourceDocuments},
         enrichment::Enrich,
@@ -28,7 +27,7 @@ use crate::{
         },
         image_paths, jsonc_parse_value,
         oci::{
-            modelpack_layer_type, Descriptor, Manifest, OciExtraction, OciFile, OciFiles, OciLayer, OciReference, OciReferenceValue, OciTransport,
+            modelpack_layer_type, Descriptor, Manifest, OciExtraction, OciFile, OciFiles, OciLayer, OciReference, OciReferenceValue,
             OciTransportOptions, OrasTransport,
         },
         read_file, read_file_snapshot, read_large_file, remove_fields, replace_file, select_source, slice_path, unique_file_extensions, walk,
@@ -39,8 +38,8 @@ use crate::{
         constants::{
             env::NO_LOCAL_DATABASE,
             oci::{
-                ACORN_MODEL_LAYER, MINIMUM_ORAS_VERSION, MODELPACK_DOC_RAW, MODELPACK_WEIGHT_CONFIG_RAW, MODELPACK_WEIGHT_RAW, MODELPACK_WEIGHT_TAR,
-                MODELPACK_WEIGHT_TAR_GZIP, MODELPACK_WEIGHT_TAR_ZSTD, OCI_IMAGE_CONFIG, OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP,
+                ACORN_MODEL_LAYER, MINIMUM_ORAS_VERSION, MODELPACK_CONFIG, MODELPACK_WEIGHT_RAW, MODELPACK_WEIGHT_TAR, MODELPACK_WEIGHT_TAR_GZIP,
+                MODELPACK_WEIGHT_TAR_ZSTD, OCI_IMAGE_CONFIG, OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP,
             },
         },
         StringConversion,
@@ -72,8 +71,8 @@ use std::os::unix::fs::{symlink, PermissionsExt};
 use std::{
     env::temp_dir,
     ffi::OsString,
-    fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write, File},
-    io::{self, Cursor, Read},
+    fs::{create_dir_all, read_dir, read_to_string, remove_dir_all, remove_file, write, File},
+    io::{self, Cursor, Read, Write},
     path::{Path, PathBuf, MAIN_SEPARATOR},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -118,6 +117,144 @@ fn test_archive() {
     assert!(names.iter().any(|name| name == "highlight/reference.pptx"));
     assert!(names.iter().all(|name| SafePath::new(name).is_ok()));
 }
+
+#[test]
+fn test_archive_creation_leaves_no_staging_directories_behind() {
+    let temporary = tempfile::tempdir().unwrap();
+    let source = temporary.path().join("source");
+    create_dir_all(&source).unwrap();
+    write(source.join("data.txt"), "archive content").unwrap();
+    let destination = temporary.path().join("bundle.zip");
+    archive(source, Some(destination.clone()), MimeType::Zip).unwrap();
+    assert!(destination.is_file());
+    let siblings = read_dir(temporary.path())
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(siblings, vec!["bundle.zip".to_string(), "source".to_string()]);
+}
+
+#[test]
+fn test_archive_explicit_format_overrides_content_inference() {
+    let temporary = tempfile::tempdir().unwrap();
+    let source = temporary.path().join("source");
+    create_dir_all(&source).unwrap();
+    write(source.join("data.txt"), "archive content").unwrap();
+    let created = archive(source, Some(temporary.path().join("bundle.tar.gz")), MimeType::Gzip).unwrap();
+    let misnamed = temporary.path().join("bundle.zip");
+    std::fs::copy(&created, &misnamed).unwrap();
+    // Content inference reads the gzip signature, so a misleading `.zip` name still resolves.
+    let inferred = temporary.path().join("inferred");
+    extract(misnamed.clone(), Some(inferred.clone()), None).unwrap();
+    assert_eq!(read_to_string(inferred.join("data.txt")).unwrap(), "archive content");
+    // An explicit format takes precedence over the detected one, so a wrong choice must fail.
+    let wrong = temporary.path().join("wrong");
+    assert!(extract(misnamed.clone(), Some(wrong.clone()), Some(MimeType::Zip)).is_err());
+    assert!(!wrong.exists());
+    let explicit = temporary.path().join("explicit");
+    extract(misnamed, Some(explicit.clone()), Some(MimeType::Gzip)).unwrap();
+    assert_eq!(read_to_string(explicit.join("data.txt")).unwrap(), "archive content");
+}
+
+#[test]
+fn test_archive_extraction_confines_absolute_entry_paths() {
+    let temporary = tempfile::tempdir().unwrap();
+    let archive_path = temporary.path().join("absolute.zip");
+    let mut writer = zip::ZipWriter::new(File::create(&archive_path).unwrap());
+    writer
+        .start_file("/absolute/outside.txt", zip::write::SimpleFileOptions::default())
+        .unwrap();
+    writer.write_all(b"escaped").unwrap();
+    writer.finish().unwrap();
+    let destination = temporary.path().join("destination");
+    match extract(archive_path, Some(destination.clone()), None) {
+        // Rejection is the safe outcome; if the entry is accepted it must stay under the destination.
+        | Err(_) => assert!(!destination.exists()),
+        | Ok(_) => assert!(destination.join("absolute/outside.txt").is_file()),
+    }
+    assert!(!temporary.path().join("absolute").exists(), "an absolute entry escaped the destination");
+}
+
+#[test]
+fn test_archive_extraction_preserves_existing_destination_on_failure() {
+    let temporary = tempfile::tempdir().unwrap();
+    let source = temporary.path().join("source");
+    create_dir_all(&source).unwrap();
+    write(source.join("data.txt"), "archive content").unwrap();
+    let archive_path = archive(source, Some(temporary.path().join("bundle.zip")), MimeType::Zip).unwrap();
+    let destination = temporary.path().join("destination");
+    create_dir_all(destination.join("nested")).unwrap();
+    write(destination.join("existing.txt"), "keep me").unwrap();
+    write(destination.join("nested/keep.txt"), "keep me too").unwrap();
+    // A corrupt archive fails while staging, leaving the existing destination untouched.
+    let corrupt = temporary.path().join("corrupt.zip");
+    write(&corrupt, b"PK\x03\x04truncated").unwrap();
+    assert!(extract(corrupt, Some(destination.clone()), None).is_err());
+    assert_eq!(read_to_string(destination.join("existing.txt")).unwrap(), "keep me");
+    assert_eq!(read_to_string(destination.join("nested/keep.txt")).unwrap(), "keep me too");
+    assert!(!destination.join("data.txt").exists());
+    // A valid archive merges into the same destination without discarding unrelated files.
+    extract(archive_path, Some(destination.clone()), None).unwrap();
+    assert_eq!(read_to_string(destination.join("data.txt")).unwrap(), "archive content");
+    assert_eq!(read_to_string(destination.join("existing.txt")).unwrap(), "keep me");
+    assert_eq!(read_to_string(destination.join("nested/keep.txt")).unwrap(), "keep me too");
+    let siblings = read_dir(temporary.path())
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        siblings,
+        vec![
+            "bundle.zip".to_string(),
+            "corrupt.zip".to_string(),
+            "destination".to_string(),
+            "source".to_string()
+        ]
+    );
+}
+
+#[test]
+fn test_archive_extraction_rejects_tar_links_and_absolute_paths() {
+    let temporary = tempfile::tempdir().unwrap();
+    let source = temporary.path().join("source");
+    create_dir_all(&source).unwrap();
+    write(source.join("data.txt"), "archive content").unwrap();
+    let tar_path = temporary.path().join("links.tar");
+    {
+        let mut builder = tar::Builder::new(File::create(&tar_path).unwrap());
+        let data = std::fs::read(source.join("data.txt")).unwrap();
+        let mut header = tar::Header::new_gnu();
+        header.set_size(data.len() as u64);
+        header.set_mode(0o644);
+        header.set_cksum();
+        builder.append_data(&mut header, "data.txt", &data[..]).unwrap();
+        let mut link = tar::Header::new_gnu();
+        link.set_entry_type(tar::EntryType::Symlink);
+        link.set_size(0);
+        link.set_mode(0o777);
+        builder.append_link(&mut link, "link.txt", "data.txt").unwrap();
+        builder.into_inner().unwrap();
+    }
+    let destination = temporary.path().join("extract-links");
+    assert!(extract(tar_path, Some(destination.clone()), None).is_err());
+    assert!(!destination.join("link.txt").exists());
+}
+
+#[test]
+fn test_archive_extraction_rejects_traversal_entries() {
+    let temporary = tempfile::tempdir().unwrap();
+    let archive_path = temporary.path().join("traversal.zip");
+    let bytes = zip::ZipWriter::new(File::create(&archive_path).unwrap());
+    let mut writer = bytes;
+    writer.start_file("../outside.txt", zip::write::SimpleFileOptions::default()).unwrap();
+    writer.write_all(b"escaped").unwrap();
+    writer.finish().unwrap();
+    let destination = temporary.path().join("destination");
+    assert!(extract(archive_path, Some(destination.clone()), None).is_err());
+    assert!(!temporary.path().join("outside.txt").exists());
+    assert!(!destination.exists());
+}
+
 #[test]
 fn test_archive_extracts_zstandard_tar() {
     let temporary = tempfile::tempdir().unwrap();
@@ -133,6 +270,78 @@ fn test_archive_extracts_zstandard_tar() {
     extract(zstd_path, Some(destination.clone()), None).unwrap();
     assert_eq!(read_to_string(destination.join("nested/data.txt")).unwrap(), "archive content");
 }
+
+#[test]
+fn test_archive_inference_rejects_unrecognized_content() {
+    let temporary = tempfile::tempdir().unwrap();
+    let unlabeled = temporary.path().join("unlabeled");
+    write(&unlabeled, b"not an archive at all").unwrap();
+    assert!(extract(unlabeled, Some(temporary.path().join("extract")), None).is_err());
+}
+
+#[test]
+fn test_archive_infers_format_from_bounded_header_without_extension() {
+    let temporary = tempfile::tempdir().unwrap();
+    let source = temporary.path().join("source");
+    create_dir_all(&source).unwrap();
+    write(source.join("data.txt"), "archive content").unwrap();
+    let created = archive(source, None, MimeType::Zip).unwrap();
+    let unlabeled = temporary.path().join("unlabeled");
+    std::fs::copy(&created, &unlabeled).unwrap();
+    let destination = temporary.path().join("extract");
+    extract(unlabeled, Some(destination.clone()), None).unwrap();
+    assert_eq!(read_to_string(destination.join("data.txt")).unwrap(), "archive content");
+}
+
+#[test]
+fn test_archive_infers_semantic_containers_by_content() {
+    let temporary = tempfile::tempdir().unwrap();
+    let source = temporary.path().join("source");
+    create_dir_all(&source).unwrap();
+    // An EPUB container is a ZIP whose `mimetype` entry names the document type.
+    write(source.join("mimetype"), "application/epub+zip").unwrap();
+    write(source.join("content.opf"), "<package/>").unwrap();
+    let created = archive(source, Some(temporary.path().join("book.zip")), MimeType::Zip).unwrap();
+    let unlabeled = temporary.path().join("book");
+    std::fs::copy(&created, &unlabeled).unwrap();
+    // Semantic precedence means an EPUB is identified as an EPUB rather than a generic ZIP.
+    assert_eq!(MimeType::infer(&std::fs::read(&unlabeled).unwrap()).unwrap(), MimeType::Epub);
+    // Only archive containers are extractable, so the semantic type is reported as unsupported.
+    let destination = temporary.path().join("extract-epub");
+    assert!(extract(unlabeled.clone(), Some(destination.clone()), None).is_err());
+    assert!(!destination.exists());
+    // An explicit container format still extracts the same bytes.
+    let explicit = temporary.path().join("extract-explicit");
+    extract(unlabeled, Some(explicit.clone()), Some(MimeType::Zip)).unwrap();
+    assert_eq!(read_to_string(explicit.join("content.opf")).unwrap(), "<package/>");
+}
+
+#[test]
+fn test_archive_infers_uncompressed_tar_from_content() {
+    let temporary = tempfile::tempdir().unwrap();
+    let source = temporary.path().join("source");
+    create_dir_all(&source).unwrap();
+    write(source.join("data.txt"), "archive content").unwrap();
+    let created = archive(source, Some(temporary.path().join("bundle.tar")), MimeType::Tar).unwrap();
+    let unlabeled = temporary.path().join("bundle");
+    std::fs::copy(&created, &unlabeled).unwrap();
+    let destination = temporary.path().join("extract-tar");
+    extract(unlabeled, Some(destination.clone()), None).unwrap();
+    assert_eq!(read_to_string(destination.join("data.txt")).unwrap(), "archive content");
+}
+
+#[test]
+fn test_archive_malformed_input_is_rejected_for_every_extractor() {
+    let temporary = tempfile::tempdir().unwrap();
+    let malformed = temporary.path().join("malformed");
+    write(&malformed, b"not an archive in any supported format").unwrap();
+    for format in [MimeType::SevenZip, MimeType::Zip, MimeType::Tar, MimeType::Gzip].into_iter() {
+        let destination = temporary.path().join(format!("extract-{}", format.file_type()));
+        assert!(extract(malformed.clone(), Some(destination.clone()), Some(format.clone())).is_err());
+        assert!(!destination.exists(), "{} left a destination behind", format.file_type());
+    }
+}
+
 #[test]
 fn test_archive_rejects_destination_inside_source() {
     let temporary = tempfile::tempdir().unwrap();
@@ -141,6 +350,28 @@ fn test_archive_rejects_destination_inside_source() {
     write(source.join("data.txt"), "archive content").unwrap();
     assert!(archive(source.clone(), Some(source.join("inside.zip")), MimeType::Zip).is_err());
 }
+
+#[test]
+fn test_archive_rejects_duplicate_entries_across_formats() {
+    let temporary = tempfile::tempdir().unwrap();
+    let archive_path = temporary.path().join("duplicate.tar");
+    {
+        let mut builder = tar::Builder::new(File::create(&archive_path).unwrap());
+        for content in ["first", "second"] {
+            let data = content.as_bytes();
+            let mut header = tar::Header::new_gnu();
+            header.set_size(data.len() as u64);
+            header.set_mode(0o644);
+            header.set_cksum();
+            builder.append_data(&mut header, "same.txt", data).unwrap();
+        }
+        builder.into_inner().unwrap();
+    }
+    let destination = temporary.path().join("extract-duplicate");
+    assert!(extract(archive_path, Some(destination.clone()), None).is_err());
+    assert!(!destination.exists());
+}
+
 #[test]
 fn test_archive_round_trips_supported_formats() {
     let temporary = tempfile::tempdir().unwrap();
@@ -154,11 +385,13 @@ fn test_archive_round_trips_supported_formats() {
         assert_eq!(read_to_string(destination.join("nested/data.txt")).unwrap(), "archive content");
     }
 }
+
 #[test]
 fn test_archive_zip_entries_reject_unsafe_and_duplicate_paths() {
     assert!(zip_entries(&[("../outside", b"unsafe")]).is_err());
     assert!(zip_entries(&[("same", b"first"), ("same", b"second")]).is_err());
 }
+
 #[test]
 fn test_archive_zip_entries_write_named_content() {
     let bytes = zip_entries(&[("word/document.xml", b"document")]).expect("create ZIP archive");
@@ -171,6 +404,50 @@ fn test_archive_zip_entries_write_named_content() {
         .expect("read named entry");
     assert_eq!(content, "document");
 }
+/// A valid BagIt declaration used as the baseline for generated verification fixtures.
+const TEST_DECLARATION: &str = "BagIt-Version: 1.0\nTag-File-Character-Encoding: UTF-8\n";
+/// Write a BagIt directory from generated declaration, manifest, and payload content.
+///
+/// Content is written as exact bytes and checksums are calculated from those same bytes,
+/// so fixtures verify identically on every host regardless of checkout line endings.
+fn bag_fixture(directory: &Path, declaration: Option<&str>, manifests: &[(&str, String)], payload: &[(&str, &str)]) -> PathBuf {
+    let data = directory.join("data");
+    create_dir_all(&data).unwrap();
+    declaration.inspect(|declaration| write(directory.join("bagit.txt"), declaration).unwrap());
+    manifests.iter().for_each(|(name, content)| write(directory.join(name), content).unwrap());
+    payload.iter().for_each(|(relative, content)| {
+        let target = data.join(relative);
+        create_dir_all(target.parent().unwrap()).unwrap();
+        write(target, content).unwrap();
+    });
+    directory.to_path_buf()
+}
+/// Build a complete payload manifest for generated payload content and checksum algorithm.
+fn manifest_for(payload: &[(&str, &str)], algorithm: &'static ring::digest::Algorithm) -> String {
+    payload
+        .iter()
+        .map(|(relative, content)| {
+            let checksum = data_encoding::HEXLOWER.encode(ring::digest::digest(algorithm, content.as_bytes()).as_ref());
+            format!("{checksum} data/{relative}\n")
+        })
+        .collect()
+}
+/// The generated payload shared by the verification fixtures.
+fn test_payload() -> [(&'static str, &'static str); 2] {
+    [("project-a/index.json", "{\"name\":\"a\"}\n"), ("project-b/index.yaml", "name: b\n")]
+}
+
+#[test]
+fn test_bag_safe_path_renders_portable_and_finds_parent() {
+    let path = SafePath::new("nested/data.txt").expect("relative path is safe");
+    // A portable path uses forward slashes on every platform, unlike to_cross_platform_path.
+    assert_eq!(path.as_path().to_portable_path(), "nested/data.txt");
+    assert_eq!(PathBuf::from("nested/data.txt").to_portable_path(), "nested/data.txt");
+    assert_eq!("nested/data.txt".to_portable_path(), "nested/data.txt");
+    assert_eq!(SafePath::parent_or_current(Path::new("archive.zip")), PathBuf::from("."));
+    assert_eq!(SafePath::parent_or_current(Path::new("content/archive.zip")), PathBuf::from("content"));
+}
+
 #[test]
 fn test_baginfo_save_repeatable_fields() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
@@ -203,6 +480,7 @@ fn test_baginfo_save_repeatable_fields() {
     );
     remove_dir_all(dir).unwrap();
 }
+
 #[test]
 fn test_baginfo_save_single_value_fields_only() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
@@ -217,6 +495,7 @@ fn test_baginfo_save_single_value_fields_only() {
     assert_eq!(lines, vec![expected_date.as_str(), "Bag-Size: 42 KB"]);
     let _ = remove_dir_all(dir);
 }
+
 #[test]
 fn test_bagit() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
@@ -243,19 +522,191 @@ fn test_bagit() {
     }
     let _ = remove_dir_all(temp_dir);
 }
+
 #[test]
-fn test_bagit_verify() {
-    // Verification is flaky on some platforms (see data/bucket/that/index.json checksum drift)
-    let path = fixtures_dir().join("bag");
-    let result = Bag::verify(path);
-    if cfg!(target_os = "windows") {
-        if let Err(err) = result {
-            eprintln!("Bag verify failed (non-fatal on Windows/coverage): {err}");
-        }
-    } else {
-        // Known to be broken on mac/linux; treat as informational
-        let _ = result;
+fn test_bagit_declaration_exposes_version_and_encoding() {
+    let tag = Bag::declaration("# comment\n\nBagIt-Version: 1.0\nTag-File-Character-Encoding: UTF_8\nSource-Organization: ORNL\n")
+        .expect("supported declaration should parse");
+    assert_eq!(tag.field(), "1.0");
+    // The encoding is returned as declared, while the variant is compared without separators.
+    assert_eq!(tag.encoding(), "UTF_8");
+    let version = Bag::declaration("BagIt-Version: 0.97\nTag-File-Character-Encoding: UTF-8\n").expect("0.97 is supported");
+    assert_eq!(version.field(), "0.97");
+    // An absent label is still an error, even when the rest of the declaration is valid.
+    assert!(Tag::value(TEST_DECLARATION, "Source-Organization").is_err());
+    assert_eq!(
+        Tag::value("Source-Organization: ORNL\n", "Source-Organization").expect("declared"),
+        "ORNL"
+    );
+}
+
+#[test]
+fn test_bagit_verify_accepts_sha256_and_sha512_manifests() {
+    for (index, algorithm) in [&ring::digest::SHA256, &ring::digest::SHA512].into_iter().enumerate() {
+        let temporary = tempfile::tempdir().unwrap();
+        let payload = test_payload();
+        let name = format!("manifest-{}.txt", if index == 0 { "sha256" } else { "sha512" });
+        let bag = bag_fixture(
+            &temporary.path().join("bag"),
+            Some(TEST_DECLARATION),
+            &[(name.as_str(), manifest_for(&payload, algorithm))],
+            &payload,
+        );
+        let verified = Bag::verify_payload(&bag).expect("generated bag should verify");
+        assert_eq!(verified.file_name().unwrap().to_str().unwrap(), "data");
+        assert_eq!(read_to_string(verified.join("project-a/index.json")).unwrap(), "{\"name\":\"a\"}\n");
+        Bag::verify(&bag).expect("Bag::verify delegates to payload verification");
     }
+}
+
+#[test]
+fn test_bagit_verify_accepts_supported_declaration_versions() {
+    let payload = test_payload();
+    for declaration in [
+        "BagIt-Version: 0.97\nTag-File-Character-Encoding: UTF-8\n",
+        "BagIt-Version: 1.0\nTag-File-Character-Encoding: utf-8\n",
+        "# a comment\n\nBagIt-Version: 1.0\nTag-File-Character-Encoding: UTF_8\nSource-Organization: ORNL\n",
+    ] {
+        let temporary = tempfile::tempdir().unwrap();
+        let bag = bag_fixture(
+            &temporary.path().join("bag"),
+            Some(declaration),
+            &[("manifest-sha256.txt", manifest_for(&payload, &ring::digest::SHA256))],
+            &payload,
+        );
+        Bag::verify(&bag).unwrap_or_else(|why| panic!("declaration should be accepted: {declaration:?} — {why}"));
+    }
+}
+
+#[test]
+fn test_bagit_verify_rejects_incomplete_and_mismatched_payload() {
+    let payload = test_payload();
+    let unlisted = manifest_for(&payload[..1], &ring::digest::SHA256);
+    let temporary = tempfile::tempdir().unwrap();
+    let with_unlisted = bag_fixture(
+        &temporary.path().join("unlisted"),
+        Some(TEST_DECLARATION),
+        &[("manifest-sha256.txt", unlisted)],
+        &payload,
+    );
+    assert!(Bag::verify(&with_unlisted).is_err(), "an unlisted payload file is not a complete bag");
+    let mismatched = manifest_for(&payload, &ring::digest::SHA256).replace("data/project-a/index.json", "data/project-b/index.yaml");
+    let with_mismatch = bag_fixture(
+        &temporary.path().join("mismatch"),
+        Some(TEST_DECLARATION),
+        &[("manifest-sha256.txt", mismatched)],
+        &payload,
+    );
+    assert!(
+        Bag::verify(&with_mismatch).is_err(),
+        "a payload that does not match its manifest entry is not a correct bag"
+    );
+}
+
+#[test]
+fn test_bagit_verify_rejects_malformed_and_unsafe_manifest_records() {
+    let payload = test_payload();
+    let checksum = data_encoding::HEXLOWER.encode(ring::digest::digest(&ring::digest::SHA256, payload[0].1.as_bytes()).as_ref());
+    for record in [
+        format!("{checksum}\n"),
+        format!("{checksum} data/project-a/index.json extra\n"),
+        format!("{} data/project-a/index.json\n", "z".repeat(64)),
+        format!("{} data/project-a/index.json\n", "a".repeat(63)),
+        format!("{checksum} project-a/index.json\n"),
+        format!("{checksum} data/../../escape.txt\n"),
+        format!("{checksum} /data/absolute.txt\n"),
+        format!("{checksum} data/project-a/index.json\n{checksum} data/project-a/index.json\n"),
+        format!("{checksum} data/project-a/index.json\n"),
+    ] {
+        let temporary = tempfile::tempdir().unwrap();
+        let bag = bag_fixture(
+            &temporary.path().join("bag"),
+            Some(TEST_DECLARATION),
+            &[("manifest-sha256.txt", record.clone())],
+            &payload,
+        );
+        assert!(Bag::verify(&bag).is_err(), "manifest record should be rejected: {record:?}");
+    }
+}
+
+#[test]
+fn test_bagit_verify_rejects_missing_declaration_or_payload() {
+    let payload = test_payload();
+    let temporary = tempfile::tempdir().unwrap();
+    let manifest = manifest_for(&payload, &ring::digest::SHA256);
+    let without_declaration = bag_fixture(
+        &temporary.path().join("no-declaration"),
+        None,
+        &[("manifest-sha256.txt", manifest.clone())],
+        &payload,
+    );
+    assert!(Bag::verify(&without_declaration).is_err(), "a bag without bagit.txt is incomplete");
+    let without_payload = bag_fixture(
+        &temporary.path().join("no-payload"),
+        Some(TEST_DECLARATION),
+        &[("manifest-sha256.txt", manifest)],
+        &[],
+    );
+    assert!(Bag::verify(&without_payload).is_err(), "a bag without a data directory is incomplete");
+    let missing_file = bag_fixture(
+        &temporary.path().join("missing-file"),
+        Some(TEST_DECLARATION),
+        &[("manifest-sha256.txt", manifest_for(&payload, &ring::digest::SHA256))],
+        &payload[..1],
+    );
+    assert!(
+        Bag::verify(&missing_file).is_err(),
+        "a manifest entry without a payload file is incomplete"
+    );
+}
+
+#[test]
+fn test_bagit_verify_rejects_unsupported_declarations() {
+    let payload = test_payload();
+    for declaration in [
+        "",
+        "Tag-File-Character-Encoding: UTF-8\n",
+        "BagIt-Version: 1.0\n",
+        "BagIt-Version: 2.0\nTag-File-Character-Encoding: UTF-8\n",
+        "BagIt-Version: 1.0\nBagIt-Version: 1.0\nTag-File-Character-Encoding: UTF-8\n",
+        "BagIt-Version: 1.0\nTag-File-Character-Encoding: UTF-8\nTag-File-Character-Encoding: UTF-8\n",
+        "BagIt-Version: \nTag-File-Character-Encoding: UTF-8\n",
+        "BagIt-Version: 1.0\nTag-File-Character-Encoding: ISO-8859-1\n",
+        "BagIt-Version 1.0\nTag-File-Character-Encoding: UTF-8\n",
+    ] {
+        let temporary = tempfile::tempdir().unwrap();
+        let bag = bag_fixture(
+            &temporary.path().join("bag"),
+            Some(declaration),
+            &[("manifest-sha256.txt", manifest_for(&payload, &ring::digest::SHA256))],
+            &payload,
+        );
+        assert!(Bag::verify(&bag).is_err(), "declaration should be rejected: {declaration:?}");
+    }
+}
+
+#[test]
+fn test_bagit_verify_rejects_unsupported_manifest() {
+    let payload = test_payload();
+    let temporary = tempfile::tempdir().unwrap();
+    let without_manifest = bag_fixture(&temporary.path().join("no-manifest"), Some(TEST_DECLARATION), &[], &payload);
+    assert!(
+        Bag::verify(&without_manifest).is_err(),
+        "a bag without a supported manifest is incomplete"
+    );
+    let unsupported = bag_fixture(
+        &temporary.path().join("md5"),
+        Some(TEST_DECLARATION),
+        &[(
+            "manifest-md5.txt",
+            "0123456789abcdef0123456789abcdef  data/project-a/index.json\n".to_string(),
+        )],
+        &payload,
+    );
+    assert!(
+        Bag::verify(&unsupported).is_err(),
+        "a bag with only an unsupported manifest is incomplete"
+    );
 }
 #[test]
 fn test_checksum() {
@@ -629,7 +1080,10 @@ fn test_jsonc_rejects_unquoted_keys() {
 }
 #[tokio::test]
 async fn test_location_exists() {
-    let location = Location::Simple("https://google.com".into());
+    let server = crate::test::server::TestServer::start(axum::Router::new().route("/", axum::routing::get(|| async {})))
+        .await
+        .expect("test server should start");
+    let location = Location::Simple(server.base_url.clone());
     assert!(location.exists().await);
     let location = Location::Simple("https://does-not-exist.com".into());
     assert!(!location.exists().await);
@@ -637,8 +1091,6 @@ async fn test_location_exists() {
     assert!(location.exists().await);
     let location = Location::Simple("file:./does-not-exist".into());
     assert!(!location.exists().await);
-    let location = Location::Simple("http://google.com".into());
-    assert!(location.exists().await);
     let location = Location::Detailed {
         scheme: Scheme::HTTPS,
         uri: "42".into(),
@@ -651,6 +1103,7 @@ async fn test_location_exists() {
         revision: None,
     };
     assert!(!location.exists().await);
+    server.stop().await.expect("test server should stop");
 }
 #[test]
 fn test_location_hash() {
@@ -1694,6 +2147,14 @@ fn test_slice_path() {
         );
     }
 }
+#[test]
+fn test_source_classification_is_independent_of_location_representation() {
+    let raw = "file:./models/qwen.gguf";
+    assert_eq!(Source::from(raw), Source::from(Location::Simple(raw.to_string())));
+    let raw = "https://example.org/model.gguf";
+    assert_eq!(Source::from(raw), Source::from(Location::from(raw)));
+}
+
 #[tokio::test]
 async fn test_source_document_enrichment_preserves_unsupported_content() {
     let document = SourceDocument::init().content("plain text").format("text").source("<text:1>").build();
@@ -1702,6 +2163,7 @@ async fn test_source_document_enrichment_preserves_unsupported_content() {
     assert!(content.is_none());
     assert!(failures.is_empty());
 }
+
 #[tokio::test]
 async fn test_source_documents_enrichment_can_be_disabled() {
     let document = SourceDocument::init().content("plain text").format("text").source("<text:1>").build();
@@ -1710,6 +2172,7 @@ async fn test_source_documents_enrichment_can_be_disabled() {
     assert!(content.is_empty());
     assert!(failures.is_empty());
 }
+
 #[test]
 fn test_source_from_repository_uses_hugging_face_identifier() {
     let repository = Repository::HuggingFace {
@@ -1722,6 +2185,7 @@ fn test_source_from_repository_uses_hugging_face_identifier() {
     assert_eq!(source.name(), "tiny-bert");
     assert_eq!(source.identifier(), "hf-internal-testing/tiny-random-bert");
 }
+
 #[test]
 fn test_source_from_str_detects_local_paths() {
     let source = Source::from("file:./models/qwen.gguf");
@@ -1729,6 +2193,7 @@ fn test_source_from_str_detects_local_paths() {
     assert_eq!(source.name(), "qwen");
     let source = Source::from("./models/qwen.gguf");
     assert!(source.is_local());
+    assert!(Source::from("C:\\models\\qwen.gguf").is_local());
     let source = Source::from("meta-llama/Llama-2-7b-hf");
     assert!(source.is_remote());
     assert_eq!(source.name(), "meta-llama/Llama-2-7b-hf");
@@ -1738,13 +2203,7 @@ fn test_source_from_str_detects_local_paths() {
     assert!(Source::parse("s3://bucket/model.gguf").is_unsupported());
     assert!(Source::parse("ssh://builder/model.gguf").is_unsupported());
 }
-#[test]
-fn test_source_classification_is_independent_of_location_representation() {
-    let raw = "file:./models/qwen.gguf";
-    assert_eq!(Source::from(raw), Source::from(Location::Simple(raw.to_string())));
-    let raw = "https://example.org/model.gguf";
-    assert_eq!(Source::from(raw), Source::from(Location::from(raw)));
-}
+
 #[test]
 fn test_source_local_action_metadata() {
     let source = Source::from("./models/qwen.gguf").with_action(Some(SourceAction::Copy));
@@ -1754,6 +2213,7 @@ fn test_source_local_action_metadata() {
         | _ => panic!("model selector should be local"),
     }
 }
+
 #[test]
 fn test_source_selection_blank_implicit_stdin_falls_back_to_current_directory() {
     let source = select_source(
@@ -1770,6 +2230,7 @@ fn test_source_selection_blank_implicit_stdin_falls_back_to_current_directory() 
         | _ => panic!("expected current directory"),
     }
 }
+
 #[test]
 fn test_source_selection_clipboard_wins_without_reading_stdin() {
     let source = select_source(
@@ -1789,11 +2250,13 @@ fn test_source_selection_clipboard_wins_without_reading_stdin() {
         | _ => panic!("expected clipboard text"),
     }
 }
+
 #[test]
 fn test_source_selection_empty_or_unavailable_clipboard_is_an_error() {
     assert!(select_source(&None, true, false, false, || None, || Ok(" \n".to_string())).is_err());
     assert!(select_source(&None, true, false, false, || None, || Err(color_eyre::eyre::eyre!("unavailable"))).is_err());
 }
+
 #[test]
 fn test_source_selection_explicit_path_wins_without_reading_stdin_or_clipboard() {
     let path = Some(PathBuf::from("notes.txt"));
@@ -1811,6 +2274,7 @@ fn test_source_selection_explicit_path_wins_without_reading_stdin_or_clipboard()
         | _ => panic!("expected explicit location"),
     }
 }
+
 #[test]
 fn test_source_selection_stdin_preserves_content_and_rejects_watch_mode() {
     let content = "First line\nSecond line\n";

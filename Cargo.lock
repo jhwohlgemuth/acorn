@@ -220,6 +220,7 @@ dependencies = [
  "rusqlite",
  "rust-embed",
  "rust-ini",
+ "same-file",
  "schemars 1.2.1",
  "secrecy",
  "serde",

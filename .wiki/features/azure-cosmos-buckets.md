@@ -20,13 +20,13 @@ status: planned
 
 # Project code boundaries
 
-- **Update:** workspace and `acorn-lib` manifests and lockfile; `crates/acorn-lib/src/io/config/{bucket,bucket_source,mod}.rs`; focused API/authentication integration; `crates/acorn-lib/src/io/config/tests/`; `crates/acorn-cli/src/commands/download/`; dedicated configuration and Cosmos fixtures; download and configuration documentation; generated CLI help only if user-facing arguments change.
+- **Update:** workspace and `acorn-lib` manifests and lockfile; `crates/acorn-lib/src/io/config/{bucket/mod.rs,bucket/source.rs,mod.rs}`; focused API/authentication integration; `crates/acorn-lib/src/io/config/tests/`; `crates/acorn-cli/src/commands/download/`; dedicated configuration and Cosmos fixtures; download and configuration documentation; generated CLI help only if user-facing arguments change.
 - **Create:** a focused Cosmos bucket client/adapter leaf under `crates/acorn-lib/src/io/api/`; provider-specific tests and fixtures under existing test roots.
 - **Delete:** None.
 
 # Dependencies
 
-This plan requires the implemented provider-neutral `BucketSource` and `BucketSourceAdapter` contracts, which consume the stable manifest, filtering, destination-safety, canonicalization, provenance, and ingestion contracts from [unified import and download with BagIt archives](unified-import-download-bagit.md). Cosmos integration must extend the landed source and item contracts rather than revise them in the provider plan.
+This plan requires the implemented provider-neutral `BucketSource` and `BucketSourceAdapter` contracts and the stable manifest, filtering, destination-safety, canonicalization, provenance, and ingestion pipeline reused by the landed BagIt archive import and download path. Cosmos integration must extend the landed source and item contracts rather than revise them in the provider plan.
 
 It must preserve [dependency feature defaults](../refactors/portability/dependency-feature-defaults.md), the existing HTTP/offline policy, and the provider/authentication boundaries coordinated by the [API roadmap](../refactors/api/roadmap.md).
 
@@ -38,9 +38,9 @@ Add one read-only Cosmos variant and adapter to the provider-neutral bucket sour
 
 # Current evidence
 
-- `Bucket` currently contains a Git-oriented `Repository`, and `Bucket::download_files` combines provider discovery and retrieval with shared transfer work. The prerequisite bucket-source plan owns that extraction and its compatibility tests.
+- `Bucket` now contains a non-exhaustive `BucketSource`; `RepositoryBucketSource` implements `BucketSourceAdapter`, and `transfer_bucket_files` owns provider-neutral filtering and transfer work.
 - `TransferManifest` already owns post-transfer canonicalization, canonical candidate ingestion, and bucket provenance. A Cosmos provider does not need a parallel validation or persistence pipeline.
-- `Repository` in `acorn-core` models Git, GitHub, GitLab, Hugging Face, and OCI locations. The prerequisite keeps that enum unchanged and establishes `BucketSource` as the extension point for Cosmos.
+- `Repository` in `acorn-core` still models Git, GitHub, GitLab, Hugging Face, and OCI locations. The landed abstraction keeps that enum unchanged and establishes `BucketSource` as the extension point for Cosmos.
 - Cosmos DB for NoSQL stores JSON items and supports point reads and parameterized queries. Transactions and transactional batches are scoped to one logical partition, so container and partition-key design remain explicit even for a read-only first release ([Azure Cosmos DB transactions](https://learn.microsoft.com/azure/cosmos-db/database-transactions-optimistic-concurrency), [transactional batches](https://learn.microsoft.com/azure/cosmos-db/transactional-batch)).
 - The official Rust client is available as `azure_data_cosmos`, but Microsoft currently labels it public preview and does not recommend it for production workloads ([Azure SDK for Rust Cosmos quickstart](https://learn.microsoft.com/azure/cosmos-db/quickstart-rust)). The adapter boundary must keep the client replaceable and the dependency optional.
 
@@ -48,7 +48,7 @@ Add one read-only Cosmos variant and adapter to the provider-neutral bucket sour
 
 ## Cosmos source configuration
 
-Extend the prerequisite `BucketSource` enum with one Cosmos variant. Preserve the repository configuration compatibility frozen by the prerequisite and accept a Cosmos form such as:
+Extend the landed `BucketSource` enum with one Cosmos variant. Preserve its repository configuration compatibility and accept a Cosmos form such as:
 
 ```json
 {
@@ -107,18 +107,17 @@ Do not reinterpret Cosmos as `--database-backend`. SQLite and DuckDB remain ACOR
 
 # Recommendation
 
-Land and validate the provider-neutral bucket source prerequisite before registering Cosmos. Then implement the optional Cosmos client and envelope validation as a provider leaf, extend `BucketSource` with one explicit variant, and integrate it through the existing transfer executor without reopening repository adaptation or shared transfer policy.
+Implement the optional Cosmos client and envelope validation as a provider leaf, extend `BucketSource` with one explicit variant, and integrate it through the existing transfer executor without reopening repository adaptation or shared transfer policy.
 
 # Implementation sequence
 
-1. Verify the bucket-source prerequisite and its repository compatibility suite are complete before changing provider registration or shared transfer integration.
-2. Add the optional Cosmos client leaf, `BucketSource` variant, typed configuration, envelope validation, paginated listing, selected-item point reads, deterministic ordering, and credential-free error mapping.
-3. Integrate Cosmos items with the shared transfer executor and add focused CLI tests for configuration expansion, explicit output, filtering, flattening, clobbering, strict validation, canonicalization, local ingestion, quiet output, and offline rejection.
-4. Document the envelope, partition-key requirement, identity configuration, optional feature, Rust SDK preview status, limits, and read-only scope. Regenerate help only when the CLI contract changes.
+1. Add the optional Cosmos client leaf, `BucketSource` variant, typed configuration, envelope validation, paginated listing, selected-item point reads, deterministic ordering, and credential-free error mapping.
+2. Integrate Cosmos items with the shared transfer executor and add focused CLI tests for configuration expansion, explicit output, filtering, flattening, clobbering, strict validation, canonicalization, local ingestion, quiet output, and offline rejection.
+3. Document the envelope, partition-key requirement, identity configuration, optional feature, Rust SDK preview status, limits, and read-only scope. Regenerate help only when the CLI contract changes.
 
 # Validation
 
-- Re-run the prerequisite's JSON, JSONC, YAML, repository-transfer, manifest, and provenance compatibility suite after registering the Cosmos variant.
+- Re-run the landed abstraction's JSON, JSONC, YAML, repository-transfer, manifest, and provenance compatibility suite after registering the Cosmos variant.
 - Unit-test Cosmos configuration validation, safe virtual paths, stable ordering, continuation-token pagination, duplicate paths, unsupported versions/media, missing partition data, malformed content, item and response bounds, throttling/retry exhaustion, redaction, and offline short-circuiting.
 - Use a deterministic fake Cosmos transport for normal tests. Add an opt-in emulator or Azure integration test only when it can run without committed credentials and can verify identity, pagination, point reads, and failure mapping reliably.
 - Exercise download filters, ignores, flattening collisions, clobbering, strict and canonicalized RAD handling, provenance, local-database ingestion, and `--no-local-database` through the production command path.
@@ -127,7 +126,7 @@ Land and validate the provider-neutral bucket source prerequisite before registe
 # Acceptance criteria
 
 - A user can configure a Cosmos container and logical partition as an ACORN bucket and download its valid RAD envelopes with the existing `acorn download --config` workflow.
-- The provider-neutral bucket source prerequisite has landed, and the Cosmos implementation adds only its source variant, adapter, configuration, provenance, fixtures, and integration.
+- The Cosmos implementation adds only its source variant, adapter, configuration, provenance, fixtures, and integration to the landed provider-neutral bucket source contract.
 - Existing repository-backed buckets retain their serialized configuration and observable transfer behavior.
 - Cosmos virtual paths pass through the existing filter, ignore, flatten, destination-safety, clobber, canonicalization, provenance, and ingestion contracts rather than a parallel pipeline.
 - Offline mode fails before Azure authentication or network access, and credentials and item contents do not appear in logs or errors.

@@ -23,7 +23,7 @@ use acorn_schema::{
 };
 pub use application::{ApplicationConfiguration, WhitelistLookup};
 use bon::Builder;
-pub use bucket::{Bucket, BucketExtension, BucketOptions, BucketSource, Buckets};
+pub use bucket::{Bucket, BucketExtension, BucketOptions, BucketSource, Buckets, ResolvedBucket, SourceInput};
 use color_eyre::eyre::{eyre, Report};
 use core::fmt::{self, Debug};
 use derive_more::Display;

@@ -37,6 +37,27 @@ pub(crate) trait BucketSourceAdapter {
 pub enum BucketSource {
     /// Existing local or remote repository source.
     Repository(Repository),
+    /// Verified BagIt payload resolved from an archive source.
+    /// ### Note
+    /// ACORN creates this source while resolving a local or remote BagIt archive, so it is never accepted from configuration.
+    /// The variant is skipped during deserialization to keep the top-level download archive exception limited to archives ACORN verified itself.
+    #[serde(skip)]
+    Archive(BagArchive),
+}
+/// Adapter over the verified `data/` payload of a BagIt archive.
+#[derive(Clone, Copy)]
+pub(crate) struct ArchiveBucketSource<'a> {
+    archive: &'a BagArchive,
+}
+
+/// A BagIt archive payload that has already passed BagIt verification.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BagArchive {
+    /// Original archive URI or path, retained as transfer provenance.
+    pub location: String,
+    /// Verified payload directory holding the contents of the bag's `data/` directory.
+    pub payload: PathBuf,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -68,6 +89,16 @@ pub(crate) struct RepositoryBucketSource<'a> {
 impl Bucket {
     fn from_parts(name: Option<String>, description: Option<String>, source: BucketSource) -> Self {
         Self { name, description, source }
+    }
+    pub(crate) fn from_payload(location: &str, payload: PathBuf) -> Self {
+        Self::from_parts(
+            None,
+            None,
+            BucketSource::Archive(BagArchive {
+                location: location.to_string(),
+                payload,
+            }),
+        )
     }
 }
 impl From<&Path> for Bucket {
@@ -114,6 +145,16 @@ impl TryFrom<String> for Bucket {
 impl BucketSource {
     pub(crate) fn is_local(&self) -> bool {
         match self {
+            | Self::Archive(_) => true,
+            | Self::Repository(repository) => repository.is_local(),
+        }
+    }
+    /// Whether this source is a local directory or repository, which top-level download rejects.
+    ///
+    /// A verified archive payload is deliberately excluded: it is the one local source that top-level download accepts, because ACORN resolved and verified it itself.
+    pub(crate) fn is_local_repository(&self) -> bool {
+        match self {
+            | Self::Archive(_) => false,
             | Self::Repository(repository) => repository.is_local(),
         }
     }
@@ -160,6 +201,19 @@ impl BucketSourceItem {
             })
             .map(|_| items)
     }
+}
+/// Enumerate a local directory as validated bucket source items.
+///
+/// The root is normalized to `to_absolute_path` spelling first, because `files_all` reports canonical absolute paths and relative paths are recovered by stripping that same root.
+fn local_bucket_items(root: &Path) -> ApiResult<Vec<BucketSourceItem>> {
+    let root = PathBuf::from(root.to_path_buf().to_absolute_path());
+    files_all(root.clone(), None::<Vec<String>>)
+        .into_iter()
+        .filter(|path| path.is_file())
+        .filter_map(|path| path.strip_prefix(&root).ok().map(Path::to_path_buf))
+        .map(|relative| BucketSourceItem::new(relative.display().to_string(), relative, None, None))
+        .collect::<ApiResult<Vec<_>>>()
+        .and_then(BucketSourceItem::validate)
 }
 impl Parse<&str> for Repository {
     fn parse(value: &str) -> ApiResult<Self> {
@@ -268,6 +322,26 @@ impl BucketSourceAdapter for RepositoryBucketSource<'_> {
         }
     }
 }
+impl BucketSourceAdapter for ArchiveBucketSource<'_> {
+    fn is_local(&self) -> bool {
+        true
+    }
+    fn manifest_identity(&self) -> String {
+        self.archive.location.clone()
+    }
+    async fn items(&self) -> ApiResult<Vec<BucketSourceItem>> {
+        local_bucket_items(self.archive.payload.as_path())
+    }
+    async fn retrieve(&self, item: &BucketSourceItem, destination: &Path) -> ApiResult<()> {
+        let source = self.archive.payload.join(&item.path);
+        write_file_bytes(destination.to_path_buf(), || async { read(source).map_err(Report::from) }).await
+    }
+}
+impl<'a> ArchiveBucketSource<'a> {
+    pub(crate) const fn new(archive: &'a BagArchive) -> Self {
+        Self { archive }
+    }
+}
 impl<'a> RepositoryBucketSource<'a> {
     pub(crate) const fn new(repository: &'a Repository) -> Self {
         Self { repository }
@@ -353,13 +427,9 @@ impl<'a> RepositoryBucketSource<'a> {
     }
     async fn file_paths(&self, directory: &str) -> ApiResult<Vec<String>> {
         match self.repository {
-            | Repository::Git { .. } => self.local_root().map(|root| {
-                files_all(root.clone(), None::<Vec<String>>)
-                    .into_iter()
-                    .filter(|path| path.is_file())
-                    .filter_map(|path| path.strip_prefix(&root).ok().map(|relative| relative.display().to_string()))
-                    .collect()
-            }),
+            | Repository::Git { .. } => self
+                .local_root()
+                .and_then(|root| local_bucket_items(&root).map(|items| items.iter().map(|item| item.path.as_path().display().to_string()).collect())),
             | Repository::GitHub { location } => match (location.path(), self.domain()) {
                 | (Some(path), Ok(host)) => github::tree_paths(format!("api.{host}"), path.trim_start_matches('/').to_string(), "main").await,
                 | (None, Ok(_)) => Err(eyre!("Failed to parse GitHub repository URI")),

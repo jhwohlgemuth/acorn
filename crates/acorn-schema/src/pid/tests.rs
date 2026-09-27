@@ -53,16 +53,8 @@ const MOD_97_10_CHECK_DIGIT_CASES: [(&str, Option<&[char]>); 5] = [
 const NOID_CHECK_DIGIT_CASES: [(&str, Option<&[char]>); 2] = [("13030/xf93gt2", Some(&['q'])), ("c8131/g3js3", Some(&['v']))];
 
 #[test]
-fn test_betanumeric() {
-    assert!('9'.is_betanumeric());
-    assert!(!'a'.is_betanumeric());
-    assert!(!'/'.is_betanumeric());
-    assert_eq!('0'.to_betanumeric_ordinal(), Some(0));
-    assert_eq!('z'.to_betanumeric_ordinal(), Some(28));
-}
-#[test]
 fn test_all_supported_pid_fixture_covers_valid_and_invalid_instances() {
-    assert_eq!(ALL_SUPPORTED_PID_FIXTURE.split("\n\n").count(), 4);
+    assert_eq!(ALL_SUPPORTED_PID_FIXTURE.replace("\r\n", "\n").split("\n\n").count(), 4);
     let fixture_kinds = ALL_SUPPORTED_PID_CASES.iter().map(|(kind, _, _)| kind.clone()).collect::<BTreeSet<_>>();
     let supported_kinds = PID::iter().filter(|kind| kind.is_discoverable()).collect::<BTreeSet<_>>();
     assert_eq!(fixture_kinds, supported_kinds);
@@ -102,6 +94,16 @@ fn test_all_supported_pid_fixture_covers_valid_and_invalid_instances() {
         .collect::<BTreeSet<_>>();
     assert_eq!(discovered_kinds, supported_kinds);
 }
+
+#[test]
+fn test_betanumeric() {
+    assert!('9'.is_betanumeric());
+    assert!(!'a'.is_betanumeric());
+    assert!(!'/'.is_betanumeric());
+    assert_eq!('0'.to_betanumeric_ordinal(), Some(0));
+    assert_eq!('z'.to_betanumeric_ordinal(), Some(28));
+}
+
 #[test]
 fn test_identifier_normalize_uses_declared_kind() {
     let doi = Identifier {
@@ -117,6 +119,7 @@ fn test_identifier_normalize_uses_declared_kind() {
     };
     assert!(mismatched.normalized().is_none());
 }
+
 #[test]
 fn test_identifier_unknown_name_identifier_is_ambiguous() {
     assert!(Identifier::new("0000-0002-2057-9115").normalized().is_none());
@@ -124,6 +127,7 @@ fn test_identifier_unknown_name_identifier_is_ambiguous() {
     assert_eq!(Identifier::new("ORCID: 0000-0002-2057-9115").normalized().unwrap().kind, PID::ORCID);
     assert_eq!(Identifier::new("ISNI: 0000 0004 9229 9539").normalized().unwrap().kind, PID::ISNI);
 }
+
 #[test]
 fn test_idutils_url_cases() {
     [
@@ -142,30 +146,35 @@ fn test_idutils_url_cases() {
         assert_eq!(normalized.value, expected, "{value}");
     });
 }
+
 #[test]
 fn test_mod_10_or_11_check_digit() {
     MOD_10_OR_11_CHECK_DIGIT_CASES.into_iter().for_each(|(value, expected)| {
         assert_eq!(mod_10_or_11_check_digit(value).as_deref(), expected, "unexpected check digit for {value}");
     });
 }
+
 #[test]
 fn test_mod_11_2_check_digit() {
     MOD_11_2_CHECK_DIGIT_CASES.into_iter().for_each(|(value, expected)| {
         assert_eq!(mod_11_2_check_digit(value).as_deref(), expected, "unexpected check digit for {value}");
     });
 }
+
 #[test]
 fn test_mod_97_10_check_digit() {
     MOD_97_10_CHECK_DIGIT_CASES.into_iter().for_each(|(value, expected)| {
         assert_eq!(mod_97_10_check_digit(value).as_deref(), expected, "unexpected check digit for {value}");
     });
 }
+
 #[test]
 fn test_noid_check_digit() {
     NOID_CHECK_DIGIT_CASES.into_iter().for_each(|(value, expected)| {
         assert_eq!(noid_check_digit(value).as_deref(), expected, "unexpected check digit for {value}");
     });
 }
+
 #[test]
 fn test_normalize_discovery_identifiers() {
     assert_eq!(Identifier::new("https://doi.org/10.1234/ABC").normalized().unwrap().value, "10.1234/ABC");
@@ -184,12 +193,14 @@ fn test_normalize_discovery_identifiers() {
         PID::SWHID
     );
 }
+
 #[test]
 fn test_normalize_discovery_url_preserves_case_sensitive_components() {
     let normalized = Identifier::new("https://Example.org/Data/Artifact?Key=Value").normalized().unwrap();
     assert_eq!(normalized.kind, PID::URL);
     assert_eq!(normalized.value, "https://Example.org/Data/Artifact?Key=Value");
 }
+
 #[test]
 fn test_normalize_pid_values_filters_invalid_values_and_duplicates() {
     assert_eq!(
@@ -208,6 +219,7 @@ fn test_normalize_pid_values_filters_invalid_values_and_duplicates() {
         ["0000-0002-2057-9115"]
     );
 }
+
 #[test]
 fn test_pid_display_and_serialization_use_lowercase_wire_names() {
     assert_eq!(PID::Arxiv.to_string(), "arxiv");
@@ -216,6 +228,7 @@ fn test_pid_display_and_serialization_use_lowercase_wire_names() {
     assert_eq!(serde_json::from_str::<PID>(r#""doi""#).unwrap(), PID::DOI);
     assert_eq!(serde_json::from_str::<PID>(r#""DOI""#).unwrap(), PID::DOI);
 }
+
 #[test]
 fn test_pid_from_str() {
     assert_eq!(PID::from("doi"), PID::DOI);
@@ -225,6 +238,7 @@ fn test_pid_from_str() {
     assert_eq!(PID::from("RRID"), PID::RRID);
     assert_eq!(PID::from("unsupported"), PID::Unknown);
 }
+
 #[test]
 fn test_pid_infer() {
     assert_eq!(PID::infer("doi"), PID::DOI);
@@ -232,6 +246,7 @@ fn test_pid_infer() {
     assert_eq!(PID::infer("https://isni.org/isni/"), PID::ISNI);
     assert_eq!(PID::infer("unsupported"), PID::Unknown);
 }
+
 #[test]
 fn test_rrid_is_discoverable_but_not_project_identifying() {
     assert!(PID::RRID.is_discoverable());
@@ -239,6 +254,7 @@ fn test_rrid_is_discoverable_but_not_project_identifying() {
     let identifiers = Identifier::find_all("RRID:SCR_003512 https://n2t.net/RRID:SCR_003512");
     assert_eq!(identifiers, [Identifier::from(RRID::from_string("RRID:SCR_003512"))]);
 }
+
 #[test]
 fn test_swhid_identity_ignores_qualifiers() {
     let core = Identifier::new("swh:1:cnt:ce013625030ba8dba906f756967f9e9ca394464a")

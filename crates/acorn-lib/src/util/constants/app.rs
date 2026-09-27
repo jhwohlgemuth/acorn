@@ -10,6 +10,20 @@ pub const ACORN_USER_AGENT: &str = concat!("ACORN/", env!("CARGO_PKG_VERSION"), 
 pub const ACORN_USER_AGENT: &str = "ACORN (https://acorn.ornl.gov; mailto:research@ornl.gov)";
 /// Maximum number of archive bytes inspected while inferring its format.
 pub const ARCHIVE_INFERENCE_BYTES: u64 = 8192;
+/// BagIt tag file name holding the bag declaration.
+pub const BAGIT_DECLARATION_FILE: &str = "bagit.txt";
+/// BagIt declaration label carrying the tag file character encoding.
+pub const BAGIT_ENCODING_LABEL: &str = "Tag-File-Character-Encoding";
+/// BagIt payload directory required beneath the bag root.
+pub const BAGIT_PAYLOAD_DIRECTORY: &str = "data";
+/// Tag file encodings accepted for BagIt bags, compared without `-` or `_` separators.
+pub const BAGIT_SUPPORTED_ENCODINGS: [&str; 1] = ["UTF8"];
+/// BagIt specification versions accepted by ACORN.
+///
+/// See <https://datatracker.ietf.org/doc/html/rfc8493#section-2.2.1>
+pub const BAGIT_SUPPORTED_VERSIONS: [&str; 2] = ["0.97", "1.0"];
+/// BagIt declaration label carrying the supported specification version.
+pub const BAGIT_VERSION_LABEL: &str = "BagIt-Version";
 /// Base URL for deploying ORNL data.
 pub const BASE_URL: &str = "https://research.ornl.gov";
 /// Pinned Chrome for Testing version used for PDF export.

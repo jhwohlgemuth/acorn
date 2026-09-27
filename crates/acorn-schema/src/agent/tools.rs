@@ -1,5 +1,5 @@
 //! Portable data contracts for ACORN agent tools
-use acorn_core::prelude::alloc::{format, String, ToString, Vec};
+use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
 use acorn_core::{AcornError, AcornResult};
 use core::fmt;
 use schemars::{schema_for, JsonSchema};

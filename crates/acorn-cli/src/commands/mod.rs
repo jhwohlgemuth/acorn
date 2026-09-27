@@ -223,71 +223,36 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             } = arguments.as_ref();
             doctor::run(fix, interactive, report, check, offline)
         }
-        | Some(Commands::Download(arguments))
-            if arguments.flatten && matches!(arguments.command, Some(DownloadCommands::Model(_) | DownloadCommands::Needle)) =>
-        {
-            Err(eyre::eyre!("--flatten is only supported for bucket downloads"))
-        }
-        | Some(Commands::Download(arguments))
-            if arguments.clobber && matches!(arguments.command, Some(DownloadCommands::Model(_) | DownloadCommands::Needle)) =>
-        {
-            Err(eyre::eyre!("--clobber is only supported for bucket downloads"))
-        }
-        | Some(Commands::Download(arguments))
-            if arguments.strict && matches!(arguments.command, Some(DownloadCommands::Model(_) | DownloadCommands::Needle)) =>
-        {
-            Err(eyre::eyre!("--strict is only supported for bucket downloads"))
-        }
-        | Some(Commands::Download(arguments))
-            if arguments.canonicalize && matches!(arguments.command, Some(DownloadCommands::Model(_) | DownloadCommands::Needle)) =>
-        {
-            Err(eyre::eyre!("--canonicalize is only supported for bucket downloads"))
-        }
-        | Some(Commands::Download(arguments)) if matches!(arguments.command, Some(DownloadCommands::Needle)) => {
-            with_runtime(download::needle(&arguments.verbose, offline))
-        }
-        | Some(Commands::Download(arguments)) => with_runtime(async {
-            match initialize_database(config).await {
-                | Ok(()) => match &arguments.command {
-                    | Some(DownloadCommands::Model(args)) => {
-                        match Whitelist::from(args.whitelist.as_slice()).resolve(&args.whitelist_file, offline).await {
-                            | Ok(whitelist) => {
-                                download::model::execute(download::model::Request {
-                                    arguments: args,
-                                    whitelist: &whitelist.0,
-                                    database_path: &config.database_path,
-                                    offline,
-                                    no_local_database: config.no_local_database,
-                                })
-                                .await
+        | Some(Commands::Download(arguments)) => match arguments.unsupported_bucket_flag() {
+            | Some(flag) => Err(eyre::eyre!("{flag} is only supported for bucket downloads")),
+            | None => match &arguments.command {
+                | Some(DownloadCommands::Needle) => with_runtime(download::needle(&arguments.verbose, offline)),
+                | _ => with_runtime(async {
+                    match initialize_database(config).await {
+                        | Ok(()) => match &arguments.command {
+                            | Some(DownloadCommands::Model(args)) => {
+                                match Whitelist::from(args.whitelist.as_slice()).resolve(&args.whitelist_file, offline).await {
+                                    | Ok(whitelist) => {
+                                        download::model::execute(download::model::Request {
+                                            arguments: args,
+                                            whitelist: &whitelist.0,
+                                            database_path: &config.database_path,
+                                            offline,
+                                            no_local_database: config.no_local_database,
+                                        })
+                                        .await
+                                    }
+                                    | Err(why) => Err(why),
+                                }
                             }
-                            | Err(why) => Err(why),
-                        }
+                            | Some(DownloadCommands::Needle) => download::needle(&arguments.verbose, offline).await,
+                            | None => download::run(arguments, &config.database_path, threads, offline, config.no_local_database).await,
+                        },
+                        | Err(why) => Err(why),
                     }
-                    | Some(DownloadCommands::Needle) => download::needle(&arguments.verbose, offline).await,
-                    | None => {
-                        download::run(
-                            &arguments.config,
-                            &arguments.url,
-                            &arguments.filter,
-                            &arguments.ignore,
-                            &arguments.output,
-                            arguments.flatten,
-                            arguments.clobber,
-                            arguments.strict,
-                            arguments.canonicalize,
-                            &config.database_path,
-                            threads,
-                            &arguments.verbose,
-                            offline,
-                            config.no_local_database,
-                        )
-                        .await
-                    }
-                },
-                | Err(why) => Err(why),
-            }
-        }),
+                }),
+            },
+        },
         | Some(Commands::Export(arguments)) => match (arguments.schema, arguments.tools) {
             | (true, _) => {
                 let format = OutputFormat::from(&arguments.format);

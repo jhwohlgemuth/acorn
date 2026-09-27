@@ -121,7 +121,8 @@ fn test_detect_xml() {
 #[test]
 fn test_extract_zip() {
     let path = PathBuf::from(FIXTURES).join("data/highlight/reference.pptx");
-    let result = ArchiveCandidate::from(path).extract_zip(None);
+    let directory = tempfile::tempdir().expect("temporary directory should be created");
+    let result = ArchiveCandidate::from(path).extract_zip(Some(directory.path().join("extracted")));
     println!("{result:?}");
     assert!(result.is_ok());
 }
@@ -482,6 +483,54 @@ fn test_parent() {
     assert!(parent(PathBuf::from("Cargo.toml")).ends_with("acorn-lib"));
     assert_eq!(parent(PathBuf::from("does-not-exist.yaml")), PathBuf::from("."));
 }
+proptest! {
+    #[test]
+    fn test_prop_base32_decode_is_separator_and_case_insensitive(value in any::<u128>()) {
+        let encoded = base32_crockford_encode(value).to_ascii_uppercase();
+        let decorated = format!("  {encoded}-_  ");
+        prop_assert_eq!(base32_crockford_decode(decorated), Some(value));
+    }
+    #[test]
+    fn test_prop_base32_round_trip(value in any::<u128>()) {
+        let encoded = base32_crockford_encode(value);
+        prop_assert_eq!(base32_crockford_decode(&encoded), Some(value));
+    }
+    #[test]
+    fn test_prop_file_extension_extracts_suffix_for_simple_names(
+        stem in "[a-zA-Z0-9_]{1,32}",
+        ext in "[a-zA-Z0-9]{1,10}"
+    ) {
+        let name = format!("{stem}.{ext}");
+        prop_assert_eq!(file_extension(name), Some(ext));
+    }
+    #[test]
+    fn test_prop_file_extension_returns_none_without_dot(name in "[a-zA-Z0-9_/-]{1,64}") {
+        prop_assume!(!name.contains('.'));
+        prop_assert_eq!(file_extension(name), None);
+    }
+    #[test]
+    fn test_prop_format_bytes_below_1024_stays_in_bytes(value in 0u64..1024) {
+        prop_assert_eq!(format_bytes(value), format!("{value} B"));
+    }
+    #[test]
+    fn test_prop_format_bytes_has_known_unit(value in any::<u64>()) {
+        let formatted = format_bytes(value);
+        let unit = formatted.split_whitespace().last();
+        prop_assert!(matches!(unit, Some("B" | "KB" | "MB" | "GB" | "TB")));
+    }
+    #[test]
+    fn test_prop_regex_join_none_iff_all_patterns_empty(patterns in prop::collection::vec(".*", 0..20)) {
+        let joined = regex_join(&patterns);
+        let has_any_non_empty = patterns.iter().any(|x| !x.is_empty());
+        prop_assert_eq!(joined.is_some(), has_any_non_empty);
+    }
+    #[test]
+    fn test_prop_suffix_only_singular_is_empty(value in any::<u16>()) {
+        let expected = if value == 1 { "" } else { "s" };
+        prop_assert_eq!(suffix(value), expected.to_string());
+    }
+}
+
 #[test]
 fn test_read() {
     let path = PathBuf::from(FIXTURES).join("test.txt");
@@ -664,51 +713,4 @@ fn test_trim_unmatched_closing_parentheses() {
     assert_eq!(trim_unmatched_trailing_parentheses("10.1000/182)"), "10.1000/182");
     assert_eq!(trim_unmatched_trailing_parentheses("10.1000/(182)"), "10.1000/(182)");
     assert_eq!(trim_unmatched_trailing_parentheses("10.1000/182"), "10.1000/182");
-}
-proptest! {
-    #[test]
-    fn test_prop_base32_decode_is_separator_and_case_insensitive(value in any::<u128>()) {
-        let encoded = base32_crockford_encode(value).to_ascii_uppercase();
-        let decorated = format!("  {encoded}-_  ");
-        prop_assert_eq!(base32_crockford_decode(decorated), Some(value));
-    }
-    #[test]
-    fn test_prop_base32_round_trip(value in any::<u128>()) {
-        let encoded = base32_crockford_encode(value);
-        prop_assert_eq!(base32_crockford_decode(&encoded), Some(value));
-    }
-    #[test]
-    fn test_prop_file_extension_extracts_suffix_for_simple_names(
-        stem in "[a-zA-Z0-9_]{1,32}",
-        ext in "[a-zA-Z0-9]{1,10}"
-    ) {
-        let name = format!("{stem}.{ext}");
-        prop_assert_eq!(file_extension(name), Some(ext));
-    }
-    #[test]
-    fn test_prop_file_extension_returns_none_without_dot(name in "[a-zA-Z0-9_/-]{1,64}") {
-        prop_assume!(!name.contains('.'));
-        prop_assert_eq!(file_extension(name), None);
-    }
-    #[test]
-    fn test_prop_format_bytes_below_1024_stays_in_bytes(value in 0u64..1024) {
-        prop_assert_eq!(format_bytes(value), format!("{value} B"));
-    }
-    #[test]
-    fn test_prop_format_bytes_has_known_unit(value in any::<u64>()) {
-        let formatted = format_bytes(value);
-        let unit = formatted.split_whitespace().last();
-        prop_assert!(matches!(unit, Some("B" | "KB" | "MB" | "GB" | "TB")));
-    }
-    #[test]
-    fn test_prop_regex_join_none_iff_all_patterns_empty(patterns in prop::collection::vec(".*", 0..20)) {
-        let joined = regex_join(&patterns);
-        let has_any_non_empty = patterns.iter().any(|x| !x.is_empty());
-        prop_assert_eq!(joined.is_some(), has_any_non_empty);
-    }
-    #[test]
-    fn test_prop_suffix_only_singular_is_empty(value in any::<u16>()) {
-        let expected = if value == 1 { "" } else { "s" };
-        prop_assert_eq!(suffix(value), expected.to_string());
-    }
 }

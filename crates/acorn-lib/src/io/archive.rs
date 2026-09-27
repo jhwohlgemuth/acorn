@@ -1,19 +1,29 @@
 //! Archive creation and extraction utilities.
+// std::io items used here have no stable core equivalent, so clippy --fix cannot apply this.
+#![allow(clippy::std_instead_of_core)]
 use crate::{
-    io::{files_all, standard_project_folder, ApiResult},
+    io::{files_all, remove_any, standard_project_folder, ApiResult},
     util::constants::app::{ARCHIVE_INFERENCE_BYTES, MAX_ARCHIVE_ENTRIES, MAX_ARCHIVE_EXPANDED_BYTES},
 };
-use acorn_core::{prelude::Component, util::MimeType};
+use acorn_core::{
+    prelude::Component,
+    util::{MimeType, StringConversion},
+};
 use acorn_host::fs::SafePath;
 use alloc::collections::BTreeSet;
 use color_eyre::{eyre::eyre, Report};
-use core::{fmt, iter::once};
+use core::{
+    fmt,
+    iter::once,
+    sync::atomic::{AtomicU64, Ordering},
+};
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use sevenz_rust2::{ArchiveEntry, ArchiveReader, ArchiveWriter, Password};
 use std::{
-    fs::{create_dir_all, remove_file, File, OpenOptions},
+    fs::{create_dir_all, read_dir, remove_dir_all, remove_file, rename, DirEntry, File, OpenOptions},
     io::{self, Cursor, ErrorKind, Read, Write},
     path::{Path, PathBuf},
+    process,
 };
 use tar::{Archive as TarArchive, Builder as TarBuilder};
 use zip::{write::SimpleFileOptions, ZipArchive, ZipWriter};
@@ -67,11 +77,14 @@ enum ArchiveError {
     InspectArchive { path: PathBuf, reason: Box<str> },
     InspectSourceChild { path: PathBuf, reason: Box<str> },
     OutputInvalid,
+    PublishOutput { path: PathBuf, reason: Box<str> },
     ReadArchive { path: PathBuf, reason: Box<str> },
     ReplaceDestination(Box<str>),
     ResolveSource(Box<str>),
     SevenZip { operation: &'static str, reason: Box<str> },
+
     SourceLink(PathBuf),
+    StageOutput { path: PathBuf, reason: Box<str> },
     TooManyEntries,
     UnsafeZipPath(Box<str>),
     UnsupportedFormat(MimeType),
@@ -95,6 +108,18 @@ pub struct DeterministicZipEntry {
     destination: SafePath,
     mode: u32,
     source: ZipEntrySource,
+}
+/// An archive file written beside its final destination and published only once complete.
+#[derive(Debug)]
+struct StagedArchive {
+    staging: PathBuf,
+    output: PathBuf,
+}
+/// An extraction directory owned by the caller of `extract` and published only once complete.
+#[derive(Debug)]
+struct StagedExtraction {
+    staging: PathBuf,
+    output: PathBuf,
 }
 impl ArchiveCandidate {
     /// Creates an archive using the selected MIME type.
@@ -136,7 +161,7 @@ impl ArchiveCandidate {
             .map_err(Into::into)
             .and_then(|header| MimeType::infer(&header).ok_or_else(|| ArchiveError::FormatInference(self.0.clone()).into()))
     }
-    fn prepare_output(&self, destination: Option<PathBuf>, format: MimeType) -> ApiResult<(File, PathBuf)> {
+    fn prepare_output(&self, destination: Option<PathBuf>, format: MimeType) -> ApiResult<StagedArchive> {
         let output = destination.unwrap_or_else(|| self.0.with_extension(format.file_type()));
         self.0
             .canonicalize()
@@ -159,7 +184,7 @@ impl ArchiveCandidate {
             })
             .and_then(|(root, resolved)| match resolved.starts_with(&root) {
                 | true => Err(ArchiveError::DestinationInsideSource.into()),
-                | false => prepare_archive_destination(&output).map(|file| (file, output)),
+                | false => StagedArchive::stage(&resolved),
             })
     }
     fn relative_children(&self) -> ApiResult<Vec<(PathBuf, SafePath)>> {
@@ -195,80 +220,91 @@ impl ArchiveCandidate {
 }
 impl ArchiveCreation for ArchiveCandidate {
     fn archive_7z(self, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
-        self.prepare_output(destination, MimeType::SevenZip).and_then(|(file, output)| {
-            ArchiveWriter::new(file)
-                .map_err(|why| {
-                    Report::from(ArchiveError::SevenZip {
-                        operation: "create 7z archive",
-                        reason: why.to_string().into(),
+        self.prepare_output(destination, MimeType::SevenZip).and_then(|staged| {
+            let written = staged.open().and_then(|file| {
+                ArchiveWriter::new(file)
+                    .map_err(|why| {
+                        Report::from(ArchiveError::SevenZip {
+                            operation: "create 7z archive",
+                            reason: why.to_string().into(),
+                        })
                     })
-                })
-                .and_then(|writer| {
-                    self.relative_children().and_then(|children| {
-                        children
-                            .into_iter()
-                            .try_fold(writer, |mut writer, (path, relative)| {
-                                let entry = ArchiveEntry::from_path(&path, relative.as_path().to_string_lossy().replace('\\', "/"));
-                                path.is_file()
-                                    .then(|| File::open(&path))
-                                    .transpose()
-                                    .map_err(Into::into)
-                                    .and_then(|reader| match writer.push_archive_entry(entry, reader) {
-                                        | Ok(_) => Ok(writer),
-                                        | Err(why) => Err(ArchiveError::SevenZip {
-                                            operation: "add 7z entry",
+                    .and_then(|writer| {
+                        self.relative_children().and_then(|children| {
+                            children
+                                .into_iter()
+                                .try_fold(writer, |mut writer, (path, relative)| {
+                                    let entry = ArchiveEntry::from_path(&path, relative.as_path().to_portable_path());
+                                    path.is_file()
+                                        .then(|| File::open(&path))
+                                        .transpose()
+                                        .map_err(Into::into)
+                                        .and_then(|reader| match writer.push_archive_entry(entry, reader) {
+                                            | Ok(_) => Ok(writer),
+                                            | Err(why) => Err(ArchiveError::SevenZip {
+                                                operation: "add 7z entry",
+                                                reason: why.to_string().into(),
+                                            }
+                                            .into()),
+                                        })
+                                })
+                                .and_then(|writer| {
+                                    writer.finish().map_err(|why| {
+                                        ArchiveError::SevenZip {
+                                            operation: "finish 7z archive",
                                             reason: why.to_string().into(),
                                         }
-                                        .into()),
+                                        .into()
                                     })
-                            })
-                            .and_then(|writer| {
-                                writer.finish().map_err(|why| {
-                                    ArchiveError::SevenZip {
-                                        operation: "finish 7z archive",
-                                        reason: why.to_string().into(),
-                                    }
-                                    .into()
                                 })
-                            })
+                        })
                     })
-                })
-                .map(|_| output)
+                    .map(|_| ())
+            });
+            written.and_then(|()| staged.publish())
         })
     }
     fn archive_tar(self, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
         self.prepare_output(destination, MimeType::Tar)
-            .and_then(|(file, output)| self.append_tar(file).map(|()| output))
+            .and_then(|staged| staged.open().and_then(|file| self.append_tar(file)).and_then(|()| staged.publish()))
     }
     fn archive_tar_gzip(self, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
-        self.prepare_output(destination, MimeType::Gzip)
-            .and_then(|(file, output)| self.append_tar(GzEncoder::new(file, Compression::default())).map(|()| output))
+        self.prepare_output(destination, MimeType::Gzip).and_then(|staged| {
+            staged
+                .open()
+                .and_then(|file| self.append_tar(GzEncoder::new(file, Compression::default())))
+                .and_then(|()| staged.publish())
+        })
     }
     fn archive_zip(self, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
-        self.prepare_output(destination, MimeType::Zip).and_then(|(file, output)| {
-            let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-            self.relative_children()
-                .and_then(|children| {
-                    children
-                        .into_iter()
-                        .try_fold(ZipWriter::new(file), |mut writer, (path, relative)| match path.is_dir() {
-                            | true => writer.add_directory_from_path(relative, options).map(|()| writer).map_err(Into::into),
-                            | false => writer
-                                .start_file_from_path(relative, options)
-                                .map_err(Into::into)
-                                .and_then(|()| File::open(path).map_err(Into::into))
-                                .and_then(|mut input| io::copy(&mut input, &mut writer).map_err(Into::into))
-                                .map(|_| writer),
-                        })
-                })
-                .and_then(|writer| writer.finish().map_err(Into::into))
-                .map(|_| output)
+        self.prepare_output(destination, MimeType::Zip).and_then(|staged| {
+            let written = staged.open().and_then(|file| {
+                let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+                self.relative_children()
+                    .and_then(|children| {
+                        children
+                            .into_iter()
+                            .try_fold(ZipWriter::new(file), |mut writer, (path, relative)| match path.is_dir() {
+                                | true => writer.add_directory_from_path(relative, options).map(|()| writer).map_err(Into::into),
+                                | false => writer
+                                    .start_file_from_path(relative, options)
+                                    .map_err(Into::into)
+                                    .and_then(|()| File::open(path).map_err(Into::into))
+                                    .and_then(|mut input| io::copy(&mut input, &mut writer).map_err(Into::into))
+                                    .map(|_| writer),
+                            })
+                    })
+                    .and_then(|writer| writer.finish().map_err(Into::into))
+                    .map(|_| ())
+            });
+            written.and_then(|()| staged.publish())
         })
     }
 }
 impl ArchiveExtraction for ArchiveCandidate {
     fn extract_7z(self, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
-        extraction_root(destination).and_then(|root| {
+        StagedExtraction::stage(destination).and_then(|staged| {
+            let root = staged.root().to_path_buf();
             File::open(&self.0)
                 .map_err(Into::into)
                 .and_then(|file| {
@@ -307,28 +343,39 @@ impl ArchiveExtraction for ArchiveCandidate {
                         })
                     })
                 })
-                .map(|()| root)
+                .map(|_| root)
+                .and_then(|_| staged.publish())
         })
     }
     fn extract_tar(self, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
-        File::open(self.0)
-            .map_err(Into::into)
-            .and_then(|file| extract_tar_reader(file, destination))
+        StagedExtraction::stage(destination).and_then(|staged| {
+            File::open(self.0)
+                .map_err(Into::into)
+                .and_then(|file| extract_tar_reader(file, &staged))
+                .and_then(|_| staged.publish())
+        })
     }
     fn extract_tar_gzip(self, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
-        File::open(self.0)
-            .map(GzDecoder::new)
-            .map_err(Into::into)
-            .and_then(|decoder| extract_tar_reader(decoder, destination))
+        StagedExtraction::stage(destination).and_then(|staged| {
+            File::open(self.0)
+                .map(GzDecoder::new)
+                .map_err(Into::into)
+                .and_then(|decoder| extract_tar_reader(decoder, &staged))
+                .and_then(|_| staged.publish())
+        })
     }
     fn extract_tar_zstd(self, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
-        File::open(self.0)
-            .map_err(Into::into)
-            .and_then(|file| ZstdDecoder::new(file).map_err(Into::into))
-            .and_then(|decoder| extract_tar_reader(decoder, destination))
+        StagedExtraction::stage(destination).and_then(|staged| {
+            File::open(self.0)
+                .map_err(Into::into)
+                .and_then(|file| ZstdDecoder::new(file).map_err(Into::into))
+                .and_then(|decoder| extract_tar_reader(decoder, &staged))
+                .and_then(|_| staged.publish())
+        })
     }
     fn extract_zip(self, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
-        extraction_root(destination).and_then(|root| {
+        StagedExtraction::stage(destination).and_then(|staged| {
+            let root = staged.root().to_path_buf();
             File::open(&self.0)
                 .map_err(Into::into)
                 .and_then(|file| ZipArchive::new(file).map_err(Into::into))
@@ -364,6 +411,7 @@ impl ArchiveExtraction for ArchiveCandidate {
                     }),
                 })
                 .map(|_| root)
+                .and_then(|_| staged.publish())
         })
     }
 }
@@ -412,11 +460,13 @@ impl fmt::Display for ArchiveError {
                 write!(formatter, "Failed to inspect archive source child {} — {reason}", path.display())
             }
             | Self::OutputInvalid => write!(formatter, "Archive destination exists and is not a regular file"),
+            | Self::PublishOutput { path, reason } => write!(formatter, "Failed to publish {} — {reason}", path.display()),
             | Self::ReadArchive { path, reason } => write!(formatter, "Failed to read archive {} — {reason}", path.display()),
             | Self::ReplaceDestination(reason) => write!(formatter, "Failed to replace archive destination — {reason}"),
             | Self::ResolveSource(reason) => write!(formatter, "Failed to resolve archive source — {reason}"),
             | Self::SevenZip { operation, reason } => write!(formatter, "Failed to {operation} — {reason}"),
             | Self::SourceLink(path) => write!(formatter, "Archive source links are not supported: {}", path.display()),
+            | Self::StageOutput { path, reason } => write!(formatter, "Failed to stage archive beside {} — {reason}", path.display()),
             | Self::TooManyEntries => write!(formatter, "Archive contains too many entries"),
             | Self::UnsafeZipPath(path) => write!(formatter, "Unsafe ZIP path: {path}"),
             | Self::UnsupportedFormat(format) => write!(formatter, "Unsupported archive format: {format}"),
@@ -510,6 +560,110 @@ impl ArchiveFormat for MimeType {
         }
     }
 }
+impl Drop for StagedArchive {
+    fn drop(&mut self) {
+        let _ = remove_file(&self.staging);
+    }
+}
+
+impl StagedArchive {
+    /// Reserve an exclusive staging file beside `output` without disturbing an existing archive.
+    fn stage(output: &Path) -> ApiResult<Self> {
+        let output = match output.symlink_metadata() {
+            | Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_file() => Err(ArchiveError::OutputInvalid.into()),
+            | Ok(_) => Ok(output.to_path_buf()),
+            | Err(why) if why.kind() == ErrorKind::NotFound => Ok(output.to_path_buf()),
+            | Err(why) => Err(why.into()),
+        };
+        output.and_then(|output| {
+            let staging = scratch_sibling(&output, "acorn-archive");
+            reserve_scratch(&staging, |path| OpenOptions::new().write(true).create_new(true).open(path).map(|_| ()))
+                .map(|()| Self { staging, output })
+        })
+    }
+    /// Open the staging file for writing.
+    fn open(&self) -> ApiResult<File> {
+        OpenOptions::new().write(true).truncate(true).open(&self.staging).map_err(|why| {
+            ArchiveError::StageOutput {
+                path: self.staging.clone(),
+                reason: why.to_string().into(),
+            }
+            .into()
+        })
+    }
+    /// Replace the final destination with the completed staging file.
+    fn publish(self) -> ApiResult<PathBuf> {
+        remove_any(&self.output)
+            .map_err(|why: std::io::Error| Report::new(ArchiveError::ReplaceDestination(why.to_string().into())))
+            .and_then(|()| {
+                rename(&self.staging, &self.output).map_err(|why| {
+                    ArchiveError::PublishOutput {
+                        path: self.output.clone(),
+                        reason: why.to_string().into(),
+                    }
+                    .into()
+                })
+            })
+            .map(|()| self.output.clone())
+    }
+}
+
+impl Drop for StagedExtraction {
+    fn drop(&mut self) {
+        let _ = remove_dir_all(&self.staging);
+    }
+}
+
+impl StagedExtraction {
+    /// Reserve an exclusive staging directory beside the requested destination.
+    ///
+    /// An absent destination defaults to a standard project folder so callers that do not choose an output location still stage beside a predictable directory.
+    fn stage(destination: Option<PathBuf>) -> ApiResult<Self> {
+        let output = destination.unwrap_or_else(|| standard_project_folder("extract", None));
+        Self::try_from(output)
+    }
+    /// Return the directory entries are extracted into.
+    fn root(&self) -> &Path {
+        &self.staging
+    }
+    /// Move validated entries into the destination and discard the staging directory.
+    fn publish(self) -> ApiResult<PathBuf> {
+        create_dir_all(&self.output)
+            .map_err(Into::into)
+            .and_then(|()| publish_children(&self.staging, &self.output))
+            .map(|()| self.output.clone())
+    }
+}
+
+impl TryFrom<&Path> for StagedExtraction {
+    type Error = Report;
+    /// Reserve an exclusive staging directory beside `output`.
+    fn try_from(output: &Path) -> Result<Self, Self::Error> {
+        Self::try_from(output.to_path_buf())
+    }
+}
+
+impl TryFrom<PathBuf> for StagedExtraction {
+    type Error = Report;
+    /// Reserve an exclusive staging directory beside `output` so the destination stays untouched until publication.
+    fn try_from(output: PathBuf) -> Result<Self, Self::Error> {
+        let output = match output.symlink_metadata() {
+            | Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => Err(ArchiveError::DestinationInvalid.into()),
+            | Ok(_) => Ok(output),
+            | Err(why) if why.kind() == ErrorKind::NotFound => Ok(output),
+            | Err(why) => Err(why.into()),
+        };
+        output.and_then(|output| {
+            let parent = SafePath::parent_or_current(&output);
+            let staging = scratch_sibling(&output, "acorn-extract");
+            create_dir_all(parent)
+                .map_err(Into::into)
+                .and_then(|()| reserve_scratch(&staging, |path| std::fs::create_dir(path)))
+                .map(|()| Self { staging, output })
+        })
+    }
+}
+
 /// Creates an archive using the selected MIME type.
 pub fn archive(source: PathBuf, destination: Option<PathBuf>, mime_type: MimeType) -> ApiResult<PathBuf> {
     ArchiveCandidate::from(source).archive(destination, mime_type)
@@ -518,67 +672,99 @@ pub fn archive(source: PathBuf, destination: Option<PathBuf>, mime_type: MimeTyp
 pub fn extract(source: PathBuf, destination: Option<PathBuf>, archive_format: Option<MimeType>) -> ApiResult<PathBuf> {
     ArchiveCandidate::from(source).extract(destination, archive_format)
 }
-fn extract_tar_reader<R: Read>(reader: R, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
-    extraction_root(destination).and_then(|root| {
-        TarArchive::new(reader)
-            .entries()
-            .map_err(Into::into)
-            .and_then(|entries| {
-                entries
-                    .enumerate()
-                    .try_fold((Vec::new(), 0_u64), |(seen, total), (index, entry)| match index >= MAX_ARCHIVE_ENTRIES {
-                        | true => Err(ArchiveError::TooManyEntries.into()),
-                        | false => entry.map_err(Into::into).and_then(|mut entry| {
-                            entry
-                                .path()
-                                .map_err(Into::into)
-                                .and_then(|path| {
-                                    let is_directory = entry.header().entry_type().is_dir();
-                                    let is_file = entry.header().entry_type().is_file();
-                                    let root_entry = path.components().all(|component| matches!(component, Component::CurDir));
-                                    match (root_entry, is_directory, is_file) {
-                                        | (true, true, _) => Ok((seen, root.clone(), true, total)),
-                                        | (false, true, _) | (false, _, true) => SafePath::new(path.as_ref())
-                                            .map_err(Into::into)
-                                            .and_then(|relative| validate_entry(&root, seen, relative, entry.size()))
-                                            .and_then(|(seen, target)| {
-                                                total
-                                                    .checked_add(entry.size())
-                                                    .ok_or_else(|| ArchiveError::ExpandedSizeOverflow.into())
-                                                    .and_then(|total| match total > MAX_ARCHIVE_EXPANDED_BYTES {
-                                                        | true => Err(ArchiveError::ExpandedSizeLimit.into()),
-                                                        | false => Ok((seen, target, is_directory, total)),
-                                                    })
-                                            }),
-                                        | _ => Err(ArchiveError::UnsupportedTarEntry.into()),
-                                    }
-                                })
-                                .and_then(|(seen, target, is_directory, total)| {
-                                    write_entry(&mut entry, &target, is_directory).map(|()| (seen, total))
-                                })
-                        }),
-                    })
-            })
-            .map(|_| root)
+/// Extract every TAR entry from `reader` into `staged`, returning the directory they were written to.
+fn extract_tar_reader<R: Read>(reader: R, staged: &StagedExtraction) -> ApiResult<PathBuf> {
+    let root = staged.root().to_path_buf();
+    TarArchive::new(reader)
+        .entries()
+        .map_err(Into::into)
+        .and_then(|entries| {
+            entries
+                .enumerate()
+                .try_fold((Vec::new(), 0_u64), |(seen, total), (index, entry)| match index >= MAX_ARCHIVE_ENTRIES {
+                    | true => Err(ArchiveError::TooManyEntries.into()),
+                    | false => entry.map_err(Into::into).and_then(|mut entry| {
+                        entry
+                            .path()
+                            .map_err(Into::into)
+                            .and_then(|path| {
+                                let is_directory = entry.header().entry_type().is_dir();
+                                let is_file = entry.header().entry_type().is_file();
+                                let root_entry = path.components().all(|component| matches!(component, Component::CurDir));
+                                match (root_entry, is_directory, is_file) {
+                                    | (true, true, _) => Ok((seen, root.clone(), true, total)),
+                                    | (false, true, _) | (false, _, true) => SafePath::new(path.as_ref())
+                                        .map_err(Into::into)
+                                        .and_then(|relative| validate_entry(&root, seen, relative, entry.size()))
+                                        .and_then(|(seen, target)| {
+                                            total
+                                                .checked_add(entry.size())
+                                                .ok_or_else(|| ArchiveError::ExpandedSizeOverflow.into())
+                                                .and_then(|total| match total > MAX_ARCHIVE_EXPANDED_BYTES {
+                                                    | true => Err(ArchiveError::ExpandedSizeLimit.into()),
+                                                    | false => Ok((seen, target, is_directory, total)),
+                                                })
+                                        }),
+                                    | _ => Err(ArchiveError::UnsupportedTarEntry.into()),
+                                }
+                            })
+                            .and_then(|(seen, target, is_directory, total)| write_entry(&mut entry, &target, is_directory).map(|()| (seen, total)))
+                    }),
+                })
+        })
+        .map(|_| root)
+}
+/// Reserve a unique sibling path so concurrent work never shares a staging location.
+fn scratch_sibling(destination: &Path, marker: &str) -> PathBuf {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let parent = SafePath::parent_or_current(destination);
+    let ordinal = NEXT.fetch_add(1, Ordering::Relaxed);
+    parent.join(format!(".{marker}-{pid}-{ordinal}", pid = process::id()))
+}
+/// Reserve a staging path by creating it exclusively, so an existing scratch file is never reused.
+fn reserve_scratch(staging: &Path, create: impl Fn(&Path) -> std::io::Result<()>) -> ApiResult<()> {
+    match create(staging) {
+        | Ok(()) => Ok(()),
+        | Err(why) => Err(ArchiveError::StageOutput {
+            path: staging.to_path_buf(),
+            reason: why.to_string().into(),
+        }
+        .into()),
+    }
+}
+/// Merge staged content into an existing destination, replacing only the entries it supplies.
+fn publish_children(from: &Path, to: &Path) -> ApiResult<()> {
+    read_dir(from).map_err(Into::into).and_then(|entries| {
+        entries
+            .map(|entry| entry.map_err(Report::from).and_then(|entry| publish_entry(&entry, to)))
+            .collect::<ApiResult<Vec<_>>>()
+            .map(|_| ())
     })
 }
-fn extraction_root(destination: Option<PathBuf>) -> ApiResult<PathBuf> {
-    let root = destination.unwrap_or_else(|| standard_project_folder("extract", None));
-    match root.symlink_metadata() {
-        | Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => Err(ArchiveError::DestinationInvalid.into()),
-        | Ok(_) => Ok(root),
-        | Err(why) if why.kind() == ErrorKind::NotFound => create_dir_all(&root).map(|()| root).map_err(Into::into),
-        | Err(why) => Err(why.into()),
-    }
-}
-fn prepare_archive_destination(path: &Path) -> ApiResult<File> {
-    match path.symlink_metadata() {
-        | Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_file() => Err(ArchiveError::OutputInvalid.into()),
-        | Ok(_) => remove_file(path).map_err(|why| ArchiveError::ReplaceDestination(why.to_string().into()).into()),
-        | Err(why) if why.kind() == ErrorKind::NotFound => Ok(()),
-        | Err(why) => Err(why.into()),
-    }
-    .and_then(|()| OpenOptions::new().write(true).create_new(true).open(path).map_err(Into::into))
+/// Publish one staged entry, replacing whatever the destination already holds at that path.
+fn publish_entry(entry: &DirEntry, to: &Path) -> ApiResult<()> {
+    let target = to.join(entry.file_name());
+    let source = entry.path();
+    entry.file_type().map_err(Into::into).and_then(|kind| match kind.is_dir() {
+        | true => match target.symlink_metadata() {
+            | Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
+                remove_any(&target).and_then(|()| create_dir_all(&target).map_err(Into::into))
+            }
+            | Ok(_) => Ok(()),
+            | Err(why) if why.kind() == ErrorKind::NotFound => create_dir_all(&target).map_err(Into::into),
+            | Err(why) => Err(why.into()),
+        }
+        .and_then(|()| publish_children(&source, &target)),
+        | false => remove_any(&target).and_then(|()| {
+            rename(&source, &target).map_err(|why| {
+                ArchiveError::PublishOutput {
+                    path: target,
+                    reason: why.to_string().into(),
+                }
+                .into()
+            })
+        }),
+    })
 }
 fn validate_entry(root: &Path, seen: Vec<SafePath>, relative: SafePath, size: u64) -> ApiResult<(Vec<SafePath>, PathBuf)> {
     match size > MAX_ARCHIVE_EXPANDED_BYTES {
@@ -613,7 +799,7 @@ pub fn zip_entries(entries: &[(&str, &[u8])]) -> ApiResult<Vec<u8>> {
                     .and_then(|relative| match seen.contains(&relative) {
                         | true => Err(ArchiveError::DuplicatePath(relative.into_path_buf()).into()),
                         | false => archive
-                            .start_file(relative.as_path().to_string_lossy(), options)
+                            .start_file(relative.as_path().to_portable_path(), options)
                             .and_then(|()| archive.write_all(content).map_err(Into::into))
                             .map(|()| (archive, seen.into_iter().chain(once(relative)).collect()))
                             .map_err(Into::into),

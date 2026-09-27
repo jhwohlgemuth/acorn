@@ -1,31 +1,32 @@
-use crate::{cli::CommandOptions, commands::preflight};
+use crate::{
+    cli::{arguments::Download, CommandOptions},
+    commands::preflight,
+};
 use acorn::{
     io::{
-        config::{ApplicationConfiguration, Bucket, BucketExtension, BucketOptions, Buckets, TransferPolicy},
+        config::{ApplicationConfiguration, BucketExtension, BucketOptions, TransferPolicy},
         database::{
             schema::{ActivityRow, Table},
             Database, Operations,
         },
         print_with_border,
         sidecar::{needle::Needle, SidecarAssets},
-        slice_path, InputOutput,
+        slice_path,
     },
-    util::{
-        constants::app::{DEFAULT_CONFIG_FILENAMES, DISPLAY_PATH_CHARACTER_COUNT},
-        StringConversion,
-    },
+    util::{constants::app::DISPLAY_PATH_CHARACTER_COUNT, StringConversion},
 };
 use acorn_core::{
     options::{CommonRuntime, RuntimeOptions},
-    util::suffix,
+    util::{suffix, MimeType},
 };
 use acorn_host::terminal::Label;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
+use futures::{future, stream, StreamExt, TryStreamExt};
 use jiff::Timestamp;
 use owo_colors::OwoColorize;
 use std::path::PathBuf;
-use tracing::{error, warn};
+use tracing::error;
 
 pub mod model;
 fn finish_transfer(total: usize, options: &BucketOptions) -> Result<(), Report> {
@@ -97,97 +98,88 @@ pub(crate) fn print_result(total: usize, output: Option<&PathBuf>) {
 }
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
-    config: &Option<PathBuf>,
-    url: &[String],
-    filter: &[String],
-    ignore: &[String],
-    output: &Option<PathBuf>,
-    flatten: bool,
-    clobber: bool,
-    strict: bool,
-    canonicalize: bool,
+    arguments: &Download,
     database_path: &Option<PathBuf>,
     threads: usize,
-    verbose: &Verbosity,
     offline: bool,
     no_local_database: bool,
 ) -> Result<(), Report> {
+    let Download {
+        url,
+        config,
+        filter,
+        ignore,
+        output,
+        flatten,
+        clobber,
+        strict,
+        canonicalize,
+        archive_format,
+        verbose,
+        ..
+    } = arguments;
     let quiet = verbose.is_silent();
-    match offline {
-        | true => Err(eyre!("Offline mode is not supported for bucket downloads")),
-        | false => {
-            preflight!(&CommandOptions::init()
-                .offline(offline)
-                .quiet(quiet)
-                .threads(threads)
-                .supported(true)
-                .build());
-            let options = BucketOptions::init()
-                .common(CommonRuntime {
-                    filter: filter.to_vec(),
-                    ignore: ignore.to_vec(),
-                    offline,
-                    quiet,
-                    threads,
-                    ..CommonRuntime::default()
-                })
-                .extension(BucketExtension {
-                    canonicalize,
-                    clobber,
-                    database_path: database_path.clone(),
-                    flatten,
-                    no_local_database,
-                    strict,
-                })
-                .maybe_output(output.clone())
-                .build();
-            match ApplicationConfiguration::resolve(config) {
-                | Some(path) => match ApplicationConfiguration::read(path.clone()) {
-                    | Ok(content) => Buckets::from(content.buckets.unwrap_or_default())
-                        .transfer(&options, TransferPolicy::Download)
-                        .await
-                        .inspect_err(|why| error!("=> {} Download data — {why}", Label::fail()))
-                        .and_then(|total| finish_transfer(total, &options)),
-                    | Err(why) => {
-                        error!("=> {} Download data — {why}", Label::fail());
-                        let BucketExtension {
-                            database_path,
-                            no_local_database,
-                            ..
-                        } = &options.extension;
-                        if !*no_local_database {
-                            log_activity("download", path.file_name_with_parent(), database_path, false);
+    preflight!(&CommandOptions::init()
+        .offline(offline)
+        .quiet(quiet)
+        .threads(threads)
+        .supported(true)
+        .build());
+    let options = BucketOptions::init()
+        .common(CommonRuntime {
+            filter: filter.clone(),
+            ignore: ignore.clone(),
+            offline,
+            quiet,
+            threads,
+            ..CommonRuntime::default()
+        })
+        .extension(BucketExtension {
+            canonicalize: *canonicalize,
+            clobber: *clobber,
+            database_path: database_path.clone(),
+            flatten: *flatten,
+            no_local_database,
+            strict: *strict,
+        })
+        .maybe_output(output.clone())
+        .build();
+    let shared = &options;
+    let sources = ApplicationConfiguration::sources(config, url);
+    let empty = sources.as_ref().map(|sources| sources.is_empty()).unwrap_or_default();
+    let result = match empty {
+        | true => Err(eyre!("No download URL or configuration file found")),
+        | false => match sources {
+            | Ok(sources) => {
+                stream::iter(sources)
+                    .then(|source| async move {
+                        match source.resolve(archive_format.map(MimeType::from), offline).await {
+                            | Ok(bucket) => bucket.transfer(shared, TransferPolicy::Download).await,
+                            | Err(why) => Err(why),
                         }
-                        Err(eyre!("Failed to process download configuration"))
-                    }
-                },
-                | None if !url.is_empty() => {
-                    let buckets = url
-                        .iter()
-                        .map(|value| Bucket::try_from(value.as_str()))
-                        .collect::<core::result::Result<Vec<_>, Report>>();
-                    match buckets {
-                        | Ok(buckets) => Buckets::from(buckets)
-                            .transfer(&options, TransferPolicy::Download)
-                            .await
-                            .inspect_err(|why| error!("=> {} Download data — {why}", Label::fail()))
-                            .and_then(|total| finish_transfer(total, &options)),
-                        | Err(why) => Err(why),
-                    }
-                }
-                | None if !quiet => {
-                    warn!(
-                        "=> {} No URL or configuration file found; provide a URL or create one of: {}",
-                        Label::warning(),
-                        DEFAULT_CONFIG_FILENAMES.join(", ")
-                    );
-                    Ok(())
-                }
-                | None => {
-                    error!("=> {} No URL or configuration file found for download command", Label::fail());
-                    Ok(())
-                }
+                    })
+                    .try_fold(0_usize, |total, count| future::ready(Ok(total.saturating_add(count))))
+                    .await
             }
+            | Err(why) => Err(why),
+        },
+    };
+    match result {
+        | Ok(total) => finish_transfer(total, &options),
+        | Err(why) => {
+            error!("=> {} Download data — {why}", Label::fail());
+            let BucketExtension {
+                database_path,
+                no_local_database,
+                ..
+            } = &options.extension;
+            match config {
+                | Some(path) if !*no_local_database => {
+                    log_activity("download", path.file_name_with_parent(), database_path, false);
+                }
+                | _ => {}
+            }
+            Err(why)
         }
     }
 }

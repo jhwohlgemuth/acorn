@@ -28,8 +28,12 @@ fn checksum_reads_file() {
 }
 #[test]
 fn file_uri_conversion_supports_localhost_and_escaped_segments() {
-    let path = file_uri_to_path("file://localhost/tmp/acorn%20host.txt").expect("file URI");
-    assert_eq!(path, PathBuf::from("/tmp/acorn host.txt"));
+    #[cfg(unix)]
+    let (uri, expected) = ("file://localhost/tmp/acorn%20host.txt", PathBuf::from("/tmp/acorn host.txt"));
+    #[cfg(windows)]
+    let (uri, expected) = ("file://localhost/C:/tmp/acorn%20host.txt", PathBuf::from(r"C:\tmp\acorn host.txt"));
+    let path = file_uri_to_path(uri).expect("file URI");
+    assert_eq!(path, expected);
 }
 #[test]
 fn safe_path_rejects_traversal_and_absolute_paths() {

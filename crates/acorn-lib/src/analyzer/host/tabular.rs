@@ -1,4 +1,6 @@
 //! Native tabular exports for analyzer checks
+// std::io items used here have no stable core equivalent, so clippy --fix cannot apply this.
+#![allow(clippy::std_instead_of_core)]
 use crate::analyzer::Check;
 use polars::datatypes::PlSmallStr;
 use polars::frame::row::Row;

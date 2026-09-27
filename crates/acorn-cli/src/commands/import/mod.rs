@@ -2,71 +2,21 @@ pub mod model;
 pub mod spec;
 
 use crate::{
-    cli::arguments::{ArchiveType, Import},
+    cli::arguments::Import,
     commands::download::{log_activity, print_result},
 };
 use acorn::{
-    io::{
-        config::{ApplicationConfiguration, Bucket, BucketExtension, BucketOptions},
-        InputOutput,
-    },
+    io::config::{ApplicationConfiguration, BucketExtension, BucketOptions, TransferPolicy},
     util::StringConversion,
 };
 use acorn_core::{
     options::{CommonRuntime, RuntimeOptions},
     util::MimeType,
 };
-use acorn_host::fs::{file_uri_to_path, TemporaryDirectory};
 use color_eyre::eyre::{eyre, Report, Result};
 use futures::{future, stream, StreamExt, TryStreamExt};
 use std::path::PathBuf;
 
-enum InputSource {
-    Bucket(Bucket),
-    Uri(String),
-}
-impl From<Bucket> for InputSource {
-    fn from(value: Bucket) -> Self {
-        Self::Bucket(value)
-    }
-}
-impl From<String> for InputSource {
-    fn from(value: String) -> Self {
-        Self::Uri(value)
-    }
-}
-impl InputSource {
-    async fn import(self, format: Option<ArchiveType>, options: &BucketOptions) -> Result<usize, Report> {
-        match self {
-            | Self::Bucket(bucket) => bucket.import(options, None).await,
-            | Self::Uri(source) => {
-                let path = file_uri_to_path(&source).unwrap_or_else(|_| PathBuf::from(&source));
-                let forced = format.map(MimeType::from);
-                let inferred = MimeType::from(source.as_str());
-                match (path.is_dir(), path.is_file(), forced.clone(), inferred) {
-                    | (true, _, None, _) => match path.canonicalize() {
-                        | Ok(path) => Bucket::from(path.as_path()).import(options, Some(source.as_str())).await,
-                        | Err(why) => Err(why.into()),
-                    },
-                    | (_, true, _, _) | (_, _, Some(_), _) | (_, _, _, MimeType::Gzip | MimeType::SevenZip | MimeType::Tar | MimeType::Zip) => {
-                        match TemporaryDirectory::create("acorn-import") {
-                            | Ok(temporary) => match Bucket::archive(&source, forced, &temporary, options.common.offline).await {
-                                | Ok((bucket, provenance)) => bucket.import(options, Some(&provenance)).await,
-                                | Err(why) => Err(why),
-                            },
-                            | Err(why) => Err(why.into()),
-                        }
-                    }
-                    | (_, _, _, _) if source.contains("://") => match Bucket::try_from(source.as_str()) {
-                        | Ok(bucket) => bucket.import(options, Some(source.as_str())).await,
-                        | Err(why) => Err(why),
-                    },
-                    | _ => Err(eyre!("Import source does not exist or has an unsupported format: {source}")),
-                }
-            }
-        }
-    }
-}
 /// Imports local buckets, remote repositories, and BagIt archives.
 pub(crate) async fn run(
     arguments: &Import,
@@ -106,43 +56,42 @@ pub(crate) async fn run(
         })
         .maybe_output(output.clone())
         .build();
-    let sources = match ApplicationConfiguration::resolve(config) {
-        | Some(path) => ApplicationConfiguration::read(path).map(|configuration| {
-            configuration
-                .buckets
-                .unwrap_or_default()
-                .into_iter()
-                .map(InputSource::from)
-                .collect::<Vec<_>>()
-        }),
-        | None => Ok(uri.iter().cloned().map(InputSource::from).collect::<Vec<_>>()),
-    };
-    match sources.and_then(|sources| match sources.is_empty() {
+    let shared = &options;
+    let format = archive_format.map(MimeType::from);
+    let shared_format = format.as_ref();
+    let sources = ApplicationConfiguration::sources(config, uri);
+    let empty = sources.as_ref().map(|sources| sources.is_empty()).unwrap_or_default();
+    match empty {
         | true => Err(eyre!("No import URI or configuration file found")),
-        | false => Ok(sources),
-    }) {
-        | Ok(sources) => stream::iter(sources)
-            .then(|source| source.import(*archive_format, &options))
-            .try_fold(0_usize, |total, count| future::ready(Ok(total.saturating_add(count))))
-            .await
-            .map(|total| {
-                let RuntimeOptions { common, extension, output } = &options;
-                let CommonRuntime { quiet, .. } = common;
-                let BucketExtension {
-                    database_path,
-                    no_local_database,
-                    ..
-                } = extension;
-                if let Some(path) = output {
-                    if !*no_local_database {
-                        log_activity("import", path.to_absolute_path(), database_path, true);
+        | false => match sources {
+            | Ok(sources) => stream::iter(sources)
+                .then(|source| async move {
+                    match source.resolve(shared_format.cloned(), offline).await {
+                        | Ok(bucket) => bucket.transfer(shared, TransferPolicy::Import).await,
+                        | Err(why) => Err(why),
                     }
-                }
-                if !*quiet {
-                    print_result(total, output.as_ref());
-                }
-            }),
-        | Err(why) => Err(why),
+                })
+                .try_fold(0_usize, |total, count| future::ready(Ok(total.saturating_add(count))))
+                .await
+                .map(|total| {
+                    let RuntimeOptions { common, extension, output } = &options;
+                    let CommonRuntime { quiet, .. } = common;
+                    let BucketExtension {
+                        database_path,
+                        no_local_database,
+                        ..
+                    } = extension;
+                    if let Some(path) = output {
+                        if !*no_local_database {
+                            log_activity("import", path.to_absolute_path(), database_path, true);
+                        }
+                    }
+                    if !*quiet {
+                        print_result(total, output.as_ref());
+                    }
+                }),
+            | Err(why) => Err(why),
+        },
     }
 }
 

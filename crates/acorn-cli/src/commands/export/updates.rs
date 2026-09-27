@@ -25,7 +25,8 @@ trait LogbookUpdatesExport {
 }
 impl LogbookUpdatesExport for LogbookUpdates {
     fn artifact_path(&self, output: &Path, extension: &str) -> ApiResult<PathBuf> {
-        SafePath::new(format!("{}-updates-{}.{}", self.identifier, self.since, extension))
+        let since = self.since.replace(':', "-");
+        SafePath::new(format!("{}-updates-{since}.{extension}", self.identifier))
             .map_err(Into::<color_eyre::Report>::into)
             .and_then(|path| path.materialize_under(output).map_err(Into::into))
     }

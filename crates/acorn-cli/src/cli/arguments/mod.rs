@@ -104,6 +104,7 @@ pub(crate) mod bot {
         #[command(flatten)]
         pub(crate) verbose: Verbosity,
     }
+
     /// Arguments for `acorn serve bot`
     #[derive(Clone, Debug, Args)]
     #[command(long_about = None)]
@@ -498,6 +499,9 @@ pub(crate) struct Download {
     /// Replace existing files or directories at selected output paths
     #[arg(short = 'C', long, help_heading = "FLAGS")]
     pub(crate) clobber: bool,
+    /// Force archive handling and bypass content inference
+    #[arg(long, value_enum, value_name = "FORMAT", help_heading = "OPTIONS")]
+    pub(crate) archive_format: Option<ArchiveType>,
     /// Reject deprecated research activity fields during database ingestion
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) strict: bool,
@@ -506,6 +510,25 @@ pub(crate) struct Download {
     pub(crate) canonicalize: bool,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
+}
+impl Download {
+    /// Bucket-only flag that the selected subcommand does not support, if any.
+    ///
+    /// The model and needle subcommands transfer weights and engines rather than buckets, so bucket transfer options are rejected for them.
+    /// Flags are reported in a fixed order so a combination of unsupported flags always names the same one.
+    pub(crate) fn unsupported_bucket_flag(&self) -> Option<&'static str> {
+        let flags = [
+            ("--flatten", self.flatten),
+            ("--clobber", self.clobber),
+            ("--strict", self.strict),
+            ("--canonicalize", self.canonicalize),
+            ("--archive-format", self.archive_format.is_some()),
+        ];
+        match &self.command {
+            | Some(DownloadCommands::Model(_) | DownloadCommands::Needle) => flags.into_iter().find(|(_, selected)| *selected).map(|(flag, _)| flag),
+            | _ => None,
+        }
+    }
 }
 #[derive(Clone, Debug, Args)]
 #[command(

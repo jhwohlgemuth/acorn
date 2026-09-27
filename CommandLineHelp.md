@@ -444,6 +444,18 @@ Download research activity data from buckets or model weights for local inferenc
   Default value: `./content`
 * `-f`, `--flatten` — Save downloaded files directly beneath the output directory
 * `-C`, `--clobber` — Replace existing files or directories at selected output paths
+* `--archive-format <FORMAT>` — Force archive handling and bypass content inference
+
+  Possible values:
+  - `7z`:
+    7-Zip archive
+  - `tar`:
+    Uncompressed TAR archive
+  - `tar.gz`:
+    Gzip-compressed TAR archive
+  - `zip`:
+    ZIP archive
+
 * `--strict` — Reject deprecated research activity fields during database ingestion
 * `--canonicalize` — Rewrite deprecated research activity fields before database ingestion
 * `-v`, `--verbose` — Increase logging verbosity

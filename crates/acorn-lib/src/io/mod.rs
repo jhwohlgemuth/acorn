@@ -1,4 +1,6 @@
 //! # IO Utilities
+// std::io items used here have no stable core equivalent, so clippy --fix cannot apply this.
+#![allow(clippy::std_instead_of_core)]
 //!
 //! Module to isolate input/output operations to enhance portability
 //!
@@ -65,21 +67,20 @@ use rsa::{
     pkcs8::{EncodePrivateKey, EncodePublicKey},
     RsaPrivateKey, RsaPublicKey,
 };
+use same_file::Handle;
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 pub use source::{read_clipboard, select_source, InputSource, Source, SourceAction, TextOrigin};
 #[cfg(unix)]
 use std::os::unix::fs::symlink as platform_symlink;
-#[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
-use std::os::unix::fs::MetadataExt;
 #[cfg(windows)]
 use std::os::windows::fs::{symlink_dir, symlink_file};
 use std::{
     env::{consts, current_dir, temp_dir, var, var_os},
     ffi::OsString,
     fs::{self, canonicalize, create_dir_all, write, File, Metadata, OpenOptions},
-    io::{self, BufReader, Cursor, Read, Write},
+    io::{self, BufReader, Cursor, Error, ErrorKind, Read, Write},
     path::{absolute, Component, Path, PathBuf, MAIN_SEPARATOR},
     thread,
 };
@@ -699,13 +700,16 @@ impl PathExt for &Path {
 }
 impl PathExt for Path {
     fn is_open_file(&self, file: &File) -> bool {
-        let metadata = self.symlink_metadata().ok().zip(file.metadata().ok());
-        #[cfg(unix)]
-        let matches =
-            metadata.is_some_and(|(path, open)| !path.is_symlink() && open.is_file() && path.dev() == open.dev() && path.ino() == open.ino());
-        #[cfg(not(unix))]
-        let matches = metadata.is_some_and(|(path, open)| !path.is_symlink() && open.is_file());
-        matches
+        self.symlink_metadata()
+            .ok()
+            .zip(file.metadata().ok())
+            .filter(|(path, open)| !path.is_symlink() && path.is_file() && open.is_file())
+            .and_then(|_| {
+                Handle::from_path(self)
+                    .ok()
+                    .zip(file.try_clone().ok().and_then(|file| Handle::from_file(file).ok()))
+            })
+            .is_some_and(|(path, open)| path == open)
     }
     fn to_gguf_parts(&self) -> Option<(String, u64, u64)> {
         self.file_name()
@@ -1619,6 +1623,22 @@ where
         | Err(why) => Err(eyre!("Failed to read large file — {why}")),
     }
 }
+/// Remove a file, symlink, or directory tree, treating a missing path as already removed.
+///
+/// The error type is generic so callers keep their own error vocabulary instead of adapting to this one.
+/// A symlink is always removed as a link, never followed, so a link that points at a directory cannot delete that directory's contents.
+pub fn remove_any<E>(path: &Path) -> Result<(), E>
+where
+    E: From<Error>,
+{
+    match path.symlink_metadata() {
+        | Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => fs::remove_file(path).map_err(E::from),
+        | Ok(_) => fs::remove_dir_all(path).map_err(E::from),
+        | Err(why) if why.kind() == ErrorKind::NotFound => Ok(()),
+        | Err(why) => Err(E::from(why)),
+    }
+}
+
 /// Recursively remove named fields from a JSON value.
 pub fn remove_fields(value: Value, fields: &[&str]) -> Value {
     match value {

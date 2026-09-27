@@ -20,6 +20,8 @@ Archive type is inferred from a bounded content header. `--archive-format 7z|zip
 
 `--filter`, `--ignore`, `--flatten`, and `--clobber` have the same transfer meaning as bucket download. `--config` loads bucket sources from an ACORN configuration. Offline import is accepted only when every selected source is local. The original archive URI is retained as transfer provenance.
 
+Import and [`download`](download.md#bagit-archives) share one BagIt archive resolution path. The two commands differ only in transfer policy: import accepts local directories, local bucket entries in configuration, and offline local transfers, while top-level download is reserved for remote repositories and verified BagIt archives. Both publish only the contents of the bag's `data/` directory, and neither copies BagIt tag files to the output.
+
 Configuration accepts bare bucket paths and URLs, or a named `source` string when a stable label is useful:
 
 ```yaml

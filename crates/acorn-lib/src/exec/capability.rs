@@ -1,4 +1,6 @@
 //! Per-invocation host capability broker for Rhai hooks.
+// `std::io::ErrorKind` has no stable `core` equivalent, so this lint is unfixable here.
+#![allow(clippy::std_instead_of_core)]
 use super::manifest::{FilesystemCapability, NetworkCapability, ScriptAuthorization};
 use crate::io::{workflow::WorkflowAction, ApiResult};
 use acorn_core::prelude::{String, Vec};

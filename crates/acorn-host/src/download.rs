@@ -1,4 +1,6 @@
 //! Bounded streaming downloads with verified, no-clobber installation.
+// `std::io::ErrorKind` has no stable `core` equivalent, so this lint is unfixable here.
+#![allow(clippy::std_instead_of_core)]
 use crate::{
     fs::{file_checksum, FsError},
     http::{redact_url, HttpClient, HttpError},
