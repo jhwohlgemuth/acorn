@@ -24,6 +24,8 @@ pub(super) enum PlanError {
     ConflictingDocumentChange,
     #[error("Fix requires network access while offline")]
     Offline,
+    #[error("Fix effects do not match its registered remediation")]
+    RecipeEffectsMismatch,
     #[error("Fix is not a registered deterministic remediation")]
     Unsupported,
 }
@@ -54,6 +56,16 @@ impl ExecutableFix {
             | Self::Recipe(recipe) => format!("run {recipe}"),
         }
     }
+    fn effects(&self) -> FixEffects {
+        match self {
+            | Self::Document { .. } => FixEffects {
+                filesystem_write: true,
+                reversible: true,
+                ..FixEffects::default()
+            },
+            | Self::Recipe(recipe) => recipe.effects(),
+        }
+    }
 }
 impl Fix {
     fn resolve(&self, policy: FixPolicy) -> ApiResult<Vec<ExecutableFix>> {
@@ -63,12 +75,14 @@ impl Fix {
                 .map(|action| action.resolve(&self.target))
                 .collect::<Result<Vec<_>, PlanError>>()
                 .and_then(|actions| {
+                    let effects = actions.iter().map(ExecutableFix::effects).reduce(FixEffects::combine).unwrap_or_default();
                     let requires_network = actions
                         .iter()
                         .any(|action| matches!(action, ExecutableFix::Recipe(recipe) if !recipe.is_unsupported()));
-                    match requires_network && policy.offline {
-                        | true => Err(PlanError::Offline),
-                        | false => Ok(actions),
+                    match (effects == self.effects, requires_network && policy.offline) {
+                        | (false, _) => Err(PlanError::RecipeEffectsMismatch),
+                        | (_, true) => Err(PlanError::Offline),
+                        | (_, false) => Ok(actions),
                     }
                 })
                 .map_err(color_eyre::eyre::Report::from)
@@ -162,6 +176,24 @@ impl Recipe {
                     "--accept-source-agreements",
                 ],
             ),
+        }
+    }
+    fn effects(self) -> FixEffects {
+        match self {
+            | Self::Chromium | Self::Vale => FixEffects {
+                filesystem_write: true,
+                network: true,
+                process: true,
+                ..FixEffects::default()
+            },
+            | Self::HomebrewNode | Self::WinGetNode => FixEffects {
+                filesystem_write: true,
+                network: true,
+                package_manager: true,
+                process: true,
+                ..FixEffects::default()
+            },
+            | Self::Unsupported => FixEffects::default(),
         }
     }
 }

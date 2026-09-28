@@ -6,10 +6,42 @@ use crate::io::workflow::{Artifact, Artifacts};
 use color_eyre::eyre::eyre;
 use std::path::Path;
 
+#[cfg(feature = "analysis")]
+use acorn_cmd::CommandSpec;
+#[cfg(feature = "analysis")]
+use core::time::Duration;
+
 /// Executes a command from ACORN's fixed recipe registry.
 pub trait FixRunner {
     /// Run one fixed binary and argument vector, returning redacted output.
     fn run(&self, binary: &str, arguments: &[&str]) -> ApiResult<String>;
+}
+/// Native runner for trusted fixed recipe vectors.
+#[cfg(feature = "analysis")]
+#[derive(Clone, Copy, Debug)]
+pub struct CommandFixRunner {
+    timeout: Duration,
+}
+#[cfg(feature = "analysis")]
+impl CommandFixRunner {
+    /// Create a runner that bounds each native recipe process.
+    pub const fn new(timeout: Duration) -> Self {
+        Self { timeout }
+    }
+}
+#[cfg(feature = "analysis")]
+impl FixRunner for CommandFixRunner {
+    fn run(&self, binary: &str, arguments: &[&str]) -> ApiResult<String> {
+        CommandSpec::new(binary)
+            .args(arguments)
+            .checked_output_with_timeout(self.timeout)
+            .map(|output| {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                [stdout.as_ref(), stderr.as_ref()].concat()
+            })
+            .map_err(|why| eyre!("Run registered fix {binary} — {why}"))
+    }
 }
 /// Verified result of applying one trusted remediation.
 #[derive(Clone, Debug, Eq, PartialEq)]

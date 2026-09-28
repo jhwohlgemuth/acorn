@@ -8,7 +8,10 @@ use super::{
 #[cfg(feature = "agentic")]
 use crate::RepositoryExt;
 use crate::{
-    analyzer::check::{Check, CheckBatch, CheckCategory, CheckSeverity, OutputFormat, Standard},
+    analyzer::{
+        check::{Check, CheckBatch, CheckCategory, CheckSeverity, OutputFormat, Standard},
+        fix::DiscoveryReference,
+    },
     check_err,
     io::{
         api::{self, citeas::ToCitations, Configuration},
@@ -17,7 +20,7 @@ use crate::{
             CandidateAction, CandidatePersistence, Database, Operations, Provenance, ResearchActivityCandidate,
         },
         document::SourceDocument,
-        standard_project_folder, write_file, ApiResult,
+        standard_project_folder, write_file, ApiResult, Fingerprint,
     },
     util::{values_as_table, StringConversion},
     LocationExt,
@@ -1043,6 +1046,38 @@ impl Record {
             observed: observed.into(),
             status,
             subject: subject.into(),
+        }
+    }
+    /// Copy one diagnostic finding into a fingerprinted fix reference.
+    pub fn fix_reference(&self, id: impl Into<String>) -> Option<DiscoveryReference> {
+        match self {
+            | Self::Finding {
+                category,
+                details,
+                expected,
+                observed,
+                status,
+                subject,
+            } => {
+                let status = match status {
+                    | FindingStatus::Healthy => "healthy",
+                    | FindingStatus::Attention => "attention",
+                    | FindingStatus::Unavailable => "unavailable",
+                }
+                .to_string();
+                let observation = format!("{category}\n{subject}\n{status}\n{observed}\n{expected}\n{details:?}");
+                Some(DiscoveryReference {
+                    category: category.clone(),
+                    details: details.clone(),
+                    expected: expected.clone(),
+                    fingerprint: Fingerprint::from_bytes(observation).to_string(),
+                    id: id.into(),
+                    observed: observed.clone(),
+                    status,
+                    subject: subject.clone(),
+                })
+            }
+            | Self::Check { .. } | Self::Discovery { .. } => None,
         }
     }
     fn supporting_handle(&self) -> Option<(String, ArtifactCandidate)> {

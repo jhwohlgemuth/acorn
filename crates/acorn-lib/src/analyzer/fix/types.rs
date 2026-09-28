@@ -174,6 +174,8 @@ pub struct DiscoveryReference {
     pub expected: String,
     /// Observed state.
     pub observed: String,
+    /// Discovery status captured at observation time.
+    pub status: String,
     /// Diagnostic subject.
     pub subject: String,
 }
@@ -240,6 +242,19 @@ pub struct FixEffects {
     pub reversible: bool,
     /// Whether the proposal could require a restart.
     pub restart: bool,
+}
+impl FixEffects {
+    pub(super) const fn combine(self, other: Self) -> Self {
+        Self {
+            elevation: self.elevation || other.elevation,
+            filesystem_write: self.filesystem_write || other.filesystem_write,
+            package_manager: self.package_manager || other.package_manager,
+            network: self.network || other.network,
+            process: self.process || other.process,
+            reversible: self.reversible && other.reversible,
+            restart: self.restart || other.restart,
+        }
+    }
 }
 /// Bounded suggestion options shared by direct and registered invocation.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]

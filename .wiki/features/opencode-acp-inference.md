@@ -54,6 +54,19 @@ Finish the verified-fix lifecycle on the existing inference foundation: transfor
 - Real-adapter tests remain ignored and require explicit environment gates. Ordinary tests use synthetic content, fake processes, and fake HTTP services.
 - CLI parsing, generated help, and TUI locks begin only in phase 8.
 
+# Phase 6 evidence
+
+- `analyzer::fix` resolves only proposal-only document changes and compiled recipe identifiers into private executable actions. The planner rejects stale document inputs, conflicting writes, unsupported recipes, offline network effects, missing approval, and recipe effect declarations that do not match the compiled registry.
+- The registry has fixed vectors for Vale, Chromium, WinGet Node, and Homebrew Node. Repeated platform-supported Node recipes coalesce into one action, so the Node/npm/npx findings share one remediation.
+- Document actions use the workflow transaction path and restore their original content when verification fails. Native recipe invocations use a bounded `CommandFixRunner`; tests use a recording runner and never invoke package managers or modify the host.
+- Discovery `Record::Finding` values convert to fingerprinted `DiscoveryReference` values while retaining only category, subject, status, observed/expected values, and secret-free details.
+
+# Phase 6 validation
+
+- `cargo test -p acorn-lib analyzer::fix --lib`
+- `cargo test -p acorn-lib analyzer::host::discovery --lib`
+- `cargo check -p acorn-lib --no-default-features`
+
 # Active implementation slices
 
 | Slice | Atomic write set | Exit evidence |

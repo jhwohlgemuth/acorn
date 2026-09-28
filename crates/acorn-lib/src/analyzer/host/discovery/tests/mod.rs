@@ -357,10 +357,17 @@ fn test_host_findings_remain_secret_free_discovery_records() {
         BTreeMap::from([("probe".to_string(), "node --version".to_string())]),
     );
     let records = Records::from(Vec::<SourceDocument>::new()).with_findings(vec![finding]);
-    let value = serde_json::to_value(records).unwrap();
+    let value = serde_json::to_value(&records).unwrap();
     assert_eq!(value[0]["record"], "finding");
     assert_eq!(value[0]["category"], "software");
     assert_eq!(value[0]["details"]["probe"], "node --version");
+    let reference = records
+        .0
+        .first()
+        .and_then(|record| record.fix_reference("discovery-0001"))
+        .expect("finding reference");
+    assert_eq!(reference.status, "attention");
+    assert_eq!(reference.fingerprint.len(), 64);
 }
 #[test]
 fn test_identifier_find_all_extracts_document_urls_and_deduplicates() {

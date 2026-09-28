@@ -1,3 +1,4 @@
+use super::plan::Recipe;
 use super::service::{validate_envelope, validate_suggested_fix, PendingReference, PendingReferences, SuggestedFix, SuggestionEnvelope};
 use super::*;
 use crate::agent::{InMemoryBackend, InferenceCapabilities, InferenceFinishReason, InferenceFuture, InferenceResult, InferenceUsage};
@@ -206,6 +207,7 @@ fn planner_rejects_stale_document_preconditions_and_unapproved_recipes() {
     }];
     recipe.automation = FixAutomation::ConfirmationRequired;
     recipe.effects = FixEffects {
+        filesystem_write: true,
         network: true,
         process: true,
         ..FixEffects::default()
@@ -217,6 +219,7 @@ fn planner_rejects_stale_document_preconditions_and_unapproved_recipes() {
     }];
     offline_recipe.automation = FixAutomation::ConfirmationRequired;
     offline_recipe.effects = FixEffects {
+        filesystem_write: true,
         network: true,
         process: true,
         ..FixEffects::default()
@@ -231,6 +234,7 @@ fn registered_recipes_run_only_fixed_argument_vectors() {
     }];
     recipe.automation = FixAutomation::ConfirmationRequired;
     recipe.effects = FixEffects {
+        filesystem_write: true,
         network: true,
         process: true,
         ..FixEffects::default()
@@ -245,6 +249,68 @@ fn registered_recipes_run_only_fixed_argument_vectors() {
         runner.0.into_inner(),
         [("acorn".to_string(), vec!["download".to_string(), "vale".to_string()])]
     );
+}
+#[test]
+fn registered_recipe_registry_exposes_only_curated_vectors() {
+    assert_eq!(Recipe::Chromium.command(), ("acorn", ["download", "chromium"].as_slice()));
+    assert_eq!(Recipe::HomebrewNode.command(), ("brew", ["install", "node"].as_slice()));
+    assert_eq!(Recipe::Vale.command(), ("acorn", ["download", "vale"].as_slice()));
+    assert_eq!(
+        Recipe::WinGetNode.command(),
+        (
+            "winget",
+            [
+                "install",
+                "--id",
+                "OpenJS.NodeJS.LTS",
+                "--exact",
+                "--accept-package-agreements",
+                "--accept-source-agreements",
+            ]
+            .as_slice()
+        )
+    );
+}
+#[test]
+fn planner_rejects_registered_recipe_effects_that_model_output_understates() {
+    let mut recipe = planned_document_fix();
+    recipe.actions = vec![FixAction::RegisteredRecipe {
+        recipe_id: "vale.install".to_string(),
+    }];
+    recipe.automation = FixAutomation::ConfirmationRequired;
+    recipe.effects = FixEffects {
+        network: true,
+        process: true,
+        ..FixEffects::default()
+    };
+    assert!(FixPlan::from_fixes(&[recipe], FixPolicy::confirmed(false)).is_err());
+}
+#[test]
+fn planner_coalesces_repeated_node_recipe() {
+    let mut node = planned_document_fix();
+    node.actions = vec![FixAction::RegisteredRecipe {
+        recipe_id: if cfg!(target_os = "macos") {
+            "node.homebrew".to_string()
+        } else if cfg!(windows) {
+            "node.winget".to_string()
+        } else {
+            "unsupported".to_string()
+        },
+    }];
+    node.automation = FixAutomation::InteractiveOnly;
+    node.effects = FixEffects {
+        filesystem_write: true,
+        network: true,
+        package_manager: true,
+        process: true,
+        ..FixEffects::default()
+    };
+    if cfg!(any(target_os = "macos", windows)) {
+        let plan = FixPlan::from_fixes(&[node.clone(), node.clone(), node], FixPolicy::confirmed(false)).unwrap();
+        assert_eq!(plan.preview().len(), 1);
+    } else {
+        assert!(FixPlan::from_fixes(&[node], FixPolicy::confirmed(false)).is_err());
+    }
 }
 #[tokio::test]
 async fn suggestion_failures_are_reported_without_partial_fixes() {

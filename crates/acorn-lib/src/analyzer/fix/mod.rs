@@ -31,6 +31,8 @@ mod types;
 
 use types::FixError;
 
+#[cfg(feature = "analysis")]
+pub use execution::CommandFixRunner;
 pub use execution::{FixOutcome, FixRunner};
 pub use plan::{FixPlan, FixPolicy};
 pub use types::{
