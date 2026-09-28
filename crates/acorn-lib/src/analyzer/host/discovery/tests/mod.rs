@@ -348,6 +348,8 @@ fn test_handle_is_not_associated_with_ambiguous_same_source_candidates() {
 }
 #[test]
 fn test_host_findings_remain_secret_free_discovery_records() {
+    assert_eq!(FindingStatus::Healthy.to_string(), "healthy");
+    assert_eq!(FindingStatus::Unavailable.to_string(), "unavailable");
     let finding = Record::finding(
         "software",
         "node",

@@ -188,6 +188,15 @@ pub enum FindingStatus {
     /// ACORN could not determine the state.
     Unavailable,
 }
+impl fmt::Display for FindingStatus {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            | Self::Healthy => formatter.write_str("healthy"),
+            | Self::Attention => formatter.write_str("attention"),
+            | Self::Unavailable => formatter.write_str("unavailable"),
+        }
+    }
+}
 /// Remote metadata provider used by gather.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -1059,12 +1068,7 @@ impl Record {
                 status,
                 subject,
             } => {
-                let status = match status {
-                    | FindingStatus::Healthy => "healthy",
-                    | FindingStatus::Attention => "attention",
-                    | FindingStatus::Unavailable => "unavailable",
-                }
-                .to_string();
+                let status = status.to_string();
                 let observation = format!("{category}\n{subject}\n{status}\n{observed}\n{expected}\n{details:?}");
                 Some(DiscoveryReference {
                     category: category.clone(),
