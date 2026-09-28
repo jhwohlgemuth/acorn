@@ -1,3 +1,5 @@
+#![allow(clippy::panic)]
+
 use super::{automation_engine, host_platform, tree_matches};
 use rhai::{Array, Dynamic};
 

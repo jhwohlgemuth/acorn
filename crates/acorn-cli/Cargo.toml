@@ -19,12 +19,12 @@ path = "src/main.rs"
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-acorn-cmd = { version = "0.2.0", path = "../acorn-cmd" }
-acorn-core = { version = "0.2.0", path = "../acorn-core" }
-acorn-host = { version = "0.2.0", path = "../acorn-host", default-features = false, features = ["fs", "terminal"] }
-acorn-lib = { version = "0.2.0", path = "../acorn-lib", features = ["agentic", "doctor", "needle", "powerpoint", "swhid-compute"] }
-acorn-schema = { version = "0.2.0", path = "../acorn-schema" }
-acorn-tui = { version = "0.2.0", path = "../acorn-tui", optional = true }
+acorn-cmd = { version = "0.3.0", path = "../acorn-cmd" }
+acorn-core = { version = "0.3.0", path = "../acorn-core" }
+acorn-host = { version = "0.3.0", path = "../acorn-host", default-features = false, features = ["fs", "terminal"] }
+acorn-lib = { version = "0.3.0", path = "../acorn-lib", features = ["agentic", "doctor", "needle", "powerpoint", "swhid-compute"] }
+acorn-schema = { version = "0.3.0", path = "../acorn-schema" }
+acorn-tui = { version = "0.3.0", path = "../acorn-tui", optional = true }
 arboard = { workspace = true }
 bon = "3.3.2"
 jiff = { workspace = true, features = ["std"] }

@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "acorn-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "aho-corasick",
  "anydoc",
@@ -40,7 +40,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-macros"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -50,7 +50,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-schema"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "acorn-core",
  "acorn-macros",
