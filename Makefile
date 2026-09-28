@@ -193,9 +193,15 @@ test: ## Run the main test suite with nextest.
 test-all: ## Run the full suite including ignored tests.
 	@cargo nextest run --run-ignored all
 
+test-acp: ## Run configured OpenCode ACP interoperability tests.
+	@ACORN_TEST_OPENCODE_ACP=1 cargo nextest run -p acorn-lib --test acp_interoperability --no-default-features --features acp,analysis --run-ignored only --success-output final
+
 test-ci: lint ## Run the CI-style test workflow.
 	@XDG_CACHE_HOME=$(CURDIR)/.cache cargo test --lib --bins --tests
 	@XDG_CACHE_HOME=$(CURDIR)/.cache cargo test --lib --bins --tests --no-default-features
+
+test-openai: ## Run configured OpenAI-compatible interoperability tests.
+	@ACORN_TEST_OPENAI_COMPATIBLE=1 ACORN_TEST_OPENAI_BASE_URL="$(OPENAI_BASE_URL)" ACORN_TEST_OPENAI_MODEL="$(OPENAI_MODEL)" cargo nextest run -p acorn-lib --test openai_interoperability --no-default-features --features analysis --run-ignored only --success-output final
 
 fuzz: ## Run the configured fuzz target.
 	@cargo +nightly fuzz run --fuzz-dir fuzz $(FUZZ_TARGET) $(FUZZ_ARGS)
@@ -402,7 +408,9 @@ TASKS = \
 	publish-book \
 	setup \
 	test \
+	test-acp \
 	test-ci \
+	test-openai \
 	check-wasm \
 	version \
 	release-version \

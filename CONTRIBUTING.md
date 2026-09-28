@@ -142,6 +142,32 @@ The snapshots are stored in `crates/acorn-cli/src/commands/export/tests/snapshot
 cargo insta review
 ```
 
+### Real adapter interoperability tests
+
+The ACP and OpenAI-compatible interoperability tests use real configured services. They are ignored by default and never run as part of `make test`. Each test uses synthetic input, checks that it remains unchanged, and does not install software or apply a suggested fix.
+
+Run the OpenCode ACP test only when `opencode` is on `PATH`, authenticated, and configured with an available model:
+
+```shell
+make test-acp
+```
+
+Run the OpenAI-compatible test against a service that supports both `/v1/responses` and `/v1/chat/completions` for the selected model. Set `OPENAI_API_KEY` only when the endpoint requires bearer authentication; the test reads credentials only from that variable.
+
+```shell
+# Set OPENAI_API_KEY here when the endpoint requires bearer authentication.
+export OPENAI_API_KEY=token
+make test-openai OPENAI_BASE_URL=https://provider.example/v1 OPENAI_MODEL=example-model
+```
+
+For a local OpenAI-compatible endpoint, [Indigo](https://github.com/jhwohlgemuth/indigo) can start its `llama-swap` service at `http://127.0.0.1:10732/v1`. After starting the Indigo stack and selecting an exposed model, run:
+
+```shell
+make test-openai OPENAI_BASE_URL=http://127.0.0.1:10732/v1 OPENAI_MODEL=<model-id>
+```
+
+Without the corresponding `ACORN_TEST_*` gate, the ignored test exits before starting a process or making a network request. These tests complement the fake ACP and local HTTP coverage; use them to validate a configured provider before changing adapter behavior.
+
 ### SSL / TLS Support
 
 ACORN uses `git2` (via `swhid`) for software heritage identifier computation, which requires OpenSSL for network operations.

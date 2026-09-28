@@ -1,9 +1,9 @@
 use super::{
     async_trait, eyre, format, is_identifier, run_inference, schema_for, stream, validate_options, AnalysisReport, ApiResult, BTreeMap, BTreeSet,
     CheckReference, CheckReferences, Deserialize, FindingReference, Fingerprint, Fix, FixAction, FixAutomation, FixDiagnostic, FixEffects, FixError,
-    FixOptions, FixReport, FixRisk, FixStatus, InferenceBackend, InferencePermissionPolicy, InferenceProvenance, InferenceRequest, InferenceResult,
-    JsonSchema, Parse, PromptContext, PromptFileAsset, PromptHydrator, PromptTemplateConfiguration, SafePath, Serialize, StreamExt, String,
-    StringConversion, ToString, Validate, Value, Vec, FIX_ENVELOPE_VERSION, MAX_MESSAGE_BYTES,
+    FixOptions, FixReport, FixRisk, FixStatus, HydratedPrompt, InferenceBackend, InferencePermissionPolicy, InferenceProvenance, InferenceRequest,
+    InferenceResult, JsonSchema, Parse, PromptContext, PromptFileAsset, PromptHydrator, PromptTemplateConfiguration, SafePath, Serialize, StreamExt,
+    String, StringConversion, ToString, Validate, Value, Vec, FIX_ENVELOPE_VERSION, MAX_MESSAGE_BYTES,
 };
 
 pub(super) trait PendingReferences {
@@ -141,11 +141,22 @@ impl CheckReferences for Vec<CheckReference> {
                     .map_err(|why| eyre!("Serialize fix response schema — {why}"))
                     .map(|schema| (prompt, schema))
             })
-            .map(|(prompt, response_schema)| InferenceRequest {
+            .and_then(|(prompt, response_schema)| {
+                serde_json::to_string_pretty(&response_schema)
+                    .map_err(|why| eyre!("Serialize fix response schema for prompt — {why}"))
+                    .map(|schema| (prompt, response_schema, schema))
+            })
+            .map(|(prompt, response_schema, schema)| InferenceRequest {
                 agent: options.agent.clone(),
                 model: options.model.clone(),
                 permission_policy: InferencePermissionPolicy::DenyMutation,
-                prompt,
+                prompt: HydratedPrompt {
+                    body: format!(
+                        "{}\n\n# Response Schema\n\n```json\n{}\n```\n\nReturn valid JSON only that conforms to this schema.",
+                        prompt.body, schema
+                    ),
+                    ..prompt
+                },
                 response_schema: Some(response_schema),
                 timeout_ms: options.timeout_ms,
             })

@@ -49,8 +49,7 @@ fn test_bundle_is_deterministic_and_structurally_valid() {
     assert_eq!(first.sha256, second.sha256);
     assert_eq!(Manifest::inspect(&first.output).expect("manifest"), first.manifest);
     assert_eq!(first.manifest.manifest_version, "0.3");
-    let golden: Value =
-        serde_json::from_str(include_str!("../../../../../../tests/fixtures/mcpb/manifest-v0.3.json")).expect("golden MCPB manifest");
+    let golden: Value = serde_json::from_str(include_str!("../../../../../../tests/fixtures/mcpb/manifest-v0.3.json")).expect("golden MCPB manifest");
     let actual = serde_json::to_value(&first.manifest).expect("generated MCPB manifest");
     assert_eq!(manifest_without_release_version(actual), manifest_without_release_version(golden));
     assert!(!first.manifest.tools.iter().any(|tool| tool.name == "acorn.apply_logbook_graduation"));

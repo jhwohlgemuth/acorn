@@ -125,7 +125,9 @@ fn build_request_hydrates_bounded_finding_data_and_schema() {
     let request = vec![reference("check-0001")].build(&FixOptions::default()).unwrap();
     assert!(request.prompt.body.contains("check-0001"));
     assert!(request.prompt.body.contains("Title is invalid"));
-    assert!(request.response_schema.is_some());
+    let schema = request.response_schema.expect("fix request must include a response schema");
+    assert!(request.prompt.body.contains("# Response Schema"));
+    assert!(request.prompt.body.contains(&serde_json::to_string_pretty(&schema).unwrap()));
 }
 #[test]
 fn fix_actions_reject_executable_fields() {

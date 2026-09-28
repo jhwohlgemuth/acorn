@@ -133,6 +133,7 @@ criterion = "0.8.2"
 indicatif = { workspace = true, features = ["in_memory"] }
 insta = { workspace = true, features = ["json", "yaml"] }
 mockall = "0.14.0"
+owo-colors = { workspace = true }
 pretty_assertions = "1.4.1"
 proptest = "1.9.0"
 similar-asserts = "2.0.0"
@@ -152,6 +153,16 @@ harness = false
 [[bench]]
 name = "document"
 harness = false
+
+[[test]]
+name = "acp_interoperability"
+path = "tests/acp_interoperability.rs"
+required-features = ["acp", "analysis"]
+
+[[test]]
+name = "openai_interoperability"
+path = "tests/openai_interoperability.rs"
+required-features = ["analysis"]
 
 [features]
 acp = ["std-core", "dep:acorn-cmd", "dep:agent-client-protocol", "dep:thiserror", "dep:tokio", "tokio/rt", "tokio/time"]

@@ -1,6 +1,7 @@
 //! Proposal-only fix models and inference-backed suggestion orchestration.
 use crate::agent::{
-    run_inference, InferenceBackend, InferencePermissionPolicy, InferenceProvenance, InferenceRequest, InferenceResult, PromptContext, PromptHydrator,
+    run_inference, HydratedPrompt, InferenceBackend, InferencePermissionPolicy, InferenceProvenance, InferenceRequest, InferenceResult,
+    PromptContext, PromptHydrator,
 };
 use crate::analyzer::host::service::AnalysisReport;
 use crate::io::{ApiResult, Fingerprint, Parse};
