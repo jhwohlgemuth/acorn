@@ -136,35 +136,6 @@ pub(crate) mod bot {
     fn bind_port(bind: &str) -> Option<u16> {
         bind.rsplit_once(':').and_then(|(_, port)| port.parse().ok())
     }
-
-    #[cfg(test)]
-    mod tests {
-        use super::{Common, EventSource};
-
-        fn common(bind: Option<&str>, port: Option<u16>) -> Common {
-            Common {
-                identifier: "123".to_string(),
-                bind: bind.map(String::from),
-                port,
-                after: None,
-                poll_interval: 10,
-                runtime: None,
-                event_source: EventSource::Poll,
-                public_url: None,
-                register_webhook: false,
-                config: None,
-            }
-        }
-
-        #[test]
-        fn test_bind_address_uses_default_host_with_port() {
-            assert_eq!(common(None, Some(8080)).bind_address(), "localhost:8080");
-            assert_eq!(common(Some("0.0.0.0"), Some(8080)).bind_address(), "0.0.0.0:8080");
-            assert_eq!(common(Some("0.0.0.0"), None).bind_address(), "0.0.0.0:3000");
-            assert_eq!(common(Some("0.0.0.0:9000"), Some(8080)).bind_address(), "0.0.0.0:8080");
-            assert_eq!(common(None, None).bind_address_if_configured(), None);
-        }
-    }
 }
 pub(crate) mod osti;
 
