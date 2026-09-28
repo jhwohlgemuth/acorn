@@ -16,7 +16,7 @@ priority: next
 - **Create:** trusted planner, executor, verifier, and recipe leaves inside `crates/acorn-lib/src/analyzer/fix/`; ignored real-adapter smoke tests under the existing integration-test structure; `crates/acorn-cli/src/commands/prompt/` when the CLI slice begins.
 - **Delete:** `crates/acorn-lib/src/doctor/mod.rs` after discovery-backed CLI/TUI callers land; remove the `doctor --fix` not-implemented path when the shared planner is functional.
 
-Shared integration locks are `crates/acorn-lib/src/{lib.rs,io/mod.rs,io/api/json_rpc/mod.rs}`, `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, workspace and crate manifests, `crates/acorn-cli/src/cli/{mod.rs,arguments/mod.rs}`, `crates/acorn-cli/src/commands/mod.rs`, `CommandLineHelp.md`, and the doctor/TUI report views. Keep one integration owner across phases 6–8.
+Shared integration locks are `crates/acorn-lib/src/{lib.rs,io/mod.rs,io/api/json_rpc/mod.rs}`, `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, workspace and crate manifests, `crates/acorn-cli/src/cli/{mod.rs,arguments/mod.rs}`, `crates/acorn-cli/src/commands/mod.rs`, `CommandLineHelp.md`, and the doctor/TUI report views. Keep one integration owner across phases 7–8.
 
 # Dependencies
 
@@ -37,7 +37,7 @@ Finish the verified-fix lifecycle on the existing inference foundation: transfor
 - `acorn::io::api::openai` implements explicitly selected Responses and Chat Completions modes with local schema validation and loopback-only offline access.
 - The shared operation registry exposes explicitly authorized `acorn.inference.run`, `acorn.inference.readiness`, and `acorn.fixes.suggest` operations.
 - `acorn::analyzer::fix` owns bounded check/discovery references, non-executable proposals, grouping, validation, and suggestion orchestration. Inference output cannot deserialize executable commands.
-- `analyzer::host::discovery::Record` does not yet represent doctor-related findings.
+- `analyzer::host::discovery::Record::Finding` supplies secret-free, fingerprinted discovery references to the trusted fix lifecycle.
 - `acorn doctor` still has a separate display-oriented module; `doctor --fix` is unimplemented, and the TUI duplicates doctor report data.
 - RAD formatting, Vale replacement data and installation, Chromium installation, and command execution already exist behind ACORN-owned paths that trusted providers can adapt.
 
@@ -54,30 +54,15 @@ Finish the verified-fix lifecycle on the existing inference foundation: transfor
 - Real-adapter tests remain ignored and require explicit environment gates. Ordinary tests use synthetic content, fake processes, and fake HTTP services.
 - CLI parsing, generated help, and TUI locks begin only in phase 8.
 
-# Phase 6 evidence
-
-- `analyzer::fix` resolves only proposal-only document changes and compiled recipe identifiers into private executable actions. The planner rejects stale document inputs, conflicting writes, unsupported recipes, offline network effects, missing approval, and recipe effect declarations that do not match the compiled registry.
-- The registry has fixed vectors for Vale, Chromium, WinGet Node, and Homebrew Node. Repeated platform-supported Node recipes coalesce into one action, so the Node/npm/npx findings share one remediation.
-- Document actions use the workflow transaction path and restore their original content when verification fails. Native recipe invocations use a bounded `CommandFixRunner`; tests use a recording runner and never invoke package managers or modify the host.
-- Discovery `Record::Finding` values convert to fingerprinted `DiscoveryReference` values while retaining only category, subject, status, observed/expected values, and secret-free details.
-
-# Phase 6 validation
-
-- `cargo test -p acorn-lib analyzer::fix --lib`
-- `cargo test -p acorn-lib analyzer::host::discovery --lib`
-- `cargo check -p acorn-lib --no-default-features`
-
 # Active implementation slices
 
 | Slice | Atomic write set | Exit evidence |
 |---|---|---|
-| 6A. Trusted planning and discovery findings | Extend `crates/acorn-lib/src/analyzer/fix/` with private executable plans, policy, outcomes, and verifier contracts; add doctor-related findings to `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`; retain current table and JSON output through a temporary facade. | Pure planner tests cover dependencies, conflicts, Node/npm/npx coalescing, risk/effect ceilings, stale preconditions, preview output, and conversion of system, network, configuration, and software diagnostics into discovery findings. |
-| 6B. Native executors and curated recipes | Extend `analyzer::fix` with document, download, package, and registry leaves; adapt `io::workflow::transaction`, `SafePath`, fixed `CommandSpec` vectors, existing RAD/Vale/Chromium operations, and isolated fake runners. | Temporary-directory tests prove apply, verification, and rollback; fake WinGet, Homebrew, Vale, and Chromium runners prove approval, offline, elevation, timeout, redaction, and post-fix verification without changing the host. |
 | 7. Opt-in interoperability | Add only ignored smoke tests and required test-target manifest entries. | Tests run solely through the named environment gates; both real adapters return a non-empty schema-valid fix result, reap processes, and leave synthetic inputs unchanged. |
 | 8A. Prompt and suggestion CLI | Add `acorn prompt run` and extend `acorn check --suggest-fixes`; preserve the Needle-backed `acorn infer` command. | Parsing and integration tests cover dry-run, stdin/file data, ZON/JSON prompt data, backend selection, readiness failures, clean structured output, and suggestion-only behavior. |
 | 8B. Doctor/TUI and release surfaces | Migrate doctor/TUI views and exports to discovery records and `analyzer::fix`; delete `crates/acorn-lib/src/doctor/mod.rs`; update manifests, help, and documentation. | All three doctor modes use one discovery/planner lifecycle, capability-scoped tests pass, and help/documentation are regenerated. |
 
-Landing order is strict: 6A planner and discovery findings, 6B native executors and recipes, 7 ignored interoperability tests, then 8A/8B CLI and TUI integration. Each slice passes its focused tests and relevant feature checks before the next slice takes a shared lock.
+Landing order is strict: 7 ignored interoperability tests, then 8A/8B CLI and TUI integration. Each slice passes its focused tests and relevant feature checks before the next slice takes a shared lock.
 
 # Target design
 
@@ -174,17 +159,6 @@ acorn check activity.json --suggest-fixes --backend openai --model local-model
 
 # Delivery sequence
 
-## 6. Implement deterministic planning and execution
-
-1. Add pure planner, policy, preview, outcome, and private executable contracts inside `analyzer::fix`.
-2. Add doctor-related discovery findings and retain current doctor renderers as temporary projections.
-3. Adapt one deterministic document fix end to end with stale-input rejection, transaction-backed rollback, and verification.
-4. Adapt RAD, Vale, and Chromium behavior through their existing ACORN-owned operations.
-5. Add fixed WinGet and Homebrew Node recipes, coalesce Node/npm/npx, and make unsupported combinations manual.
-6. Prove effect, approval, elevation, offline, timeout, conflict, redaction, rollback, and verification policy with fake runners and temporary directories.
-
-Exit gate: deterministic fixtures can preview, apply, verify, and where supported roll back document fixes; fake WinGet, Homebrew, Vale, and Chromium tests invoke only fixed argument vectors and never change the test host.
-
 ## 7. Validate real interoperability
 
 1. Add an ignored OpenCode smoke test gated by `ACORN_TEST_OPENCODE_ACP=1`.
@@ -207,21 +181,14 @@ Exit gate: users can preview and run embedded prompts, request structured sugges
 
 # Validation
 
-1. Test discovery correlation, stale inputs, effect declarations, dependency/conflict planning, Node/npm/npx coalescing, exact previews, and inability to deserialize executable actions.
-2. Test atomic document edits and rollback, fixed command invocation, offline/network policy, approval/elevation, timeouts, non-zero exits, redaction, and mandatory verification with isolated fake runners.
-3. Test CLI parsing and execution for file/stdin data, dry-run without OpenCode, missing readiness, unavailable API endpoints, capability-scoped doctor output, JSON output, safe-only fixes, interactive selection, declined approval, shared exports, invalid data, timeout, backend selection, and clean stdout.
-4. Run ignored real-adapter smoke tests only through their explicit environment gates.
-5. Run focused `analyzer::fix`, analyzer discovery, ACP, OpenAI, JSON-RPC, CLI doctor/check/prompt, and TUI tests, then `make lint` and `make test`.
-6. Run minimal, alloc, analysis-only, ACP-only, combined agentic/ACP, default, and WASM checks. Confirm native executor dependencies stay outside portable builds.
-7. Regenerate CLI help and build documentation when phase 8 lands; record accepted pre-existing audit or documentation failures without attributing them to this plan.
+1. Run ignored real-adapter smoke tests only through their explicit environment gates.
+2. Test CLI parsing and execution for file/stdin data, dry-run without OpenCode, missing readiness, unavailable API endpoints, capability-scoped doctor output, JSON output, safe-only fixes, interactive selection, declined approval, shared exports, invalid data, timeout, backend selection, and clean stdout.
+3. Run focused ACP, OpenAI, JSON-RPC, CLI doctor/check/prompt, and TUI tests, then `make lint` and `make test`.
+4. Run minimal, alloc, analysis-only, ACP-only, combined agentic/ACP, default, and WASM checks. Confirm native executor dependencies stay outside portable builds.
+5. Regenerate CLI help and build documentation when phase 8 lands; record accepted pre-existing audit or documentation failures without attributing them to this plan.
 
 # Acceptance criteria
 
-- Doctor-related system, network, configuration, and software observations use analyzer discovery records, and `analyzer::fix` retains their provenance and source fingerprints.
-- Trusted deterministic fixes can be previewed, policy-checked, explicitly applied, rolled back where supported, and verified through one planner/executor lifecycle.
-- Safe non-interactive runs execute only reversible actions; network, elevation, package-manager, restart, or non-reversible effects require interactive confirmation.
-- One Node remediation satisfies Node, npm, and npx without duplicate installation. Windows resolves only WinGet `OpenJS.NodeJS.LTS`, macOS resolves only Homebrew `node`, and other combinations remain manual.
-- Executors accept only trusted `ExecutableFix` plans. Every action rechecks preconditions and reruns its originating check or discovery probe before reporting resolution.
 - CLI and TUI doctor views and exports consume the same discovery records, and no separate `acorn::doctor` module remains.
 - Real smoke tests run only through `ACORN_TEST_OPENCODE_ACP=1` or `ACORN_TEST_OPENAI_COMPATIBLE=1` with explicit endpoint/model configuration and synthetic inputs.
 - Native executor code remains outside portable schema/analysis builds, and tests never install packages or modify the real host environment.
@@ -231,7 +198,7 @@ Exit gate: users can preview and run embedded prompts, request structured sugges
 
 # Completion handling
 
-Keep this plan, its index entry, dependency edge, evidence, and acceptance criteria synchronized while phases 6–8 remain active. After every acceptance criterion passes, delete the plan and remove its entries from the feature index, plan network, and parallel-execution guide. Durable behavior belongs in code, tests, user documentation, and release history.
+Keep this plan, its index entry, dependency edge, evidence, and acceptance criteria synchronized while phases 7–8 remain active. After every acceptance criterion passes, delete the plan and remove its entries from the feature index, plan network, and parallel-execution guide. Durable behavior belongs in code, tests, user documentation, and release history.
 
 # Next plan
 

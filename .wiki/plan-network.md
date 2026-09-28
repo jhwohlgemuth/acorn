@@ -17,7 +17,7 @@ ACP inference and verified fixes
 MCP client
 ```
 
-This is one serialized delivery lane in the displayed scheduling order. The implemented PowerAutomate workflow has released the shared API integration locks. Its [secret-generation amendment](features/powerapps-gitlab-logbook-reporting.md) is limited to the existing utility, create-command, generated-help, and documentation boundaries while deployment validation remains open. ACP phases 6–8 add trusted remediation, interoperability smoke tests, and CLI/doctor/TUI integration before the RMCP client adds outbound MCP interoperability.
+This is one serialized delivery lane in the displayed scheduling order. The implemented PowerAutomate workflow has released the shared API integration locks. Its [secret-generation amendment](features/powerapps-gitlab-logbook-reporting.md) is limited to the existing utility, create-command, generated-help, and documentation boundaries while deployment validation remains open. ACP phases 7–8 add interoperability smoke tests and CLI/doctor/TUI integration before the RMCP client adds outbound MCP interoperability.
 
 ## Critical portability path
 
