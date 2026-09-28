@@ -20,6 +20,12 @@ fn bundle_options(root: &Path, output: &str) -> BundleOptions {
         overwrite: false,
     }
 }
+fn manifest_without_release_version(manifest: Value) -> Value {
+    match manifest {
+        | Value::Object(fields) => Value::Object(fields.into_iter().filter(|(name, _)| name != "version").collect()),
+        | value => value,
+    }
+}
 
 #[test]
 fn test_bundle_failure_removes_only_temporary_output() {
@@ -43,9 +49,10 @@ fn test_bundle_is_deterministic_and_structurally_valid() {
     assert_eq!(first.sha256, second.sha256);
     assert_eq!(Manifest::inspect(&first.output).expect("manifest"), first.manifest);
     assert_eq!(first.manifest.manifest_version, "0.3");
-    let golden: Manifest =
+    let golden: Value =
         serde_json::from_str(include_str!("../../../../../../tests/fixtures/mcpb/manifest-v0.3.json")).expect("golden MCPB manifest");
-    assert_eq!(first.manifest, golden);
+    let actual = serde_json::to_value(&first.manifest).expect("generated MCPB manifest");
+    assert_eq!(manifest_without_release_version(actual), manifest_without_release_version(golden));
     assert!(!first.manifest.tools.iter().any(|tool| tool.name == "acorn.apply_logbook_graduation"));
     let direct = Server::acorn()
         .expect("server")
