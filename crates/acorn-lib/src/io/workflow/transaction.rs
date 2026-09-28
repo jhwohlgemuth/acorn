@@ -9,7 +9,7 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-pub(super) struct Artifacts(Vec<Artifact>);
+pub(crate) struct Artifacts(Vec<Artifact>);
 pub(super) struct StagedFile {
     pub(super) backup: Option<PathBuf>,
     pub(super) stage: PathBuf,
@@ -31,7 +31,7 @@ impl Artifact {
     }
 }
 impl Artifacts {
-    pub(super) fn apply(self) -> ApiResult<usize> {
+    pub(crate) fn apply(self) -> ApiResult<usize> {
         self.normalize().and_then(Self::stage).and_then(StagedFiles::commit)
     }
     fn normalize(self) -> ApiResult<Self> {

@@ -578,6 +578,18 @@ pub(crate) struct DownloadModel {
 }
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
+pub(crate) struct ExecAutomation {
+    /// Trusted local Rhai automation script.
+    #[arg(value_name = "SCRIPT", value_hint = ValueHint::FilePath, help_heading = "ARGS")]
+    pub(crate) script: PathBuf,
+    /// Arguments passed to the script.
+    #[arg(value_name = "ARGUMENT", trailing_var_arg = true, allow_hyphen_values = true, help_heading = "ARGS")]
+    pub(crate) arguments: Vec<String>,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
 pub(crate) struct ExecCheck {
     /// Rhai script path
     #[arg(value_name = "SCRIPT", value_hint = ValueHint::FilePath, help_heading = "ARGS")]

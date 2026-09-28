@@ -588,6 +588,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             | None => Err(eyre::eyre!("No subcommand provided for 'serve'")),
         },
         | Some(Commands::Exec { command }) => match command {
+            | Some(ExecCommands::Automation(arguments)) => exec::run_automation(&arguments.script, &arguments.arguments),
             | Some(ExecCommands::Check(arguments)) => with_runtime(async { exec::run_check(&arguments.script, &arguments.input).await }),
             | Some(ExecCommands::CheckSafe(arguments)) => exec::run_check_safe(&arguments.script, arguments.format.as_ref()),
             | Some(ExecCommands::Hook { command }) => match command {

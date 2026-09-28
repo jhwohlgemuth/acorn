@@ -158,6 +158,32 @@ pub enum Record {
         /// Source document format
         source_format: String,
     },
+    /// Secret-free host diagnostic retained with discovery output.
+    Finding {
+        /// Stable diagnostic category.
+        category: String,
+        /// Additional secret-free diagnostic values.
+        details: BTreeMap<String, String>,
+        /// Expected state.
+        expected: String,
+        /// Observed state.
+        observed: String,
+        /// Diagnostic state.
+        status: FindingStatus,
+        /// Software, system, network, or configuration subject.
+        subject: String,
+    },
+}
+/// State of a host diagnostic finding.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FindingStatus {
+    /// The observed state meets the requirement.
+    Healthy,
+    /// The observed state needs attention.
+    Attention,
+    /// ACORN could not determine the state.
+    Unavailable,
 }
 /// Remote metadata provider used by gather.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
@@ -760,7 +786,7 @@ impl<'a> TryFrom<&'a Record> for ArtifactCandidate {
                     })
                     .ok_or(record)
             }
-            | Record::Check { .. } => Err(record),
+            | Record::Check { .. } | Record::Finding { .. } => Err(record),
         }
     }
 }
@@ -1001,6 +1027,24 @@ impl From<Identifier> for Record {
     }
 }
 impl Record {
+    /// Construct one secret-free host diagnostic finding.
+    pub fn finding(
+        category: impl Into<String>,
+        subject: impl Into<String>,
+        status: FindingStatus,
+        observed: impl Into<String>,
+        expected: impl Into<String>,
+        details: BTreeMap<String, String>,
+    ) -> Self {
+        Self::Finding {
+            category: category.into(),
+            details,
+            expected: expected.into(),
+            observed: observed.into(),
+            status,
+            subject: subject.into(),
+        }
+    }
     fn supporting_handle(&self) -> Option<(String, ArtifactCandidate)> {
         match self {
             | Self::Discovery {
@@ -1108,6 +1152,14 @@ impl Record {
             | Self::Check {
                 category, message, severity, ..
             } => format!("- **{severity}** {category}: {message}"),
+            | Self::Finding {
+                category,
+                expected,
+                observed,
+                status,
+                subject,
+                ..
+            } => format!("- **{status:?}** {category} {subject}: observed `{observed}`, expected `{expected}`"),
         }
     }
     fn resolved_raw_value(&self, citation_format: CitationFormat) -> Result<String, String> {
@@ -1122,7 +1174,7 @@ impl Record {
                 .map_err(|_| format!("Invalid resolver metadata for {identifier}"))
                 .and_then(|metadata| resolved_pid_output(identifier, identifier_type.clone(), &metadata, citation_format)),
             | Self::Discovery { identifier, .. } => Ok(identifier.clone()),
-            | Self::Check { .. } => Ok(String::new()),
+            | Self::Check { .. } | Self::Finding { .. } => Ok(String::new()),
         }
     }
 }
@@ -1146,6 +1198,12 @@ impl From<Vec<SourceDocument>> for Records {
     }
 }
 impl Records {
+    /// Append host diagnostic findings while retaining the original source documents.
+    pub fn with_findings(self, findings: impl IntoIterator<Item = Record>) -> Self {
+        let Self(records, sources) = self;
+        let findings = findings.into_iter().filter(Record::is_finding);
+        Self(records.into_iter().chain(findings).collect(), sources)
+    }
     fn isni_identifiers(&self) -> Vec<String> {
         self.0
             .iter()
@@ -1182,7 +1240,7 @@ impl Records {
                     };
                     once(found).chain(outcome).collect::<Vec<_>>()
                 }
-                | Record::Check { .. } => Vec::new(),
+                | Record::Check { .. } | Record::Finding { .. } => Vec::new(),
             })
             .collect()
     }
@@ -1307,7 +1365,7 @@ impl Records {
                         .err()
                         .map(|why| check_err!(CheckCategory::Schema, message: why.to_string(), uri: source.clone()))
                 }
-                | Record::Check { .. } => None,
+                | Record::Check { .. } | Record::Finding { .. } => None,
             })
             .collect()
     }
@@ -1733,7 +1791,7 @@ impl Report {
                             identifier.clone(),
                             record.resolved_raw_value(self.citation_format).unwrap_or_else(|_| identifier.clone()),
                         )),
-                        | Record::Check { .. } => None,
+                        | Record::Check { .. } | Record::Finding { .. } => None,
                     })
                     .chain(self.remote.iter().flat_map(|response| {
                         response
@@ -1771,7 +1829,7 @@ impl Report {
                 resolution_status.to_string(),
                 source.clone(),
             ]),
-            | Record::Check { .. } => None,
+            | Record::Check { .. } | Record::Finding { .. } => None,
         });
         let remote = self.remote.iter().flat_map(|response| {
             response.matches.iter().map(|value| {

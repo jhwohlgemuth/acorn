@@ -6,6 +6,7 @@ use crate::io::api::osti::SearchResults;
 use crate::io::api::{isni, orcid, osti};
 use crate::io::read_file;
 use acorn_schema::discovery::{Person, ProjectOrganization};
+use alloc::collections::BTreeMap;
 use std::fs::remove_file;
 
 #[tokio::test]
@@ -344,6 +345,22 @@ fn test_handle_is_not_associated_with_ambiguous_same_source_candidates() {
     assert!(candidates
         .iter()
         .all(|candidate| candidate.identifiers.iter().all(|identifier| identifier.kind != PID::Handle)));
+}
+#[test]
+fn test_host_findings_remain_secret_free_discovery_records() {
+    let finding = Record::finding(
+        "software",
+        "node",
+        FindingStatus::Attention,
+        "missing",
+        "installed",
+        BTreeMap::from([("probe".to_string(), "node --version".to_string())]),
+    );
+    let records = Records::from(Vec::<SourceDocument>::new()).with_findings(vec![finding]);
+    let value = serde_json::to_value(records).unwrap();
+    assert_eq!(value[0]["record"], "finding");
+    assert_eq!(value[0]["category"], "software");
+    assert_eq!(value[0]["details"]["probe"], "node --version");
 }
 #[test]
 fn test_identifier_find_all_extracts_document_urls_and_deduplicates() {

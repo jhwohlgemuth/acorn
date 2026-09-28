@@ -1,5 +1,7 @@
 //! Executable Rhai extension commands.
 #[cfg(feature = "exec")]
+mod automation;
+#[cfg(feature = "exec")]
 use crate::cli::parse::parse_hook_input;
 #[cfg(feature = "exec")]
 use acorn::analyzer::Check;
@@ -21,6 +23,18 @@ use acorn_host::fs::read_text;
 use acorn_host::terminal::Label;
 use color_eyre::eyre::{eyre, Report, Result};
 use std::path::Path;
+
+/// Run one trusted local Rhai automation script.
+#[cfg(feature = "exec")]
+pub fn run_automation(script: &Path, arguments: &[String]) -> Result<(), Report> {
+    automation::run(script, arguments)
+}
+
+/// Report an unavailable automation feature.
+#[cfg(not(feature = "exec"))]
+pub fn run_automation(_script: &Path, _arguments: &[String]) -> Result<(), Report> {
+    Err(eyre!("`exec` feature is not enabled — rebuild with --features exec"))
+}
 
 /// Evaluate a script against supplied input and render its findings.
 #[cfg(feature = "exec")]

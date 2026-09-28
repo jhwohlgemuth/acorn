@@ -24,10 +24,19 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
 
+mod execution;
+mod plan;
 mod service;
 mod types;
 
-pub use types::*;
+use types::FixError;
+
+pub use execution::{FixOutcome, FixRunner};
+pub use plan::{FixPlan, FixPolicy};
+pub use types::{
+    CategoryFixes, CheckReference, DiscoveryReference, FindingReference, Fix, FixAction, FixAutomation, FixBatch, FixDiagnostic, FixEffects,
+    FixOptions, FixProvenance, FixReport, FixRisk, FixStatus, FixSuggestionRequest, FixSummary,
+};
 
 /// Maximum aggregate finding context sent in one inference request by default.
 pub const DEFAULT_MAX_CONTEXT_BYTES: usize = 128 * 1024;

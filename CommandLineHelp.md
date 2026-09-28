@@ -34,6 +34,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli sync`↴](#acorn-cli-sync)
 * [`acorn-cli tui`↴](#acorn-cli-tui)
 * [`acorn-cli exec`↴](#acorn-cli-exec)
+* [`acorn-cli exec automation`↴](#acorn-cli-exec-automation)
 * [`acorn-cli exec check`↴](#acorn-cli-exec-check)
 * [`acorn-cli exec check-safe`↴](#acorn-cli-exec-check-safe)
 * [`acorn-cli exec hook`↴](#acorn-cli-exec-hook)
@@ -1312,17 +1313,38 @@ Execute constrained Rhai extensions
 
 ABI version: `// @acorn-exec-v0.2.0`
 
-The evaluation context contains `hook`, `path`, `index`, `input`, and `proposed`. Scripts return a map containing a `findings` array.
-Source is limited to 512 KiB; evaluation is bounded and does not permit dynamic evaluation or imports.
+Hook evaluations contain `hook`, `path`, `index`, `input`, and `proposed`; scripts return a map containing a `findings` array.
+Hook source is limited to 512 KiB; evaluation is bounded and does not permit dynamic evaluation or imports.
+
+`automation` runs trusted local scripts with filesystem and process access. It is separate from manifest-authorized workflow hooks.
 
 **Usage:** `acorn-cli exec [COMMAND]`
 
 ###### **Subcommands:**
 
+* `automation` — Run a trusted local Rhai automation script
 * `check` — Evaluate a script against supplied input and render findings
 * `check-safe` — Check Rhai source without evaluating it
 * `hook` — Validate or evaluate a manifest-authorized workflow hook
 * `manifest` — Validate executable-hook deployment manifests
+
+
+
+## `acorn-cli exec automation`
+
+Run a trusted local Rhai automation script
+
+**Usage:** `acorn-cli exec automation [OPTIONS] <SCRIPT> [ARGUMENT]...`
+
+###### **Arguments:**
+
+* `<SCRIPT>` — Trusted local Rhai automation script
+* `<ARGUMENT>` — Arguments passed to the script
+
+###### **Options:**
+
+* `-v`, `--verbose` — Increase logging verbosity
+* `-q`, `--quiet` — Decrease logging verbosity
 
 
 

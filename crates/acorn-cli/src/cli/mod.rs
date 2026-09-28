@@ -289,8 +289,10 @@ pub enum Commands {
     ///
     /// ABI version: `// @acorn-exec-v0.2.0`
     ///
-    /// The evaluation context contains `hook`, `path`, `index`, `input`, and `proposed`. Scripts return a map containing a `findings` array.
-    /// Source is limited to 512 KiB; evaluation is bounded and does not permit dynamic evaluation or imports.
+    /// Hook evaluations contain `hook`, `path`, `index`, `input`, and `proposed`; scripts return a map containing a `findings` array.
+    /// Hook source is limited to 512 KiB; evaluation is bounded and does not permit dynamic evaluation or imports.
+    ///
+    /// `automation` runs trusted local scripts with filesystem and process access. It is separate from manifest-authorized workflow hooks.
     ///
     #[clap(verbatim_doc_comment)]
     Exec {
@@ -325,6 +327,8 @@ pub enum DownloadCommands {
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
 pub enum ExecCommands {
+    /// Run a trusted local Rhai automation script.
+    Automation(Box<arguments::ExecAutomation>),
     /// Evaluate a script against supplied input and render findings
     Check(Box<arguments::ExecCheck>),
     /// Check Rhai source without evaluating it

@@ -8,6 +8,20 @@ Constrained Rhai extensions and capability-brokered local workflow hooks for ACO
 - Entry: `fn evaluate(context)` with exactly one parameter.
 - Engine: `Engine::new_raw()`, `eval`/imports disabled, bounded operations and wall time, fresh scope and capability broker per invocation.
 
+## Local automation
+
+`acorn exec automation` is a separate, local-only runner for repository-maintained scripts. It is not a workflow hook: it does not use the hook ABI, manifests, deployment authorization, or capability broker. Its `run(program, arguments)` function executes a command with an explicit argv list, so only run reviewed scripts from a trusted checkout.
+
+Build with `exec`, then run the Rhai counterparts without changing the existing shell or PowerShell CI entry points:
+
+```console
+cargo run -p acorn-cli --features exec -- exec automation scripts/check-host-dependencies.rhai
+cargo run -p acorn-cli --features exec -- exec automation scripts/check-portable-dependencies.rhai
+cargo run -p acorn-cli --features exec -- exec automation scripts/needle/create-oci-artifact.rhai ./needle3 registry.example.org/research/needle:modelkit
+```
+
+The local runner provides explicit helpers for command execution, file reads and writes, copying, SHA-256 and size calculation, JSON serialization, platform detection, and selected environment variables. It remains unavailable unless the `exec` feature is enabled.
+
 ## Result
 
 ```rhai

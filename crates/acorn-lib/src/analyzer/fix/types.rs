@@ -37,7 +37,7 @@ pub enum FixAction {
     },
 }
 /// Automation level proposed for a fix.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, Ord, PartialEq, PartialOrd, Serialize, strum::EnumIs)]
 #[serde(rename_all = "kebab-case")]
 pub enum FixAutomation {
     /// The proposal can be applied automatically after trusted planning.
@@ -97,7 +97,7 @@ pub(super) enum FixError {
     UnsafeTarget,
 }
 /// Risk classification for a proposed fix.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, Ord, PartialEq, PartialOrd, Serialize, strum::EnumIs)]
 #[serde(rename_all = "lowercase")]
 pub enum FixRisk {
     /// Low-risk, bounded proposal.

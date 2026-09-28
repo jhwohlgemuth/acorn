@@ -46,6 +46,8 @@ pub mod registry;
 pub mod repository;
 mod transaction;
 
+pub(crate) use transaction::Artifacts;
+
 pub use logbook::LogbookProposal;
 pub use registry::RepositoryWorkflowRegistry;
 pub use repository::{FileChange, FileChangeKind, RepositoryChangeSet, RepositoryFileInput, RepositoryInput, WorkflowAction, WorkflowFileReport};

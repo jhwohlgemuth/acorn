@@ -3,7 +3,10 @@ use super::*;
 use crate::agent::{InMemoryBackend, InferenceCapabilities, InferenceFinishReason, InferenceFuture, InferenceResult, InferenceUsage};
 use crate::analyzer::{CheckCategory, CheckSeverity};
 use acorn_core::prelude::Box;
+use core::cell::RefCell;
 use serde_json::json;
+use std::fs;
+use tempfile::tempdir;
 
 #[derive(Clone)]
 struct FailingBackend;
@@ -191,6 +194,58 @@ fn options_reject_requests_above_fixed_ceiling() {
     };
     assert!(options.validate().is_err());
 }
+#[test]
+fn planner_rejects_stale_document_preconditions_and_unapproved_recipes() {
+    let directory = tempdir().unwrap();
+    fs::write(directory.path().join("activity.json"), "Different title").unwrap();
+    let document = FixPlan::from_fixes(&[planned_document_fix()], FixPolicy::safe(false)).unwrap();
+    assert!(document.execute(directory.path(), &RecordingRunner::default(), || true).is_err());
+    let mut recipe = planned_document_fix();
+    recipe.actions = vec![FixAction::RegisteredRecipe {
+        recipe_id: "vale.install".to_string(),
+    }];
+    recipe.automation = FixAutomation::ConfirmationRequired;
+    recipe.effects = FixEffects {
+        network: true,
+        process: true,
+        ..FixEffects::default()
+    };
+    assert!(FixPlan::from_fixes(&[recipe], FixPolicy::safe(false)).is_err());
+    let mut offline_recipe = planned_document_fix();
+    offline_recipe.actions = vec![FixAction::RegisteredRecipe {
+        recipe_id: "vale.install".to_string(),
+    }];
+    offline_recipe.automation = FixAutomation::ConfirmationRequired;
+    offline_recipe.effects = FixEffects {
+        network: true,
+        process: true,
+        ..FixEffects::default()
+    };
+    assert!(FixPlan::from_fixes(&[offline_recipe], FixPolicy::confirmed(true)).is_err());
+}
+#[test]
+fn registered_recipes_run_only_fixed_argument_vectors() {
+    let mut recipe = planned_document_fix();
+    recipe.actions = vec![FixAction::RegisteredRecipe {
+        recipe_id: "vale.install".to_string(),
+    }];
+    recipe.automation = FixAutomation::ConfirmationRequired;
+    recipe.effects = FixEffects {
+        network: true,
+        process: true,
+        ..FixEffects::default()
+    };
+    let runner = RecordingRunner::default();
+    let plan = FixPlan::from_fixes(&[recipe], FixPolicy::confirmed(false)).unwrap();
+    assert_eq!(
+        plan.execute(tempdir().unwrap().path(), &runner, || true).unwrap(),
+        [FixOutcome::Applied("run vale.install".to_string())]
+    );
+    assert_eq!(
+        runner.0.into_inner(),
+        [("acorn".to_string(), vec!["download".to_string(), "vale".to_string()])]
+    );
+}
 #[tokio::test]
 async fn suggestion_failures_are_reported_without_partial_fixes() {
     let report = vec![reference("check-0001")]
@@ -270,4 +325,36 @@ fn suggestion_validation_rejects_unknown_and_stale_findings() {
     let mut stale = suggested(&reference);
     stale.source_fingerprint = "b".repeat(64);
     assert!(validate_suggested_fix(stale, &reference, &FixOptions::default(), result(&reference).provenance).is_err());
+}
+#[derive(Default)]
+struct RecordingRunner(RefCell<Vec<(String, Vec<String>)>>);
+impl FixRunner for RecordingRunner {
+    fn run(&self, binary: &str, arguments: &[&str]) -> ApiResult<String> {
+        self.0
+            .borrow_mut()
+            .push((binary.to_string(), arguments.iter().map(|value| value.to_string()).collect()));
+        Ok(String::new())
+    }
+}
+fn planned_document_fix() -> Fix {
+    let reference = reference("check-0001");
+    validate_suggested_fix(suggested(&reference), &reference, &FixOptions::default(), result(&reference).provenance).unwrap()
+}
+#[test]
+fn trusted_document_plan_applies_and_rolls_back_on_failed_verification() {
+    let directory = tempdir().unwrap();
+    let target = directory.path().join("activity.json");
+    fs::write(&target, "Old title").unwrap();
+    let plan = FixPlan::from_fixes(&[planned_document_fix()], FixPolicy::safe(false)).unwrap();
+    assert_eq!(plan.preview(), ["write activity.json"]);
+    let applied = plan.execute(directory.path(), &RecordingRunner::default(), || true).unwrap();
+    assert_eq!(applied, vec![FixOutcome::Applied("write activity.json".to_string())]);
+    assert_eq!(fs::read_to_string(&target).unwrap(), "New title");
+    fs::write(&target, "Old title").unwrap();
+    let rollback = FixPlan::from_fixes(&[planned_document_fix()], FixPolicy::safe(false))
+        .unwrap()
+        .execute(directory.path(), &RecordingRunner::default(), || false)
+        .unwrap();
+    assert_eq!(rollback, vec![FixOutcome::RolledBack("write activity.json".to_string())]);
+    assert_eq!(fs::read_to_string(&target).unwrap(), "Old title");
 }
