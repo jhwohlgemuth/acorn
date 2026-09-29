@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::panic)]
 //! Ignored interoperability coverage for configured OpenAI-compatible endpoints
 use acorn::{
     agent::{InferenceRequest, PromptContext, PromptHydrator},

@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::panic)]
 //! Ignored interoperability coverage for a configured OpenCode ACP agent
 use acorn::{
     agent::{InferenceRequest, PromptContext, PromptHydrator},

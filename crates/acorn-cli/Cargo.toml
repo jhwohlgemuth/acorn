@@ -22,9 +22,9 @@ maintenance = { status = "actively-developed" }
 acorn-cmd = { version = "0.3.0", path = "../acorn-cmd" }
 acorn-core = { version = "0.3.0", path = "../acorn-core" }
 acorn-host = { version = "0.3.0", path = "../acorn-host", default-features = false, features = ["fs", "terminal"] }
-acorn-lib = { version = "0.3.1", path = "../acorn-lib", features = ["agentic", "doctor", "needle", "powerpoint", "swhid-compute"] }
+acorn-lib = { version = "0.3.2", path = "../acorn-lib", features = ["agentic", "doctor", "needle", "powerpoint", "swhid-compute"] }
 acorn-schema = { version = "0.3.0", path = "../acorn-schema" }
-acorn-tui = { version = "0.3.1", path = "../acorn-tui", optional = true }
+acorn-tui = { version = "0.3.2", path = "../acorn-tui", optional = true }
 arboard = { workspace = true }
 bon = "3.3.2"
 jiff = { workspace = true, features = ["std"] }
