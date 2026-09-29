@@ -1,20 +1,17 @@
-use super::{format, ApiResult, Error, Fix, FixAction, FixAutomation, FixEffects, FixStatus, SafePath, String, Vec};
-
-/// Policy used to resolve reviewable proposals into trusted plans.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct FixPolicy {
-    approved: bool,
-    interactive: bool,
-    offline: bool,
-}
-#[derive(Clone, Debug, Eq, PartialEq)]
+use super::{format, ApiResult, DiscoveryReference, Error, Fix, FixAction, FixAutomation, FixEffects, FixStatus, SafePath, String, Vec};
+use acorn_core::util::constants::app::APPLICATION;
+#[derive(Clone, Debug)]
 pub(super) enum ExecutableFix {
     Document {
         expected: String,
+        references: Vec<DiscoveryReference>,
         replacement: String,
         target: SafePath,
     },
-    Recipe(Recipe),
+    Recipe {
+        recipe: Recipe,
+        references: Vec<DiscoveryReference>,
+    },
 }
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 pub(super) enum PlanError {
@@ -39,10 +36,18 @@ pub(super) enum Recipe {
 }
 /// Immutable trusted actions resolved from deterministic proposals.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct FixPlan {
+pub struct Plan {
     pub(super) actions: Vec<ExecutableFix>,
     preview: Vec<String>,
 }
+/// Policy used to resolve reviewable proposals into trusted plans.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct Policy {
+    approved: bool,
+    interactive: bool,
+    offline: bool,
+}
+impl Eq for ExecutableFix {}
 impl ExecutableFix {
     fn conflicts_with(&self, other: &Self) -> bool {
         match (self, other) {
@@ -50,10 +55,26 @@ impl ExecutableFix {
             | _ => false,
         }
     }
+    fn extend_references(&mut self, other: &Self) {
+        match (self, other) {
+            | (Self::Document { references, .. }, Self::Document { references: additions, .. })
+            | (Self::Recipe { references, .. }, Self::Recipe { references: additions, .. }) => additions.iter().for_each(|reference| {
+                if !references.iter().any(|existing| existing.fingerprint == reference.fingerprint) {
+                    references.push(reference.clone());
+                }
+            }),
+            | _ => {}
+        }
+    }
     pub(super) fn preview(&self) -> String {
         match self {
             | Self::Document { target, .. } => format!("write {}", target.as_path().display()),
-            | Self::Recipe(recipe) => format!("run {recipe}"),
+            | Self::Recipe { recipe, .. } => format!("run {recipe}"),
+        }
+    }
+    pub(super) fn references(&self) -> &[DiscoveryReference] {
+        match self {
+            | Self::Document { references, .. } | Self::Recipe { references, .. } => references,
         }
     }
     fn effects(&self) -> FixEffects {
@@ -63,22 +84,48 @@ impl ExecutableFix {
                 reversible: true,
                 ..FixEffects::default()
             },
-            | Self::Recipe(recipe) => recipe.effects(),
+            | Self::Recipe { recipe, .. } => recipe.effects(),
+        }
+    }
+}
+impl PartialEq for ExecutableFix {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            | (
+                Self::Document {
+                    expected: left_expected,
+                    replacement: left_replacement,
+                    target: left_target,
+                    ..
+                },
+                Self::Document {
+                    expected: right_expected,
+                    replacement: right_replacement,
+                    target: right_target,
+                    ..
+                },
+            ) => left_expected == right_expected && left_replacement == right_replacement && left_target == right_target,
+            | (Self::Recipe { recipe: left, .. }, Self::Recipe { recipe: right, .. }) => left == right,
+            | _ => false,
         }
     }
 }
 impl Fix {
-    fn resolve(&self, policy: FixPolicy) -> ApiResult<Vec<ExecutableFix>> {
+    fn resolve(&self, policy: Policy) -> ApiResult<Vec<ExecutableFix>> {
+        let references = match &self.finding {
+            | super::FindingReference::Discovery(reference) => vec![reference.clone()],
+            | super::FindingReference::Check(_) => Vec::new(),
+        };
         policy.allows(self).and_then(|()| {
             self.actions
                 .iter()
-                .map(|action| action.resolve(&self.target))
+                .map(|action| action.resolve(&self.target, &references))
                 .collect::<Result<Vec<_>, PlanError>>()
                 .and_then(|actions| {
                     let effects = actions.iter().map(ExecutableFix::effects).reduce(FixEffects::combine).unwrap_or_default();
                     let requires_network = actions
                         .iter()
-                        .any(|action| matches!(action, ExecutableFix::Recipe(recipe) if !recipe.is_unsupported()));
+                        .any(|action| matches!(action, ExecutableFix::Recipe { recipe, .. } if !recipe.is_unsupported()));
                     match (effects == self.effects, requires_network && policy.offline) {
                         | (false, _) => Err(PlanError::RecipeEffectsMismatch),
                         | (_, true) => Err(PlanError::Offline),
@@ -90,26 +137,30 @@ impl Fix {
     }
 }
 impl FixAction {
-    fn resolve(&self, target: &str) -> Result<ExecutableFix, PlanError> {
+    fn resolve(&self, target: &str, references: &[DiscoveryReference]) -> Result<ExecutableFix, PlanError> {
         match self {
             | Self::DocumentChange { expected, replacement, .. } => SafePath::new(target)
                 .map(|target| ExecutableFix::Document {
                     expected: expected.clone(),
+                    references: references.to_vec(),
                     replacement: replacement.clone(),
                     target,
                 })
                 .map_err(|_| PlanError::Unsupported),
             | Self::RegisteredRecipe { recipe_id } => match Recipe::from(recipe_id.as_str()) {
                 | Recipe::Unsupported => Err(PlanError::Unsupported),
-                | recipe => Ok(ExecutableFix::Recipe(recipe)),
+                | recipe => Ok(ExecutableFix::Recipe {
+                    recipe,
+                    references: references.to_vec(),
+                }),
             },
             | Self::Manual { .. } => Err(PlanError::Unsupported),
         }
     }
 }
-impl FixPlan {
+impl Plan {
     /// Resolve proposal-only fixes under `policy` without changing the host.
-    pub fn from_fixes(fixes: &[Fix], policy: FixPolicy) -> ApiResult<Self> {
+    pub fn from_fixes(fixes: &[Fix], policy: Policy) -> ApiResult<Self> {
         fixes
             .iter()
             .filter(|fix| fix.status == FixStatus::Proposed)
@@ -126,8 +177,12 @@ impl FixPlan {
     pub fn preview(&self) -> &[String] {
         &self.preview
     }
+    /// Return all discovery references retained by planned actions.
+    pub fn references(&self) -> Vec<&DiscoveryReference> {
+        self.actions.iter().flat_map(ExecutableFix::references).collect()
+    }
 }
-impl FixPolicy {
+impl Policy {
     /// Permit only reversible, low-risk automatic document changes.
     pub fn safe(offline: bool) -> Self {
         Self { offline, ..Self::default() }
@@ -141,7 +196,7 @@ impl FixPolicy {
         }
     }
 }
-impl FixPolicy {
+impl Policy {
     fn allows(self, fix: &Fix) -> ApiResult<()> {
         let interactive = self.interactive && self.approved;
         let safe_effects = FixEffects {
@@ -158,13 +213,24 @@ impl FixPolicy {
         }
     }
 }
+impl From<&str> for Recipe {
+    fn from(value: &str) -> Self {
+        match value {
+            | "chromium.install" => Self::Chromium,
+            | "node.homebrew" if cfg!(target_os = "macos") => Self::HomebrewNode,
+            | "node.winget" if cfg!(windows) => Self::WinGetNode,
+            | "vale.install" => Self::Vale,
+            | _ => Self::Unsupported,
+        }
+    }
+}
 impl Recipe {
     pub(super) fn command(self) -> (&'static str, &'static [&'static str]) {
         match self {
-            | Self::Chromium => ("acorn", &["download", "chromium"]),
+            | Self::Chromium => (APPLICATION, &["download", "chromium"]),
             | Self::HomebrewNode => ("brew", &["install", "node"]),
             | Self::Unsupported => ("", &[]),
-            | Self::Vale => ("acorn", &["download", "vale"]),
+            | Self::Vale => (APPLICATION, &["download", "vale"]),
             | Self::WinGetNode => (
                 "winget",
                 &[
@@ -208,25 +274,17 @@ impl core::fmt::Display for Recipe {
         }
     }
 }
-impl From<&str> for Recipe {
-    fn from(value: &str) -> Self {
-        match value {
-            | "chromium.install" => Self::Chromium,
-            | "node.homebrew" if cfg!(target_os = "macos") => Self::HomebrewNode,
-            | "node.winget" if cfg!(windows) => Self::WinGetNode,
-            | "vale.install" => Self::Vale,
-            | _ => Self::Unsupported,
-        }
-    }
-}
 fn coalesce(actions: Vec<ExecutableFix>) -> ApiResult<Vec<ExecutableFix>> {
-    actions.into_iter().try_fold(Vec::new(), |resolved, action| {
-        let duplicate = resolved.contains(&action);
-        let conflict = resolved.iter().any(|existing| existing.conflicts_with(&action));
-        match (duplicate, conflict) {
-            | (true, _) => Ok(resolved),
-            | (false, true) => Err(PlanError::ConflictingDocumentChange.into()),
-            | (false, false) => Ok(resolved.into_iter().chain([action]).collect()),
+    actions.into_iter().try_fold(Vec::<ExecutableFix>::new(), |mut resolved, action| {
+        match resolved.iter_mut().find(|existing| **existing == action) {
+            | Some(existing) => {
+                existing.extend_references(&action);
+                Ok(resolved)
+            }
+            | None => match resolved.iter().any(|existing| existing.conflicts_with(&action)) {
+                | true => Err(PlanError::ConflictingDocumentChange.into()),
+                | false => Ok(resolved.into_iter().chain([action]).collect()),
+            },
         }
     })
 }

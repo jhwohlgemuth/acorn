@@ -1,9 +1,9 @@
+
+
 use std::io::{self, BufRead, BufWriter, Write};
 use std::thread;
 use std::time::Duration;
-
 const CONFIG_OPTIONS: &str = r#"[{"id":"model","name":"Model","category":"model","type":"select","currentValue":"fake-model","options":[{"value":"fake-model","name":"Fake Model"}]}]"#;
-
 fn main() {
     let argument = std::env::args().nth(1).unwrap_or_default();
     match argument.as_str() {
@@ -83,7 +83,7 @@ fn serve() {
                 eprintln!("fake agent exited during prompt");
                 std::process::exit(9);
             }
-            _ if line.contains("\"method\":\"session/prompt\"") && line.contains("permission") => {
+            _ if line.contains("\"method\":\"session/prompt\"") && line.contains("\"text\":\"permission\"") => {
                 permission_prompt = Some(id);
                 send(
                     &mut writer,

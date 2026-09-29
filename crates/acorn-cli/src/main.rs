@@ -1,4 +1,6 @@
 //! # 🌱 ACORN CLI
+
+extern crate alloc;
 use acorn::{
     analyzer::host::discovery,
     io::{env_var_is_truthy, progress_renderer},
@@ -19,17 +21,14 @@ use tracing_subscriber::{
     util::SubscriberInitExt as _,
     EnvFilter,
 };
-
 mod assets;
 mod cli;
 mod commands;
 mod io;
 #[cfg(feature = "pdf")]
 mod template;
-
 use cli::{Arguments, Void};
 use commands::{run, DatabaseConfig};
-
 const DISPLAY_LEVEL: bool = true;
 const DISPLAY_LINE_NUMBER: bool = false;
 const DISPLAY_TARGET: bool = false;

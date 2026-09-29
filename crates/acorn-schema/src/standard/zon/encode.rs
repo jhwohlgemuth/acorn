@@ -3,7 +3,6 @@ use super::{decode::resolves_to_compound, validate_encoded, validate_value, Limi
 use crate::validation::rules;
 use alloc::{format, string::String, string::ToString, vec::Vec};
 use serde_json::{Map, Number, Value};
-
 fn canonical_number(value: &Number) -> String {
     let source = value.to_string();
     let lower = source.to_ascii_lowercase();
@@ -33,8 +32,8 @@ fn encode_csv_string(value: &str) -> Result<String, ZonError> {
         })
 }
 fn encode_inline_object(fields: &Map<String, Value>, depth: usize) -> Result<String, ZonError> {
-    fields
-        .iter()
+    sorted_fields(fields)
+        .into_iter()
         .map(|(key, value)| {
             encode_key(key).and_then(|key| match value {
                 | Value::Object(nested) => encode_inline_object(nested, depth + 1).map(|value| format!("{key}{value}")),
@@ -75,8 +74,8 @@ fn encode_key(value: &str) -> Result<String, ZonError> {
 fn encode_root(value: &Value) -> Result<String, ZonError> {
     match value {
         | Value::Object(fields) if fields.is_empty() => Ok(String::new()),
-        | Value::Object(fields) => fields
-            .iter()
+        | Value::Object(fields) => sorted_fields(fields)
+            .into_iter()
             .map(|(key, value)| encode_root_field(key, value))
             .collect::<Result<Vec<_>, _>>()
             .map(|lines| lines.join("\n")),
@@ -221,4 +220,9 @@ fn table_shape(values: &[Value]) -> Option<Vec<String>> {
             }))
         .then_some(columns)
     })
+}
+fn sorted_fields(fields: &Map<String, Value>) -> Vec<(&String, &Value)> {
+    let mut fields = fields.iter().collect::<Vec<_>>();
+    fields.sort_by(|left, right| left.0.cmp(right.0));
+    fields
 }

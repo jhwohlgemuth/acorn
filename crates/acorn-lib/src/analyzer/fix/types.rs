@@ -2,7 +2,37 @@ use super::{
     BTreeMap, Deserialize, Error, JsonSchema, OneOrMany, Serialize, String, Vec, DEFAULT_MAX_CONTEXT_BYTES, DEFAULT_MAX_EXCERPT_BYTES,
     DEFAULT_MAX_FINDINGS_PER_BATCH, MAX_MESSAGE_BYTES,
 };
-
+use acorn_core::time::Milliseconds;
+/// Stable category for a host discovery finding.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, strum::AsRefStr, strum::Display, strum::EnumIs)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+pub enum DiscoveryCategory {
+    /// Graphics accelerator diagnostics.
+    Gpu,
+    /// Physical and swap memory diagnostics.
+    Memory,
+    /// Network interface diagnostics.
+    Network,
+    /// Required and optional software diagnostics.
+    Software,
+    /// Operating-system diagnostics.
+    System,
+    /// Unrecognized diagnostic category.
+    Unknown,
+}
+/// Stable status for a host discovery finding.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, strum::Display, strum::EnumIs)]
+#[serde(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
+pub enum DiscoveryStatus {
+    /// The observed state meets the requirement.
+    Healthy,
+    /// The observed state needs attention.
+    Attention,
+    /// ACORN could not determine the state.
+    Unavailable,
+}
 /// Reference to the finding that motivated a fix.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case", tag = "source")]
@@ -159,11 +189,11 @@ pub struct CheckReference {
     pub uri: Option<String>,
 }
 /// Normalized discovery finding supplied to proposal generation.
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DiscoveryReference {
     /// Discovery category.
-    pub category: String,
+    pub category: DiscoveryCategory,
     /// Structured, secret-free context.
     pub details: BTreeMap<String, String>,
     /// SHA-256 fingerprint of the observation.
@@ -175,12 +205,13 @@ pub struct DiscoveryReference {
     /// Observed state.
     pub observed: String,
     /// Discovery status captured at observation time.
-    pub status: String,
+    pub status: DiscoveryStatus,
     /// Diagnostic subject.
     pub subject: String,
 }
 /// Reviewable proposal linked to one source finding.
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[derive(bon::Builder, Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields)]
 pub struct Fix {
     /// Proposed non-executable actions.
@@ -243,19 +274,6 @@ pub struct FixEffects {
     /// Whether the proposal could require a restart.
     pub restart: bool,
 }
-impl FixEffects {
-    pub(super) const fn combine(self, other: Self) -> Self {
-        Self {
-            elevation: self.elevation || other.elevation,
-            filesystem_write: self.filesystem_write || other.filesystem_write,
-            package_manager: self.package_manager || other.package_manager,
-            network: self.network || other.network,
-            process: self.process || other.process,
-            reversible: self.reversible && other.reversible,
-            restart: self.restart || other.restart,
-        }
-    }
-}
 /// Bounded suggestion options shared by direct and registered invocation.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(default, deny_unknown_fields)]
@@ -274,8 +292,8 @@ pub struct FixOptions {
     pub min_confidence: f32,
     /// Optional backend-specific model selection.
     pub model: Option<String>,
-    /// Inference timeout in milliseconds.
-    pub timeout_ms: u64,
+    /// Inference timeout.
+    pub timeout: Milliseconds,
 }
 /// Secret-free origin metadata for a fix proposal.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
@@ -325,4 +343,38 @@ pub struct FixSummary {
     pub stale: usize,
     /// Unsupported findings.
     pub unsupported: usize,
+}
+impl From<&str> for DiscoveryCategory {
+    fn from(value: &str) -> Self {
+        match value {
+            | "gpu" => Self::Gpu,
+            | "memory" => Self::Memory,
+            | "network" => Self::Network,
+            | "software" => Self::Software,
+            | "system" => Self::System,
+            | _ => Self::Unknown,
+        }
+    }
+}
+impl FixEffects {
+    pub(super) const fn combine(self, other: Self) -> Self {
+        Self {
+            elevation: self.elevation || other.elevation,
+            filesystem_write: self.filesystem_write || other.filesystem_write,
+            package_manager: self.package_manager || other.package_manager,
+            network: self.network || other.network,
+            process: self.process || other.process,
+            reversible: self.reversible && other.reversible,
+            restart: self.restart || other.restart,
+        }
+    }
+    pub(super) fn recipe(package_manager: bool) -> Self {
+        Self {
+            filesystem_write: true,
+            network: true,
+            package_manager,
+            process: true,
+            ..Self::default()
+        }
+    }
 }

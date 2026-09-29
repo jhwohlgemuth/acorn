@@ -1,19 +1,21 @@
 use crate::screens;
 use crate::theme::Theme;
 use crate::{Screen, TuiOptions};
-use acorn::analyzer::host::discovery::{RemoteMatch, RemoteSearchResponse};
+use acorn::analyzer::fix::Plan;
+use acorn::analyzer::host::discovery::{Records, RemoteMatch, RemoteSearchResponse};
 use acorn::analyzer::Check;
-use acorn::doctor::{MemoryInformation, NetworkInformation, SystemInformation, SystemSoftwareInformation, TableFormatPrint};
 use acorn::io::api::huggingface;
 use acorn_schema::discovery::RemoteOrganizationRole;
 use color_eyre::eyre::Result;
 use crossterm::event;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
+use std::collections::BTreeSet;
 use std::io::Stdout;
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
-
+/// Diagnostic records populated once on entering the doctor screen.
+pub type DoctorData = Records;
 /// Gather input mode.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum GatherMode {
@@ -87,24 +89,18 @@ pub struct DashboardData {
     /// Time at which the TUI started
     pub started_at: Instant,
 }
-/// Diagnostic data populated once on entering doctor screen
-#[derive(Clone, Debug)]
-pub struct DoctorData {
-    /// System information
-    pub system: Option<SystemData>,
-    /// Memory information
-    pub memory: Option<MemoryData>,
-    /// Network information
-    pub network: Option<NetworkData>,
-    /// Software information
-    pub software: Option<SoftwareData>,
-}
 #[derive(Clone, Debug)]
 pub struct DoctorState {
     /// Cached diagnostic data
     pub data: Option<DoctorData>,
-    /// Currently selected category index
-    pub selected_category: usize,
+    /// Currently selected finding index.
+    pub selected_record: usize,
+    /// Finding indexes selected for trusted planning.
+    pub selected: BTreeSet<usize>,
+    /// Trusted plan awaiting confirmation.
+    pub plan: Option<Plan>,
+    /// Whether the plan confirmation prompt is active.
+    pub confirming: bool,
     /// Whether diagnostics have been loaded
     pub loaded: bool,
     /// Export status message to display
@@ -164,47 +160,6 @@ pub struct GgufPickerData {
     /// Selected repository ID
     pub result: Option<String>,
 }
-#[derive(Clone, Debug)]
-pub struct InterfaceData {
-    /// IP addresses
-    pub ip_addresses: Vec<String>,
-    /// MAC address
-    pub mac_address: String,
-    /// MTU
-    pub mtu: String,
-}
-#[derive(Clone, Debug)]
-pub struct MemoryData {
-    /// Total memory
-    pub total: String,
-    /// Available memory
-    pub available: String,
-    /// Used memory
-    pub used: String,
-    /// Swap memory
-    pub swap: String,
-}
-#[derive(Clone, Debug)]
-pub struct NetworkData {
-    /// Network interfaces
-    pub interfaces: Vec<InterfaceData>,
-}
-#[derive(Clone, Debug)]
-pub struct SoftwareData {
-    /// List of software items
-    pub items: Vec<SoftwareItem>,
-}
-#[derive(Clone, Debug)]
-pub struct SoftwareItem {
-    /// Software name
-    pub name: String,
-    /// Whether installed
-    pub installed: bool,
-    /// Version string
-    pub version: String,
-    /// Path to executable
-    pub path: String,
-}
 /// Selection state shared by interactive screens.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct State<T> {
@@ -212,21 +167,6 @@ pub struct State<T> {
     pub data: T,
     /// Currently selected item index
     pub selected: usize,
-}
-#[derive(Clone, Debug)]
-pub struct SystemData {
-    /// OS name
-    pub name: String,
-    /// Kernel version
-    pub kernel: String,
-    /// OS version
-    pub os_version: String,
-    /// Host name
-    pub host_name: String,
-    /// CPU architecture
-    pub cpu_arch: String,
-    /// CPU count
-    pub cpu_count: String,
 }
 /// Data for selecting a terminal theme.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -338,89 +278,16 @@ impl App {
         if self.doctor.loaded {
             return;
         }
-        let sys = SystemInformation::init();
-        let mem = MemoryInformation::init();
-        let net = NetworkInformation::init();
-        let sw = SystemSoftwareInformation::init();
-        let software_items = vec![
-            SoftwareItem {
-                name: "Acorn".into(),
-                installed: sw.acorn.version.is_some(),
-                version: sw.acorn.version.unwrap_or_else(|| "---".into()),
-                path: sw.acorn.path.unwrap_or_else(|| "---".into()),
-            },
-            SoftwareItem {
-                name: "Git".into(),
-                installed: sw.git.version.is_some(),
-                version: sw.git.version.unwrap_or_else(|| "---".into()),
-                path: sw.git.path.unwrap_or_else(|| "---".into()),
-            },
-            SoftwareItem {
-                name: "Node.js".into(),
-                installed: sw.node.version.is_some(),
-                version: sw.node.version.unwrap_or_else(|| "---".into()),
-                path: sw.node.path.unwrap_or_else(|| "---".into()),
-            },
-            SoftwareItem {
-                name: "npm".into(),
-                installed: sw.npm.version.is_some(),
-                version: sw.npm.version.unwrap_or_else(|| "---".into()),
-                path: sw.npm.path.unwrap_or_else(|| "---".into()),
-            },
-            SoftwareItem {
-                name: "npx".into(),
-                installed: sw.npx.version.is_some(),
-                version: sw.npx.version.unwrap_or_else(|| "---".into()),
-                path: sw.npx.path.unwrap_or_else(|| "---".into()),
-            },
-            SoftwareItem {
-                name: "Pandoc".into(),
-                installed: sw.pandoc.version.is_some(),
-                version: sw.pandoc.version.unwrap_or_else(|| "---".into()),
-                path: sw.pandoc.path.unwrap_or_else(|| "---".into()),
-            },
-            SoftwareItem {
-                name: "Vale".into(),
-                installed: sw.vale.version.is_some(),
-                version: sw.vale.version.unwrap_or_else(|| "---".into()),
-                path: sw.vale.path.unwrap_or_else(|| "---".into()),
-            },
-        ];
-        self.doctor.data = Some(DoctorData {
-            system: Some(SystemData {
-                name: sys.name,
-                kernel: sys.kernel_version,
-                os_version: sys.os_version,
-                host_name: sys.host_name,
-                cpu_arch: sys.cpu_arch,
-                cpu_count: sys.cpu_count,
-            }),
-            memory: Some(MemoryData {
-                total: mem.total,
-                available: mem.available,
-                used: mem.used,
-                swap: mem.swap,
-            }),
-            network: Some(NetworkData {
-                interfaces: net
-                    .networks
-                    .iter()
-                    .filter(|n| !n.ip_address.is_empty())
-                    .map(|n| InterfaceData {
-                        ip_addresses: n.ip_address.clone(),
-                        mac_address: n.mac_address.clone(),
-                        mtu: n.mtu.clone(),
-                    })
-                    .collect(),
-            }),
-            software: Some(SoftwareData { items: software_items }),
-        });
+        self.doctor.data = Some(Records::diagnose_host());
         self.doctor.loaded = true;
     }
     /// Refresh diagnostic data
     pub fn refresh_doctor(&mut self) {
         self.doctor.loaded = false;
         self.doctor.data = None;
+        self.doctor.plan = None;
+        self.doctor.confirming = false;
+        self.doctor.selected.clear();
         self.load_doctor_data();
     }
 }
@@ -458,7 +325,10 @@ impl DoctorState {
     fn new() -> Self {
         Self {
             data: None,
-            selected_category: 0,
+            selected_record: 0,
+            selected: BTreeSet::new(),
+            plan: None,
+            confirming: false,
             loaded: false,
             export_message: None,
         }

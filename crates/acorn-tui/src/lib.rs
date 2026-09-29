@@ -4,7 +4,6 @@ pub mod export;
 mod screens;
 mod theme;
 mod widgets;
-
 use app::App;
 pub use app::{Candidate, GgufPickerData, State};
 use color_eyre::eyre::{Ok, Result};
@@ -14,7 +13,6 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io::stdout;
 use std::path::PathBuf;
-
 /// Entry screen for the TUI
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Screen {
@@ -36,6 +34,8 @@ pub enum Screen {
 pub struct TuiOptions {
     /// Override the local database path.
     pub database_path: Option<PathBuf>,
+    /// Allow trusted host-fix selection on the doctor screen.
+    pub doctor_fix: bool,
     /// Disable discovery persistence.
     pub no_local_database: bool,
     /// Prevent remote input retrieval.

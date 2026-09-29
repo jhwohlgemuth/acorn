@@ -944,11 +944,11 @@ Confirm-NonzeroExitCode -Actual $LASTEXITCODE -Test "create mcp reports an imple
 Confirm-ExitCode -Actual $LASTEXITCODE -Expected 0 -Test "serve mcp protocol initialization"
 ```
 
-### GAP-03 — Doctor autofix reports that it is not implemented
+### DOCTOR-03 — Doctor safe autofix remains bounded
 
 ```powershell
 & $env:ACORN_BIN --no-local-database doctor --fix
-Confirm-NonzeroExitCode -Actual $LASTEXITCODE -Test "Doctor autofix reports an implementation gap"
+Confirm-ExitCode -Actual $LASTEXITCODE -Expected 0 -Test "Doctor safe autofix"
 ```
 
 ## 13. Global behavior and safety

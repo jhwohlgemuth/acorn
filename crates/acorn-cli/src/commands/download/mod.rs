@@ -1,8 +1,14 @@
+#[cfg(feature = "pdf")]
+use crate::commands::export::pdf;
 use crate::{
     cli::{arguments::Download, CommandOptions},
     commands::preflight,
 };
 use acorn::{
+    analyzer::host::{
+        runtime::StaticAnalyzer,
+        vale::{Vale, ValeConfig},
+    },
     io::{
         config::{ApplicationConfiguration, BucketExtension, BucketOptions, TransferPolicy},
         database::{
@@ -27,8 +33,15 @@ use jiff::Timestamp;
 use owo_colors::OwoColorize;
 use std::path::PathBuf;
 use tracing::error;
-
 pub mod model;
+/// Install or resolve the pinned Chromium build used by PDF export.
+#[cfg(feature = "pdf")]
+pub async fn chromium(offline: bool) -> Result<(), Report> {
+    pdf::browser_executable(offline, None)
+        .await
+        .and_then(|path| path.ok_or_else(|| eyre!("Chromium is unavailable for this platform")))
+        .map(|path| println!("{}", path.display()))
+}
 fn finish_transfer(total: usize, options: &BucketOptions) -> Result<(), Report> {
     let RuntimeOptions { common, extension, output } = options;
     let CommonRuntime { quiet, .. } = common;
@@ -182,6 +195,12 @@ pub async fn run(
             Err(why)
         }
     }
+}
+/// Install or resolve the pinned Vale build used by prose analysis.
+pub async fn vale(offline: bool) -> Result<(), Report> {
+    Vale::resolve(ValeConfig::default(), offline, false)
+        .await
+        .map(|vale| println!("{}", vale.command()))
 }
 #[cfg(test)]
 mod tests;

@@ -17,10 +17,9 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Next execution phase
 
-The dedicated RPC and automation lane is the highest-priority initiative. The JSON-RPC, Protobuf/gRPC, webhook runtime, GitLab repository automation, PowerAutomate reporting, canonical RAD persistence, logbook graduation, and updates PDF foundations are complete. The [Power Automate deployment amendment](features/powerapps-gitlab-logbook-reporting.md) adds ACORN-owned secret generation and remains open only for its deployment smoke test; it does not change the transport execution order:
+The dedicated RPC and automation lane is the highest-priority initiative. The JSON-RPC, Protobuf/gRPC, webhook runtime, GitLab repository automation, PowerAutomate reporting, canonical RAD persistence, logbook graduation, updates PDF, and ACP inference foundations are complete. The [Power Automate deployment amendment](features/powerapps-gitlab-logbook-reporting.md) adds ACORN-owned secret generation and remains open only for its deployment smoke test; it does not change the transport execution order:
 
-1. [ACP inference and verified fixes](features/opencode-acp-inference.md)
-2. [MCP client](features/mcp-client.md)
+1. [MCP client](features/mcp-client.md)
 
 After this lane, continue [dependency-feature narrowing](refactors/portability/dependency-feature-defaults.md) and the concrete API, export, store, and service boundaries recorded by the architecture roadmap. Browser adapters or generic host ports require a demonstrated workflow and a new atomic plan; they do not displace the lane's priority or authorize overlapping writers.
 

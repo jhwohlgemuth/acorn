@@ -15,9 +15,10 @@
     clippy::indexing_slicing,
     clippy::arithmetic_side_effects
 )]
-mod context;
 
+mod context;
 use super::{run, PrepareText};
+use crate::cli::arguments::{InferenceArgs, InferenceBackendKind, InferenceOutputFormat};
 use crate::test::server::spawn_source_server;
 use crate::test::util::fixture_path;
 use acorn::analyzer::host::service::{classify_paths, Analysis};
@@ -39,7 +40,6 @@ use std::fs::{read, read_to_string};
 use std::path::PathBuf;
 #[cfg(feature = "exec")]
 use tempfile::tempdir;
-
 const OFFLINE: bool = true;
 const SKIP_PROSE: &[CheckCategory] = &[CheckCategory::Prose];
 async fn assert_schema_issue_count<T>(path: &str, expected: usize) -> Result<()>
@@ -51,6 +51,9 @@ where
     let issue_count = checks.iter().map(Check::issue_count).sum::<usize>();
     assert_eq!(issue_count, expected, "Unexpected schema issue count for {path:?}");
     Ok(())
+}
+fn inference_args() -> InferenceArgs {
+    InferenceArgs::new(InferenceBackendKind::Acp)
 }
 async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
     let path = Some(fixture_path(path));
@@ -80,6 +83,9 @@ async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
         &None,
         &None,
         &None,
+        false,
+        InferenceOutputFormat::Human,
+        &inference_args(),
     )
     .await;
     assert!(result.is_ok(), "Check should succeed for {standard}: {result:?}");
@@ -144,6 +150,9 @@ async fn test_check_invalid_project_with_no_fail() -> Result<()> {
         &None,
         &None,
         &None,
+        false,
+        InferenceOutputFormat::Human,
+        &inference_args(),
     )
     .await;
     assert!(result.is_ok(), "Check with no_fail should return Ok even with failures");
@@ -183,6 +192,9 @@ async fn test_check_kitfile_and_modelkit_without_standard_override() -> Result<(
             &None,
             &None,
             &None,
+            false,
+            InferenceOutputFormat::Human,
+            &inference_args(),
         )
         .await;
         assert!(result.is_ok(), "Check should detect {fixture}: {result:?}");
@@ -220,6 +232,9 @@ async fn test_check_remote_project() -> Result<()> {
         &None,
         &None,
         &None,
+        false,
+        InferenceOutputFormat::Human,
+        &inference_args(),
     )
     .await;
     assert!(result.is_ok(), "Remote project should be checked: {result:?}");
@@ -255,6 +270,9 @@ async fn test_check_remote_project_rejects_offline_mode() -> Result<()> {
         &None,
         &None,
         &None,
+        false,
+        InferenceOutputFormat::Human,
+        &inference_args(),
     )
     .await;
     assert!(result.is_err());
@@ -289,6 +307,9 @@ async fn test_check_terse_mode() -> Result<()> {
         &None,
         &None,
         &None,
+        false,
+        InferenceOutputFormat::Human,
+        &inference_args(),
     )
     .await;
     assert!(result.is_ok(), "Check in terse mode should succeed");
@@ -323,6 +344,9 @@ async fn test_check_valid_highlight() -> Result<()> {
         &None,
         &None,
         &None,
+        false,
+        InferenceOutputFormat::Human,
+        &inference_args(),
     )
     .await;
     assert!(result.is_ok(), "Valid highlight should pass check: {result:?}");
@@ -357,6 +381,9 @@ async fn test_check_valid_project() -> Result<()> {
         &None,
         &None,
         &None,
+        false,
+        InferenceOutputFormat::Human,
+        &inference_args(),
     )
     .await;
     assert!(result.is_ok(), "Valid project should pass check");
@@ -393,6 +420,9 @@ async fn test_check_with_different_readability_metrics() -> Result<()> {
             &None,
             &None,
             &None,
+            false,
+            InferenceOutputFormat::Human,
+            &inference_args(),
         )
         .await;
         assert!(result.is_ok(), "Check with {:?} metric should succeed", metric);
@@ -428,6 +458,9 @@ async fn test_check_with_skip_categories() -> Result<()> {
         &None,
         &None,
         &None,
+        false,
+        InferenceOutputFormat::Human,
+        &inference_args(),
     )
     .await;
     assert!(result.is_ok(), "Check with skip categories should succeed");

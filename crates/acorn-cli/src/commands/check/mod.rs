@@ -1,6 +1,10 @@
 use crate::{
-    cli::{resolve_paths_including, CommandOptions, WatchOptions},
+    cli::{
+        arguments::{InferenceArgs, InferenceOutputFormat},
+        resolve_paths_including, CommandOptions, WatchOptions,
+    },
     commands::{
+        inference::ConfiguredInference,
         preflight,
         watch::{self, Prepared},
     },
@@ -12,6 +16,8 @@ use acorn::exec::config::ExecutionOrigin;
 use acorn::io::workflow::{Workflow, WorkflowAction};
 use acorn::{
     analyzer::{
+        fix::FixReport,
+        host::discovery::Record,
         host::{
             context::{AnalysisContext, AnalysisOptions, ExecutionExtension, ExecutionOptions, ReportExtension, ReportOptions},
             render::{Render, RenderContext},
@@ -44,13 +50,13 @@ use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
 use dotenvy::dotenv;
 use jiff::SignedDuration;
+use serde::Serialize;
 use std::{
     env::temp_dir,
     fs::{create_dir_all, remove_dir_all, remove_file, write},
     path::{Path, PathBuf},
 };
 use tracing::{debug, error};
-
 trait PrepareLocation {
     async fn prepare(&self, options: &CommandOptions) -> Result<Prepared<Input>, Report>;
 }
@@ -61,6 +67,11 @@ enum Temporary {
     Directory(PathBuf),
     File(PathBuf),
 }
+#[derive(Serialize)]
+struct CheckJsonOutput<'a> {
+    checks: Vec<Record>,
+    fixes: &'a FixReport,
+}
 #[derive(Clone, Copy)]
 struct HookConfiguration<'a> {
     application: &'a ApplicationConfiguration,
@@ -70,6 +81,13 @@ struct HookConfiguration<'a> {
 struct Input {
     paths: Vec<PathBuf>,
     temporary: Option<Temporary>,
+}
+#[derive(Clone)]
+struct SuggestionConfiguration {
+    enabled: bool,
+    inference: InferenceArgs,
+    offline: bool,
+    output: InferenceOutputFormat,
 }
 impl Drop for Input {
     fn drop(&mut self) {
@@ -275,6 +293,7 @@ async fn execute(
     configuration: &ApplicationConfiguration,
     project_root: &Path,
     explicit_configuration: bool,
+    suggestions: &SuggestionConfiguration,
 ) -> Result<(), Report> {
     let report = analyze_paths(&input.paths, options).await;
     let fair_profiles = Vec::<FairProfile>::from(&report);
@@ -288,10 +307,32 @@ async fn execute(
         let _ = (configuration, explicit_configuration, project_root);
         Ok::<CheckBatch, Report>(collected)
     };
-    collected.and_then(|collected| {
-        let issues = filter_by_visibility(collected.as_slice(), options.report.extension.all);
-        handle(&issues, &fair_profiles, &input.paths, options, report.render_context(&options.report))
-    })
+    match collected {
+        | Err(why) => Err(why),
+        | Ok(collected) => {
+            let issues = filter_by_visibility(collected.as_slice(), options.report.extension.all);
+            let fixes = match suggestions.enabled {
+                | false => Ok(FixReport::default()),
+                | true => match ConfiguredInference::from_args(&suggestions.inference, suggestions.offline) {
+                    | Err(why) => Err(why),
+                    | Ok(configured) => configured.suggest_fixes(&report).await,
+                },
+            };
+            match (suggestions.output, fixes) {
+                | (InferenceOutputFormat::Json, Ok(fixes)) => handle_json(&issues, &fixes, options),
+                | (InferenceOutputFormat::Json, Err(why)) => Err(why),
+                | (InferenceOutputFormat::Human, Ok(fixes)) => {
+                    let checked = handle(&issues, &fair_profiles, &input.paths, options, report.render_context(&options.report));
+                    print!("{fixes}");
+                    checked
+                }
+                | (InferenceOutputFormat::Human, Err(why)) => {
+                    let checked = handle(&issues, &fair_profiles, &input.paths, options, report.render_context(&options.report));
+                    checked.and(Err(why))
+                }
+            }
+        }
+    }
 }
 fn failure_count(issues: &[Check]) -> usize {
     issues.iter().filter(|issue| issue.is_failure()).map(Check::issue_count).sum::<usize>()
@@ -359,6 +400,21 @@ fn handle(
         Ok(())
     }
 }
+fn handle_json(issues: &CheckBatch, fixes: &FixReport, options: &AnalysisContext) -> Result<(), Report> {
+    serde_json::to_string_pretty(&CheckJsonOutput {
+        checks: issues.iter().map(Record::from).collect(),
+        fixes,
+    })
+    .map_err(Report::new)
+    .map(|output| println!("{output}"))
+    .and_then(|()| match options.report.extension.no_fail || !has_failures(issues.as_slice()) {
+        | true => Ok(()),
+        | false => {
+            let count = issues.len();
+            Err(eyre!("ACORN found {count} issue{}", suffix(count)))
+        }
+    })
+}
 fn has_failures(issues: &[Check]) -> bool {
     issues.iter().any(Check::is_failure)
 }
@@ -423,6 +479,9 @@ pub async fn run(
     vale_directory: &Option<PathBuf>,
     format: &Option<MimeType>,
     config: &Option<PathBuf>,
+    suggest_fixes: bool,
+    output: InferenceOutputFormat,
+    inference: &InferenceArgs,
 ) -> Result<(), Report> {
     let is_silent = verbose.is_silent();
     let command_options = CommandOptions::init()
@@ -436,6 +495,12 @@ pub async fn run(
         .supported(true)
         .build();
     preflight!(&command_options);
+    let suggestions = SuggestionConfiguration {
+        enabled: suggest_fixes,
+        inference: inference.clone(),
+        offline,
+        output,
+    };
     let filesystem_selected = path.is_some() || branch.is_some() || commit.is_some() || !filter.is_empty() || !ignore.is_empty() || *merge_request;
     match select_source(path, *paste, filesystem_selected, watch.is_some(), read_stdin, read_clipboard) {
         | Ok(InputSource::Location(_)) if format.is_some() => Err(eyre!("--format requires piped standard input or --paste")),
@@ -482,6 +547,7 @@ pub async fn run(
                                 },
                                 format.as_ref(),
                                 watch,
+                                &suggestions,
                             )
                             .await
                         }
@@ -500,6 +566,7 @@ async fn run_source(
     hooks: HookConfiguration<'_>,
     format: Option<&MimeType>,
     watch: Option<WatchOptions>,
+    suggestions: &SuggestionConfiguration,
 ) -> Result<(), Report> {
     let HookConfiguration {
         application,
@@ -508,12 +575,24 @@ async fn run_source(
     } = hooks;
     match watch {
         | Some(watch) => match &source {
-            | InputSource::Location(location) => watch_run(location, command_options, options, watch, application, project_root, explicit).await,
+            | InputSource::Location(location) => {
+                watch_run(
+                    location,
+                    command_options,
+                    options,
+                    watch,
+                    application,
+                    project_root,
+                    explicit,
+                    suggestions,
+                )
+                .await
+            }
             | InputSource::Text { .. } => Err(eyre!("Standard input and clipboard text cannot be used with --watch")),
         },
         | None => match sync_analyzer_before_check(options).await {
             | Ok(run_options) => match prepare(&source, command_options, format).await {
-                | Ok(prepared) => execute(prepared.value, &run_options, application, project_root, explicit).await,
+                | Ok(prepared) => execute(prepared.value, &run_options, application, project_root, explicit, suggestions).await,
                 | Err(why) => Err(why),
             },
             | Err(why) => Err(why),
@@ -555,6 +634,7 @@ async fn sync_analyzer_before_check(options: &AnalysisContext) -> Result<Analysi
         | Err(why) => Err(why),
     }
 }
+#[allow(clippy::too_many_arguments)]
 async fn watch_run(
     location: &Location,
     command_options: &CommandOptions,
@@ -563,6 +643,7 @@ async fn watch_run(
     configuration: &ApplicationConfiguration,
     project_root: &Path,
     explicit_configuration: bool,
+    suggestions: &SuggestionConfiguration,
 ) -> Result<(), Report> {
     let scheme = location.scheme();
     let network = scheme.is_http() || scheme.is_https() || command_options.merge_request;
@@ -578,7 +659,7 @@ async fn watch_run(
                 &roots,
                 WatchOptions { network, ..watch },
                 || location.prepare(command_options),
-                |input| execute(input, &run_options, configuration, project_root, explicit_configuration),
+                |input| execute(input, &run_options, configuration, project_root, explicit_configuration, suggestions),
             )
             .await
         }

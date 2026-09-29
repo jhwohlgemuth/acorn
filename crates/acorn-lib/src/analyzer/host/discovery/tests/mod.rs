@@ -1,6 +1,6 @@
 #![allow(clippy::indexing_slicing, clippy::unwrap_used)]
-mod finalization;
 
+mod finalization;
 use super::*;
 use crate::io::api::osti::SearchResults;
 use crate::io::api::{isni, orcid, osti};
@@ -8,7 +8,6 @@ use crate::io::read_file;
 use acorn_schema::discovery::{Person, ProjectOrganization};
 use alloc::collections::BTreeMap;
 use std::fs::remove_file;
-
 #[tokio::test]
 async fn test_analysis_materializes_source_content_without_discoveries() {
     let sources = vec![SourceDocument::init()
@@ -350,14 +349,14 @@ fn test_handle_is_not_associated_with_ambiguous_same_source_candidates() {
 fn test_host_findings_remain_secret_free_discovery_records() {
     assert_eq!(FindingStatus::Healthy.to_string(), "healthy");
     assert_eq!(FindingStatus::Unavailable.to_string(), "unavailable");
-    let finding = Record::finding(
-        "software",
-        "node",
-        FindingStatus::Attention,
-        "missing",
-        "installed",
-        BTreeMap::from([("probe".to_string(), "node --version".to_string())]),
-    );
+    let finding = Record::finding()
+        .category("software")
+        .subject("node")
+        .status(FindingStatus::Attention)
+        .observed("missing")
+        .expected("installed")
+        .details(BTreeMap::from([("probe".to_string(), "node --version".to_string())]))
+        .call();
     let records = Records::from(Vec::<SourceDocument>::new()).with_findings(vec![finding]);
     let value = serde_json::to_value(&records).unwrap();
     assert_eq!(value[0]["record"], "finding");
@@ -368,7 +367,7 @@ fn test_host_findings_remain_secret_free_discovery_records() {
         .first()
         .and_then(|record| record.fix_reference("discovery-0001"))
         .expect("finding reference");
-    assert_eq!(reference.status, "attention");
+    assert!(reference.status.is_attention());
     assert_eq!(reference.fingerprint.len(), 64);
 }
 #[test]

@@ -43,9 +43,8 @@ use std::{
     sync::Mutex,
 };
 use tracing::{debug, info};
-
 #[cfg(feature = "pdf")]
-mod pdf;
+pub(crate) mod pdf;
 mod powerpoint;
 pub(crate) mod updates;
 trait ExportHandler {

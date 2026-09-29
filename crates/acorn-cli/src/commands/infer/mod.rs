@@ -1,10 +1,11 @@
 //! Local inference commands
+
 use crate::io::{read_stdin, write_stdout};
 use acorn::io::sidecar::needle::Needle;
 use acorn::io::sidecar::Sidecar;
 use acorn::io::ApiResult;
 use color_eyre::eyre::eyre;
-
+pub(crate) mod prompt;
 fn resolve_prompt<ReadStdin>(prompt: Option<&str>, read: ReadStdin) -> ApiResult<String>
 where
     ReadStdin: FnOnce() -> Option<String>,
@@ -39,6 +40,5 @@ pub async fn run(prompt: Option<&str>, custom_location: Option<&str>, threshold:
         }
     }
 }
-
 #[cfg(test)]
 mod tests;

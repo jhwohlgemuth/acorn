@@ -17,6 +17,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli download needle`↴](#acorn-cli-download-needle)
 * [`acorn-cli export`↴](#acorn-cli-export)
 * [`acorn-cli infer`↴](#acorn-cli-infer)
+* [`acorn-cli infer run`↴](#acorn-cli-infer-run)
 * [`acorn-cli format`↴](#acorn-cli-format)
 * [`acorn-cli gather`↴](#acorn-cli-gather)
 * [`acorn-cli import`↴](#acorn-cli-import)
@@ -70,7 +71,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * `doctor` — Diagnose and correct system requirements for using acorn
 * `download` — Download research activity data from buckets or model weights for local inference
 * `export` — Export research activity data to a specific target
-* `infer` — Run bounded local tool inference through the managed Needle sidecar
+* `infer` — Run bounded inference through Needle or a configured prompt backend
 * `format` — Formats supported metadata standards in place (inherently includes some elements of `acorn check`)
 * `gather` — Gather persistent identifiers from documents, URLs, or text
 * `import` — Import external metadata into ACORN
@@ -214,6 +215,43 @@ Perform static analysis on research activity data and apply standardized best pr
 
   Default value: `fkgl`
 * `-t`, `--terse` — Use compact output format instead of detailed output
+* `--suggest-fixes` — Ask the configured inference backend for bounded, non-executable fix proposals
+* `--output <FORMAT>` — Check and suggestion output format
+
+  Default value: `human`
+
+  Possible values:
+  - `human`:
+    Human-readable text
+  - `json`:
+    Machine-readable JSON
+
+* `--backend <BACKEND>` — Inference backend; CLI overrides `ACORN_INFERENCE_BACKEND`, then defaults to `acp`
+
+  Default value: `acp`
+
+  Possible values:
+  - `acp`:
+    Run a local Agent Client Protocol process
+  - `openai`:
+    Call an OpenAI-compatible HTTP endpoint
+
+* `--agent <AGENT>` — ACP agent identifier (currently only `opencode`)
+* `--agent-executable <PATH>` — Explicit ACP agent executable
+* `--working-directory <PATH>` — ACP session working directory
+* `--model <MODEL>` — Model selector; required for OpenAI-compatible inference
+* `--base-url <URL>` — OpenAI-compatible base URL; overrides `OPENAI_SERVER_HOST`
+* `--endpoint-mode <MODE>` — OpenAI-compatible endpoint shape
+
+  Possible values:
+  - `chat-completions`:
+    Use `POST /v1/chat/completions`
+  - `responses`:
+    Use `POST /v1/responses`
+
+* `--timeout <DURATION>` — Maximum inference duration
+
+  Default value: `30s`
 * `--vale-directory <PATH>` — Existing Vale installation directory containing the executable and `.vale.ini`
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
@@ -658,7 +696,7 @@ Export research activity data to a specific target
 
 ## `acorn-cli infer`
 
-Run bounded local tool inference through the managed Needle sidecar
+Run bounded inference through Needle or a configured prompt backend
 
     Use the pinned official runner
     $> acorn infer "Validate this research activity"
@@ -669,9 +707,22 @@ Run bounded local tool inference through the managed Needle sidecar
     Use a local or private-registry ModelKit
     $> acorn infer "Validate this" --custom-location oci://harbor.example/acorn/needle@sha256:...
 
-**Usage:** `acorn-cli infer [OPTIONS] [PROMPT]`
+    Preview a hydrated prompt without starting a backend
+    $> acorn infer run summarize activity.json --dry-run
+
+    Run through OpenCode ACP (the default backend)
+    $> acorn infer run summarize activity.json
+
+    Run through an OpenAI-compatible endpoint
+    $> acorn infer run summarize --backend openai --model qwen3 --base-url http://localhost:8080
+
+**Usage:** `acorn-cli infer [OPTIONS] [PROMPT] [COMMAND]`
 
 **Command Alias:** `ask`
+
+###### **Subcommands:**
+
+* `run` — Hydrate and run one known embedded prompt asset
 
 ###### **Arguments:**
 
@@ -686,6 +737,72 @@ Run bounded local tool inference through the managed Needle sidecar
 * `--max-rounds <N>` — Maximum number of Needle tool-selection rounds
 
   Default value: `8`
+* `-v`, `--verbose` — Increase logging verbosity
+* `-q`, `--quiet` — Decrease logging verbosity
+
+
+
+## `acorn-cli infer run`
+
+Hydrate and run one known embedded prompt asset
+
+**Usage:** `acorn-cli infer run [OPTIONS] <ASSET> [PATH]...`
+
+###### **Arguments:**
+
+* `<ASSET>` — Known embedded prompt asset name
+* `<PATH>` — JSON, YAML, or ZON input paths or glob patterns; use `-` for standard input
+
+###### **Options:**
+
+* `--set <KEY=VALUE>` — Override one top-level scalar prompt-data value
+* `--format <FORMAT>` — Serialization format for the prompt input-data block
+
+  Default value: `zon`
+
+  Possible values:
+  - `json`:
+    Pretty-printed JSON
+  - `zon`:
+    Canonical ZON
+
+* `--dry-run` [alias: `what-if`] — Preview the fully hydrated prompt without backend checks or I/O
+* `--output <FORMAT>` — Command output format
+
+  Default value: `human`
+
+  Possible values:
+  - `human`:
+    Human-readable text
+  - `json`:
+    Machine-readable JSON
+
+* `--backend <BACKEND>` — Inference backend; CLI overrides `ACORN_INFERENCE_BACKEND`, then defaults to `acp`
+
+  Default value: `acp`
+
+  Possible values:
+  - `acp`:
+    Run a local Agent Client Protocol process
+  - `openai`:
+    Call an OpenAI-compatible HTTP endpoint
+
+* `--agent <AGENT>` — ACP agent identifier (currently only `opencode`)
+* `--agent-executable <PATH>` — Explicit ACP agent executable
+* `--working-directory <PATH>` — ACP session working directory
+* `--model <MODEL>` — Model selector; required for OpenAI-compatible inference
+* `--base-url <URL>` — OpenAI-compatible base URL; overrides `OPENAI_SERVER_HOST`
+* `--endpoint-mode <MODE>` — OpenAI-compatible endpoint shape
+
+  Possible values:
+  - `chat-completions`:
+    Use `POST /v1/chat/completions`
+  - `responses`:
+    Use `POST /v1/responses`
+
+* `--timeout <DURATION>` — Maximum inference duration
+
+  Default value: `30s`
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 

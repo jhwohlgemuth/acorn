@@ -2,7 +2,6 @@ use crate::cli::Void;
 #[cfg(not(feature = "tui"))]
 use color_eyre::eyre;
 use std::path::PathBuf;
-
 #[cfg(feature = "tui")]
 pub fn run(database_path: &Option<PathBuf>, no_local_database: bool, offline: bool) -> Void {
     acorn_tui::run_with_options(
@@ -10,6 +9,7 @@ pub fn run(database_path: &Option<PathBuf>, no_local_database: bool, offline: bo
         None,
         acorn_tui::TuiOptions {
             database_path: database_path.clone(),
+            doctor_fix: false,
             no_local_database,
             offline,
         },

@@ -1,16 +1,20 @@
-use super::{AgentProcessConfig, Client, Error, OPENCODE_AGENT_ID};
+use super::{AcpSessionEvent, AgentProcessConfig, Client, Error, SessionObserver, OPENCODE_AGENT_ID};
 use crate::agent::{HydratedPrompt, InferencePermissionPolicy, InferenceRequest};
 use crate::analyzer::fix::{CheckReference, CheckReferences, FixOptions, IntoFixes};
 use acorn_cmd::{find_executable, CommandSpec};
 use acorn_schema::agent::{FrontMatter, PromptFileAsset};
+use alloc::sync::Arc;
 use core::time::Duration;
 use serde_json::json;
-use std::{ffi::OsStr, path::PathBuf};
+use std::{ffi::OsStr, path::PathBuf, sync::Mutex};
 use tempfile::TempDir;
-
 struct FakeAgent {
     _directory: TempDir,
     executable: PathBuf,
+}
+#[derive(Default)]
+struct Observer {
+    events: Mutex<Vec<AcpSessionEvent>>,
 }
 impl FakeAgent {
     fn compile() -> Self {
@@ -39,6 +43,11 @@ impl FakeAgent {
             .with_timeout(Duration::from_secs(10))
     }
 }
+impl SessionObserver for Observer {
+    fn observe(&self, event: &AcpSessionEvent) {
+        self.events.lock().expect("lock observer").push(event.clone());
+    }
+}
 fn fix_reference() -> CheckReference {
     CheckReference {
         category: "schema".to_string(),
@@ -63,7 +72,7 @@ fn request(body: &str) -> InferenceRequest {
             metadata: FrontMatter::init().name("test".to_string()).build(),
         },
         response_schema: None,
-        timeout_ms: 10_000,
+        timeout: 10_000.into(),
     }
 }
 fn runtime() -> tokio::runtime::Runtime {
@@ -72,7 +81,6 @@ fn runtime() -> tokio::runtime::Runtime {
         .build()
         .expect("build test runtime")
 }
-
 #[test]
 fn test_acp_inference_forwards_hydrated_zon_prompt_body() {
     let fake = FakeAgent::compile();
@@ -127,9 +135,32 @@ fn test_acp_inference_times_out() {
     let fake = FakeAgent::compile();
     let client = Client::new(fake.config("fake"));
     let mut timed = request("hang");
-    timed.timeout_ms = 50;
+    timed.timeout = 50.into();
     let result = runtime().block_on(client.infer_checked(&timed));
     assert!(matches!(result, Err(Error::Timeout { .. })));
+}
+#[test]
+fn test_acp_observer_receives_text_and_cannot_change_permissions() {
+    let fake = FakeAgent::compile();
+    let observer = Arc::new(Observer::default());
+    let client = Client::new(fake.config("fake")).with_observer(observer.clone() as Arc<dyn SessionObserver>);
+    let text = runtime().block_on(client.infer_checked(&request("plain"))).expect("stream text");
+    assert_eq!(text.text, "fake response");
+    assert!(observer
+        .events
+        .lock()
+        .expect("lock observer")
+        .iter()
+        .any(|event| matches!(event, AcpSessionEvent::TextDelta { .. })));
+
+    let denied = runtime().block_on(client.infer_checked(&request("permission")));
+    assert!(matches!(denied, Err(Error::PermissionDenied { .. })));
+    assert!(observer
+        .events
+        .lock()
+        .expect("lock observer")
+        .iter()
+        .any(|event| matches!(event, AcpSessionEvent::PermissionRequested { option_count } if *option_count > 0)));
 }
 #[test]
 fn test_acp_permission_requests_are_denied() {

@@ -6,6 +6,7 @@ use super::parse::{
 use super::DownloadCommands;
 use acorn::analyzer::host::discovery::CitationFormat;
 use acorn::analyzer::{self, Standard};
+use acorn::io::acp::OPENCODE_AGENT_ID;
 use acorn::io::config::application::Hook;
 use acorn::io::swhid::CalculationKind;
 use acorn::io::{Executor, Platform, Remote};
@@ -13,10 +14,12 @@ use acorn::util::constants::app::{
     DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_SEARCH_LIMIT, DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, DEFAULT_NEEDLE_MAX_ROUNDS,
 };
 use acorn::util::constants::env::{CHROME_PATH, MINIMUM_DOWNLOAD_COUNT, SEARCH_LIMIT};
-use acorn_core::util::MimeType;
+use acorn_core::{time::Milliseconds, util::MimeType, validation::ValidationError};
 use acorn_schema::agent::Quantization;
 use acorn_schema::enrichment::Provider;
 use acorn_schema::hardware::memory::Memory;
+use acorn_schema::validation::{Validate, ValidationReport};
+use bon::Builder;
 use clap::ValueEnum;
 use clap::{Args, ValueHint};
 use clap_verbosity_flag::Verbosity;
@@ -25,7 +28,6 @@ use derive_more::Display;
 use jiff::SignedDuration;
 use std::path::PathBuf;
 use strum::EnumIs;
-
 /// Bot command arguments.
 pub(crate) mod bot {
     use super::{parse_executor, DetachArgs, Executor, PathBuf, RemoteTarget, ValueEnum, Verbosity};
@@ -138,7 +140,6 @@ pub(crate) mod bot {
     }
 }
 pub(crate) mod osti;
-
 /// Archive container format used for BagIt import and export.
 #[derive(Clone, Copy, Debug, Display, Eq, PartialEq, ValueEnum)]
 pub(crate) enum ArchiveType {
@@ -168,7 +169,8 @@ pub enum DatabaseBackend {
     Duckdb,
 }
 /// Categories available when performing system diagnostics before using ACORN
-#[derive(Clone, Copy, Debug, Default, PartialEq, ValueEnum)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, strum::Display, ValueEnum)]
+#[strum(serialize_all = "lowercase")]
 pub enum Diagnostic {
     #[default]
     All,
@@ -221,6 +223,33 @@ pub enum GatherOutputFormat {
     #[display("yaml")]
     Yaml,
 }
+/// Inference backend selected for prompt execution and suggestions.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
+pub(crate) enum InferenceBackendKind {
+    /// Run a local Agent Client Protocol process.
+    #[default]
+    Acp,
+    /// Call an OpenAI-compatible HTTP endpoint.
+    Openai,
+}
+/// OpenAI-compatible endpoint request shape.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
+pub(crate) enum InferenceEndpointMode {
+    /// Use `POST /v1/chat/completions`.
+    ChatCompletions,
+    /// Use `POST /v1/responses`.
+    #[default]
+    Responses,
+}
+/// Stable command output format for inference-enabled commands.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
+pub(crate) enum InferenceOutputFormat {
+    /// Human-readable text.
+    #[default]
+    Human,
+    /// Machine-readable JSON.
+    Json,
+}
 /// Structured output format for raw/dry-run results (JSON or YAML)
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
 pub enum OutputFormat {
@@ -229,6 +258,15 @@ pub enum OutputFormat {
     Json,
     #[display("YAML")]
     Yaml,
+}
+/// Serialization format used for the hydrated prompt data block.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
+pub(crate) enum PromptDataFormatArg {
+    /// Pretty-printed JSON.
+    Json,
+    /// Canonical ZON.
+    #[default]
+    Zon,
 }
 /// Target artifact aspect ratio size available when exporting research activity data using acorn
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
@@ -386,6 +424,14 @@ pub struct Check {
     /// Use compact output format instead of detailed output
     #[arg(short = 't', long, value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) terse: bool,
+    /// Ask the configured inference backend for bounded, non-executable fix proposals
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) suggest_fixes: bool,
+    /// Check and suggestion output format
+    #[arg(long, default_value = "human", value_enum, value_name = "FORMAT", help_heading = "OPTIONS")]
+    pub(crate) output: InferenceOutputFormat,
+    #[command(flatten)]
+    pub(crate) inference: InferenceArgs,
     /// Existing Vale installation directory containing the executable and `.vale.ini`
     #[arg(long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
     pub(crate) vale_directory: Option<PathBuf>,
@@ -481,25 +527,6 @@ pub(crate) struct Download {
     pub(crate) canonicalize: bool,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
-}
-impl Download {
-    /// Bucket-only flag that the selected subcommand does not support, if any.
-    ///
-    /// The model and needle subcommands transfer weights and engines rather than buckets, so bucket transfer options are rejected for them.
-    /// Flags are reported in a fixed order so a combination of unsupported flags always names the same one.
-    pub(crate) fn unsupported_bucket_flag(&self) -> Option<&'static str> {
-        let flags = [
-            ("--flatten", self.flatten),
-            ("--clobber", self.clobber),
-            ("--strict", self.strict),
-            ("--canonicalize", self.canonicalize),
-            ("--archive-format", self.archive_format.is_some()),
-        ];
-        match &self.command {
-            | Some(DownloadCommands::Model(_) | DownloadCommands::Needle) => flags.into_iter().find(|(_, selected)| *selected).map(|(flag, _)| flag),
-            | _ => None,
-        }
-    }
 }
 #[derive(Clone, Debug, Args)]
 #[command(
@@ -953,6 +980,8 @@ pub(crate) struct ImportModel {
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub(crate) struct Infer {
+    #[command(subcommand)]
+    pub(crate) command: Option<super::InferCommands>,
     /// Prompt used to select and invoke ACORN tools
     #[arg(required = false, value_name = "PROMPT")]
     pub(crate) prompt: Option<String>,
@@ -967,6 +996,44 @@ pub(crate) struct Infer {
     pub(crate) max_rounds: usize,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
+}
+/// Options shared by inference-enabled CLI commands.
+#[derive(Builder, Clone, Debug, Args)]
+#[builder(start_fn = init)]
+pub(crate) struct InferenceArgs {
+    /// Inference backend; CLI overrides `ACORN_INFERENCE_BACKEND`, then defaults to `acp`
+    #[arg(
+        long,
+        env = "ACORN_INFERENCE_BACKEND",
+        default_value = "acp",
+        value_enum,
+        value_name = "BACKEND",
+        help_heading = "INFERENCE"
+    )]
+    #[builder(default)]
+    pub(crate) backend: InferenceBackendKind,
+    /// ACP agent identifier (currently only `opencode`)
+    #[arg(long, value_name = "AGENT", help_heading = "INFERENCE")]
+    pub(crate) agent: Option<String>,
+    /// Explicit ACP agent executable
+    #[arg(long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "INFERENCE")]
+    pub(crate) agent_executable: Option<PathBuf>,
+    /// ACP session working directory
+    #[arg(long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "INFERENCE")]
+    pub(crate) working_directory: Option<PathBuf>,
+    /// Model selector; required for OpenAI-compatible inference
+    #[arg(long, value_name = "MODEL", help_heading = "INFERENCE")]
+    pub(crate) model: Option<String>,
+    /// OpenAI-compatible base URL; overrides `OPENAI_SERVER_HOST`
+    #[arg(long, value_name = "URL", help_heading = "INFERENCE")]
+    pub(crate) base_url: Option<String>,
+    /// OpenAI-compatible endpoint shape
+    #[arg(long, value_enum, value_name = "MODE", help_heading = "INFERENCE")]
+    pub(crate) endpoint_mode: Option<InferenceEndpointMode>,
+    /// Maximum inference duration
+    #[arg(long, default_value = "30s", value_parser = parse_watch_duration, value_name = "DURATION", help_heading = "INFERENCE")]
+    #[builder(default = SignedDuration::from_secs(30))]
+    pub(crate) timeout: SignedDuration,
 }
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
@@ -1045,6 +1112,33 @@ pub(crate) struct ModelSyncArgs {
     /// Preview resolution and synchronization without writes.
     #[arg(long = "dry-run", visible_alias = "what-if", help_heading = "FLAGS")]
     pub(crate) dry_run: bool,
+}
+/// Options for `acorn infer run`.
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct PromptRun {
+    /// Known embedded prompt asset name
+    #[arg(value_name = "ASSET")]
+    pub(crate) asset: String,
+    /// JSON, YAML, or ZON input paths or glob patterns; use `-` for standard input
+    #[arg(value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "ARGS")]
+    pub(crate) paths: Vec<PathBuf>,
+    /// Override one top-level scalar prompt-data value
+    #[arg(long = "set", value_name = "KEY=VALUE", action = clap::ArgAction::Append, help_heading = "OPTIONS")]
+    pub(crate) set: Vec<String>,
+    /// Serialization format for the prompt input-data block
+    #[arg(long, default_value = "zon", value_enum, value_name = "FORMAT", help_heading = "OPTIONS")]
+    pub(crate) format: PromptDataFormatArg,
+    /// Preview the fully hydrated prompt without backend checks or I/O
+    #[arg(long, visible_alias = "what-if", help_heading = "FLAGS")]
+    pub(crate) dry_run: bool,
+    /// Command output format
+    #[arg(long, default_value = "human", value_enum, value_name = "FORMAT", help_heading = "OPTIONS")]
+    pub(crate) output: InferenceOutputFormat,
+    #[command(flatten)]
+    pub(crate) inference: InferenceArgs,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
 }
 /// Remote target arguments shared by container-producing create/serve commands.
 #[derive(Clone, Debug, Args)]
@@ -1347,6 +1441,25 @@ impl From<SwhidKind> for CalculationKind {
         }
     }
 }
+impl Download {
+    /// Bucket-only flag that the selected subcommand does not support, if any.
+    ///
+    /// The model and needle subcommands transfer weights and engines rather than buckets, so bucket transfer options are rejected for them.
+    /// Flags are reported in a fixed order so a combination of unsupported flags always names the same one.
+    pub(crate) fn unsupported_bucket_flag(&self) -> Option<&'static str> {
+        let flags = [
+            ("--flatten", self.flatten),
+            ("--clobber", self.clobber),
+            ("--strict", self.strict),
+            ("--canonicalize", self.canonicalize),
+            ("--archive-format", self.archive_format.is_some()),
+        ];
+        match &self.command {
+            | Some(DownloadCommands::Model(_) | DownloadCommands::Needle) => flags.into_iter().find(|(_, selected)| *selected).map(|(flag, _)| flag),
+            | _ => None,
+        }
+    }
+}
 impl FileFormat {
     /// Return whether the format supports batches of structured records.
     pub fn is_batch(&self) -> bool {
@@ -1355,6 +1468,71 @@ impl FileFormat {
     /// Return whether the format is structured data.
     pub fn is_structured(&self) -> bool {
         self.is_cff() || self.is_batch()
+    }
+}
+impl Default for InferenceArgs {
+    fn default() -> Self {
+        Self::new(InferenceBackendKind::default())
+    }
+}
+impl InferenceArgs {
+    pub(crate) fn new(backend: InferenceBackendKind) -> Self {
+        Self::init().backend(backend).build()
+    }
+}
+impl Validate for InferenceArgs {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        let mut report = ValidationReport::new();
+        if Milliseconds::try_from(self.timeout).is_err() {
+            report.add(
+                "timeout",
+                ValidationError::new("range").with_message("Inference timeout must be non-negative and fit in milliseconds"),
+            );
+        }
+        match self.backend {
+            | InferenceBackendKind::Acp => {
+                if self.base_url.is_some() {
+                    report.add(
+                        "baseUrl",
+                        ValidationError::new("backend").with_message("--base-url is only valid with --backend openai"),
+                    );
+                }
+                if self.endpoint_mode.is_some() {
+                    report.add(
+                        "endpointMode",
+                        ValidationError::new("backend").with_message("--endpoint-mode is only valid with --backend openai"),
+                    );
+                }
+                if let Some(agent) = self.agent.as_deref().filter(|agent| *agent != OPENCODE_AGENT_ID) {
+                    report.add(
+                        "agent",
+                        ValidationError::new("supported").with_message(format!("Unsupported ACP agent '{agent}'; expected {OPENCODE_AGENT_ID}")),
+                    );
+                }
+            }
+            | InferenceBackendKind::Openai => {
+                [
+                    ("agent", "--agent", self.agent.is_some()),
+                    ("agentExecutable", "--agent-executable", self.agent_executable.is_some()),
+                    ("workingDirectory", "--working-directory", self.working_directory.is_some()),
+                ]
+                .into_iter()
+                .filter(|(_, _, present)| *present)
+                .for_each(|(path, flag, _)| {
+                    report.add(
+                        path,
+                        ValidationError::new("backend").with_message(format!("{flag} is only valid with --backend acp")),
+                    );
+                });
+                if self.model.as_ref().is_none_or(|model| model.trim().is_empty()) {
+                    report.add(
+                        "model",
+                        ValidationError::new("required").with_message("--model is required with --backend openai"),
+                    );
+                }
+            }
+        }
+        report.finish()
     }
 }
 impl From<&FileFormat> for MimeType {

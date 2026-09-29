@@ -2,13 +2,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
-
 pub mod error;
 mod location;
 pub mod options;
 pub mod prelude;
+pub mod time;
 pub mod util;
 pub mod validation;
-
 pub use error::{AcornError, AcornResult};
 pub use location::{Location, Release, Repository, Scheme, SimpleOrDetailed};

@@ -1,4 +1,5 @@
 #![allow(clippy::arithmetic_side_effects, clippy::indexing_slicing)]
+
 use super::*;
 use crate::agent::{
     HydratedPrompt, InMemoryBackend, InferenceFinishReason, InferencePermissionPolicy, InferenceProvenance, InferenceRequest, InferenceResult,
@@ -11,7 +12,6 @@ use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
 use axum::http::{Request, StatusCode};
 use schemars::JsonSchema;
 use tower::ServiceExt;
-
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct AddInput {
@@ -23,7 +23,6 @@ struct AddInput {
 struct AddOutput {
     total: i64,
 }
-
 fn fix_reference() -> CheckReference {
     CheckReference {
         category: "schema".to_string(),
@@ -82,7 +81,7 @@ fn inference_request() -> InferenceRequest {
             metadata: FrontMatter::init().name("summarize".to_string()).build(),
         },
         response_schema: None,
-        timeout_ms: 1_000,
+        timeout: 1_000.into(),
     }
 }
 fn inference_result() -> InferenceResult {

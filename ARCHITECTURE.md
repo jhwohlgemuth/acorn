@@ -62,7 +62,7 @@ Portability is a capability spectrum, not a native-versus-WASM switch. Both `aco
 | `wasm` | Legacy facade compatibility for portable operations on `wasm32-unknown-unknown` | Currently extends `alloc`; it intentionally does not enable browser bindings or adapters |
 | `analyzer` | Portable check/error/readability models and supplied-text calculations | Extends `alloc`; verified independently on native and `wasm32-unknown-unknown` targets |
 | `std` | Native runtime support and adapter implementations | Extends `alloc`; enables filesystem, HTTP, database, process, document, terminal, and related host dependencies |
-| Capability features | Selectable product behavior such as `analysis`, `agentic`, `doctor`, `powerpoint`, and `swhid-compute` | Layer on the minimum runtime they currently need; broad `std` coupling is being split into narrower crates |
+| Capability features | Selectable product behavior such as `analysis`, `agentic`, `acp`, `powerpoint`, and `swhid-compute` | Layer on the minimum runtime they currently need; broad `std` coupling is being split into narrower crates |
 
 Code should import from the narrowest prelude that matches its behavior: `prelude::core` for allocation-free language items, `prelude::alloc` for portable owned data, and `prelude::std` only for operating-system or runtime services. A type compiling for a WASM target is not evidence that it belongs in a browser adapter; JavaScript bindings and future browser APIs live in `acorn-wasm`.
 
@@ -77,9 +77,8 @@ Code should import from the narrowest prelude that matches its behavior: `prelud
 `acorn-lib` currently contains these boundaries:
 
 - Schema models, crosswalks, codecs, and allocation-compatible validation are owned by `acorn-schema`; `acorn-lib` retains their host adapters and services.
-- `analyzer/`: alloc-capable check/result models, readability, and scoring behind `analyzer`; native context, discovery, Vale execution, path services, tabular export, and terminal rendering live under `analyzer::host` behind `analysis`.
+- `analyzer/`: alloc-capable check/result models, readability, and scoring behind `analyzer`; native context, discovery, trusted fix execution, Vale execution, path services, tabular export, and terminal rendering live under `analyzer::host` behind `analysis`. System diagnostics additionally require the default `std` feature so `sysinfo` stays outside portable analysis builds.
 - `io/`: native adapters and services for APIs, databases, documents, archives, downloads, synchronization, source handling, workflows, and PowerPoint.
-- `doctor/`: native environment diagnostics behind the `doctor` feature.
 - `enrichment.rs`: enrichment contracts and transformations shared by schema and service work.
 - `util/` and `error.rs`: native helpers and extensions around portable `acorn-core` behavior.
 

@@ -172,7 +172,7 @@ The gRPC transport is a stepping stone for ACORN's ACP and MCP work because it e
 Each protocol still keeps its own contract:
 
 - The available [MCP server](../cli-reference/commands/serve.md) exposes ACORN's canonical tool registry over MCP stdio, including MCP tool discovery and calls. A future outbound MCP client will use MCP client semantics.
-- A planned ACP client will use ACP sessions, streamed updates, and permission requests to supervise external agents.
+- The ACP client uses one-shot sessions, normalized streamed updates, and fixed-policy permission responses to supervise external agents.
 - gRPC remains ACORN's typed binary operation transport. It does not wrap ACP or MCP frames, and gRPC compatibility does not imply ACP or MCP wire compatibility.
 
 This separation lets ACORN reuse policy and deterministic capabilities while implementing discovery, sessions, streaming, and permissions in the protocol that defines them. See [Intelligence in Depth layers](../concepts/agentic-layers.md) for the broader agent architecture.

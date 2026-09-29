@@ -1,4 +1,5 @@
 //! Proposal-only fix models and inference-backed suggestion orchestration.
+
 use crate::agent::{
     run_inference, HydratedPrompt, InferenceBackend, InferencePermissionPolicy, InferenceProvenance, InferenceRequest, InferenceResult,
     PromptContext, PromptHydrator,
@@ -7,6 +8,7 @@ use crate::analyzer::host::service::AnalysisReport;
 use crate::io::{ApiResult, Fingerprint, Parse};
 use crate::util::StringConversion;
 use acorn_core::prelude::{format, String, ToString, Vec};
+use acorn_core::time::Milliseconds;
 use acorn_core::util::StringExt;
 use acorn_core::validation::{digest, ValidationError};
 use acorn_host::fs::SafePath;
@@ -18,29 +20,27 @@ use acorn_schema::{
 use alloc::collections::{BTreeMap, BTreeSet};
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
-use core::convert::identity;
+use core::{convert::identity, fmt};
 use futures::{stream, StreamExt};
 use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
-
+mod discovery;
 mod execution;
 mod plan;
 mod service;
 mod types;
-
-use types::FixError;
-
+pub use discovery::{HostProvider, Provider};
 #[cfg(feature = "analysis")]
-pub use execution::CommandFixRunner;
-pub use execution::{FixOutcome, FixRunner};
-pub use plan::{FixPlan, FixPolicy};
+pub use execution::CommandRunner;
+pub use execution::{Outcome, Runner, Verifier};
+pub use plan::{Plan, Policy};
+use types::FixError;
 pub use types::{
-    CategoryFixes, CheckReference, DiscoveryReference, FindingReference, Fix, FixAction, FixAutomation, FixBatch, FixDiagnostic, FixEffects,
-    FixOptions, FixProvenance, FixReport, FixRisk, FixStatus, FixSuggestionRequest, FixSummary,
+    CategoryFixes, CheckReference, DiscoveryCategory, DiscoveryReference, DiscoveryStatus, FindingReference, Fix, FixAction, FixAutomation, FixBatch,
+    FixDiagnostic, FixEffects, FixOptions, FixProvenance, FixReport, FixRisk, FixStatus, FixSuggestionRequest, FixSummary,
 };
-
 /// Maximum aggregate finding context sent in one inference request by default.
 pub const DEFAULT_MAX_CONTEXT_BYTES: usize = 128 * 1024;
 /// Maximum UTF-8 byte length of one source excerpt by default.
@@ -50,7 +50,6 @@ pub const DEFAULT_MAX_FINDINGS_PER_BATCH: usize = 32;
 /// Version of the proposal-only fix envelope.
 pub const FIX_ENVELOPE_VERSION: &str = "1";
 const MAX_MESSAGE_BYTES: usize = 1024;
-
 /// Adds proposal orchestration methods to normalized check-reference collections.
 #[async_trait]
 pub trait CheckReferences {
@@ -74,7 +73,7 @@ impl CategoryFixes {
     fn key(fix: &Fix) -> (Option<String>, String) {
         match &fix.finding {
             | FindingReference::Check(reference) => (Some(reference.standard.clone()), reference.category.clone()),
-            | FindingReference::Discovery(reference) => (None, reference.category.clone()),
+            | FindingReference::Discovery(reference) => (None, reference.category.to_string()),
         }
     }
 }
@@ -141,19 +140,14 @@ impl Default for FixOptions {
             max_findings_per_batch: DEFAULT_MAX_FINDINGS_PER_BATCH,
             min_confidence: 0.0,
             model: None,
-            timeout_ms: 30_000,
+            timeout: Milliseconds::new(30_000),
         }
     }
 }
 impl Validate for FixOptions {
     fn validate(&self) -> Result<(), ValidationReport> {
         let valid_confidence = self.min_confidence.is_finite() && (0.0..=1.0).contains(&self.min_confidence);
-        let limits = (
-            self.max_context_bytes,
-            self.max_excerpt_bytes,
-            self.max_findings_per_batch,
-            self.timeout_ms,
-        );
+        let limits = (self.max_context_bytes, self.max_excerpt_bytes, self.max_findings_per_batch, self.timeout);
         match (limits, valid_confidence) {
             | ((0, _, _, _), _) => Err(FixError::ContextLimitZero.report("maxContextBytes")),
             | ((value, _, _, _), _) if value > DEFAULT_MAX_CONTEXT_BYTES => Err(FixError::ContextLimitExceeded.report("maxContextBytes")),
@@ -162,7 +156,7 @@ impl Validate for FixOptions {
             | ((_, _, 0, _), _) => Err(FixError::FindingLimitZero.report("maxFindingsPerBatch")),
             | ((_, _, value, _), _) if value > DEFAULT_MAX_FINDINGS_PER_BATCH => Err(FixError::FindingLimitExceeded.report("maxFindingsPerBatch")),
             | ((_, _, _, _), false) => Err(FixError::InvalidMinimumConfidence.report("minConfidence")),
-            | ((_, _, _, 0), _) => Err(FixError::TimeoutZero.report("timeoutMs")),
+            | ((_, _, _, timeout), _) if timeout.is_zero() => Err(FixError::TimeoutZero.report("timeout")),
             | _ => Ok(()),
         }
     }
@@ -196,9 +190,37 @@ impl FixReport {
         Self { categories, diagnostics }
     }
 }
+impl From<Vec<Fix>> for FixReport {
+    fn from(value: Vec<Fix>) -> Self {
+        Self::from_parts(value, Vec::new())
+    }
+}
 impl IntoFixes for FixReport {
     fn fixes(&self) -> Vec<&Fix> {
         self.categories.iter().flat_map(|category| category.fixes.values.iter()).collect()
+    }
+}
+impl fmt::Display for FixReport {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let heading = match self.categories.is_empty() && self.diagnostics.is_empty() {
+            | true => Ok(()),
+            | false => writeln!(formatter, "\nSuggested fixes"),
+        };
+        heading
+            .and_then(|()| {
+                self.categories.iter().try_for_each(|category| {
+                    category
+                        .fixes
+                        .values
+                        .iter()
+                        .try_for_each(|fix| writeln!(formatter, "- [{}] {}", category.category, fix.summary))
+                })
+            })
+            .and_then(|()| {
+                self.diagnostics
+                    .iter()
+                    .try_for_each(|diagnostic| writeln!(formatter, "Fix suggestion — {}", diagnostic.message))
+            })
     }
 }
 impl From<&FixReport> for FixSummary {
@@ -236,7 +258,6 @@ impl From<FixReport> for FixSummary {
         Self::from(&value)
     }
 }
-
 fn is_identifier(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 128
@@ -247,6 +268,5 @@ fn is_identifier(value: &str) -> bool {
 fn validate_options(options: &FixOptions) -> ApiResult<()> {
     options.validate().map_err(|why| eyre!(why))
 }
-
 #[cfg(test)]
 mod tests;

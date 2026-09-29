@@ -10,9 +10,7 @@ use alloc::sync::Arc;
 use axum::{extract::State as AxumState, http::StatusCode, routing::post, Json, Router};
 use serde_json::{json, Value};
 use std::sync::{Mutex, PoisonError};
-
 const FIX_RESPONSE: &str = r#"{"fixes":[{"actions":[{"instructions":"Replace the title with a valid value","kind":"manual"}],"automation":"manual","confidence":0.9,"effects":{"elevation":false,"filesystem_write":false,"network":false,"package_manager":false,"process":false,"restart":false,"reversible":true},"finding_id":"check-0001","id":"fix-0001","rationale":"The title requires human review.","risk":"low","source_fingerprint":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","status":"proposed","summary":"Review the title","target":"activity.json"}],"version":"1"}"#;
-
 #[derive(Clone, Default)]
 struct ServerState {
     requests: Arc<Mutex<Vec<(EndpointMode, Value)>>>,
@@ -57,7 +55,7 @@ fn request(body: &str) -> InferenceRequest {
             metadata: FrontMatter::init().name("test".to_string()).build(),
         },
         response_schema: None,
-        timeout_ms: 10_000,
+        timeout: 10_000.into(),
     }
 }
 async fn response_for(mode: EndpointMode, prompt: &str) -> (StatusCode, Json<Value>) {
@@ -147,7 +145,6 @@ async fn server() -> (TestServer, ServerState) {
         .with_state(state.clone());
     (TestServer::start(router).await.expect("start OpenAI-compatible test server"), state)
 }
-
 #[tokio::test]
 async fn test_capabilities_and_debug_keep_configuration_explicit_and_secret_free() {
     let (server, _) = server().await;
@@ -378,7 +375,7 @@ async fn test_structured_output_fallback_parses_without_advertised_capability() 
 async fn test_timeout_is_enforced() {
     let (server, _) = server().await;
     let timed = InferenceRequest {
-        timeout_ms: 10,
+        timeout: 10.into(),
         ..request("slow")
     };
     let result = client(&server, EndpointMode::Responses).infer_checked(&timed).await;

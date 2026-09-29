@@ -5,7 +5,6 @@ use super::{
     InferenceResult, JsonSchema, Parse, PromptContext, PromptFileAsset, PromptHydrator, PromptTemplateConfiguration, SafePath, Serialize, StreamExt,
     String, StringConversion, ToString, Validate, Value, Vec, FIX_ENVELOPE_VERSION, MAX_MESSAGE_BYTES,
 };
-
 pub(super) trait PendingReferences {
     fn normalize(self, options: &FixOptions) -> ApiResult<Vec<CheckReference>>;
 }
@@ -40,7 +39,6 @@ struct SuggestionPromptData<'a> {
     findings: &'a [CheckReference],
     version: &'static str,
 }
-
 impl AnalysisReport {
     /// Normalize unsuccessful checks into stable references.
     pub fn normalize_checks(&self, options: &FixOptions) -> ApiResult<Vec<CheckReference>> {
@@ -158,7 +156,7 @@ impl CheckReferences for Vec<CheckReference> {
                     ..prompt
                 },
                 response_schema: Some(response_schema),
-                timeout_ms: options.timeout_ms,
+                timeout: options.timeout,
             })
     }
     async fn suggest<B>(self, backend: &B, options: &FixOptions) -> ApiResult<FixReport>

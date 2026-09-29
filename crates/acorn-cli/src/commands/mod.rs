@@ -1,7 +1,7 @@
 use crate::{
     cli::{
         arguments, arguments::OutputFormat, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ExecCommands, ExecHookCommands,
-        ExecManifestCommands, ImportCommands, ServeCommands, Void, WatchOptions,
+        ExecManifestCommands, ImportCommands, InferCommands, ServeCommands, Void, WatchOptions,
     },
     io::{is_stdout_piped, read_stdin, write_stdout},
 };
@@ -32,6 +32,7 @@ pub mod format;
 pub mod gather;
 pub mod import;
 pub mod infer;
+pub mod inference;
 pub mod link;
 pub mod report;
 pub mod serve;
@@ -49,7 +50,6 @@ macro_rules! preflight {
     };
 }
 pub(crate) use preflight;
-
 fn preflight_inner(command: &str, options: &CommandOptions) -> eyre::Result<()> {
     let CommandOptions {
         offline,
@@ -132,6 +132,9 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 vale_directory,
                 standard,
                 readability_metric,
+                suggest_fixes,
+                output,
+                inference,
                 verbose,
                 ..
             } = arguments.as_ref();
@@ -162,6 +165,9 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 vale_directory,
                 format,
                 application_config,
+                *suggest_fixes,
+                *output,
+                inference,
             )
             .await
         }),
@@ -226,7 +232,18 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
         | Some(Commands::Download(arguments)) => match arguments.unsupported_bucket_flag() {
             | Some(flag) => Err(eyre::eyre!("{flag} is only supported for bucket downloads")),
             | None => match &arguments.command {
+                | Some(DownloadCommands::Chromium) => {
+                    #[cfg(feature = "pdf")]
+                    {
+                        with_runtime(download::chromium(offline))
+                    }
+                    #[cfg(not(feature = "pdf"))]
+                    {
+                        Err(eyre::eyre!("PDF feature not enabled"))
+                    }
+                }
                 | Some(DownloadCommands::Needle) => with_runtime(download::needle(&arguments.verbose, offline)),
+                | Some(DownloadCommands::Vale) => with_runtime(download::vale(offline)),
                 | _ => with_runtime(async {
                     match initialize_database(config).await {
                         | Ok(()) => match &arguments.command {
@@ -246,6 +263,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                                 }
                             }
                             | Some(DownloadCommands::Needle) => download::needle(&arguments.verbose, offline).await,
+                            | Some(DownloadCommands::Chromium | DownloadCommands::Vale) => Err(eyre::eyre!("Internal download dispatch error")),
                             | None => download::run(arguments, &config.database_path, threads, offline, config.no_local_database).await,
                         },
                         | Err(why) => Err(why),
@@ -319,16 +337,19 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 .await
             }),
         },
-        | Some(Commands::Infer(arguments)) => with_runtime(async {
-            infer::run(
-                arguments.prompt.as_deref(),
-                arguments.custom_location.as_deref(),
-                arguments.threshold,
-                arguments.max_rounds,
-                offline,
-            )
-            .await
-        }),
+        | Some(Commands::Infer(arguments)) => match &arguments.command {
+            | Some(InferCommands::Run(arguments)) => with_runtime(infer::prompt::run(arguments, offline)),
+            | None => with_runtime(async {
+                infer::run(
+                    arguments.prompt.as_deref(),
+                    arguments.custom_location.as_deref(),
+                    arguments.threshold,
+                    arguments.max_rounds,
+                    offline,
+                )
+                .await
+            }),
+        },
         | Some(Commands::Format(arguments)) => with_runtime(async {
             let arguments::Format {
                 path,
@@ -616,6 +637,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                         None,
                         acorn_tui::TuiOptions {
                             database_path: config.database_path.clone(),
+                            doctor_fix: false,
                             no_local_database: config.no_local_database,
                             offline,
                         },
@@ -647,10 +669,12 @@ pub(crate) fn validate_watch_arguments(args: &Arguments) -> Void {
     let watch_supported = matches!(args.command, Some(Commands::Check(_) | Commands::Gather(_)));
     let ignore_sync_failure = matches!(&args.command, Some(Commands::Check(arguments)) if arguments.ignore_sync_failure);
     let paste = matches!(&args.command, Some(Commands::Check(arguments)) if arguments.paste);
-    match (args.watch, watch_supported, ignore_sync_failure, paste) {
-        | (true, false, _, _) => Err(eyre!("--watch is only supported by the check and gather commands")),
-        | (false, _, true, _) => Err(eyre!("--ignore-sync-failure requires --watch")),
-        | (true, _, _, true) => Err(eyre!("Clipboard text cannot be used with --watch")),
+    let suggest_fixes = matches!(&args.command, Some(Commands::Check(arguments)) if arguments.suggest_fixes);
+    match (args.watch, watch_supported, ignore_sync_failure, paste, suggest_fixes) {
+        | (true, false, _, _, _) => Err(eyre!("--watch is only supported by the check and gather commands")),
+        | (false, _, true, _, _) => Err(eyre!("--ignore-sync-failure requires --watch")),
+        | (true, _, _, true, _) => Err(eyre!("Clipboard text cannot be used with --watch")),
+        | (true, _, _, _, true) => Err(eyre!("--suggest-fixes cannot be used with --watch")),
         | _ => Ok(()),
     }
 }

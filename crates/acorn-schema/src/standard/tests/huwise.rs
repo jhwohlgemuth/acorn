@@ -5,16 +5,15 @@
     clippy::panic,
     clippy::unwrap_used
 )]
+
+use super::canonical_json;
 use crate::standard::huwise::{Catalog, DublinCoreType};
 use serde_json::Value;
-
 const FIXTURE_PATH: &str = "../../tests/fixtures/schema/ods.json";
-
 fn load_fixture_text() -> String {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(FIXTURE_PATH);
     std::fs::read_to_string(path).expect("failed to read ods.json fixture")
 }
-
 #[test]
 fn test_ods_fixture_parsing() {
     let text = load_fixture_text();
@@ -56,6 +55,6 @@ fn test_ods_fixture_parsing() {
 #[test]
 fn test_ods_fixture_snapshot() {
     let text = load_fixture_text();
-    let json: Value = serde_json::from_str(&text).expect("failed to parse ods.json fixture");
+    let json: Value = serde_json::from_str(&text).map(canonical_json).expect("failed to parse ods.json fixture");
     insta::assert_snapshot!(serde_json::to_string_pretty(&json).expect("failed to format json"));
 }

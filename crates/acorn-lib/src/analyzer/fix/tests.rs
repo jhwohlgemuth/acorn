@@ -4,13 +4,15 @@ use super::*;
 use crate::agent::{InMemoryBackend, InferenceCapabilities, InferenceFinishReason, InferenceFuture, InferenceResult, InferenceUsage};
 use crate::analyzer::{CheckCategory, CheckSeverity};
 use acorn_core::prelude::Box;
+use acorn_core::util::constants::app::APPLICATION;
 use core::cell::RefCell;
 use serde_json::json;
 use std::fs;
 use tempfile::tempdir;
-
 #[derive(Clone)]
 struct FailingBackend;
+#[derive(Default)]
+struct RecordingRunner(RefCell<Vec<(String, Vec<String>)>>);
 impl InferenceBackend for FailingBackend {
     fn capabilities(&self) -> InferenceCapabilities {
         InferenceCapabilities::default()
@@ -19,13 +21,24 @@ impl InferenceBackend for FailingBackend {
         Box::pin(core::future::ready(Err(eyre!("fixture backend failure"))))
     }
 }
-
+impl Runner for RecordingRunner {
+    fn run(&self, binary: &str, arguments: &[&str]) -> ApiResult<String> {
+        self.0
+            .borrow_mut()
+            .push((binary.to_string(), arguments.iter().map(|value| value.to_string()).collect()));
+        Ok(String::new())
+    }
+}
 fn action() -> FixAction {
     FixAction::DocumentChange {
         description: "Replace an invalid title".to_string(),
         expected: "Old title".to_string(),
         replacement: "New title".to_string(),
     }
+}
+fn planned_document_fix() -> Fix {
+    let reference = reference("check-0001");
+    validate_suggested_fix(suggested(&reference), &reference, &FixOptions::default(), result(&reference).provenance).unwrap()
 }
 fn reference(id: &str) -> CheckReference {
     CheckReference {
@@ -106,7 +119,6 @@ fn suggested(reference: &CheckReference) -> SuggestedFix {
         target: "activity.json".to_string(),
     }
 }
-
 #[test]
 fn batch_limits_count_and_context_deterministically() {
     let options = FixOptions {
@@ -198,96 +210,6 @@ fn options_reject_requests_above_fixed_ceiling() {
     assert!(options.validate().is_err());
 }
 #[test]
-fn planner_rejects_stale_document_preconditions_and_unapproved_recipes() {
-    let directory = tempdir().unwrap();
-    fs::write(directory.path().join("activity.json"), "Different title").unwrap();
-    let document = FixPlan::from_fixes(&[planned_document_fix()], FixPolicy::safe(false)).unwrap();
-    assert!(document.execute(directory.path(), &RecordingRunner::default(), || true).is_err());
-    let mut recipe = planned_document_fix();
-    recipe.actions = vec![FixAction::RegisteredRecipe {
-        recipe_id: "vale.install".to_string(),
-    }];
-    recipe.automation = FixAutomation::ConfirmationRequired;
-    recipe.effects = FixEffects {
-        filesystem_write: true,
-        network: true,
-        process: true,
-        ..FixEffects::default()
-    };
-    assert!(FixPlan::from_fixes(&[recipe], FixPolicy::safe(false)).is_err());
-    let mut offline_recipe = planned_document_fix();
-    offline_recipe.actions = vec![FixAction::RegisteredRecipe {
-        recipe_id: "vale.install".to_string(),
-    }];
-    offline_recipe.automation = FixAutomation::ConfirmationRequired;
-    offline_recipe.effects = FixEffects {
-        filesystem_write: true,
-        network: true,
-        process: true,
-        ..FixEffects::default()
-    };
-    assert!(FixPlan::from_fixes(&[offline_recipe], FixPolicy::confirmed(true)).is_err());
-}
-#[test]
-fn registered_recipes_run_only_fixed_argument_vectors() {
-    let mut recipe = planned_document_fix();
-    recipe.actions = vec![FixAction::RegisteredRecipe {
-        recipe_id: "vale.install".to_string(),
-    }];
-    recipe.automation = FixAutomation::ConfirmationRequired;
-    recipe.effects = FixEffects {
-        filesystem_write: true,
-        network: true,
-        process: true,
-        ..FixEffects::default()
-    };
-    let runner = RecordingRunner::default();
-    let plan = FixPlan::from_fixes(&[recipe], FixPolicy::confirmed(false)).unwrap();
-    assert_eq!(
-        plan.execute(tempdir().unwrap().path(), &runner, || true).unwrap(),
-        [FixOutcome::Applied("run vale.install".to_string())]
-    );
-    assert_eq!(
-        runner.0.into_inner(),
-        [("acorn".to_string(), vec!["download".to_string(), "vale".to_string()])]
-    );
-}
-#[test]
-fn registered_recipe_registry_exposes_only_curated_vectors() {
-    assert_eq!(Recipe::Chromium.command(), ("acorn", ["download", "chromium"].as_slice()));
-    assert_eq!(Recipe::HomebrewNode.command(), ("brew", ["install", "node"].as_slice()));
-    assert_eq!(Recipe::Vale.command(), ("acorn", ["download", "vale"].as_slice()));
-    assert_eq!(
-        Recipe::WinGetNode.command(),
-        (
-            "winget",
-            [
-                "install",
-                "--id",
-                "OpenJS.NodeJS.LTS",
-                "--exact",
-                "--accept-package-agreements",
-                "--accept-source-agreements",
-            ]
-            .as_slice()
-        )
-    );
-}
-#[test]
-fn planner_rejects_registered_recipe_effects_that_model_output_understates() {
-    let mut recipe = planned_document_fix();
-    recipe.actions = vec![FixAction::RegisteredRecipe {
-        recipe_id: "vale.install".to_string(),
-    }];
-    recipe.automation = FixAutomation::ConfirmationRequired;
-    recipe.effects = FixEffects {
-        network: true,
-        process: true,
-        ..FixEffects::default()
-    };
-    assert!(FixPlan::from_fixes(&[recipe], FixPolicy::confirmed(false)).is_err());
-}
-#[test]
 fn planner_coalesces_repeated_node_recipe() {
     let mut node = planned_document_fix();
     node.actions = vec![FixAction::RegisteredRecipe {
@@ -308,11 +230,104 @@ fn planner_coalesces_repeated_node_recipe() {
         ..FixEffects::default()
     };
     if cfg!(any(target_os = "macos", windows)) {
-        let plan = FixPlan::from_fixes(&[node.clone(), node.clone(), node], FixPolicy::confirmed(false)).unwrap();
+        let plan = Plan::from_fixes(&[node.clone(), node.clone(), node], Policy::confirmed(false)).unwrap();
         assert_eq!(plan.preview().len(), 1);
     } else {
-        assert!(FixPlan::from_fixes(&[node], FixPolicy::confirmed(false)).is_err());
+        assert!(Plan::from_fixes(&[node], Policy::confirmed(false)).is_err());
     }
+}
+#[test]
+fn planner_rejects_registered_recipe_effects_that_model_output_understates() {
+    let mut recipe = planned_document_fix();
+    recipe.actions = vec![FixAction::RegisteredRecipe {
+        recipe_id: "vale.install".to_string(),
+    }];
+    recipe.automation = FixAutomation::ConfirmationRequired;
+    recipe.effects = FixEffects {
+        network: true,
+        process: true,
+        ..FixEffects::default()
+    };
+    assert!(Plan::from_fixes(&[recipe], Policy::confirmed(false)).is_err());
+}
+#[test]
+fn planner_rejects_stale_document_preconditions_and_unapproved_recipes() {
+    let directory = tempdir().unwrap();
+    fs::write(directory.path().join("activity.json"), "Different title").unwrap();
+    let document = Plan::from_fixes(&[planned_document_fix()], Policy::safe(false)).unwrap();
+    assert!(document.execute(directory.path(), &RecordingRunner::default(), || true).is_err());
+    let mut recipe = planned_document_fix();
+    recipe.actions = vec![FixAction::RegisteredRecipe {
+        recipe_id: "vale.install".to_string(),
+    }];
+    recipe.automation = FixAutomation::ConfirmationRequired;
+    recipe.effects = FixEffects {
+        filesystem_write: true,
+        network: true,
+        process: true,
+        ..FixEffects::default()
+    };
+    assert!(Plan::from_fixes(&[recipe], Policy::safe(false)).is_err());
+    let mut offline_recipe = planned_document_fix();
+    offline_recipe.actions = vec![FixAction::RegisteredRecipe {
+        recipe_id: "vale.install".to_string(),
+    }];
+    offline_recipe.automation = FixAutomation::ConfirmationRequired;
+    offline_recipe.effects = FixEffects {
+        filesystem_write: true,
+        network: true,
+        process: true,
+        ..FixEffects::default()
+    };
+    assert!(Plan::from_fixes(&[offline_recipe], Policy::confirmed(true)).is_err());
+}
+#[test]
+fn registered_recipe_registry_exposes_only_curated_vectors() {
+    assert_eq!(Recipe::Chromium.command(), (APPLICATION, ["download", "chromium"].as_slice()));
+    assert_eq!(Recipe::HomebrewNode.command(), ("brew", ["install", "node"].as_slice()));
+    assert_eq!(Recipe::Vale.command(), (APPLICATION, ["download", "vale"].as_slice()));
+    assert_eq!(
+        Recipe::WinGetNode.command(),
+        (
+            "winget",
+            [
+                "install",
+                "--id",
+                "OpenJS.NodeJS.LTS",
+                "--exact",
+                "--accept-package-agreements",
+                "--accept-source-agreements",
+            ]
+            .as_slice()
+        )
+    );
+}
+#[test]
+fn registered_recipes_run_only_fixed_argument_vectors() {
+    let mut recipe = planned_document_fix();
+    recipe.actions = vec![FixAction::RegisteredRecipe {
+        recipe_id: "vale.install".to_string(),
+    }];
+    recipe.automation = FixAutomation::ConfirmationRequired;
+    recipe.effects = FixEffects {
+        filesystem_write: true,
+        network: true,
+        process: true,
+        ..FixEffects::default()
+    };
+    let runner = RecordingRunner::default();
+    let plan = Plan::from_fixes(&[recipe], Policy::confirmed(false)).unwrap();
+    assert_eq!(
+        plan.execute(tempdir().unwrap().path(), &runner, || true).unwrap(),
+        [Outcome::Applied("run vale.install".to_string())]
+    );
+    assert_eq!(
+        runner.0.into_inner(),
+        [(
+            std::env::current_exe().unwrap().display().to_string(),
+            vec!["download".to_string(), "vale".to_string()]
+        )]
+    );
 }
 #[tokio::test]
 async fn suggestion_failures_are_reported_without_partial_fixes() {
@@ -394,35 +409,21 @@ fn suggestion_validation_rejects_unknown_and_stale_findings() {
     stale.source_fingerprint = "b".repeat(64);
     assert!(validate_suggested_fix(stale, &reference, &FixOptions::default(), result(&reference).provenance).is_err());
 }
-#[derive(Default)]
-struct RecordingRunner(RefCell<Vec<(String, Vec<String>)>>);
-impl FixRunner for RecordingRunner {
-    fn run(&self, binary: &str, arguments: &[&str]) -> ApiResult<String> {
-        self.0
-            .borrow_mut()
-            .push((binary.to_string(), arguments.iter().map(|value| value.to_string()).collect()));
-        Ok(String::new())
-    }
-}
-fn planned_document_fix() -> Fix {
-    let reference = reference("check-0001");
-    validate_suggested_fix(suggested(&reference), &reference, &FixOptions::default(), result(&reference).provenance).unwrap()
-}
 #[test]
 fn trusted_document_plan_applies_and_rolls_back_on_failed_verification() {
     let directory = tempdir().unwrap();
     let target = directory.path().join("activity.json");
     fs::write(&target, "Old title").unwrap();
-    let plan = FixPlan::from_fixes(&[planned_document_fix()], FixPolicy::safe(false)).unwrap();
+    let plan = Plan::from_fixes(&[planned_document_fix()], Policy::safe(false)).unwrap();
     assert_eq!(plan.preview(), ["write activity.json"]);
     let applied = plan.execute(directory.path(), &RecordingRunner::default(), || true).unwrap();
-    assert_eq!(applied, vec![FixOutcome::Applied("write activity.json".to_string())]);
+    assert_eq!(applied, vec![Outcome::Applied("write activity.json".to_string())]);
     assert_eq!(fs::read_to_string(&target).unwrap(), "New title");
     fs::write(&target, "Old title").unwrap();
-    let rollback = FixPlan::from_fixes(&[planned_document_fix()], FixPolicy::safe(false))
+    let rollback = Plan::from_fixes(&[planned_document_fix()], Policy::safe(false))
         .unwrap()
         .execute(directory.path(), &RecordingRunner::default(), || false)
         .unwrap();
-    assert_eq!(rollback, vec![FixOutcome::RolledBack("write activity.json".to_string())]);
+    assert_eq!(rollback, vec![Outcome::RolledBack("write activity.json".to_string())]);
     assert_eq!(fs::read_to_string(&target).unwrap(), "Old title");
 }

@@ -1,105 +1,135 @@
+//! Host diagnostic reporting and trusted remediation entry point.
+
 use crate::cli::arguments::Diagnostic;
 use crate::cli::CommandOptions;
 use crate::commands::preflight;
-use acorn::doctor::{MemoryInformation, NetworkInformation, SystemInformation, SystemSoftwareInformation, TableFormatPrint};
-use color_eyre::eyre::{Report, Result};
-use serde_json::json;
-use tracing::warn;
-
-fn should_run(checks: &[Diagnostic], diagnostic: Diagnostic) -> bool {
-    [diagnostic, Diagnostic::All].iter().any(|&x| checks.contains(&x))
+use acorn::analyzer::{
+    fix::{self, IntoFixes},
+    host::discovery::{FindingStatus, Record, Records},
+};
+use acorn_host::terminal::Label;
+use color_eyre::eyre::{eyre, Report, Result};
+use core::time::Duration;
+use std::{env::current_dir, path::Path};
+trait DoctorRecords {
+    fn apply_safe_fixes(&self, policy: fix::Policy) -> Result<(), Report>;
+    fn render(&self);
 }
-#[allow(clippy::too_many_arguments)]
-pub fn run(fix: &bool, interactive: &bool, report: &bool, check: &[Diagnostic], offline: bool) -> Result<(), Report> {
-    let options = CommandOptions::init().offline(offline).build();
-    preflight!(&options);
-    if *interactive {
-        #[cfg(feature = "tui")]
-        {
-            acorn_tui::run(acorn_tui::Screen::Doctor)
-        }
-        #[cfg(not(feature = "tui"))]
-        {
-            Err(color_eyre::eyre::eyre!("TUI feature not enabled. Build with: cargo build --features tui"))
-        }
-    } else if *fix {
-        Err(color_eyre::eyre::eyre!("Autofix is not implemented yet"))
-    } else if *report {
-        let sys = SystemInformation::init();
-        let mem = MemoryInformation::init();
-        let net = NetworkInformation::init();
-        let sw = SystemSoftwareInformation::init();
-        let data = build_report_json(&sys, &mem, &net, &sw);
-        let json = serde_json::to_string_pretty(&data).unwrap_or_default();
-        println!("{json}");
-        Ok(())
-    } else {
-        if should_run(check, Diagnostic::System) {
-            SystemInformation::init().print();
-        }
-        if should_run(check, Diagnostic::Memory) {
-            MemoryInformation::init().print();
-        }
-        if should_run(check, Diagnostic::Network) {
-            NetworkInformation::init().print();
-        }
-        if should_run(check, Diagnostic::Gpu) {
-            warn!("GPU diagnostics is not implemented yet");
-        }
-        if should_run(check, Diagnostic::Software) {
-            SystemSoftwareInformation::init().print();
-        }
-        Ok(())
-    }
-}
-#[allow(unused_variables)]
-fn build_report_json(
-    sys: &SystemInformation,
-    mem: &MemoryInformation,
-    net: &NetworkInformation,
-    sw: &SystemSoftwareInformation,
-) -> serde_json::Value {
-    let network_interfaces: Vec<serde_json::Value> = net
-        .networks
-        .iter()
-        .filter(|n| !n.ip_address.is_empty())
-        .map(|n| {
-            json!({
-                "ip_addresses": n.ip_address,
-                "mac_address": n.mac_address,
-                "mtu": n.mtu,
+struct HostVerifier;
+impl fix::Verifier for HostVerifier {
+    fn verify(&self, references: &[fix::DiscoveryReference]) -> bool {
+        let current = Records::diagnose_host();
+        references.iter().all(|reference| {
+            current.iter().any(|record| match record {
+                | Record::Finding {
+                    category,
+                    status: FindingStatus::Healthy,
+                    subject,
+                    ..
+                } => category == reference.category.as_ref() && subject == &reference.subject,
+                | _ => false,
             })
         })
-        .collect();
-    json!({
-        "report_type": "doctor",
-        "system": {
-            "name": sys.name,
-            "kernel_version": sys.kernel_version,
-            "os_version": sys.os_version,
-            "host_name": sys.host_name,
-            "cpu_architecture": sys.cpu_arch,
-            "cpu_count": sys.cpu_count,
-        },
-        "memory": {
-            "total": mem.total,
-            "available": mem.available,
-            "used": mem.used,
-            "swap": mem.swap,
-        },
-        "network": network_interfaces,
-        "software": {
-            "acorn": { "version": sw.acorn.version, "path": sw.acorn.path },
-            "git": { "version": sw.git.version, "path": sw.git.path },
-            "node": { "version": sw.node.version, "path": sw.node.path },
-            "npm": { "version": sw.npm.version, "path": sw.npm.path },
-            "oras": { "version": sw.oras.version, "path": sw.oras.path },
-            "npx": { "version": sw.npx.version, "path": sw.npx.path },
-            "pandoc": { "version": sw.pandoc.version, "path": sw.pandoc.path },
-            "vale": { "version": sw.vale.version, "path": sw.vale.path },
+    }
+}
+impl DoctorRecords for Records {
+    fn apply_safe_fixes(&self, policy: fix::Policy) -> Result<(), Report> {
+        let report = fix::Provider::provide(&fix::HostProvider, &self.fix_references());
+        let safe = report
+            .fixes()
+            .into_iter()
+            .filter(|fix| fix.automation.is_safe_automatic() && fix.effects.reversible)
+            .cloned()
+            .collect::<Vec<_>>();
+        fix::Plan::from_fixes(&safe, policy).and_then(|plan| match plan.preview().is_empty() {
+            | true => {
+                eprintln!("=> {} No safe automatic host fixes are available", Label::skip());
+                Ok(())
+            }
+            | false => {
+                let root = current_dir().unwrap_or_else(|_| Path::new(".").to_path_buf());
+                plan.execute(&root, &fix::CommandRunner::new(Duration::from_secs(120)), HostVerifier)
+                    .map(|outcomes| outcomes.iter().for_each(|outcome| eprintln!("=> {} {outcome:?}", Label::pass())))
+            }
+        })
+    }
+    fn render(&self) {
+        self.iter().for_each(|record| {
+            if let Record::Finding {
+                category,
+                expected,
+                observed,
+                status,
+                subject,
+                ..
+            } = record
+            {
+                println!("=> {} [{category}] {subject}: {observed} (expected {expected})", status.label());
+            }
+        });
+    }
+}
+fn categories(checks: &[Diagnostic]) -> Vec<String> {
+    if checks.contains(&Diagnostic::All) {
+        ["gpu", "memory", "network", "software", "system"].map(str::to_string).to_vec()
+    } else {
+        checks.iter().map(ToString::to_string).collect()
+    }
+}
+fn interactive_run(fix: bool, offline: bool) -> Result<(), Report> {
+    #[cfg(feature = "tui")]
+    {
+        acorn_tui::run_with_options(
+            acorn_tui::Screen::Doctor,
+            None,
+            acorn_tui::TuiOptions {
+                database_path: None,
+                doctor_fix: fix,
+                no_local_database: true,
+                offline,
+            },
+        )
+        .map(|_| ())
+    }
+    #[cfg(not(feature = "tui"))]
+    {
+        let _ = (fix, offline);
+        Err(eyre!("TUI feature not enabled. Build with: cargo build --features tui"))
+    }
+}
+fn non_interactive_run(fix: bool, report: bool, check: &[Diagnostic], offline: bool) -> Result<(), Report> {
+    let selected = categories(check);
+    let before = Records::diagnose_host().findings_in(selected.iter().map(String::as_str));
+    let applied = match fix {
+        | false => Ok(()),
+        | true => before.apply_safe_fixes(fix::Policy::safe(offline)),
+    };
+    applied.and_then(|()| {
+        let after = match fix {
+            | true => Records::diagnose_host().findings_in(selected.iter().map(String::as_str)),
+            | false => before,
+        };
+        if report {
+            serde_json::to_string_pretty(&after).map_err(Report::new).map(|value| println!("{value}"))
+        } else {
+            after.render();
+            Ok(())
         }
     })
 }
-
+/// Run host diagnostics, optionally planning or applying trusted fixes.
+pub fn run(fix: &bool, interactive: &bool, report: &bool, check: &[Diagnostic], offline: bool) -> Result<(), Report> {
+    let options = CommandOptions::init().offline(offline).quiet(*report).supported(true).build();
+    preflight!(&options);
+    match (*interactive, *report) {
+        | (true, true) => Err(eyre!("--report cannot be combined with --interactive")),
+        | (true, false) => interactive_run(*fix, offline),
+        | (false, _) => non_interactive_run(*fix, *report, check, offline),
+    }
+}
+#[cfg(test)]
+pub(super) fn should_run(checks: &[Diagnostic], diagnostic: Diagnostic) -> bool {
+    [diagnostic, Diagnostic::All].iter().any(|candidate| checks.contains(candidate))
+}
 #[cfg(test)]
 mod tests;

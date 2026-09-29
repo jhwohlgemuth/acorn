@@ -1,13 +1,16 @@
 //! Transport-neutral prompt preparation and inference contracts.
+
 use crate::error::ApiResult;
-use acorn_core::prelude::{Box, String};
+use acorn_core::{
+    prelude::{Box, String},
+    time::Milliseconds,
+};
 use acorn_schema::agent::{FrontMatter, PromptFileAsset, PromptTemplateConfiguration};
 use core::future::Future;
 use core::pin::Pin;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
 #[cfg(feature = "template")]
 mod prompt;
 #[cfg(feature = "template")]
@@ -117,8 +120,8 @@ pub struct InferenceRequest {
     pub prompt: HydratedPrompt,
     /// Optional JSON Schema for structured output.
     pub response_schema: Option<Value>,
-    /// Request timeout in milliseconds.
-    pub timeout_ms: u64,
+    /// Request timeout.
+    pub timeout: Milliseconds,
 }
 /// Transport-neutral inference result.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
@@ -176,14 +179,6 @@ impl InferenceReadiness {
         })
     }
 }
-impl InferenceBackend for InMemoryBackend {
-    fn capabilities(&self) -> InferenceCapabilities {
-        self.capabilities
-    }
-    fn infer<'a>(&'a self, _request: &'a InferenceRequest) -> InferenceFuture<'a> {
-        Box::pin(core::future::ready(Ok(self.result.clone())))
-    }
-}
 impl InMemoryBackend {
     /// Construct a backend that returns one deterministic result.
     pub fn new(result: InferenceResult) -> Self {
@@ -197,17 +192,25 @@ impl InMemoryBackend {
         Self { capabilities, ..self }
     }
 }
+impl InferenceBackend for InMemoryBackend {
+    fn capabilities(&self) -> InferenceCapabilities {
+        self.capabilities
+    }
+    fn infer<'a>(&'a self, _request: &'a InferenceRequest) -> InferenceFuture<'a> {
+        Box::pin(core::future::ready(Ok(self.result.clone())))
+    }
+}
 /// Validate and run one transport-neutral inference request.
 pub fn run_inference<'a, B>(backend: &'a B, request: &'a InferenceRequest) -> InferenceFuture<'a>
 where
     B: InferenceBackend,
 {
-    match (request.prompt.body.trim().is_empty(), request.timeout_ms) {
+    match (request.prompt.body.trim().is_empty(), request.timeout.is_zero()) {
         | (true, _) => Box::pin(core::future::ready(Err(color_eyre::eyre::eyre!("Inference prompt body cannot be empty")))),
-        | (_, 0) => Box::pin(core::future::ready(Err(color_eyre::eyre::eyre!(
+        | (_, true) => Box::pin(core::future::ready(Err(color_eyre::eyre::eyre!(
             "Inference timeout must be greater than zero"
         )))),
-        | (false, _) => backend.infer(request),
+        | (false, false) => backend.infer(request),
     }
 }
 #[cfg(test)]

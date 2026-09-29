@@ -31,6 +31,7 @@ dependencies = [
  "fast_qr",
  "fluent-uri",
  "futures",
+ "glob",
  "indicatif",
  "insta",
  "is-terminal",

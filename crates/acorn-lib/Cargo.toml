@@ -202,7 +202,6 @@ analysis = [
 ]
 chart = ["dep:resvg"]
 default = ["std"]
-doctor = ["std-core", "acorn-host/terminal", "dep:sysinfo"]
 duckdb = ["std-core", "dep:duckdb"]
 grpc = [
   "dep:prost",
@@ -222,7 +221,6 @@ std = [
   "analysis",
   "unicode",
   "shell-lint",
-  "doctor",
   "powerpoint",
   "duckdb",
   "swhid-compute",
@@ -233,6 +231,7 @@ std = [
   "cli-util",
   "db",
   "chart",
+  "dep:sysinfo",
 ]
 shell-lint = ["std-core", "acorn-cmd/shell-lint"]
 swhid-compute = ["std-core", "dep:acorn-cmd", "dep:swhid"]

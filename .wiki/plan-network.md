@@ -11,13 +11,10 @@ Dependency order does not by itself prove that plans are safe to run concurrentl
 ## Highest-priority RPC and automation path
 
 ```text
-ACP inference and verified fixes
-          |
-          v
 MCP client
 ```
 
-This is one serialized delivery lane in the displayed scheduling order. The implemented PowerAutomate workflow has released the shared API integration locks. Its [secret-generation amendment](features/powerapps-gitlab-logbook-reporting.md) is limited to the existing utility, create-command, generated-help, and documentation boundaries while deployment validation remains open. ACP phases 7–8 add interoperability smoke tests and CLI/doctor/TUI integration before the RMCP client adds outbound MCP interoperability.
+This is one serialized delivery lane in the displayed scheduling order. The implemented PowerAutomate workflow has released the shared API integration locks. Its [secret-generation amendment](features/powerapps-gitlab-logbook-reporting.md) is limited to the existing utility, create-command, generated-help, and documentation boundaries while deployment validation remains open. ACP interoperability and CLI/doctor/TUI integration are complete, so the RMCP client can add outbound MCP interoperability next.
 
 ## Critical portability path
 
@@ -44,6 +41,7 @@ extend the implemented portability matrix
 
 | Target package | Source boundary to prepare now | Direct prerequisites | Plans unlocked |
 |---|---|---|---|
+| `acorn-diff` | New generic alloc-only unified-diff and RFC 6902 transforms over supplied values | Dependency-feature contract; concrete CLI and inference consumers | Semantic file comparison and inference patch output |
 | `acorn-schema` | Complete: schema, validation, string/byte codecs, vocabulary and prompt assets | `acorn-core` | Schema features, standards crosswalks, `acorn-analysis` |
 | `acorn-analysis` | `analyzer/{check,error,readability}.rs` over supplied content | Host isolation; analyzer algebra plans | Service extraction and portable checks |
 | `acorn-api` | `io/api/` protocol, JSON-RPC, gRPC, webhook verification, endpoint, request, response, and auth logic | API roadmap and operation-registry contracts | `acorn-service`, `acorn-host`, provider features |
@@ -78,7 +76,6 @@ extend the implemented portability matrix
 - GitLab repository automation consumes both implemented foundations and proves registered flat-file workflows against exact repository revisions with deployment-owned policy and durable effect reconciliation.
 - The implemented [PowerAutomate reporting workflow](../docs/src/automation/powerautomate-reporting.md) reuses those foundations for shared-secret form intake, rolling bucket merge requests, reviewer-controlled graduation, bounded monthly PDF reports, immutable GitLab packages, and SAS-authenticated callbacks. Its [deployment amendment](features/powerapps-gitlab-logbook-reporting.md) adds generic ACORN secret generation without reclaiming the shared API transport lock. All PowerAutomate protocol code remains isolated to `io::api::powerautomate`.
 - The implemented Protobuf/gRPC transport follows the stable operation contract and supplies tonic/prost server and client adapters without encoding protobuf inside JSON-RPC.
-- [ACP inference and verified fixes](features/opencode-acp-inference.md) uses the existing inference and suggestion contracts to add trusted deterministic remediation, opt-in smoke tests, and CLI/doctor/TUI integration. ACP request/session IDs remain distinct from shared operation IDs.
 - [MCP client](features/mcp-client.md) follows the stable registry and ACP service contract, using RMCP for outbound MCP sessions rather than translating MCP envelopes into JSON-RPC or gRPC.
 
 ### Scraping and Rhai exec
@@ -95,6 +92,7 @@ extend the implemented portability matrix
 
 ### Export and interfaces
 
+- [Portable semantic diff and inference output](features/semantic-diff-output.md) follows [dependency feature defaults](refactors/portability/dependency-feature-defaults.md) for its new `acorn-diff` manifest and the [MCP client](features/mcp-client.md) for shared CLI/inference locks. Its generic alloc-only engine lands before the native ACORN semantic adapter and CLI/suggestion composition; it does not claim that current std-gated codecs are portable or add an `acorn-lib` facade.
 - [ZON codec hardening](refactors/zon-codec-hardening.md) is a portable `acorn-schema` leaf with no feature-integration prerequisite. It owns `crates/acorn-schema/src/standard/zon/` while active and coordinates any shared codec-law tests or fixtures with [semantic transformation laws](testing/semantic-transformation-laws.md).
 - [Semantic transformation laws](testing/semantic-transformation-laws.md) consumes the canonical classifications in the [standards field matrix](assets/standards-field-matrix.md) and coordinates its direct-link/workflow commuting test with [CLI test coverage phase 1](testing/cli-coverage-phase-1.md). RAD normalization, custom codec/parser, standards wire-codec, linked-data, and merge laws can start as exact-file leaves against current contracts; PID roots, `io/oci.rs`, crate manifests, and any link-command repair serialize on their owning schema, provider, crate, CLI, and export-dispatch locks.
 - [Interpolation primitives](refactors/core/interpolation-primitives.md) precede completion of [export context](refactors/core/export-context.md) and parser-backed PowerPoint text/list interpolation. Shared authored-image and draft-placeholder selection has already started the export context independently.

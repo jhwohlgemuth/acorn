@@ -14,7 +14,9 @@ acorn doctor --check system,memory,network
 acorn doctor --report > acorn-doctor.json
 ```
 
-`--fix` is exposed by the CLI but currently returns an "Autofix is not implemented yet" error. `--fix --interactive` opens the Doctor screen when ACORN was built with TUI support; use the diagnostic and report commands above for non-interactive environments.
+Doctor reports use the same discovery-record JSON schema as the interactive Doctor screen. The software probes cover ACORN, Chromium, Git, Node.js, npm, npx, OpenCode, ORAS, Pandoc, and Vale.
+
+`--fix` applies only reversible, low-risk automatic fixes and then reports the verified host state. Package-manager and network installers require `--fix --interactive`: select findings with Space, preview the fixed operations with `f`, and confirm with `y`. `n` or Escape declines the plan. `--interactive` without `--fix` remains report-only, and `--report` cannot be combined with interactive mode.
 
 ## Rescue: ACORN cannot find Chrome
 

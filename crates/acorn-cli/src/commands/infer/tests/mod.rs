@@ -1,6 +1,6 @@
 use super::resolve_prompt;
 use core::cell::Cell;
-
+mod prompt;
 #[test]
 fn test_resolve_prompt_prefers_the_argument() {
     let read = Cell::new(false);

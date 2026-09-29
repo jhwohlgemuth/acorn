@@ -20,7 +20,6 @@ use parse::parse_watch_duration;
 use std::{fs::read_to_string, path::PathBuf};
 pub mod arguments;
 pub mod parse;
-
 const PRIMARY_COLOR: u8 = 135;
 const STYLES: Styles = Styles::styled()
     .header(Ansi256Color(PRIMARY_COLOR).on_default().bold())
@@ -159,7 +158,7 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Export(Box<arguments::Export>),
-    /// Run bounded local tool inference through the managed Needle sidecar
+    /// Run bounded inference through Needle or a configured prompt backend
     ///
     ///     Use the pinned official runner
     ///     $> acorn infer "Validate this research activity"
@@ -169,6 +168,15 @@ pub enum Commands {
     ///
     ///     Use a local or private-registry ModelKit
     ///     $> acorn infer "Validate this" --custom-location oci://harbor.example/acorn/needle@sha256:...
+    ///
+    ///     Preview a hydrated prompt without starting a backend
+    ///     $> acorn infer run summarize activity.json --dry-run
+    ///
+    ///     Run through OpenCode ACP (the default backend)
+    ///     $> acorn infer run summarize activity.json
+    ///
+    ///     Run through an OpenAI-compatible endpoint
+    ///     $> acorn infer run summarize --backend openai --model qwen3 --base-url http://localhost:8080
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS", visible_alias = "ask")]
     Infer(Box<arguments::Infer>),
     /// Formats supported metadata standards in place (inherently includes some elements of `acorn check`)
@@ -319,10 +327,16 @@ pub enum CreateCommands {
 #[derive(Clone, Debug, Subcommand)]
 #[command(long_about = None)]
 pub enum DownloadCommands {
+    /// Install the pinned Chromium build used by PDF export
+    #[command(hide = true)]
+    Chromium,
     /// Download model weights for use with ACORN research harnesses and local inference
     Model(Box<arguments::DownloadModel>),
     /// Download and verify the pinned Needle 3 engine, model, and license for this platform
     Needle,
+    /// Install the pinned Vale build used by prose analysis
+    #[command(hide = true)]
+    Vale,
 }
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
@@ -364,6 +378,12 @@ pub enum ImportCommands {
     /// Import endpoint resources from an API specification
     #[command(name = "spec", visible_alias = "openapi")]
     Spec(Box<arguments::Spec>),
+}
+#[derive(Clone, Debug, Subcommand)]
+#[command(long_about = None)]
+pub enum InferCommands {
+    /// Hydrate and run one known embedded prompt asset
+    Run(Box<arguments::PromptRun>),
 }
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
@@ -648,6 +668,5 @@ async fn resolve_paths_with_extensions(
         | None => Ok(files),
     }
 }
-
 #[cfg(test)]
 mod tests;

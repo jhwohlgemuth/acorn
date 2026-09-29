@@ -26,10 +26,10 @@ Add the library with its default features:
 cargo add acorn-lib
 ```
 
-Applications that need system diagnostics or PowerPoint support can enable those features explicitly:[^features]
+Applications that need host analysis or PowerPoint support can enable those features explicitly:[^features]
 
 ```sh
-cargo add acorn-lib --features doctor,powerpoint
+cargo add acorn-lib --features analysis,powerpoint
 ```
 
 Service applications can enable the versioned Protobuf/gRPC client and server modules with the `grpc` feature:
@@ -47,6 +47,8 @@ cargo add acorn-lib --no-default-features --features analysis
 ```
 
 This feature includes the analyzer's filesystem, network, document, database, and rendering adapters. It excludes the agentic server and MCP stack, system diagnostics, PowerPoint support, and shell linting. The lower-level `analyzer` feature remains the portable, allocation-only analysis kernel.
+
+System diagnostics are available with the default `std` feature set; this keeps the native `sysinfo` dependency out of analysis-only and portable builds.
 
 For the portable data model without host services, use [`acorn-schema`](acorn-schema.md). For a small native integration that does not need analysis, use [`acorn-cmd`](acorn-cmd.md) and selected [`acorn-host`](acorn-host.md) features directly; `acorn-lib` does not re-export their APIs.
 

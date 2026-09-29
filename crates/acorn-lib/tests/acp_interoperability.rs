@@ -1,8 +1,9 @@
 #![allow(clippy::expect_used, clippy::panic)]
 //! Ignored interoperability coverage for a configured OpenCode ACP agent
+
 use acorn::{
     agent::{InferenceRequest, PromptContext, PromptHydrator},
-    analyzer::fix::{CheckReference, CheckReferences, Fix, FixAutomation, FixOptions, FixPlan, FixPolicy, FixRunner, IntoFixes},
+    analyzer::fix::{CheckReference, CheckReferences, Fix, FixAutomation, FixOptions, IntoFixes, Plan, Policy, Runner},
     io::acp::{AgentProcessConfig, Client},
 };
 use acorn_schema::{
@@ -14,10 +15,9 @@ use owo_colors::OwoColorize;
 use serde_json::json;
 use std::{fs, path::PathBuf};
 use tempfile::TempDir;
-
 const GENERAL_CONTENT: &str = "A field team mapped three wetland plots after spring rainfall. Plot B retained water longest and hosted the most amphibian calls. The team will repeat observations after the summer dry period before making restoration recommendations.";
 struct DocumentOnlyRunner;
-impl FixRunner for DocumentOnlyRunner {
+impl Runner for DocumentOnlyRunner {
     fn run(&self, _binary: &str, _arguments: &[&str]) -> acorn::io::ApiResult<String> {
         panic!("a safe document fix must not invoke a recipe")
     }
@@ -33,7 +33,7 @@ fn apply_automated_fix(fixes: &[&Fix], contents: &[u8]) {
     let directory = tempfile::tempdir().expect("create automated ACP fix workspace");
     let input = directory.path().join("activity.json");
     fs::write(&input, contents).expect("write automated ACP fix input");
-    let plan = FixPlan::from_fixes(&automated, FixPolicy::safe(false)).expect("resolve automated ACP fix plan");
+    let plan = Plan::from_fixes(&automated, Policy::safe(false)).expect("resolve automated ACP fix plan");
     let outcomes = plan
         .execute(directory.path(), &DocumentOnlyRunner, || true)
         .expect("apply automated ACP fix");
@@ -75,7 +75,7 @@ fn general_content_request() -> InferenceRequest {
         permission_policy: acorn::agent::InferencePermissionPolicy::DenyMutation,
         prompt,
         response_schema: None,
-        timeout_ms: 120_000,
+        timeout: 120_000.into(),
     }
 }
 fn hydrated_request() -> (ResearchActivity, InferenceRequest) {
@@ -96,7 +96,7 @@ fn hydrated_request() -> (ResearchActivity, InferenceRequest) {
             permission_policy: acorn::agent::InferencePermissionPolicy::DenyMutation,
             prompt,
             response_schema: None,
-            timeout_ms: 120_000,
+            timeout: 120_000.into(),
         },
     )
 }
@@ -113,7 +113,6 @@ fn synthetic_input() -> (TempDir, PathBuf, Vec<u8>) {
     fs::write(&path, &contents).expect("write synthetic activity");
     (directory, path, contents)
 }
-
 #[test]
 fn hydrated_request_uses_valid_rad_fixture() {
     let (activity, request) = hydrated_request();
@@ -121,7 +120,6 @@ fn hydrated_request_uses_valid_rad_fixture() {
     assert!(request.prompt.body.contains("Minimal Valid RAD"));
     assert!(general_content_request().prompt.body.contains(GENERAL_CONTENT));
 }
-
 #[test]
 #[ignore = "requires ACORN_TEST_OPENCODE_ACP=1 and a configured local OpenCode ACP agent"]
 fn opencode_acp_returns_text_and_validated_fix_suggestions_without_mutating_input() {
@@ -173,7 +171,7 @@ fn opencode_acp_returns_text_and_validated_fix_suggestions_without_mutating_inpu
         .block_on(vec![fix_reference()].suggest(
             &client,
             &FixOptions {
-                timeout_ms: 120_000,
+                timeout: 120_000.into(),
                 ..FixOptions::default()
             },
         ))

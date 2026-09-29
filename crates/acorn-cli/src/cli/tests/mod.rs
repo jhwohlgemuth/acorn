@@ -8,12 +8,13 @@
 // The `-V` assertion changed from `is_ok()` to `is_err()` because clap's auto-generated
 // version flag (used after removing the problematic custom `version` + `disable_version_flag`)
 // returns Err during `try_parse_from` as a signal to display version info.
+
 use crate::cli::arguments::osti::DoeLab;
-use crate::cli::arguments::{FileFormat, SyncTarget};
+use crate::cli::arguments::{FileFormat, InferenceBackendKind, SyncTarget};
 use crate::cli::parse::infer_standard_from_content;
 use crate::cli::{
     resolve_export_paths, resolve_paths, resolve_paths_including, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands,
-    ImportCommands, ServeCommands,
+    ImportCommands, InferCommands, ServeCommands,
 };
 use crate::test::util::{temp_test_dir, TestCleanup};
 use acorn::analyzer::Standard;
@@ -27,7 +28,6 @@ use futures::executor::block_on;
 use std::fs::{create_dir_all, write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-
 static ENV_LOCK: Mutex<()> = Mutex::new(());
 fn fixture_content_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/filter")
@@ -35,7 +35,6 @@ fn fixture_content_root() -> PathBuf {
 fn has_suffix(path: &Path, suffix: &str) -> bool {
     path.to_string_lossy().replace('\\', "/").ends_with(suffix)
 }
-
 #[test]
 fn test_bot_identifier_from_ci_project_id_env() {
     let _guard = ENV_LOCK.lock().unwrap_or_else(|why| why.into_inner());
@@ -833,6 +832,65 @@ fn test_import_model_sync_argument_defaults_to_all() {
     }
 }
 #[test]
+fn test_infer_run_backend_precedence_and_full_flags() {
+    let _guard = ENV_LOCK.lock().unwrap_or_else(|why| why.into_inner());
+    temp_env::with_vars([("ACORN_INFERENCE_BACKEND", Some("openai"))], || {
+        let from_env = Arguments::try_parse_from(["acorn", "infer", "run", "summarize", "--model", "test"]).expect("parse environment backend");
+        match from_env.command {
+            | Some(Commands::Infer(arguments)) => match arguments.command {
+                | Some(InferCommands::Run(arguments)) => assert_eq!(arguments.inference.backend, InferenceBackendKind::Openai),
+                | other => panic!("unexpected infer command: {other:?}"),
+            },
+            | other => panic!("unexpected command: {other:?}"),
+        }
+        let explicit = Arguments::try_parse_from([
+            "acorn",
+            "infer",
+            "run",
+            "summarize",
+            "one.json",
+            "inputs/*.json",
+            "--backend",
+            "acp",
+            "--agent",
+            "opencode",
+            "--agent-executable",
+            "/tmp/opencode",
+            "--working-directory",
+            ".",
+            "--model",
+            "local",
+            "--timeout",
+            "5s",
+            "--set",
+            "text=hello",
+            "--dry-run",
+            "--output",
+            "json",
+        ])
+        .expect("parse explicit ACP backend");
+        match explicit.command {
+            | Some(Commands::Infer(arguments)) => match arguments.command {
+                | Some(InferCommands::Run(arguments)) => {
+                    assert_eq!(arguments.inference.backend, InferenceBackendKind::Acp);
+                    assert_eq!(arguments.inference.timeout, jiff::SignedDuration::from_secs(5));
+                    assert_eq!(arguments.paths, ["one.json", "inputs/*.json"].map(std::path::PathBuf::from));
+                    assert!(arguments.dry_run);
+                }
+                | other => panic!("unexpected infer command: {other:?}"),
+            },
+            | other => panic!("unexpected command: {other:?}"),
+        }
+        assert!(matches!(
+            Arguments::try_parse_from(["acorn", "ask", "run", "summarize", "--model", "test"])
+                .expect("parse run through ask alias")
+                .command,
+            Some(Commands::Infer(_))
+        ));
+        assert!(Arguments::try_parse_from(["acorn", "prompt", "run", "summarize"]).is_err());
+    });
+}
+#[test]
 fn test_json_lines_standard_inference_rejects_mixed_records_with_line() {
     let content = concat!(
         "{\"id\":\"10.5072/one\",\"type\":\"dois\",\"attributes\":{}}\n",
@@ -1048,6 +1106,11 @@ fn test_rpc_server_arguments() {
     ));
 }
 #[test]
+fn test_suggest_fixes_rejects_watch_mode() {
+    let arguments = Arguments::try_parse_from(["acorn", "--watch", "check", "--suggest-fixes"]).expect("parse suggestion flags");
+    assert!(crate::commands::validate_watch_arguments(&arguments).is_err());
+}
+#[test]
 fn test_sync_model_file_argument() {
     let arguments = Arguments::try_parse_from([
         "acorn",
@@ -1167,6 +1230,7 @@ fn test_tools_export_and_needle_custom_location_arguments() {
     .expect("parse Needle inference");
     match infer.command {
         | Some(Commands::Infer(arguments)) => {
+            assert!(arguments.command.is_none());
             assert_eq!(arguments.prompt.as_deref(), Some("validate this"));
             assert_eq!(arguments.custom_location.as_deref(), Some("oci://harbor.example/acorn/needle@sha256:abc"));
             assert_eq!(arguments.threshold, 0.9);
@@ -1215,7 +1279,6 @@ fn test_what_if_aliases_dry_run_flags() {
     assert!(Arguments::try_parse_from(["acorn", "import", "spec", "--what-if"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "sync", "--what-if"]).is_ok());
 }
-
 mod relocated_arguments_bot_tests {
     use super::super::arguments::bot::{Common, EventSource};
 

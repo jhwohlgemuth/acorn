@@ -6,13 +6,10 @@
 
 #[cfg(any(feature = "acp", feature = "std", feature = "analyzer"))]
 extern crate alloc;
-
 #[cfg(any(feature = "acp", feature = "analysis", feature = "std"))]
 pub mod agent;
 #[cfg(feature = "analyzer")]
 pub mod analyzer;
-#[cfg(feature = "doctor")]
-pub mod doctor;
 pub mod error;
 #[cfg(feature = "exec")]
 pub mod exec;
@@ -25,9 +22,6 @@ pub mod io {
     pub mod acp;
 }
 pub mod util;
-
-pub use acorn_macros::{Validate, With};
-
 #[cfg(any(feature = "analysis", feature = "std"))]
 use crate::io::api::{github, gitlab, Configuration};
 #[cfg(any(feature = "analysis", feature = "std"))]
@@ -42,13 +36,13 @@ use acorn_core::{Location, Release, Repository, Scheme};
 use acorn_host::fs::file_uri_to_path;
 #[cfg(feature = "analysis")]
 use acorn_host::http::{HttpClient, HttpPolicy};
+pub use acorn_macros::{Validate, With};
 #[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_schema::ControlledVocabulary;
 #[cfg(any(feature = "analysis", feature = "std"))]
 use std::path::PathBuf;
 #[cfg(any(feature = "analysis", feature = "std"))]
 use tracing::{debug, error, trace, warn};
-
 /// Native filesystem and content-detection operations for [`Location`].
 #[cfg(any(feature = "analysis", feature = "std"))]
 pub trait LocationExt {
@@ -174,6 +168,5 @@ impl RepositoryExt for Repository {
         }
     }
 }
-
 #[cfg(all(test, any(feature = "analysis", feature = "std")))]
 mod test;

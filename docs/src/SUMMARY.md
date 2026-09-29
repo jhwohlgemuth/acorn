@@ -34,6 +34,7 @@
     - [format](./cli-reference/commands/format.md)
     - [gather](./cli-reference/commands/gather.md)
     - [import](./cli-reference/commands/import.md)
+    - [infer](./cli-reference/commands/infer.md)
     - [link](./cli-reference/commands/link.md)
     - [serve](./cli-reference/commands/serve.md)
     - [skill](./cli-reference/commands/skill.md)

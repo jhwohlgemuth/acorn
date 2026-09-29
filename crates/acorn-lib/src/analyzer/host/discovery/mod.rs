@@ -1,4 +1,5 @@
 //! Artifact discovery, resolution, persistence, and grouping helpers.
+
 use super::{
     context::{AnalysisContext, AnalysisOptions, ExecutionExtension, ExecutionOptions, ReportExtension, ReportOptions},
     render::{Render, RenderContext},
@@ -10,7 +11,7 @@ use crate::RepositoryExt;
 use crate::{
     analyzer::{
         check::{Check, CheckBatch, CheckCategory, CheckSeverity, OutputFormat, Standard},
-        fix::DiscoveryReference,
+        fix::{DiscoveryCategory, DiscoveryReference, DiscoveryStatus},
     },
     check_err,
     io::{
@@ -37,7 +38,7 @@ use acorn_schema::{
     ControlledVocabulary, Keyword,
 };
 use alloc::collections::{BTreeMap, BTreeSet};
-use bon::Builder;
+use bon::{bon, Builder};
 use color_eyre::eyre::Report as EyreReport;
 use core::{fmt, iter::once, str::FromStr};
 use futures::future::join_all;
@@ -52,9 +53,13 @@ use std::{
 };
 use strum::{EnumIs, IntoEnumIterator, VariantNames};
 use tracing::warn;
-
+#[cfg(feature = "std")]
+mod diagnostics;
 pub mod osti;
-
+#[cfg(feature = "std")]
+pub use acorn_schema::software::SoftwareSnapshot;
+#[cfg(feature = "std")]
+pub use diagnostics::HostSnapshot;
 /// Gather command options shared with discovery analysis.
 pub type Options = RuntimeOptions<DiscoveryExtension, PathBuf>;
 trait DeserializeMetadata: for<'de> Deserialize<'de> {
@@ -104,6 +109,18 @@ pub enum CitationFormat {
     Mla,
     /// Vancouver numeric style.
     Vancouver,
+}
+/// State of a host diagnostic finding.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, strum::Display, strum::EnumIs)]
+#[serde(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
+pub enum FindingStatus {
+    /// The observed state meets the requirement.
+    Healthy,
+    /// The observed state needs attention.
+    Attention,
+    /// ACORN could not determine the state.
+    Unavailable,
 }
 /// State emitted while gathering and resolving discoveries.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, strum::Display)]
@@ -176,26 +193,6 @@ pub enum Record {
         /// Software, system, network, or configuration subject.
         subject: String,
     },
-}
-/// State of a host diagnostic finding.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum FindingStatus {
-    /// The observed state meets the requirement.
-    Healthy,
-    /// The observed state needs attention.
-    Attention,
-    /// ACORN could not determine the state.
-    Unavailable,
-}
-impl fmt::Display for FindingStatus {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            | Self::Healthy => formatter.write_str("healthy"),
-            | Self::Attention => formatter.write_str("attention"),
-            | Self::Unavailable => formatter.write_str("unavailable"),
-        }
-    }
 }
 /// Remote metadata provider used by gather.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
@@ -477,11 +474,6 @@ pub(crate) struct Summary {
     #[builder(default)]
     #[serde(default, skip_serializing_if = "PersistenceCounts::is_empty")]
     candidates: PersistenceCounts,
-}
-impl<'a> From<&'a Records> for &'a [SourceDocument] {
-    fn from(discoveries: &'a Records) -> Self {
-        discoveries.1.as_slice()
-    }
 }
 impl DeserializeMetadata for api::citeas::Citations {}
 impl DeserializeMetadata for api::handle::Record {}
@@ -876,19 +868,6 @@ impl CitationFormat {
         Self::VARIANTS
     }
 }
-impl fmt::Display for CitationFormat {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let value = match self {
-            | Self::Ieee => "ieee",
-            | Self::Apa => "apa",
-            | Self::Chicago => "chicago",
-            | Self::Harvard => "harvard",
-            | Self::Mla => "mla",
-            | Self::Vancouver => "vancouver",
-        };
-        formatter.write_str(value)
-    }
-}
 impl From<&str> for CitationFormat {
     fn from(value: &str) -> Self {
         value.trim().parse().unwrap_or_default()
@@ -901,6 +880,19 @@ impl FromStr for CitationFormat {
             .zip(Self::VARIANTS)
             .find_map(|(format, variant)| variant.eq_ignore_ascii_case(value.trim()).then_some(format))
             .ok_or_else(|| value.to_string())
+    }
+}
+impl fmt::Display for CitationFormat {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value = match self {
+            | Self::Ieee => "ieee",
+            | Self::Apa => "apa",
+            | Self::Chicago => "chicago",
+            | Self::Harvard => "harvard",
+            | Self::Mla => "mla",
+            | Self::Vancouver => "vancouver",
+        };
+        formatter.write_str(value)
     }
 }
 impl DiscoveryExtension {
@@ -917,6 +909,38 @@ impl DiscoveryExtension {
             .chain(default)
             .filter_map(|value| Location::from(value).local_path())
             .collect()
+    }
+}
+impl From<FindingStatus> for DiscoveryStatus {
+    fn from(value: FindingStatus) -> Self {
+        match value {
+            | FindingStatus::Healthy => Self::Healthy,
+            | FindingStatus::Attention => Self::Attention,
+            | FindingStatus::Unavailable => Self::Unavailable,
+        }
+    }
+}
+impl FindingStatus {
+    /// Return the standard terminal label for this diagnostic state.
+    pub fn label(self) -> String {
+        match self {
+            | Self::Healthy => Label::pass(),
+            | Self::Attention => Label::fail(),
+            | Self::Unavailable => Label::skip(),
+        }
+    }
+}
+impl From<bool> for FindingStatus {
+    fn from(value: bool) -> Self {
+        match value {
+            | true => Self::Healthy,
+            | false => Self::Attention,
+        }
+    }
+}
+impl<'a> From<&'a Records> for &'a [SourceDocument] {
+    fn from(discoveries: &'a Records) -> Self {
+        discoveries.1.as_slice()
     }
 }
 impl GatherOutputPolicy<'_> {
@@ -973,12 +997,6 @@ impl LifecycleState {
         )
     }
 }
-impl core::error::Error for OutputFailure {}
-impl fmt::Display for OutputFailure {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("ACORN gather found one or more failures")
-    }
-}
 impl OutputFailure {
     /// Create a gather failure, optionally suppressing the top-level diagnostic.
     pub const fn new(silent: bool) -> Self {
@@ -987,6 +1005,12 @@ impl OutputFailure {
     /// Return whether the top-level CLI diagnostic should be suppressed.
     pub const fn is_silent(self) -> bool {
         self.silent
+    }
+}
+impl core::error::Error for OutputFailure {}
+impl fmt::Display for OutputFailure {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("ACORN gather found one or more failures")
     }
 }
 impl PersistenceCounts {
@@ -1014,32 +1038,10 @@ impl PersistenceCounts {
         self.created == 0 && self.enriched == 0 && self.unchanged == 0 && self.conflicts == 0
     }
 }
-impl From<&Check> for Record {
-    fn from(value: &Check) -> Self {
-        Self::Check {
-            category: value.category.clone(),
-            locator: value.locator.clone(),
-            message: value.message.clone(),
-            severity: value.severity.clone(),
-            success: value.success,
-            uri: value.uri.clone(),
-        }
-    }
-}
-impl From<Identifier> for Record {
-    fn from(identifier: Identifier) -> Self {
-        Self::Discovery {
-            identifier: identifier.value,
-            identifier_type: identifier.kind,
-            metadata: None,
-            resolution_status: ResolutionStatus::NotRequested,
-            source: String::new(),
-            source_format: String::new(),
-        }
-    }
-}
+#[bon]
 impl Record {
     /// Construct one secret-free host diagnostic finding.
+    #[builder]
     pub fn finding(
         category: impl Into<String>,
         subject: impl Into<String>,
@@ -1068,19 +1070,27 @@ impl Record {
                 status,
                 subject,
             } => {
-                let status = status.to_string();
+                let reference_status = DiscoveryStatus::from(*status);
                 let observation = format!("{category}\n{subject}\n{status}\n{observed}\n{expected}\n{details:?}");
+                let category = DiscoveryCategory::from(category.as_str());
                 Some(DiscoveryReference {
-                    category: category.clone(),
+                    category,
                     details: details.clone(),
                     expected: expected.clone(),
                     fingerprint: Fingerprint::from_bytes(observation).to_string(),
                     id: id.into(),
                     observed: observed.clone(),
-                    status,
+                    status: reference_status,
                     subject: subject.clone(),
                 })
             }
+            | Self::Check { .. } | Self::Discovery { .. } => None,
+        }
+    }
+    /// Return the stable category of a host diagnostic finding.
+    pub fn finding_category(&self) -> Option<&str> {
+        match self {
+            | Self::Finding { category, .. } => Some(category),
             | Self::Check { .. } | Self::Discovery { .. } => None,
         }
     }
@@ -1115,6 +1125,30 @@ impl Record {
                 })
             }
             | _ => None,
+        }
+    }
+}
+impl From<&Check> for Record {
+    fn from(value: &Check) -> Self {
+        Self::Check {
+            category: value.category.clone(),
+            locator: value.locator.clone(),
+            message: value.message.clone(),
+            severity: value.severity.clone(),
+            success: value.success,
+            uri: value.uri.clone(),
+        }
+    }
+}
+impl From<Identifier> for Record {
+    fn from(identifier: Identifier) -> Self {
+        Self::Discovery {
+            identifier: identifier.value,
+            identifier_type: identifier.kind,
+            metadata: None,
+            resolution_status: ResolutionStatus::NotRequested,
+            source: String::new(),
+            source_format: String::new(),
         }
     }
 }
@@ -1242,6 +1276,30 @@ impl Records {
         let Self(records, sources) = self;
         let findings = findings.into_iter().filter(Record::is_finding);
         Self(records.into_iter().chain(findings).collect(), sources)
+    }
+    /// Iterate over records in deterministic insertion order.
+    pub fn iter(&self) -> impl Iterator<Item = &Record> {
+        self.0.iter()
+    }
+    /// Copy host findings from selected categories into a new record set.
+    pub fn findings_in<'a>(&self, categories: impl IntoIterator<Item = &'a str>) -> Self {
+        let categories = categories.into_iter().collect::<BTreeSet<_>>();
+        let selected = self
+            .0
+            .iter()
+            .filter(|record| record.finding_category().is_some_and(|category| categories.contains(category)))
+            .cloned()
+            .collect();
+        Self(selected, Vec::new())
+    }
+    /// Normalize host findings into stable, fingerprinted fix references.
+    pub fn fix_references(&self) -> Vec<DiscoveryReference> {
+        self.0
+            .iter()
+            .filter(|record| record.is_finding())
+            .enumerate()
+            .filter_map(|(index, record)| record.fix_reference(format!("finding-{:04}", index.saturating_add(1))))
+            .collect()
     }
     fn isni_identifiers(&self) -> Vec<String> {
         self.0
@@ -1488,13 +1546,6 @@ impl RemoteMatch {
         once(found).chain(outcome).collect()
     }
 }
-impl fmt::Display for RemoteProvider {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            | Self::Osti => "osti",
-        })
-    }
-}
 impl RemoteProvider {
     /// Describe the entity views and filters supported by this provider.
     pub fn capabilities(self) -> ProviderCapabilities {
@@ -1505,6 +1556,13 @@ impl RemoteProvider {
                 pagination: true,
             },
         }
+    }
+}
+impl fmt::Display for RemoteProvider {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            | Self::Osti => "osti",
+        })
     }
 }
 impl RemoteResolution {
@@ -1904,6 +1962,16 @@ impl TryFrom<ArtifactCandidate> for ResearchActivityCandidate {
         }
     }
 }
+impl ResolutionOutcome<String> {
+    fn into_parts(self) -> (Option<String>, ResolutionStatus) {
+        let status = self.status();
+        let metadata = match self {
+            | Self::Resolved(metadata) | Self::Failed(metadata) => Some(metadata),
+            | Self::NotRequested | Self::Unsupported => None,
+        };
+        (metadata, status)
+    }
+}
 impl<T> From<ApiResult<T>> for ResolutionOutcome<String>
 where
     T: Serialize,
@@ -1916,16 +1984,6 @@ where
             },
             | Err(why) => Self::Failed(why.to_string()),
         }
-    }
-}
-impl ResolutionOutcome<String> {
-    fn into_parts(self) -> (Option<String>, ResolutionStatus) {
-        let status = self.status();
-        let metadata = match self {
-            | Self::Resolved(metadata) | Self::Failed(metadata) => Some(metadata),
-            | Self::NotRequested | Self::Unsupported => None,
-        };
-        (metadata, status)
     }
 }
 impl<T> ResolutionOutcome<T> {

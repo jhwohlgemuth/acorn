@@ -6,7 +6,6 @@ use acorn_schema::agent::PromptTemplateConfiguration;
 use acorn_schema::agent::{FrontMatter, PromptFileAsset};
 use acorn_schema::standard::zon;
 use serde_json::json;
-
 #[cfg(feature = "template")]
 fn context(data: serde_json::Value) -> PromptContext<serde_json::Value> {
     PromptContext {
@@ -38,7 +37,7 @@ fn request() -> InferenceRequest {
                 .build(),
         },
         response_schema: None,
-        timeout_ms: 1_000,
+        timeout: 1_000.into(),
     }
 }
 fn result() -> InferenceResult {
@@ -181,7 +180,10 @@ async fn test_inference_service_rejects_empty_prompts_and_zero_timeouts() {
         ..request()
     };
     assert!(run_inference(&backend, &empty).await.unwrap_err().to_string().contains("cannot be empty"));
-    let no_timeout = InferenceRequest { timeout_ms: 0, ..request() };
+    let no_timeout = InferenceRequest {
+        timeout: 0.into(),
+        ..request()
+    };
     assert!(run_inference(&backend, &no_timeout)
         .await
         .unwrap_err()

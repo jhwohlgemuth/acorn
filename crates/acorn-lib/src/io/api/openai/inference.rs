@@ -1,4 +1,5 @@
 //! Typed OpenAI-compatible inference adapter.
+
 use super::{
     ChatCompletionRequest, ChatCompletionResponse, ChatMessageRequest, ChatResponseFormat, EndpointMode, Options, ProviderErrorResponse,
     ResponsesContent, ResponsesIncompleteDetails, ResponsesRequest, ResponsesResponse, ResponsesText,
@@ -18,9 +19,7 @@ use acorn_macros::With;
 use core::{fmt, time::Duration};
 use secrecy::ExposeSecret;
 use serde_json::Value;
-
 const MAX_RESPONSE_BYTES: usize = 1024 * 1024;
-
 trait Decode {
     fn decode(self, mode: EndpointMode, schema: Option<&Value>, selected_model: &str) -> Result<InferenceResult, InferenceError>;
 }
@@ -158,7 +157,7 @@ impl Client {
                 {
                     | Err(why) => Err(why),
                     | Ok(options) => {
-                        let timeout = Duration::from_millis(request.timeout_ms);
+                        let timeout = request.timeout.into();
                         match tokio::time::timeout(timeout, self.mode.invoke(&options, validated.loopback, MAX_RESPONSE_BYTES)).await {
                             | Err(_) => Err(InferenceError::Timeout(timeout)),
                             | Ok(Err(why)) => Err(InferenceError::Transport(why.to_string())),
@@ -194,7 +193,10 @@ impl Client {
                         .trim()
                         .is_empty()
                         .then(|| InferenceError::InvalidRequest("inference prompt body cannot be empty".to_string())),
-                    (request.timeout_ms == 0).then(|| InferenceError::InvalidRequest("inference timeout must be greater than zero".to_string())),
+                    request
+                        .timeout
+                        .is_zero()
+                        .then(|| InferenceError::InvalidRequest("inference timeout must be greater than zero".to_string())),
                     request.agent.as_ref().map(|agent| InferenceError::AgentSelection(agent.clone())),
                     model.is_empty().then_some(InferenceError::MissingModel),
                     (!loopback && !secure).then(|| InferenceError::InsecureEndpoint(endpoint.domain.clone())),
@@ -209,6 +211,14 @@ impl Client {
             })
     }
 }
+impl InferenceBackend for Client {
+    fn capabilities(&self) -> InferenceCapabilities {
+        self.capabilities
+    }
+    fn infer<'a>(&'a self, request: &'a InferenceRequest) -> InferenceFuture<'a> {
+        Box::pin(async move { self.infer_checked(request).await.map_err(color_eyre::Report::new) })
+    }
+}
 impl fmt::Debug for Client {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
@@ -217,14 +227,6 @@ impl fmt::Debug for Client {
             .field("mode", &self.mode)
             .field("offline", &self.offline)
             .finish()
-    }
-}
-impl InferenceBackend for Client {
-    fn capabilities(&self) -> InferenceCapabilities {
-        self.capabilities
-    }
-    fn infer<'a>(&'a self, request: &'a InferenceRequest) -> InferenceFuture<'a> {
-        Box::pin(async move { self.infer_checked(request).await.map_err(color_eyre::Report::new) })
     }
 }
 impl Decode for HttpResponse {

@@ -1,15 +1,14 @@
 //! Agent Client Protocol process, readiness, and inference adapter.
+
 mod client;
 mod installation;
-
-pub use client::Client;
-
 use crate::agent::{InferenceCapabilities, InferencePermissionPolicy};
 use acorn_cmd::args;
 use acorn_core::util::SemanticVersion;
 use acorn_macros::With;
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use bon::Builder;
+pub use client::Client;
 use core::time::Duration;
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -17,10 +16,31 @@ use std::{
     ffi::OsString,
     path::{Path, PathBuf},
 };
-
 /// Stable identifier used by the OpenCode ACP adapter.
 pub const OPENCODE_AGENT_ID: &str = "opencode";
-
+/// Read-only observer for normalized ACP session events.
+///
+/// Observers receive progress metadata only. They cannot change ACORN's
+/// permission decision, which remains governed by [`InferencePermissionPolicy`].
+pub trait SessionObserver: Send + Sync {
+    /// Observe one normalized session event.
+    fn observe(&self, event: &AcpSessionEvent);
+}
+/// Normalized, transport-independent event emitted during an ACP session.
+#[derive(Clone, Debug, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case", tag = "type")]
+pub enum AcpSessionEvent {
+    /// A bounded fragment of assistant text was received.
+    TextDelta {
+        /// Text appended to the final inference response.
+        text: String,
+    },
+    /// The agent requested permission and ACORN applied its fixed policy.
+    PermissionRequested {
+        /// Number of permission choices advertised by the agent.
+        option_count: usize,
+    },
+}
 /// Typed failure returned by ACP installation, readiness, and inference operations.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -298,6 +318,5 @@ impl AgentProcessConfig {
         &self.working_directory
     }
 }
-
 #[cfg(test)]
 mod tests;

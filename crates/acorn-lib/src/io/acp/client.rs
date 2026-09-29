@@ -1,5 +1,6 @@
 //! ACP SDK-backed one-shot inference client.
-use super::{AgentInstallation, AgentProcessConfig, AuthenticationMethod, Error, ProtocolReadiness};
+
+use super::{AcpSessionEvent, AgentInstallation, AgentProcessConfig, AuthenticationMethod, Error, ProtocolReadiness, SessionObserver};
 use crate::{
     agent::{
         InferenceBackend, InferenceCapabilities, InferenceFinishReason, InferenceFuture, InferencePermissionPolicy, InferenceProvenance,
@@ -22,14 +23,10 @@ use agent_client_protocol::{
     AcpAgent, AcpAgentConfig, Agent, ConnectionTo,
 };
 use alloc::{boxed::Box, string::String, sync::Arc, vec::Vec};
-use core::{
-    sync::atomic::{AtomicU8, Ordering},
-    time::Duration,
-};
+use bon::Builder;
+use core::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Mutex, MutexGuard};
-
 const DIAGNOSTIC_LIMIT: usize = 4_096;
-
 trait SessionConfigOptionCategoryExt {
     fn is_model(&self) -> bool;
 }
@@ -41,9 +38,14 @@ enum ConnectionStage {
     Session = 2,
 }
 /// One-shot ACP inference backend backed by an immutable process descriptor.
-#[derive(Clone, Debug, With)]
+#[derive(Builder, Clone, With)]
+#[builder(start_fn = init)]
 pub struct Client {
+    #[builder(default = AgentProcessConfig::opencode(None, ".".into()))]
     config: AgentProcessConfig,
+    #[with(some)]
+    observer: Option<Arc<dyn SessionObserver>>,
+    #[builder(default)]
     offline: bool,
 }
 #[derive(Debug)]
@@ -98,7 +100,7 @@ impl AgentProcessConfig {
 impl Client {
     /// Create an ACP client for trusted process launch data.
     pub fn new(config: AgentProcessConfig) -> Self {
-        Self { config, offline: false }
+        Self::init().config(config).build()
     }
     /// Run the read-only executable and version preflight.
     pub fn check_installation(&self) -> Result<AgentInstallation, Error> {
@@ -134,6 +136,8 @@ impl Client {
                 let stream = Arc::new(Mutex::new(StreamState::default()));
                 let notification_stream = Arc::clone(&stream);
                 let permission_stream = Arc::clone(&stream);
+                let notification_observer = self.observer.clone();
+                let permission_observer = self.observer.clone();
                 let connection_stage = Arc::clone(&stage);
                 let connection_error = Arc::clone(&stored_error);
                 let prompt = request.prompt.body.clone();
@@ -145,7 +149,7 @@ impl Client {
                     .name(APPLICATION)
                     .on_receive_notification(
                         async move |notification: SessionNotification, _connection| {
-                            collect_notification(&notification_stream, notification);
+                            collect_notification(notification, &notification_stream, notification_observer.as_deref());
                             Ok(())
                         },
                         agent_client_protocol::on_receive_notification!(),
@@ -153,6 +157,11 @@ impl Client {
                     .on_receive_request(
                         async move |request: RequestPermissionRequest, responder, _connection| {
                             lock(&permission_stream).permission_denied = true;
+                            if let Some(observer) = permission_observer.as_deref() {
+                                observer.observe(&AcpSessionEvent::PermissionRequested {
+                                    option_count: request.options.len(),
+                                });
+                            }
                             responder.respond(policy.acp_response(&request.options))
                         },
                         agent_client_protocol::on_receive_request!(),
@@ -227,10 +236,10 @@ impl Client {
                             }
                         }
                     });
-                match tokio::time::timeout(Duration::from_millis(request.timeout_ms), operation).await {
+                match tokio::time::timeout(request.timeout.into(), operation).await {
                     | Err(_) => Err(Error::Timeout {
                         agent_id: self.config.agent_id.clone(),
-                        timeout: Duration::from_millis(request.timeout_ms),
+                        timeout: request.timeout.into(),
                     }),
                     | Ok(Err(why)) => match lock(&stored_error).take() {
                         | Some(stored) => Err(stored),
@@ -304,7 +313,12 @@ impl Client {
         }
     }
     fn validate_request(&self, request: &InferenceRequest) -> Result<(), Error> {
-        match (&request.agent, self.offline, request.prompt.body.trim().is_empty(), request.timeout_ms) {
+        match (
+            &request.agent,
+            self.offline,
+            request.prompt.body.trim().is_empty(),
+            request.timeout.is_zero(),
+        ) {
             | (Some(requested), _, _, _) if requested != &self.config.agent_id => Err(Error::AgentMismatch {
                 configured: self.config.agent_id.clone(),
                 requested: requested.clone(),
@@ -316,12 +330,17 @@ impl Client {
                 agent_id: self.config.agent_id.clone(),
                 message: "inference prompt body cannot be empty".to_string(),
             }),
-            | (_, _, _, 0) => Err(Error::InvalidConfiguration {
+            | (_, _, _, true) => Err(Error::InvalidConfiguration {
                 agent_id: self.config.agent_id.clone(),
                 message: "inference timeout must be greater than zero".to_string(),
             }),
-            | (_, false, false, _) => Ok(()),
+            | (_, false, false, false) => Ok(()),
         }
+    }
+}
+impl Default for Client {
+    fn default() -> Self {
+        Self::init().build()
     }
 }
 impl InferenceBackend for Client {
@@ -336,6 +355,16 @@ impl InferenceBackend for Client {
     }
     fn infer<'a>(&'a self, request: &'a InferenceRequest) -> InferenceFuture<'a> {
         Box::pin(async move { self.infer_checked(request).await.map_err(color_eyre::Report::new) })
+    }
+}
+impl core::fmt::Debug for Client {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        formatter
+            .debug_struct("Client")
+            .field("config", &self.config)
+            .field("observer", &self.observer.as_ref().map(|_| "attached"))
+            .field("offline", &self.offline)
+            .finish()
     }
 }
 impl From<StopReason> for InferenceFinishReason {
@@ -385,12 +414,15 @@ impl SessionConfigOptionCategoryExt for SessionConfigOptionCategory {
         self == &Self::Model
     }
 }
-fn collect_notification(state: &Arc<Mutex<StreamState>>, notification: SessionNotification) {
+fn collect_notification(notification: SessionNotification, state: &Arc<Mutex<StreamState>>, observer: Option<&dyn SessionObserver>) {
     if let SessionUpdate::AgentMessageChunk(ContentChunk {
         content: ContentBlock::Text(content),
         ..
     }) = notification.update
     {
+        if let Some(observer) = observer {
+            observer.observe(&AcpSessionEvent::TextDelta { text: content.text.clone() });
+        }
         lock(state).text.push_str(&content.text);
     }
 }

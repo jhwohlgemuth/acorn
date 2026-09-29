@@ -1,4 +1,5 @@
 //! Portable KitOps ModelKit and Kitfile schema.
+
 use crate::validation::{is_license, rules, Property, PropertySet, Validate, ValidationReport};
 use acorn_core::prelude::alloc::{format, String, ToString, Vec};
 use acorn_core::validation::ValidationError;
@@ -11,7 +12,6 @@ use schemars::JsonSchema;
 use serde::de::{Error as DeError, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
-
 /// Kitfile manifest version supported by the pinned KitOps contract.
 pub const MANIFEST_VERSION: &str = "v1.0.0";
 /// Arbitrary metadata constrained to the JSON data model.
@@ -423,6 +423,7 @@ impl Kitfile {
             serde_norway::from_str::<StrictValue>(content)
                 .map_err(|why| ModelKitError::Codec(format!("Invalid Kitfile YAML — {why}")))
                 .map(|value| normalize_authoring_scalars(value.0))
+                .map(sort_json_objects)
                 .and_then(|value| validate_wire_shape(&value, true).map(|()| value))
                 .and_then(|value| serde_json::from_value::<Self>(value).map_err(|why| ModelKitError::Codec(format!("Invalid Kitfile YAML — {why}"))))
                 .and_then(Self::validated)
@@ -433,6 +434,7 @@ impl Kitfile {
         serde_json::from_slice::<StrictValue>(content)
             .map_err(|why| ModelKitError::Codec(format!("Invalid ModelKit config JSON — {why}")))
             .map(|value| value.0)
+            .map(sort_json_objects)
             .and_then(|value| validate_wire_shape(&value, false).map(|()| value))
             .and_then(|value| {
                 serde_json::from_value::<Self>(value).map_err(|why| ModelKitError::Codec(format!("Invalid ModelKit config JSON — {why}")))
@@ -857,6 +859,20 @@ fn report(values: Vec<(impl Into<String>, ValidationError)>) -> Result<(), Valid
             report
         })
         .finish()
+}
+fn sort_json_objects(value: Value) -> Value {
+    match value {
+        | Value::Array(values) => Value::Array(values.into_iter().map(sort_json_objects).collect()),
+        | Value::Object(values) => Value::Object(
+            values
+                .into_iter()
+                .map(|(key, value)| (key, sort_json_objects(value)))
+                .collect::<BTreeMap<_, _>>()
+                .into_iter()
+                .collect(),
+        ),
+        | value => value,
+    }
 }
 fn string_scalar(value: Value) -> Value {
     match value {

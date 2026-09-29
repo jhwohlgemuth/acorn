@@ -1,8 +1,9 @@
 #![allow(clippy::expect_used, clippy::panic)]
 //! Ignored interoperability coverage for configured OpenAI-compatible endpoints
+
 use acorn::{
     agent::{InferenceRequest, PromptContext, PromptHydrator},
-    analyzer::fix::{CheckReference, CheckReferences, Fix, FixAutomation, FixOptions, FixPlan, FixPolicy, FixRunner, IntoFixes},
+    analyzer::fix::{CheckReference, CheckReferences, Fix, FixAutomation, FixOptions, IntoFixes, Plan, Policy, Runner},
     io::api::{
         openai::{Client, EndpointMode, Options},
         Configuration,
@@ -17,11 +18,9 @@ use owo_colors::OwoColorize;
 use serde_json::json;
 use std::{fs, path::PathBuf};
 use tempfile::TempDir;
-
 const GENERAL_CONTENT: &str = "A field team mapped three wetland plots after spring rainfall. Plot B retained water longest and hosted the most amphibian calls. The team will repeat observations after the summer dry period before making restoration recommendations.";
 struct DocumentOnlyRunner;
-
-impl FixRunner for DocumentOnlyRunner {
+impl Runner for DocumentOnlyRunner {
     fn run(&self, _binary: &str, _arguments: &[&str]) -> acorn::io::ApiResult<String> {
         panic!("a safe document fix must not invoke a recipe")
     }
@@ -37,7 +36,7 @@ fn apply_automated_fix(label: &str, fixes: &[&Fix], contents: &[u8]) {
     let directory = tempfile::tempdir().expect("create automated OpenAI-compatible fix workspace");
     let input = directory.path().join("activity.json");
     fs::write(&input, contents).expect("write automated OpenAI-compatible fix input");
-    let plan = FixPlan::from_fixes(&automated, FixPolicy::safe(false)).expect("resolve automated OpenAI-compatible fix plan");
+    let plan = Plan::from_fixes(&automated, Policy::safe(false)).expect("resolve automated OpenAI-compatible fix plan");
     let outcomes = plan
         .execute(directory.path(), &DocumentOnlyRunner, || true)
         .expect("apply automated OpenAI-compatible fix");
@@ -86,7 +85,7 @@ fn general_content_request() -> InferenceRequest {
         permission_policy: acorn::agent::InferencePermissionPolicy::DenyMutation,
         prompt,
         response_schema: None,
-        timeout_ms: 120_000,
+        timeout: 120_000.into(),
     }
 }
 fn hydrated_request() -> (ResearchActivity, InferenceRequest) {
@@ -107,7 +106,7 @@ fn hydrated_request() -> (ResearchActivity, InferenceRequest) {
             permission_policy: acorn::agent::InferencePermissionPolicy::DenyMutation,
             prompt,
             response_schema: None,
-            timeout_ms: 120_000,
+            timeout: 120_000.into(),
         },
     )
 }
@@ -163,7 +162,7 @@ async fn smoke_mode(mode: EndpointMode, contents: &[u8]) {
         .suggest(
             &client,
             &FixOptions {
-                timeout_ms: 120_000,
+                timeout: 120_000.into(),
                 ..FixOptions::default()
             },
         )
@@ -205,7 +204,6 @@ fn synthetic_input() -> (TempDir, PathBuf, Vec<u8>) {
     fs::write(&path, &contents).expect("write synthetic activity");
     (directory, path, contents)
 }
-
 #[test]
 fn hydrated_request_uses_valid_rad_fixture() {
     let (activity, request) = hydrated_request();

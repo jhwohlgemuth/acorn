@@ -111,7 +111,10 @@ check-host: ## Validate host-side feature builds and dependency checks.
 	@cargo check --manifest-path tests/downstream-host/Cargo.toml
 	@bash scripts/check-host-dependencies.sh
 	@cargo check -p acorn-lib
+	@cargo check -p acorn-lib --no-default-features --features acp
 	@cargo check -p acorn-lib --no-default-features --features analysis
+	@cargo check -p acorn-lib --no-default-features --features acp,analysis
+	@cargo check -p acorn-lib --no-default-features --features agentic,acp,analysis
 	@cargo check -p acorn-lib --no-default-features --features grpc
 	@cargo check -p acorn-lib --features std,analysis
 	@cargo check -p acorn-cli
