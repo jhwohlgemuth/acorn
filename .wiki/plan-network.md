@@ -8,13 +8,13 @@ This map records execution dependencies rather than topical links. An arrow mean
 
 Dependency order does not by itself prove that plans are safe to run concurrently. The [parallel execution guide](parallel-execution.md) overlays exact write-set rules, single-writer integration locks, work lanes, and verified concurrent batches on this network.
 
-## Highest-priority RPC and automation path
+## Highest-priority integration path
 
 ```text
 MCP client
 ```
 
-This is one serialized delivery lane in the displayed scheduling order. The implemented PowerAutomate workflow has released the shared API integration locks. Its [secret-generation amendment](features/powerapps-gitlab-logbook-reporting.md) is limited to the existing utility, create-command, generated-help, and documentation boundaries while deployment validation remains open. ACP interoperability and CLI/doctor/TUI integration are complete, so the RMCP client can add outbound MCP interoperability next.
+The RMCP client is the remaining serialized delivery step in the highest-priority lane. The portable semantic-diff foundation is complete and its shared integration locks are released.
 
 ## Critical portability path
 
@@ -92,7 +92,6 @@ extend the implemented portability matrix
 
 ### Export and interfaces
 
-- [Portable semantic diff and inference output](features/semantic-diff-output.md) follows [dependency feature defaults](refactors/portability/dependency-feature-defaults.md) for its new `acorn-diff` manifest and the [MCP client](features/mcp-client.md) for shared CLI/inference locks. Its generic alloc-only engine lands before the native ACORN semantic adapter and CLI/suggestion composition; it does not claim that current std-gated codecs are portable or add an `acorn-lib` facade.
 - [ZON codec hardening](refactors/zon-codec-hardening.md) is a portable `acorn-schema` leaf with no feature-integration prerequisite. It owns `crates/acorn-schema/src/standard/zon/` while active and coordinates any shared codec-law tests or fixtures with [semantic transformation laws](testing/semantic-transformation-laws.md).
 - [Semantic transformation laws](testing/semantic-transformation-laws.md) consumes the canonical classifications in the [standards field matrix](assets/standards-field-matrix.md) and coordinates its direct-link/workflow commuting test with [CLI test coverage phase 1](testing/cli-coverage-phase-1.md). RAD normalization, custom codec/parser, standards wire-codec, linked-data, and merge laws can start as exact-file leaves against current contracts; PID roots, `io/oci.rs`, crate manifests, and any link-command repair serialize on their owning schema, provider, crate, CLI, and export-dispatch locks.
 - [Interpolation primitives](refactors/core/interpolation-primitives.md) precede completion of [export context](refactors/core/export-context.md) and parser-backed PowerPoint text/list interpolation. Shared authored-image and draft-placeholder selection has already started the export context independently.

@@ -4,7 +4,7 @@ set -euo pipefail
 : "${CARGO_REGISTRY_TOKEN:?CARGO_REGISTRY_TOKEN is required}"
 
 version="$(awk -F ' = ' '$1 ~ /^version/ { gsub(/["\r]/, "", $2); printf("%s", $2) }' Cargo.toml)"
-crates=(acorn-macros acorn-core acorn-cmd acorn-host acorn-schema acorn-lib acorn-wasm acorn-tui acorn-cli)
+crates=(acorn-macros acorn-core acorn-diff acorn-cmd acorn-host acorn-schema acorn-lib acorn-wasm acorn-tui acorn-cli)
 crates_api="https://crates.io/api/v1/crates"
 
 published() {

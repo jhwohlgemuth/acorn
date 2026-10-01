@@ -18,7 +18,7 @@
 
 mod context;
 use super::{run, PrepareText};
-use crate::cli::arguments::{InferenceArgs, InferenceBackendKind, InferenceOutputFormat};
+use crate::cli::arguments::{CheckOutputFormat, InferenceArgs, InferenceBackendKind};
 use crate::test::server::spawn_source_server;
 use crate::test::util::fixture_path;
 use acorn::analyzer::host::service::{classify_paths, Analysis};
@@ -84,7 +84,7 @@ async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
         &None,
         &None,
         false,
-        InferenceOutputFormat::Human,
+        CheckOutputFormat::Human,
         &inference_args(),
     )
     .await;
@@ -151,7 +151,7 @@ async fn test_check_invalid_project_with_no_fail() -> Result<()> {
         &None,
         &None,
         false,
-        InferenceOutputFormat::Human,
+        CheckOutputFormat::Human,
         &inference_args(),
     )
     .await;
@@ -193,7 +193,7 @@ async fn test_check_kitfile_and_modelkit_without_standard_override() -> Result<(
             &None,
             &None,
             false,
-            InferenceOutputFormat::Human,
+            CheckOutputFormat::Human,
             &inference_args(),
         )
         .await;
@@ -233,7 +233,7 @@ async fn test_check_remote_project() -> Result<()> {
         &None,
         &None,
         false,
-        InferenceOutputFormat::Human,
+        CheckOutputFormat::Human,
         &inference_args(),
     )
     .await;
@@ -271,7 +271,7 @@ async fn test_check_remote_project_rejects_offline_mode() -> Result<()> {
         &None,
         &None,
         false,
-        InferenceOutputFormat::Human,
+        CheckOutputFormat::Human,
         &inference_args(),
     )
     .await;
@@ -308,7 +308,7 @@ async fn test_check_terse_mode() -> Result<()> {
         &None,
         &None,
         false,
-        InferenceOutputFormat::Human,
+        CheckOutputFormat::Human,
         &inference_args(),
     )
     .await;
@@ -345,7 +345,7 @@ async fn test_check_valid_highlight() -> Result<()> {
         &None,
         &None,
         false,
-        InferenceOutputFormat::Human,
+        CheckOutputFormat::Human,
         &inference_args(),
     )
     .await;
@@ -382,7 +382,7 @@ async fn test_check_valid_project() -> Result<()> {
         &None,
         &None,
         false,
-        InferenceOutputFormat::Human,
+        CheckOutputFormat::Human,
         &inference_args(),
     )
     .await;
@@ -421,7 +421,7 @@ async fn test_check_with_different_readability_metrics() -> Result<()> {
             &None,
             &None,
             false,
-            InferenceOutputFormat::Human,
+            CheckOutputFormat::Human,
             &inference_args(),
         )
         .await;
@@ -459,7 +459,7 @@ async fn test_check_with_skip_categories() -> Result<()> {
         &None,
         &None,
         false,
-        InferenceOutputFormat::Human,
+        CheckOutputFormat::Human,
         &inference_args(),
     )
     .await;

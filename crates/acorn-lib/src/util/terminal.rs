@@ -6,6 +6,8 @@ use acorn_core::prelude::Vec;
 #[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_core::prelude::{format, String, ToString};
 #[cfg(any(feature = "analysis", feature = "std"))]
+use acorn_diff::unified_diff;
+#[cfg(any(feature = "analysis", feature = "std"))]
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 #[cfg(any(feature = "analysis", feature = "std"))]
 use comfy_table::presets::UTF8_FULL;
@@ -27,11 +29,17 @@ pub fn print_changes(old: &str, new: &str) {
 /// Print line-oriented changes with optional ANSI colors
 #[cfg(any(feature = "analysis", feature = "std"))]
 pub fn print_changes_with_color(old: &str, new: &str, color: bool) {
-    let changes = text_diff_changes_with_color(old, new, color);
-    if changes.iter().all(|(tag, _)| *tag == Equal) {
+    let diff = unified_diff(old, new, "before", "after");
+    if diff.is_empty() {
         skip!("No format changes");
     } else {
-        changes.into_iter().for_each(|(_, change)| print!("{change}"));
+        diff.split_inclusive('\n').for_each(|line| match (color, line) {
+            | (false, line) => print!("{line}"),
+            | (true, line) if line.starts_with("--- ") || line.starts_with('-') => print!("{}", line.red()),
+            | (true, line) if line.starts_with("+++ ") || line.starts_with('+') => print!("{}", line.green()),
+            | (true, line) if line.starts_with("@@") => print!("{}", line.cyan()),
+            | (true, line) => print!("{}", line.dimmed()),
+        });
     }
 }
 /// Print rows as a host-formatted table
@@ -41,23 +49,6 @@ where
     T: ToString,
 {
     println!("{}", values_as_table(headers, rows, title));
-}
-/// Render rows as a host-formatted table without writing to stdout
-#[cfg(any(feature = "analysis", feature = "std"))]
-pub fn values_as_table<T>(headers: Vec<&str>, rows: Vec<Vec<String>>, title: Option<T>) -> String
-where
-    T: ToString,
-{
-    let mut table = Table::new();
-    table
-        .load_preset(UTF8_FULL)
-        .apply_modifier(UTF8_ROUND_CORNERS)
-        .set_content_arrangement(ContentArrangement::Dynamic)
-        .set_header(headers);
-    rows.into_iter().for_each(|row| {
-        table.add_row(row);
-    });
-    title.map_or_else(|| table.to_string(), |value| format!("{} \n{table}", value.to_string()))
 }
 /// Return line-oriented diff changes with ANSI colors
 #[cfg(any(feature = "analysis", feature = "std"))]
@@ -82,4 +73,21 @@ pub fn text_diff_changes_with_color(old: &str, new: &str, color: bool) -> Vec<(C
             (tag, text)
         })
         .collect()
+}
+/// Render rows as a host-formatted table without writing to stdout
+#[cfg(any(feature = "analysis", feature = "std"))]
+pub fn values_as_table<T>(headers: Vec<&str>, rows: Vec<Vec<String>>, title: Option<T>) -> String
+where
+    T: ToString,
+{
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_FULL)
+        .apply_modifier(UTF8_ROUND_CORNERS)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_header(headers);
+    rows.into_iter().for_each(|row| {
+        table.add_row(row);
+    });
+    title.map_or_else(|| table.to_string(), |value| format!("{} \n{table}", value.to_string()))
 }

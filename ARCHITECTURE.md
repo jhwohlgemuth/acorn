@@ -21,6 +21,7 @@ acorn/
 │   ├── acorn-cli/      # Native CLI composition root and embedded presentation assets
 │   ├── acorn-cmd/      # Portable command specifications and bounded native execution
 │   ├── acorn-core/     # Portable errors, root values, validation primitives, and utilities
+│   ├── acorn-diff/     # Portable unified-text and RFC 6902 diff primitives
 │   ├── acorn-host/     # Feature-gated native filesystem, HTTP, source, and terminal adapters
 │   ├── acorn-lib/      # Analysis and host services not yet extracted
 │   ├── acorn-macros/   # Validation and command procedural macros
@@ -37,19 +38,15 @@ acorn/
 The current dependency direction is:
 
 ```text
-acorn-core
-    |
-    v
-acorn-schema
-    |
-    +----------> acorn-lib <----- acorn-macros
-    |                |
-    |                +----------> acorn-cli <----- acorn-tui
-    |                +----------> acorn-tui
-    +---------------------------> acorn-wasm <----- acorn-lib::analyzer
+acorn-core ----> acorn-schema ----> acorn-lib <---- acorn-macros
+                     |                 ^  |
+                     |                 |  +-------> acorn-cli <---- acorn-tui
+acorn-diff ---------------------------+  +-------> acorn-tui
+                     |
+                     +---------------------------> acorn-wasm <---- acorn-lib::analyzer
 ```
 
-`acorn-core` and `acorn-schema` are extracted portable packages consumed directly by first-party crates. `acorn-lib` remains the public library crate named `acorn` and owns host implementations that may move into the planned crates below.
+`acorn-core`, `acorn-diff`, and `acorn-schema` are extracted portable packages consumed directly by first-party crates. `acorn-lib` remains the public library crate named `acorn` and owns host implementations that may move into the planned crates below.
 
 ## Portability spectrum
 
@@ -71,6 +68,10 @@ Code should import from the narrowest prelude that matches its behavior: `prelud
 ### `acorn-core`
 
 `acorn-core` owns portable `AcornError`/`AcornResult`, `Location`, `Repository`, `Release`, `Scheme`, validation primitives, and core/alloc utility implementations. It must not own schemas, filesystems, networks, presentation behavior, or embedded assets.
+
+### `acorn-diff`
+
+`acorn-diff` owns alloc-only unified-text and deterministic RFC 6902 transformations. It accepts strings or `serde_json::Value` instances, performs no file access, and has no dependency on another ACORN crate. Same-standard parsing, canonical serialization, and fallback policy remain in `acorn-lib::analyzer::diff`.
 
 ### `acorn-lib`
 

@@ -47,6 +47,7 @@
   - [Needle sidecar](./inference/needle.md)
 - [PowerAutomate logbook reporting](./automation/powerautomate-reporting.md)
 - [Packages](./packages/README.md)
+  - [Portable diffs](./packages/acorn-diff.md)
   - [Rust schemas](./packages/acorn-schema.md)
   - [Native commands](./packages/acorn-cmd.md)
   - [Native host adapters](./packages/acorn-host.md)

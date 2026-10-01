@@ -3,6 +3,7 @@ use crate::{
     analyzer::{
         check::{Check, CheckCategory, CheckKind, CheckSeverity, OutputFormat, Standard},
         error::{DocumentTarget, ErrorKind, ValidatorIssues},
+        fix::FixPreviewDiagnostic,
         host::context::ReportOptions,
         model::ValeOutputItem,
     },
@@ -628,6 +629,14 @@ impl Standard {
             | Standard::Document | Standard::Text => print_schema::<text::Text>(format),
             | Standard::DublinCore => eprintln!("Schema generation not supported for Dublin Core (no schema defined)"),
         }
+    }
+}
+impl Render for Vec<FixPreviewDiagnostic> {
+    fn render(&self, _context: RenderContext<'_>) {
+        self.iter().for_each(|diagnostic| match &diagnostic.target {
+            | Some(target) => eprintln!("{target}: {} — {}", diagnostic.summary, diagnostic.message),
+            | None => eprintln!("{} — {}", diagnostic.summary, diagnostic.message),
+        });
     }
 }
 /// Print JSON or YAML schema for type `T` to stdout

@@ -10,7 +10,7 @@
 // returns Err during `try_parse_from` as a signal to display version info.
 
 use crate::cli::arguments::osti::DoeLab;
-use crate::cli::arguments::{FileFormat, InferenceBackendKind, SyncTarget};
+use crate::cli::arguments::{CheckOutputFormat, DiffOutputFormat, FileFormat, InferenceBackendKind, SyncTarget};
 use crate::cli::parse::infer_standard_from_content;
 use crate::cli::{
     resolve_export_paths, resolve_paths, resolve_paths_including, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands,
@@ -87,6 +87,19 @@ fn test_check_format_argument() {
     }
     assert!(Arguments::try_parse_from(["acorn", "check", "--paste", "--format", "pdf"]).is_err());
     assert!(Arguments::try_parse_from(["acorn", "check", "notes.json", "--format", "json"]).is_err());
+}
+#[test]
+fn test_check_patch_output_requires_suggestions() {
+    ["diff", "json-patch"].into_iter().for_each(|format| {
+        let invalid = Arguments::try_parse_from(["acorn", "check", "activity.json", "--output", format]).expect("parse patch output");
+        assert!(crate::commands::validate_watch_arguments(&invalid).is_err());
+        let valid = Arguments::try_parse_from(["acorn", "check", "activity.json", "--suggest-fixes", "--output", format])
+            .expect("parse suggested patch output");
+        assert!(crate::commands::validate_watch_arguments(&valid).is_ok());
+    });
+    let arguments = Arguments::try_parse_from(["acorn", "check", "activity.json", "--suggest-fixes", "--output", "diff"])
+        .expect("parse unified suggestion output");
+    assert!(matches!(arguments.command, Some(Commands::Check(arguments)) if arguments.output == CheckOutputFormat::Diff));
 }
 #[test]
 fn test_check_vale_directory_argument() {
@@ -314,6 +327,19 @@ fn test_create_remote_targets() {
         }) => assert_eq!(arguments.target.host.as_ref().map(|remote| remote.as_str()), Some("ssh://builder")),
         | other => panic!("unexpected command: {other:?}"),
     }
+}
+#[test]
+fn test_diff_arguments() {
+    let arguments = Arguments::try_parse_from(["acorn", "diff", "before.json", "after.yaml", "--format", "unified", "--standard", "rads"])
+        .expect("parse diff arguments");
+    assert!(matches!(
+        arguments.command,
+        Some(Commands::Diff(arguments))
+            if arguments.before.as_path() == Path::new("before.json")
+                && arguments.after.as_path() == Path::new("after.yaml")
+                && arguments.format == DiffOutputFormat::Diff
+                && arguments.standard == Some(Standard::ResearchActivityData)
+    ));
 }
 #[test]
 fn test_download_canonicalize_argument() {

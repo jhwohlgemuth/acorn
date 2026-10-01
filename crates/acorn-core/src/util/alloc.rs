@@ -750,6 +750,15 @@ impl FromStr for MimeType {
     }
 }
 impl MimeType {
+    /// Resolve a textual MIME type from a path, falling back to content inference.
+    #[cfg(feature = "std")]
+    pub fn from_path_or_content(path: &Path, content: &str) -> Self {
+        let detected = Self::from(path.to_string_lossy().as_ref());
+        match detected.is_unknown() || detected.is_vendor() {
+            | true => Self::infer_from(content),
+            | false => detected,
+        }
+    }
     /// Infer a supported textual file type from in-memory content.
     pub fn infer_from(content: &str) -> Self {
         match serde_json::from_str::<Value>(content).is_ok() {

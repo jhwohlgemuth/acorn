@@ -12,6 +12,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli create bot`↴](#acorn-cli-create-bot)
 * [`acorn-cli create secret`↴](#acorn-cli-create-secret)
 * [`acorn-cli doctor`↴](#acorn-cli-doctor)
+* [`acorn-cli diff`↴](#acorn-cli-diff)
 * [`acorn-cli download`↴](#acorn-cli-download)
 * [`acorn-cli download model`↴](#acorn-cli-download-model)
 * [`acorn-cli download needle`↴](#acorn-cli-download-needle)
@@ -69,6 +70,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * `check` — Perform static analysis on research activity data and apply standardized best practices
 * `create` — Create research resources like GitLab runners, MCP servers, etc.
 * `doctor` — Diagnose and correct system requirements for using acorn
+* `diff` — Compare two files using their typed metadata representation
 * `download` — Download research activity data from buckets or model weights for local inference
 * `export` — Export research activity data to a specific target
 * `infer` — Run bounded inference through Needle or a configured prompt backend
@@ -221,10 +223,14 @@ Perform static analysis on research activity data and apply standardized best pr
   Default value: `human`
 
   Possible values:
+  - `diff`:
+    Unified diff previews for proposed document changes
   - `human`:
-    Human-readable text
+    Human-readable checks and fix summaries
   - `json`:
-    Machine-readable JSON
+    Machine-readable checks and fix proposals
+  - `json-patch`:
+    RFC 6902 preview envelope for proposed document changes
 
 * `--backend <BACKEND>` — Inference backend; CLI overrides `ACORN_INFERENCE_BACKEND`, then defaults to `acp`
 
@@ -421,6 +427,39 @@ Diagnose and correct system requirements for using acorn
 
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
+
+
+
+## `acorn-cli diff`
+
+Compare two files using their typed metadata representation
+
+    Print a unified semantic diff
+    $> acorn diff before.json after.json
+
+    Print an RFC 6902 JSON Patch
+    $> acorn diff before.yaml after.yaml --format json-patch
+
+**Usage:** `acorn-cli diff [OPTIONS] <BEFORE> <AFTER>`
+
+###### **Arguments:**
+
+* `<BEFORE>` — Original file
+* `<AFTER>` — Revised file
+
+###### **Options:**
+
+* `--format <FORMAT>` — Comparison output format
+
+  Default value: `diff`
+
+  Possible values:
+  - `diff`:
+    Unified semantic diff
+  - `json-patch`:
+    RFC 6902 JSON Patch
+
+* `-s`, `--standard <STANDARD>` — Metadata standard override
 
 
 

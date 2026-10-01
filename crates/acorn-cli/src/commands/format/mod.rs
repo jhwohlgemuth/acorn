@@ -16,9 +16,10 @@ use acorn::{
         workflow::{self, Workflow, WorkflowExtension},
         FromPath, InputOutput,
     },
-    util::{constants::app::DISPLAY_PATH_CHARACTER_COUNT, print_changes_with_color, StringConversion},
+    util::{constants::app::DISPLAY_PATH_CHARACTER_COUNT, StringConversion},
 };
 use acorn_core::{options::CommonRuntime, util::MimeType, Location};
+use acorn_diff::unified_diff;
 use acorn_host::terminal::Label;
 use acorn_schema::{
     enrichment::Provider,
@@ -66,6 +67,23 @@ where
     resolve_paths(path, options)
         .await
         .and_then(|paths| paths.par_iter().try_for_each(|path| format_file::<T>(path, options)))
+}
+fn format_diff(old: &str, new: &str, path: &Path, color: bool) -> String {
+    let before_label = format!("a/{}", path.display());
+    let after_label = format!("b/{}", path.display());
+    let diff = unified_diff(old, new, &before_label, &after_label);
+    match color {
+        | false => diff,
+        | true => diff
+            .split_inclusive('\n')
+            .map(|line| match line {
+                | line if line.starts_with("--- ") || line.starts_with('-') => line.red().to_string(),
+                | line if line.starts_with("+++ ") || line.starts_with('+') => line.green().to_string(),
+                | line if line.starts_with("@@") => line.cyan().to_string(),
+                | line => line.dimmed().to_string(),
+            })
+            .collect(),
+    }
 }
 fn format_file<T>(path: &Path, options: &CommandOptions) -> Result<(), Report>
 where
@@ -115,7 +133,7 @@ where
                             Some(Level::Warn) | Some(Level::Info) | Some(Level::Debug) | Some(Level::Trace)
                         );
                         if *dry_run || should_show_changes {
-                            print_changes_with_color(&old_content, &new_content, !options.no_color);
+                            print!("{}", format_diff(&old_content, &new_content, path, !options.no_color));
                         }
                         match *dry_run {
                             | true => Ok(()),

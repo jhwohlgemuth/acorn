@@ -158,6 +158,19 @@ pub(crate) enum ArchiveType {
     #[display("zip")]
     Zip,
 }
+/// Check and suggestion output format.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, strum::EnumIs, ValueEnum)]
+pub(crate) enum CheckOutputFormat {
+    /// Unified diff previews for proposed document changes.
+    Diff,
+    /// Human-readable checks and fix summaries.
+    #[default]
+    Human,
+    /// Machine-readable checks and fix proposals.
+    Json,
+    /// RFC 6902 preview envelope for proposed document changes.
+    JsonPatch,
+}
 /// Database backend used for local cache and history tables.
 #[derive(Clone, Copy, Debug, Display, PartialEq, Eq, ValueEnum)]
 pub enum DatabaseBackend {
@@ -179,6 +192,16 @@ pub enum Diagnostic {
     Network,
     Gpu,
     Software,
+}
+/// Output format for semantic comparisons.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, strum::EnumIs, ValueEnum)]
+pub(crate) enum DiffOutputFormat {
+    /// Unified semantic diff.
+    #[default]
+    #[value(alias = "unified")]
+    Diff,
+    /// RFC 6902 JSON Patch.
+    JsonPatch,
 }
 /// Target export file formats available when exporting research activity data
 #[derive(Clone, Debug, Default, Display, EnumIs, ValueEnum)]
@@ -429,7 +452,7 @@ pub struct Check {
     pub(crate) suggest_fixes: bool,
     /// Check and suggestion output format
     #[arg(long, default_value = "human", value_enum, value_name = "FORMAT", help_heading = "OPTIONS")]
-    pub(crate) output: InferenceOutputFormat,
+    pub(crate) output: CheckOutputFormat,
     #[command(flatten)]
     pub(crate) inference: InferenceArgs,
     /// Existing Vale installation directory containing the executable and `.vale.ini`
@@ -467,6 +490,23 @@ pub(crate) struct DetachArgs {
     /// Run as detached container/service instead of foreground/in-process
     #[arg(short = 'd', long, value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) detach: bool,
+}
+/// Arguments for `acorn diff`.
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct Diff {
+    /// Original file.
+    #[arg(value_name = "BEFORE", value_hint = ValueHint::FilePath, help_heading = "ARGS")]
+    pub(crate) before: PathBuf,
+    /// Revised file.
+    #[arg(value_name = "AFTER", value_hint = ValueHint::FilePath, help_heading = "ARGS")]
+    pub(crate) after: PathBuf,
+    /// Comparison output format.
+    #[arg(long, default_value = "diff", value_enum, value_name = "FORMAT", help_heading = "OPTIONS")]
+    pub(crate) format: DiffOutputFormat,
+    /// Metadata standard override.
+    #[arg(short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
+    pub(crate) standard: Option<Standard>,
 }
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
@@ -1439,6 +1479,11 @@ impl From<SwhidKind> for CalculationKind {
             | SwhidKind::Release => Self::Release,
             | SwhidKind::Snapshot => Self::Snapshot,
         }
+    }
+}
+impl CheckOutputFormat {
+    pub(crate) fn is_patch(self) -> bool {
+        self.is_diff() || self.is_json_patch()
     }
 }
 impl Download {

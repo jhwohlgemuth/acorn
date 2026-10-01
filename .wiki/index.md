@@ -17,7 +17,7 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Next execution phase
 
-The dedicated RPC and automation lane is the highest-priority initiative. The JSON-RPC, Protobuf/gRPC, webhook runtime, GitLab repository automation, PowerAutomate reporting, canonical RAD persistence, logbook graduation, updates PDF, and ACP inference foundations are complete. The [Power Automate deployment amendment](features/powerapps-gitlab-logbook-reporting.md) adds ACORN-owned secret generation and remains open only for its deployment smoke test; it does not change the transport execution order:
+The dedicated RPC and automation lane is the active integration priority now that the portable semantic-diff foundation is complete:
 
 1. [MCP client](features/mcp-client.md)
 

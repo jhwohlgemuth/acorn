@@ -390,6 +390,13 @@ impl CheckBatch {
     pub fn combine(self, other: Self) -> Self {
         Self(self.0.into_iter().chain(other.0).collect())
     }
+    /// Resolve command completion from issue state and failure policy.
+    pub fn finish_status(&self, no_fail: bool) -> Result<(), usize> {
+        match no_fail || !self.iter().any(Check::is_failure) {
+            | true => Ok(()),
+            | false => Err(self.len()),
+        }
+    }
     /// Borrow the checks in this batch as a slice.
     pub fn as_slice(&self) -> &[Check] {
         &self.0
@@ -706,30 +713,36 @@ impl IntoIterator for Findings {
 }
 impl From<&Map<String, Value>> for Standard {
     fn from(object: &Map<String, Value>) -> Self {
-        if object.get("@type").and_then(Value::as_str).is_some_and(|value| value.contains("dcat:")) {
-            Standard::Dcat
-        } else if object.contains_key("dataset_id") && object.contains_key("metas") {
-            Standard::Huwise
-        } else if object.contains_key("attributes") && object.contains_key("id") {
-            Standard::Datacite
-        } else if object.contains_key("manifestVersion") {
-            match object.values().any(contains_layer_identity) {
-                | true => Standard::ModelKit,
-                | false => Standard::Kitfile,
-            }
-        } else if object.contains_key("contact") && object.contains_key("meta") && object.contains_key("title") {
-            Standard::ResearchActivityData
-        } else if object.contains_key("access") && object.contains_key("contributor") && object.contains_key("date") && object.contains_key("title") {
-            Standard::Raid
-        } else if object.contains_key("metadata") || object.contains_key("pids") || object.contains_key("resource_type") {
-            Standard::Invenio
-        } else {
-            Standard::Dcat
-        }
+        Self::detect_object(object).unwrap_or(Self::Dcat)
     }
 }
 #[cfg(any(feature = "analysis", feature = "std"))]
 impl Standard {
+    /// Strictly detect a supported metadata standard from an object.
+    pub fn detect_object(object: &Map<String, Value>) -> Option<Self> {
+        if object.contains_key("cff-version") {
+            Some(Self::CitationFileFormat)
+        } else if object.get("@type").and_then(Value::as_str).is_some_and(|value| value.contains("dcat:")) {
+            Some(Self::Dcat)
+        } else if object.contains_key("dataset_id") && object.contains_key("metas") {
+            Some(Self::Huwise)
+        } else if object.contains_key("attributes") && object.contains_key("id") {
+            Some(Self::Datacite)
+        } else if object.contains_key("manifestVersion") {
+            Some(match object.values().any(contains_layer_identity) {
+                | true => Self::ModelKit,
+                | false => Self::Kitfile,
+            })
+        } else if object.contains_key("contact") && object.contains_key("meta") && object.contains_key("title") {
+            Some(Self::ResearchActivityData)
+        } else if object.contains_key("access") && object.contains_key("contributor") && object.contains_key("date") && object.contains_key("title") {
+            Some(Self::Raid)
+        } else if object.contains_key("metadata") || object.contains_key("pids") || object.contains_key("resource_type") {
+            Some(Self::Invenio)
+        } else {
+            None
+        }
+    }
     /// Convert serialized content from one metadata standard to another.
     ///
     /// Parses `content` as the schema identified by `self` (source standard),

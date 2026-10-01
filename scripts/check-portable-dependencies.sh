@@ -3,6 +3,18 @@ set -euo pipefail
 
 readonly forbidden='^(ammonia|anydoc|arboard|ariadne|async-trait|axum|bat|color-eyre|comfy-table|console|directories|dotenvy|flate2|futures|glob|http|httpdate|indicatif|infer|is_executable|lychee-lib|nanoid|owo-colors|pdf-inspector|percy-dom|polars|rand|rayon|reqwest|ring|rsa|rusqlite|rust-embed|rust-ini|sevenz-rust2|shell-words|shuck-linter|shuck-parser|similar|tar|tera|tokio|tower|which|zip) v'
 readonly forbidden_analysis='^(axum|duckdb|resvg|rmcp|shuck-linter|shuck-parser|sysinfo) v'
+readonly forbidden_diff='^(acorn-(cmd|core|host|lib|macros|schema|tui|wasm)|anydoc|arboard|axum|color-eyre|directories|indicatif|rayon|reqwest|tokio) v'
+
+check_diff_tree() {
+    local tree
+    local matches
+    tree="$(cargo tree --locked -p acorn-diff --no-default-features --features alloc --edges normal --prefix none)"
+    matches="$(printf '%s\n' "$tree" | grep -E "$forbidden_diff" || true)"
+    if [[ -n "$matches" ]]; then
+        printf 'Host or ACORN package dependencies leaked into the acorn-diff alloc graph:\n%s\n' "$matches" >&2
+        exit 1
+    fi
+}
 
 check_analysis_tree() {
     local tree
@@ -40,6 +52,7 @@ check_wasm_tree() {
 }
 
 check_analysis_tree
+check_diff_tree
 check_tree native
 check_tree wasm --target wasm32-unknown-unknown
 check_wasm_tree

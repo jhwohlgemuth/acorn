@@ -1,5 +1,7 @@
 //! Portable analyzer result models and supplied-content calculations
 pub mod check;
+#[cfg(feature = "analysis")]
+pub mod diff;
 pub mod error;
 pub mod fair;
 #[cfg(any(feature = "analysis", feature = "std"))]

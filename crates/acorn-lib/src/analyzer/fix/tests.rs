@@ -2,9 +2,9 @@ use super::plan::Recipe;
 use super::service::{validate_envelope, validate_suggested_fix, PendingReference, PendingReferences, SuggestedFix, SuggestionEnvelope};
 use super::*;
 use crate::agent::{InMemoryBackend, InferenceCapabilities, InferenceFinishReason, InferenceFuture, InferenceResult, InferenceUsage};
-use crate::analyzer::{CheckCategory, CheckSeverity};
+use crate::analyzer::{CheckCategory, CheckSeverity, Standard::ResearchActivityData};
 use acorn_core::prelude::Box;
-use acorn_core::util::constants::app::APPLICATION;
+use acorn_core::util::{constants::app::APPLICATION, MimeType};
 use core::cell::RefCell;
 use serde_json::json;
 use std::fs;
@@ -120,7 +120,7 @@ fn suggested(reference: &CheckReference) -> SuggestedFix {
     }
 }
 #[test]
-fn batch_limits_count_and_context_deterministically() {
+fn test_batch_limits_count_and_context_deterministically() {
     let options = FixOptions {
         max_context_bytes: 64,
         max_findings_per_batch: 2,
@@ -133,7 +133,7 @@ fn batch_limits_count_and_context_deterministically() {
     assert_eq!(batches.get(1).map(Vec::len), Some(1));
 }
 #[test]
-fn build_request_hydrates_bounded_finding_data_and_schema() {
+fn test_build_request_hydrates_bounded_finding_data_and_schema() {
     let request = vec![reference("check-0001")].build(&FixOptions::default()).unwrap();
     assert!(request.prompt.body.contains("check-0001"));
     assert!(request.prompt.body.contains("Title is invalid"));
@@ -142,7 +142,7 @@ fn build_request_hydrates_bounded_finding_data_and_schema() {
     assert!(request.prompt.body.contains(&serde_json::to_string_pretty(&schema).unwrap()));
 }
 #[test]
-fn fix_actions_reject_executable_fields() {
+fn test_fix_actions_reject_executable_fields() {
     let value = json!({
         "command": "rm",
         "kind": "registered-recipe",
@@ -151,7 +151,7 @@ fn fix_actions_reject_executable_fields() {
     assert!(serde_json::from_value::<FixAction>(value).is_err());
 }
 #[test]
-fn fix_report_groups_and_summarizes_proposals() {
+fn test_fix_report_groups_and_summarizes_proposals() {
     let reference = reference("check-0001");
     let fix = validate_suggested_fix(suggested(&reference), &reference, &FixOptions::default(), result(&reference).provenance).unwrap();
     let report = FixReport::from_parts(vec![fix], Vec::new());
@@ -163,7 +163,7 @@ fn fix_report_groups_and_summarizes_proposals() {
     assert_eq!(summary.proposed, 1);
 }
 #[test]
-fn normalization_sorts_and_bounds_check_fields() {
+fn test_normalization_sorts_and_bounds_check_fields() {
     let context = "é".repeat(DEFAULT_MAX_EXCERPT_BYTES);
     let second = crate::check!(
         CheckCategory::Schema,
@@ -202,7 +202,7 @@ fn normalization_sorts_and_bounds_check_fields() {
         .all(|reference| digest(&format!("sha256:{}", reference.fingerprint)).is_ok()));
 }
 #[test]
-fn options_reject_requests_above_fixed_ceiling() {
+fn test_options_reject_requests_above_fixed_ceiling() {
     let options = FixOptions {
         max_findings_per_batch: DEFAULT_MAX_FINDINGS_PER_BATCH.saturating_add(1),
         ..FixOptions::default()
@@ -210,7 +210,7 @@ fn options_reject_requests_above_fixed_ceiling() {
     assert!(options.validate().is_err());
 }
 #[test]
-fn planner_coalesces_repeated_node_recipe() {
+fn test_planner_coalesces_repeated_node_recipe() {
     let mut node = planned_document_fix();
     node.actions = vec![FixAction::RegisteredRecipe {
         recipe_id: if cfg!(target_os = "macos") {
@@ -237,7 +237,7 @@ fn planner_coalesces_repeated_node_recipe() {
     }
 }
 #[test]
-fn planner_rejects_registered_recipe_effects_that_model_output_understates() {
+fn test_planner_rejects_registered_recipe_effects_that_model_output_understates() {
     let mut recipe = planned_document_fix();
     recipe.actions = vec![FixAction::RegisteredRecipe {
         recipe_id: "vale.install".to_string(),
@@ -251,7 +251,7 @@ fn planner_rejects_registered_recipe_effects_that_model_output_understates() {
     assert!(Plan::from_fixes(&[recipe], Policy::confirmed(false)).is_err());
 }
 #[test]
-fn planner_rejects_stale_document_preconditions_and_unapproved_recipes() {
+fn test_planner_rejects_stale_document_preconditions_and_unapproved_recipes() {
     let directory = tempdir().unwrap();
     fs::write(directory.path().join("activity.json"), "Different title").unwrap();
     let document = Plan::from_fixes(&[planned_document_fix()], Policy::safe(false)).unwrap();
@@ -282,7 +282,85 @@ fn planner_rejects_stale_document_preconditions_and_unapproved_recipes() {
     assert!(Plan::from_fixes(&[offline_recipe], Policy::confirmed(true)).is_err());
 }
 #[test]
-fn registered_recipe_registry_exposes_only_curated_vectors() {
+fn test_preview_applies_document_changes_atomically_and_preserves_other_fixes() {
+    let mut first = planned_document_fix();
+    first.actions.push(FixAction::DocumentChange {
+        description: "Require missing text".to_string(),
+        expected: "Absent text".to_string(),
+        replacement: "Replacement".to_string(),
+    });
+    let mut second = planned_document_fix();
+    second.id = "fix-0002".to_string();
+    second.actions = vec![FixAction::DocumentChange {
+        description: "Replace title".to_string(),
+        expected: "Old title".to_string(),
+        replacement: "Final title".to_string(),
+    }];
+    let report = FixReport::from(vec![first, second]);
+    let sources = [PreviewSource::Available {
+        content: "Old title".to_string(),
+        source_format: MimeType::Json,
+        standard: ResearchActivityData,
+        target: "activity.json".to_string(),
+    }];
+    let preview = report.project(&sources);
+    assert_eq!(preview.targets.len(), 1);
+    assert_eq!(preview.targets.first().map(|target| target.proposed.as_str()), Some("Final title"));
+    assert_eq!(
+        preview.targets.first().and_then(|target| target.fix_ids.first()).map(String::as_str),
+        Some("fix-0002")
+    );
+    assert_eq!(preview.diagnostics.len(), 1);
+}
+#[test]
+fn test_preview_reports_ambiguous_sources_without_projecting() {
+    let report = FixReport::from(vec![planned_document_fix()]);
+    let source = PreviewSource::Available {
+        content: "Old title".to_string(),
+        source_format: MimeType::Json,
+        standard: ResearchActivityData,
+        target: "activity.json".to_string(),
+    };
+    let preview = report.project(&[source.clone(), source]);
+    assert!(preview.targets.is_empty());
+    assert_eq!(preview.diagnostics.len(), 1);
+    assert_eq!(
+        preview.diagnostics.first().map(|diagnostic| diagnostic.summary.as_str()),
+        Some("Ambiguous preview target")
+    );
+}
+#[test]
+fn test_preview_retains_document_changes_from_mixed_actions_and_omits_net_zero_targets() {
+    let mut mixed = planned_document_fix();
+    mixed.actions.push(FixAction::Manual {
+        instructions: "Review the title".to_string(),
+    });
+    let mixed_report = FixReport::from(vec![mixed]);
+    let source = PreviewSource::Available {
+        content: "Old title".to_string(),
+        source_format: MimeType::Json,
+        standard: ResearchActivityData,
+        target: "activity.json".to_string(),
+    };
+    let mixed_preview = mixed_report.project(core::slice::from_ref(&source));
+    let mut reverse = planned_document_fix();
+    reverse.id = "fix-0002".to_string();
+    reverse.actions = vec![FixAction::DocumentChange {
+        description: "Restore title".to_string(),
+        expected: "New title".to_string(),
+        replacement: "Old title".to_string(),
+    }];
+    let net_zero = FixReport::from(vec![planned_document_fix(), reverse]).project(&[source]);
+    assert_eq!(mixed_preview.targets.first().map(|target| target.proposed.as_str()), Some("New title"));
+    assert_eq!(mixed_preview.diagnostics.len(), 1);
+    assert!(net_zero.targets.is_empty());
+    assert_eq!(
+        net_zero.diagnostics.first().map(|diagnostic| diagnostic.summary.as_str()),
+        Some("No net document change")
+    );
+}
+#[test]
+fn test_registered_recipe_registry_exposes_only_curated_vectors() {
     assert_eq!(Recipe::Chromium.command(), (APPLICATION, ["download", "chromium"].as_slice()));
     assert_eq!(Recipe::HomebrewNode.command(), ("brew", ["install", "node"].as_slice()));
     assert_eq!(Recipe::Vale.command(), (APPLICATION, ["download", "vale"].as_slice()));
@@ -303,7 +381,7 @@ fn registered_recipe_registry_exposes_only_curated_vectors() {
     );
 }
 #[test]
-fn registered_recipes_run_only_fixed_argument_vectors() {
+fn test_registered_recipes_run_only_fixed_argument_vectors() {
     let mut recipe = planned_document_fix();
     recipe.actions = vec![FixAction::RegisteredRecipe {
         recipe_id: "vale.install".to_string(),
@@ -330,7 +408,7 @@ fn registered_recipes_run_only_fixed_argument_vectors() {
     );
 }
 #[tokio::test]
-async fn suggestion_failures_are_reported_without_partial_fixes() {
+async fn test_suggestion_failures_are_reported_without_partial_fixes() {
     let report = vec![reference("check-0001")]
         .suggest(&FailingBackend, &FixOptions::default())
         .await
@@ -343,7 +421,7 @@ async fn suggestion_failures_are_reported_without_partial_fixes() {
         .is_some_and(|diagnostic| diagnostic.message.contains("fixture backend failure")));
 }
 #[tokio::test]
-async fn suggestion_service_returns_validated_grouped_fixes() {
+async fn test_suggestion_service_returns_validated_grouped_fixes() {
     let reference = reference("check-0001");
     let backend = InMemoryBackend::new(result(&reference));
     let report = vec![reference]
@@ -363,7 +441,7 @@ async fn suggestion_service_returns_validated_grouped_fixes() {
     assert_eq!(summary.proposed, 1);
 }
 #[test]
-fn suggestion_validation_rejects_duplicate_actions_and_unsafe_targets() {
+fn test_suggestion_validation_rejects_duplicate_actions_and_unsafe_targets() {
     let reference = reference("check-0001");
     let mut duplicate = suggested(&reference);
     duplicate.actions.push(action());
@@ -376,7 +454,7 @@ fn suggestion_validation_rejects_duplicate_actions_and_unsafe_targets() {
     assert!(validate_suggested_fix(invalid_confidence, &reference, &FixOptions::default(), result(&reference).provenance).is_err());
 }
 #[test]
-fn suggestion_validation_rejects_unknown_and_stale_findings() {
+fn test_suggestion_validation_rejects_unknown_and_stale_findings() {
     let reference = reference("check-0001");
     let unknown = SuggestionEnvelope {
         fixes: vec![SuggestedFix {
@@ -410,7 +488,7 @@ fn suggestion_validation_rejects_unknown_and_stale_findings() {
     assert!(validate_suggested_fix(stale, &reference, &FixOptions::default(), result(&reference).provenance).is_err());
 }
 #[test]
-fn trusted_document_plan_applies_and_rolls_back_on_failed_verification() {
+fn test_trusted_document_plan_applies_and_rolls_back_on_failed_verification() {
     let directory = tempdir().unwrap();
     let target = directory.path().join("activity.json");
     fs::write(&target, "Old title").unwrap();

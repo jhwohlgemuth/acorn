@@ -12,7 +12,7 @@
 //! Note: Tests run in online mode as format command doesn't support offline yet.
 extern crate alloc;
 use crate::cli::CommandOptions;
-use crate::commands::format::{format_file, run};
+use crate::commands::format::{format_diff, format_file, run};
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
 use acorn::analyzer::Standard;
 use acorn::io::slice_path;
@@ -27,6 +27,7 @@ use color_eyre::eyre::Result;
 use std::fs;
 use std::fs::copy;
 use std::io::Write;
+use std::path::Path;
 use std::sync::Mutex;
 use tracing_subscriber::fmt::MakeWriter;
 
@@ -169,6 +170,15 @@ async fn test_configured_format_requires_exec_feature() {
         "configuration must not be ignored without Rhai support"
     );
     assert_eq!(fs::read_to_string(dest_file).expect("read unchanged fixture"), original);
+}
+#[test]
+fn test_format_diff_uses_labeled_unified_output_and_optional_color() {
+    let plain = format_diff("old\n", "new\n", Path::new("activity.json"), false);
+    let colored = format_diff("old\n", "new\n", Path::new("activity.json"), true);
+    assert!(plain.starts_with("--- a/activity.json\n+++ b/activity.json\n@@"));
+    assert!(plain.contains("-old\n+new\n"));
+    assert!(!plain.contains('\u{1b}'));
+    assert!(colored.contains('\u{1b}'));
 }
 #[tokio::test]
 async fn test_format_dispatches_cff_and_rejects_unsupported_provider() {

@@ -101,6 +101,16 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Doctor(Box<arguments::Doctor>),
+    /// Compare two files using their typed metadata representation
+    ///
+    ///     Print a unified semantic diff
+    ///     $> acorn diff before.json after.json
+    ///
+    ///     Print an RFC 6902 JSON Patch
+    ///     $> acorn diff before.yaml after.yaml --format json-patch
+    ///
+    #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
+    Diff(Box<arguments::Diff>),
     /// Download research activity data from buckets or model weights for local inference
     ///
     ///     Download research activity data from a bucket repository URL

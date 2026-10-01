@@ -24,6 +24,7 @@ use tracing::info;
 pub mod check;
 pub mod create;
 pub mod db;
+pub mod diff;
 pub mod doctor;
 pub mod download;
 pub mod exec;
@@ -50,6 +51,9 @@ macro_rules! preflight {
     };
 }
 pub(crate) use preflight;
+fn patch_without_suggestions(arguments: &arguments::Check) -> bool {
+    !arguments.suggest_fixes && arguments.output.is_patch()
+}
 fn preflight_inner(command: &str, options: &CommandOptions) -> eyre::Result<()> {
     let CommandOptions {
         offline,
@@ -229,6 +233,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             } = arguments.as_ref();
             doctor::run(fix, interactive, report, check, offline)
         }
+        | Some(Commands::Diff(arguments)) => diff::run(arguments),
         | Some(Commands::Download(arguments)) => match arguments.unsupported_bucket_flag() {
             | Some(flag) => Err(eyre::eyre!("{flag} is only supported for bucket downloads")),
             | None => match &arguments.command {
@@ -670,11 +675,20 @@ pub(crate) fn validate_watch_arguments(args: &Arguments) -> Void {
     let ignore_sync_failure = matches!(&args.command, Some(Commands::Check(arguments)) if arguments.ignore_sync_failure);
     let paste = matches!(&args.command, Some(Commands::Check(arguments)) if arguments.paste);
     let suggest_fixes = matches!(&args.command, Some(Commands::Check(arguments)) if arguments.suggest_fixes);
-    match (args.watch, watch_supported, ignore_sync_failure, paste, suggest_fixes) {
-        | (true, false, _, _, _) => Err(eyre!("--watch is only supported by the check and gather commands")),
-        | (false, _, true, _, _) => Err(eyre!("--ignore-sync-failure requires --watch")),
-        | (true, _, _, true, _) => Err(eyre!("Clipboard text cannot be used with --watch")),
-        | (true, _, _, _, true) => Err(eyre!("--suggest-fixes cannot be used with --watch")),
+    let patch_output_without_suggestions = matches!(&args.command, Some(Commands::Check(arguments)) if patch_without_suggestions(arguments));
+    match (
+        args.watch,
+        watch_supported,
+        ignore_sync_failure,
+        paste,
+        suggest_fixes,
+        patch_output_without_suggestions,
+    ) {
+        | (true, false, _, _, _, _) => Err(eyre!("--watch is only supported by the check and gather commands")),
+        | (false, _, true, _, _, _) => Err(eyre!("--ignore-sync-failure requires --watch")),
+        | (true, _, _, true, _, _) => Err(eyre!("Clipboard text cannot be used with --watch")),
+        | (true, _, _, _, true, _) => Err(eyre!("--suggest-fixes cannot be used with --watch")),
+        | (_, _, _, _, _, true) => Err(eyre!("--output diff and --output json-patch require --suggest-fixes")),
         | _ => Ok(()),
     }
 }

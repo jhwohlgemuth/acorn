@@ -29,6 +29,7 @@ use thiserror::Error;
 mod discovery;
 mod execution;
 mod plan;
+mod preview;
 mod service;
 mod types;
 pub use discovery::{HostProvider, Provider};
@@ -36,6 +37,7 @@ pub use discovery::{HostProvider, Provider};
 pub use execution::CommandRunner;
 pub use execution::{Outcome, Runner, Verifier};
 pub use plan::{Plan, Policy};
+pub use preview::{FixPreview, FixPreviewDiagnostic, FixPreviewTarget, PreviewSource};
 use types::FixError;
 pub use types::{
     CategoryFixes, CheckReference, DiscoveryCategory, DiscoveryReference, DiscoveryStatus, FindingReference, Fix, FixAction, FixAutomation, FixBatch,

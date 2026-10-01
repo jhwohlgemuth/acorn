@@ -1,6 +1,6 @@
 use crate::{
     cli::{
-        arguments::{InferenceArgs, InferenceOutputFormat},
+        arguments::{CheckOutputFormat, InferenceArgs},
         resolve_paths_including, CommandOptions, WatchOptions,
     },
     commands::{
@@ -16,6 +16,7 @@ use acorn::exec::config::ExecutionOrigin;
 use acorn::io::workflow::{Workflow, WorkflowAction};
 use acorn::{
     analyzer::{
+        diff::DiffFormat,
         fix::FixReport,
         host::discovery::Record,
         host::{
@@ -87,7 +88,7 @@ struct SuggestionConfiguration {
     enabled: bool,
     inference: InferenceArgs,
     offline: bool,
-    output: InferenceOutputFormat,
+    output: CheckOutputFormat,
 }
 impl Drop for Input {
     fn drop(&mut self) {
@@ -319,14 +320,26 @@ async fn execute(
                 },
             };
             match (suggestions.output, fixes) {
-                | (InferenceOutputFormat::Json, Ok(fixes)) => handle_json(&issues, &fixes, options),
-                | (InferenceOutputFormat::Json, Err(why)) => Err(why),
-                | (InferenceOutputFormat::Human, Ok(fixes)) => {
+                | (CheckOutputFormat::Diff, Ok(fixes)) => fixes.build_preview(&report, input.temporary.is_some()).render(
+                    &issues,
+                    options,
+                    report.render_context(&options.report),
+                    DiffFormat::Unified,
+                ),
+                | (CheckOutputFormat::JsonPatch, Ok(fixes)) => fixes.build_preview(&report, input.temporary.is_some()).render(
+                    &issues,
+                    options,
+                    report.render_context(&options.report),
+                    DiffFormat::JsonPatch,
+                ),
+                | (CheckOutputFormat::Diff | CheckOutputFormat::Json | CheckOutputFormat::JsonPatch, Err(why)) => Err(why),
+                | (CheckOutputFormat::Json, Ok(fixes)) => handle_json(&issues, &fixes, options),
+                | (CheckOutputFormat::Human, Ok(fixes)) => {
                     let checked = handle(&issues, &fair_profiles, &input.paths, options, report.render_context(&options.report));
                     print!("{fixes}");
                     checked
                 }
-                | (InferenceOutputFormat::Human, Err(why)) => {
+                | (CheckOutputFormat::Human, Err(why)) => {
                     let checked = handle(&issues, &fair_profiles, &input.paths, options, report.render_context(&options.report));
                     checked.and(Err(why))
                 }
@@ -393,11 +406,10 @@ fn handle(
                 Err(why.into())
             }
         }
-    } else if !*no_fail && has_failures(issues.as_slice()) {
-        let count = issues.len();
-        Err(eyre!("ACORN found {count} issue{}", suffix(count)))
     } else {
-        Ok(())
+        issues
+            .finish_status(*no_fail)
+            .map_err(|count| eyre!("ACORN found {count} issue{}", suffix(count)))
     }
 }
 fn handle_json(issues: &CheckBatch, fixes: &FixReport, options: &AnalysisContext) -> Result<(), Report> {
@@ -407,16 +419,11 @@ fn handle_json(issues: &CheckBatch, fixes: &FixReport, options: &AnalysisContext
     })
     .map_err(Report::new)
     .map(|output| println!("{output}"))
-    .and_then(|()| match options.report.extension.no_fail || !has_failures(issues.as_slice()) {
-        | true => Ok(()),
-        | false => {
-            let count = issues.len();
-            Err(eyre!("ACORN found {count} issue{}", suffix(count)))
-        }
+    .and_then(|()| {
+        issues
+            .finish_status(options.report.extension.no_fail)
+            .map_err(|count| eyre!("ACORN found {count} issue{}", suffix(count)))
     })
-}
-fn has_failures(issues: &[Check]) -> bool {
-    issues.iter().any(Check::is_failure)
 }
 async fn prepare(source: &InputSource, options: &CommandOptions, format: Option<&MimeType>) -> Result<Prepared<Input>, Report> {
     match source {
@@ -480,7 +487,7 @@ pub async fn run(
     format: &Option<MimeType>,
     config: &Option<PathBuf>,
     suggest_fixes: bool,
-    output: InferenceOutputFormat,
+    output: CheckOutputFormat,
     inference: &InferenceArgs,
 ) -> Result<(), Report> {
     let is_silent = verbose.is_silent();

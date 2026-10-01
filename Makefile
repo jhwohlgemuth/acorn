@@ -121,6 +121,8 @@ check-host: ## Validate host-side feature builds and dependency checks.
 	@cargo check -p acorn-cli --features grpc
 
 check-portable: ## Validate portable/core feature builds and compatibility checks.
+	@cargo check -p acorn-diff
+	@cargo check -p acorn-diff --no-default-features --features alloc
 	@cargo check -p acorn-core
 	@cargo check -p acorn-core --no-default-features --features core
 	@cargo check -p acorn-core --no-default-features --features alloc
@@ -140,6 +142,7 @@ check-portable: ## Validate portable/core feature builds and compatibility check
 	@bash scripts/check-portable-dependencies.sh
 
 check-wasm: ## Validate the WebAssembly target compatibility of the workspace.
+	@cargo check -p acorn-diff --no-default-features --features alloc --target wasm32-unknown-unknown
 	@cargo check -p acorn-core --no-default-features --features core --target wasm32-unknown-unknown
 	@cargo check -p acorn-core --no-default-features --features alloc --target wasm32-unknown-unknown
 	@cargo check -p acorn-schema --no-default-features --features core --target wasm32-unknown-unknown

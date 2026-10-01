@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-This is the next and final protocol plan in the [highest-priority RPC and automation lane](../parallel-execution.md#highest-priority-lane-execution-order). It consumes the implemented operation registry in `io::api::json_rpc` and follows the completed ACP inference work, but neither protocol depends on the other's wire types.
+This is the final protocol plan in the [RPC and automation lane](../parallel-execution.md#highest-priority-lane-execution-order). It consumes the implemented operation registry in `io::api::json_rpc` and follows the completed ACP inference and semantic-diff work. Neither protocol depends on the other's wire types.
 
 # Goal
 
