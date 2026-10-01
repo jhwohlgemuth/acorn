@@ -1,7 +1,7 @@
 ---
 type: Plan
 title: "Small language model (SLM) sidecars"
-description: "Ship explicitly selected, ACORN-owned Tongue, Redact, and Title sidecars, while retaining gated Schemer and semantic-decision follow-ons."
+description: "Ship explicitly selected, ACORN-owned Tongue, Redact, and Title sidecars, while retaining gated Schemer and semantic-decision follow-ons including GLiDE evaluation."
 difficulty: high
 impact: high
 package: [workspace, acorn-lib, acorn-cli]
@@ -34,6 +34,7 @@ Evidence checked on 2026-09-22. Recheck upstream availability, licenses, and imm
 - [Title](https://github.com/Desert-Ant-Labs/desert-ant-core/blob/0711f8907188ca1ee85b2a0fa37ad7aa64b9a750/docs/models/title.md) is Apple/MLX-only and lacks an independent published quality evaluation. Pin model revision [`72375893bb8d1b96f50c7f32dbd1bc124f20d0e6`](https://huggingface.co/desert-ant-labs/title/tree/72375893bb8d1b96f50c7f32dbd1bc124f20d0e6). Its generated description is not inherently a valid ACORN subtitle.
 - The RAD schema validates title and subtitle; subtitle currently has a 75-character maximum. Sidecar output must use canonical validators rather than copy those limits.
 - Existing GitLab runners cover Linux x86_64 and ARM64 only. A maintained macOS ARM64 runner with Xcode 26 and Swift 6.2 is a hard prerequisite for Title and for declaring the complete first slice stable.
+- Fastino GLiDE provides typed, probabilistic decisions over caller-defined choices through the hosted `fastino/glide` System One API. Its decision contract is relevant to the retained semantic-decision experiment, but the documented integration is hosted rather than an ACORN-owned offline runner. GLiDE therefore does not replace Needle's local tool-selection loop; it is a candidate policy/approval decision adapter that requires a separate offline or approved self-hosting path before production consideration. [GLiDE announcement](https://fastino.ai/blog/introducing-glide-the-first-thinking-decision-model)
 
 # Decisions locked for the first release
 
@@ -43,6 +44,7 @@ Evidence checked on 2026-09-22. Recheck upstream availability, licenses, and imm
 - **Stability:** all three commands remain unreleased until their functional, quality, licensing, packaging, and platform gates pass. Do not label only a subset experimental to work around a missing gate.
 - **Invocation:** inference and download are explicit. There is no automatic model download, background inference, remote fallback, record mutation, or default integration with check, gather, export, or validation.
 - **Licensing:** legal/redistribution approval for the pinned SDK and weights is a hard release gate, not a documentation follow-up.
+- **GLiDE placement:** evaluate GLiDE only as a deferred semantic-decision sidecar or comparison adapter. Do not include it in the first Tongue/Redact/Title release, expose it as a generic provider, or present it as a Needle replacement. Needle remains the bounded local tool selector; GLiDE would make task-specific decisions over predefined options.
 
 # Exact implementation boundaries
 
@@ -112,6 +114,7 @@ Preserve `acorn infer <PROMPT>` as the legacy Needle form. Because `needle`, `la
 - **Schemer:** wait for a supported release and implement it only through [structured extraction inference](structured-extraction-inference.md), preserving source offsets, typed absence, conflicting candidates, and deterministic validation.
 - **Persistence/application:** proposal-only output may precede persistence. Durable enrichment proposals and reconciliation belong to the canonical database boundary; authored RAD values always win unless a user explicitly accepts a validated proposal.
 - **Semantic decisions:** SemIf/Open-Jev/Needle comparison remains an opt-in experiment over frozen source/proposal fixtures. It must predeclare accuracy, unsupported-claim, false-rejection, abstention, calibration, latency, memory, and installed-size gates. Scores are advisory and conditional on supplied options. Promotion would add one task-specific adapter; it cannot authorize mutation, establish factuality, or block the first three sidecars.
+- **GLiDE decision adapter:** include Fastino GLiDE in the semantic-decision comparison only after verifying an immutable revision, licensing/redistribution terms, data-handling requirements, and an offline or approved self-hosted deployment path. Compare its typed choice, confidence, probability, abstention, latency, memory, and failure behavior against SemIf, Open-Jev, and the existing Needle baseline. A successful evaluation may justify a separate policy/approval sidecar; it must not replace Needle's tool-selection protocol or broaden tool execution authority.
 - **Out of scope:** automatic enrichment, generic providers, remote fallback, browser integration, audio/vision, training, and Windows runners.
 
 # Validation
