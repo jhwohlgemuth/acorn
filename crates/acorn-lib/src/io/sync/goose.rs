@@ -17,6 +17,7 @@ use alloc::string::{String, ToString};
 use color_eyre::eyre::eyre;
 #[cfg(target_os = "windows")]
 use directories::BaseDirs;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_norway::Value;
 use serde_with::skip_serializing_none;
@@ -26,7 +27,7 @@ use std::path::{Path, PathBuf};
 pub type Config = TargetConfig<Inner>;
 /// Goose-specific synchronization configuration.
 #[skip_serializing_none]
-#[derive(Clone, Debug, Deserialize, Serialize, Validate)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct Inner {
     /// OpenAI-compatible endpoint origin.

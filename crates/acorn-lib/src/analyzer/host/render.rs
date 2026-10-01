@@ -7,7 +7,10 @@ use crate::{
         host::context::ReportOptions,
         model::ValeOutputItem,
     },
-    io::document::{DocumentIndex, DocumentMatch, DocumentPath, DocumentPosition, DocumentQuery, DocumentSpan},
+    io::{
+        config::application::ApplicationConfiguration,
+        document::{DocumentIndex, DocumentMatch, DocumentPath, DocumentPosition, DocumentQuery, DocumentSpan},
+    },
     util::constants::MAX_LENGTH_REPORT_SPAN_PREFIX,
 };
 use acorn_core::prelude::{Arc, HashMap};
@@ -618,6 +621,7 @@ impl Standard {
     #[cfg(any(feature = "analysis", feature = "std"))]
     pub fn to_schema(&self, format: &str) {
         match *self {
+            | Standard::ApplicationConfigurationResearchEnablement => print_schema::<ApplicationConfiguration>(format),
             | Standard::ResearchActivityData => ResearchActivity::to_schema(format),
             | Standard::Raid => Metadata::to_schema(format),
             | Standard::CitationFileFormat => print_schema::<cff::Cff>(format),

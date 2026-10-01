@@ -13,6 +13,7 @@ use acorn_core::{prelude::HashSet, Location, Repository, Scheme, SimpleOrDetaile
 use acorn_host::{fs::SafePath, terminal::Label};
 use color_eyre::eyre::{eyre, Report};
 use fluent_uri::Uri;
+use schemars::JsonSchema;
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -31,7 +32,7 @@ pub(crate) trait BucketSourceAdapter {
     async fn retrieve(&self, item: &BucketSourceItem, destination: &Path) -> ApiResult<()>;
 }
 /// Configured origin of one bucket.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[non_exhaustive]
 #[serde(untagged)]
 pub enum BucketSource {
@@ -51,7 +52,7 @@ pub(crate) struct ArchiveBucketSource<'a> {
 }
 
 /// A BagIt archive payload that has already passed BagIt verification.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BagArchive {
     /// Original archive URI or path, retained as transfer provenance.

@@ -15,6 +15,7 @@ use http::{
 };
 use jiff::Timestamp;
 use owo_colors::OwoColorize;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{File, OpenOptions},
@@ -45,7 +46,7 @@ pub trait HttpService {
     async fn execute(&self, request: HttpRequest) -> ApiResult<HttpResponse>;
 }
 /// Supported HTTP methods for ACORN I/O requests.
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum HttpMethod {
     /// HTTP GET

@@ -210,7 +210,7 @@ Perform static analysis on research activity data and apply standardized best pr
 * `--skip-verify-checksum` — Skip checksum verification when downloading files (e.g., downloading Vale to perform static analysis of prose) > CAUTION: Use at your own risk
 * `-s`, `--standard <STANDARD>` — Metadata standard to validate against
 
-   Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
+   Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
 
   Default value: `rads`
 * `-r`, `--readability-test <METRIC>` — Readability test to use
@@ -703,7 +703,7 @@ Export research activity data to a specific target
    Can be relative or absolute. Relative paths will be resolved against the directory of the target file.
 * `-s`, `--standard <STANDARD>` — Metadata standard to validate against
 
-   Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
+   Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
 
   Default value: `rads`
 * `--strict` — Fail if conversion loses data (only for crosswalk exports)
@@ -724,10 +724,10 @@ Export research activity data to a specific target
 * `--since <TIMESTAMP>` — Inclusive RFC 3339 timestamp for updates exports
 * `--from <STANDARD>` — Metadata standard to use for source data inference (default: auto-detect)
 
-   Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
+   Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
 * `--to <STANDARD>` — Target metadata standard for crosswalk conversion
 
-   Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
+   Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 
@@ -893,7 +893,7 @@ Formats supported metadata standards in place (inherently includes some elements
 * `-m`, `--merge-request` — Format files that were changed in a given merge request (Gitlab) or pull request (GitHub)
 * `-s`, `--standard <STANDARD>` — Metadata standard to validate against
 
-   Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
+   Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
 
   Default value: `rads`
 * `-v`, `--verbose` — Increase logging verbosity

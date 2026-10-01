@@ -181,6 +181,136 @@ fn test_format_diff_uses_labeled_unified_output_and_optional_color() {
     assert!(colored.contains('\u{1b}'));
 }
 #[tokio::test]
+async fn test_format_acre_jsonc_preserves_comments_trailing_commas_and_legacy_version_omission() -> Result<()> {
+    let temp_dir = temp_test_dir("format_acre_jsonc");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let path = temp_dir.join("custom.jsonc");
+    fs::write(
+        &path,
+        "{\r\n// keep this comment\r\n\"scripts\":[\r\n{\r\n\"path\":\"quality\",\r\n\"hooks\":[\r\n\"format\",\r\n],\r\n},\r\n],\r\n}\r\n",
+    )?;
+    let result = run(
+        &Some(path.clone()),
+        &None,
+        &None,
+        &None,
+        &None,
+        &None,
+        false,
+        false,
+        true,
+        &[],
+        &false,
+        Standard::ApplicationConfigurationResearchEnablement,
+        1,
+        &Verbosity::new(0, 0),
+        OFFLINE,
+    )
+    .await;
+    assert!(result.is_ok(), "ACRE JSONC formatting should succeed: {result:?}");
+    let formatted = fs::read_to_string(path)?;
+    assert!(formatted.contains("// keep this comment"));
+    assert!(formatted.contains("  \"scripts\""));
+    assert!(formatted.contains("\"format\",\n"), "{formatted}");
+    assert!(!formatted.contains("schemaVersion"));
+    assert!(!formatted.contains("\r\n"));
+    assert!(formatted.ends_with('\n'));
+    Ok(())
+}
+#[tokio::test]
+async fn test_format_acre_directory_only_formats_canonical_names() -> Result<()> {
+    let temp_dir = temp_test_dir("format_acre_directory");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let canonical = temp_dir.join(".acorn.json");
+    let custom = temp_dir.join("custom.json");
+    let content = "{\"schemaVersion\":\"1.0.0\"}";
+    fs::write(&canonical, content)?;
+    fs::write(&custom, content)?;
+    let result = run(
+        &Some(temp_dir),
+        &None,
+        &None,
+        &None,
+        &None,
+        &None,
+        false,
+        false,
+        true,
+        &[],
+        &false,
+        Standard::ApplicationConfigurationResearchEnablement,
+        1,
+        &Verbosity::new(0, 0),
+        OFFLINE,
+    )
+    .await;
+    assert!(result.is_ok(), "ACRE directory formatting should succeed: {result:?}");
+    assert_eq!(fs::read_to_string(custom)?, content);
+    assert_eq!(fs::read_to_string(canonical)?, "{ \"schemaVersion\": \"1.0.0\" }\n");
+    Ok(())
+}
+#[tokio::test]
+async fn test_format_acre_yaml_preserves_comments_and_legacy_version_omission() -> Result<()> {
+    let temp_dir = temp_test_dir("format_acre_yaml");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let path = temp_dir.join(".acorn.yml");
+    fs::write(&path, "# keep this comment\r\nscripts:\r\n- path: quality\r\n  hooks: [format]\r\n")?;
+    let result = run(
+        &Some(path.clone()),
+        &None,
+        &None,
+        &None,
+        &None,
+        &None,
+        false,
+        false,
+        true,
+        &[],
+        &false,
+        Standard::ApplicationConfigurationResearchEnablement,
+        1,
+        &Verbosity::new(0, 0),
+        OFFLINE,
+    )
+    .await;
+    assert!(result.is_ok(), "ACRE YAML formatting should succeed: {result:?}");
+    let formatted = fs::read_to_string(path)?;
+    assert!(formatted.contains("# keep this comment"));
+    assert!(formatted.contains("scripts:\n  - path: quality"));
+    assert!(!formatted.contains("schemaVersion"));
+    assert!(!formatted.contains("\r\n"));
+    assert!(formatted.ends_with('\n'));
+    Ok(())
+}
+#[tokio::test]
+async fn test_format_acre_rejects_workflow_options_without_loading_config() -> Result<()> {
+    let temp_dir = temp_test_dir("format_acre_options");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let path = temp_dir.join(".acorn.yaml");
+    fs::write(&path, "schemaVersion: 1.0.0\n")?;
+    let missing = temp_dir.join("missing.json");
+    let result = run(
+        &Some(path),
+        &None,
+        &None,
+        &None,
+        &None,
+        &Some(missing),
+        false,
+        false,
+        true,
+        &[],
+        &false,
+        Standard::ApplicationConfigurationResearchEnablement,
+        1,
+        &Verbosity::new(0, 0),
+        OFFLINE,
+    )
+    .await;
+    assert!(result.is_err_and(|why| why.to_string().contains("--config is not supported")));
+    Ok(())
+}
+#[tokio::test]
 async fn test_format_dispatches_cff_and_rejects_unsupported_provider() {
     let temp_dir = temp_test_dir("format_cff");
     let _cleanup = TestCleanup::new(temp_dir.clone());

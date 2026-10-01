@@ -961,6 +961,7 @@ fn test_standard_detection_uses_dcat_jsonld_type() {
 #[test]
 fn test_standard_to_schema_does_not_panic() {
     let standards = [
+        Standard::ApplicationConfigurationResearchEnablement,
         Standard::ResearchActivityData,
         Standard::CitationFileFormat,
         Standard::Datacite,

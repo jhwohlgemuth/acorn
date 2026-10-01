@@ -37,6 +37,7 @@ use bon::Builder;
 use core::str::FromStr;
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
+#[cfg(any(feature = "analysis", feature = "std"))]
 use serde_json::{Map, Value};
 use strum::{EnumIs, EnumIter, VariantNames};
 use validator::{Validate, ValidationError, ValidationErrors, ValidationErrorsKind};
@@ -125,12 +126,16 @@ pub enum OutputFormat {
     Yaml,
 }
 /// Metadata standard used to gate processing behavior within commands
-#[derive(Clone, Copy, Debug, Default, Display, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Display, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Standard {
     /// Research Activity Data (RAD)
     #[default]
     #[display("research-activity-data")]
     ResearchActivityData,
+    /// Application Configuration for Research Enablement (ACRE)
+    #[display("application-configuration-research-enablement")]
+    ApplicationConfigurationResearchEnablement,
     /// Citation File Format (CFF)
     #[display("citation-file-format")]
     CitationFileFormat,
@@ -711,6 +716,7 @@ impl IntoIterator for Findings {
         self.values.into_iter()
     }
 }
+#[cfg(any(feature = "analysis", feature = "std"))]
 impl From<&Map<String, Value>> for Standard {
     fn from(object: &Map<String, Value>) -> Self {
         Self::detect_object(object).unwrap_or(Self::Dcat)
@@ -831,9 +837,13 @@ impl Standard {
                 | Standard::ResearchActivityData => source.serialize(target_mime),
                 | _ => Err(self.unsupported_crosswalk(target)),
             }),
-            | Standard::Kitfile | Standard::ModelKit | Standard::CitationFileFormat | Standard::Document | Standard::DublinCore | Standard::Text => {
-                Err(self.unsupported_crosswalk(target))
-            }
+            | Standard::ApplicationConfigurationResearchEnablement
+            | Standard::Kitfile
+            | Standard::ModelKit
+            | Standard::CitationFileFormat
+            | Standard::Document
+            | Standard::DublinCore
+            | Standard::Text => Err(self.unsupported_crosswalk(target)),
         }
     }
     /// Convert serialized content from one metadata standard to another, returning both the converted content and any field-level warnings.
@@ -995,6 +1005,7 @@ pub fn check_readability_for_text(text: &str, metric: ReadabilityType, uri: Opti
         )]
     })
 }
+#[cfg(any(feature = "analysis", feature = "std"))]
 fn contains_layer_identity(value: &Value) -> bool {
     match value {
         | Value::Object(object) => object.contains_key("digest") || object.contains_key("diffId") || object.values().any(contains_layer_identity),

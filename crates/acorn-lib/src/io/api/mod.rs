@@ -37,6 +37,7 @@ use http::{
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use owo_colors::OwoColorize;
+use schemars::JsonSchema;
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -287,7 +288,7 @@ pub enum TreeEntryType {
     Directory,
 }
 /// Represents authentication credentials for accessing an API
-#[derive(Builder, Clone, Deserialize, Serialize, Redact)]
+#[derive(Builder, Clone, Deserialize, JsonSchema, Redact, Serialize)]
 #[builder(start_fn = init)]
 pub struct Authentication {
     /// The token used for authenticating API requests
@@ -315,7 +316,7 @@ pub struct EmptyField(String);
 /// ### Note
 /// Paths use handlebars templating syntax for dynamic URL construction, powered by [Tera](https://keats.github.io/tera/)
 #[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, Serialize, Validate)]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[builder(start_fn = at, on(String, into))]
 pub struct Endpoint {
     /// The domain of the API endpoint
@@ -398,7 +399,7 @@ pub struct Param {
 /// ```
 pub struct Params(Vec<Param>);
 /// Represents a resource for an API endpoint, which can be used to generate full paths for requests
-#[derive(Builder, Clone, Debug, Deserialize, Serialize, Validate)]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
 pub struct Resource {
     /// Resource name (e.g., "search", "status")

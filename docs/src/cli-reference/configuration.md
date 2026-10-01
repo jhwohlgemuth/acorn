@@ -1,12 +1,15 @@
 # Configuration
 
 ## Flat file
-ACORN can be configured using JSON, JSONC (JSON with Comments), or YAML format flat files. These configuration files allow users to specify options and settings for the ACORN CLI tool, including input and output directories and logging levels.
+Application Configuration for Research Enablement (ACRE) is the versioned configuration standard used by ACORN and reusable by other research-enablement applications such as Xylem. ACRE files may use JSON, JSONC (JSON with Comments), or YAML.
+
+The current schema version is `1.0.0`. New files should declare it with the `schemaVersion` property. Files that omit the property are interpreted as version `1.0.0` for backward compatibility. Other explicit versions, including a `v` prefix, are rejected.
 
 ### Example
 `.acorn.json` file
 ```json
 {
+    "schemaVersion": "1.0.0",
     "buckets": [
         {
             "name": "bessd",
@@ -85,6 +88,21 @@ Runner containers always start detached. Command-line `--host` or `--context` ov
 > `.jsonc` files permit `//` line comments, `/* block */` comments, and trailing commas. All other syntax follows standard JSON rules. Rename a `.json` file to `.jsonc` if you need comments.
 > [!TIP]
 > ACORN looks for `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, then `.acorn.yml` in the current working directory. You can also specify a different configuration file using the `--config <FILE>` flag when running ACORN commands.
+
+Validate canonical filenames directly; ACORN detects ACRE from the exact filename:
+
+```sh
+acorn check .acorn.json
+```
+
+For custom filenames or standard input, select the standard explicitly:
+
+```sh
+acorn check settings.jsonc --standard acre
+cat settings.yaml | acorn check --paste --format yaml --standard acre
+```
+
+Export the JSON Schema with `acorn export --schema --standard acre`.
 
 ### Bucket sources
 

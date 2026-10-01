@@ -204,7 +204,8 @@ pub(crate) fn parse_ssh_remote(value: &str) -> Result<Remote, String> {
 /// Parse a CLI standard name into an `Standard` variant.
 pub(crate) fn parse_standard(s: &str) -> Result<Standard, String> {
     match s.to_lowercase().as_str() {
-        | "rads" => Ok(Standard::ResearchActivityData),
+        | "acre" | "application-configuration-research-enablement" => Ok(Standard::ApplicationConfigurationResearchEnablement),
+        | "rads" | "research-activity-data" => Ok(Standard::ResearchActivityData),
         | "cff" => Ok(Standard::CitationFileFormat),
         | "datacite" => Ok(Standard::Datacite),
         | "dcat" => Ok(Standard::Dcat),
@@ -218,7 +219,7 @@ pub(crate) fn parse_standard(s: &str) -> Result<Standard, String> {
         | "text" => Ok(Standard::Text),
         | _ => Err(format!(
             "unknown standard '{s}' — expected one of: \
-             rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text"
+             acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text"
         )),
     }
 }

@@ -7,14 +7,16 @@ use bon::bon;
 use core::{convert::Infallible, str::FromStr};
 use derive_more::Display;
 use fluent_uri::{Uri, UriRef};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::EnumIs;
 use urlencoding::encode;
 
 type LocationInput = SimpleOrDetailed<String, LocationDetails>;
 /// Descriptive location reference for configuration and serialization.
-#[derive(Clone, Debug, Deserialize, Display, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Display, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(from = "LocationInput", untagged)]
+#[schemars(!from)]
 pub enum Location {
     /// Raw URI or path string.
     Simple(String),
@@ -31,7 +33,7 @@ pub enum Location {
     },
 }
 /// Git hosting repository data.
-#[derive(Clone, Debug, Display, EnumIs, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Display, EnumIs, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(tag = "provider", rename_all = "lowercase")]
 pub enum Repository {
     /// Generic Git repository.
@@ -76,7 +78,7 @@ pub enum Repository {
     },
 }
 /// URI scheme.
-#[derive(Clone, Debug, Default, Deserialize, Display, EnumIs, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Display, EnumIs, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Scheme {
     /// Secure HTTP.
@@ -96,7 +98,7 @@ pub enum Scheme {
     Unsupported,
 }
 /// Value represented by either a concise or expanded form.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum SimpleOrDetailed<S, D> {
     /// Concise representation.
@@ -104,7 +106,7 @@ pub enum SimpleOrDetailed<S, D> {
     /// Expanded representation.
     Detailed(D),
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 struct LocationDetails {
     scheme: Scheme,
     uri: String,

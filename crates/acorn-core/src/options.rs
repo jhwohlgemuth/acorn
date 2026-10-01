@@ -8,6 +8,7 @@ use alloc::vec::Vec;
 use bon::Builder;
 use core::fmt;
 use core::ops::{Deref, DerefMut};
+use schemars::JsonSchema;
 use secrecy::SecretString;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -122,7 +123,7 @@ pub struct RuntimeOptions<E: Default = (), O = String> {
 /// Aggregate sync configuration owning all targets
 ///
 /// Adding a 5th target requires only one `Inner` + one field here — no new merge fn.
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(
     rename_all = "camelCase",
     bound(deserialize = "G: DeserializeOwned, L: DeserializeOwned, O: DeserializeOwned, V: DeserializeOwned"),
@@ -151,7 +152,7 @@ where
 /// Generic sync target configuration — `path` is the outer wrapper, `inner` is the domain payload.
 ///
 /// `#[serde(flatten)]` only on `inner` per constraint, with `#[serde(default)]`.
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase", bound(deserialize = "I: DeserializeOwned"), bound(serialize = "I: Serialize"))]
 pub struct TargetConfig<I = ()>
 where

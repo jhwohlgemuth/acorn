@@ -32,7 +32,12 @@ use acorn_schema::{
 };
 use bon::Builder;
 use color_eyre::eyre::eyre;
+#[cfg(not(feature = "exec"))]
+use feature_configuration::ScriptManifestSource;
+#[cfg(not(feature = "agentic"))]
+use feature_configuration::{DeploymentConfig, PowerAutomateConfig};
 use owo_colors::OwoColorize;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::{
@@ -42,10 +47,252 @@ use std::{
 use strum::{Display, EnumIs, EnumString};
 use tracing::{error, info};
 
-/// Struct for application configuration
+/// Configuration-only representations retained when optional execution features are disabled.
+pub mod feature_configuration {
+    use acorn_core::util::MimeType;
+    use alloc::collections::BTreeMap;
+    use schemars::JsonSchema;
+    use serde::{Deserialize, Serialize};
+    use std::path::PathBuf;
+
+    /// Deployment-owned configuration for PowerAutomate intake and callbacks.
+    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(deny_unknown_fields)]
+    pub struct PowerAutomateConfig {
+        /// Named callback destination.
+        pub callback_destination: String,
+        /// Runtime environment-variable names.
+        pub variables: PowerAutomateVariables,
+        /// GitLab generic-package name.
+        pub package: String,
+        /// GitLab project identifier.
+        pub gitlab_project: String,
+        /// Stable project-to-path mappings.
+        pub projects: Vec<ProjectIntakeConfig>,
+        /// Optional reporting timezone.
+        #[serde(default)]
+        pub timezone: Option<String>,
+    }
+    /// Runtime environment-variable names used by the PowerAutomate integration.
+    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(deny_unknown_fields)]
+    pub struct PowerAutomateVariables {
+        /// Environment variable containing the callback URL.
+        pub callback_url: String,
+        /// Environment variable containing the inbound secret.
+        pub inbound_secret: String,
+    }
+    /// Configuration for one stable PowerApp project identifier.
+    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(deny_unknown_fields)]
+    pub struct ProjectIntakeConfig {
+        /// Project member email allowlist.
+        pub members: Vec<String>,
+        /// Safe path to the project index.
+        pub path: String,
+        /// Stable form project identifier.
+        pub project_id: String,
+    }
+    /// Allowed external effect produced by a repository workflow.
+    #[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(rename_all = "kebab-case")]
+    pub enum WorkflowEffect {
+        /// Create or reuse a bot branch.
+        Branch,
+        /// Create a commit on a bot branch.
+        Commit,
+        /// Publish or reconcile an external commit status.
+        CommitStatus,
+        /// Post a completion comment.
+        CompletionComment,
+        /// Create or reuse a draft merge request.
+        DraftMergeRequest,
+        /// Apply a work-item label.
+        Label,
+        /// Create or update a bot-authored note.
+        Note,
+    }
+    /// Processing action allowed for a repository workflow.
+    #[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(rename_all = "kebab-case")]
+    pub enum WorkflowAction {
+        /// Check quality gates.
+        Check,
+        /// Invoke configured enrichment capabilities.
+        Enrich,
+        /// Format documents.
+        Format,
+        /// Add linked-data artifacts.
+        Link,
+        /// Validate documents.
+        Validate,
+    }
+    /// Output behavior for a deployment workflow.
+    #[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(rename_all = "kebab-case")]
+    pub enum WorkflowOutputMode {
+        /// Update source files and create configured artifacts.
+        SourceAndArtifacts,
+    }
+    /// Deployment configuration for repository automation.
+    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(deny_unknown_fields, rename_all = "kebab-case")]
+    pub struct DeploymentConfig {
+        /// Whether fork merge requests may publish into the destination.
+        #[serde(default)]
+        pub allow_forks: bool,
+        /// Explicit publication destination.
+        pub destination: Option<String>,
+        /// Deployment-approved workflows.
+        pub workflows: BTreeMap<String, WorkflowPolicy>,
+    }
+    /// Output configuration for a deployment workflow.
+    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(deny_unknown_fields, rename_all = "kebab-case")]
+    pub struct WorkflowOutputs {
+        /// Output behavior.
+        pub mode: WorkflowOutputMode,
+    }
+    /// Deployment-owned policy for one registered workflow.
+    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(deny_unknown_fields, rename_all = "kebab-case")]
+    pub struct WorkflowPolicy {
+        /// Processing actions allowed for this workflow.
+        pub actions: Vec<WorkflowAction>,
+        /// External effects allowed for this workflow.
+        pub effects: Vec<WorkflowEffect>,
+        /// Input formats allowed for this workflow.
+        pub formats: Vec<MimeType>,
+        /// Output behavior.
+        pub outputs: WorkflowOutputs,
+        /// Repository-relative input path patterns.
+        pub paths: Vec<String>,
+    }
+    /// Application-configuration source for executable-hook policy.
+    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(untagged)]
+    pub enum ScriptManifestSource {
+        /// Inline executable-hook manifest.
+        Inline(ScriptManifest),
+        /// Safe relative deployment manifest name.
+        Path(String),
+    }
+    /// Filesystem access granted beneath named roots.
+    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(deny_unknown_fields, rename_all = "camelCase")]
+    pub struct FilesystemCapability {
+        /// Maximum aggregate bytes transferred per invocation.
+        #[serde(default)]
+        pub max_bytes: usize,
+        /// Maximum files inspected or proposed per invocation.
+        #[serde(default)]
+        pub max_files: usize,
+        /// Named absolute directory roots.
+        pub roots: BTreeMap<String, PathBuf>,
+    }
+    /// Network access granted to exact HTTPS authorities.
+    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(deny_unknown_fields, rename_all = "camelCase")]
+    pub struct NetworkCapability {
+        /// Exact host names, optionally followed by a port.
+        pub hosts: Vec<String>,
+        /// Maximum requests per invocation.
+        #[serde(default)]
+        pub max_requests: usize,
+        /// Maximum response bytes per request.
+        #[serde(default)]
+        pub max_response_bytes: usize,
+        /// Per-request timeout in milliseconds.
+        #[serde(default)]
+        pub timeout: u64,
+    }
+    /// Per-script evaluation ceilings.
+    #[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
+    pub struct ResourceLimits {
+        /// Maximum registered host capability calls.
+        pub max_calls: usize,
+        /// Maximum Rhai operations.
+        pub max_operations: u64,
+        /// Maximum wall-clock runtime in milliseconds.
+        pub max_runtime: u64,
+    }
+    /// Capabilities granted to one script.
+    #[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
+    pub struct ScriptCapabilities {
+        /// Named filesystem read roots.
+        pub read: Option<FilesystemCapability>,
+        /// Named filesystem write roots.
+        pub write: Option<FilesystemCapability>,
+        /// Permission to replace the proposed workflow document.
+        pub mutation: bool,
+        /// Restricted outbound HTTPS access.
+        pub network: Option<NetworkCapability>,
+    }
+    /// One digest-pinned script authorization.
+    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(deny_unknown_fields, rename_all = "camelCase")]
+    pub struct ScriptAuthorization {
+        /// Rhai executable-extension ABI version.
+        pub version: String,
+        /// Capabilities granted to this script.
+        #[serde(default)]
+        pub capabilities: ScriptCapabilities,
+        /// Expected SHA-256 source identity.
+        pub digest: String,
+        /// Required script function name.
+        #[serde(default)]
+        pub entry: String,
+        /// Workflow hooks this script may handle.
+        pub hooks: Vec<super::Hook>,
+        /// Stable script identifier.
+        pub id: String,
+        /// Evaluation ceilings.
+        #[serde(default)]
+        pub limits: ResourceLimits,
+    }
+    /// Versioned deployment manifest for executable hooks.
+    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(deny_unknown_fields, rename_all = "camelCase")]
+    pub struct ScriptManifest {
+        /// Manifest schema version.
+        pub version: String,
+        /// Authorized scripts.
+        pub scripts: Vec<ScriptAuthorization>,
+    }
+}
+/// Supported Application Configuration for Research Enablement schema versions.
+#[derive(Clone, Copy, Debug, Default, Eq, eserde::Deserialize, JsonSchema, PartialEq, Serialize)]
+pub enum AcreSchemaVersion {
+    /// ACRE schema version 1.0.0.
+    #[default]
+    #[serde(rename = "1.0.0")]
+    V1_0_0,
+}
+/// Supported hook for constrained Rhai extensions.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, JsonSchema, PartialEq, Serialize, Display, EnumIs, EnumString)]
+#[serde(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
+pub enum Hook {
+    /// Check quality gate.
+    Check,
+    /// Format workflow.
+    Format,
+    /// Link workflow.
+    Link,
+    /// Enrich workflow.
+    Enrich,
+    /// Validate workflow.
+    Validate,
+}
+/// Application Configuration for Research Enablement.
+///
 /// ### Example `.acorn.json` configuration file
+///
 /// ```json
 /// {
+///     "schemaVersion": "1.0.0",
 ///     "buckets": [
 ///         {
 ///             "name": "big-science",
@@ -86,69 +333,68 @@ use tracing::{error, info};
 ///     ]
 /// }
 /// ```
-/// Supported hook for constrained Rhai extensions.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize, Display, EnumIs, EnumString)]
-#[serde(rename_all = "kebab-case")]
-#[strum(serialize_all = "kebab-case")]
-pub enum Hook {
-    /// Check quality gate.
-    Check,
-    /// Format workflow.
-    Format,
-    /// Link workflow.
-    Link,
-    /// Enrich workflow.
-    Enrich,
-    /// Validate workflow.
-    Validate,
-}
-/// Application configuration for ACORN.
-#[derive(Clone, Debug, Default, Serialize, eserde::Deserialize)]
+#[derive(Clone, Debug, Default, JsonSchema, Serialize, eserde::Deserialize)]
+#[schemars(title = "Application Configuration for Research Enablement")]
+#[serde(deny_unknown_fields)]
 pub struct ApplicationConfiguration {
     /// CST root for JSONC comment-preserving round-trips
-    #[serde(skip)]
+    #[schemars(skip)]
+    #[serde(default, skip)]
     pub cst: Option<CstRootNode>,
+    /// ACRE schema version. Omitted legacy files use version 1.0.0.
+    #[serde(default, rename = "schemaVersion")]
+    pub schema_version: AcreSchemaVersion,
     /// List of buckets
     #[eserde(compat)]
+    #[serde(default)]
     pub buckets: Option<Vec<Bucket>>,
     /// Synchronization targets for llama-swap, OpenCode, VS Code, and Goose
     #[eserde(compat)]
+    #[serde(default)]
     pub config: Option<sync::Config>,
     /// List of endpoints
     #[eserde(compat)]
+    #[serde(default)]
     pub endpoints: Option<Vec<Endpoint>>,
     /// List of models to download — bare IDs/paths or detailed download entries
     #[eserde(compat)]
+    #[serde(default)]
     pub models: Option<Vec<ModelEntry>>,
     /// Deployment-owned PowerAutomate form intake and callback configuration.
-    #[cfg(feature = "agentic")]
     #[eserde(compat)]
-    #[serde(rename = "powerAutomate")]
+    #[schemars(with = "Option<feature_configuration::PowerAutomateConfig>")]
+    #[serde(default, rename = "powerAutomate")]
     pub power_automate: Option<PowerAutomateConfig>,
     /// Named OCI registry profiles referenced by model entries.
     #[eserde(compat)]
+    #[schemars(with = "Option<std::collections::BTreeMap<String, RegistryProfile>>")]
+    #[serde(default)]
     pub registries: Option<HashMap<String, RegistryProfile>>,
     /// List of runners
     #[eserde(compat)]
+    #[serde(default)]
     pub runners: Option<Vec<RunnerDetails>>,
     /// Lookup object for whitelisted downloadable items
     #[eserde(compat)]
+    #[serde(default)]
     pub whitelist: Option<WhitelistLookup>,
-    #[cfg(feature = "agentic")]
     /// Deployment-owned repository workflow policy.
     #[eserde(compat)]
+    #[schemars(with = "Option<feature_configuration::DeploymentConfig>")]
+    #[serde(default)]
     pub workflow: Option<DeploymentConfig>,
     /// Deployment manifest name or an inline executable-hook manifest.
-    #[cfg(feature = "exec")]
     #[eserde(compat)]
-    #[serde(rename = "scriptManifest")]
+    #[schemars(with = "Option<feature_configuration::ScriptManifestSource>")]
+    #[serde(default, rename = "scriptManifest")]
     pub script_manifest: Option<ScriptManifestSource>,
     /// Optional ordered list of constrained Rhai script hooks.
     #[eserde(compat)]
+    #[serde(default)]
     pub scripts: Option<Vec<Entry>>,
 }
 /// One entry in the top-level `scripts` attribute.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Entry {
     /// Stable identifier used to match a deployment manifest entry.
@@ -166,7 +412,7 @@ pub struct Entry {
 /// ### Note
 /// An empty whitelist is interpreted to mean there are no restrictions and any item will be allowed
 #[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Serialize, Deserialize)]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[builder(start_fn = init)]
 pub struct WhitelistLookup {

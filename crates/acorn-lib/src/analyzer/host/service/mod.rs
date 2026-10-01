@@ -6,7 +6,7 @@ use crate::{
         fair::{FairDetails, FairEvidence, FairProfile, FairState},
         host::{
             context::{AnalysisContext, ReportOptions},
-            runtime::{KitfileStandard, LinkEvidence, ModelKitStandard, StaticAnalyzer},
+            runtime::{AcreStandard, KitfileStandard, LinkEvidence, ModelKitStandard, StaticAnalyzer},
             vale::Vale,
         },
         readability::score::{ReadabilityScore, ReadabilitySeverity},
@@ -212,6 +212,7 @@ impl AnalysisReport {
 impl Standard {
     fn execution_status(self, category: &CheckCategory, options: Option<&AnalysisContext>) -> ExecutionStatus {
         let supported = match self {
+            | Self::ApplicationConfigurationResearchEnablement => category.is_schema(),
             | Self::CitationFileFormat | Self::Document => {
                 category.is_schema() || category.is_link() || category.is_prose() || category.is_quality() || category.is_readability()
             }
@@ -240,7 +241,9 @@ impl Standard {
     fn from_path(path: &Path) -> Self {
         let file_name = path.file_name().and_then(|value| value.to_str());
         let mime = MimeType::from_path(path);
-        if file_name == Some("Kitfile") {
+        if file_name.is_some_and(|value| matches!(value, ".acorn.json" | ".acorn.jsonc" | ".acorn.yaml" | ".acorn.yml")) {
+            Self::ApplicationConfigurationResearchEnablement
+        } else if file_name == Some("Kitfile") {
             Self::Kitfile
         } else if file_name.is_some_and(|value| value.eq_ignore_ascii_case("modelkit.json")) {
             Self::ModelKit
@@ -343,6 +346,7 @@ pub async fn analyze_paths(paths: &[PathBuf], options: &AnalysisContext) -> Anal
     for group in groups {
         let StandardPaths { standard, paths } = group;
         let categories = match standard {
+            | Standard::ApplicationConfigurationResearchEnablement => analyze::<AcreStandard>(&paths, options, &categories, &documents).await,
             | Standard::CitationFileFormat => analyze::<Cff>(&paths, options, &categories, &documents).await,
             | Standard::Datacite => analyze::<datacite::Record>(&paths, options, &categories, &documents).await,
             | Standard::Dcat => analyze::<dcat::Dataset>(&paths, options, &categories, &documents).await,

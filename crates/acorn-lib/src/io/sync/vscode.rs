@@ -15,6 +15,7 @@ use alloc::{
 };
 use color_eyre::eyre::eyre;
 use directories::BaseDirs;
+use schemars::JsonSchema;
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -29,7 +30,7 @@ use veil::Redact;
 pub type Config = TargetConfig<Inner>;
 /// VS Code-specific synchronization configuration.
 #[skip_serializing_none]
-#[derive(Clone, Deserialize, Serialize, Validate, Redact)]
+#[derive(Clone, Deserialize, JsonSchema, Redact, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct Inner {
     /// Path to workspace `mcp.json` on disk.
@@ -46,6 +47,7 @@ pub struct Inner {
     pub provider_name: String,
     /// API key or VS Code input variable used by the endpoint.
     #[serde(default, skip_serializing)]
+    #[schemars(with = "Option<String>")]
     #[redact]
     pub api_key: Option<api::Secret>,
     /// Default maximum input tokens advertised for each model.

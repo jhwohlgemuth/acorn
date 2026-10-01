@@ -61,6 +61,9 @@ acorn export /path/to/project/index.json --format cff
 
 # Convert a JSON array or JSON Lines batch to canonical .jsonl output
 acorn export /path/to/project/activities.json --format jsonl
+
+# Print the Application Configuration for Research Enablement JSON Schema
+acorn export --schema --standard acre
 ```
 
 > [!NOTE]

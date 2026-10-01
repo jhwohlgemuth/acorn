@@ -26,6 +26,8 @@ dependencies = [
  "derive_more",
  "directories",
  "dotenvy",
+ "dprint-core",
+ "dprint-plugin-json",
  "eserde",
  "exitcode",
  "fancy-regex 0.17.0",
@@ -48,6 +50,7 @@ dependencies = [
  "owo-colors",
  "percy-dom",
  "pretty_assertions",
+ "pretty_yaml",
  "quick-xml 0.39.4",
  "rayon",
  "reqwest 0.13.4",
@@ -100,7 +103,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "infer",
  "jiff",
- "jsonc-parser",
+ "jsonc-parser 0.33.0",
  "quick-xml 0.39.4",
  "ring",
  "schemars 1.2.1",
@@ -205,7 +208,7 @@ dependencies = [
  "is_executable",
  "itertools 0.14.0",
  "jiff",
- "jsonc-parser",
+ "jsonc-parser 0.33.0",
  "jsonschema",
  "lazy_static",
  "lychee-lib",
@@ -403,7 +406,7 @@ dependencies = [
  "blocking",
  "futures",
  "futures-concurrency",
- "rustc-hash",
+ "rustc-hash 2.1.2",
  "rustix 1.1.4",
  "schemars 1.2.1",
  "serde",
@@ -1416,6 +1419,9 @@ name = "bumpalo"
 version = "3.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649"
+dependencies = [
+ "allocator-api2",
+]
 
 [[package]]
 name = "by_address"
@@ -2176,6 +2182,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "countme"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7704b5fdd17b18ae31c4c1da5a2e0305a2bf17b5249300a9ee9ed7b72114c636"
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2773,6 +2785,44 @@ name = "downcast"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1435fa1053d8b2fbbe9be7e97eca7f33d37b28409959813daefc1446a14247f1"
+
+[[package]]
+name = "dprint-core"
+version = "0.69.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67359cea061dd052fca921d3589a9ce59bc16fa23bfb9d06d5c669a1dbd23915"
+dependencies = [
+ "bumpalo",
+ "hashbrown 0.15.5",
+ "indexmap 2.14.0",
+ "rustc-hash 2.1.2",
+ "serde",
+ "unicode-width",
+]
+
+[[package]]
+name = "dprint-core-macros"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1675ad2b358481f3cc46202040d64ac7a36c4ade414a696df32e0e45421a6e9f"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "dprint-plugin-json"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1986867f5ac06dee1a32721aec08dd8fe447d97fd234396fb1e1eaa4f5b5c47"
+dependencies = [
+ "dprint-core",
+ "dprint-core-macros",
+ "jsonc-parser 0.34.0",
+ "serde",
+ "text_lines",
+ "thiserror 2.0.18",
+]
 
 [[package]]
 name = "dtoa"
@@ -4517,6 +4567,15 @@ checksum = "362fdb0bfedf94ebd31e4e82ff38ba705b6b82417b3b25f0c4bbb024dd11f552"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "jsonc-parser"
+version = "0.34.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ecded084f9b9a718d39668a42657c32253663d1f6afb3fbb9134f0305f73f48"
+dependencies = [
+ "unicode-width",
 ]
 
 [[package]]
@@ -6899,6 +6958,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pretty_yaml"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f5db2b0044c0dae209c173c6049f210c9449092b07304c9c8b8d555c606e93e"
+dependencies = [
+ "rowan",
+ "tiny_pretty",
+ "yaml_parser",
+]
+
+[[package]]
 name = "prettyplease"
 version = "0.2.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7194,7 +7264,7 @@ dependencies = [
  "pin-project-lite",
  "quinn-proto",
  "quinn-udp",
- "rustc-hash",
+ "rustc-hash 2.1.2",
  "rustls",
  "socket2",
  "thiserror 2.0.18",
@@ -7215,7 +7285,7 @@ dependencies = [
  "lru-slab",
  "rand 0.9.4",
  "ring",
- "rustc-hash",
+ "rustc-hash 2.1.2",
  "rustls",
  "rustls-pki-types",
  "slab",
@@ -7830,6 +7900,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rowan"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "417a3a9f582e349834051b8a10c8d71ca88da4211e4093528e36b9845f6b5f21"
+dependencies = [
+ "countme",
+ "hashbrown 0.14.5",
+ "rustc-hash 1.1.0",
+ "text-size",
+]
+
+[[package]]
 name = "roxmltree"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7928,6 +8010,12 @@ name = "rustc-demangle"
 version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b50b8869d9fc858ce7266cce0194bd74df58b9d0e3f6df3a9fc8eb470d95c09d"
+
+[[package]]
+name = "rustc-hash"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustc-hash"
@@ -8508,7 +8596,7 @@ dependencies = [
  "anyhow",
  "compact_str 0.8.2",
  "globset",
- "rustc-hash",
+ "rustc-hash 2.1.2",
  "serde",
  "serde_yaml",
  "shuck-ast",
@@ -8538,7 +8626,7 @@ checksum = "3eee4a631d19be89ec4c421b4d7854c4255263c4022b6a76f3bc19a54678c4ae"
 dependencies = [
  "bitflags 2.13.0",
  "compact_str 0.8.2",
- "rustc-hash",
+ "rustc-hash 2.1.2",
  "shuck-ast",
  "shuck-indexer",
  "shuck-parser",
@@ -9421,6 +9509,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "text-size"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f18aa187839b2bdb1ad2fa35ead8c4c2976b64e4363c386d45ac0f7ee85c9233"
+
+[[package]]
+name = "text_lines"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fd5828de7deaa782e1dd713006ae96b3bee32d3279b79eb67ecf8072c059bcf"
+
+[[package]]
 name = "thin-vec"
 version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9542,6 +9642,12 @@ dependencies = [
  "bytemuck",
  "strict-num",
 ]
+
+[[package]]
+name = "tiny_pretty"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "650d82e943da333637be9f1567d33d605e76810a26464edfd7ae74f7ef181e95"
 
 [[package]]
 name = "tinystr"
@@ -11413,6 +11519,16 @@ name = "xxhash-rust"
 version = "0.8.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fdd20c5420375476fbd4394763288da7eb0cc0b8c11deed431a91562af7335d3"
+
+[[package]]
+name = "yaml_parser"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71ebb04c72edf699612d543f6c421142527b85ac180156017fa26be49dc0762f"
+dependencies = [
+ "rowan",
+ "winnow 0.7.15",
+]
 
 [[package]]
 name = "yansi"

@@ -26,6 +26,7 @@ use alloc::{
 };
 use color_eyre::eyre::eyre;
 use core::{fmt, iter::once};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_norway::{Mapping, Number, Value};
 use serde_with::skip_serializing_none;
@@ -35,7 +36,7 @@ use std::{ffi::OsString, path::PathBuf};
 pub type Config = TargetConfig<Inner>;
 
 /// Additional llama-server command-line argument
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(from = "String", into = "String")]
 pub enum Argument {
     /// Argument reserved for ACORN's llama-swap integration
@@ -44,14 +45,14 @@ pub enum Argument {
     Value(String),
 }
 /// Human-readable alias for a synchronized model
-#[derive(Clone, Debug, Deserialize, Serialize, Validate)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[serde(transparent)]
 pub struct Alias {
     #[validate(length(min = 1))]
     value: String,
 }
 /// Validated llama-swap environment entry serialized as `KEY=VALUE`
-#[derive(Clone, Debug, Deserialize, Serialize, Validate)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[serde(transparent)]
 pub struct EnvironmentVariable {
     #[validate(custom(function = "is_keyvalue_string"))]
@@ -59,7 +60,7 @@ pub struct EnvironmentVariable {
 }
 /// llama-swap-specific synchronization configuration.
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, Deserialize, Serialize, Validate)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct Inner {
     /// Default directory where downloaded model weights live
@@ -85,7 +86,7 @@ pub struct Inner {
 }
 /// Per-model override entry keyed by ACORN model name
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, Deserialize, Serialize, Validate)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize, Validate)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ModelOverride {
     /// Model-specific context window size (overrides the global default)

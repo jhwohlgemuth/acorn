@@ -411,7 +411,7 @@ Confirm-ExitCode -Actual $LASTEXITCODE -Expected 0 -Test "Generated CFF can be c
 ### EXPORT-04 — Export JSON Schemas for supported standards
 
 ```powershell
-$standards = 'rads','cff','datacite','dcat','invenio','huwise','raid'
+$standards = 'acre','rads','cff','datacite','dcat','invenio','huwise','raid'
 foreach ($standard in $standards) {
     $schema = "$env:ACORN_QA_OUTPUT\$standard.schema.json"
     & $env:ACORN_BIN --offline --no-local-database export --schema --standard $standard --format json --raw > $schema
@@ -419,7 +419,7 @@ foreach ($standard in $standards) {
     if ((Get-Item -LiteralPath $schema).Length -lt 100) { throw "[FAIL] Schema was unexpectedly small for $standard" }
     Get-Content -LiteralPath $schema -Raw | ConvertFrom-Json | Out-Null
 }
-Write-Host "[PASS] Seven supported standards produced valid JSON Schemas" -ForegroundColor Green
+Write-Host "[PASS] Eight supported standards produced valid JSON Schemas" -ForegroundColor Green
 ```
 
 Expected: RAD, CFF, DataCite, DCAT, InvenioRDM, HuWise, and RAiD schemas are non-empty JSON. Dublin Core can be selected for checks but currently has no generated schema.

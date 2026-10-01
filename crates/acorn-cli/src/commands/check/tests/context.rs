@@ -76,6 +76,14 @@ fn test_should_sync_analyzer_reflects_prose_selection() {
         .analysis(AnalysisOptions::init().skip(vec!["prose".to_string()]).build())
         .build();
     assert!(!should_sync_analyzer(&skipped));
+    let acre = AnalysisContext::init()
+        .analysis(
+            AnalysisOptions::init()
+                .standard(Standard::ApplicationConfigurationResearchEnablement)
+                .build(),
+        )
+        .build();
+    assert!(!should_sync_analyzer(&acre));
 }
 
 #[tokio::test]

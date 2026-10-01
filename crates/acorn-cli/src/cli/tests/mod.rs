@@ -70,16 +70,30 @@ fn test_bot_identifier_positional_overrides_ci_project_id_env() {
 }
 #[test]
 fn test_check_format_argument() {
-    ["cff", "datacite", "dcat", "dcmi", "document", "huwise", "invenio", "raid", "rads", "text"]
-        .into_iter()
-        .flat_map(|standard| {
-            ["cff", "json", "jsonc", "markdown", "text", "yaml"]
-                .into_iter()
-                .map(move |format| (standard, format))
-        })
-        .for_each(|(standard, format)| {
-            assert!(Arguments::try_parse_from(["acorn", "check", "--paste", "--standard", standard, "--format", format]).is_ok());
-        });
+    [
+        "acre",
+        "application-configuration-research-enablement",
+        "cff",
+        "datacite",
+        "dcat",
+        "dcmi",
+        "document",
+        "huwise",
+        "invenio",
+        "raid",
+        "rads",
+        "research-activity-data",
+        "text",
+    ]
+    .into_iter()
+    .flat_map(|standard| {
+        ["cff", "json", "jsonc", "markdown", "text", "yaml"]
+            .into_iter()
+            .map(move |format| (standard, format))
+    })
+    .for_each(|(standard, format)| {
+        assert!(Arguments::try_parse_from(["acorn", "check", "--paste", "--standard", standard, "--format", format]).is_ok());
+    });
     let arguments = Arguments::try_parse_from(["acorn", "check", "--paste", "--format", "md"]).expect("parse Markdown alias");
     match arguments.command {
         | Some(Commands::Check(arguments)) => assert_eq!(arguments.format, Some(MimeType::Markdown)),

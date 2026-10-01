@@ -13,6 +13,7 @@ use acorn_host::fs::{file_uri_to_path, TemporaryDirectory};
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use futures::{future, stream, StreamExt, TryStreamExt};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 pub use source::{BagArchive, BucketSource};
@@ -22,8 +23,9 @@ use std::path::{Path, PathBuf};
 pub type BucketOptions = RuntimeOptions<BucketExtension, PathBuf>;
 /// Configured collection of research activity files
 #[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase", try_from = "BucketInput")]
+#[schemars(!try_from)]
 #[builder(start_fn = init)]
 pub struct Bucket {
     /// Bucket name

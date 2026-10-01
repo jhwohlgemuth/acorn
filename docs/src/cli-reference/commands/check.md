@@ -22,6 +22,10 @@ acorn check path/to/project/CITATION.cff
 acorn check path/to/model/Kitfile
 acorn check path/to/model/modelkit.json
 
+# Validate canonical or custom ACRE configuration
+acorn check path/to/project/.acorn.jsonc
+acorn check path/to/project/settings.yaml --standard acre
+
 # Check prose, readability, and links extracted from a PDF
 acorn check path/to/report.pdf
 
@@ -60,11 +64,14 @@ cat metadata.jsonc | acorn check --format jsonc --standard datacite
 acorn check --paste --format cff --standard cff
 printf '# Notes\n\nText to check.' | acorn check --format markdown --standard text
 cat activity.zonf | acorn check --format zon --standard rads
+cat settings.yaml | acorn check --format yaml --standard acre
 ```
 
 The aliases `md`, `txt`, `yml`, and `zonf` are accepted. `--format` applies only to piped standard input and clipboard content and conflicts with filesystem, Git, filter, and merge-request selectors. ZON selects the input serialization only; check reports retain their existing output formats.
 
 An explicit filesystem selection or `--paste` takes precedence over piped standard input. Empty implicit standard input preserves the existing behavior of checking the current directory. Clipboard input must contain non-whitespace text, and clipboard or standard-input checks cannot be combined with `--watch`.
+
+Application Configuration for Research Enablement is auto-detected only for the exact filenames `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, and `.acorn.yml`. Use `--standard acre` for custom filenames, standard input, or clipboard content. ACRE runs schema validation only; prose, readability, link, FAIR, quality, and crosswalk checks are not applicable.
 
 ## Checking Kitfiles and ModelKits
 

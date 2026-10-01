@@ -52,6 +52,7 @@ async fn test_analyze_paths_collects_independent_failures_despite_early_exit_pol
 #[tokio::test]
 async fn test_analyze_paths_dispatches_every_standard() {
     for standard in [
+        Standard::ApplicationConfigurationResearchEnablement,
         Standard::CitationFileFormat,
         Standard::Datacite,
         Standard::Dcat,
@@ -163,6 +164,51 @@ fn test_classify_paths_applies_explicit_standard_to_every_path() {
             paths: vec![PathBuf::from("one.json"), PathBuf::from("two.yaml")],
         }]
     );
+}
+#[test]
+fn test_classify_paths_detects_only_canonical_acre_filenames() {
+    let paths = [
+        PathBuf::from(".acorn.json"),
+        PathBuf::from(".acorn.jsonc"),
+        PathBuf::from(".acorn.yaml"),
+        PathBuf::from(".acorn.yml"),
+        PathBuf::from("custom.json"),
+    ];
+    let groups = classify_paths(&paths, Standard::ResearchActivityData);
+    assert_eq!(
+        groups,
+        vec![
+            StandardPaths {
+                standard: Standard::ApplicationConfigurationResearchEnablement,
+                paths: paths[..4].to_vec(),
+            },
+            StandardPaths {
+                standard: Standard::ResearchActivityData,
+                paths: vec![paths[4].clone()],
+            },
+        ]
+    );
+}
+#[tokio::test]
+async fn test_analyze_paths_validates_acre_configuration() {
+    let directory = tempdir().expect("temporary directory should be created");
+    let path = directory.path().join(".acorn.json");
+    write(&path, r#"{"schemaVersion":"1.0.0","unknown":true}"#).expect("ACRE fixture should be written");
+    let options = AnalysisContext::init()
+        .analysis(
+            AnalysisOptions::init()
+                .skip(
+                    CheckCategory::iter()
+                        .filter(|category| *category != CheckCategory::Schema)
+                        .map(|category| category.to_string())
+                        .collect(),
+                )
+                .build(),
+        )
+        .build();
+    let report = analyze_paths(core::slice::from_ref(&path), &options).await;
+    assert_eq!(report.batches[0].standard, Standard::ApplicationConfigurationResearchEnablement);
+    assert!(report.checks().iter().any(Check::is_failure));
 }
 #[test]
 fn test_classify_paths_detects_kitfile_and_modelkit() {

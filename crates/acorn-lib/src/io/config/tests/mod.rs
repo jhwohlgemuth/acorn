@@ -15,7 +15,7 @@ use crate::{
         },
         read_file, InputOutput, Parse,
     },
-    util::constants::app::{DEFAULT_CONFIG_FILENAMES, GITLAB_CREDENTIAL_VARIABLE_PAIRS},
+    util::constants::app::{ACRE_SCHEMA_VERSION, DEFAULT_CONFIG_FILENAMES, GITLAB_CREDENTIAL_VARIABLE_PAIRS},
 };
 use acorn_core::{options::CommonRuntime, Location, Repository};
 use acorn_host::fs::{FsError, SafePath};
@@ -184,6 +184,37 @@ fn test_bucket_config_yaml() {
     let path = fixtures_dir().join("config").join("with_remote_buckets.yaml");
     let config = ApplicationConfiguration::read_yaml(path).unwrap();
     assert_eq!(config.buckets.as_ref().map_or(0, |b| b.len()), 3);
+}
+#[test]
+fn test_acre_schema_version_defaults_and_serializes() {
+    let configuration = ApplicationConfiguration::parse("{}").expect("parse legacy configuration");
+    assert_eq!(configuration.schema_version, AcreSchemaVersion::V1_0_0);
+    assert_eq!(serde_json::to_value(configuration).unwrap()["schemaVersion"], ACRE_SCHEMA_VERSION);
+}
+#[test]
+fn test_acre_rejects_unsupported_schema_versions_and_unknown_fields() {
+    [
+        r#"{"schemaVersion":"v1.0.0"}"#,
+        r#"{"schemaVersion":"2.0.0"}"#,
+        r#"{"schemaVersion":1}"#,
+        r#"{"unknown":true}"#,
+    ]
+    .into_iter()
+    .for_each(|content| assert!(ApplicationConfiguration::parse(content).is_err(), "accepted {content}"));
+    let message = ApplicationConfiguration::parse(r#"{"schemaVersion":"2.0.0"}"#)
+        .expect_err("future ACRE version should fail")
+        .to_string();
+    assert!(message.contains("unknown variant `2.0.0`"));
+    assert!(!message.contains("missing field"));
+}
+#[test]
+fn test_acre_schema_has_human_title_and_feature_independent_fields() {
+    let schema = serde_json::to_value(schemars::schema_for!(ApplicationConfiguration)).unwrap();
+    assert_eq!(schema["title"], "Application Configuration for Research Enablement");
+    let properties = schema["properties"].as_object().expect("schema properties");
+    ["powerAutomate", "schemaVersion", "scriptManifest", "workflow"]
+        .into_iter()
+        .for_each(|name| assert!(properties.contains_key(name), "missing {name}"));
 }
 #[test]
 fn test_bucket_legacy_aliases_normalize_and_serialize_canonically() {

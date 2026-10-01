@@ -607,11 +607,12 @@ async fn run_source(
     }
 }
 fn should_sync_analyzer(options: &AnalysisContext) -> bool {
-    !options
-        .analysis
-        .skip
-        .iter()
-        .any(|category| CheckCategory::from(category) == CheckCategory::Prose)
+    options.analysis.standard != Standard::ApplicationConfigurationResearchEnablement
+        && !options
+            .analysis
+            .skip
+            .iter()
+            .any(|category| CheckCategory::from(category) == CheckCategory::Prose)
 }
 async fn sync_analyzer_before_check(options: &AnalysisContext) -> Result<AnalysisContext> {
     let should_sync = should_sync_analyzer(options);

@@ -309,6 +309,13 @@ fn json_lines_crosswalk_conversion_failures_include_record_index_and_line() {
     assert!(message.contains("line 2"), "unexpected error: {message}");
 }
 #[test]
+fn acre_standard_serializes_to_machine_identifier() {
+    assert_eq!(
+        serde_json::to_value(Standard::ApplicationConfigurationResearchEnablement).expect("serialize ACRE standard"),
+        "application-configuration-research-enablement"
+    );
+}
+#[test]
 fn json_lines_crosswalk_preserves_order_and_cardinality() {
     let content = concat!(
         "{\"id\":\"10.5072/one\",\"type\":\"dois\",\"attributes\":{\"doi\":\"10.5072/one\"}}\n",

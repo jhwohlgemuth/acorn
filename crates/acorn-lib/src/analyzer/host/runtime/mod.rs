@@ -7,6 +7,7 @@ use super::{
     service::{check_fair_for, check_prose_for, check_quality_for, check_readability_for, Analysis, SchemaCheck},
     vale::{self, Vale, ValeConfig},
 };
+use crate::io::config::application::ApplicationConfiguration;
 #[cfg(any(feature = "analysis", feature = "std"))]
 use crate::io::document::SourceDocument;
 #[cfg(any(feature = "analysis", feature = "std"))]
@@ -163,6 +164,7 @@ struct ContentPaths<'a> {
     kitfile: &'a Kitfile,
 }
 pub(super) struct KitfileStandard;
+pub(super) struct AcreStandard;
 #[derive(Clone, Debug)]
 pub(crate) struct LinkEvidence {
     diagnostic: Option<String>,
@@ -180,6 +182,29 @@ pub(crate) struct LinkOutcome {
     success: bool,
 }
 pub(super) struct ModelKitStandard;
+#[cfg(feature = "analysis")]
+#[async_trait]
+impl Analysis for AcreStandard {
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
+        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
+    }
+    fn standard() -> Standard {
+        Standard::ApplicationConfigurationResearchEnablement
+    }
+}
+impl SchemaCheck for AcreStandard {
+    fn check_schema_path(path: &PathBuf) -> Option<BoxFuture<'static, CheckBatch>> {
+        let uri = Some(path.file_name_with_parent());
+        let checks = match ApplicationConfiguration::read(path.to_path_buf()) {
+            | Ok(data) => match data.validate() {
+                | Ok(()) => CheckBatch::empty(),
+                | Err(report) => report.checks(uri),
+            },
+            | Err(why) => CheckBatch::schema_parse_failure_checks(why, uri),
+        };
+        Some(futures::future::ready(checks).boxed())
+    }
+}
 impl<'a> ContentPaths<'a> {
     fn new(kitfile: &'a Kitfile) -> Self {
         Self { kitfile }

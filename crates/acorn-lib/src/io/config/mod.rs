@@ -21,7 +21,7 @@ use acorn_schema::{
     hardware::memory::Memory,
     validation::{Validate, ValidationReport},
 };
-pub use application::{ApplicationConfiguration, WhitelistLookup};
+pub use application::{AcreSchemaVersion, ApplicationConfiguration, WhitelistLookup};
 use bon::Builder;
 pub use bucket::{Bucket, BucketExtension, BucketOptions, BucketSource, Buckets, ResolvedBucket, SourceInput};
 use color_eyre::eyre::{eyre, Report};
@@ -30,6 +30,7 @@ use derive_more::Display;
 use fancy_regex::Regex;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
+use schemars::JsonSchema;
 use serde::{
     de::{Error as _, MapAccess, Visitor},
     Deserialize, Serialize,
@@ -42,7 +43,7 @@ pub use transfer::{TransferManifest, TransferPolicy};
 use veil::Redact;
 
 /// Authentication requirement for a configured model download source
-#[derive(Clone, Debug, Default, Display, EnumIs, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Display, EnumIs, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AuthenticationRequirement {
     /// Authentication is not expected for this model source
@@ -150,7 +151,7 @@ pub enum AuthenticationRequirement {
 ///     ]
 /// }
 /// ```
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(untagged)]
 pub enum ModelEntry {
     /// Bare model ID / path / URL string
@@ -159,7 +160,7 @@ pub enum ModelEntry {
     Entry(ModelEntryOptions),
 }
 /// Registry-specific metadata provider for an OCI registry profile.
-#[derive(Clone, Debug, Default, Display, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Display, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RegistryKind {
     /// Generic OCI Distribution-compatible registry.
@@ -189,7 +190,7 @@ pub enum RunnerStatus {
 /// Runner types for CI/CD pipelines
 ///
 /// Mostly for GitLab as GitHub only has two types: hosted (by GitHub) and self-hosted
-#[derive(Clone, Debug, Default, EnumIs, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, EnumIs, JsonSchema, Serialize)]
 pub enum RunnerType {
     /// Accessible to a specific group and its projects/subgroups
     #[default]
@@ -213,7 +214,7 @@ pub struct FilterSet {
 }
 /// Detailed model download entry for use in `ApplicationConfiguration.models`
 #[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Serialize, Deserialize)]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[builder(start_fn = init)]
 pub struct ModelEntryOptions {
@@ -248,7 +249,7 @@ pub struct ModelEntryOptions {
 }
 /// Named OCI registry configuration without embedded credentials.
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RegistryProfile {
     /// Registry implementation used for optional metadata enrichment.
@@ -272,7 +273,7 @@ pub struct RegistryProfile {
     #[serde(default)]
     pub plain_http: bool,
 }
-#[derive(Builder, Clone, Serialize, Deserialize, Redact)]
+#[derive(Builder, Clone, Deserialize, JsonSchema, Redact, Serialize)]
 #[builder(start_fn = at, on(String, into))]
 #[serde(rename_all = "camelCase")]
 /// CI/CD runner configuration entry
@@ -323,9 +324,10 @@ pub struct RunnerDetails {
     pub token: Option<api::Secret>,
 }
 /// Container execution target for a configured CI/CD runner.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, JsonSchema, PartialEq, Serialize)]
 pub struct RunnerTarget {
     /// SSH URI or alias of the remote container host
+    #[schemars(with = "String")]
     pub host: Remote,
 }
 struct RunnerTargetVisitor;

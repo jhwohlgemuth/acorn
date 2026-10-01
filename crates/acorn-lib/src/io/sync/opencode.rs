@@ -19,6 +19,7 @@ use alloc::{
 };
 use color_eyre::eyre::eyre;
 use core::{fmt, iter::once};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
@@ -44,7 +45,7 @@ enum Entry {
 }
 /// OpenCode-specific synchronization configuration.
 #[skip_serializing_none]
-#[derive(Clone, Debug, Deserialize, Serialize, Validate)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct Inner {
     /// Base URL for the OpenAI-compatible endpoint (e.g., `http://localhost:8080/v1`)

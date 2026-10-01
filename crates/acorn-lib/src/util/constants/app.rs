@@ -2,6 +2,8 @@ use jiff::SignedDuration;
 
 pub use acorn_core::util::constants::app::APPLICATION;
 
+/// Initial Application Configuration for Research Enablement schema version.
+pub const ACRE_SCHEMA_VERSION: &str = "1.0.0";
 /// Default ACORN HTTP User-Agent header value when std is available.
 #[cfg(any(feature = "analysis", feature = "std"))]
 pub const ACORN_USER_AGENT: &str = concat!("ACORN/", env!("CARGO_PKG_VERSION"), " (https://acorn.ornl.gov; mailto:research@ornl.gov)");

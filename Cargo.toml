@@ -67,6 +67,8 @@ derive_more = { version = "2.1.1", features = [
 ], default-features = false }
 directories = { version = "6.0.0", default-features = false }
 dotenvy = { version = "0.15.0", default-features = false }
+dprint-core = "0.69.1"
+dprint-plugin-json = "0.25.0"
 duckdb = { version = "~1.10505.0", default-features = false }
 fancy-regex = { version = "0.17.0", default-features = false }
 futures = { version = "0.3.32", features = ["alloc"], default-features = false }
@@ -83,6 +85,7 @@ nanoid = { version = "0.5.0", default-features = false }
 notify = { version = "8.2.0" }
 notify-debouncer-mini = { version = "0.7.0" }
 owo-colors = { version = "4.3.0", features = ["alloc"], default-features = true }
+pretty_yaml = "0.6.0"
 prost = { version = "=0.14.4", features = ["derive", "std"], default-features = false }
 prost-types = { version = "=0.14.4", default-features = false }
 protoc-bin-vendored = { version = "=3.2.0", default-features = false }

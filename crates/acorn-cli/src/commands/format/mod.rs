@@ -1,3 +1,4 @@
+mod acre;
 use crate::{
     cli::{resolve_paths, CommandOptions},
     commands::preflight,
@@ -111,45 +112,48 @@ where
                         })
                         .map(|new_content| (old_content, new_content))
                 })
-                .and_then(|(old_content, new_content)| match old_content == new_content {
-                    | true => {
-                        let display_path = slice_path(path, DISPLAY_PATH_CHARACTER_COUNT);
-                        info!("=> {} No format changes for {display_path}", Label::skip());
-                        Ok(())
-                    }
-                    | false => {
-                        let CommandOptions {
-                            dry_run, no_color, verbose, ..
-                        } = options;
-                        if *dry_run {
-                            let absolute_path = path.to_path_buf().to_absolute_path();
-                            match no_color {
-                                | true => println!("{} Format {absolute_path}", Label::DRY_RUN),
-                                | false => println!("{} Format {}", Label::dry_run(), absolute_path.yellow()),
-                            }
-                        }
-                        let should_show_changes = matches!(
-                            verbose.log_level(),
-                            Some(Level::Warn) | Some(Level::Info) | Some(Level::Debug) | Some(Level::Trace)
-                        );
-                        if *dry_run || should_show_changes {
-                            print!("{}", format_diff(&old_content, &new_content, path, !options.no_color));
-                        }
-                        match *dry_run {
-                            | true => Ok(()),
-                            | false => write(path, new_content.as_bytes())
-                                .map_err(|why| {
-                                    fail!("Write — {why}");
-                                    eyre!("Write — {why}")
-                                })
-                                .map(|_| match no_color {
-                                    | true => info!("=> {} Formatted {}", Label::pass(), path.display()),
-                                    | false => info!("=> {} Formatted {}", Label::pass(), path.display().cyan()),
-                                }),
-                        }
-                    }
-                })
+                .and_then(|(old_content, new_content)| write_formatted_content(path, options, &old_content, &new_content))
         })
+}
+fn write_formatted_content(path: &Path, options: &CommandOptions, old_content: &str, new_content: &str) -> Result<(), Report> {
+    match old_content == new_content {
+        | true => {
+            let display_path = slice_path(path, DISPLAY_PATH_CHARACTER_COUNT);
+            info!("=> {} No format changes for {display_path}", Label::skip());
+            Ok(())
+        }
+        | false => {
+            let CommandOptions {
+                dry_run, no_color, verbose, ..
+            } = options;
+            if *dry_run {
+                let absolute_path = path.to_path_buf().to_absolute_path();
+                match no_color {
+                    | true => println!("{} Format {absolute_path}", Label::DRY_RUN),
+                    | false => println!("{} Format {}", Label::dry_run(), absolute_path.yellow()),
+                }
+            }
+            let should_show_changes = matches!(
+                verbose.log_level(),
+                Some(Level::Warn) | Some(Level::Info) | Some(Level::Debug) | Some(Level::Trace)
+            );
+            if *dry_run || should_show_changes {
+                print!("{}", format_diff(old_content, new_content, path, !options.no_color));
+            }
+            match *dry_run {
+                | true => Ok(()),
+                | false => write(path, new_content.as_bytes())
+                    .map_err(|why| {
+                        fail!("Write — {why}");
+                        eyre!("Write — {why}")
+                    })
+                    .map(|_| match no_color {
+                        | true => info!("=> {} Formatted {}", Label::pass(), path.display()),
+                        | false => info!("=> {} Formatted {}", Label::pass(), path.display().cyan()),
+                    }),
+            }
+        }
+    }
 }
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
@@ -183,30 +187,33 @@ pub async fn run(
         .threads(threads)
         .build();
     preflight!(&options);
-    match enrich && offline {
-        | true => Err(eyre!("--enrich cannot be used with --offline")),
-        | false => match ApplicationConfiguration::load_with_path(config) {
-            | Err(why) => Err(why),
-            | Ok((configuration, resolved)) => {
-                let root = ApplicationConfiguration::root(&resolved);
-                let standard_options = StandardOptions {
-                    command: &options,
-                    configuration: &configuration,
-                    enrich,
-                    explicit_configuration: config.is_some(),
-                    path,
-                    providers,
-                    root: &root,
-                    standard,
-                };
-                match standard {
-                    | Standard::CitationFileFormat => run_as::<Cff>(standard_options).await,
-                    | Standard::Datacite => run_as::<datacite::Record>(standard_options).await,
-                    | Standard::Invenio => run_as::<invenio::Record>(standard_options).await,
-                    | Standard::ResearchActivityData => run_as::<ResearchActivity>(standard_options).await,
-                    | _ => Err(eyre!("Formatting is not supported for the {standard} standard")),
+    match standard {
+        | Standard::ApplicationConfigurationResearchEnablement => acre::run(path, &options, config, enrich, providers).await,
+        | _ => match enrich && offline {
+            | true => Err(eyre!("--enrich cannot be used with --offline")),
+            | false => match ApplicationConfiguration::load_with_path(config) {
+                | Err(why) => Err(why),
+                | Ok((configuration, resolved)) => {
+                    let root = ApplicationConfiguration::root(&resolved);
+                    let standard_options = StandardOptions {
+                        command: &options,
+                        configuration: &configuration,
+                        enrich,
+                        explicit_configuration: config.is_some(),
+                        path,
+                        providers,
+                        root: &root,
+                        standard,
+                    };
+                    match standard {
+                        | Standard::CitationFileFormat => run_as::<Cff>(standard_options).await,
+                        | Standard::Datacite => run_as::<datacite::Record>(standard_options).await,
+                        | Standard::Invenio => run_as::<invenio::Record>(standard_options).await,
+                        | Standard::ResearchActivityData => run_as::<ResearchActivity>(standard_options).await,
+                        | _ => Err(eyre!("Formatting is not supported for the {standard} standard")),
+                    }
                 }
-            }
+            },
         },
     }
 }
