@@ -6,6 +6,7 @@ use crate::analyzer::readability::ReadabilityType;
 use crate::io::ApiResult;
 use acorn_core::options::{CommonRuntime, RuntimeOptions};
 use acorn_core::prelude::Vec;
+use acorn_schema::hardware::gpu;
 use bon::Builder;
 use jiff::SignedDuration;
 
@@ -32,6 +33,8 @@ pub struct AnalysisContext {
 #[derive(Builder, Clone, Debug, Default)]
 #[builder(start_fn = init, on(ReadabilityType, into))]
 pub struct AnalysisOptions {
+    /// Caller-supplied GPU inventory used by compute compatibility checks.
+    pub gpu_inventory: Option<gpu::Inventory>,
     /// Readability metric used by readability checks.
     #[builder(default)]
     pub readability_metric: ReadabilityType,

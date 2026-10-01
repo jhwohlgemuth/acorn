@@ -58,7 +58,6 @@ extend the implemented portability matrix
 ### Portability and crate boundaries
 
 - [Dependency feature defaults](refactors/portability/dependency-feature-defaults.md) precedes every extraction because each new manifest needs an explicit capability set.
-- [GPU telemetry contract](refactors/acorn-gpu-capability.md) is an independent portable-schema leaf. It owns observed GPU values in `acorn-schema`, reuses `acorn-core::time::Milliseconds`, and precedes downstream Xylem replacement of its local journal transfer types.
 - [Portable diff resource and API hardening](refactors/acorn-diff-resource-and-api-hardening.md) builds on the completed `acorn-diff` boundary. Its bounded contracts precede first-party consumer migration, and sequence-aware arrays follow those limits; manifest and CI wiring serialize with other portability work.
 - The [portability roadmap](refactors/portability/roadmap.md) records the completed in-tree analyzer boundary after `acorn-schema` extraction.
 - The downstream host boundary is implemented as additive `acorn-host` features with a three-crate compile fixture; future native slices require their own atomic plans and proven consumers.

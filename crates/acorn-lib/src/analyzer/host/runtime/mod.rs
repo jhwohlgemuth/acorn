@@ -21,6 +21,7 @@ use crate::{
         check::{Check, CheckBatch, CheckCategory, CheckKind, CheckSeverity, Standard, ValidationReportExt},
         error::ErrorKind,
         fair::FairEvidence,
+        gpu::check_gpu_requirements,
         model::{ValeOutput, ValeOutputItem},
     },
     check, check_err, check_ok, skip,
@@ -1036,6 +1037,25 @@ impl SchemaCheck for raid::Metadata {
 impl Analysis for ResearchActivity {
     fn standard() -> Standard {
         Standard::ResearchActivityData
+    }
+    async fn check_compute(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
+        match options.and_then(|options| options.analysis.gpu_inventory.as_ref()) {
+            | Some(inventory) => paths
+                .par_iter()
+                .map(|path| {
+                    let uri = path.file_name_with_parent();
+                    match Self::read(path) {
+                        | Ok(data) => data.meta.resources.as_ref().map_or_else(CheckBatch::empty, |resources| {
+                            check_gpu_requirements(resources.as_slice(), inventory, Some(uri))
+                        }),
+                        | Err(why) => CheckCategory::Compute.failure_checks(why, Some(uri)),
+                    }
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .collect(),
+            | None => CheckBatch::empty(),
+        }
     }
     async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         paths

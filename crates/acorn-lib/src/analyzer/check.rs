@@ -73,6 +73,9 @@ pub enum CheckCategory {
     /// Quality control and data consistency check
     #[display("quality")]
     Quality,
+    /// Compute resource compatibility check
+    #[display("compute")]
+    Compute,
     /// FAIR data support assessment
     #[display("fair")]
     Fair,
@@ -215,6 +218,8 @@ pub struct CheckBatch(Vec<Check>);
 /// Additive issue counts for analyzer checks.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct CheckSummary {
+    /// Compute resource compatibility issue count.
+    pub compute: usize,
     /// FAIR assessment issue count.
     pub fair: usize,
     /// Schema validation issue count.
@@ -275,7 +280,7 @@ impl Check {
     pub fn issue_count(&self) -> usize {
         match self.category {
             | CheckCategory::Fair => usize::from(!self.success),
-            | CheckCategory::Link | CheckCategory::Quality | CheckCategory::Readability => 1,
+            | CheckCategory::Compute | CheckCategory::Link | CheckCategory::Quality | CheckCategory::Readability => 1,
             | CheckCategory::Prose => {
                 if let Some(kind) = &self.errors {
                     match kind {
@@ -465,6 +470,7 @@ impl CheckCategory {
     /// Return the user-facing category label.
     pub const fn label(&self) -> &'static str {
         match self {
+            | Self::Compute => "Compute",
             | Self::Crosswalk => "Crosswalk",
             | Self::Fair => "Fair",
             | Self::Link => "Link",
@@ -477,6 +483,7 @@ impl CheckCategory {
     #[cfg_attr(not(feature = "analysis"), allow(dead_code))]
     pub(super) fn message(&self) -> &'static str {
         match self {
+            | Self::Compute => "Compute",
             | Self::Link => "URL",
             | Self::Prose => "Prose",
             | Self::Quality => "Quality",
@@ -490,6 +497,7 @@ impl CheckCategory {
 impl From<&str> for CheckCategory {
     fn from(value: &str) -> Self {
         match value.trim().to_lowercase().as_str() {
+            | "compute" => Self::Compute,
             | "link" => Self::Link,
             | "prose" => Self::Prose,
             | "quality" => Self::Quality,
@@ -516,8 +524,6 @@ impl CheckSeverity {
     pub fn is_failure(&self) -> bool {
         matches!(self, Self::Error | Self::Warning)
     }
-}
-impl CheckSeverity {
     /// Returns whether this severity level is visible at the given log level.
     ///
     /// - [`CheckSeverity::Error`] and [`CheckSeverity::Warning`] are always visible.
@@ -556,6 +562,7 @@ impl CheckSummary {
     /// Create the additive identity containing no issues.
     pub const fn zero() -> Self {
         Self {
+            compute: 0,
             fair: 0,
             schema: 0,
             link: 0,
@@ -568,6 +575,7 @@ impl CheckSummary {
     /// Combine two summaries by adding corresponding category counts.
     pub fn combine(self, other: Self) -> Self {
         Self {
+            compute: self.compute.saturating_add(other.compute),
             fair: self.fair.saturating_add(other.fair),
             schema: self.schema.saturating_add(other.schema),
             link: self.link.saturating_add(other.link),
@@ -578,12 +586,13 @@ impl CheckSummary {
         }
     }
     /// Return category counts in stable display order.
-    pub fn counts(&self) -> [(CheckCategory, usize); 7] {
+    pub fn counts(&self) -> [(CheckCategory, usize); 8] {
         [
             (CheckCategory::Schema, self.schema),
             (CheckCategory::Link, self.link),
             (CheckCategory::Prose, self.prose),
             (CheckCategory::Quality, self.quality),
+            (CheckCategory::Compute, self.compute),
             (CheckCategory::Fair, self.fair),
             (CheckCategory::Readability, self.readability),
             (CheckCategory::Crosswalk, self.crosswalk),
@@ -606,6 +615,10 @@ impl From<&Check> for CheckSummary {
     fn from(check: &Check) -> Self {
         let count = check.issue_count();
         match check.category {
+            | CheckCategory::Compute => Self {
+                compute: count,
+                ..Self::zero()
+            },
             | CheckCategory::Fair => Self { fair: count, ..Self::zero() },
             | CheckCategory::Schema => Self {
                 schema: count,
@@ -905,9 +918,10 @@ impl From<&CheckCategory> for u8 {
             | CheckCategory::Schema | CheckCategory::Link => 0,
             | CheckCategory::Prose => 1,
             | CheckCategory::Quality => 2,
-            | CheckCategory::Fair => 3,
-            | CheckCategory::Readability => 4,
-            | CheckCategory::Crosswalk => 5,
+            | CheckCategory::Compute => 3,
+            | CheckCategory::Fair => 4,
+            | CheckCategory::Readability => 5,
+            | CheckCategory::Crosswalk => 6,
         }
     }
 }

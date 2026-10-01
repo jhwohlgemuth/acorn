@@ -4,8 +4,39 @@ use crate::analyzer::fair::FairIndicatorId;
 use crate::analyzer::host::context::{AnalysisOptions, ExecutionExtension, ExecutionOptions, ReportExtension};
 use crate::check_ok;
 use acorn_core::options::CommonRuntime;
+use acorn_schema::hardware::gpu;
 use std::fs::{create_dir_all, write};
 use tempfile::tempdir;
+
+#[tokio::test]
+async fn test_analysis_dispatches_compute_checks_with_supplied_gpu_inventory() {
+    let directory = tempdir().expect("temporary directory should be created");
+    let path = directory.path().join("activity.json");
+    let mut activity: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fixtures/analyzer/fair/metadata-minimal-rad.json"
+    )))
+    .expect("RAD fixture should be valid JSON");
+    activity["meta"]["resources"] = serde_json::json!([{"GPU": {"count": 2}}]);
+    write(&path, serde_json::to_vec(&activity).expect("RAD fixture should serialize")).expect("RAD fixture should be written");
+    let inventory = gpu::Inventory::new(vec![gpu::Device {
+        identifier: "gpu-0".to_string(),
+        index: Some(0),
+        name: "Observed GPU".to_string(),
+        memory_total_mib: None,
+    }])
+    .expect("GPU inventory should be valid");
+    let options = AnalysisContext::init()
+        .analysis(AnalysisOptions::init().gpu_inventory(inventory).build())
+        .build();
+
+    let result = <ResearchActivity as Analysis>::check(CheckCategory::Compute, &[path], Some(&options)).await;
+
+    assert_eq!(result.status, ExecutionStatus::Executed);
+    assert_eq!(result.checks.len(), 1);
+    assert_eq!(result.checks.as_slice()[0].locator.as_deref(), Some("resources[0].count"));
+    assert!(result.checks.as_slice()[0].is_failure());
+}
 
 #[tokio::test]
 async fn test_analyze_paths_collects_independent_failures_despite_early_exit_policy() {
@@ -38,11 +69,11 @@ async fn test_analyze_paths_collects_independent_failures_despite_early_exit_pol
     let categories = &report.batches[0].categories;
     assert_eq!(
         categories.iter().map(|result| result.category.clone()).collect::<Vec<_>>(),
-        [CheckCategory::Schema, CheckCategory::Quality, CheckCategory::Fair]
+        [CheckCategory::Schema, CheckCategory::Quality, CheckCategory::Compute, CheckCategory::Fair]
     );
     assert!(categories
         .iter()
-        .filter(|result| result.category != CheckCategory::Fair)
+        .filter(|result| !matches!(result.category, CheckCategory::Compute | CheckCategory::Fair))
         .all(|result| result.checks.iter().any(Check::is_failure)));
     assert!(categories
         .iter()

@@ -14,6 +14,8 @@ use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// Provider-neutral observed GPU inventory and telemetry types
+pub mod gpu;
 /// Memory types and (de)serialization for hardware resources
 pub mod memory;
 /// Quantum computing paradigms and hardware definitions
@@ -27,9 +29,8 @@ pub use vendor::{Vendor, Vendored};
 
 /// Unified hardware architecture identifier
 ///
-/// This enum provides a single type that can represent any hardware architecture
-/// across all resource types (CPU, GPU, FPGA, accelerators, DSPs). Each variant
-/// corresponds to one of the typed architecture enums.
+/// This enum provides a single type that can represent any hardware architecture across all resource types (CPU, GPU, FPGA, accelerators, DSPs).
+/// Each variant corresponds to one of the typed architecture enums.
 #[derive(Clone, Debug, Display, PartialEq, Serialize, JsonSchema)]
 pub enum Architecture {
     /// 64-bit ARM instruction set

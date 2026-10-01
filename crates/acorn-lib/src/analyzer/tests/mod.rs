@@ -101,12 +101,14 @@ fn check_summary_counts_every_category_and_multi_issue_checks() {
         check_err!(CheckCategory::Link),
         check_err!(CheckCategory::Prose, errors: ErrorKind::Vale(vec![vale_item.clone(), vale_item])),
         check_err!(CheckCategory::Quality),
+        check_err!(CheckCategory::Compute),
         check_err!(CheckCategory::Readability),
         check_err!(CheckCategory::Crosswalk),
     ]);
     assert_eq!(
         CheckSummary::from(checks),
         CheckSummary {
+            compute: 1,
             fair: 0,
             schema: 2,
             link: 1,
@@ -120,6 +122,7 @@ fn check_summary_counts_every_category_and_multi_issue_checks() {
 #[test]
 fn check_summary_zero_is_identity_on_both_sides() {
     let summary = CheckSummary {
+        compute: 8,
         fair: 7,
         schema: 1,
         link: 2,

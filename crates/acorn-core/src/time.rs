@@ -5,7 +5,7 @@ use derive_more::Display;
 use jiff::SignedDuration;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-/// Non-negative millisecond count used at serialized timeout boundaries.
+/// Non-negative millisecond quantity used at serialized duration and timestamp boundaries.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Display, Eq, JsonSchema, Ord, PartialEq, PartialOrd, Serialize)]
 #[display("{_0}")]
 #[serde(transparent)]

@@ -20,6 +20,7 @@ fn test_analysis_context_builder_keeps_quiet_policies_separate() {
 #[test]
 fn test_analysis_context_default_partitions_options() {
     let context = AnalysisContext::default();
+    assert!(context.analysis.gpu_inventory.is_none());
     assert_eq!(context.analysis.readability_metric, ReadabilityType::default());
     assert_eq!(context.analysis.readability_threshold, None);
     assert!(context.analysis.skip.is_empty());

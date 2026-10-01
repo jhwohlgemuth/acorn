@@ -6,6 +6,7 @@ pub mod error;
 pub mod fair;
 #[cfg(any(feature = "analysis", feature = "std"))]
 pub mod fix;
+pub(crate) mod gpu;
 #[cfg(feature = "analysis")]
 pub mod host;
 pub mod model;

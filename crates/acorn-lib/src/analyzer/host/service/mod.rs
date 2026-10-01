@@ -48,6 +48,7 @@ pub trait Analysis: SchemaCheck {
         let checks = match status {
             | ExecutionStatus::Skipped { .. } | ExecutionStatus::Unsupported { .. } => CheckBatch::empty(),
             | ExecutionStatus::Executed => match category {
+                | CheckCategory::Compute => Self::check_compute(paths, options).await,
                 | CheckCategory::Link => Self::check_links(paths, options).await,
                 | CheckCategory::Fair => Self::check_fair(paths, options).await,
                 | CheckCategory::Prose => Self::check_prose(paths, options).await,
@@ -58,6 +59,10 @@ pub trait Analysis: SchemaCheck {
             },
         };
         CategoryChecks { category, checks, status }
+    }
+    /// Assess declared compute requirements against caller-supplied observations.
+    async fn check_compute(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        CheckBatch::empty()
     }
     /// Assess evidence of support for the FAIR principles.
     async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
@@ -216,10 +221,11 @@ impl Standard {
             | Self::CitationFileFormat | Self::Document => {
                 category.is_schema() || category.is_link() || category.is_prose() || category.is_quality() || category.is_readability()
             }
-            | Self::Datacite | Self::Dcat | Self::Invenio | Self::ResearchActivityData => !category.is_crosswalk(),
+            | Self::Datacite | Self::Dcat | Self::Invenio => !category.is_compute() && !category.is_crosswalk(),
             | Self::Huwise => category.is_schema() || category.is_prose() || category.is_quality() || category.is_fair() || category.is_readability(),
             | Self::Kitfile | Self::ModelKit => category.is_schema() || category.is_quality(),
             | Self::Raid => category.is_schema() || category.is_quality() || category.is_fair(),
+            | Self::ResearchActivityData => !category.is_crosswalk(),
             | Self::Text => category.is_schema() || category.is_prose() || category.is_quality() || category.is_readability(),
             | Self::DublinCore => false,
         };

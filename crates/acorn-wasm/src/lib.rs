@@ -287,6 +287,7 @@ fn summary_rows(summary: &CheckSummary) -> Vec<Vec<String>> {
         .into_iter()
         .map(|(category, count)| {
             let label = match category {
+                | acorn::analyzer::CheckCategory::Compute => "Compute",
                 | acorn::analyzer::CheckCategory::Crosswalk => "Crosswalk",
                 | acorn::analyzer::CheckCategory::Fair => "Fair",
                 | acorn::analyzer::CheckCategory::Link => "Link",

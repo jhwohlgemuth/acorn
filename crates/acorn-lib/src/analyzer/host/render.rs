@@ -225,10 +225,11 @@ impl Check {
                     print_unlocated(index, &severity, &heading, context.as_deref().unwrap_or(&message).to_string());
                 }
             },
-            | CheckCategory::Quality => {
+            | CheckCategory::Compute | CheckCategory::Quality => {
                 let title = uri.as_deref().unwrap_or_default();
                 if self.success {
-                    info!("=> {} {title} has {}", Label::pass(), "no quality issues".green().bold());
+                    let message = format!("no {category} issues");
+                    info!("=> {} {title} has {}", Label::pass(), message.green().bold());
                 } else {
                     let details = context.as_deref().unwrap_or(&message).to_string();
                     let heading = uri.as_deref().map_or_else(
@@ -436,7 +437,7 @@ impl fmt::Display for Check {
                     f.write_str(&format_row(self.locator.clone().unwrap_or_default(), self.severity.colored(), details))
                 }
             }
-            | CheckCategory::Quality => {
+            | CheckCategory::Compute | CheckCategory::Quality => {
                 let location = self.uri.clone().or_else(|| self.locator.clone()).unwrap_or_default();
                 let severity = match self.success {
                     | true => CheckSeverity::Info,
@@ -447,7 +448,7 @@ impl fmt::Display for Check {
                     .as_ref()
                     .filter(|value| !value.is_empty())
                     .or_else(|| (!self.message.is_empty()).then_some(&self.message))
-                    .map_or_else(|| "No quality issues".to_string(), Clone::clone);
+                    .map_or_else(|| format!("No {} issues", self.category), Clone::clone);
                 f.write_str(&format_row(location, severity.colored(), details))
             }
             | CheckCategory::Readability => {
