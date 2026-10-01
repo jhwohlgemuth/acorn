@@ -16,6 +16,7 @@ pub trait DiffValue {
 }
 trait DiffValueAt {
     fn diff_at(&self, after: &Value, path: &str, operations: &mut Vec<Operation>);
+    fn diff_changed_at(&self, after: &Value, path: &str, operations: &mut Vec<Operation>);
 }
 /// Creates validated [RFC 6902](https://www.rfc-editor.org/rfc/rfc6902) operations.
 pub trait Rfc6902: Sized {
@@ -164,45 +165,59 @@ impl DiffValueAt for Value {
     fn diff_at(&self, after: &Value, path: &str, operations: &mut Vec<Operation>) {
         match self == after {
             | true => {}
-            | false => match (self, after) {
-                | (Value::Object(before), Value::Object(after)) => {
-                    let before_keys = before.keys().collect::<BTreeSet<_>>();
-                    let after_keys = after.keys().collect::<BTreeSet<_>>();
-                    before_keys.difference(&after_keys).for_each(|key| {
-                        operations.push(Operation(OperationRepr::Remove { path: join(path, key) }));
+            | false => self.diff_changed_at(after, path, operations),
+        }
+    }
+    fn diff_changed_at(&self, after: &Value, path: &str, operations: &mut Vec<Operation>) {
+        match (self, after) {
+            | (Value::Object(before), Value::Object(after)) => {
+                let before_keys = before.keys().collect::<BTreeSet<_>>();
+                let after_keys = after.keys().collect::<BTreeSet<_>>();
+                before_keys.difference(&after_keys).for_each(|key| {
+                    operations.push(Operation(OperationRepr::Remove { path: join(path, key) }));
+                });
+                before_keys.intersection(&after_keys).for_each(|key| {
+                    let before_value = &before[*key];
+                    let after_value = &after[*key];
+                    match before_value == after_value {
+                        | true => {}
+                        | false => before_value.diff_changed_at(after_value, &join(path, key), operations),
+                    }
+                });
+                after_keys.difference(&before_keys).for_each(|key| {
+                    operations.push(Operation(OperationRepr::Add {
+                        path: join(path, key),
+                        value: after[*key].clone(),
+                    }));
+                });
+            }
+            | (Value::Array(before), Value::Array(after)) => {
+                let shared = cmp::min(before.len(), after.len());
+                before
+                    .iter()
+                    .zip(after)
+                    .take(shared)
+                    .enumerate()
+                    .for_each(|(index, (before, after))| match before == after {
+                        | true => {}
+                        | false => before.diff_changed_at(after, &format!("{path}/{index}"), operations),
                     });
-                    before_keys.intersection(&after_keys).for_each(|key| {
-                        before[*key].diff_at(&after[*key], &join(path, key), operations);
-                    });
-                    after_keys.difference(&before_keys).for_each(|key| {
-                        operations.push(Operation(OperationRepr::Add {
-                            path: join(path, key),
-                            value: after[*key].clone(),
-                        }));
-                    });
-                }
-                | (Value::Array(before), Value::Array(after)) => {
-                    let shared = cmp::min(before.len(), after.len());
-                    before.iter().zip(after).take(shared).enumerate().for_each(|(index, (before, after))| {
-                        before.diff_at(after, &format!("{path}/{index}"), operations);
-                    });
-                    (after.len()..before.len()).rev().for_each(|index| {
-                        operations.push(Operation(OperationRepr::Remove {
-                            path: format!("{path}/{index}"),
-                        }));
-                    });
-                    after.iter().skip(shared).for_each(|value| {
-                        operations.push(Operation(OperationRepr::Add {
-                            path: format!("{path}/-"),
-                            value: value.clone(),
-                        }));
-                    });
-                }
-                | _ => operations.push(Operation(OperationRepr::Replace {
-                    path: path.to_string(),
-                    value: after.clone(),
-                })),
-            },
+                (after.len()..before.len()).rev().for_each(|index| {
+                    operations.push(Operation(OperationRepr::Remove {
+                        path: format!("{path}/{index}"),
+                    }));
+                });
+                after.iter().skip(shared).for_each(|value| {
+                    operations.push(Operation(OperationRepr::Add {
+                        path: format!("{path}/-"),
+                        value: value.clone(),
+                    }));
+                });
+            }
+            | _ => operations.push(Operation(OperationRepr::Replace {
+                path: path.to_string(),
+                value: after.clone(),
+            })),
         }
     }
 }

@@ -41,7 +41,7 @@ extend the implemented portability matrix
 
 | Target package | Source boundary to prepare now | Direct prerequisites | Plans unlocked |
 |---|---|---|---|
-| `acorn-diff` | New generic alloc-only unified-diff and RFC 6902 transforms over supplied values | Dependency-feature contract; concrete CLI and inference consumers | Semantic file comparison and inference patch output |
+| `acorn-diff` | Complete portable transforms; [resource and API hardening](refactors/acorn-diff-resource-and-api-hardening.md) adds bounded/configurable operations and sequence-aware arrays | Implemented low-cost conformance, portability, allocation, and package baseline | Safer semantic comparison and inference patch output |
 | `acorn-schema` | Complete: schema, validation, string/byte codecs, vocabulary and prompt assets | `acorn-core` | Schema features, standards crosswalks, `acorn-analysis` |
 | `acorn-analysis` | `analyzer/{check,error,readability}.rs` over supplied content | Host isolation; analyzer algebra plans | Service extraction and portable checks |
 | `acorn-api` | `io/api/` protocol, JSON-RPC, gRPC, webhook verification, endpoint, request, response, and auth logic | API roadmap and operation-registry contracts | `acorn-service`, `acorn-host`, provider features |
@@ -58,6 +58,7 @@ extend the implemented portability matrix
 ### Portability and crate boundaries
 
 - [Dependency feature defaults](refactors/portability/dependency-feature-defaults.md) precedes every extraction because each new manifest needs an explicit capability set.
+- [Portable diff resource and API hardening](refactors/acorn-diff-resource-and-api-hardening.md) builds on the completed `acorn-diff` boundary. Its bounded contracts precede first-party consumer migration, and sequence-aware arrays follow those limits; manifest and CI wiring serialize with other portability work.
 - The [portability roadmap](refactors/portability/roadmap.md) records the completed in-tree analyzer boundary after `acorn-schema` extraction.
 - The downstream host boundary is implemented as additive `acorn-host` features with a three-crate compile fixture; future native slices require their own atomic plans and proven consumers.
 - [Crate boundary architecture](refactors/crate-boundary-architecture.md) coordinates the analyzer, API, export, command, and portability boundaries; schedule the named extraction plan rather than the umbrella.

@@ -1,4 +1,4 @@
-//! Portable unified-text and RFC 6902 JSON Patch diff primitives
+#![doc = include_str!("../README.md")]
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 

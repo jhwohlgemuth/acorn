@@ -2,9 +2,12 @@
 edition = "2021"
 name = "acorn-diff"
 version.workspace = true
+readme = "README.md"
 description = "Portable unified and JSON Patch diff primitives for ACORN"
+categories = ["algorithms", "data-structures", "development-tools", "no-std"]
 authors.workspace = true
 documentation.workspace = true
+keywords = ["diff", "json-patch", "no-std", "rfc6902", "unified-diff"]
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true

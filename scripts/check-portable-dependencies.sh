@@ -1,17 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+readonly allowed_diff='^(acorn-diff|itoa|memchr|proc-macro2|quote|serde|serde_core|serde_derive|serde_json|similar|syn|unicode-ident|zmij) v'
 readonly forbidden='^(ammonia|anydoc|arboard|ariadne|async-trait|axum|bat|color-eyre|comfy-table|console|directories|dotenvy|flate2|futures|glob|http|httpdate|indicatif|infer|is_executable|lychee-lib|nanoid|owo-colors|pdf-inspector|percy-dom|polars|rand|rayon|reqwest|ring|rsa|rusqlite|rust-embed|rust-ini|sevenz-rust2|shell-words|shuck-linter|shuck-parser|similar|tar|tera|tokio|tower|which|zip) v'
 readonly forbidden_analysis='^(axum|duckdb|resvg|rmcp|shuck-linter|shuck-parser|sysinfo) v'
-readonly forbidden_diff='^(acorn-(cmd|core|host|lib|macros|schema|tui|wasm)|anydoc|arboard|axum|color-eyre|directories|indicatif|rayon|reqwest|tokio) v'
 
 check_diff_tree() {
+    local features
+    local std_features
     local tree
-    local matches
+    local unexpected
     tree="$(cargo tree --locked -p acorn-diff --no-default-features --features alloc --edges normal --prefix none)"
-    matches="$(printf '%s\n' "$tree" | grep -E "$forbidden_diff" || true)"
-    if [[ -n "$matches" ]]; then
-        printf 'Host or ACORN package dependencies leaked into the acorn-diff alloc graph:\n%s\n' "$matches" >&2
+    unexpected="$(printf '%s\n' "$tree" | grep -Ev "$allowed_diff" || true)"
+    if [[ -n "$unexpected" ]]; then
+        printf 'Unexpected packages leaked into the acorn-diff alloc graph:\n%s\n' "$unexpected" >&2
+        exit 1
+    fi
+    features="$(cargo tree --locked -p acorn-diff --no-default-features --features alloc --edges normal,features --prefix none)"
+    std_features="$(printf '%s\n' "$features" | grep -E ' feature "std"( \(\*\))?$' || true)"
+    if [[ -n "$std_features" ]]; then
+        printf 'Standard-library features leaked into the acorn-diff alloc graph:\n%s\n' "$std_features" >&2
         exit 1
     fi
 }
