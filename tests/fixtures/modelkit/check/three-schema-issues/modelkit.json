@@ -1,0 +1,12 @@
+{
+  "manifestVersion": "v1.0.0",
+  "package": {
+    "version": "invalid-package-version"
+  },
+  "model": {
+    "path": "/absolute/model.gguf",
+    "version": "invalid-model-version",
+    "digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "diffId": "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+  }
+}

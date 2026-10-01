@@ -11,6 +11,7 @@ The `check/` directory contains ACORN-owned, directly executable Kitfiles for CL
 - `many-schema-issues/`: several independent semantic validation issues
 - `one-schema-issue/`: one semantic validation issue
 - `quality-issues/`: three packaging issues, including a malformed MCP bundle
+- `three-schema-issues/`: three semantic validation issues in a resolved `modelkit.json`
 
 KitOps is licensed under Apache-2.0. The fixtures exercise its producer-owned YAML/JSON normalization and validation expectations without invoking the `kit` executable from `acorn-schema`. Refresh both directories from the pinned source tree, update the commit here and in `scripts/check-modelpack-drift.sh`, then run that script to verify byte-for-byte provenance and both implementations' focused tests.
 

@@ -164,6 +164,11 @@ fn test_check_kitfile_fixtures() {
             "modelkit/check/quality-issues/Kitfile",
             "fair,link,prose,readability,schema",
         ),
+        (
+            "check_modelkit_three_schema_issues",
+            "modelkit/check/three-schema-issues/modelkit.json",
+            "fair,link,prose,quality,readability",
+        ),
     ];
     fixtures.into_iter().for_each(|(name, path, skip)| {
         let args = [

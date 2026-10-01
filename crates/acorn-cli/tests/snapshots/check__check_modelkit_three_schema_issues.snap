@@ -1,0 +1,52 @@
+---
+source: crates/acorn-cli/tests/check.rs
+expression: normalized_process(&args)
+---
+status: 0
+stdout:
+=> !!! OFFLINE ACORN is running in offline mode
+
+[00] Error: model.path
+   ╭─[ three-schema-issues/modelkit.json:7:13 ]
+   │
+ 7 │     "path": "/absolute/model.gguf",
+   │             ───────────┬──────────  
+   │                        ╰──────────── Absolute paths are not supported (/absolute/model.gguf)
+───╯
+[01] Error: model.version
+   ╭─[ three-schema-issues/modelkit.json:8:16 ]
+   │
+ 8 │     "version": "invalid-model-version",
+   │                ───────────┬───────────  
+   │                           ╰───────────── Provide valid semantic version
+───╯
+[02] Error: package.version
+   ╭─[ three-schema-issues/modelkit.json:4:16 ]
+   │
+ 4 │     "version": "invalid-package-version"
+   │                ────────────┬────────────  
+   │                            ╰────────────── Provide valid semantic version
+───╯
+╭─────────────────────────┬───────╮
+│                         ┆ Count │
+╞═════════════════════════╪═══════╡
+│ Schema items found      ┆ 3     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Link items found        ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Prose items found       ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Quality items found     ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Compute items found     ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Fair items found        ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Readability items found ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Crosswalk items found   ┆ 0     │
+╰─────────────────────────┴───────╯
+0,error,schema,three-schema-issues/modelkit.json,package.version,Provide valid semantic version,package.version,
+1,error,schema,three-schema-issues/modelkit.json,model.version,Provide valid semantic version,model.version,
+2,error,schema,three-schema-issues/modelkit.json,model.path,Absolute paths are not supported (/absolute/model.gguf),model.path,
+stderr:
