@@ -10,6 +10,7 @@
 - [🎯 Quick Quest: Your first RAD](./learn/quick-quest.md)
 - [🧠 Concepts](./concepts/README.md)
   - [ACORN](./concepts/acorn.md)
+  - [ACRE](./concepts/acre.md)
   - [ASPECT](./concepts/aspect/README.md)
     - [📦 Portability](./concepts/aspect/portability.md)
     - [🤝 Autonomy](./concepts/aspect/autonomy.md)
