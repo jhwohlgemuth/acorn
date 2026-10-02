@@ -588,6 +588,46 @@ async fn test_export_crosswalk_rad_workflows() -> Result<()> {
     Ok(())
 }
 #[tokio::test]
+async fn test_export_ckan_crosswalk_strict_rejects_losses_before_writing() -> Result<()> {
+    let temp_dir = temp_test_dir("export_ckan_crosswalk_strict_rejects_losses_before_writing");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = temp_dir.join("package.json");
+    copy(fixture_path("schema/ckan/0sbdv-gh024.json"), &source)?;
+    let output = temp_dir.join("strict");
+    create_dir_all(&output)?;
+    let result = run(
+        &Some(output.clone()),
+        &Some(source),
+        &None,
+        &None,
+        &None,
+        &[],
+        &[],
+        false,
+        false,
+        &FileFormat::Json,
+        None,
+        &None,
+        &Some(Standard::Ckan),
+        &Some(Standard::Dcat),
+        &false,
+        &false,
+        &false,
+        &[],
+        false,
+        true,
+        Target::FactSheet,
+        None,
+        TEST_THREADS,
+        &silent(),
+        OFFLINE,
+    )
+    .await;
+    assert!(result.is_err());
+    assert!(!output.join("package.json").exists());
+    Ok(())
+}
+#[tokio::test]
 async fn test_export_crosswalk_strict_rejects_losses_before_writing() -> Result<()> {
     let temp_dir = temp_test_dir("export_crosswalk_strict_rejects_losses_before_writing");
     let _cleanup = TestCleanup::new(temp_dir.clone());

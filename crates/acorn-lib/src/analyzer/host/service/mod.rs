@@ -28,7 +28,7 @@ use acorn_schema::{
     research_activity::ResearchActivity,
     standard::{
         cff::Cff,
-        datacite, dcat, huwise, invenio,
+        ckan, datacite, dcat, huwise, invenio,
         text::{Document, Text},
     },
 };
@@ -217,7 +217,7 @@ impl AnalysisReport {
 impl Standard {
     fn execution_status(self, category: &CheckCategory, options: Option<&AnalysisContext>) -> ExecutionStatus {
         let supported = match self {
-            | Self::ApplicationConfigurationResearchEnablement => category.is_schema(),
+            | Self::ApplicationConfigurationResearchEnablement | Self::Ckan => category.is_schema(),
             | Self::CitationFileFormat | Self::Document => {
                 category.is_schema() || category.is_link() || category.is_prose() || category.is_quality() || category.is_readability()
             }
@@ -354,6 +354,7 @@ pub async fn analyze_paths(paths: &[PathBuf], options: &AnalysisContext) -> Anal
         let categories = match standard {
             | Standard::ApplicationConfigurationResearchEnablement => analyze::<AcreStandard>(&paths, options, &categories, &documents).await,
             | Standard::CitationFileFormat => analyze::<Cff>(&paths, options, &categories, &documents).await,
+            | Standard::Ckan => analyze::<ckan::Package>(&paths, options, &categories, &documents).await,
             | Standard::Datacite => analyze::<datacite::Record>(&paths, options, &categories, &documents).await,
             | Standard::Dcat => analyze::<dcat::Dataset>(&paths, options, &categories, &documents).await,
             | Standard::Document => analyze::<Document>(&paths, options, &categories, &documents).await,

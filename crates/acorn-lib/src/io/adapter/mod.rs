@@ -31,7 +31,7 @@ use acorn_schema::{
     modelkit::kitfile::{Kitfile, LayerInfo, McpServer},
     pid::raid::Metadata,
     research_activity::{Logbook, LogbookEntry, ResearchActivity, ResearchActivityMetadata},
-    standard::{cff::Cff, datacite, dcat, huwise, invenio, text, text::Text},
+    standard::{cff::Cff, ckan, datacite, dcat, huwise, invenio, text, text::Text},
     ImageObject, MediaObject, OneOrMany,
 };
 use color_eyre::eyre::eyre;
@@ -256,6 +256,47 @@ impl InputOutput for datacite::Record {
             .and_then(|content| write_file(output, content))
     }
 }
+impl InputOutput for ckan::Package {
+    fn parse(content: &str) -> Option<Self> {
+        ckan::Package::parse(content, MimeType::Json).ok().and_then(|packages| match packages {
+            | OneOrMany::One(package) => Some(package),
+            | OneOrMany::Many(mut packages) if packages.len() == 1 => packages.pop(),
+            | OneOrMany::Many(_) => None,
+        })
+    }
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
+        let source = path.into();
+        match MimeType::from_path(&source) {
+            | MimeType::Json => Self::read_json(source),
+            | MimeType::Yaml => Self::read_yaml(source),
+            | _ => Err(eyre!("Unsupported CKAN package file extension")),
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<Self> {
+        read_ckan_package(path, MimeType::Json)
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
+        read_ckan_package(path, MimeType::Yaml)
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into();
+        match MimeType::from_path(&output) {
+            | MimeType::Json => self.write_json(output),
+            | MimeType::Yaml => self.write_yaml(output),
+            | _ => Err(eyre!("Unsupported CKAN package file extension for writing")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        serde_json::to_string_pretty(self)
+            .map_err(|why| eyre!("Failed to serialize JSON CKAN package — {why}"))
+            .and_then(|content| write_file(path.into().with_extension("json"), content))
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        serde_norway::to_string(self)
+            .map_err(|why| eyre!("Failed to serialize YAML CKAN package — {why}"))
+            .and_then(|content| write_file(path.into().with_extension("yaml"), content))
+    }
+}
 impl InputOutput for dcat::Dataset {
     fn read(path: impl Into<PathBuf>) -> ApiResult<dcat::Dataset> {
         let source = path.into();
@@ -317,6 +358,19 @@ impl InputOutput for dcat::Dataset {
             .map_err(|why| eyre!("Failed to serialize YAML DCAT dataset — {why}"))
             .and_then(|content| write_file(output, content))
     }
+}
+fn read_ckan_package(path: PathBuf, mime: MimeType) -> ApiResult<ckan::Package> {
+    read_file(path).and_then(|content| {
+        ckan::Package::parse(&content, mime)
+            .map_err(|why| eyre!("Failed to parse CKAN package — {why}"))
+            .and_then(|packages| match packages {
+                | OneOrMany::One(package) => Ok(package),
+                | OneOrMany::Many(mut packages) if packages.len() == 1 => {
+                    packages.pop().ok_or_else(|| eyre!("Expected one CKAN package but found none"))
+                }
+                | OneOrMany::Many(packages) => Err(eyre!("Expected one CKAN package but found {}", packages.len())),
+            })
+    })
 }
 impl InputOutput for huwise::Dataset {
     fn read(path: impl Into<PathBuf>) -> ApiResult<huwise::Dataset> {

@@ -100,7 +100,7 @@ Record order and cardinality are preserved when converting among JSON Lines, JSO
 
 ## Standard crosswalks
 
-Use `--to` with JSON, JSON Lines, YAML, or ZON export to convert metadata between DataCite, DCAT, InvenioRDM, and HuWise. ACORN can infer the source standard from recognizable fields, but `--from` is recommended for repeatable scripts and for records with an ambiguous shape.
+Use `--to` with JSON, JSON Lines, YAML, or ZON export to convert metadata between supported metadata standards. ACORN can infer the source standard from recognizable fields, but `--from` is recommended for repeatable scripts and for records with an ambiguous shape.
 
 ```sh
 # Convert one DataCite JSON record to DCAT JSON
@@ -115,14 +115,18 @@ acorn export datacite.zonf --format zon --from datacite --to dcat --output ./exp
 # Convert an ordered DataCite JSON Lines batch to DCAT JSON Lines
 acorn export datacite.ndjson --format jsonl --from datacite --to dcat --output ./export
 
+# Convert a CKAN package_show record or successful Action API response to a DCAT Dataset
+acorn export package.json --format json --from ckan --to dcat --output ./export
+
 # Preview a directory conversion without writing files
 acorn export ./metadata --format json --from invenio --to dcat --dry-run
 ```
 
-The source and target may each be `datacite`, `dcat`, `invenio`, or `huwise`. Every pairing among those four standards is accepted. Some conversions use DataCite as an intermediate representation:
+The source and target may each be `datacite`, `dcat`, `invenio`, or `huwise`. CKAN is supported only as a source for DCAT Dataset output. Some conversions use DataCite as an intermediate representation:
 
 | Source | Direct targets | Targets routed through DataCite |
 |---|---|---|
+| CKAN | DCAT | None |
 | DataCite | DCAT, InvenioRDM, HuWise | None |
 | DCAT | DataCite | InvenioRDM, HuWise |
 | InvenioRDM | DataCite | DCAT, HuWise |
@@ -132,11 +136,12 @@ Crosswalk export has these constraints:
 
 - The input and output must be JSON, JSON Lines, YAML, or ZON. PDF, PowerPoint, CFF, BagIt, and Markdown are not crosswalk targets.
 - A single object, an array of objects, or one object per JSON Lines record is accepted. Directory export writes one target file for each resolved source file.
+- CKAN input may be an unwrapped `package_show` result or a successful `{ "success": true, "result": ... }` Action API response. Package-search result envelopes are not supported.
 - Source-standard inference checks every JSON Lines record. A batch containing mixed standards fails at the first conflicting record and reports its record index and physical line.
 - Conversion can be lossy because the standards have different fields and cardinalities. Normal direct conversions report field-level crosswalk warnings when ACORN has a mapping for that pair.
-- Warning collection is currently limited to direct DataCite mappings and DCAT → DataCite. Routed conversions can lose metadata without a complete end-to-end warning report.
-- `--strict` is intended to fail when conversion loses data, but the current export path does not retain warnings in strict mode. Do not use it as a lossless-conversion guarantee until that behavior is corrected.
-- CKAN package records are not currently a supported source or target standard. A CKAN API response is not DCAT merely because CKAN can expose DCAT through an extension; convert or export it to a supported DCAT representation before using `--from dcat`.
+- CKAN metadata-record timestamps, administrative fields, plugin extensions, malformed resource URLs, and service simplification are reported as warnings. `--strict` fails before writing when any warning is present; `--dry-run` reports the same warnings without writing.
+- CKAN conversion emits ACORN's flexible DCAT Dataset representation. It does not claim DCAT-US conformance, create a DCAT Catalog or CatalogRecord, or support DCAT-to-CKAN publishing.
+- Warning collection for conversions routed through DataCite remains incomplete; use direct pairs when loss accounting is required.
 
 Run `acorn check --standard <target> <output>` after conversion when the target artifact must pass ACORN's schema and validation checks.
 

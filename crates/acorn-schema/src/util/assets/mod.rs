@@ -8,7 +8,7 @@ impl EmbeddedAssets for Constant {
     /// Read an embedded asset as UTF-8 text
     fn from_asset(file_name: &str) -> Option<String> {
         vocabulary::from_asset(file_name).map(String::from).or_else(|| match file_name {
-            | "geonames.tsv" => Some(String::from(include_str!("../../assets/constants/geonames.tsv"))),
+            | "geonames.tsv" => Some(String::from(include_str!("../../../assets/constants/geonames.tsv"))),
             | _ => None,
         })
     }

@@ -1,15 +1,16 @@
 {
+    "@type": "dcat:Dataset",
     "title": [
         "ODIN Historic Outage Data (Zip Code Resolution)"
     ],
     "description": [
-        "The Outage Data Initiative Nationwide (ODIN) seeks to establish a comprehensive digital reporting standard for power outage data and to enable utilities and others to exchange data freely with designated stakeholders. The program is led by Oak Ridge National Laboratory and the U.S. Department of Energy's Office of Electricity. The three outage files contain power outage information provided to ODIN at the frequency and level of polygon resolution that the utility provided to us. Each file is provided as comma delimited values with four columns that describe the time the outage was reported to ODIN as a UTC timestamp, the resolution of the outage, the number of customers affected, and the U.S. state where the power outage is located. The data set was gathered over the period from June 2022 to the beginning of September 2023 with the outage area described as either a zip code, U.S. FIPS County, or a well-known text JSON polygon with coordinates provided as WGS 84.\n\nData shown on table and visualization is only limit to 2022 and 500,000 records.\n\nThe export feature allows users to download the full dataset zipped file."
+        "The Outage Data Initiative Nationwide (ODIN) seeks to establish a comprehensive digital reporting standard for power outage data and to enable utilities and others to exchange data freely with designated stakeholders. The program is led by Oak Ridge National Laboratory and the U.S. Department of Energy's Office of Electricity.The three outage files contain power outage information provided to ODIN at the frequency and level of polygon resolution that the utility provided to us. Each file is provided as comma delimited values with four columns that describe the time the outage was reported to ODIN as a UTC timestamp, the resolution of the outage, the number of customers affected, and the U.S. state where the power outage is located.The data set was gathered over the period from June 2022 to the beginning of September 2023 with the outage area described as either a zip code, U.S. FIPS County, or a well-known text JSON polygon with coordinates provided as WGS 84.\n\nData shown on table and visualization is only limit to 2022 and 500,000 records.\n\nThe export feature allows users to download the full dataset zipped file."
     ],
     "identifier": [
         "b0bddbfd-07d3-4082-9ecd-687abf6948f0"
     ],
-    "issued": "2026-01-30T15:12:24.933104",
-    "modified": "2026-02-10T16:58:46.827833",
+    "issued": "2025",
+    "modified": "2025-12-19",
     "publisher": {
         "name": "Oak Ridge National Laboratory"
     },
@@ -22,7 +23,11 @@
         }
     ],
     "contactPoint": [
-        "mailto:data@oedp.org"
+        {
+            "@type": "vcard:Kind",
+            "fn": "Oak Ridge National Laboratory",
+            "hasEmail": "mailto:data@oedp.org"
+        }
     ],
     "keywords": [
         "Electricity"

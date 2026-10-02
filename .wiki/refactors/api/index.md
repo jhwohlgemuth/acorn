@@ -4,6 +4,7 @@
 
 - [API client roadmap](roadmap.md) - Coordinate the shared contract and extraction sequence.
 - [Hugging Face request readiness](huggingface-request-readiness.md) - Enforce repository and download inputs through operation-specific request types.
+- [Model context metadata](model-context-metadata.md) - Preserve catalog token limits and enrich selected GGUF downloads from repository and exact-artifact metadata.
 - [Endpoint resolution](endpoint-resolution.md) - Centralize template and domain resolution.
 - [Request parameter composition](request-parameter-composition.md) - Normalize required and optional inputs.
 - [Invoke-and-parse wrappers](invoke-and-parse-wrappers.md) - Combine repeated request execution and parsing.

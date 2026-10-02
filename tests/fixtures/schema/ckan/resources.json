@@ -1,0 +1,41 @@
+{
+    "id": "67fe9f13-c1ef-49cf-91de-69af61714da8",
+    "name": "resource-mapping",
+    "title": "Resource mapping",
+    "url": "https://catalog.example.org/dataset/resource-mapping",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "tags": [
+        { "name": "Energy" },
+        { "name": "Energy" },
+        { "name": "Research" }
+    ],
+    "resources": [
+        {
+            "id": "53ffb7cc-a2f0-40a2-a4b2-d8a08ca8fc48",
+            "name": "Measurements",
+            "description": "Comma-separated measurements",
+            "created": "2026-01-01T12:00:00Z",
+            "last_modified": "2026-01-02T12:00:00Z",
+            "format": "CSV",
+            "mimetype": "text/csv",
+            "size": 2048,
+            "url": "https://catalog.example.org/dataset/resource-mapping/resource/measurements.csv",
+            "url_type": "upload"
+        },
+        {
+            "id": "e1c8fa12-92d7-47d4-9fbd-c6348bd0f270",
+            "name": "Query API",
+            "resource_type": "api",
+            "url": "https://api.example.org/resource-mapping"
+        },
+        {
+            "id": "invalid-resource",
+            "name": "Broken resource",
+            "url": "relative/resource.csv"
+        }
+    ],
+    "extras": [
+        { "key": "local-review-state", "value": "approved" }
+    ],
+    "plugin_flag": true
+}

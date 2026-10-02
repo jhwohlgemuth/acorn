@@ -123,6 +123,22 @@ Every `Option<OneOrMany<T>>` field below accepts one `T` or an array at input. S
 
 Inference rule: **Do not fabricate** `date`, `leader`/`contact` role, `owner`/`registrationAgency`, `CC0` license, or `relatedObject` when RAD absent. The implemented adapter gates supported defaults behind `RaidExportOptions::allow_infer`, which defaults to false, requires an explicit `inference_date`, and emits `ConversionWarning::Approximated` for every inferred assertion.
 
+### CKAN package → DCAT Dataset
+
+| CKAN source | DCAT target | Policy |
+|---|---|---|
+| `id` | `identifier` | Preserve the server UUID; do not promote the package slug to a global identifier |
+| public `url` | `@id`, `landingPage` | Retain local URLs only as landing pages with an approximation warning |
+| `title`, `notes` | `title`, `description` | Strip HTML to normalized plain text and warn when markup is simplified |
+| custom `issued`, `modified` | `issued`, `modified` | Accept supported ISO 8601 calendar forms; never substitute CKAN metadata-record timestamps |
+| custom agents | `creator`, `publisher`, `contactPoint` | Prefer structured extension values, then core author, organization, and maintainer fallbacks |
+| `tags[].name` | `keyword` | Stable first-occurrence deduplication; do not infer themes |
+| `resources[]` | `distribution[]` | Require an absolute HTTP(S) access URL; model uploads as downloads and APIs as simplified service references |
+| qualified/core relationships | `qualifiedRelation`, `relation` | Map known controlled labels; retain unknown absolute targets as generic relations with a warning |
+| administrative fields, `extras`, plugin properties | warning | Preserve visibility of every meaningful unmapped value through deterministic conversion warnings |
+
+The implemented CKAN adapter accepts unwrapped `package_show` results, successful Action API responses, arrays, and JSON Lines. It is source-only and targets ACORN's flexible `dcat::Dataset`; Catalog, CatalogRecord, DCAT-US profile output, and CKAN publishing remain separate work.
+
 ### DCAT 3 / Invenio / HuWise / CFF Crosswalk (existing `crosswalk/`)
 
 | Concern | Source Field | Target Field | Mapping | Classification | Vocab |
@@ -133,7 +149,7 @@ Inference rule: **Do not fabricate** `date`, `leader`/`contact` role, `owner`/`r
 | License | `license` `IRI` | `rightsURI` | direct | exact | SPDX `validate_license` |
 | Type | `resource-type` `String` | `type_` `IRI` | `resource_type_to_iri` / `iri_to_resource_type` `mapping.rs:482` (`Poster`→`Poster`) | transformed | DataCite ↔ DCAT IRI |
 
-`Standard::crosswalk` supports `datacite ↔ dcat ↔ invenio ↔ huwise`, `rads -> raid`, `raid -> rads` with required caller identity enforced, and opt-in `rads -> datacite` Project export. Structured CLI export infers RAD and RAiD documents, reports conversion warnings during dry runs, and makes strict mode fail before writing. The DataCite Project profile requires exactly one authored project DOI, one `Issued` date, and one organization with a `Publisher` role; it does not infer deposit assertions.
+`Standard::crosswalk` supports `ckan -> dcat`, `datacite ↔ dcat ↔ invenio ↔ huwise`, `rads -> raid`, `raid -> rads` with required caller identity enforced, and opt-in `rads -> datacite` Project export. Structured CLI export infers CKAN, RAD, and RAiD documents, reports conversion warnings during dry runs, and makes strict mode fail before writing. The DataCite Project profile requires exactly one authored project DOI, one `Issued` date, and one organization with a `Publisher` role; it does not infer deposit assertions.
 
 ## Controlled Vocabularies & Normalization
 

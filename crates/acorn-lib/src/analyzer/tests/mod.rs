@@ -6,7 +6,7 @@ use crate::{check_err, check_ok};
 use acorn_core::util::MimeType;
 use acorn_core::validation::ValidationError;
 use acorn_schema::validation::{Validate, ValidationReport};
-use acorn_schema::{research_activity::ResearchActivity, OneOrMany};
+use acorn_schema::{research_activity::ResearchActivity, standard::dcat, OneOrMany};
 use alloc::string::{String, ToString};
 use alloc::{vec, vec::Vec};
 
@@ -310,6 +310,56 @@ fn json_lines_crosswalk_conversion_failures_include_record_index_and_line() {
     let message = error.to_string();
     assert!(message.contains("index 1"), "unexpected error: {message}");
     assert!(message.contains("line 2"), "unexpected error: {message}");
+}
+#[test]
+fn ckan_crosswalk_matches_golden_fixtures() {
+    let fixtures = [
+        (
+            include_str!("../../../../../tests/fixtures/schema/ckan/0sbdv-gh024.json"),
+            include_str!("../../../../../tests/fixtures/schema/dcat/0sbdv-gh024.json"),
+        ),
+        (
+            include_str!("../../../../../tests/fixtures/schema/ckan/6rpmk-n3x82.json"),
+            include_str!("../../../../../tests/fixtures/schema/dcat/6rpmk-n3x82.json"),
+        ),
+        (
+            include_str!("../../../../../tests/fixtures/schema/ckan/j5xbm-d7v43.json"),
+            include_str!("../../../../../tests/fixtures/schema/dcat/j5xbm-d7v43.json"),
+        ),
+        (
+            include_str!("../../../../../tests/fixtures/schema/ckan/resources.json"),
+            include_str!("../../../../../tests/fixtures/schema/dcat/resources.json"),
+        ),
+    ];
+    fixtures.into_iter().for_each(|(source, expected)| {
+        let output = Standard::Ckan
+            .crosswalk(source, MimeType::Json, Standard::Dcat, MimeType::Json)
+            .expect("CKAN fixture should crosswalk");
+        let actual: serde_json::Value = serde_json::from_str(&output).expect("crosswalk output should be JSON");
+        let expected: serde_json::Value = serde_json::from_str(expected).expect("golden DCAT fixture should be JSON");
+        assert_eq!(actual, expected);
+        let dataset: dcat::Dataset = serde_json::from_value(actual).expect("output should be a DCAT dataset");
+        assert!(dataset.validate().is_ok());
+    });
+}
+#[test]
+fn ckan_crosswalk_reports_losses() {
+    let source = include_str!("../../../../../tests/fixtures/schema/ckan/0sbdv-gh024.json");
+    let conversion = Standard::Ckan
+        .crosswalk_with_warnings(source, MimeType::Json, Standard::Dcat, MimeType::Json)
+        .expect("CKAN fixture should crosswalk");
+    assert!(conversion.warnings().iter().any(|warning| warning.field == "metadata_created"));
+    assert!(conversion.warnings().iter().any(|warning| warning.field == "metadata_modified"));
+    assert!(conversion.warnings().iter().any(|warning| warning.field == "notes"));
+    assert!(conversion.warnings().iter().any(|warning| warning.field == "url"));
+    let resources = include_str!("../../../../../tests/fixtures/schema/ckan/resources.json");
+    let conversion = Standard::Ckan
+        .crosswalk_with_warnings(resources, MimeType::Json, Standard::Dcat, MimeType::Json)
+        .expect("CKAN resource fixture should crosswalk");
+    assert!(conversion.warnings().iter().any(|warning| warning.field == "resources[1].url"));
+    assert!(conversion.warnings().iter().any(|warning| warning.field == "resources[2].url"));
+    assert!(conversion.warnings().iter().any(|warning| warning.field == "extras.local-review-state"));
+    assert!(conversion.warnings().iter().any(|warning| warning.field == "plugin_flag"));
 }
 #[test]
 fn acre_standard_serializes_to_machine_identifier() {

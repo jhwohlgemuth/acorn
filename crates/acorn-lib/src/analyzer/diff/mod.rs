@@ -183,7 +183,7 @@ impl Standard {
             | Standard::Kitfile | Standard::ModelKit => Kitfile::from_resolved_json(input.content.as_bytes())
                 .map_err(|error| input.parse_error(error.to_string()))
                 .and_then(to_value),
-            | Standard::ApplicationConfigurationResearchEnablement | Standard::Document | Standard::DublinCore | Standard::Text => {
+            | Standard::ApplicationConfigurationResearchEnablement | Standard::Ckan | Standard::Document | Standard::DublinCore | Standard::Text => {
                 Err(SemanticDiffError::UnsupportedStandard(self))
             }
         }

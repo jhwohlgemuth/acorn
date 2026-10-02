@@ -1,0 +1,40 @@
+{
+    "@id": "https://catalog.example.org/dataset/resource-mapping",
+    "@type": "dcat:Dataset",
+    "title": [
+        "Resource mapping"
+    ],
+    "identifier": [
+        "67fe9f13-c1ef-49cf-91de-69af61714da8"
+    ],
+    "keywords": [
+        "Energy",
+        "Research"
+    ],
+    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "landingPage": [
+        "https://catalog.example.org/dataset/resource-mapping"
+    ],
+    "distribution": [
+        {
+            "@id": "https://catalog.example.org/dataset/resource-mapping/resource/measurements.csv",
+            "@type": "dcat:Distribution",
+            "title": "Measurements",
+            "description": "Comma-separated measurements",
+            "issued": "2026-01-01T12:00:00Z",
+            "modified": "2026-01-02T12:00:00Z",
+            "accessURL": "https://catalog.example.org/dataset/resource-mapping/resource/measurements.csv",
+            "downloadURL": "https://catalog.example.org/dataset/resource-mapping/resource/measurements.csv",
+            "byteSize": 2048,
+            "mediaType": "text/csv",
+            "format": "CSV"
+        },
+        {
+            "@id": "https://api.example.org/resource-mapping",
+            "@type": "dcat:Distribution",
+            "title": "Query API",
+            "accessURL": "https://api.example.org/resource-mapping",
+            "accessService": "https://api.example.org/resource-mapping"
+        }
+    ]
+}

@@ -19,7 +19,7 @@ use acorn_schema::{
     modelkit::kitfile,
     pid::raid::Metadata,
     research_activity::ResearchActivity,
-    standard::{cff, datacite, dcat, huwise, invenio, text},
+    standard::{cff, ckan, datacite, dcat, huwise, invenio, text},
 };
 use ariadne::{Color, Config, IndexType, Report, ReportKind, Source};
 use bon::Builder;
@@ -626,6 +626,7 @@ impl Standard {
             | Standard::ResearchActivityData => ResearchActivity::to_schema(format),
             | Standard::Raid => Metadata::to_schema(format),
             | Standard::CitationFileFormat => print_schema::<cff::Cff>(format),
+            | Standard::Ckan => print_schema::<ckan::Package>(format),
             | Standard::Datacite => print_schema::<datacite::Record>(format),
             | Standard::Dcat => print_schema::<dcat::Dataset>(format),
             | Standard::Huwise => print_schema::<huwise::Dataset>(format),

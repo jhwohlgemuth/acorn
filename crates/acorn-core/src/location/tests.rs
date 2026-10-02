@@ -15,6 +15,16 @@ fn test_location_classifies_and_normalizes_portable_paths_and_oci_references() {
     assert!(!Location::from("https://example.org/model").is_local());
 }
 #[test]
+fn test_location_classifies_non_loopback_http_locations() {
+    assert!(Location::from("https://example.org/data").is_non_loopback_http_or_https());
+    assert!(!Location::from("http://localhost/data").is_non_loopback_http_or_https());
+    assert!(!Location::from("https://127.0.0.1/data").is_non_loopback_http_or_https());
+    assert!(!Location::from("https://127.0.0.2/data").is_non_loopback_http_or_https());
+    assert!(!Location::from("https://[::1]/data").is_non_loopback_http_or_https());
+    assert!(!Location::from("https://").is_non_loopback_http_or_https());
+    assert!(!Location::from("file:///tmp/data").is_non_loopback_http_or_https());
+}
+#[test]
 fn test_location_preserves_registry_ports_and_ipv6() {
     assert_eq!(
         Location::from("https://registry.example.org:5000").registry().as_deref(),

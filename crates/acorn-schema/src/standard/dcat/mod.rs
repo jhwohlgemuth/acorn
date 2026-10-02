@@ -15,6 +15,7 @@ use crate::validation::Validate;
 use crate::{Date as PeriodOfTime, OneOrMany};
 use acorn_core::prelude::alloc::{vec, Box, String, ToString, Vec};
 use acorn_core::util::{Checksum, ToProse};
+use bon::Builder;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -359,7 +360,8 @@ pub struct DataService {
 /// Sub-class of `dcat:Resource`. The conceptual dataset, not any particular
 /// serialization. See <https://www.w3.org/TR/vocab-dcat-3/#Class:Dataset>
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[builder(start_fn = init, on(String, into))]
 pub struct Dataset {
     /// JSON-LD node identifier.
     #[serde(rename = "@id")]
@@ -485,7 +487,8 @@ pub struct Dataset {
 ///
 /// See <https://www.w3.org/TR/vocab-dcat-3/#Class:Distribution>
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[builder(start_fn = init, on(String, into))]
 pub struct Distribution {
     /// JSON-LD node identifier.
     #[serde(rename = "@id")]
@@ -642,24 +645,6 @@ pub struct UsOrganization {
     #[serde(rename = "subOrganizationOf")]
     #[validate(nested)]
     pub sub_organization_of: Option<Box<UsOrganization>>,
-}
-impl DocumentRef {
-    /// Returns the URI represented by this document reference, when present.
-    pub fn url(&self) -> Option<&str> {
-        match self {
-            | Self::Uri(value) => Some(value),
-            | Self::Document(document) => document.access_url.as_deref().or(document.id.as_deref()),
-        }
-    }
-}
-impl Publisher {
-    /// Returns the publisher name.
-    pub fn name(&self) -> Option<&str> {
-        match self {
-            | Self::Organization(organization) => Some(organization.name.as_str()),
-            | Self::Agent(agent) => agent.name.as_deref(),
-        }
-    }
 }
 impl SchemaBuilder for Dataset {
     fn build_from_fields(fields: &Fields) -> Result<Self, CrosswalkError> {
@@ -845,5 +830,23 @@ impl TryFrom<datacite::Record> for Dataset {
     fn try_from(record: datacite::Record) -> Result<Self, Self::Error> {
         let mapping = datacite_to_dcat();
         crosswalk::convert(&record, &mapping).map(|(dataset, _)| dataset)
+    }
+}
+impl DocumentRef {
+    /// Returns the URI represented by this document reference, when present.
+    pub fn url(&self) -> Option<&str> {
+        match self {
+            | Self::Uri(value) => Some(value),
+            | Self::Document(document) => document.access_url.as_deref().or(document.id.as_deref()),
+        }
+    }
+}
+impl Publisher {
+    /// Returns the publisher name.
+    pub fn name(&self) -> Option<&str> {
+        match self {
+            | Self::Organization(organization) => Some(organization.name.as_str()),
+            | Self::Agent(agent) => agent.name.as_deref(),
+        }
     }
 }

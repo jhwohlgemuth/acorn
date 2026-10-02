@@ -1,3 +1,5 @@
+#[cfg(feature = "std")]
+mod ckan;
 mod datacite;
 #[cfg(feature = "std")]
 mod huwise;

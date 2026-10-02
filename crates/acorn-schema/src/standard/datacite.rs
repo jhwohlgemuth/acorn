@@ -19,7 +19,7 @@ use crate::OneOrMany;
 use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
 use acorn_core::util::ToProse;
 use bon::Builder;
-use core::fmt;
+use core::{fmt, str::FromStr};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -243,7 +243,7 @@ pub enum RelatedIdentifierType {
 /// Description of the relationship of the resource being registered (A) and the related resource (B)
 ///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/appendices/appendix-1/relationType/> for details
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, strum::Display, strum::EnumString)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, strum::Display)]
 pub enum RelationType {
     /// Indicates that A includes B in a citation
     Cites,
@@ -323,6 +323,60 @@ pub enum RelationType {
     Reviews,
     /// Other
     Other,
+}
+impl From<&str> for RelationType {
+    fn from(value: &str) -> Self {
+        match value.to_ascii_lowercase().replace(['_', '-', ' '], "").as_str() {
+            | "cites" => Self::Cites,
+            | "collects" => Self::Collects,
+            | "compiles" => Self::Compiles,
+            | "continues" => Self::Continues,
+            | "describes" => Self::Describes,
+            | "documents" => Self::Documents,
+            | "hasmetadata" => Self::HasMetadata,
+            | "haspart" | "parentof" => Self::HasPart,
+            | "hastranslation" => Self::HasTranslation,
+            | "hasversion" => Self::HasVersion,
+            | "iscitedby" => Self::IsCitedBy,
+            | "iscollectedby" => Self::IsCollectedBy,
+            | "iscompiledby" => Self::IsCompiledBy,
+            | "iscontinuedby" => Self::IsContinuedBy,
+            | "derivesfrom" | "isderivedfrom" => Self::IsDerivedFrom,
+            | "isdescribedby" => Self::IsDescribedBy,
+            | "isdocumentedby" => Self::IsDocumentedBy,
+            | "isidenticalto" => Self::IsIdenticalTo,
+            | "ismetadatafor" => Self::IsMetadataFor,
+            | "isnewversionof" => Self::IsNewVersionOf,
+            | "isobsoletedby" => Self::IsObsoletedBy,
+            | "isoriginalformof" => Self::IsOriginalFormOf,
+            | "childof" | "ispartof" => Self::IsPartOf,
+            | "ispreviousversionof" => Self::IsPreviousVersionOf,
+            | "ispublishedin" => Self::IsPublishedIn,
+            | "isreferencedby" => Self::IsReferencedBy,
+            | "dependencyof" | "isrequiredby" => Self::IsRequiredBy,
+            | "isreviewedby" => Self::IsReviewedBy,
+            | "hasderivation" | "issourceof" => Self::IsSourceOf,
+            | "issupplementto" => Self::IsSupplementTo,
+            | "issupplementedby" => Self::IsSupplementedBy,
+            | "istranslationof" => Self::IsTranslationOf,
+            | "isvariantformof" => Self::IsVariantFormOf,
+            | "isversionof" => Self::IsVersionOf,
+            | "obsoletes" => Self::Obsoletes,
+            | "linksfrom" | "linksto" | "references" => Self::References,
+            | "dependson" | "requires" => Self::Requires,
+            | "reviews" => Self::Reviews,
+            | _ => Self::Other,
+        }
+    }
+}
+impl FromStr for RelationType {
+    type Err = strum::ParseError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match Self::from(value) {
+            | Self::Other if !value.eq_ignore_ascii_case("other") => Err(strum::ParseError::VariantNotFound),
+            | relation => Ok(relation),
+        }
+    }
 }
 /// General resource type enumeration per DataCite 4.7 property 10.a
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, strum::Display, strum::EnumString)]

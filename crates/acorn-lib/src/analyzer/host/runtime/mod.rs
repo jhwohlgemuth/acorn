@@ -50,7 +50,7 @@ use acorn_schema::{
     research_activity::ResearchActivity,
     standard::{
         cff::{self, Cff, IdentifierType, Reference},
-        datacite, dcat, huwise, invenio,
+        ckan, datacite, dcat, huwise, invenio,
         text::{Document, Text},
     },
     util::assets::Constant as SchemaConstant,
@@ -147,6 +147,7 @@ pub trait StaticAnalyzerConfig {
 }
 impl_schema_check!(
     Cff,
+    ckan::Package,
     Document,
     Text,
     datacite::Record,
@@ -438,6 +439,16 @@ impl CheckBatch {
                 | (false, false) => None,
             });
         join_all(futures).await.into_iter().collect()
+    }
+}
+#[cfg(feature = "analysis")]
+#[async_trait]
+impl Analysis for ckan::Package {
+    fn standard() -> Standard {
+        Standard::Ckan
+    }
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
+        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
     }
 }
 #[cfg(feature = "analysis")]

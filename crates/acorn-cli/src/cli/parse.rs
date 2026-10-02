@@ -10,7 +10,7 @@ use acorn::io::{jsonc_parse_value, FromPath};
 use acorn::io::{Executor, Platform, Remote};
 use acorn_core::util::MimeType;
 use acorn_schema::{enrichment::Provider, standard::zon, OneOrMany};
-use color_eyre::eyre::eyre;
+use color_eyre::eyre::{self, eyre};
 use jiff::SignedDuration;
 use serde_json;
 use serde_json::Value;
@@ -33,7 +33,9 @@ fn infer_json_lines_standard(path: &Path, content: &str) -> ApiResult<Standard> 
                 .into_iter()
                 .enumerate()
                 .map(|(index, value)| match value {
-                    | Value::Object(map) => Ok((index, Standard::from(&map))),
+                    | Value::Object(map) => Standard::detect_object(&map)
+                        .map(|standard| (index, standard))
+                        .ok_or_else(|| unknown_standard(path, Some(index), Some(index.saturating_add(1)))),
                     | _ => Err(eyre!(
                         "Unable to infer source schema for {} — record at index {index} (line {}) must be an object",
                         path.display(),
@@ -80,20 +82,50 @@ pub(crate) fn infer_standard_from_content(path: &Path, content: &str, mime: &Mim
 }
 fn infer_standard_from_value(path: &Path, root: Value) -> ApiResult<Standard> {
     match root {
-        | Value::Object(map) => Ok(Standard::from(&map)),
-        | Value::Array(values) => match values.into_iter().next() {
-            | Some(Value::Object(map)) => Ok(Standard::from(&map)),
-            | Some(_) => Err(eyre!(
-                "Unable to infer source schema for {} — array items must be objects",
-                path.display()
-            )),
-            | None => Err(eyre!("Unable to infer source schema for {} — empty array", path.display())),
-        },
+        | Value::Object(map) => Standard::detect_object(&map).ok_or_else(|| unknown_standard(path, None, None)),
+        | Value::Array(values) => values
+            .into_iter()
+            .enumerate()
+            .map(|(index, value)| match value {
+                | Value::Object(map) => Standard::detect_object(&map)
+                    .map(|standard| (index, standard))
+                    .ok_or_else(|| unknown_standard(path, Some(index), None)),
+                | _ => Err(eyre!(
+                    "Unable to infer source schema for {} — array item at index {index} must be an object",
+                    path.display()
+                )),
+            })
+            .collect::<ApiResult<Vec<_>>>()
+            .and_then(|standards| match standards.split_first() {
+                | Some(((_, expected), remaining)) => {
+                    remaining
+                        .iter()
+                        .find(|(_, actual)| actual != expected)
+                        .map_or(Ok(*expected), |(index, actual)| {
+                            Err(eyre!(
+                            "Unable to infer source schema for {} — mixed standards at record index {index}: expected {expected}, inferred {actual}",
+                            path.display()
+                        ))
+                        })
+                }
+                | None => Err(eyre!("Unable to infer source schema for {} — empty array", path.display())),
+            }),
         | _ => Err(eyre!(
             "Unable to infer source schema for {} — expected object or array of objects",
             path.display()
         )),
     }
+}
+fn unknown_standard(path: &Path, index: Option<usize>, line: Option<usize>) -> eyre::Report {
+    let location = match (index, line) {
+        | (Some(index), Some(line)) => format!("record at index {index} (line {line})"),
+        | (Some(index), None) => format!("record at index {index}"),
+        | _ => "object".to_string(),
+    };
+    eyre!(
+        "Unable to infer source schema for {} — unrecognized metadata {location}; pass --from explicitly",
+        path.display()
+    )
 }
 /// Parse a CLI check-category name into an `analyzer::CheckCategory` variant.
 pub(crate) fn parse_check_category(s: &str) -> Result<analyzer::CheckCategory, String> {
@@ -207,6 +239,7 @@ pub(crate) fn parse_standard(s: &str) -> Result<Standard, String> {
         | "acre" | "application-configuration-research-enablement" => Ok(Standard::ApplicationConfigurationResearchEnablement),
         | "rads" | "research-activity-data" => Ok(Standard::ResearchActivityData),
         | "cff" => Ok(Standard::CitationFileFormat),
+        | "ckan" => Ok(Standard::Ckan),
         | "datacite" => Ok(Standard::Datacite),
         | "dcat" => Ok(Standard::Dcat),
         | "dcmi" => Ok(Standard::DublinCore),
@@ -219,7 +252,7 @@ pub(crate) fn parse_standard(s: &str) -> Result<Standard, String> {
         | "text" => Ok(Standard::Text),
         | _ => Err(format!(
             "unknown standard '{s}' — expected one of: \
-             acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text"
+             acre, rads, cff, ckan, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text"
         )),
     }
 }

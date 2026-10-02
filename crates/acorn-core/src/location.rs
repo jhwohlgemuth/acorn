@@ -131,6 +131,13 @@ pub struct Release {
     /// Provider response message.
     pub message: Option<String>,
 }
+impl<'a> From<&'a Location> for &'a str {
+    fn from(value: &'a Location) -> Self {
+        match value {
+            | Location::Simple(value) | Location::Detailed { uri: value, .. } => value,
+        }
+    }
+}
 impl From<&str> for Location {
     fn from(value: &str) -> Self {
         match UriRef::parse(value).ok().and_then(|uri| uri.scheme()) {
@@ -166,6 +173,14 @@ impl Location {
     /// Return whether this location uses HTTP or HTTPS.
     pub fn is_http_or_https(&self) -> bool {
         matches!(self.scheme(), Scheme::HTTP | Scheme::HTTPS)
+    }
+    /// Return whether this is an HTTP(S) location with a non-loopback host.
+    pub fn is_non_loopback_http_or_https(&self) -> bool {
+        self.is_http_or_https()
+            && self.host().is_some_and(|host| {
+                let host = host.trim_matches(['[', ']']);
+                !host.eq_ignore_ascii_case("localhost") && !host.parse::<core::net::IpAddr>().is_ok_and(|address| address.is_loopback())
+            })
     }
     /// Return whether this location represents a local path.
     pub fn is_local(&self) -> bool {
@@ -469,13 +484,6 @@ impl From<&str> for Scheme {
             | "file" => Self::File,
             | "ssh" => Self::SSH,
             | _ => Self::Unsupported,
-        }
-    }
-}
-impl<'a> From<&'a Location> for &'a str {
-    fn from(value: &'a Location) -> Self {
-        match value {
-            | Location::Simple(value) | Location::Detailed { uri: value, .. } => value,
         }
     }
 }

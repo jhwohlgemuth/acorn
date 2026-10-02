@@ -1,4 +1,5 @@
 {
+    "@type": "dcat:Dataset",
     "title": [
         "Petroleum Product Pipelines EIA"
     ],
@@ -8,8 +9,8 @@
     "identifier": [
         "7f7c244f-1109-4877-940a-f23899aefa05"
     ],
-    "issued": "2026-01-30T15:12:37.764400",
-    "modified": "2026-02-10T16:59:04.205917",
+    "issued": "2024",
+    "modified": "2025-12-18",
     "publisher": {
         "name": "U.S. Energy Information Administration"
     },
@@ -19,7 +20,11 @@
         }
     ],
     "contactPoint": [
-        "mailto:data@oedp.org"
+        {
+            "@type": "vcard:Kind",
+            "fn": "U.S. Energy Information Administration",
+            "hasEmail": "mailto:data@oedp.org"
+        }
     ],
     "keywords": [
         "Petroleum Product Pipeline"

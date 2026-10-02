@@ -953,6 +953,15 @@ fn test_json_lines_standard_inference_uses_all_records() {
     assert_eq!(standard, Standard::Datacite);
 }
 #[test]
+fn test_ckan_standard_inference_accepts_package_and_action_response() {
+    let package = r#"{"id":"123","name":"sample","title":"Sample","resources":[]}"#;
+    let action = format!(r#"{{"success":true,"result":{package}}}"#);
+    let inferred_package = infer_standard_from_content(Path::new("package.json"), package, &MimeType::Json).expect("package should infer");
+    let inferred_action = infer_standard_from_content(Path::new("response.json"), &action, &MimeType::Json).expect("action should infer");
+    assert_eq!(inferred_package, Standard::Ckan);
+    assert_eq!(inferred_action, Standard::Ckan);
+}
+#[test]
 fn test_model_commands_share_resolution_arguments() {
     let flags = [
         "acme/model",

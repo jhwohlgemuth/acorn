@@ -110,6 +110,10 @@ fn test_check_accepts_piped_text() {
     assert!(String::from_utf8_lossy(&output.stdout).contains("stdin.txt"));
 }
 #[tokio::test]
+async fn test_check_ckan_standard() -> Result<()> {
+    run_standard_check("schema/ckan/0sbdv-gh024.json", Standard::Ckan).await
+}
+#[tokio::test]
 async fn test_check_datacite_standard() -> Result<()> {
     run_standard_check("schema/datacite.json", Standard::Datacite).await
 }

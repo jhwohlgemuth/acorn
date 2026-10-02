@@ -9,6 +9,7 @@ use serde_trim::{option_string_trim, string_trim};
 use serde_with::skip_serializing_none;
 
 pub mod cff;
+pub mod ckan;
 pub mod crosswalk;
 pub mod datacite;
 #[cfg(feature = "std")]

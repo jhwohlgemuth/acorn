@@ -27,7 +27,7 @@ use acorn_schema::standard::crosswalk::mapping::{
 #[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_schema::standard::crosswalk::{Conversion, ConversionWarning, Crosswalk, CrosswalkError, FieldMapping, Fields, SchemaExtractor};
 #[cfg(any(feature = "analysis", feature = "std"))]
-use acorn_schema::standard::{datacite, dcat, huwise, invenio};
+use acorn_schema::standard::{ckan, datacite, dcat, huwise, invenio};
 #[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_schema::validation::ValidationReport;
 #[cfg(any(feature = "analysis", feature = "std"))]
@@ -50,6 +50,30 @@ pub type ConversionWarnings = Vec<ConversionWarning>;
 pub trait IntoChecks {
     /// Convert to an ordered batch of checks.
     fn to_checks(&self, uri: Option<String>) -> CheckBatch;
+}
+/// Detect supported metadata standards from JSON objects.
+#[cfg(any(feature = "analysis", feature = "std"))]
+pub trait StandardDetection {
+    /// Whether this object is Citation File Format metadata.
+    fn is_citation_file_format(&self) -> bool;
+    /// Whether this object is a CKAN package or Action API package response.
+    fn is_ckan(&self) -> bool;
+    /// Whether this object is DataCite metadata.
+    fn is_datacite(&self) -> bool;
+    /// Whether this object is DCAT metadata.
+    fn is_dcat(&self) -> bool;
+    /// Whether this object is Huwise metadata.
+    fn is_huwise(&self) -> bool;
+    /// Whether this object is InvenioRDM metadata.
+    fn is_invenio(&self) -> bool;
+    /// Whether this object is a KitOps authoring Kitfile.
+    fn is_kitfile(&self) -> bool;
+    /// Whether this object is a resolved KitOps ModelKit configuration.
+    fn is_modelkit(&self) -> bool;
+    /// Whether this object is RAiD metadata.
+    fn is_raid(&self) -> bool;
+    /// Whether this object is Research Activity Data metadata.
+    fn is_research_activity_data(&self) -> bool;
 }
 #[cfg(any(feature = "analysis", feature = "std"))]
 pub(crate) trait ValidationReportExt {
@@ -145,6 +169,9 @@ pub enum Standard {
     /// DataCite
     #[display("datacite")]
     Datacite,
+    /// Comprehensive Knowledge Archive Network (CKAN)
+    #[display("ckan")]
+    Ckan,
     /// Data Catalog (DCAT)
     #[display("dcat")]
     Dcat,
@@ -730,6 +757,47 @@ impl IntoIterator for Findings {
     }
 }
 #[cfg(any(feature = "analysis", feature = "std"))]
+impl StandardDetection for Map<String, Value> {
+    fn is_citation_file_format(&self) -> bool {
+        self.contains_key("cff-version")
+    }
+    fn is_ckan(&self) -> bool {
+        let package = self.contains_key("id")
+            && self.contains_key("name")
+            && self.contains_key("title")
+            && ["metadata_created", "metadata_modified", "resources", "tags"]
+                .into_iter()
+                .any(|field| self.contains_key(field));
+        package
+            || self.get("success").and_then(Value::as_bool).is_some()
+                && self.get("result").and_then(Value::as_object).is_some_and(StandardDetection::is_ckan)
+    }
+    fn is_datacite(&self) -> bool {
+        self.contains_key("attributes") && self.contains_key("id")
+    }
+    fn is_dcat(&self) -> bool {
+        self.get("@type").and_then(Value::as_str).is_some_and(|value| value.contains("dcat:"))
+    }
+    fn is_huwise(&self) -> bool {
+        self.contains_key("dataset_id") && self.contains_key("metas")
+    }
+    fn is_invenio(&self) -> bool {
+        self.contains_key("metadata") || self.contains_key("pids") || self.contains_key("resource_type")
+    }
+    fn is_kitfile(&self) -> bool {
+        self.contains_key("manifestVersion") && !self.is_modelkit()
+    }
+    fn is_modelkit(&self) -> bool {
+        self.contains_key("manifestVersion") && self.values().any(contains_layer_identity)
+    }
+    fn is_raid(&self) -> bool {
+        self.contains_key("access") && self.contains_key("contributor") && self.contains_key("date") && self.contains_key("title")
+    }
+    fn is_research_activity_data(&self) -> bool {
+        self.contains_key("contact") && self.contains_key("meta") && self.contains_key("title")
+    }
+}
+#[cfg(any(feature = "analysis", feature = "std"))]
 impl From<&Map<String, Value>> for Standard {
     fn from(object: &Map<String, Value>) -> Self {
         Self::detect_object(object).unwrap_or(Self::Dcat)
@@ -739,25 +807,28 @@ impl From<&Map<String, Value>> for Standard {
 impl Standard {
     /// Strictly detect a supported metadata standard from an object.
     pub fn detect_object(object: &Map<String, Value>) -> Option<Self> {
-        if object.contains_key("cff-version") {
+        if object.is_citation_file_format() {
             Some(Self::CitationFileFormat)
-        } else if object.get("@type").and_then(Value::as_str).is_some_and(|value| value.contains("dcat:")) {
+        } else if object.contains_key("success") && object.is_ckan() {
+            Some(Self::Ckan)
+        } else if object.is_dcat() {
             Some(Self::Dcat)
-        } else if object.contains_key("dataset_id") && object.contains_key("metas") {
+        } else if object.is_huwise() {
             Some(Self::Huwise)
-        } else if object.contains_key("attributes") && object.contains_key("id") {
+        } else if object.is_datacite() {
             Some(Self::Datacite)
-        } else if object.contains_key("manifestVersion") {
-            Some(match object.values().any(contains_layer_identity) {
-                | true => Self::ModelKit,
-                | false => Self::Kitfile,
-            })
-        } else if object.contains_key("contact") && object.contains_key("meta") && object.contains_key("title") {
+        } else if object.is_modelkit() {
+            Some(Self::ModelKit)
+        } else if object.is_kitfile() {
+            Some(Self::Kitfile)
+        } else if object.is_research_activity_data() {
             Some(Self::ResearchActivityData)
-        } else if object.contains_key("access") && object.contains_key("contributor") && object.contains_key("date") && object.contains_key("title") {
+        } else if object.is_raid() {
             Some(Self::Raid)
-        } else if object.contains_key("metadata") || object.contains_key("pids") || object.contains_key("resource_type") {
+        } else if object.is_invenio() {
             Some(Self::Invenio)
+        } else if object.is_ckan() {
+            Some(Self::Ckan)
         } else {
             None
         }
@@ -781,6 +852,10 @@ impl Standard {
             | _ => format!("record at index {index}"),
         };
         match *self {
+            | Standard::Ckan => ckan::Package::parse(content, mime).and_then(|source| match target {
+                | Standard::Dcat => crosswalk_batch::<ckan::Package, dcat::Dataset>(source, &source_mime, target_mime).map(Conversion::into_value),
+                | _ => Err(self.unsupported_crosswalk(target)),
+            }),
             | Standard::Datacite => OneOrMany::<datacite::Record>::parse(content, mime).and_then(|source| match target {
                 | Standard::Datacite => source.serialize(target_mime),
                 | Standard::Dcat => source
@@ -870,6 +945,8 @@ impl Standard {
         target_mime: MimeType,
     ) -> Result<Conversion<String>, CrosswalkError> {
         match (*self, target) {
+            | (Standard::Ckan, Standard::Dcat) => ckan::Package::parse(content, mime.clone())
+                .and_then(|source| crosswalk_batch::<ckan::Package, dcat::Dataset>(source, &mime, target_mime)),
             | (Standard::Raid, Standard::ResearchActivityData) => OneOrMany::<raid::Metadata>::parse(content, mime.clone())
                 .and_then(|source| crosswalk_batch::<raid::Metadata, ResearchActivity>(source, &mime, target_mime)),
             | (Standard::ResearchActivityData, Standard::Datacite) => OneOrMany::<ResearchActivity>::parse(content, mime.clone())
@@ -908,7 +985,7 @@ impl Standard {
     }
     fn unsupported_crosswalk(&self, target: Standard) -> CrosswalkError {
         CrosswalkError::BuildFailed(format!(
-            "Unsupported metadata crosswalk pair: {self} -> {target} (supported: rads, raid, datacite, dcat, invenio, huwise)"
+            "Unsupported metadata crosswalk pair: {self} -> {target} (supported: ckan, rads, raid, datacite, dcat, invenio, huwise)"
         ))
     }
 }
