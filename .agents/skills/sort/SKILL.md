@@ -59,3 +59,15 @@ impl From<Input> for Document { ... }
 impl MarkdownSupport for Document { ... }
 ```
 
+## Test Modules
+
+- `tests` modules should be declared at end of a module
+  ```rust
+
+  #[cfg(test)]
+  mod tests; <-- last line of module
+  ```
+- Test function names should start with `test_` to clearly indicate their purpose.
+- Test functions should be sorted alphabetically by their names within the `tests` module.
+- Do NOT add any blank lines between test functions within the `tests` module.
+- `proptest` blocks should be first item directly before other test functions within the `tests` module.

@@ -1,5 +1,49 @@
 use super::*;
+use proptest::{
+    prelude::*,
+    test_runner::{Config as ProptestConfig, FileFailurePersistence},
+};
 
+fn portable_path() -> impl Strategy<Value = String> {
+    prop::collection::vec("[a-z][a-z0-9_-]{0,7}", 1..5).prop_map(|segments| segments.join("/"))
+}
+fn supported_uri() -> impl Strategy<Value = String> {
+    ("[a-z][a-z0-9]{0,7}", 1_u16..=u16::MAX, portable_path()).prop_flat_map(|(host, port, path)| {
+        prop_oneof![
+            Just(format!("http://{host}.example.org:{port}/{path}")),
+            Just(format!("https://{host}.example.org:{port}/{path}")),
+            Just(format!("ssh://git@{host}.example.org:{port}/{path}")),
+            Just(format!("file:/{path}")),
+        ]
+    })
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: 256,
+        failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/location/tests.txt"))),
+        ..ProptestConfig::default()
+    })]
+    #[test]
+    fn test_location_detailed_revision_round_trips_through_serde(uri in supported_uri(), revision in "[A-Za-z0-9._/-]{1,32}") {
+        let value = serde_json::json!({"scheme": "https", "uri": uri, "revision": revision});
+        let location = serde_json::from_value::<Location>(value).expect("generated detailed location should deserialize");
+        let encoded = serde_json::to_value(&location).expect("generated detailed location should serialize");
+        let decoded = serde_json::from_value::<Location>(encoded).expect("serialized detailed location should deserialize");
+        prop_assert_eq!(decoded, location);
+    }
+    #[test]
+    fn test_location_normalization_is_idempotent(path in portable_path()) {
+        let decorated = format!("./{path}/../tail");
+        let normalized = Location::from(decorated.as_str()).normalize();
+        prop_assert_eq!(Location::from(normalized.as_str()).normalize(), normalized);
+    }
+    #[test]
+    fn test_location_supported_values_round_trip_through_display(value in prop_oneof![portable_path(), supported_uri()]) {
+        let location = Location::from(value.as_str());
+        prop_assert_eq!(Location::from(location.to_string().as_str()), location);
+    }
+}
 #[test]
 fn test_default_repository_is_local_git() {
     assert!(Repository::default().is_local());

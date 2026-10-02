@@ -1,10 +1,34 @@
 use super::*;
 use crate::pid::{Identifier, PersistentIdentifierConvert, PID};
+use proptest::{
+    prelude::*,
+    test_runner::{Config as ProptestConfig, FileFailurePersistence},
+};
 
 const CONTRACT_CANONICAL: &str = "10013/epic.10033";
 const CONTRACT_INVALID: &str = "invalid Handle value";
 const CONTRACT_VALID: &str = "https://hdl.handle.net/10013/epic.10033";
 
+proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: 256,
+        failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/pid/handle.txt"))),
+        ..ProptestConfig::default()
+    })]
+    #[test]
+    fn test_handle_canonicalization_and_serde_are_idempotent(
+        prefix in prop::collection::vec(1_u16..=9999, 1..4),
+        suffix in prop_oneof!["[A-Za-z0-9._/-]{1,32}".prop_filter("suffix must not start empty", |value| !value.is_empty()), Just("Case/üникóδé".to_string())],
+    ) {
+        let identifier = format!("{}/{suffix}", prefix.iter().map(u16::to_string).collect::<Vec<_>>().join("."));
+        let handle = identifier.parse::<Handle>().expect("generated Handle should parse");
+        let canonical = handle.to_string();
+        prop_assert_eq!(canonical.parse::<Handle>(), Ok(handle.clone()));
+        let encoded = serde_json::to_string(&handle).expect("generated Handle should serialize");
+        prop_assert_eq!(serde_json::from_str::<Handle>(&encoded).expect("serialized Handle should deserialize"), handle);
+        prop_assert_eq!(Handle::format(format!("https://hdl.handle.net/{canonical}")), canonical);
+    }
+}
 #[test]
 fn test_handle_find_all_requires_explicit_form() {
     let found = Handle::find_all("See hdl: 10013/epic.10033. Ignore docs/index.md.");

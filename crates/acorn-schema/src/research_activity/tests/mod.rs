@@ -5,6 +5,8 @@
     clippy::panic,
     clippy::unwrap_used
 )]
+mod laws;
+
 use crate::agent::{CostDetails, LimitDetails, Model, ModelDetails, Weight, Weights};
 use crate::enrichment::Provider;
 use crate::hardware::{CpuArchitecture, GpuArchitecture, Resource, Vendor};
@@ -30,6 +32,7 @@ fn logbook_entry(identifier: &str, timestamp: &str) -> LogbookEntry {
         .summary("Doe, Jane")
         .build()
 }
+
 #[test]
 fn test_activity_contributor_nested_validation() {
     let contributor = ActivityContributor::init().name("Doe, Jane").build();

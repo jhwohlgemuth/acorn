@@ -1,7 +1,33 @@
 use crate::{research_activity::LogbookEntry, types::OneOrMany, validation::Validate};
 use acorn_core::util::MimeType;
+use proptest::{
+    prelude::*,
+    test_runner::{Config as ProptestConfig, FileFailurePersistence},
+};
 use serde_json::{json, Value};
 
+fn one_or_many_strings() -> impl Strategy<Value = OneOrMany<String>> {
+    prop_oneof![
+        "[A-Za-z0-9 _-]{0,32}".prop_map(OneOrMany::One),
+        prop::collection::vec("[A-Za-z0-9 _-]{0,32}", 0..6).prop_map(OneOrMany::Many),
+    ]
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: 256,
+        failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/types/one-or-many.txt"))),
+        ..ProptestConfig::default()
+    })]
+    #[test]
+    fn one_or_many_preserves_shape_through_structured_codecs(value in one_or_many_strings()) {
+        for mime in [MimeType::Json, MimeType::Yaml, MimeType::Zon] {
+            let content = value.serialize(mime.clone()).expect("generated one-or-many value should serialize");
+            let parsed = OneOrMany::<String>::parse(&content, mime).expect("serialized one-or-many value should parse");
+            prop_assert_eq!(parsed, value.clone());
+        }
+    }
+}
 #[test]
 fn json_lines_logbook_entries_use_the_generic_ordered_codec() {
     let content = include_str!("../../../../tests/fixtures/jsonl/logbook-entries.jsonl");

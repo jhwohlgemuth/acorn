@@ -186,7 +186,13 @@ fn memory_from_number(amount: f64) -> AcornResult<Memory> {
 }
 fn parse_memory_string(value: &str) -> AcornResult<Memory> {
     let s = value.trim();
-    match s.find(|c: char| !c.is_ascii_digit() && c != '.') {
+    let suffix = s
+        .char_indices()
+        .rev()
+        .take_while(|(_, character)| character.is_ascii_alphabetic())
+        .last()
+        .map(|(index, _)| index);
+    match suffix {
         | Some(split) => match (s.get(..split), s.get(split..)) {
             | (Some(value), Some(unit)) => match value.trim().parse::<f64>() {
                 | Ok(amount) => memory_from_number(amount).and_then(|_| {
@@ -202,16 +208,55 @@ fn parse_memory_string(value: &str) -> AcornResult<Memory> {
     }
 }
 
-#[cfg(any())]
+#[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::{
+        prelude::*,
+        test_runner::{Config as ProptestConfig, FileFailurePersistence},
+    };
 
-    #[test]
-    fn test_memory_from_str_and_serde_share_parsing() {
-        let parsed = "1.5GB".parse::<Memory>().unwrap();
-        let deserialized = serde_json::from_str::<Memory>(r#""1.5GiB""#).unwrap();
-        assert_eq!(parsed, deserialized);
-        assert_eq!(parsed.checked_bytes(), Some(1_610_612_736));
+    fn finite_amount() -> impl Strategy<Value = f64> {
+        prop_oneof![0.0_f64..1.0e12, Just(1.0e-300), Just(1.0e300), Just(f64::MAX)]
+    }
+    fn memory_unit() -> impl Strategy<Value = MemoryUnit> {
+        prop_oneof![Just(MemoryUnit::GB), Just(MemoryUnit::KB), Just(MemoryUnit::MB), Just(MemoryUnit::TB)]
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            cases: 256,
+            failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/hardware/memory.txt"))),
+            ..ProptestConfig::default()
+        })]
+        #[test]
+        fn test_memory_round_trips_constructible_values(amount in finite_amount(), unit in memory_unit()) {
+            let memory = Memory { amount, unit };
+            let encoded = serde_json::to_string(&memory).expect("generated memory should serialize");
+            let decoded = serde_json::from_str::<Memory>(&encoded).expect("serialized memory should deserialize");
+            prop_assert_eq!(decoded, memory.clone());
+            let text = encoded.trim_matches('"');
+            let parsed = text.parse::<Memory>().expect("serialized memory should parse directly");
+            prop_assert_eq!(parsed, memory);
+        }
+        #[test]
+        fn test_memory_scientific_notation_converges(mantissa in 0.0_f64..10.0, exponent in -300_i16..=300, unit in memory_unit()) {
+            let alias = match unit {
+                | MemoryUnit::GB => "GiB",
+                | MemoryUnit::KB => "kib",
+                | MemoryUnit::MB => "mIb",
+                | MemoryUnit::TB => "T",
+            };
+            let source = format!("{mantissa}e{exponent}{alias}");
+            let expected = format!("{mantissa}e{exponent}").parse::<f64>();
+            match expected {
+                | Ok(expected) if expected.is_finite() => {
+                    let parsed = source.parse::<Memory>().expect("finite generated memory should parse");
+                    prop_assert_eq!(parsed, Memory { amount: expected, unit });
+                }
+                | _ => prop_assert!(source.parse::<Memory>().is_err()),
+            }
+        }
     }
     #[test]
     fn test_memory_binary_aliases_are_equivalent() {
@@ -221,9 +266,18 @@ mod tests {
         assert_eq!(gb.can_contain(24 * 1024 * 1024 * 1024), Some(true));
     }
     #[test]
+    fn test_memory_from_str_and_serde_share_parsing() {
+        let parsed = "1.5GB".parse::<Memory>().unwrap();
+        let deserialized = serde_json::from_str::<Memory>(r#""1.5GiB""#).unwrap();
+        assert_eq!(parsed, deserialized);
+        assert_eq!(parsed.checked_bytes(), Some(1_610_612_736));
+    }
+    #[test]
     fn test_memory_rejects_invalid_values_and_checked_overflow() {
         assert!("24XB".parse::<Memory>().is_err());
         assert!("-1GB".parse::<Memory>().is_err());
+        assert!("infGB".parse::<Memory>().is_err());
+        assert!("NaNGB".parse::<Memory>().is_err());
         assert_eq!(Memory::tb(f64::MAX).checked_bytes(), None);
     }
 }

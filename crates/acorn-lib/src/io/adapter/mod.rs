@@ -3,8 +3,6 @@
 //! Hosts std-only path/file behavior for schema types so that [`acorn_schema`]
 //! modules stay portable. This module later moves into `acorn-host`.
 pub mod migrate;
-#[cfg(test)]
-mod tests;
 use self::migrate::Migration;
 use crate::{
     error::ApiResult,
@@ -1019,3 +1017,6 @@ fn write_document_text(value: &text::Document, path: impl Into<PathBuf>) -> ApiR
 fn write_text(value: &Text, path: impl Into<PathBuf>) -> ApiResult<()> {
     write_file(path, value.content().to_string())
 }
+
+#[cfg(test)]
+mod tests;

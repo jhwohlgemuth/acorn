@@ -8,11 +8,15 @@
 
 use super::canonical_json;
 use crate::standard::datacite::{
-    Affiliation, Attributes, Catalog, Date, DateType, DescriptionType, FunderIdentifier, FunderIdentifierType, FundingReference, GeoLocationPoint,
-    NameIdentifier, NameType, Publisher, RelatedIdentifier, RelatedIdentifierType, RelatedItem, RelatedItemIdentifier, RelationType, Resource,
-    ResourceTypeGeneral, TitleType,
+    Affiliation, Attributes, Catalog, Creator, Creators, Date, DateType, DescriptionType, Formats, FunderIdentifier, FunderIdentifierType,
+    FundingReference, GeoLocationPoint, Identifier, NameIdentifier, NameType, Publisher, RelatedIdentifier, RelatedIdentifierType, RelatedItem,
+    RelatedItemIdentifier, RelationType, Resource, ResourceTypeGeneral, ResourceTypes, Sizes, Title, TitleType, Titles,
 };
 use crate::validation::Validate;
+use proptest::{
+    prelude::*,
+    test_runner::{Config as ProptestConfig, FileFailurePersistence},
+};
 use serde_json::Value;
 const FIXTURE_PATH: &str = "../../tests/fixtures/schema/datacite.json";
 const XML_FIXTURE_PATH: &str = "../../tests/fixtures/schema/datacite.xml";
@@ -23,6 +27,67 @@ fn load_fixture_text() -> String {
 fn load_xml_fixture_text() -> String {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(XML_FIXTURE_PATH);
     std::fs::read_to_string(path).expect("failed to read datacite.xml fixture")
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: 64,
+        failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/standard/datacite-xml.txt"))),
+        ..ProptestConfig::default()
+    })]
+    #[test]
+    fn generated_datacite_xml_preserves_supported_semantic_fields(
+        suffix in "[a-z0-9]{1,16}",
+        creator_name in "[A-Za-z][A-Za-z0-9 ]{0,31}",
+        title in "[A-Za-z][A-Za-z0-9 ]{0,47}",
+        publisher in "[A-Za-z][A-Za-z0-9 ]{0,31}",
+        publication_year in 1000_u32..=9999,
+        formats in prop::collection::vec("[a-z]{1,8}/[a-z0-9.+-]{1,12}", 0..4),
+        sizes in prop::collection::vec("[1-9][0-9]{0,3} (bytes|pages)", 0..4),
+    ) {
+        let resource = Resource {
+            identifier: Identifier { identifier_type: "DOI".to_string(), value: format!("10.5072/{suffix}") },
+            creators: Creators { creator: vec![Creator {
+                name: creator_name,
+                name_type: Some(NameType::Personal),
+                given_name: None,
+                family_name: None,
+                name_identifiers: None,
+                affiliation: None,
+            }] },
+            titles: Titles { title: vec![Title { title, title_type: None }] },
+            publisher,
+            publication_year,
+            resource_type: ResourceTypes {
+                resource_type_general: Some(ResourceTypeGeneral::Dataset),
+                resource_type: Some("Dataset".to_string()),
+            },
+            subjects: None,
+            dates: None,
+            language: Some("en".to_string()),
+            related_identifiers: None,
+            related_items: None,
+            sizes: (!sizes.is_empty()).then_some(Sizes { size: sizes }),
+            formats: (!formats.is_empty()).then_some(Formats { format: formats }),
+            version: Some("1.0.0".to_string()),
+            rights_list: None,
+            descriptions: None,
+            geo_locations: None,
+            funding_references: None,
+        };
+        let xml = quick_xml::se::to_string(&resource).expect("generated DataCite resource should serialize as XML");
+        let decoded = quick_xml::de::from_str::<Resource>(&xml).expect("serialized DataCite XML should deserialize");
+        prop_assert_eq!(decoded.identifier.value, resource.identifier.value);
+        prop_assert_eq!(decoded.creators.creator[0].name.as_str(), resource.creators.creator[0].name.as_str());
+        prop_assert_eq!(decoded.titles.title[0].title.as_str(), resource.titles.title[0].title.as_str());
+        prop_assert_eq!(decoded.publisher, resource.publisher);
+        prop_assert_eq!(decoded.publication_year, resource.publication_year);
+        prop_assert_eq!(decoded.resource_type.resource_type_general, resource.resource_type.resource_type_general);
+        prop_assert_eq!(decoded.language, resource.language);
+        prop_assert_eq!(decoded.version, resource.version);
+        prop_assert_eq!(decoded.formats.map(|value| value.format), resource.formats.map(|value| value.format));
+        prop_assert_eq!(decoded.sizes.map(|value| value.size), resource.sizes.map(|value| value.size));
+    }
 }
 #[test]
 fn test_datacite_47_json_fixture_with_deltas() {

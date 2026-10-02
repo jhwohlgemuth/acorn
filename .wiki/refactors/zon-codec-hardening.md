@@ -21,7 +21,7 @@ Review the portable ZON encoder and decoder as one codec, then make the smallest
 
 # Dependencies
 
-The first-class ZON feature is implemented, so this plan has no implementation prerequisite. It is a leaf in the portable schema-codec lane and owns the exact `crates/acorn-schema/src/standard/zon/` write set while active. It may proceed independently of [semantic transformation laws](../testing/semantic-transformation-laws.md), but edits to shared codec-law tests or ZON fixtures must serialize with that plan's owning slice.
+The first-class ZON feature is implemented, so this plan has no implementation prerequisite. It is a leaf in the portable schema-codec lane and owns the exact `crates/acorn-schema/src/standard/zon/` write set while active. Edits to shared codec-law tests or ZON fixtures must serialize through the schema module-index lock.
 
 # Current evidence
 
@@ -71,5 +71,4 @@ The first-class ZON feature is implemented, so this plan has no implementation p
 
 # Related plans
 
-- [Semantic transformation laws](../testing/semantic-transformation-laws.md)
 - [Crate boundary architecture](crate-boundary-architecture.md)

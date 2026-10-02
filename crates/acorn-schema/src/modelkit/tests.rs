@@ -1,5 +1,9 @@
 use super::kitfile::*;
 use acorn_core::Location;
+use proptest::{
+    prelude::*,
+    test_runner::{Config as ProptestConfig, FileFailurePersistence},
+};
 use serde::Deserialize;
 use std::collections::BTreeSet;
 use std::fs::{read_dir, read_to_string};
@@ -19,7 +23,6 @@ struct ValidationFixture {
     kitfile: String,
     err_regexp: String,
 }
-
 fn fixture_paths(kind: &str) -> Vec<PathBuf> {
     read_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/modelkit").join(kind))
         .unwrap()
@@ -28,7 +31,6 @@ fn fixture_paths(kind: &str) -> Vec<PathBuf> {
         .into_iter()
         .collect()
 }
-
 fn upstream_validation_code(name: &str) -> Option<&'static str> {
     match name {
         | value if value.starts_with("duplicate-path") => Some("duplicate_path"),
@@ -49,6 +51,49 @@ fn upstream_validation_code(name: &str) -> Option<&'static str> {
     }
 }
 
+proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: 64,
+        failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/modelkit/codecs.txt"))),
+        ..ProptestConfig::default()
+    })]
+    #[test]
+    fn authoring_kitfile_yaml_preserves_authoring_projection(
+        name in "[a-z][a-z0-9-]{0,15}",
+        document in "[a-z][a-z0-9_-]{0,15}",
+        count in 0_u16..=u16::MAX,
+        enabled in any::<bool>(),
+    ) {
+        let source = format!(
+            "manifestVersion: v1.0.0\npackage:\n  name: {name}\ndocs:\n  - path: docs/{document}.md\nmodel:\n  path: weights/{name}.gguf\n  parameters:\n    count: {count}\n    enabled: {enabled}\n"
+        );
+        let parsed = Kitfile::from_yaml(&source).expect("generated authoring Kitfile should parse");
+        let encoded = parsed.to_yaml().expect("generated authoring Kitfile should encode");
+        let decoded = Kitfile::from_yaml(&encoded).expect("encoded authoring Kitfile should parse");
+        prop_assert_eq!(decoded, parsed);
+    }
+    #[test]
+    fn resolved_kitfile_json_preserves_complete_layer_identity(
+        name in "[a-z][a-z0-9-]{0,15}",
+        digest in "[0-9a-f]{64}",
+        diff_id in "[0-9a-f]{64}",
+    ) {
+        let source = serde_json::json!({
+            "manifestVersion": "v1.0.0",
+            "model": {
+                "name": name,
+                "path": "weights/model.gguf",
+                "digest": format!("sha256:{digest}"),
+                "diffId": format!("sha256:{diff_id}"),
+            }
+        });
+        let bytes = serde_json::to_vec(&source).expect("generated resolved Kitfile JSON should encode");
+        let parsed = Kitfile::from_resolved_json(&bytes).expect("generated resolved Kitfile should parse");
+        let encoded = parsed.to_resolved_json().expect("generated resolved Kitfile should encode");
+        let decoded = Kitfile::from_resolved_json(encoded.as_bytes()).expect("encoded resolved Kitfile should parse");
+        prop_assert_eq!(decoded, parsed);
+    }
+}
 #[test]
 fn test_authoring_yaml_rejects_derived_and_unknown_fields() {
     assert!(Kitfile::from_yaml(&format!("manifestVersion: v1.0.0\nmodel:\n  path: model.gguf\n  digest: {DIGEST}\n")).is_err());

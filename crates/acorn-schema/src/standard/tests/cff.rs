@@ -9,6 +9,10 @@ use crate::standard::cff::{Agent, Cff, CffType, IdentifierType, ReferenceType};
 use crate::validation::{PostalCode, YearValue};
 use crate::OneOrMany;
 use acorn_core::util::{MarkdownSupport, ToProse};
+use proptest::{
+    prelude::*,
+    test_runner::{Config as ProptestConfig, FileFailurePersistence},
+};
 
 const MINIMAL_YAML: &str = r#"
 authors:
@@ -78,6 +82,53 @@ const TYPICAL_JSON: &str = r#"
   "version": "0.11.2"
 }
 "#;
+
+proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: 64,
+        failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/standard/cff.txt"))),
+        ..ProptestConfig::default()
+    })]
+    #[test]
+    fn generated_cff_records_round_trip_through_json_and_yaml(
+        title in "[A-Za-z][A-Za-z0-9 ]{0,31}",
+        message in "[A-Za-z][A-Za-z0-9 ]{0,47}",
+        abstract_text in prop::option::of("[A-Za-z][A-Za-z0-9 ]{0,63}"),
+        keywords in prop::option::of(prop::collection::vec("[a-z][a-z0-9-]{0,15}", 0..5)),
+        major in 0_u16..100,
+        minor in 0_u16..100,
+        patch in 0_u16..100,
+    ) {
+        let value = Cff {
+            abstract_text,
+            keywords,
+            message,
+            repository_code: Some("https://example.org/repository".to_string()),
+            title,
+            version: Some(format!("{major}.{minor}.{patch}")),
+            ..Cff::default()
+        };
+        let json = serde_json::to_string(&value).expect("generated CFF should serialize as JSON");
+        let json_decoded = serde_json::from_str::<Cff>(&json).expect("serialized CFF JSON should deserialize");
+        prop_assert_eq!(&json_decoded, &value);
+        let yaml = serde_norway::to_string(&value).expect("generated CFF should serialize as YAML");
+        let yaml_decoded = serde_norway::from_str::<Cff>(&yaml).expect("serialized CFF YAML should deserialize");
+        prop_assert_eq!(yaml_decoded, value);
+    }
+}
+#[test]
+fn test_cff_enum_round_trip_values() {
+    let work_type = CffType::Dataset;
+    let work_type_json = serde_json::to_string(&work_type).expect("failed to serialize CffType");
+    assert_eq!(work_type_json, "\"dataset\"");
+    let round_trip_work_type: CffType = serde_json::from_str(&work_type_json).expect("failed to deserialize CffType");
+    assert_eq!(round_trip_work_type, CffType::Dataset);
+    let reference_type = ReferenceType::ConferencePaper;
+    let reference_type_json = serde_json::to_string(&reference_type).expect("failed to serialize ReferenceType");
+    assert_eq!(reference_type_json, "\"conference-paper\"");
+    let round_trip_reference_type: ReferenceType = serde_json::from_str(&reference_type_json).expect("failed to deserialize ReferenceType");
+    assert_eq!(round_trip_reference_type, ReferenceType::ConferencePaper);
+}
 #[test]
 fn test_cff_minimal_yaml_round_trip() {
     let parsed: Cff = serde_norway::from_str(MINIMAL_YAML).expect("failed to parse minimal CFF yaml");
@@ -89,6 +140,22 @@ fn test_cff_minimal_yaml_round_trip() {
     assert_eq!(parsed.kind, None);
     assert_eq!(parsed.authors.len(), 1);
     assert!(matches!(parsed.authors[0], Agent::Person(_)));
+}
+#[test]
+fn test_cff_to_prose_and_markdown_include_primary_fields() {
+    let cff = Cff {
+        title: "My Research Software".to_string(),
+        message: "Please cite this work".to_string(),
+        abstract_text: Some("A compact abstract".to_string()),
+        keywords: Some(vec!["research".to_string(), "software".to_string()]),
+        ..Cff::default()
+    };
+    let prose = cff.to_prose();
+    let markdown = cff.to_markdown();
+    assert!(prose.contains("My Research Software"));
+    assert!(prose.contains("Please cite this work"));
+    assert!(markdown.contains("title: My Research Software"));
+    assert!(markdown.contains("message: Please cite this work"));
 }
 #[test]
 fn test_cff_typical_json_round_trip() {
@@ -127,34 +194,4 @@ fn test_cff_typical_json_round_trip() {
     assert_eq!(reference.kind, ReferenceType::Software);
     assert_eq!(reference.year, Some(YearValue::Text("2020".to_string())));
     assert!(matches!(reference.authors[0], Agent::Entity(_)));
-}
-#[test]
-fn test_cff_enum_round_trip_values() {
-    let work_type = CffType::Dataset;
-    let work_type_json = serde_json::to_string(&work_type).expect("failed to serialize CffType");
-    assert_eq!(work_type_json, "\"dataset\"");
-    let round_trip_work_type: CffType = serde_json::from_str(&work_type_json).expect("failed to deserialize CffType");
-    assert_eq!(round_trip_work_type, CffType::Dataset);
-    let reference_type = ReferenceType::ConferencePaper;
-    let reference_type_json = serde_json::to_string(&reference_type).expect("failed to serialize ReferenceType");
-    assert_eq!(reference_type_json, "\"conference-paper\"");
-    let round_trip_reference_type: ReferenceType = serde_json::from_str(&reference_type_json).expect("failed to deserialize ReferenceType");
-    assert_eq!(round_trip_reference_type, ReferenceType::ConferencePaper);
-}
-
-#[test]
-fn test_cff_to_prose_and_markdown_include_primary_fields() {
-    let cff = Cff {
-        title: "My Research Software".to_string(),
-        message: "Please cite this work".to_string(),
-        abstract_text: Some("A compact abstract".to_string()),
-        keywords: Some(vec!["research".to_string(), "software".to_string()]),
-        ..Cff::default()
-    };
-    let prose = cff.to_prose();
-    let markdown = cff.to_markdown();
-    assert!(prose.contains("My Research Software"));
-    assert!(prose.contains("Please cite this work"));
-    assert!(markdown.contains("title: My Research Software"));
-    assert!(markdown.contains("message: Please cite this work"));
 }

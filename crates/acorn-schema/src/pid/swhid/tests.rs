@@ -1,5 +1,9 @@
 use super::*;
 use crate::pid::{PersistentIdentifierConvert, PID};
+use proptest::{
+    prelude::*,
+    test_runner::{Config as ProptestConfig, FileFailurePersistence},
+};
 
 const CONTENT: &str = "swh:1:cnt:4d99d2d18326621ccdd70f5ea66c2e2ac236ad8b";
 const CONTRACT_INVALID: &str = "swh:2:cnt:4d99d2d18326621ccdd70f5ea66c2e2ac236ad8b";
@@ -7,7 +11,55 @@ const DIRECTORY: &str = "swh:1:dir:d198bc9d7a6bcf6db04f476d29314f157507d505";
 const RELEASE: &str = "swh:1:rel:22ece559cc7cc2364edc5e5593d63ae8bd229f9f";
 const REVISION: &str = "swh:1:rev:2db189928c94d62a3b4757b3eec68f0a4d4113f0";
 const SNAPSHOT: &str = "swh:1:snp:d7f1b9eb7ccb596c2622c4780febaa02549830f9";
+fn generated_swhid() -> impl Strategy<Value = String> {
+    (
+        prop_oneof![Just("cnt"), Just("dir"), Just("rel"), Just("rev"), Just("snp")],
+        "[0-9a-f]{40}",
+    )
+        .prop_flat_map(|(kind, digest)| {
+            let core = format!("swh:1:{kind}:{digest}");
+            match kind {
+                | "cnt" => prop_oneof![
+                    Just(core.clone()),
+                    (1_u64..10_000, prop::option::of(1_u64..10_000)).prop_map({
+                        let core = core.clone();
+                        move |(start, length)| {
+                            let end = length.map(|length| start.saturating_add(length));
+                            format!("{core};lines={}", FragmentRange { start, end })
+                        }
+                    }),
+                    (0_u64..10_000, prop::option::of(1_u64..10_000)).prop_map({
+                        let core = core.clone();
+                        move |(start, length)| {
+                            let end = length.map(|length| start.saturating_add(length));
+                            format!("{core};bytes={}", FragmentRange { start, end })
+                        }
+                    }),
+                    Just(format!("{core};anchor={REVISION};path=/src/ü.rs")),
+                ]
+                .boxed(),
+                | _ => prop_oneof![Just(core.clone()), Just(format!("{core};origin=https://example.org/repository"))].boxed(),
+            }
+        })
+}
 
+proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: 256,
+        failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/pid/swhid.txt"))),
+        ..ProptestConfig::default()
+    })]
+    #[test]
+    fn test_swhid_canonicalization_and_serde_are_idempotent(source in generated_swhid()) {
+        let identifier = source.parse::<SWHID>().expect("generated SWHID should parse");
+        let canonical = identifier.to_string();
+        prop_assert_eq!(canonical.parse::<SWHID>(), Ok(identifier.clone()));
+        let encoded = serde_json::to_string(&identifier).expect("generated SWHID should serialize");
+        prop_assert_eq!(serde_json::from_str::<SWHID>(&encoded).expect("serialized SWHID should deserialize"), identifier);
+        let alias = format!("https://archive.softwareheritage.org/{canonical}");
+        prop_assert_eq!(alias.parse::<SWHID>().map(|value| value.to_string()), Ok(canonical));
+    }
+}
 #[test]
 fn test_canonical_qualifier_ordering_comprehensive() {
     let cases = [

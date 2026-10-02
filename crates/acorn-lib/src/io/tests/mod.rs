@@ -65,6 +65,10 @@ use core::cell::Cell;
 use fluent_uri::Uri as UriParse;
 use indicatif::{InMemoryTerm, MultiProgress, ProgressDrawTarget, ProgressStyle, TermLike};
 use jiff::{SignedDuration, Timestamp};
+use proptest::{
+    prelude::*,
+    test_runner::{Config as ProptestConfig, FileFailurePersistence},
+};
 use rsa::traits::PublicKeyParts;
 #[cfg(unix)]
 use std::fs::{metadata, read, set_permissions, Permissions};
@@ -86,6 +90,24 @@ mod swhid;
 
 const OCI_TEST_DIGEST: &str = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const TEST_BAGGING_DATE: &str = "2026-02-22";
+/// A valid BagIt declaration used as the baseline for generated verification fixtures.
+const TEST_DECLARATION: &str = "BagIt-Version: 1.0\nTag-File-Character-Encoding: UTF-8\n";
+/// Write a BagIt directory from generated declaration, manifest, and payload content.
+///
+/// Content is written as exact bytes and checksums are calculated from those same bytes,
+/// so fixtures verify identically on every host regardless of checkout line endings.
+fn bag_fixture(directory: &Path, declaration: Option<&str>, manifests: &[(&str, String)], payload: &[(&str, &str)]) -> PathBuf {
+    let data = directory.join("data");
+    create_dir_all(&data).unwrap();
+    declaration.inspect(|declaration| write(directory.join("bagit.txt"), declaration).unwrap());
+    manifests.iter().for_each(|(name, content)| write(directory.join(name), content).unwrap());
+    payload.iter().for_each(|(relative, content)| {
+        let target = data.join(relative);
+        create_dir_all(target.parent().unwrap()).unwrap();
+        write(target, content).unwrap();
+    });
+    directory.to_path_buf()
+}
 fn directory_entry_names(path: &Path) -> Vec<String> {
     let mut names = read_dir(path)
         .unwrap()
@@ -96,6 +118,16 @@ fn directory_entry_names(path: &Path) -> Vec<String> {
 }
 fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures")
+}
+/// Build a complete payload manifest for generated payload content and checksum algorithm.
+fn manifest_for(payload: &[(&str, &str)], algorithm: &'static ring::digest::Algorithm) -> String {
+    payload
+        .iter()
+        .map(|(relative, content)| {
+            let checksum = data_encoding::HEXLOWER.encode(ring::digest::digest(algorithm, content.as_bytes()).as_ref());
+            format!("{checksum} data/{relative}\n")
+        })
+        .collect()
 }
 #[cfg(unix)]
 fn minimal_gguf() -> Vec<u8> {
@@ -113,7 +145,227 @@ fn minimal_gguf() -> Vec<u8> {
     bytes.extend(vec![0; padding + 4]);
     bytes
 }
+fn oci_reference() -> impl Strategy<Value = String> {
+    (
+        "[a-z][a-z0-9]{0,7}",
+        1_u16..=u16::MAX,
+        prop::collection::vec("[a-z0-9][a-z0-9._-]{0,7}", 1..5),
+        "[A-Za-z0-9][A-Za-z0-9_.-]{0,31}",
+    )
+        .prop_flat_map(|(host, port, repository, tag)| {
+            let repository = repository.join("/");
+            prop_oneof![
+                Just(format!("oci://{host}.example.org:{port}/{repository}:{tag}")),
+                Just(format!("oci://{host}.example.org:{port}/{repository}@{OCI_TEST_DIGEST}")),
+                Just(format!("oci://[2001:db8::1]:{port}/{repository}:{tag}")),
+            ]
+        })
+}
+fn remote_endpoint() -> impl Strategy<Value = String> {
+    (
+        prop::option::of("[a-z][a-z0-9_-]{0,15}"),
+        "[a-z][a-z0-9-]{0,15}",
+        prop::option::of(1_u16..=u16::MAX),
+        prop::option::of(prop::collection::vec("[A-Za-z0-9._-]{1,12}", 1..5)),
+    )
+        .prop_map(|(user, host, port, socket)| {
+            let user = user.map_or_else(String::new, |user| format!("{user}@"));
+            let port = port.map_or_else(String::new, |port| format!(":{port}"));
+            let socket = socket.map_or_else(String::new, |segments| format!("/{}", segments.join("/")));
+            format!("ssh://{user}{host}.example.org{port}{socket}")
+        })
+}
+#[ignore]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn test_files_from_gitlab_merge_request() {
+    let extensions = Some(vec!["json", "yaml"]);
+    let expected = PathBuf::from("project/gravity/gravity.json");
+    let files = temp_env::with_vars(
+        [
+            ("CI_API_V4_URL", Some("https://code.ornl.gov/api/v4")),
+            ("CI_MERGE_REQUEST_PROJECT_ID", Some("17410")),
+            ("CI_MERGE_REQUEST_IID", Some("27")),
+        ],
+        || {
+            tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async { files_from_gitlab_merge_request(extensions.clone()).await })
+            })
+        },
+    );
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0], expected);
+}
+#[tokio::test]
+async fn test_location_exists() {
+    let server = crate::test::server::TestServer::start(axum::Router::new().route("/", axum::routing::get(|| async {})))
+        .await
+        .expect("test server should start");
+    let location = Location::Simple(server.base_url.clone());
+    assert!(location.exists().await);
+    let location = Location::Simple("https://does-not-exist.com".into());
+    assert!(!location.exists().await);
+    let location = Location::Simple("file:./Cargo.toml".into());
+    assert!(location.exists().await);
+    let location = Location::Simple("file:./does-not-exist".into());
+    assert!(!location.exists().await);
+    let location = Location::Detailed {
+        scheme: Scheme::HTTPS,
+        uri: "42".into(),
+        revision: None,
+    };
+    assert!(!location.exists().await);
+    let location = Location::Detailed {
+        scheme: Scheme::File,
+        uri: "should fail to parse?".into(),
+        revision: None,
+    };
+    assert!(!location.exists().await);
+    server.stop().await.expect("test server should stop");
+}
+/// The generated payload shared by the verification fixtures.
+fn test_payload() -> [(&'static str, &'static str); 2] {
+    [("project-a/index.json", "{\"name\":\"a\"}\n"), ("project-b/index.yaml", "name: b\n")]
+}
+#[tokio::test]
+async fn test_read_source_from_file_uri() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let path = temp_dir().join(format!("acorn-read-source-uri-{stamp}.yaml"));
+    let expected = "openapi: 3.1.0\ninfo:\n  title: URI\n".to_string();
+    write(path.clone(), expected.clone()).unwrap();
+    let source = if cfg!(windows) {
+        format!("file:///{}", path.to_string_lossy().replace('\\', "/"))
+    } else {
+        format!("file://{}", path.to_string_lossy())
+    };
+    let content = Source::read(&source, false).await.unwrap();
+    assert_eq!(content, expected);
+    remove_file(path).unwrap();
+}
+#[cfg(not(windows))]
+#[tokio::test]
+async fn test_read_source_from_file_uri_localhost() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let path = temp_dir().join(format!("acorn-read-source-localhost-{stamp}.yaml"));
+    let expected = "openapi: 3.1.0\ninfo:\n  title: Localhost\n".to_string();
+    write(path.clone(), expected.clone()).unwrap();
+    let source = format!("file://localhost{}", path.to_string_lossy());
+    let content = Source::read(&source, false).await.unwrap();
+    assert_eq!(content, expected);
+    remove_file(path).unwrap();
+}
+#[tokio::test]
+async fn test_read_source_from_local_path() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let path = temp_dir().join(format!("acorn-read-source-local-{stamp}.yaml"));
+    let expected = "openapi: 3.1.0\n".to_string();
+    write(path.clone(), expected.clone()).unwrap();
+    let content = Source::read(path.to_string_lossy().as_ref(), false).await.unwrap();
+    assert_eq!(content, expected);
+    remove_file(path).unwrap();
+}
+#[tokio::test]
+async fn test_read_source_rejects_remote_when_offline() {
+    let result = Source::read("https://example.com/openapi.yaml", true).await;
+    assert!(result.is_err());
+    let why = result.unwrap_err().to_string();
+    assert!(why.contains("disabled while offline"));
+}
+#[tokio::test]
+async fn test_read_source_rejects_unsupported_uri_scheme() {
+    let result = Source::read("s3://example/openapi.yaml", false).await;
+    assert!(result.is_err());
+    let why = result.unwrap_err().to_string();
+    assert!(why.contains("unsupported source location"));
+}
+#[ignore]
+#[tokio::test]
+async fn test_repository_github() {
+    let repository = Repository::GitHub {
+        location: Box::new(Location::Simple("https://github.com/jhwohlgemuth/voxelcss".to_string())),
+    };
+    let release = repository.latest_release().await;
+    assert!(release.is_some());
+}
+#[ignore]
+#[tokio::test]
+async fn test_repository_gitlab() {
+    let repository = Repository::GitLab {
+        id: Some(18243_u64),
+        location: Box::new(Location::Simple("https://code.ornl.gov/research-enablement/vale-package".to_string())),
+    };
+    let release = repository.latest_release().await;
+    assert!(release.is_some());
+}
+#[tokio::test]
+async fn test_source_document_enrichment_preserves_unsupported_content() {
+    let document = SourceDocument::init().content("plain text").format("text").source("<text:1>").build();
+    let (enriched, content, failures) = document.enrich(()).await;
+    assert_eq!(enriched.content, "plain text");
+    assert!(content.is_none());
+    assert!(failures.is_empty());
+}
+#[tokio::test]
+async fn test_source_documents_enrichment_can_be_disabled() {
+    let document = SourceDocument::init().content("plain text").format("text").source("<text:1>").build();
+    let (documents, content, failures) = SourceDocuments::from(vec![document]).enrich(false).await;
+    assert_eq!(documents.0.len(), 1);
+    assert!(content.is_empty());
+    assert!(failures.is_empty());
+}
+#[tokio::test]
+async fn test_write_file_bytes_creates_parent_and_writes_content() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let dir = temp_dir().join(format!("acorn-write-file-bytes-{stamp}"));
+    let path = dir.join("nested").join("output.bin");
+    let expected = b"acorn-bytes".to_vec();
+    let result = write_file_bytes(path.clone(), || async { Ok::<Vec<u8>, Report>(expected.clone()) }).await;
+    assert!(result.is_ok());
+    assert!(path.exists());
+    assert_eq!(std::fs::read(path.clone()).unwrap(), expected);
+    remove_dir_all(dir).unwrap();
+}
+#[tokio::test]
+async fn test_write_file_bytes_propagates_get_bytes_error() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let dir = temp_dir().join(format!("acorn-write-file-bytes-error-{stamp}"));
+    let path = dir.join("nested").join("output.bin");
+    let result = write_file_bytes(path.clone(), || async { Err::<Vec<u8>, Report>(Report::msg("byte source failure")) }).await;
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().to_string(), "byte source failure");
+    assert!(path.exists());
+    assert_eq!(std::fs::metadata(path.clone()).unwrap().len(), 0);
+    remove_dir_all(dir).unwrap();
+}
 
+proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: 256,
+        failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/io/references.txt"))),
+        ..ProptestConfig::default()
+    })]
+    #[test]
+    fn test_oci_reference_parse_display_is_idempotent(source in oci_reference()) {
+        let reference = OciReference::parse(&source).expect("generated OCI reference should parse");
+        let canonical = reference.to_string();
+        let reparsed = OciReference::parse(&canonical).expect("canonical OCI reference should parse");
+        prop_assert_eq!(reparsed, reference);
+    }
+    #[test]
+    fn test_remote_alias_canonicalization_is_idempotent(alias in "[a-z][a-z0-9-]{0,31}") {
+        let remote = alias.parse::<Remote>().expect("generated remote alias should parse");
+        let canonical = remote.to_string();
+        prop_assert_eq!(canonical.parse::<Remote>(), Ok(remote));
+        prop_assert_eq!(canonical, format!("ssh://{alias}"));
+    }
+    #[test]
+    fn test_remote_parse_display_and_serde_are_idempotent(source in remote_endpoint()) {
+        let remote = source.parse::<Remote>().expect("generated remote endpoint should parse");
+        let canonical = remote.to_string();
+        prop_assert_eq!(canonical.parse::<Remote>(), Ok(remote.clone()));
+        let encoded = serde_json::to_string(&remote).expect("generated remote endpoint should serialize");
+        prop_assert_eq!(serde_json::from_str::<Remote>(&encoded).expect("serialized remote endpoint should deserialize"), remote);
+    }
+}
 #[test]
 fn test_archive() {
     let path = fixtures_dir().join("data");
@@ -127,7 +379,6 @@ fn test_archive() {
     assert!(names.iter().any(|name| name == "highlight/reference.pptx"));
     assert!(names.iter().all(|name| SafePath::new(name).is_ok()));
 }
-
 #[test]
 fn test_archive_creation_leaves_no_staging_directories_behind() {
     let temporary = tempfile::tempdir().unwrap();
@@ -140,7 +391,6 @@ fn test_archive_creation_leaves_no_staging_directories_behind() {
     let siblings = directory_entry_names(temporary.path());
     assert_eq!(siblings, vec!["bundle.zip".to_string(), "source".to_string()]);
 }
-
 #[test]
 fn test_archive_explicit_format_overrides_content_inference() {
     let temporary = tempfile::tempdir().unwrap();
@@ -162,7 +412,6 @@ fn test_archive_explicit_format_overrides_content_inference() {
     extract(misnamed, Some(explicit.clone()), Some(MimeType::Gzip)).unwrap();
     assert_eq!(read_to_string(explicit.join("data.txt")).unwrap(), "archive content");
 }
-
 #[test]
 fn test_archive_extraction_confines_absolute_entry_paths() {
     let temporary = tempfile::tempdir().unwrap();
@@ -181,7 +430,6 @@ fn test_archive_extraction_confines_absolute_entry_paths() {
     }
     assert!(!temporary.path().join("absolute").exists(), "an absolute entry escaped the destination");
 }
-
 #[test]
 fn test_archive_extraction_preserves_existing_destination_on_failure() {
     let temporary = tempfile::tempdir().unwrap();
@@ -216,7 +464,6 @@ fn test_archive_extraction_preserves_existing_destination_on_failure() {
         ]
     );
 }
-
 #[test]
 fn test_archive_extraction_rejects_tar_links_and_absolute_paths() {
     let temporary = tempfile::tempdir().unwrap();
@@ -243,7 +490,6 @@ fn test_archive_extraction_rejects_tar_links_and_absolute_paths() {
     assert!(extract(tar_path, Some(destination.clone()), None).is_err());
     assert!(!destination.join("link.txt").exists());
 }
-
 #[test]
 fn test_archive_extraction_rejects_traversal_entries() {
     let temporary = tempfile::tempdir().unwrap();
@@ -258,7 +504,6 @@ fn test_archive_extraction_rejects_traversal_entries() {
     assert!(!temporary.path().join("outside.txt").exists());
     assert!(!destination.exists());
 }
-
 #[test]
 fn test_archive_extracts_zstandard_tar() {
     let temporary = tempfile::tempdir().unwrap();
@@ -274,7 +519,6 @@ fn test_archive_extracts_zstandard_tar() {
     extract(zstd_path, Some(destination.clone()), None).unwrap();
     assert_eq!(read_to_string(destination.join("nested/data.txt")).unwrap(), "archive content");
 }
-
 #[test]
 fn test_archive_inference_rejects_unrecognized_content() {
     let temporary = tempfile::tempdir().unwrap();
@@ -282,7 +526,6 @@ fn test_archive_inference_rejects_unrecognized_content() {
     write(&unlabeled, b"not an archive at all").unwrap();
     assert!(extract(unlabeled, Some(temporary.path().join("extract")), None).is_err());
 }
-
 #[test]
 fn test_archive_infers_format_from_bounded_header_without_extension() {
     let temporary = tempfile::tempdir().unwrap();
@@ -296,7 +539,6 @@ fn test_archive_infers_format_from_bounded_header_without_extension() {
     extract(unlabeled, Some(destination.clone()), None).unwrap();
     assert_eq!(read_to_string(destination.join("data.txt")).unwrap(), "archive content");
 }
-
 #[test]
 fn test_archive_infers_semantic_containers_by_content() {
     let temporary = tempfile::tempdir().unwrap();
@@ -319,7 +561,6 @@ fn test_archive_infers_semantic_containers_by_content() {
     extract(unlabeled, Some(explicit.clone()), Some(MimeType::Zip)).unwrap();
     assert_eq!(read_to_string(explicit.join("content.opf")).unwrap(), "<package/>");
 }
-
 #[test]
 fn test_archive_infers_uncompressed_tar_from_content() {
     let temporary = tempfile::tempdir().unwrap();
@@ -333,7 +574,6 @@ fn test_archive_infers_uncompressed_tar_from_content() {
     extract(unlabeled, Some(destination.clone()), None).unwrap();
     assert_eq!(read_to_string(destination.join("data.txt")).unwrap(), "archive content");
 }
-
 #[test]
 fn test_archive_malformed_input_is_rejected_for_every_extractor() {
     let temporary = tempfile::tempdir().unwrap();
@@ -345,7 +585,6 @@ fn test_archive_malformed_input_is_rejected_for_every_extractor() {
         assert!(!destination.exists(), "{} left a destination behind", format.file_type());
     }
 }
-
 #[test]
 fn test_archive_rejects_destination_inside_source() {
     let temporary = tempfile::tempdir().unwrap();
@@ -354,7 +593,6 @@ fn test_archive_rejects_destination_inside_source() {
     write(source.join("data.txt"), "archive content").unwrap();
     assert!(archive(source.clone(), Some(source.join("inside.zip")), MimeType::Zip).is_err());
 }
-
 #[test]
 fn test_archive_rejects_duplicate_entries_across_formats() {
     let temporary = tempfile::tempdir().unwrap();
@@ -375,7 +613,6 @@ fn test_archive_rejects_duplicate_entries_across_formats() {
     assert!(extract(archive_path, Some(destination.clone()), None).is_err());
     assert!(!destination.exists());
 }
-
 #[test]
 fn test_archive_round_trips_supported_formats() {
     let temporary = tempfile::tempdir().unwrap();
@@ -389,13 +626,11 @@ fn test_archive_round_trips_supported_formats() {
         assert_eq!(read_to_string(destination.join("nested/data.txt")).unwrap(), "archive content");
     }
 }
-
 #[test]
 fn test_archive_zip_entries_reject_unsafe_and_duplicate_paths() {
     assert!(zip_entries(&[("../outside", b"unsafe")]).is_err());
     assert!(zip_entries(&[("same", b"first"), ("same", b"second")]).is_err());
 }
-
 #[test]
 fn test_archive_zip_entries_write_named_content() {
     let bytes = zip_entries(&[("word/document.xml", b"document")]).expect("create ZIP archive");
@@ -408,39 +643,6 @@ fn test_archive_zip_entries_write_named_content() {
         .expect("read named entry");
     assert_eq!(content, "document");
 }
-/// A valid BagIt declaration used as the baseline for generated verification fixtures.
-const TEST_DECLARATION: &str = "BagIt-Version: 1.0\nTag-File-Character-Encoding: UTF-8\n";
-/// Write a BagIt directory from generated declaration, manifest, and payload content.
-///
-/// Content is written as exact bytes and checksums are calculated from those same bytes,
-/// so fixtures verify identically on every host regardless of checkout line endings.
-fn bag_fixture(directory: &Path, declaration: Option<&str>, manifests: &[(&str, String)], payload: &[(&str, &str)]) -> PathBuf {
-    let data = directory.join("data");
-    create_dir_all(&data).unwrap();
-    declaration.inspect(|declaration| write(directory.join("bagit.txt"), declaration).unwrap());
-    manifests.iter().for_each(|(name, content)| write(directory.join(name), content).unwrap());
-    payload.iter().for_each(|(relative, content)| {
-        let target = data.join(relative);
-        create_dir_all(target.parent().unwrap()).unwrap();
-        write(target, content).unwrap();
-    });
-    directory.to_path_buf()
-}
-/// Build a complete payload manifest for generated payload content and checksum algorithm.
-fn manifest_for(payload: &[(&str, &str)], algorithm: &'static ring::digest::Algorithm) -> String {
-    payload
-        .iter()
-        .map(|(relative, content)| {
-            let checksum = data_encoding::HEXLOWER.encode(ring::digest::digest(algorithm, content.as_bytes()).as_ref());
-            format!("{checksum} data/{relative}\n")
-        })
-        .collect()
-}
-/// The generated payload shared by the verification fixtures.
-fn test_payload() -> [(&'static str, &'static str); 2] {
-    [("project-a/index.json", "{\"name\":\"a\"}\n"), ("project-b/index.yaml", "name: b\n")]
-}
-
 #[test]
 fn test_bag_safe_path_renders_portable_and_finds_parent() {
     let path = SafePath::new("nested/data.txt").expect("relative path is safe");
@@ -451,7 +653,6 @@ fn test_bag_safe_path_renders_portable_and_finds_parent() {
     assert_eq!(SafePath::parent_or_current(Path::new("archive.zip")), PathBuf::from("."));
     assert_eq!(SafePath::parent_or_current(Path::new("content/archive.zip")), PathBuf::from("content"));
 }
-
 #[test]
 fn test_baginfo_save_repeatable_fields() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
@@ -484,7 +685,6 @@ fn test_baginfo_save_repeatable_fields() {
     );
     remove_dir_all(dir).unwrap();
 }
-
 #[test]
 fn test_baginfo_save_single_value_fields_only() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
@@ -499,7 +699,6 @@ fn test_baginfo_save_single_value_fields_only() {
     assert_eq!(lines, vec![expected_date.as_str(), "Bag-Size: 42 KB"]);
     let _ = remove_dir_all(dir);
 }
-
 #[test]
 fn test_bagit() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
@@ -526,7 +725,6 @@ fn test_bagit() {
     }
     let _ = remove_dir_all(temp_dir);
 }
-
 #[test]
 fn test_bagit_declaration_exposes_version_and_encoding() {
     let tag = Bag::declaration("# comment\n\nBagIt-Version: 1.0\nTag-File-Character-Encoding: UTF_8\nSource-Organization: ORNL\n")
@@ -543,7 +741,6 @@ fn test_bagit_declaration_exposes_version_and_encoding() {
         "ORNL"
     );
 }
-
 #[test]
 fn test_bagit_verify_accepts_sha256_and_sha512_manifests() {
     for (index, algorithm) in [&ring::digest::SHA256, &ring::digest::SHA512].into_iter().enumerate() {
@@ -562,7 +759,6 @@ fn test_bagit_verify_accepts_sha256_and_sha512_manifests() {
         Bag::verify(&bag).expect("Bag::verify delegates to payload verification");
     }
 }
-
 #[test]
 fn test_bagit_verify_accepts_supported_declaration_versions() {
     let payload = test_payload();
@@ -581,7 +777,6 @@ fn test_bagit_verify_accepts_supported_declaration_versions() {
         Bag::verify(&bag).unwrap_or_else(|why| panic!("declaration should be accepted: {declaration:?} — {why}"));
     }
 }
-
 #[test]
 fn test_bagit_verify_rejects_incomplete_and_mismatched_payload() {
     let payload = test_payload();
@@ -606,7 +801,6 @@ fn test_bagit_verify_rejects_incomplete_and_mismatched_payload() {
         "a payload that does not match its manifest entry is not a correct bag"
     );
 }
-
 #[test]
 fn test_bagit_verify_rejects_malformed_and_unsafe_manifest_records() {
     let payload = test_payload();
@@ -632,7 +826,6 @@ fn test_bagit_verify_rejects_malformed_and_unsafe_manifest_records() {
         assert!(Bag::verify(&bag).is_err(), "manifest record should be rejected: {record:?}");
     }
 }
-
 #[test]
 fn test_bagit_verify_rejects_missing_declaration_or_payload() {
     let payload = test_payload();
@@ -663,7 +856,6 @@ fn test_bagit_verify_rejects_missing_declaration_or_payload() {
         "a manifest entry without a payload file is incomplete"
     );
 }
-
 #[test]
 fn test_bagit_verify_rejects_unsupported_declarations() {
     let payload = test_payload();
@@ -688,7 +880,6 @@ fn test_bagit_verify_rejects_unsupported_declarations() {
         assert!(Bag::verify(&bag).is_err(), "declaration should be rejected: {declaration:?}");
     }
 }
-
 #[test]
 fn test_bagit_verify_rejects_unsupported_manifest() {
     let payload = test_payload();
@@ -934,26 +1125,6 @@ fn test_files_from_git_main() {
     let expected = "tests/fixtures/data/invalid_project_a/index.json";
     assert_eq!(files[0].to_str().unwrap(), expected);
 }
-#[ignore]
-#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn test_files_from_gitlab_merge_request() {
-    let extensions = Some(vec!["json", "yaml"]);
-    let expected = PathBuf::from("project/gravity/gravity.json");
-    let files = temp_env::with_vars(
-        [
-            ("CI_API_V4_URL", Some("https://code.ornl.gov/api/v4")),
-            ("CI_MERGE_REQUEST_PROJECT_ID", Some("17410")),
-            ("CI_MERGE_REQUEST_IID", Some("27")),
-        ],
-        || {
-            tokio::task::block_in_place(|| {
-                tokio::runtime::Handle::current().block_on(async { files_from_gitlab_merge_request(extensions.clone()).await })
-            })
-        },
-    );
-    assert_eq!(files.len(), 1);
-    assert_eq!(files[0], expected);
-}
 #[test]
 fn test_filter_git_command_result() {
     let response = "crates/acorn-schema/assets/constants/keywords.csv\ncrates/acorn-schema/assets/constants/technology.csv".to_string();
@@ -1081,33 +1252,6 @@ fn test_jsonc_rejects_single_quotes() {
 fn test_jsonc_rejects_unquoted_keys() {
     let content = r#"{ buckets: [] }"#;
     assert!(jsonc_parse_value(content).is_err());
-}
-#[tokio::test]
-async fn test_location_exists() {
-    let server = crate::test::server::TestServer::start(axum::Router::new().route("/", axum::routing::get(|| async {})))
-        .await
-        .expect("test server should start");
-    let location = Location::Simple(server.base_url.clone());
-    assert!(location.exists().await);
-    let location = Location::Simple("https://does-not-exist.com".into());
-    assert!(!location.exists().await);
-    let location = Location::Simple("file:./Cargo.toml".into());
-    assert!(location.exists().await);
-    let location = Location::Simple("file:./does-not-exist".into());
-    assert!(!location.exists().await);
-    let location = Location::Detailed {
-        scheme: Scheme::HTTPS,
-        uri: "42".into(),
-        revision: None,
-    };
-    assert!(!location.exists().await);
-    let location = Location::Detailed {
-        scheme: Scheme::File,
-        uri: "should fail to parse?".into(),
-        revision: None,
-    };
-    assert!(!location.exists().await);
-    server.stop().await.expect("test server should stop");
 }
 #[test]
 fn test_location_hash() {
@@ -1908,57 +2052,6 @@ fn test_read_large_file() {
     assert_eq!(content, expected);
     remove_file(path).unwrap();
 }
-#[tokio::test]
-async fn test_read_source_from_file_uri() {
-    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let path = temp_dir().join(format!("acorn-read-source-uri-{stamp}.yaml"));
-    let expected = "openapi: 3.1.0\ninfo:\n  title: URI\n".to_string();
-    write(path.clone(), expected.clone()).unwrap();
-    let source = if cfg!(windows) {
-        format!("file:///{}", path.to_string_lossy().replace('\\', "/"))
-    } else {
-        format!("file://{}", path.to_string_lossy())
-    };
-    let content = Source::read(&source, false).await.unwrap();
-    assert_eq!(content, expected);
-    remove_file(path).unwrap();
-}
-#[cfg(not(windows))]
-#[tokio::test]
-async fn test_read_source_from_file_uri_localhost() {
-    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let path = temp_dir().join(format!("acorn-read-source-localhost-{stamp}.yaml"));
-    let expected = "openapi: 3.1.0\ninfo:\n  title: Localhost\n".to_string();
-    write(path.clone(), expected.clone()).unwrap();
-    let source = format!("file://localhost{}", path.to_string_lossy());
-    let content = Source::read(&source, false).await.unwrap();
-    assert_eq!(content, expected);
-    remove_file(path).unwrap();
-}
-#[tokio::test]
-async fn test_read_source_from_local_path() {
-    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let path = temp_dir().join(format!("acorn-read-source-local-{stamp}.yaml"));
-    let expected = "openapi: 3.1.0\n".to_string();
-    write(path.clone(), expected.clone()).unwrap();
-    let content = Source::read(path.to_string_lossy().as_ref(), false).await.unwrap();
-    assert_eq!(content, expected);
-    remove_file(path).unwrap();
-}
-#[tokio::test]
-async fn test_read_source_rejects_remote_when_offline() {
-    let result = Source::read("https://example.com/openapi.yaml", true).await;
-    assert!(result.is_err());
-    let why = result.unwrap_err().to_string();
-    assert!(why.contains("disabled while offline"));
-}
-#[tokio::test]
-async fn test_read_source_rejects_unsupported_uri_scheme() {
-    let result = Source::read("s3://example/openapi.yaml", false).await;
-    assert!(result.is_err());
-    let why = result.unwrap_err().to_string();
-    assert!(why.contains("unsupported source location"));
-}
 #[test]
 fn test_remote_container_target_arguments() {
     let command = args!["run", "--detach", "acorn:latest"];
@@ -1999,25 +2092,6 @@ fn test_replace_file_accepts_generic_content_and_replaces_existing_file() {
     write(&path, "before").expect("write original file");
     replace_file(&path, b"after").expect("replace file");
     assert_eq!(read_to_string(path).expect("read replacement"), "after");
-}
-#[ignore]
-#[tokio::test]
-async fn test_repository_github() {
-    let repository = Repository::GitHub {
-        location: Box::new(Location::Simple("https://github.com/jhwohlgemuth/voxelcss".to_string())),
-    };
-    let release = repository.latest_release().await;
-    assert!(release.is_some());
-}
-#[ignore]
-#[tokio::test]
-async fn test_repository_gitlab() {
-    let repository = Repository::GitLab {
-        id: Some(18243_u64),
-        location: Box::new(Location::Simple("https://code.ornl.gov/research-enablement/vale-package".to_string())),
-    };
-    let release = repository.latest_release().await;
-    assert!(release.is_some());
 }
 #[test]
 fn test_retry_delay_honors_http_date_header() {
@@ -2172,25 +2246,6 @@ fn test_source_classification_is_independent_of_location_representation() {
     let raw = "https://example.org/model.gguf";
     assert_eq!(Source::from(raw), Source::from(Location::from(raw)));
 }
-
-#[tokio::test]
-async fn test_source_document_enrichment_preserves_unsupported_content() {
-    let document = SourceDocument::init().content("plain text").format("text").source("<text:1>").build();
-    let (enriched, content, failures) = document.enrich(()).await;
-    assert_eq!(enriched.content, "plain text");
-    assert!(content.is_none());
-    assert!(failures.is_empty());
-}
-
-#[tokio::test]
-async fn test_source_documents_enrichment_can_be_disabled() {
-    let document = SourceDocument::init().content("plain text").format("text").source("<text:1>").build();
-    let (documents, content, failures) = SourceDocuments::from(vec![document]).enrich(false).await;
-    assert_eq!(documents.0.len(), 1);
-    assert!(content.is_empty());
-    assert!(failures.is_empty());
-}
-
 #[test]
 fn test_source_from_repository_uses_hugging_face_identifier() {
     let repository = Repository::HuggingFace {
@@ -2203,7 +2258,6 @@ fn test_source_from_repository_uses_hugging_face_identifier() {
     assert_eq!(source.name(), "tiny-bert");
     assert_eq!(source.identifier(), "hf-internal-testing/tiny-random-bert");
 }
-
 #[test]
 fn test_source_from_str_detects_local_paths() {
     let source = Source::from("file:./models/qwen.gguf");
@@ -2221,7 +2275,6 @@ fn test_source_from_str_detects_local_paths() {
     assert!(Source::parse("s3://bucket/model.gguf").is_unsupported());
     assert!(Source::parse("ssh://builder/model.gguf").is_unsupported());
 }
-
 #[test]
 fn test_source_local_action_metadata() {
     let source = Source::from("./models/qwen.gguf").with_action(Some(SourceAction::Copy));
@@ -2231,7 +2284,6 @@ fn test_source_local_action_metadata() {
         | _ => panic!("model selector should be local"),
     }
 }
-
 #[test]
 fn test_source_selection_blank_implicit_stdin_falls_back_to_current_directory() {
     let source = select_source(
@@ -2248,7 +2300,6 @@ fn test_source_selection_blank_implicit_stdin_falls_back_to_current_directory() 
         | _ => panic!("expected current directory"),
     }
 }
-
 #[test]
 fn test_source_selection_clipboard_wins_without_reading_stdin() {
     let source = select_source(
@@ -2268,13 +2319,11 @@ fn test_source_selection_clipboard_wins_without_reading_stdin() {
         | _ => panic!("expected clipboard text"),
     }
 }
-
 #[test]
 fn test_source_selection_empty_or_unavailable_clipboard_is_an_error() {
     assert!(select_source(&None, true, false, false, || None, || Ok(" \n".to_string())).is_err());
     assert!(select_source(&None, true, false, false, || None, || Err(color_eyre::eyre::eyre!("unavailable"))).is_err());
 }
-
 #[test]
 fn test_source_selection_explicit_path_wins_without_reading_stdin_or_clipboard() {
     let path = Some(PathBuf::from("notes.txt"));
@@ -2292,7 +2341,6 @@ fn test_source_selection_explicit_path_wins_without_reading_stdin_or_clipboard()
         | _ => panic!("expected explicit location"),
     }
 }
-
 #[test]
 fn test_source_selection_stdin_preserves_content_and_rejects_watch_mode() {
     let content = "First line\nSecond line\n";
@@ -2421,30 +2469,6 @@ fn test_walk_returns_portable_relative_file_paths() {
         ["config.json".to_string(), "models/weights.gguf".to_string()].into_iter().collect()
     );
     remove_dir_all(root).unwrap();
-}
-#[tokio::test]
-async fn test_write_file_bytes_creates_parent_and_writes_content() {
-    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let dir = temp_dir().join(format!("acorn-write-file-bytes-{stamp}"));
-    let path = dir.join("nested").join("output.bin");
-    let expected = b"acorn-bytes".to_vec();
-    let result = write_file_bytes(path.clone(), || async { Ok::<Vec<u8>, Report>(expected.clone()) }).await;
-    assert!(result.is_ok());
-    assert!(path.exists());
-    assert_eq!(std::fs::read(path.clone()).unwrap(), expected);
-    remove_dir_all(dir).unwrap();
-}
-#[tokio::test]
-async fn test_write_file_bytes_propagates_get_bytes_error() {
-    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let dir = temp_dir().join(format!("acorn-write-file-bytes-error-{stamp}"));
-    let path = dir.join("nested").join("output.bin");
-    let result = write_file_bytes(path.clone(), || async { Err::<Vec<u8>, Report>(Report::msg("byte source failure")) }).await;
-    assert!(result.is_err());
-    assert_eq!(result.unwrap_err().to_string(), "byte source failure");
-    assert!(path.exists());
-    assert_eq!(std::fs::metadata(path.clone()).unwrap().len(), 0);
-    remove_dir_all(dir).unwrap();
 }
 #[test]
 fn test_write_rsa_keypair_returns_error_for_invalid_path() {

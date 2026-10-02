@@ -1,4 +1,5 @@
 #![allow(clippy::indexing_slicing, clippy::unwrap_used)]
+mod laws;
 mod robustness;
 
 use super::migrate::Migration;
@@ -154,12 +155,10 @@ fn test_opencode_config_from_jsonc_file() {
         Some(50)
     );
 }
-
 #[test]
 fn test_opencode_config_from_jsonc_rejects_invalid() {
     assert!(parse_jsonc_cst::<opencode::Config>(r#"{ model: invalid }"#).is_err());
 }
-
 #[test]
 fn test_opencode_config_from_jsonc_string() {
     let content = r#"{

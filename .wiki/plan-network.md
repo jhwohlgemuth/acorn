@@ -4,7 +4,7 @@ okf_version: "0.1"
 
 # Plan dependency network
 
-This map records execution dependencies rather than topical links. An arrow means the left plan establishes a boundary or contract required by the right plan. It was reconciled against the workspace at version `0.2.0` on 2026-09-27.
+This map records execution dependencies rather than topical links. An arrow means the left plan establishes a boundary or contract required by the right plan. It was reconciled against the workspace at version `0.3.2` on 2026-10-02.
 
 Dependency order does not by itself prove that plans are safe to run concurrently. The [parallel execution guide](parallel-execution.md) overlays exact write-set rules, single-writer integration locks, work lanes, and verified concurrent batches on this network.
 
@@ -50,13 +50,14 @@ extend the implemented portability matrix
 | `acorn-host` | Filesystem, configuration, HTTP, download, source, and terminal slices are complete; document conversion, doctor, and domain adapters remain | Extracted domains and proven consumers | CLI/TUI direct composition |
 | `acorn-wasm` | Complete minimal supplied-value validation and readability bindings | Concrete browser workflow before any new adapter plan | None currently |
 | `acorn-service` | Discovery, analysis, GitLab bot, MCP/server orchestration | Analysis/API/store/export boundaries | Thin interface composition roots |
-| `acorn-cmd` | Complete: `cmd!`, `args!`, command specifications, discovery, checked and bounded execution, and optional shell linting | Command-word parsing remains isolated inside `acorn-macros` | Direct dependency-light command capability |
+| `acorn-cmd` | The existing command specification, macros, discovery, checked output, timeout, and shell linting are the baseline; [process execution](refactors/process-execution-contract.md) adds managed groups, cancellation, structured termination, streaming, and bounded tails | Preserve macro parsing in `acorn-macros`; serialize manifest and release changes | Direct dependency-light command capability for ACORN and Xylem |
 | `acorn-lib` | Host implementations awaiting extraction and ACORN-specific host extensions | Owning domains directly | Shrinks at each explicit ownership cutover |
 
 ## Cross-plan dependency edges
 
 ### Portability and crate boundaries
 
+- [Process execution](refactors/process-execution-contract.md) is an additive `acorn-cmd` contract with no API or service prerequisite. It publishes before Xylem consumes managed groups, cancellation, and bounded capture; it takes the command-runtime lock and briefly takes workspace manifest/release locks.
 - [Dependency feature defaults](refactors/portability/dependency-feature-defaults.md) precedes every extraction because each new manifest needs an explicit capability set.
 - [Portable diff resource and API hardening](refactors/acorn-diff-resource-and-api-hardening.md) builds on the completed `acorn-diff` boundary. Its bounded contracts precede first-party consumer migration, and sequence-aware arrays follow those limits; manifest and CI wiring serialize with other portability work.
 - The [portability roadmap](refactors/portability/roadmap.md) records the completed in-tree analyzer boundary after `acorn-schema` extraction.
@@ -93,8 +94,7 @@ extend the implemented portability matrix
 
 ### Export and interfaces
 
-- [ZON codec hardening](refactors/zon-codec-hardening.md) is a portable `acorn-schema` leaf with no feature-integration prerequisite. It owns `crates/acorn-schema/src/standard/zon/` while active and coordinates any shared codec-law tests or fixtures with [semantic transformation laws](testing/semantic-transformation-laws.md).
-- [Semantic transformation laws](testing/semantic-transformation-laws.md) consumes the canonical classifications in the [standards field matrix](assets/standards-field-matrix.md) and coordinates its direct-link/workflow commuting test with [CLI test coverage phase 1](testing/cli-coverage-phase-1.md). RAD normalization, custom codec/parser, standards wire-codec, linked-data, and merge laws can start as exact-file leaves against current contracts; PID roots, `io/oci.rs`, crate manifests, and any link-command repair serialize on their owning schema, provider, crate, CLI, and export-dispatch locks.
+- [ZON codec hardening](refactors/zon-codec-hardening.md) is a portable `acorn-schema` leaf with no feature-integration prerequisite. It owns `crates/acorn-schema/src/standard/zon/` while active and coordinates any shared codec-law tests or fixtures through the schema module-index lock.
 - [Interpolation primitives](refactors/core/interpolation-primitives.md) precede completion of [export context](refactors/core/export-context.md) and parser-backed PowerPoint text/list interpolation. Shared authored-image and draft-placeholder selection has already started the export context independently.
 - The structured slide-list, relationship, content-type, and ASPECT transforms in [OOXML hardening](refactors/core/ooxml-interpolation-and-slide-copy.md) are ready for [OOXML fuzzing](refactors/core/ooxml-fuzzing.md). Parser-backed interpolation and the completed export context still precede `acorn-export` extraction.
 - [CLI parse/execution models](refactors/core/cli-parse-execution-models.md), [startup separation](refactors/core/cli-startup-separation.md), and [CLI error boundary](refactors/core/cli-error-boundary.md) prepare the CLI as a composition root after service and adapter extraction.
@@ -124,6 +124,7 @@ extend the implemented portability matrix
 
 | Shared boundary | Plans that overlap | Coordination rule |
 |---|---|---|
+| `crates/acorn-cmd/`, workspace manifests, and `Cargo.lock` | [Process execution](refactors/process-execution-contract.md), dependency-feature defaults, thiserror adoption, release work | Process execution owns the command runtime and its focused tests. Serialize `lib.rs`, crate/workspace manifests, the lockfile, and the 0.3.3 publication with other graph or release owners. |
 | `crates/acorn-schema/src/` | ZON codec hardening, structured enrichment, dPID | Schema flattening, the portable RRID baseline, the ModelKit/Kitfile contract, OCP infrastructure, typed activity metadata, ZON serialization, and CKAN-to-DCAT Dataset conversion have landed. Preserve singular schema ownership and the codec/adapter boundary; feature plans must not reintroduce host access. ZON hardening owns only `standard/zon/` and dedicated fixtures. Plans share `lib.rs`, codec-law tests, enum/module roots, validation, standards adapters, and shared fixtures as integration locks. |
 | `crates/acorn-lib/src/analyzer/` | [dPID](features/dpid-research-object-support.md), ACP fixes, [structured enrichment](refactors/core/research-activity-enrichment-integration.md) | Preserve the stable check/result, recovery, traversal, and link-evidence contracts before moving service and host implementations. ACP augments discovery with doctor-related findings; dPID resolution integration and provider enrichment therefore serialize on the same discovery leaf. |
 | `crates/acorn-lib/src/io/api/` | PowerAutomate, JSON-RPC, implemented webhook runtime, GitLab, implemented gRPC, API roadmap children, model context metadata, Cosmos buckets, dPID, OCI, inference | The implemented gRPC adapter owns its transport root and shares the stable operation contract. Provider leaves may develop separately only when they do not touch `io/api/mod.rs`, shared errors, operation registration, or transport configuration. Hugging Face request readiness precedes model-context integration in the same provider file. |
@@ -142,6 +143,7 @@ extend the implemented portability matrix
 - Independent leaf modules can fan out after their shared contract lands. Module roots, manifests, CLI parsing, generated help, Makefile, and CI remain single-writer integration points.
 - The analyzer extraction decision is deferred: preserve the CI-enforced in-tree boundary while analyzer, API, export, and service contracts stabilize, then reconsider extraction only when a concrete alternate consumer exists.
 - Remote-create leaf work, OOXML leaf transformations, and a Hugging Face request-type leaf may proceed concurrently when they obey the locks in the [parallel execution guide](parallel-execution.md); model context metadata follows the request-type leaf and pauses for OCI, database-schema, or CLI model-planner integration windows.
+- The `acorn-cmd` process core and focused tests may proceed independently of service lanes. Its dependency addition, workspace version, lockfile, and publication serialize with other manifest and release owners.
 - Schema features, GitLab service work, CLI root refactors, analyzer `mod/check/service` refactors, and build/CI wiring serialize within their lanes.
 - dPID's portable parser and provider leaf can be prepared independently after its fixture contract lands. Its general RAD identifier/crosswalk, module registration, endpoint configuration, discovery/persistence integration, and CLI import slices serialize through their named locks.
 

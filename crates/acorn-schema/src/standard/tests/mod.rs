@@ -1,3 +1,4 @@
+mod cff;
 #[cfg(feature = "std")]
 mod ckan;
 mod datacite;
