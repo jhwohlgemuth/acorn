@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "chrischinchilla.vale-vscode",
+    "docker.docker",
+    "johnpapa.vscode-peacock",
+    "ms-vscode.makefile-tools",
+    "pomsky-lang.pomsky-vscode",
+    "redhat.vscode-yaml",
+    "rust-lang.rust-analyzer",
+    "tamasfe.even-better-toml"
+  ]
+}
