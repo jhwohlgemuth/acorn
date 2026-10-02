@@ -1,0 +1,15 @@
+let arxiv = ['aA'] ['rR'] ['xX'] ['iI'] ['vV'];
+
+(!<< ['a'-'z' 'A'-'Z' '0'-'9'])
+(
+    regex '(?<schema_uri>' 'http' 's'? '://' ('www.')? 'arxiv.org/' regex ')' :resource('abs' | 'pdf') '/'
+  | arxiv ':'
+)
+(:archive(['a'-'z' 'A'-'Z' '-']+) ('.' ['a'-'z' 'A'-'Z' '-']+)? '/')?
+:identifier(
+    [d]{4} '.' [d]{4,5}
+  | [d]{7}
+)
+:version('v' ['1'-'9'] [d]*)?
+:pdf('.pdf')?
+(!>> ['a'-'z' 'A'-'Z' '0'-'9'])

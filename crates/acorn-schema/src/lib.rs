@@ -18,6 +18,7 @@ macro_rules! schema_error {
 }
 #[cfg(feature = "alloc")]
 pub mod agent;
+pub mod assets;
 pub mod discovery;
 pub mod enrichment;
 pub mod geonames;

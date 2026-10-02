@@ -1,0 +1,10 @@
+(!<< ['a'-'z' 'A'-'Z' '0'-'9'])
+(
+  ('https://' (
+      'archive.softwareheritage.org/' ('api/1/resolve/')?
+    | 'identifiers.org/'
+    | 'n2t.net/'
+  ))?
+  'swh:1:' ('cnt' | 'dir' | 'rel' | 'rev' | 'snp') ':' ['0'-'9' 'a'-'f']{40}
+  (';' ('origin' | 'visit' | 'anchor' | 'path' | 'lines' | 'bytes') '=' ![s '<>"[]{}' U+27]+)*
+)

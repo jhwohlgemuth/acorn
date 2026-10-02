@@ -1,0 +1,24 @@
+let c = ['cC'];
+let d = ['dD'];
+let h = ['hH'];
+let i = ['iI'];
+let g = ['gG'];
+let o = ['oO'];
+let p = ['pP'];
+let r = ['rR'];
+let s = ['sS'];
+let t = ['tT'];
+let orcid = o r c i d;
+let org = o r g;
+
+(!<< ['a'-'z' 'A'-'Z' '0'-'9' '/'])
+(orcid ([' ' t]* ':' [' ' t]* | [' ' t]+))?
+(regex '(?<schema_uri>' h t t p s? '://' orcid '.' org '/' regex ')')?
+:identifier(
+    ['0'-'9']{4} '-'?
+    ['0'-'9']{4} '-'?
+    ['0'-'9']{4} '-'?
+    ['0'-'9']{3}
+    regex '(?<check_digit>' ['0'-'9' 'X'] regex ')'
+)
+(!>> ['a'-'z' 'A'-'Z' '0'-'9'])

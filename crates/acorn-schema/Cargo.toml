@@ -15,7 +15,7 @@ acorn-macros = { version = "0.3.0", path = "../acorn-macros" }
 bon = { version = "3.8.1", default-features = false }
 convert_case = { version = "0.11.0", default-features = false }
 derive_more = { workspace = true }
-fancy-regex = { workspace = true }
+fancy-regex = { workspace = true, features = ["unicode"] }
 fluent-uri = { workspace = true }
 jiff = { workspace = true }
 schemars = { version = "1.0.4", features = ["derive"], default-features = false }
@@ -48,6 +48,10 @@ ring = { version = "0.17.14", default-features = false, optional = true }
 rust-embed = { workspace = true, optional = true }
 tera = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
+
+[build-dependencies]
+fancy-regex = { workspace = true, features = ["unicode"] }
+pomsky = { workspace = true }
 
 [dev-dependencies]
 glob = { workspace = true }

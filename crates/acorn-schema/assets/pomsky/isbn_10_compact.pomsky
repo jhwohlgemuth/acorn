@@ -1,0 +1,4 @@
+regex '(?<registration_group>' [d] regex ')'
+:publisher([d]{3})
+:title([d]{5})
+regex '(?<check_digit>' ['0'-'9' 'Xx'] regex ')'

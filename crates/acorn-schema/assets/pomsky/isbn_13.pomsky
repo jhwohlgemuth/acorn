@@ -1,0 +1,5 @@
+(regex '(?<prefix_element>' '97' ['89'] regex ')') [' -']?
+regex '(?<registration_group>' [d]{1,5} regex ')' [' -']?
+:publisher([d]{1,7}) [' -']?
+:title([d]{1,6}) [' -']?
+regex '(?<check_digit>' [d] regex ')'

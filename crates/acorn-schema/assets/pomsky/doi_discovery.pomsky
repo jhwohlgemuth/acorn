@@ -1,0 +1,20 @@
+let d = ['dD'];
+let h = ['hH'];
+let i = ['iI'];
+let g = ['gG'];
+let o = ['oO'];
+let p = ['pP'];
+let s = ['sS'];
+let t = ['tT'];
+let x = ['xX'];
+let org = o ['rR'] g;
+
+(regex '(?<schema_uri>' (
+    h t t p s? '://' (d x '.')? d o i '.' org '/'
+  | d o i '.' org '/'
+  | d o i ':' [s]*
+) regex ')')?
+regex '(?<directory_indicator>' '10' regex ')' '.'
+(regex '(?<prefix_element>' '97' ['89'] '.' regex ')')?
+regex '(?<registrant_code>' [d]{4,9} ('.' [d]+)* regex ')' '/'
+:suffix(['-._;()/:' 'a'-'z' 'A'-'Z' '0'-'9']+)

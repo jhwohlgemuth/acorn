@@ -312,6 +312,7 @@ dependencies = [
  "nucleo-matcher",
  "percy-dom",
  "petgraph",
+ "pomsky",
  "pretty_assertions",
  "proptest",
  "quick-xml 0.39.4",
@@ -6874,6 +6875,21 @@ dependencies = [
  "rustix 1.1.4",
  "windows-sys 0.61.2",
 ]
+
+[[package]]
+name = "pomsky"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "073755186705b2904dc7c796d3d066717aa935abdb9eec66b42facd45759b865"
+dependencies = [
+ "pomsky-syntax",
+]
+
+[[package]]
+name = "pomsky-syntax"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fab3376761c21f230333c5674925e6f81cf96eb61d3e28918979dc8ed0e1631"
 
 [[package]]
 name = "portable-atomic"

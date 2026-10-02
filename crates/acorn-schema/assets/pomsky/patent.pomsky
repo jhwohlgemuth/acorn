@@ -1,0 +1,10 @@
+(!<< ['a'-'z' 'A'-'Z' '0'-'9'])
+regex '(?<country_code>' ('US' | 'CN' | 'DE' | 'EP' | 'JP' | 'KR') regex ')' [s]*
+:year(
+    '19' ['5'-'9'] ['0'-'9']
+  | '20' ['0'-'2'] ['0'-'9']
+)?
+'/'?
+regex '(?<serial_number>' [d ',']{5,11} regex ')' [s]*
+regex '(?<kind_code>' ['A'-'Z'] [d] regex ')'
+(!>> ['a'-'z' 'A'-'Z' '0'-'9'])

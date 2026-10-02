@@ -1,0 +1,13 @@
+let g = ['gG'];
+let h = ['hH'];
+let o = ['oO'];
+let p = ['pP'];
+let r = ['rR'];
+let s = ['sS'];
+let t = ['tT'];
+let org = o r g;
+
+(!<< ['a'-'z' '0'-'9'])
+(regex '(?<schema_uri>' h t t p s? '://' r o r '.' org '/' regex ')')?
+:identifier('0' ['a'-'h' 'j'-'k' 'm'-'n' 'p'-'t' 'v'-'z' '0'-'9']{6} ['0'-'9']{2})
+(!>> ['a'-'z' '0'-'9'])

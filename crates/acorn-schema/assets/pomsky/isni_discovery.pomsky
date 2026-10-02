@@ -1,0 +1,10 @@
+let isni = ['iI'] ['sS'] ['nN'] ['iI'];
+let value = ['0'-'9']{4} [' -']? ['0'-'9']{4} [' -']? ['0'-'9']{4} [' -']? ['0'-'9']{3} ['0'-'9' 'X'];
+
+(!<< ['a'-'z' 'A'-'Z' '0'-'9'])
+(
+    isni ([' ' t]* ':' [' ' t]* | [' ' t]+)
+    regex '(?<isni_labeled>' ('http' 's'? '://' 'isni.org/isni/')? value regex ')'
+  | regex '(?<isni_url>' 'http' 's'? '://' 'isni.org/isni/' value regex ')'
+)
+(!>> ['a'-'z' 'A'-'Z' '0'-'9'])

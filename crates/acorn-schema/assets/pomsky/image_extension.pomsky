@@ -1,0 +1,1 @@
+.* '.' :('png' | 'PNG' | 'jpg' | 'JPG' | 'jpeg' | 'JPEG' | 'svg' | 'SVG' | 'gif' | 'GIF' | 'webp' | 'WEBP' | 'tiff' | 'TIFF') $

@@ -1,0 +1,10 @@
+let orcid = ['oO'] ['rR'] ['cC'] ['iI'] ['dD'];
+let value = ['0'-'9']{4} '-'? ['0'-'9']{4} '-'? ['0'-'9']{4} '-'? ['0'-'9']{3} ['0'-'9' 'X'];
+
+(!<< ['a'-'z' 'A'-'Z' '0'-'9' '/'])
+(
+    orcid ([' ' t]* ':' [' ' t]* | [' ' t]+)
+    regex '(?<orcid_labeled>' ('http' 's'? '://' 'orcid.org/')? value regex ')'
+  | regex '(?<orcid_url>' 'http' 's'? '://' 'orcid.org/' value regex ')'
+)
+(!>> ['a'-'z' 'A'-'Z' '0'-'9'])

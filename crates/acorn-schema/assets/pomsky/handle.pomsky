@@ -1,0 +1,15 @@
+let a = ['aA'];
+let d = ['dD'];
+let e = ['eE'];
+let h = ['hH'];
+let l = ['lL'];
+let n = ['nN'];
+let p = ['pP'];
+let s = ['sS'];
+let t = ['tT'];
+
+(
+    h d l ':' [s]*
+  | (h t t p s? '://')? h d l '.' h a n d l e '.' n e t '/'
+)
+![s '<>"[]{}' U+27]+

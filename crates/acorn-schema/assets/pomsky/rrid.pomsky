@@ -1,0 +1,25 @@
+let h = ['hH'];
+let n = ['nN'];
+let o = ['oO'];
+let p = ['pP'];
+let r = ['rR'];
+let s = ['sS'];
+let t = ['tT'];
+let rrid = r r ['iI'] ['dD'];
+let https = h t t p s;
+let http = h t t p;
+let n2t = n '2' t;
+let scicrunch = s ['cC'] ['iI'] ['cC'] r ['uU'] n ['cC'] h;
+let resolver = r ['eE'] s o ['lL'] ['vV'] ['eE'] r;
+let net = n ['eE'] t;
+let org = o r ['gG'];
+let separator = [' ' t]* ':' [' ' t]*;
+let value = ![s '<>"[]{}()?,;!#&' U+27]+;
+
+(
+    (
+        https '://' n2t '.' net '/'
+      | http s? '://' scicrunch '.' org '/' resolver '/'
+    ) rrid separator value
+  | (!<< ['a'-'z' 'A'-'Z' '0'-'9' '?&=/']) rrid separator value
+)
