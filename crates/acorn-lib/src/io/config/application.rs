@@ -25,7 +25,7 @@ use acorn_core::{
     util::{detect_json, MimeType},
     validation::ValidationError,
 };
-use acorn_host::terminal::Label;
+use acorn_host::{config::resolve_config_path, terminal::Label};
 use acorn_schema::{
     validation::{is_identifier, Validate, ValidationReport},
     OneOrMany,
@@ -610,12 +610,10 @@ impl ApplicationConfiguration {
     }
     /// Resolve an application configuration path relative to an explicit directory.
     pub fn resolve_in(path: &Option<PathBuf>, directory: &Path) -> Option<PathBuf> {
-        path.as_ref().filter(|value| value.is_file()).cloned().or_else(|| {
-            DEFAULT_CONFIG_FILENAMES
-                .iter()
-                .map(|name| directory.join(name))
-                .find(|candidate| candidate.is_file())
-        })
+        path.as_ref()
+            .filter(|value| value.is_file())
+            .cloned()
+            .or_else(|| resolve_config_path(None, directory, &DEFAULT_CONFIG_FILENAMES))
     }
     /// Parse ACORN configuration in JSON, JSONC, or YAML format
     /// ### Note

@@ -27,11 +27,11 @@ use crate::util::{
 use acorn_cmd::{args, cmd, command_exists, CommandOutput};
 use acorn_core::{
     prelude::HashSet,
-    util::{case_insensitive_glob, suffix, MimeType, SemanticVersion},
+    util::{case_insensitive_glob, suffix, MimeType, ParseOptionsExt, SemanticVersion},
     Location,
 };
 use acorn_host::{
-    fs::{file_checksum, file_uri_to_path, read_text},
+    fs::{file_checksum, file_uri_to_path, project_cache_directory, read_text, SafePath},
     terminal::Label,
 };
 use acorn_schema::standard::zon;
@@ -44,7 +44,7 @@ use color_eyre::eyre::{eyre, Report};
 #[cfg(any(feature = "analysis", feature = "std"))]
 use console::{measure_text_width, strip_ansi_codes};
 use core::{fmt, iter::once, pin::Pin, time::Duration};
-use directories::{BaseDirs, ProjectDirs};
+use directories::BaseDirs;
 use fancy_regex::Regex;
 pub use fingerprint::Fingerprint;
 use fluent_uri::Uri;
@@ -1453,16 +1453,7 @@ where
 /// ### Note
 /// Supports JavaScript-style comments (`//` and `/* */`) and trailing commas.
 pub fn jsonc_parse_value(content: &str) -> ApiResult<serde_json::Value> {
-    let options = ParseOptions {
-        allow_comments: true,
-        allow_trailing_commas: true,
-        allow_loose_object_property_names: false,
-        allow_missing_commas: false,
-        allow_single_quoted_strings: false,
-        allow_hexadecimal_numbers: false,
-        allow_unary_plus_numbers: false,
-    };
-    parse_to_serde_value(content, &options).map_err(|why| eyre!("JSONC parse error — {why}"))
+    parse_to_serde_value(content, &ParseOptions::strict_jsonc()).map_err(|why| eyre!("JSONC parse error — {why}"))
 }
 /// Move a file without replacing different content already present at the target.
 pub(crate) fn move_file(source: impl AsRef<Path>, target: impl AsRef<Path>) -> ApiResult<()> {
@@ -1510,16 +1501,7 @@ where
 /// Returns the deserialized config and the CST root. The caller should store the CST
 /// in the config's `cst` field for write-back.
 pub fn parse_jsonc_cst<T: DeserializeOwned>(content: &str) -> ApiResult<(T, CstRootNode)> {
-    let options = ParseOptions {
-        allow_comments: true,
-        allow_trailing_commas: true,
-        allow_loose_object_property_names: false,
-        allow_missing_commas: false,
-        allow_single_quoted_strings: false,
-        allow_hexadecimal_numbers: false,
-        allow_unary_plus_numbers: false,
-    };
-    CstRootNode::parse(content, &options)
+    CstRootNode::parse(content, &ParseOptions::strict_jsonc())
         .map_err(|why| eyre!("JSONC parse error — {why}"))
         .and_then(|cst| {
             cst.to_serde_value().ok_or_else(|| eyre!("JSONC conversion error")).and_then(|value| {
@@ -1759,10 +1741,12 @@ pub fn slice_path(path: impl AsRef<Path>, character_count: usize) -> String {
 pub fn standard_project_folder(namespace: &str, default: Option<PathBuf>) -> PathBuf {
     let root = match default {
         | Some(value) => value,
-        | None => match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
-            | Some(dirs) => dirs.cache_dir().join(namespace).to_path_buf(),
-            | None => PathBuf::from(format!("./{namespace}")),
-        },
+        | None => SafePath::new(namespace)
+            .and_then(|namespace| project_cache_directory(QUALIFIER, ORGANIZATION, APPLICATION, &namespace))
+            .unwrap_or_else(|why| {
+                error!(namespace, "=> {} Resolve project cache - {why}", Label::fail());
+                PathBuf::from(format!("./{namespace}"))
+            }),
     };
     match create_dir_all(root.clone()) {
         | Ok(_) => {}

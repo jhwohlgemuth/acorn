@@ -26,9 +26,9 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 acorn-cmd = { version = "0.3.0", path = "../acorn-cmd", default-features = false, optional = true }
-acorn-core = { version = "0.3.0", path = "../acorn-core", default-features = false }
+acorn-core = { version = "0.3.3", path = "../acorn-core", default-features = false }
 acorn-diff = { version = "0.3.2", path = "../acorn-diff", default-features = false, optional = true }
-acorn-host = { version = "0.3.0", path = "../acorn-host", default-features = false }
+acorn-host = { version = "0.3.3", path = "../acorn-host", default-features = false }
 acorn-macros = { version = "0.3.3", path = "../acorn-macros" }
 acorn-schema = { version = "0.3.0", path = "../acorn-schema", default-features = false }
 agent-client-protocol = { workspace = true, optional = true }
@@ -182,6 +182,7 @@ unicode = ["std-core", "console/std"]
 agentic = ["std-core", "dep:axum", "dep:rmcp", "dep:tower"]
 analysis = [
   "acorn-diff/std",
+  "acorn-host/config",
   "acorn-host/fs",
   "acorn-host/http",
   "acorn-host/source",

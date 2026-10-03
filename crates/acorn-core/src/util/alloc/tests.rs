@@ -1,8 +1,10 @@
 #[cfg(feature = "std")]
 use super::MimeType;
-use super::{Checksum, ChecksumAlgorithm, SemanticVersion, StringConversion, StringExt};
+use super::{detect_json, Checksum, ChecksumAlgorithm, ParseOptions, ParseOptionsExt, SemanticVersion, StringConversion, StringExt};
 use crate::prelude::alloc::{String, ToString};
 use crate::util::constants::app::EXEC_HEADER_PREFIX;
+use jsonc_parser::parse_to_serde_value;
+use serde_json::Value;
 
 #[test]
 fn test_checksum_from_parses_borrowed_and_owned_values() {
@@ -63,6 +65,39 @@ fn test_mime_type_recognizes_only_canonical_zon_extension() {
     assert_eq!(MimeType::Zon.file_type(), "zonf");
     assert_eq!(MimeType::Zon.to_string(), "text/zonf");
     assert_eq!(MimeType::from("activity.zon"), MimeType::Vendor("zon".to_string()));
+}
+#[test]
+fn test_parse_options_strict_jsonc_enforces_shared_syntax() {
+    let options = ParseOptions::strict_jsonc();
+    [
+        r#"{"name":"value"}"#,
+        "{// line comment\n\"name\":\"value\"}",
+        r#"{/* block comment */"name":"value"}"#,
+        r#"{"name":"value",}"#,
+    ]
+    .into_iter()
+    .for_each(|content| {
+        assert!(
+            parse_to_serde_value::<Value>(content, &options).is_ok(),
+            "expected valid JSONC: {content}"
+        );
+        assert!(detect_json(content), "expected JSON detection: {content}");
+    });
+    [
+        r#"{name:"value"}"#,
+        r#"{"a":1 "b":2}"#,
+        r#"{'name':'value'}"#,
+        r#"{"value":0x10}"#,
+        r#"{"value":+1}"#,
+    ]
+    .into_iter()
+    .for_each(|content| {
+        assert!(
+            parse_to_serde_value::<Value>(content, &options).is_err(),
+            "expected invalid JSONC: {content}"
+        );
+        assert!(!detect_json(content), "expected JSON rejection: {content}");
+    });
 }
 #[test]
 fn test_semantic_version_extracts_prefixed_version() {

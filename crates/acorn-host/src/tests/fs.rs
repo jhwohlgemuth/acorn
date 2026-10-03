@@ -1,4 +1,4 @@
-use crate::fs::{file_checksum, file_uri_to_path, SafePath, TempDir};
+use crate::fs::{file_checksum, file_uri_to_path, project_cache_directory_from, FsError, SafePath, TempDir};
 use acorn_core::util::ChecksumAlgorithm;
 use ring::digest::{Algorithm, SHA1_FOR_LEGACY_USE_ONLY, SHA256, SHA384, SHA512};
 use std::{
@@ -7,7 +7,7 @@ use std::{
 };
 
 #[test]
-fn checksum_reads_file() {
+fn test_checksum_reads_file() {
     let directory = tempfile::tempdir().expect("temporary directory");
     let path = directory.path().join("value.txt");
     fs::write(&path, b"acorn").expect("write fixture");
@@ -27,7 +27,7 @@ fn checksum_reads_file() {
     });
 }
 #[test]
-fn file_uri_conversion_supports_localhost_and_escaped_segments() {
+fn test_file_uri_conversion_supports_localhost_and_escaped_segments() {
     #[cfg(unix)]
     let (uri, expected) = ("file://localhost/tmp/acorn%20host.txt", PathBuf::from("/tmp/acorn host.txt"));
     #[cfg(windows)]
@@ -36,13 +36,43 @@ fn file_uri_conversion_supports_localhost_and_escaped_segments() {
     assert_eq!(path, expected);
 }
 #[test]
-fn safe_path_rejects_traversal_and_absolute_paths() {
+fn test_project_cache_directory_creates_namespace() {
+    let directory = tempfile::tempdir().expect("temporary directory");
+    let namespace = SafePath::new("runs").expect("safe namespace");
+    let path = project_cache_directory_from("org", "example", "xylem", &namespace, Some(directory.path())).expect("project cache namespace");
+    assert_eq!(path, directory.path().join("runs"));
+    assert!(path.is_dir());
+}
+#[test]
+fn test_project_cache_directory_reports_creation_failure() {
+    let directory = tempfile::tempdir().expect("temporary directory");
+    let root = directory.path().join("file");
+    fs::write(&root, "not a directory").expect("write blocking file");
+    let namespace = SafePath::new("runs").expect("safe namespace");
+    assert!(matches!(
+        project_cache_directory_from("org", "example", "xylem", &namespace, Some(&root)),
+        Err(FsError::Io { path, .. }) if path == root.join("runs")
+    ));
+}
+#[test]
+fn test_project_cache_directory_reports_unavailable_root() {
+    let namespace = SafePath::new("runs").expect("safe namespace");
+    assert!(matches!(
+        project_cache_directory_from("org", "example", "xylem", &namespace, None),
+        Err(FsError::ProjectDirectoryUnavailable { qualifier, organization, application })
+            if qualifier == "org" && organization == "example" && application == "xylem"
+    ));
+}
+#[test]
+fn test_safe_path_rejects_empty_traversal_and_absolute_paths() {
+    assert!(SafePath::new("").is_err());
     assert!(SafePath::new("../escape").is_err());
     assert!(SafePath::new("/absolute").is_err());
+    assert!(SafePath::new(r"C:\absolute").is_err());
     assert_eq!(SafePath::new("./nested/file").expect("safe path").as_path(), Path::new("nested/file"));
 }
 #[test]
-fn temporary_directory_is_cleaned_up() {
+fn test_temporary_directory_is_cleaned_up() {
     let path = {
         let directory = TempDir::create("acorn-host-test").expect("temporary directory");
         directory.path().to_path_buf()

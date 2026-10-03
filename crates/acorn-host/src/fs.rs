@@ -2,6 +2,7 @@
 use acorn_core::util::{Checksum, ChecksumAlgorithm};
 use core::future::Future;
 use data_encoding::HEXLOWER;
+use directories::ProjectDirs;
 use ring::digest::{Algorithm, Context, SHA256};
 #[cfg(unix)]
 use std::fs::set_permissions;
@@ -34,6 +35,16 @@ pub enum FsError {
         /// Underlying filesystem error.
         #[source]
         source: std::io::Error,
+    },
+    /// The platform could not resolve project directories for an application.
+    #[error("project directories are unavailable for {qualifier}.{organization}.{application}")]
+    ProjectDirectoryUnavailable {
+        /// Reverse-domain qualifier.
+        qualifier: String,
+        /// Organization name.
+        organization: String,
+        /// Application name.
+        application: String,
     },
     /// A filesystem write lock was poisoned.
     #[error("filesystem write lock is poisoned")]
@@ -298,6 +309,37 @@ pub fn make_executable(path: impl AsRef<Path>) -> Result<(), FsError> {
         path: path.to_path_buf(),
         source: std::io::Error::new(std::io::ErrorKind::NotFound, "executable does not exist"),
     })
+}
+/// Resolve and create a stable namespace beneath an application's platform cache directory.
+pub fn project_cache_directory(qualifier: &str, organization: &str, application: &str, namespace: &SafePath) -> Result<PathBuf, FsError> {
+    let directories = ProjectDirs::from(qualifier, organization, application);
+    project_cache_directory_from(
+        qualifier,
+        organization,
+        application,
+        namespace,
+        directories.as_ref().map(ProjectDirs::cache_dir),
+    )
+}
+pub(crate) fn project_cache_directory_from(
+    qualifier: &str,
+    organization: &str,
+    application: &str,
+    namespace: &SafePath,
+    cache_root: Option<&Path>,
+) -> Result<PathBuf, FsError> {
+    cache_root
+        .ok_or_else(|| FsError::ProjectDirectoryUnavailable {
+            qualifier: qualifier.to_string(),
+            organization: organization.to_string(),
+            application: application.to_string(),
+        })
+        .and_then(|root| {
+            let path = root.join(namespace.as_path());
+            create_dir_all(&path)
+                .map(|()| path.clone())
+                .map_err(|source| FsError::Io { path, source })
+        })
 }
 /// Read a UTF-8 file completely.
 pub fn read_text(path: impl AsRef<Path>) -> Result<String, FsError> {

@@ -5,7 +5,7 @@
     clippy::panic,
     clippy::unwrap_used
 )]
-use super::{create_progress_bar_with_renderer, finish_progress_bar, retry, ProgressType};
+use super::{create_progress_bar_with_renderer, finish_progress_bar, retry, standard_project_folder, ProgressType};
 #[cfg(unix)]
 use crate::io::{adapter::KitfileExt, oci::OciTransport};
 #[cfg(unix)]
@@ -2388,6 +2388,15 @@ fn test_split_gguf_paths_require_one_complete_primary_group() {
     assert!(OciFiles(vec![file("model.gguf"), file("other.gguf")]).validate_paths().is_err());
     assert!(OciFiles(vec![file("mmproj-model.gguf")]).validate_paths().is_err());
     assert!(OciFiles(vec![file("model.gguf"), file("mmproj-model.gguf")]).validate_paths().is_ok());
+}
+#[test]
+fn test_standard_project_folder_preserves_override_and_generated_child() {
+    let directory = tempfile::tempdir().expect("create temporary directory");
+    let root = directory.path().join("cache");
+    let path = standard_project_folder("ignored-with-override", Some(root.clone()));
+    assert_eq!(path.parent(), Some(root.as_path()));
+    assert!(root.is_dir());
+    assert!(path.file_name().is_some_and(|name| !name.is_empty()));
 }
 #[test]
 fn test_tar_extraction_accepts_current_directory_prefix() {

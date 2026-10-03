@@ -4,7 +4,7 @@ title: "Consolidate duplicated workspace behavior"
 description: "Give repeated production and test behavior one explicit owner without rebuilding compatibility facades."
 difficulty: high
 impact: high
-package: [acorn-core, acorn-schema, acorn-lib, acorn-cli, acorn-tui]
+package: [acorn-schema, acorn-lib, acorn-cli, acorn-tui]
 tags: [refactor, duplication, ownership, maintainability]
 status: planned
 ---
@@ -15,7 +15,6 @@ Give each shared behavior one owner and make callers depend on that owner direct
 
 # Current evidence
 
-- The same strict JSONC `ParseOptions` literal appears in `acorn-core::util::detect_json`, `acorn-lib::io::jsonc_parse_value`, and `acorn-lib::io::parse_jsonc_cst`.
 - Handle, RRID, and SWHID repeat identical `PersistentIdentifierParse::{format,from_string,is_valid}` implementations. Handle and SWHID also repeat percent-encoding validation, while their discovery punctuation and identifier rules differ.
 - Download dry-run, download completion, and import completion independently assemble equivalent target flags and synchronization options before calling `sync_and_update`.
 - The TUI gather screen reimplements input classification, local and remote loading, identifier discovery, persistence, and offline rejection already available through `SourceDocument::load`, `Records`, and `Records::persist`. It also performs blocking HTTP through its own `reqwest` dependency.
@@ -28,25 +27,24 @@ Give each shared behavior one owner and make callers depend on that owner direct
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-core/src/util/alloc.rs`; `crates/acorn-schema/src/pid/{mod,handle,rrid,swhid}/`; `crates/acorn-lib/src/{io/mod.rs,exec/}`; `crates/acorn-cli/src/{commands/download,commands/import,commands/sync,commands/serve,test/}`; `crates/acorn-tui/{Cargo.toml,src/screens/,src/widgets/status_bar.rs}`; adjacent focused tests.
+- **Update:** `crates/acorn-schema/src/pid/{mod,handle,rrid,swhid}/`; `crates/acorn-lib/src/exec/`; `crates/acorn-cli/src/{commands/download,commands/import,commands/sync,commands/serve,test/}`; `crates/acorn-tui/{Cargo.toml,src/screens/,src/widgets/status_bar.rs}`; adjacent focused tests.
 - **Create:** crate-private helpers inside the owning modules only when at least two current consumers migrate in the same slice.
-- **Delete:** repeated JSONC option literals, redundant PID method bodies and percent validators, TUI-local gather loading/persistence code, screen-local control-bar renderers, repeated serve dispatch branches, repeated Rhai check projection, repeated CLI tracing writers, and the TUI `reqwest` dependency when unused.
+- **Delete:** redundant PID method bodies and percent validators, TUI-local gather loading/persistence code, screen-local control-bar renderers, repeated serve dispatch branches, repeated Rhai check projection, repeated CLI tracing writers, and the TUI `reqwest` dependency when unused.
 
 # Dependencies and ordering
 
-1. Land the JSONC owner after the active `acorn-core::util::alloc` portability work and before that host boundary moves again.
-2. Serialize PID defaults and percent validation with dPID, Creusot, Miri, and other work touching `acorn-schema::pid`.
-3. Migrate TUI gather after the deterministic source-reader cutover so it consumes the final shared offline and HTTP policy. Coordinate discovery changes with gather scraping.
-4. Serialize remote serve dispatch with the highest-priority RPC/MCP lane and CLI composition; do not change CLI syntax or generated help in this slice.
-5. Keep API health/status consolidation in its existing API plan. TUI status bars, Rhai projection, model synchronization, and CLI test utilities may proceed independently when their exact files do not overlap another lane.
+1. Serialize PID defaults and percent validation with dPID, Creusot, Miri, and other work touching `acorn-schema::pid`.
+2. Migrate TUI gather after the deterministic source-reader cutover so it consumes the final shared offline and HTTP policy. Coordinate discovery changes with gather scraping.
+3. Serialize remote serve dispatch with the highest-priority RPC/MCP lane and CLI composition; do not change CLI syntax or generated help in this slice.
+4. Keep API health/status consolidation in its existing API plan. TUI status bars, Rhai projection, model synchronization, and CLI test utilities may proceed independently when their exact files do not overlap another lane.
 
 This plan follows the ownership rules in [crate boundary architecture](crate-boundary-architecture.md). It must not add compatibility re-exports or a cross-crate test-support API.
 
 # Recommendation
 
-## Portable parsing and validation
+## Identifier parsing and validation
 
-Expose `acorn_core::util::strict_jsonc_options() -> jsonc_parser::ParseOptions` and use it for JSON detection, value parsing, and CST parsing. Add bounded default implementations for `PersistentIdentifierParse::{format,from_string,is_valid}` while leaving `find_all` required. Move percent-encoding syntax validation to one crate-private PID helper used by Handle and SWHID; keep their trimming, representation, and validation policies local.
+Add bounded default implementations for `PersistentIdentifierParse::{format,from_string,is_valid}` while leaving `find_all` required. Move percent-encoding syntax validation to one crate-private PID helper used by Handle and SWHID; keep their trimming, representation, and validation policies local.
 
 ## Services and interfaces
 
@@ -60,18 +58,16 @@ Move the tracing writer and a result-preserving `capture_logs` helper into CLI t
 
 # Validation
 
-1. Add JSONC parity tests for comments, trailing commas, loose names, missing commas, single quotes, hexadecimal numbers, and unary-plus numbers.
-2. Run Handle, RRID, and SWHID contract tests, including malformed percent escapes and type-specific discovery punctuation.
-3. Test synchronization parity for target selection, force, dry-run, and model-directory overrides.
-4. Test TUI local, PID, document, persistence-disabled, and offline-remote gathering plus themed multi-character control bars and compact rendering.
-5. Test local, SSH, context, detached, validation-failure, spawn-failure, and nonzero-exit serve behavior for RPC, gRPC, and MCP.
-6. Prove capability-free and authorized Rhai hooks produce identical check category, index, and URI metadata, and retain all log-capture assertions.
-7. Run focused package tests, `cargo check -p acorn-schema --no-default-features`, the supported alloc/std checks, `make check-wasm`, `make lint`, and `make test`.
-8. Repeat tracked-file hashing and normalized production-source scanning; classify intentional fixture, fuzz, and snapshot matches.
+1. Run Handle, RRID, and SWHID contract tests, including malformed percent escapes and type-specific discovery punctuation.
+2. Test synchronization parity for target selection, force, dry-run, and model-directory overrides.
+3. Test TUI local, PID, document, persistence-disabled, and offline-remote gathering plus themed multi-character control bars and compact rendering.
+4. Test local, SSH, context, detached, validation-failure, spawn-failure, and nonzero-exit serve behavior for RPC, gRPC, and MCP.
+5. Prove capability-free and authorized Rhai hooks produce identical check category, index, and URI metadata, and retain all log-capture assertions.
+6. Run focused package tests, `cargo check -p acorn-schema --no-default-features`, the supported alloc/std checks, `make check-wasm`, `make lint`, and `make test`.
+7. Repeat tracked-file hashing and normalized production-source scanning; classify intentional fixture, fuzz, and snapshot matches.
 
 # Acceptance criteria
 
-- JSONC entry points obtain parsing policy from one core owner without changing accepted syntax.
 - Handle, RRID, and SWHID use the shared generic parse methods; Handle and SWHID share percent validation without merging identifier-specific rules.
 - Model synchronization option assembly has one CLI owner while adapter codecs and the standalone sync command retain their policy.
 - TUI gather uses shared loading, discovery, persistence, HTTP, and offline behavior and no longer needs direct `reqwest`.

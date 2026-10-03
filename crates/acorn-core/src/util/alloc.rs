@@ -31,7 +31,8 @@ use derive_more::Display;
 use fancy_regex::Regex;
 use fluent_uri::UriRef;
 use jiff::{fmt::temporal::DateTimeParser, tz::Offset, Timestamp};
-use jsonc_parser::{parse_to_serde_value, ParseOptions};
+use jsonc_parser::parse_to_serde_value;
+pub use jsonc_parser::ParseOptions;
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -1322,19 +1323,28 @@ fn cross_platform_path(path: &Path) -> String {
     let value = value.strip_prefix(r"\\?\").unwrap_or(&value).replace('/', "\\");
     value
 }
+/// Shared parsing policies for JSON-with-comments options.
+pub trait ParseOptionsExt {
+    /// Return the strict JSON-with-comments parsing policy shared by ACORN entry points.
+    fn strict_jsonc() -> Self;
+}
+impl ParseOptionsExt for ParseOptions {
+    fn strict_jsonc() -> Self {
+        Self {
+            allow_comments: true,
+            allow_trailing_commas: true,
+            allow_loose_object_property_names: false,
+            allow_missing_commas: false,
+            allow_single_quoted_strings: false,
+            allow_hexadecimal_numbers: false,
+            allow_unary_plus_numbers: false,
+        }
+    }
+}
 /// Try to parse text as JSON or JSONC and return `true` if successful, `false` otherwise
 pub fn detect_json(text: impl ToString) -> bool {
     let text = text.to_string();
-    let options = ParseOptions {
-        allow_comments: true,
-        allow_trailing_commas: true,
-        allow_loose_object_property_names: false,
-        allow_missing_commas: false,
-        allow_single_quoted_strings: false,
-        allow_hexadecimal_numbers: false,
-        allow_unary_plus_numbers: false,
-    };
-    serde_json::from_str::<Value>(&text).is_ok() || parse_to_serde_value::<Value>(&text, &options).is_ok()
+    serde_json::from_str::<Value>(&text).is_ok() || parse_to_serde_value::<Value>(&text, &ParseOptions::strict_jsonc()).is_ok()
 }
 /// Try to parse text as XML and return `true` if successful, `false` otherwise
 pub fn detect_xml(text: impl ToString) -> bool {

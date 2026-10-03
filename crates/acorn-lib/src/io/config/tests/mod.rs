@@ -575,6 +575,19 @@ fn test_count_json_files_counts_case_insensitive_json_paths() {
     assert_eq!(count_json_files(&paths), 2);
 }
 #[test]
+fn test_default_config_filename_precedence_is_preserved() {
+    let directory = temp_resolve_dir("default-config-precedence");
+    create_dir_all(&directory).expect("create configuration directory");
+    DEFAULT_CONFIG_FILENAMES.iter().for_each(|name| {
+        write(directory.join(name), "{}\n").expect("write configuration candidate");
+    });
+    assert_eq!(
+        ApplicationConfiguration::resolve_in(&None, &directory),
+        Some(directory.join(DEFAULT_CONFIG_FILENAMES[0]))
+    );
+    remove_dir_all(directory).expect("remove configuration directory");
+}
+#[test]
 fn test_default_config_filenames_require_supported_extensions() {
     assert_eq!(DEFAULT_CONFIG_FILENAMES, [".acorn.json", ".acorn.jsonc", ".acorn.yaml", ".acorn.yml"]);
 }
