@@ -7,7 +7,7 @@ setup: ## Install the Rust toolchain and project development dependencies.
 	@rustup target add $(TARGETS)
 
 help: ## Show the available development tasks.
-	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target> [VERSION=x.y.z] [BENCH_ARGS=\"...\"] [BENCH_BASELINE=x.y.z] [BENCH_HISTORY=...] [WASM_PACK_BUILD_ARGS=\"...\"] [FUZZ_CRASH=path]\n\nTargets:\n"} /^[a-zA-Z_-]+:.*## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target> [VERSION=x.y.z] [BENCH_ARGS=\"...\"] [BENCH_BASELINE=x.y.z] [BENCH_HISTORY=...] [WASM_PACK_BUILD_ARGS=\"...\"] [FUZZ_CRASH=path]\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 audit: ## Run dependency and security audits for the project.
 	@cargo +nightly udeps
@@ -322,13 +322,27 @@ rust-clean: ## Remove Rust toolchain Docker images from the local registry.
 	@docker rmi -f $(RUST_IMAGE_ARM64)
 	@docker rmi -f $(REGISTRY)/acorn/rust:latest
 
-rust-image: ## Build the Rust toolchain images used for CI and container builds.
-	@docker build --no-cache --platform linux/amd64 --build-arg DOCKER_HUB_REGISTRY=$(DOCKER_HUB_REGISTRY) --build-arg RUST_VERSION=$(RUST_VERSION) -t $(RUST_IMAGE_AMD64) -f Dockerfile.rust .
-	@docker build --no-cache --platform linux/arm64 --build-arg DOCKER_HUB_REGISTRY=$(DOCKER_HUB_REGISTRY) --build-arg RUST_VERSION=$(RUST_VERSION) -t $(RUST_IMAGE_ARM64) -f Dockerfile.rust .
+rust-image: rust-image-amd64 rust-image-arm64 ## Build the Rust toolchain images used for CI and container builds.
 
-rust-push: ## Push the Rust toolchain images to the configured registries.
-	@docker push $(RUST_IMAGE_AMD64)
-	@docker push $(RUST_IMAGE_ARM64)
+rust-image-amd64: ## Build the AMD64 Rust toolchain image on its native builder.
+	@docker --context $(RUST_AMD64_CONTEXT) build --no-cache --platform linux/amd64 --build-arg DOCKER_HUB_REGISTRY=$(DOCKER_HUB_REGISTRY) --build-arg RUST_VERSION=$(RUST_VERSION) -t $(RUST_IMAGE_AMD64) -t $(RUST_IMAGE_GHCR_AMD64) -f Dockerfile.rust .
+
+rust-image-arm64: ## Build the ARM64 Rust toolchain image on its native builder.
+	@docker --context $(RUST_ARM64_CONTEXT) build --no-cache --platform linux/arm64 --build-arg DOCKER_HUB_REGISTRY=$(DOCKER_HUB_REGISTRY) --build-arg RUST_VERSION=$(RUST_VERSION) -t $(RUST_IMAGE_ARM64) -t $(RUST_IMAGE_GHCR_ARM64) -f Dockerfile.rust .
+
+rust-publish-ghcr: rust-image ## Build and publish the multi-platform Rust toolchain image to GitHub Container Registry.
+	@$(MAKE) rust-push-ghcr
+
+rust-push: rust-push-savannah rust-push-ghcr ## Push the Rust toolchain images to all configured registries.
+
+rust-push-ghcr: ## Push Rust toolchain images to GitHub Container Registry.
+	@docker --context $(RUST_AMD64_CONTEXT) push $(RUST_IMAGE_GHCR_AMD64)
+	@docker --context $(RUST_ARM64_CONTEXT) push $(RUST_IMAGE_GHCR_ARM64)
+	@docker buildx imagetools create --tag $(RUST_IMAGE_GHCR_VERSION) --tag $(RUST_IMAGE_GHCR_LATEST) $(RUST_IMAGE_GHCR_AMD64) $(RUST_IMAGE_GHCR_ARM64)
+
+rust-push-savannah: ## Push Rust toolchain images to the Savannah registry.
+	@docker --context $(RUST_AMD64_CONTEXT) push $(RUST_IMAGE_AMD64)
+	@docker --context $(RUST_ARM64_CONTEXT) push $(RUST_IMAGE_ARM64)
 	@docker buildx imagetools create --tag $(REGISTRY)/acorn/rust:$(VERSION) --tag $(REGISTRY)/acorn/rust:latest $(RUST_IMAGE_AMD64) $(RUST_IMAGE_ARM64)
 #
 # Variables
@@ -345,8 +359,15 @@ endif
 PLATFORM = linux/amd64
 VERSION = `awk -F ' = ' '$$1 ~ /^version/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
 RUST_VERSION = `awk -F ' = ' '$$1 ~ /rust-version/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
+RUST_AMD64_CONTEXT ?= oklahoma
+RUST_ARM64_CONTEXT ?= dante
 RUST_IMAGE_AMD64 = $(REGISTRY)/acorn/rust:$(VERSION)-amd64
 RUST_IMAGE_ARM64 = $(REGISTRY)/acorn/rust:$(VERSION)-arm64
+RUST_IMAGE_GHCR = ghcr.io/jhwohlgemuth/acorn
+RUST_IMAGE_GHCR_AMD64 = $(RUST_IMAGE_GHCR):rust-$(VERSION)-amd64
+RUST_IMAGE_GHCR_ARM64 = $(RUST_IMAGE_GHCR):rust-$(VERSION)-arm64
+RUST_IMAGE_GHCR_LATEST = $(RUST_IMAGE_GHCR):rust-latest
+RUST_IMAGE_GHCR_VERSION = $(RUST_IMAGE_GHCR):rust-$(VERSION)
 DOCKER_HUB_REGISTRY = mirror.gcr.io/library
 ORNL_HUB_PROXY = regproxy.ornl.gov/hub_proxy
 REGISTRY = savannah.ornl.gov/research-enablement
@@ -431,6 +452,13 @@ TASKS = \
 	bucket-image \
 	bucket-push \
 	bucket-push-docker \
-	bucket-push-ghcr
+	bucket-push-ghcr \
+	rust-image \
+	rust-image-amd64 \
+	rust-image-arm64 \
+	rust-publish-ghcr \
+	rust-push \
+	rust-push-ghcr \
+	rust-push-savannah
 
 .PHONY: $(TASKS)

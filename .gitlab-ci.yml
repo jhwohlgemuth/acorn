@@ -49,7 +49,7 @@ stages:
 
 modelpack-drift:
   stage: test
-  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
   tags:
     - arm64
   rules:
@@ -100,7 +100,7 @@ prepare-environment:
 
 test:
   stage: test
-  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
   resource_group: tests
   tags:
     - arm64
@@ -122,7 +122,7 @@ test:
 
 test-portability:
   stage: extended-test
-  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
   allow_failure: true
   when: manual
   resource_group: tests
@@ -158,7 +158,7 @@ test-portability:
 
 test-docs:
   stage: test
-  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
   resource_group: tests
   tags:
     - arm64
@@ -191,7 +191,7 @@ test-docs:
 
 fuzz-smoke:
   stage: extended-test
-  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
   allow_failure: true
   when: manual
   resource_group: tests
@@ -234,7 +234,7 @@ fuzz-smoke:
 
 benchmark:
   stage: performance
-  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
   tags:
     - arm64
   inherit:
@@ -282,7 +282,7 @@ benchmark:
 
 build-release:
   stage: build
-  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
   tags:
     - arm64
   inherit:
@@ -318,7 +318,7 @@ build-release:
 
 validate-mcpb:
   stage: build
-  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
   tags:
     - amd64
   inherit:
@@ -421,7 +421,7 @@ upload-binaries:
 
 publish-crates:
   stage: release
-  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
   tags:
     - arm64
   inherit:
@@ -468,7 +468,7 @@ publish-homebrew-formula:
 
 publish-book:
   stage: docs
-  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
   tags:
     - arm64
   inherit:
