@@ -55,6 +55,10 @@ extend the implemented portability matrix
 
 ## Cross-plan dependency edges
 
+### Optional policy validation
+
+- [CEL validation-profile pilot](features/cel-validation-profile-pilot.md) builds on the implemented analyzer/validation contracts. Runtime conformance and resource limits precede evaluator integration, then CLI wiring and team acceptance. It coordinates feature wiring with [dependency-feature defaults](refactors/portability/dependency-feature-defaults.md) and yields shared manifest/CLI locks to [MCP client](features/mcp-client.md); neither plan depends on CEL. OPA integration remains conditional future work described in the [assessment](assets/opa-cel-review.md), not a scheduled implementation.
+
 ### Portability and crate boundaries
 
 - [Dependency feature defaults](refactors/portability/dependency-feature-defaults.md) precedes every extraction because each new manifest needs an explicit capability set.

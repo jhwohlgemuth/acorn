@@ -8,6 +8,7 @@
 
 ## Planned
 
+- [CEL metadata validation-profile pilot](cel-validation-profile-pilot.md) - Evaluate bounded, optional institutional rules against existing Rust/Rhai behavior before adopting a CEL runtime; see the [OPA/CEL review](../assets/opa-cel-review.md).
 - [Azure Cosmos DB bucket downloads](azure-cosmos-buckets.md) - After the provider-neutral source prerequisite, add a Cosmos DB for NoSQL container or logical partition as a read-only bucket source.
 - [Deterministic gather scraping](deterministic-gather-scraping.md) - Extend gather with bounded HTTP fetching and typed CSS extraction without scripting or inference.
 - [Structured extraction inference](structured-extraction-inference.md) - Add typed, provenance-preserving inference fallback for incomplete deterministic gather extraction.
