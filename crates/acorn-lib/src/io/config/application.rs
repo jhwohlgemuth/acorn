@@ -296,14 +296,14 @@ pub enum Hook {
 ///     "buckets": [
 ///         {
 ///             "name": "big-science",
-///             "repository": {
+///             "source": {
 ///                 "provider": "github",
 ///                 "uri": "https://github.com/username/example"
 ///             }
 ///         },
 ///         {
 ///             "name": "does-it-scale",
-///             "repository": {
+///             "source": {
 ///                 "provider": "gitlab",
 ///                 "id": 12345,
 ///                 "uri": "https://gitlab.com/username/example"

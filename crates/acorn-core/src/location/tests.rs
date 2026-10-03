@@ -17,7 +17,6 @@ fn supported_uri() -> impl Strategy<Value = String> {
         ]
     })
 }
-
 proptest! {
     #![proptest_config(ProptestConfig {
         cases: 256,
@@ -93,6 +92,17 @@ fn test_location_preserves_ssh_uri_components_and_serialization() {
     assert_eq!(round_trip, location);
 }
 #[test]
+fn test_location_reports_only_configured_revisions() {
+    let detailed = serde_json::from_value::<Location>(serde_json::json!({
+        "scheme": "https",
+        "uri": "https://github.com/example/project",
+        "revision": "release/v1"
+    }))
+    .expect("detailed location should deserialize");
+    assert_eq!(detailed.revision(), Some("release/v1"));
+    assert_eq!(Location::from("https://github.com/example/project").revision(), None);
+}
+#[test]
 fn test_location_round_trips_supported_uri_schemes() {
     [
         ("file:///tmp/acorn.json", "file:/tmp/acorn.json", Scheme::File),
@@ -125,4 +135,12 @@ fn test_repository_gitlab_builder() {
     let repository = Repository::gitlab().location(Location::from("https://gitlab.com/group/project")).call();
     assert!(repository.is_gitlab());
     assert_eq!(repository.project_path().as_deref(), Some("group/project"));
+}
+#[test]
+fn test_repository_raw_url_uses_exact_version() {
+    let repository = Repository::from_remote("https://github.com/example/project", "gitlab.com").expect("GitHub repository");
+    assert_eq!(
+        repository.raw_url("metadata/activity.json".to_string(), Some("abc123")),
+        Some("https://raw.githubusercontent.com/example/project/abc123/metadata/activity.json".to_string())
+    );
 }

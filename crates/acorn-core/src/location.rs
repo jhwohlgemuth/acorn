@@ -131,13 +131,6 @@ pub struct Release {
     /// Provider response message.
     pub message: Option<String>,
 }
-impl<'a> From<&'a Location> for &'a str {
-    fn from(value: &'a Location) -> Self {
-        match value {
-            | Location::Simple(value) | Location::Detailed { uri: value, .. } => value,
-        }
-    }
-}
 impl From<&str> for Location {
     fn from(value: &str) -> Self {
         match UriRef::parse(value).ok().and_then(|uri| uri.scheme()) {
@@ -353,6 +346,13 @@ impl Location {
             | None => host,
         })
     }
+    /// Get the optional revision selected by a structured location.
+    pub fn revision(&self) -> Option<&str> {
+        match self {
+            | Self::Detailed { revision, .. } => revision.as_deref(),
+            | Self::Simple(_) => None,
+        }
+    }
     /// Get the URI path.
     pub fn path(&self) -> Option<String> {
         self.uri()
@@ -467,11 +467,11 @@ impl Repository {
         }
     }
     /// Get a raw GitHub file URL.
-    pub fn raw_url(&self, path: String) -> Option<String> {
+    pub fn raw_url(&self, path: String, version: Option<&str>) -> Option<String> {
         match self {
             | Self::GitHub { location } => location
                 .path()
-                .map(|value| format!("https://raw.githubusercontent.com{value}/refs/heads/main/{path}")),
+                .map(|value| format!("https://raw.githubusercontent.com{value}/{}/{path}", version.unwrap_or("main"))),
             | _ => None,
         }
     }
@@ -487,12 +487,18 @@ impl From<&str> for Scheme {
         }
     }
 }
+impl<'a> From<&'a Location> for &'a str {
+    fn from(value: &'a Location) -> Self {
+        match value {
+            | Location::Simple(value) | Location::Detailed { uri: value, .. } => value,
+        }
+    }
+}
 fn has_named_uri_scheme(value: &str, expected: &str) -> bool {
     UriRef::parse(value)
         .ok()
         .and_then(|uri| uri.scheme().map(|scheme| scheme.as_str().eq_ignore_ascii_case(expected)))
         .unwrap_or(false)
 }
-
 #[cfg(test)]
 mod tests;

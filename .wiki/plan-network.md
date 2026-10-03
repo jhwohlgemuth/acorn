@@ -117,6 +117,7 @@ extend the implemented portability matrix
 ### Build, verification, and performance
 
 - [Runner-pool isolation](refactors/ci-runner-pools.md) is in progress: repository tag/config support has landed, while specialized routing, isolated build storage, concurrency, and deployment validation remain.
+- The [Podman-only Makefile migration](migrations/podman-makefile.md) replaces local Docker CLI and Buildx use with Podman-native image and manifest workflows. It preserves product-level Docker support and uses native AMD64 and ARM64 builders rather than requiring every developer host to execute foreign-architecture build steps.
 - [macOS compact-unwind reduction](refactors/portability/macos-compact-unwind-size.md), [Miri](testing/miri-quality.md), [Creusot](testing/creusot-pid-checksums.md), and [OOXML fuzzing](refactors/core/ooxml-fuzzing.md) serialize on Makefile and CI integration even when their leaf tests are disjoint.
 - The [refactor initiative](refactors/initiative.md), [crate architecture](refactors/crate-boundary-architecture.md), [portability roadmap](refactors/portability/roadmap.md), and [API roadmap](refactors/api/roadmap.md) are coordination records rather than schedulable jobs.
 
@@ -134,6 +135,7 @@ extend the implemented portability matrix
 | `crates/acorn-lib/src/io/database/` | Canonical RAD database, provider-neutral webhook store, database-backed artifact sources | The webhook runtime replaces GitLab-specific bot tables with dedicated generic lifecycle tables. Give each store a leaf module and tests; serialize `database/{mod.rs,schema.rs}`, migrations, and public repository integration. |
 | `crates/acorn-lib/src/io/powerpoint/` | OOXML hardening, interpolation, export context, fuzzing | Structured slide/media transforms and focused tests are the baseline. Finish parser-backed interpolation, shared field projection, and fuzzing before moving them to `acorn-export`. |
 | `crates/acorn-cli/src/main.rs` and `cli/` | RPC/webhook serving, GitLab bot, ACP inference, MCP client, CLI model/startup/error plans, dPID import | The highest-priority lane has first claim on its CLI integration windows. Preserve implemented MCP commands; register one transport, workflow, or format surface per merge and regenerate help once per integration batch. |
+| `Makefile` and container release publication | [Podman migration](migrations/podman-makefile.md), runner pools, Needle/SLM host jobs, portability gates, Miri, Creusot, fuzzing, release work | The Podman migration takes the CI/build lock for its implementation window. Preserve native architecture images and existing registry destinations; do not combine the engine migration with runner-executor or product-runtime changes. |
 | Workspace manifests and CI | JSON-RPC/webhook dependencies, tonic/prost, ACP SDK, RMCP client, crate extraction, feature defaults, CI pools, portability gates | The highest-priority lane serializes dependency additions in its numbered order. Change one graph concern per merge and validate supported feature combinations after each manifest move. |
 
 ## Scheduling projection
@@ -145,6 +147,7 @@ extend the implemented portability matrix
 - Remote-create leaf work, OOXML leaf transformations, and a Hugging Face request-type leaf may proceed concurrently when they obey the locks in the [parallel execution guide](parallel-execution.md); model context metadata follows the request-type leaf and pauses for OCI, database-schema, or CLI model-planner integration windows.
 - The `acorn-cmd` process core and focused tests may proceed independently of service lanes. Its dependency addition, workspace version, lockfile, and publication serialize with other manifest and release owners.
 - Schema features, GitLab service work, CLI root refactors, analyzer `mod/check/service` refactors, and build/CI wiring serialize within their lanes.
+- The Podman migration runs as one CI/build integration slice after current owners release `Makefile`; architecture-specific image builds may validate independently, but manifest publication lands only after both immutable architecture tags are available.
 - dPID's portable parser and provider leaf can be prepared independently after its fixture contract lands. Its general RAD identifier/crosswalk, module registration, endpoint configuration, discovery/persistence integration, and CLI import slices serialize through their named locks.
 
 ## Status interpretation

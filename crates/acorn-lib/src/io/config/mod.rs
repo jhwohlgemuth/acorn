@@ -23,7 +23,9 @@ use acorn_schema::{
 };
 pub use application::{AcreSchemaVersion, ApplicationConfiguration, WhitelistLookup};
 use bon::Builder;
-pub use bucket::{Bucket, BucketExtension, BucketOptions, BucketSource, Buckets, ResolvedBucket, SourceInput};
+pub use bucket::{
+    Bucket, BucketExtension, BucketOptions, BucketSource, BucketSourceIdentity, BucketSourceKind, Buckets, ResolvedBucket, SourceInput,
+};
 use color_eyre::eyre::{eyre, Report};
 use core::fmt::{self, Debug};
 use derive_more::Display;
@@ -39,7 +41,7 @@ use serde_with::skip_serializing_none;
 use std::path::PathBuf;
 use strum::EnumIs;
 use tracing::warn;
-pub use transfer::{TransferManifest, TransferPolicy};
+pub use transfer::{TransferManifest, TransferManifestItem, TransferPolicy};
 use veil::Redact;
 
 /// Authentication requirement for a configured model download source

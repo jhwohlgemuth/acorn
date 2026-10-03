@@ -14,11 +14,86 @@ use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
 use secrecy::ExposeSecret;
 use serde::Deserialize;
 
+#[derive(Deserialize)]
+struct CommitReference {
+    id: String,
+}
+/// Add a label to one GitLab Issue or Task after reconciling its current labels.
+pub async fn add_work_item_label(options: &Options) -> ApiResult<WorkItem> {
+    match options.body() {
+        | Ok(label) => match work_item(options).await {
+            | Ok(item) if item.labels.iter().any(|existing| existing == label) => Ok(item),
+            | Ok(_) => {
+                let action = "issue::update";
+                match authenticated_endpoint(action, options) {
+                    | Ok((endpoint, token)) => {
+                        let params = Params::new()
+                            .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
+                            .with_template("identifier", options.identifier())
+                            .with_template("internal_identifier", options.internal_identifier.as_deref())
+                            .with_body("add_labels", label)
+                            .build();
+                        let response = endpoint.invoke(action, Some(params)).await;
+                        endpoint.handle_or::<WorkItem, Fallback<ErrorResponse>>(response)
+                    }
+                    | Err(why) => Err(why),
+                }
+            }
+            | Err(why) => Err(why),
+        },
+        | Err(why) => Err(why),
+    }
+}
 fn authenticated_endpoint(action: &str, options: &Options) -> ApiResult<(Endpoint, api::Secret)> {
     let path = format!("gitlab::api::{action}");
     match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
         | Ok(token) => Endpoint::from_template("gitlab::api").map(|endpoint| (endpoint.with_domain(options.domain()), token)),
         | Err(why) => Err(why),
+    }
+}
+/// Resolve a GitLab branch, tag, or commit reference to its exact commit SHA.
+pub(crate) async fn commit_sha(options: &Options, revision: &str) -> ApiResult<String> {
+    let template = "gitlab::api";
+    let action = "commit";
+    let endpoint = Endpoint::from_template(template).map(|endpoint| endpoint.with_domain(options.domain()));
+    let identifier = options.identifier();
+    match (endpoint, identifier, revision.trim().is_empty()) {
+        | (Ok(endpoint), Some(project_identifier), false) => {
+            let encoded_revision = urlencoding::encode(revision);
+            let token = (!ExposeSecret::expose_secret(&options.token).trim().is_empty()).then_some(ExposeSecret::expose_secret(&options.token));
+            let params = Params::new()
+                .with_template("identifier", Some(project_identifier))
+                .with_template("sha", Some(encoded_revision.as_ref()))
+                .with_auth_maybe(token, Some(options.token_header()))
+                .build();
+            endpoint
+                .invoke_response(action, Some(params))
+                .await
+                .and_then(|response| endpoint.handle_response::<CommitReference>(Ok(response)))
+                .map(|response| response.value.id)
+        }
+        | (Err(why), _, _) => Err(why),
+        | (_, None, _) => Err(eyre!("GitLab project identifier is required")),
+        | (_, _, true) => Err(eyre!("GitLab {action} reference cannot be empty")),
+    }
+}
+/// List external commit statuses using the project, SHA, and filters in `options`.
+pub async fn commit_statuses(options: &Options) -> ApiResult<CommitStatusesResponse> {
+    let action = "commit::statuses";
+    match (authenticated_endpoint(action, options), options.sha()) {
+        | (Ok((endpoint, token)), Ok(sha)) => {
+            let params = Params::new()
+                .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
+                .with_template("identifier", options.identifier())
+                .with_template("sha", Some(sha))
+                .with_keyvalue("order_by", Some("id"))
+                .with_keyvalue("sort", Some("desc"))
+                .with_custom(options.params())
+                .build();
+            let response = endpoint.invoke(action, Some(params)).await;
+            endpoint.handle_or::<CommitStatusesResponse, Fallback<ErrorResponse>>(response)
+        }
+        | (Err(why), _) | (_, Err(why)) => Err(why),
     }
 }
 /// Create a new runner using project or group identifier
@@ -331,6 +406,32 @@ fn merge_request_notes_page(options: &Options) -> BoxFuture<'_, ApiResult<NotesR
     }
     .boxed()
 }
+/// Fetch minimal GitLab project metadata, including the default branch name
+///
+/// The project identifier must be a numeric ID or a URL-encoded project path (see [`Repository::id`](acorn_core::Repository::id)).
+/// An authentication token is optional for public projects and required for private ones.
+///
+/// See <https://docs.gitlab.com/api/projects/#get-a-single-project> for more information
+pub async fn project_details(options: &Options) -> ApiResult<ProjectDetails> {
+    let template = "gitlab::api";
+    let action = "projects";
+    let identifier = options.identifier();
+    match Endpoint::from_template(template).map(|endpoint| endpoint.with_domain(options.domain())) {
+        | Ok(endpoint) => match identifier {
+            | Some(project_identifier) => {
+                let token = (!ExposeSecret::expose_secret(&options.token).trim().is_empty()).then_some(ExposeSecret::expose_secret(&options.token));
+                let params = Params::new()
+                    .with_template("identifier", Some(project_identifier))
+                    .with_auth_maybe(token, Some(options.token_header()))
+                    .build();
+                let response = endpoint.invoke_response(action, Some(params)).await;
+                endpoint.handle_response::<ProjectDetails>(response).map(|response| response.value)
+            }
+            | None => Err(eyre!("GitLab project identifier is required")),
+        },
+        | Err(why) => Err(why),
+    }
+}
 /// Get a user's effective project membership, including inherited membership
 pub async fn project_member(options: &Options, user_id: u64) -> ApiResult<ProjectMember> {
     let action = "member";
@@ -413,51 +514,6 @@ pub async fn publish_commit_status(
         | Err(why) => Err(why),
     }
 }
-/// List external commit statuses using the project, SHA, and filters in `options`.
-pub async fn commit_statuses(options: &Options) -> ApiResult<CommitStatusesResponse> {
-    let action = "commit::statuses";
-    match (authenticated_endpoint(action, options), options.sha()) {
-        | (Ok((endpoint, token)), Ok(sha)) => {
-            let params = Params::new()
-                .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
-                .with_template("identifier", options.identifier())
-                .with_template("sha", Some(sha))
-                .with_keyvalue("order_by", Some("id"))
-                .with_keyvalue("sort", Some("desc"))
-                .with_custom(options.params())
-                .build();
-            let response = endpoint.invoke(action, Some(params)).await;
-            endpoint.handle_or::<CommitStatusesResponse, Fallback<ErrorResponse>>(response)
-        }
-        | (Err(why), _) | (_, Err(why)) => Err(why),
-    }
-}
-/// Fetch minimal GitLab project metadata, including the default branch name
-///
-/// The project identifier must be a numeric ID or a URL-encoded project path (see [`Repository::id`](acorn_core::Repository::id)).
-/// An authentication token is optional for public projects and required for private ones.
-///
-/// See <https://docs.gitlab.com/api/projects/#get-a-single-project> for more information
-pub async fn project_details(options: &Options) -> ApiResult<ProjectDetails> {
-    let template = "gitlab::api";
-    let action = "projects";
-    let identifier = options.identifier();
-    match Endpoint::from_template(template).map(|endpoint| endpoint.with_domain(options.domain())) {
-        | Ok(endpoint) => match identifier {
-            | Some(project_identifier) => {
-                let token = (!ExposeSecret::expose_secret(&options.token).trim().is_empty()).then_some(ExposeSecret::expose_secret(&options.token));
-                let params = Params::new()
-                    .with_template("identifier", Some(project_identifier))
-                    .with_auth_maybe(token, Some(options.token_header()))
-                    .build();
-                let response = endpoint.invoke_response(action, Some(params)).await;
-                endpoint.handle_response::<ProjectDetails>(response).map(|response| response.value)
-            }
-            | None => Err(eyre!("GitLab project identifier is required")),
-        },
-        | Err(why) => Err(why),
-    }
-}
 /// Fetch the configured repository file at an exact commit SHA
 pub async fn repository_file(options: &Options) -> ApiResult<RepositoryFile> {
     let template = "gitlab::api";
@@ -500,6 +556,7 @@ pub(crate) async fn repository_tree(options: &Options) -> ApiResult<TreeResponse
                 .with_keyvalue("page", Some(&options.page.to_string()))
                 .with_keyvalue("recursive", Some("true"))
                 .with_keyvalue("path", options.path.as_deref())
+                .with_keyvalue("ref", options.sha.as_deref())
                 .with_custom(options.params())
                 .with_auth_maybe(token, Some(options.token_header()))
                 .build();
@@ -650,32 +707,6 @@ pub async fn work_item(options: &Options) -> ApiResult<WorkItem> {
             let response = endpoint.invoke(action, Some(params)).await;
             endpoint.handle_or::<WorkItem, Fallback<ErrorResponse>>(response)
         }
-        | Err(why) => Err(why),
-    }
-}
-/// Add a label to one GitLab Issue or Task after reconciling its current labels.
-pub async fn add_work_item_label(options: &Options) -> ApiResult<WorkItem> {
-    match options.body() {
-        | Ok(label) => match work_item(options).await {
-            | Ok(item) if item.labels.iter().any(|existing| existing == label) => Ok(item),
-            | Ok(_) => {
-                let action = "issue::update";
-                match authenticated_endpoint(action, options) {
-                    | Ok((endpoint, token)) => {
-                        let params = Params::new()
-                            .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
-                            .with_template("identifier", options.identifier())
-                            .with_template("internal_identifier", options.internal_identifier.as_deref())
-                            .with_body("add_labels", label)
-                            .build();
-                        let response = endpoint.invoke(action, Some(params)).await;
-                        endpoint.handle_or::<WorkItem, Fallback<ErrorResponse>>(response)
-                    }
-                    | Err(why) => Err(why),
-                }
-            }
-            | Err(why) => Err(why),
-        },
         | Err(why) => Err(why),
     }
 }

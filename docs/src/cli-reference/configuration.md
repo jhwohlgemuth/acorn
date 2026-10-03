@@ -13,7 +13,7 @@ The current schema version is `1.0.0`. New files should declare it with the `sch
     "buckets": [
         {
             "name": "bessd",
-            "repository": {
+            "source": {
                 "provider": "gitlab",
                 "id": 17603,
                 "uri": "https://code.ornl.gov/research-enablement/buckets/bessd"
@@ -74,7 +74,7 @@ Runner containers always start detached. Command-line `--host` or `--context` ov
     "buckets": [
         {
             "name": "bessd",
-            "repository": {
+            "source": {
                 "provider": "gitlab",
                 "id": 17603,
                 "uri": "https://code.ornl.gov/research-enablement/buckets/bessd"
@@ -127,13 +127,13 @@ buckets:
     source: https://gitlab.example/research/science
 ```
 
-Provider-specific fields use the detailed form. `repository` remains an accepted input alias, while ACORN writes the canonical `codeRepository` key:
+Provider-specific fields use the detailed `source` form. The legacy `repository` and `codeRepository` keys remain accepted as input aliases:
 
 ```json
 {
     "buckets": [{
         "name": "science",
-        "codeRepository": {
+        "source": {
             "provider": "gitlab",
             "id": 42,
             "location": "https://gitlab.example/research/science"

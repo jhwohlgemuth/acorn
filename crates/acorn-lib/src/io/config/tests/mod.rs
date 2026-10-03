@@ -10,8 +10,10 @@ use crate::{
     io::{
         api::{Authenticator, Credential},
         config::{
-            bucket::source::{BucketSourceItem, DownloadOptions, RepositoryBucketSource},
-            transfer::{count_image_files, count_json_files, has_image_extension, operations_complete_message, TransferItem},
+            bucket::source::{
+                BucketSourceAdapter, BucketSourceIdentity, BucketSourceItem, BucketSourceKind, DownloadOptions, RepositoryBucketSource,
+            },
+            transfer::{count_image_files, count_json_files, has_image_extension, operations_complete_message, transfer_bucket_files, TransferItem},
         },
         read_file, InputOutput, Parse,
     },
@@ -121,6 +123,24 @@ const ENDPOINTS: &str = r#"{
         }
     ]
 }"#;
+#[derive(Clone)]
+struct FakeBucketSource {
+    items: Vec<BucketSourceItem>,
+}
+impl BucketSourceAdapter for FakeBucketSource {
+    fn is_local(&self) -> bool {
+        false
+    }
+    fn source_identity(&self) -> BucketSourceIdentity {
+        BucketSourceIdentity::new(BucketSourceKind::Git, "https://user:secret@example.org/bucket?token=secret")
+    }
+    async fn items(&self) -> ApiResult<Vec<BucketSourceItem>> {
+        Ok(self.items.clone())
+    }
+    async fn retrieve(&self, item: &BucketSourceItem, destination: &Path) -> ApiResult<()> {
+        write(destination, item.key()).map(|_| ()).map_err(Into::into)
+    }
+}
 fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures")
 }
@@ -140,6 +160,41 @@ fn temp_resolve_dir(name: &str) -> PathBuf {
         .join("target")
         .join("test_artifacts")
         .join(format!("{name}-{nanos}"))
+}
+#[test]
+fn test_acre_rejects_unsupported_schema_versions_and_unknown_fields() {
+    [
+        r#"{"schemaVersion":"v1.0.0"}"#,
+        r#"{"schemaVersion":"2.0.0"}"#,
+        r#"{"schemaVersion":1}"#,
+        r#"{"unknown":true}"#,
+    ]
+    .into_iter()
+    .for_each(|content| assert!(ApplicationConfiguration::parse(content).is_err(), "accepted {content}"));
+    let message = ApplicationConfiguration::parse(r#"{"schemaVersion":"2.0.0"}"#)
+        .expect_err("future ACRE version should fail")
+        .to_string();
+    assert!(message.contains("unknown variant `2.0.0`"));
+    assert!(!message.contains("missing field"));
+}
+#[test]
+fn test_acre_schema_has_human_title_and_feature_independent_fields() {
+    let schema = serde_json::to_value(schemars::schema_for!(ApplicationConfiguration)).unwrap();
+    assert_eq!(schema["title"], "Application Configuration for Research Enablement");
+    let properties = schema["properties"].as_object().expect("schema properties");
+    ["powerAutomate", "schemaVersion", "scriptManifest", "workflow"]
+        .into_iter()
+        .for_each(|name| assert!(properties.contains_key(name), "missing {name}"));
+    let bucket_properties = schema["$defs"]["Bucket"]["properties"].as_object().expect("bucket schema properties");
+    assert!(bucket_properties.contains_key("source"));
+    assert!(!bucket_properties.contains_key("codeRepository"));
+    assert!(!bucket_properties.contains_key("repository"));
+}
+#[test]
+fn test_acre_schema_version_defaults_and_serializes() {
+    let configuration = ApplicationConfiguration::parse("{}").expect("parse legacy configuration");
+    assert_eq!(configuration.schema_version, AcreSchemaVersion::V1_0_0);
+    assert_eq!(serde_json::to_value(configuration).unwrap()["schemaVersion"], ACRE_SCHEMA_VERSION);
 }
 #[test]
 fn test_bucket() {
@@ -186,48 +241,17 @@ fn test_bucket_config_yaml() {
     assert_eq!(config.buckets.as_ref().map_or(0, |b| b.len()), 3);
 }
 #[test]
-fn test_acre_schema_version_defaults_and_serializes() {
-    let configuration = ApplicationConfiguration::parse("{}").expect("parse legacy configuration");
-    assert_eq!(configuration.schema_version, AcreSchemaVersion::V1_0_0);
-    assert_eq!(serde_json::to_value(configuration).unwrap()["schemaVersion"], ACRE_SCHEMA_VERSION);
-}
-#[test]
-fn test_acre_rejects_unsupported_schema_versions_and_unknown_fields() {
-    [
-        r#"{"schemaVersion":"v1.0.0"}"#,
-        r#"{"schemaVersion":"2.0.0"}"#,
-        r#"{"schemaVersion":1}"#,
-        r#"{"unknown":true}"#,
-    ]
-    .into_iter()
-    .for_each(|content| assert!(ApplicationConfiguration::parse(content).is_err(), "accepted {content}"));
-    let message = ApplicationConfiguration::parse(r#"{"schemaVersion":"2.0.0"}"#)
-        .expect_err("future ACRE version should fail")
-        .to_string();
-    assert!(message.contains("unknown variant `2.0.0`"));
-    assert!(!message.contains("missing field"));
-}
-#[test]
-fn test_acre_schema_has_human_title_and_feature_independent_fields() {
-    let schema = serde_json::to_value(schemars::schema_for!(ApplicationConfiguration)).unwrap();
-    assert_eq!(schema["title"], "Application Configuration for Research Enablement");
-    let properties = schema["properties"].as_object().expect("schema properties");
-    ["powerAutomate", "schemaVersion", "scriptManifest", "workflow"]
-        .into_iter()
-        .for_each(|name| assert!(properties.contains_key(name), "missing {name}"));
-}
-#[test]
-fn test_bucket_legacy_aliases_normalize_and_serialize_canonically() {
+fn test_bucket_legacy_aliases_normalize_and_serialize_to_source() {
     let repository = r#"{"provider":"git","location":"file:./science"}"#;
     let legacy = ApplicationConfiguration::parse(format!(r#"{{"buckets":[{{"repository":{repository}}}]}}"#).as_str()).unwrap();
-    let canonical = ApplicationConfiguration::parse(format!(r#"{{"buckets":[{{"codeRepository":{repository}}}]}}"#).as_str()).unwrap();
+    let canonical = ApplicationConfiguration::parse(format!(r#"{{"buckets":[{{"source":{repository}}}]}}"#).as_str()).unwrap();
     let legacy_bucket = &legacy.buckets.unwrap()[0];
     let canonical_bucket = &canonical.buckets.unwrap()[0];
     assert_eq!(legacy_bucket.source, canonical_bucket.source);
     assert_eq!(
         serde_json::to_value(legacy_bucket).unwrap(),
         serde_json::json!({
-            "codeRepository": {
+            "source": {
                 "provider": "git",
                 "location": "file:./science"
             }
@@ -254,6 +278,8 @@ fn test_bucket_shorthand_classification_is_exact_and_fallible() {
     ]
     .into_iter()
     .for_each(|value| assert!(Bucket::try_from(value).is_err(), "{value} should be rejected"));
+    let message = Bucket::try_from("https://user:secret@github.com/acme/science").unwrap_err().to_string();
+    assert!(!message.contains("secret"));
 }
 #[test]
 fn test_bucket_shorthand_normalizes_across_json_jsonc_and_yaml() {
@@ -281,12 +307,54 @@ fn test_bucket_shorthand_normalizes_across_json_jsonc_and_yaml() {
         serde_json::to_value(&expected[1]).unwrap(),
         serde_json::json!({
             "name": "remote",
-            "codeRepository": {
+            "source": {
                 "provider": "github",
                 "location": "https://github.com/acme/science"
             }
         })
     );
+}
+#[tokio::test]
+async fn test_bucket_source_adapter_preserves_item_metadata_through_flattening() {
+    let output = temp_resolve_dir("provider-neutral-manifest");
+    create_dir_all(&output).unwrap();
+    let adapter = FakeBucketSource {
+        items: vec![
+            BucketSourceItem::new(
+                "opaque:item:42".to_string(),
+                "nested/keep.json",
+                Some("exact-version".to_string()),
+                Some(17),
+            )
+            .unwrap(),
+            BucketSourceItem::new("opaque:item:discard".to_string(), "nested/discard.md", None, None).unwrap(),
+        ],
+    };
+    let options = BucketOptions::init()
+        .common(CommonRuntime {
+            filter: vec!["keep\\.json$".to_string()],
+            quiet: true,
+            ..CommonRuntime::default()
+        })
+        .extension(BucketExtension {
+            flatten: true,
+            ..BucketExtension::default()
+        })
+        .output(output.clone())
+        .build();
+    let manifest = transfer_bucket_files(Some("science".to_string()), &adapter, &options).await.unwrap();
+    assert_eq!(manifest.bucket(), Some("science"));
+    assert_eq!(manifest.source().kind(), BucketSourceKind::Git);
+    assert_eq!(manifest.source().locator(), "https://example.org/bucket");
+    assert_eq!(manifest.items().len(), 1);
+    let item = &manifest.items()[0];
+    assert_eq!(item.key(), "opaque:item:42");
+    assert_eq!(item.output_path(), Path::new("keep.json"));
+    assert_eq!(item.size(), Some(17));
+    assert_eq!(item.source_path(), Path::new("nested/keep.json"));
+    assert_eq!(item.version(), Some("exact-version"));
+    assert_eq!(read_to_string(output.join("keep.json")).unwrap(), "opaque:item:42");
+    let _ = remove_dir_all(output);
 }
 #[test]
 fn test_bucket_source_aliases_conflict_instead_of_using_precedence() {
@@ -299,6 +367,14 @@ fn test_bucket_source_aliases_conflict_instead_of_using_precedence() {
     assert!(ApplicationConfiguration::parse(content).is_err());
 }
 #[test]
+fn test_bucket_source_identity_removes_url_secrets() {
+    let identity = BucketSourceIdentity::new(
+        BucketSourceKind::GitLab,
+        "https://user:password@example.org:8443/acme/project?token=secret#fragment",
+    );
+    assert_eq!(identity.locator(), "https://example.org:8443/acme/project");
+}
+#[test]
 fn test_bucket_source_items_validate_paths_duplicates_and_order() {
     ["", "/absolute.json", "../outside.json", "C:\\outside.json"]
         .into_iter()
@@ -308,7 +384,7 @@ fn test_bucket_source_items_validate_paths_duplicates_and_order() {
         BucketSourceItem::validate(ordered)
             .unwrap()
             .into_iter()
-            .map(|item| item.path.into_path_buf())
+            .map(|item| item.path().clone().into_path_buf())
             .collect::<Vec<_>>(),
         vec![PathBuf::from("second.json"), PathBuf::from("first.json")]
     );
@@ -317,6 +393,31 @@ fn test_bucket_source_items_validate_paths_duplicates_and_order() {
         BucketSourceItem::new("second".to_string(), "docs/index.json", None, None).unwrap(),
     ];
     assert!(BucketSourceItem::validate(duplicates).unwrap_err().to_string().contains("duplicate path"));
+}
+#[test]
+fn test_bucket_source_kind_from_repository_variants() {
+    let location = || Box::new(Location::from("https://example.org/acme/project"));
+    [
+        (Repository::Git { location: location() }, BucketSourceKind::Git),
+        (Repository::GitHub { location: location() }, BucketSourceKind::GitHub),
+        (
+            Repository::GitLab {
+                id: None,
+                location: location(),
+            },
+            BucketSourceKind::GitLab,
+        ),
+        (Repository::HuggingFace { location: location() }, BucketSourceKind::HuggingFace),
+        (
+            Repository::OCI {
+                location: location(),
+                registry: None,
+            },
+            BucketSourceKind::OCI,
+        ),
+    ]
+    .into_iter()
+    .for_each(|(repository, expected)| assert_eq!(BucketSourceKind::from(repository), expected));
 }
 #[test]
 fn test_builtin_endpoints() {
@@ -415,9 +516,11 @@ async fn test_copy_files_flattens_destinations_and_manifest() {
         .output(output.clone())
         .build();
     let manifest = bucket.copy_files(&options).await.unwrap();
-    assert_eq!(manifest.files.len(), 2);
-    assert!(manifest.files.contains(&PathBuf::from("index.json")));
-    assert!(manifest.files.contains(&PathBuf::from("image.png")));
+    let files = manifest.files().map(Path::to_path_buf).collect::<Vec<_>>();
+    assert_eq!(files.len(), 2);
+    assert!(files.contains(&PathBuf::from("index.json")));
+    assert!(files.contains(&PathBuf::from("image.png")));
+    assert!(manifest.items().iter().all(|item| item.source_path().starts_with("docs/quest")));
     assert!(output.join("index.json").is_file());
     assert!(output.join("image.png").is_file());
     assert!(!output.join("docs").exists());
@@ -488,7 +591,7 @@ async fn test_download_file_skips_existing_file_without_clobber() {
         output: &output,
         source: Path::new("data.txt"),
         destination: Path::new("data.txt"),
-        branch: None,
+        version: None,
         size: None,
     };
     RepositoryBucketSource::download_file(&options)
@@ -501,7 +604,7 @@ async fn test_download_file_skips_existing_file_without_clobber() {
     let _ = remove_dir_all(output);
 }
 #[test]
-fn test_download_item_github_uses_raw_url() {
+fn test_download_item_github_uses_exact_version_in_raw_url() {
     let repository = Repository::GitHub {
         location: Box::new(Location::Simple("https://github.com/acme/quest".to_string())),
     };
@@ -510,11 +613,11 @@ fn test_download_item_github_uses_raw_url() {
         output: Path::new(""),
         source: Path::new("index.json"),
         destination: Path::new("index.json"),
-        branch: None,
+        version: Some("abc123"),
         size: None,
     };
     let item = RepositoryBucketSource::download_item(&options).expect("GitHub raw URL should build");
-    assert_eq!(item.url, "https://raw.githubusercontent.com/acme/quest/refs/heads/main/index.json");
+    assert_eq!(item.url, "https://raw.githubusercontent.com/acme/quest/abc123/index.json");
     assert!(item.headers.is_none());
 }
 #[test]
@@ -528,7 +631,7 @@ fn test_download_item_gitlab_defaults_to_head_and_percent_encodes_path() {
         output: Path::new(""),
         source: Path::new("content/data set/index.json"),
         destination: Path::new("index.json"),
-        branch: None,
+        version: None,
         size: None,
     };
     let item = RepositoryBucketSource::download_item(&options).expect("GitLab raw URL should build");
@@ -548,7 +651,7 @@ async fn test_download_item_gitlab_raw_url_uses_resolved_branch_and_encodes_path
         output: Path::new(""),
         source: Path::new("content/quest/index.json"),
         destination: Path::new("index.json"),
-        branch: Some("develop"),
+        version: Some("develop"),
         size: None,
     };
     let item = RepositoryBucketSource::download_item(&options).expect("GitLab raw URL should build");

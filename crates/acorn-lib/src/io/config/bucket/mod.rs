@@ -16,11 +16,19 @@ use futures::{future, stream, StreamExt, TryStreamExt};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-pub use source::{BagArchive, BucketSource};
+pub use source::{BagArchive, BucketSource, BucketSourceIdentity, BucketSourceKind};
 use std::path::{Path, PathBuf};
 
 /// Options for bucket transfers
 pub type BucketOptions = RuntimeOptions<BucketExtension, PathBuf>;
+/// One import or download source taken from a configuration entry or command-line URI.
+#[derive(Clone, Debug)]
+pub enum SourceInput {
+    /// Bucket already described by a configuration entry.
+    Bucket(Bucket),
+    /// URI or local path that must be classified before it can be transferred.
+    Uri(String),
+}
 /// Configured collection of research activity files
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize)]
@@ -39,7 +47,6 @@ pub struct Bucket {
     /// Provider used to enumerate and retrieve bucket items
     ///
     /// See <https://schema.org/codeRepository>
-    #[serde(rename = "codeRepository")]
     pub source: BucketSource,
 }
 /// Bucket-specific transfer options
@@ -62,24 +69,6 @@ pub struct BucketExtension {
 /// A collection of buckets that can be transferred together
 #[derive(Clone, Debug, Default)]
 pub struct Buckets(pub Vec<Bucket>);
-/// One import or download source taken from a configuration entry or command-line URI.
-#[derive(Clone, Debug)]
-pub enum SourceInput {
-    /// Bucket already described by a configuration entry.
-    Bucket(Bucket),
-    /// URI or local path that must be classified before it can be transferred.
-    Uri(String),
-}
-impl From<Bucket> for SourceInput {
-    fn from(value: Bucket) -> Self {
-        Self::Bucket(value)
-    }
-}
-impl From<String> for SourceInput {
-    fn from(value: String) -> Self {
-        Self::Uri(value)
-    }
-}
 /// A bucket resolved for transfer, together with the temporary storage that must outlive it.
 #[derive(Debug)]
 pub struct ResolvedBucket {
@@ -91,12 +80,133 @@ pub struct ResolvedBucket {
     /// Dropping this directory before the transfer would delete the payload, so callers transfer through this type rather than extracting the bare bucket.
     _temporary: Option<TemporaryDirectory>,
 }
+impl Bucket {
+    /// Resolves and verifies a local or remote BagIt archive as a payload bucket.
+    ///
+    /// The bag is resolved at the archive root or beneath one enclosing directory, verified in full before any payload is published, and reduced to its `data/` directory so BagIt tag files never reach the output.
+    /// The returned location is the original archive URI, which callers pass along as transfer provenance.
+    ///
+    /// The `temporary` directory owns the downloaded archive and extraction staging, so it must outlive the transfer that consumes the returned bucket.
+    pub async fn archive(source: &str, format: Option<MimeType>, temporary: &TemporaryDirectory, offline: bool) -> ApiResult<(Self, String)> {
+        let local = file_uri_to_path(source).unwrap_or_else(|_| PathBuf::from(source));
+        let archive_path = match local.is_file() {
+            | true => Ok(local),
+            | false if offline => Err(eyre!("Offline mode cannot transfer remote archive: {source}")),
+            | false => {
+                let path = temporary.path().join("archive");
+                download_with_progress(source, &path, |_, _| {}, None, None, None, None)
+                    .await
+                    .map(|_| path)
+            }
+        };
+        archive_path
+            .and_then(|path| ArchiveCandidate::from(path).extract(Some(temporary.path().join("extracted")), format))
+            .and_then(|root| bag_root(&root))
+            .and_then(Bag::verify_payload)
+            .map(|payload| (Self::from_payload(source, payload), source.to_string()))
+    }
+    /// Transfers this bucket and ingests supported research activity data.
+    pub async fn transfer(self, options: &BucketOptions, policy: TransferPolicy, provenance: Option<&str>) -> ApiResult<usize> {
+        match (policy, &self.source, options.common.offline) {
+            | (TransferPolicy::Download, source, _) if source.is_download_restricted() => {
+                Err(eyre!("Bucket download requires a remote bucket source"))
+            }
+            | (_, source, true) if !source.is_local() => Err(eyre!("Offline mode cannot transfer remote bucket sources")),
+            | _ => self.transfer_files(options).await.and_then(|manifest| {
+                let manifest = match provenance {
+                    | Some(source) => manifest.with_source_locator(source),
+                    | None => manifest,
+                };
+                let count = manifest.count();
+                manifest
+                    .canonicalize(options)
+                    .and_then(|manifest| manifest.ingest(options))
+                    .map(|()| count)
+            }),
+        }
+    }
+    /// Imports this bucket and ingests supported research activity data.
+    pub async fn import(self, options: &BucketOptions, provenance: Option<&str>) -> ApiResult<usize> {
+        self.transfer(options, TransferPolicy::Import, provenance).await
+    }
+    /// Downloads this bucket to a local output directory and ingests supported research activity data.
+    pub async fn download(self, options: &BucketOptions, provenance: Option<&str>) -> ApiResult<usize> {
+        self.transfer(options, TransferPolicy::Download, provenance).await
+    }
+    /// Get the hosting domain for a repository-backed bucket
+    #[cfg(test)]
+    pub(crate) fn domain(&self) -> ApiResult<String> {
+        match &self.source {
+            | BucketSource::Repository(repository) => RepositoryBucketSource::new(repository).domain(),
+            | BucketSource::Archive(_) => Err(eyre!("Archive payloads have no repository domain")),
+        }
+    }
+    /// Copy files from a local bucket to a local directory
+    pub async fn copy_files(self, options: &BucketOptions) -> ApiResult<TransferManifest> {
+        let Self { name, source, .. } = self;
+        match source.is_local() {
+            | true => source.transfer_files(name, options).await,
+            | false => Ok(TransferManifest::empty(name, source.identity())),
+        }
+    }
+    /// Download files from a remote bucket to a local directory
+    pub async fn download_files(self, options: &BucketOptions) -> ApiResult<TransferManifest> {
+        self.transfer_files(options).await
+    }
+    async fn transfer_files(self, options: &BucketOptions) -> ApiResult<TransferManifest> {
+        let Self { name, source, .. } = self;
+        source.transfer_files(name, options).await
+    }
+}
+impl Buckets {
+    /// Transfers all buckets and returns the total number of processed items.
+    pub async fn transfer(self, options: &BucketOptions, policy: TransferPolicy) -> ApiResult<usize> {
+        match options.output {
+            | Some(_) => {
+                stream::iter(self.0)
+                    .then(|bucket| bucket.transfer(options, policy, None))
+                    .try_fold(0_usize, |total, count| future::ready(Ok(total.saturating_add(count))))
+                    .await
+            }
+            | None => Ok(0),
+        }
+    }
+}
+impl From<Vec<Bucket>> for Buckets {
+    fn from(value: Vec<Bucket>) -> Self {
+        Self(value)
+    }
+}
+impl BucketSource {
+    fn identity(&self) -> BucketSourceIdentity {
+        match self {
+            | Self::Archive(archive) => ArchiveBucketSource::new(archive).source_identity(),
+            | Self::Repository(repository) => RepositoryBucketSource::new(repository).source_identity(),
+        }
+    }
+    async fn transfer_files(&self, name: Option<String>, options: &BucketOptions) -> ApiResult<TransferManifest> {
+        match self {
+            | Self::Archive(archive) => transfer_bucket_files(name, &ArchiveBucketSource::new(archive), options).await,
+            | Self::Repository(repository) => transfer_bucket_files(name, &RepositoryBucketSource::new(repository), options).await,
+        }
+    }
+}
 impl ResolvedBucket {
     /// Transfers this bucket and ingests supported research activity data.
     ///
     /// This consumes the resolved source so the temporary directory that owns an archive payload cannot be dropped while its files are being read.
     pub async fn transfer(self, options: &BucketOptions, policy: TransferPolicy) -> ApiResult<usize> {
         self.bucket.transfer(options, policy, self.provenance.as_deref()).await
+    }
+}
+impl From<Bucket> for SourceInput {
+    fn from(value: Bucket) -> Self {
+        Self::Bucket(value)
+    }
+}
+impl From<String> for SourceInput {
+    fn from(value: String) -> Self {
+        Self::Uri(value)
     }
 }
 impl SourceInput {
@@ -151,130 +261,6 @@ impl SourceInput {
                 }
             }
         }
-    }
-}
-impl Bucket {
-    /// Resolves and verifies a local or remote BagIt archive as a payload bucket.
-    ///
-    /// The bag is resolved at the archive root or beneath one enclosing directory, verified in full before any payload is published, and reduced to its `data/` directory so BagIt tag files never reach the output.
-    /// The returned location is the original archive URI, which callers pass along as transfer provenance.
-    ///
-    /// The `temporary` directory owns the downloaded archive and extraction staging, so it must outlive the transfer that consumes the returned bucket.
-    pub async fn archive(source: &str, format: Option<MimeType>, temporary: &TemporaryDirectory, offline: bool) -> ApiResult<(Self, String)> {
-        let local = file_uri_to_path(source).unwrap_or_else(|_| PathBuf::from(source));
-        let archive_path = match local.is_file() {
-            | true => Ok(local),
-            | false if offline => Err(eyre!("Offline mode cannot transfer remote archive: {source}")),
-            | false => {
-                let path = temporary.path().join("archive");
-                download_with_progress(source, &path, |_, _| {}, None, None, None, None)
-                    .await
-                    .map(|_| path)
-            }
-        };
-        archive_path
-            .and_then(|path| ArchiveCandidate::from(path).extract(Some(temporary.path().join("extracted")), format))
-            .and_then(|root| bag_root(&root))
-            .and_then(Bag::verify_payload)
-            .map(|payload| (Self::from_payload(source, payload), source.to_string()))
-    }
-    /// Transfers this bucket and ingests supported research activity data.
-    pub async fn transfer(self, options: &BucketOptions, policy: TransferPolicy, provenance: Option<&str>) -> ApiResult<usize> {
-        let local = self.source.is_local();
-        match (policy, &self.source, options.common.offline) {
-            | (TransferPolicy::Download, source, _) if source.is_local_repository() => {
-                Err(eyre!("Bucket download requires a remote repository source"))
-            }
-            | (_, source, true) if !source.is_local() => Err(eyre!("Offline mode cannot transfer remote bucket sources")),
-            | _ => match local {
-                | true => self.copy_files(options).await,
-                | false => self.download_files(options).await,
-            }
-            .and_then(|manifest| {
-                let manifest = match provenance {
-                    | Some(source) => TransferManifest {
-                        repository: source.to_string(),
-                        ..manifest
-                    },
-                    | None => manifest,
-                };
-                let count = manifest.count();
-                manifest
-                    .canonicalize(options)
-                    .and_then(|manifest| manifest.ingest(options))
-                    .map(|()| count)
-            }),
-        }
-    }
-    /// Imports this bucket and ingests supported research activity data.
-    pub async fn import(self, options: &BucketOptions, provenance: Option<&str>) -> ApiResult<usize> {
-        self.transfer(options, TransferPolicy::Import, provenance).await
-    }
-    /// Downloads this bucket to a local output directory and ingests supported research activity data.
-    pub async fn download(self, options: &BucketOptions, provenance: Option<&str>) -> ApiResult<usize> {
-        self.transfer(options, TransferPolicy::Download, provenance).await
-    }
-    /// Get the hosting domain for a repository-backed bucket
-    #[cfg(test)]
-    pub(crate) fn domain(&self) -> ApiResult<String> {
-        match &self.source {
-            | BucketSource::Repository(repository) => RepositoryBucketSource::new(repository).domain(),
-            | BucketSource::Archive(_) => Err(eyre!("Archive payloads have no repository domain")),
-        }
-    }
-    /// Copy files from a local bucket to a local directory
-    pub async fn copy_files(self, options: &BucketOptions) -> ApiResult<TransferManifest> {
-        let Self { name, source, .. } = self;
-        match source {
-            | BucketSource::Repository(repository) => {
-                let adapter = RepositoryBucketSource::new(&repository);
-                match adapter.is_local() {
-                    | true => transfer_bucket_files(name, &adapter, options).await,
-                    | false => Ok(TransferManifest {
-                        bucket: name,
-                        repository: adapter.manifest_identity(),
-                        files: Vec::new(),
-                    }),
-                }
-            }
-            | BucketSource::Archive(archive) => {
-                let adapter = ArchiveBucketSource::new(&archive);
-                transfer_bucket_files(name, &adapter, options).await
-            }
-        }
-    }
-    /// Download files from a remote bucket to a local directory
-    pub async fn download_files(self, options: &BucketOptions) -> ApiResult<TransferManifest> {
-        let Self { name, source, .. } = self;
-        match source {
-            | BucketSource::Repository(repository) => {
-                let adapter = RepositoryBucketSource::new(&repository);
-                transfer_bucket_files(name, &adapter, options).await
-            }
-            | BucketSource::Archive(archive) => {
-                let adapter = ArchiveBucketSource::new(&archive);
-                transfer_bucket_files(name, &adapter, options).await
-            }
-        }
-    }
-}
-impl Buckets {
-    /// Transfers all buckets and returns the total number of processed items.
-    pub async fn transfer(self, options: &BucketOptions, policy: TransferPolicy) -> ApiResult<usize> {
-        match options.output {
-            | Some(_) => {
-                stream::iter(self.0)
-                    .then(|bucket| bucket.transfer(options, policy, None))
-                    .try_fold(0_usize, |total, count| future::ready(Ok(total.saturating_add(count))))
-                    .await
-            }
-            | None => Ok(0),
-        }
-    }
-}
-impl From<Vec<Bucket>> for Buckets {
-    fn from(value: Vec<Bucket>) -> Self {
-        Self(value)
     }
 }
 fn bag_root(root: &Path) -> ApiResult<PathBuf> {

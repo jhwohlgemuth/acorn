@@ -13,14 +13,35 @@ use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+trait ConnectionExt {
+    fn persist_candidate(&self, candidate: ResearchActivityCandidate) -> ApiResult<CandidatePersistence>;
+    fn create_candidate(&self, candidate: ResearchActivityCandidate) -> ApiResult<CandidatePersistence>;
+    fn merge_candidate(&self, row: &ResearchActivityRow, candidate: ResearchActivityCandidate) -> ApiResult<CandidatePersistence>;
+    fn research_activities(&self) -> ApiResult<Vec<ResearchActivityRow>>;
+    fn unique_research_activity_iid(&self) -> ApiResult<String>;
+}
+/// Result of canonical candidate persistence.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CandidateAction {
+    /// A new canonical row was created.
+    Created,
+    /// An existing row gained fields, identities, or provenance.
+    Enriched,
+    /// The candidate was already represented exactly.
+    Unchanged,
+    /// Conflicting fields or multiple matching rows prevented an unambiguous merge.
+    Conflict,
+}
 #[derive(Serialize)]
 #[serde(tag = "provider", rename_all = "lowercase")]
 pub(crate) enum Provenance {
     Bucket {
         bucket: Option<String>,
-        repository: String,
-        relative_path: String,
+        item: Value,
         observed_at: String,
+        schema_version: u8,
+        source: Value,
     },
     Citeas {
         title: String,
@@ -47,39 +68,6 @@ pub(crate) enum Provenance {
         records: Vec<pid::raid::Metadata>,
     },
 }
-/// Canonical partial RAD data and the evidence used to identify it.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ResearchActivityCandidate {
-    /// Partial or complete RAD-shaped JSON.
-    pub rad_json: Value,
-    /// Normalized project identities used for exact matching.
-    pub identity_keys: Vec<String>,
-    /// Source and field observations supporting the candidate.
-    pub provenance: Vec<Value>,
-}
-impl ResearchActivityCandidate {
-    /// Construct a candidate with sorted, deduplicated identity keys and provenance.
-    pub fn new(rad_json: Value, identity_keys: Vec<String>, provenance: Vec<Value>) -> Self {
-        Self {
-            rad_json: canonicalize(rad_json),
-            identity_keys: normalize_identity_keys(identity_keys),
-            provenance: deduplicate_provenance(provenance),
-        }
-    }
-}
-/// Result of canonical candidate persistence.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum CandidateAction {
-    /// A new canonical row was created.
-    Created,
-    /// An existing row gained fields, identities, or provenance.
-    Enriched,
-    /// The candidate was already represented exactly.
-    Unchanged,
-    /// Conflicting fields or multiple matching rows prevented an unambiguous merge.
-    Conflict,
-}
 /// Portable identifier and action returned by candidate persistence.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CandidatePersistence {
@@ -96,47 +84,15 @@ struct MergeResult {
     conflicts: Vec<Value>,
     changed: bool,
 }
-trait ConnectionExt {
-    fn persist_candidate(&self, candidate: ResearchActivityCandidate) -> ApiResult<CandidatePersistence>;
-    fn create_candidate(&self, candidate: ResearchActivityCandidate) -> ApiResult<CandidatePersistence>;
-    fn merge_candidate(&self, row: &ResearchActivityRow, candidate: ResearchActivityCandidate) -> ApiResult<CandidatePersistence>;
-    fn research_activities(&self) -> ApiResult<Vec<ResearchActivityRow>>;
-    fn unique_research_activity_iid(&self) -> ApiResult<String>;
-}
-impl Database<Table> {
-    /// Select a canonical research activity by portable identifier.
-    pub fn research_activity_by_iid(&self, iid: &str) -> ApiResult<Option<ResearchActivityRow>> {
-        self.migrate_table(Table::ResearchActivities).and_then(|()| {
-            self.with_connection(|conn| {
-                conn.query_row(
-                    "SELECT id, iid, rad_json, identity_keys_json, provenance_json, created_at, updated_at FROM research_activities WHERE iid = ?",
-                    backend::params![iid],
-                    |row| Ok(ResearchActivityRow::from(row)),
-                )
-                .map(Some)
-                .or_else(|why| match is_not_found(&why) {
-                    | true => Ok(None),
-                    | false => Err(eyre!("Failed to select research activity {iid} — {why}")),
-                })
-            })
-        })
-    }
-    /// Select rows sharing at least one exact normalized project identity.
-    pub fn research_activities_by_identity(&self, identity_keys: &[String]) -> ApiResult<Vec<ResearchActivityRow>> {
-        let keys = normalize_identity_keys(identity_keys.to_vec());
-        self.migrate_table(Table::ResearchActivities)
-            .and_then(|()| self.with_connection(|conn| conn.research_activities().and_then(|rows| matching_rows(rows, &keys))))
-    }
-    /// Transactionally create a canonical candidate or enrich its unique exact match.
-    pub fn create_or_enrich(&self, candidate: ResearchActivityCandidate) -> ApiResult<CandidatePersistence> {
-        let candidate = ResearchActivityCandidate::new(candidate.rad_json, candidate.identity_keys, candidate.provenance);
-        match candidate.identity_keys.is_empty() {
-            | true => Err(eyre!("Research activity candidate has no project identity keys")),
-            | false => self
-                .migrate_table(Table::ResearchActivities)
-                .and_then(|()| self.with_connection(|connection| transaction(connection, |connection| connection.persist_candidate(candidate)))),
-        }
-    }
+/// Canonical partial RAD data and the evidence used to identify it.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ResearchActivityCandidate {
+    /// Partial or complete RAD-shaped JSON.
+    pub rad_json: Value,
+    /// Normalized project identities used for exact matching.
+    pub identity_keys: Vec<String>,
+    /// Source and field observations supporting the candidate.
+    pub provenance: Vec<Value>,
 }
 impl ConnectionExt for Connection {
     fn persist_candidate(&self, candidate: ResearchActivityCandidate) -> ApiResult<CandidatePersistence> {
@@ -224,6 +180,88 @@ impl ConnectionExt for Connection {
             .ok_or_else(|| eyre!("Failed to generate a unique research activity iid"))
     }
 }
+impl Database<Table> {
+    /// Select a canonical research activity by portable identifier.
+    pub fn research_activity_by_iid(&self, iid: &str) -> ApiResult<Option<ResearchActivityRow>> {
+        self.migrate_table(Table::ResearchActivities).and_then(|()| {
+            self.with_connection(|conn| {
+                conn.query_row(
+                    "SELECT id, iid, rad_json, identity_keys_json, provenance_json, created_at, updated_at FROM research_activities WHERE iid = ?",
+                    backend::params![iid],
+                    |row| Ok(ResearchActivityRow::from(row)),
+                )
+                .map(Some)
+                .or_else(|why| match is_not_found(&why) {
+                    | true => Ok(None),
+                    | false => Err(eyre!("Failed to select research activity {iid} — {why}")),
+                })
+            })
+        })
+    }
+    /// Select rows sharing at least one exact normalized project identity.
+    pub fn research_activities_by_identity(&self, identity_keys: &[String]) -> ApiResult<Vec<ResearchActivityRow>> {
+        let keys = normalize_identity_keys(identity_keys.to_vec());
+        self.migrate_table(Table::ResearchActivities)
+            .and_then(|()| self.with_connection(|conn| conn.research_activities().and_then(|rows| matching_rows(rows, &keys))))
+    }
+    /// Transactionally create a canonical candidate or enrich its unique exact match.
+    pub fn create_or_enrich(&self, candidate: ResearchActivityCandidate) -> ApiResult<CandidatePersistence> {
+        let candidate = ResearchActivityCandidate::new(candidate.rad_json, candidate.identity_keys, candidate.provenance);
+        match candidate.identity_keys.is_empty() {
+            | true => Err(eyre!("Research activity candidate has no project identity keys")),
+            | false => self
+                .migrate_table(Table::ResearchActivities)
+                .and_then(|()| self.with_connection(|connection| transaction(connection, |connection| connection.persist_candidate(candidate)))),
+        }
+    }
+}
+impl ResearchActivityCandidate {
+    /// Construct a candidate with sorted, deduplicated identity keys and provenance.
+    pub fn new(rad_json: Value, identity_keys: Vec<String>, provenance: Vec<Value>) -> Self {
+        Self {
+            rad_json: canonicalize(rad_json),
+            identity_keys: normalize_identity_keys(identity_keys),
+            provenance: deduplicate_provenance(provenance),
+        }
+    }
+}
+fn canonicalize(value: Value) -> Value {
+    match value {
+        | Value::Object(values) => Value::Object(
+            values
+                .into_iter()
+                .map(|(key, value)| (key, canonicalize(value)))
+                .collect::<alloc::collections::BTreeMap<_, _>>()
+                .into_iter()
+                .collect::<Map<_, _>>(),
+        ),
+        | Value::Array(values) => Value::Array(values.into_iter().map(canonicalize).collect()),
+        | value => value,
+    }
+}
+fn deduplicate_provenance(values: Vec<Value>) -> Vec<Value> {
+    values.into_iter().map(canonicalize).fold(Vec::new(), |mut unique, value| {
+        let fingerprint = provenance_fingerprint(&value);
+        if !unique.iter().any(|existing| provenance_fingerprint(existing) == fingerprint) {
+            unique.push(value);
+        }
+        unique
+    })
+}
+fn is_not_found(error: &backend::Error) -> bool {
+    error.to_string().contains("Query returned no rows") || error.to_string().contains("no rows")
+}
+
+fn matching_rows(rows: Vec<ResearchActivityRow>, keys: &[String]) -> ApiResult<Vec<ResearchActivityRow>> {
+    rows.into_iter().try_fold(Vec::new(), |mut matches, row| {
+        parse_strings(row.identity_keys_json.as_deref(), "identity_keys_json").map(|row_keys| {
+            if row_keys.iter().any(|key| keys.contains(key)) {
+                matches.push(row);
+            }
+            matches
+        })
+    })
+}
 fn merge_candidate(row: &ResearchActivityRow, candidate: ResearchActivityCandidate) -> ApiResult<MergeResult> {
     let existing_rad = parse_value(row.rad_json.as_deref(), "rad_json")?;
     let existing_keys = parse_strings(row.identity_keys_json.as_deref(), "identity_keys_json")?;
@@ -287,18 +325,14 @@ fn merge_values(existing: Value, incoming: Value, path: String) -> (Value, Vec<V
         }
     }
 }
-fn canonicalize(value: Value) -> Value {
-    match value {
-        | Value::Object(values) => Value::Object(
-            values
-                .into_iter()
-                .map(|(key, value)| (key, canonicalize(value)))
-                .collect::<alloc::collections::BTreeMap<_, _>>()
-                .into_iter()
-                .collect::<Map<_, _>>(),
-        ),
-        | Value::Array(values) => Value::Array(values.into_iter().map(canonicalize).collect()),
-        | value => value,
+fn normalize_identity_key(value: &str) -> String {
+    let value = value.trim();
+    match value.split_once(':') {
+        | Some((prefix, identifier)) if matches!(prefix.to_ascii_lowercase().as_str(), "doi" | "raid" | "isbn" | "patent") => {
+            format!("{}:{}", prefix.to_ascii_lowercase(), identifier.trim().to_ascii_lowercase())
+        }
+        | Some((prefix, identifier)) => format!("{}:{}", prefix.to_ascii_lowercase(), identifier.trim()),
+        | None => value.to_string(),
     }
 }
 fn normalize_identity_keys(values: Vec<String>) -> Vec<String> {
@@ -310,24 +344,20 @@ fn normalize_identity_keys(values: Vec<String>) -> Vec<String> {
         .into_iter()
         .collect()
 }
-fn normalize_identity_key(value: &str) -> String {
-    let value = value.trim();
-    match value.split_once(':') {
-        | Some((prefix, identifier)) if matches!(prefix.to_ascii_lowercase().as_str(), "doi" | "raid" | "isbn" | "patent") => {
-            format!("{}:{}", prefix.to_ascii_lowercase(), identifier.trim().to_ascii_lowercase())
-        }
-        | Some((prefix, identifier)) => format!("{}:{}", prefix.to_ascii_lowercase(), identifier.trim()),
-        | None => value.to_string(),
-    }
+fn parse_strings(value: Option<&str>, field: &str) -> ApiResult<Vec<String>> {
+    value
+        .ok_or_else(|| eyre!("Research activity row is missing {field}"))
+        .and_then(|value| serde_json::from_str(value).map_err(|why| eyre!("Research activity {field} is invalid — {why}")))
 }
-fn deduplicate_provenance(values: Vec<Value>) -> Vec<Value> {
-    values.into_iter().map(canonicalize).fold(Vec::new(), |mut unique, value| {
-        let fingerprint = provenance_fingerprint(&value);
-        if !unique.iter().any(|existing| provenance_fingerprint(existing) == fingerprint) {
-            unique.push(value);
-        }
-        unique
-    })
+fn parse_value(value: Option<&str>, field: &str) -> ApiResult<Value> {
+    value
+        .ok_or_else(|| eyre!("Research activity row is missing {field}"))
+        .and_then(|value| serde_json::from_str(value).map_err(|why| eyre!("Research activity {field} is invalid — {why}")))
+}
+fn parse_values(value: Option<&str>, field: &str) -> ApiResult<Vec<Value>> {
+    value
+        .ok_or_else(|| eyre!("Research activity row is missing {field}"))
+        .and_then(|value| serde_json::from_str(value).map_err(|why| eyre!("Research activity {field} is invalid — {why}")))
 }
 fn provenance_fingerprint(value: &Value) -> Value {
     match value {
@@ -342,37 +372,8 @@ fn provenance_fingerprint(value: &Value) -> Value {
         | value => value.clone(),
     }
 }
-fn matching_rows(rows: Vec<ResearchActivityRow>, keys: &[String]) -> ApiResult<Vec<ResearchActivityRow>> {
-    rows.into_iter().try_fold(Vec::new(), |mut matches, row| {
-        parse_strings(row.identity_keys_json.as_deref(), "identity_keys_json").map(|row_keys| {
-            if row_keys.iter().any(|key| keys.contains(key)) {
-                matches.push(row);
-            }
-            matches
-        })
-    })
-}
-fn parse_value(value: Option<&str>, field: &str) -> ApiResult<Value> {
-    value
-        .ok_or_else(|| eyre!("Research activity row is missing {field}"))
-        .and_then(|value| serde_json::from_str(value).map_err(|why| eyre!("Research activity {field} is invalid — {why}")))
-}
-fn parse_strings(value: Option<&str>, field: &str) -> ApiResult<Vec<String>> {
-    value
-        .ok_or_else(|| eyre!("Research activity row is missing {field}"))
-        .and_then(|value| serde_json::from_str(value).map_err(|why| eyre!("Research activity {field} is invalid — {why}")))
-}
-fn parse_values(value: Option<&str>, field: &str) -> ApiResult<Vec<Value>> {
-    value
-        .ok_or_else(|| eyre!("Research activity row is missing {field}"))
-        .and_then(|value| serde_json::from_str(value).map_err(|why| eyre!("Research activity {field} is invalid — {why}")))
-}
 fn serialize(value: &impl Serialize) -> ApiResult<String> {
     serde_json::to_string(value).map_err(|why| eyre!("Failed to serialize research activity candidate — {why}"))
 }
-fn is_not_found(error: &backend::Error) -> bool {
-    error.to_string().contains("Query returned no rows") || error.to_string().contains("no rows")
-}
-
 #[cfg(test)]
 mod tests;

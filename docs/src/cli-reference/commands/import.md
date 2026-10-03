@@ -31,7 +31,7 @@ buckets:
     source: https://github.com/example/research-data
 ```
 
-Use a detailed `codeRepository` object for provider-specific fields. The existing `repository` key remains accepted, and all forms use the same fallible source parser as positional command input.
+Use a detailed `source` object for provider-specific fields. The legacy `repository` and `codeRepository` keys remain accepted as input aliases, and all forms use the same fallible source parser as positional command input.
 
 Top-level `acorn download` remains for remote repository transfers and rejects local sources and offline operation. Model commands retain their own local and offline behavior.
 

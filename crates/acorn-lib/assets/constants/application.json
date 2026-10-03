@@ -32,6 +32,11 @@
       "domain": "api.github.com",
       "resources": [
         {
+          "name": "commit",
+          "method": "get",
+          "template": "{{ base }}/repos/{{ path }}/commits/{{ revision }}"
+        },
+        {
           "name": "tree",
           "method": "get",
           "template": "{{ base }}/repos/{{ path }}/git/trees/{{ branch }}{{ query }}"
@@ -69,6 +74,11 @@
           "name": "branch::create",
           "method": "post",
           "template": "{{ base }}/projects/{{ identifier }}/repository/branches"
+        },
+        {
+          "name": "commit",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/repository/commits/{{ sha }}"
         },
         {
           "name": "commit-status",

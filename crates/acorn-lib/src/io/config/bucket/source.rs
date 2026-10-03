@@ -2,7 +2,7 @@
 use super::Bucket;
 use crate::{
     io::{
-        api::{github, gitlab, Authenticator, Configuration, Credential, Endpoint, Params},
+        api::{github, gitlab, Authenticator, Configuration, Credential, Endpoint, Params, Secret},
         download::{DownloadItem, DownloadTask},
         files_all, http, write_file_bytes, ApiResult, Parse, PathExt,
     },
@@ -10,7 +10,7 @@ use crate::{
     LocationExt,
 };
 use acorn_core::{prelude::HashSet, Location, Repository, Scheme, SimpleOrDetailed};
-use acorn_host::{fs::SafePath, terminal::Label};
+use acorn_host::fs::SafePath;
 use color_eyre::eyre::{eyre, Report};
 use fluent_uri::Uri;
 use schemars::JsonSchema;
@@ -20,14 +20,13 @@ use std::{
     fs::read,
     path::{Path, PathBuf},
 };
-use tracing::warn;
 
 pub(super) type BucketInput = SimpleOrDetailed<String, BucketDetailsInput>;
 type BucketSourceInput = SimpleOrDetailed<String, BucketSource>;
 #[allow(async_fn_in_trait)]
 pub(crate) trait BucketSourceAdapter {
     fn is_local(&self) -> bool;
-    fn manifest_identity(&self) -> String;
+    fn source_identity(&self) -> BucketSourceIdentity;
     async fn items(&self) -> ApiResult<Vec<BucketSourceItem>>;
     async fn retrieve(&self, item: &BucketSourceItem, destination: &Path) -> ApiResult<()>;
 }
@@ -45,12 +44,29 @@ pub enum BucketSource {
     #[serde(skip)]
     Archive(BagArchive),
 }
+/// Stable class of bucket source used in manifests and provenance.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[non_exhaustive]
+#[serde(rename_all = "lowercase")]
+pub enum BucketSourceKind {
+    /// Verified BagIt archive payload.
+    Archive,
+    /// Generic Git repository.
+    Git,
+    /// GitHub repository.
+    GitHub,
+    /// GitLab repository.
+    GitLab,
+    /// Hugging Face repository.
+    HuggingFace,
+    /// OCI artifact repository.
+    OCI,
+}
 /// Adapter over the verified `data/` payload of a BagIt archive.
 #[derive(Clone, Copy)]
 pub(crate) struct ArchiveBucketSource<'a> {
     archive: &'a BagArchive,
 }
-
 /// A BagIt archive payload that has already passed BagIt verification.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -65,27 +81,54 @@ pub struct BagArchive {
 pub(super) struct BucketDetailsInput {
     name: Option<String>,
     description: Option<String>,
-    #[serde(rename = "codeRepository", alias = "repository", alias = "source")]
+    #[serde(alias = "codeRepository", alias = "repository")]
     source: BucketSourceInput,
+}
+/// Credential-free identity of a configured bucket source.
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BucketSourceIdentity {
+    kind: BucketSourceKind,
+    locator: String,
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct BucketSourceItem {
-    pub(crate) key: String,
-    pub(crate) path: SafePath,
-    pub(crate) revision: Option<String>,
-    pub(crate) size: Option<u64>,
+    key: String,
+    path: SafePath,
+    version: Option<String>,
+    size: Option<u64>,
 }
 pub(crate) struct DownloadOptions<'a> {
     pub(crate) repository: &'a Repository,
     pub(crate) output: &'a Path,
     pub(crate) source: &'a Path,
     pub(crate) destination: &'a Path,
-    pub(crate) branch: Option<&'a str>,
+    pub(crate) version: Option<&'a str>,
     pub(crate) size: Option<u64>,
 }
 #[derive(Clone, Copy)]
 pub(crate) struct RepositoryBucketSource<'a> {
     repository: &'a Repository,
+}
+impl BucketSourceAdapter for ArchiveBucketSource<'_> {
+    fn is_local(&self) -> bool {
+        true
+    }
+    fn source_identity(&self) -> BucketSourceIdentity {
+        BucketSourceIdentity::new(BucketSourceKind::Archive, self.archive.location.clone())
+    }
+    async fn items(&self) -> ApiResult<Vec<BucketSourceItem>> {
+        local_bucket_items(self.archive.payload.as_path())
+    }
+    async fn retrieve(&self, item: &BucketSourceItem, destination: &Path) -> ApiResult<()> {
+        let source = self.archive.payload.join(item.path());
+        write_file_bytes(destination.to_path_buf(), || async { read(source).map_err(Report::from) }).await
+    }
+}
+impl<'a> ArchiveBucketSource<'a> {
+    pub(crate) const fn new(archive: &'a BagArchive) -> Self {
+        Self { archive }
+    }
 }
 impl Bucket {
     fn from_parts(name: Option<String>, description: Option<String>, source: BucketSource) -> Self {
@@ -150,10 +193,10 @@ impl BucketSource {
             | Self::Repository(repository) => repository.is_local(),
         }
     }
-    /// Whether this source is a local directory or repository, which top-level download rejects.
+    /// Whether this source is local and top-level download must reject it.
     ///
     /// A verified archive payload is deliberately excluded: it is the one local source that top-level download accepts, because ACORN resolved and verified it itself.
-    pub(crate) fn is_local_repository(&self) -> bool {
+    pub(crate) fn is_download_restricted(&self) -> bool {
         match self {
             | Self::Archive(_) => false,
             | Self::Repository(repository) => repository.is_local(),
@@ -186,12 +229,45 @@ impl TryFrom<String> for BucketSource {
         Self::try_from(value.as_str())
     }
 }
+impl BucketSourceIdentity {
+    pub(crate) fn new(kind: BucketSourceKind, locator: impl Into<String>) -> Self {
+        let locator = Secret::from(locator.into());
+        let locator = match Uri::parse(locator.expose_secret()).ok().map(|uri| Scheme::from(uri.scheme().as_str())) {
+            | Some(Scheme::HTTP | Scheme::HTTPS) => redact(locator),
+            | _ => locator.expose_secret().to_string(),
+        };
+        Self { kind, locator }
+    }
+    /// Return the stable source class.
+    pub const fn kind(&self) -> BucketSourceKind {
+        self.kind
+    }
+    /// Return the credential-free source locator.
+    pub fn locator(&self) -> &str {
+        &self.locator
+    }
+    pub(crate) fn with_locator(&self, locator: &str) -> Self {
+        Self::new(self.kind, locator)
+    }
+}
 impl BucketSourceItem {
-    pub(crate) fn new(key: String, path: impl AsRef<Path>, revision: Option<String>, size: Option<u64>) -> ApiResult<Self> {
+    pub(crate) fn new(key: String, path: impl AsRef<Path>, version: Option<String>, size: Option<u64>) -> ApiResult<Self> {
         match key.trim().is_empty() {
             | true => Err(eyre!("Bucket source item key cannot be empty")),
-            | false => SafePath::new(path).map_err(Report::from).map(|path| Self { key, path, revision, size }),
+            | false => SafePath::new(path).map_err(Report::from).map(|path| Self { key, path, version, size }),
         }
+    }
+    pub(crate) fn key(&self) -> &str {
+        &self.key
+    }
+    pub(crate) fn path(&self) -> &SafePath {
+        &self.path
+    }
+    pub(crate) const fn size(&self) -> Option<u64> {
+        self.size
+    }
+    pub(crate) fn version(&self) -> Option<&str> {
+        self.version.as_deref()
     }
     pub(crate) fn validate(items: Vec<Self>) -> ApiResult<Vec<Self>> {
         items
@@ -203,22 +279,24 @@ impl BucketSourceItem {
             .map(|_| items)
     }
 }
-/// Enumerate a local directory as validated bucket source items.
-///
-/// The root is normalized to `to_absolute_path` spelling first, because `files_all` reports canonical absolute paths and relative paths are recovered by stripping that same root.
-fn local_bucket_items(root: &Path) -> ApiResult<Vec<BucketSourceItem>> {
-    let root = PathBuf::from(root.to_path_buf().to_absolute_path());
-    files_all(root.clone(), None::<Vec<String>>)
-        .into_iter()
-        .filter(|path| path.is_file())
-        .filter_map(|path| path.strip_prefix(&root).ok().map(Path::to_path_buf))
-        .map(|relative| BucketSourceItem::new(relative.display().to_string(), relative, None, None))
-        .collect::<ApiResult<Vec<_>>>()
-        .and_then(BucketSourceItem::validate)
+impl From<Repository> for BucketSourceKind {
+    fn from(value: Repository) -> Self {
+        match value {
+            | Repository::Git { .. } => Self::Git,
+            | Repository::GitHub { .. } => Self::GitHub,
+            | Repository::GitLab { .. } => Self::GitLab,
+            | Repository::HuggingFace { .. } => Self::HuggingFace,
+            | Repository::OCI { .. } => Self::OCI,
+        }
+    }
 }
 impl Parse<&str> for Repository {
     fn parse(value: &str) -> ApiResult<Self> {
-        let invalid = |reason: &str| eyre!("Invalid bucket source '{value}' — {reason}");
+        let diagnostic = match value.contains("://") {
+            | true => redact(Secret::from(value)),
+            | false => value.to_string(),
+        };
+        let invalid = |reason: &str| eyre!("Invalid bucket source '{diagnostic}' — {reason}");
         let scheme = value.split_once(':').and_then(|(scheme, _)| {
             let valid = scheme.as_bytes().split_first().is_some_and(|(first, remaining)| {
                 first.is_ascii_alphabetic()
@@ -263,15 +341,15 @@ impl BucketSourceAdapter for RepositoryBucketSource<'_> {
     fn is_local(&self) -> bool {
         self.repository.is_local()
     }
-    fn manifest_identity(&self) -> String {
-        self.repository.location().to_string()
+    fn source_identity(&self) -> BucketSourceIdentity {
+        BucketSourceIdentity::new(BucketSourceKind::from(self.repository.clone()), self.repository.location().to_string())
     }
     async fn items(&self) -> ApiResult<Vec<BucketSourceItem>> {
-        match self.file_paths("").await {
-            | Ok(paths) => match self.resolve_branch().await {
-                | Ok(revision) => paths
+        match self.resolve_version().await {
+            | Ok(version) => match self.file_paths("", version.as_deref()).await {
+                | Ok(paths) => paths
                     .into_iter()
-                    .map(|path| BucketSourceItem::new(path.clone(), path, revision.clone(), None))
+                    .map(|path| BucketSourceItem::new(path.clone(), path, version.clone(), None))
                     .collect::<ApiResult<Vec<_>>>()
                     .and_then(BucketSourceItem::validate),
                 | Err(why) => Err(why),
@@ -283,7 +361,7 @@ impl BucketSourceAdapter for RepositoryBucketSource<'_> {
         match self.repository {
             | Repository::Git { .. } => match self.local_root() {
                 | Ok(root) => {
-                    let source = root.join(&item.key);
+                    let source = root.join(item.key());
                     write_file_bytes(destination.to_path_buf(), || async { read(source) }).await
                 }
                 | Err(why) => Err(why),
@@ -294,14 +372,14 @@ impl BucketSourceAdapter for RepositoryBucketSource<'_> {
                 match destination {
                     | None => Err(eyre!("Bucket output path has no filename")),
                     | Some(destination) => {
-                        let source = PathBuf::from(&item.key);
+                        let source = PathBuf::from(item.key());
                         let options = DownloadOptions {
                             repository: self.repository,
                             output,
                             source: &source,
                             destination: &destination,
-                            branch: item.revision.as_deref(),
-                            size: item.size,
+                            version: item.version(),
+                            size: item.size(),
                         };
                         match Self::download_file(&options).await {
                             | Ok(()) => Ok(()),
@@ -321,26 +399,6 @@ impl BucketSourceAdapter for RepositoryBucketSource<'_> {
             | Repository::HuggingFace { .. } => Err(eyre!("Hugging Face repositories are unsupported for bucket downloads")),
             | Repository::OCI { .. } => Err(eyre!("OCI artifacts are unsupported for bucket downloads")),
         }
-    }
-}
-impl BucketSourceAdapter for ArchiveBucketSource<'_> {
-    fn is_local(&self) -> bool {
-        true
-    }
-    fn manifest_identity(&self) -> String {
-        self.archive.location.clone()
-    }
-    async fn items(&self) -> ApiResult<Vec<BucketSourceItem>> {
-        local_bucket_items(self.archive.payload.as_path())
-    }
-    async fn retrieve(&self, item: &BucketSourceItem, destination: &Path) -> ApiResult<()> {
-        let source = self.archive.payload.join(&item.path);
-        write_file_bytes(destination.to_path_buf(), || async { read(source).map_err(Report::from) }).await
-    }
-}
-impl<'a> ArchiveBucketSource<'a> {
-    pub(crate) const fn new(archive: &'a BagArchive) -> Self {
-        Self { archive }
     }
 }
 impl<'a> RepositoryBucketSource<'a> {
@@ -363,7 +421,7 @@ impl<'a> RepositoryBucketSource<'a> {
         let path = options.source.display().to_string();
         let request = match options.repository {
             | Repository::GitLab { .. } => {
-                let branch = options.branch.filter(|value| !value.is_empty()).unwrap_or("HEAD");
+                let branch = options.version.filter(|value| !value.is_empty()).unwrap_or("HEAD");
                 let encoded_path = path.percent_encode();
                 let headers = Credential::from_env(&GITLAB_CREDENTIAL_VARIABLE_PAIRS)
                     .map(Credential::into_header_pair)
@@ -385,7 +443,7 @@ impl<'a> RepositoryBucketSource<'a> {
             }
             | _ => options
                 .repository
-                .raw_url(path)
+                .raw_url(path, options.version)
                 .map(|url| (url, None))
                 .ok_or_else(|| eyre!("Failed to build raw URL for repository path")),
         };
@@ -417,7 +475,7 @@ impl<'a> RepositoryBucketSource<'a> {
                     .with_domain(domain)
                     .with_identifier(identifier)
                     .with_path(options.source.display().to_string())
-                    .with_sha(options.branch.filter(|value| !value.is_empty()).unwrap_or("HEAD"));
+                    .with_sha(options.version.filter(|value| !value.is_empty()).unwrap_or("HEAD"));
                 match gitlab::repository_file(&request).await.and_then(|file| file.decoded_content()) {
                     | Ok(bytes) => write_file_bytes(options.output.join(options.destination), || async { Ok::<_, Report>(bytes) }).await,
                     | Err(why) => Err(why),
@@ -426,15 +484,18 @@ impl<'a> RepositoryBucketSource<'a> {
             | _ => Err(eyre!("Failed to build GitLab API request for repository path")),
         }
     }
-    async fn file_paths(&self, directory: &str) -> ApiResult<Vec<String>> {
+    async fn file_paths(&self, directory: &str, version: Option<&str>) -> ApiResult<Vec<String>> {
         match self.repository {
-            | Repository::Git { .. } => self
-                .local_root()
-                .and_then(|root| local_bucket_items(&root).map(|items| items.iter().map(|item| item.path.as_path().display().to_string()).collect())),
-            | Repository::GitHub { location } => match (location.path(), self.domain()) {
-                | (Some(path), Ok(host)) => github::tree_paths(format!("api.{host}"), path.trim_start_matches('/').to_string(), "main").await,
-                | (None, Ok(_)) => Err(eyre!("Failed to parse GitHub repository URI")),
-                | (_, Err(why)) => Err(why),
+            | Repository::Git { .. } => self.local_root().and_then(|root| {
+                local_bucket_items(&root).map(|items| items.iter().map(|item| item.path().as_path().display().to_string()).collect())
+            }),
+            | Repository::GitHub { location } => match (location.path(), self.domain(), version) {
+                | (Some(path), Ok(host), Some(version)) => {
+                    github::tree_paths(format!("api.{host}"), path.trim_start_matches('/').to_string(), version).await
+                }
+                | (None, Ok(_), _) => Err(eyre!("Failed to parse GitHub repository URI")),
+                | (_, Ok(_), None) => Err(eyre!("GitHub bucket source has no resolved version")),
+                | (_, Err(why), _) => Err(why),
             },
             | Repository::GitLab { .. } => match self.repository.id() {
                 | Some(identifier) => match self.domain() {
@@ -442,7 +503,8 @@ impl<'a> RepositoryBucketSource<'a> {
                         let options = gitlab::Options::from_env()
                             .with_domain(domain)
                             .with_identifier(identifier)
-                            .with_path(directory);
+                            .with_path(directory)
+                            .with_sha(version.unwrap_or("HEAD"));
                         let mut page = 1_u32;
                         let mut paths = Vec::new();
                         loop {
@@ -471,23 +533,73 @@ impl<'a> RepositoryBucketSource<'a> {
             .map(|path| PathBuf::from(path.to_absolute_path()))
             .ok_or_else(|| eyre!("Git repository has no local path — cannot list files"))
     }
-    async fn resolve_branch(&self) -> ApiResult<Option<String>> {
+    async fn resolve_version(&self) -> ApiResult<Option<String>> {
         match self.repository {
-            | Repository::GitLab { .. } => match (self.repository.domain(), self.repository.id()) {
+            | Repository::GitHub { location } => match (self.repository.project_path(), self.domain()) {
+                | (Some(path), Ok(host)) => {
+                    let revision = location.revision().unwrap_or("main");
+                    github::commit_sha(format!("api.{host}"), path, revision).await.map(Some)
+                }
+                | (None, Ok(_)) => Err(eyre!("Failed to parse GitHub repository path")),
+                | (_, Err(why)) => Err(why),
+            },
+            | Repository::GitLab { location, .. } => match (self.repository.domain(), self.repository.id()) {
                 | (Some(domain), Some(identifier)) => {
                     let options = gitlab::Options::from_env().with_domain(domain).with_identifier(identifier);
-                    match gitlab::project_details(&options).await {
-                        | Ok(details) => Ok(details.default_branch.filter(|value| !value.is_empty())),
-                        | Err(why) => {
-                            warn!("=> {} Resolve GitLab default branch — {why}", Label::fail());
-                            Ok(None)
-                        }
+                    let revision = match location.revision() {
+                        | Some(revision) if !revision.is_empty() => Ok(revision.to_string()),
+                        | _ => gitlab::project_details(&options).await.and_then(|details| {
+                            details
+                                .default_branch
+                                .filter(|value| !value.is_empty())
+                                .ok_or_else(|| eyre!("GitLab bucket source has no configured or default branch"))
+                        }),
+                    };
+                    match revision {
+                        | Ok(revision) => gitlab::commit_sha(&options, &revision).await.map(Some),
+                        | Err(why) => Err(why),
                     }
                 }
-                | _ => Ok(None),
+                | _ => Err(eyre!("GitLab bucket source has no project identity")),
             },
-            | Repository::GitHub { .. } => Ok(Some("main".to_string())),
             | _ => Ok(None),
         }
     }
+}
+
+/// Enumerate a local directory as validated bucket source items.
+///
+/// The root is normalized to `to_absolute_path` spelling first, because `files_all` reports canonical absolute paths and relative paths are recovered by stripping that same root.
+fn local_bucket_items(root: &Path) -> ApiResult<Vec<BucketSourceItem>> {
+    let root = PathBuf::from(root.to_path_buf().to_absolute_path());
+    files_all(root.clone(), None::<Vec<String>>)
+        .into_iter()
+        .filter(|path| path.is_file())
+        .filter_map(|path| path.strip_prefix(&root).ok().map(Path::to_path_buf))
+        .map(|relative| BucketSourceItem::new(relative.display().to_string(), relative, None, None))
+        .collect::<ApiResult<Vec<_>>>()
+        .and_then(BucketSourceItem::validate)
+}
+fn redact(value: Secret) -> String {
+    let value = value.expose_secret();
+    Uri::parse(value).map_or_else(
+        |_| {
+            let bounded = value.split(['?', '#']).next().unwrap_or_default();
+            match bounded.split_once("://") {
+                | Some((scheme, rest)) => format!("{scheme}://{}", rest.rsplit_once('@').map_or(rest, |(_, safe)| safe)),
+                | None => bounded.rsplit_once('@').map_or(bounded, |(_, safe)| safe).to_string(),
+            }
+        },
+        |uri| {
+            let path = uri.path();
+            match uri.authority() {
+                | Some(authority) => {
+                    let authority = authority.as_str();
+                    let authority = authority.rsplit_once('@').map_or(authority, |(_, safe)| safe);
+                    format!("{}://{authority}{path}", uri.scheme())
+                }
+                | None => format!("{}:{path}", uri.scheme()),
+            }
+        },
+    )
 }

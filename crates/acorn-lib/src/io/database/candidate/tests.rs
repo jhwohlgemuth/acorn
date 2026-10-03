@@ -24,7 +24,7 @@ proptest! {
         ..ProptestConfig::default()
     })]
     #[test]
-    fn array_merge_appends_only_new_values_in_observation_order(
+    fn test_array_merge_appends_only_new_values_in_observation_order(
         existing in prop::collection::vec("[a-z][a-z0-9]{0,12}", 0..8),
         incoming in prop::collection::vec("[a-z][a-z0-9]{0,12}", 0..8),
     ) {
@@ -41,14 +41,14 @@ proptest! {
         prop_assert!(conflicts.is_empty());
     }
     #[test]
-    fn array_merge_replay_is_stable(values in prop::collection::vec("[a-z][a-z0-9]{0,12}", 0..12)) {
+    fn test_array_merge_replay_is_stable(values in prop::collection::vec("[a-z][a-z0-9]{0,12}", 0..12)) {
         let existing = Value::Array(values.iter().cloned().map(Value::String).collect());
         let (merged, conflicts) = merge_values(existing.clone(), existing.clone(), "meta.keywords".to_string());
         prop_assert_eq!(merged, existing);
         prop_assert!(conflicts.is_empty());
     }
     #[test]
-    fn provenance_deduplication_ignores_observation_time(
+    fn test_provenance_deduplication_ignores_observation_time(
         source in "[a-z][a-z0-9-]{0,15}",
         first in 0_u64..u64::MAX,
         second in 0_u64..u64::MAX,
@@ -62,7 +62,7 @@ proptest! {
     }
 }
 #[test]
-fn creates_round_trips_and_replays_candidate() {
+fn test_creates_round_trips_and_replays_candidate() {
     let database = database();
     let input = candidate(serde_json::json!({"title": "Example"}), &["doi:10.1234/example"]);
     let created = database.create_or_enrich(input.clone()).unwrap();
@@ -76,7 +76,7 @@ fn creates_round_trips_and_replays_candidate() {
     assert_eq!(database.row_count(Table::ResearchActivities).unwrap(), 1);
 }
 #[test]
-fn enriches_arrays_and_retains_conflicting_values() {
+fn test_enriches_arrays_and_retains_conflicting_values() {
     let database = database();
     database
         .create_or_enrich(candidate(
@@ -98,7 +98,7 @@ fn enriches_arrays_and_retains_conflicting_values() {
     assert_eq!(rad["meta"]["raid"], serde_json::json!(["10.7777/raid"]));
 }
 #[test]
-fn identity_normalization_preserves_case_sensitive_key_values() {
+fn test_identity_normalization_preserves_case_sensitive_key_values() {
     let keys = normalize_identity_keys(vec![
         "DOI:10.1234/ABC".to_string(),
         "doi:10.1234/abc".to_string(),
@@ -112,7 +112,7 @@ fn identity_normalization_preserves_case_sensitive_key_values() {
     assert!(keys.contains(&"rad:file:/Bucket/Project".to_string()));
 }
 #[test]
-fn rejects_ambiguous_multi_row_match_without_mutation() {
+fn test_rejects_ambiguous_multi_row_match_without_mutation() {
     let database = database();
     database
         .create_or_enrich(candidate(serde_json::json!({"title": "One"}), &["doi:one"]))
@@ -133,7 +133,7 @@ fn rejects_ambiguous_multi_row_match_without_mutation() {
     assert_eq!(database.row_count(Table::ResearchActivities).unwrap(), 2);
 }
 #[test]
-fn scalar_conflict_preserves_stored_value_and_records_exact_path() {
+fn test_scalar_conflict_preserves_stored_value_and_records_exact_path() {
     let (merged, conflicts) = merge_values(
         serde_json::json!({"meta": {"identifier": "stored"}}),
         serde_json::json!({"meta": {"identifier": "observed"}}),
@@ -151,15 +151,22 @@ fn scalar_conflict_preserves_stored_value_and_records_exact_path() {
     );
 }
 #[test]
-fn serializes_bucket_provenance_with_provider_tag() {
+fn test_serializes_bucket_provenance_with_provider_tag() {
     let value = serde_json::to_value(Provenance::Bucket {
         bucket: Some("science".to_string()),
-        repository: "file:/bucket".to_string(),
-        relative_path: "project/index.json".to_string(),
+        item: serde_json::json!({
+            "key": "project/index.json",
+            "outputPath": "index.json",
+            "sourcePath": "project/index.json"
+        }),
         observed_at: "2026-01-01T00:00:00Z".to_string(),
+        schema_version: 1,
+        source: serde_json::json!({"kind": "git", "locator": "file:/bucket"}),
     })
     .unwrap();
     assert_eq!(value["provider"], "bucket");
     assert_eq!(value["bucket"], "science");
-    assert_eq!(value["relative_path"], "project/index.json");
+    assert_eq!(value["schema_version"], 1);
+    assert_eq!(value["source"]["locator"], "file:/bucket");
+    assert_eq!(value["item"]["sourcePath"], "project/index.json");
 }

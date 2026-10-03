@@ -7,7 +7,7 @@
 )]
 use super::*;
 use crate::io::api::gitlab::{
-    handle_tree_paths_response, project_details, repository_file, repository_tree, PaginationKey, ProgrammingLanguageDetails,
+    commit_sha, handle_tree_paths_response, project_details, repository_file, repository_tree, PaginationKey, ProgrammingLanguageDetails,
     ProgrammingLanguageUseResponse, ProgrammingLanguagesResponse, TreeResponse,
 };
 use crate::io::api::webhooks::store::OperationQueue;
@@ -21,7 +21,7 @@ use crate::util::constants::app::{
 use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
 use acorn_core::prelude::HashMap;
 use alloc::sync::Arc;
-use axum::extract::{Request, State};
+use axum::extract::{Path as AxumPath, Request, State};
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use core::sync::atomic::{AtomicUsize, Ordering};
@@ -56,9 +56,6 @@ struct ReconciledPublicationState {
     merge_request: Arc<Mutex<Option<serde_json::Value>>>,
     merge_request_creates: Arc<Mutex<u64>>,
 }
-#[cfg(test)]
-mod bot;
-mod package;
 #[test]
 fn test_application_configuration_deserializes_workflow_policy() {
     let configuration = serde_json::from_value::<ApplicationConfiguration>(serde_json::json!({
@@ -200,6 +197,20 @@ async fn test_citation_merge_completion_rejects_spoofed_human_merge_request() {
         .with_effects(queue)
         .with_merge_request_iid(9);
     assert!(!super::intake::complete_citation_merge(&options).await.unwrap());
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_commit_sha_resolves_an_exact_reference() {
+    let router = Router::new().route(
+        "/api/v4/projects/30/repository/commits/{revision}",
+        get(|AxumPath(revision): AxumPath<String>| async move {
+            assert_eq!(revision, "release/v1");
+            Json(serde_json::json!({"id":"abc123"}))
+        }),
+    );
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("").domain(&server.base_url).identifier("30").build();
+    assert_eq!(commit_sha(&options, "release/v1").await.unwrap(), "abc123");
     server.stop().await.unwrap();
 }
 #[tokio::test]
@@ -1335,6 +1346,24 @@ async fn test_repository_tree_treats_later_page_empty_403_as_terminal() {
     server.stop().await.unwrap();
 }
 #[tokio::test]
+async fn test_repository_tree_uses_exact_version_reference() {
+    let query = Arc::new(Mutex::new(String::new()));
+    let router = Router::new()
+        .route(
+            "/api/v4/projects/30/repository/tree",
+            get(|State(query): State<Arc<Mutex<String>>>, request: Request| async move {
+                *query.lock().unwrap() = request.uri().query().unwrap_or_default().to_string();
+                Json(serde_json::json!([]))
+            }),
+        )
+        .with_state(query.clone());
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("").domain(&server.base_url).identifier("30").sha("abc123").build();
+    repository_tree(&options).await.expect("tree request should succeed");
+    assert!(query.lock().unwrap().contains("ref=abc123"));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
 async fn test_repository_workflow_policy_denies_forks_before_requests() {
     let details = MergeRequestDetails {
         iid: 7,
@@ -1495,6 +1524,9 @@ fn test_webhook_options_validate_reachability_and_credentials() {
             .is_ok()
     );
 }
+#[cfg(test)]
+mod bot;
 mod database;
 #[cfg(feature = "analysis")]
 mod intake;
+mod package;

@@ -6,6 +6,16 @@ use alloc::collections::BTreeMap;
 use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+/// Resolved GitHub commit identity.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(crate) struct CommitResponse {
+    /// Exact commit SHA.
+    pub(crate) sha: String,
+}
+/// GitHub repository language usage keyed by language name.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct LanguagesResponse(BTreeMap<String, u64>);
 /// Struct for [GitHub] tree entry
 ///
 /// [GitHub]: https://docs.github.com/en/rest
@@ -65,10 +75,6 @@ pub struct TreeResponse {
     /// Whether tree is truncated
     pub truncated: bool,
 }
-/// GitHub repository language usage keyed by language name.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(transparent)]
-pub struct LanguagesResponse(BTreeMap<String, u64>);
 impl TreeEntry {
     /// Get path of tree entry
     pub fn path(self) -> String {
@@ -79,9 +85,70 @@ impl TreeEntry {
         self.entry_type.eq(&TreeEntryType::File)
     }
 }
+pub(crate) fn collect_tree(entries: Vec<TreeEntry>, prefix: &str) -> (Vec<String>, Vec<(String, String)>) {
+    entries.into_iter().fold((vec![], vec![]), |(mut paths, mut pending), entry| {
+        let is_file = entry.is_file();
+        let TreeEntry { path, sha, .. } = entry;
+        let full_path = path_for(prefix, path.as_str());
+        if is_file {
+            paths.push(full_path);
+        } else {
+            pending.push((sha, full_path));
+        }
+        (paths, pending)
+    })
+}
+/// Resolve a branch, tag, or commit reference to an exact commit SHA.
+pub(crate) async fn commit_sha(host: impl Into<String>, path: impl Into<String>, revision: impl Into<String>) -> ApiResult<String> {
+    let template = "github::api";
+    let action = "commit";
+    let endpoint = match Endpoint::from_template(template).map(|endpoint| endpoint.with_domain(host)) {
+        | Ok(endpoint) => endpoint,
+        | Err(why) => return Err(why),
+    };
+    let path = path.into();
+    let revision = revision.into();
+    let encoded_revision = urlencoding::encode(&revision);
+    let params = Params::new()
+        .with_template("path", Some(path.as_str()))
+        .with_template("revision", Some(encoded_revision.as_ref()))
+        .build();
+    let response = endpoint.invoke(action, Some(params)).await;
+    endpoint.handle::<CommitResponse>(response).map(|commit| commit.sha)
+}
+async fn fetch_tree(endpoint: &Endpoint, path: &str, branch: &str, recursive: bool) -> ApiResult<TreeResponse> {
+    let params = Params::new()
+        .with_template("path", Some(path))
+        .with_template("branch", Some(branch))
+        .with_keyvalue("recursive", recursive.then_some("1"))
+        .build();
+    let response = endpoint.invoke("tree", Some(params)).await;
+    endpoint.handle::<TreeResponse>(response)
+}
+/// Fetch programming language names for a GitHub repository path.
+pub(crate) async fn languages(path: impl Into<String>) -> ApiResult<Vec<String>> {
+    let endpoint = match Endpoint::from_template("github::api") {
+        | Ok(endpoint) => endpoint,
+        | Err(why) => return Err(why),
+    };
+    let path = path.into();
+    let params = Params::new().with_template("path", Some(path.as_str())).build();
+    let response = endpoint.invoke("languages", Some(params)).await;
+    endpoint
+        .handle::<LanguagesResponse>(response)
+        .map(|response| response.0.into_keys().collect())
+}
+pub(crate) fn path_for(prefix: &str, path: &str) -> String {
+    if prefix.is_empty() {
+        path.to_string()
+    } else {
+        format!("{prefix}/{path}")
+    }
+}
 /// Fetch repository tree blob paths for a GitHub repository and branch
 pub(crate) async fn tree_paths(host: impl Into<String>, path: impl Into<String>, branch: impl Into<String>) -> ApiResult<Vec<String>> {
-    let endpoint = match Endpoint::from_template("github::api").map(|e| e.with_domain(host)) {
+    let template = "github::api";
+    let endpoint = match Endpoint::from_template(template).map(|e| e.with_domain(host)) {
         | Ok(endpoint) => endpoint,
         | Err(why) => return Err(why),
     };
@@ -113,48 +180,5 @@ pub(crate) async fn tree_paths(host: impl Into<String>, path: impl Into<String>,
     }
     Ok(all_paths)
 }
-pub(crate) fn collect_tree(entries: Vec<TreeEntry>, prefix: &str) -> (Vec<String>, Vec<(String, String)>) {
-    entries.into_iter().fold((vec![], vec![]), |(mut paths, mut pending), entry| {
-        let is_file = entry.is_file();
-        let TreeEntry { path, sha, .. } = entry;
-        let full_path = path_for(prefix, path.as_str());
-        if is_file {
-            paths.push(full_path);
-        } else {
-            pending.push((sha, full_path));
-        }
-        (paths, pending)
-    })
-}
-async fn fetch_tree(endpoint: &Endpoint, path: &str, branch: &str, recursive: bool) -> ApiResult<TreeResponse> {
-    let params = Params::new()
-        .with_template("path", Some(path))
-        .with_template("branch", Some(branch))
-        .with_keyvalue("recursive", recursive.then_some("1"))
-        .build();
-    let response = endpoint.invoke("tree", Some(params)).await;
-    endpoint.handle::<TreeResponse>(response)
-}
-pub(crate) fn path_for(prefix: &str, path: &str) -> String {
-    if prefix.is_empty() {
-        path.to_string()
-    } else {
-        format!("{prefix}/{path}")
-    }
-}
-/// Fetch programming language names for a GitHub repository path.
-pub(crate) async fn languages(path: impl Into<String>) -> ApiResult<Vec<String>> {
-    let endpoint = match Endpoint::from_template("github::api") {
-        | Ok(endpoint) => endpoint,
-        | Err(why) => return Err(why),
-    };
-    let path = path.into();
-    let params = Params::new().with_template("path", Some(path.as_str())).build();
-    let response = endpoint.invoke("languages", Some(params)).await;
-    endpoint
-        .handle::<LanguagesResponse>(response)
-        .map(|response| response.0.into_keys().collect())
-}
-
 #[cfg(test)]
 mod tests;

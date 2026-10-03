@@ -26,7 +26,7 @@ status: planned
 
 # Dependencies
 
-This plan requires the implemented provider-neutral `BucketSource` and `BucketSourceAdapter` contracts and the stable manifest, filtering, destination-safety, canonicalization, provenance, and ingestion pipeline reused by the landed BagIt archive import and download path. Cosmos integration must extend the landed source and item contracts rather than revise them in the provider plan.
+This plan requires the implemented provider-neutral `BucketSource` and `BucketSourceAdapter` contracts and the item-aware manifest, filtering, destination-safety, canonicalization, provenance, and ingestion pipeline reused by the landed BagIt archive import and download path. Cosmos integration must extend the landed source and item contracts rather than revise them in the provider plan.
 
 It must preserve [dependency feature defaults](../refactors/portability/dependency-feature-defaults.md), the existing HTTP/offline policy, and the provider/authentication boundaries coordinated by the [API roadmap](../refactors/api/roadmap.md).
 
@@ -39,7 +39,8 @@ Add one read-only Cosmos variant and adapter to the provider-neutral bucket sour
 # Current evidence
 
 - `Bucket` now contains a non-exhaustive `BucketSource`; `RepositoryBucketSource` implements `BucketSourceAdapter`, and `transfer_bucket_files` owns provider-neutral filtering and transfer work.
-- `TransferManifest` already owns post-transfer canonicalization, canonical candidate ingestion, and bucket provenance. A Cosmos provider does not need a parallel validation or persistence pipeline.
+- `TransferManifest` owns ordered source keys, source and output paths, exact versions, sizes, post-transfer canonicalization, canonical candidate ingestion, and versioned bucket provenance. A Cosmos provider does not need a parallel validation or persistence pipeline.
+- Repository adapters resolve immutable GitHub and GitLab versions before listing and use those versions for retrieval, establishing the consistency contract expected of new remote adapters.
 - `Repository` in `acorn-core` still models Git, GitHub, GitLab, Hugging Face, and OCI locations. The landed abstraction keeps that enum unchanged and establishes `BucketSource` as the extension point for Cosmos.
 - Cosmos DB for NoSQL stores JSON items and supports point reads and parameterized queries. Transactions and transactional batches are scoped to one logical partition, so container and partition-key design remain explicit even for a read-only first release ([Azure Cosmos DB transactions](https://learn.microsoft.com/azure/cosmos-db/database-transactions-optimistic-concurrency), [transactional batches](https://learn.microsoft.com/azure/cosmos-db/transactional-batch)).
 - The official Rust client is available as `azure_data_cosmos`, but Microsoft currently labels it public preview and does not recommend it for production workloads ([Azure SDK for Rust Cosmos quickstart](https://learn.microsoft.com/azure/cosmos-db/quickstart-rust)). The adapter boundary must keep the client replaceable and the dependency optional.
@@ -55,7 +56,7 @@ Extend the landed `BucketSource` enum with one Cosmos variant. Preserve its repo
   "buckets": [
     {
       "name": "nssd",
-      "repository": {
+      "source": {
         "provider": "cosmos",
         "endpoint": "https://example.documents.azure.com",
         "database": "acorn",
@@ -127,7 +128,7 @@ Implement the optional Cosmos client and envelope validation as a provider leaf,
 
 - A user can configure a Cosmos container and logical partition as an ACORN bucket and download its valid RAD envelopes with the existing `acorn download --config` workflow.
 - The Cosmos implementation adds only its source variant, adapter, configuration, provenance, fixtures, and integration to the landed provider-neutral bucket source contract.
-- Existing repository-backed buckets retain their serialized configuration and observable transfer behavior.
+- Existing repository-backed buckets retain their accepted legacy input aliases and observable transfer behavior; canonical serialization uses the provider-neutral `source` key.
 - Cosmos virtual paths pass through the existing filter, ignore, flatten, destination-safety, clobber, canonicalization, provenance, and ingestion contracts rather than a parallel pipeline.
 - Offline mode fails before Azure authentication or network access, and credentials and item contents do not appear in logs or errors.
 - Pagination, deterministic ordering, duplicate and unsafe paths, malformed envelopes, unsupported media, response bounds, throttling, and partial failure have focused regression coverage.

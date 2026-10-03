@@ -33,7 +33,7 @@ acorn download --config /path/to/.acorn.jsonc
 
 ## Buckets
 
-After a bucket transfer, ACORN ingests transferred JSON, JSONC, YAML, YML, ZONF, and recognized Markdown research activity files into the local `research_activities` table. Unrelated Markdown documentation is ignored. Each row has a portable NanoID and retains the typed RAD JSON plus provenance for the bucket, repository, relative path, and observation time. Exact DOI, RAiD, ISBN, and patent metadata identities are used when present; a repository-qualified RAD identifier always identifies the transferred activity.
+After a bucket transfer, ACORN ingests transferred JSON, JSONC, YAML, YML, ZONF, and recognized Markdown research activity files into the local `research_activities` table. Unrelated Markdown documentation is ignored. Each row has a portable NanoID and retains the typed RAD JSON plus versioned provenance for the bucket, credential-free source, opaque source key, original virtual path, output path, exact source version when available, declared size, and observation time. Exact DOI, RAiD, ISBN, and patent metadata identities are used when present; a source-qualified RAD identifier always identifies the transferred activity.
 
 Repeated transfers are idempotent. A matching candidate gains missing fields and unique array values, while conflicting populated fields remain unchanged and are recorded as provenance. Filters and ignore rules apply before transfer, so only transferred RAD files are ingested.
 
@@ -60,7 +60,7 @@ Top-level `download` accepts remote bucket repositories and BagIt archives. Remo
 "buckets": [
     {
         "name": "nssd (remote)",
-        "repository": {
+        "source": {
             "provider": "gitlab",
             "id": 17411,
             "uri": "https://code.ornl.gov/research-enablement/buckets/nssd"
@@ -68,7 +68,7 @@ Top-level `download` accepts remote bucket repositories and BagIt archives. Remo
     },
     {
         "name": "test (local)",
-        "repository": {
+        "source": {
             "provider": "git",
             "location": "file:./tests/fixtures/data/bucket/"
         }
@@ -76,7 +76,7 @@ Top-level `download` accepts remote bucket repositories and BagIt archives. Remo
 ]
 ```
 
-Bare paths and URLs are the concise form. Use a detailed `repository` object when a provider-specific field such as a GitLab project ID is required; the `codeRepository` key is also accepted.
+Bare paths and URLs are the concise form. Use a detailed `source` object when a provider-specific field such as a GitLab project ID is required; the legacy `repository` and `codeRepository` keys are also accepted as input aliases.
 
 ### BagIt archives
 
@@ -103,12 +103,12 @@ acorn download ./release-bundle --archive-format zip --output ./content
 ```
 
 ### GitLab and GitHub
-The `download` command supports both GitLab and GitHub remote repositories for ACORN buckets. The configuration for each is similar, with the main difference being the `provider` field in the `repository` object.
+The `download` command supports both GitLab and GitHub remote repositories for ACORN buckets. The configuration for each is similar, with the main difference being the `provider` field in the `source` object.
 ```json
 "buckets": [
     {
         "name": "ccsd (gitlab)",
-        "repository": {
+        "source": {
             "provider": "gitlab",
             "id": 17410,
             "uri": "https://code.ornl.gov/research-enablement/buckets/ccsd"
@@ -116,7 +116,7 @@ The `download` command supports both GitLab and GitHub remote repositories for A
     },
     {
         "name": "test (github)",
-        "repository": {
+        "source": {
             "provider": "github",
             "uri": "https://github.com/jhwohlgemuth/bucket"
         }
