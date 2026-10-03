@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "acorn-cli"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "acorn-cmd",
  "acorn-core",
@@ -80,19 +80,21 @@ dependencies = [
 
 [[package]]
 name = "acorn-cmd"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "acorn-macros",
+ "command-group",
  "shell-words",
  "shuck-linter",
  "shuck-parser",
  "temp-env",
+ "thiserror 2.0.18",
  "tracing",
 ]
 
 [[package]]
 name = "acorn-core"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "aho-corasick",
  "anydoc",
@@ -120,7 +122,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-diff"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "json-patch",
  "proptest",
@@ -140,7 +142,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-host"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "acorn-cmd",
  "acorn-core",
@@ -162,7 +164,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-lib"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "acorn-cmd",
  "acorn-core",
@@ -278,7 +280,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-macros"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -289,7 +291,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-schema"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "acorn-core",
  "acorn-macros",
@@ -338,7 +340,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-tui"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "acorn-core",
  "acorn-host",
@@ -357,7 +359,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-wasm"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "acorn-lib",
  "acorn-schema",
@@ -1958,6 +1960,16 @@ dependencies = [
  "crossterm 0.28.1",
  "unicode-segmentation",
  "unicode-width",
+]
+
+[[package]]
+name = "command-group"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a68fa787550392a9d58f44c21a3022cfb3ea3e2458b7f85d3b399d0ceeccf409"
+dependencies = [
+ "nix 0.27.1",
+ "winapi",
 ]
 
 [[package]]
@@ -5074,7 +5086,7 @@ version = "1.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0aeb26bf5e836cc1c341c8106051b573f1766dfa05aa87f0b98be5e51b02303"
 dependencies = [
- "nix",
+ "nix 0.29.0",
  "winapi",
 ]
 
@@ -5289,6 +5301,17 @@ name = "new_debug_unreachable"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
+
+[[package]]
+name = "nix"
+version = "0.27.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
+dependencies = [
+ "bitflags 2.13.0",
+ "cfg-if",
+ "libc",
+]
 
 [[package]]
 name = "nix"
@@ -9501,7 +9524,7 @@ dependencies = [
  "libc",
  "log",
  "memmem",
- "nix",
+ "nix 0.29.0",
  "num-derive",
  "num-traits",
  "ordered-float",

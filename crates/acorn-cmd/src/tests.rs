@@ -4,7 +4,7 @@ use crate::{
     command_exists,
     runtime::{redact, redact_args},
     tests::utils::{echo_args, echo_bin, exit_args, exit_bin, pwsh_is_healthy, sh_echo, stderr_args, stderr_bin},
-    CommandOutput, CommandSpec,
+    CancellationToken, CaptureLimits, CommandError, CommandOutput, CommandSpec, ExecutionOptions, ProcessTermination,
 };
 #[cfg(feature = "shell-lint")]
 use shuck_linter::{lint, AnalysisRequest, LinterSettings, Severity as LintSeverity, ShellDialect};
@@ -77,38 +77,6 @@ mod utils {
             | false => "cmd",
         }
     }
-}
-#[test]
-fn test_redact() {
-    let cases: &[(&[&str], &str)] = &[
-        (&[], ""),
-        (&["hello", "world"], "hello world"),
-        (&["hello world", "foo"], "\"hello world\" foo"),
-        (&["--api-key=mysecret"], "--api-key=[REDACTED]"),
-        (&["--password=mysecret"], "--password=[REDACTED]"),
-        (&["--registration-token=mysecret"], "--registration-token=[REDACTED]"),
-        (&["--secret=mysecret"], "--secret=[REDACTED]"),
-        (&["--token=mysecret"], "--token=[REDACTED]"),
-        (&["--token", "mysecret"], "--token [REDACTED]"),
-        (&["--api-key", "key123", "--token", "tok456"], "--api-key [REDACTED] --token [REDACTED]"),
-        (
-            &["--output", "file.txt", "--token=secret", "--verbose"],
-            "--output file.txt --token=[REDACTED] --verbose",
-        ),
-        (&["--token"], "--token"),
-        (&["--token="], "--token=[REDACTED]"),
-        (&["--username", "admin", "--host=localhost"], "--username admin --host=localhost"),
-        (&["--token=first", "--password=second"], "--token=[REDACTED] --password=[REDACTED]"),
-        (&["--not-token=value", "--my-secret=value"], "--not-token=value --my-secret=value"),
-    ];
-    for (args, expected) in cases {
-        let oss_args: Vec<OsString> = args.iter().map(OsString::from).collect();
-        assert_eq!(redact_args(&oss_args).join(" "), *expected, "argument redaction mismatch");
-    }
-}
-#[test]
-fn test_redact_registry_authorization() {
-    assert_eq!(redact("request failed\nauthorization: Bearer secret"), "request failed\nauth=[REDACTED]");
 }
 mod args_macro {
     use super::*;
@@ -331,6 +299,58 @@ mod cmd_macro {
         };
         assert!(output.status.success());
         assert_eq!(output.stdout(), "Hello Alice Bob");
+    }
+    #[test]
+    fn test_managed_exec_checked_retains_failure() {
+        let options = ExecutionOptions::new();
+        let error = cmd!(exec checked exit_bin(), exit_args(42); opt: &options).expect_err("checked managed command should fail");
+        assert!(matches!(error, CommandError::NonZeroExit(_)));
+        assert_eq!(
+            error.result().and_then(|result| result.status()).and_then(|status| status.code()),
+            Some(42)
+        );
+    }
+    #[test]
+    fn test_managed_exec_supports_literals_options_and_environment() {
+        let options = ExecutionOptions::new().with_capture_limits(CaptureLimits::new(Some(7), None));
+        let result = if cfg!(unix) {
+            cmd!(exec "echo managed-output"; opt: &options).expect("managed literal")
+        } else {
+            cmd!(exec "cmd /c echo managed-output"; opt: &options).expect("managed literal")
+        };
+        assert_eq!(result.termination(), ProcessTermination::Exited);
+        assert_eq!(result.stdout().bytes(), b"output\n");
+        assert!(result.stdout().truncated_bytes() > 0);
+        const KEY: &str = "ACORN_CMD_MANAGED_ENV_TEST";
+        let current_dir = std::env::current_dir().expect("current directory");
+        let result = if cfg!(unix) {
+            cmd!(exec "sh", ["-c", "printf %s \"$ACORN_CMD_MANAGED_ENV_TEST\""]; dir: current_dir, env: [(KEY, "managed")])
+                .expect("managed structured command")
+        } else {
+            cmd!(exec "cmd", ["/c", "echo", "%ACORN_CMD_MANAGED_ENV_TEST%"]; dir: current_dir, env: [(KEY, "managed")])
+                .expect("managed structured command")
+        };
+        assert_eq!(String::from_utf8_lossy(result.stdout().bytes()).trim(), "managed");
+    }
+    #[test]
+    fn test_managed_exec_supports_pre_spawn_cancellation() {
+        let cancellation = CancellationToken::new();
+        cancellation.cancel();
+        let options = ExecutionOptions::new().with_cancellation(cancellation);
+        let result = cmd!(exec exit_bin(), exit_args(0); opt: &options).expect("pre-spawn cancellation result");
+        assert_eq!(result.termination(), ProcessTermination::Cancelled);
+        assert!(result.status().is_none());
+    }
+    #[test]
+    fn test_managed_exec_uses_default_options() {
+        let result = if cfg!(unix) {
+            cmd!(exec "printf managed-default").expect("managed literal with default options")
+        } else {
+            cmd!(exec "cmd /c echo managed-default").expect("managed literal with default options")
+        };
+        assert_eq!(String::from_utf8_lossy(result.stdout().bytes()).trim(), "managed-default");
+        let result = cmd!(exec checked exit_bin(), exit_args(0)).expect("checked managed command with default options");
+        assert!(result.status().is_some_and(|status| status.success()));
     }
     #[test]
     fn test_output() {
@@ -597,4 +617,36 @@ mod cmd_macro {
         let status = cmd!(status exit_bin(), exit_args(42)).expect("exit code");
         assert!(!status.success());
     }
+}
+#[test]
+fn test_redact() {
+    let cases: &[(&[&str], &str)] = &[
+        (&[], ""),
+        (&["hello", "world"], "hello world"),
+        (&["hello world", "foo"], "\"hello world\" foo"),
+        (&["--api-key=mysecret"], "--api-key=[REDACTED]"),
+        (&["--password=mysecret"], "--password=[REDACTED]"),
+        (&["--registration-token=mysecret"], "--registration-token=[REDACTED]"),
+        (&["--secret=mysecret"], "--secret=[REDACTED]"),
+        (&["--token=mysecret"], "--token=[REDACTED]"),
+        (&["--token", "mysecret"], "--token [REDACTED]"),
+        (&["--api-key", "key123", "--token", "tok456"], "--api-key [REDACTED] --token [REDACTED]"),
+        (
+            &["--output", "file.txt", "--token=secret", "--verbose"],
+            "--output file.txt --token=[REDACTED] --verbose",
+        ),
+        (&["--token"], "--token"),
+        (&["--token="], "--token=[REDACTED]"),
+        (&["--username", "admin", "--host=localhost"], "--username admin --host=localhost"),
+        (&["--token=first", "--password=second"], "--token=[REDACTED] --password=[REDACTED]"),
+        (&["--not-token=value", "--my-secret=value"], "--not-token=value --my-secret=value"),
+    ];
+    for (args, expected) in cases {
+        let oss_args: Vec<OsString> = args.iter().map(OsString::from).collect();
+        assert_eq!(redact_args(&oss_args).join(" "), *expected, "argument redaction mismatch");
+    }
+}
+#[test]
+fn test_redact_registry_authorization() {
+    assert_eq!(redact("request failed\nauthorization: Bearer secret"), "request failed\nauth=[REDACTED]");
 }

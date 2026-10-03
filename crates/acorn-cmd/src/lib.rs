@@ -2,39 +2,48 @@
 #![forbid(unsafe_code)]
 extern crate alloc;
 
+mod execution;
 mod process;
 pub mod runtime;
 
+pub use execution::{
+    CancellationToken, CaptureLimits, CapturedOutput, CommandError, ExecutionContext, ExecutionOptions, ExecutionResult, OutputSink, OutputStream,
+    ProcessStatus, ProcessTermination,
+};
 pub use process::CommandOutput;
-pub use runtime::{find_executable, CommandSpec};
+pub use runtime::{command_string, find_executable, parse_sh, CommandSpec};
 
 #[doc(hidden)]
 pub mod __private {
     pub use acorn_macros::cmd_sh_words;
+    pub use alloc::string::String;
     pub use alloc::vec::Vec;
 }
-/// Execute a command and capture its output.
+/// Construct and execute a native command.
 ///
 /// Simplifies `Command::new(binary).args(args).output()` patterns.
 /// Thread safe — `Command` is `Send + Sync`.
 ///
 /// Supports several calling conventions:
 ///
-/// | Prefix         | Returns                        | Description                              |
-/// |----------------|--------------------------------|------------------------------------------|
-/// | `"literal"`    | `io::Result<Output>`           | Interpolated literal, capture output     |
-/// | `status "lit"` | `io::Result<ExitStatus>`       | Interpolated literal, exit status only   |
-/// | `try "lit"`    | `Result<String, String>`       | Interpolated literal, stdout or error    |
-/// | *(none)*       | `io::Result<Output>`           | Run and capture output                   |
-/// | `status`       | `io::Result<ExitStatus>`       | Exit status only (no output)             |
-/// | `sh`           | `io::Result<Output>`           | Parse string, capture output             |
-/// | `sh status`    | `io::Result<ExitStatus>`       | Parse string, exit status only           |
-/// | `try sh`       | `Result<String, String>`       | Parse string, stdout or error            |
-/// | `bash`         | `io::Result<Output>`           | Run via `bash -c <command>`              |
-/// | `pwsh`         | `io::Result<Output>`           | Run via `pwsh -NoProfile -Command ...`   |
-/// | `try`          | `Result<String, String>`       | Run, return stdout or error message      |
+/// | Prefix         | Returns                                 | Description                               |
+/// |----------------|-----------------------------------------|-------------------------------------------|
+/// | `exec`         | `Result<ExecutionResult, CommandError>` | Managed execution with structured outcome |
+/// | `exec checked` | `Result<ExecutionResult, CommandError>` | Managed execution requiring success       |
+/// | `"literal"`    | `io::Result<Output>`                    | Interpolated literal, capture output      |
+/// | `status "lit"` | `io::Result<ExitStatus>`                | Interpolated literal, exit status only    |
+/// | `try "lit"`    | `Result<String, String>`                | Interpolated literal, stdout or error     |
+/// | *(none)*       | `io::Result<Output>`                    | Run and capture output                    |
+/// | `status`       | `io::Result<ExitStatus>`                | Exit status only (no output)              |
+/// | `sh`           | `io::Result<Output>`                    | Parse string, capture output              |
+/// | `sh status`    | `io::Result<ExitStatus>`                | Parse string, exit status only            |
+/// | `try sh`       | `Result<String, String>`                | Parse string, stdout or error             |
+/// | `bash`         | `io::Result<Output>`                    | Run via `bash -c <command>`               |
+/// | `pwsh`         | `io::Result<Output>`                    | Run via `pwsh -NoProfile -Command ...`    |
+/// | `try`          | `Result<String, String>`                | Run, return stdout or error message       |
 ///
 /// All forms support an optional `; dir: path` suffix to set the working directory.
+/// Managed forms accept optional `opt`, `dir`, and `env` suffix values.
 ///
 /// # When to use each form
 ///
@@ -46,6 +55,7 @@ pub mod __private {
 /// | Dynamic command string              | `cmd!(sh format!("diff {file}"))`       |
 /// | Need shell features (pipes, globs)  | `cmd!(bash "echo * \| wc -l")`          |
 /// | Need PowerShell                     | `cmd!(pwsh "Get-ChildItem \| Select-Object Name")` |
+/// | Need cancellation or bounded output | `cmd!(exec "git status"; opt: &options)` |
 ///
 /// On the surface `cmd!("...")` and `cmd!(sh "...")` both accept a literal string, but
 /// the bare literal form is the preferred entry point — it's the simplest, avoids the
@@ -128,6 +138,34 @@ pub mod __private {
 /// at runtime and do not support interpolation — use `format!` or build an
 /// argument list explicitly.
 ///
+/// # Managed execution
+///
+/// The `exec` prefix accepts either an interpolated command literal or a structured
+/// program and argument expression. Omitting `opt` uses [`ExecutionOptions::new`];
+/// pass `; opt: &options` to customize cancellation, timeout, capture limits, or
+/// the output sink. `exec` returns every completed outcome; `exec checked` converts
+/// cancellation, timeout, and unsuccessful exit into a typed [`CommandError`] that
+/// retains the complete result.
+///
+/// ```ignore
+/// use acorn_cmd::{cmd, CancellationToken, ExecutionOptions};
+/// use std::time::Duration;
+///
+/// let cancellation = CancellationToken::new();
+/// let options = ExecutionOptions::new()
+///     .with_cancellation(cancellation.clone())
+///     .with_timeout(Duration::from_secs(10));
+/// let result = cmd!(exec checked "git status"; opt: &options)?;
+///
+/// let args = ["status", "--short"];
+/// let result = cmd!(exec "git", args; opt: &options, env: [("GIT_TERMINAL_PROMPT", "0")])?;
+/// # Ok::<(), acorn_cmd::CommandError>(())
+/// ```
+///
+/// Managed macro forms execute structured programs directly; they do not invoke a
+/// shell. Use `"bash", ["-c", script]` or the PowerShell equivalent when shell
+/// evaluation is intentional.
+///
 /// # Syntax
 ///
 /// ```ignore
@@ -137,6 +175,11 @@ pub mod __private {
 /// cmd!(status "git status")
 /// cmd!(try "git rev-parse HEAD")
 /// cmd!("echo {msg}"; dir: project_dir)
+///
+/// // Managed execution — returns a structured, lossless result
+/// cmd!(exec "git status")
+/// cmd!(exec checked "git", ["status", "--short"])
+/// cmd!(exec "git", args; opt: &options, dir: repo_path, env: environment)
 ///
 /// // String form via sh (shell-aware quoting)
 /// cmd!(sh "git diff --name-only")
@@ -219,6 +262,109 @@ pub mod __private {
 /// ```
 #[macro_export]
 macro_rules! cmd {
+    (@managed_spec $method:ident, $options:expr, $binary:expr, $args:expr; dir: $dir:expr, env: $env:expr) => {{
+        $crate::CommandSpec::new($binary)
+            .args($args)
+            .current_dir(::core::convert::AsRef::<::std::path::Path>::as_ref(&$dir))
+            .envs($env)
+            .$method($options)
+    }};
+    (@managed_spec $method:ident, $options:expr, $binary:expr, $args:expr; env: $env:expr) => {{
+        $crate::CommandSpec::new($binary).args($args).envs($env).$method($options)
+    }};
+    (@managed_spec $method:ident, $options:expr, $binary:expr, $args:expr; dir: $dir:expr) => {{
+        $crate::CommandSpec::new($binary)
+            .args($args)
+            .current_dir(::core::convert::AsRef::<::std::path::Path>::as_ref(&$dir))
+            .$method($options)
+    }};
+    (@managed_spec $method:ident, $options:expr, $binary:expr, $args:expr) => {{
+        $crate::CommandSpec::new($binary).args($args).$method($options)
+    }};
+    (@managed $method:ident, $options:expr, $cmd:literal; $($suffix:tt)+) => {{
+        let mut __parts = $crate::__private::cmd_sh_words!($cmd).into_iter();
+        match __parts.next() {
+            | Some(__binary) => {
+                let __args = __parts.collect::<$crate::__private::Vec<_>>();
+                $crate::cmd!(@managed_spec $method, $options, __binary, __args; $($suffix)+)
+            }
+            | None => Err($crate::CommandError::InvalidOption {
+                option: "command",
+                message: $crate::__private::String::from("empty command string"),
+            }),
+        }
+    }};
+    (@managed $method:ident, $options:expr, $cmd:literal) => {{
+        let mut __parts = $crate::__private::cmd_sh_words!($cmd).into_iter();
+        match __parts.next() {
+            | Some(__binary) => {
+                let __args = __parts.collect::<$crate::__private::Vec<_>>();
+                $crate::cmd!(@managed_spec $method, $options, __binary, __args)
+            }
+            | None => Err($crate::CommandError::InvalidOption {
+                option: "command",
+                message: $crate::__private::String::from("empty command string"),
+            }),
+        }
+    }};
+    (@managed $method:ident, $options:expr, $binary:expr, $args:expr; $($suffix:tt)+) => {{
+        $crate::cmd!(@managed_spec $method, $options, $binary, $args; $($suffix)+)
+    }};
+    (@managed $method:ident, $options:expr, $binary:expr, $args:expr) => {{
+        $crate::cmd!(@managed_spec $method, $options, $binary, $args)
+    }};
+    (@managed_default $method:ident, $($command:tt)+) => {{
+        let __options = $crate::ExecutionOptions::new();
+        $crate::cmd!(@managed $method, &__options, $($command)+)
+    }};
+    (exec checked $cmd:literal; opt: $options:expr, $($suffix:tt)+) => {{
+        $crate::cmd!(@managed checked_execute, $options, $cmd; $($suffix)+)
+    }};
+    (exec checked $cmd:literal; opt: $options:expr) => {{
+        $crate::cmd!(@managed checked_execute, $options, $cmd)
+    }};
+    (exec checked $binary:expr, $args:expr; opt: $options:expr, $($suffix:tt)+) => {{
+        $crate::cmd!(@managed checked_execute, $options, $binary, $args; $($suffix)+)
+    }};
+    (exec checked $binary:expr, $args:expr; opt: $options:expr) => {{
+        $crate::cmd!(@managed checked_execute, $options, $binary, $args)
+    }};
+    (exec checked $cmd:literal; $($suffix:tt)+) => {{
+        $crate::cmd!(@managed_default checked_execute, $cmd; $($suffix)+)
+    }};
+    (exec checked $cmd:literal) => {{
+        $crate::cmd!(@managed_default checked_execute, $cmd)
+    }};
+    (exec checked $binary:expr, $args:expr; $($suffix:tt)+) => {{
+        $crate::cmd!(@managed_default checked_execute, $binary, $args; $($suffix)+)
+    }};
+    (exec checked $binary:expr, $args:expr) => {{
+        $crate::cmd!(@managed_default checked_execute, $binary, $args)
+    }};
+    (exec $cmd:literal; opt: $options:expr, $($suffix:tt)+) => {{
+        $crate::cmd!(@managed execute, $options, $cmd; $($suffix)+)
+    }};
+    (exec $cmd:literal; opt: $options:expr) => {{
+        $crate::cmd!(@managed execute, $options, $cmd)
+    }};
+    (exec $binary:expr, $args:expr; opt: $options:expr, $($suffix:tt)+) => {{
+        $crate::cmd!(@managed execute, $options, $binary, $args; $($suffix)+)
+    }};
+    (exec $binary:expr, $args:expr; opt: $options:expr) => {{
+        $crate::cmd!(@managed execute, $options, $binary, $args)
+    }};
+    (exec $cmd:literal; $($suffix:tt)+) => {{
+        $crate::cmd!(@managed_default execute, $cmd; $($suffix)+)
+    }};
+    (exec $cmd:literal) => {{
+        $crate::cmd!(@managed_default execute, $cmd)
+    }};
+    (exec $binary:expr, $args:expr; $($suffix:tt)+) => {{
+        $crate::cmd!(@managed_default execute, $binary, $args; $($suffix)+)
+    }};
+    (exec $binary:expr, $args:expr) => {{
+        $crate::cmd!(@managed_default execute, $binary, $args)
+    }};
     // ── spawned child ──────────────────────────────────────────
     (spawn $binary:expr, $args:expr; dir: $dir:expr, env: $env:expr) => {
         $crate::runtime::spawn_with_env($binary, $args, Some($dir.as_ref()), $env)

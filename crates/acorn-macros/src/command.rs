@@ -37,10 +37,18 @@ pub(crate) fn expand_cmd_sh_words(input: &LitStr) -> syn::Result<proc_macro2::To
             }
         })
 }
+fn is_ident(value: &str) -> bool {
+    let mut chars = value.chars();
+    chars.next().is_some_and(|ch| ch == '_' || ch.is_ascii_alphabetic()) && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
+}
+fn next_is_word_boundary(chars: &[char], index: usize) -> bool {
+    chars.get(index).is_none_or(|ch| ch.is_whitespace())
+}
 pub(crate) fn parse_cmd_words(command: &str) -> Result<Vec<CmdWord>, String> {
     let chars = command.chars().collect::<Vec<_>>();
     let mut words = Vec::new();
     let mut current = String::new();
+    let mut word_started = false;
     let mut index = 0;
     let parsed: Result<(), String> = 'parse: loop {
         if index >= chars.len() {
@@ -48,10 +56,11 @@ pub(crate) fn parse_cmd_words(command: &str) -> Result<Vec<CmdWord>, String> {
         }
         match chars[index] {
             | ch if ch.is_whitespace() => {
-                push_literal(&mut words, &mut current);
+                push_literal(&mut words, &mut current, &mut word_started);
                 index += 1;
             }
             | '\'' => {
+                word_started = true;
                 index += 1;
                 while index < chars.len() && chars[index] != '\'' {
                     current.push(chars[index]);
@@ -63,6 +72,7 @@ pub(crate) fn parse_cmd_words(command: &str) -> Result<Vec<CmdWord>, String> {
                 index += 1;
             }
             | '"' => {
+                word_started = true;
                 index += 1;
                 while index < chars.len() && chars[index] != '"' {
                     if chars[index] == '{' && read_interpolation(&chars, index).is_some() {
@@ -88,47 +98,44 @@ pub(crate) fn parse_cmd_words(command: &str) -> Result<Vec<CmdWord>, String> {
                     break 'parse Err("cmd!(...): trailing escape".to_string());
                 }
                 current.push(chars[index]);
+                word_started = true;
                 index += 1;
             }
             | '{' => match read_interpolation(&chars, index) {
-                | Some((name, false, next)) if current.is_empty() && next_is_word_boundary(&chars, next) => {
+                | Some((name, false, next)) if !word_started && next_is_word_boundary(&chars, next) => {
                     words.push(CmdWord::Var(name));
                     index = next;
                 }
-                | Some((name, true, next)) if current.is_empty() && next_is_word_boundary(&chars, next) => {
+                | Some((name, true, next)) if !word_started && next_is_word_boundary(&chars, next) => {
                     words.push(CmdWord::Splat(name));
                     index = next;
                 }
                 | Some(_) => break 'parse Err("cmd!(...): interpolation must occupy a full shell word".to_string()),
                 | None => {
                     current.push(chars[index]);
+                    word_started = true;
                     index += 1;
                 }
             },
             | ch => {
                 current.push(ch);
+                word_started = true;
                 index += 1;
             }
         }
     };
     parsed.and_then(|()| {
-        push_literal(&mut words, &mut current);
+        push_literal(&mut words, &mut current, &mut word_started);
         match words.is_empty() {
             | true => Err("cmd!(...): empty command string".to_string()),
             | false => Ok(words),
         }
     })
 }
-fn is_ident(value: &str) -> bool {
-    let mut chars = value.chars();
-    chars.next().is_some_and(|ch| ch == '_' || ch.is_ascii_alphabetic()) && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
-}
-fn next_is_word_boundary(chars: &[char], index: usize) -> bool {
-    chars.get(index).is_none_or(|ch| ch.is_whitespace())
-}
-fn push_literal(words: &mut Vec<CmdWord>, current: &mut String) {
-    if !current.is_empty() {
+fn push_literal(words: &mut Vec<CmdWord>, current: &mut String, word_started: &mut bool) {
+    if *word_started {
         words.push(CmdWord::Literal(core::mem::take(current)));
+        *word_started = false;
     }
 }
 fn read_interpolation(chars: &[char], start: usize) -> Option<(String, bool, usize)> {

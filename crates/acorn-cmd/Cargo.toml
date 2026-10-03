@@ -10,10 +10,12 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-acorn-macros = { version = "0.3.0", path = "../acorn-macros" }
+acorn-macros = { version = "0.3.3", path = "../acorn-macros" }
+command-group = { workspace = true }
 shell-words = { workspace = true }
 shuck-linter = { version = "0.0.41", optional = true }
 shuck-parser = { version = "0.0.41", optional = true }
+thiserror = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]

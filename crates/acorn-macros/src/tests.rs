@@ -10,6 +10,13 @@ use crate::command::{parse_cmd_words, CmdWord};
 use syn::{parse_quote, DeriveInput, Type};
 
 #[test]
+fn test_cmd_words_keeps_empty_quoted_arguments() {
+    let words = parse_cmd_words("echo '' \"\"").expect("empty quoted arguments should parse");
+    assert!(matches!(words.first(), Some(CmdWord::Literal(value)) if value == "echo"));
+    assert!(matches!(words.get(1), Some(CmdWord::Literal(value)) if value.is_empty()));
+    assert!(matches!(words.get(2), Some(CmdWord::Literal(value)) if value.is_empty()));
+}
+#[test]
 fn test_cmd_words_keeps_single_quoted_splat_literal() {
     let words = parse_cmd_words("echo '{args...}'").expect("single quoted splat should parse");
     assert!(matches!(words.first(), Some(CmdWord::Literal(value)) if value == "echo"));

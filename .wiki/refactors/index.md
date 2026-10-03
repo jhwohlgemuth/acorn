@@ -12,7 +12,7 @@
 
 ## Planned groups and independent work
 
-- [Process execution contract](process-execution-contract.md) - Add managed process groups, cancellation, bounded dual-stream capture, and structured termination results to `acorn-cmd` without breaking its current API.
+- [Xylem runtime prerequisites](xylem-runtime-prerequisites.md) - Publish managed command execution and expose generic strict JSONC, ordered config discovery, and project-cache helpers for downstream consumers.
 - [Portable diff resource and API hardening](acorn-diff-resource-and-api-hardening.md) - Bound diff work and output, complete the patch API, and add configurable unified and sequence-aware array behavior.
 - [ZON codec hardening](zon-codec-hardening.md) - Review the pinned encoder and decoder, consolidate duplicated grammar logic, and strengthen conformance evidence.
 - [Workspace duplication consolidation](workspace-duplication-consolidation.md) - Assign one explicit owner to JSONC policy, PID helpers, model synchronization, TUI gather and controls, remote serve dispatch, Rhai check projection, and CLI test utilities.

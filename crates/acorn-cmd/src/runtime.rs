@@ -1,4 +1,5 @@
 //! Command runtime and process specifications
+use crate::execution::{self, CaptureLimits, CommandError, ExecutionOptions, ExecutionResult, ProcessTermination};
 use core::{iter::once, time::Duration};
 #[cfg(feature = "shell-lint")]
 use shuck_linter::{lint, AnalysisRequest, Diagnostic, LinterSettings, Severity as LintSeverity, ShellDialect};
@@ -7,11 +8,9 @@ use shuck_parser::parser::Parser;
 use std::{
     env,
     ffi::{OsStr, OsString},
-    io::{self, Read, Write},
+    io::{self, Write},
     path::{Path, PathBuf},
     process::{Child, Command, ExitStatus, Output, Stdio},
-    thread,
-    time::Instant,
 };
 use tracing::warn;
 
@@ -70,6 +69,15 @@ impl CommandSpec {
     pub fn checked_output_with_timeout(&self, timeout: Duration) -> io::Result<Output> {
         checked(self.output_with_timeout(timeout))
     }
+    /// Run the command with managed process-group lifecycle and checked outcome semantics.
+    pub fn checked_execute(&self, options: &ExecutionOptions) -> Result<ExecutionResult, CommandError> {
+        self.execute(options).and_then(|result| match result.termination() {
+            | ProcessTermination::Cancelled => Err(CommandError::Cancelled(Box::new(result))),
+            | ProcessTermination::TimedOut => Err(CommandError::TimedOut(Box::new(result))),
+            | ProcessTermination::Exited if result.status().is_some_and(|status| status.success()) => Ok(result),
+            | ProcessTermination::Exited => Err(CommandError::NonZeroExit(Box::new(result))),
+        })
+    }
     /// Set the child process working directory.
     pub fn current_dir(mut self, path: impl Into<PathBuf>) -> Self {
         self.current_dir = Some(path.into());
@@ -80,17 +88,34 @@ impl CommandSpec {
         self.envs.push((key.into(), value.into()));
         self
     }
+    /// Set child environment overrides in iterator order.
+    pub fn envs<I, K, V>(mut self, envs: I) -> Self
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: Into<OsString>,
+        V: Into<OsString>,
+    {
+        self.envs.extend(envs.into_iter().map(|(key, value)| (key.into(), value.into())));
+        self
+    }
+    /// Run the command with managed process-group lifecycle and structured output.
+    pub fn execute(&self, options: &ExecutionOptions) -> Result<ExecutionResult, CommandError> {
+        execution::execute(&mut self.command(), options)
+    }
     /// Run the command and capture standard output and error.
     pub fn output(&self) -> io::Result<Output> {
-        self.command().output()
+        into_process_output(self.execute(&ExecutionOptions::new().with_capture_limits(CaptureLimits::unlimited())))
     }
     /// Run the command within `timeout` and capture standard output and error.
     pub fn output_with_timeout(&self, timeout: Duration) -> io::Result<Output> {
-        let mut command = self.command();
-        command.stdout(Stdio::piped()).stderr(Stdio::piped());
-        command.spawn().and_then(|child| wait_with_output(child, timeout))
+        let options = ExecutionOptions::new()
+            .with_capture_limits(CaptureLimits::unlimited())
+            .with_timeout(timeout);
+        into_process_output(self.execute(&options))
     }
-    /// Spawn the configured command.
+    /// Spawn the configured command without managed descendant cleanup.
+    ///
+    /// The caller owns the returned direct child and every descendant lifecycle. Use [`Self::execute`] for supervised execution.
     pub fn spawn(&self) -> io::Result<Child> {
         self.command().spawn()
     }
@@ -203,10 +228,11 @@ fn checked(result: io::Result<Output>) -> io::Result<Output> {
         }
     })
 }
-/// Render a binary and its arguments as a shell-safe command string.
-#[doc(hidden)]
-pub fn command_string(binary: &str, args: &[OsString]) -> String {
-    once(escape(binary))
+/// Render a program and arguments using the diagnostic grammar accepted by [`parse_sh`].
+///
+/// Execution never uses this string. Non-UTF-8 operating-system strings are rendered lossily for diagnostics.
+pub fn command_string(binary: impl AsRef<OsStr>, args: &[OsString]) -> String {
+    once(escape(&binary.as_ref().to_string_lossy()))
         .chain(args.iter().map(|argument| escape(&argument.to_string_lossy())))
         .collect::<Vec<_>>()
         .join(" ")
@@ -227,7 +253,7 @@ fn escape(value: &str) -> String {
     if value.is_empty() {
         "\"\"".to_string()
     } else if value.chars().any(|ch| ch.is_whitespace() || matches!(ch, '"' | '\'' | '\\')) {
-        format!("\"{}\"", value.replace('"', "\\\""))
+        format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
     } else {
         value.to_string()
     }
@@ -261,6 +287,18 @@ pub fn find_executable(program: impl AsRef<OsStr>) -> Option<PathBuf> {
             .find(|candidate| is_executable(candidate)),
     }
 }
+fn into_process_output(result: Result<ExecutionResult, CommandError>) -> io::Result<Output> {
+    match result {
+        | Ok(result) => match result.termination() {
+            | ProcessTermination::Exited => result
+                .into_output()
+                .ok_or_else(|| io::Error::other("managed command exited without a process status")),
+            | ProcessTermination::TimedOut => Err(io::Error::new(io::ErrorKind::TimedOut, "command timed out")),
+            | ProcessTermination::Cancelled => Err(io::Error::new(io::ErrorKind::Interrupted, "command was cancelled")),
+        },
+        | Err(why) => Err(io::Error::other(why)),
+    }
+}
 #[cfg(unix)]
 fn is_executable(path: &Path) -> bool {
     use std::os::unix::fs::PermissionsExt;
@@ -271,12 +309,6 @@ fn is_executable(path: &Path) -> bool {
 #[cfg(not(unix))]
 fn is_executable(path: &Path) -> bool {
     path.is_file()
-}
-fn join_pipe(reader: thread::JoinHandle<io::Result<Vec<u8>>>) -> io::Result<Vec<u8>> {
-    reader
-        .join()
-        .map_err(|_| io::Error::other("command output reader panicked"))
-        .and_then(|result| result)
 }
 fn log_command(binary: &str, args: &[OsString], dir: Option<&Path>) {
     let rendered = once(escape(binary)).chain(redact_args(args)).collect::<Vec<_>>().join(" ");
@@ -291,11 +323,12 @@ fn log_shell_command(shell: &str, shell_args: &[&str], command: &str, dir: Optio
         .collect::<Vec<OsString>>();
     log_command(shell, &args, dir);
 }
-/// Parse a command string using shell-aware word splitting (handles quoted arguments).
-#[doc(hidden)]
+/// Parse a command string using `shell-words` syntax without expansion or shell execution.
+///
+/// Returns exactly one program and its ordered arguments, preserving quoted spaces and empty quoted arguments.
 pub fn parse_sh(cmd: &str) -> io::Result<(String, Vec<String>)> {
     shell_words::split(cmd)
-        .map_err(|e| io::Error::other(format!("cmd!(sh ...): failed to parse command string: {e}")))
+        .map_err(|e| io::Error::other(format!("failed to parse command string: {e}")))
         .and_then(|parts| {
             let mut parts = parts.into_iter();
             match parts.next() {
@@ -303,18 +336,9 @@ pub fn parse_sh(cmd: &str) -> io::Result<(String, Vec<String>)> {
                     let args: Vec<String> = parts.collect();
                     Ok((binary, args))
                 }
-                | None => Err(io::Error::other("cmd!(sh ...): empty command string")),
+                | None => Err(io::Error::other("empty command string")),
             }
         })
-}
-fn read_pipe(pipe: Option<impl Read>) -> io::Result<Vec<u8>> {
-    pipe.map_or_else(
-        || Ok(Vec::new()),
-        |mut pipe| {
-            let mut bytes = Vec::new();
-            pipe.read_to_end(&mut bytes).map(|_| bytes)
-        },
-    )
 }
 /// Remove registry authorization details from diagnostic text.
 pub fn redact(value: &str) -> String {
@@ -514,27 +538,4 @@ pub fn try_from_output(result: io::Result<Output>) -> Result<String, String> {
         }
         | Err(e) => Err(format!("command execution failed: {e}")),
     }
-}
-fn wait_with_output(mut child: Child, timeout: Duration) -> io::Result<Output> {
-    let stdout = child.stdout.take();
-    let stderr = child.stderr.take();
-    let stdout_reader = thread::spawn(move || read_pipe(stdout));
-    let stderr_reader = thread::spawn(move || read_pipe(stderr));
-    let started = Instant::now();
-    let status = loop {
-        match child.try_wait() {
-            | Ok(Some(status)) => break Ok(status),
-            | Ok(None) if started.elapsed() < timeout => thread::sleep(Duration::from_millis(10)),
-            | Ok(None) => {
-                let timeout_error = io::Error::new(io::ErrorKind::TimedOut, format!("command timed out after {timeout:?}"));
-                break child.kill().and_then(|()| child.wait()).and(Err(timeout_error));
-            }
-            | Err(why) => break Err(why),
-        }
-    };
-    status.and_then(|status| {
-        let stdout = join_pipe(stdout_reader);
-        let stderr = join_pipe(stderr_reader);
-        stdout.and_then(|stdout| stderr.map(|stderr| Output { status, stdout, stderr }))
-    })
 }

@@ -157,6 +157,53 @@ impl Validate for Argument {
         }
     }
 }
+impl SyncTarget for Config {
+    const COMMAND: &'static str = "llama-swap";
+    fn resolve_path(explicit: Option<&str>) -> ApiResult<PathBuf> {
+        explicit
+            .map(|path| PathBuf::from(path.to_string().to_cross_platform_path()))
+            .map_or_else(|| home_directory(DEFAULT_LLAMA_SWAP_CONFIG_PATH), Ok)
+    }
+    fn render(&self, options: Options<'_>) -> ApiResult<RenderedOutput> {
+        Self::resolve_path(self.path.as_deref()).and_then(|path| {
+            path.is_file()
+                .then(|| read_file(path.clone()))
+                .transpose()
+                .map(|content| content.unwrap_or_default())
+                .and_then(|before| {
+                    match before.is_empty() {
+                        | true => Ok(Value::Mapping(Default::default())),
+                        | false => serde_norway::from_str(&before).map_err(|why| eyre!("Failed to parse existing llama-swap config: {why}")),
+                    }
+                    .and_then(|existing| self.upsert(existing, options.models, options.prune))
+                    .and_then(|merged| {
+                        serde_norway::to_string(&merged)
+                            .map_err(|why| eyre!("Failed to serialize llama-swap config: {why}"))
+                            .and_then(|content| {
+                                serde_norway::from_str::<Value>(&content)
+                                    .map(|_| RenderedOutput {
+                                        target: "llama-swap",
+                                        path,
+                                        before,
+                                        content,
+                                    })
+                                    .map_err(|why| eyre!("Generated llama-swap YAML is invalid: {why}"))
+                            })
+                    })
+                })
+        })
+    }
+}
+impl fmt::Display for EnvironmentVariable {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.value.fmt(formatter)
+    }
+}
+impl From<&str> for EnvironmentVariable {
+    fn from(value: &str) -> Self {
+        Self { value: value.to_string() }
+    }
+}
 impl Inner {
     /// Build a shell-safe `llama-server` command string for a given GGUF model path
     /// ### Note
@@ -195,13 +242,8 @@ impl Inner {
         let model = gguf_path.map(|path| line("--model", args![path]));
         let context = context_size.map(|size| line("--ctx-size", args![size.to_string()]));
         let extra = extra.into_iter().map(OsString::from).collect::<Vec<_>>();
-        let extra = extra
-            .split_first()
-            .map(|(command, arguments)| command_string(&command.to_string_lossy(), arguments));
-        let environment = environment
-            .into_iter()
-            .flatten()
-            .map(|entry| command_string(&format!("env:{entry}"), &[]));
+        let extra = extra.split_first().map(|(command, arguments)| command_string(command, arguments));
+        let environment = environment.into_iter().flatten().map(|entry| command_string(format!("env:{entry}"), &[]));
         once(command_string(executable, &[]))
             .chain(model)
             .chain(once(line("--port", args!["${PORT}"])))
@@ -326,53 +368,6 @@ impl SyncInner for Inner {
             models_directory: overrides.models_directory.or(self.models_directory),
             ..self
         }
-    }
-}
-impl SyncTarget for Config {
-    const COMMAND: &'static str = "llama-swap";
-    fn resolve_path(explicit: Option<&str>) -> ApiResult<PathBuf> {
-        explicit
-            .map(|path| PathBuf::from(path.to_string().to_cross_platform_path()))
-            .map_or_else(|| home_directory(DEFAULT_LLAMA_SWAP_CONFIG_PATH), Ok)
-    }
-    fn render(&self, options: Options<'_>) -> ApiResult<RenderedOutput> {
-        Self::resolve_path(self.path.as_deref()).and_then(|path| {
-            path.is_file()
-                .then(|| read_file(path.clone()))
-                .transpose()
-                .map(|content| content.unwrap_or_default())
-                .and_then(|before| {
-                    match before.is_empty() {
-                        | true => Ok(Value::Mapping(Default::default())),
-                        | false => serde_norway::from_str(&before).map_err(|why| eyre!("Failed to parse existing llama-swap config: {why}")),
-                    }
-                    .and_then(|existing| self.upsert(existing, options.models, options.prune))
-                    .and_then(|merged| {
-                        serde_norway::to_string(&merged)
-                            .map_err(|why| eyre!("Failed to serialize llama-swap config: {why}"))
-                            .and_then(|content| {
-                                serde_norway::from_str::<Value>(&content)
-                                    .map(|_| RenderedOutput {
-                                        target: "llama-swap",
-                                        path,
-                                        before,
-                                        content,
-                                    })
-                                    .map_err(|why| eyre!("Generated llama-swap YAML is invalid: {why}"))
-                            })
-                    })
-                })
-        })
-    }
-}
-impl fmt::Display for EnvironmentVariable {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.value.fmt(formatter)
-    }
-}
-impl From<&str> for EnvironmentVariable {
-    fn from(value: &str) -> Self {
-        Self { value: value.to_string() }
     }
 }
 impl Validate for ModelValidation<'_> {
