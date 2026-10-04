@@ -1,30 +1,16 @@
 mod benchmark_history;
-use std::process::Command;
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+    process::Command,
+};
 use toml_edit::{value, DocumentMut};
 
 const WORKSPACE_MANIFEST: &str = "Cargo.toml";
 struct InternalDep {
-    manifest: &'static str,
-    name: &'static str,
+    manifest: PathBuf,
+    name: String,
 }
-const INTERNAL_DEPS: &[InternalDep] = &[
-    InternalDep {
-        manifest: "crates/acorn-cli/Cargo.toml",
-        name: "acorn-lib",
-    },
-    InternalDep {
-        manifest: "crates/acorn-cli/Cargo.toml",
-        name: "acorn-tui",
-    },
-    InternalDep {
-        manifest: "crates/acorn-lib/Cargo.toml",
-        name: "acorn-macros",
-    },
-    InternalDep {
-        manifest: "crates/acorn-tui/Cargo.toml",
-        name: "acorn-lib",
-    },
-];
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
@@ -66,12 +52,16 @@ fn validate_semver(version: &str) -> bool {
     }
     parts.iter().all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
 }
-fn read_toml(path: &str) -> Result<DocumentMut, String> {
-    let content = std::fs::read_to_string(path).map_err(|e| format!("failed to read {path}: {e}"))?;
-    content.parse::<DocumentMut>().map_err(|e| format!("failed to parse {path}: {e}"))
+fn read_toml(path: impl AsRef<Path>) -> Result<DocumentMut, String> {
+    let path = path.as_ref();
+    let content = std::fs::read_to_string(path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+    content
+        .parse::<DocumentMut>()
+        .map_err(|e| format!("failed to parse {}: {e}", path.display()))
 }
-fn write_toml(path: &str, doc: &DocumentMut) -> Result<(), String> {
-    std::fs::write(path, doc.to_string()).map_err(|e| format!("failed to write {path}: {e}"))
+fn write_toml(path: impl AsRef<Path>, doc: &DocumentMut) -> Result<(), String> {
+    let path = path.as_ref();
+    std::fs::write(path, doc.to_string()).map_err(|e| format!("failed to write {}: {e}", path.display()))
 }
 fn get_workspace_version(doc: &DocumentMut) -> Result<String, String> {
     let v = doc["workspace"]["package"]["version"]
@@ -90,6 +80,40 @@ fn get_dep_version(doc: &DocumentMut, name: &str) -> Option<String> {
     } else {
         entry.as_str().map(String::from)
     }
+}
+fn get_internal_deps(root_doc: &DocumentMut, workspace_root: &Path) -> Result<Vec<InternalDep>, String> {
+    let manifests = root_doc["workspace"]["members"]
+        .as_array()
+        .ok_or_else(|| "could not find [workspace].members in Cargo.toml".to_string())?
+        .iter()
+        .filter_map(|member| member.as_str())
+        .map(|member| workspace_root.join(member).join("Cargo.toml"))
+        .collect::<Vec<_>>();
+    let package_names = manifests
+        .iter()
+        .map(|manifest| {
+            read_toml(manifest).and_then(|doc| {
+                doc["package"]["name"]
+                    .as_str()
+                    .map(str::to_string)
+                    .ok_or_else(|| format!("could not find [package].name in {}", manifest.display()))
+            })
+        })
+        .collect::<Result<BTreeSet<_>, _>>()?;
+    manifests.into_iter().try_fold(Vec::new(), |mut internal_deps, manifest| {
+        let doc = read_toml(&manifest)?;
+        if let Some(dependencies) = doc.get("dependencies").and_then(|item| item.as_table()) {
+            internal_deps.extend(dependencies.iter().filter_map(|(name, dependency)| {
+                let inline = dependency.as_inline_table()?;
+                let package_name = inline.get("package").and_then(|value| value.as_str()).unwrap_or(name);
+                (inline.contains_key("path") && inline.contains_key("version") && package_names.contains(package_name)).then(|| InternalDep {
+                    manifest: manifest.clone(),
+                    name: name.to_string(),
+                })
+            }));
+        }
+        Ok(internal_deps)
+    })
 }
 fn set_dep_version(doc: &mut DocumentMut, name: &str, version: &str) -> Result<(), String> {
     let deps = doc
@@ -143,33 +167,31 @@ fn cmd_release_version(version_arg: &str) -> Result<(), String> {
     if !validate_semver(version) {
         return Err(format!("invalid version '{version_arg}': expected format X.Y.Z (e.g., 0.1.59)"));
     }
-    let current_ws_version = {
-        let doc = read_toml(WORKSPACE_MANIFEST)?;
-        get_workspace_version(&doc)?
-    };
-    if current_ws_version == version {
-        println!("Already at version {version}, nothing to do.");
-        return Ok(());
-    }
-    println!("Workspace version: {current_ws_version} → {version}");
-    println!();
     let mut root_doc = read_toml(WORKSPACE_MANIFEST)?;
+    let current_ws_version = get_workspace_version(&root_doc)?;
+    let internal_deps = get_internal_deps(&root_doc, Path::new(""))?;
+    if current_ws_version == version {
+        println!("Workspace version: {version} (already updated)");
+    } else {
+        println!("Workspace version: {current_ws_version} → {version}");
+    }
+    println!();
     set_workspace_version(&mut root_doc, version);
     write_toml(WORKSPACE_MANIFEST, &root_doc)?;
     println!("  ✓ updated [workspace.package].version in Cargo.toml");
-    for dep in INTERNAL_DEPS {
-        let mut doc = read_toml(dep.manifest)?;
-        match get_dep_version(&doc, dep.name) {
+    for dep in internal_deps {
+        let mut doc = read_toml(&dep.manifest)?;
+        match get_dep_version(&doc, &dep.name) {
             | Some(dep_ver) if dep_ver == version => {
-                println!("  ✓ {m}:{d} already at {version}", m = dep.manifest, d = dep.name);
+                println!("  ✓ {m}:{d} already at {version}", m = dep.manifest.display(), d = dep.name);
             }
             | Some(dep_ver) => {
-                set_dep_version(&mut doc, dep.name, version)?;
-                write_toml(dep.manifest, &doc)?;
-                println!("  ✓ {m}:{d} {dep_ver} → {version}", m = dep.manifest, d = dep.name);
+                set_dep_version(&mut doc, &dep.name, version)?;
+                write_toml(&dep.manifest, &doc)?;
+                println!("  ✓ {m}:{d} {dep_ver} → {version}", m = dep.manifest.display(), d = dep.name);
             }
             | None => {
-                println!("  - {m}:{d} (dep not found, skipped)", m = dep.manifest, d = dep.name);
+                println!("  - {m}:{d} (dep not found, skipped)", m = dep.manifest.display(), d = dep.name);
             }
         }
     }
@@ -191,26 +213,27 @@ fn cmd_release_version(version_arg: &str) -> Result<(), String> {
 fn cmd_check_version() -> Result<(), String> {
     let root_doc = read_toml(WORKSPACE_MANIFEST)?;
     let workspace_version = get_workspace_version(&root_doc)?;
+    let internal_deps = get_internal_deps(&root_doc, Path::new(""))?;
     println!("Workspace version: {workspace_version}");
     println!();
     let mut all_ok = true;
-    for dep in INTERNAL_DEPS {
-        let doc = read_toml(dep.manifest)?;
-        match get_dep_version(&doc, dep.name) {
+    for dep in internal_deps {
+        let doc = read_toml(&dep.manifest)?;
+        match get_dep_version(&doc, &dep.name) {
             | Some(ver) if ver == workspace_version => {
-                println!("  ✓ {m}:{d} = {ver}", m = dep.manifest, d = dep.name);
+                println!("  ✓ {m}:{d} = {ver}", m = dep.manifest.display(), d = dep.name);
             }
             | Some(ver) => {
                 println!(
                     "  ✗ {m}:{d} = {ver} (expected {expected})",
-                    m = dep.manifest,
+                    m = dep.manifest.display(),
                     d = dep.name,
                     expected = workspace_version
                 );
                 all_ok = false;
             }
             | None => {
-                println!("  ? {m}:{d} = (not found)", m = dep.manifest, d = dep.name);
+                println!("  ? {m}:{d} = (not found)", m = dep.manifest.display(), d = dep.name);
                 all_ok = false;
             }
         }
@@ -221,5 +244,22 @@ fn cmd_check_version() -> Result<(), String> {
         Ok(())
     } else {
         Err("Some internal dependency pins are out of sync with workspace version.".to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_internal_deps_include_acorn_cmd() {
+        let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("xtask should be inside the workspace");
+        let root_doc = read_toml(workspace_root.join(WORKSPACE_MANIFEST)).expect("workspace manifest should parse");
+        let internal_deps = get_internal_deps(&root_doc, workspace_root).expect("internal dependencies should resolve");
+        assert!(internal_deps
+            .iter()
+            .any(|dep| { dep.manifest.ends_with("crates/acorn-cli/Cargo.toml") && dep.name == "acorn-cmd" }));
     }
 }
