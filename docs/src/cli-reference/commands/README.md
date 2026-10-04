@@ -10,6 +10,7 @@
 - [📥 Import](./import.md)
 - [🧠 Infer](./infer.md)
 - [🕸️ Link](./link.md)
+- [🔌 MCP](./mcp.md)
 - [📡 Serve](./serve.md)
 - [🧩 Skill](./skill.md)
 - [🧬 SWHID](./swhid.md)
@@ -64,3 +65,4 @@ ACORN keeps its core research-data commands deterministic while offering optiona
 - [`sync`](./sync.md) configures supported agent and inference applications to use those models.
 - [`skill`](./skill.md) gives compatible AI agents ACORN-specific operating instructions.
 - [`infer`](./infer.md) uses Needle for free-form tool selection; `infer run` hydrates a known embedded prompt and runs it through ACP or an OpenAI-compatible endpoint.
+- [`mcp`](./mcp.md) discovers and invokes tools explicitly approved in application configuration.

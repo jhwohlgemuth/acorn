@@ -11,6 +11,7 @@ use crate::{
     io::{
         api::Endpoint,
         config::{Bucket, ModelEntry, RegistryProfile, RunnerDetails, SourceInput},
+        mcp::config::McpServerConfiguration,
         parse_jsonc_cst, read_file, sync,
         sync::ConfigExt,
         write_file, ApiResult, CstRootNode, CstValue, FromPath, InputOutput,
@@ -30,6 +31,7 @@ use acorn_schema::{
     validation::{is_identifier, Validate, ValidationReport},
     OneOrMany,
 };
+use alloc::collections::BTreeMap;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 #[cfg(not(feature = "exec"))]
@@ -356,6 +358,10 @@ pub struct ApplicationConfiguration {
     #[eserde(compat)]
     #[serde(default)]
     pub endpoints: Option<Vec<Endpoint>>,
+    /// Named outbound MCP servers and their explicit tool allowlists.
+    #[eserde(compat)]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub mcp: BTreeMap<String, McpServerConfiguration>,
     /// List of models to download — bare IDs/paths or detailed download entries
     #[eserde(compat)]
     #[serde(default)]
@@ -781,6 +787,14 @@ impl Validate for ApplicationConfiguration {
                 report.append_prefixed("powerAutomate", errors);
             }
         }
+        self.mcp.iter().for_each(|(name, server)| {
+            if let Err(errors) = McpServerConfiguration::validate_name(name) {
+                report.append_prefixed(&format!("mcp.{name}"), errors);
+            }
+            if let Err(errors) = server.validate() {
+                report.append_prefixed(&format!("mcp.{name}"), errors);
+            }
+        });
         entries.iter().enumerate().for_each(|(index, entry)| {
             if let Err(errors) = entry.validate() {
                 report.append_prefixed(&format!("scripts[{index}]"), errors);

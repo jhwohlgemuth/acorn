@@ -115,6 +115,8 @@ check-host: ## Validate host-side feature builds and dependency checks.
 	@cargo check -p acorn-lib --no-default-features --features analysis
 	@cargo check -p acorn-lib --no-default-features --features acp,analysis
 	@cargo check -p acorn-lib --no-default-features --features agentic,acp,analysis
+	@cargo check -p acorn-lib --no-default-features --features mcp-client
+	@cargo check -p acorn-lib --no-default-features --features agentic,mcp-client
 	@cargo check -p acorn-lib --no-default-features --features grpc
 	@cargo check -p acorn-lib --features std,analysis
 	@cargo check -p acorn-cli

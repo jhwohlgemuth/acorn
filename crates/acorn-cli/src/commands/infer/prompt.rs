@@ -9,7 +9,10 @@ use crate::{
     io::{is_stdin_piped, read_stdin},
 };
 use acorn::agent::{HydratedPrompt, InferencePermissionPolicy, InferenceRequest, InferenceResult, PromptContext, PromptDataFormat, PromptHydrator};
-use acorn_core::{time::Milliseconds, util::MimeType};
+use acorn_core::{
+    time::{Milliseconds, UnitOfTime},
+    util::MimeType,
+};
 use acorn_schema::agent::PromptFileAsset;
 use acorn_schema::validation::Validate;
 use acorn_schema::{agent::PromptTemplateConfiguration, standard::zon};

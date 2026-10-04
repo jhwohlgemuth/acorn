@@ -35,6 +35,7 @@ pub mod import;
 pub mod infer;
 pub mod inference;
 pub mod link;
+pub mod mcp;
 pub mod report;
 pub mod serve;
 pub mod skill;
@@ -488,6 +489,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             initialize_database_with_policy(config, true).await?;
             link::run(path, branch, commit, ignore, application_config, *dry_run, *merge_request, verbose).await
         }),
+        | Some(Commands::Mcp { command, config }) => with_runtime(mcp::run(config, command, offline)),
         | Some(Commands::Skill) => skill::run(),
         | Some(Commands::Sync(arguments)) => {
             with_runtime(async { sync::run(arguments, &config.database_path, config.no_local_database, offline).await })

@@ -14,7 +14,7 @@ use crate::{
         http::HttpResponse,
     },
 };
-use acorn_core::Scheme;
+use acorn_core::{time::UnitOfTime, Scheme};
 use acorn_macros::With;
 use core::{fmt, time::Duration};
 use secrecy::ExposeSecret;
@@ -211,14 +211,6 @@ impl Client {
             })
     }
 }
-impl InferenceBackend for Client {
-    fn capabilities(&self) -> InferenceCapabilities {
-        self.capabilities
-    }
-    fn infer<'a>(&'a self, request: &'a InferenceRequest) -> InferenceFuture<'a> {
-        Box::pin(async move { self.infer_checked(request).await.map_err(color_eyre::Report::new) })
-    }
-}
 impl fmt::Debug for Client {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
@@ -227,6 +219,14 @@ impl fmt::Debug for Client {
             .field("mode", &self.mode)
             .field("offline", &self.offline)
             .finish()
+    }
+}
+impl InferenceBackend for Client {
+    fn capabilities(&self) -> InferenceCapabilities {
+        self.capabilities
+    }
+    fn infer<'a>(&'a self, request: &'a InferenceRequest) -> InferenceFuture<'a> {
+        Box::pin(async move { self.infer_checked(request).await.map_err(color_eyre::Report::new) })
     }
 }
 impl Decode for HttpResponse {

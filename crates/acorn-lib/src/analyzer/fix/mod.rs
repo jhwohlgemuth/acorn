@@ -8,7 +8,7 @@ use crate::analyzer::host::service::AnalysisReport;
 use crate::io::{ApiResult, Fingerprint, Parse};
 use crate::util::StringConversion;
 use acorn_core::prelude::{format, String, ToString, Vec};
-use acorn_core::time::Milliseconds;
+use acorn_core::time::{Milliseconds, UnitOfTime};
 use acorn_core::util::StringExt;
 use acorn_core::validation::{digest, ValidationError};
 use acorn_host::fs::SafePath;
@@ -192,16 +192,6 @@ impl FixReport {
         Self { categories, diagnostics }
     }
 }
-impl From<Vec<Fix>> for FixReport {
-    fn from(value: Vec<Fix>) -> Self {
-        Self::from_parts(value, Vec::new())
-    }
-}
-impl IntoFixes for FixReport {
-    fn fixes(&self) -> Vec<&Fix> {
-        self.categories.iter().flat_map(|category| category.fixes.values.iter()).collect()
-    }
-}
 impl fmt::Display for FixReport {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let heading = match self.categories.is_empty() && self.diagnostics.is_empty() {
@@ -223,6 +213,16 @@ impl fmt::Display for FixReport {
                     .iter()
                     .try_for_each(|diagnostic| writeln!(formatter, "Fix suggestion — {}", diagnostic.message))
             })
+    }
+}
+impl From<Vec<Fix>> for FixReport {
+    fn from(value: Vec<Fix>) -> Self {
+        Self::from_parts(value, Vec::new())
+    }
+}
+impl IntoFixes for FixReport {
+    fn fixes(&self) -> Vec<&Fix> {
+        self.categories.iter().flat_map(|category| category.fixes.values.iter()).collect()
     }
 }
 impl From<&FixReport> for FixSummary {

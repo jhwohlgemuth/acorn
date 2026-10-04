@@ -40,6 +40,14 @@ cargo add acorn-lib --features grpc
 
 See [Protobuf and gRPC](grpc.md) for the transport contract, client example, security policy, and its role in the ACP and MCP architecture.
 
+Applications that need to call configured MCP tools can enable the independent `mcp-client` feature:
+
+```sh
+cargo add acorn-lib --no-default-features --features mcp-client
+```
+
+See [MCP client](mcp-client.md) for configuration, Rust examples, transport security, and operation-policy behavior. The default library feature set continues to provide the inbound MCP server without enabling outbound client transports.
+
 Native applications that only need ACORN's analysis host can omit the full default feature set:
 
 ```sh

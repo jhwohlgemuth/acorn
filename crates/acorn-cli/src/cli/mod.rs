@@ -232,6 +232,22 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Link(Box<arguments::Link>),
+    /// Discover and invoke allowlisted tools on configured MCP servers
+    ///
+    ///     List configured tools currently advertised by a server
+    ///     $> acorn mcp --config .acorn.yml list research-tools
+    ///
+    ///     Call one configured tool with JSON-object arguments
+    ///     $> acorn mcp --config .acorn.yml call research-tools resolve_identifier --arguments '{"identifier":"https://doi.org/10.1000/example"}'
+    ///
+    #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
+    Mcp {
+        /// Explicit application configuration; otherwise use project discovery.
+        #[arg(long, value_hint = ValueHint::FilePath, value_name = "PATH")]
+        config: Option<PathBuf>,
+        #[command(subcommand)]
+        command: McpCommands,
+    },
     /// Generate bounded artifacts and publish immutable GitLab packages
     ///
     ///     $> acorn report --through 2026-10-01T00:00:00Z --commit "$CI_COMMIT_SHA"
@@ -394,6 +410,28 @@ pub enum ImportCommands {
 pub enum InferCommands {
     /// Hydrate and run one known embedded prompt asset
     Run(Box<arguments::PromptRun>),
+}
+#[derive(Clone, Debug, Subcommand)]
+#[command(long_about = None)]
+pub enum McpCommands {
+    /// Call one configured and currently advertised MCP tool.
+    Call {
+        /// Permit tools configured with mutation, destructive, or filesystem-write effects.
+        #[arg(long)]
+        allow_mutation: bool,
+        /// JSON object supplied as MCP tool arguments.
+        #[arg(long, default_value = "{}", value_name = "JSON")]
+        arguments: String,
+        /// Configured MCP server alias.
+        server: String,
+        /// Allowlisted MCP tool name.
+        tool: String,
+    },
+    /// List configured tools currently advertised by one MCP server.
+    List {
+        /// Configured MCP server alias.
+        server: String,
+    },
 }
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]

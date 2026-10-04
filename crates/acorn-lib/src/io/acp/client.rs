@@ -8,6 +8,7 @@ use crate::{
     },
     util::constants::app::APPLICATION,
 };
+use acorn_core::time::UnitOfTime;
 use acorn_macros::With;
 use acorn_schema::agent::ModelSelector;
 use agent_client_protocol::{
@@ -338,6 +339,16 @@ impl Client {
         }
     }
 }
+impl core::fmt::Debug for Client {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        formatter
+            .debug_struct("Client")
+            .field("config", &self.config)
+            .field("observer", &self.observer.as_ref().map(|_| "attached"))
+            .field("offline", &self.offline)
+            .finish()
+    }
+}
 impl Default for Client {
     fn default() -> Self {
         Self::init().build()
@@ -355,16 +366,6 @@ impl InferenceBackend for Client {
     }
     fn infer<'a>(&'a self, request: &'a InferenceRequest) -> InferenceFuture<'a> {
         Box::pin(async move { self.infer_checked(request).await.map_err(color_eyre::Report::new) })
-    }
-}
-impl core::fmt::Debug for Client {
-    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        formatter
-            .debug_struct("Client")
-            .field("config", &self.config)
-            .field("observer", &self.observer.as_ref().map(|_| "attached"))
-            .field("offline", &self.offline)
-            .finish()
     }
 }
 impl From<StopReason> for InferenceFinishReason {

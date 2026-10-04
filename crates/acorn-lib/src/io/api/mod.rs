@@ -70,6 +70,7 @@ pub mod needle;
 pub mod openai;
 pub mod openalex;
 pub mod openapi;
+pub mod operation;
 pub mod orcid;
 pub mod osti;
 #[cfg(feature = "agentic")]
@@ -503,6 +504,12 @@ where
         &self.custom_params
     }
 }
+impl Credential {
+    /// Consume the credential and return its HTTP header and token
+    pub fn into_header_pair(self) -> (&'static str, Secret) {
+        (self.header, self.token)
+    }
+}
 impl Authenticator for Credential {
     fn from_env(variables: &[(&str, &'static str)]) -> Option<Self> {
         variables.iter().find_map(|(name, header)| {
@@ -515,12 +522,6 @@ impl Authenticator for Credential {
                     token: Secret::from(token),
                 })
         })
-    }
-}
-impl Credential {
-    /// Consume the credential and return its HTTP header and token
-    pub fn into_header_pair(self) -> (&'static str, Secret) {
-        (self.header, self.token)
     }
 }
 impl Eq for Credential {}
@@ -544,11 +545,6 @@ impl TryFrom<&str> for EmptyField {
 impl ValueValidator for EmptyField {
     fn is_valid(&self, _value: &str) -> bool {
         true
-    }
-}
-impl Default for Endpoint {
-    fn default() -> Self {
-        Endpoint::at("example.com").scheme(Scheme::default()).build()
     }
 }
 impl Endpoint {
@@ -699,6 +695,11 @@ impl Endpoint {
             }
             | None => Err(eyre!("Resource not found")),
         }
+    }
+}
+impl Default for Endpoint {
+    fn default() -> Self {
+        Endpoint::at("example.com").scheme(Scheme::default()).build()
     }
 }
 impl From<Location> for Endpoint {
@@ -958,11 +959,6 @@ impl Param {
         rendered.unwrap_or_default()
     }
 }
-impl Default for Params {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl Params {
     /// Start building an empty param list
     pub fn new() -> Self {
@@ -1082,6 +1078,11 @@ impl Params {
         }
     }
 }
+impl Default for Params {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl fmt::Display for ResponseContent {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -1108,6 +1109,12 @@ impl TreeEntry {
     /// Consume the entry and return its repository-relative path
     pub fn path(self) -> String {
         self.path
+    }
+}
+impl Searchable<Endpoint> for Vec<Endpoint> {
+    fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint> {
+        let name = value.into();
+        self.iter().find(|endpoint| endpoint.name.eq_ignore_ascii_case(&name)).cloned()
     }
 }
 impl IntoBody for Vec<Param> {
@@ -1166,12 +1173,6 @@ impl IntoHeaders for Vec<Param> {
             }
         });
         headers
-    }
-}
-impl Searchable<Endpoint> for Vec<Endpoint> {
-    fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint> {
-        let name = value.into();
-        self.iter().find(|endpoint| endpoint.name.eq_ignore_ascii_case(&name)).cloned()
     }
 }
 impl Searchable<Resource> for Vec<Resource> {

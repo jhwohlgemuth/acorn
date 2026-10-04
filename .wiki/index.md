@@ -48,8 +48,7 @@ Ranking uses impact first, then remaining difficulty, with user/architecture val
 | 18 | [SLM sidecars](features/slm-sidecars.md) | In progress | High | High | B | Medium | Strong protocol and quality gates, but licensing approval, a macOS runner, and upstream runner ownership are hard blockers. |
 | 19 | [ZON codec hardening](refactors/zon-codec-hardening.md) | Planned | Medium | Medium | A | Medium | A contained correctness/maintainability leaf with strong tests and low integration risk. |
 | 20 | [CLI coverage](testing/cli-coverage.md) | Planned | Medium | Medium | A− | Medium | Targets known command and binary failure gaps without reviving obsolete test layout or chasing raw line coverage. |
-| 21 | [Allowlisted MCP client](features/mcp-client.md) | Planned | Medium | High | B+ | Medium | The policy is sound, but the first concrete operation workflow should be named before broad integration. |
-| 22 | [Portable PID verification](testing/pid-verification.md) | Planned | Medium | High | B+ | Medium | Consolidation and Miri are practical; full Creusot/solver maintenance should proceed only after toolchain feasibility is proven. |
+| 21 | [Portable PID verification](testing/pid-verification.md) | Planned | Medium | High | B+ | Medium | Consolidation and Miri are practical; full Creusot/solver maintenance should proceed only after toolchain feasibility is proven. |
 
 ### Coordination record
 

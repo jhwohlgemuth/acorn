@@ -322,6 +322,12 @@ mod models_dev {
             .is_some_and(|models| models.iter().any(|model| model.id.as_deref() == Some("o3"))));
     }
     #[test]
+    fn test_models_fixture_covers_schema_variants() {
+        let json = read_file(fixture_path("").join("models.json")).expect("Failed to read models fixture");
+        let models: HashMap<String, ModelDetails> = serde_json::from_str(&json).expect("Failed to deserialize models fixture");
+        assert_models_dev_schema_variants(&models);
+    }
+    #[test]
     fn test_model_row_infers_quantization_from_model_id() {
         use acorn_schema::agent::{Quantization, Weights};
         let model = ModelDetails {
@@ -363,12 +369,6 @@ mod models_dev {
         let row = ModelRow::from(model);
         assert!(row.modality_input.is_none());
         assert!(row.modality_output.is_none());
-    }
-    #[test]
-    fn test_models_fixture_covers_schema_variants() {
-        let json = read_file(fixture_path("").join("models.json")).expect("Failed to read models fixture");
-        let models: HashMap<String, ModelDetails> = serde_json::from_str(&json).expect("Failed to deserialize models fixture");
-        assert_models_dev_schema_variants(&models);
     }
     #[test]
     fn test_provider_row_env_is_comma_separated() {
@@ -510,6 +510,8 @@ paths:
     }
 }
 
+mod operation;
+
 #[cfg(test)]
 mod orcid_api {
     use super::*;
@@ -585,33 +587,6 @@ mod orcid_api {
         assert!(endpoint.resources.iter().any(|r| r.name == "search"));
     }
     #[test]
-    fn test_param_query_pair() {
-        // Test QueryPair style
-        let param = param!(QueryPair, "q", (("given-names", "Jason"), ("family-name", "Wohlgemuth")));
-        let rendered = param.to_string::<SearchField, OutputColumn>();
-        let expected = "q=given-names:Jason+AND+family-name:Wohlgemuth";
-        assert_eq!(rendered, expected);
-        // Test QueryPair with invalid field names (should be filtered)
-        let param = param!(
-            QueryPair,
-            "q",
-            (("invalid-field", "value"), ("given-names", "Jason"), ("another-invalid", "data"))
-        );
-        let rendered = param.to_string::<SearchField, OutputColumn>();
-        let expected = "q=given-names:Jason";
-        assert_eq!(rendered, expected);
-        // Test QueryPair with invalid field values (invalid ORCiD should be filtered)
-        let param = param!(QueryPair, "q", (("orcid", "0000-0002-1823-1234"), ("given-names", "Jason")));
-        let rendered = param.to_string::<SearchField, OutputColumn>();
-        let expected = "q=given-names:Jason";
-        assert_eq!(rendered, expected);
-        // Test QueryPair with valid ORCiD value (should be included)
-        let param = param!(QueryPair, "q", (("orcid", "0000-0002-2057-9115"), ("given-names", "Jason")));
-        let rendered = param.to_string::<SearchField, OutputColumn>();
-        let expected = "q=orcid:0000-0002-2057-9115+AND+given-names:Jason";
-        assert_eq!(rendered, expected);
-    }
-    #[test]
     fn test_params_into_body() {
         use crate::io::api::IntoBody;
         // Test single value body param
@@ -651,6 +626,33 @@ mod orcid_api {
         let query = api::Param::to_query_string::<SearchField, OutputColumn>(params);
         let expected = "";
         assert_eq!(query, expected);
+    }
+    #[test]
+    fn test_param_query_pair() {
+        // Test QueryPair style
+        let param = param!(QueryPair, "q", (("given-names", "Jason"), ("family-name", "Wohlgemuth")));
+        let rendered = param.to_string::<SearchField, OutputColumn>();
+        let expected = "q=given-names:Jason+AND+family-name:Wohlgemuth";
+        assert_eq!(rendered, expected);
+        // Test QueryPair with invalid field names (should be filtered)
+        let param = param!(
+            QueryPair,
+            "q",
+            (("invalid-field", "value"), ("given-names", "Jason"), ("another-invalid", "data"))
+        );
+        let rendered = param.to_string::<SearchField, OutputColumn>();
+        let expected = "q=given-names:Jason";
+        assert_eq!(rendered, expected);
+        // Test QueryPair with invalid field values (invalid ORCiD should be filtered)
+        let param = param!(QueryPair, "q", (("orcid", "0000-0002-1823-1234"), ("given-names", "Jason")));
+        let rendered = param.to_string::<SearchField, OutputColumn>();
+        let expected = "q=given-names:Jason";
+        assert_eq!(rendered, expected);
+        // Test QueryPair with valid ORCiD value (should be included)
+        let param = param!(QueryPair, "q", (("orcid", "0000-0002-2057-9115"), ("given-names", "Jason")));
+        let rendered = param.to_string::<SearchField, OutputColumn>();
+        let expected = "q=orcid:0000-0002-2057-9115+AND+given-names:Jason";
+        assert_eq!(rendered, expected);
     }
     #[test]
     fn test_query_param_field_list() {
@@ -981,6 +983,10 @@ fn test_credential_into_header_pair() {
     assert_eq!(ExposeSecret::expose_secret(&token), "secret");
 }
 #[test]
+fn test_endpoints_length() {
+    assert_eq!(INCLUDED_ENDPOINTS.len(), 19);
+}
+#[test]
 fn test_endpoint_context() {
     let params = vec![
         param!(
@@ -1107,10 +1113,6 @@ fn test_endpoint_parse() {
     assert!(status.database);
     assert!(!status.database_readonly);
     assert!(status.overall);
-}
-#[test]
-fn test_endpoints_length() {
-    assert_eq!(INCLUDED_ENDPOINTS.len(), 19);
 }
 #[test]
 fn test_extract_template_keys() {

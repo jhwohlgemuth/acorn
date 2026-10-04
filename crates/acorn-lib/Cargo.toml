@@ -179,7 +179,7 @@ progress = ["std-core", "dep:indicatif", "dep:console", "dep:owo-colors", "dep:c
 cli-util = ["std-core", "dep:directories", "dep:dotenvy", "dep:which", "dep:is_executable", "dep:glob", "dep:arboard", "dep:infer"]
 db = ["std-core", "dep:rusqlite"]
 unicode = ["std-core", "console/std"]
-agentic = ["std-core", "dep:axum", "dep:rmcp", "dep:tower"]
+agentic = ["std-core", "dep:axum", "dep:rmcp", "dep:tower", "rmcp/server", "rmcp/transport-io"]
 analysis = [
   "acorn-diff/std",
   "acorn-host/config",
@@ -217,6 +217,15 @@ grpc = [
   "std",
 ]
 powerpoint = ["std-core"]
+mcp-client = [
+  "analysis",
+  "dep:rmcp",
+  "rmcp/client",
+  "rmcp/reqwest",
+  "rmcp/transport-child-process",
+  "rmcp/transport-streamable-http-client-reqwest",
+  "tokio/process",
+]
 needle = ["agentic", "dep:acorn-cmd"]
 exec = ["std", "dep:cap-std", "dep:rhai"]
 std = [

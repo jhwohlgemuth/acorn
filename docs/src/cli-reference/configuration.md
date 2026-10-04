@@ -144,6 +144,42 @@ Provider-specific fields use the detailed `source` form. The legacy `repository`
 
 Do not specify more than one of `source`, `repository`, and `codeRepository` on the same bucket. Concise remote sources must be credential-free HTTPS URLs; use local paths or `file:` URIs for local buckets.
 
+### MCP clients
+
+The optional `mcp` map configures outbound MCP servers by stable alias. Every server requires a tagged transport and a non-empty tool allowlist:
+
+```yaml
+mcp:
+  research-tools:
+    transport:
+      type: child-process
+      command: research-mcp
+      args: [serve, --stdio]
+      environment:
+        RESEARCH_TOKEN: RESEARCH_MCP_TOKEN
+    allowed:
+      resolve_identifier:
+        effects: [network-read]
+        max_output: 256KB
+        timeout: 20
+```
+
+Child-process `environment` values and Streamable HTTP `bearer_token_env` values are environment-variable names, not credentials. Streamable HTTP requires HTTPS except on `localhost` or a loopback IP address:
+
+```yaml
+mcp:
+  institutional-tools:
+    transport:
+      type: streamable-http
+      url: https://mcp.example.org/service
+      bearer_token_env: INSTITUTIONAL_MCP_TOKEN
+    allowed:
+      lookup_record:
+        effects: [network-read]
+```
+
+Supported effects are `credentials`, `destructive`, `filesystem-read`, `filesystem-write`, `inference`, `mutation`, `network-read`, and `process`. Duplicate effects and zero time or output limits are rejected. Omitted tool limits default to 30 seconds and 1 MiB. See [`acorn mcp`](commands/mcp.md) for runtime policy and examples.
+
 ## .env file and Environment Variables
 The ACORN CLI tool can also be configured using `.env` files and/or environment variables.
 

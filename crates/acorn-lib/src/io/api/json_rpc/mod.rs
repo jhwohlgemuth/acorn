@@ -1,6 +1,7 @@
 //! Typed operation registry and JSON-RPC 2.0 transport
 use crate::agent::{run_inference, InferenceBackend, InferenceReadiness, InferenceRequest, InferenceResult};
 use crate::analyzer::fix::{CheckReferences, FixReport, FixSuggestionRequest};
+use crate::io::api::operation::authorize;
 use crate::io::api::webhooks::store::OperationQueue;
 use crate::io::workflow::{RepositoryChangeSet, RepositoryInput, RepositoryWorkflowRegistry};
 use crate::io::ApiResult;
@@ -33,21 +34,9 @@ pub const METHOD_NOT_FOUND: i32 = -32601;
 pub const PARSE_ERROR: i32 = -32700;
 /// ACORN authorization-policy error code.
 pub const POLICY_DENIED: i32 = -32001;
+pub use super::operation::{InvocationContext, InvocationOrigin, OperationEffect, OperationEffects, Principal};
 type OperationFuture = Pin<Box<dyn Future<Output = Result<Value, RpcError>> + Send>>;
 type OperationHandler = Arc<dyn Fn(Value, InvocationContext) -> OperationFuture + Send + Sync>;
-/// Source transport for an operation invocation.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum InvocationOrigin {
-    /// Direct in-process invocation.
-    Direct,
-    /// Protobuf/gRPC invocation.
-    Grpc,
-    /// JSON-RPC HTTP invocation.
-    JsonRpc,
-    /// Normalized webhook invocation.
-    Webhook,
-}
 enum ParsedCall {
     Invalid { id: Value, error: RpcError },
     Notification { method: MethodName, params: Value },
@@ -76,25 +65,6 @@ struct ErrorResponse {
     error: RpcError,
     id: Value,
     jsonrpc: &'static str,
-}
-/// Policy and provenance supplied to one registered operation.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct InvocationContext {
-    /// Whether inference handlers may run.
-    pub allow_inference: bool,
-    /// Whether mutating handlers may run.
-    pub allow_mutation: bool,
-    /// Optional transport correlation identifier.
-    pub correlation_id: Option<String>,
-    /// Maximum serialized result size.
-    pub max_output_bytes: usize,
-    /// Whether external-system interaction is forbidden.
-    pub offline: bool,
-    /// Transport that initiated the invocation.
-    pub origin: InvocationOrigin,
-    /// Authenticated principal.
-    pub principal: Principal,
 }
 /// Validated JSON-RPC method name in the ACORN namespace.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, Ord, PartialEq, PartialOrd, Serialize, Validate)]
@@ -128,38 +98,10 @@ pub struct OperationDefinition {
     /// JSON Schema for the operation result.
     pub result_schema: Value,
 }
-/// Effect metadata enforced before an operation handler runs.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct OperationEffects {
-    /// Whether the operation can access credentials.
-    pub credentials: bool,
-    /// Whether the operation can destroy or irreversibly replace data.
-    pub destructive: bool,
-    /// Whether the operation can read from the host filesystem.
-    pub filesystem_read: bool,
-    /// Whether the operation can write to the host filesystem.
-    pub filesystem_write: bool,
-    /// Whether the operation can invoke inference services.
-    pub inference: bool,
-    /// Whether the operation may change state.
-    pub mutation: bool,
-    /// Whether the operation can read from remote network services.
-    pub network_read: bool,
-    /// Whether the operation can start or communicate with processes.
-    pub process: bool,
-}
 /// Immutable registry of explicitly registered ACORN operations.
 #[derive(Clone, Default)]
 pub struct OperationRegistry {
     operations: Vec<RegisteredOperation>,
-}
-/// Authenticated caller identity supplied by a transport adapter.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Principal {
-    /// Stable caller identifier.
-    pub identifier: String,
 }
 #[derive(Clone)]
 struct RegisteredOperation {
@@ -198,21 +140,6 @@ impl Dispatch {
                     format!(r#"{{"jsonrpc":"{JSON_RPC_VERSION}","id":null,"error":{{"code":-32603,"message":"Internal error"}}}}"#).into_bytes(),
                 ),
                 status_code: 500,
-            },
-        }
-    }
-}
-impl Default for InvocationContext {
-    fn default() -> Self {
-        Self {
-            allow_inference: false,
-            allow_mutation: false,
-            correlation_id: None,
-            max_output_bytes: 1024 * 1024,
-            offline: false,
-            origin: InvocationOrigin::Direct,
-            principal: Principal {
-                identifier: "local".to_string(),
             },
         }
     }
@@ -278,12 +205,6 @@ impl OperationDefinition {
                 parameters_schema: serde_json::to_value(schema_for!(I)).unwrap_or(Value::Null),
                 result_schema: serde_json::to_value(schema_for!(O)).unwrap_or(Value::Null),
             })
-    }
-}
-impl fmt::Debug for OperationRegistry {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let definitions: Vec<OperationDefinition> = self.operations.iter().map(|operation| operation.definition.clone()).collect();
-        formatter.debug_struct("OperationRegistry").field("definitions", &definitions).finish()
     }
 }
 impl OperationRegistry {
@@ -427,9 +348,9 @@ impl OperationRegistry {
     /// Invoke a registered operation after enforcing declared effects and output bounds.
     pub async fn invoke(&self, method: &MethodName, params: Value, context: InvocationContext) -> Result<Value, RpcError> {
         match self.operations.iter().find(|operation| operation.definition.name == *method) {
-            | Some(operation) => match policy_error(&operation.definition.effects, &context) {
-                | Some(error) => Err(error),
-                | None => (operation.handler)(params, context.clone()).await.and_then(|result| {
+            | Some(operation) => match authorize(&operation.definition.effects, &context) {
+                | Err(why) => Err(RpcError::new(POLICY_DENIED, why.to_string())),
+                | Ok(()) => (operation.handler)(params, context.clone()).await.and_then(|result| {
                     serde_json::to_vec(&result).map_err(|_| RpcError::internal()).and_then(|encoded| {
                         match encoded.len() <= context.max_output_bytes.max(1) {
                             | true => Ok(result),
@@ -532,15 +453,10 @@ impl OperationRegistry {
         })
     }
 }
-impl From<Value> for ParsedCall {
-    fn from(value: Value) -> Self {
-        match value {
-            | Value::Object(object) => Self::from_object(object),
-            | _ => Self::Invalid {
-                id: Value::Null,
-                error: RpcError::new(INVALID_REQUEST, "Invalid Request"),
-            },
-        }
+impl fmt::Debug for OperationRegistry {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let definitions: Vec<OperationDefinition> = self.operations.iter().map(|operation| operation.definition.clone()).collect();
+        formatter.debug_struct("OperationRegistry").field("definitions", &definitions).finish()
     }
 }
 impl ParsedCall {
@@ -574,6 +490,17 @@ impl ParsedCall {
         }
     }
 }
+impl From<Value> for ParsedCall {
+    fn from(value: Value) -> Self {
+        match value {
+            | Value::Object(object) => Self::from_object(object),
+            | _ => Self::Invalid {
+                id: Value::Null,
+                error: RpcError::new(INVALID_REQUEST, "Invalid Request"),
+            },
+        }
+    }
+}
 impl RequestId {
     fn as_string(&self) -> String {
         match self {
@@ -586,12 +513,6 @@ impl RequestId {
             | value @ (Value::String(_) | Value::Number(_)) => value.clone(),
             | _ => Value::Null,
         }
-    }
-}
-impl core::error::Error for RpcError {}
-impl fmt::Display for RpcError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{} ({})", self.message, self.code)
     }
 }
 impl RpcError {
@@ -618,9 +539,10 @@ impl RpcError {
         .unwrap_or(Value::Null)
     }
 }
-impl From<MethodName> for String {
-    fn from(value: MethodName) -> Self {
-        value.to_string()
+impl core::error::Error for RpcError {}
+impl fmt::Display for RpcError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{} ({})", self.message, self.code)
     }
 }
 impl<'de> Deserialize<'de> for StrictValue {
@@ -702,16 +624,9 @@ impl<'de> Deserialize<'de> for StrictValue {
         deserializer.deserialize_any(StrictVisitor)
     }
 }
-fn policy_error(effects: &OperationEffects, context: &InvocationContext) -> Option<RpcError> {
-    let requires_mutation = effects.destructive || effects.filesystem_write || effects.mutation;
-    let unavailable = effects.credentials || effects.process || (effects.inference && !context.allow_inference);
-    let mutation_denied = requires_mutation && !context.allow_mutation;
-    let offline = effects.network_read && context.offline;
-    match (unavailable, mutation_denied, offline) {
-        | (true, _, _) => Some(RpcError::new(POLICY_DENIED, "Operation declares an unavailable effect")),
-        | (_, true, _) => Some(RpcError::new(POLICY_DENIED, "Operation requires mutation approval")),
-        | (_, _, true) => Some(RpcError::new(POLICY_DENIED, "Operation is unavailable while offline")),
-        | _ => None,
+impl From<MethodName> for String {
+    fn from(value: MethodName) -> Self {
+        value.to_string()
     }
 }
 #[cfg(test)]

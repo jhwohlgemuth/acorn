@@ -29,55 +29,6 @@ pub struct Memory {
     /// Unit of measurement
     pub unit: MemoryUnit,
 }
-impl<'de> Deserialize<'de> for Memory {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::de::Deserializer<'de>,
-    {
-        struct MemoryVisitor;
-
-        impl<'de> serde::de::Visitor<'de> for MemoryVisitor {
-            type Value = Memory;
-
-            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                f.write_str(r#"a memory string (e.g. "80GB", "2.5GB", "512MB") or a number (treated as GB)"#)
-            }
-            fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<Memory, E> {
-                memory_from_number(value as f64).map_err(E::custom)
-            }
-            fn visit_i64<E: serde::de::Error>(self, value: i64) -> Result<Memory, E> {
-                memory_from_number(value as f64).map_err(E::custom)
-            }
-            fn visit_f64<E: serde::de::Error>(self, value: f64) -> Result<Memory, E> {
-                memory_from_number(value).map_err(E::custom)
-            }
-            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Memory, E> {
-                value.parse().map_err(E::custom)
-            }
-        }
-        deserializer.deserialize_any(MemoryVisitor)
-    }
-}
-impl JsonSchema for Memory {
-    fn schema_name() -> Cow<'static, str> {
-        "Memory".into()
-    }
-    fn json_schema(_gen: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
-        #[allow(clippy::unwrap_used)]
-        serde_json::json!({"type": "string", "pattern": "^\\d+(\\.\\d+)?\\s*(GB|KB|MB|TB)$"})
-            .try_into()
-            .unwrap()
-    }
-    fn inline_schema() -> bool {
-        true
-    }
-}
-impl Serialize for Memory {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let s = format!("{}{}", self.amount, self.unit);
-        serializer.serialize_str(&s)
-    }
-}
 impl Memory {
     /// Convert the memory amount to bytes using binary unit multipliers
     ///
@@ -127,10 +78,59 @@ impl Memory {
         }
     }
 }
+impl<'de> Deserialize<'de> for Memory {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        struct MemoryVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for MemoryVisitor {
+            type Value = Memory;
+
+            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                f.write_str(r#"a memory string (e.g. "80GB", "2.5GB", "512MB") or a number (treated as GB)"#)
+            }
+            fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<Memory, E> {
+                memory_from_number(value as f64).map_err(E::custom)
+            }
+            fn visit_i64<E: serde::de::Error>(self, value: i64) -> Result<Memory, E> {
+                memory_from_number(value as f64).map_err(E::custom)
+            }
+            fn visit_f64<E: serde::de::Error>(self, value: f64) -> Result<Memory, E> {
+                memory_from_number(value).map_err(E::custom)
+            }
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Memory, E> {
+                value.parse().map_err(E::custom)
+            }
+        }
+        deserializer.deserialize_any(MemoryVisitor)
+    }
+}
 impl FromStr for Memory {
     type Err = AcornError;
     fn from_str(value: &str) -> AcornResult<Self> {
         parse_memory_string(value)
+    }
+}
+impl JsonSchema for Memory {
+    fn schema_name() -> Cow<'static, str> {
+        "Memory".into()
+    }
+    fn json_schema(_gen: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
+        #[allow(clippy::unwrap_used)]
+        serde_json::json!({"type": "string", "pattern": "^\\d+(\\.\\d+)?\\s*(GB|KB|MB|TB)$"})
+            .try_into()
+            .unwrap()
+    }
+    fn inline_schema() -> bool {
+        true
+    }
+}
+impl Serialize for Memory {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let s = format!("{}{}", self.amount, self.unit);
+        serializer.serialize_str(&s)
     }
 }
 impl<'de> Deserialize<'de> for MemoryUnit {
@@ -170,6 +170,11 @@ impl JsonSchema for MemoryUnit {
     }
     fn inline_schema() -> bool {
         true
+    }
+}
+impl From<Memory> for u64 {
+    fn from(memory: Memory) -> Self {
+        memory.checked_bytes().unwrap_or_default()
     }
 }
 fn memory_from_number(amount: f64) -> AcornResult<Memory> {
@@ -271,6 +276,16 @@ mod tests {
         let deserialized = serde_json::from_str::<Memory>(r#""1.5GiB""#).unwrap();
         assert_eq!(parsed, deserialized);
         assert_eq!(parsed.checked_bytes(), Some(1_610_612_736));
+    }
+    #[test]
+    fn test_memory_into_u64_uses_binary_units_and_defaults_invalid_values() {
+        let kilobytes: u64 = Memory::kb(1).into();
+        assert_eq!(kilobytes, 1_024);
+        assert_eq!(u64::from(Memory::mb(1.5)), 1_572_864);
+        assert_eq!(u64::from(Memory::gb(1)), 1_073_741_824);
+        assert_eq!(u64::from(Memory::tb(1)), 1_099_511_627_776);
+        assert_eq!(u64::from(Memory::gb(-1.0)), 0);
+        assert_eq!(u64::from(Memory::tb(f64::MAX)), 0);
     }
     #[test]
     fn test_memory_rejects_invalid_values_and_checked_overflow() {

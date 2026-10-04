@@ -14,7 +14,7 @@ use crate::cli::arguments::{CheckOutputFormat, DiffOutputFormat, FileFormat, Inf
 use crate::cli::parse::infer_standard_from_content;
 use crate::cli::{
     resolve_export_paths, resolve_paths, resolve_paths_including, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands,
-    ImportCommands, InferCommands, ServeCommands,
+    ImportCommands, InferCommands, McpCommands, ServeCommands,
 };
 use crate::test::util::{temp_test_dir, TestCleanup};
 use acorn::analyzer::Standard;
@@ -122,6 +122,15 @@ fn test_check_vale_directory_argument() {
         | Some(Commands::Check(arguments)) => assert_eq!(arguments.vale_directory, Some(PathBuf::from("/opt/vale"))),
         | _ => panic!("expected check arguments"),
     }
+}
+#[test]
+fn test_ckan_standard_inference_accepts_package_and_action_response() {
+    let package = r#"{"id":"123","name":"sample","title":"Sample","resources":[]}"#;
+    let action = format!(r#"{{"success":true,"result":{package}}}"#);
+    let inferred_package = infer_standard_from_content(Path::new("package.json"), package, &MimeType::Json).expect("package should infer");
+    let inferred_action = infer_standard_from_content(Path::new("response.json"), &action, &MimeType::Json).expect("action should infer");
+    assert_eq!(inferred_package, Standard::Ckan);
+    assert_eq!(inferred_action, Standard::Ckan);
 }
 #[test]
 fn test_cli() {
@@ -953,13 +962,41 @@ fn test_json_lines_standard_inference_uses_all_records() {
     assert_eq!(standard, Standard::Datacite);
 }
 #[test]
-fn test_ckan_standard_inference_accepts_package_and_action_response() {
-    let package = r#"{"id":"123","name":"sample","title":"Sample","resources":[]}"#;
-    let action = format!(r#"{{"success":true,"result":{package}}}"#);
-    let inferred_package = infer_standard_from_content(Path::new("package.json"), package, &MimeType::Json).expect("package should infer");
-    let inferred_action = infer_standard_from_content(Path::new("response.json"), &action, &MimeType::Json).expect("action should infer");
-    assert_eq!(inferred_package, Standard::Ckan);
-    assert_eq!(inferred_action, Standard::Ckan);
+fn test_mcp_client_arguments() {
+    let list = Arguments::try_parse_from(["acorn", "mcp", "--config", ".acorn.yml", "list", "research-tools"]).expect("parse MCP list");
+    match list.command {
+        | Some(Commands::Mcp {
+            command: McpCommands::List { server },
+            config,
+        }) => {
+            assert_eq!(server, "research-tools");
+            assert_eq!(config, Some(PathBuf::from(".acorn.yml")));
+        }
+        | other => panic!("unexpected command: {other:?}"),
+    }
+    let call = Arguments::try_parse_from([
+        "acorn",
+        "mcp",
+        "call",
+        "research-tools",
+        "resolve_identifier",
+        "--arguments",
+        r#"{"identifier":"doi:10.1000/example"}"#,
+        "--allow-mutation",
+    ])
+    .expect("parse MCP call");
+    assert!(matches!(
+        call.command,
+        Some(Commands::Mcp {
+            command: McpCommands::Call {
+                allow_mutation: true,
+                arguments,
+                server,
+                tool,
+            },
+            config: None,
+        }) if arguments.contains("identifier") && server == "research-tools" && tool == "resolve_identifier"
+    ));
 }
 #[test]
 fn test_model_commands_share_resolution_arguments() {

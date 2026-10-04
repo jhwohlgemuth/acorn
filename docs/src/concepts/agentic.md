@@ -63,7 +63,7 @@ MCP and ACP are optional extensions. MCP defines what context and capabilities a
 | Optional extension | Initial ACORN role | Purpose |
 | --- | --- | --- |
 | Protobuf/gRPC | Server and client library, available | Expose the shared operation registry through a versioned binary contract and establish reusable transport, policy, deadline, and cancellation boundaries for protocol integrations. |
-| MCP | Server, available | Let external agents discover and call deterministic ACORN resources and tools. An outbound client remains planned. |
+| MCP | Server and allowlisted client, available | Let external agents call deterministic ACORN tools, and let ACORN applications call configured remote MCP tools through bounded one-operation sessions. |
 | ACP | Client, planned | Let ACORN invoke and supervise interchangeable agents, beginning with OpenCode. |
 | OpenAI-compatible API | Client, available | Let ACORN applications call a model server through supported OpenAI-style HTTP endpoints and JSON formats without requiring a full agent. |
 

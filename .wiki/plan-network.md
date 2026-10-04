@@ -50,12 +50,11 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 - [Deterministic and assisted gather extraction](features/gather-extraction.md) lands deterministic selector and transport policy before its optional inference adapter. Its TUI cutover follows the shared source contract.
 - [SLM sidecars](features/slm-sidecars.md) may build explicit Tongue, Redact, and Title runners independently. Schemer integration, if it becomes available, consumes the gather inference contract.
 - [Needle 3 host validation](migrations/needle-3-upgrade.md) and SLM sidecars share sidecar artifact and CI/build locks but are functionally independent.
-- [MCP client](features/mcp-client.md) consumes the implemented operation/effects registry. A concrete operation workflow should be named before adding adapters beyond the initial allowlisted client.
 
 ### Optional policy validation
 
 - [CEL validation-profile pilot](features/cel-validation-profile-pilot.md) builds on the implemented analyzer and validation contracts. Runtime conformance and resource-bound evidence precede evaluator integration, followed by CLI wiring and team acceptance.
-- CEL feature wiring coordinates with [dependency capabilities](refactors/portability/dependency-features-and-macos-size.md). Its runtime/corpus gate can proceed without shared locks, but analyzer results, manifests, and CLI integration serialize with their current owners. CEL and MCP do not depend on one another.
+- CEL feature wiring coordinates with [dependency capabilities](refactors/portability/dependency-features-and-macos-size.md). Its runtime/corpus gate can proceed without shared locks, but analyzer results, manifests, and CLI integration serialize with their current owners.
 - OPA integration remains conditional future work described in the [assessment](assets/opa-cel-review.md), not a scheduled implementation.
 
 ### Reliability and operations
@@ -73,10 +72,10 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 |---|---|
 | Workspace manifests and lockfile | dependency capabilities, model acquisition, Cosmos, gather extraction, CEL, SLM, Miri/Creusot wiring |
 | Analyzer results, check orchestration, and module indexes | CEL, gather inference, structured enrichment, diff, CLI coverage |
-| `io/api/mod.rs`, configuration roots, endpoint snapshots | shared API contract, dPID, Cosmos, MCP client, model acquisition |
+| `io/api/mod.rs`, configuration roots, endpoint snapshots | shared API contract, dPID, Cosmos, model acquisition |
 | Research-activity/PID schema roots | dPID, structured enrichment, PID verification |
 | `io/{archive,oci,gguf}.rs` and model planner | model acquisition, SLM/Needle artifact work |
-| CLI parser, `main.rs`, generated help | CLI composition, dPID, gather, CEL, MCP, remote create, SLM |
+| CLI parser, `main.rs`, generated help | CLI composition, dPID, gather, CEL, remote create, SLM |
 | Export dispatch/templates/PowerPoint | export pipeline, database-backed artifacts |
 | `Makefile` and `.gitlab-ci.yml` | runner pools, Podman, dependency/size, SLM, Needle, PID verification, export fuzzing |
 

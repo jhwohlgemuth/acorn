@@ -167,11 +167,11 @@ export ACORN_GRPC_TOKEN='replace-with-a-secret'
 
 ## Foundation for ACP and MCP
 
-The gRPC transport is a stepping stone for ACORN's ACP and MCP work because it exercises a transport-neutral service boundary. JSON-RPC and gRPC already share operation registration, input validation, effect metadata, mutation and offline policy, and bounded operation errors. The gRPC adapter also establishes transport-level deadlines and cancellation behavior. Future protocol adapters can reuse those services instead of creating another set of operation handlers.
+The gRPC transport established the transport-neutral service boundary now reused by the outbound MCP client. JSON-RPC, gRPC, and MCP share effect metadata and mutation and offline policy while preserving their own request and result types. The gRPC adapter also established transport-level deadlines and cancellation behavior.
 
 Each protocol still keeps its own contract:
 
-- The available [MCP server](../cli-reference/commands/serve.md) exposes ACORN's canonical tool registry over MCP stdio, including MCP tool discovery and calls. A future outbound MCP client will use MCP client semantics.
+- The [MCP server](../cli-reference/commands/serve.md) exposes ACORN's canonical tool registry over stdio. The [MCP client](mcp-client.md) uses native MCP initialization, discovery, calls, cancellation, and shutdown for explicitly configured remote tools.
 - The ACP client uses one-shot sessions, normalized streamed updates, and fixed-policy permission responses to supervise external agents.
 - gRPC remains ACORN's typed binary operation transport. It does not wrap ACP or MCP frames, and gRPC compatibility does not imply ACP or MCP wire compatibility.
 

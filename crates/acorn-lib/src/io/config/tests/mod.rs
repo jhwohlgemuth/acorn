@@ -21,6 +21,7 @@ use crate::{
 };
 use acorn_core::{options::CommonRuntime, Location, Repository};
 use acorn_host::fs::{FsError, SafePath};
+use acorn_schema::validation::Validate;
 use fancy_regex::Regex;
 use secrecy::ExposeSecret;
 #[cfg(unix)]
@@ -182,7 +183,7 @@ fn test_acre_schema_has_human_title_and_feature_independent_fields() {
     let schema = serde_json::to_value(schemars::schema_for!(ApplicationConfiguration)).unwrap();
     assert_eq!(schema["title"], "Application Configuration for Research Enablement");
     let properties = schema["properties"].as_object().expect("schema properties");
-    ["powerAutomate", "schemaVersion", "scriptManifest", "workflow"]
+    ["mcp", "powerAutomate", "schemaVersion", "scriptManifest", "workflow"]
         .into_iter()
         .for_each(|name| assert!(properties.contains_key(name), "missing {name}"));
     let bucket_properties = schema["$defs"]["Bucket"]["properties"].as_object().expect("bucket schema properties");
@@ -575,6 +576,10 @@ fn test_count_json_files_counts_case_insensitive_json_paths() {
     assert_eq!(count_json_files(&paths), 2);
 }
 #[test]
+fn test_default_config_filenames_require_supported_extensions() {
+    assert_eq!(DEFAULT_CONFIG_FILENAMES, [".acorn.json", ".acorn.jsonc", ".acorn.yaml", ".acorn.yml"]);
+}
+#[test]
 fn test_default_config_filename_precedence_is_preserved() {
     let directory = temp_resolve_dir("default-config-precedence");
     create_dir_all(&directory).expect("create configuration directory");
@@ -586,10 +591,6 @@ fn test_default_config_filename_precedence_is_preserved() {
         Some(directory.join(DEFAULT_CONFIG_FILENAMES[0]))
     );
     remove_dir_all(directory).expect("remove configuration directory");
-}
-#[test]
-fn test_default_config_filenames_require_supported_extensions() {
-    assert_eq!(DEFAULT_CONFIG_FILENAMES, [".acorn.json", ".acorn.jsonc", ".acorn.yaml", ".acorn.yml"]);
 }
 #[tokio::test]
 async fn test_download_file_skips_existing_file_without_clobber() {
@@ -727,25 +728,6 @@ fn test_is_ignored_path() {
     assert!(is_ignored_path("/tmp/README.md", &Vec::<Regex>::new()));
 }
 #[test]
-fn test_json_accepts_comments_via_jsonc_fallback() {
-    let content = r#"{
-        // This comment is valid via JSONC fallback
-        "buckets": []
-    }"#;
-    assert!(ApplicationConfiguration::parse(content).is_ok());
-}
-#[test]
-fn test_json_equivalent_to_jsonc() {
-    let json = r#"{"buckets":[{"name":"t","repository":{"provider":"git","location":"file:./"}}]}"#;
-    let jsonc = r#"{
-        // comment
-        "buckets": [{"name":"t","repository":{"provider":"git","location":"file:./"}},]
-    }"#;
-    let a = ApplicationConfiguration::parse(json).unwrap();
-    let b = ApplicationConfiguration::parse(jsonc).unwrap();
-    assert_eq!(a.buckets.as_ref().unwrap().len(), b.buckets.as_ref().unwrap().len());
-}
-#[test]
 fn test_jsonc_parse_with_block_comments() {
     let content = r#"{
         /* Block comment */
@@ -770,6 +752,25 @@ fn test_jsonc_parse_with_trailing_commas() {
     assert!(ApplicationConfiguration::parse(content).unwrap().buckets.unwrap().is_empty());
 }
 #[test]
+fn test_json_accepts_comments_via_jsonc_fallback() {
+    let content = r#"{
+        // This comment is valid via JSONC fallback
+        "buckets": []
+    }"#;
+    assert!(ApplicationConfiguration::parse(content).is_ok());
+}
+#[test]
+fn test_json_equivalent_to_jsonc() {
+    let json = r#"{"buckets":[{"name":"t","repository":{"provider":"git","location":"file:./"}}]}"#;
+    let jsonc = r#"{
+        // comment
+        "buckets": [{"name":"t","repository":{"provider":"git","location":"file:./"}},]
+    }"#;
+    let a = ApplicationConfiguration::parse(json).unwrap();
+    let b = ApplicationConfiguration::parse(jsonc).unwrap();
+    assert_eq!(a.buckets.as_ref().unwrap().len(), b.buckets.as_ref().unwrap().len());
+}
+#[test]
 fn test_load_rejects_missing_explicit_path() {
     let missing = temp_resolve_dir("load-missing").join("missing.json");
     let result = ApplicationConfiguration::load(&Some(missing.clone()));
@@ -778,6 +779,55 @@ fn test_load_rejects_missing_explicit_path() {
         result.unwrap_err().to_string(),
         format!("Configuration file does not exist — {}", missing.display())
     );
+}
+#[test]
+fn test_mcp_client_configuration_parses_and_validates_supported_formats() {
+    let json = r#"{
+        "mcp": {
+            "research": {
+                "transport": {"type": "child-process", "command": "research-mcp", "args": ["serve"]},
+                "allowed": {"resolve": {"effects": ["network-read"], "timeout": 20, "max_output": "256KB"}}
+            }
+        }
+    }"#;
+    let jsonc = r#"{
+        // Local development server
+        "mcp": {
+            "research": {
+                "transport": {"type": "streamable-http", "url": "http://localhost:3000/mcp"},
+                "allowed": {"resolve": {}}
+            }
+        }
+    }"#;
+    let yaml = r#"
+mcp:
+  research:
+    transport:
+      type: streamable-http
+      url: https://example.org/mcp
+      bearer_token_env: RESEARCH_MCP_TOKEN
+    allowed:
+      resolve:
+        effects: [network-read]
+"#;
+    let configurations = [
+        ApplicationConfiguration::parse(json).expect("JSON MCP configuration"),
+        ApplicationConfiguration::parse(jsonc).expect("JSONC MCP configuration"),
+        serde_norway::from_str::<ApplicationConfiguration>(yaml).expect("YAML MCP configuration"),
+    ];
+    configurations.iter().for_each(|configuration| {
+        assert!(configuration.mcp.contains_key("research"));
+        assert!(configuration.validate().is_ok());
+    });
+    let duplicate = ApplicationConfiguration::parse(
+        r#"{"mcp":{"research":{"transport":{"type":"child-process","command":"server"},"allowed":{"resolve":{"effects":["mutation","mutation"]}}}}}"#,
+    )
+    .expect("parse duplicate effect configuration");
+    assert!(duplicate.validate().is_err());
+    assert!(ApplicationConfiguration::parse(
+        r#"{"mcp":{"research":{"transport":{"type":"child-process","command":"server","url":"https://example.org"},"allowed":{"resolve":{}}}}}"#,
+    )
+    .is_err());
 }
 #[test]
 fn test_model_update_preserves_jsonc_comments_and_dry_run() {
@@ -911,6 +961,12 @@ fn test_resolve_returns_explicit_existing_path() {
     let _ = remove_dir_all(directory);
 }
 #[test]
+fn test_runners() {
+    let path = fixtures_dir().join("config").join("with_runners.json");
+    let config = ApplicationConfiguration::read_json(path).unwrap();
+    insta::assert_snapshot!("runners", format!("{:#?}", config.runners));
+}
+#[test]
 fn test_runner_target_accepts_string_or_object() {
     let alias = serde_json::from_str::<RunnerTarget>(r#""oklahoma""#).unwrap();
     let object = serde_json::from_str::<RunnerTarget>(r#"{"host": "oklahoma"}"#).unwrap();
@@ -942,12 +998,6 @@ fn test_runner_target_rejects_invalid_or_unknown_values() {
         .unwrap_err()
         .to_string()
         .contains("unknown field"));
-}
-#[test]
-fn test_runners() {
-    let path = fixtures_dir().join("config").join("with_runners.json");
-    let config = ApplicationConfiguration::read_json(path).unwrap();
-    insta::assert_snapshot!("runners", format!("{:#?}", config.runners));
 }
 #[test]
 fn test_transfer_item_collect_preserves_or_flattens_paths() {

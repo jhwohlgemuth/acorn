@@ -3,7 +3,7 @@
 use crate::error::ApiResult;
 use acorn_core::{
     prelude::{Box, String},
-    time::Milliseconds,
+    time::{Milliseconds, UnitOfTime},
 };
 use acorn_schema::agent::{FrontMatter, PromptFileAsset, PromptTemplateConfiguration};
 use core::future::Future;

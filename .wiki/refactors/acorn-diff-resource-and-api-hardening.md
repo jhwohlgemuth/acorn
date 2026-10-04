@@ -106,4 +106,3 @@ Translate the aligned edit script with one current target index: equal elements 
 
 - [Dependency capabilities and macOS unwind size](portability/dependency-features-and-macos-size.md)
 - [Crate boundary architecture](crate-boundary-architecture.md)
-- [MCP client](../features/mcp-client.md)

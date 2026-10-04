@@ -25,6 +25,9 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli import model`↴](#acorn-cli-import-model)
 * [`acorn-cli import spec`↴](#acorn-cli-import-spec)
 * [`acorn-cli link`↴](#acorn-cli-link)
+* [`acorn-cli mcp`↴](#acorn-cli-mcp)
+* [`acorn-cli mcp call`↴](#acorn-cli-mcp-call)
+* [`acorn-cli mcp list`↴](#acorn-cli-mcp-list)
 * [`acorn-cli report`↴](#acorn-cli-report)
 * [`acorn-cli swhid`↴](#acorn-cli-swhid)
 * [`acorn-cli skill`↴](#acorn-cli-skill)
@@ -78,6 +81,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * `gather` — Gather persistent identifiers from documents, URLs, or text
 * `import` — Import external metadata into ACORN
 * `link` — Add linked data context to research activity data
+* `mcp` — Discover and invoke allowlisted tools on configured MCP servers
 * `report` — Generate bounded artifacts and publish immutable GitLab packages
 * `swhid` — Calculate or verify a Software Hash Identifier (SWHID)
 * `skill` — Print the embedded ACORN skill path and copy agent instructions to clipboard
@@ -1176,6 +1180,61 @@ Add linked data context to research activity data
   Default value: `rads`
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
+
+
+
+## `acorn-cli mcp`
+
+Discover and invoke allowlisted tools on configured MCP servers
+
+    List configured tools currently advertised by a server
+    $> acorn mcp --config .acorn.yml list research-tools
+
+    Call one configured tool with JSON-object arguments
+    $> acorn mcp --config .acorn.yml call research-tools resolve_identifier --arguments '{"identifier":"https://doi.org/10.1000/example"}'
+
+**Usage:** `acorn-cli mcp [OPTIONS] <COMMAND>`
+
+###### **Subcommands:**
+
+* `call` — Call one configured and currently advertised MCP tool
+* `list` — List configured tools currently advertised by one MCP server
+
+###### **Options:**
+
+* `--config <PATH>` — Explicit application configuration; otherwise use project discovery
+
+
+
+## `acorn-cli mcp call`
+
+Call one configured and currently advertised MCP tool
+
+**Usage:** `acorn-cli mcp call [OPTIONS] <SERVER> <TOOL>`
+
+###### **Arguments:**
+
+* `<SERVER>` — Configured MCP server alias
+* `<TOOL>` — Allowlisted MCP tool name
+
+###### **Options:**
+
+* `--allow-mutation` — Permit tools configured with mutation, destructive, or filesystem-write effects
+* `--arguments <JSON>` — JSON object supplied as MCP tool arguments
+
+  Default value: `{}`
+
+
+
+## `acorn-cli mcp list`
+
+List configured tools currently advertised by one MCP server
+
+**Usage:** `acorn-cli mcp list <SERVER>`
+
+###### **Arguments:**
+
+* `<SERVER>` — Configured MCP server alias
 
 
 
