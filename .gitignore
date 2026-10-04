@@ -1,6 +1,8 @@
 .DS_store
 .env
 .vale/
+*.profdata
+*.profraw
 /bin
 /content
 /docs/book
