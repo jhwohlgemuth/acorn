@@ -18,6 +18,8 @@ The script downloads the crate artifact from crates.io, computes `sha256`, and w
 
 The `publish-homebrew-formula` job in `.gitlab-ci.yml` runs on version tags and pushes the rendered formula to your tap repository.
 
+The `test-homebrew-macos` job runs after the tagged crate is published. It generates the formula, installs it in an isolated Tart VM, runs `brew test`, and checks the installed `acorn --version`. Relevant merge requests can start the same job manually against the version already published on crates.io.
+
 Required CI variable:
 - `HOMEBREW_TAP_ACCESS_TOKEN`: masked project access token created in the tap repository with the `write_repository` scope and a role permitted to push to the target branch. The job falls back to the legacy `ACCESS_TOKEN` variable when this is unset. If the selected variable is protected, version tags must also be protected so tagged pipelines can access it.
 

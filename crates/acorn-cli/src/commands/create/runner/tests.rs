@@ -16,6 +16,12 @@ fn test_alias_remote_parses() {
     assert_eq!(target.to_string(), "ssh://user@builder");
 }
 #[test]
+fn test_cli_runtime_is_selected_without_config() {
+    let (runtime, target) = resolve_operation(None, &Some(Executor::Shell), None).unwrap();
+    assert_eq!(runtime, Executor::Shell);
+    assert!(target.is_none());
+}
+#[test]
 fn test_configured_target_is_overridden_by_cli_target() {
     let runner = RunnerDetails::at(Repository::GitLab {
         id: Some(42),

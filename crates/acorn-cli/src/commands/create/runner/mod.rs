@@ -367,6 +367,7 @@ fn resolve_operation(
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
     config: &Option<PathBuf>,
+    no_config: bool,
     description: &Option<String>,
     name: &Option<String>,
     _server: &Option<String>,
@@ -379,9 +380,12 @@ pub async fn run(
     target: Option<&ContainerTarget>,
     verbose: &Verbosity,
 ) -> Result<(), Report> {
-    let configured = match ApplicationConfiguration::resolve(config) {
-        | Some(path) => ApplicationConfiguration::read(path).map(|value| value.runners.filter(|values| !values.is_empty())),
-        | None => Ok(None),
+    let configured = match no_config {
+        | true => Ok(None),
+        | false => match ApplicationConfiguration::resolve(config) {
+            | Some(path) => ApplicationConfiguration::read(path).map(|value| value.runners.filter(|values| !values.is_empty())),
+            | None => Ok(None),
+        },
     };
     let build_target = |runner: Option<&RunnerDetails>| {
         let desired_description_result = runner
@@ -503,6 +507,7 @@ pub async fn run(
                         .unwrap_or_else(|| "gitlab-runner".to_string());
                     let details = RunnerDetails::at(repository)
                         .description(desired_description)
+                        .executor(selected_runtime.clone())
                         .runner_type(&runner_type.to_string())
                         .gpu_enabled(false)
                         .maybe_tags(desired_tags)

@@ -26,6 +26,7 @@ The feature work is justified independently by portability and extraction. macOS
 - `acorn-core`, `acorn-schema`, `acorn-cmd`, and initial `acorn-host` capabilities are extracted and used directly.
 - `acorn-lib::std` still enables unrelated `agentic`, `analysis`, `shell-lint`, PowerPoint, DuckDB, network, archive, template, progress, CLI utility, database, chart, and system-diagnostic capabilities.
 - The measured Apple Silicon baseline was a roughly 317 MiB debug binary with `__eh_frame` of 21,230,536 bytes, 4,453,320 bytes above Apple's 16 MiB compact-unwind encoding limit.
+- `scripts/check-macos-unwind.sh` and the allowed-to-fail `macos-unwind` Tart job now capture the build log, `size -m`, `otool -l`, and a machine-readable summary while enforcing the 14 MiB target. The job remains non-blocking until the reduction work reaches the accepted limit.
 - The workspace already optimizes `insta` and `similar` in development builds, but it has not measured a general dependency optimization profile against the unwind section.
 - Cargo test artifacts require unwind behavior, so release-only settings or `panic = "abort"` do not solve the developer/test warning.
 
