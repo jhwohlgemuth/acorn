@@ -207,6 +207,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 let target = ContainerTarget::from_args(args.target.host.clone(), args.target.context.clone());
                 create::runner::run(
                     &args.config,
+                    args.no_config,
                     &args.description,
                     &args.name,
                     &args.server,

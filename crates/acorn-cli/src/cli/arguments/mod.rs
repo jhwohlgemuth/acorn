@@ -1238,6 +1238,9 @@ pub(crate) struct Runner {
     /// Path to configuration file for creating the resource
     #[arg(short, long, default_value = "./", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
     pub(crate) config: Option<PathBuf>,
+    /// Use only command-line arguments without discovering an application configuration
+    #[arg(long, conflicts_with = "config", help_heading = "FLAGS")]
+    pub(crate) no_config: bool,
     /// Runner description (alternative to providing a configuration file)
     #[arg(long, value_name = "DESCRIPTION", help_heading = "OPTIONS")]
     pub(crate) description: Option<String>,

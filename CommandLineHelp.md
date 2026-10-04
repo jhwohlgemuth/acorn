@@ -320,6 +320,7 @@ GitLab runner
 * `-c`, `--config <PATH>` — Path to configuration file for creating the resource
 
   Default value: `./`
+* `--no-config` — Use only command-line arguments without discovering an application configuration
 * `--description <DESCRIPTION>` — Runner description (alternative to providing a configuration file)
 * `-g`, `--group <ID>` — GitLab group ID to create a runner for (alternative to providing a configuration file)
 * `-r`, `--repo <REPO>` — GitLab repository domain override for runner creation (e.g., code.ornl.gov)

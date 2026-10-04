@@ -29,6 +29,20 @@
             "type": "group"
         },
         {
+            "description": "RE Runner (macos)",
+            "executor": "shell",
+            "gpuEnabled": false,
+            "name": "acorn-runner-macos",
+            "repository": {
+                "id": 24758,
+                "location": "https://code.ornl.gov/research-enablement",
+                "provider": "gitlab"
+            },
+            "runUntagged": false,
+            "tags": ["macos"],
+            "type": "group"
+        },
+        {
             "description": "RE Runner (oklahoma)",
             "gpuEnabled": false,
             "name": "acorn-runner",

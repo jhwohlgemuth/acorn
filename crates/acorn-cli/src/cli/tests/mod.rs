@@ -296,6 +296,27 @@ fn test_create_bot_webhook_deployment_options() {
     }
 }
 #[test]
+fn test_create_runner_no_config_arguments() {
+    let arguments = Arguments::try_parse_from([
+        "acorn",
+        "create",
+        "runner",
+        "--no-config",
+        "--group",
+        "42",
+        "--description",
+        "local-runner",
+    ])
+    .expect("parse runner without configuration discovery");
+    assert!(matches!(
+        arguments.command,
+        Some(Commands::Create {
+            command: Some(CreateCommands::Runner(arguments)),
+        }) if arguments.no_config
+    ));
+    assert!(Arguments::try_parse_from(["acorn", "create", "runner", "--no-config", "--config", "runner.json",]).is_err());
+}
+#[test]
 fn test_create_remote_rejects_invalid_ssh_uris() {
     [
         "http://builder",
