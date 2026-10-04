@@ -233,13 +233,14 @@ make fuzz-repro FUZZ_CRASH='fuzz/artifacts/research_activity/crash-...'
   ./scripts/homebrew/generate-formula.sh 0.1.56 ./Formula/acorn-cli.rb
   ```
 - The GitLab release pipeline can update your tap automatically when a version tag is created.
+- The `test-homebrew-macos` job installs and tests the generated formula in an isolated Tart VM after the tagged crate is published. Relevant merge requests expose the same smoke test as a manual job for versions already available on crates.io.
 - Required CI variables:
   - `HOMEBREW_TAP_REPO_URL` (authenticated clone URL for your tap repo)
   - `HOMEBREW_TAP_BRANCH` (optional, defaults to `main`)
   - `HOMEBREW_TAP_FORMULA_PATH` (formula file path in the tap repo)
 
 > [!TIP]
-> This flow updates the tap repository formula; it does not install `acorn` onto the CI runner.
+> Formula publication and installation testing are separate jobs. The installation job changes only its ephemeral macOS VM.
 
 ## Project Standards
 - Running `make lint` should not introduce any new lint and all format results should be included in proposed changes

@@ -33,7 +33,7 @@ Evidence checked on 2026-09-22. Recheck upstream availability, licenses, and imm
 - [Redact](https://github.com/Desert-Ant-Labs/desert-ant-core/blob/0711f8907188ca1ee85b2a0fa37ad7aa64b9a750/docs/models/redact.md) combines learned spans and structured identifier rules. Its documented defaults include a 0.6 minimum score, 256-token windows, and a 64-token stride; pin model revision [`3ed5033aeb544f454ebde77dc76fd7b7e76cc572`](https://huggingface.co/desert-ant-labs/redact/tree/3ed5033aeb544f454ebde77dc76fd7b7e76cc572).
 - [Title](https://github.com/Desert-Ant-Labs/desert-ant-core/blob/0711f8907188ca1ee85b2a0fa37ad7aa64b9a750/docs/models/title.md) is Apple/MLX-only and lacks an independent published quality evaluation. Pin model revision [`72375893bb8d1b96f50c7f32dbd1bc124f20d0e6`](https://huggingface.co/desert-ant-labs/title/tree/72375893bb8d1b96f50c7f32dbd1bc124f20d0e6). Its generated description is not inherently a valid ACORN subtitle.
 - The RAD schema validates title and subtitle; subtitle currently has a 75-character maximum. Sidecar output must use canonical validators rather than copy those limits.
-- Existing GitLab runners cover Linux x86_64 and ARM64 only. A maintained macOS ARM64 runner with Xcode 26 and Swift 6.2 is a hard prerequisite for Title and for declaring the complete first slice stable.
+- A dedicated `macos` GitLab runner now executes Tart VMs on Apple Silicon. The `slm-host-macos` job pins an Xcode 26 image and verifies macOS ARM64, Swift 6.2 or newer, and native Swift compilation before runner work proceeds. The host has sufficient capacity for the image's 62.4 GB download and 120 GB virtual disk after its oversized Cargo cache was cleared. Legal approval for SDK and weight redistribution remains a hard prerequisite for release implementation.
 - Fastino GLiDE provides typed, probabilistic decisions over caller-defined choices through the hosted `fastino/glide` System One API. Its decision contract is relevant to the retained semantic-decision experiment, but the documented integration is hosted rather than an ACORN-owned offline runner. GLiDE therefore does not replace Needle's local tool-selection loop; it is a candidate policy/approval decision adapter that requires a separate offline or approved self-hosting path before production consideration. [GLiDE announcement](https://fastino.ai/blog/introducing-glide-the-first-thinking-decision-model)
 
 # Decisions locked for the first release
@@ -95,7 +95,7 @@ Preserve `acorn infer <PROMPT>` as the legacy Needle form. Because `needle`, `la
 
 # Implementation sequence and exit gates
 
-1. **Prove licensing and hosts.** Record approval for SDK/weight redistribution and provision the macOS ARM64 runner. Stop release work if either gate fails, while retaining local evaluation notes.
+1. **Prove licensing and hosts.** The macOS ARM64 runner and its Xcode 26/Swift 6.2 CI gate are configured with sufficient host storage. Record one passing job and approval for SDK/weight redistribution before runner release work proceeds; retain local evaluation notes if either gate fails.
 2. **Build the runners.** Implement `SidecarAssets` and `Sidecar` for every capability, package every runner and supporting file through the existing semantic-versioned manifest, pin the SDK and model commits above, implement the one-request protocol, and add protocol-only fixture tests plus real-model smoke tests on every claimed platform.
 3. **Publish immutable artifacts.** Produce capability/platform artifacts, capture exact bytes/hashes/licenses, verify clean offline installation, then pin them in Rust.
 4. **Integrate the library.** Add concrete sidecars, typed results, limits, telemetry opt-out, asset/download behavior, and lifecycle tests behind `slm`.
@@ -124,7 +124,7 @@ Preserve `acorn infer <PROMPT>` as the legacy Needle form. Because `needle`, `la
 - Asset tests cover the supported semantic manifest version, unsupported and legacy shapes, duplicate or unsafe asset names, bad sizes/digests, partial downloads, unsupported targets, custom locations, offline cache hits/misses, and OCI/local parity.
 - Capability fixtures cover scientific abbreviations, ambiguous and mixed-language prose, expected contact PII, missed and false-positive redactions, UTF-8 span boundaries, malformed Title output, absent fields, subtitle limits, unsupported claims, and stale source fingerprints.
 - Measure cold/warm latency, total download, peak memory, and batch behavior on every claimed platform. Keep heavyweight real-model tests explicit and separate from ordinary offline unit tests.
-- Run formatting, lint, focused tests, `make test`, applicable feature/WASM checks, license/dependency checks, generated-help checks, and the GitLab Linux/macOS smoke jobs for implementation changes.
+- Run formatting, lint, focused tests, `make test`, applicable feature/WASM checks, license/dependency checks, generated-help checks, the `slm-host-macos` toolchain gate, and the GitLab Linux/macOS smoke jobs for implementation changes.
 
 # Acceptance criteria
 
