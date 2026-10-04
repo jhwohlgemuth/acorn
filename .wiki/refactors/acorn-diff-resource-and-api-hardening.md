@@ -25,7 +25,7 @@ The crate boundary, alloc/WASM matrix, pointer conformance coverage, package doc
 
 Land the work in this order: bounded error/options contracts, JSON and unified bounded entry points, first-party consumer migration, header and terminal-output handling, patch-container ergonomics, sink-based rendering, then sequence-aware arrays. Sequence alignment must consume the established work limits rather than introduce an unbounded alternate path.
 
-The crate manifest and CI/build entry points are single-writer locks. Changes to `analyzer::fix` serialize with MCP or inference work; changes to the CLI diff command remain a leaf and must not take the shared CLI argument or generated-help lock unless its syntax changes.
+The crate manifest and CI/build entry points are single-writer locks. Changes to `analyzer::fix` serialize with inference work; changes to the CLI diff command remain a leaf and must not take the shared CLI argument or generated-help lock unless its syntax changes.
 
 # Current evidence
 

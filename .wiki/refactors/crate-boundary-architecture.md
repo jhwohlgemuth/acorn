@@ -4,7 +4,7 @@ title: "Split ACORN along layered crate boundaries"
 description: "Decompose acorn-lib into portable domain crates, capability adapters, and application services with explicit ownership."
 difficulty: high
 impact: critical
-package: [workspace, acorn-lib, acorn-core, acorn-schema, acorn-analysis, acorn-api, acorn-store, acorn-export, acorn-host, acorn-wasm, acorn-service, acorn-cmd]
+package: [workspace, acorn-lib, acorn-core, acorn-schema, acorn-analysis, acorn-api, acorn-store, acorn-export, acorn-host, acorn-wasm, acorn-service, acorn-server, acorn-cmd]
 tags: [refactor, architecture, crate-extraction, portability, dependencies]
 status: in-progress
 ---
@@ -15,13 +15,14 @@ Replace the current all-purpose `acorn-lib` package with a directed set of crate
 
 # Current priority
 
-This plan is coordination-only. `acorn-schema`, `acorn-cmd`, and the initial `acorn-host` capabilities are extracted with direct first-party imports. The in-tree analyzer kernel compiles independently under `alloc` and is CI-enforced; `acorn-analysis` and any new host port remain deferred until a concrete alternate consumer proves the boundary and justifies an atomic plan.
+This plan is coordination-only. `acorn-schema`, `acorn-cmd`, and the initial `acorn-host` capabilities are extracted with direct first-party imports. The in-tree analyzer kernel compiles independently under `alloc` and is CI-enforced. The executable [portable analysis and service boundary](core/acorn-service-boundary.md) now supplies the concrete direct, WASM, JSON-RPC, and gRPC consumers needed to extract `acorn-analysis`, `acorn-service`, and the `acorn-server` composition root as one ordered effort.
 
 # Current evidence
 
 - `acorn-lib` now exposes analyzer, I/O, host utility, and doctor modules; schema implementation has moved to `acorn-schema`, command construction/execution to `acorn-cmd`, and initial filesystem, configuration, HTTP, download, source, and terminal capabilities to `acorn-host`.
 - `crates/acorn-core` now owns portable errors, location/repository values, MIME/checksum/version values, and core/alloc utility implementations. First-party consumers import them directly from `acorn-core`; `acorn-lib` retains only host extensions and host utilities.
 - Remaining coupling is concentrated inside `acorn-lib`: analyzer host execution, provider APIs, persistence, export, and workflows still share I/O and utility boundaries.
+- The outbound MCP client now combines configuration and operation policy with concrete child-process and HTTP transports in `io::mcp`; extraction must separate service orchestration from native transport without changing the landed MCP contract.
 - Schema string/byte codecs remain with schema types, while their path/file `InputOutput` implementations and migration machinery live in the std-only `io::adapter` module.
 - The portable foundation is extracted: `AcornError` and `AcornResult` are independent of host reporting, and core/alloc utilities are imported from their owning crate without legacy facade paths.
 - Minimal and alloc builds no longer resolve `color-eyre`, `console`, `owo-colors`, `rust-embed`, or `similar`; immutable validation reference data is compiled directly without the generic embedded-asset runtime.
@@ -55,9 +56,10 @@ browser adapters: acorn-wasm
 
 CLI / TUI  = service + native adapters
 JS / WASM  = service + browser adapters
+acorn-server = service + selected native adapters + protocol listeners
 ```
 
-The diagram shows the dominant direction rather than every direct edge. Port traits live with the domain or service that consumes them. `acorn-host`, `acorn-store`, and `acorn-wasm` implement those ports, while interface crates act as composition roots and select concrete adapters. `acorn-service` must not depend on a native adapter. During migration, `acorn-lib` remains a host implementation package; it does not sit beside the graph as a re-export facade.
+The diagram shows the dominant direction rather than every direct edge. Port traits live with the domain or service that consumes them. `acorn-host`, `acorn-store`, and `acorn-wasm` implement those ports, while interface crates act as composition roots and select concrete adapters. `acorn-service` must not depend on a native adapter. `acorn-server` owns listener, authentication, TLS, health, and shutdown composition for JSON-RPC and gRPC without absorbing application policy. During migration, `acorn-lib` remains a host implementation package; it does not sit beside the graph as a re-export facade.
 
 # Repository layout
 
@@ -78,6 +80,7 @@ crates/
 ├── acorn-host
 ├── acorn-wasm
 ├── acorn-service    (planned)
+├── acorn-server     (planned)
 └── acorn-cmd
 ```
 
@@ -93,7 +96,8 @@ Workspace-wide support projects that are not published ACORN product crates, inc
 | `acorn-export` | Shared export context, templates, charts, OOXML/PowerPoint transformations, and renderer contracts that produce artifact bytes | Filesystem writes, browser/process startup, or CLI output |
 | `acorn-host` | Native filesystem and source handling, native HTTP transport, document conversion, process execution, downloads, synchronization, doctor checks, and concrete analysis/export adapters | Browser adapters, domain policy, or multi-service orchestration |
 | `acorn-wasm` | `wasm-bindgen` integration, JS-facing DTO conversion, and future browser adapters and composition | Native filesystem/process assumptions or portable domain policy |
-| `acorn-service` | Artifact discovery, analysis use cases, GitLab bot/webhook/intake flows, MCP/server workflows, and orchestration over injected port traits | Concrete host, browser, provider transport, or database implementations |
+| `acorn-service` | Artifact discovery, analysis use cases, GitLab bot/webhook/intake flows, MCP client/server workflows, and orchestration over injected port traits | Concrete host, browser, provider transport, or database implementations |
+| `acorn-server` | JSON-RPC and gRPC listeners, authentication, TLS, health, request bounds, tracing setup, and graceful process lifecycle | Portable analysis, application policy, provider logic, or persistence implementation |
 | `acorn-cmd` | Command construction and execution helpers plus the public command macro surface; command-word parsing is isolated inside `acorn-macros` | General-purpose ACORN utilities |
 | `acorn-lib` | Host implementations awaiting extraction and ACORN-specific host extensions | Portable domains, schemas, or re-exports that conceal another crate's ownership |
 
@@ -102,13 +106,13 @@ Individual schemas, providers, commands, doctor checks, and generic utility coll
 # Project code boundaries
 
 - **Update:** workspace `Cargo.toml`, `Makefile`, `.gitlab-ci.yml`; all current manifests; `crates/acorn-lib/src/{lib,error}.rs`, `analyzer/`, `io/`, `doctor/`, and `util/`; `crates/acorn-core/src/prelude.rs`; first-party crate imports; package/release documentation and `xtask` workspace assumptions.
-- **Create:** the remaining planned packages under `crates/` in dependency order, with focused unit and boundary tests and explicit feature contracts.
+- **Create:** the remaining planned packages under `crates/` in dependency order, including the `acorn-server` interface/composition package, with focused unit and boundary tests and explicit feature contracts.
 - **Delete:** implementation from `acorn-lib` after consumers migrate directly to the owning crate; do not retain ownership-masking re-exports.
 
 # Plan dependencies
 
 - **Satisfied prerequisite:** the implemented portability matrix proves the analyzer boundary in-tree; that result does not itself authorize package extraction.
-- **Boundary inputs:** analyzer plans first prove an in-tree portable kernel; the [shared API client contract](api/shared-client-contract.md) prepares `acorn-api`; the [shared export and OOXML pipeline](core/export-pipeline-hardening.md) prepares `acorn-export`; the `acorn-cmd` and initial `acorn-host` boundaries are implemented.
+- **Boundary inputs:** the [portable analysis and service boundary](core/acorn-service-boundary.md) owns the atomic analyzer/service/server extraction; the [shared API client contract](api/shared-client-contract.md) prepares `acorn-api`; the [shared export and OOXML pipeline](core/export-pipeline-hardening.md) prepares `acorn-export`; the `acorn-cmd` and initial `acorn-host` boundaries are implemented.
 - **Downstream:** the implemented portability matrix expands with each accepted extraction. Browser adapters or consumer-owned host ports require a concrete alternate implementation and a new atomic plan.
 - The complete ordering and shared-file collision map is maintained in the [plan dependency network](../plan-network.md).
 
@@ -133,19 +137,23 @@ This architecture plan is coordination-only except when a named migration phase 
 
 # Current migration sequence
 
-## 1. Stabilize protocol and export boundaries
+## 1. Extract the portable analysis and supplied-content service slice
+
+Move the proven analyzer kernel into `acorn-analysis` and build the initial `acorn-service` catalog over supplied content in the same phase. Host those shared operations through retained JSON-RPC semantics and explicit typed gRPC methods in `acorn-server`. Keep native path discovery, persistence implementation, and other adapters outside the portable crates.
+
+## 2. Stabilize provider and export boundaries
 
 Keep endpoint, authentication, request, response, and provider protocol mechanics in the API boundary. Move GitLab bot decisions, persistence coordination, analysis invocation, and report publication into a service boundary. Make export transformations return in-memory artifacts before extracting provider, store, and export packages.
 
-## 2. Extract adapters
+## 3. Extract adapters
 
 Extract provider protocol logic into `acorn-api`, persistence into `acorn-store`, and renderers into `acorn-export`. Move remaining native operations and concrete native port implementations into the existing feature-gated `acorn-host`. Extend the minimal `acorn-wasm` bindings with target-specific browser adapters only as service ports stabilize. Split one capability at a time and keep every intermediate workspace state buildable.
 
-## 3. Extract application services
+## 4. Expand application services
 
 Move artifact discovery, GitLab bot workflows, and agentic/server coordination into `acorn-service` expressed over injected port traits. Keep CLI parsing, terminal presentation, process exit behavior, and concrete adapter selection in interface composition roots.
 
-## 4. Finish direct consumer migration and the release path
+## 5. Finish direct consumer migration and the release path
 
 Migrate first-party interfaces to direct dependencies, then remove extracted implementation and obsolete features from `acorn-lib`. Publish dependency crates in topological order before their consumers; Cargo requires published path dependencies to include a registry version and be available to downstream resolution ([Cargo dependency documentation](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#specifying-path-dependencies)). Reserve and recheck package names immediately before creating the first public release.
 
@@ -183,6 +191,7 @@ Migrate first-party interfaces to direct dependencies, then remove extracted imp
 
 # Related plans
 
+- [Portable analysis and service boundary](core/acorn-service-boundary.md)
 - [Dependency capabilities and macOS unwind size](portability/dependency-features-and-macos-size.md)
 - [Shared export and OOXML pipeline](core/export-pipeline-hardening.md)
 - [Shared API client contract](api/shared-client-contract.md)

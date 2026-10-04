@@ -170,7 +170,7 @@ Impact means likely user benefit; difficulty includes implementation, verificati
 | Publication/readiness checks using existing metadata and FAIR evidence | CEL | High | Medium | Follow a successful pilot; missing network evidence stays unknown/skipped, never inferred as compliance. |
 | Transition rules over before/after records: preserve identifiers, require review for sensitive changes | CEL initially | Medium | Medium | Follow-on using the existing diff boundary; keep application of changes in host code. |
 | Repository-wide joins: duplicate identifiers, incompatible agreements, organization-wide exceptions | Rego | Medium | High | Defer until a real bounded cross-record workflow exists. OPA is not a database. |
-| Shared API/MCP/webhook authorization | OPA where already operated | High for managed deployments | High | After MCP integration and a trusted identity/context contract. Low immediate benefit for a local single-user CLI. |
+| Shared API/MCP/webhook authorization | OPA where already operated | High for managed deployments | High | MCP integration is implemented; a trusted identity/context contract and managed deployment owner are still required. Low immediate benefit for a local single-user CLI. |
 | Source, model, and export eligibility | CEL for local predicates; OPA for shared governance | Medium | Medium–High | Only over explicit facts. Neither engine verifies licensing, classification, or consent from prose. |
 | Replacement of Rust schema validators or Rhai workflow execution | Neither | Low | High | Reject: duplicates stable behavior and expands migration risk. |
 

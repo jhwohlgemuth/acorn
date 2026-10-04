@@ -25,6 +25,7 @@ The feature work is justified independently by portability and extraction. macOS
 - Minimal and alloc graphs no longer resolve earlier host-reporting, terminal, diff, generic asset, async, glob, or shell parsing leakage. The native `analysis` capability compiles independently of the full `std` umbrella and has dependency-deny checks.
 - `acorn-core`, `acorn-schema`, `acorn-cmd`, and initial `acorn-host` capabilities are extracted and used directly.
 - `acorn-lib::std` still enables unrelated `agentic`, `analysis`, `shell-lint`, PowerPoint, DuckDB, network, archive, template, progress, CLI utility, database, chart, and system-diagnostic capabilities.
+- The outbound MCP client has an explicit non-default `mcp-client` feature and independent client/server feature checks, but it currently selects the broad `analysis` capability. Capability narrowing must preserve its child-process and Streamable HTTP behavior without folding it into `agentic` or `std`.
 - The measured Apple Silicon baseline was a roughly 317 MiB debug binary with `__eh_frame` of 21,230,536 bytes, 4,453,320 bytes above Apple's 16 MiB compact-unwind encoding limit.
 - `scripts/check-macos-unwind.sh` and the allowed-to-fail `macos-unwind` Tart job now capture the build log, `size -m`, `otool -l`, and a machine-readable summary while enforcing the 14 MiB target. The job remains non-blocking until the reduction work reaches the accepted limit.
 - The workspace already optimizes `insta` and `similar` in development builds, but it has not measured a general dependency optimization profile against the unwind section.
@@ -76,7 +77,7 @@ Disable unused dependency features, remove proven duplicate stacks, or reduce me
 
 - Run all supported feature checks, dependency-deny scripts, `make check-portable`, WASM package tests, lint, and the full suite.
 - On macOS, build the default debug CLI and test artifact, confirm the linker warning is absent, and record sections with both `size -m` and `otool -l`.
-- Exercise download, analysis/checking, export/PDF, doctor, TUI, and agentic commands affected by feature changes.
+- Exercise download, analysis/checking, export/PDF, doctor, TUI, agentic, and outbound MCP commands affected by feature changes.
 - Build and smoke-test release packaging with existing release semantics.
 - Run normal Linux CI and inspect resolved graphs for every supported combination.
 

@@ -21,7 +21,7 @@ Let users create the same supported artifacts from ACORN's maintained research a
 
 # Project code boundaries
 
-- **Update:** focused export service and command files in `crates/acorn-lib/src/io/` and `crates/acorn-cli/src/commands/export/`, CLI arguments/help during a single integration window, MCP export inputs, and dedicated export tests.
+- **Update:** focused export service and command files in `crates/acorn-lib/src/io/` and `crates/acorn-cli/src/commands/export/`, CLI arguments/help during a single integration window, inbound ACORN MCP operation inputs, and dedicated export tests.
 - **Create:** a database artifact-source selector and reproducibility manifest leaf in `crates/acorn-lib/src/io/`; database-export fixtures under `tests/fixtures/database/export/`.
 - **Delete:** duplicate file/database renderer dispatch only after both sources feed one typed rendering pipeline.
 
@@ -34,7 +34,7 @@ The implemented canonical database contract supplies typed lookup, revision iden
 1. Add an artifact source enum that selects a canonical activity by portable database ID or an immutable revision ID and resolves to a typed `ResearchActivity` before renderer dispatch.
 2. Reuse existing serializers, crosswalks, update reports, PDF, and PowerPoint transforms unchanged after source resolution. Database code must not absorb rendering policy.
 3. Reuse the reporting workflow's machine-readable manifest identity, source, time-bound, ACORN-version, option, and digest fields; extend it with database activity and revision IDs rather than introducing a parallel artifact manifest.
-4. Add CLI and MCP selection with mutually exclusive file/activity/revision sources, explicit overwrite policy, and clear errors for missing or ambiguous identities.
+4. Add CLI and inbound ACORN MCP operation selection with mutually exclusive file/activity/revision sources, explicit overwrite policy, and clear errors for missing or ambiguous identities. The outbound MCP client does not proxy or automatically expose this operation.
 5. Support current RAD JSON/YAML/Markdown and logbook-update artifacts first; add standards profiles and binary documents only after deterministic source-to-render tests are green.
 
 # Validation
@@ -46,7 +46,7 @@ The implemented canonical database contract supplies typed lookup, revision iden
 # Acceptance criteria
 
 - Every existing supported renderer can consume a typed activity resolved from the database without a parallel implementation.
-- Users can select current state or one immutable revision by portable ID through CLI and MCP contracts.
+- Users can select current state or one immutable revision by portable ID through CLI and inbound MCP operation contracts.
 - Generated artifacts include a reproducibility manifest and stable input digest.
 - Database-backed logbook reports use the same bounded-window and manifest semantics as automated bucket-file artifacts.
 - Historical revision exports remain byte-stable where the target format is deterministic and semantically stable otherwise.

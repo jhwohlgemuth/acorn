@@ -7,5 +7,6 @@
 
 ## Planned
 
+- [Portable analysis and service boundary](acorn-service-boundary.md) - Extract supplied-content analysis and service operations, then host them through JSON-RPC and typed gRPC in `acorn-server`.
 - [CLI composition boundary](cli-composition-boundary.md) - Normalize parser values, isolate startup, share remote serve dispatch, and map reports/exits once.
 - [Structured research-activity enrichment](research-activity-enrichment-integration.md) - Map provider and logbook evidence into the existing typed activity fields with deterministic merge behavior.

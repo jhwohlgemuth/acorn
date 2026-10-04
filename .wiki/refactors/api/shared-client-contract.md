@@ -22,6 +22,7 @@ Finish one transport-neutral API client contract that provider modules can use w
 - Provider functions repeat `invoke`/`invoke_with` followed by `handle`/`handle_or`, while ORCID, ROR, CiteAs, and Harbor expose similar but separate health/status handling.
 - OpenAI intentionally retains broad response JSON for evolving payloads; other providers consume stable fields that can be represented by narrow DTOs.
 - RAiD already exposes service-point and record list/lookup/create operations, but the useful workflow evidence from the removed gather prototype is not captured by fixture-backed service tests.
+- `InvocationContext`, `OperationEffects`, and shared authorization now live in `io::api::operation` and are reused by the outbound MCP client. That operation boundary is implemented and is distinct from the provider HTTP invocation helpers still planned here.
 
 # Project code boundaries
 
@@ -31,7 +32,7 @@ Finish one transport-neutral API client contract that provider modules can use w
 
 # Dependencies
 
-Preserve the landed `SecretString`, authentication, bounded HTTP, redirect, redaction, offline, and webhook contracts. Shared `io/api/mod.rs`, `io/config/mod.rs`, and application endpoint snapshots are integration locks; provider leaves may migrate independently only after the shared contract for that slice is frozen.
+Preserve the landed `SecretString`, authentication, bounded HTTP, redirect, redaction, offline, webhook, and operation-authorization contracts. Shared `io/api/mod.rs`, `io/config/mod.rs`, application endpoint snapshots, and the outbound MCP configuration shape are integration locks; provider leaves may migrate independently only after the shared contract for that slice is frozen.
 
 # Decisions
 
@@ -43,6 +44,7 @@ Preserve the landed `SecretString`, authentication, bounded HTTP, redirect, reda
 - Type only stable consumed response fields. Keep evolving or unconsumed fields optional or as raw JSON rather than overfitting full remote schemas.
 - Error envelopes preserve provider details for diagnostics while exposing one redaction-aware message extraction boundary.
 - OpenAPI validation checks configured operation names and required template keys before the first request. Code generation remains outside this plan.
+- Keep the implemented operation-effects authorization contract separate from provider HTTP invocation helpers; do not move or redesign it incidentally during API extraction.
 
 # Implementation sequence
 

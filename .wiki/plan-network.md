@@ -10,19 +10,15 @@ This map records implementation dependencies among the active consolidated plans
 
 ```text
 dependency capabilities and macOS size
-              |
-              +-------------------+
-              v                   v
- shared API client contract   export and OOXML pipeline
-              |                   |
-              v                   v
-       acorn-api boundary      acorn-export boundary
-              \                   /
-               v                 v
-                 service/store extraction
-                          |
-                          v
-                CLI composition boundary
+       |                 |                    |
+       v                 v                    v
+ analysis + service   shared API client   export and OOXML
+       |                 |                    |
+       v                 v                    v
+ dual-protocol server  acorn-api boundary  acorn-export boundary
+       |
+       v
+ CLI composition boundary
 ```
 
 The [crate boundary architecture](refactors/crate-boundary-architecture.md) coordinates this path. It is not a schedulable implementation job.
@@ -31,10 +27,11 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 
 ### Portable and extraction boundaries
 
-- [Dependency capabilities and macOS unwind size](refactors/portability/dependency-features-and-macos-size.md) precedes new crate extraction and any feature-adding plan that changes workspace manifests.
+- [Dependency capabilities and macOS unwind size](refactors/portability/dependency-features-and-macos-size.md) precedes new crate extraction and any feature-adding plan that changes workspace manifests. It owns narrowing the landed `mcp-client` graph without reopening MCP protocol behavior.
+- [Portable analysis and service boundary](refactors/core/acorn-service-boundary.md) follows dependency capability cleanup. Its first phase extracts `acorn-analysis` and the supplied-content `acorn-service` catalog together; its second phase hosts the catalog through JSON-RPC and typed gRPC in `acorn-server`.
 - [Shared API client contract](refactors/api/shared-client-contract.md) prepares `acorn-api`; endpoint, request, resolved configuration, invocation, response, error, and provider policy move together only after its acceptance gates pass.
 - [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) prepares `acorn-export` by producing one pure projection and fallible in-memory transformations.
-- [CLI composition boundary](refactors/core/cli-composition-boundary.md) follows stable service/adapter request and error contracts. Command leaves may normalize earlier only when they avoid shared CLI roots.
+- [CLI composition boundary](refactors/core/cli-composition-boundary.md) follows the stable service/server request and error contracts. Command leaves may normalize earlier only when they avoid shared CLI roots.
 - [Portable diff hardening](refactors/acorn-diff-resource-and-api-hardening.md) and [ZON codec hardening](refactors/zon-codec-hardening.md) are independent portable leaves.
 
 ### Provider and acquisition work
@@ -70,12 +67,13 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 
 | Surface | Plans that serialize |
 |---|---|
-| Workspace manifests and lockfile | dependency capabilities, model acquisition, Cosmos, gather extraction, CEL, SLM, Miri/Creusot wiring |
-| Analyzer results, check orchestration, and module indexes | CEL, gather inference, structured enrichment, diff, CLI coverage |
+| Workspace manifests and lockfile | dependency capabilities, analysis/service extraction, model acquisition, Cosmos, gather extraction, CEL, SLM, Miri/Creusot wiring |
+| Analyzer results, check orchestration, and module indexes | analysis/service extraction, CEL, gather inference, structured enrichment, diff, CLI coverage |
+| JSON-RPC registry, protobuf, and server lifecycle | analysis/service extraction; CLI composition consumes the finished server contract |
 | `io/api/mod.rs`, configuration roots, endpoint snapshots | shared API contract, dPID, Cosmos, model acquisition |
 | Research-activity/PID schema roots | dPID, structured enrichment, PID verification |
 | `io/{archive,oci,gguf}.rs` and model planner | model acquisition, SLM/Needle artifact work |
-| CLI parser, `main.rs`, generated help | CLI composition, dPID, gather, CEL, remote create, SLM |
+| CLI parser, `main.rs`, generated help | analysis/service serve cutover, CLI composition, dPID, gather, CEL, remote create, SLM |
 | Export dispatch/templates/PowerPoint | export pipeline, database-backed artifacts |
 | `Makefile` and `.gitlab-ci.yml` | runner pools, Podman, dependency/size, SLM, Needle, PID verification, export fuzzing |
 

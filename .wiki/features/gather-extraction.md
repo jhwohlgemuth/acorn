@@ -35,7 +35,7 @@ Both modes feed the existing validated candidate boundary. Deterministic values 
 
 # Dependencies
 
-The deterministic slice consumes the existing HTTP/offline and source-document boundaries. The inference slice starts only after the deterministic request, validation, and provenance contracts pass. Provider selection must avoid active ACP, MCP, and sidecar integration locks.
+The deterministic slice consumes the existing HTTP/offline and source-document boundaries. The inference slice starts only after the deterministic request, validation, and provenance contracts pass. Provider selection must honor the active sidecar integration lock and treat the implemented ACP and MCP contracts as read-only.
 
 # Decisions
 

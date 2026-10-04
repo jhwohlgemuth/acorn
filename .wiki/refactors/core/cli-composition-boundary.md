@@ -24,6 +24,7 @@ Command implementations receive immutable execution values rather than clap-only
 
 - `main.rs` installs reporting, loads dotenv, parses help, configures tracing and Rayon, mutates cache environment, constructs database configuration, validates conflicting flags, dispatches, special-cases silent discovery failures, prints reports, and calls `process::exit`.
 - Command run signatures still expose parser-derived types in several paths.
+- The outbound MCP command is another current example: its adapter receives `McpCommands` directly and performs configuration loading, request normalization, execution, and presentation in one leaf.
 - RPC, gRPC, and MCP serve commands repeat target validation, unsupported-context errors, foreground SSH invocation, detached guidance, and subprocess failure mapping.
 - `color-eyre` is the correct application reporter. The workspace already has direct `thiserror` dependencies and several owned typed errors, so a separate workspace-wide derive migration is unnecessary.
 

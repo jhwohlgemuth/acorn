@@ -17,9 +17,10 @@ Close the remaining high-value command and binary gaps in the current crate-loca
 # Current evidence
 
 - Download, check, doctor, export, sync, format, import, create, and gather have substantial command coverage.
+- The outbound MCP command has dedicated compiled-binary interoperability and policy/error tests; it is not a remaining command gap.
 - Link has one compiled-binary gate test but no direct success, dry-run, invalid-input, ignore, or multi-file suite.
 - Serve and SWHID lack direct command coverage. Skill and TUI gaps are lower value unless another change touches them.
-- Binary coverage exists across 41 `cargo_bin` call sites, but several important missing-input and invalid-structured-input exits are not asserted consistently.
+- Binary coverage exists across 43 `cargo_bin` call sites plus the dedicated MCP binary tests, but several important missing-input and invalid-structured-input exits are not asserted consistently.
 - Download, import, and format tests repeat a tracing buffer writer. Fixture-root helpers are intentionally crate-local and should remain so.
 
 # Project code boundaries
