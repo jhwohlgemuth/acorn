@@ -8,42 +8,87 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Contents
 
-- [Plan dependency network](plan-network.md) - Current execution order, crate ownership, and cross-plan blockers.
-- [Parallel execution guide](parallel-execution.md) - Orthogonal work lanes, single-writer integration locks, and safe concurrent batches.
+- [Plan dependency network](plan-network.md) - Current contract order and cross-plan blockers.
+- [Parallel execution guide](parallel-execution.md) - Work lanes, exact-write-set rules, and single-writer integration locks.
 - [Feature plans](features/) - New user-facing capabilities and integrations.
 - [Refactor plans](refactors/) - Reliability, maintainability, extensibility, and portability work.
 - [Migration plans](migrations/) - Changes that replace an existing dependency, architecture, or workflow.
-- [Testing plans](testing/) - CLI test coverage, integration testing, and quality assurance work.
+- [Testing plans](testing/) - Targeted CLI and portable verification work.
 
-## Next execution phase
+## Portfolio review
 
-The dedicated RPC and automation lane is the active integration priority now that the portable semantic-diff foundation is complete:
+Reviewed against the current tree on 2026-10-03. The portfolio now contains 22 executable plans and one coordination record. The local consolidation reduced the prior 44-plan set to 21 executable plans; the remote CEL pilot adds one independently scoped plan.
 
-1. [MCP client](features/mcp-client.md)
+Ranking uses impact first, then remaining difficulty, with user/architecture value and readiness as tie-breakers. “Quality” rates the plan rather than the proposed feature:
 
-After this lane, continue [dependency-feature narrowing](refactors/portability/dependency-feature-defaults.md) and the concrete API, export, store, and service boundaries recorded by the architecture roadmap. Browser adapters or generic host ports require a demonstrated workflow and a new atomic plan; they do not displace the lane's priority or authorize overlapping writers.
+- **A:** current evidence, coherent ownership, explicit sequencing, and verifiable acceptance gates.
+- **B:** useful direction, but feasibility, demand, external prerequisites, or the first concrete consumer needs stronger evidence before implementation.
 
-The [crate boundary architecture](refactors/crate-boundary-architecture.md), [portability roadmap](refactors/portability/roadmap.md), and [refactor initiative](refactors/initiative.md) are coordination records, not schedulable implementation jobs.
+### Ranked executable plans
 
-## Adding a plan
+| Rank | Plan | Status | Impact | Difficulty | Quality | Value | Assessment |
+|---:|---|---|---|---|---|---|---|
+| 1 | [Power Apps deployment validation](features/powerapps-gitlab-logbook-reporting.md) | Waiting on validation | Critical | Medium | A | Highest | One deployed, duplicate-safe end-to-end smoke test closes an otherwise implemented critical workflow. |
+| 2 | [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) | In progress | Critical | High | A | Highest | Removes silent/stale template output and partial PPTX mutation while unlocking `acorn-export`. |
+| 3 | [Dependency capabilities and macOS unwind size](refactors/portability/dependency-features-and-macos-size.md) | In progress | Critical | High | A− | Highest | Finishes the package-graph prerequisite and addresses a measured developer/test linker limit. |
+| 4 | [Needle 3 release-host validation](migrations/needle-3-upgrade.md) | Waiting on validation | High | Medium | A | High | A narrow four-host gate closes a shipped migration with little design uncertainty. |
+| 5 | [GitLab runner-pool isolation](refactors/ci-runner-pools.md) | In progress | High | Medium | A− | High | Directly addresses observed checkout collisions and protects reporting credentials, but requires administrator evidence. |
+| 6 | [Database-backed artifact generation](features/database-backed-artifact-generation.md) | Planned | High | Medium | A− | High | Reuses mature renderers and revisions to provide reproducible current/historical artifacts. |
+| 7 | [Structured research-activity enrichment](refactors/core/research-activity-enrichment-integration.md) | Planned | High | Medium | A− | High | Converts already available provider evidence into typed fields with deterministic conflict handling. |
+| 8 | [Podman Makefile migration](migrations/podman-makefile.md) | Planned | High | Medium | A− | Medium | Technically well specified, but the broad cross-platform matrix is costly for a development-tooling-only change. |
+| 9 | [CEL metadata validation-profile pilot](features/cel-validation-profile-pilot.md) | Planned | High | Medium | B+ | Medium | Strong stop gates and bounded scope, but a named profile owner and enforceable runtime budgets must be proven before adoption. |
+| 10 | [Shared API client contract](refactors/api/shared-client-contract.md) | In progress | High | High | A− | Highest | Consolidates the prerequisite mechanics for `acorn-api`; execute in its named contract slices, not as one rewrite. |
+| 11 | [CLI composition boundary](refactors/core/cli-composition-boundary.md) | Planned | High | High | A− | High | Makes startup, normalized requests, remote dispatch, and exit behavior testable in one ownership boundary. |
+| 12 | [Model acquisition and metadata hardening](features/model-acquisition-hardening.md) | In progress | High | High | A | High | Unifies three overlapping model plans and closes identity, metadata, package, and registry evidence gaps. |
+| 13 | [Remote container creation hardening](refactors/core/remote-create-container-targets.md) | In progress | High | High | A | High | Adds preflight and compensating rollback around real external resources; live-host evidence remains necessary. |
+| 14 | [Portable diff resource and API hardening](refactors/acorn-diff-resource-and-api-hardening.md) | Planned | High | High | A | High | Adds deterministic resource and output safety to untrusted diff paths while completing a small public API. |
+| 15 | [dPID research-object support](features/dpid-research-object-support.md) | Planned | High | High | A | Medium | Exceptionally complete trust and provenance design, but upstream volatility and uncertain demand reduce near-term value. |
+| 16 | [Deterministic and assisted gather extraction](features/gather-extraction.md) | Planned | High | High | A− | High | One ordered plan now preserves the deterministic-first security and provenance boundary across CLI and TUI. |
+| 17 | [Azure Cosmos DB bucket downloads](features/azure-cosmos-buckets.md) | Planned | High | High | B+ | Medium | Fits the landed source abstraction, but a preview SDK and no recorded deployment demand warrant validation before build-out. |
+| 18 | [SLM sidecars](features/slm-sidecars.md) | In progress | High | High | B | Medium | Strong protocol and quality gates, but licensing approval, a macOS runner, and upstream runner ownership are hard blockers. |
+| 19 | [ZON codec hardening](refactors/zon-codec-hardening.md) | Planned | Medium | Medium | A | Medium | A contained correctness/maintainability leaf with strong tests and low integration risk. |
+| 20 | [CLI coverage](testing/cli-coverage.md) | Planned | Medium | Medium | A− | Medium | Targets known command and binary failure gaps without reviving obsolete test layout or chasing raw line coverage. |
+| 21 | [Allowlisted MCP client](features/mcp-client.md) | Planned | Medium | High | B+ | Medium | The policy is sound, but the first concrete operation workflow should be named before broad integration. |
+| 22 | [Portable PID verification](testing/pid-verification.md) | Planned | Medium | High | B+ | Medium | Consolidation and Miri are practical; full Creusot/solver maintenance should proceed only after toolchain feasibility is proven. |
 
-1. Create one semantically named Markdown file for one atomic topic.
-2. Add `type: Plan`, `title`, `description`, `difficulty`, `impact`, a non-empty `package` list, `tags`, and `status` to its YAML frontmatter.
+### Coordination record
+
+| Record | Quality | Impact | Value | Assessment |
+|---|---|---|---|---|
+| [Crate boundary architecture](refactors/crate-boundary-architecture.md) | A | Critical | Highest | The single package-ownership roadmap; schedule its ranked child plans or a named extraction slice, never the document as a whole. |
+
+## Consolidation decisions
+
+| Canonical plan or record | Consolidated former plans |
+|---|---|
+| [Shared API client contract](refactors/api/shared-client-contract.md) | API roadmap; endpoint resolution; request composition; invoke/parse; environment bootstrap; health helpers; error envelopes; response DTOs; OpenAPI validation; RAiD refinement |
+| [CLI composition boundary](refactors/core/cli-composition-boundary.md) | Parse/execution models; startup separation; CLI error boundary; remote-serve duplication |
+| [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) | Interpolation primitives; export context; OOXML hardening; OOXML fuzzing |
+| [Deterministic and assisted gather extraction](features/gather-extraction.md) | Deterministic scraping; structured extraction inference; TUI gather duplication |
+| [Model acquisition and metadata hardening](features/model-acquisition-hardening.md) | Hugging Face request readiness; model context metadata; ModelKit/ModelPack OCI interoperability; model-sync option duplication |
+| [Dependency capabilities and macOS unwind size](refactors/portability/dependency-features-and-macos-size.md) | Dependency feature defaults; macOS compact-unwind reduction |
+| [Portable PID verification](testing/pid-verification.md) | PID parse/percent-validation duplication; Miri quality; Creusot checksum verification |
+| [CLI coverage](testing/cli-coverage.md) | CLI coverage initiative; phase 1; repeated CLI log-capture support |
+| [Crate boundary architecture](refactors/crate-boundary-architecture.md) | Refactor initiative; portability roadmap; incremental typed-error policy |
+
+The former workspace-duplication umbrella was removed. Its valuable work moved to the owning plans above; the proposed status-bar abstraction was dropped because it had low standalone impact and no demonstrated user or architectural outcome. The separate `thiserror` migration was also removed: the dependency and several owned errors already exist, so conversions now occur only inside the plan that owns each error contract.
+
+## Planning rules
+
+### Adding a plan
+
+1. Create one semantically named Markdown file for one atomic outcome.
+2. Add `type: Plan`, `title`, `description`, `difficulty`, `impact`, a non-empty `package` list, `tags`, and `status` to YAML frontmatter.
 3. Use `low`, `medium`, `high`, `mixed`, or `not-assessed` for difficulty; use `low`, `medium`, `high`, `critical`, `mixed`, or `not-assessed` for impact.
-4. Use `planned` or `in-progress` for status. Add `priority: next` when the plan is an immediate candidate.
-5. Document the goal, current evidence, project code boundaries, dependencies, recommendation, validation, and acceptance criteria. Add citations for externally sourced claims.
-6. In project code boundaries, identify existing files or directories to update, planned files or directories to create, and files to delete. Write `None` when a category is intentionally empty.
-7. Link related concepts with relative Markdown links, distinguish prerequisites from follow-on work, and add the new concept to the nearest directory index and the [plan dependency network](plan-network.md).
-8. Assign the plan to a lane in the [parallel execution guide](parallel-execution.md). Before implementation, narrow broad directory boundaries to an atomic write set and name every shared integration file.
+4. Use `planned`, `in-progress`, or `waiting-on-validation` for status. Reserve `waiting-on-validation` for implemented work whose only remaining acceptance gates are tests, deployment checks, or external validation. Add `priority: next` only when the ranked portfolio and dependency network agree.
+5. Document goal, current evidence, exact project boundaries, dependencies, decisions, validation, and acceptance criteria. Cite external claims.
+6. Link the concept from the nearest directory index, the dependency network, and one parallel-execution lane.
 
-## Maintaining plans
+### Maintaining plans
 
-1. Verify evidence and status against the current code before editing a plan.
-2. Update frontmatter and body together when scope, package, priority, or status changes.
-3. Delete finished plans immediately and remove their index and network entries; do not retain completed-plan sections or status records in the planning wiki.
-4. Consolidate overlapping proposals into one canonical concept instead of duplicating them.
-5. Keep external claims cited and verify that internal links resolve.
-6. Preserve OKF frontmatter and the reserved `index.md` and `log.md` filename conventions.
-7. After changes, check frontmatter, required fields, links, legacy references, and whitespace.
-8. Reconcile every plan's code boundaries, dependency edges, lane, and integration locks whenever modules move or a plan completes.
-9. Treat umbrella roadmaps as coordination records, not independently schedulable implementation tasks.
+1. Verify evidence and status against current code before editing.
+2. Update frontmatter, boundaries, dependencies, validation, and acceptance criteria together.
+3. Delete finished plans and remove every index, network, and lane entry; durable knowledge belongs in code, tests, architecture documentation, or release history.
+4. Consolidate overlapping proposals into one canonical concept. Do not preserve an umbrella plan after its work has moved to owners.
+5. Before implementation, replace directory/glob boundaries with an exact write set and name each integration lock.
+6. After changes, check required frontmatter, internal links, legacy references, whitespace, and plan counts.

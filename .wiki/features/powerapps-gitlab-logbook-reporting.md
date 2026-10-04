@@ -2,11 +2,11 @@
 type: Plan
 title: "Automate Power Apps logbook intake and artifact reporting"
 description: "Turn authenticated Power Automate form submissions into reviewed logbook changes and bounded artifacts delivered through GitLab and Power Automate."
-difficulty: high
+difficulty: medium
 impact: critical
 package: [workspace, acorn-lib, acorn-cli, acorn-schema]
 tags: [feature, automation, powerapps, powerautomate, gitlab, webhook, logbook, reporting, pdf]
-status: in-progress
+status: waiting-on-validation
 ---
 
 # Goal

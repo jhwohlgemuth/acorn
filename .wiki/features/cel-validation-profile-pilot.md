@@ -19,8 +19,8 @@ Verified 2026-10-01: ACORN has ordered `ValidationReport` and `CheckBatch` resul
 
 # Dependencies and scheduling
 
-- Preserve [MCP client's](mcp-client.md) priority for manifests and CLI integration; this pilot is lower priority and does not block it.
-- Coordinate feature wiring with [dependency-feature defaults](../refactors/portability/dependency-feature-defaults.md). Reuse current in-tree analyzer boundaries; no crate extraction prerequisite.
+- Coordinate manifest and CLI integration with the ranked portfolio, including the [MCP client](mcp-client.md); neither plan blocks the other's runtime or protocol evaluation.
+- Coordinate feature wiring with [dependency capabilities](../refactors/portability/dependency-features-and-macos-size.md). Reuse current in-tree analyzer boundaries; no crate extraction prerequisite.
 - Use the policy-validation lane in the [parallel execution guide](../parallel-execution.md). Claim exact files before implementation; the broad planning boundaries below are not concurrent ownership grants.
 - Read-only corpus and runtime evaluation may precede integration availability. Evaluator integration precedes CLI wiring, which precedes pilot acceptance. Any OPA work needs its own future plan and deployment consumer.
 

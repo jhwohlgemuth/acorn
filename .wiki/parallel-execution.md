@@ -4,123 +4,73 @@ okf_version: "0.1"
 
 # Parallel execution guide
 
-This guide turns the dependency network into a scheduling contract for concurrent agents. It was reconciled against the active plan boundaries and workspace layout at version `0.3.2` on 2026-10-02.
-
-## Verification result
-
-- Every active plan is assigned to at least one work lane.
-- Umbrella plans are explicitly coordination-only and cannot masquerade as concurrent implementation tasks.
-- Shared integration surfaces have single-writer locks.
-- Active schema features and the next consumer-proven extraction phases have explicit landing order and lock ownership.
-- Broad plans are not considered concurrency-ready until an agent replaces directory/glob ownership with an exact atomic write set.
-
-This verifies that the wiki can produce a safe concurrent batch; it does not claim every pair of plans is orthogonal. Orthogonality is a property of concrete implementation slices on a shared baseline, not of plan titles.
+This guide overlays exact write ownership and integration locks on the [plan dependency network](plan-network.md). A plan title is not an implementation assignment: every active slice must first name exact files, public contracts, prerequisite baseline, focused validation, and landing order.
 
 ## Orthogonality test
 
-Two implementation slices are orthogonal only when all four conditions hold:
+Two slices may run concurrently only when all four statements are true:
 
-1. Their exact write sets are disjoint. A directory or brace-expanded path in a plan is a planning boundary, not an implementation claim; the agent must expand it to named files before starting.
-2. Neither slice changes a public type, trait, feature, serialized shape, CLI contract, or generated artifact consumed by the other.
-3. They do not both require a single-writer integration file from the table below.
-4. Each slice can be validated on the same baseline before either is merged.
+1. Their exact write sets are disjoint.
+2. Neither changes a public type, feature, serialized shape, CLI contract, or generated artifact consumed by the other.
+3. They do not both require one integration lock below.
+4. Both can be validated against the same baseline.
 
-Disjoint files alone are insufficient when one slice changes an interface consumed by the other. In that case, land a contract-only commit first, then rebase dependent slices.
+When an interface connects two slices, land the contract first and rebase the leaf work.
 
 ## Single-writer integration locks
 
-Only one active slice may own an integration lock. Other agents may edit leaf modules and tests, but they leave integration to the lock owner or a follow-up commit.
+| Lock | Files or boundary | Rule |
+|---|---|---|
+| Workspace graph | root/crate manifests and `Cargo.lock` | One owner for dependency, feature, package, or profile changes. |
+| Library roots | crate `lib.rs`, shared `mod.rs`, `acorn-lib`/`acorn-core` roots | Leaf modules do not self-register during a concurrent batch. |
+| Analyzer/check contract | analyzer result/category types, check orchestration, shared snapshots | Policy and analysis leaves use a frozen result contract; one owner integrates categories and summaries. |
+| API/config roots | `io/api/mod.rs`, `io/config/mod.rs`, endpoint catalog and shared snapshots | Provider leaves use a frozen contract; one owner integrates registration and snapshots. |
+| HTTP transport | shared request, redirect, retry, response-bound, and redaction code | Provider work consumes policy and does not fork it. |
+| Schema roots | PID/research-activity/standards module indexes, validation and shared fixtures | One schema integration owner; codec leaves use dedicated fixtures. |
+| CLI contract | `src/cli/`, `main.rs`, dispatch roots and generated help | Command leaves avoid syntax registration until the CLI owner integrates once. |
+| Export dispatch | export command root, templates, shared snapshots and assets | PowerPoint leaves may prepare; context/renderer integration is serialized. |
+| Transfer/archive | archive, OCI, GGUF, bucket source/transfer and shared fixtures | Claim exact leaf files; one owner changes shared staging or safe-path policy. |
+| Sidecar artifacts | sidecar roots, manifests, OCI materialization and inference CLI | Needle and SLM jobs do not edit these concurrently. |
+| CI/build | `Makefile`, `.gitlab-ci.yml`, reusable job templates | One owner wires targets/jobs after tool-specific leaves are ready. |
+| Documentation generation | `CommandLineHelp.md`, book indexes | Regenerate once after the implementation batch. |
 
-| Lock | Files | Typical collision | Rule |
-|---|---|---|---|
-| Command runtime | `crates/acorn-cmd/src/{execution,lib,process,runtime}.rs` and command fixtures | Managed execution, macro adapters, command parsing, downstream host use | Public execution-contract and compatibility-adapter changes serialize. Other slices consume the stable contract or coordinate exact disjoint leaves. |
-| Workspace graph | `Cargo.toml`, crate `Cargo.toml` files, `Cargo.lock` | Feature defaults, crate extraction, dependency migration, WASM, size work | One manifest owner per batch; dependency additions and crate moves serialize. |
-| Library roots | `crates/acorn-lib/src/{lib,error}.rs`, `crates/acorn-core/src/{lib,prelude}.rs` | Portable extraction, ownership cutovers, error migration | The active portability/extraction slice owns these files. |
-| Module indexes | Any shared `mod.rs`, especially `lib.rs`, `io/mod.rs`, `io/api/mod.rs`, `analyzer/mod.rs` | Parallel leaf modules need imports/re-exports | Leaf agents do not edit the index; one integration owner performs module wiring after leaf changes land. |
-| HTTP transport | `crates/acorn-lib/src/io/http/mod.rs` | API invocation, webhook redaction/dispatch, transfer retries, host extraction | One transport owner per batch; land logging, redaction, retry, or service-injection changes before dependent provider migrations. |
-| CLI contract | `crates/acorn-cli/src/cli/`, `main.rs`, generated help | New commands, parse/execution split, startup/error work | One CLI-contract owner; command leaf modules can proceed separately against stable arguments. |
-| Export dispatch | `crates/acorn-cli/src/commands/export/mod.rs`, `template/mod.rs` | Schema codecs, export context, PowerPoint | Renderer leaf work may proceed; dispatch/context integration serializes. |
-| Test/fixture registry | Shared snapshots and the same fixture directory | Independent plans overwrite snapshots or reinterpret fixtures | Give each slice dedicated fixtures; one owner accepts shared snapshot changes. |
-| CI/build entry points | `.gitlab-ci.yml`, `Makefile` | Podman migration, runner pools, portable gates, Miri, Creusot, fuzz | Tool-specific scripts may be separate; one CI/build integration owner wires jobs and targets. |
-| Documentation generation | `CommandLineHelp.md`, shared book indexes | Multiple CLI features regenerate the same output | Regenerate once after the batch, owned by the CLI integration slice. |
-| Application configuration | `crates/acorn-lib/src/io/config/mod.rs` and shared config snapshots | PowerAutomate routing, API endpoint/environment work, Cosmos bucket sources, OCI model profiles, and bucket transfer changes need shared re-exports or snapshots | Treat `config/mod.rs` and shared snapshots as integration-owned. PowerAutomate claims `application.rs` only for its typed deployment configuration; the landed bucket-source abstraction lives in `bucket/source.rs`; other work must claim `application.rs`, `bucket/mod.rs`, `bucket/source.rs`, or `transfer.rs` explicitly. |
-| Operation registry and RPC | `crates/acorn-lib/src/io/api/{json_rpc,grpc}/`, shared operation handlers, protocol configuration | PowerAutomate, JSON-RPC, webhook dispatch, tonic/prost, ACP, and MCP all consume callable services | The highest-priority lane owner lands one stable operation contract before adapters. No transport may fork handler DTOs or edit another transport's framing. |
-| Webhook lifecycle | `crates/acorn-lib/src/io/api/webhooks/`, its database repository/migrations, worker composition | The implemented runtime, GitLab bot, and PowerAutomate provider share delivery, claim, retry, effect, callback, readiness, signing, and drain state | Preserve the implemented generic lifecycle contract. Provider-specific GitLab and PowerAutomate modules must not recreate readiness, retry, callback, or drain coordination. |
+## Coordination-only records
 
-## Coordination-only plans
+Do not assign these documents as implementation work:
 
-These plans describe architecture and ordering. Do not assign an agent to implement one as a whole:
-
-- [Refactor initiative](refactors/initiative.md)
 - [Crate boundary architecture](refactors/crate-boundary-architecture.md)
-- [Portability roadmap](refactors/portability/roadmap.md)
-- [API roadmap](refactors/api/roadmap.md)
-- [CLI test coverage initiative](testing/index.md)
-
-Schedule their atomic child plans or a named migration phase with an exact write set. The coordinator owns shared integration locks and updates the roadmap after child slices land.
-
-## Highest-priority lane execution order
-
-This lane has priority over every other lane and is intentionally serialized. Later steps may prepare read-only design evidence, but they do not edit shared implementation surfaces until the preceding exit gate lands.
-
-| Priority | Plan | Exit gate before the next plan |
-|---:|---|---|
-| 1 | [MCP client](features/mcp-client.md) | RMCP client sessions, capability negotiation, policy, cancellation, and shared-service integration pass without changing the existing MCP server contract. |
 
 ## Work lanes
 
-Plans within one lane generally serialize unless the notes define leaf-module sharding. Plans in different lanes may run concurrently after checking secondary locks.
+Plans within a lane normally serialize. Different lanes still check secondary locks above.
 
-| Lane | Plans | Primary write surface | Parallel rule |
-|---|---|---|---|
-| Policy validation | [CEL validation-profile pilot](features/cel-validation-profile-pilot.md) | Proposed `analyzer/policy/`, focused analyzer service/results, check CLI, dedicated policy fixtures/docs, optional manifests | Read-only runtime/corpus evaluation can proceed independently. Implementation yields manifests and CLI roots to MCP; serialize analyzer result/module indexes and feature wiring with portability work. No authorization, Rhai, schema-validator, or MCP edits belong to the pilot. |
-| RPC and repository automation — highest priority | [Power Automate deployment amendment](features/powerapps-gitlab-logbook-reporting.md), [MCP client](features/mcp-client.md) | Implemented `io/api/{json_rpc,webhooks,gitlab,grpc}/`, provider-neutral webhook store, `io/{acp,mcp}/`, `analyzer::{fix,host/discovery}`, doctor/TUI views, inference services, manifests, and CLI integration | The Power Automate amendment owns only utility, create-command, generated-help, and documentation files while its smoke test remains. Preserve the existing gRPC, inference, and semantic-diff contracts while MCP owns its CLI-root integration window. |
-| Portable domain boundary | [portability roadmap](refactors/portability/roadmap.md) | `acorn-lib` analyzer roots and feature checks | The in-tree analyzer kernel is green (`CheckBatch`/`CheckSummary`/`ValidationReport`/`ValeConfig` endomorphisms implemented and gated); package-graph work still requires an explicit extraction decision. |
-| Portable diff | [Diff resource and API hardening](refactors/acorn-diff-resource-and-api-hardening.md) | `crates/acorn-diff`, focused `analyzer::diff` and fix-preview consumers, and the CLI diff leaf | Portable core and dedicated tests may proceed independently. Public API, manifests, and CI/build wiring serialize on their locks; fix-preview integration yields to the highest-priority MCP/inference owner. |
-| Schema features | [dPID](features/dpid-research-object-support.md), [structured enrichment](refactors/core/research-activity-enrichment-integration.md) | `crates/acorn-schema/src/{lib.rs,research_activity,standard,validation}`, `crates/acorn-macros`, crosswalks, `.wiki/assets/standards-field-matrix.md`, `tests/fixtures/schema/`, `tests/fixtures/rrid/` | The portable RAD, RRID, ModelKit, OCP infrastructure, DataCite 4.7, RAiD, CKAN-to-DCAT adapter, typed activity metadata, ZON serialization, and structured-export baselines have landed. dPID, remaining standards adapters, enrichment merge rules, and logbook graduation serialize on the implemented RAD/standards roots. |
-| Schema codecs | [ZON codec hardening](refactors/zon-codec-hardening.md) | `crates/acorn-schema/src/standard/zon/{decode.rs,encode.rs,mod.rs,tests/}` | The codec leaf may proceed while it avoids shared codec-law tests, module roots, manifests, and fixture indexes. |
-| PID/schema | [dPID](features/dpid-research-object-support.md), [Creusot](testing/creusot-pid-checksums.md), [Miri](testing/miri-quality.md) | `crates/acorn-schema/src/pid`, PID validation, and verification wiring | Serialize PID roots, constants, validation registries, and proof/CI targets. The dPID portable parser leaf lands here before its provider work. No SciCrunch credential, DTO, remote-search, or TUI work belongs here. |
-| API shared contract | [Endpoint resolution](refactors/api/endpoint-resolution.md), [request parameters](refactors/api/request-parameter-composition.md), [invoke/parse](refactors/api/invoke-and-parse-wrappers.md), [environment](refactors/api/environment-bootstrap.md), [health](refactors/api/health-check-helpers.md), [errors](refactors/api/api-error-envelopes.md), [DTOs](refactors/api/response-dtos.md), [OpenAPI validation](refactors/api/openapi-endpoint-validation.md) | `io/api/mod.rs`, provider modules, `io/config/{application,bucket,mod}.rs` | Shared `io/api/mod.rs` and `io/config/mod.rs` changes serialize. Preserve the landed `SecretString` authentication contract. Endpoint work owns `config/application.rs`; environment work must claim `application.rs` or `bucket.rs` explicitly. Provider leaf migrations may run concurrently when each owns a different provider file. |
-| Provider leaves | [dPID](features/dpid-research-object-support.md), [Hugging Face readiness](refactors/api/huggingface-request-readiness.md), [model context metadata](refactors/api/model-context-metadata.md), [RAiD refinement](refactors/api/raid-api-refinement.md), [OCI models](features/oci-model-artifact-downloads.md) | `io/api/{dpid,huggingface,raid,harbor}.rs`, `io/oci.rs`, `io/config/mod.rs`, provider entity/enums, optional CLI/TUI leaves | Safe to shard by provider unless the shared API root, configuration, discovery provider/entity enums, CLI/TUI roots, or manifests change. Hugging Face request readiness lands before context metadata in `huggingface.rs`; context enrichment then serializes its GGUF, database-schema, and CLI-planner integration with those owners. The dPID provider leaf and fixtures may develop after its portable contract lands; module registration, endpoint configuration, and discovery integration serialize. SciCrunch is not scheduled; its retained contract review records the failed lookup and search gates. |
-| Agent tools and sidecars | [Needle 3 migration](migrations/needle-3-upgrade.md), [SLM sidecars](features/slm-sidecars.md), existing MCP server maintenance | `io/{mcp,sidecar,sync}`, Needle API/constants, `scripts/{needle,slm}`, dedicated sidecar fixtures/docs, and focused CLI leaves | Needle now owns only the remaining Windows/Linux real-engine jobs; SLM owns runner and artifact delivery. Serialize shared sidecar roots, CLI, manifests, OCI contracts, generated help, `.gitlab-ci.yml`, and `Makefile`; no concurrent CI/build owner may run Needle release validation while provisioning the required macOS runner or wiring SLM jobs. Preserve MCP runtime-policy, tool projection, and `TargetConfig`/`SyncConfig` contracts. Schemer, enrichment persistence, and semantic-decision review remain deferred to their owning boundaries; ACP and MCP-client changes remain in the highest-priority lane. |
-| Deterministic scraping | [Gather scraping](features/deterministic-gather-scraping.md) | `scrape/`, focused HTTP/discovery integration, `cli/commands/gather`, focused CLI integration, manifests | Independent of Rhai. Serialize HTTP, manifest, module-index, analyzer discovery, and CLI locks; use dedicated fixtures. |
-| Extraction inference | [Structured inference](features/structured-extraction-inference.md) | `inference/`, one explicit provider adapter, focused scrape/gather integration, manifests | Follows deterministic scraping and coordinates with ACP/provider owners. Do not create a sidecar registry or take RPC/webhook locks in the first slice. |
-| Database-backed artifacts | [Database-backed artifacts](features/database-backed-artifact-generation.md) | `io/database/{candidate,logbook,migrations,schema}.rs`, database tests, typed artifact-source leaf, focused CLI/MCP consumers | Database migrations, `database/{mod.rs,schema.rs}`, and repository contracts are single-writer surfaces. Database artifact work reuses the implemented bounded reporting-window and manifest contracts. |
-| Export/OOXML | [interpolation](refactors/core/interpolation-primitives.md), [OOXML hardening](refactors/core/ooxml-interpolation-and-slide-copy.md), [OOXML fuzzing](refactors/core/ooxml-fuzzing.md), [export context](refactors/core/export-context.md) | `acorn-core` interpolation utilities, `io/powerpoint`, CLI export/template, schema image selection, fuzz | Slide/media leaf work may prepare without taking export dispatch or snapshot locks. PowerPoint/export integration serializes on `crates/acorn-cli/src/commands/export/mod.rs`, shared snapshots, and generated documentation. |
-| Transfer/archive | [Cosmos buckets](features/azure-cosmos-buckets.md), [OCI models](features/oci-model-artifact-downloads.md), [model context metadata](refactors/api/model-context-metadata.md) | `acorn-core/src/util/alloc.rs`, `io/{archive,bagit,oci,gguf}.rs`, provider API leaves, `io/config/{bucket/mod.rs,bucket/source.rs,transfer.rs}`, import/download/export commands | MIME, archive, BagIt, and GGUF metadata test leaves can shard only after claiming exact files. Preserve the landed `SafePath`, bounded GGUF reader, bucket-source adapter, archive staging, and transfer-manifest policies, including the landed BagIt archive resolution shared by import and download. Context metadata may extend GGUF inspection only after coordinating `gguf.rs` and the model planner with the OCI owner. Cosmos source registration, manifests, module indexes, shared snapshots, and CLI download integration serialize with API environment and OCI owners. |
-| CLI composition | [Parse/execution](refactors/core/cli-parse-execution-models.md), [startup](refactors/core/cli-startup-separation.md), [error boundary](refactors/core/cli-error-boundary.md), [remote create](refactors/core/remote-create-container-targets.md), [CLI coverage](testing/cli-coverage-phase-1.md), [dPID import](features/dpid-research-object-support.md) | CLI root/parse plus command leaf modules | Yield CLI roots and generated help to the highest-priority lane during its integration windows. Otherwise root/parse/error work serializes; command leaves may prepare independently without argument registration. |
-| Crate/host adapters | [dependency features](refactors/portability/dependency-feature-defaults.md), [thiserror](migrations/thiserror-adoption.md), and named extraction slices coordinated by the [crate architecture](refactors/crate-boundary-architecture.md) | new crates, ownership roots, manifests | Apply thiserror within the owning slice, not as a workspace-wide concurrent rewrite. |
-| Duplication consolidation | [Workspace duplication consolidation](refactors/workspace-duplication-consolidation.md) | Schema PID leaves, CLI model synchronization and remote serve dispatch, TUI gather/widgets, Rhai projection, CLI test utilities | Treat each remaining recommendation as a separate slice in its owning lane. TUI gather follows deterministic source ownership; PID work serializes with the schema lane; remote serve dispatch yields to RPC/MCP and CLI composition. Independent TUI widget, Rhai, model-sync, and test-helper leaves may proceed after exact write sets are declared. |
-| Build/CI/performance | [Podman Makefile migration](migrations/podman-makefile.md), [runner pools](refactors/ci-runner-pools.md), [macOS size](refactors/portability/macos-compact-unwind-size.md), [Miri](testing/miri-quality.md), [Creusot](testing/creusot-pid-checksums.md), [OOXML fuzzing](refactors/core/ooxml-fuzzing.md) | manifests, Makefile, GitLab CI, reusable reporting template | CI and Makefile changes serialize through one integration owner. The Podman slice changes only Make-driven container tooling and publication; it must preserve product runtime selection, existing portability jobs, and dependency gates. |
-
-## Concurrent batch before the next extraction
-
-The following slices have disjoint primary write sets on the current tree. They can run at the same time if each obeys the named lock restriction:
-
-| Slice | Exact primary ownership | Lock restriction |
+| Lane | Plans | Primary surface and rule |
 |---|---|---|
-| Remote-create hardening leaf | `acorn-cli/src/commands/create/` and dedicated tests | Do not edit shared CLI arguments/help; hand required argument changes to the CLI lock owner. |
-| Shared interpolation contract leaf | `crates/acorn-core/src/util/` and dedicated contract tests | Do not integrate into PowerPoint or templates until the export lock owner schedules the parser and renderer adapter slice. |
-| Hugging Face request-type leaf | `io/api/huggingface.rs` and dedicated tests | Do not edit `io/api/mod.rs`, manifests, or shared CLI import/download planners until integration. |
+| Portable boundaries | [dependency/size](refactors/portability/dependency-features-and-macos-size.md), [diff](refactors/acorn-diff-resource-and-api-hardening.md), [ZON](refactors/zon-codec-hardening.md) | Portable leaves may run separately; manifests, package roots, and CI integration serialize. |
+| API contract | [shared API client](refactors/api/shared-client-contract.md) | Contract slices land endpoint/request -> invocation -> resolved config -> response/error/health -> OpenAPI/RAiD. Provider files may shard after each contract freezes. |
+| Provider/model leaves | [model acquisition](features/model-acquisition-hardening.md), [Cosmos](features/azure-cosmos-buckets.md), [dPID](features/dpid-research-object-support.md) | Shard provider leaves only when they avoid shared registration, configuration, discovery enums, archive/GGUF, and CLI roots. |
+| Schema and PID | [dPID](features/dpid-research-object-support.md), [structured enrichment](refactors/core/research-activity-enrichment-integration.md), [PID verification](testing/pid-verification.md) | Serialize PID and research-activity roots. ZON remains a disjoint codec leaf unless shared module indexes change. |
+| Gather/inference | [gather extraction](features/gather-extraction.md) | Deterministic slice lands before inference. TUI, HTTP, manifests, discovery roots, and CLI syntax each require their lock owner. |
+| Policy validation | [CEL validation-profile pilot](features/cel-validation-profile-pilot.md) | Runtime/corpus evaluation may proceed independently. Evaluator integration serializes analyzer results and module indexes; feature wiring, CLI syntax, generated help, and manifests use their named locks. The pilot does not own authorization, Rhai, schema validators, or MCP. |
+| Export | [export/OOXML](refactors/core/export-pipeline-hardening.md), [database artifacts](features/database-backed-artifact-generation.md) | Portable interpolation may prepare first; context, renderer, database source, fuzz wiring, and export dispatch follow in order. |
+| CLI composition | [CLI composition](refactors/core/cli-composition-boundary.md), [remote create](refactors/core/remote-create-container-targets.md), [CLI coverage](testing/cli-coverage.md), dPID/gather/CEL/MCP/SLM CLI leaves | Root/parser work serializes. Command-local tests and rollback logic may proceed without shared syntax/help edits. |
+| Agent tools | [MCP client](features/mcp-client.md), [Needle validation](migrations/needle-3-upgrade.md), [SLM sidecars](features/slm-sidecars.md) | MCP owns its protocol/CLI integration window; Needle and SLM serialize sidecar artifacts and CI/build changes. |
+| Build and operations | [runner pools](refactors/ci-runner-pools.md), [Podman](migrations/podman-makefile.md), [Power Apps validation](features/powerapps-gitlab-logbook-reporting.md) | Operational checks can run independently, but repository CI/Makefile edits have one owner. |
 
-The CLI link coverage plan may join this batch when it adds only a dedicated test module and avoids shared CLI roots.
+## Safe preparatory batch
 
-## Contract-first extraction pattern
+On the current tree, these leaf slices can proceed together if they honor the lock restrictions:
 
-The completed `acorn-schema` move established the pattern: freeze the portable/adapter contract, migrate consumers directly, assign one integration owner for manifests and module indexes, remove the old implementation instead of adding an ownership-masking facade, and run the full feature matrix before beginning the next extraction.
+| Slice | Exact primary ownership | Restriction |
+|---|---|---|
+| Remote-create preflight/rollback tests | `crates/acorn-cli/src/commands/create/` and dedicated tests | No shared CLI arguments or generated help. |
+| Export replacement-plan contract | `crates/acorn-core/src/util/` and dedicated tests | No renderer/template integration. |
+| API endpoint/request provider migration | One named provider leaf and its tests | No API/config roots, manifests, or shared snapshots. |
+| CEL runtime/corpus gate | Isolated runtime evaluation and dedicated policy fixtures | No manifests, module indexes, analyzer/check integration, CLI roots, or generated help. |
+| CLI link coverage | Link command test module and dedicated fixtures | No parser/help or shared snapshot changes. |
 
-The same pattern applies to API providers: land transport/request/response contracts first, then shard provider files, then integrate through `io/api/mod.rs` or the extracted `acorn-api` root.
+## Handoff checklist
 
-## Agent start and handoff checklist
+Before starting, record the plan, atomic slice, exact update/create/delete set, requested locks, public contracts, baseline, focused test, and landing order.
 
-Before work starts, record:
-
-- the plan and atomic slice;
-- the exact files to update/create/delete;
-- integration locks requested;
-- public contracts changed;
-- prerequisite commit or branch baseline;
-- focused validation command;
-- expected landing order.
-
-Before handoff, report changed files, new public contracts, regenerated artifacts, validation results, and any lock still needed. A slice that expands beyond its claimed write set stops and is rescheduled rather than silently taking another lane's files.
+Before handoff, report changed files, public-contract changes, regenerated artifacts, validation results, and locks still needed. If the slice expands, stop and reschedule it rather than silently taking another lane.

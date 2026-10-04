@@ -18,7 +18,7 @@ The practical benefit is changing local requirements without changing the RAD sc
 | [Restricted Rhai runtime](../../crates/acorn-lib/src/exec/runtime.rs) and [hooks](../../crates/acorn-lib/src/exec/hooks.rs), including operation/depth/container limits, host capabilities, checks, proposals, and audit records | ACORN already supports configurable executable behavior. CEL should target small, pure predicates; retain Rhai for workflows and proposals. |
 | [OperationEffects and policy_error](../../crates/acorn-lib/src/io/api/json_rpc/mod.rs), including mutation approval, unavailable effects, inference policy, and offline checks | Future policy decisions belong at the shared invocation boundary and may further restrict actions. They must never grant effects denied by host policy. |
 | [MCP client plan](../features/mcp-client.md) requires explicit server/tool allowlists and bounded invocation | Authorization work must follow that lane's stable contract rather than add independent enforcement to each protocol. |
-| [Dependency-feature plan](../refactors/portability/dependency-feature-defaults.md) separates portable and host capabilities | Add an opt-in evaluator dependency. Native Rust, browser WASM, and no_std are separate compatibility claims. |
+| [Dependency-capabilities plan](../refactors/portability/dependency-features-and-macos-size.md) separates portable and host capabilities | Add an opt-in evaluator dependency. Native Rust, browser WASM, and no_std are separate compatibility claims. |
 
 ## Technology comparison
 
@@ -199,7 +199,7 @@ A future combined design would use CEL for content acceptance and OPA for action
 | Conditional | OPA CLI experiment using existing institutional Rego | 3–5 engineer-days | Identified policy owner, real shared rules, equivalent decisions against official OPA. |
 | Conditional | Managed authorization integration | 2–4 engineer-weeks | Trusted identity, freshness/availability contract, enforceable shared boundary, deployment owner. |
 
-Estimates assume one engineer familiar with ACORN and exclude procurement, institutional policy approval, and unforeseen runtime changes. The first three steps form the single pilot plan; later items are options, not scheduled dependencies. Existing highest-priority MCP work retains its integration priority.
+Estimates assume one engineer familiar with ACORN and exclude procurement, institutional policy approval, and unforeseen runtime changes. The first three steps form the single pilot plan; later items are options, not scheduled dependencies. Shared manifest and CLI integration follows the ranked portfolio and named execution locks.
 
 Before runtime selection, propose and agree budgets on a named machine: 10,000 representative records, 20 rules each, <=10% end-to-end overhead over offline checks, <=5 MiB additional stripped native binary, bounded peak memory, and reliably terminated adversarial inputs. These are initial decision thresholds, not achieved results. Measure cold parse/load separately from warm evaluation, use p50/p95 and repeated runs, and include small inputs where startup dominates. Compare Rust and current Rhai on the same predicates. Benchmark OPA only if its adoption trigger is met.
 

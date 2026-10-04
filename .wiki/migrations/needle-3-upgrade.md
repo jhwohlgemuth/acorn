@@ -6,7 +6,7 @@ difficulty: medium
 impact: high
 package: [workspace, acorn-lib, acorn-cli]
 tags: [migration, inference, sidecar, needle, release-validation]
-status: in-progress
+status: waiting-on-validation
 ---
 
 # Project code boundaries
@@ -33,7 +33,7 @@ Run the shipped Needle 3 workflow on Windows x86_64, Windows ARM64, Linux x86_64
 - Lane: Agent tools and sidecars in the [parallel execution guide](../parallel-execution.md).
 - Serialize edits to shared sidecar roots, manifests, OCI materialization, CLI roots, generated help, `.gitlab-ci.yml`, and `Makefile`.
 - [SLM sidecars](../features/slm-sidecars.md) may proceed independently because the shared ModelKit contract is already available; only shared CI/build locks require coordination.
-- [Structured extraction inference](../features/structured-extraction-inference.md) owns any user-facing extraction adapter. Embedding, search, and fine-tuning remain outside this migration.
+- [Deterministic and assisted gather extraction](../features/gather-extraction.md) owns any user-facing extraction adapter. Embedding, search, and fine-tuning remain outside this migration.
 
 # Remaining release-host validation
 
@@ -65,5 +65,5 @@ Delete this plan after the four host jobs pass, then remove its migration-index,
 # Related plans
 
 - [SLM sidecars](../features/slm-sidecars.md)
-- [ModelKit and ModelPack OCI interoperability](../features/oci-model-artifact-downloads.md)
-- [Structured extraction inference](../features/structured-extraction-inference.md)
+- [Model acquisition and metadata hardening](../features/model-acquisition-hardening.md)
+- [Deterministic and assisted gather extraction](../features/gather-extraction.md)

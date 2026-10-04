@@ -107,8 +107,8 @@ Individual schemas, providers, commands, doctor checks, and generic utility coll
 
 # Plan dependencies
 
-- **Satisfied prerequisite:** the [portability roadmap](portability/roadmap.md) now proves the analyzer boundary in-tree; that result does not itself authorize package extraction.
-- **Boundary inputs:** analyzer plans first prove an in-tree portable kernel; the [API roadmap](api/roadmap.md) prepares `acorn-api`; export context/interpolation/OOXML plans prepare `acorn-export`; the `acorn-cmd` and initial `acorn-host` boundaries are implemented.
+- **Satisfied prerequisite:** the implemented portability matrix proves the analyzer boundary in-tree; that result does not itself authorize package extraction.
+- **Boundary inputs:** analyzer plans first prove an in-tree portable kernel; the [shared API client contract](api/shared-client-contract.md) prepares `acorn-api`; the [shared export and OOXML pipeline](core/export-pipeline-hardening.md) prepares `acorn-export`; the `acorn-cmd` and initial `acorn-host` boundaries are implemented.
 - **Downstream:** the implemented portability matrix expands with each accepted extraction. Browser adapters or consumer-owned host ports require a concrete alternate implementation and a new atomic plan.
 - The complete ordering and shared-file collision map is maintained in the [plan dependency network](../plan-network.md).
 
@@ -129,6 +129,7 @@ This architecture plan is coordination-only except when a named migration phase 
 9. Public compatibility shims are not used for ownership transfers; accepted semver changes make the new owner visible.
 10. Browser dependencies are target-specific to `acorn-wasm`; portable crates must not gain a `wasm-bindgen` or `js-sys` dependency merely because they compile for a WASM target.
 11. New ACORN packages are created as `crates/<package-name>`; product crates must not return to the workspace root.
+12. Reusable operations own capability-specific typed errors, using the existing workspace `thiserror` dependency when it reduces handwritten boilerplate. Host and application composition retain `color-eyre`; error conversion is performed within the owning slice rather than a workspace-wide migration.
 
 # Current migration sequence
 
@@ -182,7 +183,6 @@ Migrate first-party interfaces to direct dependencies, then remove extracted imp
 
 # Related plans
 
-- [Refactor initiative](initiative.md)
-- [Portability roadmap](portability/roadmap.md)
-- [Shared export context](core/export-context.md)
-- [API client roadmap](api/roadmap.md)
+- [Dependency capabilities and macOS unwind size](portability/dependency-features-and-macos-size.md)
+- [Shared export and OOXML pipeline](core/export-pipeline-hardening.md)
+- [Shared API client contract](api/shared-client-contract.md)

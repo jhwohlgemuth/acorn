@@ -2,16 +2,18 @@
 
 ## In progress
 
-- [ModelKit and ModelPack OCI interoperability](oci-model-artifact-downloads.md) - Consume native ModelKits and standards-conformant ModelPacks through a normalized, safely materializing OCI plan while preserving GGUF inference policy.
-- [Power Apps logbook intake and artifact reporting](powerapps-gitlab-logbook-reporting.md) - Complete deployment validation for direct authenticated intake, ACORN-generated secrets, reviewed logbook changes, and bounded artifact notifications.
+- [Model acquisition and metadata hardening](model-acquisition-hardening.md) - Complete identity-safe Hugging Face requests, exact GGUF metadata, and ModelKit/ModelPack interoperability evidence.
 - [Small language model (SLM) sidecars](slm-sidecars.md) - Ship explicitly selected, ACORN-owned Tongue, Redact, and Title sidecars after licensing, platform, and quality gates pass.
+
+## Waiting on validation
+
+- [Power Apps logbook intake and artifact reporting](powerapps-gitlab-logbook-reporting.md) - Run the final deployed intake, idempotency, graduation, publication, and callback smoke test.
 
 ## Planned
 
-- [CEL metadata validation-profile pilot](cel-validation-profile-pilot.md) - Evaluate bounded, optional institutional rules against existing Rust/Rhai behavior before adopting a CEL runtime; see the [OPA/CEL review](../assets/opa-cel-review.md).
-- [Azure Cosmos DB bucket downloads](azure-cosmos-buckets.md) - After the provider-neutral source prerequisite, add a Cosmos DB for NoSQL container or logical partition as a read-only bucket source.
-- [Deterministic gather scraping](deterministic-gather-scraping.md) - Extend gather with bounded HTTP fetching and typed CSS extraction without scripting or inference.
-- [Structured extraction inference](structured-extraction-inference.md) - Add typed, provenance-preserving inference fallback for incomplete deterministic gather extraction.
-- [MCP client](mcp-client.md) - Add outbound RMCP client sessions that reuse the shared operation and policy boundaries.
 - [Database-backed artifact generation](database-backed-artifact-generation.md) - Generate reproducible current or historical artifacts from canonical database state through existing typed renderers.
+- [CEL metadata validation-profile pilot](cel-validation-profile-pilot.md) - Evaluate bounded, optional institutional rules against existing Rust/Rhai behavior before adopting a CEL runtime; see the [OPA/CEL review](../assets/opa-cel-review.md).
 - [dPID research-object support](dpid-research-object-support.md) - Recognize and resolve versioned dPIDs, import resolver RO-Crate metadata into RAD, and preserve manifest provenance through a read-only first release.
+- [Deterministic and assisted gather extraction](gather-extraction.md) - Add bounded CSS extraction first, then an explicitly selected typed inference fallback for unresolved required fields.
+- [Azure Cosmos DB bucket downloads](azure-cosmos-buckets.md) - After the provider-neutral source prerequisite, add a Cosmos DB for NoSQL container or logical partition as a read-only bucket source.
+- [MCP client](mcp-client.md) - Add outbound RMCP client sessions that reuse the shared operation and policy boundaries.

@@ -2,14 +2,10 @@
 
 ## Coordination
 
-- [Portability roadmap](roadmap.md) - Coordinate the active critical path and feature matrix; schedule its atomic child plans rather than the roadmap itself.
+- [Crate boundary architecture](../crate-boundary-architecture.md) - Coordinates package ownership, feature graphs, direct consumers, WASM composition, and future extraction.
 
 ## In Progress
 
-- [Dependency feature defaults](dependency-feature-defaults.md) - Narrow host capability graphs one independently compiling boundary at a time.
-
-## Planned
-
-- [macOS compact-unwind size](macos-compact-unwind-size.md) - Reduce Darwin debug and test unwind metadata without suppressing linker diagnostics.
+- [Dependency capabilities and macOS unwind size](dependency-features-and-macos-size.md) - Narrow host graphs, preserve independent portability checks, and use measured profile/dependency work to remove the Darwin compact-unwind warning.
 
 The implemented portability gate covers minimal, alloc, analyzer-only native and WASM, native analysis, and the current `acorn-wasm` package. Add a new atomic plan only when a concrete browser workflow or alternate host implementation proves a narrow adapter contract.

@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-This is the final protocol plan in the [RPC and automation lane](../parallel-execution.md#highest-priority-lane-execution-order). It consumes the implemented operation registry in `io::api::json_rpc` and follows the completed ACP inference and semantic-diff work. Neither protocol depends on the other's wire types.
+This plan consumes the implemented operation registry in `io::api::json_rpc` and follows the completed ACP inference and semantic-diff work. Neither protocol depends on the other's wire types. Name the first operation workflow before implementation so the initial tool and effect allowlist is consumer-backed rather than hypothetical.
 
 # Goal
 
@@ -82,9 +82,9 @@ The configuration key, server, tool, effects, timeout, and output bound are all 
 - Existing MCP server and MCPB behavior remains compatible.
 - MCP client dependencies remain absent from portable and default-library graphs unless explicitly enabled.
 
-# Next plan
+# Sequencing
 
-This plan completes the highest-priority RPC and automation lane. After its acceptance criteria pass, return to the current schedule in the [plan dependency network](../plan-network.md).
+Follow the ranked portfolio and the [plan dependency network](../plan-network.md). The client may proceed as a protocol leaf when it does not take an API/configuration, CLI, manifest, or CI/build lock held by higher-ranked work.
 
 # Citations
 

@@ -17,7 +17,7 @@ status: in-progress
 
 # Dependencies
 
-Use [CLI parse/execution models](cli-parse-execution-models.md). Host process/network implementations ultimately belong in `acorn-host`, while target policy remains in the interface/service boundary.
+Use the normalized request boundary from [CLI composition](cli-composition-boundary.md). Host process/network implementations ultimately belong in `acorn-host`, while target policy remains in the interface/service boundary.
 
 # Parallel execution
 
@@ -93,5 +93,5 @@ Then perform a manual smoke test against a disposable SSH-accessible Docker host
 
 # Related plans
 
-- [CLI parse and execution models](cli-parse-execution-models.md)
-- [CLI test coverage initiative](../../testing/index.md)
+- [CLI composition boundary](cli-composition-boundary.md)
+- [CLI coverage](../../testing/cli-coverage.md)

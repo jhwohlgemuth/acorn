@@ -1,19 +1,7 @@
 # API Refactor Plans
 
-## Recommended order
+## In progress
 
-- [API client roadmap](roadmap.md) - Coordinate the shared contract and extraction sequence.
-- [Hugging Face request readiness](huggingface-request-readiness.md) - Enforce repository and download inputs through operation-specific request types.
-- [Model context metadata](model-context-metadata.md) - Preserve catalog token limits and enrich selected GGUF downloads from repository and exact-artifact metadata.
-- [Endpoint resolution](endpoint-resolution.md) - Centralize template and domain resolution.
-- [Request parameter composition](request-parameter-composition.md) - Normalize required and optional inputs.
-- [Invoke-and-parse wrappers](invoke-and-parse-wrappers.md) - Combine repeated request execution and parsing.
-- [Environment bootstrap](environment-bootstrap.md) - Apply consistent configuration precedence.
-- [Health-check helpers](health-check-helpers.md) - Share status interpretation.
+- [Shared API client contract](shared-client-contract.md) - Complete endpoint, request, invocation, resolved configuration, response, error, health, OpenAPI, and RAiD workflow boundaries in dependency order.
 
-## Later plans
-
-- [API error envelopes](api-error-envelopes.md) - Normalize provider error messages.
-- [OpenAPI endpoint validation](openapi-endpoint-validation.md) - Detect template drift.
-- [RAiD API refinement](raid-api-refinement.md) - Convert the removed CLI prototype into validated service-point and record workflows.
-- [Response DTOs](response-dtos.md) - Type stable response subfields.
+Provider-specific model request and metadata work now lives in [model acquisition and metadata hardening](../../features/model-acquisition-hardening.md). New provider plans should consume the shared contract and retain provider-specific policy in their leaf modules.
