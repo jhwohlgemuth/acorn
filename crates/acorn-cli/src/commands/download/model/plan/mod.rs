@@ -14,6 +14,7 @@ use acorn::{
         config::{AuthenticationRequirement, FilterSet, ModelEntry, ModelEntryOptions, RegistryKind, RegistryProfile},
         database::{schema::ModelRow, Row},
         first_env_var,
+        model::{gguf_context_length, ContextLength},
         oci::{OciFile, OciReference, OciReferenceValue, OciResolution, OciTransport, OciTransportOptions, OrasTransport},
         ApiResult, Source, SourceAction,
     },
@@ -49,7 +50,7 @@ use std::{
     fs::create_dir_all,
     path::{Path, PathBuf},
 };
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 #[derive(Clone, Debug)]
 pub(crate) enum ModelDownloadError {
@@ -245,7 +246,7 @@ impl ModelDownloadPlan {
     pub(crate) fn name(&self) -> String {
         self.selector.name()
     }
-    async fn execute(&self, options: CommandOptions) -> ApiResult<String> {
+    async fn execute(&self, options: CommandOptions, details: ModelDetails) -> ApiResult<ModelDetails> {
         if self.auth.is_required() && self.selector.is_remote() && !huggingface::has_auth_token() {
             Err(eyre!("{}", ModelDownloadError::MissingAuth(self.name())))
         } else {
@@ -254,7 +255,7 @@ impl ModelDownloadPlan {
                     error!("=> {} Local model path does not exist: {}", Label::fail(), path.display());
                     Err(eyre!("Local model path does not exist: {}", path.display()))
                 }
-                | Some(Source::Local { .. }) => materialize_local_model(options.clone()).map(|_| {
+                | Some(Source::Local { path, .. }) => materialize_local_model(options.clone()).map(|_| {
                     if !options.quiet {
                         info!(
                             "=> {} Resolved local model '{}' → {}",
@@ -269,14 +270,53 @@ impl ModelDownloadPlan {
                                 .dimmed()
                         );
                     }
-                    self.name()
+                    let context = match gguf_context_length(path) {
+                        | Ok(value) => value,
+                        | Err(why) => {
+                            warn!("=> {} Local GGUF context metadata was not read — {why}", Label::CAUTION);
+                            None
+                        }
+                    };
+                    details.with_context(context).with_id(&self.name())
                 }),
-                | Some(Source::Remote { identifier, .. }) if Location::from(identifier).is_http_or_https() => download_remote_model(options).await,
+                | Some(Source::Remote { identifier, .. }) if Location::from(identifier).is_http_or_https() => {
+                    let output = options.output.clone();
+                    download_remote_model(options).await.map(|identifier| {
+                        let context = output.as_ref().and_then(|root| match gguf_context_length(&root.join(&identifier)) {
+                            | Ok(value) => value,
+                            | Err(why) => {
+                                warn!("=> {} Downloaded GGUF context metadata was not read — {why}", Label::CAUTION);
+                                None
+                            }
+                        });
+                        details.with_context(context).with_id(&identifier)
+                    })
+                }
                 | Some(Source::Remote { .. }) => self.download_from_huggingface(options.clone()).await.map(|resolution| {
                     let identifier = resolution.resolved().to_string();
+                    let destination = options.output.as_ref().map(|root| root.join(&identifier));
+                    let exact_context = destination
+                        .as_deref()
+                        .and_then(|destination| match resolution.value().context_length(destination) {
+                            | Ok(value) => value,
+                            | Err(why) => {
+                                warn!("=> {} Model '{identifier}' GGUF context metadata was not read — {why}", Label::CAUTION);
+                                None
+                            }
+                        });
+                    let details = details.with_context(exact_context);
+                    let weights = resolution.value().merge_weights(details.weights.clone().unwrap_or_default());
+                    let details = ModelDetails {
+                        weights: Some(weights),
+                        ..details
+                    };
+                    let details = match resolution.is_fallback() {
+                        | true => details.with_id(&identifier).with_fallback(resolution.requested()),
+                        | false => details.with_id(&identifier),
+                    };
                     if !options.no_local_database {
-                        if let Err(why) = self.persist_downloaded_weights(&resolution, options.database_path.clone()) {
-                            warn!("=> {} Model '{identifier}' weight metadata was not persisted — {why}", Label::CAUTION);
+                        if let Err(why) = self.persist_downloaded_metadata(&resolution, &details, options.database_path.clone()) {
+                            warn!("=> {} Model '{identifier}' download metadata was not persisted — {why}", Label::CAUTION);
                         }
                     }
                     if !options.quiet {
@@ -303,7 +343,7 @@ impl ModelDownloadPlan {
                             }
                         }
                     }
-                    identifier
+                    details
                 }),
                 | Some(Source::Unsupported(value)) => Err(eyre!("Unsupported model source — {value}")),
                 | None => Err(eyre!("Model selector is not configured")),
@@ -437,7 +477,17 @@ impl ModelDownloadPlan {
                 let destination = resolved.reference.destination(&root, &resolved.resolution.resolved_digest);
                 OrasTransport::new(self.oci_options.clone())
                     .and_then(|transport| transport.pull(&resolved.reference, &resolved.resolution, &destination))
-                    .map(|()| self.oci_details(&resolved.reference, &resolved.resolution, resolved.harbor.as_ref()))
+                    .map(|()| {
+                        let context = match resolved.resolution.context_length(&destination) {
+                            | Ok(value) => value,
+                            | Err(why) => {
+                                warn!("=> {} OCI GGUF context metadata was not read — {why}", Label::CAUTION);
+                                None
+                            }
+                        };
+                        self.oci_details(&resolved.reference, &resolved.resolution, resolved.harbor.as_ref())
+                            .with_context(context)
+                    })
             }
             | None => Err(eyre!("Model output directory is not configured")),
         }
@@ -627,7 +677,28 @@ impl ModelDownloadPlan {
             | None => Err(eyre!("Model identifier is not configured for GGUF fallback")),
         }
     }
-    fn persist_downloaded_weights(&self, resolution: &RepositoryResolution<Downloaded>, database_path: Option<PathBuf>) -> ApiResult<()> {
+    async fn enrich_huggingface_resolution(&self, resolution: RepositoryResolution<ModelDetails>) -> RepositoryResolution<ModelDetails> {
+        let options = huggingface::Options::init()
+            .domain(&self.domain)
+            .identifier(resolution.resolved())
+            .build();
+        match huggingface::ModelInfo::fetch(&options).await {
+            | Ok(info) => resolution.map(|details| details.with_context(info.context_length(()))),
+            | Err(why) => {
+                debug!(
+                    "Selected Hugging Face repository '{}' context metadata is unavailable — {why}",
+                    resolution.resolved()
+                );
+                resolution
+            }
+        }
+    }
+    fn persist_downloaded_metadata(
+        &self,
+        resolution: &RepositoryResolution<Downloaded>,
+        details: &ModelDetails,
+        database_path: Option<PathBuf>,
+    ) -> ApiResult<()> {
         let repository = resolution.value();
         let lookup = |model_id: &str| {
             ModelRow::init()
@@ -646,20 +717,22 @@ impl ModelDownloadPlan {
                     .weights
                     .as_deref()
                     .and_then(|weights| serde_json::from_str::<Weights>(weights).ok())
+                    .or_else(|| details.weights.clone())
                     .unwrap_or_default();
-                let existing_count = existing.0.len();
                 let weights = repository.merge_weights(existing);
-                if weights.0.len() == existing_count {
-                    Ok(())
-                } else {
-                    serde_json::to_string(&weights)
-                        .map_err(|why| eyre!("Failed to serialize downloaded model weights — {why}"))
-                        .map(|weights| ModelRow {
+                serde_json::to_string(&weights)
+                    .map_err(|why| eyre!("Failed to serialize downloaded model weights — {why}"))
+                    .map(|weights| {
+                        let metadata = ModelRow::from(details.clone());
+                        ModelRow {
+                            limit_context: metadata.limit_context,
+                            limit_input: metadata.limit_input,
+                            limit_output: metadata.limit_output,
                             weights: Some(weights),
                             ..row
-                        })
-                        .and_then(|row| row.update_weights(database_path).map(|_| ()))
-                }
+                        }
+                    })
+                    .and_then(|row| row.update_download_metadata(database_path).map(|_| ()))
             }
             | Ok(None) => Ok(()),
         }
@@ -855,9 +928,11 @@ impl ModelDownloadPlans {
                             | Ok(_) => {
                                 let metadata_options = huggingface::Options::init().domain(&plan.domain).identifier(identifier).build();
                                 match huggingface::ModelInfo::fetch(&metadata_options).await {
-                                    | Ok(info) if info.has_gguf_files() => Some(RepositoryResolution::direct(identifier, base)),
+                                    | Ok(info) if info.has_gguf_files() => {
+                                        Some(RepositoryResolution::direct(identifier, base.with_context(info.context_length(()))))
+                                    }
                                     | Ok(_) => match base.resolve_fallback(&search_options, offline).await {
-                                        | Ok(resolved) => Some(resolved),
+                                        | Ok(resolved) => Some(plan.enrich_huggingface_resolution(resolved).await),
                                         | Err(why) => {
                                             let reason = format!("({why})");
                                             error!("=> {} Resolve fallback for {} {}", Label::fail(), plan.name().yellow(), reason.dimmed());
@@ -867,7 +942,10 @@ impl ModelDownloadPlans {
                                     | Err(why) if huggingface::model_is_unavailable(&why) => {
                                         let reason = "(unavailable on Hugging Face)";
                                         warn!("=> {} {} {}", Label::not_found(), identifier.yellow(), reason.dimmed());
-                                        base.resolve_fallback(&search_options, offline).await.ok()
+                                        match base.resolve_fallback(&search_options, offline).await {
+                                            | Ok(resolved) => Some(plan.enrich_huggingface_resolution(resolved).await),
+                                            | Err(_) => None,
+                                        }
                                     }
                                     | Err(why) => {
                                         let reason = format!("({why})");
@@ -903,11 +981,14 @@ impl ResolvedModelDownload {
     pub(super) async fn execute(&self, options: CommandOptions) -> ApiResult<ModelDetails> {
         match &self.oci {
             | Some(resolved) => self.plan.download_from_oci(options, resolved),
-            | None => self
-                .plan
-                .execute(options)
-                .await
-                .map(|identifier| self.plan.details.clone().unwrap_or_else(|| (&self.plan).into()).with_id(&identifier)),
+            | None => {
+                let details = self.resolution.value().clone().with_id(self.resolution.resolved());
+                let details = match self.resolution.is_fallback() {
+                    | true => details.with_fallback(self.resolution.requested()),
+                    | false => details,
+                };
+                self.plan.execute(options, details).await
+            }
         }
     }
 }
@@ -1010,17 +1091,32 @@ async fn resolve_positional_plan(
                 .select(database_path.clone(), |candidate| candidate.model_id.as_deref() == Some(selector))
                 .and_then(|match_row| match match_row {
                     | Some(row) => {
-                        let name = row.name.or(row.model_id);
-                        let weights = row.weights.and_then(|weights| serde_json::from_str::<Weights>(&weights).ok());
+                        let limit = row.limit_details();
+                        let name = row.name.clone().or(row.model_id.clone());
+                        let weights = row.parsed_weights();
                         let has_file_metadata = weights.as_ref().is_some_and(Weights::has_file_metadata);
                         let plan = match (has_file_metadata, weights) {
-                            | (true, Some(weights)) => Some(ModelDownloadPlan::new(Source::from(selector)).with_details(ModelDetails {
-                                id: Some(selector.to_string()),
-                                name,
-                                weights: Some(weights),
-                                ..Default::default()
-                            })),
-                            | (_, Some(weights)) => weights.to_source(name).map(ModelDownloadPlan::new),
+                            | (true, Some(weights)) => {
+                                let details = ModelDetails {
+                                    id: Some(selector.to_string()),
+                                    limit,
+                                    name,
+                                    weights: Some(weights),
+                                    ..Default::default()
+                                };
+                                let plan = ModelDownloadPlan::new(Source::from(selector)).with_details(details);
+                                Some(plan)
+                            }
+                            | (_, Some(weights)) => weights.clone().to_source(name.clone()).map(|source| {
+                                let details = ModelDetails {
+                                    id: Some(selector.to_string()),
+                                    limit,
+                                    name,
+                                    weights: Some(weights),
+                                    ..Default::default()
+                                };
+                                ModelDownloadPlan::new(source).with_details(details)
+                            }),
                             | (_, None) => None,
                         };
                         match plan {

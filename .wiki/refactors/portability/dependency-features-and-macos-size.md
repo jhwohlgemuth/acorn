@@ -41,6 +41,8 @@ The feature work is justified independently by portability and extraction. macOS
 
 This plan is a prerequisite for new crate extraction. Manifest, lockfile, Makefile, and CI changes hold the workspace-graph and CI/build locks. A profile or feature change is accepted only after default, minimal, alloc, analyzer, analysis, std, WASM, and CLI behavior remain green.
 
+The [outbound MCP client embedder interface](../api/outbound-mcp-client-interface.md) follows this plan. Dependency capabilities owns the `mcp-client` feature graph, crate-root gates, manifests, lockfile, and dependency-deny checks. The interface plan owns the direct constructor and caller-driven cancellation after the narrow graph is accepted.
+
 # Decisions
 
 - Keep `std` as standard-library availability, not an implicit bundle of every host service.

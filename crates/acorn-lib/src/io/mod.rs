@@ -104,7 +104,6 @@ pub mod download;
 mod email;
 pub mod enrichment;
 pub mod fingerprint;
-mod gguf;
 pub mod http;
 pub mod mcp;
 pub mod model;
@@ -442,6 +441,39 @@ pub struct GitlabMergeRequestDiffResponse {
 pub struct Remote(Location);
 /// Struct for adding ToStringList functionality
 pub struct StringList<'a>(pub &'a Vec<PathBuf>);
+impl PathConversion for &Path {
+    fn cross_platform_display(&self) -> String {
+        <Path as PathConversion>::cross_platform_display(*self)
+    }
+}
+impl PathExt for &Path {
+    fn is_open_file(&self, file: &File) -> bool {
+        <Path as PathExt>::is_open_file(self, file)
+    }
+    fn to_gguf_parts(&self) -> Option<(String, u64, u64)> {
+        <Path as PathExt>::to_gguf_parts(self)
+    }
+    fn is_gguf(&self) -> bool {
+        <Path as PathExt>::is_gguf(self)
+    }
+    fn is_auxiliary_gguf(&self) -> bool {
+        <Path as PathExt>::is_auxiliary_gguf(self)
+    }
+    fn is_symlink(&self) -> bool {
+        <Path as PathExt>::is_symlink(self)
+    }
+    fn is_windows(&self) -> bool {
+        <Path as PathExt>::is_windows(self)
+    }
+    fn same_as(&self, other: &Path) -> bool {
+        <Path as PathExt>::same_as(self, other)
+    }
+}
+impl FileExtension for &str {
+    fn extension(&self) -> String {
+        self.to_ascii_lowercase()
+    }
+}
 impl ContainerTarget {
     /// Construct from optional host/context args.
     pub fn from_args(host: Option<Remote>, context: Option<String>) -> Option<Self> {
@@ -530,6 +562,21 @@ impl From<CstValue<'_>> for CstInputValue {
         }
     }
 }
+impl AsRef<str> for Executor {
+    fn as_ref(&self) -> &str {
+        match self {
+            | Executor::Apptainer => "apptainer",
+            | Executor::Docker => "docker",
+            | Executor::Podman => "podman",
+            | Executor::Sandbox => "sandbox",
+            | Executor::Shell => "shell",
+            | Executor::Ssh => "ssh",
+            | Executor::Kubernetes => "kubernetes",
+            | Executor::VirtualMachine => "virtual_machine",
+            | Executor::Other(value) => value.as_str(),
+        }
+    }
+}
 impl Executor {
     /// Returns the default configuration directory on host for GitLab runners based on the operating system.
     pub fn default_gitlab_runner_config_directory() -> &'static str {
@@ -611,21 +658,6 @@ impl Executor {
         }
     }
 }
-impl AsRef<str> for Executor {
-    fn as_ref(&self) -> &str {
-        match self {
-            | Executor::Apptainer => "apptainer",
-            | Executor::Docker => "docker",
-            | Executor::Podman => "podman",
-            | Executor::Sandbox => "sandbox",
-            | Executor::Shell => "shell",
-            | Executor::Ssh => "ssh",
-            | Executor::Kubernetes => "kubernetes",
-            | Executor::VirtualMachine => "virtual_machine",
-            | Executor::Other(value) => value.as_str(),
-        }
-    }
-}
 impl fmt::Display for Executor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_ref())
@@ -671,45 +703,12 @@ impl FromPath for MimeType {
         MimeType::from(value.as_ref().display().to_string())
     }
 }
-impl From<Executor> for std::ffi::OsString {
-    fn from(value: Executor) -> Self {
-        Self::from(value.to_string())
-    }
-}
-impl PathConversion for &Path {
-    fn cross_platform_display(&self) -> String {
-        <Path as PathConversion>::cross_platform_display(*self)
-    }
-}
 impl PathConversion for Path {
     fn cross_platform_display(&self) -> String {
         let value = self.display().to_string();
         #[cfg(windows)]
         let value = value.strip_prefix(r"\\?\").unwrap_or(&value).replace('/', "\\");
         value
-    }
-}
-impl PathExt for &Path {
-    fn is_open_file(&self, file: &File) -> bool {
-        <Path as PathExt>::is_open_file(self, file)
-    }
-    fn to_gguf_parts(&self) -> Option<(String, u64, u64)> {
-        <Path as PathExt>::to_gguf_parts(self)
-    }
-    fn is_gguf(&self) -> bool {
-        <Path as PathExt>::is_gguf(self)
-    }
-    fn is_auxiliary_gguf(&self) -> bool {
-        <Path as PathExt>::is_auxiliary_gguf(self)
-    }
-    fn is_symlink(&self) -> bool {
-        <Path as PathExt>::is_symlink(self)
-    }
-    fn is_windows(&self) -> bool {
-        <Path as PathExt>::is_windows(self)
-    }
-    fn same_as(&self, other: &Path) -> bool {
-        <Path as PathExt>::same_as(self, other)
     }
 }
 impl PathExt for Path {
@@ -820,16 +819,6 @@ impl ProgressType {
         self.is_spinner()
     }
 }
-impl Remote {
-    /// Return the validated SSH endpoint.
-    pub fn as_str(&self) -> &str {
-        (&self.0).into()
-    }
-    /// Return the canonical location for this validated SSH endpoint.
-    pub fn location(&self) -> &Location {
-        &self.0
-    }
-}
 impl core::str::FromStr for Remote {
     type Err = String;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -858,17 +847,19 @@ impl core::str::FromStr for Remote {
         })
     }
 }
-impl<'de> Deserialize<'de> for Remote {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        String::deserialize(deserializer).and_then(|value| value.parse().map_err(serde::de::Error::custom))
-    }
-}
 impl fmt::Display for Remote {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(self.as_str())
+    }
+}
+impl Remote {
+    /// Return the validated SSH endpoint.
+    pub fn as_str(&self) -> &str {
+        (&self.0).into()
+    }
+    /// Return the canonical location for this validated SSH endpoint.
+    pub fn location(&self) -> &Location {
+        &self.0
     }
 }
 impl Serialize for Remote {
@@ -877,6 +868,14 @@ impl Serialize for Remote {
         S: serde::Serializer,
     {
         serializer.serialize_str(self.as_str())
+    }
+}
+impl<'de> Deserialize<'de> for Remote {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).and_then(|value| value.parse().map_err(serde::de::Error::custom))
     }
 }
 impl FromCommand for SemanticVersion {
@@ -904,9 +903,9 @@ impl FromCommand for SemanticVersion {
         })?
     }
 }
-impl FileExtension for &str {
-    fn extension(&self) -> String {
-        self.to_ascii_lowercase()
+impl From<Executor> for std::ffi::OsString {
+    fn from(value: Executor) -> Self {
+        Self::from(value.to_string())
     }
 }
 impl FileExtension for String {

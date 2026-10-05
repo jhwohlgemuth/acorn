@@ -1,6 +1,13 @@
 //! Open Container Initiative (OCI) model artifact references, manifests, and ORAS-backed transport
 use crate::{
-    io::{adapter::KitfileExt, api, config::RegistryProfile, extract, gguf, move_file, retry, walk, ApiResult, FromCommand, PathExt},
+    io::{
+        adapter::KitfileExt,
+        api,
+        config::{FilterSet, RegistryProfile},
+        extract,
+        model::{gguf, ContextLength},
+        move_file, retry, walk, ApiResult, FromCommand, PathExt,
+    },
     util::constants::oci::{
         ACORN_MODEL_LAYER, DOCKER_IMAGE_CONFIG, DOCKER_MANIFEST_LIST, KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MCPB_RAW, KITOPS_MODELKIT_MODEL_GZIP,
         KITOPS_MODELKIT_MODEL_PART_GZIP, MINIMUM_ORAS_VERSION, MODELPACK_CODE_RAW, MODELPACK_CODE_TAR, MODELPACK_CODE_TAR_GZIP,
@@ -28,6 +35,7 @@ use acorn_schema::{
     oci::{ModelArtifactKind, ModelInventoryStatus, ModelLayerRole, ModelPackConfig, ModelPackFileMetadata},
     validation::{rules, IntoValidationReport, Validate, ValidationReport},
 };
+use alloc::collections::BTreeSet;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::fmt;
@@ -250,6 +258,16 @@ pub struct OrasTransport {
     pub(crate) binary: PathBuf,
     pub(crate) options: OciTransportOptions,
 }
+impl From<OciExtraction> for &'static str {
+    fn from(value: OciExtraction) -> Self {
+        match value {
+            | OciExtraction::None => "none",
+            | OciExtraction::Tar => "tar",
+            | OciExtraction::TarGzip => "tar_gzip",
+            | OciExtraction::TarZstd => "tar_zstd",
+        }
+    }
+}
 impl ArtifactKind {
     fn validate(self, manifest: &Manifest) -> ApiResult<Self> {
         let artifact_type = manifest.artifact_type.as_deref().unwrap_or("missing");
@@ -342,16 +360,6 @@ impl Descriptor {
                     .then_some(Some(path.clone()))
                     .ok_or_else(|| eyre!("Unsafe ModelPack filepath '{path}'"))
             }),
-        }
-    }
-}
-impl From<OciExtraction> for &'static str {
-    fn from(value: OciExtraction) -> Self {
-        match value {
-            | OciExtraction::None => "none",
-            | OciExtraction::Tar => "tar",
-            | OciExtraction::TarGzip => "tar_gzip",
-            | OciExtraction::TarZstd => "tar_zstd",
         }
     }
 }
@@ -477,8 +485,91 @@ impl OciFile {
             .map_err(|_| ValidationError::new("path").with_message(format!("Unsafe OCI artifact path '{}'", file.path)))
             .map_err(|error| error.into_report(""))
     }
+    fn validate_split_metadata(self, info: &gguf::GgufInfo) -> ApiResult<Self> {
+        info.validate_split_metadata(Path::new(&self.path)).map(|()| self)
+    }
 }
 impl OciFiles {
+    pub(in crate::io) fn select_known(self, filter: &[String], ignore: &[String], quantization: &[Quantization]) -> ApiResult<Self> {
+        match self.0.is_empty() {
+            | true => Ok(self),
+            | false => FilterSet::filter(
+                self.0,
+                filter,
+                ignore,
+                |file| file.path.clone(),
+                |file| {
+                    Path::new(&file.path).is_auxiliary_gguf()
+                        || quantization.is_empty()
+                        || quantization
+                            .iter()
+                            .any(|value| Quantization::from_gguf_filename(&file.path).as_ref() == Some(value))
+                },
+            )
+            .and_then(|selected| match selected.is_empty() {
+                | true => Err(eyre!("No OCI GGUF files matched the selection policy")),
+                | false => Self(selected).validate_paths(),
+            }),
+        }
+    }
+    pub(in crate::io) fn validate_content(self, root: &Path) -> ApiResult<Self> {
+        self.0
+            .iter()
+            .map(|file| gguf::GgufInfo::load(root.join(&file.path)).map(|info| (file, info)))
+            .collect::<ApiResult<Vec<_>>>()
+            .and_then(|inspected| {
+                let primary = inspected
+                    .iter()
+                    .filter(|(file, info)| !Path::new(&file.path).is_auxiliary_gguf() && !info.is_adapter())
+                    .map(|(file, _)| (*file).clone())
+                    .collect::<Vec<_>>();
+                Self(primary).validate_paths().and_then(|_| {
+                    inspected
+                        .iter()
+                        .map(|(file, info)| (*file).clone().validate_split_metadata(info))
+                        .collect::<ApiResult<Vec<_>>>()
+                })
+            })
+            .map(|_| self)
+    }
+    pub(crate) fn validate_paths(self) -> ApiResult<Self> {
+        let primary = self
+            .0
+            .iter()
+            .filter(|file| !Path::new(&file.path).is_auxiliary_gguf())
+            .collect::<Vec<_>>();
+        let groups = primary
+            .iter()
+            .map(|file| {
+                let path = Path::new(&file.path);
+                path.to_gguf_parts().map_or_else(|| file.path.clone(), |(key, _, _)| key)
+            })
+            .collect::<HashSet<_>>();
+        let validation = match groups.len() {
+            | 0 => Err(eyre!("OCI artifact contains no primary GGUF model")),
+            | 1 => {
+                let split = primary
+                    .iter()
+                    .filter_map(|file| Path::new(&file.path).to_gguf_parts())
+                    .collect::<Vec<_>>();
+                match split.is_empty() {
+                    | true => Ok(()),
+                    | false => {
+                        let count = split.first().map(|(_, _, count)| *count).unwrap_or_default();
+                        let indexes = split.iter().map(|(_, index, _)| *index).collect::<HashSet<_>>();
+                        let consistent = split.len() == primary.len()
+                            && split.iter().all(|(_, _, candidate_count)| *candidate_count == count)
+                            && (1..=count).all(|index| indexes.contains(&index));
+                        consistent
+                            .then_some(())
+                            .ok_or_else(|| eyre!("OCI artifact contains an incomplete or inconsistent split GGUF set"))
+                    }
+                }
+            }
+            | _ => Err(eyre!("OCI artifact resolves to multiple primary GGUF model groups")),
+        };
+        validation.map(|()| self)
+    }
     fn validate_staging(self, staging: &Path) -> ApiResult<Self> {
         let expected_paths = self.0.iter().map(|file| file.path.clone()).collect::<HashSet<_>>();
         walk(staging)
@@ -545,6 +636,43 @@ impl From<Descriptor> for OciLayer {
     }
 }
 impl OciLayer {
+    pub(in crate::io) fn is_valid(layer: &Self, _context: &()) -> Result<(), ValidationReport> {
+        let path = layer.path.as_deref().map(Path::new);
+        let has_safe_path = path.is_none_or(|path| SafePath::new(path).is_ok());
+        let has_gguf_path = path.is_some_and(|path| SafePath::new(path).is_ok() && path.is_gguf());
+        let is_raw = path.is_some() && layer.extraction == OciExtraction::None && !layer.inventory_deferred;
+        let is_tar = path.is_none() && layer.extraction == OciExtraction::Tar && layer.inventory_deferred;
+        let is_tar_gzip = path.is_none() && layer.extraction == OciExtraction::TarGzip && layer.inventory_deferred;
+        let is_tar_zstd = path.is_none() && layer.extraction == OciExtraction::TarZstd && layer.inventory_deferred;
+        let valid_shape = match layer.role {
+            | ModelLayerRole::ModelWeight => match layer.media_type.as_str() {
+                | MODELPACK_WEIGHT_RAW => has_gguf_path && is_raw,
+                | MODELPACK_WEIGHT_TAR => is_tar,
+                | MODELPACK_WEIGHT_TAR_GZIP => is_tar_gzip,
+                | MODELPACK_WEIGHT_TAR_ZSTD => is_tar_zstd,
+                | _ => false,
+            },
+            | ModelLayerRole::WeightConfig => match layer.media_type.as_str() {
+                | MODELPACK_WEIGHT_CONFIG_RAW => has_safe_path && is_raw,
+                | MODELPACK_WEIGHT_CONFIG_TAR => is_tar,
+                | MODELPACK_WEIGHT_CONFIG_TAR_GZIP => is_tar_gzip,
+                | MODELPACK_WEIGHT_CONFIG_TAR_ZSTD => is_tar_zstd,
+                | _ => false,
+            },
+            | ModelLayerRole::Model | ModelLayerRole::Documentation | ModelLayerRole::Code | ModelLayerRole::Dataset | ModelLayerRole::McpBundle => {
+                has_safe_path
+            }
+        };
+        match (has_safe_path, valid_shape) {
+            | (false, _) => Err(ValidationError::new("path")
+                .with_message("OCI layer filepath must be safe")
+                .into_report("")),
+            | (_, true) => Ok(()),
+            | _ => Err(ValidationError::new("layer")
+                .with_message("Unsupported OCI model layer shape")
+                .into_report("")),
+        }
+    }
     fn validate_blob(self, path: &Path) -> ApiResult<Self> {
         fs::metadata(path)
             .map_err(|why| eyre!("Failed to inspect OCI blob {} — {why}", self.digest))
@@ -859,6 +987,16 @@ impl OciReferenceValue {
             alphanumeric || subsequent_symbol
         });
         present && bounded && characters
+    }
+}
+impl<'a> ContextLength<&'a Path> for OciResolution {
+    type Output = ApiResult<Option<u64>>;
+
+    fn context_length(&self, destination: &'a Path) -> Self::Output {
+        walk(destination)
+            .map(|paths| paths.into_iter().collect::<BTreeSet<_>>())
+            .map(|paths| paths.into_iter().map(|path| destination.join(path)).collect::<Vec<_>>())
+            .and_then(|paths| gguf::context_length(&paths))
     }
 }
 impl From<&RegistryProfile> for OciTransportOptions {

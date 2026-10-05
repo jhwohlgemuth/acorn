@@ -169,6 +169,25 @@ fn test_model_details_to_markdown_includes_nested_capabilities() {
     assert!(markdown.contains("- Weights\n  - Weight\n    - Label: Q4_K_M"));
 }
 #[test]
+fn test_model_details_with_context_preserves_valid_subordinate_limits() {
+    let details = ModelDetails {
+        limit: Some(LimitDetails {
+            context: 32_768,
+            input: Some(16_384),
+            output: Some(65_536),
+        }),
+        ..Default::default()
+    };
+    let merged = details.clone().with_context(Some(24_576));
+    assert_eq!(merged.limit.as_ref().map(|limit| limit.context), Some(24_576));
+    assert_eq!(merged.limit.as_ref().and_then(|limit| limit.input), Some(16_384));
+    assert_eq!(merged.limit.as_ref().and_then(|limit| limit.output), None);
+    let preserved = details.with_context(None).limit.expect("preserved limits");
+    assert_eq!(preserved.context, 32_768);
+    assert_eq!(preserved.input, Some(16_384));
+    assert_eq!(preserved.output, Some(65_536));
+}
+#[test]
 fn test_model_list_names_normalize_all_supported_shapes() {
     let details = ModelList::parse(r#"[{"name":" Keep ","id":" acme/keep "},{"id":" drop "}]"#)
         .and_then(ModelList::names)

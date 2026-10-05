@@ -39,6 +39,30 @@ pub struct Providers {
     /// Provider entries keyed by provider ID
     pub providers: HashMap<String, ProviderDetails>,
 }
+impl CatalogResponse {
+    pub(crate) fn models(&self) -> Models {
+        Models { models: self.models.clone() }
+    }
+    pub(crate) fn providers(&self) -> Providers {
+        Providers {
+            providers: self.providers.clone(),
+        }
+    }
+}
+#[async_trait]
+impl DatabasePersistence for CatalogResponse {
+    async fn persist(self, database: Database<Table>) -> ApiResult<usize> {
+        match self.models().persist(database.clone()).await {
+            | Ok(model_count) => match self.providers().persist(database).await {
+                | Ok(provider_count) => model_count
+                    .checked_add(provider_count)
+                    .ok_or_else(|| eyre!("Count overflow while persisting models.dev metadata")),
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+}
 impl From<ModelDetails> for ModelRow {
     fn from(details: ModelDetails) -> Self {
         let model_id = details.id;
@@ -61,9 +85,9 @@ impl From<ModelDetails> for ModelRow {
         let modalities = details.modalities;
         let benchmarks = details.benchmarks;
         let weights = details.weights;
-        let limit_context = limit.as_ref().map(|l| l.context as i64);
-        let limit_output = limit.as_ref().and_then(|l| l.output.map(|v| v as i64));
-        let limit_input = limit.as_ref().and_then(|l| l.input.map(|v| v as i64));
+        let limit_context = limit.as_ref().and_then(|value| i64::try_from(value.context).ok());
+        let limit_output = limit_context.and_then(|_| limit.as_ref().and_then(|value| value.output).and_then(|value| i64::try_from(value).ok()));
+        let limit_input = limit_context.and_then(|_| limit.as_ref().and_then(|value| value.input).and_then(|value| i64::try_from(value).ok()));
         let cost_input = cost.as_ref().and_then(|c| c.input);
         let cost_output = cost.as_ref().and_then(|c| c.output);
         let cost_cache_read = cost.as_ref().and_then(|c| c.cache_read);
@@ -129,6 +153,19 @@ impl From<ModelDetails> for ModelRow {
         row
     }
 }
+#[async_trait]
+impl DatabasePersistence for Models {
+    async fn persist(self, database: Database<Table>) -> ApiResult<usize> {
+        let models: Vec<ModelDetails> = self.models.into_values().collect();
+        let message: fn(&ModelDetails) -> String = |item| format!("Saving \"{}\" model", item.id.as_deref().unwrap_or("unknown"));
+        let operation = |item| async { database.insert(ModelRow::from(item)) };
+        let finish = |count| format!("{}Saved metadata for {count} models", Label::CHECKMARK);
+        with_progress(models, message, operation, finish, None, ProgressType::Bar)
+            .await
+            .map(|counts| counts.into_iter().sum::<usize>())
+            .map_err(Report::msg)
+    }
+}
 impl From<ProviderDetails> for ProviderRow {
     fn from(details: ProviderDetails) -> Self {
         let provider_id = details.id;
@@ -162,43 +199,6 @@ impl From<ProviderDetails> for ProviderRow {
             .maybe_last_updated(last_updated)
             .maybe_models(models)
             .build()
-    }
-}
-#[async_trait]
-impl DatabasePersistence for CatalogResponse {
-    async fn persist(self, database: Database<Table>) -> ApiResult<usize> {
-        match self.models().persist(database.clone()).await {
-            | Ok(model_count) => match self.providers().persist(database).await {
-                | Ok(provider_count) => model_count
-                    .checked_add(provider_count)
-                    .ok_or_else(|| eyre!("Count overflow while persisting models.dev metadata")),
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        }
-    }
-}
-impl CatalogResponse {
-    pub(crate) fn models(&self) -> Models {
-        Models { models: self.models.clone() }
-    }
-    pub(crate) fn providers(&self) -> Providers {
-        Providers {
-            providers: self.providers.clone(),
-        }
-    }
-}
-#[async_trait]
-impl DatabasePersistence for Models {
-    async fn persist(self, database: Database<Table>) -> ApiResult<usize> {
-        let models: Vec<ModelDetails> = self.models.into_values().collect();
-        let message: fn(&ModelDetails) -> String = |item| format!("Saving \"{}\" model", item.id.as_deref().unwrap_or("unknown"));
-        let operation = |item| async { database.insert(ModelRow::from(item)) };
-        let finish = |count| format!("{}Saved metadata for {count} models", Label::CHECKMARK);
-        with_progress(models, message, operation, finish, None, ProgressType::Bar)
-            .await
-            .map(|counts| counts.into_iter().sum::<usize>())
-            .map_err(Report::msg)
     }
 }
 #[async_trait]

@@ -1,4 +1,5 @@
 use super::*;
+use acorn::io::database::{schema::Table, Database, Operations};
 use acorn_schema::agent::Weight;
 
 fn weight(path: &str, quantization: Quantization, size: Option<u64>) -> Weight {
@@ -86,6 +87,43 @@ fn test_plan_filter_defers_oci_patterns_to_manifest_files() {
         filtered.0.first().map(|plan| plan.selector.identifier()).as_deref(),
         Some("oci://registry.example.org/ai/qwen:v1")
     );
+}
+#[tokio::test]
+async fn test_resolve_plans_preserves_database_limits() {
+    let directory = tempfile::tempdir().unwrap();
+    let database_path = directory.path().join("acorn.db");
+    let database = Database::<Table>::from_path(Some(database_path.clone()));
+    database.migrate().unwrap();
+    database
+        .insert(
+            ModelRow::init()
+                .model_id("acme/model")
+                .weights(r#"[{"label":"Hugging Face","url":"https://huggingface.co/acme/model"}]"#)
+                .limit_context(131_072)
+                .limit_input(65_536)
+                .limit_output(8_192)
+                .build(),
+        )
+        .unwrap();
+    let plans = resolve_plans(
+        &ModelSelectors::from(vec!["acme/model".to_string()]),
+        &[],
+        &Default::default(),
+        None,
+        &Some(database_path),
+        false,
+        true,
+    )
+    .await
+    .unwrap();
+    let limit = plans
+        .first()
+        .and_then(|plan| plan.details.as_ref())
+        .and_then(|details| details.limit.as_ref())
+        .expect("persisted model limits");
+    assert_eq!(limit.context, 131_072);
+    assert_eq!(limit.input, Some(65_536));
+    assert_eq!(limit.output, Some(8_192));
 }
 #[test]
 fn test_select_weight_group_memory_only_defaults_to_q4_k_m() {

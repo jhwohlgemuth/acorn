@@ -3257,7 +3257,7 @@ fn test_resolve_models_excludes_fallback_below_minimum_download_count() {
 fn test_resolve_models_finds_gemma_fallback_with_object_base_models_metadata() {
     let base_model = "google/gemma-4-31B-it";
     let fallback = "unsloth/gemma-4-31B-it-GGUF";
-    let (endpoint, handle) = spawn_huggingface_model_search_server(fallback, base_model, None, 2);
+    let (endpoint, handle) = spawn_huggingface_model_search_server(fallback, base_model, None, 3);
     let resolved = with_hf_endpoint(endpoint, || {
         tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
             let entries = vec![ModelEntry::Selector(base_model.to_string())];
@@ -3276,4 +3276,6 @@ fn test_resolve_models_finds_gemma_fallback_with_object_base_models_metadata() {
     });
     handle.join().expect("join model search server");
     assert_eq!(resolved.len(), 1, "Gemma should resolve through its GGUF fallback");
+    let details = resolved.into_iter().next().map(ModelDetails::from).expect("resolved model details");
+    assert_eq!(details.limit.map(|limit| limit.context), Some(131_072));
 }

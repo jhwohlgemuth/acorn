@@ -179,6 +179,8 @@ Inline `--sync` is additive and operates only on models resolved by the current 
 
 Metadata import resolves the configured revision, records each GGUF file URL, quantization, and byte size, and inspects a selected fallback GGUF repository when the base repository is unavailable or has no GGUF files. It does not transfer model weights or checksum sidecars. `--quantization` is an ordered, comma-separated exact allowlist. When only `--gpu-memory` is supplied, ACORN evaluates Q4_K_M. Split shards are treated as one variant and their sizes are summed.
 
+ACORN also preserves the model context limit. The selected local or downloaded GGUF metadata has highest precedence, followed by the selected Hugging Face repository's GGUF metadata and then the persisted models.dev catalog value. Matching split shards must report the same context length. When a higher-priority context replaces a catalog value, input and output limits are retained only when they fit within the new context. These artifact limits are separate from provider serving limits and runtime memory allocation. Optional context metadata that is absent or unreadable does not prevent a model download.
+
 Detailed configuration entries can set the same constraints:
 
 ```json

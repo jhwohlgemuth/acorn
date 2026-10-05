@@ -10,12 +10,12 @@ This map records implementation dependencies among the active consolidated plans
 
 ```text
 dependency capabilities and macOS size
-       |                 |                    |
-       v                 v                    v
- analysis + service   shared API client   export and OOXML
-       |                 |                    |
-       v                 v                    v
- dual-protocol server  acorn-api boundary  acorn-export boundary
+       |                 |                    |                    |
+       v                 v                    v                    v
+ analysis + service   shared API client   outbound MCP client   export and OOXML
+       |                 |                    |                    |
+       v                 v                    v                    v
+ dual-protocol server  acorn-api boundary  Xylem integration   acorn-export boundary
        |
        v
  CLI composition boundary
@@ -28,6 +28,7 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 ### Portable and extraction boundaries
 
 - [Dependency capabilities and macOS unwind size](refactors/portability/dependency-features-and-macos-size.md) precedes new crate extraction and any feature-adding plan that changes workspace manifests. It owns narrowing the landed `mcp-client` graph without reopening MCP protocol behavior.
+- [Outbound MCP client embedder interface](refactors/api/outbound-mcp-client-interface.md) follows the narrow `mcp-client` graph. It owns direct server-map construction and bounded caller-driven cancellation while preserving the landed MCP configuration, policy, transport, and result contracts.
 - [Portable analysis and service boundary](refactors/core/acorn-service-boundary.md) follows dependency capability cleanup. Its first phase extracts `acorn-analysis` and the supplied-content `acorn-service` catalog together; its second phase hosts the catalog through JSON-RPC and typed gRPC in `acorn-server`.
 - [Shared API client contract](refactors/api/shared-client-contract.md) prepares `acorn-api`; endpoint, request, resolved configuration, invocation, response, error, and provider policy move together only after its acceptance gates pass.
 - [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) prepares `acorn-export` by producing one pure projection and fallible in-memory transformations.
@@ -71,8 +72,9 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 | Analyzer results, check orchestration, and module indexes | analysis/service extraction, CEL, gather inference, structured enrichment, diff, CLI coverage |
 | JSON-RPC registry, protobuf, and server lifecycle | analysis/service extraction; CLI composition consumes the finished server contract |
 | `io/api/mod.rs`, configuration roots, endpoint snapshots | shared API contract, dPID, Cosmos, model acquisition |
+| `io/mcp/client.rs`, outbound client tests and documentation | outbound MCP client interface; dependency capabilities owns prerequisite feature and manifest work |
 | Research-activity/PID schema roots | dPID, structured enrichment, PID verification |
-| `io/{archive,oci,gguf}.rs` and model planner | model acquisition, SLM/Needle artifact work |
+| `io/{archive,oci}.rs`, `io/model/gguf/`, and model planner | model acquisition, SLM/Needle artifact work |
 | CLI parser, `main.rs`, generated help | analysis/service serve cutover, CLI composition, dPID, gather, CEL, remote create, SLM |
 | Export dispatch/templates/PowerPoint | export pipeline, database-backed artifacts |
 | `Makefile` and `.gitlab-ci.yml` | runner pools, Podman, dependency/size, SLM, Needle, PID verification, export fuzzing |

@@ -16,7 +16,10 @@ use crate::{
 use acorn_core::util::to_rfc3339;
 use acorn_host::terminal::Label;
 use acorn_macros::DatabaseRow;
-use acorn_schema::{agent::Weights, validation::Validate};
+use acorn_schema::{
+    agent::{LimitDetails, Weights},
+    validation::Validate,
+};
 use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::eyre;
@@ -137,23 +140,51 @@ pub struct LicenseRow {
     /// Specifies whether the license is approved by the Open Source Initiative (OSI)
     pub is_open_source: Option<bool>,
 }
-/// Programming language metadata entry
+/// Link check cache entry
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
-#[row(table = programming_languages, order_by = "name")]
-pub struct ProgrammingLanguageRow {
-    /// Unique identifier for the row
+#[row(table = link_cache)]
+pub struct LinkCacheRow {
+    /// Unique identifier for the cache entry
     pub id: Option<i64>,
-    /// Stable language identifier from GitLab linguist metadata
-    pub language_id: Option<i64>,
-    /// Language display name
-    pub name: Option<String>,
-    /// Language category (for example, programming, markup, data, prose)
-    pub language_type: Option<String>,
-    /// Optional color associated with language
-    pub color: Option<String>,
-    /// Optional parent group name
-    pub group_name: Option<String>,
+    /// The URL that was checked
+    pub url: Option<String>,
+    /// HTTP status code returned
+    pub status_code: Option<i32>,
+    /// Whether the URL was reachable
+    pub is_reachable: Option<bool>,
+    /// When the URL was checked
+    #[validate(timestamp)]
+    pub checked_at: Option<Timestamp>,
+    /// When the cache entry expires
+    #[validate(timestamp)]
+    pub expires_at: Option<Timestamp>,
+}
+/// A logbook entry linked to its canonical research activity.
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
+#[row(table = logbook_entries, order_by = "timestamp DESC")]
+pub struct LogbookEntryRow {
+    /// Backend-local numeric identifier.
+    pub id: Option<i64>,
+    /// Portable research activity identifier.
+    pub research_activity_iid: Option<String>,
+    /// Stable identifier within the research activity logbook.
+    pub entry_identifier: Option<String>,
+    /// Complete serialized [`acorn_schema::research_activity::LogbookEntry`].
+    #[validate(json)]
+    pub entry_json: Option<String>,
+    /// Logbook entry timestamp retained for indexed ordering.
+    #[validate(timestamp)]
+    pub timestamp: Option<Timestamp>,
+    /// Whether the entry has been graduated into canonical metadata.
+    pub archived: Option<bool>,
+    /// When this entry was first persisted.
+    #[validate(timestamp)]
+    pub created_at: Option<Timestamp>,
+    /// When this entry was last synchronized.
+    #[validate(timestamp)]
+    pub updated_at: Option<Timestamp>,
 }
 /// Models.dev model metadata entry
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
@@ -229,6 +260,24 @@ pub struct ModelRow {
     #[validate(json)]
     pub weights: Option<String>,
 }
+/// Programming language metadata entry
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
+#[row(table = programming_languages, order_by = "name")]
+pub struct ProgrammingLanguageRow {
+    /// Unique identifier for the row
+    pub id: Option<i64>,
+    /// Stable language identifier from GitLab linguist metadata
+    pub language_id: Option<i64>,
+    /// Language display name
+    pub name: Option<String>,
+    /// Language category (for example, programming, markup, data, prose)
+    pub language_type: Option<String>,
+    /// Optional color associated with language
+    pub color: Option<String>,
+    /// Optional parent group name
+    pub group_name: Option<String>,
+}
 /// Models.dev provider metadata entry
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
@@ -262,51 +311,25 @@ pub struct ProviderRow {
     /// Comma-separated list of model IDs offered by this provider
     pub models: Option<String>,
 }
-/// Link check cache entry
+/// Immutable backup of canonical research activity data before a mutation.
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
-#[row(table = link_cache)]
-pub struct LinkCacheRow {
-    /// Unique identifier for the cache entry
-    pub id: Option<i64>,
-    /// The URL that was checked
-    pub url: Option<String>,
-    /// HTTP status code returned
-    pub status_code: Option<i32>,
-    /// Whether the URL was reachable
-    pub is_reachable: Option<bool>,
-    /// When the URL was checked
-    #[validate(timestamp)]
-    pub checked_at: Option<Timestamp>,
-    /// When the cache entry expires
-    #[validate(timestamp)]
-    pub expires_at: Option<Timestamp>,
-}
-/// A logbook entry linked to its canonical research activity.
-#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
-#[builder(start_fn = init, on(String, into))]
-#[row(table = logbook_entries, order_by = "timestamp DESC")]
-pub struct LogbookEntryRow {
+#[row(table = research_activity_revisions, order_by = "created_at DESC")]
+pub struct ResearchActivityRevisionRow {
     /// Backend-local numeric identifier.
     pub id: Option<i64>,
-    /// Portable research activity identifier.
+    /// Portable revision identifier.
+    pub iid: Option<String>,
+    /// Portable identifier of the canonical research activity.
     pub research_activity_iid: Option<String>,
-    /// Stable identifier within the research activity logbook.
-    pub entry_identifier: Option<String>,
-    /// Complete serialized [`acorn_schema::research_activity::LogbookEntry`].
+    /// Complete serialized research activity before mutation.
     #[validate(json)]
-    pub entry_json: Option<String>,
-    /// Logbook entry timestamp retained for indexed ordering.
-    #[validate(timestamp)]
-    pub timestamp: Option<Timestamp>,
-    /// Whether the entry has been graduated into canonical metadata.
-    pub archived: Option<bool>,
-    /// When this entry was first persisted.
+    pub rad_json: Option<String>,
+    /// Operation that caused the backup.
+    pub reason: Option<String>,
+    /// When the backup was created.
     #[validate(timestamp)]
     pub created_at: Option<Timestamp>,
-    /// When this entry was last synchronized.
-    #[validate(timestamp)]
-    pub updated_at: Option<Timestamp>,
 }
 /// Canonical evolving research activity candidate.
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
@@ -333,26 +356,6 @@ pub struct ResearchActivityRow {
     #[validate(timestamp)]
     pub updated_at: Option<Timestamp>,
 }
-/// Immutable backup of canonical research activity data before a mutation.
-#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
-#[builder(start_fn = init, on(String, into))]
-#[row(table = research_activity_revisions, order_by = "created_at DESC")]
-pub struct ResearchActivityRevisionRow {
-    /// Backend-local numeric identifier.
-    pub id: Option<i64>,
-    /// Portable revision identifier.
-    pub iid: Option<String>,
-    /// Portable identifier of the canonical research activity.
-    pub research_activity_iid: Option<String>,
-    /// Complete serialized research activity before mutation.
-    #[validate(json)]
-    pub rad_json: Option<String>,
-    /// Operation that caused the backup.
-    pub reason: Option<String>,
-    /// When the backup was created.
-    #[validate(timestamp)]
-    pub created_at: Option<Timestamp>,
-}
 /// Validation/check result history
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
@@ -372,42 +375,417 @@ pub struct ValidationRow {
     #[validate(timestamp)]
     pub checked_at: Option<Timestamp>,
 }
-impl Table {
-    pub(super) fn unique_iid(&self, connection: &Connection) -> ApiResult<String> {
-        let table = self.name();
-        (0..8)
-            .map(|_| nanoid!())
-            .find_map(|iid| {
-                connection
-                    .query_row(
-                        &format!("SELECT COUNT(*) FROM {table} WHERE iid = ?"),
-                        backend::params![iid.clone()],
-                        |row| row.get::<_, i64>(0),
-                    )
-                    .ok()
-                    .filter(|count| *count == 0)
-                    .map(|_| iid)
-            })
-            .ok_or_else(|| eyre!("Failed to generate a unique identifier for {table}"))
+impl fmt::Display for ActivityRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "ActivityRow = id: {}, command: {}, success: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.command.as_ref()),
+            self.success.unwrap_or(false),
+        )
+        .and_then(|_| write_optional_field(f, "path", self.user_path.as_ref()))
+        .and_then(|_| write_optional_timestamp(f, "executed_at", self.executed_at.as_ref()))
     }
 }
-impl From<&str> for Table {
-    fn from(value: &str) -> Self {
-        let normalized = value.trim().to_ascii_lowercase();
-        match normalized.as_str() {
-            | "catalog" => Self::Catalog,
-            | "discoveries" | "discovery" => Self::Discoveries,
-            | "licenses" | "license" => Self::Licenses,
-            | "link_cache" | "linkcache" => Self::LinkCache,
-            | "logbook_entries" | "logbookentries" | "logbook" => Self::LogbookEntries,
-            | "validation_history" | "validationhistory" => Self::ValidationHistory,
-            | "research_activity_revisions" | "researchactivityrevisions" | "revisions" => Self::ResearchActivityRevisions,
-            | "research_activities" | "researchactivities" => Self::ResearchActivities,
-            | "programming_languages" | "programminglanguages" | "languages" | "language" => Self::ProgrammingLanguages,
-            | "models" | "model" => Self::Models,
-            | "providers" | "provider" => Self::Providers,
-            | _ => Self::Activity,
+impl From<&BackendRow<'_>> for ActivityRow {
+    fn from(row: &BackendRow<'_>) -> Self {
+        ActivityRow {
+            id: row.get(0).ok(),
+            command: row.get(1).ok(),
+            executed_at: row.parse_rfc3339(2),
+            user_path: row.get(3).ok(),
+            success: row.get::<_, i32>(4).ok().map(|value| value != 0),
         }
+    }
+}
+impl From<BackendRow<'_>> for ActivityRow {
+    fn from(row: BackendRow<'_>) -> Self {
+        ActivityRow::from(&row)
+    }
+}
+impl Row for ActivityRow {
+    fn table(&self) -> Table {
+        Table::Activity
+    }
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
+        let Self {
+            command,
+            executed_at,
+            user_path,
+            success,
+            ..
+        } = self.clone();
+        let executed_at = to_rfc3339(executed_at.unwrap_or_else(Timestamp::now));
+        let success = i32::from(success.unwrap_or(true));
+        let required = required1(command);
+        match required {
+            | Ok((command,)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let params = backend::params![id, command, executed_at, user_path, success];
+                    execute_insert(&self, conn, params)
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
+    }
+}
+impl fmt::Display for CatalogRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "CatalogRow = id: {}, bucket: {}, identifier: {}, title: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.bucket_name.as_ref()),
+            display_or_none(self.identifier.as_ref()),
+            display_or_none(self.title.as_ref())
+        )
+        .and_then(|_| write_optional_timestamp(f, "updated_at", self.updated_at.as_ref()))
+    }
+}
+impl From<&BackendRow<'_>> for CatalogRow {
+    fn from(row: &BackendRow<'_>) -> Self {
+        CatalogRow {
+            id: row.get(0).ok(),
+            bucket_name: row.get(1).ok(),
+            bucket_url: row.get(2).ok(),
+            identifier: row.get(3).ok(),
+            title: row.get(4).ok(),
+            updated_at: row.parse_rfc3339(5),
+        }
+    }
+}
+impl From<BackendRow<'_>> for CatalogRow {
+    fn from(row: BackendRow<'_>) -> Self {
+        CatalogRow::from(&row)
+    }
+}
+impl Row for CatalogRow {
+    fn table(&self) -> Table {
+        Table::Catalog
+    }
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
+        let Self {
+            bucket_name,
+            bucket_url,
+            identifier,
+            title,
+            updated_at,
+            ..
+        } = self.clone();
+        let updated_at = to_rfc3339(updated_at.unwrap_or_else(Timestamp::now));
+        let required = required4(bucket_name, bucket_url, identifier, title);
+        match required {
+            | Ok((bucket_name, bucket_url, identifier, title)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let params = backend::params![id, bucket_name, bucket_url, identifier, title, updated_at];
+                    execute_insert(&self, conn, params)
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
+    }
+}
+impl fmt::Display for IdentifierRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "IdentifierRow = id: {}, identifier: {}, type: {}, source: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.identifier.as_ref()),
+            display_or_none(self.identifier_type.as_ref()),
+            display_or_none(self.source.as_ref())
+        )
+        .and_then(|_| write_optional_timestamp(f, "discovered_at", self.discovered_at.as_ref()))
+    }
+}
+impl From<&BackendRow<'_>> for IdentifierRow {
+    fn from(row: &BackendRow<'_>) -> Self {
+        IdentifierRow {
+            id: row.get(0).ok(),
+            discovered_at: row.parse_rfc3339(1),
+            identifier: row.get(2).ok(),
+            identifier_type: row.get(3).ok(),
+            metadata: row.get(4).ok(),
+            resolution_status: row.get(5).ok(),
+            source: row.get(6).ok(),
+            source_format: row.get(7).ok(),
+        }
+    }
+}
+impl From<BackendRow<'_>> for IdentifierRow {
+    fn from(row: BackendRow<'_>) -> Self {
+        IdentifierRow::from(&row)
+    }
+}
+impl Row for IdentifierRow {
+    fn table(&self) -> Table {
+        Table::Discoveries
+    }
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
+        let Self {
+            discovered_at,
+            identifier,
+            identifier_type,
+            metadata,
+            resolution_status,
+            source,
+            source_format,
+            ..
+        } = self.clone();
+        let discovered_at = to_rfc3339(discovered_at.unwrap_or_else(Timestamp::now));
+        match required1(identifier) {
+            | Ok((identifier,)) => match self.next_row_id(conn) {
+                | Ok(id) => execute_insert(
+                    &self,
+                    conn,
+                    backend::params![
+                        id,
+                        discovered_at,
+                        identifier,
+                        identifier_type.unwrap_or_else(|| "unknown".to_string()),
+                        metadata,
+                        resolution_status.unwrap_or_else(|| "not-requested".to_string()),
+                        source.unwrap_or_else(|| "unknown".to_string()),
+                        source_format.unwrap_or_else(|| "text".to_string()),
+                    ],
+                ),
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
+    }
+}
+impl fmt::Display for LicenseRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "LicenseRow = id: {}, identifier: {}, name: {}, deprecated: {}, free: {}, osi: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.identifier.as_ref()),
+            display_or_none(self.name.as_ref()),
+            self.is_deprecated.unwrap_or(false),
+            self.is_free_software.unwrap_or(false),
+            self.is_open_source.unwrap_or(false),
+        )
+    }
+}
+impl From<&BackendRow<'_>> for LicenseRow {
+    fn from(row: &BackendRow<'_>) -> Self {
+        LicenseRow {
+            id: row.get(0).ok(),
+            identifier: row.get(1).ok(),
+            name: row.get(2).ok(),
+            is_deprecated: row.get::<_, i32>(3).ok().map(|value| value != 0),
+            is_free_software: row.get::<_, i32>(4).ok().map(|value| value != 0),
+            is_open_source: row.get::<_, i32>(5).ok().map(|value| value != 0),
+        }
+    }
+}
+impl From<BackendRow<'_>> for LicenseRow {
+    fn from(row: BackendRow<'_>) -> Self {
+        LicenseRow::from(&row)
+    }
+}
+impl Row for LicenseRow {
+    fn table(&self) -> Table {
+        Table::Licenses
+    }
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
+        let Self {
+            identifier,
+            name,
+            is_deprecated,
+            is_free_software,
+            is_open_source,
+            ..
+        } = self.clone();
+        let required = required5(identifier, name, is_deprecated, is_free_software, is_open_source);
+        match required {
+            | Ok((identifier, name, is_deprecated, is_free_software, is_open_source)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let params = backend::params![
+                        id,
+                        identifier,
+                        name,
+                        i32::from(is_deprecated),
+                        i32::from(is_free_software),
+                        i32::from(is_open_source)
+                    ];
+                    execute_insert(&self, conn, params)
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
+    }
+}
+impl fmt::Display for LinkCacheRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "LinkCacheRow = id: {}, url: {}, status: {}, reachable: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.url.as_ref()),
+            self.status_code.unwrap_or(0),
+            self.is_reachable.unwrap_or(false)
+        )
+        .and_then(|_| write_optional_timestamp(f, "checked_at", self.checked_at.as_ref()))
+        .and_then(|_| write_optional_timestamp(f, "expires_at", self.expires_at.as_ref()))
+    }
+}
+impl From<&BackendRow<'_>> for LinkCacheRow {
+    fn from(row: &BackendRow<'_>) -> Self {
+        LinkCacheRow {
+            id: row.get(0).ok(),
+            url: row.get(1).ok(),
+            status_code: row.get(2).ok(),
+            is_reachable: row.get::<_, i32>(3).ok().map(|value| value != 0),
+            checked_at: row.parse_rfc3339(4),
+            expires_at: row.parse_rfc3339(5),
+        }
+    }
+}
+impl From<BackendRow<'_>> for LinkCacheRow {
+    fn from(row: BackendRow<'_>) -> Self {
+        LinkCacheRow::from(&row)
+    }
+}
+impl LinkCacheRow {
+    /// Check if the cache entry is expired
+    pub fn is_expired(&self) -> bool {
+        self.expires_at.map(|expires_at| Timestamp::now() > expires_at).unwrap_or(true)
+    }
+}
+impl Row for LinkCacheRow {
+    fn table(&self) -> Table {
+        Table::LinkCache
+    }
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
+        let Self {
+            url,
+            status_code,
+            is_reachable,
+            checked_at,
+            expires_at,
+            ..
+        } = self.clone();
+        let checked_at = to_rfc3339(checked_at.unwrap_or_else(Timestamp::now));
+        let required = required4(url, status_code, is_reachable, expires_at);
+        match required {
+            | Ok((url, status_code, is_reachable, expires_at)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let params = backend::params![id, url, status_code, i32::from(is_reachable), checked_at, to_rfc3339(expires_at)];
+                    execute_insert(&self, conn, params)
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
+    }
+}
+impl fmt::Display for LogbookEntryRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "LogbookEntryRow = id: {}, research_activity_iid: {}, entry_identifier: {}, archived: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.research_activity_iid.as_ref()),
+            display_or_none(self.entry_identifier.as_ref()),
+            self.archived.unwrap_or(false)
+        )
+        .and_then(|_| write_optional_timestamp(f, "timestamp", self.timestamp.as_ref()))
+        .and_then(|_| write_optional_timestamp(f, "updated_at", self.updated_at.as_ref()))
+    }
+}
+impl From<&BackendRow<'_>> for LogbookEntryRow {
+    fn from(row: &BackendRow<'_>) -> Self {
+        LogbookEntryRow {
+            id: row.get(0).ok(),
+            research_activity_iid: row.get(1).ok(),
+            entry_identifier: row.get(2).ok(),
+            entry_json: row.get(3).ok(),
+            timestamp: row.parse_rfc3339(4),
+            archived: row.get::<_, i32>(5).ok().map(|value| value != 0),
+            created_at: row.parse_rfc3339(6),
+            updated_at: row.parse_rfc3339(7),
+        }
+    }
+}
+impl From<BackendRow<'_>> for LogbookEntryRow {
+    fn from(row: BackendRow<'_>) -> Self {
+        LogbookEntryRow::from(&row)
+    }
+}
+impl Row for LogbookEntryRow {
+    fn table(&self) -> Table {
+        Table::LogbookEntries
+    }
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
+        let Self {
+            research_activity_iid,
+            entry_identifier,
+            entry_json,
+            timestamp,
+            archived,
+            created_at,
+            updated_at,
+            ..
+        } = self.clone();
+        let required = required5(research_activity_iid, entry_identifier, entry_json, timestamp, archived);
+        match required {
+            | Ok((research_activity_iid, entry_identifier, entry_json, timestamp, archived)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let created_at = to_rfc3339(created_at.unwrap_or_else(Timestamp::now));
+                    let updated_at = to_rfc3339(updated_at.unwrap_or_else(Timestamp::now));
+                    let params = backend::params![
+                        id,
+                        research_activity_iid,
+                        entry_identifier,
+                        entry_json,
+                        to_rfc3339(timestamp),
+                        i32::from(archived),
+                        created_at,
+                        updated_at,
+                    ];
+                    execute_insert(&self, conn, params)
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
+    }
+}
+impl fmt::Display for ModelRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "ModelRow = id: {}, model_id: {}, name: {}, family: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.model_id.as_ref()),
+            display_or_none(self.name.as_ref()),
+            display_or_none(self.family.as_ref())
+        )
     }
 }
 impl From<&BackendRow<'_>> for ModelRow {
@@ -453,6 +831,207 @@ impl From<BackendRow<'_>> for ModelRow {
         ModelRow::from(&row)
     }
 }
+impl ModelRow {
+    /// Reconstruct the model token limits using checked integer conversions.
+    pub fn limit_details(&self) -> Option<LimitDetails> {
+        self.limit_context.and_then(|context| {
+            u64::try_from(context).ok().map(|context| LimitDetails {
+                context,
+                input: self.limit_input.and_then(|value| u64::try_from(value).ok()),
+                output: self.limit_output.and_then(|value| u64::try_from(value).ok()),
+            })
+        })
+    }
+    /// Deserialize the model's persisted weight metadata.
+    pub fn parsed_weights(&self) -> Option<Weights> {
+        self.weights.as_deref().and_then(|weights| serde_json::from_str(weights).ok())
+    }
+    /// Update downloaded weight metadata and reconciled token limits for this model.
+    pub fn update_download_metadata(&self, path: Option<PathBuf>) -> ApiResult<usize> {
+        match (self.model_id.as_deref(), self.weights.as_deref()) {
+            | (Some(model_id), Some(weights)) => Database::<Table>::from_path(path).with_connection(|conn| {
+                conn.execute(
+                    "UPDATE models SET weights = ?, limit_context = ?, limit_output = ?, limit_input = ? WHERE model_id = ?",
+                    backend::params![weights, self.limit_context, self.limit_output, self.limit_input, model_id],
+                )
+                .map_err(|why| eyre!("=> {} Failed to update model download metadata: {why}", Label::fail()))
+            }),
+            | (None, _) => Err(eyre!("Model identifier is required to update model download metadata")),
+            | (_, None) => Err(eyre!("Model weights are required to update model download metadata")),
+        }
+    }
+    /// Update the serialized weight metadata for this model.
+    pub fn update_weights(&self, path: Option<PathBuf>) -> ApiResult<usize> {
+        match (self.model_id.as_deref(), self.weights.as_deref()) {
+            | (Some(model_id), Some(weights)) => Database::<Table>::from_path(path).with_connection(|conn| {
+                conn.execute("UPDATE models SET weights = ? WHERE model_id = ?", backend::params![weights, model_id])
+                    .map_err(|why| eyre!("=> {} Failed to update model weights: {why}", Label::fail()))
+            }),
+            | (None, _) => Err(eyre!("Model identifier is required to update model weights")),
+            | (_, None) => Err(eyre!("Model weights are required to update model weights")),
+        }
+    }
+}
+impl Row for ModelRow {
+    fn table(&self) -> Table {
+        Table::Models
+    }
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
+        let Self {
+            model_id,
+            name,
+            family,
+            variant,
+            version,
+            attachment,
+            open_weights,
+            reasoning,
+            structured_output,
+            temperature,
+            tool_call,
+            parameters,
+            release_date,
+            knowledge,
+            last_updated,
+            limit_context,
+            limit_output,
+            limit_input,
+            modality_input,
+            modality_output,
+            cost_input,
+            cost_output,
+            cost_cache_read,
+            cost_cache_write,
+            cost_reasoning,
+            cost_input_audio,
+            cost_output_audio,
+            cost_over_200k,
+            cost_tiers,
+            benchmarks,
+            weights,
+            ..
+        } = self.clone();
+        let required = required1(model_id);
+        match required {
+            | Ok((model_id,)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let params = backend::params![
+                        id,
+                        model_id,
+                        name,
+                        family,
+                        variant,
+                        version,
+                        attachment.map(i32::from),
+                        open_weights.map(i32::from),
+                        reasoning.map(i32::from),
+                        structured_output.map(i32::from),
+                        temperature.map(i32::from),
+                        tool_call.map(i32::from),
+                        parameters,
+                        release_date,
+                        knowledge,
+                        last_updated,
+                        limit_context,
+                        limit_output,
+                        limit_input,
+                        modality_input,
+                        modality_output,
+                        cost_input,
+                        cost_output,
+                        cost_cache_read,
+                        cost_cache_write,
+                        cost_reasoning,
+                        cost_input_audio,
+                        cost_output_audio,
+                        cost_over_200k,
+                        cost_tiers,
+                        benchmarks,
+                        weights,
+                    ];
+                    execute_insert(&self, conn, params)
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
+    }
+}
+impl fmt::Display for ProgrammingLanguageRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "ProgrammingLanguageRow = id: {}, language_id: {}, name: {}, type: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.language_id.as_ref()),
+            display_or_none(self.name.as_ref()),
+            display_or_none(self.language_type.as_ref())
+        )
+        .and_then(|_| write_optional_field(f, "color", self.color.as_ref()))
+        .and_then(|_| write_optional_field(f, "group_name", self.group_name.as_ref()))
+    }
+}
+impl From<&BackendRow<'_>> for ProgrammingLanguageRow {
+    fn from(row: &BackendRow<'_>) -> Self {
+        ProgrammingLanguageRow {
+            id: row.get(0).ok(),
+            language_id: row.get(1).ok(),
+            name: row.get(2).ok(),
+            language_type: row.get(3).ok(),
+            color: row.get(4).ok(),
+            group_name: row.get(5).ok(),
+        }
+    }
+}
+impl From<BackendRow<'_>> for ProgrammingLanguageRow {
+    fn from(row: BackendRow<'_>) -> Self {
+        ProgrammingLanguageRow::from(&row)
+    }
+}
+impl Row for ProgrammingLanguageRow {
+    fn table(&self) -> Table {
+        Table::ProgrammingLanguages
+    }
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
+        let Self {
+            language_id,
+            name,
+            language_type,
+            color,
+            group_name,
+            ..
+        } = self.clone();
+        let required = required1(name);
+        match required {
+            | Ok((name,)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let params = backend::params![id, language_id, name, language_type, color, group_name];
+                    execute_insert(&self, conn, params)
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
+    }
+}
+impl fmt::Display for ProviderRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "ProviderRow = id: {}, provider_id: {}, name: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.provider_id.as_ref()),
+            display_or_none(self.name.as_ref())
+        )
+        .and_then(|_| write_optional_field(f, "description", self.description.as_ref()))
+    }
+}
 impl From<&BackendRow<'_>> for ProviderRow {
     fn from(row: &BackendRow<'_>) -> Self {
         ProviderRow {
@@ -477,126 +1056,126 @@ impl From<BackendRow<'_>> for ProviderRow {
         ProviderRow::from(&row)
     }
 }
-impl From<&BackendRow<'_>> for ActivityRow {
+impl Row for ProviderRow {
+    fn table(&self) -> Table {
+        Table::Providers
+    }
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
+        let Self {
+            provider_id,
+            name,
+            description,
+            endpoint,
+            documentation,
+            authentication,
+            env,
+            npm,
+            url,
+            established_date,
+            last_updated,
+            models,
+            ..
+        } = self.clone();
+        let required = required1(provider_id);
+        match required {
+            | Ok((provider_id,)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let params = backend::params![
+                        id,
+                        provider_id,
+                        name,
+                        description,
+                        endpoint,
+                        documentation,
+                        authentication,
+                        env,
+                        npm,
+                        url,
+                        established_date,
+                        last_updated,
+                        models,
+                    ];
+                    execute_insert(&self, conn, params)
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
+    }
+}
+impl fmt::Display for ResearchActivityRevisionRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "ResearchActivityRevisionRow = id: {}, iid: {}, research_activity_iid: {}, reason: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.iid.as_ref()),
+            display_or_none(self.research_activity_iid.as_ref()),
+            display_or_none(self.reason.as_ref())
+        )
+        .and_then(|_| write_optional_timestamp(f, "created_at", self.created_at.as_ref()))
+    }
+}
+impl From<&BackendRow<'_>> for ResearchActivityRevisionRow {
     fn from(row: &BackendRow<'_>) -> Self {
-        ActivityRow {
+        ResearchActivityRevisionRow {
             id: row.get(0).ok(),
-            command: row.get(1).ok(),
-            executed_at: row.parse_rfc3339(2),
-            user_path: row.get(3).ok(),
-            success: row.get::<_, i32>(4).ok().map(|value| value != 0),
+            iid: row.get(1).ok(),
+            research_activity_iid: row.get(2).ok(),
+            rad_json: row.get(3).ok(),
+            reason: row.get(4).ok(),
+            created_at: row.parse_rfc3339(5),
         }
     }
 }
-impl From<BackendRow<'_>> for ActivityRow {
+impl From<BackendRow<'_>> for ResearchActivityRevisionRow {
     fn from(row: BackendRow<'_>) -> Self {
-        ActivityRow::from(&row)
+        ResearchActivityRevisionRow::from(&row)
     }
 }
-impl From<&BackendRow<'_>> for IdentifierRow {
-    fn from(row: &BackendRow<'_>) -> Self {
-        IdentifierRow {
-            id: row.get(0).ok(),
-            discovered_at: row.parse_rfc3339(1),
-            identifier: row.get(2).ok(),
-            identifier_type: row.get(3).ok(),
-            metadata: row.get(4).ok(),
-            resolution_status: row.get(5).ok(),
-            source: row.get(6).ok(),
-            source_format: row.get(7).ok(),
+impl Row for ResearchActivityRevisionRow {
+    fn table(&self) -> Table {
+        Table::ResearchActivityRevisions
+    }
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
+        let Self {
+            iid,
+            research_activity_iid,
+            rad_json,
+            reason,
+            created_at,
+            ..
+        } = self.clone();
+        let required = required4(iid, research_activity_iid, rad_json, reason);
+        match required {
+            | Ok((iid, research_activity_iid, rad_json, reason)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let created_at = to_rfc3339(created_at.unwrap_or_else(Timestamp::now));
+                    let params = backend::params![id, iid, research_activity_iid, rad_json, reason, created_at];
+                    execute_insert(&self, conn, params)
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
         }
     }
-}
-impl From<BackendRow<'_>> for IdentifierRow {
-    fn from(row: BackendRow<'_>) -> Self {
-        IdentifierRow::from(&row)
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
     }
 }
-impl From<&BackendRow<'_>> for LicenseRow {
-    fn from(row: &BackendRow<'_>) -> Self {
-        LicenseRow {
-            id: row.get(0).ok(),
-            identifier: row.get(1).ok(),
-            name: row.get(2).ok(),
-            is_deprecated: row.get::<_, i32>(3).ok().map(|value| value != 0),
-            is_free_software: row.get::<_, i32>(4).ok().map(|value| value != 0),
-            is_open_source: row.get::<_, i32>(5).ok().map(|value| value != 0),
-        }
-    }
-}
-impl From<BackendRow<'_>> for LicenseRow {
-    fn from(row: BackendRow<'_>) -> Self {
-        LicenseRow::from(&row)
-    }
-}
-impl From<&BackendRow<'_>> for ProgrammingLanguageRow {
-    fn from(row: &BackendRow<'_>) -> Self {
-        ProgrammingLanguageRow {
-            id: row.get(0).ok(),
-            language_id: row.get(1).ok(),
-            name: row.get(2).ok(),
-            language_type: row.get(3).ok(),
-            color: row.get(4).ok(),
-            group_name: row.get(5).ok(),
-        }
-    }
-}
-impl From<BackendRow<'_>> for ProgrammingLanguageRow {
-    fn from(row: BackendRow<'_>) -> Self {
-        ProgrammingLanguageRow::from(&row)
-    }
-}
-impl From<&BackendRow<'_>> for CatalogRow {
-    fn from(row: &BackendRow<'_>) -> Self {
-        CatalogRow {
-            id: row.get(0).ok(),
-            bucket_name: row.get(1).ok(),
-            bucket_url: row.get(2).ok(),
-            identifier: row.get(3).ok(),
-            title: row.get(4).ok(),
-            updated_at: row.parse_rfc3339(5),
-        }
-    }
-}
-impl From<BackendRow<'_>> for CatalogRow {
-    fn from(row: BackendRow<'_>) -> Self {
-        CatalogRow::from(&row)
-    }
-}
-impl From<&BackendRow<'_>> for LinkCacheRow {
-    fn from(row: &BackendRow<'_>) -> Self {
-        LinkCacheRow {
-            id: row.get(0).ok(),
-            url: row.get(1).ok(),
-            status_code: row.get(2).ok(),
-            is_reachable: row.get::<_, i32>(3).ok().map(|value| value != 0),
-            checked_at: row.parse_rfc3339(4),
-            expires_at: row.parse_rfc3339(5),
-        }
-    }
-}
-impl From<BackendRow<'_>> for LinkCacheRow {
-    fn from(row: BackendRow<'_>) -> Self {
-        LinkCacheRow::from(&row)
-    }
-}
-impl From<&BackendRow<'_>> for LogbookEntryRow {
-    fn from(row: &BackendRow<'_>) -> Self {
-        LogbookEntryRow {
-            id: row.get(0).ok(),
-            research_activity_iid: row.get(1).ok(),
-            entry_identifier: row.get(2).ok(),
-            entry_json: row.get(3).ok(),
-            timestamp: row.parse_rfc3339(4),
-            archived: row.get::<_, i32>(5).ok().map(|value| value != 0),
-            created_at: row.parse_rfc3339(6),
-            updated_at: row.parse_rfc3339(7),
-        }
-    }
-}
-impl From<BackendRow<'_>> for LogbookEntryRow {
-    fn from(row: BackendRow<'_>) -> Self {
-        LogbookEntryRow::from(&row)
+impl fmt::Display for ResearchActivityRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "ResearchActivityRow = id: {}, iid: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.iid.as_ref())
+        )
+        .and_then(|_| write_optional_timestamp(f, "created_at", self.created_at.as_ref()))
+        .and_then(|_| write_optional_timestamp(f, "updated_at", self.updated_at.as_ref()))
     }
 }
 impl From<&BackendRow<'_>> for ResearchActivityRow {
@@ -617,394 +1196,74 @@ impl From<BackendRow<'_>> for ResearchActivityRow {
         ResearchActivityRow::from(&row)
     }
 }
-impl From<&BackendRow<'_>> for ResearchActivityRevisionRow {
-    fn from(row: &BackendRow<'_>) -> Self {
-        ResearchActivityRevisionRow {
-            id: row.get(0).ok(),
-            iid: row.get(1).ok(),
-            research_activity_iid: row.get(2).ok(),
-            rad_json: row.get(3).ok(),
-            reason: row.get(4).ok(),
-            created_at: row.parse_rfc3339(5),
+impl Row for ResearchActivityRow {
+    fn table(&self) -> Table {
+        Table::ResearchActivities
+    }
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
+        let Self {
+            iid,
+            rad_json,
+            identity_keys_json,
+            provenance_json,
+            created_at,
+            updated_at,
+            ..
+        } = self.clone();
+        let created_at = to_rfc3339(created_at.unwrap_or_else(Timestamp::now));
+        let updated_at = to_rfc3339(updated_at.unwrap_or_else(Timestamp::now));
+        let required = required4(iid, rad_json, identity_keys_json, provenance_json);
+        match required {
+            | Ok((iid, rad_json, identity_keys_json, provenance_json)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let params = backend::params![id, iid, rad_json, identity_keys_json, provenance_json, created_at, updated_at];
+                    execute_insert(&self, conn, params)
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
+    }
+}
+impl From<&str> for Table {
+    fn from(value: &str) -> Self {
+        let normalized = value.trim().to_ascii_lowercase();
+        match normalized.as_str() {
+            | "catalog" => Self::Catalog,
+            | "discoveries" | "discovery" => Self::Discoveries,
+            | "licenses" | "license" => Self::Licenses,
+            | "link_cache" | "linkcache" => Self::LinkCache,
+            | "logbook_entries" | "logbookentries" | "logbook" => Self::LogbookEntries,
+            | "validation_history" | "validationhistory" => Self::ValidationHistory,
+            | "research_activity_revisions" | "researchactivityrevisions" | "revisions" => Self::ResearchActivityRevisions,
+            | "research_activities" | "researchactivities" => Self::ResearchActivities,
+            | "programming_languages" | "programminglanguages" | "languages" | "language" => Self::ProgrammingLanguages,
+            | "models" | "model" => Self::Models,
+            | "providers" | "provider" => Self::Providers,
+            | _ => Self::Activity,
         }
     }
 }
-impl From<BackendRow<'_>> for ResearchActivityRevisionRow {
-    fn from(row: BackendRow<'_>) -> Self {
-        ResearchActivityRevisionRow::from(&row)
-    }
-}
-impl From<&BackendRow<'_>> for ValidationRow {
-    fn from(row: &BackendRow<'_>) -> Self {
-        ValidationRow {
-            id: row.get(0).ok(),
-            path: row.get(1).ok(),
-            check_type: row.get(2).ok(),
-            success: row.get::<_, i32>(3).ok().map(|value| value != 0),
-            message: row.get(4).ok(),
-            checked_at: row.parse_rfc3339(5),
-        }
-    }
-}
-impl From<BackendRow<'_>> for ValidationRow {
-    fn from(row: BackendRow<'_>) -> Self {
-        ValidationRow::from(&row)
-    }
-}
-impl From<ActivityRow> for Vec<String> {
-    fn from(row: ActivityRow) -> Self {
-        vec![
-            row.id.map_or_else(String::new, |v| v.to_string()),
-            row.command.unwrap_or_default(),
-            row.executed_at.map_or_else(String::new, to_rfc3339),
-            row.user_path.unwrap_or_default(),
-            row.success.map_or_else(String::new, |v| v.to_string()),
-        ]
-    }
-}
-impl From<CatalogRow> for Vec<String> {
-    fn from(row: CatalogRow) -> Self {
-        vec![
-            row.id.map_or_else(String::new, |v| v.to_string()),
-            row.bucket_name.unwrap_or_default(),
-            row.bucket_url.unwrap_or_default(),
-            row.identifier.unwrap_or_default(),
-            row.title.unwrap_or_default(),
-            row.updated_at.map_or_else(String::new, to_rfc3339),
-        ]
-    }
-}
-impl From<IdentifierRow> for Vec<String> {
-    fn from(row: IdentifierRow) -> Self {
-        vec![
-            row.id.map_or_else(String::new, |value| value.to_string()),
-            row.discovered_at.map_or_else(String::new, to_rfc3339),
-            row.identifier.unwrap_or_default(),
-            row.identifier_type.unwrap_or_default(),
-            row.metadata.unwrap_or_default(),
-            row.resolution_status.unwrap_or_default(),
-            row.source.unwrap_or_default(),
-            row.source_format.unwrap_or_default(),
-        ]
-    }
-}
-impl From<LicenseRow> for Vec<String> {
-    fn from(row: LicenseRow) -> Self {
-        vec![
-            row.id.map_or_else(String::new, |v| v.to_string()),
-            row.identifier.unwrap_or_default(),
-            row.name.unwrap_or_default(),
-            row.is_deprecated.map_or_else(String::new, |v| v.to_string()),
-            row.is_free_software.map_or_else(String::new, |v| v.to_string()),
-            row.is_open_source.map_or_else(String::new, |v| v.to_string()),
-        ]
-    }
-}
-impl From<ProgrammingLanguageRow> for Vec<String> {
-    fn from(row: ProgrammingLanguageRow) -> Self {
-        vec![
-            row.id.map_or_else(String::new, |v| v.to_string()),
-            row.language_id.map_or_else(String::new, |v| v.to_string()),
-            row.name.unwrap_or_default(),
-            row.language_type.unwrap_or_default(),
-            row.color.unwrap_or_default(),
-            row.group_name.unwrap_or_default(),
-        ]
-    }
-}
-impl From<LinkCacheRow> for Vec<String> {
-    fn from(row: LinkCacheRow) -> Self {
-        vec![
-            row.id.map_or_else(String::new, |v| v.to_string()),
-            row.url.unwrap_or_default(),
-            row.status_code.map_or_else(String::new, |v| v.to_string()),
-            row.is_reachable.map_or_else(String::new, |v| v.to_string()),
-            row.checked_at.map_or_else(String::new, to_rfc3339),
-            row.expires_at.map_or_else(String::new, to_rfc3339),
-        ]
-    }
-}
-impl From<LogbookEntryRow> for Vec<String> {
-    fn from(row: LogbookEntryRow) -> Self {
-        vec![
-            row.id.map_or_else(String::new, |value| value.to_string()),
-            row.research_activity_iid.unwrap_or_default(),
-            row.entry_identifier.unwrap_or_default(),
-            row.entry_json.unwrap_or_default(),
-            row.timestamp.map_or_else(String::new, to_rfc3339),
-            row.archived.map_or_else(String::new, |value| value.to_string()),
-            row.created_at.map_or_else(String::new, to_rfc3339),
-            row.updated_at.map_or_else(String::new, to_rfc3339),
-        ]
-    }
-}
-impl From<ResearchActivityRow> for Vec<String> {
-    fn from(row: ResearchActivityRow) -> Self {
-        vec![
-            row.id.map_or_else(String::new, |v| v.to_string()),
-            row.iid.unwrap_or_default(),
-            row.rad_json.unwrap_or_default(),
-            row.identity_keys_json.unwrap_or_default(),
-            row.provenance_json.unwrap_or_default(),
-            row.created_at.map_or_else(String::new, to_rfc3339),
-            row.updated_at.map_or_else(String::new, to_rfc3339),
-        ]
-    }
-}
-impl From<ResearchActivityRevisionRow> for Vec<String> {
-    fn from(row: ResearchActivityRevisionRow) -> Self {
-        vec![
-            row.id.map_or_else(String::new, |value| value.to_string()),
-            row.iid.unwrap_or_default(),
-            row.research_activity_iid.unwrap_or_default(),
-            row.rad_json.unwrap_or_default(),
-            row.reason.unwrap_or_default(),
-            row.created_at.map_or_else(String::new, to_rfc3339),
-        ]
-    }
-}
-impl From<ValidationRow> for Vec<String> {
-    fn from(row: ValidationRow) -> Self {
-        vec![
-            row.id.map_or_else(String::new, |v| v.to_string()),
-            row.path.unwrap_or_default(),
-            row.check_type.unwrap_or_default(),
-            row.success.map_or_else(String::new, |v| v.to_string()),
-            row.message.unwrap_or_default(),
-            row.checked_at.map_or_else(String::new, to_rfc3339),
-        ]
-    }
-}
-impl From<ModelRow> for Vec<String> {
-    fn from(row: ModelRow) -> Self {
-        vec![
-            row.id.map_or_else(String::new, |v| v.to_string()),
-            row.model_id.unwrap_or_default(),
-            row.name.unwrap_or_default(),
-            row.family.unwrap_or_default(),
-            row.variant.unwrap_or_default(),
-            row.version.unwrap_or_default(),
-            row.attachment.map_or_else(String::new, |v| v.to_string()),
-            row.open_weights.map_or_else(String::new, |v| v.to_string()),
-            row.reasoning.map_or_else(String::new, |v| v.to_string()),
-            row.structured_output.map_or_else(String::new, |v| v.to_string()),
-            row.temperature.map_or_else(String::new, |v| v.to_string()),
-            row.tool_call.map_or_else(String::new, |v| v.to_string()),
-            row.parameters.map_or_else(String::new, |v| v.to_string()),
-            row.release_date.unwrap_or_default(),
-            row.knowledge.unwrap_or_default(),
-            row.last_updated.unwrap_or_default(),
-            row.limit_context.map_or_else(String::new, |v| v.to_string()),
-            row.limit_output.map_or_else(String::new, |v| v.to_string()),
-            row.limit_input.map_or_else(String::new, |v| v.to_string()),
-            row.modality_input.unwrap_or_default(),
-            row.modality_output.unwrap_or_default(),
-            row.cost_input.map_or_else(String::new, |v| v.to_string()),
-            row.cost_output.map_or_else(String::new, |v| v.to_string()),
-            row.cost_cache_read.map_or_else(String::new, |v| v.to_string()),
-            row.cost_cache_write.map_or_else(String::new, |v| v.to_string()),
-            row.cost_reasoning.map_or_else(String::new, |v| v.to_string()),
-            row.cost_input_audio.map_or_else(String::new, |v| v.to_string()),
-            row.cost_output_audio.map_or_else(String::new, |v| v.to_string()),
-            row.cost_over_200k.unwrap_or_default(),
-            row.cost_tiers.unwrap_or_default(),
-            row.benchmarks.unwrap_or_default(),
-            row.weights.unwrap_or_default(),
-        ]
-    }
-}
-impl From<ProviderRow> for Vec<String> {
-    fn from(row: ProviderRow) -> Self {
-        vec![
-            row.id.map_or_else(String::new, |v| v.to_string()),
-            row.provider_id.unwrap_or_default(),
-            row.name.unwrap_or_default(),
-            row.description.unwrap_or_default(),
-            row.endpoint.unwrap_or_default(),
-            row.documentation.unwrap_or_default(),
-            row.authentication.unwrap_or_default(),
-            row.env.unwrap_or_default(),
-            row.npm.unwrap_or_default(),
-            row.url.unwrap_or_default(),
-            row.established_date.unwrap_or_default(),
-            row.last_updated.unwrap_or_default(),
-            row.models.unwrap_or_default(),
-        ]
-    }
-}
-impl fmt::Display for ActivityRow {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "ActivityRow = id: {}, command: {}, success: {}",
-            display_or_none(self.id.as_ref()),
-            display_or_none(self.command.as_ref()),
-            self.success.unwrap_or(false),
-        )
-        .and_then(|_| write_optional_field(f, "path", self.user_path.as_ref()))
-        .and_then(|_| write_optional_timestamp(f, "executed_at", self.executed_at.as_ref()))
-    }
-}
-impl fmt::Display for LicenseRow {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "LicenseRow = id: {}, identifier: {}, name: {}, deprecated: {}, free: {}, osi: {}",
-            display_or_none(self.id.as_ref()),
-            display_or_none(self.identifier.as_ref()),
-            display_or_none(self.name.as_ref()),
-            self.is_deprecated.unwrap_or(false),
-            self.is_free_software.unwrap_or(false),
-            self.is_open_source.unwrap_or(false),
-        )
-    }
-}
-impl fmt::Display for CatalogRow {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "CatalogRow = id: {}, bucket: {}, identifier: {}, title: {}",
-            display_or_none(self.id.as_ref()),
-            display_or_none(self.bucket_name.as_ref()),
-            display_or_none(self.identifier.as_ref()),
-            display_or_none(self.title.as_ref())
-        )
-        .and_then(|_| write_optional_timestamp(f, "updated_at", self.updated_at.as_ref()))
-    }
-}
-impl fmt::Display for IdentifierRow {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "IdentifierRow = id: {}, identifier: {}, type: {}, source: {}",
-            display_or_none(self.id.as_ref()),
-            display_or_none(self.identifier.as_ref()),
-            display_or_none(self.identifier_type.as_ref()),
-            display_or_none(self.source.as_ref())
-        )
-        .and_then(|_| write_optional_timestamp(f, "discovered_at", self.discovered_at.as_ref()))
-    }
-}
-impl fmt::Display for ProgrammingLanguageRow {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "ProgrammingLanguageRow = id: {}, language_id: {}, name: {}, type: {}",
-            display_or_none(self.id.as_ref()),
-            display_or_none(self.language_id.as_ref()),
-            display_or_none(self.name.as_ref()),
-            display_or_none(self.language_type.as_ref())
-        )
-        .and_then(|_| write_optional_field(f, "color", self.color.as_ref()))
-        .and_then(|_| write_optional_field(f, "group_name", self.group_name.as_ref()))
-    }
-}
-impl fmt::Display for LinkCacheRow {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "LinkCacheRow = id: {}, url: {}, status: {}, reachable: {}",
-            display_or_none(self.id.as_ref()),
-            display_or_none(self.url.as_ref()),
-            self.status_code.unwrap_or(0),
-            self.is_reachable.unwrap_or(false)
-        )
-        .and_then(|_| write_optional_timestamp(f, "checked_at", self.checked_at.as_ref()))
-        .and_then(|_| write_optional_timestamp(f, "expires_at", self.expires_at.as_ref()))
-    }
-}
-impl fmt::Display for LogbookEntryRow {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "LogbookEntryRow = id: {}, research_activity_iid: {}, entry_identifier: {}, archived: {}",
-            display_or_none(self.id.as_ref()),
-            display_or_none(self.research_activity_iid.as_ref()),
-            display_or_none(self.entry_identifier.as_ref()),
-            self.archived.unwrap_or(false)
-        )
-        .and_then(|_| write_optional_timestamp(f, "timestamp", self.timestamp.as_ref()))
-        .and_then(|_| write_optional_timestamp(f, "updated_at", self.updated_at.as_ref()))
-    }
-}
-impl fmt::Display for ResearchActivityRow {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "ResearchActivityRow = id: {}, iid: {}",
-            display_or_none(self.id.as_ref()),
-            display_or_none(self.iid.as_ref())
-        )
-        .and_then(|_| write_optional_timestamp(f, "created_at", self.created_at.as_ref()))
-        .and_then(|_| write_optional_timestamp(f, "updated_at", self.updated_at.as_ref()))
-    }
-}
-impl fmt::Display for ResearchActivityRevisionRow {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "ResearchActivityRevisionRow = id: {}, iid: {}, research_activity_iid: {}, reason: {}",
-            display_or_none(self.id.as_ref()),
-            display_or_none(self.iid.as_ref()),
-            display_or_none(self.research_activity_iid.as_ref()),
-            display_or_none(self.reason.as_ref())
-        )
-        .and_then(|_| write_optional_timestamp(f, "created_at", self.created_at.as_ref()))
-    }
-}
-impl fmt::Display for ValidationRow {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "ValidationRow = id: {}, path: {}, type: {}, success: {}, message: {}",
-            display_or_none(self.id.as_ref()),
-            display_or_none(self.path.as_ref()),
-            display_or_none(self.check_type.as_ref()),
-            self.success.unwrap_or(false),
-            display_or_none(self.message.as_ref())
-        )
-        .and_then(|_| write_optional_timestamp(f, "checked_at", self.checked_at.as_ref()))
-    }
-}
-impl fmt::Display for ModelRow {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "ModelRow = id: {}, model_id: {}, name: {}, family: {}",
-            display_or_none(self.id.as_ref()),
-            display_or_none(self.model_id.as_ref()),
-            display_or_none(self.name.as_ref()),
-            display_or_none(self.family.as_ref())
-        )
-    }
-}
-impl ModelRow {
-    /// Deserialize the model's persisted weight metadata.
-    pub fn parsed_weights(&self) -> Option<Weights> {
-        self.weights.as_deref().and_then(|weights| serde_json::from_str(weights).ok())
-    }
-    /// Update the serialized weight metadata for this model.
-    pub fn update_weights(&self, path: Option<PathBuf>) -> ApiResult<usize> {
-        match (self.model_id.as_deref(), self.weights.as_deref()) {
-            | (Some(model_id), Some(weights)) => Database::<Table>::from_path(path).with_connection(|conn| {
-                conn.execute("UPDATE models SET weights = ? WHERE model_id = ?", backend::params![weights, model_id])
-                    .map_err(|why| eyre!("=> {} Failed to update model weights: {why}", Label::fail()))
-            }),
-            | (None, _) => Err(eyre!("Model identifier is required to update model weights")),
-            | (_, None) => Err(eyre!("Model weights are required to update model weights")),
-        }
-    }
-}
-impl fmt::Display for ProviderRow {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "ProviderRow = id: {}, provider_id: {}, name: {}",
-            display_or_none(self.id.as_ref()),
-            display_or_none(self.provider_id.as_ref()),
-            display_or_none(self.name.as_ref())
-        )
-        .and_then(|_| write_optional_field(f, "description", self.description.as_ref()))
+impl Table {
+    pub(super) fn unique_iid(&self, connection: &Connection) -> ApiResult<String> {
+        let table = self.name();
+        (0..8)
+            .map(|_| nanoid!())
+            .find_map(|iid| {
+                connection
+                    .query_row(
+                        &format!("SELECT COUNT(*) FROM {table} WHERE iid = ?"),
+                        backend::params![iid.clone()],
+                        |row| row.get::<_, i64>(0),
+                    )
+                    .ok()
+                    .filter(|count| *count == 0)
+                    .map(|_| iid)
+            })
+            .ok_or_else(|| eyre!("Failed to generate a unique identifier for {table}"))
     }
 }
 #[async_trait]
@@ -1167,304 +1426,35 @@ impl TableSchemaProvider for Table {
         })
     }
 }
-impl Row for ActivityRow {
-    fn table(&self) -> Table {
-        Table::Activity
-    }
-    fn insert(self, conn: &Connection) -> ApiResult<usize> {
-        let Self {
-            command,
-            executed_at,
-            user_path,
-            success,
-            ..
-        } = self.clone();
-        let executed_at = to_rfc3339(executed_at.unwrap_or_else(Timestamp::now));
-        let success = i32::from(success.unwrap_or(true));
-        let required = required1(command);
-        match required {
-            | Ok((command,)) => match self.next_row_id(conn) {
-                | Ok(id) => {
-                    let params = backend::params![id, command, executed_at, user_path, success];
-                    execute_insert(&self, conn, params)
-                }
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        }
-    }
-    fn build_select_query(&self, base: &str) -> SelectQuery {
-        Self::build_select_query(self, base)
+impl fmt::Display for ValidationRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "ValidationRow = id: {}, path: {}, type: {}, success: {}, message: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.path.as_ref()),
+            display_or_none(self.check_type.as_ref()),
+            self.success.unwrap_or(false),
+            display_or_none(self.message.as_ref())
+        )
+        .and_then(|_| write_optional_timestamp(f, "checked_at", self.checked_at.as_ref()))
     }
 }
-impl Row for CatalogRow {
-    fn table(&self) -> Table {
-        Table::Catalog
-    }
-    fn insert(self, conn: &Connection) -> ApiResult<usize> {
-        let Self {
-            bucket_name,
-            bucket_url,
-            identifier,
-            title,
-            updated_at,
-            ..
-        } = self.clone();
-        let updated_at = to_rfc3339(updated_at.unwrap_or_else(Timestamp::now));
-        let required = required4(bucket_name, bucket_url, identifier, title);
-        match required {
-            | Ok((bucket_name, bucket_url, identifier, title)) => match self.next_row_id(conn) {
-                | Ok(id) => {
-                    let params = backend::params![id, bucket_name, bucket_url, identifier, title, updated_at];
-                    execute_insert(&self, conn, params)
-                }
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
+impl From<&BackendRow<'_>> for ValidationRow {
+    fn from(row: &BackendRow<'_>) -> Self {
+        ValidationRow {
+            id: row.get(0).ok(),
+            path: row.get(1).ok(),
+            check_type: row.get(2).ok(),
+            success: row.get::<_, i32>(3).ok().map(|value| value != 0),
+            message: row.get(4).ok(),
+            checked_at: row.parse_rfc3339(5),
         }
-    }
-    fn build_select_query(&self, base: &str) -> SelectQuery {
-        Self::build_select_query(self, base)
     }
 }
-impl Row for IdentifierRow {
-    fn table(&self) -> Table {
-        Table::Discoveries
-    }
-    fn insert(self, conn: &Connection) -> ApiResult<usize> {
-        let Self {
-            discovered_at,
-            identifier,
-            identifier_type,
-            metadata,
-            resolution_status,
-            source,
-            source_format,
-            ..
-        } = self.clone();
-        let discovered_at = to_rfc3339(discovered_at.unwrap_or_else(Timestamp::now));
-        match required1(identifier) {
-            | Ok((identifier,)) => match self.next_row_id(conn) {
-                | Ok(id) => execute_insert(
-                    &self,
-                    conn,
-                    backend::params![
-                        id,
-                        discovered_at,
-                        identifier,
-                        identifier_type.unwrap_or_else(|| "unknown".to_string()),
-                        metadata,
-                        resolution_status.unwrap_or_else(|| "not-requested".to_string()),
-                        source.unwrap_or_else(|| "unknown".to_string()),
-                        source_format.unwrap_or_else(|| "text".to_string()),
-                    ],
-                ),
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        }
-    }
-    fn build_select_query(&self, base: &str) -> SelectQuery {
-        Self::build_select_query(self, base)
-    }
-}
-impl Row for LicenseRow {
-    fn table(&self) -> Table {
-        Table::Licenses
-    }
-    fn insert(self, conn: &Connection) -> ApiResult<usize> {
-        let Self {
-            identifier,
-            name,
-            is_deprecated,
-            is_free_software,
-            is_open_source,
-            ..
-        } = self.clone();
-        let required = required5(identifier, name, is_deprecated, is_free_software, is_open_source);
-        match required {
-            | Ok((identifier, name, is_deprecated, is_free_software, is_open_source)) => match self.next_row_id(conn) {
-                | Ok(id) => {
-                    let params = backend::params![
-                        id,
-                        identifier,
-                        name,
-                        i32::from(is_deprecated),
-                        i32::from(is_free_software),
-                        i32::from(is_open_source)
-                    ];
-                    execute_insert(&self, conn, params)
-                }
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        }
-    }
-    fn build_select_query(&self, base: &str) -> SelectQuery {
-        Self::build_select_query(self, base)
-    }
-}
-impl Row for LinkCacheRow {
-    fn table(&self) -> Table {
-        Table::LinkCache
-    }
-    fn insert(self, conn: &Connection) -> ApiResult<usize> {
-        let Self {
-            url,
-            status_code,
-            is_reachable,
-            checked_at,
-            expires_at,
-            ..
-        } = self.clone();
-        let checked_at = to_rfc3339(checked_at.unwrap_or_else(Timestamp::now));
-        let required = required4(url, status_code, is_reachable, expires_at);
-        match required {
-            | Ok((url, status_code, is_reachable, expires_at)) => match self.next_row_id(conn) {
-                | Ok(id) => {
-                    let params = backend::params![id, url, status_code, i32::from(is_reachable), checked_at, to_rfc3339(expires_at)];
-                    execute_insert(&self, conn, params)
-                }
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        }
-    }
-    fn build_select_query(&self, base: &str) -> SelectQuery {
-        Self::build_select_query(self, base)
-    }
-}
-impl Row for LogbookEntryRow {
-    fn table(&self) -> Table {
-        Table::LogbookEntries
-    }
-    fn insert(self, conn: &Connection) -> ApiResult<usize> {
-        let Self {
-            research_activity_iid,
-            entry_identifier,
-            entry_json,
-            timestamp,
-            archived,
-            created_at,
-            updated_at,
-            ..
-        } = self.clone();
-        let required = required5(research_activity_iid, entry_identifier, entry_json, timestamp, archived);
-        match required {
-            | Ok((research_activity_iid, entry_identifier, entry_json, timestamp, archived)) => match self.next_row_id(conn) {
-                | Ok(id) => {
-                    let created_at = to_rfc3339(created_at.unwrap_or_else(Timestamp::now));
-                    let updated_at = to_rfc3339(updated_at.unwrap_or_else(Timestamp::now));
-                    let params = backend::params![
-                        id,
-                        research_activity_iid,
-                        entry_identifier,
-                        entry_json,
-                        to_rfc3339(timestamp),
-                        i32::from(archived),
-                        created_at,
-                        updated_at,
-                    ];
-                    execute_insert(&self, conn, params)
-                }
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        }
-    }
-    fn build_select_query(&self, base: &str) -> SelectQuery {
-        Self::build_select_query(self, base)
-    }
-}
-impl Row for ProgrammingLanguageRow {
-    fn table(&self) -> Table {
-        Table::ProgrammingLanguages
-    }
-    fn insert(self, conn: &Connection) -> ApiResult<usize> {
-        let Self {
-            language_id,
-            name,
-            language_type,
-            color,
-            group_name,
-            ..
-        } = self.clone();
-        let required = required1(name);
-        match required {
-            | Ok((name,)) => match self.next_row_id(conn) {
-                | Ok(id) => {
-                    let params = backend::params![id, language_id, name, language_type, color, group_name];
-                    execute_insert(&self, conn, params)
-                }
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        }
-    }
-    fn build_select_query(&self, base: &str) -> SelectQuery {
-        Self::build_select_query(self, base)
-    }
-}
-impl Row for ResearchActivityRow {
-    fn table(&self) -> Table {
-        Table::ResearchActivities
-    }
-    fn insert(self, conn: &Connection) -> ApiResult<usize> {
-        let Self {
-            iid,
-            rad_json,
-            identity_keys_json,
-            provenance_json,
-            created_at,
-            updated_at,
-            ..
-        } = self.clone();
-        let created_at = to_rfc3339(created_at.unwrap_or_else(Timestamp::now));
-        let updated_at = to_rfc3339(updated_at.unwrap_or_else(Timestamp::now));
-        let required = required4(iid, rad_json, identity_keys_json, provenance_json);
-        match required {
-            | Ok((iid, rad_json, identity_keys_json, provenance_json)) => match self.next_row_id(conn) {
-                | Ok(id) => {
-                    let params = backend::params![id, iid, rad_json, identity_keys_json, provenance_json, created_at, updated_at];
-                    execute_insert(&self, conn, params)
-                }
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        }
-    }
-    fn build_select_query(&self, base: &str) -> SelectQuery {
-        Self::build_select_query(self, base)
-    }
-}
-impl Row for ResearchActivityRevisionRow {
-    fn table(&self) -> Table {
-        Table::ResearchActivityRevisions
-    }
-    fn insert(self, conn: &Connection) -> ApiResult<usize> {
-        let Self {
-            iid,
-            research_activity_iid,
-            rad_json,
-            reason,
-            created_at,
-            ..
-        } = self.clone();
-        let required = required4(iid, research_activity_iid, rad_json, reason);
-        match required {
-            | Ok((iid, research_activity_iid, rad_json, reason)) => match self.next_row_id(conn) {
-                | Ok(id) => {
-                    let created_at = to_rfc3339(created_at.unwrap_or_else(Timestamp::now));
-                    let params = backend::params![id, iid, research_activity_iid, rad_json, reason, created_at];
-                    execute_insert(&self, conn, params)
-                }
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        }
-    }
-    fn build_select_query(&self, base: &str) -> SelectQuery {
-        Self::build_select_query(self, base)
+impl From<BackendRow<'_>> for ValidationRow {
+    fn from(row: BackendRow<'_>) -> Self {
+        ValidationRow::from(&row)
     }
 }
 impl Row for ValidationRow {
@@ -1498,148 +1488,185 @@ impl Row for ValidationRow {
         Self::build_select_query(self, base)
     }
 }
-impl Row for ModelRow {
-    fn table(&self) -> Table {
-        Table::Models
-    }
-    fn insert(self, conn: &Connection) -> ApiResult<usize> {
-        let Self {
-            model_id,
-            name,
-            family,
-            variant,
-            version,
-            attachment,
-            open_weights,
-            reasoning,
-            structured_output,
-            temperature,
-            tool_call,
-            parameters,
-            release_date,
-            knowledge,
-            last_updated,
-            limit_context,
-            limit_output,
-            limit_input,
-            modality_input,
-            modality_output,
-            cost_input,
-            cost_output,
-            cost_cache_read,
-            cost_cache_write,
-            cost_reasoning,
-            cost_input_audio,
-            cost_output_audio,
-            cost_over_200k,
-            cost_tiers,
-            benchmarks,
-            weights,
-            ..
-        } = self.clone();
-        let required = required1(model_id);
-        match required {
-            | Ok((model_id,)) => match self.next_row_id(conn) {
-                | Ok(id) => {
-                    let params = backend::params![
-                        id,
-                        model_id,
-                        name,
-                        family,
-                        variant,
-                        version,
-                        attachment.map(i32::from),
-                        open_weights.map(i32::from),
-                        reasoning.map(i32::from),
-                        structured_output.map(i32::from),
-                        temperature.map(i32::from),
-                        tool_call.map(i32::from),
-                        parameters,
-                        release_date,
-                        knowledge,
-                        last_updated,
-                        limit_context,
-                        limit_output,
-                        limit_input,
-                        modality_input,
-                        modality_output,
-                        cost_input,
-                        cost_output,
-                        cost_cache_read,
-                        cost_cache_write,
-                        cost_reasoning,
-                        cost_input_audio,
-                        cost_output_audio,
-                        cost_over_200k,
-                        cost_tiers,
-                        benchmarks,
-                        weights,
-                    ];
-                    execute_insert(&self, conn, params)
-                }
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        }
-    }
-    fn build_select_query(&self, base: &str) -> SelectQuery {
-        Self::build_select_query(self, base)
+impl From<ActivityRow> for Vec<String> {
+    fn from(row: ActivityRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.command.unwrap_or_default(),
+            row.executed_at.map_or_else(String::new, to_rfc3339),
+            row.user_path.unwrap_or_default(),
+            row.success.map_or_else(String::new, |v| v.to_string()),
+        ]
     }
 }
-impl Row for ProviderRow {
-    fn table(&self) -> Table {
-        Table::Providers
-    }
-    fn insert(self, conn: &Connection) -> ApiResult<usize> {
-        let Self {
-            provider_id,
-            name,
-            description,
-            endpoint,
-            documentation,
-            authentication,
-            env,
-            npm,
-            url,
-            established_date,
-            last_updated,
-            models,
-            ..
-        } = self.clone();
-        let required = required1(provider_id);
-        match required {
-            | Ok((provider_id,)) => match self.next_row_id(conn) {
-                | Ok(id) => {
-                    let params = backend::params![
-                        id,
-                        provider_id,
-                        name,
-                        description,
-                        endpoint,
-                        documentation,
-                        authentication,
-                        env,
-                        npm,
-                        url,
-                        established_date,
-                        last_updated,
-                        models,
-                    ];
-                    execute_insert(&self, conn, params)
-                }
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        }
-    }
-    fn build_select_query(&self, base: &str) -> SelectQuery {
-        Self::build_select_query(self, base)
+impl From<CatalogRow> for Vec<String> {
+    fn from(row: CatalogRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.bucket_name.unwrap_or_default(),
+            row.bucket_url.unwrap_or_default(),
+            row.identifier.unwrap_or_default(),
+            row.title.unwrap_or_default(),
+            row.updated_at.map_or_else(String::new, to_rfc3339),
+        ]
     }
 }
-impl LinkCacheRow {
-    /// Check if the cache entry is expired
-    pub fn is_expired(&self) -> bool {
-        self.expires_at.map(|expires_at| Timestamp::now() > expires_at).unwrap_or(true)
+impl From<IdentifierRow> for Vec<String> {
+    fn from(row: IdentifierRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |value| value.to_string()),
+            row.discovered_at.map_or_else(String::new, to_rfc3339),
+            row.identifier.unwrap_or_default(),
+            row.identifier_type.unwrap_or_default(),
+            row.metadata.unwrap_or_default(),
+            row.resolution_status.unwrap_or_default(),
+            row.source.unwrap_or_default(),
+            row.source_format.unwrap_or_default(),
+        ]
+    }
+}
+impl From<LicenseRow> for Vec<String> {
+    fn from(row: LicenseRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.identifier.unwrap_or_default(),
+            row.name.unwrap_or_default(),
+            row.is_deprecated.map_or_else(String::new, |v| v.to_string()),
+            row.is_free_software.map_or_else(String::new, |v| v.to_string()),
+            row.is_open_source.map_or_else(String::new, |v| v.to_string()),
+        ]
+    }
+}
+impl From<LinkCacheRow> for Vec<String> {
+    fn from(row: LinkCacheRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.url.unwrap_or_default(),
+            row.status_code.map_or_else(String::new, |v| v.to_string()),
+            row.is_reachable.map_or_else(String::new, |v| v.to_string()),
+            row.checked_at.map_or_else(String::new, to_rfc3339),
+            row.expires_at.map_or_else(String::new, to_rfc3339),
+        ]
+    }
+}
+impl From<LogbookEntryRow> for Vec<String> {
+    fn from(row: LogbookEntryRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |value| value.to_string()),
+            row.research_activity_iid.unwrap_or_default(),
+            row.entry_identifier.unwrap_or_default(),
+            row.entry_json.unwrap_or_default(),
+            row.timestamp.map_or_else(String::new, to_rfc3339),
+            row.archived.map_or_else(String::new, |value| value.to_string()),
+            row.created_at.map_or_else(String::new, to_rfc3339),
+            row.updated_at.map_or_else(String::new, to_rfc3339),
+        ]
+    }
+}
+impl From<ModelRow> for Vec<String> {
+    fn from(row: ModelRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.model_id.unwrap_or_default(),
+            row.name.unwrap_or_default(),
+            row.family.unwrap_or_default(),
+            row.variant.unwrap_or_default(),
+            row.version.unwrap_or_default(),
+            row.attachment.map_or_else(String::new, |v| v.to_string()),
+            row.open_weights.map_or_else(String::new, |v| v.to_string()),
+            row.reasoning.map_or_else(String::new, |v| v.to_string()),
+            row.structured_output.map_or_else(String::new, |v| v.to_string()),
+            row.temperature.map_or_else(String::new, |v| v.to_string()),
+            row.tool_call.map_or_else(String::new, |v| v.to_string()),
+            row.parameters.map_or_else(String::new, |v| v.to_string()),
+            row.release_date.unwrap_or_default(),
+            row.knowledge.unwrap_or_default(),
+            row.last_updated.unwrap_or_default(),
+            row.limit_context.map_or_else(String::new, |v| v.to_string()),
+            row.limit_output.map_or_else(String::new, |v| v.to_string()),
+            row.limit_input.map_or_else(String::new, |v| v.to_string()),
+            row.modality_input.unwrap_or_default(),
+            row.modality_output.unwrap_or_default(),
+            row.cost_input.map_or_else(String::new, |v| v.to_string()),
+            row.cost_output.map_or_else(String::new, |v| v.to_string()),
+            row.cost_cache_read.map_or_else(String::new, |v| v.to_string()),
+            row.cost_cache_write.map_or_else(String::new, |v| v.to_string()),
+            row.cost_reasoning.map_or_else(String::new, |v| v.to_string()),
+            row.cost_input_audio.map_or_else(String::new, |v| v.to_string()),
+            row.cost_output_audio.map_or_else(String::new, |v| v.to_string()),
+            row.cost_over_200k.unwrap_or_default(),
+            row.cost_tiers.unwrap_or_default(),
+            row.benchmarks.unwrap_or_default(),
+            row.weights.unwrap_or_default(),
+        ]
+    }
+}
+impl From<ProgrammingLanguageRow> for Vec<String> {
+    fn from(row: ProgrammingLanguageRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.language_id.map_or_else(String::new, |v| v.to_string()),
+            row.name.unwrap_or_default(),
+            row.language_type.unwrap_or_default(),
+            row.color.unwrap_or_default(),
+            row.group_name.unwrap_or_default(),
+        ]
+    }
+}
+impl From<ProviderRow> for Vec<String> {
+    fn from(row: ProviderRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.provider_id.unwrap_or_default(),
+            row.name.unwrap_or_default(),
+            row.description.unwrap_or_default(),
+            row.endpoint.unwrap_or_default(),
+            row.documentation.unwrap_or_default(),
+            row.authentication.unwrap_or_default(),
+            row.env.unwrap_or_default(),
+            row.npm.unwrap_or_default(),
+            row.url.unwrap_or_default(),
+            row.established_date.unwrap_or_default(),
+            row.last_updated.unwrap_or_default(),
+            row.models.unwrap_or_default(),
+        ]
+    }
+}
+impl From<ResearchActivityRevisionRow> for Vec<String> {
+    fn from(row: ResearchActivityRevisionRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |value| value.to_string()),
+            row.iid.unwrap_or_default(),
+            row.research_activity_iid.unwrap_or_default(),
+            row.rad_json.unwrap_or_default(),
+            row.reason.unwrap_or_default(),
+            row.created_at.map_or_else(String::new, to_rfc3339),
+        ]
+    }
+}
+impl From<ResearchActivityRow> for Vec<String> {
+    fn from(row: ResearchActivityRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.iid.unwrap_or_default(),
+            row.rad_json.unwrap_or_default(),
+            row.identity_keys_json.unwrap_or_default(),
+            row.provenance_json.unwrap_or_default(),
+            row.created_at.map_or_else(String::new, to_rfc3339),
+            row.updated_at.map_or_else(String::new, to_rfc3339),
+        ]
+    }
+}
+impl From<ValidationRow> for Vec<String> {
+    fn from(row: ValidationRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.path.unwrap_or_default(),
+            row.check_type.unwrap_or_default(),
+            row.success.map_or_else(String::new, |v| v.to_string()),
+            row.message.unwrap_or_default(),
+            row.checked_at.map_or_else(String::new, to_rfc3339),
+        ]
     }
 }
 fn display_or_none<T>(value: Option<&T>) -> String
@@ -1665,6 +1692,15 @@ where
                 .map_err(|why| eyre!("=> {} Failed to insert row: {why}", Label::fail()))
         })
 }
+#[cfg(feature = "duckdb")]
+fn id_column_definition() -> &'static str {
+    "id BIGINT PRIMARY KEY"
+}
+
+#[cfg(not(feature = "duckdb"))]
+fn id_column_definition() -> &'static str {
+    "id INTEGER PRIMARY KEY AUTOINCREMENT"
+}
 fn write_optional_field<T>(f: &mut fmt::Formatter<'_>, label: &str, value: Option<&T>) -> fmt::Result
 where
     T: fmt::Display,
@@ -1679,13 +1715,4 @@ fn write_optional_timestamp(f: &mut fmt::Formatter<'_>, label: &str, value: Opti
         | Some(value) => write!(f, ", {label}: {}", value.strftime("%Y-%m-%d %H:%M:%S")),
         | None => Ok(()),
     }
-}
-#[cfg(feature = "duckdb")]
-fn id_column_definition() -> &'static str {
-    "id BIGINT PRIMARY KEY"
-}
-
-#[cfg(not(feature = "duckdb"))]
-fn id_column_definition() -> &'static str {
-    "id INTEGER PRIMARY KEY AUTOINCREMENT"
 }

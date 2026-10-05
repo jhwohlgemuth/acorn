@@ -1,5 +1,9 @@
 # API Refactor Plans
 
+## Planned
+
+- [Outbound MCP client embedder interface](outbound-mcp-client-interface.md) - Construct the policy-checked client from an MCP server map and add bounded caller-driven cancellation without changing transports or policy.
+
 ## In progress
 
 - [Shared API client contract](shared-client-contract.md) - Complete endpoint, request, invocation, resolved configuration, response, error, health, OpenAPI, and RAiD workflow boundaries in dependency order.

@@ -7,6 +7,7 @@ use crate::{
         download::{DownloadItem, DownloadItems},
         first_env_var, http,
         http::HttpResponseError,
+        model::{gguf, ContextLength},
         sync::Shard,
         ApiResult, Source,
     },
@@ -80,6 +81,21 @@ pub trait HuggingFaceRepository {
     fn try_glob(&self, filter: Option<&str>, ignore: Option<&str>) -> Option<Self>
     where
         Self: Sized;
+}
+/// Hugging Face source operations for schema-owned model weights.
+pub trait HuggingFaceWeightsExt: Sized {
+    /// Set the open-weight flag for the primary source.
+    fn open(self, is_open: Option<bool>) -> Self;
+    /// Construct weights from a source location with explicit open-weight control.
+    fn from_source(source: &Source, is_open: Option<bool>) -> Self;
+    /// Resolve the first non-empty model weight URL into a downloadable source.
+    fn to_source(self, name: Option<String>) -> Option<Source>;
+}
+/// Hugging Face network operations for schema-owned model metadata.
+#[async_trait]
+pub trait ModelDetailsExt: Sized {
+    /// Resolve this model to a GGUF fallback repository.
+    async fn resolve_fallback(self, search_options: &SearchOptions, offline: bool) -> ApiResult<RepositoryResolution<Self>>;
 }
 /// Extension trait for Hugging Face model metadata
 pub trait ModelInfoExtension {
@@ -175,6 +191,14 @@ pub struct FileSelectionPolicy<'a> {
     /// Error message to display when no files match.
     pub no_match_message: &'a str,
 }
+/// GGUF metadata projected by the Hugging Face model-info API.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct GgufInfo {
+    /// Model architecture reported by Hugging Face.
+    pub architecture: Option<String>,
+    /// Context length reported for repository GGUF files.
+    pub context_length: Option<u64>,
+}
 /// File metadata returned by the Hugging Face repository tree API
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HuggingFaceRepositoryFile {
@@ -208,6 +232,9 @@ pub struct ModelInfo {
     /// Downloads reported by Hugging Face.
     #[serde(default)]
     pub downloads: Option<u64>,
+    /// GGUF metadata projected from repository files.
+    #[serde(default, deserialize_with = "GgufInfo::deserialize_optional")]
+    pub gguf: Option<GgufInfo>,
     /// Likes reported by Hugging Face.
     #[serde(default)]
     pub likes: Option<u64>,
@@ -425,6 +452,29 @@ impl Downloaded {
             })
             .collect::<Vec<_>>();
         Weights(existing.0.into_iter().chain(downloaded).collect())
+    }
+}
+impl<'a> ContextLength<&'a Path> for Downloaded {
+    type Output = ApiResult<Option<u64>>;
+
+    fn context_length(&self, destination: &'a Path) -> Self::Output {
+        let paths = self.files.iter().map(|path| destination.join(path)).collect::<Vec<_>>();
+        gguf::context_length(&paths)
+    }
+}
+impl ContextLength for GgufInfo {
+    type Output = Option<u64>;
+
+    fn context_length(&self, (): ()) -> Self::Output {
+        self.context_length
+    }
+}
+impl GgufInfo {
+    fn deserialize_optional<'de, D>(deserializer: D) -> Result<Option<Self>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Option::<Value>::deserialize(deserializer).map(|value| value.and_then(|value| serde_json::from_value(value).ok()))
     }
 }
 impl core::error::Error for HuggingFaceError {}
@@ -772,12 +822,6 @@ impl From<RepositoryResolution<ModelDetails>> for ModelDetails {
         }
     }
 }
-/// Hugging Face network operations for schema-owned model metadata.
-#[async_trait]
-pub trait ModelDetailsExt: Sized {
-    /// Resolve this model to a GGUF fallback repository.
-    async fn resolve_fallback(self, search_options: &SearchOptions, offline: bool) -> ApiResult<RepositoryResolution<Self>>;
-}
 #[async_trait]
 impl ModelDetailsExt for ModelDetails {
     async fn resolve_fallback(self, search_options: &SearchOptions, offline: bool) -> ApiResult<RepositoryResolution<Self>> {
@@ -799,6 +843,13 @@ impl ModelDetailsExt for ModelDetails {
         }
     }
 }
+impl ContextLength for ModelInfo {
+    type Output = Option<u64>;
+
+    fn context_length(&self, (): ()) -> Self::Output {
+        self.gguf.as_ref().and_then(|value| value.context_length(()))
+    }
+}
 impl ModelInfo {
     /// Fetch model metadata with base models, files, card data, and tags expanded.
     pub async fn fetch(options: &Options) -> ApiResult<Self> {
@@ -810,6 +861,7 @@ impl ModelInfo {
                         param!(TemplateValue, "identifier", identifier),
                         param!(KeyValuePair, "expand", "baseModels"),
                         param!(KeyValuePair, "expand", "cardData"),
+                        param!(KeyValuePair, "expand", "gguf"),
                         param!(KeyValuePair, "expand", "siblings"),
                         param!(KeyValuePair, "expand", "tags"),
                     ]
@@ -978,15 +1030,6 @@ impl From<HuggingFaceRepositoryFiles> for Weights {
                 .collect(),
         )
     }
-}
-/// Hugging Face source operations for schema-owned model weights.
-pub trait HuggingFaceWeightsExt: Sized {
-    /// Set the open-weight flag for the primary source.
-    fn open(self, is_open: Option<bool>) -> Self;
-    /// Construct weights from a source location with explicit open-weight control.
-    fn from_source(source: &Source, is_open: Option<bool>) -> Self;
-    /// Resolve the first non-empty model weight URL into a downloadable source.
-    fn to_source(self, name: Option<String>) -> Option<Source>;
 }
 impl HuggingFaceWeightsExt for Weights {
     fn open(mut self, is_open: Option<bool>) -> Self {

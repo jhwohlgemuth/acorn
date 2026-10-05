@@ -1,25 +1,12 @@
 //! GGUF model selection and binary validation
-use crate::{
-    io::{
-        config::FilterSet,
-        oci::{OciExtraction, OciFile, OciFiles, OciLayer, OciResolution},
-        ApiResult, PathExt,
-    },
-    util::constants::oci::{
-        MODELPACK_WEIGHT_CONFIG_RAW, MODELPACK_WEIGHT_CONFIG_TAR, MODELPACK_WEIGHT_CONFIG_TAR_GZIP, MODELPACK_WEIGHT_CONFIG_TAR_ZSTD,
-        MODELPACK_WEIGHT_RAW, MODELPACK_WEIGHT_TAR, MODELPACK_WEIGHT_TAR_GZIP, MODELPACK_WEIGHT_TAR_ZSTD,
-    },
+use super::ContextLength;
+use crate::io::{
+    oci::{OciFile, OciFiles, OciResolution},
+    ApiResult, PathExt,
 };
-use acorn_core::{
-    prelude::{HashSet, String, ToString, Vec},
-    validation::ValidationError,
-};
-use acorn_host::fs::SafePath;
-use acorn_schema::{
-    agent::Quantization,
-    oci::ModelLayerRole,
-    validation::{IntoValidationReport, ValidationReport},
-};
+use acorn_core::prelude::{HashSet, String, ToString, Vec};
+use acorn_schema::oci::ModelLayerRole;
+use alloc::collections::BTreeSet;
 use color_eyre::eyre::eyre;
 use std::{
     fs::{self, remove_file, File},
@@ -34,7 +21,9 @@ enum GgufValue {
     Unsigned(u64),
 }
 #[derive(Clone, Debug, Default)]
-struct GgufInfo {
+pub(in crate::io) struct GgufInfo {
+    architecture: Option<String>,
+    context_lengths: Vec<(String, u64)>,
     general_type: Option<String>,
     split_no: Option<u64>,
     split_count: Option<u64>,
@@ -44,8 +33,23 @@ struct GgufReader<R> {
     position: u64,
     length: u64,
 }
+impl ContextLength for GgufInfo {
+    type Output = Option<u64>;
+
+    fn context_length(&self, (): ()) -> Self::Output {
+        self.architecture.as_ref().and_then(|architecture| {
+            let key = format!("{architecture}.context_length");
+            self.context_lengths
+                .iter()
+                .find_map(|(candidate, value)| (candidate == &key).then_some(*value))
+        })
+    }
+}
 impl GgufInfo {
-    fn load(path: PathBuf) -> ApiResult<Self> {
+    pub(in crate::io) fn is_adapter(&self) -> bool {
+        self.general_type.as_deref() == Some("adapter")
+    }
+    pub(in crate::io) fn load(path: PathBuf) -> ApiResult<Self> {
         fs::metadata(&path)
             .map_err(|why| eyre!("Failed to inspect GGUF '{}' — {why}", path.display()))
             .and_then(|metadata| {
@@ -82,6 +86,17 @@ impl GgufInfo {
                     .and_then(|(tensor_count, metadata_count)| reader.inspect_metadata(metadata_count).map(|value| (tensor_count, value)))
                     .and_then(|(tensor_count, (info, alignment))| reader.inspect_tensors(tensor_count, alignment, length).map(|()| info))
             })
+    }
+    pub(in crate::io) fn validate_split_metadata(&self, path: &Path) -> ApiResult<()> {
+        match (path.to_gguf_parts(), self.split_no, self.split_count) {
+            | (Some((_, index, count)), Some(split_no), Some(split_count)) if split_no.saturating_add(1) == index && split_count == count => Ok(()),
+            | (Some(_), _, _) => Err(eyre!("Split GGUF '{}' has missing or inconsistent split metadata", path.display())),
+            | (None, Some(_), Some(count)) if count > 1 => Err(eyre!(
+                "GGUF '{}' declares a split set but its filename is not a split shard",
+                path.display()
+            )),
+            | _ => Ok(()),
+        }
     }
 }
 impl<R: Read> GgufReader<R> {
@@ -187,6 +202,13 @@ impl<R: Read> GgufReader<R> {
             self.string()
                 .and_then(|key| self.u32().and_then(|kind| self.value(kind, 0).map(|value| (key, value))))
                 .map(|(key, value)| match (key.as_str(), value) {
+                    | ("general.architecture", Some(GgufValue::String(value))) => (
+                        GgufInfo {
+                            architecture: Some(value),
+                            ..info
+                        },
+                        alignment,
+                    ),
                     | ("general.type", Some(GgufValue::String(value))) => (
                         GgufInfo {
                             general_type: Some(value),
@@ -209,6 +231,13 @@ impl<R: Read> GgufReader<R> {
                         alignment,
                     ),
                     | ("general.alignment", Some(GgufValue::Unsigned(value))) => (info, value),
+                    | (key, Some(GgufValue::Unsigned(value))) if key.ends_with(".context_length") => (
+                        GgufInfo {
+                            context_lengths: info.context_lengths.into_iter().chain([(key.to_string(), value)]).collect(),
+                            ..info
+                        },
+                        alignment,
+                    ),
                     | _ => (info, alignment),
                 })
         })
@@ -235,140 +264,29 @@ impl<R: Read> GgufReader<R> {
         }
     }
 }
-impl OciFile {
-    fn validate_split_metadata(self, info: &GgufInfo) -> ApiResult<Self> {
-        match (Path::new(&self.path).to_gguf_parts(), info.split_no, info.split_count) {
-            | (Some((_, index, count)), Some(split_no), Some(split_count)) if split_no.saturating_add(1) == index && split_count == count => Ok(self),
-            | (Some(_), _, _) => Err(eyre!("Split GGUF '{}' has missing or inconsistent split metadata", self.path)),
-            | (None, Some(_), Some(count)) if count > 1 => {
-                Err(eyre!("GGUF '{}' declares a split set but its filename is not a split shard", self.path))
+pub(in crate::io) fn context_length(paths: &[PathBuf]) -> ApiResult<Option<u64>> {
+    paths
+        .iter()
+        .filter(|path| path.is_gguf() && !path.is_auxiliary_gguf())
+        .map(|path| GgufInfo::load(path.clone()).and_then(|info| info.validate_split_metadata(path).map(|()| info)))
+        .collect::<ApiResult<Vec<_>>>()
+        .and_then(|values| {
+            let contexts = values
+                .iter()
+                .filter(|info| info.general_type.as_deref() != Some("adapter"))
+                .filter_map(|info| info.context_length(()))
+                .collect::<BTreeSet<_>>();
+            match contexts.into_iter().collect::<Vec<_>>().as_slice() {
+                | [] => Ok(None),
+                | [value] => Ok(Some(*value)),
+                | values => Err(eyre!(
+                    "Selected GGUF files report conflicting context lengths ({})",
+                    values.iter().map(ToString::to_string).collect::<Vec<_>>().join(", ")
+                )),
             }
-            | _ => Ok(self),
-        }
-    }
+        })
 }
-impl OciFiles {
-    pub(super) fn select_known(self, filter: &[String], ignore: &[String], quantization: &[Quantization]) -> ApiResult<Self> {
-        match self.0.is_empty() {
-            | true => Ok(self),
-            | false => FilterSet::filter(
-                self.0,
-                filter,
-                ignore,
-                |file| file.path.clone(),
-                |file| {
-                    Path::new(&file.path).is_auxiliary_gguf()
-                        || quantization.is_empty()
-                        || quantization
-                            .iter()
-                            .any(|value| Quantization::from_gguf_filename(&file.path).as_ref() == Some(value))
-                },
-            )
-            .and_then(|selected| match selected.is_empty() {
-                | true => Err(eyre!("No OCI GGUF files matched the selection policy")),
-                | false => Self(selected).validate_paths(),
-            }),
-        }
-    }
-    pub(crate) fn validate_paths(self) -> ApiResult<Self> {
-        let primary = self
-            .0
-            .iter()
-            .filter(|file| !Path::new(&file.path).is_auxiliary_gguf())
-            .collect::<Vec<_>>();
-        let groups = primary
-            .iter()
-            .map(|file| {
-                let path = Path::new(&file.path);
-                path.to_gguf_parts().map_or_else(|| file.path.clone(), |(key, _, _)| key)
-            })
-            .collect::<HashSet<_>>();
-        let validation = match groups.len() {
-            | 0 => Err(eyre!("OCI artifact contains no primary GGUF model")),
-            | 1 => {
-                let split = primary
-                    .iter()
-                    .filter_map(|file| Path::new(&file.path).to_gguf_parts())
-                    .collect::<Vec<_>>();
-                match split.is_empty() {
-                    | true => Ok(()),
-                    | false => {
-                        let count = split.first().map(|(_, _, count)| *count).unwrap_or_default();
-                        let indexes = split.iter().map(|(_, index, _)| *index).collect::<HashSet<_>>();
-                        let consistent = split.len() == primary.len()
-                            && split.iter().all(|(_, _, candidate_count)| *candidate_count == count)
-                            && (1..=count).all(|index| indexes.contains(&index));
-                        consistent
-                            .then_some(())
-                            .ok_or_else(|| eyre!("OCI artifact contains an incomplete or inconsistent split GGUF set"))
-                    }
-                }
-            }
-            | _ => Err(eyre!("OCI artifact resolves to multiple primary GGUF model groups")),
-        };
-        validation.map(|()| self)
-    }
-    fn validate_content(self, root: &Path) -> ApiResult<Self> {
-        self.0
-            .iter()
-            .map(|file| GgufInfo::load(root.join(&file.path)).map(|info| (file, info)))
-            .collect::<ApiResult<Vec<_>>>()
-            .and_then(|inspected| {
-                let primary = inspected
-                    .iter()
-                    .filter(|(file, info)| !Path::new(&file.path).is_auxiliary_gguf() && info.general_type.as_deref() != Some("adapter"))
-                    .map(|(file, _)| (*file).clone())
-                    .collect::<Vec<_>>();
-                Self(primary).validate_paths().and_then(|_| {
-                    inspected
-                        .iter()
-                        .map(|(file, info)| (*file).clone().validate_split_metadata(info))
-                        .collect::<ApiResult<Vec<_>>>()
-                })
-            })
-            .map(|_| self)
-    }
-}
-impl OciLayer {
-    pub(super) fn is_valid(layer: &Self, _context: &()) -> Result<(), ValidationReport> {
-        let path = layer.path.as_deref().map(Path::new);
-        let has_safe_path = path.is_none_or(|path| SafePath::new(path).is_ok());
-        let has_gguf_path = path.is_some_and(|path| SafePath::new(path).is_ok() && path.is_gguf());
-        let is_raw = path.is_some() && layer.extraction == OciExtraction::None && !layer.inventory_deferred;
-        let is_tar = path.is_none() && layer.extraction == OciExtraction::Tar && layer.inventory_deferred;
-        let is_tar_gzip = path.is_none() && layer.extraction == OciExtraction::TarGzip && layer.inventory_deferred;
-        let is_tar_zstd = path.is_none() && layer.extraction == OciExtraction::TarZstd && layer.inventory_deferred;
-        let valid_shape = match layer.role {
-            | ModelLayerRole::ModelWeight => match layer.media_type.as_str() {
-                | MODELPACK_WEIGHT_RAW => has_gguf_path && is_raw,
-                | MODELPACK_WEIGHT_TAR => is_tar,
-                | MODELPACK_WEIGHT_TAR_GZIP => is_tar_gzip,
-                | MODELPACK_WEIGHT_TAR_ZSTD => is_tar_zstd,
-                | _ => false,
-            },
-            | ModelLayerRole::WeightConfig => match layer.media_type.as_str() {
-                | MODELPACK_WEIGHT_CONFIG_RAW => has_safe_path && is_raw,
-                | MODELPACK_WEIGHT_CONFIG_TAR => is_tar,
-                | MODELPACK_WEIGHT_CONFIG_TAR_GZIP => is_tar_gzip,
-                | MODELPACK_WEIGHT_CONFIG_TAR_ZSTD => is_tar_zstd,
-                | _ => false,
-            },
-            | ModelLayerRole::Model | ModelLayerRole::Documentation | ModelLayerRole::Code | ModelLayerRole::Dataset | ModelLayerRole::McpBundle => {
-                has_safe_path
-            }
-        };
-        match (has_safe_path, valid_shape) {
-            | (false, _) => Err(ValidationError::new("path")
-                .with_message("OCI layer filepath must be safe")
-                .into_report("")),
-            | (_, true) => Ok(()),
-            | _ => Err(ValidationError::new("layer")
-                .with_message("Unsupported OCI model layer shape")
-                .into_report("")),
-        }
-    }
-}
-pub(super) fn select_staged_files(
+pub(in crate::io) fn select_staged_files(
     staging: &Path,
     resolution: &OciResolution,
     origins: &[(String, String, ModelLayerRole)],
@@ -428,3 +346,5 @@ fn tensor_size(kind: u32, elements: u64) -> Option<u64> {
         .and_then(|value| value.checked_div(block))
         .and_then(|blocks| blocks.checked_mul(bytes))
 }
+#[cfg(test)]
+mod tests;

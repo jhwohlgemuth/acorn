@@ -59,6 +59,195 @@ fn test_activity_insert_round_trip_with_database_handle() {
     assert_eq!(stored, "2026-03-10T15:37:24.123456+00:00");
 }
 #[test]
+fn test_activity_row_default() {
+    let row = ActivityRow::default();
+    assert!(row.id.is_none());
+    assert!(row.command.is_none());
+    assert!(row.executed_at.is_none());
+    assert!(row.user_path.is_none());
+    assert!(row.success.is_none());
+}
+#[test]
+fn test_build_query_empty_with_no_order_by() {
+    // Test that with all None fields and no ORDER BY, we get just the base query
+    let row = ValidationRow::default();
+    let base = "SELECT * FROM validation";
+    let order_by: Option<&str> = None;
+    let (query, params) = build_query!(&row, base, order_by, [id, path, check_type,]);
+    assert_eq!(query, "SELECT * FROM validation");
+    assert!(params.is_empty());
+}
+#[test]
+fn test_build_query_single_field() {
+    // Test with only one field populated
+    let row = LinkCacheRow {
+        url: Some("https://example.com".to_string()),
+        ..Default::default()
+    };
+    let base = "SELECT * FROM link_cache";
+    let order_by = Some("checked_at DESC");
+    let (query, params) = build_query!(&row, base, order_by, [id, url, status_code,]);
+    assert_eq!(query, "SELECT * FROM link_cache WHERE url = ? ORDER BY checked_at DESC");
+    assert_eq!(params.len(), 1);
+}
+#[test]
+fn test_build_query_with_all_none_fields() {
+    // Test that when all fields are None, we get base query with ORDER BY
+    let row = ActivityRow::default();
+    let base = "SELECT * FROM activity";
+    let order_by = Some("executed_at DESC");
+    let (query, params) = build_query!(&row, base, order_by, [id, command, user_path,]);
+    assert_eq!(query, "SELECT * FROM activity ORDER BY executed_at DESC");
+    assert!(params.is_empty());
+}
+#[test]
+fn test_build_query_with_field_mapping() {
+    // Test type mapping (e.g., bool to i32)
+    let row = ActivityRow {
+        id: Some(10),
+        success: Some(true),
+        ..Default::default()
+    };
+    let base = "SELECT * FROM activity";
+    let order_by: Option<&str> = None;
+    let (query, params) = build_query!(&row, base, order_by, [
+        id,
+        success => i32::from,
+    ]);
+    assert_eq!(query, "SELECT * FROM activity WHERE id = ? AND success = ?");
+    assert_eq!(params.len(), 2);
+}
+#[test]
+fn test_build_query_with_some_fields() {
+    // Test WHERE clause generation with Some fields
+    let row = ActivityRow {
+        id: Some(42),
+        command: Some("check".to_string()),
+        user_path: None,
+        ..Default::default()
+    };
+    let base = "SELECT * FROM activity";
+    let order_by = Some("executed_at DESC");
+    let (query, params) = build_query!(&row, base, order_by, [id, command, user_path,]);
+    assert_eq!(query, "SELECT * FROM activity WHERE id = ? AND command = ? ORDER BY executed_at DESC");
+    assert_eq!(params.len(), 2);
+}
+#[test]
+fn test_build_query_without_order_by() {
+    // Test query generation without ORDER BY clause
+    let row = CatalogRow {
+        id: Some(1),
+        bucket_name: Some("test-bucket".to_string()),
+        ..Default::default()
+    };
+    let base = "SELECT * FROM catalog";
+    let order_by: Option<&str> = None;
+    let (query, params) = build_query!(&row, base, order_by, [id, bucket_name, identifier,]);
+    assert_eq!(query, "SELECT * FROM catalog WHERE id = ? AND bucket_name = ?");
+    assert_eq!(params.len(), 2);
+}
+#[test]
+fn test_catalog_row_default() {
+    let row = CatalogRow::default();
+    assert!(row.id.is_none());
+    assert!(row.bucket_name.is_none());
+    assert!(row.bucket_url.is_none());
+    assert!(row.identifier.is_none());
+    assert!(row.title.is_none());
+    assert!(row.updated_at.is_none());
+}
+#[test]
+fn test_database_handles_use_their_own_paths() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|value| value.as_nanos())
+        .unwrap_or_default();
+    let first_path = PathBuf::from(format!("target/test_artifacts/isolated-first-{unique}.duckdb"));
+    let second_path = PathBuf::from(format!("target/test_artifacts/isolated-second-{unique}.duckdb"));
+    let first = Database::<Table>::from_path(Some(first_path));
+    let second = Database::<Table>::from_path(Some(second_path));
+    first.migrate().unwrap();
+    second.migrate().unwrap();
+    first.insert(ModelRow::init().model_id(format!("acme/first-{unique}")).build()).unwrap();
+    assert_eq!(first.row_count(Table::Models).unwrap(), 1);
+    assert_eq!(second.row_count(Table::Models).unwrap(), 0);
+}
+#[test]
+fn test_database_path_uses_environment_when_argument_absent() {
+    let expected = PathBuf::from(TEST_ENV_DATABASE_PATH);
+    let from_env = temp_env::with_vars([(DATABASE_PATH, Some(TEST_ENV_DATABASE_PATH))], || resolve_database_path(None).unwrap());
+    assert_eq!(from_env, expected);
+}
+#[test]
+fn test_database_path_uses_explicit_argument_before_environment() {
+    let expected = PathBuf::from("target/test_artifacts/explicit-acorn.db");
+    let from_expected = temp_env::with_vars([(DATABASE_PATH, Some(TEST_ENV_DATABASE_PATH))], || {
+        resolve_database_path(Some(&expected)).unwrap()
+    });
+    assert_eq!(from_expected, expected);
+}
+#[test]
+fn test_link_cache_row_default() {
+    let row = LinkCacheRow::default();
+    assert!(row.id.is_none());
+    assert!(row.url.is_none());
+    assert!(row.status_code.is_none());
+    assert!(row.is_reachable.is_none());
+    assert!(row.checked_at.is_none());
+    assert!(row.expires_at.is_none());
+}
+#[test]
+fn test_link_cache_row_is_expired() {
+    let row = LinkCacheRow::default();
+    assert!(row.is_expired());
+}
+#[test]
+fn test_model_limit_details_use_checked_conversions() {
+    let valid = ModelRow::init()
+        .limit_context(32_768)
+        .limit_input(16_384)
+        .limit_output(-1)
+        .build()
+        .limit_details()
+        .expect("valid context limit");
+    assert_eq!(valid.context, 32_768);
+    assert_eq!(valid.input, Some(16_384));
+    assert_eq!(valid.output, None);
+    assert!(ModelRow::init().limit_context(-1).build().limit_details().is_none());
+}
+#[test]
+fn test_model_metadata_update_round_trip() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|value| value.as_nanos())
+        .unwrap_or_default();
+    let path = PathBuf::from(format!("target/test_artifacts/model-metadata-{unique}.duckdb"));
+    let database = Database::<Table>::from_path(Some(path.clone()));
+    database.migrate().unwrap();
+    let model_id = format!("acme/model-{unique}");
+    assert!(database.insert(ModelRow::init().model_id(model_id.clone()).weights("[]").build()).is_ok());
+    let weights = r#"[{"label":"Q4_K_M","url":"https://example.com/model-Q4_K_M.gguf","quantization":"Q4_K_M"}]"#;
+    let updated = ModelRow::init()
+        .model_id(model_id.clone())
+        .weights(weights)
+        .limit_context(131_072)
+        .limit_input(65_536)
+        .limit_output(8_192)
+        .build()
+        .update_download_metadata(Some(path.clone()));
+    assert_eq!(updated.unwrap_or_default(), 1);
+    let selected = ModelRow::init()
+        .model_id(model_id.clone())
+        .build()
+        .select(Some(path), |candidate| candidate.model_id.as_deref() == Some(model_id.as_str()))
+        .unwrap()
+        .expect("updated model row");
+    assert_eq!(selected.weights.as_deref(), Some(weights));
+    assert_eq!(selected.limit_context, Some(131_072));
+    assert_eq!(selected.limit_input, Some(65_536));
+    assert_eq!(selected.limit_output, Some(8_192));
+}
+#[test]
 fn test_model_row_insert_rejects_malformed_json() {
     let unique = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -99,147 +288,14 @@ fn test_model_weights_update_round_trip() {
     assert_eq!(selected.weights.as_deref(), Some(weights));
 }
 #[test]
-fn test_database_handles_use_their_own_paths() {
-    let unique = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|value| value.as_nanos())
-        .unwrap_or_default();
-    let first_path = PathBuf::from(format!("target/test_artifacts/isolated-first-{unique}.duckdb"));
-    let second_path = PathBuf::from(format!("target/test_artifacts/isolated-second-{unique}.duckdb"));
-    let first = Database::<Table>::from_path(Some(first_path));
-    let second = Database::<Table>::from_path(Some(second_path));
-    first.migrate().unwrap();
-    second.migrate().unwrap();
-    first.insert(ModelRow::init().model_id(format!("acme/first-{unique}")).build()).unwrap();
-    assert_eq!(first.row_count(Table::Models).unwrap(), 1);
-    assert_eq!(second.row_count(Table::Models).unwrap(), 0);
-}
-#[test]
-fn test_activity_row_default() {
-    let row = ActivityRow::default();
+fn test_programming_language_row_default() {
+    let row = ProgrammingLanguageRow::default();
     assert!(row.id.is_none());
-    assert!(row.command.is_none());
-    assert!(row.executed_at.is_none());
-    assert!(row.user_path.is_none());
-    assert!(row.success.is_none());
-}
-#[test]
-fn test_build_query_with_all_none_fields() {
-    // Test that when all fields are None, we get base query with ORDER BY
-    let row = ActivityRow::default();
-    let base = "SELECT * FROM activity";
-    let order_by = Some("executed_at DESC");
-    let (query, params) = build_query!(&row, base, order_by, [id, command, user_path,]);
-    assert_eq!(query, "SELECT * FROM activity ORDER BY executed_at DESC");
-    assert!(params.is_empty());
-}
-#[test]
-fn test_build_query_with_some_fields() {
-    // Test WHERE clause generation with Some fields
-    let row = ActivityRow {
-        id: Some(42),
-        command: Some("check".to_string()),
-        user_path: None,
-        ..Default::default()
-    };
-    let base = "SELECT * FROM activity";
-    let order_by = Some("executed_at DESC");
-    let (query, params) = build_query!(&row, base, order_by, [id, command, user_path,]);
-    assert_eq!(query, "SELECT * FROM activity WHERE id = ? AND command = ? ORDER BY executed_at DESC");
-    assert_eq!(params.len(), 2);
-}
-#[test]
-fn test_build_query_without_order_by() {
-    // Test query generation without ORDER BY clause
-    let row = CatalogRow {
-        id: Some(1),
-        bucket_name: Some("test-bucket".to_string()),
-        ..Default::default()
-    };
-    let base = "SELECT * FROM catalog";
-    let order_by: Option<&str> = None;
-    let (query, params) = build_query!(&row, base, order_by, [id, bucket_name, identifier,]);
-    assert_eq!(query, "SELECT * FROM catalog WHERE id = ? AND bucket_name = ?");
-    assert_eq!(params.len(), 2);
-}
-#[test]
-fn test_build_query_with_field_mapping() {
-    // Test type mapping (e.g., bool to i32)
-    let row = ActivityRow {
-        id: Some(10),
-        success: Some(true),
-        ..Default::default()
-    };
-    let base = "SELECT * FROM activity";
-    let order_by: Option<&str> = None;
-    let (query, params) = build_query!(&row, base, order_by, [
-        id,
-        success => i32::from,
-    ]);
-    assert_eq!(query, "SELECT * FROM activity WHERE id = ? AND success = ?");
-    assert_eq!(params.len(), 2);
-}
-#[test]
-fn test_build_query_single_field() {
-    // Test with only one field populated
-    let row = LinkCacheRow {
-        url: Some("https://example.com".to_string()),
-        ..Default::default()
-    };
-    let base = "SELECT * FROM link_cache";
-    let order_by = Some("checked_at DESC");
-    let (query, params) = build_query!(&row, base, order_by, [id, url, status_code,]);
-    assert_eq!(query, "SELECT * FROM link_cache WHERE url = ? ORDER BY checked_at DESC");
-    assert_eq!(params.len(), 1);
-}
-#[test]
-fn test_build_query_empty_with_no_order_by() {
-    // Test that with all None fields and no ORDER BY, we get just the base query
-    let row = ValidationRow::default();
-    let base = "SELECT * FROM validation";
-    let order_by: Option<&str> = None;
-    let (query, params) = build_query!(&row, base, order_by, [id, path, check_type,]);
-    assert_eq!(query, "SELECT * FROM validation");
-    assert!(params.is_empty());
-}
-#[test]
-fn test_catalog_row_default() {
-    let row = CatalogRow::default();
-    assert!(row.id.is_none());
-    assert!(row.bucket_name.is_none());
-    assert!(row.bucket_url.is_none());
-    assert!(row.identifier.is_none());
-    assert!(row.title.is_none());
-    assert!(row.updated_at.is_none());
-}
-#[test]
-fn test_database_path_uses_explicit_argument_before_environment() {
-    let expected = PathBuf::from("target/test_artifacts/explicit-acorn.db");
-    let from_expected = temp_env::with_vars([(DATABASE_PATH, Some(TEST_ENV_DATABASE_PATH))], || {
-        resolve_database_path(Some(&expected)).unwrap()
-    });
-    assert_eq!(from_expected, expected);
-}
-#[test]
-fn test_database_path_uses_environment_when_argument_absent() {
-    let expected = PathBuf::from(TEST_ENV_DATABASE_PATH);
-    let from_env = temp_env::with_vars([(DATABASE_PATH, Some(TEST_ENV_DATABASE_PATH))], || resolve_database_path(None).unwrap());
-    assert_eq!(from_env, expected);
-}
-#[test]
-fn test_link_cache_row_default() {
-    let row = LinkCacheRow::default();
-    assert!(row.id.is_none());
-    assert!(row.url.is_none());
-    assert!(row.status_code.is_none());
-    assert!(row.is_reachable.is_none());
-    assert!(row.checked_at.is_none());
-    assert!(row.expires_at.is_none());
-}
-#[test]
-fn test_link_cache_row_is_expired() {
-    let row = LinkCacheRow::default();
-    assert!(row.is_expired());
+    assert!(row.language_id.is_none());
+    assert!(row.name.is_none());
+    assert!(row.language_type.is_none());
+    assert!(row.color.is_none());
+    assert!(row.group_name.is_none());
 }
 #[test]
 fn test_research_activity_row_default() {
@@ -251,16 +307,6 @@ fn test_research_activity_row_default() {
     assert!(row.provenance_json.is_none());
     assert!(row.created_at.is_none());
     assert!(row.updated_at.is_none());
-}
-#[test]
-fn test_programming_language_row_default() {
-    let row = ProgrammingLanguageRow::default();
-    assert!(row.id.is_none());
-    assert!(row.language_id.is_none());
-    assert!(row.name.is_none());
-    assert!(row.language_type.is_none());
-    assert!(row.color.is_none());
-    assert!(row.group_name.is_none());
 }
 #[test]
 fn test_row_table_implementation() {

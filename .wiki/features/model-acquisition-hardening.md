@@ -28,17 +28,17 @@ The workflow remains a GGUF consumer. Supporting ModelPack packaging does not im
 - Native ModelKit handling uses the public `acorn-schema::modelkit` contract. Fake-registry tests cover ModelKit, raw and archived ModelPack, annotated OCI, index resolution, and corrupt config bytes.
 - Independent `modctl` fixtures, the Distribution/Harbor Linux and Windows matrix, stable diagnostic categories, and release/listing evidence remain open.
 - Hugging Face still exposes one broad `Options` type with optional identity and output fields. Resolved file sets can be constructed publicly, and download options can repeat identity already held by the resolved set.
-- The bounded GGUF reader validates structure but does not retain architecture context metadata. Model database rows contain context/input/output limits, while CLI plan reconstruction drops them.
+- The bounded GGUF reader retains architecture-specific context metadata, accepts 32- and 64-bit values, and reconciles matching primary shards while ignoring auxiliary and adapter GGUFs. CLI planning preserves persisted context/input/output limits, enriches the selected Hugging Face repository, rechecks materialized GGUFs, and persists reconciled limits without a migration.
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-lib/src/io/api/huggingface.rs`, `io/{oci,gguf,archive}.rs`, `io/database/schema.rs`, OCI constants, `crates/acorn-schema/src/oci.rs`, the CLI model download/import planners, focused tests, download documentation, and generated help only if syntax changes.
+- **Update:** `crates/acorn-lib/src/io/api/huggingface.rs`, `io/{oci,archive}.rs`, `io/model/gguf/`, `io/database/schema.rs`, OCI constants, `crates/acorn-schema/src/oci.rs`, the CLI model download/import planners, focused tests, download documentation, and generated help only if syntax changes.
 - **Create:** validated Hugging Face request values, GGUF metadata fixtures, producer-derived ModelKit/ModelPack fixtures, and disposable Distribution/Harbor interoperability scripts or tests.
 - **Delete:** the legacy Hugging Face `Options` execution path and public construction/mutation of resolved file sets after all consumers migrate. Do not remove direct Hugging Face, generic annotated-OCI, or ModelKit compatibility paths.
 
 # Dependencies
 
-Use the landed safe archive, atomic publication, GGUF, ModelKit, and registry materialization boundaries. Shared endpoint/authentication helpers come from the API contract plan, but model acquisition owns repository identity, package discrimination, layer planning, and model metadata. Changes to `io/gguf.rs`, database schema code, the model planner, manifests, or CI/build files require their integration locks.
+Use the landed safe archive, atomic publication, GGUF, ModelKit, and registry materialization boundaries. Shared endpoint/authentication helpers come from the API contract plan, but model acquisition owns repository identity, package discrimination, layer planning, and model metadata. Changes to `io/model/gguf/`, database schema code, the model planner, manifests, or CI/build files require their integration locks.
 
 # Decisions
 
@@ -71,7 +71,7 @@ Extend the existing bounded GGUF reader to capture `general.architecture` and `{
 # Implementation sequence
 
 1. Replace Hugging Face `Options` with validated operation-specific requests and migrate every public caller.
-2. Preserve database limits, add the typed Hugging Face GGUF response, and reconcile exact local GGUF metadata through a pure merge function.
+2. **Completed:** Preserve database limits, add the typed Hugging Face GGUF response, and reconcile exact local GGUF metadata through a pure merge function.
 3. Finish ModelPack annotation reconciliation, split/projector behavior, and stable redacted diagnostic categories.
 4. Add pinned independent-producer fixtures and run the Distribution/Harbor Linux and Windows interoperability matrix.
 5. Update the support matrix and collect release/listing evidence without treating external listing acceptance as an ACORN gate.

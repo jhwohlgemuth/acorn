@@ -3,6 +3,7 @@ use crate::io::api::huggingface::{
     ModelInfoExtension, Options, RepositoryResolution, SearchOptions,
 };
 use crate::io::api::Endpoint;
+use crate::io::model::ContextLength;
 use acorn_schema::agent::{ModelDetails, Weight, Weights};
 use acorn_schema::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use axum::http::{HeaderMap, HeaderValue};
@@ -12,12 +13,106 @@ fn model(value: Value) -> ModelInfo {
     serde_json::from_value(value).unwrap()
 }
 #[test]
-fn test_request_options_use_default_hugging_face_domain() {
-    assert_eq!(Options::init().build().domain, DEFAULT_HUGGINGFACE_DOMAIN);
+fn test_base_models_accepts_legacy_current_and_null_shapes() {
+    let legacy = model(json!({"id": "community/legacy", "baseModels": ["acme/base"]}));
+    let current = model(json!({
+        "id": "community/current",
+        "baseModels": {"relation": "quantized", "models": [{"_id": "internal", "id": "acme/base"}]}
+    }));
+    let missing = model(json!({"id": "community/missing", "baseModels": null}));
+    assert_eq!(legacy.base_models, Some(vec!["acme/base".to_string()]));
+    assert_eq!(current.base_models, Some(vec!["acme/base".to_string()]));
+    assert_eq!(missing.base_models, None);
+    assert!(current.is_declared_derivative_of("ACME/BASE"));
+}
+#[test]
+fn test_downloaded_into_resolution_uses_one_identifier() {
+    let downloaded = Downloaded::init().identifier("acme/model").revision("main").files(Vec::new()).build();
+    let resolution = downloaded.into_resolution("acme/model");
+    assert!(!resolution.is_fallback());
+    assert_eq!(resolution.requested(), "acme/model");
+    assert_eq!(resolution.resolved(), "acme/model");
+}
+#[test]
+fn test_extract_sha256() {
+    let digest = "ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD";
     assert_eq!(
-        SearchOptions::init().identifier("acme/model").basename("model").build().domain,
-        DEFAULT_HUGGINGFACE_DOMAIN
+        extract_sha256(format!("{digest}  model.gguf").as_str()).as_deref(),
+        Some("abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"),
     );
+    let digest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    assert_eq!(
+        extract_sha256(format!("SHA256 ({digest}) = {digest} model.gguf").as_str()).as_deref(),
+        Some(digest),
+    );
+    assert_eq!(extract_sha256("not-a-sha model.gguf"), None);
+    assert_eq!(extract_sha256("0123456789abcdef"), None);
+}
+#[test]
+fn test_fallback_candidates_apply_inclusive_minimum_download_count() {
+    let candidate = |id: &str, downloads: Option<u64>| {
+        model(json!({
+            "id": id,
+            "downloads": downloads,
+            "tags": ["base_model:quantized:acme/base"],
+            "siblings": [{"rfilename": "model-Q4_K_M.gguf"}]
+        }))
+    };
+    let options = SearchOptions::init()
+        .identifier("acme/base")
+        .basename("base")
+        .minimum_download_count(100)
+        .build();
+    let candidates = Candidates::fallback(
+        vec![
+            candidate("acme/above-GGUF", Some(101)),
+            candidate("acme/boundary-GGUF", Some(100)),
+            candidate("acme/below-GGUF", Some(99)),
+            candidate("acme/missing-GGUF", None),
+        ],
+        &options,
+    );
+    assert_eq!(
+        candidates.iter().map(|candidate| candidate.id.as_str()).collect::<Vec<_>>(),
+        vec!["acme/above-GGUF", "acme/boundary-GGUF"]
+    );
+}
+#[test]
+fn test_gguf_candidate_excludes_unrecognized_quantizations() {
+    let candidate = Candidate::from(model(json!({
+        "id": "community/unsupported",
+        "siblings": [{"rfilename": "model-tq1_0.gguf"}]
+    })));
+    assert!(candidate.quantizations.is_empty());
+}
+#[test]
+fn test_gguf_candidate_includes_sorted_unique_quantizations() {
+    let candidate = Candidate::from(model(json!({
+        "id": "community/quantized",
+        "downloads": 42,
+        "likes": 7,
+        "siblings": [
+            {"rfilename": "model-Q5_K_M.gguf"},
+            {"rfilename": "model-Q4_K_M.gguf"},
+            {"rfilename": "model-Q4_K_M-00001-of-00002.gguf"}
+        ]
+    })));
+    assert_eq!(candidate.downloads, 42);
+    assert_eq!(candidate.likes, Some(7));
+    assert_eq!(candidate.quantizations, vec!["Q4_K_M", "Q5_K_M"]);
+    assert_eq!(candidate.to_string(), "community/quantized");
+}
+#[test]
+fn test_gguf_context_metadata_is_optional_and_tolerant() {
+    let present = model(json!({"id": "acme/model", "gguf": {"architecture": "llama", "context_length": 131072}}));
+    let absent = model(json!({"id": "acme/model"}));
+    let null = model(json!({"id": "acme/model", "gguf": null}));
+    let malformed = model(json!({"id": "acme/model", "gguf": "unknown"}));
+    assert_eq!(present.context_length(()), Some(131_072));
+    assert_eq!(present.gguf.and_then(|value| value.architecture).as_deref(), Some("llama"));
+    assert_eq!(absent.context_length(()), None);
+    assert_eq!(null.context_length(()), None);
+    assert_eq!(malformed.context_length(()), None);
 }
 
 #[test]
@@ -39,39 +134,6 @@ fn test_is_declared_derivative() {
         "tags": ["base_model:quantized:other/model"]
     }));
     assert!(!candidate.is_declared_derivative_of("openai/gpt-oss-2b"));
-}
-#[test]
-fn test_base_models_accepts_legacy_current_and_null_shapes() {
-    let legacy = model(json!({"id": "community/legacy", "baseModels": ["acme/base"]}));
-    let current = model(json!({
-        "id": "community/current",
-        "baseModels": {"relation": "quantized", "models": [{"_id": "internal", "id": "acme/base"}]}
-    }));
-    let missing = model(json!({"id": "community/missing", "baseModels": null}));
-    assert_eq!(legacy.base_models, Some(vec!["acme/base".to_string()]));
-    assert_eq!(current.base_models, Some(vec!["acme/base".to_string()]));
-    assert_eq!(missing.base_models, None);
-    assert!(current.is_declared_derivative_of("ACME/BASE"));
-}
-#[test]
-fn test_next_page_reads_hugging_face_link_header() {
-    let mut headers = HeaderMap::new();
-    headers.insert(
-        "link",
-        HeaderValue::from_static("<https://huggingface.co/api/models?p=1>; rel=\"next\", <https://huggingface.co/api/models?p=2>; rel=\"last\""),
-    );
-    let endpoint = Endpoint::default().with_domain("huggingface.co");
-    assert_eq!(
-        next_page(&headers, &endpoint).unwrap(),
-        Some("https://huggingface.co/api/models?p=1".to_string())
-    );
-}
-#[test]
-fn test_next_page_rejects_cross_origin_link() {
-    let mut headers = HeaderMap::new();
-    headers.insert("link", HeaderValue::from_static("<https://example.org/models?p=1>; rel=\"next\""));
-    let endpoint = Endpoint::default().with_domain("huggingface.co");
-    assert!(next_page(&headers, &endpoint).is_err());
 }
 #[test]
 fn test_is_declared_variant_accepts_decorated_base_model_names() {
@@ -110,87 +172,31 @@ fn test_is_declared_variant_accepts_nvidia_version_separator_aliases() {
     assert!(!super_model.is_declared_variant_of("nvidia/llama-nemotron-rerank-vl-1b-v2"));
 }
 #[test]
-fn test_gguf_candidate_includes_sorted_unique_quantizations() {
-    let candidate = Candidate::from(model(json!({
-        "id": "community/quantized",
-        "downloads": 42,
-        "likes": 7,
-        "siblings": [
-            {"rfilename": "model-Q5_K_M.gguf"},
-            {"rfilename": "model-Q4_K_M.gguf"},
-            {"rfilename": "model-Q4_K_M-00001-of-00002.gguf"}
-        ]
-    })));
-    assert_eq!(candidate.downloads, 42);
-    assert_eq!(candidate.likes, Some(7));
-    assert_eq!(candidate.quantizations, vec!["Q4_K_M", "Q5_K_M"]);
-    assert_eq!(candidate.to_string(), "community/quantized");
+fn test_model_details_from_repository_resolution_preserves_fallback() {
+    let resolution = RepositoryResolution::new("acme/model", "community/model-GGUF", ModelDetails::default());
+    let details = ModelDetails::from(resolution);
+    assert_eq!(details.id.as_deref(), Some("community/model-GGUF"));
+    assert_eq!(details.fallback.as_deref(), Some("acme/model"));
 }
 #[test]
-fn test_gguf_candidate_excludes_unrecognized_quantizations() {
-    let candidate = Candidate::from(model(json!({
-        "id": "community/unsupported",
-        "siblings": [{"rfilename": "model-tq1_0.gguf"}]
-    })));
-    assert!(candidate.quantizations.is_empty());
-}
-#[test]
-fn test_fallback_candidates_apply_inclusive_minimum_download_count() {
-    let candidate = |id: &str, downloads: Option<u64>| {
-        model(json!({
-            "id": id,
-            "downloads": downloads,
-            "tags": ["base_model:quantized:acme/base"],
-            "siblings": [{"rfilename": "model-Q4_K_M.gguf"}]
-        }))
-    };
-    let options = SearchOptions::init()
-        .identifier("acme/base")
-        .basename("base")
-        .minimum_download_count(100)
-        .build();
-    let candidates = Candidates::fallback(
-        vec![
-            candidate("acme/above-GGUF", Some(101)),
-            candidate("acme/boundary-GGUF", Some(100)),
-            candidate("acme/below-GGUF", Some(99)),
-            candidate("acme/missing-GGUF", None),
-        ],
-        &options,
+fn test_next_page_reads_hugging_face_link_header() {
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        "link",
+        HeaderValue::from_static("<https://huggingface.co/api/models?p=1>; rel=\"next\", <https://huggingface.co/api/models?p=2>; rel=\"last\""),
     );
+    let endpoint = Endpoint::default().with_domain("huggingface.co");
     assert_eq!(
-        candidates.iter().map(|candidate| candidate.id.as_str()).collect::<Vec<_>>(),
-        vec!["acme/above-GGUF", "acme/boundary-GGUF"]
+        next_page(&headers, &endpoint).unwrap(),
+        Some("https://huggingface.co/api/models?p=1".to_string())
     );
 }
 #[test]
-fn test_weights_to_source_uses_hugging_face_repository_identifier() {
-    let source = Weights(vec![Weight {
-        label: "Hugging Face".to_string(),
-        url: "https://huggingface.co/openai/gpt-oss-20b".to_string(),
-        is_open: Some(true),
-        quantization: None,
-        size: None,
-    }])
-    .to_source(Some("GPT OSS 20B".to_string()))
-    .unwrap();
-    assert_eq!(source.identifier(), "openai/gpt-oss-20b");
-    assert_eq!(source.name(), "GPT OSS 20B");
-}
-#[test]
-fn test_weights_to_source_keeps_direct_hugging_face_file_url() {
-    let url = "https://huggingface.co/openai/gpt-oss-20b/resolve/main/model.gguf".to_string();
-    let source = Weights(vec![Weight {
-        label: "GGUF".to_string(),
-        url: url.to_string(),
-        is_open: Some(true),
-        quantization: None,
-        size: None,
-    }])
-    .to_source(None)
-    .unwrap();
-    assert_eq!(source.identifier(), url);
-    assert_eq!(source.name(), "GGUF");
+fn test_next_page_rejects_cross_origin_link() {
+    let mut headers = HeaderMap::new();
+    headers.insert("link", HeaderValue::from_static("<https://example.org/models?p=1>; rel=\"next\""));
+    let endpoint = Endpoint::default().with_domain("huggingface.co");
+    assert!(next_page(&headers, &endpoint).is_err());
 }
 #[test]
 fn test_repository_resolution_identifies_direct_and_fallback_values() {
@@ -218,19 +224,12 @@ fn test_repository_resolution_transforms_values_without_losing_identity() {
     );
 }
 #[test]
-fn test_downloaded_into_resolution_uses_one_identifier() {
-    let downloaded = Downloaded::init().identifier("acme/model").revision("main").files(Vec::new()).build();
-    let resolution = downloaded.into_resolution("acme/model");
-    assert!(!resolution.is_fallback());
-    assert_eq!(resolution.requested(), "acme/model");
-    assert_eq!(resolution.resolved(), "acme/model");
-}
-#[test]
-fn test_model_details_from_repository_resolution_preserves_fallback() {
-    let resolution = RepositoryResolution::new("acme/model", "community/model-GGUF", ModelDetails::default());
-    let details = ModelDetails::from(resolution);
-    assert_eq!(details.id.as_deref(), Some("community/model-GGUF"));
-    assert_eq!(details.fallback.as_deref(), Some("acme/model"));
+fn test_request_options_use_default_hugging_face_domain() {
+    assert_eq!(Options::init().build().domain, DEFAULT_HUGGINGFACE_DOMAIN);
+    assert_eq!(
+        SearchOptions::init().identifier("acme/model").basename("model").build().domain,
+        DEFAULT_HUGGINGFACE_DOMAIN
+    );
 }
 #[test]
 fn test_target_path_from_sidecar() {
@@ -241,17 +240,31 @@ fn test_target_path_from_sidecar() {
     );
 }
 #[test]
-fn test_extract_sha256() {
-    let digest = "ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD";
-    assert_eq!(
-        extract_sha256(format!("{digest}  model.gguf").as_str()).as_deref(),
-        Some("abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"),
-    );
-    let digest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-    assert_eq!(
-        extract_sha256(format!("SHA256 ({digest}) = {digest} model.gguf").as_str()).as_deref(),
-        Some(digest),
-    );
-    assert_eq!(extract_sha256("not-a-sha model.gguf"), None);
-    assert_eq!(extract_sha256("0123456789abcdef"), None);
+fn test_weights_to_source_keeps_direct_hugging_face_file_url() {
+    let url = "https://huggingface.co/openai/gpt-oss-20b/resolve/main/model.gguf".to_string();
+    let source = Weights(vec![Weight {
+        label: "GGUF".to_string(),
+        url: url.to_string(),
+        is_open: Some(true),
+        quantization: None,
+        size: None,
+    }])
+    .to_source(None)
+    .unwrap();
+    assert_eq!(source.identifier(), url);
+    assert_eq!(source.name(), "GGUF");
+}
+#[test]
+fn test_weights_to_source_uses_hugging_face_repository_identifier() {
+    let source = Weights(vec![Weight {
+        label: "Hugging Face".to_string(),
+        url: "https://huggingface.co/openai/gpt-oss-20b".to_string(),
+        is_open: Some(true),
+        quantization: None,
+        size: None,
+    }])
+    .to_source(Some("GPT OSS 20B".to_string()))
+    .unwrap();
+    assert_eq!(source.identifier(), "openai/gpt-oss-20b");
+    assert_eq!(source.name(), "GPT OSS 20B");
 }
