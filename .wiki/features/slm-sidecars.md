@@ -33,7 +33,7 @@ Evidence checked on 2026-09-22. Recheck upstream availability, licenses, and imm
 - [Redact](https://github.com/Desert-Ant-Labs/desert-ant-core/blob/0711f8907188ca1ee85b2a0fa37ad7aa64b9a750/docs/models/redact.md) combines learned spans and structured identifier rules. Its documented defaults include a 0.6 minimum score, 256-token windows, and a 64-token stride; pin model revision [`3ed5033aeb544f454ebde77dc76fd7b7e76cc572`](https://huggingface.co/desert-ant-labs/redact/tree/3ed5033aeb544f454ebde77dc76fd7b7e76cc572).
 - [Title](https://github.com/Desert-Ant-Labs/desert-ant-core/blob/0711f8907188ca1ee85b2a0fa37ad7aa64b9a750/docs/models/title.md) is Apple/MLX-only and lacks an independent published quality evaluation. Pin model revision [`72375893bb8d1b96f50c7f32dbd1bc124f20d0e6`](https://huggingface.co/desert-ant-labs/title/tree/72375893bb8d1b96f50c7f32dbd1bc124f20d0e6). Its generated description is not inherently a valid ACORN subtitle.
 - The RAD schema validates title and subtitle; subtitle currently has a 75-character maximum. Sidecar output must use canonical validators rather than copy those limits.
-- A dedicated `macos` GitLab runner now executes Tart VMs on Apple Silicon. The `slm-host-macos` job pins an Xcode 26 image and verifies macOS ARM64, Swift 6.2 or newer, and native Swift compilation before runner work proceeds. The host has sufficient capacity for the image's 62.4 GB download and 120 GB virtual disk after its oversized Cargo cache was cleared. Legal approval for SDK and weight redistribution remains a hard prerequisite for release implementation.
+- The macOS GitLab runner remains blocked and cannot provide a reliable host gate. `scripts/slm/check-macos-host.sh` can verify macOS ARM64, Xcode 26, Swift 6.2 or newer, and native Swift compilation manually. A schedulable macOS host and legal approval for SDK and weight redistribution remain hard prerequisites for release implementation.
 - Fastino GLiDE provides typed, probabilistic decisions over caller-defined choices through the hosted `fastino/glide` System One API. Its decision contract is relevant to the retained semantic-decision experiment, but the documented integration is hosted rather than an ACORN-owned offline runner. GLiDE therefore does not replace Needle's local tool-selection loop; it is a candidate policy/approval decision adapter that requires a separate offline or approved self-hosting path before production consideration. [GLiDE announcement](https://fastino.ai/blog/introducing-glide-the-first-thinking-decision-model)
 
 # Decisions locked for the first release
@@ -52,7 +52,7 @@ Evidence checked on 2026-09-22. Recheck upstream availability, licenses, and imm
 
 - **Create:** `scripts/slm/runner/Package.swift`, `scripts/slm/runner/Package.resolved`, shared protocol/process helpers under `scripts/slm/runner/Sources/SlmProtocol/`, and `TongueRunner`, `RedactRunner`, and `TitleRunner` executable targets.
 - **Create:** `scripts/slm/create-oci-artifact.sh` and `scripts/slm/upload-runners.sh` to build one capability/platform artifact at a time and emit its immutable URL, byte size, and SHA-256.
-- **Update:** `.gitlab-ci.yml` and `Makefile` through the CI/build integration lock. Linux and macOS jobs build and smoke-test only the supported target/capability pairs; the macOS job is required before release.
+- **Update:** `.gitlab-ci.yml` and `Makefile` through the CI/build integration lock. Linux jobs build and smoke-test only supported target/capability pairs. Keep macOS validation manual until a runner is proven schedulable; a passing macOS gate is required before release.
 - Build and publish runner/model artifacts first. Pin the resulting immutable URLs, sizes, and hashes in a second Rust integration change. Rust source must not predict release checksums.
 
 ## Rust and CLI files
@@ -95,7 +95,7 @@ Preserve `acorn infer <PROMPT>` as the legacy Needle form. Because `needle`, `la
 
 # Implementation sequence and exit gates
 
-1. **Prove licensing and hosts.** The macOS ARM64 runner and its Xcode 26/Swift 6.2 CI gate are configured with sufficient host storage. Record one passing job and approval for SDK/weight redistribution before runner release work proceeds; retain local evaluation notes if either gate fails.
+1. **Prove licensing and hosts.** Provision a schedulable macOS ARM64 host with Xcode 26 and Swift 6.2 or newer, record one passing host check, and obtain approval for SDK/weight redistribution before runner release work proceeds; retain local evaluation notes if either gate fails.
 2. **Build the runners.** Implement `SidecarAssets` and `Sidecar` for every capability, package every runner and supporting file through the existing semantic-versioned manifest, pin the SDK and model commits above, implement the one-request protocol, and add protocol-only fixture tests plus real-model smoke tests on every claimed platform.
 3. **Publish immutable artifacts.** Produce capability/platform artifacts, capture exact bytes/hashes/licenses, verify clean offline installation, then pin them in Rust.
 4. **Integrate the library.** Add concrete sidecars, typed results, limits, telemetry opt-out, asset/download behavior, and lifecycle tests behind `slm`.
@@ -124,7 +124,7 @@ Preserve `acorn infer <PROMPT>` as the legacy Needle form. Because `needle`, `la
 - Asset tests cover the supported semantic manifest version, unsupported and legacy shapes, duplicate or unsafe asset names, bad sizes/digests, partial downloads, unsupported targets, custom locations, offline cache hits/misses, and OCI/local parity.
 - Capability fixtures cover scientific abbreviations, ambiguous and mixed-language prose, expected contact PII, missed and false-positive redactions, UTF-8 span boundaries, malformed Title output, absent fields, subtitle limits, unsupported claims, and stale source fingerprints.
 - Measure cold/warm latency, total download, peak memory, and batch behavior on every claimed platform. Keep heavyweight real-model tests explicit and separate from ordinary offline unit tests.
-- Run formatting, lint, focused tests, `make test`, applicable feature/WASM checks, license/dependency checks, generated-help checks, the `slm-host-macos` toolchain gate, and the GitLab Linux/macOS smoke jobs for implementation changes.
+- Run formatting, lint, focused tests, `make test`, applicable feature/WASM checks, license/dependency checks, generated-help checks, Linux CI smoke jobs, and manual macOS host and real-model checks for implementation changes.
 
 # Acceptance criteria
 

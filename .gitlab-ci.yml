@@ -12,8 +12,6 @@ variables:
   CARGO_HTTP_TIMEOUT: "120"
   NIGHTLY_TOOLCHAIN: nightly-2026-08-01
   CHANGELOG: https://code.ornl.gov/research-enablement/acorn/-/blob/main/CHANGELOG.md
-  USER: ACORN CI
-  EMAIL: $GITLAB_USER_EMAIL
   HOMEBREW_TAP_REPO_URL: https://code.ornl.gov/research-enablement/homebrew-acorn.git
   HOMEBREW_TAP_FORMULA_PATH: Formula/acorn-cli.rb
   IS_VERSION_TAGGED: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
@@ -47,24 +45,25 @@ stages:
   - release
   - docs
 
-.macos-tart:
-  image: ghcr.io/cirruslabs/macos-sequoia-base:latest
-  resource_group: macos-tart
-  tags:
-    - macos
-  variables:
-    TART_EXECUTOR_HOST_DIR: "true"
+.publish:
+  interruptible: false
+  retry: 0
 
-.macos-rust:
-  extends: .macos-tart
-  before_script:
-    - source scripts/ci/setup-macos-rust.sh
-
-modelpack-drift:
-  stage: test
+.rust-arm64:
   image: ghcr.io/jhwohlgemuth/acorn:rust-latest
   tags:
     - arm64
+
+.rust-test:
+  extends: .rust-arm64
+  resource_group: tests
+  hooks:
+    pre_get_sources_script:
+      - rm -f "${CI_PROJECT_DIR}/.git/index.lock" "${CI_PROJECT_DIR}/.git/shallow.lock"
+
+modelpack-drift:
+  extends: .rust-arm64
+  stage: test
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CHECK_MODELPACK_DRIFT == "true"
@@ -112,16 +111,8 @@ prepare-environment:
       dotenv: variables.env
 
 test:
+  extends: .rust-test
   stage: test
-  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
-  resource_group: tests
-  tags:
-    - arm64
-  hooks:
-    pre_get_sources_script:
-      - rm -f "${CI_PROJECT_DIR}/.git/index.lock" "${CI_PROJECT_DIR}/.git/shallow.lock"
-  inherit:
-    variables: true
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -133,92 +124,11 @@ test:
     - make check-host
     - cargo package --no-verify --allow-dirty -p acorn-macros -p acorn-core -p acorn-diff -p acorn-cmd -p acorn-host -p acorn-schema
 
-test-macos:
-  extends: .macos-rust
-  stage: test
-  timeout: 2 hours
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        - .gitlab-ci.yml
-        - Cargo.lock
-        - Cargo.toml
-        - Makefile
-        - crates/**/*
-        - scripts/check-host-dependencies.*
-        - scripts/ci/**/*
-        - tests/downstream-host/**/*
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  script:
-    - cargo test --locked --lib --bins --tests
-    - cargo test --locked --lib --bins --tests --no-default-features
-    - make check-host
-
-macos-unwind:
-  extends: .macos-rust
-  stage: extended-test
-  allow_failure: true
-  timeout: 1 hour
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        - .gitlab-ci.yml
-        - Cargo.lock
-        - Cargo.toml
-        - crates/**/*
-        - scripts/check-macos-unwind.sh
-        - scripts/ci/**/*
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  script:
-    - bash scripts/check-macos-unwind.sh
-  artifacts:
-    expose_as: "macOS unwind report"
-    paths:
-      - target/macos-unwind/
-    expire_in: 30 days
-    when: always
-
-slm-host-macos:
-  extends: .macos-tart
-  image: ghcr.io/cirruslabs/macos-sequoia-xcode:26
-  stage: extended-test
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        - .gitlab-ci.yml
-        - scripts/slm/**/*
-        - .wiki/features/slm-sidecars.md
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      changes:
-        - .gitlab-ci.yml
-        - scripts/slm/**/*
-        - .wiki/features/slm-sidecars.md
-  script:
-    - bash scripts/slm/check-macos-host.sh
-  artifacts:
-    expose_as: "SLM macOS host report"
-    paths:
-      - target/slm-host/
-    expire_in: 30 days
-    when: always
-
 test-portability:
+  extends: .rust-test
   stage: extended-test
-  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
   allow_failure: true
   when: manual
-  resource_group: tests
-  tags:
-    - arm64
-  hooks:
-    pre_get_sources_script:
-      - rm -f "${CI_PROJECT_DIR}/.git/index.lock" "${CI_PROJECT_DIR}/.git/shallow.lock"
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -245,14 +155,8 @@ test-portability:
     - make check-portable
 
 test-docs:
+  extends: .rust-test
   stage: test
-  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
-  resource_group: tests
-  tags:
-    - arm64
-  hooks:
-    pre_get_sources_script:
-      - rm -f "${CI_PROJECT_DIR}/.git/index.lock" "${CI_PROJECT_DIR}/.git/shallow.lock"
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -278,19 +182,11 @@ test-docs:
     - make book
 
 fuzz-smoke:
+  extends: .rust-test
   stage: extended-test
-  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
   allow_failure: true
   when: manual
-  resource_group: tests
-  tags:
-    - arm64
   timeout: 12 minutes
-  hooks:
-    pre_get_sources_script:
-      - rm -f "${CI_PROJECT_DIR}/.git/index.lock" "${CI_PROJECT_DIR}/.git/shallow.lock"
-  inherit:
-    variables: true
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -321,12 +217,8 @@ fuzz-smoke:
     - timeout --foreground --kill-after=30 180 cargo "+${NIGHTLY_TOOLCHAIN}" fuzz run --fuzz-dir fuzz research_activity fuzz/corpus/research_activity -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1
 
 benchmark:
+  extends: .rust-arm64
   stage: performance
-  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
-  tags:
-    - arm64
-  inherit:
-    variables: true
   allow_failure: true
   interruptible: false
   resource_group: benchmarks
@@ -369,12 +261,8 @@ benchmark:
     when: always
 
 build-release:
+  extends: .rust-arm64
   stage: build
-  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
-  tags:
-    - arm64
-  inherit:
-    variables: true
   timeout: 45 minutes
   needs:
     - job: test
@@ -409,8 +297,6 @@ validate-mcpb:
   image: ghcr.io/jhwohlgemuth/acorn:rust-latest
   tags:
     - amd64
-  inherit:
-    variables: true
   needs:
     - job: prepare-environment
       artifacts: true
@@ -441,15 +327,12 @@ validate-mcpb:
       - bin/
 
 publish-release:
+  extends: .publish
   stage: release
   image: registry.gitlab.com/gitlab-org/cli@sha256:a1bc1b35decb0ceededbb22bb9a8c07eddc1279ab6e9342b32bc42e20333aa7a
   tags:
     - amd64
-  inherit:
-    variables: true
-  interruptible: false
   resource_group: gitlab-releases
-  retry: 0
   needs:
     - job: prepare-environment
       artifacts: true
@@ -482,15 +365,12 @@ publish-release:
           url: "${PKG_REGISTRY_URL}/${DEFAULT_WINDOWS_TARGET}/v${PKG_VERSION}/${BINARY_NAME}.mcpb.sha256"
 
 upload-binaries:
+  extends: .publish
   stage: release
   image: curlimages/curl@sha256:b375ea94488a70540f48df7a7029bcce50e650915816e6497774db9451b4f877
   tags:
     - amd64
-  inherit:
-    variables: true
-  interruptible: false
   resource_group: gitlab-package-uploads
-  retry: 0
   needs:
     - job: prepare-environment
       artifacts: true
@@ -508,30 +388,26 @@ upload-binaries:
     - sh scripts/upload-binaries.sh
 
 publish-crates:
+  extends:
+    - .publish
+    - .rust-arm64
   stage: release
-  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
-  tags:
-    - arm64
-  inherit:
-    variables: true
-  interruptible: false
   resource_group: crates-io
-  retry: 0
   rules:
     - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
   script:
     - bash scripts/publish-crates.sh
 
 publish-homebrew-formula:
+  extends: .publish
   stage: release
   image: alpine@sha256:79ff19e9084a00eece421b2523fb93e22d730e2c0e525905de047e848e56d95f
   tags:
     - amd64
-  inherit:
-    variables: true
-  interruptible: false
   resource_group: homebrew-tap
-  retry: 0
+  variables:
+    HOMEBREW_TAP_GIT_EMAIL: $GITLAB_USER_EMAIL
+    HOMEBREW_TAP_GIT_USER: ACORN CI
   needs:
     - job: publish-crates
   rules:
@@ -548,47 +424,21 @@ publish-homebrew-formula:
     - bash scripts/homebrew/generate-formula.sh "${VERSION}" "tap/${HOMEBREW_TAP_FORMULA_PATH}"
     - cd tap
     - if ! git status --porcelain | grep -q .; then echo "No Homebrew formula changes detected"; exit 0; fi
-    - git config user.name "${USER}"
-    - git config user.email "${EMAIL}"
+    - git config user.name "${HOMEBREW_TAP_GIT_USER}"
+    - git config user.email "${HOMEBREW_TAP_GIT_EMAIL}"
     - git add "${HOMEBREW_TAP_FORMULA_PATH}"
     - 'git commit -m "chore(homebrew): update acorn-cli ${CI_COMMIT_TAG}"'
     - 'git push "https://oauth2:${TAP_ACCESS_TOKEN}@${HOMEBREW_TAP_REPO_URL#https://}" "HEAD:${TAP_BRANCH}"'
 
-test-homebrew-macos:
-  extends: .macos-tart
-  stage: release
-  timeout: 1 hour
-  needs:
-    - job: publish-crates
-      optional: true
-  rules:
-    - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        - .gitlab-ci.yml
-        - Cargo.toml
-        - crates/acorn-cli/**/*
-        - scripts/homebrew/**/*
-      when: manual
-      allow_failure: true
-  script:
-    - bash scripts/homebrew/smoke-test.sh
-  artifacts:
-    paths:
-      - target/homebrew/
-    expire_in: 30 days
-    when: always
-
 publish-book:
+  extends:
+    - .publish
+    - .rust-arm64
   stage: docs
-  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
-  tags:
-    - arm64
-  inherit:
-    variables: true
-  interruptible: false
   resource_group: documentation-site
-  retry: 0
+  variables:
+    GIT_USER_EMAIL: $GITLAB_USER_EMAIL
+    GIT_USER_NAME: ACORN CI
   rules:
     - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -599,7 +449,7 @@ publish-book:
   script:
     - command -v mdbook >/dev/null && command -v mdbook-mermaid >/dev/null && command -v mdbook-pikchr >/dev/null || cargo install --locked mdbook@0.5.2 mdbook-mermaid@0.17.0 mdbook-pikchr@0.2.0
     - mdbook --version
-    - git config --global user.name "${USER}"
-    - git config --global user.email "${EMAIL}"
+    - git config --global user.name "${GIT_USER_NAME}"
+    - git config --global user.email "${GIT_USER_EMAIL}"
     - make publish-book
   allow_failure: true

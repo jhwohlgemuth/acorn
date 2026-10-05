@@ -27,13 +27,13 @@ The feature work is justified independently by portability and extraction. macOS
 - `acorn-lib::std` still enables unrelated `agentic`, `analysis`, `shell-lint`, PowerPoint, DuckDB, network, archive, template, progress, CLI utility, database, chart, and system-diagnostic capabilities.
 - The outbound MCP client has an explicit non-default `mcp-client` feature and independent client/server feature checks, but it currently selects the broad `analysis` capability. Capability narrowing must preserve its child-process and Streamable HTTP behavior without folding it into `agentic` or `std`.
 - The measured Apple Silicon baseline was a roughly 317 MiB debug binary with `__eh_frame` of 21,230,536 bytes, 4,453,320 bytes above Apple's 16 MiB compact-unwind encoding limit.
-- `scripts/check-macos-unwind.sh` and the allowed-to-fail `macos-unwind` Tart job now capture the build log, `size -m`, `otool -l`, and a machine-readable summary while enforcing the 14 MiB target. The job remains non-blocking until the reduction work reaches the accepted limit.
+- `scripts/check-macos-unwind.sh` captures the build log, `size -m`, `otool -l`, and a machine-readable summary while enforcing the 14 MiB target. The blocked macOS runner cannot provide continuous validation, so measurements remain a manual host gate until a schedulable runner is available.
 - The workspace already optimizes `insta` and `similar` in development builds, but it has not measured a general dependency optimization profile against the unwind section.
 - Cargo test artifacts require unwind behavior, so release-only settings or `panic = "abort"` do not solve the developer/test warning.
 
 # Project code boundaries
 
-- **Update:** workspace and crate manifests, capability gates and module exports, supported feature-check commands, size measurement tooling, and CI measurement jobs.
+- **Update:** workspace and crate manifests, capability gates and module exports, supported feature-check commands, and size measurement tooling. Add a CI measurement job only after a macOS runner is proven schedulable.
 - **Create:** per-crate feature tables for accepted extractions and a stable machine-readable Mach-O section measurement helper only if manual comparison is error-prone.
 - **Delete:** broad or unconditional dependency wiring after narrower graphs compile independently. Do not delete diagnostics, default CLI capabilities, or test coverage merely to meet the size target.
 
