@@ -1,6 +1,6 @@
 # Concepts
 
-These pages describe the data model and design ideas behind ACORN. Start with [Why ACORN?](../motivation.md) for the problem the project addresses, then use this section as a reference for its schemas, identifiers, and technology classifications.
+These pages describe the data model and design ideas behind ACORN. Start with [Why ACORN?](../motivation.md) for the problem the project addresses, then use this section as a reference for its schemas, [standards and formats](standards.md), identifiers, and technology classifications.
 
 ## Research enablement
 ACORN is managed by the Research Enablement Initiative (REI) at Oak Ridge National Laboratory (ORNL). REI aims to improve the way scientific research is conducted, shared, and evaluated. It is a team of developers, communication experts, and information scientists passionate about open science, transparency, and improving the researcher experience.

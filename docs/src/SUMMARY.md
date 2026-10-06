@@ -17,6 +17,7 @@
     - [🪴 Maturity](./concepts/aspect/maturity.md)
     - [🦾 Motivity](./concepts/aspect/motivity.md)
     - [💾 Data](./concepts/aspect/data.md)
+  - [Standards, formats, and interoperability](./concepts/standards.md)
   - [Persistent identifier lifecycle](./concepts/persistent-identifiers.md)
   - [Metadata enrichment](./concepts/enrichment.md)
   - [FAIR evidence assessment](./concepts/fair-assessment.md)

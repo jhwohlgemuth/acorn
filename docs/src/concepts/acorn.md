@@ -17,7 +17,7 @@ List-shaped metadata is also permissive at the authoring boundary. `keywords`, `
 Context-aware operation does not mean that ACORN knows facts absent from its inputs or that it has consciousness. Missing or unsupported information remains missing until a person or a defined provider supplies it. This boundary lets context reveal documented connections and gaps without turning an inference into project data.
 
 > [!NOTE]
-> ACORN provides field-level support for selected representations from several ISO standards: ISO 8601 dates and years, ISO 3166-1 alpha-2 country codes, ISO 639-1 language codes (with schema-specific support for other ISO 639 forms), ISO 2108 ISBNs, and ISO 7064 checksums used by ISNI, ORCID, and ROR identifiers. ACORN also parses and validates RAiD identifiers, which are governed by ISO 23527. This support validates the forms used by ACORN schemas; it does not claim complete implementation of, or certification against, each standard. See [Persistent identifier lifecycle](persistent-identifiers.md) for the exact local identifier checks.
+> See [Standards, formats, and interoperability](standards.md) for the metadata models, ISO and RFC representations, field profiles, crosswalks, artifact formats, and protocol boundaries that ACORN implements. [Persistent identifier lifecycle](persistent-identifiers.md) documents each local identifier check and resolver boundary.
 
 <div style="height: 2rem" aria-hidden="true"></div>
 
