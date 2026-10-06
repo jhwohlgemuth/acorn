@@ -7,7 +7,7 @@ difficulty: medium
 impact: high
 package: [acorn-lib]
 tags: [refactor, mcp, api, cancellation, embedding, interoperability]
-status: planned
+status: in-progress
 ---
 
 # Goal
@@ -16,6 +16,11 @@ Make the outbound MCP client usable by applications that already own their
 configuration and cancellation lifecycle. An embedder must be able to construct
 `McpClient` from the MCP server map, call or list tools with a caller-provided
 asynchronous cancellation signal, and rely on bounded session cleanup.
+
+Expose those operations through a public, statically dispatched
+`McpClientBackend` trait with associated context, error, tool, and call-result
+types. Keep the concrete `McpClient` name and its inherent methods for source
+compatibility.
 
 Preserve the current allowlist, effect, offline, timeout, output-limit,
 authentication, transport, discovery, and `CallToolResult` behavior.
@@ -44,6 +49,21 @@ authentication, transport, discovery, and `CallToolResult` behavior.
   and bounded cancellation without an ACORN-specific runtime token or a local
   fork.
 
+# Implementation evidence
+
+- `McpClientBackend` defines associated call future, call result,
+  cancellation, context, error, list future, and tool types. `McpClient`
+  implements the contract and remains `Send + Sync`.
+- `TryFrom<&BTreeMap<String, McpServerConfiguration>>` owns resolution;
+  application-root construction delegates to it.
+- Cancellation is threaded through initialization, pagination, calls, protocol
+  cancellation, bounded close, and retained child-process cleanup.
+- The focused narrow-feature suite passes 18 client tests, including ready,
+  initialization, pagination, pending-request, reuse, and child-reaping cases.
+- The full repository suite passes 2,214 tests. Focused clippy with warnings
+  denied passes, and native portability checks pass. The WASM portability gate
+  remains unavailable locally because the Rust target is not installed.
+
 # Dependencies and ownership
 
 The prerequisite dependency-capability work has landed. The accepted
@@ -59,6 +79,16 @@ implementation requires another dependency or feature edge, create a focused
 prerequisite change instead of widening this plan.
 
 # Public interface
+
+Add a `McpClientBackend` trait whose associated types describe the invocation
+context, error, listed tool, call result, cancellation signal, and `Send`
+operation futures. Its single call operation and single list operation accept
+an optional associated cancellation signal. `McpClient` implements the trait
+with the existing ACORN and RMCP types and retains inherent forwarding methods
+for existing callers. The backend itself uses generic/static dispatch rather
+than `dyn` trait objects. The concrete implementation pins type-erased
+operation and cancellation futures so these associated future types remain
+nameable on stable Rust.
 
 Add direct construction from the existing ordered server map:
 
@@ -234,8 +264,9 @@ dependency-deny checks owned by the prerequisite plan.
   timeouts, output limits, ordering, and `CallToolResult.is_error` semantics do
   not change.
 - The client is `Send + Sync` and remains reusable after a cancelled operation.
-- The accepted narrow `mcp-client` graph excludes `analysis`, `std`, Polars,
-  OpenSSL, and any cancellation dependency added solely for this interface.
+- The accepted narrow `mcp-client` graph retains foundational `std` support
+  while excluding `analysis`, Polars, OpenSSL, and any cancellation dependency
+  added solely for this interface.
 
 # Non-goals
 

@@ -48,12 +48,12 @@ ACORN's [Protobuf/gRPC transport](../packages/grpc.md) provides part of the foun
 
 ## Applying the principles
 
-| # | IID layer | Local-first and file-over-app application |
+| # | IID layer | Local-first, file over app, and user sovereignty |
 | --- | --- | --- |
-| 1 | One-time prompting | Prefer a local model when it satisfies the task. Make remote transmission explicit and allow the prompt and result to be saved. |
+| 1 | One-time prompting | Prefer a local model when it satisfies the task. Make remote transmission explicit. Let users save the prompt and result independently of the model service. |
 | 2 | Prompt templates | Keep reusable instructions in portable, version-controlled `.prompt` files. |
 | 3 | Workflow composition and iteration | Persist inputs, control flow, exit criteria, budgets, checkpoints, and results so the workflow remains inspectable and resumable. |
-| 4 | Skills, context, and capabilities | Package instructions and references in `SKILL.md` directories. Use MCP when live resources or tools add value. |
+| 4 | Skills, context, and capabilities | Package reusable instructions and references in `SKILL.md` directories. Use MCP for live resources and tools while keeping durable context in files. |
 | 5 | Connected memory | Preserve selected facts, decisions, and provenance in inspectable records. Databases may index them without becoming the only source. |
 | 6 | Agent harness and interoperability | Configure workflows through files and CLI options. Treat applications and ACP agents as replaceable interfaces. |
 

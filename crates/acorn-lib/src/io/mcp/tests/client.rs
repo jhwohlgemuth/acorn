@@ -1,9 +1,10 @@
 use crate::io::api::operation::{InvocationContext, OperationEffect};
 use crate::io::config::ApplicationConfiguration;
-use crate::io::mcp::client::McpClient;
+use crate::io::mcp::client::{McpClient, McpClientBackend};
 use crate::io::mcp::config::{McpServerConfiguration, McpToolConfiguration, McpTransportConfiguration};
 use acorn_core::time::{Seconds, UnitOfTime};
 use acorn_schema::hardware::Memory;
+use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use axum::extract::State;
@@ -14,7 +15,10 @@ use axum::{Json, Router};
 use core::net::SocketAddr;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use core::time::Duration;
+use rmcp::model::{CallToolResult, Tool};
 use serde_json::Value;
+use std::process::Command;
+use std::time::Instant;
 use temp_env::with_vars;
 
 #[derive(Clone, Copy)]
@@ -24,6 +28,8 @@ enum HttpTestMode {
     Normal,
     RepeatedCursor,
     Slow,
+    SlowCatalogPage,
+    SlowInitialization,
 }
 #[derive(Clone)]
 struct HttpState {
@@ -31,6 +37,9 @@ struct HttpState {
     mode: HttpTestMode,
     requests: Arc<AtomicUsize>,
 }
+// The narrow mcp-client facade contains only `mcp`; the full configuration has
+// additional fields that this shared test fixture must initialize by default.
+#[allow(clippy::needless_update)]
 fn configuration(transport: McpTransportConfiguration) -> ApplicationConfiguration {
     ApplicationConfiguration {
         mcp: BTreeMap::from([(
@@ -58,9 +67,17 @@ async fn http_server(State(state): State<HttpState>, headers: HeaderMap, Json(re
     let id = request.get("id").cloned().unwrap_or(Value::Null);
     match request.get("method").and_then(Value::as_str) {
         | Some("initialize") => {
+            if matches!(state.mode, HttpTestMode::SlowInitialization) {
+                tokio::time::sleep(Duration::from_secs(30)).await;
+            }
             let capabilities = match state.mode {
                 | HttpTestMode::NoTools => serde_json::json!({}),
-                | HttpTestMode::Malformed | HttpTestMode::Normal | HttpTestMode::RepeatedCursor | HttpTestMode::Slow => {
+                | HttpTestMode::Malformed
+                | HttpTestMode::Normal
+                | HttpTestMode::RepeatedCursor
+                | HttpTestMode::Slow
+                | HttpTestMode::SlowCatalogPage
+                | HttpTestMode::SlowInitialization => {
                     serde_json::json!({"tools": {}})
                 }
             };
@@ -99,9 +116,19 @@ async fn http_server(State(state): State<HttpState>, headers: HeaderMap, Json(re
             if matches!(state.mode, HttpTestMode::Malformed) {
                 return (StatusCode::OK, "{malformed").into_response();
             }
+            let cursor = request.pointer("/params/cursor").and_then(Value::as_str);
+            if matches!(state.mode, HttpTestMode::SlowCatalogPage) && cursor == Some("page-2") {
+                tokio::time::sleep(Duration::from_secs(30)).await;
+            }
             let next_cursor = match state.mode {
                 | HttpTestMode::RepeatedCursor => Some("repeat"),
-                | HttpTestMode::Malformed | HttpTestMode::NoTools | HttpTestMode::Normal | HttpTestMode::Slow => None,
+                | HttpTestMode::SlowCatalogPage if cursor.is_none() => Some("page-2"),
+                | HttpTestMode::Malformed
+                | HttpTestMode::NoTools
+                | HttpTestMode::Normal
+                | HttpTestMode::Slow
+                | HttpTestMode::SlowCatalogPage
+                | HttpTestMode::SlowInitialization => None,
             };
             Json(serde_json::json!({
                 "jsonrpc": "2.0",
@@ -135,6 +162,15 @@ async fn start_http_server(mode: HttpTestMode) -> (SocketAddr, Arc<AtomicUsize>,
     });
     (address, requests, cancellations, server)
 }
+async fn wait_for_requests(requests: &AtomicUsize, expected: usize) {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while requests.load(Ordering::SeqCst) < expected {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("expected HTTP request");
+}
 
 #[test]
 fn test_call_policy_is_checked_before_transport_start() {
@@ -158,6 +194,62 @@ fn test_call_policy_is_checked_before_transport_start() {
 }
 #[cfg(unix)]
 #[tokio::test]
+async fn test_child_process_is_not_started_when_cancellation_is_ready() {
+    let directory = tempfile::tempdir().expect("temporary directory");
+    let marker = directory.path().join("started");
+    let marker_value = marker.to_string_lossy().into_owned();
+    let config = configuration(McpTransportConfiguration::ChildProcess {
+        args: vec!["-c".to_string(), "touch \"$MARKER\"".to_string()],
+        command: "/bin/sh".to_string(),
+        environment: BTreeMap::from([("MARKER".to_string(), "ACORN_MCP_MARKER".to_string())]),
+    });
+    let client = with_vars([("ACORN_MCP_MARKER", Some(marker_value.as_str()))], || {
+        McpClient::try_from(&config).expect("client")
+    });
+    let why = client
+        .list_tools_with_cancellation("research", &InvocationContext::default(), core::future::ready(()))
+        .await
+        .expect_err("ready cancellation");
+    assert!(why.to_string().contains("cancelled"));
+    assert!(!marker.exists());
+}
+#[cfg(unix)]
+#[tokio::test]
+async fn test_child_process_is_reaped_when_initialization_is_cancelled() {
+    let directory = tempfile::tempdir().expect("temporary directory");
+    let pid_file = directory.path().join("pid");
+    let pid_value = pid_file.to_string_lossy().into_owned();
+    let config = configuration(McpTransportConfiguration::ChildProcess {
+        args: vec!["-c".to_string(), "echo $$ > \"$PID_FILE\"; exec /bin/sleep 30".to_string()],
+        command: "/bin/sh".to_string(),
+        environment: BTreeMap::from([("PID_FILE".to_string(), "ACORN_MCP_PID_FILE".to_string())]),
+    });
+    let client = with_vars([("ACORN_MCP_PID_FILE", Some(pid_value.as_str()))], || {
+        McpClient::try_from(&config).expect("client")
+    });
+    let cancellation_path = pid_file.clone();
+    let why = tokio::time::timeout(
+        Duration::from_secs(5),
+        client.list_tools_with_cancellation("research", &InvocationContext::default(), async move {
+            while !cancellation_path.exists() {
+                tokio::task::yield_now().await;
+            }
+        }),
+    )
+    .await
+    .expect("bounded cancellation")
+    .expect_err("initialization cancellation");
+    assert!(why.to_string().contains("cancelled"));
+    let pid = std::fs::read_to_string(&pid_file).expect("child pid");
+    let status = Command::new("ps")
+        .args(["-p", pid.trim()])
+        .stdout(std::process::Stdio::null())
+        .status()
+        .expect("inspect child process");
+    assert!(!status.success(), "cancelled MCP child remained alive");
+}
+#[cfg(unix)]
+#[tokio::test]
 async fn test_child_process_reports_early_exit() {
     let config = configuration(McpTransportConfiguration::ChildProcess {
         args: Vec::new(),
@@ -170,6 +262,30 @@ async fn test_child_process_reports_early_exit() {
         .await
         .expect_err("early child exit");
     assert!(why.to_string().contains("initialization failed"));
+}
+#[test]
+fn test_client_contract_uses_associated_types_optional_cancellation_and_is_thread_safe() {
+    fn assert_contract<T>()
+    where
+        T: McpClientBackend<CallResult = CallToolResult, Context = InvocationContext, Error = color_eyre::Report, Tool = Tool> + Send + Sync,
+    {
+    }
+
+    assert_contract::<McpClient>();
+    let configuration = configuration(McpTransportConfiguration::ChildProcess {
+        args: Vec::new(),
+        command: "true".to_string(),
+        environment: BTreeMap::new(),
+    });
+    let client = McpClient::try_from(&configuration).expect("client");
+    let context = InvocationContext::default();
+    drop(McpClientBackend::list_tools(&client, "research", &context, None));
+    drop(McpClientBackend::list_tools(
+        &client,
+        "research",
+        &context,
+        Some(Box::pin(core::future::ready(()))),
+    ));
 }
 #[test]
 fn test_client_debug_contains_only_server_aliases() {
@@ -193,6 +309,123 @@ fn test_client_rejects_missing_environment_values_without_leaking_names() {
         let message = McpClient::try_from(&config).expect_err("missing secret").to_string();
         assert!(!message.contains("ACORN_MCP_TEST_SECRET"));
     });
+}
+#[tokio::test]
+async fn test_direct_map_constructor_matches_application_constructor_without_mutation() {
+    let config = configuration(McpTransportConfiguration::ChildProcess {
+        args: Vec::new(),
+        command: "true".to_string(),
+        environment: BTreeMap::new(),
+    });
+    let original = config.mcp.clone();
+    let application_client = McpClient::try_from(&config).expect("application client");
+    let map_client = McpClient::try_from(&config.mcp).expect("map client");
+    assert_eq!(format!("{application_client:?}"), format!("{map_client:?}"));
+    let application_error = application_client
+        .list_tools("research", &InvocationContext::default())
+        .await
+        .expect_err("application transport failure");
+    let map_error = map_client
+        .list_tools("research", &InvocationContext::default())
+        .await
+        .expect_err("map transport failure");
+    assert_eq!(application_error.to_string(), map_error.to_string());
+    assert_eq!(config.mcp, original);
+}
+#[tokio::test]
+async fn test_streamable_http_cancellation_before_start_sends_no_request() {
+    let (address, requests, _, server) = start_http_server(HttpTestMode::Normal).await;
+    let config = configuration(McpTransportConfiguration::StreamableHttp {
+        bearer_token_env: Some("ACORN_MCP_HTTP_TOKEN".to_string()),
+        url: format!("http://{address}/mcp"),
+    });
+    let client = with_vars([("ACORN_MCP_HTTP_TOKEN", Some("secret"))], || {
+        McpClient::try_from(&config).expect("client")
+    });
+    let why = client
+        .list_tools_with_cancellation("research", &InvocationContext::default(), core::future::ready(()))
+        .await
+        .expect_err("ready cancellation");
+    assert!(why.to_string().contains("cancelled"));
+    assert_eq!(requests.load(Ordering::SeqCst), 0);
+    server.abort();
+}
+#[tokio::test]
+async fn test_streamable_http_cancellation_during_catalog_pagination() {
+    let (address, requests, _, server) = start_http_server(HttpTestMode::SlowCatalogPage).await;
+    let config = configuration(McpTransportConfiguration::StreamableHttp {
+        bearer_token_env: Some("ACORN_MCP_HTTP_TOKEN".to_string()),
+        url: format!("http://{address}/mcp"),
+    });
+    let client = with_vars([("ACORN_MCP_HTTP_TOKEN", Some("secret"))], || {
+        McpClient::try_from(&config).expect("client")
+    });
+    let cancellation_requests = Arc::clone(&requests);
+    let started = Instant::now();
+    let why = client
+        .list_tools_with_cancellation("research", &InvocationContext::default(), async move {
+            wait_for_requests(&cancellation_requests, 4).await;
+        })
+        .await
+        .expect_err("catalog cancellation");
+    assert!(why.to_string().contains("cancelled"));
+    assert!(started.elapsed() < Duration::from_secs(10));
+    assert!(matches!(requests.load(Ordering::SeqCst), 4 | 5));
+    server.abort();
+}
+#[tokio::test]
+async fn test_streamable_http_cancellation_during_initialization() {
+    let (address, requests, _, server) = start_http_server(HttpTestMode::SlowInitialization).await;
+    let config = configuration(McpTransportConfiguration::StreamableHttp {
+        bearer_token_env: Some("ACORN_MCP_HTTP_TOKEN".to_string()),
+        url: format!("http://{address}/mcp"),
+    });
+    let client = with_vars([("ACORN_MCP_HTTP_TOKEN", Some("secret"))], || {
+        McpClient::try_from(&config).expect("client")
+    });
+    let cancellation_requests = Arc::clone(&requests);
+    let why = client
+        .list_tools_with_cancellation("research", &InvocationContext::default(), async move {
+            wait_for_requests(&cancellation_requests, 1).await;
+        })
+        .await
+        .expect_err("initialization cancellation");
+    assert!(why.to_string().contains("cancelled"));
+    assert_eq!(requests.load(Ordering::SeqCst), 1);
+    server.abort();
+}
+#[tokio::test]
+async fn test_streamable_http_cancellation_releases_request_and_client_is_reusable() {
+    let (address, requests, _, server) = start_http_server(HttpTestMode::Slow).await;
+    let mut config = configuration(McpTransportConfiguration::StreamableHttp {
+        bearer_token_env: Some("ACORN_MCP_HTTP_TOKEN".to_string()),
+        url: format!("http://{address}/mcp"),
+    });
+    config
+        .mcp
+        .get_mut("research")
+        .and_then(|configured| configured.allowed.get_mut("resolve"))
+        .expect("tool")
+        .timeout = Seconds::new(3);
+    let client = with_vars([("ACORN_MCP_HTTP_TOKEN", Some("secret"))], || {
+        McpClient::try_from(&config).expect("client")
+    });
+    let cancellation_requests = Arc::clone(&requests);
+    let started = Instant::now();
+    let why = client
+        .call_tool_with_cancellation("research", "resolve", serde_json::json!({}), &InvocationContext::default(), async move {
+            wait_for_requests(&cancellation_requests, 4).await;
+        })
+        .await
+        .expect_err("tool cancellation");
+    assert!(why.to_string().contains("cancelled"));
+    assert!(started.elapsed() < Duration::from_secs(5));
+    let result = client
+        .call_tool("research", "resolve", serde_json::json!({}), &InvocationContext::default())
+        .await
+        .expect("reused client call");
+    assert_eq!(result.structured_content, Some(serde_json::json!({"resolved": true})));
+    server.abort();
 }
 #[tokio::test]
 async fn test_streamable_http_is_rejected_offline_before_connection() {

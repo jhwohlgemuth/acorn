@@ -7,7 +7,7 @@ ACORN is developing agent capabilities through Intelligence in Depth (IID), an a
 
 <blockquote class="blockquote-tag acorn-nutshell">
 <p class="blockquote-tag-title acorn-nutshell-title">In a nutshell</p>
-<p>IID organizes model use into six layers, from a single prompt through a supervised agent harness. The architecture keeps durable work in files and supports local operation.</p>
+<p>IID organizes model use into six layers, from a single prompt through a supervised agent harness. The architecture supports local operation and keeps durable work in user-controlled files.</p>
 </blockquote>
 
 IID adapts defense in depth, an information security strategy that combines people, technology, and operations across multiple layers.[^defense-in-depth] It distributes intelligence across reusable prompts, controlled workflows, skills and context, memory, and an interoperable agent harness.
@@ -34,9 +34,11 @@ The arrows show composition and control flow. IID is distinct from the [ASPECT m
 IID uses two principles across every layer:
 
 - Local-first operation keeps data, models, validation, and orchestration on the user's machine by default. Network and remote services remain explicit choices.[^local-first]
-- File over app keeps durable instructions, context, state, and results in files that users can retrieve, read, and move between applications.[^file-over-app]
+- File over app keeps durable instructions, context, state, and results in files that users can retrieve, inspect, copy, modify, version, preserve, and move between applications.[^file-over-app]
 
-Files remain the source of truth when model APIs or protocols connect IID to external capabilities. The Model Context Protocol (MCP) can give agents access to prompts, resources, and tools.[^mcp] The Agent Client Protocol (ACP) can let clients communicate with and supervise external agents.[^acp]
+Together, these principles support user sovereignty: practical control of project artifacts without dependence on continued access to a particular application or provider. Files remain the source of truth when model APIs or protocols connect IID to external capabilities. Applications, agents, databases, and remote services can operate on those files without becoming the only authoritative copy. The Model Context Protocol (MCP) can give agents access to prompts, resources, and tools.[^mcp] The Agent Client Protocol (ACP) can let clients communicate with and supervise external agents.[^acp]
+
+Here, sovereignty describes user agency over project artifacts. It does not determine intellectual property ownership, national data-residency rules, or institutional, community, and Indigenous research-data governance. This control also brings responsibility for backups, access control, and long-term preservation.
 
 Local-first operation can include remote services when users select them. It differs from [portability](aspect/portability.md), which describes where a complete capability can run after accounting for model, tool, and service dependencies. Databases may provide rebuildable indexes and operational storage. Credentials belong in environment variables or dedicated secret stores, not portable project files.
 
@@ -56,7 +58,7 @@ IID guides ACORN development in these ways:
 - Prompts, skills, model APIs, local-model configuration, and future tools remain useful separately and can be composed when a workflow needs them.
 - Iteration has exit criteria and budgets. Memory has provenance and lifecycle rules. Tools have permissions, and consequential actions require validation or human approval.
 - Core operations and locally available models continue to work without a remote AI service. Network use respects ACORN's offline boundary.
-- Research records, `.prompt` templates, `SKILL.md` instructions, configuration, and generated artifacts remain portable and under user control.
+- Research records, `.prompt` templates, `SKILL.md` instructions, configuration, provenance, and generated artifacts remain portable files under user control. Users can inspect and version them independently of the current application.
 
 MCP and ACP are optional extensions. MCP defines what context and capabilities an agent can access. ACP defines how a client communicates with and supervises an agent. Skills remain portable instruction and resource packages independent of both protocols, while model APIs provide direct model invocation.
 
