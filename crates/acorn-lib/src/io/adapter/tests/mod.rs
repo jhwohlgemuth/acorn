@@ -78,6 +78,7 @@ fn test_logbook_input_output_round_trips_supported_formats() {
     let directory = tempdir().expect("temporary directory should be created");
     let entry = LogbookEntry::init()
         .identifier("first-entry")
+        .project_id("example-project")
         .timestamp("2026-09-01T12:00:00Z")
         .category("other")
         .state("completed")

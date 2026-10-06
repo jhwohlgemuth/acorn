@@ -336,6 +336,46 @@ async fn test_export_bag_format() -> Result<()> {
     let _ = result;
     Ok(())
 }
+#[tokio::test]
+async fn test_export_ckan_crosswalk_strict_rejects_losses_before_writing() -> Result<()> {
+    let temp_dir = temp_test_dir("export_ckan_crosswalk_strict_rejects_losses_before_writing");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = temp_dir.join("package.json");
+    copy(fixture_path("schema/ckan/0sbdv-gh024.json"), &source)?;
+    let output = temp_dir.join("strict");
+    create_dir_all(&output)?;
+    let result = run(
+        &Some(output.clone()),
+        &Some(source),
+        &None,
+        &None,
+        &None,
+        &[],
+        &[],
+        false,
+        false,
+        &FileFormat::Json,
+        None,
+        &None,
+        &Some(Standard::Ckan),
+        &Some(Standard::Dcat),
+        &false,
+        &false,
+        &false,
+        &[],
+        false,
+        true,
+        Target::FactSheet,
+        None,
+        TEST_THREADS,
+        &silent(),
+        OFFLINE,
+    )
+    .await;
+    assert!(result.is_err());
+    assert!(!output.join("package.json").exists());
+    Ok(())
+}
 #[ignore = "Only works on Windows?"]
 #[tokio::test]
 async fn test_export_crosswalk_datacite_to_invenio() -> Result<()> {
@@ -585,46 +625,6 @@ async fn test_export_crosswalk_rad_workflows() -> Result<()> {
     .await;
     assert!(import.is_err_and(|error| error.to_string().contains("options.contact")));
     assert!(!rad_output.join("activity.json").exists());
-    Ok(())
-}
-#[tokio::test]
-async fn test_export_ckan_crosswalk_strict_rejects_losses_before_writing() -> Result<()> {
-    let temp_dir = temp_test_dir("export_ckan_crosswalk_strict_rejects_losses_before_writing");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let source = temp_dir.join("package.json");
-    copy(fixture_path("schema/ckan/0sbdv-gh024.json"), &source)?;
-    let output = temp_dir.join("strict");
-    create_dir_all(&output)?;
-    let result = run(
-        &Some(output.clone()),
-        &Some(source),
-        &None,
-        &None,
-        &None,
-        &[],
-        &[],
-        false,
-        false,
-        &FileFormat::Json,
-        None,
-        &None,
-        &Some(Standard::Ckan),
-        &Some(Standard::Dcat),
-        &false,
-        &false,
-        &false,
-        &[],
-        false,
-        true,
-        Target::FactSheet,
-        None,
-        TEST_THREADS,
-        &silent(),
-        OFFLINE,
-    )
-    .await;
-    assert!(result.is_err());
-    assert!(!output.join("package.json").exists());
     Ok(())
 }
 #[tokio::test]
@@ -967,6 +967,7 @@ async fn test_export_updates_writes_filtered_markdown_and_docx() -> Result<()> {
                 .entries(vec![
                     LogbookEntry::init()
                         .identifier("included")
+                        .project_id("example-project")
                         .timestamp("2026-09-01T12:00:00Z")
                         .category("infrastructure")
                         .state("completed")
@@ -974,6 +975,7 @@ async fn test_export_updates_writes_filtered_markdown_and_docx() -> Result<()> {
                         .build(),
                     LogbookEntry::init()
                         .identifier("excluded")
+                        .project_id("example-project")
                         .timestamp("2026-08-01T12:00:00Z")
                         .category("software")
                         .state("completed")

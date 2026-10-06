@@ -168,6 +168,10 @@ pub struct LogbookEntry {
     #[validate(nonempty, kebabcase, length(max = 100))]
     #[serde(deserialize_with = "string_trim")]
     pub identifier: String,
+    /// Stable project identifier used to route the entry to project metadata.
+    #[validate(nonempty, kebabcase, length(max = 100))]
+    #[serde(deserialize_with = "string_trim")]
+    pub project_id: String,
     /// Temporal anchor interpreted according to [`LogbookState`].
     #[validate(timestamp)]
     #[serde(deserialize_with = "string_trim")]

@@ -3,8 +3,9 @@ use crate::io::api::gitlab::{ReportManifest, ReportStatus};
 use crate::io::api::webhooks::store::{EnqueueStatus, OperationQueue};
 use crate::io::api::webhooks::{self, CallbackResolver, ErrorKind, InboundRequest, WebhookProvider};
 use crate::io::workflow::{LogbookProposal, RepositoryChangeSet};
-use acorn_schema::research_activity::{ReportingWindow, ResearchActivity};
+use acorn_schema::research_activity::{Logbook, LogbookEntry, LogbookState, ReportingWindow, ResearchActivity};
 use acorn_schema::validation::Validate;
+use alloc::collections::BTreeSet;
 use http::{HeaderMap, HeaderValue};
 use jiff::Timestamp;
 use std::env::temp_dir;
@@ -32,6 +33,13 @@ fn intake_headers(delivery_id: &str) -> HeaderMap {
     headers.insert("x-acorn-delivery-id", HeaderValue::from_str(delivery_id).expect("delivery header"));
     headers.insert("x-acorn-webhook-secret", HeaderValue::from_static("test-secret"));
     headers
+}
+fn logbook_fixture() -> Logbook {
+    serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fixtures/logbook/entries.json"
+    )))
+    .expect("valid PowerAutomate logbook fixture")
 }
 fn submission() -> FormSubmission {
     serde_json::from_value(serde_json::json!({
@@ -134,6 +142,17 @@ fn test_flow_is_authenticated_durable_duplicate_safe_and_reportable() {
     })
     .expect("logbook proposal");
     let activity = serde_json::from_str::<ResearchActivity>(&changes.files.first().expect("updated file").content).expect("updated activity");
+    assert_eq!(
+        activity
+            .logbook
+            .as_ref()
+            .expect("logbook")
+            .entries
+            .first()
+            .expect("form entry")
+            .project_id,
+        "pilot"
+    );
     let window = ReportingWindow::new(None, "2026-10-01T00:00:00Z").expect("reporting window");
     let updates = activity.updates_within(&window).expect("bounded updates");
     let manifest = ReportManifest::new(
@@ -157,6 +176,7 @@ fn test_form_conversion_forces_effect_fields_and_rejects_late_entries() {
     let entry = submission.entry(&config()).expect("authorized form");
     assert_eq!(entry.identifier, "form-123-e-4567-e-89-b-12-d-3-a-456-426614174000");
     assert_eq!(entry.origin, acorn_schema::research_activity::LogbookEntryOrigin::Manual);
+    assert_eq!(entry.project_id, "pilot");
     assert!(!entry.archived);
     assert!(entry.discovery.is_none());
     assert!(submission.entry_after(&config(), Some("2026-09-18T12:00:01Z")).is_err());
@@ -182,6 +202,69 @@ fn test_form_payload_is_strict_and_authorized() {
     let mut unauthorized = submission();
     unauthorized.submitter.email = serde_json::from_value(serde_json::json!("other@example.org")).expect("email");
     assert!(unauthorized.entry(&config()).is_err());
+}
+#[test]
+fn test_logbook_fixture_graduates_a_project_routed_entry() {
+    let mut logbook = logbook_fixture();
+    logbook.entries.push(
+        LogbookEntry::init()
+            .category("personnel")
+            .identifier("powerautomate-new-contributor")
+            .project_id("fullmetal-alchemist")
+            .state("in-progress")
+            .summary("Example Contributor")
+            .timestamp("2026-03-31T00:00:00Z")
+            .build(),
+    );
+    let activity = ResearchActivity {
+        logbook: Some(logbook),
+        ..ResearchActivity::default()
+    };
+    let graduated = activity
+        .graduate(&["powerautomate-new-contributor".to_string()])
+        .expect("graduate fixture-backed entry");
+    let entries = &graduated.logbook.as_ref().expect("graduated logbook").entries;
+    let entry = entries
+        .iter()
+        .find(|entry| entry.identifier == "powerautomate-new-contributor")
+        .expect("graduated entry");
+    assert!(entry.archived);
+    assert_eq!(entry.project_id, "fullmetal-alchemist");
+    assert_eq!(entry.state, LogbookState::Completed);
+    assert_eq!(entries.iter().filter(|entry| entry.archived).count(), 1);
+    assert_eq!(
+        graduated
+            .meta
+            .contributors
+            .as_ref()
+            .and_then(|contributors| contributors.iter().next())
+            .expect("contributor")
+            .name,
+        "Example Contributor"
+    );
+}
+#[test]
+fn test_logbook_fixture_preserves_project_routing() {
+    let logbook = logbook_fixture();
+    logbook.validate().expect("valid PowerAutomate logbook fixture");
+    assert_eq!(logbook.entries.len(), 22);
+    assert_eq!(
+        logbook.entries.iter().map(|entry| entry.project_id.as_str()).collect::<BTreeSet<_>>(),
+        BTreeSet::from([
+            "akira",
+            "alchemy",
+            "bebop",
+            "bleach",
+            "dragon-ball",
+            "evangelion",
+            "gundam",
+            "naruto",
+            "one-piece",
+            "sailor-moon",
+            "totoro",
+            "trigun",
+        ])
+    );
 }
 #[test]
 fn test_provider_classifies_one_stable_operation() {

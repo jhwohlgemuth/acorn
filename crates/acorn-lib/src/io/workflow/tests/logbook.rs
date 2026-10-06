@@ -4,6 +4,7 @@ use acorn_schema::research_activity::LogbookEntry;
 fn entry(identifier: &str, summary: &str) -> LogbookEntry {
     LogbookEntry::init()
         .identifier(identifier)
+        .project_id("pilot")
         .timestamp("2026-09-18T12:00:00Z")
         .category("software")
         .state("completed")

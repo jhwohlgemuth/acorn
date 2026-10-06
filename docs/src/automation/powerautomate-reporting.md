@@ -281,6 +281,7 @@ Allowed controlled values:
 | `classification` | `unclassified`, `confidential`, `secret`, `top-secret` |
 
 `classification`, `eventType`, and `items` are optional. Omit fields that do not apply. Do not send null values or additional properties.
+ACORN retains the envelope's `projectId` on the normalized logbook entry so later processing can route the entry to its project metadata.
 
 An accepted response resembles:
 

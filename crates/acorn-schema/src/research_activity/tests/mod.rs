@@ -26,6 +26,7 @@ fn fixtures_dir() -> PathBuf {
 fn logbook_entry(identifier: &str, timestamp: &str) -> LogbookEntry {
     LogbookEntry::init()
         .identifier(identifier)
+        .project_id("example-project")
         .timestamp(timestamp)
         .category("personnel")
         .state("in-progress")
@@ -761,6 +762,7 @@ fn test_is_attribute_publication_identifier() {
 fn test_logbook_classification_is_constrained_and_graduates_to_activity_metadata() {
     let classification_entry = LogbookEntry::init()
         .identifier("classification-raised")
+        .project_id("example-project")
         .timestamp("2026-09-05T12:00:00Z")
         .category("administration")
         .classification(ClassificationLevel::Secret)
@@ -790,6 +792,7 @@ fn test_logbook_classification_is_constrained_and_graduates_to_activity_metadata
 
     let invalid_entry = LogbookEntry::init()
         .identifier("misclassified-event")
+        .project_id("example-project")
         .timestamp("2026-09-05T12:00:00Z")
         .category("research")
         .classification(ClassificationLevel::Confidential)
@@ -864,6 +867,14 @@ fn test_logbook_discovered_identifier_truncation_trims_separator() {
     assert_eq!(identifier, format!("openalex-{}-ccvawbebavzqdtus", "a".repeat(73)));
     assert_eq!(identifier.len(), 99);
     assert!(crate::validation::rules::kebabcase(&identifier).is_ok(), "{identifier}");
+}
+#[test]
+fn test_logbook_entry_project_id_requires_kebab_case() {
+    let mut entry = logbook_entry("invalid-project-id", "2026-09-01T08:00:00-04:00");
+    entry.project_id = "Example Project".to_string();
+    let report = entry.validate().expect_err("project identifier should require kebab-case");
+    let issues = report.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n");
+    assert!(issues.contains("project_id: Provide ID in kebab-case format"), "{issues}");
 }
 #[test]
 fn test_logbook_graduation_archives_without_deleting_or_duplicating() {
@@ -1021,6 +1032,7 @@ fn test_logbook_updates_use_half_open_reporting_window() {
 fn test_logbook_validation_reports_origin_timestamp_and_duplicate_contracts() {
     let discovered = LogbookEntry::init()
         .identifier("discovered")
+        .project_id("example-project")
         .timestamp("2026-09-01")
         .category("software")
         .state("upcoming")

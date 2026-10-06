@@ -21,6 +21,7 @@ Deliver one reviewed, duplicate-safe path from Microsoft Forms through a rolling
 - `crates/acorn-cli/src/commands/report/` composes bounded artifact creation and package publication.
 - `acorn create secret` supports explicit `--paste` clipboard delivery and newline-terminated output only when standard output is redirected or piped; focused tests cover clipboard, piped-output, and interactive-silence routing.
 - `docs/src/automation/powerautomate-reporting.md` documents the direct Power Automate workflow and its Mermaid sequence diagram.
+- Fixture-backed tests validate the 22-entry Power Automate logbook sample, project routing identifiers, proposal persistence, and graduation without losing the routed project identifier.
 - The channel-aware secret update passes generated help, focused CLI tests, `make lint`, all 1,914 workspace tests, and `make book` on 2026-09-24.
 - Automated repository tests cover the workflow. A manual deployment smoke test remains before this plan is complete.
 
@@ -32,6 +33,7 @@ Deliver one reviewed, duplicate-safe path from Microsoft Forms through a rolling
 - Intake requests send the value in `x-acorn-webhook-secret` and a stable submission UUID in `x-acorn-delivery-id` over HTTPS. ACORN compares the credential in constant time and deduplicates by the normalized form submission identifier.
 - Outbound callbacks use the SAS credential embedded in the Power Automate HTTP trigger URL. The MVP requires the trigger's `Anyone` mode; deployments that prohibit it need an approved intermediary or Microsoft Entra service-principal support in ACORN.
 - Power Automate owns recipient selection and message formatting. ACORN sends artifact metadata and never embeds GitLab credentials or PDF bytes in callback bodies.
+- ACORN retains the form envelope's `projectId` on every normalized logbook entry so later processing can route the entry to project metadata.
 
 # Public interfaces
 
@@ -43,7 +45,7 @@ Deliver one reviewed, duplicate-safe path from Microsoft Forms through a rolling
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-lib/src/util/std.rs`, `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/commands/{mod,create/mod}.rs`, CLI and utility tests, generated CLI help, workflow documentation, and planning indexes.
+- **Update:** Power Automate form normalization and tests, the logbook schema and fixtures, workflow documentation, `crates/acorn-lib/src/util/std.rs`, `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/commands/{mod,create/mod}.rs`, CLI and utility tests, generated CLI help, and planning indexes.
 - **Create:** `crates/acorn-cli/src/commands/create/secret.rs` and its CLI integration test.
 - **Delete:** None while the deployment smoke test remains. Delete this plan and its index/network entries after that final acceptance check.
 
@@ -74,6 +76,7 @@ Run one form submission through the direct intake flow, verify HTTP `202`, retry
 # Validation
 
 - Run focused utility, CLI parsing, CLI integration, and Power Automate tests.
+- Parse and validate `tests/fixtures/logbook/entries.json`, verify its project routing identifiers, and graduate a fixture-backed entry while preserving its project identifier.
 - Regenerate `CommandLineHelp.md` and build the documentation book.
 - Run `make lint` and `make test` before deployment.
 - Confirm redirected or piped standard output contains only the secret and its terminating newline, an interactive default invocation is silent, and paste-only mode emits no secret value to a terminal.
@@ -87,5 +90,6 @@ Run one form submission through the direct intake flow, verify HTTP `202`, retry
 - The intake flow and ACORN runtime use the same generated value without persisting it in repository configuration.
 - Missing or incorrect intake credentials fail closed.
 - Duplicate submissions remain idempotent.
+- Every normalized logbook entry retains the required project identifier supplied by the intake envelope, including after graduation.
 - The setup guide and sequence diagram show ACORN generating and distributing the secret before form intake begins.
 - One deployed end-to-end smoke test completes before this plan is removed as finished.

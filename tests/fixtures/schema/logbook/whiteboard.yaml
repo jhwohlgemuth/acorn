@@ -1,6 +1,7 @@
 summary: Recent project developments
 entries:
   - identifier: new-contributor
+    projectId: example-project
     timestamp: 2026-08-28T09:30:00-04:00
     category: personnel
     state: in-progress
@@ -8,6 +9,7 @@ entries:
     items:
       - Joined the research team
   - identifier: workflow-release
+    projectId: example-project
     timestamp: 2026-09-01T15:00:00Z
     category: software
     state: completed
@@ -20,6 +22,7 @@ entries:
     items:
       - Published version 1.0
   - identifier: sponsor-facility-tour
+    projectId: example-project
     timestamp: 2026-09-02T14:00:00-04:00
     category: engagement
     eventType: tour
@@ -28,6 +31,7 @@ entries:
     items:
       - Demonstrated laboratory capabilities and active research
   - identifier: annual-research-conference
+    projectId: example-project
     timestamp: 2026-09-03T09:00:00-04:00
     category: engagement
     eventType: conference
@@ -36,6 +40,7 @@ entries:
     items:
       - Participated in technical sessions and networking
   - identifier: regional-collaboration-event
+    projectId: example-project
     timestamp: 2026-09-04T13:00:00-04:00
     category: collaboration
     eventType: meeting

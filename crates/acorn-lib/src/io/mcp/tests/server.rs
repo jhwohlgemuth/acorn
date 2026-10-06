@@ -179,6 +179,7 @@ async fn test_logbook_tools_filter_propose_and_gate_apply() {
     let mut activity = serde_json::to_value(ResearchActivity::default()).expect("default activity");
     activity["logbook"] = json!({"entries": [{
         "identifier": "new-contributor",
+        "projectId": "example-project",
         "timestamp": "2026-09-01T12:00:00Z",
         "category": "personnel",
         "state": "in-progress",
