@@ -225,6 +225,7 @@ dependencies = [
  "percy-dom",
  "petgraph",
  "polars",
+ "polars-error",
  "pretty_assertions",
  "proptest",
  "prost",

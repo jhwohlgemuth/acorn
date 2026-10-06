@@ -19,7 +19,7 @@ Verified 2026-10-01: ACORN has ordered `ValidationReport` and `CheckBatch` resul
 
 # Dependencies and scheduling
 
-- Coordinate feature wiring with [dependency capabilities](../refactors/portability/dependency-features-and-macos-size.md). Reuse current in-tree analyzer boundaries; no crate extraction prerequisite.
+- Preserve the landed dependency-capability boundary when wiring the optional evaluator. Reuse current in-tree analyzer boundaries; no crate extraction prerequisite.
 - Use the policy-validation lane in the [parallel execution guide](../parallel-execution.md). Claim exact files before implementation; the broad planning boundaries below are not concurrent ownership grants.
 - Read-only corpus and runtime evaluation may precede integration availability. Evaluator integration precedes CLI wiring, which precedes pilot acceptance. Any OPA work needs its own future plan and deployment consumer.
 

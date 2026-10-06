@@ -4,8 +4,9 @@ pub mod check;
 pub mod diff;
 pub mod error;
 pub mod fair;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 pub mod fix;
+#[cfg(feature = "analysis")]
 pub(crate) mod gpu;
 #[cfg(feature = "analysis")]
 pub mod host;
@@ -14,7 +15,7 @@ pub mod readability;
 #[cfg(test)]
 mod tests;
 
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 pub use check::IntoChecks;
 pub use check::{
     check_readability_for_text, Check, CheckBatch, CheckCategory, CheckSeverity, CheckSummary, Finding, Findings, OutputFormat, Standard,

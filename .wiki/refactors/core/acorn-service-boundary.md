@@ -57,7 +57,7 @@ Before implementation, each phase must replace these directory-level boundaries 
 
 # Dependencies and ordering
 
-- [Dependency capabilities and macOS unwind size](../portability/dependency-features-and-macos-size.md) precedes creation of the new crates and owns the prerequisite workspace feature cleanup.
+- The prerequisite workspace feature cleanup has landed; new crates must preserve its explicit capability boundaries and dependency-deny checks.
 - This plan is the executable extraction slice authorized by the [crate boundary architecture](../crate-boundary-architecture.md). It does not wait for `acorn-api`, `acorn-store`, or `acorn-export` because its first service catalog accepts supplied content and uses the existing persistence adapter only for retained JSON-RPC operation status/replay.
 - The service request and error contracts must stabilize before [CLI composition](cli-composition-boundary.md) consumes them.
 - Provider orchestration, artifact rendering, and store extraction remain downstream work. They may add service operations later without moving concrete providers, renderers, or databases into `acorn-service`.
@@ -260,5 +260,4 @@ Generate an ergonomic Rust client and conversion layer that accepts and returns 
 # Related plans
 
 - [Crate boundary architecture](../crate-boundary-architecture.md)
-- [Dependency capabilities and macOS unwind size](../portability/dependency-features-and-macos-size.md)
 - [CLI composition boundary](cli-composition-boundary.md)

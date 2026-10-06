@@ -111,9 +111,14 @@ check-host: ## Validate host-side feature builds and dependency checks.
 	@cargo check --manifest-path tests/downstream-host/Cargo.toml
 	@bash scripts/check-host-dependencies.sh
 	@cargo check -p acorn-lib
+	@cargo check -p acorn-lib --no-default-features --features std
 	@cargo check -p acorn-lib --no-default-features --features acp
 	@cargo check -p acorn-lib --no-default-features --features analysis
+	@cargo check -p acorn-lib --no-default-features --features dataframe
+	@cargo check -p acorn-lib --no-default-features --features diagnostics
+	@cargo check -p acorn-lib --no-default-features --features exec
 	@cargo check -p acorn-lib --no-default-features --features acp,analysis
+	@cargo check -p acorn-lib --no-default-features --features acp,mcp-client
 	@cargo check -p acorn-lib --no-default-features --features agentic,acp,analysis
 	@cargo check -p acorn-lib --no-default-features --features mcp-client
 	@cargo check -p acorn-lib --no-default-features --features agentic,mcp-client
@@ -121,6 +126,9 @@ check-host: ## Validate host-side feature builds and dependency checks.
 	@cargo check -p acorn-lib --features std,analysis
 	@cargo check -p acorn-cli
 	@cargo check -p acorn-cli --features grpc
+
+check-macos-unwind: ## Measure and enforce Darwin debug CLI and test unwind-section limits.
+	@bash scripts/check-macos-unwind.sh
 
 check-portable: ## Validate portable/core feature builds and compatibility checks.
 	@cargo check -p acorn-diff

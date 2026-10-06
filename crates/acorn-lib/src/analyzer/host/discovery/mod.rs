@@ -53,12 +53,12 @@ use std::{
 };
 use strum::{EnumIs, IntoEnumIterator, VariantNames};
 use tracing::warn;
-#[cfg(feature = "std")]
+#[cfg(feature = "diagnostics")]
 mod diagnostics;
 pub mod osti;
-#[cfg(feature = "std")]
+#[cfg(feature = "diagnostics")]
 pub use acorn_schema::software::SoftwareSnapshot;
-#[cfg(feature = "std")]
+#[cfg(feature = "diagnostics")]
 pub use diagnostics::HostSnapshot;
 /// Gather command options shared with discovery analysis.
 pub type Options = RuntimeOptions<DiscoveryExtension, PathBuf>;
@@ -868,6 +868,19 @@ impl CitationFormat {
         Self::VARIANTS
     }
 }
+impl fmt::Display for CitationFormat {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value = match self {
+            | Self::Ieee => "ieee",
+            | Self::Apa => "apa",
+            | Self::Chicago => "chicago",
+            | Self::Harvard => "harvard",
+            | Self::Mla => "mla",
+            | Self::Vancouver => "vancouver",
+        };
+        formatter.write_str(value)
+    }
+}
 impl From<&str> for CitationFormat {
     fn from(value: &str) -> Self {
         value.trim().parse().unwrap_or_default()
@@ -880,19 +893,6 @@ impl FromStr for CitationFormat {
             .zip(Self::VARIANTS)
             .find_map(|(format, variant)| variant.eq_ignore_ascii_case(value.trim()).then_some(format))
             .ok_or_else(|| value.to_string())
-    }
-}
-impl fmt::Display for CitationFormat {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let value = match self {
-            | Self::Ieee => "ieee",
-            | Self::Apa => "apa",
-            | Self::Chicago => "chicago",
-            | Self::Harvard => "harvard",
-            | Self::Mla => "mla",
-            | Self::Vancouver => "vancouver",
-        };
-        formatter.write_str(value)
     }
 }
 impl DiscoveryExtension {
@@ -938,20 +938,6 @@ impl From<bool> for FindingStatus {
         }
     }
 }
-impl<'a> From<&'a Records> for &'a [SourceDocument] {
-    fn from(discoveries: &'a Records) -> Self {
-        discoveries.1.as_slice()
-    }
-}
-impl GatherOutputPolicy<'_> {
-    fn format(self) -> OutputFormat {
-        self.format
-            .unwrap_or_else(|| match (self.terse, self.output.is_none() && io::stdout().is_terminal()) {
-                | (true, _) | (false, true) => OutputFormat::Console,
-                | (false, false) => OutputFormat::Json,
-            })
-    }
-}
 impl<'a> From<&'a Options> for GatherOutputPolicy<'a> {
     fn from(options: &'a Options) -> Self {
         let (format, quiet, terse, verbosity) = (
@@ -967,6 +953,15 @@ impl<'a> From<&'a Options> for GatherOutputPolicy<'a> {
             terse,
             verbosity,
         }
+    }
+}
+impl GatherOutputPolicy<'_> {
+    fn format(self) -> OutputFormat {
+        self.format
+            .unwrap_or_else(|| match (self.terse, self.output.is_none() && io::stdout().is_terminal()) {
+                | (true, _) | (false, true) => OutputFormat::Console,
+                | (false, false) => OutputFormat::Json,
+            })
     }
 }
 impl From<CandidateAction> for LifecycleState {
@@ -997,6 +992,12 @@ impl LifecycleState {
         )
     }
 }
+impl core::error::Error for OutputFailure {}
+impl fmt::Display for OutputFailure {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("ACORN gather found one or more failures")
+    }
+}
 impl OutputFailure {
     /// Create a gather failure, optionally suppressing the top-level diagnostic.
     pub const fn new(silent: bool) -> Self {
@@ -1005,12 +1006,6 @@ impl OutputFailure {
     /// Return whether the top-level CLI diagnostic should be suppressed.
     pub const fn is_silent(self) -> bool {
         self.silent
-    }
-}
-impl core::error::Error for OutputFailure {}
-impl fmt::Display for OutputFailure {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("ACORN gather found one or more failures")
     }
 }
 impl PersistenceCounts {
@@ -1036,6 +1031,30 @@ impl PersistenceCounts {
     }
     fn is_empty(&self) -> bool {
         self.created == 0 && self.enriched == 0 && self.unchanged == 0 && self.conflicts == 0
+    }
+}
+impl From<&Check> for Record {
+    fn from(value: &Check) -> Self {
+        Self::Check {
+            category: value.category.clone(),
+            locator: value.locator.clone(),
+            message: value.message.clone(),
+            severity: value.severity.clone(),
+            success: value.success,
+            uri: value.uri.clone(),
+        }
+    }
+}
+impl From<Identifier> for Record {
+    fn from(identifier: Identifier) -> Self {
+        Self::Discovery {
+            identifier: identifier.value,
+            identifier_type: identifier.kind,
+            metadata: None,
+            resolution_status: ResolutionStatus::NotRequested,
+            source: String::new(),
+            source_format: String::new(),
+        }
     }
 }
 #[bon]
@@ -1125,30 +1144,6 @@ impl Record {
                 })
             }
             | _ => None,
-        }
-    }
-}
-impl From<&Check> for Record {
-    fn from(value: &Check) -> Self {
-        Self::Check {
-            category: value.category.clone(),
-            locator: value.locator.clone(),
-            message: value.message.clone(),
-            severity: value.severity.clone(),
-            success: value.success,
-            uri: value.uri.clone(),
-        }
-    }
-}
-impl From<Identifier> for Record {
-    fn from(identifier: Identifier) -> Self {
-        Self::Discovery {
-            identifier: identifier.value,
-            identifier_type: identifier.kind,
-            metadata: None,
-            resolution_status: ResolutionStatus::NotRequested,
-            source: String::new(),
-            source_format: String::new(),
         }
     }
 }
@@ -1546,6 +1541,13 @@ impl RemoteMatch {
         once(found).chain(outcome).collect()
     }
 }
+impl fmt::Display for RemoteProvider {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            | Self::Osti => "osti",
+        })
+    }
+}
 impl RemoteProvider {
     /// Describe the entity views and filters supported by this provider.
     pub fn capabilities(self) -> ProviderCapabilities {
@@ -1556,13 +1558,6 @@ impl RemoteProvider {
                 pagination: true,
             },
         }
-    }
-}
-impl fmt::Display for RemoteProvider {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            | Self::Osti => "osti",
-        })
     }
 }
 impl RemoteResolution {
@@ -1962,16 +1957,6 @@ impl TryFrom<ArtifactCandidate> for ResearchActivityCandidate {
         }
     }
 }
-impl ResolutionOutcome<String> {
-    fn into_parts(self) -> (Option<String>, ResolutionStatus) {
-        let status = self.status();
-        let metadata = match self {
-            | Self::Resolved(metadata) | Self::Failed(metadata) => Some(metadata),
-            | Self::NotRequested | Self::Unsupported => None,
-        };
-        (metadata, status)
-    }
-}
 impl<T> From<ApiResult<T>> for ResolutionOutcome<String>
 where
     T: Serialize,
@@ -1986,6 +1971,16 @@ where
         }
     }
 }
+impl ResolutionOutcome<String> {
+    fn into_parts(self) -> (Option<String>, ResolutionStatus) {
+        let status = self.status();
+        let metadata = match self {
+            | Self::Resolved(metadata) | Self::Failed(metadata) => Some(metadata),
+            | Self::NotRequested | Self::Unsupported => None,
+        };
+        (metadata, status)
+    }
+}
 impl<T> ResolutionOutcome<T> {
     /// Return the serializable status represented by this outcome.
     pub const fn status(&self) -> ResolutionStatus {
@@ -1995,6 +1990,11 @@ impl<T> ResolutionOutcome<T> {
             | Self::Resolved(_) => ResolutionStatus::Resolved,
             | Self::Failed(_) => ResolutionStatus::Failed,
         }
+    }
+}
+impl<'a> From<&'a Records> for &'a [SourceDocument] {
+    fn from(discoveries: &'a Records) -> Self {
+        discoveries.1.as_slice()
     }
 }
 impl DeserializeMetadata for Vec<pid::raid::Metadata> {}

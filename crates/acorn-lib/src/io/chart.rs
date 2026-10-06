@@ -1,20 +1,20 @@
 //! Chart generation for export artifacts
 use crate::io::ApiResult;
-#[cfg(feature = "std")]
+#[cfg(feature = "chart")]
 use crate::io::InputOutput;
 use crate::util::constants::app::{ORNL_COLOR_AQUA, ORNL_COLOR_ENERGY, ORNL_COLOR_GREEN, ORNL_COLOR_INFINITY};
-#[cfg(feature = "std")]
+#[cfg(feature = "chart")]
 use crate::util::StringConversion;
 use acorn_core::prelude::HashMap;
 use acorn_core::prelude::{vec, Vec};
 use acorn_schema::research_activity::aspect::AspectFramework;
-#[cfg(feature = "std")]
+#[cfg(feature = "chart")]
 use acorn_schema::research_activity::ResearchActivity;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::f64::consts::{FRAC_PI_2, FRAC_PI_4};
 use resvg::{tiny_skia, usvg};
-#[cfg(feature = "std")]
+#[cfg(feature = "chart")]
 use std::path::PathBuf;
 
 const CENTER: f64 = 150.0;
@@ -93,38 +93,6 @@ impl Attribute {
             .unwrap_or_else(|| "N/A".to_string())
     }
 }
-fn attributes_from(aspect: &AspectFramework) -> Vec<Attribute> {
-    vec![
-        Attribute::init()
-            .name("Autonomy")
-            .maybe_level(aspect.autonomy.clone().map(|value| value as u8))
-            .maximum(5)
-            .color(ORNL_COLOR_AQUA)
-            .order(0)
-            .build(),
-        Attribute::init()
-            .name("Motivity")
-            .maybe_level(aspect.motivity.clone().map(|value| value as u8))
-            .maximum(5)
-            .color(ORNL_COLOR_INFINITY)
-            .order(1)
-            .build(),
-        Attribute::init()
-            .name("Portability")
-            .maybe_level(aspect.portability.clone().map(|value| value as u8))
-            .maximum(5)
-            .color(ORNL_COLOR_GREEN)
-            .order(2)
-            .build(),
-        Attribute::init()
-            .name("Maturity")
-            .maybe_level(aspect.maturity.clone().map(|value| value as u8))
-            .maximum(9)
-            .color(ORNL_COLOR_ENERGY)
-            .order(3)
-            .build(),
-    ]
-}
 impl From<&str> for ChartFileType {
     fn from(value: &str) -> Self {
         match value.to_ascii_lowercase().as_str() {
@@ -160,7 +128,7 @@ impl ChartOptions {
         }
     }
     /// Render ASPECT rose charts for research activity files.
-    #[cfg(feature = "std")]
+    #[cfg(feature = "chart")]
     pub fn render_aspect_charts(self, paths: &[PathBuf]) -> ApiResult<HashMap<PathBuf, Option<Vec<u8>>>> {
         paths
             .iter()
@@ -189,6 +157,38 @@ impl ChartOptions {
             })
         })
     }
+}
+fn attributes_from(aspect: &AspectFramework) -> Vec<Attribute> {
+    vec![
+        Attribute::init()
+            .name("Autonomy")
+            .maybe_level(aspect.autonomy.clone().map(|value| value as u8))
+            .maximum(5)
+            .color(ORNL_COLOR_AQUA)
+            .order(0)
+            .build(),
+        Attribute::init()
+            .name("Motivity")
+            .maybe_level(aspect.motivity.clone().map(|value| value as u8))
+            .maximum(5)
+            .color(ORNL_COLOR_INFINITY)
+            .order(1)
+            .build(),
+        Attribute::init()
+            .name("Portability")
+            .maybe_level(aspect.portability.clone().map(|value| value as u8))
+            .maximum(5)
+            .color(ORNL_COLOR_GREEN)
+            .order(2)
+            .build(),
+        Attribute::init()
+            .name("Maturity")
+            .maybe_level(aspect.maturity.clone().map(|value| value as u8))
+            .maximum(9)
+            .color(ORNL_COLOR_ENERGY)
+            .order(3)
+            .build(),
+    ]
 }
 fn color_hex([red, green, blue]: [u8; 3]) -> String {
     format!("#{red:02X}{green:02X}{blue:02X}")

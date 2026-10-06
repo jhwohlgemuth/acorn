@@ -192,6 +192,5 @@ Migrate first-party interfaces to direct dependencies, then remove extracted imp
 # Related plans
 
 - [Portable analysis and service boundary](core/acorn-service-boundary.md)
-- [Dependency capabilities and macOS unwind size](portability/dependency-features-and-macos-size.md)
 - [Shared export and OOXML pipeline](core/export-pipeline-hardening.md)
 - [Shared API client contract](api/shared-client-contract.md)

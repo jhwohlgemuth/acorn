@@ -5,14 +5,14 @@
     clippy::indexing_slicing,
     clippy::arithmetic_side_effects
 )]
-#[cfg(feature = "analysis")]
+#[cfg(feature = "dataframe")]
 use crate::analyzer::host::tabular::checks_to_dataframe;
 use crate::analyzer::readability::score::{ReadabilityScore, ReadabilitySeverity};
 use crate::analyzer::readability::ReadabilityType;
 use crate::analyzer::readability::*;
-#[cfg(feature = "analysis")]
+#[cfg(feature = "dataframe")]
 use crate::analyzer::CheckCategory;
-#[cfg(feature = "analysis")]
+#[cfg(feature = "dataframe")]
 use crate::check_ok;
 use crate::util::Constant;
 use acorn_core::prelude::{format, vec, HashMap};
@@ -84,7 +84,7 @@ fn test_automated_readability_index() {
     assert_eq!(6.62, automated_readability_index(text));
 }
 #[test]
-#[cfg(feature = "analysis")]
+#[cfg(feature = "dataframe")]
 fn test_checks_to_dataframe() {
     let check = check_ok!(CheckCategory::Prose);
     let checks = vec![check.clone(), check.clone(), check];

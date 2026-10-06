@@ -4,47 +4,50 @@
 //! schemas are owned by `acorn-core` and `acorn-schema`, respectively.
 #![cfg_attr(not(any(feature = "acp", feature = "analysis", feature = "std")), no_std)]
 
-#[cfg(any(feature = "acp", feature = "std", feature = "analyzer"))]
+#[cfg(any(feature = "acp", feature = "analyzer", feature = "mcp-client"))]
 extern crate alloc;
-#[cfg(any(feature = "acp", feature = "analysis", feature = "std"))]
+#[cfg(any(feature = "acp", feature = "analysis"))]
 pub mod agent;
 #[cfg(feature = "analyzer")]
 pub mod analyzer;
 pub mod error;
 #[cfg(feature = "exec")]
 pub mod exec;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 pub mod io;
-#[cfg(all(feature = "acp", not(any(feature = "analysis", feature = "std"))))]
+#[cfg(all(feature = "mcp-client", not(feature = "analysis")))]
+#[path = "io/mcp_client/mod.rs"]
+pub mod io;
+#[cfg(all(feature = "acp", not(any(feature = "analysis", feature = "mcp-client"))))]
 /// Narrow I/O surface for builds that enable only the ACP adapter.
 pub mod io {
     /// Agent Client Protocol process, readiness, and inference adapter.
     pub mod acp;
 }
 pub mod util;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use crate::io::api::{github, gitlab, Configuration};
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use crate::io::http::get;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use acorn_core::prelude::{format, String, Vec};
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use acorn_core::util::MimeType;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use acorn_core::{Location, Release, Repository, Scheme};
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use acorn_host::fs::file_uri_to_path;
 #[cfg(feature = "analysis")]
 use acorn_host::http::{HttpClient, HttpPolicy};
 pub use acorn_macros::{Validate, With};
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use acorn_schema::ControlledVocabulary;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use std::path::PathBuf;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use tracing::{debug, error, trace, warn};
 /// Native filesystem and content-detection operations for [`Location`].
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 pub trait LocationExt {
     /// Convert the location URI to a normalized filesystem path.
     fn uri_as_path(&self) -> PathBuf;
@@ -57,7 +60,7 @@ pub trait LocationExt {
     fn exists(self) -> impl core::future::Future<Output = bool> + Send;
 }
 /// Native provider operations for [`Repository`].
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 pub trait RepositoryExt {
     /// Get metadata for the latest repository release.
     fn latest_release(self) -> impl core::future::Future<Output = Option<Release>> + Send;
@@ -69,7 +72,7 @@ pub trait RepositoryExt {
     #[doc(hidden)]
     fn releases(self) -> impl core::future::Future<Output = Vec<Release>> + Send;
 }
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 impl LocationExt for Location {
     fn uri_as_path(&self) -> PathBuf {
         let value = self.uri().unwrap_or_default();
@@ -102,7 +105,7 @@ impl LocationExt for Location {
         }
     }
 }
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 impl RepositoryExt for Repository {
     async fn latest_release(self) -> Option<Release> {
         self.releases()
@@ -168,5 +171,5 @@ impl RepositoryExt for Repository {
         }
     }
 }
-#[cfg(all(test, any(feature = "analysis", feature = "std")))]
+#[cfg(all(test, feature = "analysis"))]
 mod test;

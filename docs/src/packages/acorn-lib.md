@@ -46,7 +46,7 @@ Applications that need to call configured MCP tools can enable the independent `
 cargo add acorn-lib --no-default-features --features mcp-client
 ```
 
-See [MCP client](mcp-client.md) for configuration, Rust examples, transport security, and operation-policy behavior. The default library feature set continues to provide the inbound MCP server without enabling outbound client transports.
+See [MCP client](mcp-client.md) for configuration, Rust examples, transport security, and operation-policy behavior. The default library feature only establishes standard-library support; inbound and outbound MCP transports remain explicit capabilities.
 
 Native applications that only need ACORN's analysis host can omit the full default feature set:
 
@@ -56,9 +56,22 @@ cargo add acorn-lib --no-default-features --features analysis
 
 This feature includes the analyzer's filesystem, network, document, database, and rendering adapters. It excludes the agentic server and MCP stack, system diagnostics, PowerPoint support, and shell linting. The lower-level `analyzer` feature remains the portable, allocation-only analysis kernel.
 
-System diagnostics are available with the default `std` feature set; this keeps the native `sysinfo` dependency out of analysis-only and portable builds.
+System diagnostics require `diagnostics`, and the inbound MCP server requires `agentic`. PowerPoint, chart, DuckDB, shell-lint, outbound MCP, and Polars dataframe interop (`dataframe`) likewise remain explicit. CSV check output remains part of `analysis`. This keeps unrelated native dependencies out of the default, analysis-only, and portable graphs.
 
 For the portable data model without host services, use [`acorn-schema`](acorn-schema.md). For a small native integration that does not need analysis, use [`acorn-cmd`](acorn-cmd.md) and selected [`acorn-host`](acorn-host.md) features directly; `acorn-lib` does not re-export their APIs.
+
+## Darwin development size gate
+
+The workspace optimizes third-party dependencies at level 2 and `acorn-lib` at level 1 in development and test profiles. This keeps workspace code debuggable while limiting exception metadata from the native dependency graph. Run `make check-macos-unwind` on Apple Silicon to build the default CLI and its unit-test harness, compare `size -m` with `otool -l`, reject the Apple compact-unwind warning, and enforce a 14,680,064-byte `__eh_frame` limit.
+
+The original debug CLI baseline was approximately 317 MiB with a 21,230,536-byte `__eh_frame`. On Rust 1.98.1, Cargo 1.98.1, Apple `ld` 27037.1, and arm64, the accepted incremental measurement is:
+
+| Artifact | `__text` | `__gcc_except_tab` | `__unwind_info` | `__eh_frame` | File size |
+|---|---:|---:|---:|---:|---:|
+| Debug CLI | 66,268,708 | 3,909,640 | 1,970,944 | 10,451,952 | 170,009,176 |
+| CLI unit-test harness | 57,944,340 | 3,259,516 | 1,687,880 | 9,026,412 | 147,983,464 |
+
+That run took 54 seconds for the CLI and 5 seconds for the test harness after the feature graph and test dependencies were already built. The gate writes its complete machine-readable summary and raw section reports under `target/macos-unwind/`.
 
 ## Immutable updates
 

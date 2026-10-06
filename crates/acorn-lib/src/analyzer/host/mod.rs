@@ -6,3 +6,6 @@ pub mod runtime;
 pub mod service;
 pub mod tabular;
 pub mod vale;
+
+#[cfg(test)]
+mod tests;

@@ -1,33 +1,33 @@
 //! Terminal output helpers
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use crate::skip;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use acorn_core::prelude::Vec;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use acorn_core::prelude::{format, String, ToString};
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use acorn_diff::unified_diff;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use comfy_table::presets::UTF8_FULL;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use comfy_table::{ContentArrangement, Table};
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use owo_colors::OwoColorize;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use similar::{
     ChangeTag::{self, Delete, Equal, Insert},
     TextDiff,
 };
 
 /// Print line-oriented changes with ANSI colors
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 pub fn print_changes(old: &str, new: &str) {
     print_changes_with_color(old, new, true);
 }
 /// Print line-oriented changes with optional ANSI colors
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 pub fn print_changes_with_color(old: &str, new: &str, color: bool) {
     let diff = unified_diff(old, new, "before", "after");
     if diff.is_empty() {
@@ -43,7 +43,7 @@ pub fn print_changes_with_color(old: &str, new: &str, color: bool) {
     }
 }
 /// Print rows as a host-formatted table
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 pub fn print_values_as_table<T>(headers: Vec<&str>, rows: Vec<Vec<String>>, title: Option<T>)
 where
     T: ToString,
@@ -51,12 +51,12 @@ where
     println!("{}", values_as_table(headers, rows, title));
 }
 /// Return line-oriented diff changes with ANSI colors
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 pub fn text_diff_changes(old: &str, new: &str) -> Vec<(ChangeTag, String)> {
     text_diff_changes_with_color(old, new, true)
 }
 /// Return line-oriented diff changes with optional ANSI colors
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 pub fn text_diff_changes_with_color(old: &str, new: &str, color: bool) -> Vec<(ChangeTag, String)> {
     TextDiff::from_lines(old, new)
         .iter_all_changes()
@@ -75,7 +75,7 @@ pub fn text_diff_changes_with_color(old: &str, new: &str, color: bool) -> Vec<(C
         .collect()
 }
 /// Render rows as a host-formatted table without writing to stdout
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 pub fn values_as_table<T>(headers: Vec<&str>, rows: Vec<Vec<String>>, title: Option<T>) -> String
 where
     T: ToString,

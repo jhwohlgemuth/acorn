@@ -76,6 +76,7 @@ pdf-inspector = { workspace = true, optional = true }
 percy-dom = {version = "0.10.0", features = ["macro"], default-features = false, optional = true }
 petgraph = { version = "0.8.3", features = ["stable_graph"], default-features = false }
 polars = { version = "0.53.0", features = ["lazy", "fmt_no_tty", "csv"], default-features = false, optional = true }
+polars-error = { version = "0.53.0", default-features = false, optional = true }
 prost = { workspace = true, optional = true }
 prost-types = { workspace = true, optional = true }
 quick-xml = { workspace = true, features = ["serialize"] }
@@ -166,21 +167,22 @@ path = "tests/openai_interoperability.rs"
 required-features = ["analysis"]
 
 [features]
-acp = ["std-core", "dep:acorn-cmd", "dep:agent-client-protocol", "dep:thiserror", "dep:tokio", "tokio/rt", "tokio/time"]
+acp = ["std", "dep:acorn-cmd", "dep:agent-client-protocol", "dep:thiserror", "dep:tokio", "tokio/rt", "tokio/time"]
 core = ["acorn-core/core", "acorn-schema/core"]
 alloc = ["core", "acorn-core/alloc", "acorn-schema/alloc", "serde/alloc", "jiff/alloc"]
 wasm = ["alloc", "acorn-schema/alloc"]
 analyzer = ["alloc"]
-std-core = ["alloc", "acorn-core/std", "acorn-schema/alloc", "jiff/std", "schemars/std", "dep:color-eyre"]
-net = ["std-core", "dep:reqwest", "dep:http", "dep:httpdate", "dep:jsonschema", "dep:lychee-lib", "dep:thiserror", "dep:tokio", "tokio/io-std", "tokio/io-util", "tokio/net", "tokio/rt", "tokio/signal", "tokio/time", "dep:futures", "dep:async-trait", "dep:nanoid", "dep:rand", "dep:ring", "dep:rsa", "dep:glob", "dep:tower"]
-archive = ["std-core", "dep:flate2", "dep:zip", "dep:tar", "dep:zstd", "dep:sevenz-rust2"]
-template = ["std-core", "acorn-schema/std", "dep:tera", "dep:rust-embed", "dep:percy-dom", "dep:ammonia", "dep:anydoc", "dep:pdf-inspector"]
-progress = ["std-core", "dep:indicatif", "dep:console", "dep:owo-colors", "dep:comfy-table", "dep:similar"]
-cli-util = ["std-core", "dep:directories", "dep:dotenvy", "dep:which", "dep:is_executable", "dep:glob", "dep:arboard", "dep:infer"]
-db = ["std-core", "dep:rusqlite"]
-unicode = ["std-core", "console/std"]
-agentic = ["std-core", "dep:axum", "dep:rmcp", "dep:tower", "rmcp/server", "rmcp/transport-io"]
+std = ["alloc", "acorn-schema/alloc", "jiff/std", "schemars/std", "dep:color-eyre"]
+net = ["std", "dep:reqwest", "dep:http", "dep:httpdate", "dep:jsonschema", "dep:lychee-lib", "dep:thiserror", "dep:tokio", "tokio/io-std", "tokio/io-util", "tokio/net", "tokio/rt", "tokio/signal", "tokio/time", "dep:futures", "dep:async-trait", "dep:nanoid", "dep:rand", "dep:ring", "dep:rsa", "dep:glob", "dep:tower"]
+archive = ["std", "dep:flate2", "dep:zip", "dep:tar", "dep:zstd", "dep:sevenz-rust2"]
+template = ["std", "acorn-schema/std", "dep:tera", "dep:rust-embed", "dep:percy-dom", "dep:ammonia", "dep:anydoc", "dep:pdf-inspector"]
+progress = ["std", "dep:indicatif", "dep:console", "dep:owo-colors", "dep:comfy-table", "dep:similar"]
+cli = ["std", "dep:directories", "dep:dotenvy", "dep:which", "dep:is_executable", "dep:glob", "dep:arboard", "dep:infer"]
+db = ["std", "dep:rusqlite"]
+unicode = ["std", "console/std"]
+agentic = ["analysis", "dep:axum", "dep:rmcp", "dep:tower", "rmcp/server", "rmcp/transport-io"]
 analysis = [
+  "acorn-core/std",
   "acorn-diff/std",
   "acorn-host/config",
   "acorn-host/fs",
@@ -191,7 +193,7 @@ analysis = [
   "dep:acorn-diff",
   "analyzer",
   "archive",
-  "cli-util",
+  "cli",
   "db",
   "net",
   "progress",
@@ -199,55 +201,46 @@ analysis = [
   "unicode",
   "dep:ariadne",
   "dep:bat",
-  "dep:polars",
+  "dep:polars-error",
   "dep:rayon",
   "dep:rust-ini",
   "dep:same-file",
 ]
-chart = ["dep:resvg"]
+chart = ["analysis", "dep:resvg"]
+dataframe = ["analysis", "dep:polars"]
 default = ["std"]
-duckdb = ["std-core", "dep:duckdb"]
+diagnostics = ["analysis", "dep:sysinfo"]
+duckdb = ["analysis", "dep:duckdb"]
 grpc = [
+  "agentic",
   "dep:prost",
   "dep:prost-types",
   "dep:protoc-bin-vendored",
   "dep:tonic",
   "dep:tonic-prost",
   "dep:tonic-prost-build",
-  "std",
 ]
-powerpoint = ["std-core"]
+powerpoint = ["analysis"]
 mcp-client = [
-  "analysis",
+  "std",
+  "dep:http",
   "dep:rmcp",
+  "dep:reqwest",
+  "dep:tokio",
+  "dep:which",
   "rmcp/client",
   "rmcp/reqwest",
   "rmcp/transport-child-process",
   "rmcp/transport-streamable-http-client-reqwest",
   "tokio/process",
+  "tokio/rt",
+  "tokio/rt-multi-thread",
+  "tokio/time",
 ]
 needle = ["agentic", "dep:acorn-cmd"]
-exec = ["std", "dep:cap-std", "dep:rhai"]
-std = [
-  "std-core",
-  "agentic",
-  "analysis",
-  "unicode",
-  "shell-lint",
-  "powerpoint",
-  "duckdb",
-  "swhid-compute",
-  "net",
-  "archive",
-  "template",
-  "progress",
-  "cli-util",
-  "db",
-  "chart",
-  "dep:sysinfo",
-]
-shell-lint = ["std-core", "acorn-cmd/shell-lint"]
-swhid-compute = ["std-core", "dep:acorn-cmd", "dep:swhid"]
+exec = ["analysis", "dep:cap-std", "dep:rhai"]
+shell-lint = ["analysis", "acorn-cmd/shell-lint"]
+swhid-compute = ["analysis", "dep:acorn-cmd", "dep:swhid"]
 
 [lints]
 workspace = true

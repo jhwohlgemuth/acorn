@@ -28,7 +28,7 @@ status: planned
 
 This plan requires the implemented provider-neutral `BucketSource` and `BucketSourceAdapter` contracts and the item-aware manifest, filtering, destination-safety, canonicalization, provenance, and ingestion pipeline reused by the landed BagIt archive import and download path. Cosmos integration must extend the landed source and item contracts rather than revise them in the provider plan.
 
-It must preserve the [dependency capability boundary](../refactors/portability/dependency-features-and-macos-size.md), the existing HTTP/offline policy, and the provider/authentication boundary in the [shared API client contract](../refactors/api/shared-client-contract.md).
+It must preserve the landed dependency capability boundary, the existing HTTP/offline policy, and the provider/authentication boundary in the [shared API client contract](../refactors/api/shared-client-contract.md).
 
 The first release uses Azure Cosmos DB for NoSQL. Other Cosmos APIs, writes, change-feed synchronization, and database-backend replacement are outside this plan.
 

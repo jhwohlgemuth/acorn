@@ -5,6 +5,8 @@
     clippy::panic,
     clippy::unwrap_used
 )]
+#[cfg(feature = "dataframe")]
+use crate::analyzer::host::tabular::checks_to_dataframe;
 use crate::{
     analyzer::{
         check::Standard,
@@ -16,7 +18,6 @@ use crate::{
                 ModelKitStandard, StaticAnalyzer, StaticAnalyzerConfig,
             },
             service::Analysis,
-            tabular::checks_to_dataframe,
             vale::{preprocess_vale_output, Vale, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity},
         },
         Check, CheckBatch, CheckCategory, CheckSeverity, CheckSummary, IntoChecks,
@@ -49,8 +50,8 @@ use std::{
 use tempfile::tempdir;
 use zip::{write::SimpleFileOptions, ZipWriter};
 
-static VALIDATION_CALLS: AtomicUsize = AtomicUsize::new(0);
 const MODELKIT_DIGEST: &str = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+static VALIDATION_CALLS: AtomicUsize = AtomicUsize::new(0);
 #[derive(Validate)]
 struct ArrayParamModel {
     #[validate(length(min = 3))]
@@ -236,6 +237,7 @@ fn test_check_severity_to_ariadne_report_kind_matrix() {
     }
 }
 #[test]
+#[cfg(feature = "dataframe")]
 fn test_checks_to_dataframe() {
     let check = check_ok!(CheckCategory::Prose);
     let checks = vec![check.clone(), check.clone(), check];

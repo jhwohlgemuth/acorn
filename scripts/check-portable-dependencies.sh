@@ -3,7 +3,7 @@ set -euo pipefail
 
 readonly allowed_diff='^(acorn-diff|itoa|memchr|proc-macro2|quote|serde|serde_core|serde_derive|serde_json|similar|syn|unicode-ident|zmij) v'
 readonly forbidden='^(ammonia|anydoc|arboard|ariadne|async-trait|axum|bat|color-eyre|comfy-table|console|directories|dotenvy|flate2|futures|glob|http|httpdate|indicatif|infer|is_executable|lychee-lib|nanoid|owo-colors|pdf-inspector|percy-dom|polars|rand|rayon|reqwest|ring|rsa|rusqlite|rust-embed|rust-ini|sevenz-rust2|shell-words|shuck-linter|shuck-parser|similar|tar|tera|tokio|tower|which|zip) v'
-readonly forbidden_analysis='^(axum|duckdb|resvg|rmcp|shuck-linter|shuck-parser|sysinfo) v'
+readonly forbidden_analysis='^(axum|duckdb|polars|resvg|rmcp|shuck-linter|shuck-parser|sysinfo) v'
 
 check_diff_tree() {
     local features

@@ -8,6 +8,8 @@ cargo add acorn-lib --no-default-features --features mcp-client
 
 Application configuration owns every server transport, environment-variable reference, tool allowlist, declared effect, timeout, and output limit. The top-level `mcp` map names servers, each server's `allowed` map names tools, `timeout` is measured in seconds, and `max_output` uses a unit-bearing memory value such as `256KB`. Callers select only a configured server alias, tool name, and JSON-object arguments:
 
+An MCP-only build exposes the `mcp` projection of `ApplicationConfiguration` at the same path and ignores unrelated top-level fields while deserializing. Enabling `analysis` exposes the complete application configuration without changing the client constructor.
+
 ```rust
 use acorn::io::api::operation::InvocationContext;
 use acorn::io::config::ApplicationConfiguration;

@@ -37,10 +37,8 @@ authentication, transport, discovery, and `CallToolResult` behavior.
   `is_error == Some(true)`. The CLI converts that semantic error into its own
   command failure after printing the result. This distinction is useful to
   embedders and must remain unchanged.
-- `mcp-client` still selects the broad `analysis` feature. The active
-  [dependency capability plan](../portability/dependency-features-and-macos-size.md)
-  owns that graph correction and the necessary module gates. This plan begins
-  after the narrow feature compiles independently.
+- `mcp-client` now compiles independently through its narrow configuration and
+  transport facade without selecting the broad `analysis` feature.
 - [Xylem's tenant-tool plan](https://code.ornl.gov/research-enablement/xylem/-/blob/main/.wiki/features/mcp-tenant-tools.md)
   is the first concrete downstream consumer. It needs the direct constructor
   and bounded cancellation without an ACORN-specific runtime token or a local
@@ -48,17 +46,17 @@ authentication, transport, discovery, and `CallToolResult` behavior.
 
 # Dependencies and ownership
 
-[Dependency capabilities and macOS unwind size](../portability/dependency-features-and-macos-size.md)
-lands first and owns `Cargo.toml`, `Cargo.lock`, feature definitions, crate-root
-gates, and dependency-deny checks. Its accepted `mcp-client` graph excludes
-`analysis`, `std`, Polars, and OpenSSL while retaining child-process and
-Streamable HTTP behavior.
+The prerequisite dependency-capability work has landed. The accepted
+`mcp-client` graph uses foundational `std` support while excluding `analysis`,
+Polars, and OpenSSL and retaining child-process and Streamable HTTP behavior.
+Workspace manifests, crate-root gates, and dependency-deny checks remain
+outside this plan's write set.
 
 This plan owns the public client methods, their implementation, focused client
 tests, and MCP client documentation. It does not change manifests, application
 configuration syntax, operation effects, transport options, or CLI syntax. If
-implementation requires another dependency or feature edge, return that work to
-the dependency capability plan instead of widening this plan.
+implementation requires another dependency or feature edge, create a focused
+prerequisite change instead of widening this plan.
 
 # Public interface
 

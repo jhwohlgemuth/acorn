@@ -18,7 +18,7 @@ The practical benefit is changing local requirements without changing the RAD sc
 | [Restricted Rhai runtime](../../crates/acorn-lib/src/exec/runtime.rs) and [hooks](../../crates/acorn-lib/src/exec/hooks.rs), including operation/depth/container limits, host capabilities, checks, proposals, and audit records | ACORN already supports configurable executable behavior. CEL should target small, pure predicates; retain Rhai for workflows and proposals. |
 | [OperationEffects and shared authorization policy](../../crates/acorn-lib/src/io/api/operation.rs), including mutation approval, unavailable effects, inference policy, and offline checks | Future policy decisions belong at the shared invocation boundary and may further restrict actions. They must never grant effects denied by host policy. |
 | [Outbound MCP configuration](../../docs/src/packages/mcp-client.md) requires explicit server/tool allowlists and bounded invocation | Authorization work must reuse the stable shared contract rather than add independent enforcement to each protocol. |
-| [Dependency-capabilities plan](../refactors/portability/dependency-features-and-macos-size.md) separates portable and host capabilities | Add an opt-in evaluator dependency. Native Rust, browser WASM, and no_std are separate compatibility claims. |
+| The landed dependency-capability boundary separates portable and host capabilities | Add an opt-in evaluator dependency. Native Rust, browser WASM, and no_std are separate compatibility claims. |
 
 ## Technology comparison
 

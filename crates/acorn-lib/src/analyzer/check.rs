@@ -1,6 +1,6 @@
 //! Check result types and helpers for analyzer output
 use super::error::ErrorKind;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use super::error::{DocumentTarget, ValidatorIssues};
 #[cfg(feature = "analysis")]
 use super::fair::FairState;
@@ -8,51 +8,51 @@ use super::fair::{FairDetails, FairIndicatorId};
 use super::model::ValeOutputItemSeverity;
 use super::readability::score::{ReadabilityScore, ReadabilitySeverity};
 use super::readability::ReadabilityType;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use crate::check_err;
 use crate::{check, check_ok};
 use acorn_core::prelude::{format, vec, Box, String, ToString, Vec};
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use acorn_core::util::MimeType;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use acorn_core::validation::ValidationError as PortableValidationError;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use acorn_schema::pid::raid;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use acorn_schema::research_activity::ResearchActivity;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use acorn_schema::standard::crosswalk::mapping::{
     datacite_to_dcat, datacite_to_huwise, datacite_to_invenio, dcat_to_datacite, huwise_to_datacite, invenio_to_datacite,
 };
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use acorn_schema::standard::crosswalk::{Conversion, ConversionWarning, Crosswalk, CrosswalkError, FieldMapping, Fields, SchemaExtractor};
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use acorn_schema::standard::{ckan, datacite, dcat, huwise, invenio};
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use acorn_schema::validation::ValidationReport;
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use acorn_schema::OneOrMany;
 use alloc::borrow::Cow;
 use bon::Builder;
 use core::str::FromStr;
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 use serde_json::{Map, Value};
 use strum::{EnumIs, EnumIter, VariantNames};
 use validator::{Validate, ValidationError, ValidationErrors, ValidationErrorsKind};
 
 /// Utility type alias for a vector of [`ConversionWarning`]
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 pub type ConversionWarnings = Vec<ConversionWarning>;
 /// Trait for converting values to an ordered batch of checks.
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 pub trait IntoChecks {
     /// Convert to an ordered batch of checks.
     fn to_checks(&self, uri: Option<String>) -> CheckBatch;
 }
 /// Detect supported metadata standards from JSON objects.
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 pub trait StandardDetection {
     /// Whether this object is Citation File Format metadata.
     fn is_citation_file_format(&self) -> bool;
@@ -75,7 +75,7 @@ pub trait StandardDetection {
     /// Whether this object is Research Activity Data metadata.
     fn is_research_activity_data(&self) -> bool;
 }
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 pub(crate) trait ValidationReportExt {
     fn checks(self, uri: Option<String>) -> CheckBatch;
 }
@@ -415,7 +415,7 @@ impl CheckBatch {
         Self(vec![check])
     }
     /// Convert schema parse diagnostics into checks.
-    #[cfg(any(feature = "analysis", feature = "std"))]
+    #[cfg(feature = "analysis")]
     pub(crate) fn schema_parse_failure_checks(diagnostic: impl ToString, uri: Option<String>) -> Self {
         diagnostic
             .to_string()
@@ -486,7 +486,7 @@ impl IntoIterator for CheckBatch {
 }
 impl CheckCategory {
     /// Convert a category-specific diagnostic into one failed check.
-    #[cfg(any(feature = "analysis", feature = "std"))]
+    #[cfg(feature = "analysis")]
     pub(crate) fn failure_checks(self, diagnostic: impl ToString, uri: Option<String>) -> CheckBatch {
         CheckBatch::single(check_err!(self, context: diagnostic.to_string()).with_uri(uri))
     }
@@ -681,7 +681,7 @@ impl From<CheckBatch> for CheckSummary {
         Self::from(&checks)
     }
 }
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 impl IntoChecks for ConversionWarnings {
     /// Convert crosswalk conversion warnings into Check objects with Warning severity.
     ///
@@ -756,7 +756,7 @@ impl IntoIterator for Findings {
         self.values.into_iter()
     }
 }
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 impl StandardDetection for Map<String, Value> {
     fn is_citation_file_format(&self) -> bool {
         self.contains_key("cff-version")
@@ -797,13 +797,13 @@ impl StandardDetection for Map<String, Value> {
         self.contains_key("contact") && self.contains_key("meta") && self.contains_key("title")
     }
 }
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 impl From<&Map<String, Value>> for Standard {
     fn from(object: &Map<String, Value>) -> Self {
         Self::detect_object(object).unwrap_or(Self::Dcat)
     }
 }
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 impl Standard {
     /// Strictly detect a supported metadata standard from an object.
     pub fn detect_object(object: &Map<String, Value>) -> Option<Self> {
@@ -1012,7 +1012,7 @@ impl From<&CheckSeverity> for u8 {
         }
     }
 }
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 impl ValidationReportExt for ValidationReport {
     fn checks(self, uri: Option<String>) -> CheckBatch {
         ValidatorIssues::from(self)
@@ -1096,7 +1096,7 @@ pub fn check_readability_for_text(text: &str, metric: ReadabilityType, uri: Opti
         )]
     })
 }
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 fn contains_layer_identity(value: &Value) -> bool {
     match value {
         | Value::Object(object) => object.contains_key("digest") || object.contains_key("diffId") || object.values().any(contains_layer_identity),
@@ -1104,7 +1104,7 @@ fn contains_layer_identity(value: &Value) -> bool {
         | _ => false,
     }
 }
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 fn crosswalk_batch<S, T>(source: OneOrMany<S>, source_mime: &MimeType, target_mime: MimeType) -> Result<Conversion<String>, CrosswalkError>
 where
     S: Crosswalk<T>,
@@ -1138,7 +1138,7 @@ where
     }
 }
 /// Parse source content and apply a FieldMapping to detect missing optional fields.
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(feature = "analysis")]
 fn process_crosswalk_warnings<T>(
     content: &str,
     mime: &MimeType,

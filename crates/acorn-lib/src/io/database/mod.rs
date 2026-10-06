@@ -158,54 +158,6 @@ where
     path: Option<PathBuf>,
     marker: PhantomData<T>,
 }
-impl<T> Default for Database<T>
-where
-    T: TableSchemaProvider,
-{
-    fn default() -> Self {
-        Self {
-            path: None,
-            marker: PhantomData,
-        }
-    }
-}
-#[async_trait]
-impl<S> Operations for Database<S>
-where
-    S: TableSchemaProvider + Sync,
-{
-    fn insert<R>(&self, value: R) -> ApiResult<usize>
-    where
-        R: Row,
-    {
-        let row: R = value;
-        self.with_connection(|conn| row.insert(conn))
-    }
-    async fn persist<P>(&self, data: Option<P>) -> ApiResult<usize>
-    where
-        P: DatabasePersistence + Send,
-    {
-        let database = Database::<Table>::from_path(self.path.as_ref());
-        match data {
-            | Some(rows) => rows.persist(database).await,
-            | None => Err(eyre!("Failed to persist data")),
-        }
-    }
-    async fn populate(&self, table: impl TableSchemaProvider + Send) -> ApiResult<PersistStatus> {
-        match self.row_count(table) {
-            | Ok(count) if count > 0 => Ok(PersistStatus::AlreadyExists),
-            | Ok(_) => table.into().populate(self.path.clone()).await.map(PersistStatus::Downloaded),
-            | Err(why) => Err(why),
-        }
-    }
-    fn select<T, P>(&self, _value: P) -> ApiResult<Option<T>>
-    where
-        T: Into<Table>,
-        P: Params,
-    {
-        Err(eyre!("Database query is not implemented"))
-    }
-}
 impl<T> Database<T>
 where
     T: TableSchemaProvider,
@@ -233,7 +185,7 @@ where
     }
     /// Get the cache TTL value from environment or use default.
     pub fn cache_ttl(&self) -> SignedDuration {
-        #[cfg(feature = "std")]
+        #[cfg(feature = "cli")]
         {
             if let Ok(env_ttl) = dotenvy::var(CACHE_TTL) {
                 if let Ok(seconds) = env_ttl.parse::<i64>() {
@@ -353,6 +305,54 @@ where
             .inspect(|&total| {
                 info!("=> {} Cleared {total} entries from all tables", Label::pass());
             })
+    }
+}
+impl<T> Default for Database<T>
+where
+    T: TableSchemaProvider,
+{
+    fn default() -> Self {
+        Self {
+            path: None,
+            marker: PhantomData,
+        }
+    }
+}
+#[async_trait]
+impl<S> Operations for Database<S>
+where
+    S: TableSchemaProvider + Sync,
+{
+    fn insert<R>(&self, value: R) -> ApiResult<usize>
+    where
+        R: Row,
+    {
+        let row: R = value;
+        self.with_connection(|conn| row.insert(conn))
+    }
+    async fn persist<P>(&self, data: Option<P>) -> ApiResult<usize>
+    where
+        P: DatabasePersistence + Send,
+    {
+        let database = Database::<Table>::from_path(self.path.as_ref());
+        match data {
+            | Some(rows) => rows.persist(database).await,
+            | None => Err(eyre!("Failed to persist data")),
+        }
+    }
+    async fn populate(&self, table: impl TableSchemaProvider + Send) -> ApiResult<PersistStatus> {
+        match self.row_count(table) {
+            | Ok(count) if count > 0 => Ok(PersistStatus::AlreadyExists),
+            | Ok(_) => table.into().populate(self.path.clone()).await.map(PersistStatus::Downloaded),
+            | Err(why) => Err(why),
+        }
+    }
+    fn select<T, P>(&self, _value: P) -> ApiResult<Option<T>>
+    where
+        T: Into<Table>,
+        P: Params,
+    {
+        Err(eyre!("Database query is not implemented"))
     }
 }
 fn database_name() -> &'static str {
