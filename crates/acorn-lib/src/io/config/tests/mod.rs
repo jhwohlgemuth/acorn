@@ -31,6 +31,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Mutex,
 };
+
 const ENDPOINTS: &str = r#"{
     "endpoints": [
         {
@@ -161,6 +162,14 @@ fn temp_resolve_dir(name: &str) -> PathBuf {
         .join("target")
         .join("test_artifacts")
         .join(format!("{name}-{nanos}"))
+}
+#[cfg(feature = "analysis")]
+#[test]
+fn test_acre_implements_portable_decode_contract() {
+    let decoded = <ApplicationConfiguration as acorn_service::Decode>::decode("{}", &acorn_core::util::MimeType::Json);
+    assert!(decoded.is_ok());
+    let unsupported = <ApplicationConfiguration as acorn_service::Decode>::decode("{}", &acorn_core::util::MimeType::Markdown);
+    assert!(unsupported.is_err());
 }
 #[test]
 fn test_acre_rejects_unsupported_schema_versions_and_unknown_fields() {
@@ -576,10 +585,6 @@ fn test_count_json_files_counts_case_insensitive_json_paths() {
     assert_eq!(count_json_files(&paths), 2);
 }
 #[test]
-fn test_default_config_filenames_require_supported_extensions() {
-    assert_eq!(DEFAULT_CONFIG_FILENAMES, [".acorn.json", ".acorn.jsonc", ".acorn.yaml", ".acorn.yml"]);
-}
-#[test]
 fn test_default_config_filename_precedence_is_preserved() {
     let directory = temp_resolve_dir("default-config-precedence");
     create_dir_all(&directory).expect("create configuration directory");
@@ -591,6 +596,10 @@ fn test_default_config_filename_precedence_is_preserved() {
         Some(directory.join(DEFAULT_CONFIG_FILENAMES[0]))
     );
     remove_dir_all(directory).expect("remove configuration directory");
+}
+#[test]
+fn test_default_config_filenames_require_supported_extensions() {
+    assert_eq!(DEFAULT_CONFIG_FILENAMES, [".acorn.json", ".acorn.jsonc", ".acorn.yaml", ".acorn.yml"]);
 }
 #[tokio::test]
 async fn test_download_file_skips_existing_file_without_clobber() {
@@ -728,6 +737,25 @@ fn test_is_ignored_path() {
     assert!(is_ignored_path("/tmp/README.md", &Vec::<Regex>::new()));
 }
 #[test]
+fn test_json_accepts_comments_via_jsonc_fallback() {
+    let content = r#"{
+        // This comment is valid via JSONC fallback
+        "buckets": []
+    }"#;
+    assert!(ApplicationConfiguration::parse(content).is_ok());
+}
+#[test]
+fn test_json_equivalent_to_jsonc() {
+    let json = r#"{"buckets":[{"name":"t","repository":{"provider":"git","location":"file:./"}}]}"#;
+    let jsonc = r#"{
+        // comment
+        "buckets": [{"name":"t","repository":{"provider":"git","location":"file:./"}},]
+    }"#;
+    let a = ApplicationConfiguration::parse(json).unwrap();
+    let b = ApplicationConfiguration::parse(jsonc).unwrap();
+    assert_eq!(a.buckets.as_ref().unwrap().len(), b.buckets.as_ref().unwrap().len());
+}
+#[test]
 fn test_jsonc_parse_with_block_comments() {
     let content = r#"{
         /* Block comment */
@@ -750,25 +778,6 @@ fn test_jsonc_parse_with_trailing_commas() {
         "buckets": [],
     }"#;
     assert!(ApplicationConfiguration::parse(content).unwrap().buckets.unwrap().is_empty());
-}
-#[test]
-fn test_json_accepts_comments_via_jsonc_fallback() {
-    let content = r#"{
-        // This comment is valid via JSONC fallback
-        "buckets": []
-    }"#;
-    assert!(ApplicationConfiguration::parse(content).is_ok());
-}
-#[test]
-fn test_json_equivalent_to_jsonc() {
-    let json = r#"{"buckets":[{"name":"t","repository":{"provider":"git","location":"file:./"}}]}"#;
-    let jsonc = r#"{
-        // comment
-        "buckets": [{"name":"t","repository":{"provider":"git","location":"file:./"}},]
-    }"#;
-    let a = ApplicationConfiguration::parse(json).unwrap();
-    let b = ApplicationConfiguration::parse(jsonc).unwrap();
-    assert_eq!(a.buckets.as_ref().unwrap().len(), b.buckets.as_ref().unwrap().len());
 }
 #[test]
 fn test_load_rejects_missing_explicit_path() {
@@ -961,12 +970,6 @@ fn test_resolve_returns_explicit_existing_path() {
     let _ = remove_dir_all(directory);
 }
 #[test]
-fn test_runners() {
-    let path = fixtures_dir().join("config").join("with_runners.json");
-    let config = ApplicationConfiguration::read_json(path).unwrap();
-    insta::assert_snapshot!("runners", format!("{:#?}", config.runners));
-}
-#[test]
 fn test_runner_target_accepts_string_or_object() {
     let alias = serde_json::from_str::<RunnerTarget>(r#""oklahoma""#).unwrap();
     let object = serde_json::from_str::<RunnerTarget>(r#"{"host": "oklahoma"}"#).unwrap();
@@ -998,6 +1001,12 @@ fn test_runner_target_rejects_invalid_or_unknown_values() {
         .unwrap_err()
         .to_string()
         .contains("unknown field"));
+}
+#[test]
+fn test_runners() {
+    let path = fixtures_dir().join("config").join("with_runners.json");
+    let config = ApplicationConfiguration::read_json(path).unwrap();
+    insta::assert_snapshot!("runners", format!("{:#?}", config.runners));
 }
 #[test]
 fn test_transfer_item_collect_preserves_or_flattens_paths() {

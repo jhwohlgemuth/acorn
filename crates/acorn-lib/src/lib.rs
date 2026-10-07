@@ -4,11 +4,11 @@
 //! schemas are owned by `acorn-core` and `acorn-schema`, respectively.
 #![cfg_attr(not(any(feature = "acp", feature = "analysis", feature = "std")), no_std)]
 
-#[cfg(any(feature = "acp", feature = "analyzer", feature = "mcp-client"))]
+#[cfg(any(feature = "acp", feature = "analysis", feature = "mcp-client"))]
 extern crate alloc;
 #[cfg(any(feature = "acp", feature = "analysis"))]
 pub mod agent;
-#[cfg(feature = "analyzer")]
+#[cfg(feature = "analysis")]
 pub mod analyzer;
 pub mod error;
 #[cfg(feature = "exec")]

@@ -20,15 +20,13 @@ use acorn::{
         fix::FixReport,
         host::discovery::Record,
         host::{
-            context::{AnalysisContext, AnalysisOptions, ExecutionExtension, ExecutionOptions, ReportExtension, ReportOptions},
+            context::{AnalysisContext, AnalysisOptions, ExecutionExtension, ExecutionOptions, OutputFormat, ReportExtension, ReportOptions},
             render::{Render, RenderContext},
             runtime::StaticAnalyzer,
             service::{analyze_paths, AnalysisReport, ExecutionStatus},
             tabular::checks_to_csv,
             vale::{Vale, ValeConfig},
         },
-        readability::ReadabilityType,
-        Check, CheckBatch, CheckCategory, CheckSummary, FairProfile, OutputFormat, Standard,
     },
     fail,
     io::{
@@ -39,6 +37,8 @@ use acorn::{
     util::{constants::env::READABILITY_METRIC, print_values_as_table},
     LocationExt,
 };
+use acorn_analysis::readability::ReadabilityType;
+use acorn_analysis::{Check, CheckBatch, CheckCategory, CheckSummary, FairProfile};
 use acorn_core::{
     options::CommonRuntime,
     util::{regex_join, suffix, MimeType},
@@ -47,6 +47,7 @@ use acorn_core::{
 use acorn_host::terminal::Label;
 #[cfg(feature = "exec")]
 use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::Standard;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
 use dotenvy::dotenv;
@@ -226,7 +227,7 @@ fn build_analysis_context(
             ReportExtension::init()
                 .all(all)
                 .exit_on_first_error(exit_on_first_error)
-                .format(OutputFormat::Console)
+                .format(OutputFormat::Text)
                 .no_fail(no_fail)
                 .terse(terse)
                 .build(),

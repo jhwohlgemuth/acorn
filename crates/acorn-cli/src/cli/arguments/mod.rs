@@ -4,8 +4,7 @@ use super::parse::{
     parse_readability, parse_ssh_remote, parse_standard, parse_watch_duration,
 };
 use super::DownloadCommands;
-use acorn::analyzer::host::discovery::CitationFormat;
-use acorn::analyzer::{self, Standard};
+use acorn::analyzer::host::{context, discovery::CitationFormat};
 use acorn::io::acp::OPENCODE_AGENT_ID;
 use acorn::io::config::application::Hook;
 use acorn::io::swhid::CalculationKind;
@@ -14,10 +13,12 @@ use acorn::util::constants::app::{
     DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_SEARCH_LIMIT, DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, DEFAULT_NEEDLE_MAX_ROUNDS,
 };
 use acorn::util::constants::env::{CHROME_PATH, MINIMUM_DOWNLOAD_COUNT, SEARCH_LIMIT};
+use acorn_analysis::{readability::ReadabilityType, CheckCategory};
 use acorn_core::{time::Milliseconds, util::MimeType, validation::ValidationError};
 use acorn_schema::agent::Quantization;
 use acorn_schema::enrichment::Provider;
 use acorn_schema::hardware::memory::Memory;
+use acorn_schema::standard::Standard;
 use acorn_schema::validation::{Validate, ValidationReport};
 use bon::Builder;
 use clap::ValueEnum;
@@ -431,7 +432,7 @@ pub struct Check {
     pub(crate) raw: bool,
     /// Skip one or more available check categories
     #[arg(short = 'S', long, value_name = "LIST", value_delimiter = ',', value_parser = parse_check_category, help_heading = "OPTIONS")]
-    pub(crate) skip: Vec<analyzer::CheckCategory>,
+    pub(crate) skip: Vec<CheckCategory>,
     /// Skip checksum verification when downloading files (e.g., downloading Vale to perform static analysis of prose)
     /// > CAUTION: Use at your own risk
     #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
@@ -443,7 +444,7 @@ pub struct Check {
     pub(crate) standard: Standard,
     /// Readability test to use
     #[arg(default_value = "fkgl", short, long = "readability-test", value_name = "METRIC", value_parser = parse_readability, help_heading = "OPTIONS")]
-    pub(crate) readability_metric: acorn::analyzer::readability::ReadabilityType,
+    pub(crate) readability_metric: ReadabilityType,
     /// Use compact output format instead of detailed output
     #[arg(short = 't', long, value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) terse: bool,
@@ -736,7 +737,14 @@ pub(crate) struct Export {
     /// Export target file format
     ///
     /// When used with --schema, specifies the output format (json or yaml)
-    #[arg(default_value = "pdf", short, long, value_name = "FORMAT", help_heading = "OPTIONS")]
+    #[arg(
+        default_value = "pdf",
+        default_value_if("schema", "true", "json"),
+        short,
+        long,
+        value_name = "FORMAT",
+        help_heading = "OPTIONS"
+    )]
     pub(crate) format: FileFormat,
     /// BagIt archive container format.
     #[arg(long, value_enum, value_name = "FORMAT", help_heading = "OPTIONS")]
@@ -795,7 +803,7 @@ pub(crate) struct Export {
     pub(crate) raw: bool,
     /// Skip one or more available export check categories
     #[arg(short = 'S', long, value_name = "LIST", value_delimiter = ',', value_parser = parse_check_category, help_heading = "OPTIONS", conflicts_with = "schema")]
-    pub(crate) skip: Vec<analyzer::CheckCategory>,
+    pub(crate) skip: Vec<CheckCategory>,
     /// Path to reference file to be used when exporting to PowerPoint
     ///
     /// Can be relative or absolute. Relative paths will be resolved against the directory of the target file.
@@ -1460,16 +1468,6 @@ pub(crate) struct Sync {
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }
-impl From<&GatherOutputFormat> for analyzer::OutputFormat {
-    fn from(format: &GatherOutputFormat) -> Self {
-        match format {
-            | GatherOutputFormat::Console => Self::Console,
-            | GatherOutputFormat::Json => Self::Json,
-            | GatherOutputFormat::Markdown => Self::Markdown,
-            | GatherOutputFormat::Yaml => Self::Yaml,
-        }
-    }
-}
 impl From<SwhidKind> for CalculationKind {
     fn from(value: SwhidKind) -> Self {
         match value {
@@ -1487,6 +1485,16 @@ impl From<SwhidKind> for CalculationKind {
 impl CheckOutputFormat {
     pub(crate) fn is_patch(self) -> bool {
         self.is_diff() || self.is_json_patch()
+    }
+}
+impl From<&GatherOutputFormat> for context::OutputFormat {
+    fn from(format: &GatherOutputFormat) -> Self {
+        match format {
+            | GatherOutputFormat::Console => Self::Text,
+            | GatherOutputFormat::Json => Self::Json,
+            | GatherOutputFormat::Markdown => Self::Markdown,
+            | GatherOutputFormat::Yaml => Self::Yaml,
+        }
     }
 }
 impl Download {

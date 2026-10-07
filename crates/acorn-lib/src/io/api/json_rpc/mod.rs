@@ -3,11 +3,13 @@ use crate::agent::{run_inference, InferenceBackend, InferenceReadiness, Inferenc
 use crate::analyzer::fix::{CheckReferences, FixReport, FixSuggestionRequest};
 use crate::io::api::operation::authorize;
 use crate::io::api::webhooks::store::OperationQueue;
-use crate::io::workflow::{RepositoryChangeSet, RepositoryInput, RepositoryWorkflowRegistry};
+use crate::io::workflow::{RepositoryChangeSet, RepositoryInput};
 use crate::io::ApiResult;
 use crate::util::constants::app::{APPLICATION, JSON_RPC_VERSION};
 use acorn_core::prelude::{Box, String, Vec};
 use acorn_schema::validation::Validate;
+use acorn_service::AcornService;
+use acorn_service::{DurableOperations, ServiceError, ServiceErrorKind, ServiceResult};
 use alloc::sync::Arc;
 use color_eyre::eyre::eyre;
 use core::fmt;
@@ -18,9 +20,6 @@ use schemars::{schema_for, JsonSchema};
 use serde::de::{DeserializeOwned, Error as DeError, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-
-#[cfg(feature = "agentic")]
-pub mod http;
 
 /// JSON-RPC internal error code.
 pub const INTERNAL_ERROR: i32 = -32603;
@@ -207,6 +206,23 @@ impl OperationDefinition {
             })
     }
 }
+impl DurableOperations for OperationQueue {
+    fn state(&self, operation_key: &str) -> ServiceResult<Option<String>> {
+        OperationQueue::state(self, operation_key)
+            .map(|state| state.map(|state| state.to_string()))
+            .map_err(|_| ServiceError::new(ServiceErrorKind::Internal, "Failed to read durable operation state"))
+    }
+    fn replay(&self, operation_key: &str) -> ServiceResult<bool> {
+        OperationQueue::replay(self, operation_key)
+            .map_err(|_| ServiceError::new(ServiceErrorKind::Internal, "Failed to queue durable operation replay"))
+    }
+}
+impl fmt::Debug for OperationRegistry {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let definitions: Vec<OperationDefinition> = self.operations.iter().map(|operation| operation.definition.clone()).collect();
+        formatter.debug_struct("OperationRegistry").field("definitions", &definitions).finish()
+    }
+}
 impl OperationRegistry {
     /// Build the baseline ACORN operation registry.
     pub fn acorn() -> ApiResult<Self> {
@@ -251,7 +267,26 @@ impl OperationRegistry {
                 OperationDefinition::new::<ProcessInput, RepositoryChangeSet>(MethodName::from(["workflows", "process"]), OperationEffects::default())
                     .and_then(|definition| {
                         registry.register(definition, |request: ProcessInput, _| async move {
-                            RepositoryWorkflowRegistry::acorn().and_then(|registry| registry.process(&request.workflow, request.input))
+                            match request.workflow.as_str() {
+                                | "repository-quality" => serde_json::to_value(request.input)
+                                    .map_err(|why| eyre!("Encode repository workflow request — {why}"))
+                                    .and_then(|value| {
+                                        serde_json::from_value(value).map_err(|why| eyre!("Decode portable repository workflow request — {why}"))
+                                    })
+                                    .and_then(|input| {
+                                        AcornService
+                                            .process_repository(input)
+                                            .map_err(|why| eyre!("Repository workflow failed — {why}"))
+                                    })
+                                    .and_then(|output| {
+                                        serde_json::to_value(output).map_err(|why| eyre!("Encode portable repository workflow response — {why}"))
+                                    })
+                                    .and_then(|value| {
+                                        serde_json::from_value::<RepositoryChangeSet>(value)
+                                            .map_err(|why| eyre!("Decode repository workflow response — {why}"))
+                                    }),
+                                | name => Err(eyre!("Unknown repository workflow '{name}'")),
+                            }
                         })
                     })
             });
@@ -453,10 +488,15 @@ impl OperationRegistry {
         })
     }
 }
-impl fmt::Debug for OperationRegistry {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let definitions: Vec<OperationDefinition> = self.operations.iter().map(|operation| operation.definition.clone()).collect();
-        formatter.debug_struct("OperationRegistry").field("definitions", &definitions).finish()
+impl From<Value> for ParsedCall {
+    fn from(value: Value) -> Self {
+        match value {
+            | Value::Object(object) => Self::from_object(object),
+            | _ => Self::Invalid {
+                id: Value::Null,
+                error: RpcError::new(INVALID_REQUEST, "Invalid Request"),
+            },
+        }
     }
 }
 impl ParsedCall {
@@ -490,17 +530,6 @@ impl ParsedCall {
         }
     }
 }
-impl From<Value> for ParsedCall {
-    fn from(value: Value) -> Self {
-        match value {
-            | Value::Object(object) => Self::from_object(object),
-            | _ => Self::Invalid {
-                id: Value::Null,
-                error: RpcError::new(INVALID_REQUEST, "Invalid Request"),
-            },
-        }
-    }
-}
 impl RequestId {
     fn as_string(&self) -> String {
         match self {
@@ -513,6 +542,12 @@ impl RequestId {
             | value @ (Value::String(_) | Value::Number(_)) => value.clone(),
             | _ => Value::Null,
         }
+    }
+}
+impl core::error::Error for RpcError {}
+impl fmt::Display for RpcError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{} ({})", self.message, self.code)
     }
 }
 impl RpcError {
@@ -537,12 +572,6 @@ impl RpcError {
             jsonrpc: JSON_RPC_VERSION,
         })
         .unwrap_or(Value::Null)
-    }
-}
-impl core::error::Error for RpcError {}
-impl fmt::Display for RpcError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{} ({})", self.message, self.code)
     }
 }
 impl<'de> Deserialize<'de> for StrictValue {

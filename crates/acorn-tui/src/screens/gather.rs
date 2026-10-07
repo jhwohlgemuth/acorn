@@ -3,11 +3,7 @@ use crate::{
     Screen, TuiOptions,
 };
 use acorn::{
-    analyzer::{
-        host::discovery::{RemoteProvider, RemoteSearchRequest},
-        Check, CheckCategory,
-    },
-    check_err,
+    analyzer::host::discovery::{RemoteProvider, RemoteSearchRequest},
     io::{
         database::{
             schema::{IdentifierRow, Table},
@@ -17,6 +13,7 @@ use acorn::{
         files_all,
     },
 };
+use acorn_analysis::{check_err, Check, CheckCategory};
 use acorn_host::fs::file_uri_to_path;
 use acorn_schema::{
     discovery::{RemoteEntity, RemoteOrganizationRole},

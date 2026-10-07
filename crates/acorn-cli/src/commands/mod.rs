@@ -1,12 +1,12 @@
 use crate::{
     cli::{
-        arguments, arguments::OutputFormat, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ExecCommands, ExecHookCommands,
-        ExecManifestCommands, ImportCommands, InferCommands, ServeCommands, Void, WatchOptions,
+        arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ExecCommands, ExecHookCommands, ExecManifestCommands,
+        ImportCommands, InferCommands, ServeCommands, Void, WatchOptions,
     },
     io::{is_stdout_piped, read_stdin, write_stdout},
 };
 use acorn::{
-    analyzer::{host::discovery, OutputFormat as GatherOutputFormat},
+    analyzer::host::{context, discovery},
     fail,
     io::ContainerTarget,
 };
@@ -18,6 +18,7 @@ use color_eyre::{eyre, eyre::eyre};
 use core::future::Future;
 pub use db::{initialize_database, initialize_database_with_policy, DatabaseConfig};
 use download::model::Whitelist;
+use export::export_schema;
 use jiff::SignedDuration;
 use tokio::runtime::Runtime;
 use tracing::info;
@@ -279,12 +280,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             },
         },
         | Some(Commands::Export(arguments)) => match (arguments.schema, arguments.tools) {
-            | (true, _) => {
-                let format = OutputFormat::from(&arguments.format);
-                let format_str = format.to_string().to_lowercase();
-                arguments.standard.to_schema(&format_str);
-                Ok(())
-            }
+            | (true, _) => export_schema(arguments.standard, &arguments.format).map(|output| println!("{output}")),
             | (false, true) => export::tools(arguments.output.as_deref(), arguments.dry_run),
             | (false, false) => with_runtime(async {
                 let arguments::Export {
@@ -452,7 +448,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                     citation_format,
                     database_path: config.database_path.clone(),
                     enrich: *enrich,
-                    format: raw.then_some(GatherOutputFormat::Raw).or_else(|| format.as_ref().map(Into::into)),
+                    format: raw.then_some(context::OutputFormat::Raw).or_else(|| format.as_ref().map(Into::into)),
                     input: input.clone(),
                     max_depth: *max_depth,
                     merge_request: *merge_request,

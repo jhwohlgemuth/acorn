@@ -19,13 +19,16 @@ ACORN product crates live under `crates/`; repository-only tooling and shared as
 acorn/
 ├── crates/
 │   ├── acorn-cli/      # Native CLI composition root and embedded presentation assets
+│   ├── acorn-analysis/ # Portable findings, FAIR checks, and readability analysis
 │   ├── acorn-cmd/      # Portable command specifications and bounded native execution
 │   ├── acorn-core/     # Portable errors, root values, validation primitives, and utilities
 │   ├── acorn-diff/     # Portable unified-text and RFC 6902 diff primitives
 │   ├── acorn-host/     # Feature-gated native filesystem, HTTP, source, and terminal adapters
-│   ├── acorn-lib/      # Analysis and host services not yet extracted
+│   ├── acorn-lib/      # Remaining native analysis and application adapters
 │   ├── acorn-macros/   # Validation and command procedural macros
 │   ├── acorn-schema/   # Portable schemas, validation, crosswalks, and codecs
+│   ├── acorn-server/   # Authenticated JSON-RPC and typed gRPC composition root
+│   ├── acorn-service/  # Portable supplied-content application operations
 │   ├── acorn-tui/      # Terminal interface
 │   └── acorn-wasm/     # In-memory JavaScript validation and analysis bindings
 ├── docs/               # Public mdBook documentation
@@ -38,15 +41,14 @@ acorn/
 The current dependency direction is:
 
 ```text
-acorn-core ----> acorn-schema ----> acorn-lib <---- acorn-macros
-                     |                 ^  |
-                     |                 |  +-------> acorn-cli <---- acorn-tui
-acorn-diff ---------------------------+  +-------> acorn-tui
-                     |
-                     +---------------------------> acorn-wasm <---- acorn-lib::analyzer
+acorn-core ----> acorn-schema ----> acorn-analysis ----> acorn-service
+                     |                    |                   |
+acorn-diff ----------+----------------> acorn-lib             +----> acorn-server
+                                          |                   |
+acorn-host -------------------------------+----> acorn-cli    +----> acorn-wasm
 ```
 
-`acorn-core`, `acorn-diff`, and `acorn-schema` are extracted portable packages consumed directly by first-party crates. `acorn-lib` remains the public library crate named `acorn` and owns host implementations that may move into the planned crates below.
+`acorn-core`, `acorn-diff`, `acorn-schema`, `acorn-analysis`, and `acorn-service` are portable packages consumed directly by first-party crates. `acorn-lib` remains the public library crate named `acorn` and owns native implementations that have not been extracted.
 
 ## Portability spectrum
 
@@ -57,7 +59,6 @@ Portability is a capability spectrum, not a native-versus-WASM switch. Both `aco
 | `core` | Pure computation and APIs that require no host services | Foundation marker; never enables filesystem, network, process, terminal, or browser behavior |
 | `alloc` | Heap-backed strings, collections, serialization, schemas, validation, and deterministic transforms | Extends `core`; enables allocation support without enabling `std` |
 | `wasm` | Legacy facade compatibility for portable operations on `wasm32-unknown-unknown` | Currently extends `alloc`; it intentionally does not enable browser bindings or adapters |
-| `analyzer` | Portable check/error/readability models and supplied-text calculations | Extends `alloc`; verified independently on native and `wasm32-unknown-unknown` targets |
 | `std` | Native runtime support and adapter implementations | Extends `alloc`; enables filesystem, HTTP, database, process, document, terminal, and related host dependencies |
 | Capability features | Selectable product behavior such as `analysis`, `agentic`, `acp`, `powerpoint`, and `swhid-compute` | Layer on the minimum runtime they currently need; broad `std` coupling is being split into narrower crates |
 
@@ -78,14 +79,22 @@ Code should import from the narrowest prelude that matches its behavior: `prelud
 `acorn-lib` currently contains these boundaries:
 
 - Schema models, crosswalks, codecs, and allocation-compatible validation are owned by `acorn-schema`; `acorn-lib` retains their host adapters and services.
-- `analyzer/`: alloc-capable check/result models, readability, and scoring behind `analyzer`; native context, discovery, trusted fix execution, Vale execution, path services, tabular export, and terminal rendering live under `analyzer::host` behind `analysis`. System diagnostics additionally require the default `std` feature so `sysinfo` stays outside portable analysis builds.
+- `analyzer/`: native context, discovery, trusted fix execution, Vale execution, path services, tabular export, and terminal rendering. Portable check/result models, FAIR calculations, and readability scoring are owned by `acorn-analysis`.
 - `io/`: native adapters and services for APIs, databases, documents, archives, downloads, synchronization, source handling, workflows, and PowerPoint.
 - `enrichment.rs`: enrichment contracts and transformations shared by schema and service work.
 - `util/` and `error.rs`: native helpers and extensions around portable `acorn-core` behavior.
 
 Host behavior already moved out of schema modules includes path/file `InputOutput` implementations, migration, OpenCode file I/O, model-weight persistence, contextual RAD formatting, and RAD Markdown document indexing. `LocationExt` and `RepositoryExt` add native behavior to portable `acorn-core` values without moving that behavior into the foundation crate.
 
-The remaining critical portability edges are agent source resolution, embedded template rendering, OpenCode CST/path state, presentation side effects, and future browser composition. The analyzer check/error/readability kernel is independently selectable; CI prevents its native and WASM graphs from acquiring host-only dependencies.
+The remaining critical portability edges are agent source resolution, embedded template rendering, OpenCode CST/path state, presentation side effects, and future browser composition. CI prevents the `acorn-analysis` and `acorn-service` alloc graphs from acquiring host-only dependencies.
+
+### `acorn-analysis` and `acorn-service`
+
+`acorn-analysis` owns portable findings, summaries, validation-error folding, FAIR evaluation, and readability metrics over supplied values. `acorn-service` owns the canonical validate-RAD, check-readability, and process-repository operations plus the transport-neutral JSON-RPC registry. Neither crate reads paths, starts processes, performs network requests, or renders terminal output.
+
+### `acorn-server`
+
+`acorn-server` adapts one `acorn-service` instance to authenticated JSON-RPC 2.0 and explicit typed gRPC methods. `acorn.version` is JSON-RPC package metadata only; it is not protocol negotiation and has no gRPC counterpart.
 
 ### `acorn-host`
 
@@ -126,7 +135,7 @@ acorn-lib          = remaining host implementations during migration
 
 Port traits belong to the portable domain or service that consumes them. `acorn-host`, `acorn-store`, and `acorn-wasm` provide concrete implementations; `acorn-service` orchestrates use cases without depending on a native adapter. `acorn-lib` shrinks as consumers migrate directly to each owning crate and does not retain ownership-masking re-exports.
 
-`acorn-wasm` currently consumes the proven in-tree analyzer boundary through the narrow `analyzer` feature. Extracting `acorn-analysis` remains a separate ownership decision while analyzer, API, export, and service contracts stabilize; provider, store, export, host, browser-service, service, and command packages then follow one accepted boundary at a time.
+`acorn-wasm` consumes `acorn-analysis`, `acorn-schema`, and `acorn-service` directly. It does not import `acorn-lib` or native host adapters.
 
 ## Cross-cutting rules
 

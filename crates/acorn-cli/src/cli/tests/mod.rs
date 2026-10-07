@@ -17,12 +17,12 @@ use crate::cli::{
     ImportCommands, InferCommands, McpCommands, ServeCommands,
 };
 use crate::test::util::{temp_test_dir, TestCleanup};
-use acorn::analyzer::Standard;
 use acorn::io::filter_ignored_with_root;
 use acorn::util::constants::env::CHROME_PATH;
 use acorn_core::util::{MarkdownSupport, MimeType};
 use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::standard::zon;
+use acorn_schema::standard::Standard;
 use clap::{CommandFactory, Parser, ValueEnum};
 use futures::executor::block_on;
 use std::fs::{create_dir_all, write};
@@ -35,6 +35,7 @@ fn fixture_content_root() -> PathBuf {
 fn has_suffix(path: &Path, suffix: &str) -> bool {
     path.to_string_lossy().replace('\\', "/").ends_with(suffix)
 }
+
 #[test]
 fn test_bot_identifier_from_ci_project_id_env() {
     let _guard = ENV_LOCK.lock().unwrap_or_else(|why| why.into_inner());
@@ -296,27 +297,6 @@ fn test_create_bot_webhook_deployment_options() {
     }
 }
 #[test]
-fn test_create_runner_no_config_arguments() {
-    let arguments = Arguments::try_parse_from([
-        "acorn",
-        "create",
-        "runner",
-        "--no-config",
-        "--group",
-        "42",
-        "--description",
-        "local-runner",
-    ])
-    .expect("parse runner without configuration discovery");
-    assert!(matches!(
-        arguments.command,
-        Some(Commands::Create {
-            command: Some(CreateCommands::Runner(arguments)),
-        }) if arguments.no_config
-    ));
-    assert!(Arguments::try_parse_from(["acorn", "create", "runner", "--no-config", "--config", "runner.json",]).is_err());
-}
-#[test]
 fn test_create_remote_rejects_invalid_ssh_uris() {
     [
         "http://builder",
@@ -371,6 +351,27 @@ fn test_create_remote_targets() {
         }) => assert_eq!(arguments.target.host.as_ref().map(|remote| remote.as_str()), Some("ssh://builder")),
         | other => panic!("unexpected command: {other:?}"),
     }
+}
+#[test]
+fn test_create_runner_no_config_arguments() {
+    let arguments = Arguments::try_parse_from([
+        "acorn",
+        "create",
+        "runner",
+        "--no-config",
+        "--group",
+        "42",
+        "--description",
+        "local-runner",
+    ])
+    .expect("parse runner without configuration discovery");
+    assert!(matches!(
+        arguments.command,
+        Some(Commands::Create {
+            command: Some(CreateCommands::Runner(arguments)),
+        }) if arguments.no_config
+    ));
+    assert!(Arguments::try_parse_from(["acorn", "create", "runner", "--no-config", "--config", "runner.json",]).is_err());
 }
 #[test]
 fn test_diff_arguments() {
@@ -1213,6 +1214,19 @@ fn test_rpc_server_arguments() {
     ));
 }
 #[test]
+fn test_schema_export_defaults_to_json_without_changing_regular_export_default() {
+    let schema = Arguments::try_parse_from(["acorn", "export", "--schema"]).expect("parse schema export");
+    let regular = Arguments::try_parse_from(["acorn", "export"]).expect("parse regular export");
+    match schema.command {
+        | Some(Commands::Export(arguments)) => assert!(matches!(arguments.format, FileFormat::Json)),
+        | _ => panic!("expected export command"),
+    }
+    match regular.command {
+        | Some(Commands::Export(arguments)) => assert!(matches!(arguments.format, FileFormat::Pdf)),
+        | _ => panic!("expected export command"),
+    }
+}
+#[test]
 fn test_suggest_fixes_rejects_watch_mode() {
     let arguments = Arguments::try_parse_from(["acorn", "--watch", "check", "--suggest-fixes"]).expect("parse suggestion flags");
     assert!(crate::commands::validate_watch_arguments(&arguments).is_err());
@@ -1403,7 +1417,6 @@ mod relocated_arguments_bot_tests {
             config: None,
         }
     }
-
     #[test]
     fn test_bind_address_uses_default_host_with_port() {
         assert_eq!(common(None, Some(8080)).bind_address(), "localhost:8080");

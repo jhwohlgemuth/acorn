@@ -15,6 +15,7 @@ name = "acorn-tui"
 path = "src/main.rs"
 
 [dependencies]
+acorn-analysis = { workspace = true, features = ["analysis"] }
 acorn-core = { version = "0.4.0", path = "../acorn-core" }
 acorn-host = { version = "0.4.0", path = "../acorn-host", default-features = false, features = ["fs", "terminal"] }
 acorn-lib = { version = "0.4.0", path = "../acorn-lib", default-features = false, features = ["analysis", "diagnostics"] }

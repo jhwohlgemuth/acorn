@@ -3,7 +3,7 @@ use super::{
     candidate_repositories, candidate_urls, Candidate, RemoteEntity, RemoteMatch, RemoteProvider, RemoteResolution, RemoteSearchRequest,
     RemoteSearchResponse,
 };
-use crate::analyzer::host::runtime::LinkEvidence;
+use crate::analyzer::host::runtime::{CheckBatchExt, LinkEvidence};
 use crate::analyzer::CheckBatch;
 use crate::io::api::citeas::ToCitations;
 use crate::io::api::osti::SearchResults;

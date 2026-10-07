@@ -15,21 +15,18 @@
     clippy::indexing_slicing,
     clippy::arithmetic_side_effects
 )]
-
 mod context;
 use super::{run, PrepareText};
 use crate::cli::arguments::{CheckOutputFormat, InferenceArgs, InferenceBackendKind};
 use crate::test::server::spawn_source_server;
 use crate::test::util::fixture_path;
 use acorn::analyzer::host::service::{classify_paths, Analysis};
-use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{Check, CheckCategory, CheckSummary, Standard};
 use acorn::io::TextOrigin;
 use acorn::LocationExt;
+use acorn_analysis::{readability::ReadabilityType, Check, CheckCategory, CheckSummary};
 use acorn_core::util::MimeType;
 use acorn_schema::research_activity::ResearchActivity;
-use acorn_schema::standard::zon;
-use acorn_schema::standard::{datacite, dcat, huwise, invenio};
+use acorn_schema::standard::{datacite, dcat, huwise, invenio, zon, Standard};
 use assert_cmd::Command;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;

@@ -77,6 +77,42 @@ pub enum TextOrigin {
     /// Text read from standard input.
     Stdin,
 }
+impl fmt::Display for Source {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = self.name();
+        let identifier = self.identifier();
+        if name == identifier {
+            write!(f, "{name}")
+        } else {
+            write!(f, "{name} ({identifier})")
+        }
+    }
+}
+impl From<&Repository> for Source {
+    fn from(repository: &Repository) -> Self {
+        match repository {
+            | Repository::HuggingFace { location } => Self::Remote {
+                name: None,
+                identifier: repository.id().unwrap_or_else(|| location.uri().unwrap_or_default()),
+            },
+            | Repository::OCI { location, .. } => Self::Remote {
+                name: None,
+                identifier: location.uri().unwrap_or_default(),
+            },
+            | _ => Self::from(repository.location()),
+        }
+    }
+}
+impl From<&str> for Source {
+    fn from(selector: &str) -> Self {
+        Self::from_location(Location::from(selector.trim()), true)
+    }
+}
+impl From<Location> for Source {
+    fn from(location: Location) -> Self {
+        Self::from_location(location, false)
+    }
+}
 impl Source {
     /// Reads source content from a URL or local file path.
     ///
@@ -105,7 +141,7 @@ impl Source {
     }
     /// Parses a user-provided source string into a source location.
     /// ### Note
-    /// Delegates URI scheme detection to [`Location::from_str`].
+    /// Delegates URI scheme detection to [`Location`].
     pub fn parse(source: &str) -> Self {
         Self::from_location(Location::from(source), false)
     }
@@ -196,42 +232,6 @@ impl Source {
             | Source::Remote { identifier, .. } => Source::Remote { name, identifier },
             | Source::Unsupported(value) => Source::Unsupported(value),
         }
-    }
-}
-impl fmt::Display for Source {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let name = self.name();
-        let identifier = self.identifier();
-        if name == identifier {
-            write!(f, "{name}")
-        } else {
-            write!(f, "{name} ({identifier})")
-        }
-    }
-}
-impl From<&Repository> for Source {
-    fn from(repository: &Repository) -> Self {
-        match repository {
-            | Repository::HuggingFace { location } => Self::Remote {
-                name: None,
-                identifier: repository.id().unwrap_or_else(|| location.uri().unwrap_or_default()),
-            },
-            | Repository::OCI { location, .. } => Self::Remote {
-                name: None,
-                identifier: location.uri().unwrap_or_default(),
-            },
-            | _ => Self::from(repository.location()),
-        }
-    }
-}
-impl From<&str> for Source {
-    fn from(selector: &str) -> Self {
-        Self::from_location(Location::from(selector.trim()), true)
-    }
-}
-impl From<Location> for Source {
-    fn from(location: Location) -> Self {
-        Self::from_location(location, false)
     }
 }
 impl SourceAction {

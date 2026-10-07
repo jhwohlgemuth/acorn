@@ -21,6 +21,8 @@ use crate::{
         text_diff_changes_with_color,
     },
 };
+#[cfg(feature = "analysis")]
+use acorn_analysis::CheckSeverity;
 use acorn_core::{
     prelude::{HashMap, HashSet},
     util::{detect_json, MimeType},
@@ -31,6 +33,8 @@ use acorn_schema::{
     validation::{is_identifier, Validate, ValidationReport},
     OneOrMany,
 };
+#[cfg(feature = "analysis")]
+use acorn_service::{Decode, Diagnostic};
 use alloc::collections::BTreeMap;
 use bon::Builder;
 use color_eyre::eyre::eyre;
@@ -677,6 +681,27 @@ impl ApplicationConfiguration {
     }
     fn parse_yaml(content: impl AsRef<str>) -> serde_norway::Result<Self> {
         serde_norway::from_str(content.as_ref())
+    }
+}
+#[cfg(feature = "analysis")]
+impl Decode for ApplicationConfiguration {
+    fn decode(content: &str, format: &MimeType) -> Result<Self, Vec<Diagnostic>> {
+        match format {
+            | MimeType::Json | MimeType::Jsonc | MimeType::Yaml => Self::parse(content).map_err(|error| {
+                vec![Diagnostic {
+                    code: "deserialize".to_string(),
+                    message: error.to_string(),
+                    path: None,
+                    severity: CheckSeverity::Error,
+                }]
+            }),
+            | _ => Err(vec![Diagnostic {
+                code: "unsupported-format".to_string(),
+                message: format!("Unsupported ACRE configuration format '{format}'"),
+                path: None,
+                severity: CheckSeverity::Error,
+            }]),
+        }
     }
 }
 impl InputOutput for ApplicationConfiguration {

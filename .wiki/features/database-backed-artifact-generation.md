@@ -27,7 +27,7 @@ Let users create the same supported artifacts from ACORN's maintained research a
 
 # Dependencies
 
-The implemented canonical database contract supplies typed lookup, revision identity, restore semantics, and migration compatibility. This plan reuses the bounded reporting-window and artifact-manifest contracts from the implemented [PowerAutomate reporting workflow](../../docs/src/automation/powerautomate-reporting.md). Standards-specific artifacts also follow the implemented [standards field matrix](../assets/standards-field-matrix.md) and crosswalk loss contract. Renderer hardening remains owned by the existing export/OOXML plans.
+The implemented canonical database contract supplies typed lookup, revision identity, restore semantics, and migration compatibility. This plan reuses the bounded reporting-window and artifact-manifest contracts from the implemented [Power Automate reporting workflow](powerapps-gitlab-logbook-reporting.md). Standards-specific artifacts also follow the implemented [standards field matrix](../assets/standards-field-matrix.md) and crosswalk loss contract. Renderer hardening remains owned by the existing export/OOXML plans.
 
 # Recommendation
 

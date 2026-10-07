@@ -166,8 +166,6 @@ This deployment-owned object routes validated PowerAutomate form submissions. It
 | `projects` | Yes | Non-empty project routing list. Each item has `project_id`, `path`, and a `members` email allowlist. |
 | `timezone` | No | Reporting timezone. Version `1.0.0` supports `UTC`. |
 
-See [PowerAutomate logbook reporting](docs/src/automation/powerautomate-reporting.md) for the deployment workflow.
-
 ### `registries`
 
 `registries` maps an arbitrary profile name to a registry object. Model sources refer to the name through their repository `registry` attribute.

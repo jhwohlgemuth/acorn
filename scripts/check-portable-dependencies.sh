@@ -2,8 +2,8 @@
 set -euo pipefail
 
 readonly allowed_diff='^(acorn-diff|itoa|memchr|proc-macro2|quote|serde|serde_core|serde_derive|serde_json|similar|syn|unicode-ident|zmij) v'
-readonly forbidden='^(ammonia|anydoc|arboard|ariadne|async-trait|axum|bat|color-eyre|comfy-table|console|directories|dotenvy|flate2|futures|glob|http|httpdate|indicatif|infer|is_executable|lychee-lib|nanoid|owo-colors|pdf-inspector|percy-dom|polars|rand|rayon|reqwest|ring|rsa|rusqlite|rust-embed|rust-ini|sevenz-rust2|shell-words|shuck-linter|shuck-parser|similar|tar|tera|tokio|tower|which|zip) v'
-readonly forbidden_analysis='^(axum|duckdb|polars|resvg|rmcp|shuck-linter|shuck-parser|sysinfo) v'
+readonly forbidden='^(ammonia|anydoc|arboard|ariadne|async-trait|axum|bat|color-eyre|comfy-table|console|directories|dotenvy|flate2|glob|http|httpdate|indicatif|infer|is_executable|lychee-lib|nanoid|owo-colors|pdf-inspector|percy-dom|polars|rand|rayon|reqwest|ring|rsa|rusqlite|rust-embed|rust-ini|sevenz-rust2|shell-words|shuck-linter|shuck-parser|similar|tar|tera|tokio|tower|which|zip) v'
+readonly forbidden_portable='^(acorn-host|acorn-lib|acorn-server|arboard|axum|color-eyre|directories|dotenvy|duckdb|lychee-lib|polars|reqwest|resvg|rmcp|rusqlite|shuck-linter|shuck-parser|sysinfo|tokio|tonic|tracing-subscriber|which) v'
 
 check_diff_tree() {
     local features
@@ -24,26 +24,14 @@ check_diff_tree() {
     fi
 }
 
-check_analysis_tree() {
+check_portable_tree() {
+    local package="$1"
     local tree
     local matches
-    tree="$(cargo tree --locked -p acorn-lib --no-default-features --features analysis --edges normal --prefix none)"
-    matches="$(printf '%s\n' "$tree" | grep -E "$forbidden_analysis" || true)"
+    tree="$(cargo tree --locked -p "$package" --no-default-features --features alloc --edges normal --prefix none)"
+    matches="$(printf '%s\n' "$tree" | grep -E "$forbidden_portable" || true)"
     if [[ -n "$matches" ]]; then
-        printf 'Unrelated host dependencies leaked into the analysis graph:\n%s\n' "$matches" >&2
-        exit 1
-    fi
-}
-
-check_tree() {
-    local label="$1"
-    shift
-    local tree
-    local matches
-    tree="$(cargo tree --locked -p acorn-lib --no-default-features --features analyzer --edges normal --prefix none "$@")"
-    matches="$(printf '%s\n' "$tree" | grep -E "$forbidden" || true)"
-    if [[ -n "$matches" ]]; then
-        printf 'Host-only dependencies leaked into the %s analyzer graph:\n%s\n' "$label" "$matches" >&2
+        printf 'Host dependencies leaked into the %s alloc graph:\n%s\n' "$package" "$matches" >&2
         exit 1
     fi
 }
@@ -59,8 +47,7 @@ check_wasm_tree() {
     fi
 }
 
-check_analysis_tree
+check_portable_tree acorn-analysis
+check_portable_tree acorn-service
 check_diff_tree
-check_tree native
-check_tree wasm --target wasm32-unknown-unknown
 check_wasm_tree

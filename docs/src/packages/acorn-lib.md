@@ -32,13 +32,14 @@ Applications that need host analysis or PowerPoint support can enable those feat
 cargo add acorn-lib --features analysis,powerpoint
 ```
 
-Service applications can enable the versioned Protobuf/gRPC client and server modules with the `grpc` feature:
+Service applications use the dedicated portable contract and server crates:
 
 ```sh
-cargo add acorn-lib --features grpc
+cargo add acorn-service
+cargo add acorn-server
 ```
 
-See [Protobuf and gRPC](grpc.md) for the transport contract, client example, security policy, and its role in the ACP and MCP architecture.
+See [Protobuf and gRPC](grpc.md) for the typed transport contract and security policy. The generic `acorn-lib` gRPC envelope has been removed.
 
 Applications that need to call configured MCP tools can enable the independent `mcp-client` feature:
 

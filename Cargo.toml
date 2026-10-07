@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/acorn-cli", "crates/acorn-cmd", "crates/acorn-core", "crates/acorn-diff", "crates/acorn-host", "crates/acorn-lib", "crates/acorn-macros", "crates/acorn-schema", "crates/acorn-tui", "crates/acorn-wasm", "tests/downstream-host", "xtask"]
+members = ["crates/acorn-analysis", "crates/acorn-cli", "crates/acorn-cmd", "crates/acorn-core", "crates/acorn-diff", "crates/acorn-host", "crates/acorn-lib", "crates/acorn-macros", "crates/acorn-schema", "crates/acorn-server", "crates/acorn-service", "crates/acorn-tui", "crates/acorn-wasm", "tests/downstream-host", "xtask"]
 resolver = "2"
 
 [workspace.package]
@@ -51,6 +51,11 @@ unsafe_code = "forbid"
 broken-intra-doc-links = "forbid"
 
 [workspace.dependencies]
+acorn-analysis = { version = "0.4.0", path = "crates/acorn-analysis", default-features = false }
+acorn-core = { version = "0.4.0", path = "crates/acorn-core", default-features = false }
+acorn-schema = { version = "0.4.0", path = "crates/acorn-schema", default-features = false }
+acorn-server = { version = "0.4.0", path = "crates/acorn-server" }
+acorn-service = { version = "0.4.0", path = "crates/acorn-service", default-features = false }
 agent-client-protocol = { version = "=2.2.0", default-features = false }
 anydoc = { version = "0.1.6", default-features = false }
 infer = { version = "0.22.0", default-features = false }
@@ -59,6 +64,7 @@ pomsky = { version = "0.12.0", default-features = false }
 sevenz-rust2 = { version = "0.21.5", features = ["compress"], default-features = false }
 async-trait = { version = "0.1.86", default-features = false }
 axum = { version = "0.8.9", default-features = false }
+axum-server = { version = "0.8.0", features = ["tls-rustls-no-provider"], default-features = false }
 jiff = { version = "0.2", features = ["serde"], default-features = false }
 color-eyre = { version = "0.6.5", default-features = false }
 command-group = { version = "5.0.1", default-features = false }
@@ -96,6 +102,7 @@ rayon = { version = "1.12.0", default-features = false }
 rmcp = { version = "1.5.0", default-features = false }
 shell-words = { version = "1.1.0", default-features = false }
 rust-embed = { version = "8.11.0", default-features = false }
+rustls = { version = "0.23.36", features = ["ring"], default-features = false }
 rusqlite = { version = "0.39.0", default-features = false }
 secrecy = { version = "0.10.3", features = ["serde"], default-features = false }
 veil = { version = "0.3.0" }

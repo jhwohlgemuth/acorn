@@ -8,7 +8,6 @@ use acorn::exec::config::ExecutionOrigin;
 #[cfg(feature = "exec")]
 use acorn::io::workflow::WorkflowAction;
 use acorn::{
-    analyzer::Standard,
     fail,
     io::{
         config::application::{ApplicationConfiguration, Hook},
@@ -25,6 +24,7 @@ use acorn_host::terminal::Label;
 use acorn_schema::{
     enrichment::Provider,
     research_activity::ResearchActivity,
+    standard::Standard,
     standard::{cff::Cff, datacite, invenio},
     validation::Validate,
 };
@@ -114,46 +114,6 @@ where
                 })
                 .and_then(|(old_content, new_content)| write_formatted_content(path, options, &old_content, &new_content))
         })
-}
-fn write_formatted_content(path: &Path, options: &CommandOptions, old_content: &str, new_content: &str) -> Result<(), Report> {
-    match old_content == new_content {
-        | true => {
-            let display_path = slice_path(path, DISPLAY_PATH_CHARACTER_COUNT);
-            info!("=> {} No format changes for {display_path}", Label::skip());
-            Ok(())
-        }
-        | false => {
-            let CommandOptions {
-                dry_run, no_color, verbose, ..
-            } = options;
-            if *dry_run {
-                let absolute_path = path.to_path_buf().to_absolute_path();
-                match no_color {
-                    | true => println!("{} Format {absolute_path}", Label::DRY_RUN),
-                    | false => println!("{} Format {}", Label::dry_run(), absolute_path.yellow()),
-                }
-            }
-            let should_show_changes = matches!(
-                verbose.log_level(),
-                Some(Level::Warn) | Some(Level::Info) | Some(Level::Debug) | Some(Level::Trace)
-            );
-            if *dry_run || should_show_changes {
-                print!("{}", format_diff(old_content, new_content, path, !options.no_color));
-            }
-            match *dry_run {
-                | true => Ok(()),
-                | false => write(path, new_content.as_bytes())
-                    .map_err(|why| {
-                        fail!("Write — {why}");
-                        eyre!("Write — {why}")
-                    })
-                    .map(|_| match no_color {
-                        | true => info!("=> {} Formatted {}", Label::pass(), path.display()),
-                        | false => info!("=> {} Formatted {}", Label::pass(), path.display().cyan()),
-                    }),
-            }
-        }
-    }
 }
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
@@ -315,6 +275,46 @@ where
             }
         }
         | Err(why) => Err(why),
+    }
+}
+fn write_formatted_content(path: &Path, options: &CommandOptions, old_content: &str, new_content: &str) -> Result<(), Report> {
+    match old_content == new_content {
+        | true => {
+            let display_path = slice_path(path, DISPLAY_PATH_CHARACTER_COUNT);
+            info!("=> {} No format changes for {display_path}", Label::skip());
+            Ok(())
+        }
+        | false => {
+            let CommandOptions {
+                dry_run, no_color, verbose, ..
+            } = options;
+            if *dry_run {
+                let absolute_path = path.to_path_buf().to_absolute_path();
+                match no_color {
+                    | true => println!("{} Format {absolute_path}", Label::DRY_RUN),
+                    | false => println!("{} Format {}", Label::dry_run(), absolute_path.yellow()),
+                }
+            }
+            let should_show_changes = matches!(
+                verbose.log_level(),
+                Some(Level::Warn) | Some(Level::Info) | Some(Level::Debug) | Some(Level::Trace)
+            );
+            if *dry_run || should_show_changes {
+                print!("{}", format_diff(old_content, new_content, path, !options.no_color));
+            }
+            match *dry_run {
+                | true => Ok(()),
+                | false => write(path, new_content.as_bytes())
+                    .map_err(|why| {
+                        fail!("Write — {why}");
+                        eyre!("Write — {why}")
+                    })
+                    .map(|_| match no_color {
+                        | true => info!("=> {} Formatted {}", Label::pass(), path.display()),
+                        | false => info!("=> {} Formatted {}", Label::pass(), path.display().cyan()),
+                    }),
+            }
+        }
     }
 }
 

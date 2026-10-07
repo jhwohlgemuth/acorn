@@ -34,6 +34,7 @@ audit: ## Run dependency and security audits for the project.
 # 	@cargo deny check
 
 bench: lint ## Benchmark the library and related crates.
+	@cargo bench --package acorn-analysis --benches $(BENCH_ARGS)
 	@cargo bench --package acorn-lib --benches $(BENCH_ARGS)
 
 bench-baseline: ## Save a benchmark baseline for future comparisons.
@@ -122,7 +123,6 @@ check-host: ## Validate host-side feature builds and dependency checks.
 	@cargo check -p acorn-lib --no-default-features --features agentic,acp,analysis
 	@cargo check -p acorn-lib --no-default-features --features mcp-client
 	@cargo check -p acorn-lib --no-default-features --features agentic,mcp-client
-	@cargo check -p acorn-lib --no-default-features --features grpc
 	@cargo check -p acorn-lib --features std,analysis
 	@cargo check -p acorn-cli
 	@cargo check -p acorn-cli --features grpc
@@ -143,9 +143,12 @@ check-portable: ## Validate portable/core feature builds and compatibility check
 	@cargo check -p acorn-schema --no-default-features
 	@cargo test -p acorn-schema --test portable_semantics
 	@cargo test -p acorn-schema --no-default-features --features alloc --test portable_semantics
+	@cargo check -p acorn-analysis
+	@cargo check -p acorn-analysis --no-default-features --features alloc
+	@cargo check -p acorn-service
+	@cargo check -p acorn-service --no-default-features --features alloc
 	@cargo check -p acorn-lib --no-default-features --features core
 	@cargo check -p acorn-lib --no-default-features --features alloc
-	@cargo check -p acorn-lib --no-default-features --features analyzer
 	@cargo check -p acorn-lib --no-default-features
 	@$(MAKE) check-wasm
 	@$(MAKE) build-wasm WASM_PACK_BUILD_ARGS=--dev
@@ -158,8 +161,9 @@ check-wasm: ## Validate the WebAssembly target compatibility of the workspace.
 	@cargo check -p acorn-schema --no-default-features --features core --target wasm32-unknown-unknown
 	@cargo check -p acorn-schema --no-default-features --features alloc --target wasm32-unknown-unknown
 	@cargo check -p acorn-schema --no-default-features --features wasm --target wasm32-unknown-unknown
+	@cargo check -p acorn-analysis --no-default-features --features alloc --target wasm32-unknown-unknown
+	@cargo check -p acorn-service --no-default-features --features alloc --target wasm32-unknown-unknown
 	@cargo check -p acorn-lib --no-default-features --features wasm --target wasm32-unknown-unknown
-	@cargo check -p acorn-lib --no-default-features --features analyzer --target wasm32-unknown-unknown
 	@cargo check -p acorn-wasm --target wasm32-unknown-unknown
 
 cover: ## Run coverage analysis with tarpaulin.

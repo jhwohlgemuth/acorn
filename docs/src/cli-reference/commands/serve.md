@@ -58,7 +58,7 @@ acorn --database-path ./acorn.db serve mcp --allow-mutation
 Start the JSON-RPC 2.0 HTTP endpoint with a dedicated bearer token. The endpoint accepts `POST /rpc`, requires `application/json`, limits request bodies, and is read-only unless mutation is explicitly enabled:
 
 ```sh
-export ACORN_RPC_TOKEN='replace-with-a-secret'
+export ACORN_SERVICE_TOKEN='replace-with-a-secret'
 acorn serve rpc --bind 127.0.0.1:8001
 
 curl --fail-with-body http://127.0.0.1:8001/rpc \
@@ -67,38 +67,38 @@ curl --fail-with-body http://127.0.0.1:8001/rpc \
   --data '{"jsonrpc":"2.0","id":1,"method":"acorn.version"}'
 ```
 
-Use global `--offline` to deny open-world operations. `serve rpc --allow-mutation` enables registered mutations such as durable operation replay and requires local database persistence.
+Use global `--offline` to deny open-world operations. Durable status and replay remain in the catalog; a composition without persistence returns a typed unavailable error.
 
-The optional Protobuf/gRPC transport exposes the same operation registry through the versioned `acorn.rpc.v1.AcornRpc` service. Build the CLI with the non-default capability and use a dedicated bearer token:
+The optional Protobuf/gRPC transport exposes the three canonical application operations through the typed, unversioned `acorn.service.AcornService`. Build the CLI with the non-default capability and use the same dedicated service token:
 
 ```sh
 cargo build --release --package acorn-cli --features grpc
-export ACORN_GRPC_TOKEN='replace-with-a-different-secret'
+export ACORN_SERVICE_TOKEN='replace-with-a-secret'
 ./target/release/acorn serve grpc --bind 127.0.0.1:50051
 ```
 
-Call the version operation with `grpcurl` and the committed Protobuf contract:
+Call the typed readability operation with `grpcurl` and the committed Protobuf contract:
 
 ```sh
 grpcurl -plaintext \
-  -H 'authorization: Bearer replace-with-a-different-secret' \
-  -import-path crates/acorn-lib/proto \
-  -proto acorn/rpc/v1/rpc.proto \
-  -d '{"id":{"text":"version-1"},"method":"acorn.version","params":{}}' \
+  -H 'authorization: Bearer replace-with-a-secret' \
+  -import-path crates/acorn-server/proto \
+  -proto acorn/service/service.proto \
+  -d '{"text":"A complete sentence for analysis.","metric":"READABILITY_METRIC_ARI"}' \
   127.0.0.1:50051 \
-  acorn.rpc.v1.AcornRpc/Invoke
+  acorn.service.AcornService/CheckReadability
 ```
 
 Loopback development may use plaintext HTTP/2. A non-loopback bind requires a PEM certificate chain and private key:
 
 ```sh
-export ACORN_GRPC_TOKEN='replace-with-a-different-secret'
+export ACORN_SERVICE_TOKEN='replace-with-a-secret'
 ./target/release/acorn serve grpc \
   --bind 0.0.0.0:50051 \
   --tls-cert /etc/acorn/tls/server.pem \
   --tls-key /etc/acorn/tls/server.key
 ```
 
-Clients send `authorization: Bearer …` metadata. Remote clients require TLS and are rejected under global offline policy; message limits and deadlines apply on both sides. Operation failures remain structured `RpcError` outcomes, while authentication, malformed transport requests, limits, deadlines, and connection failures use gRPC status codes. The committed contract is at `crates/acorn-lib/proto/acorn/rpc/v1/rpc.proto`; generated Rust remains in Cargo's build output and is not committed. See [Protobuf and gRPC](../../packages/grpc.md) for batch and notification examples, the Rust client API, and the relationship to ACP and MCP.
+Clients send `authorization: Bearer …` metadata. Non-loopback clients require TLS; message limits and deadlines apply on both sides. Application errors map to gRPC status codes. The committed contract is at `crates/acorn-server/proto/acorn/service/service.proto`; generated Rust remains in Cargo's build output. `acorn.version` intentionally has no gRPC method. See [Protobuf and gRPC](../../packages/grpc.md).
 
 <p class="acorn-next"><strong>Next stop:</strong>&nbsp;Diagnose the service host with <a href="doctor.md">Doctor</a>.</p>

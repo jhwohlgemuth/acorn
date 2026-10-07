@@ -1,23 +1,23 @@
 //! Structured native file-analysis service
-use super::render::{DocumentIndexes, RenderContext};
+use super::render::{CheckRender, DocumentIndexes, RenderContext};
 use crate::{
     analyzer::{
-        check::{Check, CheckBatch, CheckCategory, CheckSeverity, Standard},
+        check::{Check, CheckBatch, CheckCategory, CheckSeverity},
         fair::{FairDetails, FairEvidence, FairProfile, FairState},
         host::{
             context::{AnalysisContext, ReportOptions},
-            runtime::{AcreStandard, KitfileStandard, LinkEvidence, ModelKitStandard, StaticAnalyzer},
+            runtime::{AcreStandard, CheckBatchExt, KitfileStandard, LinkEvidence, ModelKitStandard, StaticAnalyzer},
             vale::Vale,
         },
         readability::score::{ReadabilityScore, ReadabilitySeverity},
     },
-    check, check_err, check_ok,
     io::{
         document::{DocumentIndex, MarkdownParser, SourceDocument},
         read_file, FromPath, InputOutput,
     },
     util::StringConversion,
 };
+use acorn_analysis::{check, check_err, check_ok};
 use acorn_core::{
     prelude::{Arc, HashMap, Path, PathBuf},
     util::{MimeType, ToProse},
@@ -30,6 +30,7 @@ use acorn_schema::{
         cff::Cff,
         ckan, datacite, dcat, huwise, invenio,
         text::{Document, Text},
+        Standard,
     },
 };
 use async_trait::async_trait;
@@ -126,6 +127,27 @@ pub trait SchemaCheck {
         None
     }
 }
+trait StandardHostExt {
+    fn execution_status(self, category: &CheckCategory, options: Option<&AnalysisContext>) -> ExecutionStatus;
+    fn from_path(path: &Path) -> Self;
+    fn unsupported(self, categories: &[CheckCategory]) -> Vec<CategoryChecks>;
+}
+/// Execution state for one requested analysis category.
+#[derive(Clone, Debug, EnumIs, Eq, PartialEq)]
+pub enum ExecutionStatus {
+    /// The analyzer executed the category, even if it produced no findings.
+    Executed,
+    /// Configuration or runtime policy deliberately prevented execution.
+    Skipped {
+        /// Human-readable explanation of the policy decision.
+        reason: String,
+    },
+    /// The selected metadata standard does not implement the category.
+    Unsupported {
+        /// Human-readable explanation of the capability gap.
+        reason: String,
+    },
+}
 /// Results for one standard-specific group of paths.
 #[derive(Clone, Debug)]
 pub struct AnalysisBatch {
@@ -155,22 +177,6 @@ pub struct CategoryChecks {
     pub checks: CheckBatch,
     /// Whether the category ran, was deliberately skipped, or is unsupported.
     pub status: ExecutionStatus,
-}
-/// Execution state for one requested analysis category.
-#[derive(Clone, Debug, EnumIs, Eq, PartialEq)]
-pub enum ExecutionStatus {
-    /// The analyzer executed the category, even if it produced no findings.
-    Executed,
-    /// Configuration or runtime policy deliberately prevented execution.
-    Skipped {
-        /// Human-readable explanation of the policy decision.
-        reason: String,
-    },
-    /// The selected metadata standard does not implement the category.
-    Unsupported {
-        /// Human-readable explanation of the capability gap.
-        reason: String,
-    },
 }
 /// Paths assigned to one analysis standard.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -214,7 +220,7 @@ impl AnalysisReport {
         }
     }
 }
-impl Standard {
+impl StandardHostExt for Standard {
     fn execution_status(self, category: &CheckCategory, options: Option<&AnalysisContext>) -> ExecutionStatus {
         let supported = match self {
             | Self::ApplicationConfigurationResearchEnablement | Self::Ckan => category.is_schema(),

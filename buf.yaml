@@ -1,12 +1,16 @@
 version: v2
 modules:
-  - path: crates/acorn-lib/proto
+  - path: crates/acorn-server/proto
 lint:
   use:
     - STANDARD
+  except:
+    - PACKAGE_VERSION_SUFFIX
+    - SERVICE_SUFFIX
+  ignore:
+    - crates/acorn-server/proto/grpc/health/v1/health.proto
   disallow_comment_ignores: true
   rpc_allow_google_protobuf_empty_responses: true
-  service_suffix: Rpc
 breaking:
   use:
     - FILE

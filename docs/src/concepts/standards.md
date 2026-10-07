@@ -39,7 +39,7 @@ Document and text selectors are analysis sources. They let `check` extract or an
 
 ### Schema generation
 
-`acorn export --schema --standard <STANDARD>` prints JSON Schema for ACRE, RAD, CFF, CKAN, DataCite, DCAT, HuWise, InvenioRDM, RAiD, Kitfile, ModelKit, document, and text models. Dublin Core support is in progress and does not yet have a generated schema.
+`acorn export --schema --standard <STANDARD>` prints deterministic JSON Schema as JSON by default or YAML with `--format yaml` for ACRE, RAD/RADS, CFF, CKAN, DataCite, DCAT, HuWise, InvenioRDM, RAiD, Kitfile, ModelKit, document, and text models. Dublin Core is recognized but fails explicitly until it has a modeled schema.
 
 ### Validation levels
 
@@ -174,7 +174,7 @@ The metadata layer sits inside a wider set of interoperability boundaries.
 | [Model Context Protocol](https://modelcontextprotocol.io/specification/) | ACORN provides a local stdio server and an outbound client for configured stdio and Streamable HTTP servers. Native initialization, tool discovery, JSON Schema input, calls, cancellation, and shutdown remain MCP messages. Policy controls offline and mutation capabilities. |
 | [Agent Client Protocol](https://agentclientprotocol.com/get-started/architecture) v1 | The ACP client supervises one-shot external-agent sessions, readiness and capability negotiation, streamed updates, model selection, cancellation, and fixed-policy permission responses. ACP is the default inference backend for bounded fix suggestions. |
 | [JSON-RPC 2.0](https://www.jsonrpc.org/specification) | The HTTP endpoint requires JSON-RPC 2.0 request envelopes and validates method parameters against the shared operation registry before dispatch. Authentication, body limits, offline policy, and mutation policy are transport controls around the JSON-RPC contract. |
-| [Protocol Buffers](https://protobuf.dev/) and [gRPC](https://grpc.io/) | The optional `acorn.rpc.v1.AcornRpc` contract exposes the shared operation registry through generated Protobuf messages over gRPC. It enforces authentication, message limits, deadlines, HTTP/2, and TLS for non-loopback endpoints. |
+| [Protocol Buffers](https://protobuf.dev/) and [gRPC](https://grpc.io/) | The `acorn.service.AcornService` contract exposes explicit typed validation, readability, and repository-processing methods. It has no generic JSON envelope or version RPC and enforces bearer authentication, message limits, deadlines, HTTP/2, and TLS for non-loopback endpoints. |
 | [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0) | The importer reads YAML or JSON descriptions with a `paths` object and creates ACORN resource entries. It is a focused import adapter, not a complete OpenAPI validator or client generator. |
 | OpenAI-compatible HTTP APIs | Completion, chat-completion, response, embedding, image, and audio operations use the implemented OpenAI-style JSON request and response shapes. Compatibility describes an API profile and does not imply that a server is operated by OpenAI or implements every OpenAI endpoint. |
 | [Dotprompt](https://github.com/google/dotprompt/tree/main/spec) and [Agent Skills](https://agentskills.io/specification) | ACORN embeds `.prompt` templates and distributes `SKILL.md` packages for compatible consumers. These files carry versioned instructions and resources; their presence does not grant tools or permissions. |

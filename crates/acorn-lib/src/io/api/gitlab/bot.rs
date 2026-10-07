@@ -197,9 +197,8 @@ struct RouterState {
 }
 /// HTTP-backed GitLab bot that polls project note events.
 ///
-/// A [`GitLabBot`] owns the HTTP server configuration, current polling state,
-/// and merge request note handler. Use [`GitLabBot::run`] to start both the
-/// HTTP server and the background polling loop.
+/// A [`Server`] owns the HTTP server configuration, current polling state, and merge request note handler.
+/// Use [`Server::run`] to start both the HTTP server and the background polling loop.
 ///
 /// # Example
 ///
@@ -210,7 +209,6 @@ struct RouterState {
 /// async fn start_bot() -> color_eyre::Result<()> {
 ///     let options = gitlab::Options::from_env().with_identifier("16689");
 ///     let config = bot::Config::new(options, "127.0.0.1:3000".parse()?);
-///
 ///     bot::GitLabBot::new(config).run().await?;
 ///     Ok(())
 /// }
@@ -635,13 +633,10 @@ impl Server {
     }
     /// Build the HTTP router for the bot server.
     ///
-    /// The router exposes `GET /health` for a simple liveness response and
-    /// `GET /state` for a JSON [`BotStateSnapshot`]. This is useful when a
-    /// caller wants to compose the bot routes into a larger HTTP application
-    /// instead of using [`GitLabBot::run`].
+    /// The router exposes `GET /health` for a simple liveness response and `GET /state` for a JSON [`StateSnapshot`].
+    /// This is useful when a caller wants to compose the bot routes into a larger HTTP application instead of using [`Server::run`].
     ///
-    /// # Example
-    ///
+    /// ### Example
     /// ```ignore
     /// use acorn::io::api::gitlab::{self, bot};
     ///
@@ -681,7 +676,7 @@ impl Server {
     /// Run the HTTP server and background GitLab polling task.
     ///
     /// This method binds the configured address, spawns a background task that
-    /// calls [`GitLabBot::poll_once`] every configured interval, and then serves
+    /// calls [`Server::poll_once`] every configured interval, and then serves
     /// the bot router until the server is shut down by the runtime.
     ///
     /// # Example

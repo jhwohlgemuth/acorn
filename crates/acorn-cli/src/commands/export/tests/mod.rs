@@ -16,9 +16,8 @@
 use crate::cli::arguments::{FileFormat, Target};
 #[cfg(feature = "pdf")]
 use crate::commands::export::pdf::{browser_executable, configured_browser_executable};
-use crate::commands::export::{run, tools};
+use crate::commands::export::{export_schema, run, tools};
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
-use acorn::analyzer::Standard;
 #[cfg(feature = "pdf")]
 use acorn::util::constants::env::CHROME_PATH;
 use acorn_core::util::MimeType;
@@ -31,6 +30,7 @@ use acorn_schema::standard::datacite;
 use acorn_schema::standard::dcat;
 use acorn_schema::standard::invenio;
 use acorn_schema::standard::zon;
+use acorn_schema::standard::Standard;
 use acorn_schema::validation::Validate;
 use acorn_schema::{ContactPoint, OneOrMany};
 use clap_verbosity_flag::Verbosity;
@@ -1153,4 +1153,34 @@ async fn test_export_zon_format_uses_zonf_extension() -> Result<()> {
     let encoded = read_to_string(zon_file)?;
     assert!(zon::decode_value(&encoded).is_ok());
     Ok(())
+}
+#[test]
+fn test_schema_export_covers_every_modeled_standard_in_json_and_yaml() {
+    let standards = [
+        Standard::ApplicationConfigurationResearchEnablement,
+        Standard::CitationFileFormat,
+        Standard::Ckan,
+        Standard::Datacite,
+        Standard::Dcat,
+        Standard::Document,
+        Standard::Huwise,
+        Standard::Invenio,
+        Standard::Kitfile,
+        Standard::ModelKit,
+        Standard::Raid,
+        Standard::ResearchActivityData,
+        Standard::Text,
+    ];
+    for standard in standards {
+        let json = export_schema(standard, &FileFormat::Json).expect("JSON schema");
+        let yaml = export_schema(standard, &FileFormat::Yaml).expect("YAML schema");
+        assert!(serde_json::from_str::<serde_json::Value>(&json).is_ok());
+        assert!(serde_norway::from_str::<serde_json::Value>(&yaml).is_ok());
+        assert_eq!(json, export_schema(standard, &FileFormat::Json).expect("deterministic JSON schema"));
+    }
+}
+#[test]
+fn test_schema_export_rejects_unmodeled_and_artifact_formats() {
+    assert!(export_schema(Standard::DublinCore, &FileFormat::Json).is_err());
+    assert!(export_schema(Standard::ResearchActivityData, &FileFormat::Pdf).is_err());
 }

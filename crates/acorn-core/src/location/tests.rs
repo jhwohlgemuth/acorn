@@ -68,6 +68,20 @@ fn test_location_classifies_non_loopback_http_locations() {
     assert!(!Location::from("file:///tmp/data").is_non_loopback_http_or_https());
 }
 #[test]
+fn test_location_identifies_canonical_repository_paths() {
+    assert!(Location::from("docs/report.json").is_canonical_repository_path());
+    for path in [
+        "",
+        "/absolute.json",
+        "../secret.json",
+        "docs\\report.json",
+        "docs//report.json",
+        "C:/report.json",
+    ] {
+        assert!(!Location::from(path).is_canonical_repository_path(), "accepted {path}");
+    }
+}
+#[test]
 fn test_location_preserves_registry_ports_and_ipv6() {
     assert_eq!(
         Location::from("https://registry.example.org:5000").registry().as_deref(),

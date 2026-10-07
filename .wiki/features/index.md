@@ -7,7 +7,7 @@
 
 ## Waiting on validation
 
-- [Power Apps logbook intake and artifact reporting](powerapps-gitlab-logbook-reporting.md) - Run the final deployed intake, idempotency, graduation, publication, and callback smoke test.
+- [Power Automate logbook reporting deployment](powerapps-gitlab-logbook-reporting.md) - Clear the access gates, configure one pilot, and run the intake, graduation, publication, callback, and idempotency smoke test.
 
 ## Planned
 

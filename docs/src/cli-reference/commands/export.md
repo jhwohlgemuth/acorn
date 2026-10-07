@@ -64,7 +64,12 @@ acorn export /path/to/project/activities.json --format jsonl
 
 # Print the Application Configuration for Research Enablement JSON Schema
 acorn export --schema --standard acre
+
+# Print the RAiD schema as YAML
+acorn export --schema --standard raid --format yaml
 ```
+
+Schema mode defaults to JSON without changing the ordinary export default of PDF. ACRE, RAD/RADS, CFF, CKAN, DataCite, DCAT, HuWise, InvenioRDM, Kitfile, ModelKit, RAiD, document, and text are supported. Dublin Core and non-JSON/YAML schema formats fail explicitly.
 
 > [!NOTE]
 > Most export formats use the `--output` option to specify the output file or directory path. If not provided, ACORN will generate a default output path based on the input path and selected format. For example, `--format pdf` and `--format powerpoint` will generate files in the default export location (`./export/`) with names based on the project parent folder(s), `--format bag` will add `.zip` to the output path (i.e., `--output ./export` will create `./export.zip` and `--output /path/to/bag` will create `/path/to/bag.zip`). CFF output is the exception described below.

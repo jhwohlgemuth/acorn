@@ -14,13 +14,13 @@ extern crate alloc;
 use crate::cli::CommandOptions;
 use crate::commands::format::{format_diff, format_file, run};
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
-use acorn::analyzer::Standard;
 use acorn::io::slice_path;
 use acorn::util::constants::app::DISPLAY_PATH_CHARACTER_COUNT;
 use acorn_schema::enrichment::Provider;
 use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::standard::cff::Cff;
 use acorn_schema::standard::zon;
+use acorn_schema::standard::Standard;
 use alloc::sync::Arc;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
@@ -171,14 +171,37 @@ async fn test_configured_format_requires_exec_feature() {
     );
     assert_eq!(fs::read_to_string(dest_file).expect("read unchanged fixture"), original);
 }
-#[test]
-fn test_format_diff_uses_labeled_unified_output_and_optional_color() {
-    let plain = format_diff("old\n", "new\n", Path::new("activity.json"), false);
-    let colored = format_diff("old\n", "new\n", Path::new("activity.json"), true);
-    assert!(plain.starts_with("--- a/activity.json\n+++ b/activity.json\n@@"));
-    assert!(plain.contains("-old\n+new\n"));
-    assert!(!plain.contains('\u{1b}'));
-    assert!(colored.contains('\u{1b}'));
+#[tokio::test]
+async fn test_format_acre_directory_only_formats_canonical_names() -> Result<()> {
+    let temp_dir = temp_test_dir("format_acre_directory");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let canonical = temp_dir.join(".acorn.json");
+    let custom = temp_dir.join("custom.json");
+    let content = "{\"schemaVersion\":\"1.0.0\"}";
+    fs::write(&canonical, content)?;
+    fs::write(&custom, content)?;
+    let result = run(
+        &Some(temp_dir),
+        &None,
+        &None,
+        &None,
+        &None,
+        &None,
+        false,
+        false,
+        true,
+        &[],
+        &false,
+        Standard::ApplicationConfigurationResearchEnablement,
+        1,
+        &Verbosity::new(0, 0),
+        OFFLINE,
+    )
+    .await;
+    assert!(result.is_ok(), "ACRE directory formatting should succeed: {result:?}");
+    assert_eq!(fs::read_to_string(custom)?, content);
+    assert_eq!(fs::read_to_string(canonical)?, "{ \"schemaVersion\": \"1.0.0\" }\n");
+    Ok(())
 }
 #[tokio::test]
 async fn test_format_acre_jsonc_preserves_comments_trailing_commas_and_legacy_version_omission() -> Result<()> {
@@ -218,21 +241,19 @@ async fn test_format_acre_jsonc_preserves_comments_trailing_commas_and_legacy_ve
     Ok(())
 }
 #[tokio::test]
-async fn test_format_acre_directory_only_formats_canonical_names() -> Result<()> {
-    let temp_dir = temp_test_dir("format_acre_directory");
+async fn test_format_acre_rejects_workflow_options_without_loading_config() -> Result<()> {
+    let temp_dir = temp_test_dir("format_acre_options");
     let _cleanup = TestCleanup::new(temp_dir.clone());
-    let canonical = temp_dir.join(".acorn.json");
-    let custom = temp_dir.join("custom.json");
-    let content = "{\"schemaVersion\":\"1.0.0\"}";
-    fs::write(&canonical, content)?;
-    fs::write(&custom, content)?;
+    let path = temp_dir.join(".acorn.yaml");
+    fs::write(&path, "schemaVersion: 1.0.0\n")?;
+    let missing = temp_dir.join("missing.json");
     let result = run(
-        &Some(temp_dir),
+        &Some(path),
         &None,
         &None,
         &None,
         &None,
-        &None,
+        &Some(missing),
         false,
         false,
         true,
@@ -244,9 +265,7 @@ async fn test_format_acre_directory_only_formats_canonical_names() -> Result<()>
         OFFLINE,
     )
     .await;
-    assert!(result.is_ok(), "ACRE directory formatting should succeed: {result:?}");
-    assert_eq!(fs::read_to_string(custom)?, content);
-    assert_eq!(fs::read_to_string(canonical)?, "{ \"schemaVersion\": \"1.0.0\" }\n");
+    assert!(result.is_err_and(|why| why.to_string().contains("--config is not supported")));
     Ok(())
 }
 #[tokio::test]
@@ -282,33 +301,14 @@ async fn test_format_acre_yaml_preserves_comments_and_legacy_version_omission() 
     assert!(formatted.ends_with('\n'));
     Ok(())
 }
-#[tokio::test]
-async fn test_format_acre_rejects_workflow_options_without_loading_config() -> Result<()> {
-    let temp_dir = temp_test_dir("format_acre_options");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let path = temp_dir.join(".acorn.yaml");
-    fs::write(&path, "schemaVersion: 1.0.0\n")?;
-    let missing = temp_dir.join("missing.json");
-    let result = run(
-        &Some(path),
-        &None,
-        &None,
-        &None,
-        &None,
-        &Some(missing),
-        false,
-        false,
-        true,
-        &[],
-        &false,
-        Standard::ApplicationConfigurationResearchEnablement,
-        1,
-        &Verbosity::new(0, 0),
-        OFFLINE,
-    )
-    .await;
-    assert!(result.is_err_and(|why| why.to_string().contains("--config is not supported")));
-    Ok(())
+#[test]
+fn test_format_diff_uses_labeled_unified_output_and_optional_color() {
+    let plain = format_diff("old\n", "new\n", Path::new("activity.json"), false);
+    let colored = format_diff("old\n", "new\n", Path::new("activity.json"), true);
+    assert!(plain.starts_with("--- a/activity.json\n+++ b/activity.json\n@@"));
+    assert!(plain.contains("-old\n+new\n"));
+    assert!(!plain.contains('\u{1b}'));
+    assert!(colored.contains('\u{1b}'));
 }
 #[tokio::test]
 async fn test_format_dispatches_cff_and_rejects_unsupported_provider() {

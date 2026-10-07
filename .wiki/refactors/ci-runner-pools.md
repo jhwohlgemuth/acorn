@@ -11,7 +11,7 @@ status: in-progress
 
 # Project code boundaries
 
-- **Update:** `.gitlab-ci.yml`, the reusable artifact-creation template described in the [PowerAutomate reporting guide](../../docs/src/automation/powerautomate-reporting.md), runner registration/configuration outside the repository, and CI operations documentation.
+- **Update:** `.gitlab-ci.yml`, the reusable artifact-creation template described in the [Power Automate reporting plan](../features/powerapps-gitlab-logbook-reporting.md), runner registration/configuration outside the repository, and CI operations documentation.
 - **Create:** dedicated runner registrations and isolated build/cache storage for Rust/fuzz jobs, plus a separately tagged scheduled-reporting pool with protected package and callback credentials; no new product code.
 - **Delete:** the shared `tests` resource group only after tag routing and storage isolation are verified; do not remove recovery cleanup prematurely.
 

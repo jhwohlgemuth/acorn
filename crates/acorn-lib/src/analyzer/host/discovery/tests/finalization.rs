@@ -1,5 +1,5 @@
 use super::super::*;
-use crate::check_err;
+use acorn_analysis::check_err;
 use std::fs::read_to_string;
 use tempfile::tempdir;
 
@@ -87,7 +87,7 @@ fn test_finalize_report_terse_console_skips_output_file_and_preserves_failure() 
     let directory = tempdir().expect("temporary directory should be created");
     let path = directory.path().join("report.txt");
     let output = Some(path.clone());
-    let error = finalize_report(&[], &report(&[]), policy(Some(OutputFormat::Console), &output, false, true, None), true)
+    let error = finalize_report(&[], &report(&[]), policy(Some(OutputFormat::Text), &output, false, true, None), true)
         .expect_err("additional failure should fail finalization");
     assert!(error.downcast_ref::<OutputFailure>().is_some());
     assert!(!path.exists());

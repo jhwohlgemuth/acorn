@@ -1,0 +1,51 @@
+[package]
+name = "acorn-analysis"
+version.workspace = true
+edition = "2021"
+rust-version.workspace = true
+authors.workspace = true
+description = "Portable analysis models and supplied-content checks for ACORN"
+documentation.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+acorn-core = { workspace = true, default-features = false }
+acorn-schema = { workspace = true, default-features = false }
+aho-corasick = { version = "1.1.4", default-features = false }
+bon = { version = "3.8.1", default-features = false }
+derive_more = { workspace = true }
+fancy-regex = { workspace = true }
+itertools = { workspace = true }
+lazy_static = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+strum = { workspace = true }
+validator = { workspace = true }
+
+[dev-dependencies]
+criterion = "0.8.2"
+eserde = { workspace = true }
+pretty_assertions = "1.4.1"
+zench = "0.2.0"
+
+[[bench]]
+name = "readability"
+harness = false
+
+[features]
+alloc = ["acorn-core/alloc", "acorn-schema/alloc", "serde/alloc"]
+analysis = ["std"]
+core = ["acorn-core/core", "acorn-schema/core"]
+default = ["analysis"]
+exec = ["analysis"]
+std = ["alloc", "acorn-core/std", "acorn-schema/std", "schemars"]
+
+[dependencies.schemars]
+version = "1.0.4"
+features = ["derive"]
+default-features = false
+optional = true
+
+[lints]
+workspace = true

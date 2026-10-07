@@ -1,7 +1,7 @@
 //! Artifact discovery, resolution, persistence, and grouping helpers.
 
 use super::{
-    context::{AnalysisContext, AnalysisOptions, ExecutionExtension, ExecutionOptions, ReportExtension, ReportOptions},
+    context::{AnalysisContext, AnalysisOptions, ExecutionExtension, ExecutionOptions, OutputFormat, ReportExtension, ReportOptions},
     render::{Render, RenderContext},
     runtime::{LinkEvidence, LinkOutcome},
     service::analyze_paths,
@@ -10,10 +10,9 @@ use super::{
 use crate::RepositoryExt;
 use crate::{
     analyzer::{
-        check::{Check, CheckBatch, CheckCategory, CheckSeverity, OutputFormat, Standard},
+        check::{Check, CheckBatch, CheckCategory, CheckSeverity},
         fix::{DiscoveryCategory, DiscoveryReference, DiscoveryStatus},
     },
-    check_err,
     io::{
         api::{self, citeas::ToCitations, Configuration},
         database::{
@@ -26,6 +25,7 @@ use crate::{
     util::{values_as_table, StringConversion},
     LocationExt,
 };
+use acorn_analysis::check_err;
 use acorn_core::{
     options::{CommonRuntime, RuntimeOptions},
     util::merge_unique,
@@ -35,6 +35,7 @@ use acorn_host::terminal::Label;
 use acorn_schema::{
     discovery::{RemoteEntity, RemoteOrganizationRole},
     pid::{self, Arxiv, Handle, Identifier, PersistentIdentifierParse, DOI, PID, SWHID},
+    standard::Standard,
     ControlledVocabulary, Keyword,
 };
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -474,6 +475,11 @@ pub(crate) struct Summary {
     #[builder(default)]
     #[serde(default, skip_serializing_if = "PersistenceCounts::is_empty")]
     candidates: PersistenceCounts,
+}
+impl<'a> From<&'a Records> for &'a [SourceDocument] {
+    fn from(discoveries: &'a Records) -> Self {
+        discoveries.1.as_slice()
+    }
 }
 impl DeserializeMetadata for api::citeas::Citations {}
 impl DeserializeMetadata for api::handle::Record {}
@@ -938,6 +944,15 @@ impl From<bool> for FindingStatus {
         }
     }
 }
+impl GatherOutputPolicy<'_> {
+    fn format(self) -> OutputFormat {
+        self.format
+            .unwrap_or_else(|| match (self.terse, self.output.is_none() && io::stdout().is_terminal()) {
+                | (true, _) | (false, true) => OutputFormat::Text,
+                | (false, false) => OutputFormat::Json,
+            })
+    }
+}
 impl<'a> From<&'a Options> for GatherOutputPolicy<'a> {
     fn from(options: &'a Options) -> Self {
         let (format, quiet, terse, verbosity) = (
@@ -953,15 +968,6 @@ impl<'a> From<&'a Options> for GatherOutputPolicy<'a> {
             terse,
             verbosity,
         }
-    }
-}
-impl GatherOutputPolicy<'_> {
-    fn format(self) -> OutputFormat {
-        self.format
-            .unwrap_or_else(|| match (self.terse, self.output.is_none() && io::stdout().is_terminal()) {
-                | (true, _) | (false, true) => OutputFormat::Console,
-                | (false, false) => OutputFormat::Json,
-            })
     }
 }
 impl From<CandidateAction> for LifecycleState {
@@ -1830,7 +1836,7 @@ impl Report {
     /// Serialize the report in the selected format.
     pub fn serialize(&self, format: OutputFormat) -> ApiResult<String> {
         match format {
-            | OutputFormat::Console => {
+            | OutputFormat::Text => {
                 let (headers, rows) = self.table();
                 Ok(values_as_table(headers, rows, Some(self.title())))
             }
@@ -1992,11 +1998,6 @@ impl<T> ResolutionOutcome<T> {
         }
     }
 }
-impl<'a> From<&'a Records> for &'a [SourceDocument] {
-    fn from(discoveries: &'a Records) -> Self {
-        discoveries.1.as_slice()
-    }
-}
 impl DeserializeMetadata for Vec<pid::raid::Metadata> {}
 pub(super) fn candidate_repositories(canonical_url: Option<&str>, websites: &[Candidate], domain: &str) -> Vec<Repository> {
     candidate_urls(canonical_url, websites)
@@ -2043,7 +2044,7 @@ pub fn finalize_report(checks: &[Check], report: &Report, policy: GatherOutputPo
         .build();
     checks.render(RenderContext::new(&report_options));
     let output = match policy.output {
-        | _ if policy.terse && format == OutputFormat::Console => Ok(()),
+        | _ if policy.terse && format == OutputFormat::Text => Ok(()),
         | Some(path) => report.serialize(format).and_then(|serialized| write_file(path.clone(), serialized)),
         | None if policy.quiet => Ok(()),
         | None => report.serialize(format).map(|serialized| {

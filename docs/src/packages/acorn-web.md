@@ -26,15 +26,16 @@ make check-portable
 The lower-level compile checks are:
 
 ```sh
-cargo check -p acorn-lib --no-default-features --features wasm --target wasm32-unknown-unknown
-cargo check -p acorn-lib --no-default-features --features analyzer --target wasm32-unknown-unknown
+cargo check -p acorn-analysis --no-default-features --features alloc --target wasm32-unknown-unknown
+cargo check -p acorn-service --no-default-features --features alloc --target wasm32-unknown-unknown
 cargo check -p acorn-wasm --target wasm32-unknown-unknown
 ```
 
-Rust projects that compile to WASM can continue selecting the portable Rust surface directly:
+Rust projects that compile to WASM can select the portable Rust surfaces directly:
 
 ```sh
-cargo add acorn-lib --no-default-features --features wasm
+cargo add acorn-analysis --no-default-features --features alloc
+cargo add acorn-service --no-default-features --features alloc
 ```
 
 ## JavaScript API

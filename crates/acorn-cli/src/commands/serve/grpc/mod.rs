@@ -1,21 +1,22 @@
 #[cfg(feature = "grpc")]
-use acorn::io::api::{grpc, Secret};
+use acorn::io::api::webhooks::store::OperationQueue;
 use acorn::io::{ContainerTarget, Executor};
-#[cfg(feature = "grpc")]
-use acorn::util::constants::env::GRPC_TOKEN;
 #[cfg(feature = "grpc")]
 use acorn_cmd::runtime::command_string;
 #[cfg(feature = "grpc")]
 use acorn_cmd::{args, cmd};
+#[cfg(feature = "grpc")]
+use acorn_server::{serve_with_durable, ServerArgs, ServerConfig};
+#[cfg(feature = "grpc")]
+use acorn_service::DurableOperations;
+#[cfg(feature = "grpc")]
+use alloc::sync::Arc;
 use color_eyre::eyre::{eyre, Report, Result};
 use core::net::SocketAddr;
-#[cfg(feature = "grpc")]
-use std::env::var;
-#[cfg(feature = "grpc")]
-use std::fs::read;
 use std::path::Path;
 
 #[derive(Clone, Copy)]
+#[cfg_attr(not(feature = "grpc"), allow(dead_code))]
 pub(crate) struct TlsPaths<'a> {
     certificate: Option<&'a Path>,
     private_key: Option<&'a Path>,
@@ -44,11 +45,8 @@ async fn run_feature(
     _detach: bool,
     _target: Option<&ContainerTarget>,
     _runtime: &Option<Executor>,
-    tls: TlsPaths<'_>,
+    _tls: TlsPaths<'_>,
 ) -> Result<(), Report> {
-    let TlsPaths { certificate, private_key } = tls;
-    let _ = (certificate, private_key);
-
     Err(eyre!("gRPC support is disabled; rebuild acorn-cli with `--features grpc`"))
 }
 #[cfg(feature = "grpc")]
@@ -104,30 +102,22 @@ async fn run_feature(
             "--detach for serve grpc without --host/--context has no effect; use --host for remote detached"
         )),
         | (Ok(()), Some(ContainerTarget::Local) | None, false) => {
-            let token = var(GRPC_TOKEN)
-                .ok()
-                .filter(|token| !token.trim().is_empty())
-                .map(Secret::from)
-                .ok_or_else(|| eyre!("{GRPC_TOKEN} is required to serve gRPC"));
-            let tls_identity = load_tls(tls);
-            match (token, tls_identity) {
-                | (Ok(token), Ok(tls)) => grpc::server::serve(address, token, allow_mutation, offline, tls).await,
-                | (Err(why), _) | (_, Err(why)) => Err(why),
+            let config = ServerConfig::resolve(ServerArgs {
+                allow_mutation,
+                disable_json_rpc: true,
+                grpc_bind: Some(address),
+                tls_cert: tls.certificate.map(Path::to_path_buf),
+                tls_key: tls.private_key.map(Path::to_path_buf),
+                ..ServerArgs::default()
+            })
+            .map_err(|why| eyre!(why.to_string()));
+            match config {
+                | Err(why) => Err(why),
+                | Ok(config) => {
+                    let durable = allow_mutation.then(|| Arc::new(OperationQueue::configured()) as Arc<dyn DurableOperations>);
+                    serve_with_durable(config, durable).await.map_err(|why| eyre!(why.to_string()))
+                }
             }
         }
-    }
-}
-#[cfg(feature = "grpc")]
-fn load_tls(tls: TlsPaths<'_>) -> Result<Option<grpc::server::TlsIdentity>, Report> {
-    match (tls.certificate, tls.private_key) {
-        | (None, None) => Ok(None),
-        | (Some(certificate), Some(private_key)) => read(certificate)
-            .map_err(|why| eyre!("Failed to read gRPC TLS certificate {} — {why}", certificate.display()))
-            .and_then(|certificate| {
-                read(private_key)
-                    .map_err(|why| eyre!("Failed to read gRPC TLS private key {} — {why}", private_key.display()))
-                    .map(|private_key| Some(grpc::server::TlsIdentity::from_pem(certificate, private_key)))
-            }),
-        | _ => Err(eyre!("Both --tls-cert and --tls-key are required when configuring gRPC TLS")),
     }
 }

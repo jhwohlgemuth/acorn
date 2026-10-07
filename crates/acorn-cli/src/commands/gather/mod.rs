@@ -4,11 +4,10 @@ use crate::{
     io::{is_stdin_piped, read_stdin},
 };
 use acorn::{
-    analyzer::{
-        host::discovery::{finalize_report, DiscoveryExtension, GatherOutputPolicy, Options, Records, RemoteSearchResponse, Report},
-        CheckBatch, CheckCategory, OutputFormat,
+    analyzer::host::{
+        context::OutputFormat,
+        discovery::{finalize_report, DiscoveryExtension, GatherOutputPolicy, Options, Records, RemoteSearchResponse, Report},
     },
-    check_err,
     io::{
         config::FilterSet,
         document::{SourceDocument, SourceDocuments},
@@ -16,6 +15,7 @@ use acorn::{
         files_all_with_max_depth, files_from_gitlab_merge_request, remove_fields, ApiResult, Fingerprint, PathExt,
     },
 };
+use acorn_analysis::{check_err, CheckBatch, CheckCategory};
 use acorn_core::Location;
 use acorn_host::fs::file_uri_to_path;
 use color_eyre::eyre::eyre;

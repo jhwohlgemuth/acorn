@@ -1,29 +1,33 @@
 //! Typed result envelope for executable extensions.
 #[cfg(feature = "analysis")]
-use crate::analyzer::host::context::{ReportExtension, ReportOptions};
+use crate::analyzer::host::context::{OutputFormat, ReportExtension, ReportOptions};
 #[cfg(feature = "analysis")]
 use crate::analyzer::host::render::{Render, RenderContext};
-#[cfg(feature = "analysis")]
-use crate::analyzer::{Check, CheckBatch, OutputFormat};
-use crate::analyzer::{CheckCategory, CheckSeverity, Finding, Findings};
 use crate::io::workflow::WorkflowAction;
+#[cfg(feature = "analysis")]
+use acorn_analysis::{Check, CheckBatch};
+use acorn_analysis::{CheckCategory, CheckSeverity, Finding, Findings};
 #[cfg(feature = "analysis")]
 use acorn_core::options::CommonRuntime;
 use acorn_core::prelude::{String, Vec};
-use alloc::borrow::Cow;
 #[cfg(feature = "analysis")]
 use color_eyre::eyre::{eyre, Report, Result as EyreResult};
 use core::str::FromStr;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "analysis")]
 use std::path::Path;
-use validator::{Validate, ValidationError};
+use validator::Validate;
 
 const DOCUMENT_OUTPUT_FIELDS: &[&str] = &["document"];
 const EXECUTION_RESULT_FIELDS: &[&str] = &["findings", "output"];
 const FINDING_FIELDS: &[&str] = &["locator", "message", "rule_id", "severity"];
-const MAX_FINDINGS: usize = 1024;
 
+/// Native rendering extension for portable findings.
+#[cfg(feature = "analysis")]
+pub trait FindingsRender {
+    /// Render findings through the host analyzer and fail when any finding is fatal.
+    fn render(&self, input: &Path) -> EyreResult<(), Report>;
+}
 /// Rhai dynamic-value conversion into analyzer findings.
 pub trait RhaiExt: Sized {
     /// Convert one dynamic map into an optional finding.
@@ -57,6 +61,31 @@ pub struct ExecutionResult<T> {
     #[serde(default)]
     #[validate(nested)]
     pub findings: Findings,
+}
+#[cfg(feature = "analysis")]
+impl FindingsRender for Findings {
+    fn render(&self, input: &Path) -> EyreResult<(), Report> {
+        let uri = input.display().to_string();
+        let checks = self
+            .iter()
+            .cloned()
+            .enumerate()
+            .map(|(index, finding)| Check::from(finding).with_index(index).with_uri(Some(uri.clone())))
+            .collect::<Vec<_>>();
+        let batch = CheckBatch::from(checks);
+        let context = RenderContext {
+            options: &ReportOptions::init()
+                .common(CommonRuntime::default())
+                .extension(ReportExtension::init().format(OutputFormat::Text).build())
+                .build(),
+            documents: None,
+        };
+        batch.as_slice().render(context);
+        match batch.iter().any(Check::is_failure) {
+            | true => Err(eyre!("exec check found {} failure(s)", batch.len())),
+            | false => Ok(()),
+        }
+    }
 }
 impl RhaiExt for rhai::Dynamic {
     fn finding(self) -> Result<Option<Finding>, String> {
@@ -143,38 +172,6 @@ impl RhaiExt for rhai::Dynamic {
                     .findings()
                     .and_then(|findings| output.hook_output(action).map(|document| (findings, document)))
             })
-    }
-}
-impl Findings {
-    /// Validate the collection size and every contained finding.
-    pub fn is_valid(&self) -> Result<(), ValidationError> {
-        (self.len() <= MAX_FINDINGS)
-            .then_some(())
-            .ok_or_else(|| ValidationError::new("length").with_message(Cow::Owned(format!("findings exceed {MAX_FINDINGS} entries"))))
-    }
-    /// Render findings through the host analyzer and fail when any finding is fatal.
-    #[cfg(feature = "analysis")]
-    pub fn render(&self, input: &Path) -> EyreResult<(), Report> {
-        let uri = input.display().to_string();
-        let checks = self
-            .iter()
-            .cloned()
-            .enumerate()
-            .map(|(index, finding)| Check::from(finding).with_index(index).with_uri(Some(uri.clone())))
-            .collect::<Vec<_>>();
-        let batch = CheckBatch::from(checks);
-        let context = RenderContext {
-            options: &ReportOptions::init()
-                .common(CommonRuntime::default())
-                .extension(ReportExtension::init().format(OutputFormat::Console).build())
-                .build(),
-            documents: None,
-        };
-        batch.as_slice().render(context);
-        match batch.iter().any(Check::is_failure) {
-            | true => Err(eyre!("exec check found {} failure(s)", batch.len())),
-            | false => Ok(()),
-        }
     }
 }
 impl RhaiMapExt for rhai::Map {

@@ -7,13 +7,14 @@ use crate::{
             render::{Render, RenderContext},
             service::AnalysisReport,
         },
-        CheckBatch, Standard,
+        CheckBatch,
     },
     error::ApiResult,
     util::StringConversion,
 };
 use acorn_core::util::{suffix, MimeType};
 use acorn_host::fs::{read_text, SafePath};
+use acorn_schema::standard::Standard;
 use color_eyre::eyre::{eyre, Report};
 use serde::Serialize;
 use std::{

@@ -1,14 +1,11 @@
-use acorn::{
-    io::{
-        api::{self, json_rpc},
-        ContainerTarget, Executor,
-    },
-    util::constants::env::RPC_TOKEN,
-};
+use acorn::io::api::webhooks::store::OperationQueue;
+use acorn::io::{ContainerTarget, Executor};
 use acorn_cmd::{args, cmd, runtime::command_string};
+use acorn_server::{serve_with_durable, ServerArgs, ServerConfig};
+use acorn_service::DurableOperations;
+use alloc::sync::Arc;
 use color_eyre::eyre::{eyre, Report, Result};
 use core::net::SocketAddr;
-use std::env::var;
 
 pub async fn run(
     address: SocketAddr,
@@ -55,14 +52,19 @@ pub async fn run(
             "--detach for serve rpc without --host/--context has no effect; use --host for remote detached"
         )),
         | (Ok(()), Some(ContainerTarget::Local) | None, false) => {
-            let token = var(RPC_TOKEN)
-                .ok()
-                .filter(|token| !token.trim().is_empty())
-                .map(api::Secret::from)
-                .ok_or_else(|| eyre!("{RPC_TOKEN} is required to serve JSON-RPC"));
-            match token {
-                | Ok(token) => json_rpc::http::serve(address, token, allow_mutation, offline).await,
+            let config = ServerConfig::resolve(ServerArgs {
+                allow_mutation,
+                disable_grpc: true,
+                json_rpc_bind: Some(address),
+                ..ServerArgs::default()
+            })
+            .map_err(|why| eyre!(why.to_string()));
+            match config {
                 | Err(why) => Err(why),
+                | Ok(config) => {
+                    let durable = allow_mutation.then(|| Arc::new(OperationQueue::configured()) as Arc<dyn DurableOperations>);
+                    serve_with_durable(config, durable).await.map_err(|why| eyre!(why.to_string()))
+                }
             }
         }
     }

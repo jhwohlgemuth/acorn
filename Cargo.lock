@@ -3,15 +3,41 @@
 version = 4
 
 [[package]]
+name = "acorn-analysis"
+version = "0.4.0"
+dependencies = [
+ "acorn-core",
+ "acorn-schema",
+ "aho-corasick",
+ "bon",
+ "criterion",
+ "derive_more",
+ "eserde",
+ "fancy-regex 0.17.0",
+ "itertools 0.14.0",
+ "lazy_static",
+ "pretty_assertions",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "strum 0.28.0",
+ "validator",
+ "zench",
+]
+
+[[package]]
 name = "acorn-cli"
 version = "0.4.0"
 dependencies = [
+ "acorn-analysis",
  "acorn-cmd",
  "acorn-core",
  "acorn-diff",
  "acorn-host",
  "acorn-lib",
  "acorn-schema",
+ "acorn-server",
+ "acorn-service",
  "acorn-tui",
  "arboard",
  "assert_cmd",
@@ -57,6 +83,7 @@ dependencies = [
  "rhai",
  "rusqlite",
  "rust-embed",
+ "schemars 1.2.1",
  "secrecy",
  "serde",
  "serde_json",
@@ -168,12 +195,14 @@ dependencies = [
 name = "acorn-lib"
 version = "0.4.0"
 dependencies = [
+ "acorn-analysis",
  "acorn-cmd",
  "acorn-core",
  "acorn-diff",
  "acorn-host",
  "acorn-macros",
  "acorn-schema",
+ "acorn-service",
  "agent-client-protocol",
  "aho-corasick",
  "ammonia",
@@ -228,9 +257,6 @@ dependencies = [
  "polars-error",
  "pretty_assertions",
  "proptest",
- "prost",
- "prost-types",
- "protoc-bin-vendored",
  "quick-xml 0.39.4",
  "rand 0.8.6",
  "rayon",
@@ -265,9 +291,6 @@ dependencies = [
  "tera",
  "thiserror 2.0.18",
  "tokio",
- "tonic",
- "tonic-prost",
- "tonic-prost-build",
  "tower",
  "tracing",
  "tracing-subscriber",
@@ -342,9 +365,53 @@ dependencies = [
 ]
 
 [[package]]
+name = "acorn-server"
+version = "0.4.0"
+dependencies = [
+ "acorn-analysis",
+ "acorn-core",
+ "acorn-service",
+ "axum",
+ "axum-server",
+ "clap",
+ "futures",
+ "prost",
+ "protoc-bin-vendored",
+ "reqwest 0.13.4",
+ "rustls",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tonic",
+ "tonic-prost",
+ "tonic-prost-build",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "acorn-service"
+version = "0.4.0"
+dependencies = [
+ "acorn-analysis",
+ "acorn-core",
+ "acorn-schema",
+ "eserde",
+ "futures",
+ "jsonc-parser 0.33.0",
+ "serde",
+ "serde_json",
+ "serde_norway",
+ "strum 0.28.0",
+]
+
+[[package]]
 name = "acorn-tui"
 version = "0.4.0"
 dependencies = [
+ "acorn-analysis",
  "acorn-core",
  "acorn-host",
  "acorn-lib",
@@ -364,8 +431,10 @@ dependencies = [
 name = "acorn-wasm"
 version = "0.4.0"
 dependencies = [
- "acorn-lib",
+ "acorn-analysis",
+ "acorn-core",
  "acorn-schema",
+ "acorn-service",
  "eserde",
  "serde",
  "serde-wasm-bindgen",
@@ -1162,6 +1231,28 @@ dependencies = [
  "pin-project-lite",
  "sync_wrapper",
  "tower-layer",
+ "tower-service",
+]
+
+[[package]]
+name = "axum-server"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1df331683d982a0b9492b38127151e6453639cd34926eb9c07d4cd8c6d22bfc"
+dependencies = [
+ "arc-swap",
+ "bytes",
+ "either",
+ "fs-err",
+ "http",
+ "http-body",
+ "hyper",
+ "hyper-util",
+ "pin-project-lite",
+ "rustls",
+ "rustls-pki-types",
+ "tokio",
+ "tokio-rustls",
  "tower-service",
 ]
 
@@ -3353,6 +3444,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8878864ba14bb86e818a412bfd6f18f9eabd4ec0f008a28e8f7eb61db532fcf9"
 dependencies = [
  "futures-core",
+]
+
+[[package]]
+name = "fs-err"
+version = "3.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5c95b673b8f6f7235229ae11c5642d81b04c2e64c1e2fb417bc0cf73ca45f29"
+dependencies = [
+ "autocfg",
+ "tokio",
 ]
 
 [[package]]

@@ -9,17 +9,18 @@ use crate::{
 #[cfg(feature = "chart")]
 use acorn::io::chart::ChartOptions;
 use acorn::{
-    analyzer::{Check, CheckCategory, CheckSummary, IntoChecks, Standard},
     fail,
     io::{
         adapter::Batch,
         bagit::{Bag, BagInfo, Save},
+        config::application::ApplicationConfiguration,
         create_progress_bar, current_date, finish_progress_bar, folder_size, sidecar, with_progress, write_file, ApiFuture, ApiResult, FromPath,
         InputOutput, ProgressType,
     },
     skip,
     util::{print_values_as_table, StringConversion},
 };
+use acorn_analysis::{Check, CheckCategory, CheckSummary, IntoChecks, StandardCrosswalk};
 #[cfg(not(feature = "chart"))]
 use acorn_core::prelude::HashMap;
 use acorn_core::{
@@ -28,8 +29,14 @@ use acorn_core::{
 };
 use acorn_host::{fs::read_text, terminal::Label};
 use acorn_schema::{
+    modelkit::kitfile,
+    pid::raid::Metadata,
     research_activity::ResearchActivity,
-    standard::crosswalk::{Conversion, CrosswalkError},
+    standard::{
+        cff, ckan,
+        crosswalk::{Conversion, CrosswalkError},
+        datacite, dcat, huwise, invenio, text, Standard,
+    },
 };
 use bon::Builder;
 use clap_verbosity_flag::Verbosity;
@@ -37,6 +44,7 @@ use color_eyre::eyre::eyre;
 use core::iter::once;
 use nanoid::nanoid;
 use owo_colors::OwoColorize;
+use schemars::{schema_for, JsonSchema};
 use std::{
     fs::{create_dir_all, remove_dir_all, remove_file, rename},
     path::{Path, PathBuf},
@@ -47,6 +55,7 @@ use tracing::{debug, info};
 pub(crate) mod pdf;
 mod powerpoint;
 pub(crate) mod updates;
+
 trait ExportHandler {
     fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a>;
     fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<Standard>, to: Option<Standard>) -> ApiFuture<'a> {
@@ -486,7 +495,7 @@ async fn export_as_format_crosswalk(
                                 if !progress_type.is_silent() {
                                     info!("=> Crosswalk warnings ({} total):", checks.len().cyan().bold());
                                     for check in &checks {
-                                        info!("  {check}");
+                                        info!("  {}: {}", check.category, check.message);
                                     }
                                     print_values_as_table::<String>(vec!["", "Count"], CheckSummary::from(checks.as_slice()).rows(), None);
                                 }
@@ -556,7 +565,7 @@ async fn export_as_format_crosswalk(
                             if !(all_warnings.is_empty() || progress_type.is_silent()) {
                                 info!("=> Crosswalk warnings ({} total):", all_warnings.len().cyan().bold());
                                 for check in &all_warnings {
-                                    info!("  {check}");
+                                    info!("  {}: {}", check.category, check.message);
                                 }
                                 print_values_as_table::<String>(vec!["", "Count"], CheckSummary::from(all_warnings.as_slice()).rows(), None);
                             }
@@ -590,6 +599,31 @@ async fn export_as_format_crosswalk(
         | None => Err(eyre!(
             "Crosswalk export requires --to <STANDARD> (supported: rads, raid, datacite, dcat, invenio, huwise)"
         )),
+    }
+}
+/// Serialize the selected modeled standard as deterministic JSON or YAML schema text.
+pub(crate) fn export_schema(standard: Standard, format: &FileFormat) -> ApiResult<String> {
+    fn serialize<T: JsonSchema>(format: &FileFormat) -> ApiResult<String> {
+        let schema = schema_for!(T);
+        match format {
+            | FileFormat::Json => serde_json::to_string_pretty(&schema).map_err(|why| eyre!("Serialize JSON schema — {why}")),
+            | FileFormat::Yaml => serde_norway::to_string(&schema).map_err(|why| eyre!("Serialize YAML schema — {why}")),
+            | _ => Err(eyre!("Schema export supports only JSON or YAML output")),
+        }
+    }
+    match standard {
+        | Standard::ApplicationConfigurationResearchEnablement => serialize::<ApplicationConfiguration>(format),
+        | Standard::CitationFileFormat => serialize::<cff::Cff>(format),
+        | Standard::Ckan => serialize::<ckan::Package>(format),
+        | Standard::Datacite => serialize::<datacite::Record>(format),
+        | Standard::Dcat => serialize::<dcat::Dataset>(format),
+        | Standard::Document | Standard::Text => serialize::<text::Text>(format),
+        | Standard::DublinCore => Err(eyre!("Schema generation is not supported for Dublin Core because no model is defined")),
+        | Standard::Huwise => serialize::<huwise::Dataset>(format),
+        | Standard::Invenio => serialize::<invenio::Record>(format),
+        | Standard::Kitfile | Standard::ModelKit => serialize::<kitfile::Kitfile>(format),
+        | Standard::Raid => serialize::<Metadata>(format),
+        | Standard::ResearchActivityData => serialize::<ResearchActivity>(format),
     }
 }
 #[allow(clippy::too_many_arguments)]

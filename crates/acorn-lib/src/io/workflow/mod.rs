@@ -2,6 +2,8 @@
 //!
 //! The workflow keeps provider-specific enrichment behind [`Enrich`](crate::io::enrichment::Enrich) and separates transformation planning from filesystem writes.
 //! Callers can use [`Workflow::plan`] for previews or [`Workflow::run`] to plan and apply in one operation.
+#[cfg(feature = "exec")]
+use crate::analyzer::host::render::CheckRender;
 #[cfg(feature = "analysis")]
 use crate::analyzer::Check;
 #[cfg(feature = "exec")]

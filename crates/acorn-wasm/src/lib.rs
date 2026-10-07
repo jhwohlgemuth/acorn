@@ -120,11 +120,11 @@
 //! assert!(doi("10.11578/dc.20250604.1").is_ok());
 //! assert!(orcid("https://orcid.org/0000-0002-2057-9115").is_ok());
 //! ```
-use acorn::analyzer::error::ErrorKind;
-use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{check_readability_for_text, Check, CheckSummary};
+use acorn_analysis::readability::ReadabilityType;
+use acorn_analysis::{CheckCategory, CheckSeverity};
+use acorn_core::util::MimeType;
 use acorn_schema::research_activity::ResearchActivity;
-use acorn_schema::{Validate, ValidationIssue};
+use acorn_service::{AcornService, CheckReadabilityRequest, ValidateResearchActivityRequest};
 use serde::Serialize;
 use serde_json::{Map, Value};
 use wasm_bindgen::prelude::*;
@@ -219,43 +219,58 @@ impl Diagnostic {
         }
     }
 }
-impl From<ValidationIssue> for Diagnostic {
-    fn from(issue: ValidationIssue) -> Self {
-        let message = issue.error.message.unwrap_or_else(|| issue.error.code.clone());
+impl From<acorn_service::Diagnostic> for Diagnostic {
+    fn from(issue: acorn_service::Diagnostic) -> Self {
         Self {
-            code: Some(issue.error.code),
-            kind: DiagnosticKind::Validation,
-            message,
-            params: issue.error.params.into_iter().collect(),
-            path: Some(issue.path),
-        }
-    }
-}
-impl From<&Check> for ReadabilityCheck {
-    fn from(check: &Check) -> Self {
-        let score = match check.errors.as_ref() {
-            | Some(ErrorKind::Readability(score)) => Some(*score),
-            | _ => None,
-        };
-        Self {
-            category: check.category.to_string(),
-            message: check.message.clone(),
-            metric: score.map_or_else(String::new, |value| value.metric().to_string()),
-            score: score.map_or(0.0, |value| value.value()),
-            severity: check.severity.to_string(),
-            success: check.success,
-            threshold: score.map_or(0.0, |value| value.threshold()),
-            uri: check.uri.clone(),
+            code: Some(issue.code),
+            kind: match issue.path.is_some() {
+                | true => DiagnosticKind::Validation,
+                | false => DiagnosticKind::Parse,
+            },
+            message: issue.message,
+            params: Map::new(),
+            path: issue.path,
         }
     }
 }
 fn analyze_readability(text: &str, metric: &str, uri: Option<String>) -> Result<ReadabilityResult, String> {
-    parse_metric(metric).map(|metric| {
-        let checks = check_readability_for_text(text, metric, uri);
-        ReadabilityResult {
-            checks: checks.iter().map(ReadabilityCheck::from).collect(),
-            summary: summary_rows(&CheckSummary::from(&checks)),
-        }
+    parse_metric(metric).and_then(|metric| {
+        AcornService
+            .check_readability(CheckReadabilityRequest {
+                metric,
+                source_uri: uri,
+                text: text.to_string(),
+                threshold: None,
+            })
+            .map_err(|error| error.to_string())
+            .map(|response| {
+                let severity = match response.acceptable {
+                    | true => CheckSeverity::Info,
+                    | false => CheckSeverity::Warning,
+                };
+                let check = ReadabilityCheck {
+                    category: CheckCategory::Readability.to_string(),
+                    message: format!(
+                        "{} = {}/{}",
+                        response.metric.to_string().to_uppercase(),
+                        response.value,
+                        response.threshold
+                    ),
+                    metric: response.metric.to_string(),
+                    score: response.value,
+                    severity: severity.to_string(),
+                    success: response.acceptable,
+                    threshold: response.threshold,
+                    uri: response.source_uri,
+                };
+                ReadabilityResult {
+                    checks: vec![check],
+                    summary: ["Schema", "Link", "Prose", "Quality", "Compute", "Fair", "Readability", "Crosswalk"]
+                        .into_iter()
+                        .map(|category| vec![format!("{category} items found"), usize::from(category == "Readability").to_string()])
+                        .collect(),
+                }
+            })
     })
 }
 /// Analyze supplied text with one of ACORN's portable readability metrics.
@@ -281,44 +296,25 @@ fn parse_metric(metric: &str) -> Result<ReadabilityType, String> {
 fn serialize<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(value).map_err(|why| JsValue::from_str(&why.to_string()))
 }
-fn summary_rows(summary: &CheckSummary) -> Vec<Vec<String>> {
-    summary
-        .counts()
-        .into_iter()
-        .map(|(category, count)| {
-            let label = match category {
-                | acorn::analyzer::CheckCategory::Compute => "Compute",
-                | acorn::analyzer::CheckCategory::Crosswalk => "Crosswalk",
-                | acorn::analyzer::CheckCategory::Fair => "Fair",
-                | acorn::analyzer::CheckCategory::Link => "Link",
-                | acorn::analyzer::CheckCategory::Prose => "Prose",
-                | acorn::analyzer::CheckCategory::Quality => "Quality",
-                | acorn::analyzer::CheckCategory::Readability => "Readability",
-                | acorn::analyzer::CheckCategory::Schema => "Schema",
-            };
-            vec![format!("{label} items found"), count.to_string()]
-        })
-        .collect()
-}
 fn validate_json(json: &str) -> ValidationResult {
-    match eserde::json::from_str::<ResearchActivity>(json) {
-        | Ok(value) => match value.validate() {
-            | Ok(()) => ValidationResult {
-                diagnostics: Vec::new(),
-                valid: true,
-                value: Some(value),
-            },
-            | Err(report) => ValidationResult {
-                diagnostics: report.into_issues().into_iter().map(Diagnostic::from).collect(),
-                valid: false,
-                value: None,
-            },
+    let response = AcornService.validate_research_activity(ValidateResearchActivityRequest {
+        content: json.to_string(),
+        format: MimeType::Json,
+        source_uri: None,
+    });
+    match response {
+        | Ok(response) if response.valid => ValidationResult {
+            diagnostics: Vec::new(),
+            valid: true,
+            value: eserde::json::from_str::<ResearchActivity>(json).ok(),
         },
-        | Err(errors) => ValidationResult {
-            diagnostics: errors
-                .iter()
-                .map(|error| Diagnostic::parse(error.path().map(|path| path.to_string()), error.message().to_string()))
-                .collect(),
+        | Ok(response) => ValidationResult {
+            diagnostics: response.diagnostics.into_iter().map(Diagnostic::from).collect(),
+            valid: false,
+            value: None,
+        },
+        | Err(error) => ValidationResult {
+            diagnostics: vec![Diagnostic::parse(error.path, error.message)],
             valid: false,
             value: None,
         },
@@ -330,20 +326,20 @@ pub fn validate_research_activity(json: &str) -> Result<JsValidationResult, JsVa
     serialize(&validate_json(json)).map(JsValue::unchecked_into)
 }
 
-#[cfg(test)]
-mod tests;
-
 #[cfg(all(test, target_arch = "wasm32"))]
 mod wasm_tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
     #[wasm_bindgen_test]
-    fn javascript_readability_binding_returns_a_value() {
+    fn test_javascript_readability_binding_returns_a_value() {
         assert!(check_readability("This is a short sentence.", "fkgl", None).is_ok());
     }
     #[wasm_bindgen_test]
-    fn javascript_validation_binding_returns_a_value() {
+    fn test_javascript_validation_binding_returns_a_value() {
         assert!(validate_research_activity(r#"{"title": 1}"#).is_ok());
     }
 }
+
+#[cfg(test)]
+mod tests;

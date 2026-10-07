@@ -1,7 +1,9 @@
 use super::{DiffFormat, DiffInput, SemanticDiff, SemanticDiffError};
-use crate::analyzer::Standard;
 use acorn_core::util::{MarkdownSupport, MimeType};
-use acorn_schema::{research_activity::ResearchActivity, standard::zon};
+use acorn_schema::{
+    research_activity::ResearchActivity,
+    standard::{zon, Standard},
+};
 
 fn input<'a>(content: &'a str, label: &'a str, media_type: MimeType) -> DiffInput<'a> {
     DiffInput { content, label, media_type }

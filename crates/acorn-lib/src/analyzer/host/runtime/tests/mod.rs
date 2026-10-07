@@ -7,25 +7,26 @@
 )]
 #[cfg(feature = "dataframe")]
 use crate::analyzer::host::tabular::checks_to_dataframe;
+use crate::analyzer::host::{
+    render::{CheckRender, CheckSeverityRender, RenderedCheck},
+    runtime::CheckBatchExt,
+    DocumentTargetQuery,
+};
 use crate::{
-    analyzer::{
-        check::Standard,
-        error::{DocumentTarget, ErrorCode, ErrorKind, ValidatorIssue, ValidatorIssues},
-        host::{
-            context::{ExecutionExtension, ExecutionOptions},
-            runtime::{
-                check_schema_path, collect_validation_checks, vale_package_url, ContentPaths, KitfileStandard, LinkEvidence, LinkOutcome,
-                ModelKitStandard, StaticAnalyzer, StaticAnalyzerConfig,
-            },
-            service::Analysis,
-            vale::{preprocess_vale_output, Vale, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity},
+    analyzer::host::{
+        context::{ExecutionExtension, ExecutionOptions},
+        runtime::{
+            check_schema_path, collect_validation_checks, vale_package_url, ContentPaths, KitfileStandard, LinkEvidence, LinkOutcome,
+            ModelKitStandard, StaticAnalyzer, StaticAnalyzerConfig,
         },
-        Check, CheckBatch, CheckCategory, CheckSeverity, CheckSummary, IntoChecks,
+        service::Analysis,
+        vale::{parse_vale_output, preprocess_vale_output, try_parse_vale_output, Vale, ValeConfig, ValeOutputItem, ValeOutputItemSeverity},
     },
-    check, check_ok,
     io::document::{DocumentIndex, DocumentMatch, DocumentQuery, SourceDocument},
     test::utils::unique_path,
 };
+use acorn_analysis::error::{DocumentTarget, ErrorCode, ErrorKind, ValidatorIssue, ValidatorIssues};
+use acorn_analysis::{check, check_ok, Check, CheckBatch, CheckCategory, CheckSeverity, CheckSummary, IntoChecks};
 use acorn_core::{
     options::CommonRuntime,
     prelude::{Arc, HashMap},
@@ -34,7 +35,7 @@ use acorn_core::{
 use acorn_host::fs::make_executable;
 use acorn_schema::{
     modelkit::kitfile::Kitfile,
-    standard::{cff::Cff, crosswalk::ConversionWarning},
+    standard::{cff::Cff, crosswalk::ConversionWarning, Standard},
     validation::{Validate, ValidationReport},
     OneOrMany,
 };
@@ -93,24 +94,6 @@ struct RepeatedNameParentModel {
     child: RepeatedNameModel,
 }
 struct ValidationProbe;
-impl ValeOutputItem {
-    fn fixture(line: u32, span: Vec<u32>, word_match: &str) -> Self {
-        Self {
-            action: ValeOutputItemAction {
-                name: "replace".to_string(),
-                params: None,
-            },
-            check: "Vale.Spelling".to_string(),
-            description: String::new(),
-            line,
-            link: String::new(),
-            message: "Prose issue".to_string(),
-            severity: ValeOutputItemSeverity::Error,
-            span,
-            word_match: word_match.to_string(),
-        }
-    }
-}
 impl Validate for ValidationProbe {
     fn validate(&self) -> Result<(), ValidationReport> {
         VALIDATION_CALLS.fetch_add(1, Ordering::SeqCst);
@@ -219,13 +202,15 @@ fn test_check_severity_to_ariadne_color_matrix() {
         (CheckSeverity::Suggestion, Color::Blue),
         (CheckSeverity::Warning, Color::Yellow),
     ];
-    matrix.into_iter().for_each(|(input, expected)| assert_eq!(Color::from(input), expected));
+    matrix
+        .into_iter()
+        .for_each(|(input, expected)| assert_eq!(input.ariadne_color(), expected));
 }
 #[test]
 fn test_check_severity_to_ariadne_report_kind_matrix() {
-    let error_kind: ReportKind<'static> = CheckSeverity::Error.into();
-    let suggestion_kind: ReportKind<'static> = CheckSeverity::Suggestion.into();
-    let warning_kind: ReportKind<'static> = CheckSeverity::Warning.into();
+    let error_kind = CheckSeverity::Error.report_kind();
+    let suggestion_kind = CheckSeverity::Suggestion.report_kind();
+    let warning_kind = CheckSeverity::Warning.report_kind();
     assert!(matches!(error_kind, ReportKind::Error));
     assert!(matches!(warning_kind, ReportKind::Warning));
     match suggestion_kind {
@@ -259,7 +244,7 @@ async fn test_collect_validation_checks_avoids_duplicate_wrapper_field_paths_in_
         .iter()
         .find(|check| check.category == CheckCategory::Schema)
         .expect("expected schema check");
-    let rendered = format!("{}", schema_check);
+    let rendered = RenderedCheck(schema_check).to_string();
     assert_eq!(schema_check.context.as_deref(), Some("license"));
     assert!(rendered.contains("license"), "expected license path in display output: {rendered}");
     assert!(
@@ -331,7 +316,7 @@ async fn test_collect_validation_checks_preserves_nested_indexed_paths_in_displa
     };
     let checks = collect_validation_checks(&value).await;
     assert_eq!(checks.len(), 1);
-    let rendered = format!("{}", checks.as_slice()[0]);
+    let rendered = RenderedCheck(&checks.as_slice()[0]).to_string();
     assert!(
         rendered.contains("children[1].email"),
         "expected nested indexed path in display output: {rendered}"
@@ -510,7 +495,7 @@ fn test_parse_vale_output() {
   ]
 }
     "#;
-    let parsed: Vec<ValeOutputItem> = ValeOutput::parse(data, PathBuf::from(path));
+    let parsed: Vec<ValeOutputItem> = parse_vale_output(data, PathBuf::from(path));
     assert_eq!(parsed.len(), 3);
 }
 #[test]
@@ -733,7 +718,7 @@ fn test_process_preserves_non_wrapper_repeated_segment_paths() {
     let issues = ErrorKind::Validator(errors).process("");
     assert_eq!(issues.len(), 1);
     let issue = issues.iter().next().expect("expected validator issue");
-    assert_eq!(issue.path.as_deref(), Some("child.child.email"));
+    assert_eq!(issue.path(), Some("child.child.email"));
 }
 #[test]
 fn test_process_returns_field_issue_tuple() {
@@ -742,12 +727,12 @@ fn test_process_returns_field_issue_tuple() {
     let issues = ErrorKind::Validator(errors).process("");
     assert_eq!(issues.len(), 1);
     let issue = issues.iter().next().expect("expected validator issue");
-    assert!(matches!(issue.code, ErrorCode::Length));
-    assert_eq!(issue.path.as_deref(), Some("name"));
-    assert_eq!(issue.message, "length");
-    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("x")));
-    assert_eq!(issue.params.get("min").and_then(|v| v.as_i64()), Some(3));
-    assert_eq!(issue.params.get("max").and_then(|v| v.as_i64()), Some(3));
+    assert!(matches!(issue.code(), ErrorCode::Length));
+    assert_eq!(issue.path(), Some("name"));
+    assert_eq!(issue.message(), "length");
+    assert_eq!(issue.params().get("value").map(|v| v.as_str()), Some(Some("x")));
+    assert_eq!(issue.params().get("min").and_then(|v| v.as_i64()), Some(3));
+    assert_eq!(issue.params().get("max").and_then(|v| v.as_i64()), Some(3));
 }
 #[test]
 fn test_process_returns_nested_list_index_path() {
@@ -765,9 +750,9 @@ fn test_process_returns_nested_list_index_path() {
     let issues = ErrorKind::Validator(errors).process("");
     assert_eq!(issues.len(), 1);
     let issue = issues.iter().next().expect("expected validator issue");
-    assert!(matches!(issue.code, ErrorCode::Email));
-    assert_eq!(issue.path.as_deref(), Some("children[1].email"));
-    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("invalid")));
+    assert!(matches!(issue.code(), ErrorCode::Email));
+    assert_eq!(issue.path(), Some("children[1].email"));
+    assert_eq!(issue.params().get("value").map(|v| v.as_str()), Some(Some("invalid")));
 }
 #[test]
 fn test_process_returns_nested_struct_path() {
@@ -780,9 +765,9 @@ fn test_process_returns_nested_struct_path() {
     let issues = ErrorKind::Validator(errors).process("");
     assert_eq!(issues.len(), 1);
     let issue = issues.iter().next().expect("expected validator issue");
-    assert!(matches!(issue.code, ErrorCode::Email));
-    assert_eq!(issue.path.as_deref(), Some("child.email"));
-    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("not-an-email")));
+    assert!(matches!(issue.code(), ErrorCode::Email));
+    assert_eq!(issue.path(), Some("child.email"));
+    assert_eq!(issue.params().get("value").map(|v| v.as_str()), Some(Some("not-an-email")));
 }
 #[test]
 fn test_process_returns_none_path_for_root_field_errors() {
@@ -798,11 +783,11 @@ fn test_process_returns_none_path_for_root_field_errors() {
     let issues = ValidatorIssues::from(report);
     assert_eq!(issues.len(), 1);
     let issue = issues.iter().next().expect("expected validator issue");
-    assert!(matches!(issue.code, ErrorCode::Length));
-    assert_eq!(issue.path.as_deref(), None);
-    assert_eq!(issue.message, "length");
-    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("x")));
-    assert_eq!(issue.params.get("min").and_then(|v| v.as_i64()), Some(3));
+    assert!(matches!(issue.code(), ErrorCode::Length));
+    assert_eq!(issue.path(), None);
+    assert_eq!(issue.message(), "length");
+    assert_eq!(issue.params().get("value").map(|v| v.as_str()), Some(Some("x")));
+    assert_eq!(issue.params().get("min").and_then(|v| v.as_i64()), Some(3));
 }
 #[test]
 fn test_process_serializes_array_param_values() {
@@ -813,11 +798,11 @@ fn test_process_serializes_array_param_values() {
     let issues = ErrorKind::Validator(errors).process("");
     assert_eq!(issues.len(), 1);
     let issue = issues.iter().next().expect("expected validator issue");
-    assert!(matches!(issue.code, ErrorCode::Length));
-    assert_eq!(issue.path.as_deref(), Some("tags"));
-    assert_eq!(issue.message, "length");
+    assert!(matches!(issue.code(), ErrorCode::Length));
+    assert_eq!(issue.path(), Some("tags"));
+    assert_eq!(issue.message(), "length");
     assert_eq!(
-        issue.params.get("value").and_then(|v| v.as_array()).map(|items| {
+        issue.params().get("value").and_then(|v| v.as_array()).map(|items| {
             items
                 .iter()
                 .filter_map(|item| item.as_str())
@@ -826,12 +811,13 @@ fn test_process_serializes_array_param_values() {
         }),
         Some(vec!["one".to_string(), "two".to_string()])
     );
-    assert_eq!(issue.params.get("min").and_then(|v| v.as_i64()), Some(3));
+    assert_eq!(issue.params().get("min").and_then(|v| v.as_i64()), Some(3));
 }
 #[test]
 fn test_prose_location_maps_extracted_document_coordinates() {
     let content = "# Title\n\nbad prose";
-    let (check, document) = prose_check("paper.pdf", content, content, ValeOutputItem::fixture(3, vec![1, 3], "bad"));
+    let item = ValeOutputItem::new("Vale.Spelling", 3, "Prose issue", ValeOutputItemSeverity::Error, vec![1, 3], "bad");
+    let (check, document) = prose_check("paper.pdf", content, content, item);
     assert_eq!(check.locator.as_deref(), Some("Line 3, Character 1"));
     assert!(check.terse(Some(&document)).contains("path=paper.pdf:3:1"));
 }
@@ -842,10 +828,17 @@ fn test_prose_location_maps_structured_prose_to_full_source() {
         "index.json",
         content,
         "geo-spatial science",
-        ValeOutputItem::fixture(1, vec![1, 11], "geo-spatial"),
+        ValeOutputItem::new(
+            "Vale.Spelling",
+            1,
+            "Prose issue",
+            ValeOutputItemSeverity::Error,
+            vec![1, 11],
+            "geo-spatial",
+        ),
     );
     assert_eq!(check.locator.as_deref(), Some("Line 3, Character 19"));
-    assert!(check.to_string().contains("Line 3, Character 19"));
+    assert!(RenderedCheck(&check).to_string().contains("Line 3, Character 19"));
     assert!(check.terse(Some(&document)).contains("path=index.json:3:19"));
 }
 #[test]
@@ -855,25 +848,27 @@ fn test_prose_location_omits_ambiguous_structured_match() {
         "index.json",
         content,
         "repeat\n\nrepeat",
-        ValeOutputItem::fixture(3, vec![1, 6], "repeat"),
+        ValeOutputItem::new("Vale.Spelling", 3, "Prose issue", ValeOutputItemSeverity::Error, vec![1, 6], "repeat"),
     );
     assert_eq!(check.locator, None);
-    assert!(check.to_string().contains("Unlocated"));
+    assert!(RenderedCheck(&check).to_string().contains("Unlocated"));
     assert!(check.terse(Some(&document)).contains("path=index.json"));
     assert!(!check.terse(Some(&document)).contains("path=index.json:"));
 }
 #[test]
 fn test_prose_location_omits_invalid_analyzer_span() {
     let content = "first\nsecond";
-    let (check, document) = prose_check("notes.md", content, content, ValeOutputItem::fixture(9, vec![1, 3], "bad"));
+    let item = ValeOutputItem::new("Vale.Spelling", 9, "Prose issue", ValeOutputItemSeverity::Error, vec![1, 3], "bad");
+    let (check, document) = prose_check("notes.md", content, content, item);
     assert_eq!(check.locator, None);
-    assert!(check.to_string().contains("Unlocated"));
+    assert!(RenderedCheck(&check).to_string().contains("Unlocated"));
     assert!(!check.terse(Some(&document)).contains("path=notes.md:"));
 }
 #[test]
 fn test_prose_location_uses_full_text_coordinates_with_duplicate_words() {
     let content = "repeat\nclean\nrepeat problem";
-    let (check, document) = prose_check("notes.md", content, content, ValeOutputItem::fixture(3, vec![1, 6], "repeat"));
+    let item = ValeOutputItem::new("Vale.Spelling", 3, "Prose issue", ValeOutputItemSeverity::Error, vec![1, 6], "repeat");
+    let (check, document) = prose_check("notes.md", content, content, item);
     assert_eq!(check.locator.as_deref(), Some("Line 3, Character 1"));
     assert!(check.terse(Some(&document)).contains("path=notes.md:3:1"));
 }
@@ -959,26 +954,6 @@ fn test_standard_detection_uses_dcat_jsonld_type() {
     });
     let object = value.as_object().unwrap();
     assert_eq!(Standard::from(object), Standard::Dcat);
-}
-#[test]
-fn test_standard_to_schema_does_not_panic() {
-    let standards = [
-        Standard::ApplicationConfigurationResearchEnablement,
-        Standard::ResearchActivityData,
-        Standard::CitationFileFormat,
-        Standard::Datacite,
-        Standard::Dcat,
-        Standard::Huwise,
-        Standard::Invenio,
-        Standard::Kitfile,
-        Standard::ModelKit,
-        Standard::Raid,
-        Standard::Text,
-        Standard::Document,
-    ];
-    for standard in standards {
-        standard.to_schema("json");
-    }
 }
 #[test]
 fn test_summary_includes_crosswalk_warnings() {
@@ -1131,77 +1106,50 @@ async fn test_vale_offline_save_writes_normalized_configuration() {
 }
 #[test]
 fn test_vale_output_item_location_matches_prose_display_format() {
-    let item = ValeOutputItem {
-        action: ValeOutputItemAction {
-            name: "replace".to_string(),
-            params: None,
-        },
-        check: "Vale.Spelling".to_string(),
-        description: "".to_string(),
-        line: 17,
-        link: "".to_string(),
-        message: "Did you really mean 'Indexable'?".to_string(),
-        severity: ValeOutputItemSeverity::Error,
-        span: vec![23, 31],
-        word_match: "Indexable".to_string(),
-    };
+    let item = ValeOutputItem::new(
+        "Vale.Spelling",
+        17,
+        "Did you really mean 'Indexable'?",
+        ValeOutputItemSeverity::Error,
+        vec![23, 31],
+        "Indexable",
+    );
     assert_eq!(item.locator(), "Line 17, Character 23");
 }
 #[test]
 fn test_vale_output_item_query_uses_word_match_without_renderer_data() {
-    let item = ValeOutputItem {
-        action: ValeOutputItemAction {
-            name: "replace".to_string(),
-            params: None,
-        },
-        check: "Science.use-instead".to_string(),
-        description: "".to_string(),
-        line: 19,
-        link: "".to_string(),
-        message: "Use 'geospatial' instead of 'geo-spatial'.".to_string(),
-        severity: ValeOutputItemSeverity::Error,
-        span: vec![36, 46],
-        word_match: "geo-spatial".to_string(),
-    };
+    let item = ValeOutputItem::new(
+        "Science.use-instead",
+        19,
+        "Use 'geospatial' instead of 'geo-spatial'.",
+        ValeOutputItemSeverity::Error,
+        vec![36, 46],
+        "geo-spatial",
+    );
     assert_eq!(item.query(), DocumentQuery::new().with_needle("geo-spatial"));
 }
 #[test]
 fn test_vale_output_item_source_text_uses_word_match() {
-    let item = ValeOutputItem {
-        action: ValeOutputItemAction {
-            name: "replace".to_string(),
-            params: None,
-        },
-        check: "Science.use-instead".to_string(),
-        description: "".to_string(),
-        line: 19,
-        link: "".to_string(),
-        message: "Use 'geospatial' instead of 'geo-spatial'.".to_string(),
-        severity: ValeOutputItemSeverity::Error,
-        span: vec![36, 46],
-        word_match: "geo-spatial".to_string(),
-    };
+    let item = ValeOutputItem::new(
+        "Science.use-instead",
+        19,
+        "Use 'geospatial' instead of 'geo-spatial'.",
+        ValeOutputItemSeverity::Error,
+        vec![36, 46],
+        "geo-spatial",
+    );
     assert_eq!(item.source_text(), "geo-spatial");
 }
 #[test]
 fn test_vale_output_parse_empty() {
     let path = PathBuf::from("test-file");
     let empty_output = "{}";
-    let result = ValeOutput::parse(empty_output, path);
+    let result = parse_vale_output(empty_output, path);
     assert_eq!(result.len(), 0, "Empty output should return empty vector");
 }
 #[test]
-fn test_vale_output_severity_colored() {
-    let warning = ValeOutputItemSeverity::Warning;
-    let error = ValeOutputItemSeverity::Error;
-    let suggestion = ValeOutputItemSeverity::Suggestion;
-    assert!(!warning.colored().is_empty());
-    assert!(!error.colored().is_empty());
-    assert!(!suggestion.colored().is_empty());
-}
-#[test]
 fn test_vale_output_try_parse_reports_malformed_json() {
-    let result = ValeOutput::try_parse("{invalid", PathBuf::from("test-file"));
+    let result = try_parse_vale_output("{invalid", PathBuf::from("test-file"));
     assert!(result.is_err());
 }
 #[test]

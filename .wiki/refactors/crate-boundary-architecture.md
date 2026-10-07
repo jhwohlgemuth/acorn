@@ -15,7 +15,7 @@ Replace the current all-purpose `acorn-lib` package with a directed set of crate
 
 # Current priority
 
-This plan is coordination-only. `acorn-schema`, `acorn-cmd`, and the initial `acorn-host` capabilities are extracted with direct first-party imports. The in-tree analyzer kernel compiles independently under `alloc` and is CI-enforced. The executable [portable analysis and service boundary](core/acorn-service-boundary.md) now supplies the concrete direct, WASM, JSON-RPC, and gRPC consumers needed to extract `acorn-analysis`, `acorn-service`, and the `acorn-server` composition root as one ordered effort.
+This plan is coordination-only. `acorn-schema`, `acorn-cmd`, the initial `acorn-host` capabilities, `acorn-analysis`, `acorn-service`, and the `acorn-server` composition root are extracted with direct first-party imports. The analyzer and service kernels compile independently under portable feature configurations and have direct, WASM, JSON-RPC, and gRPC consumers.
 
 # Current evidence
 
@@ -112,7 +112,7 @@ Individual schemas, providers, commands, doctor checks, and generic utility coll
 # Plan dependencies
 
 - **Satisfied prerequisite:** the implemented portability matrix proves the analyzer boundary in-tree; that result does not itself authorize package extraction.
-- **Boundary inputs:** the [portable analysis and service boundary](core/acorn-service-boundary.md) owns the atomic analyzer/service/server extraction; the [shared API client contract](api/shared-client-contract.md) prepares `acorn-api`; the [shared export and OOXML pipeline](core/export-pipeline-hardening.md) prepares `acorn-export`; the `acorn-cmd` and initial `acorn-host` boundaries are implemented.
+- **Boundary inputs:** the analyzer/service/server extraction, `acorn-cmd`, and initial `acorn-host` boundaries are implemented; the [shared API client contract](api/shared-client-contract.md) prepares `acorn-api`; the [shared export and OOXML pipeline](core/export-pipeline-hardening.md) prepares `acorn-export`.
 - **Downstream:** the implemented portability matrix expands with each accepted extraction. Browser adapters or consumer-owned host ports require a concrete alternate implementation and a new atomic plan.
 - The complete ordering and shared-file collision map is maintained in the [plan dependency network](../plan-network.md).
 
@@ -191,6 +191,5 @@ Migrate first-party interfaces to direct dependencies, then remove extracted imp
 
 # Related plans
 
-- [Portable analysis and service boundary](core/acorn-service-boundary.md)
 - [Shared export and OOXML pipeline](core/export-pipeline-hardening.md)
 - [Shared API client contract](api/shared-client-contract.md)

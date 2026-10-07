@@ -2,9 +2,10 @@ use super::plan::Recipe;
 use super::service::{validate_envelope, validate_suggested_fix, PendingReference, PendingReferences, SuggestedFix, SuggestionEnvelope};
 use super::*;
 use crate::agent::{InMemoryBackend, InferenceCapabilities, InferenceFinishReason, InferenceFuture, InferenceResult, InferenceUsage};
-use crate::analyzer::{CheckCategory, CheckSeverity, Standard::ResearchActivityData};
+use crate::analyzer::{check, CheckCategory, CheckSeverity};
 use acorn_core::prelude::Box;
 use acorn_core::util::{constants::app::APPLICATION, MimeType};
+use acorn_schema::standard::Standard::ResearchActivityData;
 use core::cell::RefCell;
 use serde_json::json;
 use std::fs;
@@ -165,7 +166,7 @@ fn test_fix_report_groups_and_summarizes_proposals() {
 #[test]
 fn test_normalization_sorts_and_bounds_check_fields() {
     let context = "é".repeat(DEFAULT_MAX_EXCERPT_BYTES);
-    let second = crate::check!(
+    let second = check!(
         CheckCategory::Schema,
         false,
         severity: CheckSeverity::Warning,
@@ -173,7 +174,7 @@ fn test_normalization_sorts_and_bounds_check_fields() {
         context: context,
         uri: "z.json",
     );
-    let first = crate::check!(
+    let first = check!(
         CheckCategory::Schema,
         false,
         severity: CheckSeverity::Error,

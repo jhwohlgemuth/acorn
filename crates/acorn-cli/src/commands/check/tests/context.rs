@@ -1,7 +1,7 @@
-use super::super::{build_analysis_context, should_sync_analyzer, sync_analyzer_before_check};
-use acorn::analyzer::host::context::{AnalysisContext, AnalysisOptions};
-use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{CheckCategory, OutputFormat, Standard};
+use crate::commands::check::{build_analysis_context, should_sync_analyzer, sync_analyzer_before_check};
+use acorn::analyzer::host::context::{AnalysisContext, AnalysisOptions, OutputFormat};
+use acorn_analysis::{readability::ReadabilityType, CheckCategory};
+use acorn_schema::standard::Standard;
 use jiff::SignedDuration;
 use std::path::PathBuf;
 
@@ -40,12 +40,11 @@ fn test_check_context_builder_assigns_every_option_to_its_owner() {
     );
     assert!(context.report.extension.all);
     assert!(context.report.extension.exit_on_first_error);
-    assert_eq!(context.report.extension.format, OutputFormat::Console);
+    assert_eq!(context.report.extension.format, OutputFormat::Text);
     assert!(context.report.extension.no_fail);
     assert!(context.report.common.quiet);
     assert!(context.report.extension.terse);
 }
-
 #[test]
 fn test_check_context_builder_keeps_non_raw_output_visible() {
     let context = build_analysis_context(
@@ -68,7 +67,6 @@ fn test_check_context_builder_keeps_non_raw_output_visible() {
     assert!(!context.execution.common.quiet);
     assert!(!context.report.common.quiet);
 }
-
 #[test]
 fn test_should_sync_analyzer_reflects_prose_selection() {
     assert!(should_sync_analyzer(&AnalysisContext::default()));
@@ -85,7 +83,6 @@ fn test_should_sync_analyzer_reflects_prose_selection() {
         .build();
     assert!(!should_sync_analyzer(&acre));
 }
-
 #[tokio::test]
 async fn test_sync_analyzer_skips_resolution_when_prose_is_omitted() {
     let context = AnalysisContext::init()

@@ -3,9 +3,9 @@
 //! Provides programmtic access to the [Vale prose analyzer](https://vale.sh/) - an open-source, command-line tool that brings your editorial style guide to life.
 //!
 use super::runtime::StaticAnalyzer;
-pub use crate::analyzer::model::{ValeOutput, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity};
+use crate::analyzer::host::DocumentTargetQuery;
+pub use crate::analyzer::vale::{ValeOutput, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity};
 use crate::{
-    analyzer::error::DocumentTarget,
     io::{document::DocumentQuery, ApiResult},
     util::{
         constants::{
@@ -27,6 +27,10 @@ use itertools::Itertools;
 use std::{env::consts, path::PathBuf};
 use tracing::{error, trace};
 
+pub(crate) trait ValeSeverityRender {
+    fn ariadne_color(&self) -> Color;
+    fn report_kind(&self) -> ReportKind<'static>;
+}
 /// Vale installation details
 #[derive(Builder, Clone, Debug, Default, Display)]
 #[display("{:?}", version)]
@@ -66,24 +70,6 @@ pub struct ValeConfig {
     /// See <https://vale.sh/docs/styles#rules> for more information
     #[builder(default = Vec::<String>::new())]
     pub disabled: Vec<String>,
-}
-impl From<&ValeOutputItemSeverity> for Color {
-    fn from(value: &ValeOutputItemSeverity) -> Self {
-        match value {
-            | ValeOutputItemSeverity::Warning => Color::Yellow,
-            | ValeOutputItemSeverity::Error => Color::Red,
-            | ValeOutputItemSeverity::Suggestion => Color::Blue,
-        }
-    }
-}
-impl From<&ValeOutputItemSeverity> for ReportKind<'_> {
-    fn from(value: &ValeOutputItemSeverity) -> Self {
-        match value {
-            | ValeOutputItemSeverity::Warning => ReportKind::Warning,
-            | ValeOutputItemSeverity::Error => ReportKind::Error,
-            | ValeOutputItemSeverity::Suggestion => ReportKind::Custom("Suggestion", Color::Blue),
-        }
-    }
 }
 impl Vale {
     /// Return the platform-standard directory for ACORN-managed Vale artifacts.
@@ -171,37 +157,7 @@ impl ValeConfig {
             .build()
     }
 }
-impl ValeOutput {
-    /// Parse Vale output
-    pub fn parse(output: &str, path: PathBuf) -> Vec<ValeOutputItem> {
-        match Self::try_parse(output, path) {
-            | Ok(items) => items,
-            | Err(why) => {
-                error!("=> {} Parse Vale output - {why}", Label::fail());
-                vec![]
-            }
-        }
-    }
-    pub(crate) fn try_parse(output: &str, path: PathBuf) -> serde_json::Result<Vec<ValeOutputItem>> {
-        let processed = preprocess_vale_output(path, output);
-        if processed != "{}" {
-            serde_json::from_str::<ValeOutput>(&processed).map(|ValeOutput { items }| items)
-        } else {
-            Ok(vec![])
-        }
-    }
-}
-impl DocumentTarget for ValeOutputItem {
-    fn locator(&self) -> String {
-        let character = self.span.first().copied().unwrap_or_default();
-        format!("Line {}, Character {}", self.line, character)
-    }
-    fn source_text(&self) -> String {
-        match self.word_match.is_empty() {
-            | true => " ".to_string(),
-            | false => self.word_match.clone(),
-        }
-    }
+impl DocumentTargetQuery for ValeOutputItem {
     fn query(&self) -> DocumentQuery {
         match self.word_match.is_empty() {
             | true => DocumentQuery::new(),
@@ -209,13 +165,29 @@ impl DocumentTarget for ValeOutputItem {
         }
     }
 }
-impl ValeOutputItemSeverity {
-    /// Returns colored output based on severity
-    pub fn colored(&self) -> String {
+impl ValeSeverityRender for ValeOutputItemSeverity {
+    fn ariadne_color(&self) -> Color {
         match self {
-            | ValeOutputItemSeverity::Warning => self.to_string().yellow().to_string(),
-            | ValeOutputItemSeverity::Error => self.to_string().red().to_string(),
-            | ValeOutputItemSeverity::Suggestion => self.to_string().blue().to_string(),
+            | ValeOutputItemSeverity::Warning => Color::Yellow,
+            | ValeOutputItemSeverity::Error => Color::Red,
+            | ValeOutputItemSeverity::Suggestion => Color::Blue,
+        }
+    }
+    fn report_kind(&self) -> ReportKind<'static> {
+        match self {
+            | ValeOutputItemSeverity::Warning => ReportKind::Warning,
+            | ValeOutputItemSeverity::Error => ReportKind::Error,
+            | ValeOutputItemSeverity::Suggestion => ReportKind::Advice,
+        }
+    }
+}
+/// Parse Vale output, logging malformed native process output.
+pub fn parse_vale_output(output: &str, path: PathBuf) -> Vec<ValeOutputItem> {
+    match try_parse_vale_output(output, path) {
+        | Ok(items) => items,
+        | Err(why) => {
+            error!("=> {} Parse Vale output - {why}", Label::fail());
+            vec![]
         }
     }
 }
@@ -242,4 +214,12 @@ pub(super) fn release_filename() -> String {
         | _ => "unknown",
     }
     .to_string()
+}
+pub(crate) fn try_parse_vale_output(output: &str, path: PathBuf) -> serde_json::Result<Vec<ValeOutputItem>> {
+    let processed = preprocess_vale_output(path, output);
+    if processed != "{}" {
+        serde_json::from_str::<ValeOutput>(&processed).map(|ValeOutput { items }| items)
+    } else {
+        Ok(vec![])
+    }
 }

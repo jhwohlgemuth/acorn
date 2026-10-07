@@ -27,6 +27,88 @@ pub use quantum::{Model, Paradigm, Regime, Topology};
 use vendor::validate_vendor;
 pub use vendor::{Vendor, Vendored};
 
+/// AI accelerator architectures
+#[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
+pub enum AcceleratorArchitecture {
+    /// Huawei Ascend 910 AI accelerator
+    #[display("Ascend 910")]
+    #[serde(alias = "ascend 910", alias = "Ascend910", alias = "ascend910")]
+    Ascend910,
+    /// Tenstorrent Blackhole AI accelerator
+    #[display("Blackhole")]
+    #[serde(alias = "blackhole")]
+    Blackhole,
+    /// Intel Habana Gaudi2 AI accelerator
+    #[display("Gaudi2")]
+    #[serde(alias = "Gaudi 2", alias = "gaudi2", alias = "gaudi 2")]
+    Gaudi2,
+    /// Graphcore Colossus GC200 / IPU architecture (2018-2019)
+    #[display("Graphcore GC200")]
+    #[serde(alias = "graphcore gc200", alias = "GC200", alias = "gc200")]
+    GraphcoreGc200,
+    /// Amazon Inferentia AI inference chip
+    #[display("Inferentia")]
+    #[serde(alias = "inferentia")]
+    Inferentia,
+    /// Groq Language Processing Unit
+    #[display("LPU")]
+    #[serde(alias = "lpu", alias = "Language Processing Unit", alias = "language processing unit")]
+    Lpu,
+    /// Microsoft Maia AI accelerator
+    #[display("Maia")]
+    #[serde(alias = "maia")]
+    Maia,
+    /// Intel Nervana neural processor (NNP-I / NNP-T, 2010s)
+    #[display("Nervana")]
+    #[serde(alias = "nervana")]
+    Nervana,
+    /// SambaNova Reconfigurable Dataflow Unit (RDU) architecture (2020s)
+    #[display("SambaNova RDU")]
+    #[serde(alias = "sambanova rdu", alias = "RDU", alias = "rdu")]
+    SambaNovaRdu,
+    /// Google TPU v4
+    #[display("TPU v4")]
+    #[serde(alias = "TPU v4", alias = "TPUv4", alias = "tpu v4", alias = "tpuv4")]
+    TpuV4,
+    /// Google TPU v5e
+    #[display("TPU v5e")]
+    #[serde(alias = "TPU v5e", alias = "TPUv5e", alias = "tpu v5e", alias = "tpuv5e")]
+    TpuV5e,
+    /// Google TPU v5p
+    #[display("TPU v5p")]
+    #[serde(alias = "TPU v5p", alias = "TPUv5p", alias = "tpu v5p", alias = "tpuv5p")]
+    TpuV5p,
+    /// Google TPU v6e ("Trillium")
+    #[display("TPU v6e")]
+    #[serde(
+        alias = "TPU v6e",
+        alias = "TPUv6e",
+        alias = "tpu v6e",
+        alias = "tpuv6e",
+        alias = "Trillium",
+        alias = "trillium"
+    )]
+    TpuV6e,
+    /// Amazon Trainium AI accelerator
+    #[display("Trainium")]
+    #[serde(alias = "trainium")]
+    Trainium,
+    /// Tenstorrent Wormhole AI accelerator
+    #[display("Wormhole")]
+    #[serde(alias = "wormhole")]
+    Wormhole,
+    /// Cerebras Wafer-Scale Engine 2 (WSE-2)
+    #[display("WSE-2")]
+    #[serde(alias = "wse2", alias = "WSE2", alias = "wse-2")]
+    Wse2,
+    /// Cerebras Wafer-Scale Engine 3 (WSE-3)
+    #[display("WSE-3")]
+    #[serde(alias = "wse3", alias = "WSE3", alias = "wse-3")]
+    Wse3,
+    /// Other or unspecified accelerator architecture
+    #[display("{}", _0)]
+    Other(String),
+}
 /// Unified hardware architecture identifier
 ///
 /// This enum provides a single type that can represent any hardware architecture across all resource types (CPU, GPU, FPGA, accelerators, DSPs).
@@ -201,7 +283,7 @@ pub enum Architecture {
     /// Qualcomm Hexagon processor NPU
     /// > Purpose-built for AI, powers advanced gen AI models and cutting-edge gen AI experiences while maintaining best-in-class power efficiency
     ///
-    /// See https://www.qualcomm.com/processors/hexagon> for more information
+    /// See <https://www.qualcomm.com/processors/hexagon> for more information
     #[display("Hexagon")]
     Hexagon,
     /// NVIDIA Hopper architecture (H100, H200)
@@ -461,88 +543,6 @@ pub enum Architecture {
     #[display("{}", _0)]
     Other(String),
 }
-/// AI accelerator architectures
-#[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
-pub enum AcceleratorArchitecture {
-    /// Huawei Ascend 910 AI accelerator
-    #[display("Ascend 910")]
-    #[serde(alias = "ascend 910", alias = "Ascend910", alias = "ascend910")]
-    Ascend910,
-    /// Tenstorrent Blackhole AI accelerator
-    #[display("Blackhole")]
-    #[serde(alias = "blackhole")]
-    Blackhole,
-    /// Intel Habana Gaudi2 AI accelerator
-    #[display("Gaudi2")]
-    #[serde(alias = "Gaudi 2", alias = "gaudi2", alias = "gaudi 2")]
-    Gaudi2,
-    /// Graphcore Colossus GC200 / IPU architecture (2018-2019)
-    #[display("Graphcore GC200")]
-    #[serde(alias = "graphcore gc200", alias = "GC200", alias = "gc200")]
-    GraphcoreGc200,
-    /// Amazon Inferentia AI inference chip
-    #[display("Inferentia")]
-    #[serde(alias = "inferentia")]
-    Inferentia,
-    /// Groq Language Processing Unit
-    #[display("LPU")]
-    #[serde(alias = "lpu", alias = "Language Processing Unit", alias = "language processing unit")]
-    Lpu,
-    /// Microsoft Maia AI accelerator
-    #[display("Maia")]
-    #[serde(alias = "maia")]
-    Maia,
-    /// Intel Nervana neural processor (NNP-I / NNP-T, 2010s)
-    #[display("Nervana")]
-    #[serde(alias = "nervana")]
-    Nervana,
-    /// SambaNova Reconfigurable Dataflow Unit (RDU) architecture (2020s)
-    #[display("SambaNova RDU")]
-    #[serde(alias = "sambanova rdu", alias = "RDU", alias = "rdu")]
-    SambaNovaRdu,
-    /// Google TPU v4
-    #[display("TPU v4")]
-    #[serde(alias = "TPU v4", alias = "TPUv4", alias = "tpu v4", alias = "tpuv4")]
-    TpuV4,
-    /// Google TPU v5e
-    #[display("TPU v5e")]
-    #[serde(alias = "TPU v5e", alias = "TPUv5e", alias = "tpu v5e", alias = "tpuv5e")]
-    TpuV5e,
-    /// Google TPU v5p
-    #[display("TPU v5p")]
-    #[serde(alias = "TPU v5p", alias = "TPUv5p", alias = "tpu v5p", alias = "tpuv5p")]
-    TpuV5p,
-    /// Google TPU v6e ("Trillium")
-    #[display("TPU v6e")]
-    #[serde(
-        alias = "TPU v6e",
-        alias = "TPUv6e",
-        alias = "tpu v6e",
-        alias = "tpuv6e",
-        alias = "Trillium",
-        alias = "trillium"
-    )]
-    TpuV6e,
-    /// Amazon Trainium AI accelerator
-    #[display("Trainium")]
-    #[serde(alias = "trainium")]
-    Trainium,
-    /// Tenstorrent Wormhole AI accelerator
-    #[display("Wormhole")]
-    #[serde(alias = "wormhole")]
-    Wormhole,
-    /// Cerebras Wafer-Scale Engine 2 (WSE-2)
-    #[display("WSE-2")]
-    #[serde(alias = "wse2", alias = "WSE2", alias = "wse-2")]
-    Wse2,
-    /// Cerebras Wafer-Scale Engine 3 (WSE-3)
-    #[display("WSE-3")]
-    #[serde(alias = "wse3", alias = "WSE3", alias = "wse-3")]
-    Wse3,
-    /// Other or unspecified accelerator architecture
-    #[display("{}", _0)]
-    Other(String),
-}
 /// GPU compute backend or API
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
 pub enum Backend {
@@ -577,99 +577,6 @@ pub enum Backend {
     #[display("WebGPU")]
     WebGpu,
     /// Other or unspecified backend
-    #[display("{}", _0)]
-    Other(String),
-}
-/// Sensor modalities for hardware resources
-#[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
-pub enum SensorModality {
-    /// Acoustic sensing such as microphones and hydrophones
-    #[display("audio")]
-    #[serde(alias = "audio", alias = "acoustic", alias = "microphone", alias = "hydrophone")]
-    Audio,
-    /// Chemical sensing such as gas composition or pH
-    #[display("chemical")]
-    #[serde(alias = "chemical", alias = "chem", alias = "gas", alias = "ph")]
-    Chemical,
-    /// Depth sensing such as time-of-flight and structured light
-    #[display("depth")]
-    #[serde(alias = "depth", alias = "tof", alias = "time-of-flight", alias = "structured-light")]
-    Depth,
-    /// Event-based vision sensors
-    #[display("event")]
-    #[serde(alias = "event", alias = "event-camera", alias = "event camera", alias = "dvs")]
-    Event,
-    /// Hyperspectral sensing across many narrow wavelength bands
-    #[display("hyperspectral")]
-    #[serde(alias = "hyperspectral", alias = "hyper-spectral", alias = "hsi")]
-    Hyperspectral,
-    /// Imaging modalities such as RGB cameras and thermal imagers
-    #[display("image")]
-    #[serde(alias = "image", alias = "camera", alias = "vision", alias = "thermal")]
-    Image,
-    /// Inertial measurement sensing (accelerometer/gyroscope)
-    #[display("inertial")]
-    #[serde(alias = "inertial", alias = "imu", alias = "accel", alias = "gyroscope")]
-    Inertial,
-    /// Light detection and ranging
-    #[display("lidar")]
-    #[serde(alias = "lidar", alias = "li-dar")]
-    Lidar,
-    /// Magnetic field sensing
-    #[display("magnetic")]
-    #[serde(alias = "magnetic", alias = "magnetometer")]
-    Magnetic,
-    /// Position and navigation sensing (e.g., GNSS)
-    #[display("navigation")]
-    #[serde(alias = "navigation", alias = "gnss", alias = "gps")]
-    Navigation,
-    /// Network traffic telemetry and packet-level sensing
-    #[display("network-traffic")]
-    #[serde(alias = "network-traffic", alias = "network traffic", alias = "netflow", alias = "packet")]
-    NetworkTraffic,
-    /// Pressure sensing
-    #[display("pressure")]
-    #[serde(alias = "pressure", alias = "barometer")]
-    Pressure,
-    /// Radio detection and ranging
-    #[display("radar")]
-    #[serde(alias = "radar", alias = "sar")]
-    Radar,
-    /// General RF sensing and spectrum observation
-    #[display("rf")]
-    #[serde(alias = "rf", alias = "radio", alias = "spectrum")]
-    Radio,
-    /// Seismic sensing for ground motion and vibration
-    #[display("seismic")]
-    #[serde(alias = "seismic", alias = "geophone")]
-    Seismic,
-    /// Server-side event stream sensing from server push channels
-    #[display("server-side-event")]
-    #[serde(
-        alias = "server-side-event",
-        alias = "server side event",
-        alias = "server-sent-event",
-        alias = "server sent event",
-        alias = "sse"
-    )]
-    ServerSideEvent,
-    /// Sonar sensing using reflected acoustic waves
-    #[display("sonar")]
-    #[serde(alias = "sonar", alias = "acoustic-ranging")]
-    Sonar,
-    /// Temperature sensing
-    #[display("temperature")]
-    #[serde(alias = "temperature", alias = "temp", alias = "thermometer")]
-    Temperature,
-    /// Ultrasonic sensing using high-frequency acoustic waves
-    #[display("ultrasonic")]
-    #[serde(alias = "ultrasonic", alias = "ultrasound")]
-    Ultrasonic,
-    /// Webhook event stream sensing from HTTP callbacks
-    #[display("webhook")]
-    #[serde(alias = "webhook", alias = "web hook", alias = "http-callback", alias = "http callback")]
-    Webhook,
-    /// Other or unspecified sensor modality
     #[display("{}", _0)]
     Other(String),
 }
@@ -1244,6 +1151,99 @@ pub enum Resource {
     /// Unknown, unspecified, or otherwise unclassified resource
     Other(String),
 }
+/// Sensor modalities for hardware resources
+#[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
+pub enum SensorModality {
+    /// Acoustic sensing such as microphones and hydrophones
+    #[display("audio")]
+    #[serde(alias = "audio", alias = "acoustic", alias = "microphone", alias = "hydrophone")]
+    Audio,
+    /// Chemical sensing such as gas composition or pH
+    #[display("chemical")]
+    #[serde(alias = "chemical", alias = "chem", alias = "gas", alias = "ph")]
+    Chemical,
+    /// Depth sensing such as time-of-flight and structured light
+    #[display("depth")]
+    #[serde(alias = "depth", alias = "tof", alias = "time-of-flight", alias = "structured-light")]
+    Depth,
+    /// Event-based vision sensors
+    #[display("event")]
+    #[serde(alias = "event", alias = "event-camera", alias = "event camera", alias = "dvs")]
+    Event,
+    /// Hyperspectral sensing across many narrow wavelength bands
+    #[display("hyperspectral")]
+    #[serde(alias = "hyperspectral", alias = "hyper-spectral", alias = "hsi")]
+    Hyperspectral,
+    /// Imaging modalities such as RGB cameras and thermal imagers
+    #[display("image")]
+    #[serde(alias = "image", alias = "camera", alias = "vision", alias = "thermal")]
+    Image,
+    /// Inertial measurement sensing (accelerometer/gyroscope)
+    #[display("inertial")]
+    #[serde(alias = "inertial", alias = "imu", alias = "accel", alias = "gyroscope")]
+    Inertial,
+    /// Light detection and ranging
+    #[display("lidar")]
+    #[serde(alias = "lidar", alias = "li-dar")]
+    Lidar,
+    /// Magnetic field sensing
+    #[display("magnetic")]
+    #[serde(alias = "magnetic", alias = "magnetometer")]
+    Magnetic,
+    /// Position and navigation sensing (e.g., GNSS)
+    #[display("navigation")]
+    #[serde(alias = "navigation", alias = "gnss", alias = "gps")]
+    Navigation,
+    /// Network traffic telemetry and packet-level sensing
+    #[display("network-traffic")]
+    #[serde(alias = "network-traffic", alias = "network traffic", alias = "netflow", alias = "packet")]
+    NetworkTraffic,
+    /// Pressure sensing
+    #[display("pressure")]
+    #[serde(alias = "pressure", alias = "barometer")]
+    Pressure,
+    /// Radio detection and ranging
+    #[display("radar")]
+    #[serde(alias = "radar", alias = "sar")]
+    Radar,
+    /// General RF sensing and spectrum observation
+    #[display("rf")]
+    #[serde(alias = "rf", alias = "radio", alias = "spectrum")]
+    Radio,
+    /// Seismic sensing for ground motion and vibration
+    #[display("seismic")]
+    #[serde(alias = "seismic", alias = "geophone")]
+    Seismic,
+    /// Server-side event stream sensing from server push channels
+    #[display("server-side-event")]
+    #[serde(
+        alias = "server-side-event",
+        alias = "server side event",
+        alias = "server-sent-event",
+        alias = "server sent event",
+        alias = "sse"
+    )]
+    ServerSideEvent,
+    /// Sonar sensing using reflected acoustic waves
+    #[display("sonar")]
+    #[serde(alias = "sonar", alias = "acoustic-ranging")]
+    Sonar,
+    /// Temperature sensing
+    #[display("temperature")]
+    #[serde(alias = "temperature", alias = "temp", alias = "thermometer")]
+    Temperature,
+    /// Ultrasonic sensing using high-frequency acoustic waves
+    #[display("ultrasonic")]
+    #[serde(alias = "ultrasonic", alias = "ultrasound")]
+    Ultrasonic,
+    /// Webhook event stream sensing from HTTP callbacks
+    #[display("webhook")]
+    #[serde(alias = "webhook", alias = "web hook", alias = "http-callback", alias = "http callback")]
+    Webhook,
+    /// Other or unspecified sensor modality
+    #[display("{}", _0)]
+    Other(String),
+}
 impl Architecture {
     fn from_str(s: &str) -> Self {
         let normalized = s.trim();
@@ -1261,37 +1261,45 @@ impl Architecture {
         .unwrap_or_else(|| Architecture::Other(normalized.to_string()))
     }
 }
-impl From<String> for Architecture {
-    fn from(s: String) -> Self {
-        Architecture::from_str(&s)
+impl<'de> Deserialize<'de> for Architecture {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        struct ArchitectureVisitor;
+        impl<'de> serde::de::Visitor<'de> for ArchitectureVisitor {
+            type Value = Architecture;
+            fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                formatter.write_str("an architecture string (e.g. 'x86_64', 'Ampere', 'Versal')")
+            }
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Architecture, E> {
+                Ok(Architecture::from_str(value))
+            }
+        }
+        deserializer.deserialize_str(ArchitectureVisitor)
     }
 }
-impl From<&str> for Architecture {
-    fn from(s: &str) -> Self {
-        Architecture::from_str(s)
-    }
-}
-impl From<CpuArchitecture> for Architecture {
-    fn from(value: CpuArchitecture) -> Self {
+impl From<&AcceleratorArchitecture> for Architecture {
+    fn from(value: &AcceleratorArchitecture) -> Self {
         match value {
-            | CpuArchitecture::AArch64 => Architecture::AArch64,
-            | CpuArchitecture::Carmel => Architecture::Carmel,
-            | CpuArchitecture::Ethos => Architecture::Ethos,
-            | CpuArchitecture::Grace => Architecture::Grace,
-            | CpuArchitecture::Ia64 => Architecture::Ia64,
-            | CpuArchitecture::LoongArch => Architecture::LoongArch,
-            | CpuArchitecture::Mips => Architecture::Mips,
-            | CpuArchitecture::NeuralEngine => Architecture::NeuralEngine,
-            | CpuArchitecture::PerformanceCore => Architecture::ApplePerformanceCore,
-            | CpuArchitecture::EfficiencyCore => Architecture::AppleEfficiencyCore,
-            | CpuArchitecture::PowerPc => Architecture::PowerPc,
-            | CpuArchitecture::Hexagon => Architecture::Hexagon,
-            | CpuArchitecture::RiscV => Architecture::RiscV,
-            | CpuArchitecture::Vera => Architecture::Vera,
-            | CpuArchitecture::X86 => Architecture::X86,
-            | CpuArchitecture::X86_64 => Architecture::X86_64,
-            | CpuArchitecture::ZArch => Architecture::ZArch,
-            | CpuArchitecture::Other(s) => Architecture::Other(s),
+            | AcceleratorArchitecture::Ascend910 => Architecture::Ascend910,
+            | AcceleratorArchitecture::Blackhole => Architecture::Blackhole,
+            | AcceleratorArchitecture::Gaudi2 => Architecture::Gaudi2,
+            | AcceleratorArchitecture::GraphcoreGc200 => Architecture::GraphcoreGc200,
+            | AcceleratorArchitecture::Inferentia => Architecture::Inferentia,
+            | AcceleratorArchitecture::Lpu => Architecture::Lpu,
+            | AcceleratorArchitecture::Maia => Architecture::Maia,
+            | AcceleratorArchitecture::Nervana => Architecture::Nervana,
+            | AcceleratorArchitecture::SambaNovaRdu => Architecture::SambaNovaRdu,
+            | AcceleratorArchitecture::TpuV4 => Architecture::TpuV4,
+            | AcceleratorArchitecture::TpuV5e => Architecture::TpuV5e,
+            | AcceleratorArchitecture::TpuV5p => Architecture::TpuV5p,
+            | AcceleratorArchitecture::TpuV6e => Architecture::TpuV6e,
+            | AcceleratorArchitecture::Trainium => Architecture::Trainium,
+            | AcceleratorArchitecture::Wormhole => Architecture::Wormhole,
+            | AcceleratorArchitecture::Wse2 => Architecture::Wse2,
+            | AcceleratorArchitecture::Wse3 => Architecture::Wse3,
+            | AcceleratorArchitecture::Other(s) => Architecture::Other(s.clone()),
         }
     }
 }
@@ -1319,89 +1327,12 @@ impl From<&CpuArchitecture> for Architecture {
         }
     }
 }
-impl From<DspArchitecture> for Architecture {
-    fn from(value: DspArchitecture) -> Self {
-        match value {
-            | DspArchitecture::C66x => Architecture::C66x,
-            | DspArchitecture::Xtensa => Architecture::Xtensa,
-            | DspArchitecture::Other(s) => Architecture::Other(s),
-        }
-    }
-}
 impl From<&DspArchitecture> for Architecture {
     fn from(value: &DspArchitecture) -> Self {
         match value {
             | DspArchitecture::C66x => Architecture::C66x,
             | DspArchitecture::Xtensa => Architecture::Xtensa,
             | DspArchitecture::Other(s) => Architecture::Other(s.clone()),
-        }
-    }
-}
-impl From<AcceleratorArchitecture> for Architecture {
-    fn from(value: AcceleratorArchitecture) -> Self {
-        match value {
-            | AcceleratorArchitecture::Ascend910 => Architecture::Ascend910,
-            | AcceleratorArchitecture::Blackhole => Architecture::Blackhole,
-            | AcceleratorArchitecture::Gaudi2 => Architecture::Gaudi2,
-            | AcceleratorArchitecture::GraphcoreGc200 => Architecture::GraphcoreGc200,
-            | AcceleratorArchitecture::Inferentia => Architecture::Inferentia,
-            | AcceleratorArchitecture::Lpu => Architecture::Lpu,
-            | AcceleratorArchitecture::Maia => Architecture::Maia,
-            | AcceleratorArchitecture::Nervana => Architecture::Nervana,
-            | AcceleratorArchitecture::SambaNovaRdu => Architecture::SambaNovaRdu,
-            | AcceleratorArchitecture::TpuV4 => Architecture::TpuV4,
-            | AcceleratorArchitecture::TpuV5e => Architecture::TpuV5e,
-            | AcceleratorArchitecture::TpuV5p => Architecture::TpuV5p,
-            | AcceleratorArchitecture::TpuV6e => Architecture::TpuV6e,
-            | AcceleratorArchitecture::Trainium => Architecture::Trainium,
-            | AcceleratorArchitecture::Wormhole => Architecture::Wormhole,
-            | AcceleratorArchitecture::Wse2 => Architecture::Wse2,
-            | AcceleratorArchitecture::Wse3 => Architecture::Wse3,
-            | AcceleratorArchitecture::Other(s) => Architecture::Other(s),
-        }
-    }
-}
-impl From<&AcceleratorArchitecture> for Architecture {
-    fn from(value: &AcceleratorArchitecture) -> Self {
-        match value {
-            | AcceleratorArchitecture::Ascend910 => Architecture::Ascend910,
-            | AcceleratorArchitecture::Blackhole => Architecture::Blackhole,
-            | AcceleratorArchitecture::Gaudi2 => Architecture::Gaudi2,
-            | AcceleratorArchitecture::GraphcoreGc200 => Architecture::GraphcoreGc200,
-            | AcceleratorArchitecture::Inferentia => Architecture::Inferentia,
-            | AcceleratorArchitecture::Lpu => Architecture::Lpu,
-            | AcceleratorArchitecture::Maia => Architecture::Maia,
-            | AcceleratorArchitecture::Nervana => Architecture::Nervana,
-            | AcceleratorArchitecture::SambaNovaRdu => Architecture::SambaNovaRdu,
-            | AcceleratorArchitecture::TpuV4 => Architecture::TpuV4,
-            | AcceleratorArchitecture::TpuV5e => Architecture::TpuV5e,
-            | AcceleratorArchitecture::TpuV5p => Architecture::TpuV5p,
-            | AcceleratorArchitecture::TpuV6e => Architecture::TpuV6e,
-            | AcceleratorArchitecture::Trainium => Architecture::Trainium,
-            | AcceleratorArchitecture::Wormhole => Architecture::Wormhole,
-            | AcceleratorArchitecture::Wse2 => Architecture::Wse2,
-            | AcceleratorArchitecture::Wse3 => Architecture::Wse3,
-            | AcceleratorArchitecture::Other(s) => Architecture::Other(s.clone()),
-        }
-    }
-}
-impl From<FpgaArchitecture> for Architecture {
-    fn from(value: FpgaArchitecture) -> Self {
-        match value {
-            | FpgaArchitecture::Agilex => Architecture::Agilex,
-            | FpgaArchitecture::Artix => Architecture::Artix,
-            | FpgaArchitecture::CrossLink => Architecture::CrossLink,
-            | FpgaArchitecture::CycloneV => Architecture::CycloneV,
-            | FpgaArchitecture::Ecp5 => Architecture::Ecp5,
-            | FpgaArchitecture::Ice40 => Architecture::Ice40,
-            | FpgaArchitecture::Kintex => Architecture::Kintex,
-            | FpgaArchitecture::Spartan => Architecture::Spartan,
-            | FpgaArchitecture::Stratix10 => Architecture::Stratix10,
-            | FpgaArchitecture::StratixV => Architecture::StratixV,
-            | FpgaArchitecture::Versal => Architecture::Versal,
-            | FpgaArchitecture::VirtexUltraScalePlus => Architecture::VirtexUltraScalePlus,
-            | FpgaArchitecture::Zynq => Architecture::Zynq,
-            | FpgaArchitecture::Other(s) => Architecture::Other(s),
         }
     }
 }
@@ -1422,45 +1353,6 @@ impl From<&FpgaArchitecture> for Architecture {
             | FpgaArchitecture::VirtexUltraScalePlus => Architecture::VirtexUltraScalePlus,
             | FpgaArchitecture::Zynq => Architecture::Zynq,
             | FpgaArchitecture::Other(s) => Architecture::Other(s.clone()),
-        }
-    }
-}
-impl From<GpuArchitecture> for Architecture {
-    fn from(value: GpuArchitecture) -> Self {
-        match value {
-            | GpuArchitecture::AdaLovelace => Architecture::AdaLovelace,
-            | GpuArchitecture::Alchemist => Architecture::Alchemist,
-            | GpuArchitecture::Ampere => Architecture::Ampere,
-            | GpuArchitecture::Blackwell => Architecture::Blackwell,
-            | GpuArchitecture::Cdna1 => Architecture::Cdna1,
-            | GpuArchitecture::Cdna2 => Architecture::Cdna2,
-            | GpuArchitecture::Cdna3 => Architecture::Cdna3,
-            | GpuArchitecture::Cdna4 => Architecture::Cdna4,
-            | GpuArchitecture::Fermi => Architecture::Fermi,
-            | GpuArchitecture::Hopper => Architecture::Hopper,
-            | GpuArchitecture::Kepler => Architecture::Kepler,
-            | GpuArchitecture::Maxwell => Architecture::Maxwell,
-            | GpuArchitecture::Orin => Architecture::Orin,
-            | GpuArchitecture::Pascal => Architecture::Pascal,
-            | GpuArchitecture::Rdna1 => Architecture::Rdna1,
-            | GpuArchitecture::Rdna2 => Architecture::Rdna2,
-            | GpuArchitecture::Rdna3 => Architecture::Rdna3,
-            | GpuArchitecture::Tesla => Architecture::Tesla,
-            | GpuArchitecture::Thor => Architecture::Thor,
-            | GpuArchitecture::Turing => Architecture::Turing,
-            | GpuArchitecture::Volta => Architecture::Volta,
-            | GpuArchitecture::Xe => Architecture::Xe,
-            | GpuArchitecture::Xe2 => Architecture::Xe2,
-            | GpuArchitecture::Xe3 => Architecture::Xe3,
-            | GpuArchitecture::AppleA14 => Architecture::AppleA14,
-            | GpuArchitecture::AppleA16 => Architecture::AppleA16,
-            | GpuArchitecture::AppleA18 => Architecture::AppleA18,
-            | GpuArchitecture::AppleM1 => Architecture::AppleM1,
-            | GpuArchitecture::AppleM2 => Architecture::AppleM2,
-            | GpuArchitecture::AppleM3 => Architecture::AppleM3,
-            | GpuArchitecture::AppleM4 => Architecture::AppleM4,
-            | GpuArchitecture::AppleM5 => Architecture::AppleM5,
-            | GpuArchitecture::Other(s) => Architecture::Other(s),
         }
     }
 }
@@ -1503,23 +1395,131 @@ impl From<&GpuArchitecture> for Architecture {
         }
     }
 }
-
-impl<'de> Deserialize<'de> for Architecture {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::de::Deserializer<'de>,
-    {
-        struct ArchitectureVisitor;
-        impl<'de> serde::de::Visitor<'de> for ArchitectureVisitor {
-            type Value = Architecture;
-            fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                formatter.write_str("an architecture string (e.g. 'x86_64', 'Ampere', 'Versal')")
-            }
-            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Architecture, E> {
-                Ok(Architecture::from_str(value))
-            }
+impl From<&str> for Architecture {
+    fn from(s: &str) -> Self {
+        Architecture::from_str(s)
+    }
+}
+impl From<AcceleratorArchitecture> for Architecture {
+    fn from(value: AcceleratorArchitecture) -> Self {
+        match value {
+            | AcceleratorArchitecture::Ascend910 => Architecture::Ascend910,
+            | AcceleratorArchitecture::Blackhole => Architecture::Blackhole,
+            | AcceleratorArchitecture::Gaudi2 => Architecture::Gaudi2,
+            | AcceleratorArchitecture::GraphcoreGc200 => Architecture::GraphcoreGc200,
+            | AcceleratorArchitecture::Inferentia => Architecture::Inferentia,
+            | AcceleratorArchitecture::Lpu => Architecture::Lpu,
+            | AcceleratorArchitecture::Maia => Architecture::Maia,
+            | AcceleratorArchitecture::Nervana => Architecture::Nervana,
+            | AcceleratorArchitecture::SambaNovaRdu => Architecture::SambaNovaRdu,
+            | AcceleratorArchitecture::TpuV4 => Architecture::TpuV4,
+            | AcceleratorArchitecture::TpuV5e => Architecture::TpuV5e,
+            | AcceleratorArchitecture::TpuV5p => Architecture::TpuV5p,
+            | AcceleratorArchitecture::TpuV6e => Architecture::TpuV6e,
+            | AcceleratorArchitecture::Trainium => Architecture::Trainium,
+            | AcceleratorArchitecture::Wormhole => Architecture::Wormhole,
+            | AcceleratorArchitecture::Wse2 => Architecture::Wse2,
+            | AcceleratorArchitecture::Wse3 => Architecture::Wse3,
+            | AcceleratorArchitecture::Other(s) => Architecture::Other(s),
         }
-        deserializer.deserialize_str(ArchitectureVisitor)
+    }
+}
+impl From<CpuArchitecture> for Architecture {
+    fn from(value: CpuArchitecture) -> Self {
+        match value {
+            | CpuArchitecture::AArch64 => Architecture::AArch64,
+            | CpuArchitecture::Carmel => Architecture::Carmel,
+            | CpuArchitecture::Ethos => Architecture::Ethos,
+            | CpuArchitecture::Grace => Architecture::Grace,
+            | CpuArchitecture::Ia64 => Architecture::Ia64,
+            | CpuArchitecture::LoongArch => Architecture::LoongArch,
+            | CpuArchitecture::Mips => Architecture::Mips,
+            | CpuArchitecture::NeuralEngine => Architecture::NeuralEngine,
+            | CpuArchitecture::PerformanceCore => Architecture::ApplePerformanceCore,
+            | CpuArchitecture::EfficiencyCore => Architecture::AppleEfficiencyCore,
+            | CpuArchitecture::PowerPc => Architecture::PowerPc,
+            | CpuArchitecture::Hexagon => Architecture::Hexagon,
+            | CpuArchitecture::RiscV => Architecture::RiscV,
+            | CpuArchitecture::Vera => Architecture::Vera,
+            | CpuArchitecture::X86 => Architecture::X86,
+            | CpuArchitecture::X86_64 => Architecture::X86_64,
+            | CpuArchitecture::ZArch => Architecture::ZArch,
+            | CpuArchitecture::Other(s) => Architecture::Other(s),
+        }
+    }
+}
+impl From<DspArchitecture> for Architecture {
+    fn from(value: DspArchitecture) -> Self {
+        match value {
+            | DspArchitecture::C66x => Architecture::C66x,
+            | DspArchitecture::Xtensa => Architecture::Xtensa,
+            | DspArchitecture::Other(s) => Architecture::Other(s),
+        }
+    }
+}
+impl From<FpgaArchitecture> for Architecture {
+    fn from(value: FpgaArchitecture) -> Self {
+        match value {
+            | FpgaArchitecture::Agilex => Architecture::Agilex,
+            | FpgaArchitecture::Artix => Architecture::Artix,
+            | FpgaArchitecture::CrossLink => Architecture::CrossLink,
+            | FpgaArchitecture::CycloneV => Architecture::CycloneV,
+            | FpgaArchitecture::Ecp5 => Architecture::Ecp5,
+            | FpgaArchitecture::Ice40 => Architecture::Ice40,
+            | FpgaArchitecture::Kintex => Architecture::Kintex,
+            | FpgaArchitecture::Spartan => Architecture::Spartan,
+            | FpgaArchitecture::Stratix10 => Architecture::Stratix10,
+            | FpgaArchitecture::StratixV => Architecture::StratixV,
+            | FpgaArchitecture::Versal => Architecture::Versal,
+            | FpgaArchitecture::VirtexUltraScalePlus => Architecture::VirtexUltraScalePlus,
+            | FpgaArchitecture::Zynq => Architecture::Zynq,
+            | FpgaArchitecture::Other(s) => Architecture::Other(s),
+        }
+    }
+}
+impl From<GpuArchitecture> for Architecture {
+    fn from(value: GpuArchitecture) -> Self {
+        match value {
+            | GpuArchitecture::AdaLovelace => Architecture::AdaLovelace,
+            | GpuArchitecture::Alchemist => Architecture::Alchemist,
+            | GpuArchitecture::Ampere => Architecture::Ampere,
+            | GpuArchitecture::Blackwell => Architecture::Blackwell,
+            | GpuArchitecture::Cdna1 => Architecture::Cdna1,
+            | GpuArchitecture::Cdna2 => Architecture::Cdna2,
+            | GpuArchitecture::Cdna3 => Architecture::Cdna3,
+            | GpuArchitecture::Cdna4 => Architecture::Cdna4,
+            | GpuArchitecture::Fermi => Architecture::Fermi,
+            | GpuArchitecture::Hopper => Architecture::Hopper,
+            | GpuArchitecture::Kepler => Architecture::Kepler,
+            | GpuArchitecture::Maxwell => Architecture::Maxwell,
+            | GpuArchitecture::Orin => Architecture::Orin,
+            | GpuArchitecture::Pascal => Architecture::Pascal,
+            | GpuArchitecture::Rdna1 => Architecture::Rdna1,
+            | GpuArchitecture::Rdna2 => Architecture::Rdna2,
+            | GpuArchitecture::Rdna3 => Architecture::Rdna3,
+            | GpuArchitecture::Tesla => Architecture::Tesla,
+            | GpuArchitecture::Thor => Architecture::Thor,
+            | GpuArchitecture::Turing => Architecture::Turing,
+            | GpuArchitecture::Volta => Architecture::Volta,
+            | GpuArchitecture::Xe => Architecture::Xe,
+            | GpuArchitecture::Xe2 => Architecture::Xe2,
+            | GpuArchitecture::Xe3 => Architecture::Xe3,
+            | GpuArchitecture::AppleA14 => Architecture::AppleA14,
+            | GpuArchitecture::AppleA16 => Architecture::AppleA16,
+            | GpuArchitecture::AppleA18 => Architecture::AppleA18,
+            | GpuArchitecture::AppleM1 => Architecture::AppleM1,
+            | GpuArchitecture::AppleM2 => Architecture::AppleM2,
+            | GpuArchitecture::AppleM3 => Architecture::AppleM3,
+            | GpuArchitecture::AppleM4 => Architecture::AppleM4,
+            | GpuArchitecture::AppleM5 => Architecture::AppleM5,
+            | GpuArchitecture::Other(s) => Architecture::Other(s),
+        }
+    }
+}
+
+impl From<String> for Architecture {
+    fn from(s: String) -> Self {
+        Architecture::from_str(&s)
     }
 }
 impl From<&SensorModality> for Modality {
@@ -1954,11 +1954,6 @@ impl<'de> Deserialize<'de> for Resource {
         deserializer.deserialize_any(ResourceVisitor)
     }
 }
-impl Validate for Resource {
-    fn validate(&self) -> Result<(), ValidationReport> {
-        validate_vendor(self)
-    }
-}
 impl Resource {
     fn is_spark(&self) -> bool {
         match self {
@@ -2114,6 +2109,11 @@ impl Resource {
             },
             | _ => None,
         }
+    }
+}
+impl Validate for Resource {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        validate_vendor(self)
     }
 }
 fn default_count() -> Option<u32> {

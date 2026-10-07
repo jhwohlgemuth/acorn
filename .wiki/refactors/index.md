@@ -12,7 +12,6 @@
 
 ## Planned groups and independent work
 
-- [Portable analysis and service boundary](core/acorn-service-boundary.md) - Extract `acorn-analysis` and `acorn-service` together, then serve the shared operations through JSON-RPC and typed gRPC.
 - [Portable diff resource and API hardening](acorn-diff-resource-and-api-hardening.md) - Bound diff work and output, complete the patch API, and add configurable unified and sequence-aware array behavior.
 - [ZON codec hardening](zon-codec-hardening.md) - Review the pinned encoder and decoder, consolidate duplicated grammar logic, and strengthen conformance evidence.
 - [CLI composition boundary](core/cli-composition-boundary.md) - Normalize parser inputs, isolate startup, share remote serve dispatch, and map errors/exits once.

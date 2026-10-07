@@ -4,7 +4,7 @@ mod automation;
 #[cfg(feature = "exec")]
 use crate::cli::parse::parse_hook_input;
 #[cfg(feature = "exec")]
-use acorn::analyzer::Check;
+use acorn::analyzer::host::render::CheckRender;
 #[cfg(feature = "exec")]
 use acorn::exec::config::Resolved;
 #[cfg(feature = "exec")]
@@ -15,6 +15,8 @@ use acorn::exec::manifest::{ScriptManifest, ScriptManifestSource};
 use acorn::io::config::application::Hook;
 #[cfg(feature = "exec")]
 use acorn::io::workflow::WorkflowAction;
+#[cfg(feature = "exec")]
+use acorn_analysis::Check;
 #[cfg(feature = "exec")]
 use acorn_core::util::MimeType;
 #[cfg(feature = "exec")]

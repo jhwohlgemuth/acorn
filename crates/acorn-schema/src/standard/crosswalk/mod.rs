@@ -30,13 +30,12 @@
 //!
 //! # Field Mapping
 //!
-//! See [`field_map`] for the canonical intermediate representation.
+//! See [`mapping`] for the canonical intermediate representation.
 //! Field mappings are defined in submodules and reused across conversions.
 //!
 //! # Schema Extractors & Builders
 //!
-//! Each schema provides implementations of [`SchemaExtractor`] and [`SchemaBuilder`]
-//! in the [`extractors`] and [`builders`] submodules.
+//! Each schema provides implementations of [`SchemaExtractor`] and [`SchemaBuilder`] in its standard-specific module.
 use acorn_core::prelude::alloc::{format, String, Vec};
 use core::fmt;
 use schemars::JsonSchema;

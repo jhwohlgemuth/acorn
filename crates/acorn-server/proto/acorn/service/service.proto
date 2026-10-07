@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package acorn.service;
+
+// Typed application service over caller-supplied data.
+service AcornService {
+  // Validate supplied Research Activity Data.
+  rpc ValidateResearchActivity(ValidateResearchActivityRequest) returns (ValidateResearchActivityResponse);
+  // Calculate one readability metric.
+  rpc CheckReadability(CheckReadabilityRequest) returns (CheckReadabilityResponse);
+  // Process an immutable repository snapshot into a change proposal.
+  rpc ProcessRepository(ProcessRepositoryRequest) returns (ProcessRepositoryResponse);
+}
+
+enum DataFormat {
+  DATA_FORMAT_UNSPECIFIED = 0;
+  DATA_FORMAT_JSON = 1;
+  DATA_FORMAT_JSONC = 2;
+  DATA_FORMAT_MARKDOWN = 3;
+  DATA_FORMAT_YAML = 4;
+  DATA_FORMAT_ZON = 5;
+  DATA_FORMAT_CFF = 6;
+}
+
+enum ReadabilityMetric {
+  READABILITY_METRIC_UNSPECIFIED = 0;
+  READABILITY_METRIC_ARI = 1;
+  READABILITY_METRIC_CLI = 2;
+  READABILITY_METRIC_FKGL = 3;
+  READABILITY_METRIC_FRES = 4;
+  READABILITY_METRIC_GFI = 5;
+  READABILITY_METRIC_LIX = 6;
+  READABILITY_METRIC_SMOG = 7;
+}
+
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_ERROR = 1;
+  SEVERITY_INFO = 2;
+  SEVERITY_SUGGESTION = 3;
+  SEVERITY_WARNING = 4;
+}
+
+enum RepositoryAction {
+  REPOSITORY_ACTION_UNSPECIFIED = 0;
+  REPOSITORY_ACTION_CHECK = 1;
+  REPOSITORY_ACTION_ENRICH = 2;
+  REPOSITORY_ACTION_FORMAT = 3;
+  REPOSITORY_ACTION_LINK = 4;
+  REPOSITORY_ACTION_VALIDATE = 5;
+}
+
+enum FileChangeKind {
+  FILE_CHANGE_KIND_UNSPECIFIED = 0;
+  FILE_CHANGE_KIND_CREATE = 1;
+  FILE_CHANGE_KIND_UPDATE = 2;
+}
+
+message Diagnostic {
+  string code = 1;
+  string message = 2;
+  optional string path = 3;
+  Severity severity = 4;
+}
+
+message ValidateResearchActivityRequest {
+  string content = 1;
+  DataFormat format = 2;
+  optional string source_uri = 3;
+}
+
+message ValidateResearchActivityResponse {
+  repeated Diagnostic diagnostics = 1;
+  bool valid = 2;
+}
+
+message CheckReadabilityRequest {
+  string text = 1;
+  ReadabilityMetric metric = 2;
+  optional double threshold = 3;
+  optional string source_uri = 4;
+}
+
+message CheckReadabilityResponse {
+  bool acceptable = 1;
+  ReadabilityMetric metric = 2;
+  double value = 3;
+  double threshold = 4;
+  optional string source_uri = 5;
+}
+
+message RepositoryFileInput {
+  string path = 1;
+  string content = 2;
+  optional DataFormat format = 3;
+}
+
+message ProcessRepositoryRequest {
+  string project = 1;
+  string revision = 2;
+  repeated RepositoryAction actions = 3;
+  repeated RepositoryFileInput files = 4;
+}
+
+message WorkflowFileReport {
+  string path = 1;
+  DataFormat format = 2;
+  bool changed = 3;
+}
+
+message FileChange {
+  string path = 1;
+  string content = 2;
+  FileChangeKind kind = 3;
+}
+
+message ProcessRepositoryResponse {
+  string base_revision = 1;
+  repeated FileChange files = 2;
+  repeated WorkflowFileReport reports = 3;
+}

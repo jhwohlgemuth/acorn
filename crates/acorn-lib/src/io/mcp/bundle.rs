@@ -119,12 +119,11 @@ pub struct Manifest {
 }
 /// Source repository metadata in the MCPB manifest wire format.
 ///
-/// This remains distinct from [`acorn_core::location::Repository`], whose tagged
-/// location representation is intentionally incompatible with the MCPB schema.
+/// This remains distinct from [`acorn_core::Repository`], whose tagged location representation is intentionally incompatible with the MCPB schema.
 #[derive(bon::Builder, Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[builder(start_fn = init, on(String, into))]
 pub struct ManifestRepository {
-    /// Repository kind.
+    /// Repository kind
     #[serde(rename = "type")]
     pub kind: String,
     /// Repository URL.

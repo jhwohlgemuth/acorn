@@ -1,12 +1,13 @@
 //! Immutable analysis, execution, and reporting configuration
 use super::runtime::{StaticAnalyzer, StaticAnalyzerConfig};
 use super::vale::ValeConfig;
-use crate::analyzer::check::{OutputFormat, Standard};
 use crate::analyzer::readability::ReadabilityType;
 use crate::io::ApiResult;
 use acorn_core::options::{CommonRuntime, RuntimeOptions};
 use acorn_core::prelude::Vec;
+use acorn_core::util::MimeType;
 use acorn_schema::hardware::gpu;
+use acorn_schema::standard::Standard;
 use bon::Builder;
 use jiff::SignedDuration;
 
@@ -14,7 +15,21 @@ use jiff::SignedDuration;
 pub type ExecutionOptions = RuntimeOptions<ExecutionExtension>;
 /// Output and command failure policy applied after analysis.
 pub type ReportOptions = RuntimeOptions<ReportExtension>;
-
+/// Output format used by native check and discovery renderers.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum OutputFormat {
+    /// JavaScript Object Notation.
+    #[default]
+    Json,
+    /// GitHub-Flavored Markdown.
+    Markdown,
+    /// Plain-text values, one per line.
+    Raw,
+    /// Human-readable plain text.
+    Text,
+    /// YAML.
+    Yaml,
+}
 /// Complete context assembled by an analysis composition root.
 #[derive(Builder, Clone, Debug, Default)]
 #[builder(start_fn = init)]
@@ -118,6 +133,16 @@ impl ExecutionExtension {
     /// Return execution policy with analyzer synchronization disabled.
     pub fn without_sync(self) -> Self {
         Self { skip_sync: true, ..self }
+    }
+}
+impl From<&OutputFormat> for MimeType {
+    fn from(format: &OutputFormat) -> Self {
+        match format {
+            | OutputFormat::Json => Self::Json,
+            | OutputFormat::Markdown => Self::Markdown,
+            | OutputFormat::Raw | OutputFormat::Text => Self::Text,
+            | OutputFormat::Yaml => Self::Yaml,
+        }
     }
 }
 

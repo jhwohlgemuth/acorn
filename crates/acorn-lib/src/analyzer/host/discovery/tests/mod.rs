@@ -913,7 +913,7 @@ fn test_report_table_contains_only_discoveries() {
     let (headers, rows) = report.table();
     assert_eq!(headers, vec!["Type", "Value", "Status", "Source"]);
     assert_eq!(rows.len(), 1);
-    let console = report.serialize(OutputFormat::Console).unwrap_or_default();
+    let console = report.serialize(OutputFormat::Text).unwrap_or_default();
     assert!(console.contains("10.1234/example"));
     assert!(!console.contains("schema: example"));
 }

@@ -1,19 +1,19 @@
 //! Runtime registration and execution for ACORN agent MCP tools
 mod needle;
 
-#[cfg(feature = "analysis")]
-use crate::analyzer::Standard;
 use crate::error::ApiResult;
 use crate::io::database::schema::Table;
 use crate::io::database::{Database, LogbookGraduationPersistence};
 use crate::io::enrichment::{Enrich, Pipeline};
+#[cfg(feature = "analysis")]
+use acorn_analysis::StandardCrosswalk;
 use acorn_core::prelude::{Box, String, Vec};
 use acorn_core::util::{MarkdownSupport, MimeType};
 use acorn_core::Location;
 use acorn_schema::agent::tools::{ToolDefinition, ToolExposure, ToolResult};
 use acorn_schema::research_activity::{GraduationCandidates, ResearchActivity};
 #[cfg(feature = "analysis")]
-use acorn_schema::standard::crosswalk::CrosswalkStandard;
+use acorn_schema::standard::{crosswalk::CrosswalkStandard, Standard};
 use acorn_schema::validation::Validate;
 use alloc::sync::Arc;
 use color_eyre::eyre::{eyre, Report};
@@ -185,8 +185,8 @@ impl TryFrom<CrosswalkInput> for CrosswalkOutput {
         let input_format = input.input_format.unwrap_or(MimeType::Json);
         let output_format = input.output_format.unwrap_or(MimeType::Json);
         match (&input_format, &output_format) {
-            | (MimeType::Json | MimeType::Yaml | MimeType::Zon, MimeType::Json | MimeType::Yaml | MimeType::Zon) => Standard::from(input.source)
-                .crosswalk_with_warnings(&input.content, input_format, Standard::from(input.target), output_format)
+            | (MimeType::Json | MimeType::Yaml | MimeType::Zon, MimeType::Json | MimeType::Yaml | MimeType::Zon) => standard_from(input.source)
+                .crosswalk_with_warnings(&input.content, input_format, standard_from(input.target), output_format)
                 .map(|conversion| {
                     let (content, warnings) = conversion.into_parts();
                     Self {
@@ -223,17 +223,6 @@ impl FormatAndEnrichInput {
                 conflicts: result.conflicts,
                 failures: result.failures,
             })
-    }
-}
-#[cfg(feature = "analysis")]
-impl From<CrosswalkStandard> for Standard {
-    fn from(standard: CrosswalkStandard) -> Self {
-        match standard {
-            | CrosswalkStandard::Datacite => Self::Datacite,
-            | CrosswalkStandard::Dcat => Self::Dcat,
-            | CrosswalkStandard::Huwise => Self::Huwise,
-            | CrosswalkStandard::Invenio => Self::Invenio,
-        }
     }
 }
 impl Tool<Unregistered> {
@@ -561,5 +550,14 @@ impl<T: Validate> TryFrom<ValidationInput<T>> for ValidationOutput {
                 errors: report.iter().map(ToString::to_string).collect(),
             },
         })
+    }
+}
+#[cfg(feature = "analysis")]
+fn standard_from(standard: CrosswalkStandard) -> Standard {
+    match standard {
+        | CrosswalkStandard::Datacite => Standard::Datacite,
+        | CrosswalkStandard::Dcat => Standard::Dcat,
+        | CrosswalkStandard::Huwise => Standard::Huwise,
+        | CrosswalkStandard::Invenio => Standard::Invenio,
     }
 }

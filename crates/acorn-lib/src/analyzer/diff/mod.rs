@@ -1,17 +1,27 @@
 //! Same-standard semantic comparison for supplied ACORN content
-use super::Standard;
 use acorn_core::util::{MarkdownSupport, MimeType};
 use acorn_diff::{unified_diff, DiffValue, JsonPatch};
 use acorn_schema::{
     modelkit::kitfile::Kitfile,
     pid::raid,
     research_activity::ResearchActivity,
-    standard::{cff, datacite, dcat, huwise, invenio, zon},
+    standard::{cff, datacite, dcat, huwise, invenio, zon, Standard},
 };
 use core::{error::Error, fmt};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 
+trait StandardDiffExt {
+    fn canonical(self, input: &DiffInput<'_>) -> Result<Value, SemanticDiffError>;
+    fn detect(input: &DiffInput<'_>) -> Result<Self, SemanticDiffError>
+    where
+        Self: Sized;
+    fn detect_value(value: &Value) -> Option<Self>
+    where
+        Self: Sized;
+    fn render(self, value: &Value, media_type: &MimeType) -> Result<String, SemanticDiffError>;
+    fn render_pair(self, before: &Value, after: &Value, media_type: &MimeType) -> Result<(String, String), SemanticDiffError>;
+}
 /// Semantic diff representation to produce.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum DiffFormat {
@@ -164,7 +174,7 @@ impl fmt::Display for SemanticDiffError {
         }
     }
 }
-impl Standard {
+impl StandardDiffExt for Standard {
     fn canonical(self, input: &DiffInput<'_>) -> Result<Value, SemanticDiffError> {
         match self {
             | Standard::CitationFileFormat => input.parse_typed::<cff::Cff>(),

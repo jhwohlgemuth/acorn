@@ -96,9 +96,12 @@ prepare-environment:
         - Dockerfile.rust
         - Makefile
         - crates/acorn-cli/Cargo.toml
+        - crates/acorn-analysis/Cargo.toml
         - crates/acorn-core/Cargo.toml
         - crates/acorn-lib/Cargo.toml
         - crates/acorn-schema/Cargo.toml
+        - crates/acorn-server/Cargo.toml
+        - crates/acorn-service/Cargo.toml
         - crates/acorn-wasm/Cargo.toml
         - scripts/install-zigbuild.sh
   script:
@@ -122,7 +125,7 @@ test:
     - command -v buf >/dev/null || (curl -fsSL "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-$(uname -m)" -o /usr/local/bin/buf && chmod +x /usr/local/bin/buf)
     - make test-ci
     - make check-host
-    - cargo package --no-verify --allow-dirty -p acorn-macros -p acorn-core -p acorn-diff -p acorn-cmd -p acorn-host -p acorn-schema
+    - cargo package --no-verify --allow-dirty -p acorn-macros -p acorn-core -p acorn-diff -p acorn-cmd -p acorn-host -p acorn-schema -p acorn-analysis -p acorn-service -p acorn-server
 
 test-portability:
   extends: .rust-test
@@ -141,11 +144,13 @@ test-portability:
         - Cargo.toml
         - Makefile
         - crates/acorn-core/**/*
+        - crates/acorn-analysis/**/*
         - crates/acorn-cmd/**/*
         - crates/acorn-diff/**/*
         - crates/acorn-host/**/*
         - crates/acorn-lib/**/*
         - crates/acorn-schema/**/*
+        - crates/acorn-service/**/*
         - crates/acorn-wasm/**/*
         - scripts/check-portable-dependencies.sh
         - tests/downstream-host/**/*

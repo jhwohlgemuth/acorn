@@ -15,6 +15,9 @@ This map records implementation dependencies among the active consolidated plans
  dual-protocol server  acorn-api boundary  Xylem integration   acorn-export boundary
        |
        v
+ OCI artifact checks
+       |
+       v
  CLI composition boundary
 ```
 
@@ -25,7 +28,7 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 ### Portable and extraction boundaries
 
 - [Outbound MCP client embedder interface](refactors/api/outbound-mcp-client-interface.md) builds on the landed narrow `mcp-client` graph. It owns direct server-map construction and bounded caller-driven cancellation while preserving the landed MCP configuration, policy, transport, and result contracts.
-- [Portable analysis and service boundary](refactors/core/acorn-service-boundary.md) builds on the landed dependency capability cleanup. Its first phase extracts `acorn-analysis` and the supplied-content `acorn-service` catalog together; its second phase hosts the catalog through JSON-RPC and typed gRPC in `acorn-server`.
+- [OCI model-artifact checks](features/oci-artifact-checks.md) follows the completed analysis/service boundary so it uses the final `Standard` owner and host-analysis composition. It then settles the remote check-source contract before CLI composition migrates command dispatch.
 - [Shared API client contract](refactors/api/shared-client-contract.md) prepares `acorn-api`; endpoint, request, resolved configuration, invocation, response, error, and provider policy move together only after its acceptance gates pass.
 - [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) prepares `acorn-export` by producing one pure projection and fallible in-memory transformations.
 - [CLI composition boundary](refactors/core/cli-composition-boundary.md) follows the stable service/server request and error contracts. Command leaves may normalize earlier only when they avoid shared CLI roots.
@@ -34,6 +37,7 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 ### Provider and acquisition work
 
 - [Model acquisition and metadata hardening](features/model-acquisition-hardening.md) consumes shared endpoint/authentication mechanics but owns Hugging Face identity, GGUF metadata, OCI package discrimination, and safe materialization.
+- OCI model-artifact checks consume the model-acquisition resolver and package policy without forking them. If model acquisition still owns `io/oci.rs` after the service boundary lands, its owner serializes the stage-tagged inspection refactor before check integration.
 - [Azure Cosmos bucket downloads](features/azure-cosmos-buckets.md) consumes the shared API policy and landed bucket-source/transfer contracts. It does not extend the repository enum or local database backend.
 - [dPID research-object support](features/dpid-research-object-support.md) lands portable parser and RO-Crate slices before resolver, gather, persistence, and CLI integration.
 - [Structured research-activity enrichment](refactors/core/research-activity-enrichment-integration.md) and dPID serialize on research-activity schema and standards roots.
@@ -53,7 +57,7 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 
 ### Reliability and operations
 
-- [Power Apps deployment validation](features/powerapps-gitlab-logbook-reporting.md) is an operational closeout over implemented code and can finish independently when deployment credentials and endpoints are available.
+- [Power Automate deployment validation](features/powerapps-gitlab-logbook-reporting.md) is an operational closeout over implemented code and can finish independently after its licensing, public-ingress, callback-policy, and pilot-mapping gates pass.
 - [Runner-pool isolation](refactors/ci-runner-pools.md) precedes claims that Rust/fuzz/reporting jobs are concurrently isolated. Its reporting pool supports the scheduled reporting workflow.
 - [Remote container creation](refactors/core/remote-create-container-targets.md) consumes normalized CLI requests when that boundary lands; leaf rollback/preflight work can proceed first.
 - [Podman Makefile migration](migrations/podman-makefile.md) changes development/release tooling only and must preserve product-level Docker and Podman support.
@@ -65,13 +69,13 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 | Surface | Plans that serialize |
 |---|---|
 | Workspace manifests and lockfile | analysis/service extraction, model acquisition, Cosmos, gather extraction, CEL, SLM, Miri/Creusot wiring |
-| Analyzer results, check orchestration, and module indexes | analysis/service extraction, CEL, gather inference, structured enrichment, diff, CLI coverage |
+| Analyzer results, check orchestration, and module indexes | analysis/service extraction, OCI artifact checks, CEL, gather inference, structured enrichment, diff, CLI coverage |
 | JSON-RPC registry, protobuf, and server lifecycle | analysis/service extraction; CLI composition consumes the finished server contract |
 | `io/api/mod.rs`, configuration roots, endpoint snapshots | shared API contract, dPID, Cosmos, model acquisition |
 | `io/mcp/client.rs`, outbound client tests and documentation | outbound MCP client interface; the landed feature graph and manifest boundary remain fixed |
 | Research-activity/PID schema roots | dPID, structured enrichment, PID verification |
-| `io/{archive,oci}.rs`, `io/model/gguf/`, and model planner | model acquisition, SLM/Needle artifact work |
-| CLI parser, `main.rs`, generated help | analysis/service serve cutover, CLI composition, dPID, gather, CEL, remote create, SLM |
+| `io/{archive,oci}.rs`, `io/model/gguf/`, and model planner | model acquisition, OCI artifact checks, SLM/Needle artifact work |
+| CLI parser, `main.rs`, generated help | analysis/service serve cutover, OCI artifact checks, CLI composition, dPID, gather, CEL, remote create, SLM |
 | Export dispatch/templates/PowerPoint | export pipeline, database-backed artifacts |
 | `Makefile` and `.gitlab-ci.yml` | runner pools, Podman, SLM, Needle, PID verification, export fuzzing |
 

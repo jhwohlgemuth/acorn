@@ -441,39 +441,6 @@ pub struct GitlabMergeRequestDiffResponse {
 pub struct Remote(Location);
 /// Struct for adding ToStringList functionality
 pub struct StringList<'a>(pub &'a Vec<PathBuf>);
-impl PathConversion for &Path {
-    fn cross_platform_display(&self) -> String {
-        <Path as PathConversion>::cross_platform_display(*self)
-    }
-}
-impl PathExt for &Path {
-    fn is_open_file(&self, file: &File) -> bool {
-        <Path as PathExt>::is_open_file(self, file)
-    }
-    fn to_gguf_parts(&self) -> Option<(String, u64, u64)> {
-        <Path as PathExt>::to_gguf_parts(self)
-    }
-    fn is_gguf(&self) -> bool {
-        <Path as PathExt>::is_gguf(self)
-    }
-    fn is_auxiliary_gguf(&self) -> bool {
-        <Path as PathExt>::is_auxiliary_gguf(self)
-    }
-    fn is_symlink(&self) -> bool {
-        <Path as PathExt>::is_symlink(self)
-    }
-    fn is_windows(&self) -> bool {
-        <Path as PathExt>::is_windows(self)
-    }
-    fn same_as(&self, other: &Path) -> bool {
-        <Path as PathExt>::same_as(self, other)
-    }
-}
-impl FileExtension for &str {
-    fn extension(&self) -> String {
-        self.to_ascii_lowercase()
-    }
-}
 impl ContainerTarget {
     /// Construct from optional host/context args.
     pub fn from_args(host: Option<Remote>, context: Option<String>) -> Option<Self> {
@@ -687,7 +654,7 @@ impl FileExtension for MimeType {
 impl FromPath for MimeType {
     /// Returns a [`MimeType`] value based on the file extension of the given file name.
     ///
-    /// Uses [`MimeType::from_string`].
+    /// The file extension is mapped to the corresponding MIME type.
     ///
     /// ```ignore
     /// use acorn_core::util::MimeType;
@@ -703,12 +670,40 @@ impl FromPath for MimeType {
         MimeType::from(value.as_ref().display().to_string())
     }
 }
+impl PathConversion for &Path {
+    fn cross_platform_display(&self) -> String {
+        <Path as PathConversion>::cross_platform_display(*self)
+    }
+}
 impl PathConversion for Path {
     fn cross_platform_display(&self) -> String {
         let value = self.display().to_string();
         #[cfg(windows)]
         let value = value.strip_prefix(r"\\?\").unwrap_or(&value).replace('/', "\\");
         value
+    }
+}
+impl PathExt for &Path {
+    fn is_open_file(&self, file: &File) -> bool {
+        <Path as PathExt>::is_open_file(self, file)
+    }
+    fn to_gguf_parts(&self) -> Option<(String, u64, u64)> {
+        <Path as PathExt>::to_gguf_parts(self)
+    }
+    fn is_gguf(&self) -> bool {
+        <Path as PathExt>::is_gguf(self)
+    }
+    fn is_auxiliary_gguf(&self) -> bool {
+        <Path as PathExt>::is_auxiliary_gguf(self)
+    }
+    fn is_symlink(&self) -> bool {
+        <Path as PathExt>::is_symlink(self)
+    }
+    fn is_windows(&self) -> bool {
+        <Path as PathExt>::is_windows(self)
+    }
+    fn same_as(&self, other: &Path) -> bool {
+        <Path as PathExt>::same_as(self, other)
     }
 }
 impl PathExt for Path {
@@ -847,6 +842,14 @@ impl core::str::FromStr for Remote {
         })
     }
 }
+impl<'de> Deserialize<'de> for Remote {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).and_then(|value| value.parse().map_err(serde::de::Error::custom))
+    }
+}
 impl fmt::Display for Remote {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(self.as_str())
@@ -868,14 +871,6 @@ impl Serialize for Remote {
         S: serde::Serializer,
     {
         serializer.serialize_str(self.as_str())
-    }
-}
-impl<'de> Deserialize<'de> for Remote {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        String::deserialize(deserializer).and_then(|value| value.parse().map_err(serde::de::Error::custom))
     }
 }
 impl FromCommand for SemanticVersion {
@@ -906,6 +901,11 @@ impl FromCommand for SemanticVersion {
 impl From<Executor> for std::ffi::OsString {
     fn from(value: Executor) -> Self {
         Self::from(value.to_string())
+    }
+}
+impl FileExtension for &str {
+    fn extension(&self) -> String {
+        self.to_ascii_lowercase()
     }
 }
 impl FileExtension for String {

@@ -152,7 +152,7 @@ pub enum Paradigm {
 /// Deep systems represent the deep quantum regime where entanglement is essential to the expected advantage, as in quantum simulation/computing.
 ///
 /// ### References
-/// [1] J. Kitching et al., "Independent Panel Report for Technical Assessment of NASA and External Quantum Sensing Capabilities," 2023.
+/// \[1\] J. Kitching et al., "Independent Panel Report for Technical Assessment of NASA and External Quantum Sensing Capabilities," 2023.
 #[derive(Clone, Debug, Default, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
 #[repr(u8)]
 pub enum Regime {

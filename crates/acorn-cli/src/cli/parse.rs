@@ -1,15 +1,19 @@
 //! Custom `value_parser` functions for clap that map CLI input strings
 //! directly to library enum variants, eliminating the need for proxy enums
 //! that existed solely to derive `ValueEnum`.
-use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{self, Standard};
 use acorn::io::config::application::Hook;
 use acorn::io::ApiResult;
 #[cfg(feature = "exec")]
 use acorn::io::{jsonc_parse_value, FromPath};
 use acorn::io::{Executor, Platform, Remote};
+use acorn_analysis as analyzer;
+use acorn_analysis::readability::ReadabilityType;
 use acorn_core::util::MimeType;
-use acorn_schema::{enrichment::Provider, standard::zon, OneOrMany};
+use acorn_schema::{
+    enrichment::Provider,
+    standard::{zon, Standard},
+    OneOrMany,
+};
 use color_eyre::eyre::{self, eyre};
 use jiff::SignedDuration;
 use serde_json;
@@ -115,17 +119,6 @@ fn infer_standard_from_value(path: &Path, root: Value) -> ApiResult<Standard> {
             path.display()
         )),
     }
-}
-fn unknown_standard(path: &Path, index: Option<usize>, line: Option<usize>) -> eyre::Report {
-    let location = match (index, line) {
-        | (Some(index), Some(line)) => format!("record at index {index} (line {line})"),
-        | (Some(index), None) => format!("record at index {index}"),
-        | _ => "object".to_string(),
-    };
-    eyre!(
-        "Unable to infer source schema for {} — unrecognized metadata {location}; pass --from explicitly",
-        path.display()
-    )
 }
 /// Parse a CLI check-category name into an `analyzer::CheckCategory` variant.
 pub(crate) fn parse_check_category(s: &str) -> Result<analyzer::CheckCategory, String> {
@@ -237,14 +230,14 @@ pub(crate) fn parse_ssh_remote(value: &str) -> Result<Remote, String> {
 pub(crate) fn parse_standard(s: &str) -> Result<Standard, String> {
     match s.to_lowercase().as_str() {
         | "acre" | "application-configuration-research-enablement" => Ok(Standard::ApplicationConfigurationResearchEnablement),
-        | "rads" | "research-activity-data" => Ok(Standard::ResearchActivityData),
+        | "rad" | "rads" | "research-activity-data" => Ok(Standard::ResearchActivityData),
         | "cff" => Ok(Standard::CitationFileFormat),
         | "ckan" => Ok(Standard::Ckan),
         | "datacite" => Ok(Standard::Datacite),
         | "dcat" => Ok(Standard::Dcat),
-        | "dcmi" => Ok(Standard::DublinCore),
+        | "dcmi" | "dublin-core" => Ok(Standard::DublinCore),
         | "document" | "docx" | "pdf" => Ok(Standard::Document),
-        | "invenio" => Ok(Standard::Invenio),
+        | "invenio" | "inveniordm" => Ok(Standard::Invenio),
         | "kitfile" => Ok(Standard::Kitfile),
         | "modelkit" => Ok(Standard::ModelKit),
         | "huwise" => Ok(Standard::Huwise),
@@ -252,7 +245,7 @@ pub(crate) fn parse_standard(s: &str) -> Result<Standard, String> {
         | "text" => Ok(Standard::Text),
         | _ => Err(format!(
             "unknown standard '{s}' — expected one of: \
-             acre, rads, cff, ckan, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text"
+             acre, rad/rads, cff, ckan, datacite, dcat, dcmi, document, invenio/inveniordm, huwise, kitfile, modelkit, raid, text"
         )),
     }
 }
@@ -263,4 +256,15 @@ pub(crate) fn parse_watch_duration(value: &str) -> Result<SignedDuration, String
             .then_some(duration)
             .ok_or_else(|| "duration must be greater than zero".to_string())
     })
+}
+fn unknown_standard(path: &Path, index: Option<usize>, line: Option<usize>) -> eyre::Report {
+    let location = match (index, line) {
+        | (Some(index), Some(line)) => format!("record at index {index} (line {line})"),
+        | (Some(index), None) => format!("record at index {index}"),
+        | _ => "object".to_string(),
+    };
+    eyre!(
+        "Unable to infer source schema for {} — unrecognized metadata {location}; pass --from explicitly",
+        path.display()
+    )
 }

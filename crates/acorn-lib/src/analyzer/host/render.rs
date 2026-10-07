@@ -1,37 +1,59 @@
 //! Native terminal rendering for analyzer results.
+use crate::analyzer::host::DocumentTargetQuery;
 use crate::{
     analyzer::{
-        check::{Check, CheckCategory, CheckKind, CheckSeverity, OutputFormat, Standard},
+        check::{Check, CheckCategory, CheckKind, CheckSeverity},
         error::{DocumentTarget, ErrorKind, ValidatorIssues},
         fix::FixPreviewDiagnostic,
-        host::context::ReportOptions,
-        model::ValeOutputItem,
+        host::{
+            context::{OutputFormat, ReportOptions},
+            vale::ValeSeverityRender,
+        },
+        vale::ValeOutputItem,
     },
-    io::{
-        config::application::ApplicationConfiguration,
-        document::{DocumentIndex, DocumentMatch, DocumentPath, DocumentPosition, DocumentQuery, DocumentSpan},
-    },
+    io::document::{DocumentIndex, DocumentMatch, DocumentPath, DocumentPosition, DocumentQuery, DocumentSpan},
     util::constants::MAX_LENGTH_REPORT_SPAN_PREFIX,
 };
 use acorn_core::prelude::{Arc, HashMap};
 use acorn_host::terminal::Label;
-use acorn_schema::{
-    modelkit::kitfile,
-    pid::raid::Metadata,
-    research_activity::ResearchActivity,
-    standard::{cff, ckan, datacite, dcat, huwise, invenio, text},
-};
 use ariadne::{Color, Config, IndexType, Report, ReportKind, Source};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
 use convert_case::{Case, Casing};
 use core::fmt;
-use schemars::schema_for;
 use tracing::info;
 
 /// Document indexes available to host renderers, keyed by display URI.
 #[cfg(any(feature = "analysis", feature = "std"))]
 pub type DocumentIndexes = HashMap<String, Arc<DocumentIndex>>;
+trait CheckKindRender {
+    fn link_row(&self, check: &Check) -> (String, String, String);
+}
+/// Native rendering operations for one portable analyzer check.
+pub trait CheckRender {
+    /// Resolve the source document associated with this check.
+    fn document_from<'a>(&self, documents: Option<&'a DocumentIndexes>) -> Option<&'a DocumentIndex>;
+    /// Resolve a display locator for a Vale finding.
+    fn prose_locator(&self, document: &DocumentIndex, item: &ValeOutputItem) -> Option<String>;
+    /// Resolve a source position for a Vale finding.
+    fn prose_position(&self, document: &DocumentIndex, item: &ValeOutputItem) -> Option<DocumentPosition>;
+    /// Resolve a source span for a Vale finding.
+    fn prose_span(&self, document: &DocumentIndex, item: &ValeOutputItem) -> Option<DocumentSpan>;
+    /// Render this check through the native diagnostic renderer.
+    fn report(&self, document: Option<&DocumentIndex>);
+    /// Resolve a portable locator against a concrete source document.
+    fn resolve_locator(self, document: &DocumentIndex) -> Self;
+    /// Render this check as one compact line.
+    fn terse(&self, document: Option<&DocumentIndex>) -> String;
+}
+pub(crate) trait CheckSeverityRender {
+    /// Convert portable severity to a host-only Ariadne color without coupling
+    /// `acorn-analysis` to the native rendering dependency.
+    fn ariadne_color(&self) -> Color;
+    fn colorize(&self, value: impl fmt::Display) -> String;
+    fn colored(&self) -> String;
+    fn report_kind(&self) -> ReportKind<'static>;
+}
 /// Renders analyzer checks using native terminal facilities.
 pub trait Render {
     /// Render checks in deterministic detailed or compact form.
@@ -56,6 +78,7 @@ pub struct RenderContext<'a> {
     /// Output and failure-reporting policy.
     pub options: &'a ReportOptions,
 }
+pub(crate) struct RenderedCheck<'a>(pub(crate) &'a Check);
 impl Render for [Check] {
     fn render(&self, context: RenderContext<'_>) {
         let RenderContext { documents, options } = context;
@@ -75,25 +98,25 @@ impl Render for [Check] {
                 check.locator.clone().unwrap_or_default().to_lowercase(),
             )
         });
-        if !options.common.quiet && options.extension.format == OutputFormat::Console && !sorted_checks.is_empty() {
+        if !options.common.quiet && options.extension.format == OutputFormat::Text && !sorted_checks.is_empty() {
             println!();
         }
         match (options.common.quiet, options.extension.format, options.extension.terse) {
-            | (false, OutputFormat::Console, true) => sorted_checks
+            | (false, OutputFormat::Text, true) => sorted_checks
                 .iter()
                 .for_each(|check| println!("{}", check.terse(check.document_from(documents)))),
-            | (false, OutputFormat::Console, false) => sorted_checks.into_iter().enumerate().for_each(|(index, check)| {
+            | (false, OutputFormat::Text, false) => sorted_checks.into_iter().enumerate().for_each(|(index, check)| {
                 let document = check.document_from(documents);
                 check.with_index(index).report(document);
             }),
             | (false, OutputFormat::Raw, _) if options.extension.verbosity.is_some_and(|level| level > 1) => {
-                sorted_checks.iter().for_each(|check| eprintln!("{check}"));
+                sorted_checks.iter().for_each(|check| eprintln!("{}", RenderedCheck(check)));
             }
             | _ => {}
         }
     }
 }
-impl Check {
+impl CheckRender for Check {
     #[cfg(any(feature = "analysis", feature = "std"))]
     fn document_from<'a>(&self, documents: Option<&'a DocumentIndexes>) -> Option<&'a DocumentIndex> {
         self.uri
@@ -103,7 +126,7 @@ impl Check {
     }
     /// Fancy output in contrast with more compressed output of Display impl
     #[cfg(any(feature = "analysis", feature = "std"))]
-    pub fn report(&self, document: Option<&DocumentIndex>) {
+    fn report(&self, document: Option<&DocumentIndex>) {
         let index = self.index;
         let Check {
             category,
@@ -125,21 +148,21 @@ impl Check {
                     let source_text = context.as_deref().unwrap_or(&message).to_string();
                     let source = Source::from(source_text.clone());
                     let span = 0..=source_text.len().saturating_sub(1);
-                    let _ = Report::build(severity.clone().into(), (title, 1..=1))
+                    let _ = Report::build(severity.report_kind(), (title, 1..=1))
                         .with_code(index)
                         .with_config(Config::default().with_compact(false))
                         .with_message(locator.clone().unwrap_or("Resolution".to_string()))
                         .with_label(
                             ariadne::Label::new((title, span))
                                 .with_message(message.italic())
-                                .with_color(severity.clone().into()),
+                                .with_color(severity.ariadne_color()),
                         )
                         .finish()
                         .print((title, source));
                 }
                 | CheckKind::Standard => {
                     let title = uri.clone().unwrap_or_else(|| "index.json".to_string());
-                    let kind: ReportKind<'static> = severity.clone().into();
+                    let kind = severity.report_kind();
                     let code = match status_code.as_ref() {
                         | Some(value) if !value.is_empty() => format!(" ({value})").dimmed().to_string(),
                         | None | Some(_) => "".to_string(),
@@ -162,7 +185,7 @@ impl Check {
                         .kind(kind)
                         .heading(heading)
                         .message(format!("{}{code}", message.italic()))
-                        .color(severity.clone().into())
+                        .color(severity.ariadne_color())
                         .build();
                     let rendered = document.is_some_and(|document| document.print(&query, report));
                     if !rendered {
@@ -180,10 +203,10 @@ impl Check {
                         let report = DocumentReport::init()
                             .title(&title)
                             .index(index.saturating_add(i))
-                            .kind(severity.into())
+                            .kind(severity.report_kind())
                             .heading(check)
                             .message(message.italic().to_string())
-                            .color(severity.into())
+                            .color(severity.ariadne_color())
                             .build();
                         let rendered = document
                             .zip(document.and_then(|document| self.prose_span(document, item)))
@@ -207,10 +230,10 @@ impl Check {
                     let report = DocumentReport::init()
                         .title(title)
                         .index(index)
-                        .kind(severity.clone().into())
+                        .kind(severity.report_kind())
                         .heading(&heading)
                         .message(finding.remediation.italic().to_string())
-                        .color(severity.clone().into())
+                        .color(severity.ariadne_color())
                         .build();
                     let rendered = document.is_some_and(|document| document.print(&query, report));
                     if !rendered {
@@ -278,14 +301,14 @@ impl Check {
                                 let report = DocumentReport::init()
                                     .title(&title)
                                     .index(index.saturating_add(issue_index))
-                                    .kind(severity.clone().into())
+                                    .kind(severity.report_kind())
                                     .heading(&locator)
-                                    .message(issue.message.italic().to_string())
-                                    .color(severity.clone().into())
+                                    .message(issue.message().italic().to_string())
+                                    .color(severity.ariadne_color())
                                     .build();
                                 let rendered = document.is_some_and(|document| document.print(&query, report));
                                 if !rendered {
-                                    print_unlocated(index.saturating_add(issue_index), &severity, &locator, issue.message.clone());
+                                    print_unlocated(index.saturating_add(issue_index), &severity, &locator, issue.message().to_string());
                                 }
                             });
                     }
@@ -303,23 +326,14 @@ impl Check {
             }
         }
     }
-    #[cfg(not(any(feature = "analysis", feature = "std")))]
-    pub fn report(&self) {
-        // Portable fallback without document rendering or Vale/HTTP
-        tracing::info!(category = %self.category, uri = ?self.uri, message = %self.message, "check report");
-    }
     #[cfg(any(feature = "analysis", feature = "std"))]
-    pub(crate) fn resolve_locator(self, document: &DocumentIndex) -> Self {
+    fn resolve_locator(self, document: &DocumentIndex) -> Self {
         let prose_locators = match (&self.category, &self.errors) {
             | (CheckCategory::Prose, Some(ErrorKind::Vale(values))) => values.iter().map(|item| self.prose_locator(document, item)).collect(),
             | _ => self.prose_locators.clone(),
         };
         let locator = prose_locators.first().cloned().flatten().or_else(|| self.locator.clone());
-        Self {
-            locator,
-            prose_locators,
-            ..self
-        }
+        self.with_locator(locator).with_prose_locators(prose_locators)
     }
     #[cfg(any(feature = "analysis", feature = "std"))]
     fn prose_locator(&self, document: &DocumentIndex, item: &ValeOutputItem) -> Option<String> {
@@ -341,7 +355,7 @@ impl Check {
         }
     }
     #[cfg(any(feature = "analysis", feature = "std"))]
-    pub(crate) fn terse(&self, document: Option<&DocumentIndex>) -> String {
+    fn terse(&self, document: Option<&DocumentIndex>) -> String {
         let uri = self.uri.as_deref().unwrap_or_default();
         let positions = document.map_or_else(Vec::new, |document| match (&self.category, &self.kind, &self.errors) {
             | (CheckCategory::Link, CheckKind::Standard, _) => {
@@ -364,7 +378,8 @@ impl Check {
             }
             | _ => Vec::new(),
         });
-        self.to_string()
+        RenderedCheck(self)
+            .to_string()
             .split('\n')
             .enumerate()
             .map(|(index, row)| {
@@ -378,7 +393,117 @@ impl Check {
             .join("\n")
     }
 }
-impl fmt::Display for Check {
+impl CheckKindRender for CheckKind {
+    fn link_row(&self, check: &Check) -> (String, String, String) {
+        let Check {
+            severity,
+            context,
+            locator,
+            status_code,
+            message,
+            ..
+        } = check;
+        let details = if self.is_lifecycle() {
+            context
+                .as_ref()
+                .map_or_else(|| message.clone(), |context| format!("{message} {}", context.dimmed()))
+        } else {
+            let code = match status_code {
+                | Some(value) if !value.is_empty() => format!(" ({value})").dimmed().to_string(),
+                | None | Some(_) => "".to_string(),
+            };
+            let context = context
+                .as_ref()
+                .map(|value| value.to_string().underline().italic().to_string())
+                .unwrap_or_else(|| "Missing".to_string());
+            format!("{context} {}{code}", message.dimmed())
+        };
+        (locator.clone().unwrap_or_default(), severity.colored(), details)
+    }
+}
+impl CheckSeverityRender for CheckSeverity {
+    fn ariadne_color(&self) -> Color {
+        match self {
+            | Self::Error => Color::Red,
+            | Self::Info => Color::Cyan,
+            | Self::Suggestion => Color::Blue,
+            | Self::Warning => Color::Yellow,
+        }
+    }
+    fn colorize(&self, value: impl fmt::Display) -> String {
+        match self {
+            | Self::Error => value.red().to_string(),
+            | Self::Info => value.cyan().to_string(),
+            | Self::Suggestion => value.blue().to_string(),
+            | Self::Warning => value.yellow().to_string(),
+        }
+    }
+    /// Returns a colored string representation of the severity level
+    fn colored(&self) -> String {
+        match self {
+            | Self::Error => self.to_string().red().bold().to_string(),
+            | Self::Info => self.to_string().cyan().bold().to_string(),
+            | Self::Suggestion => self.to_string().blue().bold().to_string(),
+            | Self::Warning => self.to_string().yellow().bold().to_string(),
+        }
+    }
+    fn report_kind(&self) -> ReportKind<'static> {
+        match self {
+            | CheckSeverity::Error => ReportKind::Error,
+            | CheckSeverity::Info => ReportKind::Custom("Info", Color::Cyan),
+            | CheckSeverity::Suggestion => ReportKind::Custom("Suggestion", Color::Blue),
+            | CheckSeverity::Warning => ReportKind::Warning,
+        }
+    }
+}
+impl DocumentIndex {
+    fn print(&self, query: &DocumentQuery, report: DocumentReport<'_>) -> bool {
+        match self.resolve(query) {
+            | DocumentMatch::Unique(span) => self.print_span(&span, report),
+            | DocumentMatch::Missing | DocumentMatch::Ambiguous => false,
+        }
+    }
+    fn print_span(&self, span: &DocumentSpan, report: DocumentReport<'_>) -> bool {
+        self.excerpt(span, MAX_LENGTH_REPORT_SPAN_PREFIX).is_some_and(|excerpt| {
+            let page = self.page_number(span.0.start);
+            let DocumentSpan(span) = excerpt.span;
+            let source = Source::from(excerpt.content);
+            let message = match page {
+                | Some(page) => format!("{} (PDF page {page})", report.message),
+                | None => report.message,
+            };
+            let _ = Report::build(report.kind, (report.title, span.clone()))
+                .with_code(report.index)
+                .with_config(Config::default().with_compact(false).with_index_type(IndexType::Byte))
+                .with_message(report.heading)
+                .with_label(ariadne::Label::new((report.title, span)).with_message(message).with_color(report.color))
+                .finish()
+                .print((report.title, source));
+            true
+        })
+    }
+}
+#[cfg(any(feature = "analysis", feature = "std"))]
+impl<'a> RenderContext<'a> {
+    /// Create a rendering context without source indexes.
+    pub fn new(options: &'a ReportOptions) -> Self {
+        Self { documents: None, options }
+    }
+    /// Create a rendering context with source indexes.
+    pub fn with_documents(options: &'a ReportOptions, documents: &'a DocumentIndexes) -> Self {
+        Self {
+            documents: Some(documents),
+            options,
+        }
+    }
+}
+impl core::ops::Deref for RenderedCheck<'_> {
+    type Target = Check;
+    fn deref(&self) -> &Self::Target {
+        self.0
+    }
+}
+impl fmt::Display for RenderedCheck<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         const INDENT: &str = " ";
         const COL_ONE_WIDTH: usize = 28;
@@ -454,7 +579,7 @@ impl fmt::Display for Check {
             | CheckCategory::Readability => {
                 let Check {
                     errors, message, severity, ..
-                } = self;
+                } = self.0;
                 match &errors {
                     | Some(ErrorKind::Readability(_)) => {
                         let details = format!("Simplify language for a general audience {}", message.dimmed());
@@ -474,13 +599,18 @@ impl fmt::Display for Check {
                         message,
                         severity,
                         ..
-                    } = self;
+                    } = self.0;
                     let prefix = context.as_deref().or(locator.as_deref()).unwrap_or(message.as_str());
                     let rows = ValidatorIssues::from(report.clone()).with_prefix(prefix);
                     let last = rows.len().saturating_sub(1);
                     rows.iter().enumerate().try_for_each(|(index, issue)| {
                         let location = issue.locator();
-                        let details = format!("{} {}{}", issue.message, "code=".dimmed(), issue.code.to_string().to_uppercase().dimmed());
+                        let details = format!(
+                            "{} {}{}",
+                            issue.message(),
+                            "code=".dimmed(),
+                            issue.code().to_string().to_uppercase().dimmed()
+                        );
                         f.write_fmt(format_args!("{}", format_row(location, severity.colored(), details)))
                             .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
                     })
@@ -509,134 +639,6 @@ impl fmt::Display for Check {
         }
     }
 }
-impl CheckKind {
-    fn link_row(&self, check: &Check) -> (String, String, String) {
-        let Check {
-            severity,
-            context,
-            locator,
-            status_code,
-            message,
-            ..
-        } = check;
-        let details = if self.is_lifecycle() {
-            context
-                .as_ref()
-                .map_or_else(|| message.clone(), |context| format!("{message} {}", context.dimmed()))
-        } else {
-            let code = match status_code {
-                | Some(value) if !value.is_empty() => format!(" ({value})").dimmed().to_string(),
-                | None | Some(_) => "".to_string(),
-            };
-            let context = context
-                .as_ref()
-                .map(|value| value.to_string().underline().italic().to_string())
-                .unwrap_or_else(|| "Missing".to_string());
-            format!("{context} {}{code}", message.dimmed())
-        };
-        (locator.clone().unwrap_or_default(), severity.colored(), details)
-    }
-}
-impl CheckSeverity {
-    fn colorize(&self, value: impl fmt::Display) -> String {
-        match self {
-            | Self::Error => value.red().to_string(),
-            | Self::Info => value.cyan().to_string(),
-            | Self::Suggestion => value.blue().to_string(),
-            | Self::Warning => value.yellow().to_string(),
-        }
-    }
-    /// Returns a colored string representation of the severity level
-    pub fn colored(&self) -> String {
-        match self {
-            | Self::Error => self.to_string().red().bold().to_string(),
-            | Self::Info => self.to_string().cyan().bold().to_string(),
-            | Self::Suggestion => self.to_string().blue().bold().to_string(),
-            | Self::Warning => self.to_string().yellow().bold().to_string(),
-        }
-    }
-}
-impl From<CheckSeverity> for Color {
-    fn from(value: CheckSeverity) -> Self {
-        match value {
-            | CheckSeverity::Error => Color::Red,
-            | CheckSeverity::Info => Color::Cyan,
-            | CheckSeverity::Suggestion => Color::Blue,
-            | CheckSeverity::Warning => Color::Yellow,
-        }
-    }
-}
-impl DocumentIndex {
-    fn print(&self, query: &DocumentQuery, report: DocumentReport<'_>) -> bool {
-        match self.resolve(query) {
-            | DocumentMatch::Unique(span) => self.print_span(&span, report),
-            | DocumentMatch::Missing | DocumentMatch::Ambiguous => false,
-        }
-    }
-    fn print_span(&self, span: &DocumentSpan, report: DocumentReport<'_>) -> bool {
-        self.excerpt(span, MAX_LENGTH_REPORT_SPAN_PREFIX).is_some_and(|excerpt| {
-            let page = self.page_number(span.0.start);
-            let DocumentSpan(span) = excerpt.span;
-            let source = Source::from(excerpt.content);
-            let message = match page {
-                | Some(page) => format!("{} (PDF page {page})", report.message),
-                | None => report.message,
-            };
-            let _ = Report::build(report.kind, (report.title, span.clone()))
-                .with_code(report.index)
-                .with_config(Config::default().with_compact(false).with_index_type(IndexType::Byte))
-                .with_message(report.heading)
-                .with_label(ariadne::Label::new((report.title, span)).with_message(message).with_color(report.color))
-                .finish()
-                .print((report.title, source));
-            true
-        })
-    }
-}
-#[cfg(any(feature = "analysis", feature = "std"))]
-impl<'a> RenderContext<'a> {
-    /// Create a rendering context without source indexes.
-    pub fn new(options: &'a ReportOptions) -> Self {
-        Self { documents: None, options }
-    }
-    /// Create a rendering context with source indexes.
-    pub fn with_documents(options: &'a ReportOptions, documents: &'a DocumentIndexes) -> Self {
-        Self {
-            documents: Some(documents),
-            options,
-        }
-    }
-}
-impl From<CheckSeverity> for ReportKind<'_> {
-    fn from(value: CheckSeverity) -> Self {
-        match value {
-            | CheckSeverity::Error => ReportKind::Error,
-            | CheckSeverity::Info => ReportKind::Custom("Info", Color::Cyan),
-            | CheckSeverity::Suggestion => ReportKind::Custom("Suggestion", Color::Blue),
-            | CheckSeverity::Warning => ReportKind::Warning,
-        }
-    }
-}
-impl Standard {
-    /// Print JSON or YAML schema for this standard to stdout
-    #[cfg(any(feature = "analysis", feature = "std"))]
-    pub fn to_schema(&self, format: &str) {
-        match *self {
-            | Standard::ApplicationConfigurationResearchEnablement => print_schema::<ApplicationConfiguration>(format),
-            | Standard::ResearchActivityData => ResearchActivity::to_schema(format),
-            | Standard::Raid => Metadata::to_schema(format),
-            | Standard::CitationFileFormat => print_schema::<cff::Cff>(format),
-            | Standard::Ckan => print_schema::<ckan::Package>(format),
-            | Standard::Datacite => print_schema::<datacite::Record>(format),
-            | Standard::Dcat => print_schema::<dcat::Dataset>(format),
-            | Standard::Huwise => print_schema::<huwise::Dataset>(format),
-            | Standard::Invenio => print_schema::<invenio::Record>(format),
-            | Standard::Kitfile | Standard::ModelKit => print_schema::<kitfile::Kitfile>(format),
-            | Standard::Document | Standard::Text => print_schema::<text::Text>(format),
-            | Standard::DublinCore => eprintln!("Schema generation not supported for Dublin Core (no schema defined)"),
-        }
-    }
-}
 impl Render for Vec<FixPreviewDiagnostic> {
     fn render(&self, _context: RenderContext<'_>) {
         self.iter().for_each(|diagnostic| match &diagnostic.target {
@@ -644,16 +646,6 @@ impl Render for Vec<FixPreviewDiagnostic> {
             | None => eprintln!("{} — {}", diagnostic.summary, diagnostic.message),
         });
     }
-}
-/// Print JSON or YAML schema for type `T` to stdout
-#[cfg(any(feature = "analysis", feature = "std"))]
-fn print_schema<T: schemars::JsonSchema>(format: &str) {
-    let schema = schema_for!(T);
-    let output = match format.to_lowercase().as_str() {
-        | "yaml" | "yml" => serde_norway::to_string(&schema).unwrap_or_default(),
-        | _ => serde_json::to_string_pretty(&schema).unwrap_or_default(),
-    };
-    println!("{output}");
 }
 fn print_unlocated(index: usize, severity: &CheckSeverity, heading: &str, message: String) {
     let name = severity.to_string().to_case(Case::Title);

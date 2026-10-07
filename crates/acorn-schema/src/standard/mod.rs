@@ -3,8 +3,10 @@ use crate::validation::{rules, IntoValidationReport, Validate, ValidationReport}
 use acorn_core::prelude::alloc::{String, ToString};
 use acorn_core::validation::ValidationError;
 use bon::Builder;
+use derive_more::Display;
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::{Map, Value};
 use serde_trim::{option_string_trim, string_trim};
 use serde_with::skip_serializing_none;
 
@@ -20,8 +22,6 @@ pub mod dublin_core;
 pub mod huwise;
 pub mod invenio;
 pub mod ocp;
-#[cfg(all(test, feature = "std"))]
-mod tests;
 pub mod text;
 pub mod zon;
 
@@ -68,6 +68,54 @@ pub enum ContributionKind {
     TestedConfiguration,
     /// White paper.
     WhitePaper,
+}
+/// Metadata standard used to gate parsing, validation, conversion, and schema export.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Display, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Standard {
+    /// Application Configuration for Research Enablement (ACRE).
+    #[display("application-configuration-research-enablement")]
+    ApplicationConfigurationResearchEnablement,
+    /// Citation File Format (CFF).
+    #[display("citation-file-format")]
+    CitationFileFormat,
+    /// Comprehensive Knowledge Archive Network (CKAN).
+    #[display("ckan")]
+    Ckan,
+    /// DataCite.
+    #[display("datacite")]
+    Datacite,
+    /// Data Catalog Vocabulary (DCAT).
+    #[display("dcat")]
+    Dcat,
+    /// Document-derived text.
+    #[display("document")]
+    Document,
+    /// Dublin Core.
+    #[display("dublin-core")]
+    DublinCore,
+    /// HuWise.
+    #[display("huwise")]
+    Huwise,
+    /// InvenioRDM.
+    #[display("invenio")]
+    Invenio,
+    /// KitOps authoring Kitfile.
+    #[display("kitfile")]
+    Kitfile,
+    /// Resolved KitOps ModelKit configuration.
+    #[display("modelkit")]
+    ModelKit,
+    /// Research Activity Identifier metadata (RAiD).
+    #[display("raid")]
+    Raid,
+    /// Research Activity Data (RAD).
+    #[default]
+    #[display("research-activity-data")]
+    ResearchActivityData,
+    /// Plain text.
+    #[display("text")]
+    Text,
 }
 /// Relationship between a subject and a referenced standard or contribution.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, Ord, PartialEq, PartialOrd, Serialize)]
@@ -130,17 +178,6 @@ pub struct StandardsClaim {
     #[serde(default, deserialize_with = "option_string_trim")]
     pub evidence_uri: Option<String>,
 }
-impl StandardsClaim {
-    fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
-        match (&self.assessment, &self.evidence_uri) {
-            | (ClaimAssessment::Verified, None) => ValidationError::new("evidence_required")
-                .with_message("Verified standards claims require evidenceUri")
-                .into_report("evidence_uri")
-                .finish(),
-            | _ => Ok(()),
-        }
-    }
-}
 impl<'de> Deserialize<'de> for ContributionKind {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         String::deserialize(deserializer).map(Self::from)
@@ -191,3 +228,68 @@ impl Validate for ContributionKind {
         }
     }
 }
+impl From<&Map<String, Value>> for Standard {
+    fn from(object: &Map<String, Value>) -> Self {
+        Self::detect_object(object).unwrap_or(Self::Dcat)
+    }
+}
+impl Standard {
+    /// Strictly detect a supported metadata standard from a JSON object.
+    pub fn detect_object(object: &Map<String, Value>) -> Option<Self> {
+        if object.contains_key("cff-version") {
+            Some(Self::CitationFileFormat)
+        } else if object.contains_key("success") && is_ckan(object) {
+            Some(Self::Ckan)
+        } else if object.get("@type").and_then(Value::as_str).is_some_and(|value| value.contains("dcat:")) {
+            Some(Self::Dcat)
+        } else if object.contains_key("dataset_id") && object.contains_key("metas") {
+            Some(Self::Huwise)
+        } else if object.contains_key("attributes") && object.contains_key("id") {
+            Some(Self::Datacite)
+        } else if object.contains_key("manifestVersion") && object.values().any(contains_layer_identity) {
+            Some(Self::ModelKit)
+        } else if object.contains_key("manifestVersion") {
+            Some(Self::Kitfile)
+        } else if object.contains_key("contact") && object.contains_key("meta") && object.contains_key("title") {
+            Some(Self::ResearchActivityData)
+        } else if object.contains_key("access") && object.contains_key("contributor") && object.contains_key("date") && object.contains_key("title") {
+            Some(Self::Raid)
+        } else if object.contains_key("metadata") || object.contains_key("pids") || object.contains_key("resource_type") {
+            Some(Self::Invenio)
+        } else if is_ckan(object) {
+            Some(Self::Ckan)
+        } else {
+            None
+        }
+    }
+}
+impl StandardsClaim {
+    fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
+        match (&self.assessment, &self.evidence_uri) {
+            | (ClaimAssessment::Verified, None) => ValidationError::new("evidence_required")
+                .with_message("Verified standards claims require evidenceUri")
+                .into_report("evidence_uri")
+                .finish(),
+            | _ => Ok(()),
+        }
+    }
+}
+fn contains_layer_identity(value: &Value) -> bool {
+    match value {
+        | Value::Object(object) => object.contains_key("digest") || object.contains_key("diffId") || object.values().any(contains_layer_identity),
+        | Value::Array(values) => values.iter().any(contains_layer_identity),
+        | _ => false,
+    }
+}
+fn is_ckan(object: &Map<String, Value>) -> bool {
+    let package = object.contains_key("id")
+        && object.contains_key("name")
+        && object.contains_key("title")
+        && ["metadata_created", "metadata_modified", "resources", "tags"]
+            .into_iter()
+            .any(|field| object.contains_key(field));
+    package || object.get("success").and_then(Value::as_bool).is_some() && object.get("result").and_then(Value::as_object).is_some_and(is_ckan)
+}
+
+#[cfg(all(test, feature = "std"))]
+mod tests;

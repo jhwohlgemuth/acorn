@@ -3,7 +3,7 @@ use super::capability::InvocationCapability;
 use super::manifest::ResourceLimits;
 use super::parse_version_header;
 use crate::analyzer::{Check, CheckCategory};
-use crate::{check_err, check_ok};
+use acorn_analysis::{check_err, check_ok};
 use acorn_core::prelude::{String, Vec};
 use acorn_core::util::constants::app::{
     MAX_EXEC_ARRAY_SIZE, MAX_EXEC_BYTES, MAX_EXEC_EXPR_DEPTH, MAX_EXEC_FUNCTIONS, MAX_EXEC_FUNCTION_DEPTH, MAX_EXEC_INTERNED_STRINGS,
