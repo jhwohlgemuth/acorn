@@ -31,9 +31,12 @@ The first implementation is an **OCI model-artifact profile**, not a claim of ge
 - OCI resolution already distinguishes annotated artifacts, ModelKits, ModelPacks, runnable images, invalid ModelPack marker combinations, and unsupported artifacts.
 - The I/O test suite has focused coverage for reference parsing, exact configuration-blob hashing, media-type classification, fake-ORAS resolution, ModelKit and ModelPack behavior, index resolution, path safety, runnable-image rejection, authentication arguments, and minimum ORAS versions.
 - `acorn check` currently accepts local paths and HTTP(S) sources, then routes filesystem paths through the path-based analyzer service. Its preparation boundary rejects `oci://` sources before OCI resolution can run.
-- The analyzer standard enum and dispatch use exhaustive matches. Adding an OCI variant therefore requires deliberate behavior in checking, crosswalk, diff, formatting, and schema-export paths.
+- `Check::standard` currently has a parsed `rads` default, so command execution cannot distinguish an omitted selector from an explicit conflicting `--standard rads`. Source-aware preparation must retain that distinction and resolve the RAD default only after classifying the source.
+- `analyze_paths` and `StandardHostExt::execution_status` now live in `crates/acorn-lib/src/analyzer/host/service/mod.rs`; analyzer synchronization is still selected separately in `crates/acorn-cli/src/commands/check/mod.rs`. The OCI adapter therefore needs the service capability contract but no change to `analyzer/host/runtime/mod.rs`.
+- The analyzer standard enum and dispatch use exhaustive matches. Adding an OCI variant therefore requires deliberate behavior in checking, crosswalk, diff, formatting, schema-export, gather, and link paths.
 - The completed portable analysis and service extraction moved the canonical `Standard` selector and aliases to `acorn-schema`.
 - Documentation already describes OCI Image and Distribution support for model downloads, but OCI is not listed as a checkable standard.
+- Preparation validation on 2026-10-07 passed 102 schema-standard tests, 63 analysis tests with one ignored, 20 OCI-focused host tests, 19 host-service tests, and four check-context tests on the current worktree.
 
 # Scope
 
@@ -62,19 +65,61 @@ The first implementation is an **OCI model-artifact profile**, not a claim of ge
 
 # Project boundaries
 
-The portable analysis and service boundary has landed. Reconfirm exact paths against that baseline before implementation; the intended ownership is:
+The exact write set for the post-service-boundary baseline at `f2c2b8f5d287` is below. If implementation needs another production file, shared fixture, manifest, or generated artifact, stop and update this boundary before editing it.
 
-- **Create:** a host-side OCI check adapter under `crates/acorn-lib/src/analyzer/host/` and focused adapter tests when the post-boundary module layout is known.
-- **Update:** `crates/acorn-schema/src/standard/mod.rs` for the canonical selector; `crates/acorn-analysis/src/check.rs` for exhaustive portable behavior; `crates/acorn-lib/src/io/oci.rs` for a single-pass, stage-tagged inspection boundary reused by download resolution; `crates/acorn-lib/src/analyzer/host/{runtime,service}/mod.rs` for supported categories and host dispatch; `crates/acorn-cli/src/cli/{arguments,parse}.rs`, `crates/acorn-cli/src/commands/check/mod.rs`, and their focused tests for source selection, option policy, and rendering; command implementations with exhaustive standard matches only to return explicit unsupported errors; `docs/src/concepts/standards.md`, `docs/src/cli-reference/commands/check.md`, and `CommandLineHelp.md` for the user contract.
-- **Retain:** OCI transfer and atomic publication in `OrasTransport::pull`; existing ModelKit and ModelPack schema owners; ACRE's credential-environment policy; the current check categories and report shapes.
-- **Do not update:** model inference policy, database schemas, sidecar artifact handling, crosswalk mappings, portable service operations, or WASM bindings.
+## Create
 
-Before implementation, replace the host-adapter directory placeholder and exhaustive-match qualification with the exact post-service-boundary file list. The implementation owner holds the analyzer/check, CLI contract, transfer/OCI, schema-root, and documentation-generation locks for the integration commit.
+- `crates/acorn-lib/src/analyzer/host/oci.rs` — remote inspection adapter, registry-profile selection, category conversion, and report assembly.
+- `crates/acorn-lib/src/analyzer/host/oci/tests.rs` — transport-independent adapter and profile-selection tests.
+- `crates/acorn-cli/src/commands/check/tests/oci.rs` — source-policy and fake-ORAS command tests isolated from the existing path-check suite.
+
+## Update production code
+
+- `crates/acorn-schema/src/standard/mod.rs` — add the canonical `Standard::Oci` selector only; do not infer it from arbitrary objects.
+- `crates/acorn-analysis/src/check.rs` — add the portable standard/category capability table and explicit unsupported crosswalk behavior.
+- `crates/acorn-lib/src/analyzer/diff/mod.rs` — return `UnsupportedStandard(Standard::Oci)`.
+- `crates/acorn-lib/src/analyzer/host/mod.rs` — register the OCI adapter.
+- `crates/acorn-lib/src/analyzer/host/service/mod.rs` — consume the portable capability table, expose report assembly needed by the remote adapter, and keep path dispatch from treating OCI as a local document standard.
+- `crates/acorn-lib/src/io/oci.rs` — add the typed stage-tagged inspection boundary and make `OrasTransport::resolve` delegate to it without changing the public download contract or `pull` behavior.
+- `crates/acorn-cli/src/cli/arguments/mod.rs` — make the check selector optional until source resolution and document `oci`; retain effective RAD behavior for non-OCI sources.
+- `crates/acorn-cli/src/cli/parse.rs` — parse the `oci` spelling.
+- `crates/acorn-cli/src/commands/mod.rs` — reject OCI selectors for non-check commands before database, filesystem, or network effects.
+- `crates/acorn-cli/src/commands/check/mod.rs` — add source-aware preparation, OCI option policy, capability-driven Vale synchronization, remote execution, and existing-output rendering.
+- `crates/acorn-cli/src/commands/export/mod.rs` — return the dedicated no-single-schema error for `Standard::Oci` and retain explicit unsupported crosswalk behavior.
+
+## Update focused tests
+
+- `crates/acorn-analysis/src/tests.rs`
+- `crates/acorn-lib/src/analyzer/diff/tests.rs`
+- `crates/acorn-lib/src/analyzer/host/service/tests/mod.rs`
+- `crates/acorn-lib/src/io/tests/mod.rs`
+- `crates/acorn-cli/src/cli/tests/mod.rs`
+- `crates/acorn-cli/src/commands/check/tests/context.rs`
+- `crates/acorn-cli/src/commands/check/tests/mod.rs`
+- `crates/acorn-cli/src/commands/diff/tests.rs`
+- `crates/acorn-cli/src/commands/export/tests/mod.rs`
+- `crates/acorn-cli/src/commands/format/tests/mod.rs`
+- `crates/acorn-cli/src/commands/gather/tests/mod.rs`
+- `crates/acorn-cli/src/commands/link/tests.rs`
+
+## Update documentation and generated output
+
+- `docs/src/concepts/standards.md`
+- `docs/src/cli-reference/commands/check.md`
+- `CommandLineHelp.md`
+
+## Retain and exclude
+
+- Retain OCI transfer and atomic publication in `OrasTransport::pull`, existing ModelKit and ModelPack schema owners, ACRE's credential-environment policy, and current check categories and serialized report shapes.
+- Do not update manifests or `Cargo.lock`; this feature uses dependencies already owned by the host crates.
+- Do not update `crates/acorn-lib/src/analyzer/host/runtime/mod.rs`, `crates/acorn-service`, `crates/acorn-core`, model inference policy, database schemas, sidecar artifact handling, crosswalk mappings, portable service operations, or WASM bindings.
+
+The implementation owner holds the analyzer/check, CLI contract, transfer/OCI, schema-root, and documentation-generation locks through integration. The current worktree also contains unrelated manifest and schema-test edits; preserve them and do not absorb them into this write set.
 
 # Dependencies and ordering
 
 1. **Satisfied:** the portable analysis and service boundary is retired; OCI uses the final `Standard` owner and host-analysis composition.
-2. Reverify `OrasTransport::resolve` against [Model acquisition and metadata hardening](model-acquisition-hardening.md). If that plan still owns `io/oci.rs`, serialize the stage-tagging change with its integration owner; do not fork manifest or package policy.
+2. **Handoff required:** [Model acquisition and metadata hardening](model-acquisition-hardening.md) remains in progress and still owns `crates/acorn-lib/src/io/oci.rs` plus `crates/acorn-lib/src/io/tests/mod.rs`. Obtain the transfer/OCI lock before the inspection refactor; do not fork manifest, package, selection, or materialization policy.
 3. Land OCI checks before [CLI composition boundary](../refactors/core/cli-composition-boundary.md) migrates the same command contract, so the later composition work moves one settled source type and exit policy.
 4. Regenerate command help once after CLI syntax and descriptions stabilize.
 
@@ -85,6 +130,8 @@ Before implementation, replace the host-adapter directory placeholder and exhaus
 The canonical source is one explicit `oci://registry/repository:tag` or `oci://registry/repository@sha256:...` reference. The check command treats it as a remote artifact target rather than coercing it into a temporary file or filesystem path.
 
 `--standard oci` rejects local paths, HTTP(S) URLs, pasted or piped content, branch or commit selection, merge-request selection, watch mode, file filters, and ignore patterns. An `oci://` source with a conflicting non-OCI standard fails clearly instead of falling back to RAD.
+
+Change only the check command's parsed selector from `Standard` with a Clap default to `Option<Standard>`. Source preparation resolves `(OCI source, no selector)` to OCI and `(non-OCI source, no selector)` to RAD. This preserves ordinary behavior while distinguishing an omitted selector from an explicit conflicting `--standard rads`.
 
 The CLI preparation value becomes source-aware, with path inputs and OCI targets represented separately. OCI execution bypasses path classification, source-document indexing, configured RAD workflow hooks, FAIR profile construction, and fix proposal generation.
 
@@ -120,34 +167,34 @@ Public registries use default `OciTransportOptions`. When ACRE defines registry 
 
 ## Standard behavior outside `check`
 
-The shared selector means other commands can parse `oci`; each command must then report its actual capability:
+The shared selector means other commands can parse `oci`; each command must then report its actual capability before side effects:
 
 - `export --schema --standard oci` fails with a clear message that OCI checking has no single generated schema.
-- format, diff, crosswalk, enrichment, and ordinary export reject OCI as unsupported.
+- format, diff, crosswalk, enrichment, gather, link, and ordinary export reject OCI as unsupported.
 - standard detection does not infer OCI from arbitrary JSON objects because a manifest alone lacks registry, blob, and package-resolution context.
 - OCI supports only schema and quality check categories in this plan.
 
 ## Analyzer synchronization and output
 
-Analyzer synchronization becomes capability-driven: selecting a standard that does not support prose must not install or synchronize Vale. This is required for OCI and removes an unnecessary external action for other schema-only standards when it can be done without changing their results.
+Analyzer synchronization becomes capability-driven through one portable standard/category capability table in `acorn-analysis`: selecting a standard that does not support prose must not install or synchronize Vale. The host service and CLI consume that table rather than maintaining separate standard lists. This is required for OCI and removes an unnecessary external action for other schema-only standards without changing their check results.
 
 OCI reports use the requested reference as the logical URI. Success metadata and diagnostics redact credentials and never include environment-variable contents, registry tokens, configuration file contents, or ORAS command lines containing sensitive values.
 
 # Implementation sequence
 
-1. On the post-service-boundary baseline, add `Standard::Oci`, its parser alias, exhaustive unsupported behavior, and selector tests without enabling execution.
-2. Refactor the existing OCI resolver into one stage-tagged inspection pipeline while preserving download resolution and all existing OCI tests.
-3. Add the host OCI check adapter that converts one inspection into schema and quality category results.
-4. Add source-aware check preparation and execution for `oci://` targets, including incompatible-option, offline, hook, and suggestion policy.
-5. Resolve the unique matching ACRE registry profile and cover public, authenticated, custom-CA, and `plainHttp` transport argument behavior through existing redaction boundaries.
-6. Add end-to-end fake-ORAS CLI tests proving one resolution, no weight transfer, deterministic categories, output formats, and exit policy.
-7. Update standards and check documentation, regenerate command help, and run focused followed by full repository gates.
+1. Add `Standard::Oci`, the portable category-capability contract, parser support, exhaustive unsupported behavior, and selector tests without enabling remote execution.
+2. After the transfer/OCI lock handoff, refactor the existing resolver into one typed stage-tagged inspection pipeline while preserving download resolution and every existing OCI test.
+3. Add and register the host OCI check adapter; use a fake inspector to prove one inspection, schema/quality mapping, registry-profile selection, redaction, and report assembly without ORAS.
+4. Change check source preparation to preserve an optional explicit selector, classify `oci://` before path materialization, enforce incompatible-option/offline/hook/suggestion policy, and dispatch the remote adapter.
+5. Add fake-ORAS CLI coverage proving one resolution, no weight transfer, deterministic categories, output formats, and exit policy.
+6. Update standards and check documentation, regenerate command help once, and run focused followed by full repository gates.
 
 # Validation
 
 ## Focused tests
 
 - Standard parsing accepts `oci` and every other command returns its documented unsupported result.
+- An omitted check selector resolves to OCI only for an explicit `oci://` target and otherwise retains RAD behavior; explicit `--standard rads` conflicts with an OCI target.
 - An `oci://` check target is kept as a remote target, not normalized as a filesystem path.
 - Canonical tag and digest references resolve; malformed, traversal-shaped, ambiguous, query-bearing, and fragment-bearing references fail before ORAS.
 - Offline mode invokes neither ORAS nor a registry.
@@ -164,7 +211,8 @@ OCI reports use the requested reference as the logical URI. Success metadata and
 
 - Existing OCI download, ModelKit, ModelPack, GGUF, sidecar, sync, and registry-profile tests remain unchanged in behavior.
 - Existing standards retain their parser, detection, schema export, diff, format, crosswalk, and check behavior.
-- Run focused tests for `acorn-schema`, `acorn-analysis`, OCI I/O, analyzer host service/runtime, CLI parsing, and the check command.
+- Run focused tests for `acorn-schema`, `acorn-analysis`, OCI I/O, the host service and OCI adapter, CLI parsing, and the check command.
+- Verify `acorn-service` continues to reject OCI at its portable validation boundary without changing that crate.
 - Run `make lint`, `make test`, `make check-portable`, `make check-wasm`, `make doc`, and the documentation build after focused tests pass.
 
 # Acceptance criteria

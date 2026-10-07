@@ -98,7 +98,16 @@ changelog-release: ## Generate the latest release changelog entry.
 	@git pull origin main --tags
 	@git-cliff --output CHANGELOG.md --gitlab-token ${GITLAB_TOKEN} --latest
 
-check: check-portable check-host ## Run the full validation suite for the project.
+check: check-dependencies check-portable check-host ## Run the full validation suite for the project.
+
+check-dependencies: ## Validate workspace dependency declarations and source linkage.
+	@actual="$$(cargo-shear --version 2>/dev/null || echo 'not installed')"; \
+		expected="Version: $(CARGO_SHEAR_VERSION)"; \
+		test "$$actual" = "$$expected" || { \
+			echo "cargo-shear $(CARGO_SHEAR_VERSION) is required ($$actual). Run: cargo install --force --locked cargo-shear@$(CARGO_SHEAR_VERSION)" >&2; \
+			exit 1; \
+		}
+	@cargo-shear --locked --offline --deny-warnings
 
 check-host: ## Validate host-side feature builds and dependency checks.
 	@cargo check -p acorn-cmd --no-default-features
@@ -167,13 +176,13 @@ check-wasm: ## Validate the WebAssembly target compatibility of the workspace.
 	@cargo check -p acorn-wasm --target wasm32-unknown-unknown
 
 cover: ## Run coverage analysis with tarpaulin.
-	@cargo tarpaulin $(COVER_JOBS) --out lcov --line --skip-clean --no-dead-code --engine llvm --profile coverage --locked
+	@cargo tarpaulin $(COVER_JOBS) --out lcov --line --force-clean --no-dead-code --engine llvm --profile coverage --locked
 
 cover-cli: ## Run scoped coverage analysis for acorn-cli.
-	@cargo tarpaulin $(COVER_JOBS) -p acorn-cli --out lcov --line --skip-clean --no-dead-code --engine llvm --profile coverage --locked
+	@cargo tarpaulin $(COVER_JOBS) -p acorn-cli --out lcov --line --force-clean --no-dead-code --engine llvm --profile coverage --locked
 
 cover-lib: ## Run scoped coverage analysis for acorn-lib.
-	@cargo tarpaulin $(COVER_JOBS) -p acorn-lib --out lcov --line --skip-clean --no-dead-code --engine llvm --profile coverage --locked
+	@cargo tarpaulin $(COVER_JOBS) -p acorn-lib --out lcov --line --force-clean --no-dead-code --engine llvm --profile coverage --locked
 
 doc: ## Build the Rust documentation for the workspace.
 	@cargo clean --doc
@@ -397,7 +406,7 @@ DEV_DEPENDENCIES = \
 	cargo-insta \
 	cargo-msrv \
 	cargo-nextest \
-	cargo-shear \
+	cargo-shear@$(CARGO_SHEAR_VERSION) \
 	cargo-tarpaulin \
 	cargo-udeps \
 	mdbook \
@@ -421,6 +430,7 @@ FUZZ_ARGS =
 BENCH_BASELINE = $(VERSION)
 BENCH_OUTPUT = $(ARTIFACT_TARGET_DIR)/benchmark-results
 BENCH_HISTORY =
+CARGO_SHEAR_VERSION = 1.14.0
 WASM_PACK_BUILD_ARGS =
 TASKS = \
 	audit \
@@ -452,6 +462,7 @@ TASKS = \
 	test-acp \
 	test-ci \
 	test-openai \
+	check-dependencies \
 	check-wasm \
 	version \
 	release-version \

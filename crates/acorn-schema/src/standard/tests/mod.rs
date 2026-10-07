@@ -6,6 +6,7 @@ mod datacite;
 mod huwise;
 mod invenio;
 mod ocp;
+mod text;
 fn canonical_json(value: serde_json::Value) -> serde_json::Value {
     match value {
         | serde_json::Value::Array(values) => serde_json::Value::Array(values.into_iter().map(canonical_json).collect()),

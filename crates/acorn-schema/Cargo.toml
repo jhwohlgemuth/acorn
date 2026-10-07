@@ -29,7 +29,6 @@ strum = { workspace = true }
 thiserror = { workspace = true }
 urlencoding = { version = "2.1.3", default-features = false }
 idna = { version = "1.1.0", features = ["alloc", "compiled_data"], default-features = false }
-aho-corasick = { version = "1.1.4", default-features = false }
 petgraph = { version = "0.8.3", features = ["stable_graph"], default-features = false }
 quick-xml = { workspace = true, features = ["serialize"] }
 itertools = { workspace = true }
@@ -40,8 +39,6 @@ sophia = { workspace = true }
 swhid = { workspace = true, features = ["git"], optional = true }
 # std-gated hosts (mirrors acorn-lib gating)
 ammonia = { version = "4.1.2", default-features = false, optional = true }
-anydoc = { workspace = true, optional = true }
-arboard = { workspace = true, optional = true }
 nucleo-matcher = { version = "0.3.1", features = ["unicode-casefold", "unicode-normalization"], default-features = false, optional = true }
 percy-dom = { version = "0.10.0", features = ["macro"], default-features = false, optional = true }
 ring = { version = "0.17.14", default-features = false, optional = true }
@@ -64,10 +61,13 @@ tokio = { workspace = true, features = ["macros", "rt"] }
 default = ["std"]
 core = ["acorn-core/core"]
 alloc = ["core", "acorn-core/alloc", "serde/alloc", "jiff/alloc"]
-std = ["alloc", "acorn-core/std", "jiff/std", "dep:ammonia", "dep:anydoc", "dep:arboard", "dep:nucleo-matcher", "dep:percy-dom", "dep:rust-embed", "dep:tera", "dep:tracing", "dep:swhid", "ring"]
+std = ["alloc", "acorn-core/std", "jiff/std", "dep:ammonia", "dep:nucleo-matcher", "dep:percy-dom", "dep:rust-embed", "dep:tera", "dep:tracing", "dep:swhid", "ring"]
 wasm = ["alloc"]
 swhid-compute = ["std", "dep:swhid"]
 analysis = []
 
 [lints]
 workspace = true
+
+[package.metadata.cargo-shear]
+ignored-paths = ["src/standard/dublin_core.rs"]

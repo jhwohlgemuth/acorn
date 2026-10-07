@@ -9,6 +9,9 @@ documentation.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cargo-shear]
+ignored = ["prost", "tonic-prost"]
+
 [dependencies]
 acorn-analysis = { workspace = true, features = ["std"] }
 acorn-core = { workspace = true, features = ["std"] }

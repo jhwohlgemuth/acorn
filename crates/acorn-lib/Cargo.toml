@@ -34,8 +34,6 @@ acorn-macros = { version = "0.4.0", path = "../acorn-macros" }
 acorn-schema = { version = "0.4.0", path = "../acorn-schema", default-features = false }
 acorn-service = { workspace = true, features = ["alloc"], optional = true }
 agent-client-protocol = { workspace = true, optional = true }
-aho-corasick = { version = "1.1.4", default-features = false }
-ammonia = { version = "4.1.2", default-features = false, optional = true }
 anydoc = { workspace = true, optional = true }
 arboard = { workspace = true, optional = true }
 ariadne = { version = "0.6.0", features = ["auto-color"], default-features = false, optional = true }
@@ -59,12 +57,8 @@ flate2 = { version = "1.1.5", default-features = false, optional = true }
 futures = { workspace = true, optional = true }
 glob = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
-hashbrown = { version = "0.17.0", features = ["default-hasher", "serde"], default-features = false }
 httpdate = { workspace = true, optional = true }
-human-units = { version = "0.5.3", default-features = false }
-idna = { version = "1.1.0", features = ["alloc", "compiled_data"], default-features = false }
 indicatif = { workspace = true, optional = true }
-infer = { workspace = true, optional = true }
 is_executable = { version = "1.0.5", default-features = false, optional = true }
 itertools = { workspace = true }
 jsonc-parser = { workspace = true }
@@ -72,11 +66,8 @@ jsonschema = { workspace = true, optional = true }
 lazy_static = { workspace = true }
 lychee-lib = { version = "0.23.0", default-features = false, optional = true }
 nanoid = { workspace = true, optional = true }
-nucleo-matcher = { version = "0.3.1", features = ["unicode-casefold", "unicode-normalization"] , default-features = false }
 owo-colors = { workspace = true, optional = true }
 pdf-inspector = { workspace = true, optional = true }
-percy-dom = {version = "0.10.0", features = ["macro"], default-features = false, optional = true }
-petgraph = { version = "0.8.3", features = ["stable_graph"], default-features = false }
 polars = { version = "0.53.0", features = ["lazy", "fmt_no_tty", "csv"], default-features = false, optional = true }
 polars-error = { version = "0.53.0", default-features = false, optional = true }
 quick-xml = { workspace = true, features = ["serialize"] }
@@ -88,7 +79,6 @@ ring = { version = "0.17.14", default-features = false, optional = true }
 rand = { version = "0.8", features = ["std_rng"], optional = true }
 rsa = { version = "0.9.10", default-features = false, optional = true }
 rusqlite = { workspace = true, features = ["bundled"], default-features = false, optional = true }
-rust-embed = { workspace = true, optional = true }
 rust-ini = { version = "0.21.3", default-features = false, optional = true }
 same-file = { version = "1.0.6", optional = true }
 schemars = { version = "1.0.4", features = ["derive"], default-features = false}
@@ -98,13 +88,10 @@ veil = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 eserde = { workspace = true }
-serde_repr = { workspace = true }
-serde_trim = { version = "1.1.0", default-features = false }
 serde_with = { version = "3.15.1", features = ["macros"], default-features = false }
 serde_norway = { workspace = true }
 sevenz-rust2 = { workspace = true, optional = true }
 similar = { workspace = true, optional = true }
-sophia = { workspace = true }
 swhid = { workspace = true, features = ["git"], optional = true }
 sysinfo = { version = "0.38.2", features = ["network", "system"], default-features = false, optional = true}
 tar = { version = "0.4.45", default-features = false, optional = true }
@@ -113,10 +100,8 @@ thiserror = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 tower = { workspace = true, optional = true, features = ["timeout", "util"] }
 tracing = { workspace = true }
-triomphe = { workspace = true }
 fluent-uri = { workspace = true }
 urlencoding = { version = "2.1.3", default-features = false}
-exitcode = { version = "1.1.2", default-features = false }
 which = { version = "8.0.0", features = ["real-sys"], default-features = false, optional = true }
 zip = { version = "8.5.1", features = ["deflate"], default-features = false, optional = true }
 zstd = { version = "0.13.3", default-features = false, optional = true }
@@ -128,15 +113,12 @@ axum = { workspace = true, features = ["http1", "json", "tokio"] }
 criterion = "0.8.2"
 indicatif = { workspace = true, features = ["in_memory"] }
 insta = { workspace = true, features = ["json", "yaml"] }
-mockall = "0.14.0"
 owo-colors = { workspace = true }
-pretty_assertions = "1.4.1"
 proptest = "1.9.0"
 similar-asserts = "2.0.0"
 temp-env = "0.3.6"
 tempfile = "3"
 tracing-subscriber = { workspace = true, features = ["fmt"] }
-zench = "0.2.0"
 
 [[bench]]
 name = "research_activity"
@@ -164,9 +146,9 @@ wasm = ["alloc", "acorn-schema/alloc"]
 std = ["alloc", "acorn-schema/alloc", "jiff/std", "schemars/std", "dep:color-eyre"]
 net = ["std", "dep:reqwest", "dep:http", "dep:httpdate", "dep:jsonschema", "dep:lychee-lib", "dep:thiserror", "dep:tokio", "tokio/io-std", "tokio/io-util", "tokio/net", "tokio/rt", "tokio/signal", "tokio/time", "dep:futures", "dep:async-trait", "dep:nanoid", "dep:rand", "dep:ring", "dep:rsa", "dep:glob", "dep:tower"]
 archive = ["std", "dep:flate2", "dep:zip", "dep:tar", "dep:zstd", "dep:sevenz-rust2"]
-template = ["std", "acorn-schema/std", "dep:tera", "dep:rust-embed", "dep:percy-dom", "dep:ammonia", "dep:anydoc", "dep:pdf-inspector"]
+template = ["std", "acorn-schema/std", "dep:tera", "dep:anydoc", "dep:pdf-inspector"]
 progress = ["std", "dep:indicatif", "dep:console", "dep:owo-colors", "dep:comfy-table", "dep:similar"]
-cli = ["std", "dep:directories", "dep:dotenvy", "dep:which", "dep:is_executable", "dep:glob", "dep:arboard", "dep:infer"]
+cli = ["std", "dep:directories", "dep:dotenvy", "dep:which", "dep:is_executable", "dep:glob", "dep:arboard"]
 db = ["std", "dep:rusqlite"]
 unicode = ["std", "console/std"]
 agentic = ["analysis", "dep:axum", "dep:rmcp", "dep:tower", "rmcp/server", "rmcp/transport-io"]

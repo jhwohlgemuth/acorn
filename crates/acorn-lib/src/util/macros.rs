@@ -17,13 +17,13 @@ macro_rules! fail {
                 $crate::util::Label::fail(),
                 format!($msg, $($rest)*)
             )
-        );
+        )
     };
     ($msg:literal) => {
-        tracing::error!("{}", format!("=> {} {}", $crate::util::Label::fail(), format!($msg)));
+        tracing::error!("{}", format!("=> {} {}", $crate::util::Label::fail(), format!($msg)))
     };
     ($($args:tt)*) => {
-        tracing::error!($($args)*);
+        tracing::error!($($args)*)
     };
 }
 /// Logging macro for cautions.
@@ -44,13 +44,13 @@ macro_rules! caution {
                 $crate::util::Label::warning(),
                 format!($msg, $($rest)*)
             )
-        );
+        )
     };
     ($msg:literal) => {
-        tracing::warn!("{}", format!("=> {} {}", $crate::util::Label::warning(), format!($msg)));
+        tracing::warn!("{}", format!("=> {} {}", $crate::util::Label::warning(), format!($msg)))
     };
     ($($args:tt)*) => {
-        tracing::warn!($($args)*);
+        tracing::warn!($($args)*)
     };
 }
 /// Logging macro for skipped operations
@@ -64,13 +64,13 @@ macro_rules! skip {
                 $crate::util::Label::skip(),
                 format!($msg, $($rest)*)
             )
-        );
+        )
     };
     ($msg:literal) => {
-        tracing::warn!("{}", format!("=> {} {}", $crate::util::Label::skip(), $msg));
+        tracing::warn!("{}", format!("=> {} {}", $crate::util::Label::skip(), $msg))
     };
     ($($args:tt)*) => {
-        tracing::warn!($($args)*);
+        tracing::warn!($($args)*)
     };
 }
 /// Creates a `Param` with the given style, name, and values.

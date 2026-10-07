@@ -17,7 +17,6 @@ dependencies = [
  "itertools 0.14.0",
  "lazy_static",
  "pretty_assertions",
- "schemars 1.2.1",
  "serde",
  "serde_json",
  "strum 0.28.0",
@@ -54,54 +53,39 @@ dependencies = [
  "dotenvy",
  "dprint-core",
  "dprint-plugin-json",
- "eserde",
  "exitcode",
- "fancy-regex 0.17.0",
  "fast_qr",
  "fluent-uri",
  "futures",
  "glob",
- "indicatif",
  "insta",
  "is-terminal",
  "itertools 0.14.0",
  "jiff",
- "keyring",
- "lazy_static",
- "mockall",
  "nanoid",
  "notify",
  "notify-debouncer-mini",
  "openssl-sys",
  "owo-colors",
  "percy-dom",
- "pretty_assertions",
  "pretty_yaml",
  "quick-xml 0.39.4",
  "rayon",
- "reqwest 0.13.4",
  "rhai",
- "rusqlite",
  "rust-embed",
  "schemars 1.2.1",
  "secrecy",
  "serde",
  "serde_json",
  "serde_norway",
- "serde_with",
- "sophia",
  "strum 0.28.0",
  "temp-env",
  "tempfile",
- "tera",
  "tokio",
  "tracing",
  "tracing-indicatif",
  "tracing-log",
  "tracing-subscriber",
- "triomphe",
- "urlencoding",
- "veil",
  "which",
 ]
 
@@ -144,7 +128,6 @@ dependencies = [
  "strum 0.28.0",
  "triomphe",
  "urlencoding",
- "validator",
 ]
 
 [[package]]
@@ -204,8 +187,6 @@ dependencies = [
  "acorn-schema",
  "acorn-service",
  "agent-client-protocol",
- "aho-corasick",
- "ammonia",
  "anydoc",
  "arboard",
  "ariadne",
@@ -225,19 +206,14 @@ dependencies = [
  "dotenvy",
  "duckdb",
  "eserde",
- "exitcode",
  "fancy-regex 0.17.0",
  "flate2",
  "fluent-uri",
  "futures",
  "glob",
- "hashbrown 0.17.1",
  "http",
  "httpdate",
- "human-units",
- "idna",
  "indicatif",
- "infer",
  "insta",
  "is_executable",
  "itertools 0.14.0",
@@ -246,16 +222,11 @@ dependencies = [
  "jsonschema",
  "lazy_static",
  "lychee-lib",
- "mockall",
  "nanoid",
- "nucleo-matcher",
  "owo-colors",
  "pdf-inspector",
- "percy-dom",
- "petgraph",
  "polars",
  "polars-error",
- "pretty_assertions",
  "proptest",
  "quick-xml 0.39.4",
  "rand 0.8.6",
@@ -267,7 +238,6 @@ dependencies = [
  "rmcp",
  "rsa",
  "rusqlite",
- "rust-embed",
  "rust-ini",
  "same-file",
  "schemars 1.2.1",
@@ -275,13 +245,10 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_norway",
- "serde_repr",
- "serde_trim",
  "serde_with",
  "sevenz-rust2",
  "similar 3.1.1",
  "similar-asserts",
- "sophia",
  "strum 0.28.0",
  "swhid",
  "sysinfo",
@@ -294,12 +261,10 @@ dependencies = [
  "tower",
  "tracing",
  "tracing-subscriber",
- "triomphe",
  "urlencoding",
  "validator",
  "veil",
  "which",
- "zench",
  "zip 8.6.0",
  "zstd",
 ]
@@ -321,10 +286,7 @@ version = "0.4.0"
 dependencies = [
  "acorn-core",
  "acorn-macros",
- "aho-corasick",
  "ammonia",
- "anydoc",
- "arboard",
  "bon",
  "convert_case 0.11.0",
  "data-encoding",
@@ -412,7 +374,6 @@ name = "acorn-tui"
 version = "0.4.0"
 dependencies = [
  "acorn-analysis",
- "acorn-core",
  "acorn-host",
  "acorn-lib",
  "acorn-schema",
@@ -421,7 +382,6 @@ dependencies = [
  "jiff",
  "ratatui",
  "reqwest 0.13.4",
- "serde",
  "serde_json",
  "shell-words",
  "tokio",
@@ -1088,13 +1048,13 @@ checksum = "8b75356056920673b02621b35afd0f7dda9306d03c79a30f5c56c44cf256e3de"
 
 [[package]]
 name = "async-trait"
-version = "0.1.89"
+version = "0.1.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9035ad2d096bed7955a320ee7e2230574d28fd3c3a0f186cbea1ff3c7eed5dbb"
+checksum = "82f6aeea286b8eb4dd3431a1be1b59d290ace00f5bfd8e2a159bc2a05e2c1667"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.117",
+ "syn 3.0.5",
 ]
 
 [[package]]
@@ -2889,12 +2849,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
 
 [[package]]
-name = "downcast"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1435fa1053d8b2fbbe9be7e97eca7f33d37b28409959813daefc1446a14247f1"
-
-[[package]]
 name = "dprint-core"
 version = "0.69.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3435,15 +3389,6 @@ checksum = "e246562084dde8ebbcc943b261c406ce4f68e5032ec28029a251a47d6a295500"
 dependencies = [
  "num",
  "num-bigint",
-]
-
-[[package]]
-name = "fragile"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8878864ba14bb86e818a412bfd6f18f9eabd4ec0f008a28e8f7eb61db532fcf9"
-dependencies = [
- "futures-core",
 ]
 
 [[package]]
@@ -4046,15 +3991,6 @@ name = "httpdate"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
-
-[[package]]
-name = "human-units"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47cf34dbcbbb7f1f6589c18e26f15a5a72592750dd5472037eb78fc0f92020d4"
-dependencies = [
- "paste",
-]
 
 [[package]]
 name = "humantime"
@@ -4795,16 +4731,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "keyring"
-version = "3.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eebcc3aff044e5944a8fbaf69eb277d11986064cba30c468730e8b9909fb551c"
-dependencies = [
- "log",
- "zeroize",
-]
-
-[[package]]
 name = "kqueue"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5342,32 +5268,6 @@ dependencies = [
  "log",
  "wasi",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "mockall"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f58d964098a5f9c6b63d0798e5372fd04708193510a7af313c22e9f29b7b620b"
-dependencies = [
- "cfg-if",
- "downcast",
- "fragile",
- "mockall_derive",
- "predicates",
- "predicates-tree",
-]
-
-[[package]]
-name = "mockall_derive"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca41ce716dda6a9be188b385aa78ee5260fc25cd3802cb2a8afdc6afbe6b6dbf"
-dependencies = [
- "cfg-if",
- "proc-macro2",
- "quote",
- "syn 2.0.117",
 ]
 
 [[package]]
@@ -6079,12 +5979,6 @@ dependencies = [
  "smallvec",
  "windows-link 0.2.1",
 ]
-
-[[package]]
-name = "paste"
-version = "1.0.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "pastey"

@@ -6,8 +6,8 @@
     clippy::unwrap_used
 )]
 use crate::standard::text::{Document, Text};
+use crate::validation::Validate;
 use acorn_core::util::{MarkdownSupport, ToProse, Unstructured};
-use acorn_schema::validation::Validate;
 #[test]
 fn test_document_to_prose_and_markdown_passthrough() {
     let data = Document {

@@ -39,13 +39,7 @@ analysis = ["std"]
 core = ["acorn-core/core", "acorn-schema/core"]
 default = ["analysis"]
 exec = ["analysis"]
-std = ["alloc", "acorn-core/std", "acorn-schema/std", "schemars"]
-
-[dependencies.schemars]
-version = "1.0.4"
-features = ["derive"]
-default-features = false
-optional = true
+std = ["alloc", "acorn-core/std", "acorn-schema/std"]
 
 [lints]
 workspace = true

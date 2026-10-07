@@ -9,6 +9,9 @@ documentation.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[package.metadata.cargo-shear]
+ignored-paths = ["tests/fixtures/process_helper.rs"]
+
 [dependencies]
 acorn-macros = { version = "0.4.0", path = "../acorn-macros" }
 command-group = { workspace = true }

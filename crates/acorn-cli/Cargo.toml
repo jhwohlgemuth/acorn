@@ -45,15 +45,11 @@ dotenvy = { workspace = true }
 dprint-core = { workspace = true }
 dprint-plugin-json = { workspace = true }
 exitcode = { version = "1.1.2", default-features = false }
-fancy-regex = { workspace = true }
 fast_qr = { version = "0.13.0", features = ["image"], optional = true }
 futures = { workspace = true }
 glob = { workspace = true }
-indicatif = { workspace = true }
 is-terminal = "0.4.16"
 itertools = { workspace = true }
-lazy_static = { workspace = true }
-keyring = { version = "3.0.5", default-features = true }
 nanoid = { workspace = true }
 notify = { workspace = true }
 notify-debouncer-mini = { workspace = true }
@@ -62,29 +58,20 @@ percy-dom = { version = "0.10.0", optional = true }
 pretty_yaml = { workspace = true }
 quick-xml = { workspace = true }
 rayon = { workspace = true }
-reqwest = { version = "0.13.2", features = ["blocking", "rustls", "json"], default-features = false }
-rusqlite = { workspace = true, features = ["bundled"] }
 rust-embed = { workspace = true }
 secrecy = { workspace = true }
-veil = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 schemars = { version = "1.0.4", features = ["derive"], default-features = false }
-eserde = { workspace = true }
-serde_with = { version = "3.15.1", default-features = false }
 serde_norway = { workspace = true }
 strum = { workspace = true }
-sophia = { workspace = true }
-tera = { workspace = true }
 tokio = { workspace = true, features = ["rt", "signal", "sync", "time"] }
 tracing = { workspace = true }
-triomphe = { workspace = true }
 tracing-indicatif = { workspace = true }
 tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true }
 fluent-uri = { workspace = true }
 rhai = { workspace = true, optional = true }
-urlencoding = { version = "2.1.3", default-features = false }
 which = { version = "8.0.0", features = ["real-sys"], default-features = false }
 
 [target.'cfg(target_env = "musl")'.dependencies]
@@ -102,10 +89,11 @@ exec = ["acorn-lib/exec", "dep:rhai"]
 [dev-dependencies]
 assert_cmd = "2.0.16"
 insta = { workspace = true }
-mockall = "0.14.0"
-pretty_assertions = "1.4.1"
 temp-env = "0.3.6"
 tempfile = "3"
+
+[package.metadata.cargo-shear]
+ignored = ["openssl-sys"]
 
 [lints]
 workspace = true
