@@ -27,6 +27,17 @@ The resulting structure supports project-level search, reporting, gap analysis, 
     <img src="./_assets/project_focus.png" height="300" alt="A project connects publications, people, approvals, timelines, and budgets" />
 </div>
 
+## Connecting the research ecosystem
+
+ACORN provides paths between research records, people, organizations, and the infrastructure that processes their work. Portable records and shared identifiers carry project context across tools, services, and automated workflows.
+
+<figure>
+    <a href="_assets/acorn-research-ecosystem.svg">
+        <img src="_assets/acorn-research-ecosystem.svg" alt="ACORN at the center of twelve research ecosystem elements. A thin dashed rim represents loose connections; bold green routes with opposing arrowheads show two-way exchange through ACORN." style="display: block; width: 100%; height: auto;" />
+    </a>
+    <figcaption>The dashed rim represents loose connections among ecosystem elements. Solid green routes show how ACORN can shorten paths between them, with arrows indicating two-way exchange. This is a conceptual view, rather than a catalog of implemented integrations.</figcaption>
+</figure>
+
 ## Risks and durability
 
 ACORN can store sensitive research data, so deployments must control access and follow the guidance in [`SECURITY.md`](https://code.ornl.gov/research-enablement/acorn/-/blob/main/SECURITY.md). Continued development also depends on adoption, funding, and available maintainers.

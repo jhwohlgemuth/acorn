@@ -25,12 +25,16 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 ### Portable and extraction boundaries
 
 - [Outbound MCP client embedder interface](refactors/api/outbound-mcp-client-interface.md) builds on the landed narrow `mcp-client` graph. It owns direct server-map construction and bounded caller-driven cancellation while preserving the landed MCP configuration, policy, transport, and result contracts.
+
+- [Portable similarity measures and vocabulary coercion](features/similarity-measures.md) starts with specification and fixtures independently. Vocabulary phase 1A follows only its selected edit/token primitives; freeze its report before formatting, contact, discovery, intake, and language-enrichment migrations. Schema roots serialize with dPID/PID work; gather and structured enrichment retain their extraction/provenance/merge ownership. Manifest changes follow dependency capabilities; library registration and CLI comparison use their named locks. Corpus/hybrid methods follow primitive contracts; advisory duplicate checking remains separately gated.
 - [Shared API client contract](refactors/api/shared-client-contract.md) prepares `acorn-api`; endpoint, request, resolved configuration, invocation, response, error, and provider policy move together only after its acceptance gates pass.
 - [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) prepares `acorn-export` by producing one pure projection and fallible in-memory transformations.
 - [CLI composition boundary](refactors/core/cli-composition-boundary.md) follows the stable service/server request and error contracts. Command leaves may normalize earlier only when they avoid shared CLI roots.
 - [Portable diff hardening](refactors/acorn-diff-resource-and-api-hardening.md) and [ZON codec hardening](refactors/zon-codec-hardening.md) are independent portable leaves.
 
 ### Provider and acquisition work
+
+- [Beam inference integration](features/beam-inference-integration.md) requires published release/deployment evidence and a verified serving contract before promotion. It consumes landed shared API mechanics; gather adoption follows the gather contract. It is independent of local SLM sidecars.
 
 - [Model acquisition and metadata hardening](features/model-acquisition-hardening.md) consumes shared endpoint/authentication mechanics but owns Hugging Face identity, GGUF metadata, OCI package discrimination, and safe materialization.
 - [Azure Cosmos bucket downloads](features/azure-cosmos-buckets.md) consumes the shared API policy and landed bucket-source/transfer contracts. It does not extend the repository enum or local database backend.
@@ -40,8 +44,11 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 
 ### Gather, inference, and agent tools
 
+- [WebMCP browser tools](features/webmcp-browser-tools.md) consumes the existing portable WASM bindings and is independent of the outbound MCP client and inference plans. Native browser contract verification precedes adapter implementation; packaging and CI changes serialize under CI/build. Any manifest change follows dependency capabilities and the workspace-graph lock.
+
 - [Deterministic and assisted gather extraction](features/gather-extraction.md) lands deterministic selector and transport policy before its optional inference adapter. Its TUI cutover follows the shared source contract.
 - [SLM sidecars](features/slm-sidecars.md) may build explicit Tongue, Redact, and Title runners independently. Schemer integration, if it becomes available, consumes the gather inference contract.
+- The [Julia-1 decision slice](features/slm-sidecars.md#julia-1-decision-sidecar-planned-follow-on) stays within SLM sidecars, consumes the landed asset/distribution contracts, and coordinates acquisition changes with the model acquisition plan. Its CPU packaging and quality gates are independent of the Swift adapters and Title's macOS prerequisite; shared feature, sidecar, CLI, and CI/build integration still serializes.
 - [Needle 3 host validation](migrations/needle-3-upgrade.md) and SLM sidecars share sidecar artifact and CI/build locks but are functionally independent.
 
 ### Optional policy validation

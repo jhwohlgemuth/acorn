@@ -48,6 +48,8 @@ Plans within a lane normally serialize. Different lanes still check secondary lo
 
 | Lane | Plans | Primary surface and rule |
 |---|---|---|
+| Similarity | [Portable similarity measures and vocabulary coercion](features/similarity-measures.md) | Freeze variants, resolver reports, and budgets before leaf work. Vocabulary phase 1A claims schema roots and exact formatting/contact/consumer files, coordinating with gather and enrichment. Library roots, manifests, CLI, diagnostics, and generated documentation use their named locks. Duplicate-check integration remains separately gated. |
+| Browser tools | [WebMCP browser tools](features/webmcp-browser-tools.md) | Freeze the native browser contract before adapter work. Own the declared WASM web/example files; packaging and CI serialize under CI/build, and any binding correction claims library roots. Independent of outbound MCP and inference. |
 | Portable boundaries | [diff](refactors/acorn-diff-resource-and-api-hardening.md), [ZON](refactors/zon-codec-hardening.md) | Portable leaves may run separately; manifests, package roots, and CI integration serialize. |
 | API contract | [shared API client](refactors/api/shared-client-contract.md) | Contract slices land endpoint/request -> invocation -> resolved config -> response/error/health -> OpenAPI/RAiD. Provider files may shard after each contract freezes. |
 | MCP client | [outbound MCP interface](refactors/api/outbound-mcp-client-interface.md) | Direct construction, the associated-type client trait, bounded cancellation, and focused tests are implemented. Book integration is separately owned. |
@@ -57,10 +59,12 @@ Plans within a lane normally serialize. Different lanes still check secondary lo
 | Policy validation | [CEL validation-profile pilot](features/cel-validation-profile-pilot.md) | Runtime/corpus evaluation may proceed independently. Evaluator integration serializes analyzer results and module indexes; feature wiring, CLI syntax, generated help, and manifests use their named locks. The pilot does not own authorization, Rhai, schema validators, or MCP. |
 | Export | [export/OOXML](refactors/core/export-pipeline-hardening.md), [database artifacts](features/database-backed-artifact-generation.md) | Portable interpolation may prepare first; context, renderer, database source, fuzz wiring, and export dispatch follow in order. |
 | CLI composition | [CLI composition](refactors/core/cli-composition-boundary.md), [remote create](refactors/core/remote-create-container-targets.md), [CLI coverage](testing/cli-coverage.md), dPID/gather/CEL/SLM CLI leaves | Root/parser work serializes. Command-local tests and rollback logic may proceed without shared syntax/help edits. |
-| Agent tools | [Needle validation](migrations/needle-3-upgrade.md), [SLM sidecars](features/slm-sidecars.md) | Needle and SLM serialize sidecar artifacts and CI/build changes. |
+| Agent tools | [Needle validation](migrations/needle-3-upgrade.md), [SLM sidecars](features/slm-sidecars.md), including its [Julia-1 slice](features/slm-sidecars.md#julia-1-decision-sidecar-planned-follow-on) | Needle and SLM serialize sidecar artifacts and CI/build changes. Julia runner/corpus preparation can proceed independently within a declared exact write set; shared Rust, acquisition, feature, and CLI integration uses the named locks. |
 | Build and operations | [runner pools](refactors/ci-runner-pools.md), [Podman](migrations/podman-makefile.md), [Power Automate validation](features/powerapps-gitlab-logbook-reporting.md) | Operational checks can run independently, but repository CI/Makefile edits have one owner. |
 
 ## Safe preparatory batch
+
+[Beam inference integration](features/beam-inference-integration.md) belongs to the Provider/model leaves lane. Release research and dedicated fixtures may proceed independently; shared API/configuration, CLI, and documentation integration serialize through the named locks.
 
 On the current tree, these leaf slices can proceed together if they honor the lock restrictions:
 
