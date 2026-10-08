@@ -1,10 +1,41 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${CARGO_REGISTRY_TOKEN:?CARGO_REGISTRY_TOKEN is required}"
+check_only=false
+case "${1:-}" in
+    --check)
+        check_only=true
+        ;;
+    "") ;;
+    *)
+        echo "Usage: $0 [--check]" >&2
+        exit 2
+        ;;
+esac
 
+crates=(
+    acorn-macros
+    acorn-core
+    acorn-diff
+    acorn-cmd
+    acorn-host
+    acorn-schema
+    acorn-analysis
+    acorn-service
+    acorn-lib
+    acorn-server
+    acorn-wasm
+    acorn-tui
+    acorn-cli
+)
+
+cargo xtask check-release-crates "${crates[@]}"
+if [[ "${check_only}" == true ]]; then
+    exit 0
+fi
+
+: "${CARGO_REGISTRY_TOKEN:?CARGO_REGISTRY_TOKEN is required}"
 version="$(awk -F ' = ' '$1 ~ /^version/ { gsub(/["\r]/, "", $2); printf("%s", $2) }' Cargo.toml)"
-crates=(acorn-macros acorn-core acorn-diff acorn-cmd acorn-host acorn-schema acorn-analysis acorn-service acorn-lib acorn-server acorn-wasm acorn-tui acorn-cli)
 crates_api="https://crates.io/api/v1/crates"
 
 published() {

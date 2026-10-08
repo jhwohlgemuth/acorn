@@ -268,12 +268,15 @@ version: ## Print the project version string.
 rust-version: ## Print the Rust toolchain version string.
 	@echo $(RUST_VERSION)
 
+check-release-crates: ## Verify that every crates.io workspace crate is in the release list.
+	@bash scripts/publish-crates.sh --check
+
 check-version: ## Validate the workspace version metadata.
 	@cargo xtask check-version
 
 release-version: ## Bump the release version and verify it.
 	@cargo xtask release-version $(VERSION)
-	@$(MAKE) check-version
+	@$(MAKE) check-release-crates check-version
 
 acorn-clean: ## Remove ACORN Docker images from the local registry.
 	@docker rmi -f acorn:$(VERSION)
@@ -474,6 +477,7 @@ TASKS = \
 	test-ci \
 	test-openai \
 	check-dependencies \
+	check-release-crates \
 	check-wasm \
 	version \
 	release-version \

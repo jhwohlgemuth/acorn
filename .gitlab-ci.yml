@@ -95,15 +95,22 @@ prepare-environment:
         - Cargo.toml
         - Dockerfile.rust
         - Makefile
-        - crates/acorn-cli/Cargo.toml
         - crates/acorn-analysis/Cargo.toml
+        - crates/acorn-cli/Cargo.toml
+        - crates/acorn-cmd/Cargo.toml
         - crates/acorn-core/Cargo.toml
+        - crates/acorn-diff/Cargo.toml
+        - crates/acorn-host/Cargo.toml
         - crates/acorn-lib/Cargo.toml
+        - crates/acorn-macros/Cargo.toml
         - crates/acorn-schema/Cargo.toml
         - crates/acorn-server/Cargo.toml
         - crates/acorn-service/Cargo.toml
+        - crates/acorn-tui/Cargo.toml
         - crates/acorn-wasm/Cargo.toml
         - scripts/install-zigbuild.sh
+        - scripts/publish-crates.sh
+        - xtask/**/*
   script:
     - echo "PKG_VERSION=$(awk -F ' = ' '$1 ~ /^version/ { gsub(/["]/, "", $2); printf("%s",$2) }' Cargo.toml)" >> variables.env
     - echo "PKG_REGISTRY_URL=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic" >> variables.env
@@ -127,7 +134,8 @@ test:
     - make check-dependencies
     - make test-ci
     - make check-host
-    - cargo package --no-verify --allow-dirty -p acorn-macros -p acorn-core -p acorn-diff -p acorn-cmd -p acorn-host -p acorn-schema -p acorn-analysis -p acorn-service -p acorn-server
+    - bash scripts/publish-crates.sh --check
+    - cargo package --workspace --exclude acorn-downstream-host-fixture --exclude xtask --no-verify --allow-dirty
 
 test-portability:
   extends: .rust-test
