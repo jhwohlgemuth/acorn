@@ -4,7 +4,7 @@ use crate::{
         resolve_paths_including, CommandOptions, WatchOptions,
     },
     commands::{
-        inference::ConfiguredInference,
+        infer::ConfiguredInference,
         preflight,
         watch::{self, Prepared},
     },
@@ -800,5 +800,6 @@ async fn watch_run(
         | Err(why) => Err(why),
     }
 }
+
 #[cfg(test)]
 mod tests;

@@ -59,6 +59,23 @@ fn result() -> InferenceResult {
 }
 #[cfg(feature = "template")]
 #[test]
+fn test_hydrate_accepts_structured_summary_data() {
+    let prompt = PromptHydrator::hydrate(
+        PromptFileAsset::Summarize,
+        &PromptContext {
+            config: PromptTemplateConfiguration::default(),
+            data: json!({"subtitle": "Accessible", "title": "ACORN"}),
+        },
+    )
+    .unwrap();
+    assert!(prompt.body.contains("Keep output under 160 words"));
+    assert!(prompt.body.contains("Limit key points to 5 bullets"));
+    assert!(prompt
+        .body
+        .ends_with("# Input Data (ZON)\n\n```zon\nsubtitle:Accessible\ntitle:ACORN\n```"));
+}
+#[cfg(feature = "template")]
+#[test]
 fn test_hydrate_appends_complete_zon_data_by_default() {
     let prompt = PromptHydrator::hydrate(PromptFileAsset::Summarize, &context(json!({"text": "source"}))).unwrap();
     assert!(prompt.body.ends_with("# Input Data (ZON)\n\n```zon\ntext:source\n```"));
@@ -77,12 +94,6 @@ fn test_hydrate_rejects_invalid_frontmatter() {
     let prompt = Prompt::<Rendered>::new("---\nname: [\n---\nbody".to_string());
     let error = PromptFileAsset::Summarize.hydrate(prompt).unwrap_err().into_error();
     assert!(error.to_string().contains("frontmatter"));
-}
-#[cfg(feature = "template")]
-#[test]
-fn test_hydrate_rejects_missing_required_data() {
-    let error = PromptHydrator::hydrate(PromptFileAsset::Summarize, &context(json!({}))).unwrap_err();
-    assert!(error.to_string().contains("Failed to render prompt template"));
 }
 #[cfg(feature = "template")]
 #[test]
@@ -108,6 +119,62 @@ fn test_hydrate_rejects_unresolved_template_syntax() {
     let prompt = Prompt::<Rendered>::new("---\nname: summarize\n---\n{{ missing }}".to_string());
     let error = PromptFileAsset::Summarize.hydrate(prompt).unwrap_err().into_error();
     assert!(error.to_string().contains("unresolved template syntax"));
+}
+#[cfg(feature = "template")]
+#[test]
+fn test_hydrate_renders_default_configuration_for_every_embedded_prompt() {
+    let data = json!({"subtitle": "Accessible", "title": "source"});
+    let cases = [
+        (
+            PromptFileAsset::Eli5,
+            data.clone(),
+            ["If true, include a simple real-world analogy", "Keep output under 150 words"],
+        ),
+        (
+            PromptFileAsset::ExtractClaim,
+            data.clone(),
+            ["Extract at most 5 distinct claims", "confidence >= 0.5"],
+        ),
+        (
+            PromptFileAsset::FindGaps,
+            data.clone(),
+            ["Read the full source text carefully", "Balanced view"],
+        ),
+        (
+            PromptFileAsset::SuggestFixes,
+            data.clone(),
+            ["Return one JSON object", "Return `unsupported`"],
+        ),
+        (
+            PromptFileAsset::Summarize,
+            data.clone(),
+            ["Keep output under 160 words", "Limit key points to 5 bullets"],
+        ),
+        (
+            PromptFileAsset::Teach,
+            data,
+            ["If true, provide 2-3 concrete", "3-5 self-check questions formatted"],
+        ),
+        (
+            PromptFileAsset::Translate,
+            json!({"language": "French", "subtitle": "Accessible", "title": "source"}),
+            ["English-to-French", "target language: French"],
+        ),
+    ];
+    cases.into_iter().for_each(|(asset, data, expected)| {
+        let prompt = PromptHydrator::hydrate(
+            asset,
+            &PromptContext {
+                config: PromptTemplateConfiguration::default(),
+                data,
+            },
+        )
+        .expect("embedded prompt defaults should hydrate");
+        expected
+            .into_iter()
+            .for_each(|value| assert!(prompt.body.contains(value), "missing '{value}'"));
+        assert!(prompt.body.contains("title:source"));
+    });
 }
 #[cfg(feature = "template")]
 #[test]
@@ -145,6 +212,12 @@ fn test_hydrate_renders_multiline_data_into_valid_frontmatter() {
         .map(|(_, encoded)| encoded.trim_end_matches("\n```"))
         .expect("prompt should contain one ZON data block");
     assert_eq!(zon::decode_value(encoded).unwrap(), json!({"text": source}));
+}
+#[cfg(feature = "template")]
+#[test]
+fn test_hydrate_reports_missing_required_data() {
+    let error = PromptHydrator::hydrate(PromptFileAsset::Translate, &context(json!({"text": "source"}))).unwrap_err();
+    assert!(error.to_string().contains("data.language"));
 }
 #[cfg(feature = "template")]
 #[test]

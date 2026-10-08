@@ -1,11 +1,9 @@
 //! Agent Client Protocol process, readiness, and inference adapter.
-
-mod client;
-mod installation;
 use crate::agent::{InferenceCapabilities, InferencePermissionPolicy};
 use acorn_cmd::args;
 use acorn_core::util::SemanticVersion;
 use acorn_macros::With;
+use acorn_schema::software::Software;
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use bon::Builder;
 pub use client::Client;
@@ -16,8 +14,38 @@ use std::{
     ffi::OsString,
     path::{Path, PathBuf},
 };
-/// Stable identifier used by the OpenCode ACP adapter.
-pub const OPENCODE_AGENT_ID: &str = "opencode";
+
+mod client;
+mod installation;
+
+/// Static launch profile implemented by a supported ACP agent.
+pub trait AgentProfile: Sized {
+    /// Arguments used to start the ACP transport.
+    const ACP_ARGUMENTS: &'static [&'static str];
+    /// Software identity used as the stable agent identifier.
+    const AGENT: Software;
+    /// Environment overrides supplied to the ACP process.
+    const ENVIRONMENT: &'static [(&'static str, &'static str)] = &[];
+    /// Software identity used as the default executable.
+    const EXECUTABLE: Software;
+    /// Guidance appended when the configured executable cannot be found.
+    const MISSING_EXECUTABLE_HELP: &'static str = "";
+    /// Arguments used by the read-only installation version probe.
+    const VERSION_ARGUMENTS: &'static [&'static str] = &["--version"];
+    /// Build immutable process configuration from this launch profile.
+    fn process_config(executable: Option<PathBuf>, working_directory: PathBuf) -> AgentProcessConfig {
+        let config = AgentProcessConfig::new(
+            Self::AGENT.command(),
+            executable.unwrap_or_else(|| PathBuf::from(Self::EXECUTABLE.command())),
+            working_directory,
+        );
+        config
+            .with_acp_arguments(Self::ACP_ARGUMENTS.iter().copied())
+            .with_environment(Self::ENVIRONMENT.iter().copied())
+            .with_missing_executable_help(Self::MISSING_EXECUTABLE_HELP)
+            .with_version_arguments(Self::VERSION_ARGUMENTS.iter().copied())
+    }
+}
 /// Read-only observer for normalized ACP session events.
 ///
 /// Observers receive progress metadata only. They cannot change ACORN's
@@ -61,12 +89,14 @@ pub enum Error {
         message: String,
     },
     /// The configured executable could not be resolved.
-    #[error("ACP agent '{agent_id}' executable was not found: {}", .executable.display())]
+    #[error("ACP agent '{agent_id}' executable was not found: {}{missing_executable_help}", .executable.display())]
     ExecutableNotFound {
         /// Agent identifier.
         agent_id: String,
         /// Configured executable or command name.
         executable: PathBuf,
+        /// Agent-specific installation guidance, including its leading separator.
+        missing_executable_help: &'static str,
     },
     /// An explicit executable path exists but cannot be executed.
     #[error("ACP agent '{agent_id}' executable is not usable: {}", .executable.display())]
@@ -191,6 +221,9 @@ pub struct AgentProcessConfig {
     /// Executable path or command name.
     #[builder(into)]
     executable: PathBuf,
+    /// Guidance appended when the configured executable cannot be found.
+    #[builder(default)]
+    missing_executable_help: &'static str,
     /// Maximum permission policy granted to the child process.
     #[builder(default = InferencePermissionPolicy::DenyMutation)]
     permission_policy: InferencePermissionPolicy,
@@ -216,6 +249,12 @@ pub struct AuthenticationMethod {
     /// Whether authentication requires a separately launched terminal flow.
     pub terminal: bool,
 }
+/// Codex ACP launch profile backed by the `codex-acp` adapter.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct Codex;
+/// OpenCode ACP launch profile.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct OpenCode;
 /// Result of an explicit ACP initialize handshake that sends no user prompt.
 #[derive(Clone, Debug, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -242,6 +281,10 @@ impl AgentProcessConfig {
     pub fn agent_id(&self) -> &str {
         &self.agent_id
     }
+    /// Create launch data for `codex-acp` and `codex-acp --version`.
+    pub fn codex(executable: Option<PathBuf>, working_directory: PathBuf) -> Self {
+        Codex::process_config(executable, working_directory)
+    }
     /// Borrow the child environment overrides.
     pub fn environment(&self) -> &BTreeMap<OsString, OsString> {
         &self.environment
@@ -260,12 +303,7 @@ impl AgentProcessConfig {
     }
     /// Create launch data for `opencode acp` and `opencode --version`.
     pub fn opencode(executable: Option<PathBuf>, working_directory: PathBuf) -> Self {
-        Self::builder()
-            .agent_id(OPENCODE_AGENT_ID)
-            .executable(executable.unwrap_or_else(|| PathBuf::from(OPENCODE_AGENT_ID)))
-            .working_directory(working_directory)
-            .acp_arguments(args!["acp"])
-            .build()
+        OpenCode::process_config(executable, working_directory)
     }
     /// Read the maximum permission policy granted to the child process.
     pub const fn permission_policy(&self) -> InferencePermissionPolicy {
@@ -318,5 +356,18 @@ impl AgentProcessConfig {
         &self.working_directory
     }
 }
+impl AgentProfile for Codex {
+    const ACP_ARGUMENTS: &'static [&'static str] = &[];
+    const AGENT: Software = Software::Codex;
+    const ENVIRONMENT: &'static [(&'static str, &'static str)] = &[("INITIAL_AGENT_MODE", "read-only")];
+    const EXECUTABLE: Software = Software::CodexAcp;
+    const MISSING_EXECUTABLE_HELP: &'static str = "\nInstall it with `npm install -g @agentclientprotocol/codex-acp` and ensure `codex-acp` is on PATH. The global install does not require `npx`. If npm is unavailable, install Node.js/npm or download a standalone binary from https://github.com/agentclientprotocol/codex-acp/releases.";
+}
+impl AgentProfile for OpenCode {
+    const ACP_ARGUMENTS: &'static [&'static str] = &["acp"];
+    const AGENT: Software = Software::OpenCode;
+    const EXECUTABLE: Software = Software::OpenCode;
+}
+
 #[cfg(test)]
 mod tests;

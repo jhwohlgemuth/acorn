@@ -1,6 +1,7 @@
 use super::*;
+
 #[test]
-fn injected_snapshots_are_deterministic_and_secret_free() {
+fn test_injected_snapshots_are_deterministic_and_secret_free() {
     let snapshot = HostSnapshot::init()
         .architecture("test-arch")
         .cpu_count(4)

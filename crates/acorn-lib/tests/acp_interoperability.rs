@@ -1,10 +1,11 @@
 #![allow(clippy::expect_used, clippy::panic)]
-//! Ignored interoperability coverage for a configured OpenCode ACP agent
+//! Ignored interoperability coverage for configured ACP agents
 
 use acorn::{
     agent::{InferenceRequest, PromptContext, PromptHydrator},
     analyzer::fix::{CheckReference, CheckReferences, Fix, FixAutomation, FixOptions, IntoFixes, Plan, Policy, Runner},
-    io::acp::{AgentProcessConfig, Client},
+    io::acp::{AgentProfile, Client, Codex, OpenCode},
+    util::constants::env::TEST_ACP_AGENT,
 };
 use acorn_schema::{
     agent::{PromptFileAsset, PromptTemplateConfiguration},
@@ -15,6 +16,7 @@ use owo_colors::OwoColorize;
 use serde_json::json;
 use std::{fs, path::PathBuf};
 use tempfile::TempDir;
+
 const GENERAL_CONTENT: &str = "A field team mapped three wetland plots after spring rainfall. Plot B retained water longest and hosted the most amphibian calls. The team will repeat observations after the summer dry period before making restoration recommendations.";
 struct DocumentOnlyRunner;
 impl Runner for DocumentOnlyRunner {
@@ -47,8 +49,8 @@ fn apply_automated_fix(fixes: &[&Fix], contents: &[u8]) {
     );
     directory.close().expect("remove automated ACP fix workspace");
 }
-fn enabled() -> bool {
-    std::env::var_os("ACORN_TEST_OPENCODE_ACP").is_some_and(|value| value == "1")
+fn enabled(agent_id: &str) -> bool {
+    std::env::var(TEST_ACP_AGENT).is_ok_and(|value| value == agent_id)
 }
 fn fix_reference() -> CheckReference {
     CheckReference {
@@ -100,54 +102,39 @@ fn hydrated_request() -> (ResearchActivity, InferenceRequest) {
         },
     )
 }
-fn runtime() -> tokio::runtime::Runtime {
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("build interoperability test runtime")
-}
-fn synthetic_input() -> (TempDir, PathBuf, Vec<u8>) {
-    let directory = tempfile::tempdir().expect("create synthetic ACP workspace");
-    let path = directory.path().join("activity.json");
-    let contents = br#"{"title":"TBD"}"#.to_vec();
-    fs::write(&path, &contents).expect("write synthetic activity");
-    (directory, path, contents)
-}
-#[test]
-fn hydrated_request_uses_valid_rad_fixture() {
-    let (activity, request) = hydrated_request();
-    assert_eq!(activity.title, "Minimal Valid RAD");
-    assert!(request.prompt.body.contains("Minimal Valid RAD"));
-    assert!(general_content_request().prompt.body.contains(GENERAL_CONTENT));
-}
-#[test]
-#[ignore = "requires ACORN_TEST_OPENCODE_ACP=1 and a configured local OpenCode ACP agent"]
-fn opencode_acp_returns_text_and_validated_fix_suggestions_without_mutating_input() {
-    if !enabled() {
+fn run_agent_interoperability<A: AgentProfile>() {
+    let agent_id = A::AGENT.command();
+    if !enabled(agent_id) {
         return;
     }
     let (directory, input, contents) = synthetic_input();
+    let request_label = format!("[ACORN → {agent_id}]");
+    let response_label = format!("[{agent_id} → ACORN]");
     println!(
         "{} I created a synthetic activity to review:\n{}",
         "[ACORN]".green().bold(),
         String::from_utf8_lossy(&contents)
     );
-    let client = Client::new(AgentProcessConfig::opencode(None, directory.path().to_path_buf()));
+    let client = Client::new(A::process_config(None, directory.path().to_path_buf()));
     let runtime = runtime();
-    println!("{} Are you ready to review it?", "[ACORN → OpenCode]".green().bold());
+    println!("{} Are you ready to review it?", request_label.as_str().green().bold());
     let readiness = runtime.block_on(client.protocol_readiness()).expect("negotiate ACP readiness");
     assert_eq!(readiness.protocol_version, 1);
-    println!("{} Ready (protocol v{})", "[OpenCode → ACORN]".cyan().bold(), readiness.protocol_version);
+    println!(
+        "{} Ready (protocol v{})",
+        response_label.as_str().cyan().bold(),
+        readiness.protocol_version
+    );
     println!("{} I hydrated this general text:\n{GENERAL_CONTENT}", "[ACORN]".green().bold());
     println!(
         "{} Please summarize this general content without changing it.",
-        "[ACORN → OpenCode]".green().bold()
+        request_label.as_str().green().bold()
     );
     let general = runtime
         .block_on(client.infer_checked(&general_content_request()))
         .expect("run general-content ACP prompt");
     assert!(!general.text.trim().is_empty(), "ACP general-content prompt returned no text");
-    println!("{} General summary:\n{}", "[OpenCode → ACORN]".cyan().bold(), general.text);
+    println!("{} General summary:\n{}", response_label.as_str().cyan().bold(), general.text);
     let (activity, request) = hydrated_request();
     let activity = serde_json::to_string_pretty(&activity).expect("serialize hydrated RAD fixture");
     println!(
@@ -156,17 +143,17 @@ fn opencode_acp_returns_text_and_validated_fix_suggestions_without_mutating_inpu
     );
     println!(
         "{} Please summarize this RAD record without changing it.",
-        "[ACORN → OpenCode]".green().bold()
+        request_label.as_str().green().bold()
     );
     let result = runtime.block_on(client.infer_checked(&request)).expect("run hydrated ACP prompt");
     assert!(!result.text.trim().is_empty(), "ACP prompt returned no text");
     println!(
         "{} Summary received ({} characters):\n{}",
-        "[OpenCode → ACORN]".cyan().bold(),
+        response_label.as_str().cyan().bold(),
         result.text.chars().count(),
         result.text
     );
-    println!("{} Now propose a safe, reviewable repair.", "[ACORN → OpenCode]".green().bold());
+    println!("{} Now propose a safe, reviewable repair.", request_label.as_str().green().bold());
     let report = runtime
         .block_on(vec![fix_reference()].suggest(
             &client,
@@ -199,7 +186,7 @@ fn opencode_acp_returns_text_and_validated_fix_suggestions_without_mutating_inpu
         })
         .collect::<Vec<_>>()
         .join("\n\n");
-    println!("{} Proposed fix:\n{proposals}", "[OpenCode → ACORN]".cyan().bold());
+    println!("{} Proposed fix:\n{proposals}", response_label.as_str().cyan().bold());
     apply_automated_fix(&fixes, &contents);
     assert_eq!(fs::read(&input).expect("read synthetic activity"), contents);
     directory.close().expect("reap ACP session workspace");
@@ -207,4 +194,35 @@ fn opencode_acp_returns_text_and_validated_fix_suggestions_without_mutating_inpu
         "{} The original activity stayed unchanged; the ACP workspace is reaped.",
         "[ACORN]".green().bold()
     );
+}
+fn runtime() -> tokio::runtime::Runtime {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("build interoperability test runtime")
+}
+fn synthetic_input() -> (TempDir, PathBuf, Vec<u8>) {
+    let directory = tempfile::tempdir().expect("create synthetic ACP workspace");
+    let path = directory.path().join("activity.json");
+    let contents = br#"{"title":"TBD"}"#.to_vec();
+    fs::write(&path, &contents).expect("write synthetic activity");
+    (directory, path, contents)
+}
+
+#[test]
+#[ignore = "requires ACORN_TEST_ACP_AGENT=codex and a configured local codex-acp adapter"]
+fn test_codex_acp_returns_text_and_validated_fix_suggestions_without_mutating_input() {
+    run_agent_interoperability::<Codex>();
+}
+#[test]
+fn test_hydrated_request_uses_valid_rad_fixture() {
+    let (activity, request) = hydrated_request();
+    assert_eq!(activity.title, "Minimal Valid RAD");
+    assert!(request.prompt.body.contains("Minimal Valid RAD"));
+    assert!(general_content_request().prompt.body.contains(GENERAL_CONTENT));
+}
+#[test]
+#[ignore = "requires ACORN_TEST_ACP_AGENT=opencode and a configured local OpenCode ACP agent"]
+fn test_opencode_acp_returns_text_and_validated_fix_suggestions_without_mutating_input() {
+    run_agent_interoperability::<OpenCode>();
 }

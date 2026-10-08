@@ -146,24 +146,44 @@ cargo insta review
 
 The ACP and OpenAI-compatible interoperability tests use real configured services. They are ignored by default and never run as part of `make test`. Each test uses synthetic input, checks that it remains unchanged, and does not install software or apply a suggested fix.
 
-Run the OpenCode ACP test only when `opencode` is on `PATH`, authenticated, and configured with an available model:
+Run the OpenCode ACP test only when `opencode` is on `PATH`, authenticated, and configured with an available model. OpenCode remains the default test agent:
 
 ```shell
 make test-acp
 ```
 
-Run the OpenAI-compatible test against a service that supports both `/v1/responses` and `/v1/chat/completions` for the selected model. Set `OPENAI_API_KEY` only when the endpoint requires bearer authentication; the test reads credentials only from that variable.
+Codex CLI installations do not include an ACP executable. Install the separate [`codex-acp` adapter](https://github.com/agentclientprotocol/codex-acp) globally with npm, or download a standalone Linux, macOS, or Windows binary from its releases:
 
 ```shell
-# Set OPENAI_API_KEY here when the endpoint requires bearer authentication.
-export OPENAI_API_KEY=token
-make test-openai OPENAI_BASE_URL=https://provider.example/v1 OPENAI_MODEL=example-model
+npm install -g @agentclientprotocol/codex-acp
+codex-acp --version
 ```
+
+The global npm installation does not require `npx`. If npm and npx are unavailable, either install Node.js/npm first or download a standalone adapter binary from the [`codex-acp` releases](https://github.com/agentclientprotocol/codex-acp/releases) and place it on `PATH`.
+
+Run the Codex ACP test when `codex-acp` is on `PATH` and Codex is authenticated:
+
+```shell
+make test-acp ACP_AGENT=codex
+```
+
+The Codex test checks for `codex-acp` before starting Cargo, then starts the installed adapter directly; it does not invoke `npx`, install packages, or perform authentication.
+
+Configure the OpenAI-compatible test entirely through the repository `.env` file. The service must support both `/v1/responses` and `/v1/chat/completions` for the selected model. `TEST_OPENAI_API_KEY` is optional when the endpoint does not require bearer authentication.
+
+```shell
+TEST_OPENAI_BASE_URL=https://provider.example/v1
+TEST_OPENAI_MODEL=example-model
+TEST_OPENAI_API_KEY=token
+```
+
+Then run `make test-openai`. The target maps these test-only values to the runtime variables consumed by the interoperability test; it does not reuse general `OPENAI_*` configuration.
 
 For a local OpenAI-compatible endpoint, [Indigo](https://github.com/jhwohlgemuth/indigo) can start its `llama-swap` service at `http://127.0.0.1:10732/v1`. After starting the Indigo stack and selecting an exposed model, run:
 
 ```shell
-make test-openai OPENAI_BASE_URL=http://127.0.0.1:10732/v1 OPENAI_MODEL=<model-id>
+TEST_OPENAI_BASE_URL=http://127.0.0.1:10732/v1
+TEST_OPENAI_MODEL=<model-id>
 ```
 
 Without the corresponding `ACORN_TEST_*` gate, the ignored test exits before starting a process or making a network request. These tests complement the fake ACP and local HTTP coverage; use them to validate a configured provider before changing adapter behavior.

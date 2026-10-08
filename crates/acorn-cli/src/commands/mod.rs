@@ -35,7 +35,6 @@ pub mod format;
 pub mod gather;
 pub mod import;
 pub mod infer;
-pub mod inference;
 pub mod link;
 pub mod mcp;
 pub mod report;

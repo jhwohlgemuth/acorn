@@ -1,6 +1,5 @@
 //! Embedded prompt hydration and inference command.
-
-use crate::commands::inference::ConfiguredInference;
+use super::ConfiguredInference;
 use crate::{
     cli::{
         arguments::{InferenceOutputFormat, PromptDataFormatArg, PromptRun},
@@ -9,6 +8,7 @@ use crate::{
     io::{is_stdin_piped, read_stdin},
 };
 use acorn::agent::{HydratedPrompt, InferencePermissionPolicy, InferenceRequest, InferenceResult, PromptContext, PromptDataFormat, PromptHydrator};
+use acorn::io::{read_clipboard, resolve_glob};
 use acorn_core::{
     time::{Milliseconds, UnitOfTime},
     util::MimeType,
@@ -18,13 +18,13 @@ use acorn_schema::validation::Validate;
 use acorn_schema::{agent::PromptTemplateConfiguration, standard::zon};
 use alloc::collections::BTreeSet;
 use color_eyre::eyre::{eyre, Result};
-use glob::glob;
 use serde::Serialize;
 use serde_json::{Map, Value};
 use std::{
     fs::read_to_string,
     path::{Path, PathBuf},
 };
+
 const RESERVED_KEYS: [&str; 2] = ["config", "data"];
 trait Preview {
     fn preview(&self, output: InferenceOutputFormat) -> Void;
@@ -37,6 +37,11 @@ trait Render {
 enum Output<'a> {
     Preview { prompt: &'a HydratedPrompt },
     Result { result: &'a InferenceResult },
+}
+pub(super) struct Options {
+    pub(super) read_clipboard: fn() -> Result<String>,
+    pub(super) read_stdin: fn() -> Option<String>,
+    pub(super) stdin_piped: bool,
 }
 impl Preview for HydratedPrompt {
     fn preview(&self, output: InferenceOutputFormat) -> Void {
@@ -60,6 +65,15 @@ impl Render for InferenceResult {
         }
     }
 }
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            read_clipboard,
+            read_stdin,
+            stdin_piped: is_stdin_piped(),
+        }
+    }
+}
 impl From<PromptDataFormatArg> for PromptDataFormat {
     fn from(value: PromptDataFormatArg) -> Self {
         match value {
@@ -69,31 +83,61 @@ impl From<PromptDataFormatArg> for PromptDataFormat {
     }
 }
 impl PromptRun {
-    pub(super) fn load(&self) -> Result<Value> {
+    pub(super) fn load(&self, options: Option<Options>) -> Result<Value> {
+        let Options {
+            read_clipboard,
+            read_stdin,
+            stdin_piped,
+        } = options.unwrap_or_default();
         expand_paths(&self.paths).and_then(|paths| {
-            let values = match paths.as_slice() {
-                | [] if is_stdin_piped() => read_stdin()
-                    .ok_or_else(|| eyre!("Failed to read prompt data from standard input"))
-                    .and_then(|content| decode(&content, None))
-                    .map(|value| vec![value]),
-                | [] => Err(eyre!("Prompt data is required; provide one or more paths, use -, or pipe standard input")),
-                | [path] if path == Path::new("-") => read_stdin()
-                    .ok_or_else(|| eyre!("Path - requires piped standard input"))
-                    .and_then(|content| decode(&content, None))
-                    .map(|value| vec![value]),
-                | paths if paths.iter().any(|path| path == Path::new("-")) => Err(eyre!("Path - cannot be combined with other prompt data paths")),
-                | paths => paths
-                    .iter()
-                    .map(|path| {
-                        read_to_string(path)
-                            .map_err(|why| eyre!("Failed to read prompt data from {} — {why}", path.display()))
-                            .and_then(|content| decode(&content, Some(MimeType::from(path.to_string_lossy().as_ref()))))
-                    })
-                    .collect(),
+            let data_argument = self.data.as_ref().map(|data| data.as_deref());
+            let paste = self.paste;
+            let path_is_stdin = paths.iter().any(|path| path == Path::new("-"));
+            let data = match (data_argument, paste, stdin_piped, path_is_stdin) {
+                | (_, true, true, _) => Err(eyre!("--paste cannot be used while standard input is piped")),
+                | (Some(None), false, _, true) => Err(eyre!("--data cannot be combined with positional -")),
+                | (Some(None), true, false, _) => read_clipboard().and_then(|content| decode(&content, Some(MimeType::Json))).map(Some),
+                | (Some(None), false, true, false) => read_stdin()
+                    .ok_or_else(|| eyre!("Failed to read --data from standard input"))
+                    .and_then(|content| decode(&content, Some(MimeType::Json)))
+                    .map(Some),
+                | (Some(None), false, false, false) => Err(eyre!("Bare --data requires piped standard input or --paste")),
+                | (Some(Some(_)), true, false, _) => Err(eyre!("--paste requires --data without a JSON value")),
+                | (Some(Some(content)), false, _, _) => decode(content, Some(MimeType::Json)).map(Some),
+                | (None, true, false, _) => Err(eyre!("--paste requires --data")),
+                | (None, false, _, _) => Ok(None),
             };
-            values
-                .and_then(merge_data)
-                .and_then(|mut data| apply_sets(&mut data, &self.set).map(|()| Value::Object(data)))
+            data.and_then(|data| {
+                let values = match paths.as_slice() {
+                    | [] if data.is_some() => Ok(Vec::new()),
+                    | [] if stdin_piped => read_stdin()
+                        .ok_or_else(|| eyre!("Failed to read prompt data from standard input"))
+                        .and_then(|content| decode(&content, None))
+                        .map(|value| vec![value]),
+                    | [] => Err(eyre!(
+                        "Prompt data is required; provide one or more paths, --data, use -, or pipe standard input"
+                    )),
+                    | [path] if path == Path::new("-") => read_stdin()
+                        .ok_or_else(|| eyre!("Path - requires piped standard input"))
+                        .and_then(|content| decode(&content, None))
+                        .map(|value| vec![value]),
+                    | paths if paths.iter().any(|path| path == Path::new("-")) => {
+                        Err(eyre!("Path - cannot be combined with other prompt data paths"))
+                    }
+                    | paths => paths
+                        .iter()
+                        .map(|path| {
+                            read_to_string(path)
+                                .map_err(|why| eyre!("Failed to read prompt data from {} — {why}", path.display()))
+                                .and_then(|content| decode(&content, Some(MimeType::from(path.to_string_lossy().as_ref()))))
+                        })
+                        .collect(),
+                };
+                values
+                    .map(|values| values.into_iter().chain(data).collect())
+                    .and_then(merge_data)
+                    .and_then(|mut data| apply_sets(&mut data, &self.set).map(|()| Value::Object(data)))
+            })
         })
     }
 }
@@ -159,22 +203,39 @@ fn expand_paths(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
         .iter()
         .try_fold(BTreeSet::new(), |mut expanded, path| {
             let pattern = path.to_string_lossy();
-            match pattern.chars().any(|character| matches!(character, '*' | '?' | '[')) {
-                | true => glob(&pattern)
-                    .map_err(|why| eyre!("Invalid prompt data glob '{pattern}' — {why}"))
-                    .and_then(|matches| {
-                        matches
-                            .map(|value| value.map_err(|why| eyre!("Failed to resolve prompt data glob '{pattern}' — {why}")))
-                            .collect::<Result<Vec<_>>>()
-                    })
-                    .and_then(|matches| match matches.is_empty() {
-                        | true => Err(eyre!("Prompt data glob '{pattern}' matched no paths")),
-                        | false => {
-                            expanded.extend(matches);
-                            Ok(expanded)
-                        }
-                    }),
-                | false => {
+            match (pattern.chars().any(|character| matches!(character, '*' | '?' | '[')), path.is_dir()) {
+                | (true, _) => resolve_glob(&pattern).and_then(|matches| match matches.is_empty() {
+                    | true => Err(eyre!("Prompt data glob '{pattern}' matched no paths")),
+                    | false => {
+                        expanded.extend(matches);
+                        Ok(expanded)
+                    }
+                }),
+                | (false, true) => {
+                    let pattern = path.join("**/*").to_string_lossy().into_owned();
+                    resolve_glob(&pattern)
+                        .map(|matches| {
+                            matches
+                                .into_iter()
+                                .filter(|candidate| {
+                                    let mime = MimeType::from(candidate.to_string_lossy().as_ref());
+                                    let is_prompt_data_path = mime.is_json() || mime.is_yaml() || mime.is_zon();
+                                    candidate.is_file() && is_prompt_data_path
+                                })
+                                .collect::<Vec<_>>()
+                        })
+                        .and_then(|matches| match matches.is_empty() {
+                            | true => Err(eyre!(
+                                "Prompt data directory '{}' contains no json, yaml, yml, zon, or zonf files",
+                                path.display()
+                            )),
+                            | false => {
+                                expanded.extend(matches);
+                                Ok(expanded)
+                            }
+                        })
+                }
+                | (false, false) => {
                     expanded.insert(path.clone());
                     Ok(expanded)
                 }
@@ -220,7 +281,7 @@ pub(crate) async fn run(arguments: &PromptRun, offline: bool) -> Void {
         .inference
         .validate()
         .map_err(|why| eyre!(why))
-        .and_then(|()| arguments.load())
+        .and_then(|()| arguments.load(None))
         .and_then(|data| asset(&arguments.asset).map(|asset| (asset, data)))
         .and_then(|(asset, data)| {
             let context = PromptContext {

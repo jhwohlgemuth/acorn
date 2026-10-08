@@ -79,6 +79,7 @@ impl AgentProcessConfig {
             | None => Err(Error::ExecutableNotFound {
                 agent_id: self.agent_id.clone(),
                 executable: self.executable.clone(),
+                missing_executable_help: self.missing_executable_help,
             }),
         }
     }

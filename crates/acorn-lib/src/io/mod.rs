@@ -1666,6 +1666,23 @@ pub fn replace_file(path: impl AsRef<Path>, content: impl AsRef<[u8]>) -> ApiRes
         }
     }
 }
+/// Resolve every path matched by one glob pattern
+/// ### Example
+/// ```rust
+/// use acorn::io::resolve_glob;
+///
+/// let paths = resolve_glob("src/io/*.rs").expect("valid glob pattern");
+/// assert!(paths.iter().any(|path| path.ends_with("mod.rs")));
+/// ```
+pub fn resolve_glob(pattern: &str) -> ApiResult<Vec<PathBuf>> {
+    glob(pattern)
+        .map_err(|why| eyre!("Invalid glob '{pattern}' — {why}"))
+        .and_then(|matches| {
+            matches
+                .map(|value| value.map_err(|why| eyre!("Failed to resolve glob '{pattern}' — {why}")))
+                .collect()
+        })
+}
 /// Run an operation and retry matching errors after optional millisecond delays.
 pub fn retry<T, E>(run: impl Fn() -> Result<T, E>, should_retry: impl Fn(&E) -> bool, delays: Option<&[u64]>) -> Result<T, E> {
     delays.unwrap_or_default().iter().fold(run(), |result, delay| match result {

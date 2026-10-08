@@ -1363,6 +1363,14 @@ pub fn detect_xml(text: impl ToString) -> bool {
     }
 }
 /// Expand one comma-separated brace expression in a glob pattern.
+///
+/// # Example
+/// ```rust
+/// use acorn_core::util::expand_brace_glob;
+///
+/// let paths = expand_brace_glob("data/{raw,processed}.csv").expect("valid brace expression");
+/// assert_eq!(paths, vec!["data/raw.csv", "data/processed.csv"]);
+/// ```
 pub fn expand_brace_glob(pattern: &str) -> Result<Vec<String>, String> {
     match (pattern.find('{'), pattern.find('}')) {
         | (None, None) => Ok(vec![pattern.to_string()]),

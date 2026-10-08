@@ -13,7 +13,7 @@ config:
   stopSequences: "{{ config.stop_sequences | default(value=[]) }}"
 input:
   default:
-    text: {{ data.text | json_encode }}
+    text: {{ data.text | default(value="") | json_encode }}
   schema:
     text:
       type: string

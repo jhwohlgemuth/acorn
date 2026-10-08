@@ -2,7 +2,7 @@
 
 use super::{FindingStatus, Record, Records};
 use crate::io::FromCommand;
-use acorn_core::util::{constants::app::APPLICATION, SemanticVersion};
+use acorn_core::util::SemanticVersion;
 use acorn_schema::software::{Software, SoftwareSnapshot, SOFTWARE};
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use bon::Builder;
@@ -134,21 +134,6 @@ impl Records {
         Self::capture_host().diagnose()
     }
 }
-fn software_command(software: Software) -> &'static str {
-    match software {
-        | Software::Acorn => APPLICATION,
-        | Software::Chromium => "chromium",
-        | Software::Git => "git",
-        | Software::Node => "node",
-        | Software::Npm => "npm",
-        | Software::Npx => "npx",
-        | Software::OpenCode => "opencode",
-        | Software::Oras => "oras",
-        | Software::Pandoc => "pandoc",
-        | Software::Unknown => "",
-        | Software::Vale => "vale",
-    }
-}
 fn software_path(software: Software) -> Option<PathBuf> {
     match software {
         | Software::Acorn => current_exe().ok(),
@@ -157,7 +142,7 @@ fn software_path(software: Software) -> Option<PathBuf> {
                 .into_iter()
                 .find_map(|command| which(command).ok())
         }),
-        | _ => which(software_command(software)).ok(),
+        | _ => which(software.command()).ok(),
     }
 }
 fn software_snapshot(software: Software) -> SoftwareSnapshot {
@@ -170,5 +155,6 @@ fn software_snapshot(software: Software) -> SoftwareSnapshot {
     };
     SoftwareSnapshot::new(software, path.map(|path| path.to_string_lossy().into_owned()), version)
 }
+
 #[cfg(test)]
 mod tests;

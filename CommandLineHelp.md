@@ -244,7 +244,14 @@ Perform static analysis on research activity data and apply standardized best pr
   - `openai`:
     Call an OpenAI-compatible HTTP endpoint
 
-* `--agent <AGENT>` — ACP agent identifier (currently only `opencode`)
+* `--agent <AGENT>` — ACP agent identifier; defaults to `opencode`
+
+  Possible values:
+  - `opencode`:
+    Run OpenCode's native ACP server
+  - `codex`:
+    Run the Codex ACP adapter
+
 * `--agent-executable <PATH>` — Explicit ACP agent executable
 * `--working-directory <PATH>` — ACP session working directory
 * `--model <MODEL>` — Model selector; required for OpenAI-compatible inference
@@ -755,6 +762,9 @@ Run bounded inference through Needle or a configured prompt backend
     Run through OpenCode ACP (the default backend)
     $> acorn infer run summarize activity.json
 
+    Run through the Codex ACP adapter
+    $> acorn infer run summarize activity.json --agent codex
+
     Run through an OpenAI-compatible endpoint
     $> acorn infer run summarize --backend openai --model qwen3 --base-url http://localhost:8080
 
@@ -793,10 +803,11 @@ Hydrate and run one known embedded prompt asset
 ###### **Arguments:**
 
 * `<ASSET>` — Known embedded prompt asset name
-* `<PATH>` — JSON, YAML, or ZON input paths or glob patterns; use `-` for standard input
+* `<PATH>` — JSON, YAML, or ZON input files, directories, or glob patterns; use `-` for standard input
 
 ###### **Options:**
 
+* `--data <JSON>` — JSON object; omit the value to read standard input or use `--paste`
 * `--set <KEY=VALUE>` — Override one top-level scalar prompt-data value
 * `--format <FORMAT>` — Serialization format for the prompt input-data block
 
@@ -809,6 +820,7 @@ Hydrate and run one known embedded prompt asset
     Canonical ZON
 
 * `--dry-run` [alias: `what-if`] — Preview the fully hydrated prompt without backend checks or I/O
+* `--paste` — Read bare `--data` from the system clipboard
 * `--output <FORMAT>` — Command output format
 
   Default value: `human`
@@ -829,7 +841,14 @@ Hydrate and run one known embedded prompt asset
   - `openai`:
     Call an OpenAI-compatible HTTP endpoint
 
-* `--agent <AGENT>` — ACP agent identifier (currently only `opencode`)
+* `--agent <AGENT>` — ACP agent identifier; defaults to `opencode`
+
+  Possible values:
+  - `opencode`:
+    Run OpenCode's native ACP server
+  - `codex`:
+    Run the Codex ACP adapter
+
 * `--agent-executable <PATH>` — Explicit ACP agent executable
 * `--working-directory <PATH>` — ACP session working directory
 * `--model <MODEL>` — Model selector; required for OpenAI-compatible inference

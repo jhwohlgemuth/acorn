@@ -1,12 +1,12 @@
 use super::{HydratedPrompt, PromptContext, PromptDataFormat};
 use crate::error::ApiResult;
-use acorn_core::prelude::{String, ToString};
+use acorn_core::prelude::{String, ToString, Vec};
 use acorn_core::util::{frontmatter_and_body, longest_character_run, MarkdownSupport};
 use acorn_schema::agent::{FrontMatter, PromptFileAsset};
 use acorn_schema::standard::zon;
 use acorn_schema::validation::Validate;
 use color_eyre::eyre::{eyre, Report};
-use core::marker::PhantomData;
+use core::{iter::successors, marker::PhantomData};
 use serde::Serialize;
 use serde_json::Value;
 use tera::{Context, Tera};
@@ -52,7 +52,7 @@ impl Prompt<Raw> {
                 context.insert("config", &config);
                 context.insert("data", &data);
                 Tera::one_off(&self.content, &context, false)
-                    .map_err(|why| Prompt::<Rejected>::new(format!("Failed to render prompt template — {why}")))
+                    .map_err(|why| Prompt::<Rejected>::new(format!("Failed to render prompt template — {}", error_chain(&why))))
                     .and_then(|content| {
                         format
                             .data_block(&data)
@@ -149,4 +149,10 @@ impl PromptHydrator {
             .and_then(|prompt| prompt.render(context, format).map_err(Prompt::into_error))
             .and_then(|prompt| asset.hydrate(prompt).map_err(Prompt::into_error))
     }
+}
+fn error_chain(error: &tera::Error) -> String {
+    successors(Some(error as &(dyn core::error::Error + 'static)), |source| source.source())
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join(" — ")
 }

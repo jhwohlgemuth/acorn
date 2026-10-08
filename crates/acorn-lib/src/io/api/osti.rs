@@ -449,10 +449,12 @@ fn request_params(options: &Options) -> ApiResult<Vec<Param>> {
 /// Retrieve a single DOE CODE project by Code ID
 /// ## Examples
 /// ```no_run
+/// # async fn example() {
 /// use acorn::io::api::osti;
 ///
 /// let project = osti::record(156286).await;
 /// assert!(project.is_ok());
+/// # }
 /// ```
 pub async fn record(code_id: u64) -> ApiResult<Project> {
     match INCLUDED_ENDPOINTS.find_by_name("osti") {
@@ -468,6 +470,7 @@ pub async fn record(code_id: u64) -> ApiResult<Project> {
 /// Search DOE CODE using one page or sequentially retrieve all pages
 /// ## Examples
 /// ```no_run
+/// # async fn example() {
 /// use acorn::io::api::osti::{self, Options, SearchView};
 /// use acorn_schema::discovery::RemoteOrganizationRole;
 ///
@@ -480,6 +483,7 @@ pub async fn record(code_id: u64) -> ApiResult<Project> {
 /// };
 /// let response = osti::search(&options).await;
 /// assert!(response.is_ok());
+/// # }
 /// ```
 pub async fn search(options: &Options) -> ApiResult<SearchResponse> {
     match page(options).await {

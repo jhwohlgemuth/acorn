@@ -14,7 +14,16 @@ acorn doctor --check system,memory,network
 acorn doctor --report > acorn-doctor.json
 ```
 
-Doctor reports use the same discovery-record JSON schema as the interactive Doctor screen. The software probes cover ACORN, Chromium, Git, Node.js, npm, npx, OpenCode, ORAS, Pandoc, and Vale.
+Doctor reports use the same discovery-record JSON schema as the interactive Doctor screen. The software probes cover ACORN, Chromium, Codex, Codex ACP, Git, Node.js, npm, npx, OpenCode, ORAS, Pandoc, and Vale.
+
+If `Codex ACP` is reported as missing, install its executable globally and rerun the software check:
+
+```sh
+npm install -g @agentclientprotocol/codex-acp
+acorn doctor --check software
+```
+
+This global installation does not require `npx`. If npm and npx are unavailable, install Node.js/npm or download a standalone binary from the [`codex-acp` releases](https://github.com/agentclientprotocol/codex-acp/releases) and place it on `PATH`.
 
 `--fix` applies only reversible, low-risk automatic fixes and then reports the verified host state. Package-manager and network installers require `--fix --interactive`: select findings with Space, preview the fixed operations with `f`, and confirm with `y`. `n` or Escape declines the plan. `--interactive` without `--fix` remains report-only, and `--report` cannot be combined with interactive mode.
 

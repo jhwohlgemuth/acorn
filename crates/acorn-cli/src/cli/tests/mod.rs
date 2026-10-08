@@ -10,7 +10,7 @@
 // returns Err during `try_parse_from` as a signal to display version info.
 
 use crate::cli::arguments::osti::DoeLab;
-use crate::cli::arguments::{CheckOutputFormat, DiffOutputFormat, FileFormat, InferenceBackendKind, SyncTarget};
+use crate::cli::arguments::{AcpAgentKind, CheckOutputFormat, DiffOutputFormat, FileFormat, InferenceBackendKind, SyncTarget};
 use crate::cli::parse::infer_standard_from_content;
 use crate::cli::{
     resolve_export_paths, resolve_paths, resolve_paths_including, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands,
@@ -28,6 +28,7 @@ use futures::executor::block_on;
 use std::fs::{create_dir_all, write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+
 static ENV_LOCK: Mutex<()> = Mutex::new(());
 fn fixture_content_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/filter")
@@ -925,9 +926,9 @@ fn test_infer_run_backend_precedence_and_full_flags() {
             "--backend",
             "acp",
             "--agent",
-            "opencode",
+            "codex",
             "--agent-executable",
-            "/tmp/opencode",
+            "/tmp/codex-acp",
             "--working-directory",
             ".",
             "--model",
@@ -945,6 +946,7 @@ fn test_infer_run_backend_precedence_and_full_flags() {
             | Some(Commands::Infer(arguments)) => match arguments.command {
                 | Some(InferCommands::Run(arguments)) => {
                     assert_eq!(arguments.inference.backend, InferenceBackendKind::Acp);
+                    assert_eq!(arguments.inference.agent, Some(AcpAgentKind::Codex));
                     assert_eq!(arguments.inference.timeout, jiff::SignedDuration::from_secs(5));
                     assert_eq!(arguments.paths, ["one.json", "inputs/*.json"].map(std::path::PathBuf::from));
                     assert!(arguments.dry_run);
@@ -960,7 +962,54 @@ fn test_infer_run_backend_precedence_and_full_flags() {
             Some(Commands::Infer(_))
         ));
         assert!(Arguments::try_parse_from(["acorn", "prompt", "run", "summarize"]).is_err());
+        assert!(Arguments::try_parse_from(["acorn", "infer", "run", "summarize", "--agent", "unknown"]).is_err());
     });
+}
+#[test]
+fn test_infer_run_data_sources() {
+    let inline = Arguments::try_parse_from(["acorn", "infer", "run", "summarize", "--data", r#"{"text":"hello"}"#]).expect("parse inline JSON data");
+    match inline.command {
+        | Some(Commands::Infer(arguments)) => match arguments.command {
+            | Some(InferCommands::Run(arguments)) => {
+                assert_eq!(arguments.data.as_ref().and_then(|data| data.as_deref()), Some(r#"{"text":"hello"}"#));
+                assert!(!arguments.paste);
+            }
+            | other => panic!("unexpected infer command: {other:?}"),
+        },
+        | other => panic!("unexpected command: {other:?}"),
+    }
+    let stdin = Arguments::try_parse_from(["acorn", "infer", "run", "summarize", "--data"]).expect("parse JSON standard input");
+    match stdin.command {
+        | Some(Commands::Infer(arguments)) => match arguments.command {
+            | Some(InferCommands::Run(arguments)) => assert_eq!(arguments.data, Some(None)),
+            | other => panic!("unexpected infer command: {other:?}"),
+        },
+        | other => panic!("unexpected command: {other:?}"),
+    }
+    let clipboard = Arguments::try_parse_from(["acorn", "infer", "run", "summarize", "--data", "--paste"]).expect("parse JSON clipboard input");
+    match clipboard.command {
+        | Some(Commands::Infer(arguments)) => match arguments.command {
+            | Some(InferCommands::Run(arguments)) => {
+                assert_eq!(arguments.data, Some(None));
+                assert!(arguments.paste);
+            }
+            | other => panic!("unexpected infer command: {other:?}"),
+        },
+        | other => panic!("unexpected command: {other:?}"),
+    }
+    let combined =
+        Arguments::try_parse_from(["acorn", "infer", "run", "summarize", "input.json", "--data"]).expect("parse file and standard-input JSON data");
+    match combined.command {
+        | Some(Commands::Infer(arguments)) => match arguments.command {
+            | Some(InferCommands::Run(arguments)) => {
+                assert_eq!(arguments.data, Some(None));
+                assert_eq!(arguments.paths, [PathBuf::from("input.json")]);
+            }
+            | other => panic!("unexpected infer command: {other:?}"),
+        },
+        | other => panic!("unexpected command: {other:?}"),
+    }
+    assert!(Arguments::try_parse_from(["acorn", "infer", "run", "summarize", "--paste"]).is_err());
 }
 #[test]
 fn test_json_lines_standard_inference_rejects_mixed_records_with_line() {
@@ -1418,6 +1467,7 @@ fn test_what_if_aliases_dry_run_flags() {
     assert!(Arguments::try_parse_from(["acorn", "import", "spec", "--what-if"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "sync", "--what-if"]).is_ok());
 }
+
 mod relocated_arguments_bot_tests {
     use super::super::arguments::bot::{Common, EventSource};
 
@@ -1435,6 +1485,7 @@ mod relocated_arguments_bot_tests {
             config: None,
         }
     }
+
     #[test]
     fn test_bind_address_uses_default_host_with_port() {
         assert_eq!(common(None, Some(8080)).bind_address(), "localhost:8080");

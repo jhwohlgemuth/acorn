@@ -13,7 +13,7 @@ config:
   stopSequences: "{{ config.stop_sequences | default(value=[]) }}"
 input:
   default:
-    text: {{ data.text | json_encode }}
+    text: {{ data.text | default(value="") | json_encode }}
     max-words: "{{ config.max_words | default(value=150) }}"
     include-analogy: "{{ config.include_analogy | default(value=true) }}"
   schema:
@@ -48,10 +48,10 @@ Take the input text and break it down into its core idea using only words and co
 3. Use ONLY simple, everyday words that a 5-year-old would know.
 4. Use short sentences. No long sentences with complicated grammar.
 5. Use comparisons to things kids understand (toys, animals, foods, everyday activities).
-6. If {{ config.include_analogy }}, include a simple real-world analogy or example.
+6. If {{ config.include_analogy | default(value=true) }}, include a simple real-world analogy or example.
 7. Remove ALL technical terms and jargon—replace with simple words.
 8. Explain the "why" in simple terms—why does this matter or why does it happen?
-9. Keep output under {{ config.max_words }} words.
+9. Keep output under {{ config.max_words | default(value=150) }} words.
 10. Use fun, engaging language to keep attention.
 11. Do not include complex details, numbers, or exceptions.
 
@@ -67,7 +67,7 @@ A 2-3 sentence explanation of the main idea using only simple words. Think like 
 # Quality Checks
 - Uses only simple, common words
 - Sentences are short and easy to follow
-- Includes a relatable example or analogy if {{ config.include_analogy }} is true
+- Includes a relatable example or analogy if {{ config.include_analogy | default(value=true) }} is true
 - Accurate to the original meaning, but much simpler
 - Fun and engaging tone
 - No jargon or technical terms remain

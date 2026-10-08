@@ -1,13 +1,17 @@
-use super::{AcpSessionEvent, AgentProcessConfig, Client, Error, SessionObserver, OPENCODE_AGENT_ID};
+use super::{AcpSessionEvent, AgentProcessConfig, AgentProfile, Client, Codex, Error, OpenCode, SessionObserver};
 use crate::agent::{HydratedPrompt, InferencePermissionPolicy, InferenceRequest};
 use crate::analyzer::fix::{CheckReference, CheckReferences, FixOptions, IntoFixes};
 use acorn_cmd::{find_executable, CommandSpec};
-use acorn_schema::agent::{FrontMatter, PromptFileAsset};
+use acorn_schema::{
+    agent::{FrontMatter, PromptFileAsset},
+    software::Software,
+};
 use alloc::sync::Arc;
 use core::time::Duration;
 use serde_json::json;
 use std::{ffi::OsStr, path::PathBuf, sync::Mutex};
 use tempfile::TempDir;
+
 struct FakeAgent {
     _directory: TempDir,
     executable: PathBuf,
@@ -81,6 +85,7 @@ fn runtime() -> tokio::runtime::Runtime {
         .build()
         .expect("build test runtime")
 }
+
 #[test]
 fn test_acp_inference_forwards_hydrated_zon_prompt_body() {
     let fake = FakeAgent::compile();
@@ -202,15 +207,34 @@ fn test_acp_suggestion_service_returns_validated_fix_report() {
     assert_eq!(fix.provenance.backend, "acp");
 }
 #[test]
-fn test_agent_process_config_opencode_uses_thin_command_defaults() {
+fn test_agent_process_config_profiles_use_thin_command_defaults() {
     let working_directory = std::env::current_dir().expect("current directory");
-    let config = AgentProcessConfig::opencode(None, working_directory.clone());
-    assert_eq!(config.agent_id(), OPENCODE_AGENT_ID);
-    assert_eq!(config.executable(), &PathBuf::from("opencode"));
-    assert_eq!(config.acp_arguments(), ["acp"]);
-    assert_eq!(config.permission_policy(), InferencePermissionPolicy::DenyMutation);
-    assert_eq!(config.version_arguments(), ["--version"]);
-    assert_eq!(config.working_directory(), &working_directory);
+    let codex = AgentProcessConfig::codex(None, working_directory.clone());
+    assert_eq!(codex, Codex::process_config(None, working_directory.clone()));
+    assert_eq!(codex.agent_id(), Software::Codex.command());
+    assert_eq!(codex.executable(), &PathBuf::from("codex-acp"));
+    assert!(codex.acp_arguments().is_empty());
+    assert_eq!(
+        codex.environment().get(OsStr::new("INITIAL_AGENT_MODE")).map(|value| value.as_os_str()),
+        Some(OsStr::new("read-only"))
+    );
+    assert_eq!(codex.permission_policy(), InferencePermissionPolicy::DenyMutation);
+    assert_eq!(codex.version_arguments(), ["--version"]);
+    assert_eq!(codex.working_directory(), &working_directory);
+    let opencode = AgentProcessConfig::opencode(None, working_directory.clone());
+    assert_eq!(opencode, OpenCode::process_config(None, working_directory.clone()));
+    assert_eq!(opencode.agent_id(), Software::OpenCode.command());
+    assert_eq!(opencode.executable(), &PathBuf::from("opencode"));
+    assert_eq!(opencode.acp_arguments(), ["acp"]);
+    assert!(opencode.environment().is_empty());
+    assert_eq!(opencode.permission_policy(), InferencePermissionPolicy::DenyMutation);
+    assert_eq!(opencode.version_arguments(), ["--version"]);
+    assert_eq!(opencode.working_directory(), &working_directory);
+    let override_path = PathBuf::from("custom/codex-acp");
+    assert_eq!(
+        AgentProcessConfig::codex(Some(override_path.clone()), working_directory).executable(),
+        &override_path
+    );
 }
 #[test]
 fn test_installation_preflight_distinguishes_failure_modes_and_agents() {
@@ -229,6 +253,18 @@ fn test_installation_preflight_distinguishes_failure_modes_and_agents() {
         .with_timeout(Duration::from_millis(50))
         .with_version_arguments(["slow-version"]);
     assert!(matches!(slow.check_installation(), Err(Error::VersionProbeTimeout { .. })));
+}
+#[test]
+fn test_installation_preflight_explains_how_to_install_missing_codex_acp() {
+    let directory = tempfile::tempdir().expect("create fixture directory");
+    let missing = directory.path().join("missing-codex-acp");
+    let error = AgentProcessConfig::codex(Some(missing), directory.path().to_path_buf())
+        .check_installation()
+        .expect_err("missing Codex ACP executable should fail");
+    let message = error.to_string();
+    assert!(message.contains("npm install -g @agentclientprotocol/codex-acp"));
+    assert!(message.contains("does not require `npx`"));
+    assert!(message.contains("https://github.com/agentclientprotocol/codex-acp/releases"));
 }
 #[cfg(unix)]
 #[test]

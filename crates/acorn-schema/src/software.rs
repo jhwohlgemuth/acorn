@@ -6,9 +6,11 @@ use acorn_core::{
 };
 use core::fmt;
 /// Software probed by ACORN host diagnostics.
-pub const SOFTWARE: [Software; 10] = [
+pub const SOFTWARE: [Software; 12] = [
     Software::Acorn,
     Software::Chromium,
+    Software::Codex,
+    Software::CodexAcp,
     Software::Git,
     Software::Node,
     Software::Npm,
@@ -25,6 +27,10 @@ pub enum Software {
     Acorn,
     /// Chromium or a compatible Chrome executable.
     Chromium,
+    /// Codex CLI.
+    Codex,
+    /// Codex ACP adapter.
+    CodexAcp,
     /// Git.
     Git,
     /// Node.js.
@@ -54,28 +60,13 @@ pub struct SoftwareSnapshot {
     /// Bounded version output when available.
     pub version: Option<SemanticVersion>,
 }
-impl From<&str> for Software {
-    fn from(value: &str) -> Self {
-        match value {
-            | "ACORN" => Self::Acorn,
-            | "Chromium" => Self::Chromium,
-            | "Git" => Self::Git,
-            | "Node.js" => Self::Node,
-            | "npm" => Self::Npm,
-            | "npx" => Self::Npx,
-            | "OpenCode" => Self::OpenCode,
-            | "ORAS" => Self::Oras,
-            | "Pandoc" => Self::Pandoc,
-            | "Vale" => Self::Vale,
-            | _ => Self::Unknown,
-        }
-    }
-}
 impl fmt::Display for Software {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
             | Self::Acorn => "ACORN",
             | Self::Chromium => "Chromium",
+            | Self::Codex => "Codex",
+            | Self::CodexAcp => "Codex ACP",
             | Self::Git => "Git",
             | Self::Node => "Node.js",
             | Self::Npm => "npm",
@@ -88,6 +79,45 @@ impl fmt::Display for Software {
         })
     }
 }
+impl From<&str> for Software {
+    fn from(value: &str) -> Self {
+        match value {
+            | "ACORN" => Self::Acorn,
+            | "Chromium" => Self::Chromium,
+            | "Codex" => Self::Codex,
+            | "Codex ACP" => Self::CodexAcp,
+            | "Git" => Self::Git,
+            | "Node.js" => Self::Node,
+            | "npm" => Self::Npm,
+            | "npx" => Self::Npx,
+            | "OpenCode" => Self::OpenCode,
+            | "ORAS" => Self::Oras,
+            | "Pandoc" => Self::Pandoc,
+            | "Vale" => Self::Vale,
+            | _ => Self::Unknown,
+        }
+    }
+}
+impl Software {
+    /// Return the canonical executable name used to invoke this software.
+    pub const fn command(self) -> &'static str {
+        match self {
+            | Self::Acorn => "acorn",
+            | Self::Chromium => "chromium",
+            | Self::Codex => "codex",
+            | Self::CodexAcp => "codex-acp",
+            | Self::Git => "git",
+            | Self::Node => "node",
+            | Self::Npm => "npm",
+            | Self::Npx => "npx",
+            | Self::OpenCode => "opencode",
+            | Self::Oras => "oras",
+            | Self::Pandoc => "pandoc",
+            | Self::Unknown => "",
+            | Self::Vale => "vale",
+        }
+    }
+}
 impl SoftwareSnapshot {
     /// Construct a portable observation from host-provided values.
     pub fn new(software: Software, path: Option<String>, version: Option<SemanticVersion>) -> Self {
@@ -96,5 +126,22 @@ impl SoftwareSnapshot {
             path,
             version,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_codex_identities_round_trip() {
+        assert_eq!(Software::from("Codex"), Software::Codex);
+        assert_eq!(Software::Codex.to_string(), "Codex");
+        assert_eq!(Software::Codex.command(), "codex");
+        assert!(SOFTWARE.contains(&Software::Codex));
+        assert_eq!(Software::from("Codex ACP"), Software::CodexAcp);
+        assert_eq!(Software::CodexAcp.to_string(), "Codex ACP");
+        assert_eq!(Software::CodexAcp.command(), "codex-acp");
+        assert!(SOFTWARE.contains(&Software::CodexAcp));
     }
 }

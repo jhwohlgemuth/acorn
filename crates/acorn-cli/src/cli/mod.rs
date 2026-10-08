@@ -18,6 +18,7 @@ use color_eyre::eyre;
 use jiff::SignedDuration;
 use parse::parse_watch_duration;
 use std::{fs::read_to_string, path::PathBuf};
+
 pub mod arguments;
 pub mod parse;
 const PRIMARY_COLOR: u8 = 135;
@@ -184,6 +185,9 @@ pub enum Commands {
     ///
     ///     Run through OpenCode ACP (the default backend)
     ///     $> acorn infer run summarize activity.json
+    ///
+    ///     Run through the Codex ACP adapter
+    ///     $> acorn infer run summarize activity.json --agent codex
     ///
     ///     Run through an OpenAI-compatible endpoint
     ///     $> acorn infer run summarize --backend openai --model qwen3 --base-url http://localhost:8080
@@ -716,5 +720,6 @@ async fn resolve_paths_with_extensions(
         | None => Ok(files),
     }
 }
+
 #[cfg(test)]
 mod tests;

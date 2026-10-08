@@ -13,7 +13,7 @@ config:
   stopSequences: "{{ config.stop_sequences | default(value=[]) }}"
 input:
   default:
-    text: {{ data.text | json_encode }}
+    text: {{ data.text | default(value="") | json_encode }}
     include-examples: "{{ config.include_examples | default(value=true) }}"
     include-practice: "{{ config.include_practice | default(value=true) }}"
   schema:
@@ -53,8 +53,8 @@ Transform the input text into a structured teaching lesson that builds understan
 4. Create a clear progression from simple to more complex ideas.
 5. Use analogies and real-world examples that anyone can relate to.
 6. Explain at beginner level with very foundational content, lots of context, and simple language.
-7. If {{ config.include_examples }}, provide 2-3 concrete, relatable examples throughout.
-8. If {{ config.include_practice }}, create 3-5 self-check questions at the end.
+7. If {{ config.include_examples | default(value=true) }}, provide 2-3 concrete, relatable examples throughout.
+8. If {{ config.include_practice | default(value=true) }}, create 3-5 self-check questions at the end.
 9. Use clear headers and bullet points for easy scanning.
 10. Be accurate but accessible—never oversimplify to the point of being wrong.
 11. Highlight the "aha!" moments and connections to everyday life.
@@ -78,7 +78,7 @@ Explain the main idea in 2-3 clear paragraphs. Build from simple to complex. Use
 - Bullet list of 3-5 essential takeaways that should stick with the learner.
 
 ## Practice Questions
-{% if include_practice %}
+{% if config.include_practice | default(value=true) %}
 - 3-5 self-check questions formatted as a numbered list
 - Questions should test understanding, not just recall
 - Include brief answers in a collapsed or separate section
@@ -89,7 +89,7 @@ Explain the main idea in 2-3 clear paragraphs. Build from simple to complex. Use
 # Quality Checks
 - Content is accurate to the source material
 - Content is explained at beginner level (very foundational, lots of context)
-- Includes relatable examples if {{ config.include_examples }} is true
+- Includes relatable examples if {{ config.include_examples | default(value=true) }} is true
 - Clear progression from simple to complex
 - Practice questions test true understanding
 - No jargon without explanation

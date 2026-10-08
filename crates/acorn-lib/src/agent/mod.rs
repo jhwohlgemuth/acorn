@@ -5,6 +5,7 @@ use acorn_core::{
     prelude::{Box, String},
     time::{Milliseconds, UnitOfTime},
 };
+use acorn_macros::With;
 use acorn_schema::agent::{FrontMatter, PromptFileAsset, PromptTemplateConfiguration};
 use core::future::Future;
 use core::pin::Pin;
@@ -107,7 +108,7 @@ pub struct InferenceReadiness {
     pub ready: bool,
 }
 /// Transport-neutral one-shot inference request.
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, With)]
 #[serde(deny_unknown_fields)]
 pub struct InferenceRequest {
     /// Optional agent selection understood by the configured backend.
@@ -179,6 +180,14 @@ impl InferenceReadiness {
         })
     }
 }
+impl InferenceBackend for InMemoryBackend {
+    fn capabilities(&self) -> InferenceCapabilities {
+        self.capabilities
+    }
+    fn infer<'a>(&'a self, _request: &'a InferenceRequest) -> InferenceFuture<'a> {
+        Box::pin(core::future::ready(Ok(self.result.clone())))
+    }
+}
 impl InMemoryBackend {
     /// Construct a backend that returns one deterministic result.
     pub fn new(result: InferenceResult) -> Self {
@@ -190,14 +199,6 @@ impl InMemoryBackend {
     /// Replace the capabilities reported by this backend.
     pub fn with_capabilities(self, capabilities: InferenceCapabilities) -> Self {
         Self { capabilities, ..self }
-    }
-}
-impl InferenceBackend for InMemoryBackend {
-    fn capabilities(&self) -> InferenceCapabilities {
-        self.capabilities
-    }
-    fn infer<'a>(&'a self, _request: &'a InferenceRequest) -> InferenceFuture<'a> {
-        Box::pin(core::future::ready(Ok(self.result.clone())))
     }
 }
 /// Validate and run one transport-neutral inference request.
@@ -213,5 +214,6 @@ where
         | (false, false) => backend.infer(request),
     }
 }
+
 #[cfg(test)]
 mod tests;

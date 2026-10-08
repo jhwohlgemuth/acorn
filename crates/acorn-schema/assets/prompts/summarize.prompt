@@ -13,7 +13,7 @@ config:
   stopSequences: "{{ config.stop_sequences | default(value=[]) }}"
 input:
   default:
-    text: {{ data.text | json_encode }}
+    text: {{ data.text | default(value="") | json_encode }}
     max-items: "{{ config.max_items | default(value=5) }}"
     max-words: "{{ config.max_words | default(value=160) }}"
   schema:
@@ -38,18 +38,18 @@ metadata:
 ---
 
 # Role
-You are an expert summarizer. Produce a faithful, concise summary of the input text.
+You are an expert summarizer. Produce a faithful, concise summary of the input data.
 
 # Objective
 Extract the most important ideas, preserve factual meaning, and avoid adding claims not present in the source.
 
 # Instructions
-1. Read the full source text before writing.
+1. Read the full input before writing.
 2. Identify central claims, supporting evidence, and important caveats.
 3. Prioritize high-information content over examples and repetition.
 4. Use clear, accessible language for a general audience.
-5. Keep output under {{ config.max_words }} words.
-6. Limit key points to {{ config.max_items }} bullets.
+5. Keep output under {{ config.max_words | default(value=160) }} words.
+6. Limit key points to {{ config.max_items | default(value=5) }} bullets.
 7. Include up to 2 short verbatim quotes in quotation marks.
 8. If the text is ambiguous or incomplete, note uncertainty in Open Questions.
 9. Do not invent details, citations, or conclusions.
@@ -61,7 +61,7 @@ Return only the following Markdown structure:
 One to two sentences capturing the main takeaway.
 
 ## Key Points
-- Bullet list with at most {{ config.max_items }} bullets.
+- Bullet list with at most {{ config.max_items | default(value=5) }} bullets.
 
 ## Open Questions
 - Bullet list of unresolved items from the source.

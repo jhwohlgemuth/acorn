@@ -5,7 +5,6 @@ use super::parse::{
 };
 use super::DownloadCommands;
 use acorn::analyzer::host::{context, discovery::CitationFormat};
-use acorn::io::acp::OPENCODE_AGENT_ID;
 use acorn::io::config::application::Hook;
 use acorn::io::swhid::CalculationKind;
 use acorn::io::{Executor, Platform, Remote};
@@ -29,6 +28,7 @@ use derive_more::Display;
 use jiff::SignedDuration;
 use std::path::PathBuf;
 use strum::EnumIs;
+
 /// Bot command arguments.
 pub(crate) mod bot {
     use super::{parse_executor, DetachArgs, Executor, PathBuf, RemoteTarget, ValueEnum, Verbosity};
@@ -141,6 +141,16 @@ pub(crate) mod bot {
     }
 }
 pub(crate) mod osti;
+/// ACP agent selected for local process inference.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
+pub(crate) enum AcpAgentKind {
+    /// Run OpenCode's native ACP server.
+    #[default]
+    #[value(name = "opencode")]
+    OpenCode,
+    /// Run the Codex ACP adapter.
+    Codex,
+}
 /// Archive container format used for BagIt import and export.
 #[derive(Clone, Copy, Debug, Display, Eq, PartialEq, ValueEnum)]
 pub(crate) enum ArchiveType {
@@ -1060,9 +1070,9 @@ pub(crate) struct InferenceArgs {
     )]
     #[builder(default)]
     pub(crate) backend: InferenceBackendKind,
-    /// ACP agent identifier (currently only `opencode`)
-    #[arg(long, value_name = "AGENT", help_heading = "INFERENCE")]
-    pub(crate) agent: Option<String>,
+    /// ACP agent identifier; defaults to `opencode`
+    #[arg(long, value_enum, value_name = "AGENT", help_heading = "INFERENCE")]
+    pub(crate) agent: Option<AcpAgentKind>,
     /// Explicit ACP agent executable
     #[arg(long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "INFERENCE")]
     pub(crate) agent_executable: Option<PathBuf>,
@@ -1168,9 +1178,12 @@ pub(crate) struct PromptRun {
     /// Known embedded prompt asset name
     #[arg(value_name = "ASSET")]
     pub(crate) asset: String,
-    /// JSON, YAML, or ZON input paths or glob patterns; use `-` for standard input
+    /// JSON, YAML, or ZON input files, directories, or glob patterns; use `-` for standard input
     #[arg(value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "ARGS")]
     pub(crate) paths: Vec<PathBuf>,
+    /// JSON object; omit the value to read standard input or use `--paste`
+    #[arg(long, value_name = "JSON", num_args = 0..=1, help_heading = "OPTIONS")]
+    pub(crate) data: Option<Option<String>>,
     /// Override one top-level scalar prompt-data value
     #[arg(long = "set", value_name = "KEY=VALUE", action = clap::ArgAction::Append, help_heading = "OPTIONS")]
     pub(crate) set: Vec<String>,
@@ -1180,6 +1193,9 @@ pub(crate) struct PromptRun {
     /// Preview the fully hydrated prompt without backend checks or I/O
     #[arg(long, visible_alias = "what-if", help_heading = "FLAGS")]
     pub(crate) dry_run: bool,
+    /// Read bare `--data` from the system clipboard
+    #[arg(long, requires = "data", help_heading = "FLAGS")]
+    pub(crate) paste: bool,
     /// Command output format
     #[arg(long, default_value = "human", value_enum, value_name = "FORMAT", help_heading = "OPTIONS")]
     pub(crate) output: InferenceOutputFormat,
@@ -1557,12 +1573,6 @@ impl Validate for InferenceArgs {
                     report.add(
                         "endpointMode",
                         ValidationError::new("backend").with_message("--endpoint-mode is only valid with --backend openai"),
-                    );
-                }
-                if let Some(agent) = self.agent.as_deref().filter(|agent| *agent != OPENCODE_AGENT_ID) {
-                    report.add(
-                        "agent",
-                        ValidationError::new("supported").with_message(format!("Unsupported ACP agent '{agent}'; expected {OPENCODE_AGENT_ID}")),
                     );
                 }
             }

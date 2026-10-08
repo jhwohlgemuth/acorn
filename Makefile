@@ -1,5 +1,6 @@
 #!make
 -include .env
+ACP_AGENT ?= opencode
 
 setup: ## Install the Rust toolchain and project development dependencies.
 	@rustup update stable
@@ -7,7 +8,7 @@ setup: ## Install the Rust toolchain and project development dependencies.
 	@rustup target add $(TARGETS)
 
 help: ## Show the available development tasks.
-	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target> [VERSION=x.y.z] [BENCH_ARGS=\"...\"] [BENCH_BASELINE=x.y.z] [BENCH_HISTORY=...] [WASM_PACK_BUILD_ARGS=\"...\"] [FUZZ_CRASH=path]\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target> [VERSION=x.y.z] [ACP_AGENT=opencode|codex] [BENCH_ARGS=\"...\"] [BENCH_BASELINE=x.y.z] [BENCH_HISTORY=...] [WASM_PACK_BUILD_ARGS=\"...\"] [FUZZ_CRASH=path]\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 audit: ## Run dependency and security audits for the project.
 	@cargo +nightly udeps
@@ -222,15 +223,25 @@ test: ## Run the main test suite with nextest.
 test-all: ## Run the full suite including ignored tests.
 	@cargo nextest run --run-ignored all
 
-test-acp: ## Run configured OpenCode ACP interoperability tests.
-	@ACORN_TEST_OPENCODE_ACP=1 cargo nextest run -p acorn-lib --test acp_interoperability --no-default-features --features acp,analysis --run-ignored only --success-output final
+test-acp: ## Run interoperability tests for ACP_AGENT=opencode|codex.
+	@case "$(ACP_AGENT)" in codex|opencode) ;; *) echo "Unsupported ACP_AGENT '$(ACP_AGENT)'; expected codex or opencode"; exit 2;; esac
+	@if [ "$(ACP_AGENT)" = codex ] && ! command -v codex-acp >/dev/null 2>&1; then \
+		echo "codex-acp is required for ACP_AGENT=codex but was not found on PATH."; \
+		echo "Install it with: npm install -g @agentclientprotocol/codex-acp"; \
+		echo "The global install does not require npx. If npm is unavailable, install Node.js/npm or download a standalone binary:"; \
+		echo "https://github.com/agentclientprotocol/codex-acp/releases"; \
+		exit 2; \
+	fi
+	@ACORN_TEST_ACP_AGENT="$(ACP_AGENT)" cargo nextest run -p acorn-lib --test acp_interoperability --no-default-features --features acp,analysis --run-ignored only --success-output final
 
 test-ci: lint ## Run the CI-style test workflow.
 	@XDG_CACHE_HOME=$(CURDIR)/.cache cargo test --lib --bins --tests
 	@XDG_CACHE_HOME=$(CURDIR)/.cache cargo test --lib --bins --tests --no-default-features
 
 test-openai: ## Run configured OpenAI-compatible interoperability tests.
-	@ACORN_TEST_OPENAI_COMPATIBLE=1 ACORN_TEST_OPENAI_BASE_URL="$(OPENAI_BASE_URL)" ACORN_TEST_OPENAI_MODEL="$(OPENAI_MODEL)" cargo nextest run -p acorn-lib --test openai_interoperability --no-default-features --features analysis --run-ignored only --success-output final
+	@test -n "$(TEST_OPENAI_BASE_URL)" || (echo "TEST_OPENAI_BASE_URL must be set in .env or the make environment"; exit 2)
+	@test -n "$(TEST_OPENAI_MODEL)" || (echo "TEST_OPENAI_MODEL must be set in .env or the make environment"; exit 2)
+	@ACORN_TEST_OPENAI_COMPATIBLE=1 ACORN_TEST_OPENAI_BASE_URL="$(TEST_OPENAI_BASE_URL)" ACORN_TEST_OPENAI_MODEL="$(TEST_OPENAI_MODEL)" OPENAI_API_KEY="$(TEST_OPENAI_API_KEY)" cargo nextest run -p acorn-lib --test openai_interoperability --no-default-features --features analysis --run-ignored only --success-output final
 
 fuzz: ## Run the configured fuzz target.
 	@cargo +nightly fuzz run --fuzz-dir fuzz $(FUZZ_TARGET) $(FUZZ_ARGS)
