@@ -8,7 +8,8 @@ use crate::{
         api::{self, require_non_empty_secret, webhooks::store::OperationQueue, Configuration, EmptyField, Endpoint, Params, RemoteResource},
         http::HttpResponseError,
         workflow::{
-            FileChange, FileChangeKind, LogbookProposal, RepositoryChangeSet, RepositoryFileInput, RepositoryInput, RepositoryWorkflowRegistry,
+            FileChange, FileChangeKind, LogbookProposal, ProcessRepositoryRequest, ProcessRepositoryResponse, RepositoryFileInput,
+            RepositoryWorkflowRegistry,
         },
         ApiResult,
     },
@@ -20,6 +21,7 @@ use acorn_core::{
 };
 use acorn_host::fs::SafePath;
 use acorn_schema::research_activity::{GraduationCandidates, LogbookEntry, ResearchActivity};
+use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use data_encoding::HEXLOWER;
@@ -28,6 +30,25 @@ use ring::digest::{digest, SHA256};
 use secrecy::ExposeSecret;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
+#[async_trait]
+pub(super) trait ProcessRepositoryResponseExt {
+    fn branch_name(&self, workflow: &str) -> String;
+    fn commit_request<'a>(&'a self, branch: &'a str, message: &'a str) -> CommitRequest<'a>;
+    async fn publish(&self, target: &str, options: &Options) -> ApiResult<PublishResult>;
+    async fn publish_reconciled(&self, target: &str, options: &Options, effects: &OperationQueue) -> ApiResult<PublishResult>;
+    async fn publish_reconciled_strict(&self, target: &str, options: &Options, effects: &OperationQueue) -> ApiResult<PublishResult>;
+    async fn publish_with(
+        &self,
+        target: &str,
+        options: &Options,
+        effects: Option<&OperationQueue>,
+        expected_branch_head: Option<&str>,
+    ) -> ApiResult<PublishResult>;
+    async fn reconcile_files(&self, branch: &str, branch_head: &str, options: &Options) -> ApiResult<Self>
+    where
+        Self: Sized;
+    fn render_description(&self, workflow: &str) -> String;
+}
 /// Result of processing and optionally publishing a merge-request repository snapshot.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct AutomationResult {
@@ -75,7 +96,7 @@ struct CommitAction<'a> {
     last_commit_id: Option<&'a str>,
 }
 #[derive(Serialize)]
-struct CommitRequest<'a> {
+pub(super) struct CommitRequest<'a> {
     actions: Vec<CommitAction<'a>>,
     branch: &'a str,
     commit_message: &'a str,
@@ -203,7 +224,7 @@ impl MergeRequestDetails {
                                     | Ok(files) => {
                                         let actions = policy.actions();
                                         let project = source_project.to_string();
-                                        let input = RepositoryInput {
+                                        let input = ProcessRepositoryRequest {
                                             actions,
                                             files,
                                             project,
@@ -334,7 +355,7 @@ impl Options {
                                 let candidates = GraduationCandidates::from(&graduated);
                                 serde_json::to_string_pretty(&graduated)
                                     .map_err(|why| eyre!("Failed to serialize graduated research activity — {why}"))
-                                    .map(|content| RepositoryChangeSet {
+                                    .map(|content| ProcessRepositoryResponse {
                                         base_revision: details.sha.clone(),
                                         files: vec![FileChange {
                                             content: format!("{content}\n"),
@@ -438,7 +459,7 @@ impl Options {
                     entry,
                     path: path.to_string(),
                 };
-                let planned = RepositoryChangeSet::try_from(proposal).and_then(|changes| {
+                let planned = ProcessRepositoryResponse::try_from(proposal).and_then(|changes| {
                     let activity_content = changes.files.first().map_or(content.as_str(), |change| change.content.as_str());
                     serde_json::from_str::<ResearchActivity>(activity_content)
                         .map_err(|why| eyre!("Failed to parse proposed research activity — {why}"))
@@ -547,7 +568,8 @@ impl Options {
             .await
     }
 }
-impl RepositoryChangeSet {
+#[async_trait]
+impl ProcessRepositoryResponseExt for ProcessRepositoryResponse {
     fn branch_name(&self, workflow: &str) -> String {
         let workflow = workflow
             .chars()
@@ -583,18 +605,18 @@ impl RepositoryChangeSet {
         }
     }
     /// Publish this deterministic change set to a bot branch and draft merge request.
-    pub async fn publish(&self, target_branch: &str, options: &Options) -> ApiResult<PublishResult> {
-        self.publish_with(target_branch, options, None, None).await
+    async fn publish(&self, target: &str, options: &Options) -> ApiResult<PublishResult> {
+        self.publish_with(target, options, None, None).await
     }
-    pub(crate) async fn publish_reconciled(&self, target_branch: &str, options: &Options, effects: &OperationQueue) -> ApiResult<PublishResult> {
-        self.publish_with(target_branch, options, Some(effects), None).await
+    async fn publish_reconciled(&self, target: &str, options: &Options, effects: &OperationQueue) -> ApiResult<PublishResult> {
+        self.publish_with(target, options, Some(effects), None).await
     }
-    async fn publish_reconciled_strict(&self, target_branch: &str, options: &Options, effects: &OperationQueue) -> ApiResult<PublishResult> {
-        self.publish_with(target_branch, options, Some(effects), Some(&self.base_revision)).await
+    async fn publish_reconciled_strict(&self, target: &str, options: &Options, effects: &OperationQueue) -> ApiResult<PublishResult> {
+        self.publish_with(target, options, Some(effects), Some(&self.base_revision)).await
     }
     async fn publish_with(
         &self,
-        target_branch: &str,
+        target: &str,
         options: &Options,
         effects: Option<&OperationQueue>,
         expected_branch_head: Option<&str>,
@@ -679,7 +701,7 @@ impl RepositoryChangeSet {
                                                             description: &description,
                                                             remove_source_branch: true,
                                                             source_branch: &branch_name,
-                                                            target_branch,
+                                                            target_branch: target,
                                                             title: &title,
                                                         };
                                                         let merge_request_effect = Effect::new(

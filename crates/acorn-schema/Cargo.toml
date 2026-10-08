@@ -32,6 +32,7 @@ idna = { version = "1.1.0", features = ["alloc", "compiled_data"], default-featu
 petgraph = { version = "0.8.3", features = ["stable_graph"], default-features = false }
 quick-xml = { workspace = true, features = ["serialize"] }
 itertools = { workspace = true }
+jsonc-parser = { workspace = true, features = ["serde", "serde_json"] }
 lazy_static = { workspace = true }
 data-encoding = { workspace = true }
 eserde = { workspace = true }

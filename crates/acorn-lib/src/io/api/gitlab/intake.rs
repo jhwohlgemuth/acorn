@@ -1,5 +1,6 @@
 //! Authorized GitLab work-item citation intake workflow.
 
+use super::automation::ProcessRepositoryResponseExt;
 use super::effects::Effect;
 use super::webhook;
 use super::{
@@ -9,7 +10,7 @@ use super::{
 use crate::analyzer::host::discovery::{discover_identifiers, group_artifacts, ArtifactCandidate, Candidate};
 use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::{sluggify, Configuration};
-use crate::io::workflow::{FileChange, FileChangeKind, RepositoryChangeSet};
+use crate::io::workflow::{FileChange, FileChangeKind, ProcessRepositoryResponse};
 use crate::io::ApiResult;
 use crate::util::constants::app::{APPLICATION, WORK_ITEM_REPORT_MARKER};
 use acorn_core::util::MarkdownSupport;
@@ -410,7 +411,7 @@ impl Report {
             }
         }
     }
-    fn citation_change_set(&self, base_revision: String) -> ApiResult<RepositoryChangeSet> {
+    fn citation_change_set(&self, base_revision: String) -> ApiResult<ProcessRepositoryResponse> {
         let creator = sluggify(&self.creator_username, self.creator_id);
         self.candidates
             .iter()
@@ -434,7 +435,7 @@ impl Report {
             .collect::<ApiResult<Vec<_>>>()
             .map(|mut files| {
                 files.sort_by(|left, right| left.path.cmp(&right.path));
-                RepositoryChangeSet {
+                ProcessRepositoryResponse {
                     base_revision,
                     files,
                     reports: vec![],

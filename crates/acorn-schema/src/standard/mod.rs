@@ -70,7 +70,7 @@ pub enum ContributionKind {
     WhitePaper,
 }
 /// Metadata standard used to gate parsing, validation, conversion, and schema export.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Display, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Display, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Standard {
     /// Application Configuration for Research Enablement (ACRE).
@@ -181,11 +181,6 @@ pub struct StandardsClaim {
     #[serde(default, deserialize_with = "option_string_trim")]
     pub evidence_uri: Option<String>,
 }
-impl<'de> Deserialize<'de> for ContributionKind {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        String::deserialize(deserializer).map(Self::from)
-    }
-}
 impl From<String> for ContributionKind {
     fn from(value: String) -> Self {
         let value = value.trim().to_string();
@@ -229,6 +224,11 @@ impl Validate for ContributionKind {
             | Self::Other(value) => rules::nonempty(value).map_err(|error| error.into_report("")),
             | _ => Ok(()),
         }
+    }
+}
+impl<'de> Deserialize<'de> for ContributionKind {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        String::deserialize(deserializer).map(Self::from)
     }
 }
 impl From<&Map<String, Value>> for Standard {

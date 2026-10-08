@@ -1,5 +1,5 @@
 //! Same-standard semantic comparison for supplied ACORN content
-use acorn_core::util::{MarkdownSupport, MimeType};
+use acorn_core::util::{MarkdownDecode, MarkdownSupport, MimeType};
 use acorn_diff::{unified_diff, DiffValue, JsonPatch};
 use acorn_schema::{
     modelkit::kitfile::Kitfile,

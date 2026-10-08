@@ -81,7 +81,6 @@ openssl-sys = { version = "0.9.117", features = ["vendored"] }
 default = ["pdf", "tui"]
 chart = ["acorn-lib/chart"]
 duckdb = ["acorn-lib/duckdb"]
-grpc = []
 pdf = ["dep:chromiumoxide", "dep:percy-dom", "dep:fast_qr", "chart"]
 tui = ["dep:acorn-tui"]
 exec = ["acorn-lib/exec", "dep:rhai"]

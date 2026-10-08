@@ -5,6 +5,7 @@
     clippy::panic,
     clippy::unwrap_used
 )]
+use super::automation::ProcessRepositoryResponseExt;
 use super::*;
 use crate::io::api::gitlab::{
     commit_sha, handle_tree_paths_response, project_details, repository_file, repository_tree, PaginationKey, ProgrammingLanguageDetails,
@@ -436,7 +437,7 @@ async fn test_gitlab_effects_reconcile_ambiguous_publication_and_corrected_conte
         .workflow("citation-work-item-7")
         .build();
     let queue = OperationQueue::from(std::env::temp_dir().join(format!("acorn-gitlab-effects-{}.db", nanoid::nanoid!())));
-    let changes = |content: &str| crate::io::workflow::RepositoryChangeSet {
+    let changes = |content: &str| crate::io::workflow::ProcessRepositoryResponse {
         base_revision: "base-sha".to_string(),
         files: vec![crate::io::workflow::FileChange {
             content: content.to_string(),
@@ -1274,7 +1275,7 @@ async fn test_repository_change_set_publishes_bot_branch_commit_and_draft_merge_
         .identifier("30")
         .workflow("repository-quality")
         .build();
-    let changes = crate::io::workflow::RepositoryChangeSet {
+    let changes = crate::io::workflow::ProcessRepositoryResponse {
         base_revision: "abcdef0123456789".to_string(),
         files: vec![crate::io::workflow::FileChange {
             content: "{\n  \"name\": \"example\"\n}\n".to_string(),

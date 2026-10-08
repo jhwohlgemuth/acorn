@@ -10,17 +10,25 @@ use core::fmt;
 use core::future::Future;
 use core::pin::Pin;
 use futures::{stream, StreamExt};
+use schemars::{schema_for, JsonSchema};
 use serde::de::{DeserializeOwned, Error as DeError, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-const INTERNAL_ERROR: i32 = -32603;
-const INVALID_PARAMS: i32 = -32602;
-const INVALID_REQUEST: i32 = -32600;
-const JSON_RPC_VERSION: &str = "2.0";
-const METHOD_NOT_FOUND: i32 = -32601;
-const PARSE_ERROR: i32 = -32700;
-const POLICY_DENIED: i32 = -32001;
+/// JSON-RPC internal error code.
+pub const INTERNAL_ERROR: i32 = -32603;
+/// JSON-RPC invalid parameters error code.
+pub const INVALID_PARAMS: i32 = -32602;
+/// JSON-RPC invalid request error code.
+pub const INVALID_REQUEST: i32 = -32600;
+/// Supported JSON-RPC protocol version.
+pub const JSON_RPC_VERSION: &str = "2.0";
+/// JSON-RPC method-not-found error code.
+pub const METHOD_NOT_FOUND: i32 = -32601;
+/// JSON-RPC parse error code.
+pub const PARSE_ERROR: i32 = -32700;
+/// ACORN authorization-policy error code.
+pub const POLICY_DENIED: i32 = -32001;
 type OperationFuture = Pin<Box<dyn Future<Output = Result<Value, RpcError>> + Send>>;
 type OperationHandler = Arc<dyn Fn(Value, InvocationContext) -> OperationFuture + Send + Sync>;
 /// Persistence port for JSON-RPC operation status and replay.
@@ -36,7 +44,7 @@ enum ParsedCall {
     Request { id: RequestId, method: MethodName, params: Value },
 }
 /// String or integer JSON-RPC request identifier.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum RequestId {
     /// Signed integer identifier.
@@ -59,9 +67,33 @@ struct ErrorResponse {
     jsonrpc: &'static str,
 }
 /// Validated method name in the `acorn.` namespace.
-#[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct MethodName(String);
+/// JSON-RPC notification used by internal event adapters.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Notification {
+    /// Protocol version, always `2.0`.
+    pub jsonrpc: String,
+    /// Registered operation name.
+    pub method: MethodName,
+    /// Operation parameters.
+    pub params: Value,
+}
+/// Registered operation metadata.
+#[derive(Clone, Debug, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct OperationDefinition {
+    /// Declared side effects.
+    pub effects: OperationEffects,
+    /// JSON-RPC method name.
+    pub name: MethodName,
+    /// JSON Schema for operation parameters.
+    pub parameters_schema: Value,
+    /// JSON Schema for the operation result.
+    pub result_schema: Value,
+}
 /// Immutable registry of explicitly registered operations.
 #[derive(Clone, Default)]
 pub struct OperationRegistry {
@@ -69,9 +101,8 @@ pub struct OperationRegistry {
 }
 #[derive(Clone)]
 struct RegisteredOperation {
-    effects: OperationEffects,
+    definition: OperationDefinition,
     handler: OperationHandler,
-    name: MethodName,
 }
 /// Secret-safe JSON-RPC error.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -125,6 +156,13 @@ impl MethodName {
             .ok_or_else(|| ServiceError::new(ServiceErrorKind::InvalidInput, format!("Invalid ACORN operation name '{value}'")))
     }
 }
+impl TryFrom<&str> for MethodName {
+    type Error = ServiceError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
 impl TryFrom<String> for MethodName {
     type Error = ServiceError;
 
@@ -132,26 +170,58 @@ impl TryFrom<String> for MethodName {
         Self::new(value)
     }
 }
+impl<'a, const N: usize> From<[&'a str; N]> for MethodName {
+    fn from(parts: [&'a str; N]) -> Self {
+        Self(format!("acorn.{}", parts.join(".")))
+    }
+}
+impl Notification {
+    /// Construct a notification for one registered ACORN operation.
+    pub fn new(method: MethodName, params: Value) -> ServiceResult<Self> {
+        MethodName::new(method.to_string()).map(|method| Self {
+            jsonrpc: JSON_RPC_VERSION.to_string(),
+            method,
+            params,
+        })
+    }
+}
+impl OperationDefinition {
+    /// Create typed operation metadata and parameter/result schemas.
+    pub fn new<I: JsonSchema, O: JsonSchema>(name: MethodName, effects: OperationEffects) -> ServiceResult<Self> {
+        MethodName::new(name.to_string()).map(|name| Self {
+            effects,
+            name,
+            parameters_schema: serde_json::to_value(schema_for!(I)).unwrap_or(Value::Null),
+            result_schema: serde_json::to_value(schema_for!(O)).unwrap_or(Value::Null),
+        })
+    }
+}
 impl OperationRegistry {
     /// Build the portable ACORN catalog, optionally backing durable operations.
     pub fn acorn(service: AcornService, version: impl Into<String>, durable: Option<Arc<dyn DurableOperations>>) -> ServiceResult<Self> {
-        #[derive(Deserialize)]
+        #[derive(Deserialize, JsonSchema)]
         #[serde(deny_unknown_fields)]
         struct Empty {}
-        #[derive(Serialize)]
+        #[derive(JsonSchema, Serialize)]
         struct VersionOutput {
             version: String,
         }
-        #[derive(Deserialize)]
+        #[derive(Deserialize, JsonSchema)]
         #[serde(deny_unknown_fields, rename_all = "camelCase")]
         struct OperationInput {
             operation_key: String,
         }
-        #[derive(Serialize)]
+        #[derive(Deserialize, JsonSchema)]
+        #[serde(deny_unknown_fields)]
+        struct RepositoryWorkflowInput {
+            input: ProcessRepositoryRequest,
+            workflow: String,
+        }
+        #[derive(JsonSchema, Serialize)]
         struct OperationStatusOutput {
             state: Option<String>,
         }
-        #[derive(Serialize)]
+        #[derive(JsonSchema, Serialize)]
         struct ReplayOutput {
             queued: bool,
         }
@@ -187,7 +257,15 @@ impl OperationRegistry {
                 registry.register(
                     "acorn.workflows.process",
                     OperationEffects::default(),
-                    move |request: ProcessRepositoryRequest, _| async move { service.process_repository(request) },
+                    move |request: RepositoryWorkflowInput, _| async move {
+                        match request.workflow.as_str() {
+                            | "repository-quality" => service.process_repository(request.input),
+                            | workflow => Err(ServiceError::new(
+                                ServiceErrorKind::InvalidInput,
+                                format!("Unknown repository workflow '{workflow}'"),
+                            )),
+                        }
+                    },
                 )
             })
             .and_then(|registry| {
@@ -227,47 +305,61 @@ impl OperationRegistry {
     /// Register one typed handler, rejecting invalid or duplicate method names.
     pub fn register<I, O, F, Fut>(self, name: impl Into<String>, effects: OperationEffects, handler: F) -> ServiceResult<Self>
     where
+        I: DeserializeOwned + JsonSchema + Send + 'static,
+        O: JsonSchema + Serialize + Send + 'static,
+        F: Fn(I, InvocationContext) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = ServiceResult<O>> + Send + 'static,
+    {
+        MethodName::new(name)
+            .and_then(|name| OperationDefinition::new::<I, O>(name, effects))
+            .and_then(|definition| self.register_definition(definition, handler))
+    }
+    /// Register a typed handler with precomputed operation metadata.
+    pub fn register_definition<I, O, F, Fut>(self, definition: OperationDefinition, handler: F) -> ServiceResult<Self>
+    where
         I: DeserializeOwned + Send + 'static,
         O: Serialize + Send + 'static,
         F: Fn(I, InvocationContext) -> Fut + Send + Sync + 'static,
         Fut: Future<Output = ServiceResult<O>> + Send + 'static,
     {
-        MethodName::new(name).and_then(|name| match self.operations.iter().any(|operation| operation.name == name) {
-            | true => Err(ServiceError::new(
-                ServiceErrorKind::InvalidInput,
-                format!("Duplicate operation name '{name}'"),
-            )),
-            | false => {
-                let handler = Arc::new(handler);
-                let operation_name = name.clone();
-                let typed = move |params: Value, context: InvocationContext| -> OperationFuture {
-                    let input = serde_json::from_value::<I>(params).map_err(|_| RpcError::new(INVALID_PARAMS, "Invalid method parameters"));
-                    let handler = Arc::clone(&handler);
-                    let operation_name = operation_name.clone();
-                    Box::pin(async move {
-                        match input {
-                            | Ok(input) => handler(input, context)
-                                .await
-                                .map_err(|error| RpcError::from_service(error.with_operation(operation_name.to_string())))
-                                .and_then(|output| serde_json::to_value(output).map_err(|_| RpcError::internal())),
-                            | Err(error) => Err(error),
-                        }
-                    })
-                };
-                let mut operations = self.operations;
-                operations.push(RegisteredOperation {
-                    effects,
-                    handler: Arc::new(typed),
-                    name,
-                });
-                operations.sort_by(|left, right| left.name.cmp(&right.name));
-                Ok(Self { operations })
+        MethodName::new(definition.name.to_string()).and_then(|name| {
+            match self.operations.iter().any(|operation| operation.definition.name == name) {
+                | true => Err(ServiceError::new(
+                    ServiceErrorKind::InvalidInput,
+                    format!("Duplicate operation name '{name}'"),
+                )),
+                | false => {
+                    let handler = Arc::new(handler);
+                    let operation_name = name.clone();
+                    let typed = move |params: Value, context: InvocationContext| -> OperationFuture {
+                        let input = serde_json::from_value::<I>(params).map_err(|_| RpcError::new(INVALID_PARAMS, "Invalid method parameters"));
+                        let handler = Arc::clone(&handler);
+                        let operation_name = operation_name.clone();
+                        Box::pin(async move {
+                            match input {
+                                | Ok(input) => handler(input, context)
+                                    .await
+                                    .map_err(|error| RpcError::from_service(error.with_operation(operation_name.to_string())))
+                                    .and_then(|output| serde_json::to_value(output).map_err(|_| RpcError::internal())),
+                                | Err(error) => Err(error),
+                            }
+                        })
+                    };
+                    let mut operations = self.operations;
+                    operations.push(RegisteredOperation {
+                        definition,
+                        handler: Arc::new(typed),
+                    });
+                    operations.sort_by(|left, right| left.definition.name.cmp(&right.definition.name));
+                    Ok(Self { operations })
+                }
             }
         })
     }
     /// Dispatch a single call, ordered batch, or notification document.
     pub async fn dispatch(&self, body: &[u8], context: InvocationContext) -> Dispatch {
-        match body.len() > context.max_input_bytes.max(1) {
+        let exceeds_limit = u64::try_from(body.len()).unwrap_or(u64::MAX) > context.max_input.checked_bytes().unwrap_or_default().max(1);
+        match exceeds_limit {
             | true => RpcError::new(-32002, "Request exceeded the configured input limit").dispatch(Value::Null),
             | false => match serde_json::from_slice::<StrictValue>(body).map(|StrictValue(value)| value) {
                 | Ok(Value::Array(values)) if values.is_empty() => RpcError::new(INVALID_REQUEST, "Invalid Request").dispatch(Value::Null),
@@ -298,14 +390,19 @@ impl OperationRegistry {
     }
     /// Invoke one registered operation after effect and output-bound checks.
     pub async fn invoke(&self, method: &MethodName, params: Value, context: InvocationContext) -> Result<Value, RpcError> {
-        match self.operations.iter().find(|operation| operation.name == *method) {
+        match self.operations.iter().find(|operation| operation.definition.name == *method) {
             | None => Err(RpcError::new(METHOD_NOT_FOUND, "Method not found")),
-            | Some(operation) => match authorize(&operation.effects, &context).map_err(RpcError::from_service) {
+            | Some(operation) => match authorize(&operation.definition.effects, &context)
+                .map_err(|error| ServiceError::new(ServiceErrorKind::PolicyDenied, error.to_string()))
+                .map_err(RpcError::from_service)
+            {
                 | Err(error) => Err(error),
                 | Ok(()) => match (operation.handler)(params, context.clone()).await {
                     | Err(error) => Err(error),
                     | Ok(result) => serde_json::to_vec(&result).map_err(|_| RpcError::internal()).and_then(|encoded| {
-                        match encoded.len() > context.max_output_bytes.max(1) {
+                        let exceeds_limit =
+                            u64::try_from(encoded.len()).unwrap_or(u64::MAX) > context.max_output.checked_bytes().unwrap_or_default().max(1);
+                        match exceeds_limit {
                             | true => Err(RpcError::new(INTERNAL_ERROR, "Operation result exceeded the configured output limit")),
                             | false => Ok(result),
                         }
@@ -316,7 +413,11 @@ impl OperationRegistry {
     }
     /// Return registered method names in deterministic order.
     pub fn names(&self) -> Vec<MethodName> {
-        self.operations.iter().map(|operation| operation.name.clone()).collect()
+        self.operations.iter().map(|operation| operation.definition.name.clone()).collect()
+    }
+    /// Return registered operation definitions in deterministic order.
+    pub fn definitions(&self) -> Vec<OperationDefinition> {
+        self.operations.iter().map(|operation| operation.definition.clone()).collect()
     }
     async fn dispatch_call(&self, value: Value, context: InvocationContext) -> Option<Value> {
         match ParsedCall::from(value) {

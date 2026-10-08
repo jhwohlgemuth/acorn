@@ -4,7 +4,7 @@ use super::config::Resolved;
 use super::manifest::ScriptAuthorization;
 use super::result::RhaiExt;
 use super::runtime::{RhaiRuntime, Runtime};
-use crate::analyzer::{Check, CheckCategory};
+use crate::analyzer::Check;
 use crate::io::workflow::WorkflowAction;
 use crate::io::{ApiResult, Bytes};
 use acorn_core::prelude::{String, Vec};
@@ -66,14 +66,6 @@ pub struct HookOptions<'a> {
     #[builder(default)]
     pub offline: bool,
 }
-impl From<WorkflowAction> for CheckCategory {
-    fn from(action: WorkflowAction) -> Self {
-        match action {
-            | WorkflowAction::Validate => Self::Schema,
-            | _ => Self::Quality,
-        }
-    }
-}
 impl Resolved {
     /// Evaluate one typed workflow hook with an optional manifest capability broker.
     pub fn evaluate_hook<T: Serialize>(&self, source: &str, data: &T, options: HookOptions<'_>) -> ApiResult<HookExecution> {
@@ -117,7 +109,7 @@ impl Resolved {
                                     .map(|(finding_index, finding)| {
                                         let index = document_index.saturating_mul(100).saturating_add(finding_index);
                                         let mut check = Check::from(finding);
-                                        check.category = CheckCategory::from(hook);
+                                        check.category = hook.into();
                                         check.with_index(index).with_uri(Some(source.to_string()))
                                     })
                                     .collect::<Vec<_>>();

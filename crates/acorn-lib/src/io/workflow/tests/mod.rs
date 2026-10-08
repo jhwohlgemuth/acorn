@@ -58,11 +58,6 @@ impl Enrich<(Location, ResearchActivity)> for OutputEnrichment {
         })
     }
 }
-impl TrackingEnrichment {
-    fn maximum(&self) -> usize {
-        self.maximum.load(Ordering::SeqCst)
-    }
-}
 #[async_trait]
 impl Enrich<(Location, ResearchActivity)> for TrackingEnrichment {
     type Output = ApiResult<EnrichmentResult<ResearchActivity>>;
@@ -84,6 +79,11 @@ impl Enrich<(Location, ResearchActivity)> for TrackingEnrichment {
             conflicts: Vec::new(),
             failures: Vec::new(),
         })
+    }
+}
+impl TrackingEnrichment {
+    fn maximum(&self) -> usize {
+        self.maximum.load(Ordering::SeqCst)
     }
 }
 fn options(common: CommonRuntime, extension: WorkflowExtension) -> Options {
@@ -318,7 +318,7 @@ fn test_repository_accepts_every_registered_flat_file_format() {
             path: "metadata.zonf".to_string(),
         },
     ];
-    let input = RepositoryInput {
+    let input = ProcessRepositoryRequest {
         actions: vec![WorkflowAction::Format, WorkflowAction::Validate],
         files,
         project: "30".to_string(),
@@ -330,7 +330,7 @@ fn test_repository_accepts_every_registered_flat_file_format() {
 }
 #[test]
 fn test_repository_processes_supported_flat_files_deterministically() {
-    let input = RepositoryInput {
+    let input = ProcessRepositoryRequest {
         actions: vec![WorkflowAction::Format, WorkflowAction::Validate],
         files: vec![
             RepositoryFileInput {
@@ -356,7 +356,7 @@ fn test_repository_processes_supported_flat_files_deterministically() {
 #[test]
 fn test_repository_rejects_unknown_workflows_unsafe_paths_and_unconfigured_enrichment() {
     let registry = RepositoryWorkflowRegistry::acorn().unwrap();
-    let base = RepositoryInput {
+    let base = ProcessRepositoryRequest {
         actions: vec![WorkflowAction::Validate],
         files: vec![RepositoryFileInput {
             content: "# Example\n".to_string(),
@@ -368,7 +368,7 @@ fn test_repository_rejects_unknown_workflows_unsafe_paths_and_unconfigured_enric
     };
     assert!(registry.process("missing", base.clone()).is_err());
     assert!(registry.process("repository-quality", base.clone()).is_err());
-    let enrichment = RepositoryInput {
+    let enrichment = ProcessRepositoryRequest {
         actions: vec![WorkflowAction::Enrich],
         files: vec![RepositoryFileInput {
             content: "# Example\n".to_string(),

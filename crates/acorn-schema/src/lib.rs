@@ -10,7 +10,6 @@
 #![allow(unused_imports)]
 
 extern crate alloc;
-#[cfg(feature = "std")]
 macro_rules! schema_error {
     ($($arg:tt)*) => {
         acorn_core::AcornError::new(::alloc::format!($($arg)*))
@@ -19,6 +18,7 @@ macro_rules! schema_error {
 #[cfg(feature = "alloc")]
 pub mod agent;
 pub mod assets;
+pub mod codec;
 pub mod discovery;
 pub mod enrichment;
 pub mod geonames;

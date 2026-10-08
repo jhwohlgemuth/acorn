@@ -15,11 +15,15 @@ Replace the current all-purpose `acorn-lib` package with a directed set of crate
 
 # Current priority
 
-This plan is coordination-only. `acorn-schema`, `acorn-cmd`, the initial `acorn-host` capabilities, `acorn-analysis`, `acorn-service`, and the `acorn-server` composition root are extracted with direct first-party imports. The analyzer and service kernels compile independently under portable feature configurations and have direct, WASM, JSON-RPC, and gRPC consumers.
+This plan is coordination-only. `acorn-schema`, `acorn-cmd`, the initial `acorn-host` capabilities, `acorn-analysis`, `acorn-service`, and the `acorn-server` composition root are extracted with direct first-party imports. The analyzer and service kernels compile independently under portable feature configurations and have direct, WASM, JSON-RPC, and gRPC consumers. The current boundary-consistency pass established schema-owned string/byte codecs, one portable operation/effect model and JSON-RPC registry, portable RAD Markdown decoding, real repository action semantics, and an unconditional gRPC server implementation; the ranked slices below capture the remaining parity work.
 
 # Current evidence
 
 - `acorn-lib` now exposes analyzer, I/O, host utility, and doctor modules; schema implementation has moved to `acorn-schema`, command construction/execution to `acorn-cmd`, and initial filesystem, configuration, HTTP, download, source, and terminal capabilities to `acorn-host`.
+- `acorn-schema` now owns the portable `DocumentCodec` contract and RAD Markdown decoder. Service validation, repository normalization, configuration parsing, and host path adapters call those codecs instead of maintaining format-specific serde branches.
+- `acorn-core` now owns invocation context, principal, capability effects, and authorization. `acorn-service` owns the sole JSON-RPC framing, method catalog, schema definition, dispatch, and policy implementation; `acorn-lib` retains only host handler and durable-operation adapters.
+- Repository `validate`, `check`, `format`, and `link` actions now have distinct behavior, invalid RAD Markdown cannot silently downgrade to generic Markdown, and duplicate or empty action requests fail explicitly. Enrichment remains an explicit denied host capability until its port exists.
+- The gRPC command always compiles its real server path; the former empty `grpc` feature and success-returning shell have been removed.
 - `crates/acorn-core` now owns portable errors, location/repository values, MIME/checksum/version values, and core/alloc utility implementations. First-party consumers import them directly from `acorn-core`; `acorn-lib` retains only host extensions and host utilities.
 - Remaining coupling is concentrated inside `acorn-lib`: analyzer host execution, provider APIs, persistence, export, and workflows still share I/O and utility boundaries.
 - The outbound MCP client now combines configuration and operation policy with concrete child-process and HTTP transports in `io::mcp`; extraction must separate service orchestration from native transport without changing the landed MCP contract.
@@ -156,6 +160,24 @@ Move artifact discovery, GitLab bot workflows, and agentic/server coordination i
 ## 5. Finish direct consumer migration and the release path
 
 Migrate first-party interfaces to direct dependencies, then remove extracted implementation and obsolete features from `acorn-lib`. Publish dependency crates in topological order before their consumers; Cargo requires published path dependencies to include a registry version and be available to downstream resolution ([Cargo dependency documentation](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#specifying-path-dependencies)). Reserve and recheck package names immediately before creating the first public release.
+
+# Ranked remaining consistency slices
+
+These are independently schedulable child slices, ordered by impact and then lower implementation difficulty. Before implementation, each slice must receive an exact write set and an integration owner under the parallel-execution rules.
+
+| Rank | Slice | Impact | Difficulty | Project boundary and current evidence | Acceptance gate |
+|---:|---|---|---|---|---|
+| 1 | Differential portability parity harness | High | Medium | Exercise identical schema codec and service requests through alloc/native service, JSON-RPC, gRPC, and WASM adapters; current tests are per-surface and can miss semantic drift. | Shared fixtures assert identical values, diagnostics, ordering, file changes, and policy errors across every supported surface in the feature matrix. |
+| 2 | Canonical diagnostics and readability contracts | High | Medium | Move remaining analyzer/host diagnostic and readability translations behind the `acorn-analysis` and `acorn-service` DTOs; current transport-specific projections can still diverge. | Direct, JSON-RPC, gRPC, CLI, and WASM consumers serialize one owned model with snapshot coverage and no duplicate public DTO. |
+| 3 | Explicit validation context | High | Medium | Replace ambient time and other environment-sensitive validation inputs with a portable `ValidationContext` supplied by callers. | Temporal checks are deterministic under a fixed context, browser/native results match, and schema validation does not read the system clock or process environment. |
+| 4 | Transport catalog parity | High | Medium | Generate or verify JSON-RPC and gRPC exposure from the service catalog, including `ValidateStandard`; current listeners still register methods separately. | A catalog test fails on missing, extra, renamed, or schema-incompatible operations, and every intended typed service operation is reachable through both transports. |
+| 5 | Canonical exact and host-fuzzy algorithms | High | Medium | Keep deterministic exact matching in portable owners and isolate optional fuzzy/search dependencies in host adapters; similar matching logic remains split across layers. | Portable builds have dependency-free deterministic results, host fuzzy behavior is explicitly selected, and shared fixtures document intentional result differences. |
+| 6 | Narrow schema standard-library features | High | High | Split the broad `acorn-schema/std` switch into capability-scoped features so codecs and standards do not enable unrelated host-adjacent dependency stacks. | Each supported schema capability compiles in isolation, the resolved tree matches its documented needs, and the default feature set preserves behavior. |
+| 7 | End-to-end offline propagation | Medium | Low | Carry the offline decision through service context and every host network adapter instead of relying on command-local checks. | Offline integration tests prove that CLI, service, JSON-RPC, and gRPC entry points perform no network-capable operation and return the same typed denial. |
+| 8 | Endpoint security policy consolidation | Medium | Low | Centralize bind-address, TLS, authentication, request-size, and exposure defaults in `acorn-server`; current listener composition retains protocol-specific decisions. | JSON-RPC and gRPC consume one reviewed policy, insecure non-loopback exposure requires explicit configuration, and tests cover default and rejected configurations. |
+| 9 | Boundary residue cleanup | Low | Low | Remove unused `ServiceClient` and durable marker abstractions, no-op aliases, stale feature/docs references, and compatibility names after direct consumers are confirmed. | Reference scans find no consumers, public docs name current owners and features, and workspace/package checks pass after deletion without replacement shells. |
+
+The differential harness precedes model and catalog convergence because it supplies the evidence needed to distinguish intentional adapter behavior from drift. Schema feature splitting follows the portable contract work so dependency changes do not obscure semantic changes. Residue cleanup runs last, after the parity gates prove that no compatibility shell remains necessary.
 
 # Compatibility
 

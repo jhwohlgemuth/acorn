@@ -264,7 +264,7 @@ async fn test_provider_pipeline_is_durable_sorted_and_dispatchable() {
         crate::io::api::json_rpc::OperationEffects::default(),
     )
     .unwrap();
-    let registry = crate::io::api::json_rpc::OperationRegistry::default()
+    let registry = crate::io::api::json_rpc::JsonRpcOperationRegistry::default()
         .register(definition, {
             let calls = StdArc::clone(&calls);
             move |input: Input, _| {

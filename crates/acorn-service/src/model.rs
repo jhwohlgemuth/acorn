@@ -1,13 +1,14 @@
 //! Canonical requests and responses shared by direct and remote callers.
 use acorn_analysis::readability::ReadabilityType;
-use acorn_analysis::CheckSeverity;
-use acorn_core::prelude::{String, Vec};
-use acorn_core::util::MimeType;
+use acorn_analysis::{CheckCategory, CheckSeverity};
+use acorn_core::prelude::{format, String, Vec};
+use acorn_core::util::{MarkdownSupport, MimeType};
 use acorn_schema::standard::Standard;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Kind of repository mutation proposed by a workflow.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, strum::EnumIs)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, strum::EnumIs)]
 #[serde(rename_all = "kebab-case")]
 pub enum FileChangeKind {
     /// Create a new derived artifact.
@@ -16,7 +17,7 @@ pub enum FileChangeKind {
     Update,
 }
 /// Registered repository processing action.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, strum::Display, strum::EnumIs)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, strum::Display, strum::EnumIs)]
 #[serde(rename_all = "kebab-case")]
 #[strum(serialize_all = "kebab-case")]
 pub enum WorkflowAction {
@@ -32,7 +33,7 @@ pub enum WorkflowAction {
     Validate,
 }
 /// Calculate one readability metric over supplied text.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct CheckReadabilityRequest {
     /// Readability metric to calculate.
@@ -45,7 +46,7 @@ pub struct CheckReadabilityRequest {
     pub threshold: Option<f64>,
 }
 /// Deterministic readability calculation and assessment.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct CheckReadabilityResponse {
     /// Whether the text satisfies the configured threshold.
@@ -60,7 +61,7 @@ pub struct CheckReadabilityResponse {
     pub threshold: f64,
 }
 /// One normalized user-facing diagnostic.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Diagnostic {
     /// Stable diagnostic code.
@@ -73,7 +74,7 @@ pub struct Diagnostic {
     pub severity: CheckSeverity,
 }
 /// One deterministic repository mutation proposal.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct FileChange {
     /// Complete UTF-8 replacement content.
@@ -84,7 +85,7 @@ pub struct FileChange {
     pub path: String,
 }
 /// Process one caller-supplied immutable repository snapshot.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ProcessRepositoryRequest {
     /// Ordered requested actions.
@@ -97,7 +98,7 @@ pub struct ProcessRepositoryRequest {
     pub revision: String,
 }
 /// Deterministic output of repository processing.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ProcessRepositoryResponse {
     /// Exact source revision used to create the proposal.
@@ -108,7 +109,7 @@ pub struct ProcessRepositoryResponse {
     pub reports: Vec<WorkflowFileReport>,
 }
 /// One immutable repository file supplied at a selected revision.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct RepositoryFileInput {
     /// Complete UTF-8 content.
@@ -119,7 +120,7 @@ pub struct RepositoryFileInput {
     pub path: String,
 }
 /// Validate one supplied research activity document.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ValidateResearchActivityRequest {
     /// Complete UTF-8 document content.
@@ -130,7 +131,7 @@ pub struct ValidateResearchActivityRequest {
     pub source_uri: Option<String>,
 }
 /// Complete validation outcome for supplied research activity data.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ValidateResearchActivityResponse {
     /// Every normalized parse or validation diagnostic.
@@ -139,7 +140,7 @@ pub struct ValidateResearchActivityResponse {
     pub valid: bool,
 }
 /// Validate one supplied document against a selected metadata standard.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ValidateStandardRequest {
     /// Complete UTF-8 document content.
@@ -152,7 +153,7 @@ pub struct ValidateStandardRequest {
     pub standard: Standard,
 }
 /// Processing report for one repository file.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct WorkflowFileReport {
     /// Whether normalized content differs from the supplied content.
@@ -161,6 +162,23 @@ pub struct WorkflowFileReport {
     pub format: MimeType,
     /// Portable repository-relative path.
     pub path: String,
+}
+impl From<WorkflowAction> for CheckCategory {
+    fn from(value: WorkflowAction) -> Self {
+        match value {
+            | WorkflowAction::Validate => Self::Schema,
+            | _ => Self::Quality,
+        }
+    }
+}
+impl MarkdownSupport for ProcessRepositoryResponse {
+    fn to_markdown(&self) -> String {
+        self.files
+            .iter()
+            .map(|change| format!("- `{}` ({})", change.path, <&'static str>::from(change.kind)))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
 }
 impl RepositoryFileInput {
     /// Return the explicit or path-inferred supported repository file format.
@@ -171,5 +189,13 @@ impl RepositoryFileInput {
             MimeType::Cff | MimeType::Json | MimeType::Jsonc | MimeType::Markdown | MimeType::Yaml | MimeType::Zon
         )
         .then_some(format)
+    }
+}
+impl From<FileChangeKind> for &'static str {
+    fn from(value: FileChangeKind) -> Self {
+        match value {
+            | FileChangeKind::Create => "create",
+            | FileChangeKind::Update => "update",
+        }
     }
 }

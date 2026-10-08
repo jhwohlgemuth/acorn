@@ -1,5 +1,5 @@
 //! Application configuration integration for executable hooks.
-use crate::analyzer::{Check, CheckCategory};
+use crate::analyzer::Check;
 use crate::caution;
 use crate::exec::manifest::{ResolvedManifest, ScriptAuthorization};
 use crate::exec::result::RhaiExt;
@@ -255,7 +255,7 @@ impl Resolved {
                     .map(|(finding_index, finding)| {
                         let index = document_index.saturating_mul(100).saturating_add(finding_index);
                         let mut check = Check::from(finding);
-                        check.category = CheckCategory::from(hook);
+                        check.category = hook.into();
                         check.with_index(index).with_uri(Some(source.to_string()))
                     })
                     .collect()

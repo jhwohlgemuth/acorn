@@ -1,7 +1,10 @@
 #![allow(clippy::indexing_slicing)]
 use super::*;
-use acorn_analysis::readability::ReadabilityType;
-use acorn_core::util::MimeType;
+use acorn_analysis::{readability::ReadabilityType, CheckCategory};
+use acorn_core::prelude::{vec, ToString, Vec};
+use acorn_core::util::{MarkdownSupport, MimeType};
+use acorn_schema::hardware::Memory;
+use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::standard::Standard;
 use futures::executor::block_on;
 
@@ -48,7 +51,7 @@ fn test_json_rpc_rejects_duplicate_fields_and_oversized_input() {
     let oversized = block_on(registry.dispatch(
         br#"{"jsonrpc":"2.0","id":1,"method":"acorn.version"}"#,
         InvocationContext {
-            max_input_bytes: 8,
+            max_input: Memory::kb(0.0),
             ..InvocationContext::default()
         },
     ));
@@ -95,6 +98,71 @@ fn test_rejects_unsafe_and_duplicate_repository_paths() {
     };
     assert!(AcornService.process_repository(request(&["../secret.json"])).is_err());
     assert!(AcornService.process_repository(request(&["a.json", "a.json"])).is_err());
+}
+#[test]
+fn test_repository_actions_are_distinct_and_validated() {
+    let request = |actions| ProcessRepositoryRequest {
+        actions,
+        files: vec![RepositoryFileInput {
+            content: "{\"z\":1}".to_string(),
+            format: Some(MimeType::Json),
+            path: "activity.json".to_string(),
+        }],
+        project: "project".to_string(),
+        revision: "revision".to_string(),
+    };
+    let validated = AcornService
+        .process_repository(request(vec![WorkflowAction::Validate]))
+        .expect("validate repository");
+    assert!(!validated.reports[0].changed);
+    assert!(validated.files.is_empty());
+    let checked = AcornService
+        .process_repository(request(vec![WorkflowAction::Check]))
+        .expect("check repository");
+    assert!(checked.reports[0].changed);
+    assert!(checked.files.is_empty());
+    let formatted = AcornService
+        .process_repository(request(vec![WorkflowAction::Format]))
+        .expect("format repository");
+    assert!(formatted.reports[0].changed);
+    assert_eq!(formatted.files.len(), 1);
+    assert!(AcornService.process_repository(request(Vec::new())).is_err());
+    assert!(AcornService
+        .process_repository(request(vec![WorkflowAction::Validate, WorkflowAction::Validate]))
+        .is_err());
+    let denied = AcornService
+        .process_repository(request(vec![WorkflowAction::Enrich]))
+        .expect_err("enrichment requires a host capability");
+    assert_eq!(denied.kind, ServiceErrorKind::PolicyDenied);
+    let linked = AcornService
+        .process_repository(ProcessRepositoryRequest {
+            actions: vec![WorkflowAction::Link],
+            files: vec![RepositoryFileInput {
+                content: serde_json::to_string(&ResearchActivity::default()).expect("research activity JSON"),
+                format: Some(MimeType::Json),
+                path: "activity.json".to_string(),
+            }],
+            project: "project".to_string(),
+            revision: "revision".to_string(),
+        })
+        .expect("link repository");
+    assert_eq!(linked.files.len(), 1);
+    assert_eq!(linked.files[0].path, "activity.jsonld");
+}
+#[test]
+fn test_repository_does_not_downgrade_invalid_rad_markdown() {
+    let content = ResearchActivity::default().to_markdown().replace("## Contact", "## Unknown");
+    let result = AcornService.process_repository(ProcessRepositoryRequest {
+        actions: vec![WorkflowAction::Validate],
+        files: vec![RepositoryFileInput {
+            content,
+            format: Some(MimeType::Markdown),
+            path: "activity.md".to_string(),
+        }],
+        project: "project".to_string(),
+        revision: "revision".to_string(),
+    });
+    assert!(result.is_err());
 }
 #[test]
 fn test_repository_output_is_sorted_by_portable_path() {
@@ -146,4 +214,12 @@ fn test_standard_validation_supports_text_and_rejects_malformed_datacite() {
         .diagnostics
         .iter()
         .all(|diagnostic| diagnostic.path.as_deref().is_some_and(|path| path.starts_with("fixture.json"))));
+}
+#[test]
+fn test_workflow_action_maps_to_check_category() {
+    assert_eq!(CheckCategory::from(WorkflowAction::Validate), CheckCategory::Schema);
+    assert_eq!(CheckCategory::from(WorkflowAction::Check), CheckCategory::Quality);
+    assert_eq!(CheckCategory::from(WorkflowAction::Enrich), CheckCategory::Quality);
+    assert_eq!(CheckCategory::from(WorkflowAction::Format), CheckCategory::Quality);
+    assert_eq!(CheckCategory::from(WorkflowAction::Link), CheckCategory::Quality);
 }

@@ -7,6 +7,7 @@ use aho_corasick::{AhoCorasickBuilder, MatchKind};
 use derive_more::Display;
 use fancy_regex::Regex;
 use itertools::Itertools;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 pub mod score;
@@ -26,7 +27,7 @@ const MAX_ALLOWED_LIX: f64 = 50.0;
 const MAX_ALLOWED_SMOG: f64 = 13.0;
 
 /// Readability Type
-#[derive(Clone, Copy, Debug, Default, Deserialize, Display, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Display, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ReadabilityType {
     /// Automated Readability Index (ARI)

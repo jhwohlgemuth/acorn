@@ -17,9 +17,12 @@ pub use model::{
     RepositoryFileInput, ValidateResearchActivityRequest, ValidateResearchActivityResponse, ValidateStandardRequest, WorkflowAction,
     WorkflowFileReport,
 };
-pub use operation::{InvocationContext, InvocationOrigin, OperationEffect, OperationEffects, Principal};
-pub use registry::{Dispatch, DurableOperations, MethodName, OperationRegistry, RequestId, RpcError};
-pub use service::{AcornService, Decode};
+pub use operation::{InvocationContext, InvocationOrigin, Memory, OperationEffect, OperationEffects, Principal};
+pub use registry::{
+    Dispatch, DurableOperations, MethodName, Notification, OperationDefinition, OperationRegistry, RequestId, RpcError, INTERNAL_ERROR,
+    INVALID_PARAMS, INVALID_REQUEST, JSON_RPC_VERSION, METHOD_NOT_FOUND, PARSE_ERROR, POLICY_DENIED,
+};
+pub use service::AcornService;
 
 #[cfg(test)]
 mod tests;

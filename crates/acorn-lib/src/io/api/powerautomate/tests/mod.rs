@@ -2,7 +2,7 @@ use super::*;
 use crate::io::api::gitlab::{ReportManifest, ReportStatus};
 use crate::io::api::webhooks::store::{EnqueueStatus, OperationQueue};
 use crate::io::api::webhooks::{self, CallbackResolver, ErrorKind, InboundRequest, WebhookProvider};
-use crate::io::workflow::{LogbookProposal, RepositoryChangeSet};
+use crate::io::workflow::{LogbookProposal, ProcessRepositoryResponse};
 use acorn_schema::research_activity::{Logbook, LogbookEntry, LogbookState, ReportingWindow, ResearchActivity};
 use acorn_schema::validation::Validate;
 use alloc::collections::BTreeSet;
@@ -134,7 +134,7 @@ fn test_flow_is_authenticated_durable_duplicate_safe_and_reportable() {
     let form = serde_json::from_str::<FormSubmission>(fixture).expect("form fixture");
     let entry = form.entry(provider.config()).expect("normalized entry");
     let content = serde_json::to_string_pretty(&ResearchActivity::default()).expect("activity fixture");
-    let changes = RepositoryChangeSet::try_from(LogbookProposal {
+    let changes = ProcessRepositoryResponse::try_from(LogbookProposal {
         base_revision: "0123456789abcdef".to_string(),
         content,
         entry,

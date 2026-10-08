@@ -166,9 +166,9 @@ fn temp_resolve_dir(name: &str) -> PathBuf {
 #[cfg(feature = "analysis")]
 #[test]
 fn test_acre_implements_portable_decode_contract() {
-    let decoded = <ApplicationConfiguration as acorn_service::Decode>::decode("{}", &acorn_core::util::MimeType::Json);
+    let decoded = <ApplicationConfiguration as acorn_schema::codec::DocumentCodec>::decode("{}", &acorn_core::util::MimeType::Json);
     assert!(decoded.is_ok());
-    let unsupported = <ApplicationConfiguration as acorn_service::Decode>::decode("{}", &acorn_core::util::MimeType::Markdown);
+    let unsupported = <ApplicationConfiguration as acorn_schema::codec::DocumentCodec>::decode("{}", &acorn_core::util::MimeType::Markdown);
     assert!(unsupported.is_err());
 }
 #[test]

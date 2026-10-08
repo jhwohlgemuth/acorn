@@ -1,22 +1,15 @@
-#[cfg(feature = "grpc")]
 use acorn::io::api::webhooks::store::OperationQueue;
 use acorn::io::{ContainerTarget, Executor};
-#[cfg(feature = "grpc")]
 use acorn_cmd::runtime::command_string;
-#[cfg(feature = "grpc")]
 use acorn_cmd::{args, cmd};
-#[cfg(feature = "grpc")]
 use acorn_server::{serve_with_durable, ServerArgs, ServerConfig};
-#[cfg(feature = "grpc")]
 use acorn_service::DurableOperations;
-#[cfg(feature = "grpc")]
 use alloc::sync::Arc;
 use color_eyre::eyre::{eyre, Report, Result};
 use core::net::SocketAddr;
 use std::path::Path;
 
 #[derive(Clone, Copy)]
-#[cfg_attr(not(feature = "grpc"), allow(dead_code))]
 pub(crate) struct TlsPaths<'a> {
     certificate: Option<&'a Path>,
     private_key: Option<&'a Path>,
@@ -27,30 +20,6 @@ impl<'a> TlsPaths<'a> {
     }
 }
 pub async fn run(
-    address: SocketAddr,
-    allow_mutation: bool,
-    offline: bool,
-    detach: bool,
-    target: Option<&ContainerTarget>,
-    runtime: &Option<Executor>,
-    tls: TlsPaths<'_>,
-) -> Result<(), Report> {
-    run_feature(address, allow_mutation, offline, detach, target, runtime, tls).await
-}
-#[cfg(not(feature = "grpc"))]
-async fn run_feature(
-    _address: SocketAddr,
-    _allow_mutation: bool,
-    _offline: bool,
-    _detach: bool,
-    _target: Option<&ContainerTarget>,
-    _runtime: &Option<Executor>,
-    _tls: TlsPaths<'_>,
-) -> Result<(), Report> {
-    Err(eyre!("gRPC support is disabled; rebuild acorn-cli with `--features grpc`"))
-}
-#[cfg(feature = "grpc")]
-async fn run_feature(
     address: SocketAddr,
     allow_mutation: bool,
     offline: bool,

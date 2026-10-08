@@ -167,210 +167,6 @@ struct WebhookError {
     status: StatusCode,
     message: String,
 }
-impl webhooks::Delivery<HookPayload> {
-    /// Normalize an actionable GitLab delivery into a registered operation notification.
-    pub fn operation(&self) -> ApiResult<Option<webhooks::OperationSpec>> {
-        self.key()
-            .map(|key| {
-                let method = match &self.event {
-                    | HookPayload::MergeRequest { .. } => json_rpc::MethodName::from(["webhooks", "gitlab", "merge-request"]),
-                    | HookPayload::Note { .. } => json_rpc::MethodName::from(["webhooks", "gitlab", "note"]),
-                };
-                serde_json::to_value(self)
-                    .map_err(|why| eyre!("Failed to encode GitLab webhook delivery — {why}"))
-                    .and_then(|params| json_rpc::Notification::new(method, params))
-                    .map(|notification| webhooks::OperationSpec::new("gitlab", key, notification))
-            })
-            .transpose()
-    }
-    /// Return the canonical operation key for an actionable normalized delivery
-    pub fn key(&self) -> Option<String> {
-        match &self.event {
-            | HookPayload::MergeRequest {
-                actor,
-                iid,
-                head_sha: Some(head_sha),
-                action: MergeRequestAction::Open | MergeRequestAction::Reopen | MergeRequestAction::Update,
-                ..
-            } if !actor.is_bot => Some(format!("mr-check:{}:{iid}:{head_sha}", actor.project_id)),
-            | HookPayload::MergeRequest {
-                actor,
-                iid,
-                action: MergeRequestAction::Merge,
-                ..
-            } if !actor.is_bot => Some(format!("citation-complete:{}:{iid}", actor.project_id)),
-            | HookPayload::Note {
-                actor,
-                note_id,
-                body,
-                noteable_type,
-                noteable_iid: Some(iid),
-                system,
-                confidential,
-                internal,
-                ..
-            } => {
-                let human_authored = !actor.is_bot && !system && !confidential && !internal;
-                let work_item = noteable_type.eq_ignore_ascii_case("issue") || noteable_type.eq_ignore_ascii_case("task");
-                let merge_request = noteable_type.eq_ignore_ascii_case("mergerequest");
-                if human_authored && work_item && check_requested(body) {
-                    Some(format!("work-item-check:{}:{iid}:{note_id}", actor.project_id))
-                } else if human_authored && merge_request && workflow_requested(body).is_some() {
-                    Some(format!("repository-process:{}:{iid}:{note_id}", actor.project_id))
-                } else if human_authored && merge_request && graduation_requested(body).is_some() {
-                    Some(format!("logbook-graduate:{}:{iid}:{note_id}", actor.project_id))
-                } else {
-                    None
-                }
-            }
-            | _ => None,
-        }
-    }
-    pub(super) async fn process(self, config: &Config) -> ApiResult<()> {
-        match &config.operation_handler {
-            | Some(handler) => handler(self).await,
-            | None => self.default_handler(config).await,
-        }
-    }
-    #[cfg(feature = "analysis")]
-    async fn default_handler(self, config: &Config) -> ApiResult<()> {
-        match self.event {
-            | HookPayload::MergeRequest {
-                iid,
-                action: MergeRequestAction::Merge,
-                ..
-            } => match config.deployment.workflow("repository-quality") {
-                | Ok(policy) if policy.allows(super::WorkflowEffect::Label) && policy.allows(super::WorkflowEffect::CompletionComment) => {
-                    let options = config
-                        .options
-                        .clone()
-                        .with_effects(config.operation_queue.clone())
-                        .with_merge_request_iid(iid);
-                    complete_citation_merge(&options)
-                        .await
-                        .inspect(|completed| info!(completed, "Processed GitLab citation merge-completion operation"))
-                        .map(|_| ())
-                }
-                | Ok(_) => Err(eyre!("Citation merge completion requires label and completion-comment effects")),
-                | Err(why) => Err(why),
-            },
-            | HookPayload::MergeRequest {
-                iid,
-                head_sha: Some(head_sha),
-                action: MergeRequestAction::Open | MergeRequestAction::Reopen | MergeRequestAction::Update,
-                ..
-            } => {
-                let options = config
-                    .options
-                    .clone()
-                    .with_effects(config.operation_queue.clone())
-                    .with_internal_identifier(iid.to_string())
-                    .with_sha(head_sha);
-                let required_effects = [super::WorkflowEffect::CommitStatus, super::WorkflowEffect::Note];
-                match config.deployment.workflow("repository-quality") {
-                    | Ok(policy) if required_effects.into_iter().all(|effect| policy.allows(effect)) => {
-                        review::analyze_merge_request(&options, &config.analysis_options)
-                            .await
-                            .inspect(|outcome| info!("Processed GitLab merge request analysis operation: {outcome:?}"))
-                            .map(|_| ())
-                    }
-                    | Ok(_) => Err(eyre!("Merge request analysis requires commit-status and note effects")),
-                    | Err(why) => Err(why),
-                }
-            }
-            | HookPayload::Note {
-                actor,
-                note_id,
-                noteable_iid: Some(iid),
-                noteable_type,
-                ..
-            } if noteable_type.eq_ignore_ascii_case("issue") || noteable_type.eq_ignore_ascii_case("task") => {
-                let options = config
-                    .options
-                    .clone()
-                    .with_effects(config.operation_queue.clone())
-                    .with_internal_identifier(iid.to_string());
-                let required_effects = [
-                    super::WorkflowEffect::Branch,
-                    super::WorkflowEffect::Commit,
-                    super::WorkflowEffect::DraftMergeRequest,
-                    super::WorkflowEffect::Note,
-                ];
-                match config.deployment.workflow("repository-quality") {
-                    | Ok(policy) if required_effects.into_iter().all(|effect| policy.allows(effect)) => {
-                        IntakeReport::analyze(&options, &actor, note_id)
-                            .await
-                            .inspect(|report| info!("Processed GitLab work-item intake operation: {report:?}"))
-                            .map(|_| ())
-                    }
-                    | Ok(_) => Err(eyre!("Citation intake requires branch, commit, draft-merge-request, and note effects")),
-                    | Err(why) => Err(why),
-                }
-            }
-            | HookPayload::Note {
-                actor,
-                body,
-                noteable_iid: Some(iid),
-                noteable_type,
-                ..
-            } if noteable_type.eq_ignore_ascii_case("mergerequest") => match (workflow_requested(&body), graduation_requested(&body)) {
-                | (Some(workflow), _) => {
-                    let options = config.options.clone().with_internal_identifier(iid.to_string());
-                    match super::project_member(&options, actor.user_id).await.and_then(|member| {
-                        match member.identifier == actor.user_id && member.access_level >= DEVELOPER_ACCESS_LEVEL {
-                            | true => Ok(()),
-                            | false => Err(eyre!("GitLab repository workflow commands require Developer access")),
-                        }
-                    }) {
-                        | Ok(()) => match super::merge_request(&options).await {
-                            | Ok(details) => details
-                                .process(&workflow, &options, &config.deployment, Some(&config.operation_queue))
-                                .await
-                                .inspect(|result| info!("Processed GitLab repository workflow operation: {result:?}"))
-                                .map(|_| ()),
-                            | Err(why) => Err(why),
-                        },
-                        | Err(why) => Err(why),
-                    }
-                }
-                | (None, Some(accepted_ids)) => {
-                    let options = config.options.clone().with_internal_identifier(iid.to_string());
-                    match super::project_member(&options, actor.user_id).await.and_then(|member| {
-                        match member.identifier == actor.user_id && member.access_level >= DEVELOPER_ACCESS_LEVEL {
-                            | true => Ok(()),
-                            | false => Err(eyre!("GitLab logbook graduation commands require Developer access")),
-                        }
-                    }) {
-                        | Ok(()) => match &config.powerautomate {
-                            | Some(provider) => {
-                                let paths = provider.config().projects.iter().map(|project| project.path.clone()).collect::<Vec<_>>();
-                                options
-                                    .graduate_logbook(&config.operation_queue, &paths, &accepted_ids)
-                                    .await
-                                    .inspect(|result| info!("Processed GitLab logbook graduation operation: {result:?}"))
-                                    .map(|_| ())
-                            }
-                            | None => Err(eyre!("PowerAutomate project mappings are not configured")),
-                        },
-                        | Err(why) => Err(why),
-                    }
-                }
-                | (None, None) => Ok(()),
-            },
-            | _ => {
-                info!("Ignoring unsupported GitLab webhook operation {}", self.delivery_id);
-                Ok(())
-            }
-        }
-    }
-    #[cfg(not(feature = "analysis"))]
-    async fn default_handler(self, _config: &Config) -> ApiResult<()> {
-        Err(eyre!(
-            "GitLab webhook operation {} requires the acorn-lib analysis feature",
-            self.delivery_id
-        ))
-    }
-}
 impl From<(u64, HookUser)> for HookActor {
     fn from((project_id, user): (u64, HookUser)) -> Self {
         let HookUser {
@@ -613,6 +409,210 @@ impl WebhookError {
             || (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()),
             |webhook_error| (webhook_error.status, webhook_error.message.clone()),
         )
+    }
+}
+impl webhooks::Delivery<HookPayload> {
+    /// Normalize an actionable GitLab delivery into a registered operation notification.
+    pub fn operation(&self) -> ApiResult<Option<webhooks::OperationSpec>> {
+        self.key()
+            .map(|key| {
+                let method = match &self.event {
+                    | HookPayload::MergeRequest { .. } => json_rpc::MethodName::from(["webhooks", "gitlab", "merge-request"]),
+                    | HookPayload::Note { .. } => json_rpc::MethodName::from(["webhooks", "gitlab", "note"]),
+                };
+                serde_json::to_value(self)
+                    .map_err(|why| eyre!("Failed to encode GitLab webhook delivery — {why}"))
+                    .and_then(|params| json_rpc::Notification::new(method, params).map_err(color_eyre::Report::from))
+                    .map(|notification| webhooks::OperationSpec::new("gitlab", key, notification))
+            })
+            .transpose()
+    }
+    /// Return the canonical operation key for an actionable normalized delivery
+    pub fn key(&self) -> Option<String> {
+        match &self.event {
+            | HookPayload::MergeRequest {
+                actor,
+                iid,
+                head_sha: Some(head_sha),
+                action: MergeRequestAction::Open | MergeRequestAction::Reopen | MergeRequestAction::Update,
+                ..
+            } if !actor.is_bot => Some(format!("mr-check:{}:{iid}:{head_sha}", actor.project_id)),
+            | HookPayload::MergeRequest {
+                actor,
+                iid,
+                action: MergeRequestAction::Merge,
+                ..
+            } if !actor.is_bot => Some(format!("citation-complete:{}:{iid}", actor.project_id)),
+            | HookPayload::Note {
+                actor,
+                note_id,
+                body,
+                noteable_type,
+                noteable_iid: Some(iid),
+                system,
+                confidential,
+                internal,
+                ..
+            } => {
+                let human_authored = !actor.is_bot && !system && !confidential && !internal;
+                let work_item = noteable_type.eq_ignore_ascii_case("issue") || noteable_type.eq_ignore_ascii_case("task");
+                let merge_request = noteable_type.eq_ignore_ascii_case("mergerequest");
+                if human_authored && work_item && check_requested(body) {
+                    Some(format!("work-item-check:{}:{iid}:{note_id}", actor.project_id))
+                } else if human_authored && merge_request && workflow_requested(body).is_some() {
+                    Some(format!("repository-process:{}:{iid}:{note_id}", actor.project_id))
+                } else if human_authored && merge_request && graduation_requested(body).is_some() {
+                    Some(format!("logbook-graduate:{}:{iid}:{note_id}", actor.project_id))
+                } else {
+                    None
+                }
+            }
+            | _ => None,
+        }
+    }
+    pub(super) async fn process(self, config: &Config) -> ApiResult<()> {
+        match &config.operation_handler {
+            | Some(handler) => handler(self).await,
+            | None => self.default_handler(config).await,
+        }
+    }
+    #[cfg(feature = "analysis")]
+    async fn default_handler(self, config: &Config) -> ApiResult<()> {
+        match self.event {
+            | HookPayload::MergeRequest {
+                iid,
+                action: MergeRequestAction::Merge,
+                ..
+            } => match config.deployment.workflow("repository-quality") {
+                | Ok(policy) if policy.allows(super::WorkflowEffect::Label) && policy.allows(super::WorkflowEffect::CompletionComment) => {
+                    let options = config
+                        .options
+                        .clone()
+                        .with_effects(config.operation_queue.clone())
+                        .with_merge_request_iid(iid);
+                    complete_citation_merge(&options)
+                        .await
+                        .inspect(|completed| info!(completed, "Processed GitLab citation merge-completion operation"))
+                        .map(|_| ())
+                }
+                | Ok(_) => Err(eyre!("Citation merge completion requires label and completion-comment effects")),
+                | Err(why) => Err(why),
+            },
+            | HookPayload::MergeRequest {
+                iid,
+                head_sha: Some(head_sha),
+                action: MergeRequestAction::Open | MergeRequestAction::Reopen | MergeRequestAction::Update,
+                ..
+            } => {
+                let options = config
+                    .options
+                    .clone()
+                    .with_effects(config.operation_queue.clone())
+                    .with_internal_identifier(iid.to_string())
+                    .with_sha(head_sha);
+                let required_effects = [super::WorkflowEffect::CommitStatus, super::WorkflowEffect::Note];
+                match config.deployment.workflow("repository-quality") {
+                    | Ok(policy) if required_effects.into_iter().all(|effect| policy.allows(effect)) => {
+                        review::analyze_merge_request(&options, &config.analysis_options)
+                            .await
+                            .inspect(|outcome| info!("Processed GitLab merge request analysis operation: {outcome:?}"))
+                            .map(|_| ())
+                    }
+                    | Ok(_) => Err(eyre!("Merge request analysis requires commit-status and note effects")),
+                    | Err(why) => Err(why),
+                }
+            }
+            | HookPayload::Note {
+                actor,
+                note_id,
+                noteable_iid: Some(iid),
+                noteable_type,
+                ..
+            } if noteable_type.eq_ignore_ascii_case("issue") || noteable_type.eq_ignore_ascii_case("task") => {
+                let options = config
+                    .options
+                    .clone()
+                    .with_effects(config.operation_queue.clone())
+                    .with_internal_identifier(iid.to_string());
+                let required_effects = [
+                    super::WorkflowEffect::Branch,
+                    super::WorkflowEffect::Commit,
+                    super::WorkflowEffect::DraftMergeRequest,
+                    super::WorkflowEffect::Note,
+                ];
+                match config.deployment.workflow("repository-quality") {
+                    | Ok(policy) if required_effects.into_iter().all(|effect| policy.allows(effect)) => {
+                        IntakeReport::analyze(&options, &actor, note_id)
+                            .await
+                            .inspect(|report| info!("Processed GitLab work-item intake operation: {report:?}"))
+                            .map(|_| ())
+                    }
+                    | Ok(_) => Err(eyre!("Citation intake requires branch, commit, draft-merge-request, and note effects")),
+                    | Err(why) => Err(why),
+                }
+            }
+            | HookPayload::Note {
+                actor,
+                body,
+                noteable_iid: Some(iid),
+                noteable_type,
+                ..
+            } if noteable_type.eq_ignore_ascii_case("mergerequest") => match (workflow_requested(&body), graduation_requested(&body)) {
+                | (Some(workflow), _) => {
+                    let options = config.options.clone().with_internal_identifier(iid.to_string());
+                    match super::project_member(&options, actor.user_id).await.and_then(|member| {
+                        match member.identifier == actor.user_id && member.access_level >= DEVELOPER_ACCESS_LEVEL {
+                            | true => Ok(()),
+                            | false => Err(eyre!("GitLab repository workflow commands require Developer access")),
+                        }
+                    }) {
+                        | Ok(()) => match super::merge_request(&options).await {
+                            | Ok(details) => details
+                                .process(&workflow, &options, &config.deployment, Some(&config.operation_queue))
+                                .await
+                                .inspect(|result| info!("Processed GitLab repository workflow operation: {result:?}"))
+                                .map(|_| ()),
+                            | Err(why) => Err(why),
+                        },
+                        | Err(why) => Err(why),
+                    }
+                }
+                | (None, Some(accepted_ids)) => {
+                    let options = config.options.clone().with_internal_identifier(iid.to_string());
+                    match super::project_member(&options, actor.user_id).await.and_then(|member| {
+                        match member.identifier == actor.user_id && member.access_level >= DEVELOPER_ACCESS_LEVEL {
+                            | true => Ok(()),
+                            | false => Err(eyre!("GitLab logbook graduation commands require Developer access")),
+                        }
+                    }) {
+                        | Ok(()) => match &config.powerautomate {
+                            | Some(provider) => {
+                                let paths = provider.config().projects.iter().map(|project| project.path.clone()).collect::<Vec<_>>();
+                                options
+                                    .graduate_logbook(&config.operation_queue, &paths, &accepted_ids)
+                                    .await
+                                    .inspect(|result| info!("Processed GitLab logbook graduation operation: {result:?}"))
+                                    .map(|_| ())
+                            }
+                            | None => Err(eyre!("PowerAutomate project mappings are not configured")),
+                        },
+                        | Err(why) => Err(why),
+                    }
+                }
+                | (None, None) => Ok(()),
+            },
+            | _ => {
+                info!("Ignoring unsupported GitLab webhook operation {}", self.delivery_id);
+                Ok(())
+            }
+        }
+    }
+    #[cfg(not(feature = "analysis"))]
+    async fn default_handler(self, _config: &Config) -> ApiResult<()> {
+        Err(eyre!(
+            "GitLab webhook operation {} requires the acorn-lib analysis feature",
+            self.delivery_id
+        ))
     }
 }
 pub(super) fn check_requested(content: &str) -> bool {

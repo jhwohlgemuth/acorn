@@ -69,10 +69,10 @@ curl --fail-with-body http://127.0.0.1:8001/rpc \
 
 Use global `--offline` to deny open-world operations. Durable status and replay remain in the catalog; a composition without persistence returns a typed unavailable error.
 
-The optional Protobuf/gRPC transport exposes the three canonical application operations through the typed, unversioned `acorn.service.AcornService`. Build the CLI with the non-default capability and use the same dedicated service token:
+The Protobuf/gRPC transport exposes the three canonical application operations through the typed, unversioned `acorn.service.AcornService`. Build the CLI normally and use the same dedicated service token:
 
 ```sh
-cargo build --release --package acorn-cli --features grpc
+cargo build --release --package acorn-cli
 export ACORN_SERVICE_TOKEN='replace-with-a-secret'
 ./target/release/acorn serve grpc --bind 127.0.0.1:50051
 ```

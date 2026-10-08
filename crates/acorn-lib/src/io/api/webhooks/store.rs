@@ -1,5 +1,5 @@
 //! Durable provider-neutral webhook delivery and operation queue.
-use crate::io::api::json_rpc::{InvocationContext, Notification, OperationRegistry};
+use crate::io::api::json_rpc::{InvocationContext, JsonRpcOperationRegistry, Notification};
 use crate::io::api::webhooks::{self, CallbackResolver, OperationSpec, PreparedDelivery, WebhookRuntime};
 #[cfg(not(feature = "duckdb"))]
 use crate::io::database::backend::Error::QueryReturnedNoRows;
@@ -119,7 +119,7 @@ pub struct OperationQueue {
 pub struct OperationWorker {
     context: InvocationContext,
     queue: OperationQueue,
-    registry: OperationRegistry,
+    registry: JsonRpcOperationRegistry,
     runtime: WebhookRuntime,
     stale_after: SignedDuration,
 }
@@ -1013,7 +1013,7 @@ impl TryFrom<&str> for OperationState {
 }
 impl OperationWorker {
     /// Construct a worker over one durable store and operation registry.
-    pub fn new(queue: OperationQueue, registry: OperationRegistry, context: InvocationContext, stale_after: SignedDuration) -> Self {
+    pub fn new(queue: OperationQueue, registry: JsonRpcOperationRegistry, context: InvocationContext, stale_after: SignedDuration) -> Self {
         Self {
             context,
             queue,

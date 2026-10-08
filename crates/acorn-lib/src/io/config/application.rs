@@ -21,8 +21,6 @@ use crate::{
         text_diff_changes_with_color,
     },
 };
-#[cfg(feature = "analysis")]
-use acorn_analysis::CheckSeverity;
 use acorn_core::{
     prelude::{HashMap, HashSet},
     util::{detect_json, MimeType},
@@ -30,11 +28,10 @@ use acorn_core::{
 };
 use acorn_host::{config::resolve_config_path, terminal::Label};
 use acorn_schema::{
+    codec::{CodecDiagnostic, DocumentCodec},
     validation::{is_identifier, Validate, ValidationReport},
     OneOrMany,
 };
-#[cfg(feature = "analysis")]
-use acorn_service::{Decode, Diagnostic};
 use alloc::collections::BTreeMap;
 use bon::Builder;
 use color_eyre::eyre::eyre;
@@ -56,6 +53,7 @@ use tracing::{error, info};
 /// Configuration-only representations retained when optional execution features are disabled.
 pub mod feature_configuration {
     use acorn_core::util::MimeType;
+    use acorn_service::WorkflowAction;
     use alloc::collections::BTreeMap;
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
@@ -117,21 +115,6 @@ pub mod feature_configuration {
         Label,
         /// Create or update a bot-authored note.
         Note,
-    }
-    /// Processing action allowed for a repository workflow.
-    #[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-    #[serde(rename_all = "kebab-case")]
-    pub enum WorkflowAction {
-        /// Check quality gates.
-        Check,
-        /// Invoke configured enrichment capabilities.
-        Enrich,
-        /// Format documents.
-        Format,
-        /// Add linked-data artifacts.
-        Link,
-        /// Validate documents.
-        Validate,
     }
     /// Output behavior for a deployment workflow.
     #[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -684,23 +667,21 @@ impl ApplicationConfiguration {
     }
 }
 #[cfg(feature = "analysis")]
-impl Decode for ApplicationConfiguration {
-    fn decode(content: &str, format: &MimeType) -> Result<Self, Vec<Diagnostic>> {
+impl DocumentCodec for ApplicationConfiguration {
+    const NAME: &'static str = "ACRE configuration";
+    fn decode(content: &str, format: &MimeType) -> Result<Self, Vec<CodecDiagnostic>> {
         match format {
-            | MimeType::Json | MimeType::Jsonc | MimeType::Yaml => Self::parse(content).map_err(|error| {
-                vec![Diagnostic {
-                    code: "deserialize".to_string(),
-                    message: error.to_string(),
-                    path: None,
-                    severity: CheckSeverity::Error,
-                }]
-            }),
-            | _ => Err(vec![Diagnostic {
-                code: "unsupported-format".to_string(),
-                message: format!("Unsupported ACRE configuration format '{format}'"),
-                path: None,
-                severity: CheckSeverity::Error,
-            }]),
+            | MimeType::Json | MimeType::Jsonc | MimeType::Yaml => {
+                Self::parse(content).map_err(|error| vec![CodecDiagnostic::deserialize(error.to_string())])
+            }
+            | _ => Err(vec![CodecDiagnostic::unsupported(format, Self::NAME)]),
+        }
+    }
+    fn encode(&self, format: &MimeType) -> Result<String, CodecDiagnostic> {
+        match format {
+            | MimeType::Json | MimeType::Jsonc => serde_json::to_string_pretty(self).map_err(|error| CodecDiagnostic::serialize(error.to_string())),
+            | MimeType::Yaml => serde_norway::to_string(self).map_err(|error| CodecDiagnostic::serialize(error.to_string())),
+            | _ => Err(CodecDiagnostic::unsupported(format, Self::NAME)),
         }
     }
 }

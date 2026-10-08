@@ -30,8 +30,8 @@ use std::time::Instant;
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use which::which;
 
-const CATALOG_MAX_BYTES: usize = 1024 * 1024;
 const CANCELLATION_NOTICE_TIMEOUT: Duration = Duration::from_millis(250);
+const CATALOG_MAX_BYTES: usize = 1024 * 1024;
 const CONTROL_TIMEOUT: Duration = Duration::from_secs(30);
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(3);
 type CancellationFuture<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
@@ -422,9 +422,14 @@ impl McpClient {
         let prepared = self
             .prepare_call(server_name, tool_name, arguments, context)
             .map(|(transport, tool, arguments)| {
+                let context_limit = context
+                    .max_output
+                    .checked_bytes()
+                    .and_then(|bytes| usize::try_from(bytes).ok())
+                    .unwrap_or(1);
                 let operation = CallOperation {
                     arguments,
-                    output_limit: tool.max_output.min(context.max_output_bytes.max(1)),
+                    output_limit: tool.max_output.min(context_limit.max(1)),
                     server_name: server_name.to_string(),
                     timeout: tool.timeout,
                     tool_name: tool_name.to_string(),

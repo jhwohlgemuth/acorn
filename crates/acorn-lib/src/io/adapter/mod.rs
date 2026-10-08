@@ -20,12 +20,13 @@ use crate::{
 };
 use acorn_core::{
     prelude::{vec, Vec},
-    util::{file_extension, LinkedData, MarkdownSupport, MimeType, Unstructured},
+    util::{file_extension, LinkedData, MarkdownDecode, MarkdownSupport, MimeType, Unstructured},
 };
 use acorn_host::{fs::SafePath, terminal::Label};
 use acorn_schema::standard::zon;
 use acorn_schema::{
     agent::{opencode, Weights},
+    codec::{CodecDiagnostic, DocumentCodec},
     modelkit::kitfile::{Kitfile, LayerInfo, McpServer},
     pid::raid::Metadata,
     research_activity::{Logbook, LogbookEntry, ResearchActivity, ResearchActivityMetadata},
@@ -59,6 +60,80 @@ pub trait KitfileExt {
 pub trait WeightsExt {
     /// Refresh file-level weights for a model while preserving repository-level sources.
     fn persist(self, model_id: &str, database_path: Option<PathBuf>) -> ApiResult<()>;
+}
+enum Codec {}
+impl InputOutput for Cff {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Cff> {
+        let source = path.into();
+        match MimeType::from(source.display().to_string()) {
+            | MimeType::Cff | MimeType::Yaml => Cff::read_yaml(source),
+            | MimeType::Json => Cff::read_json(source),
+            | _ => Err(eyre!("Unsupported CFF data file extension")),
+        }
+    }
+    fn read_cff(path: impl Into<PathBuf>) -> ApiResult<Cff> {
+        Cff::read_yaml(path.into())
+    }
+    fn read_json(path: PathBuf) -> ApiResult<Cff> {
+        Codec::read(MimeType::Json, path)
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<Cff> {
+        Codec::read(MimeType::Cff, path)
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into();
+        match MimeType::from(output.display().to_string()) {
+            | MimeType::Cff => self.write_cff(output),
+            | MimeType::Json => self.write_json(output),
+            | MimeType::Yaml => self.write_yaml(output),
+            | _ => Err(eyre!("Unsupported CFF data file extension for writing")),
+        }
+    }
+    fn write_cff(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("cff");
+        Codec::write(MimeType::Cff, self, output)
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("json");
+        Codec::write(MimeType::Json, self, output)
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("yaml");
+        Codec::write(MimeType::Yaml, self, output)
+    }
+}
+impl InputOutput for ckan::Package {
+    fn parse(content: &str) -> Option<Self> {
+        Self::decode(content, &MimeType::Json).ok()
+    }
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
+        let source = path.into();
+        match MimeType::from_path(&source) {
+            | MimeType::Json => Self::read_json(source),
+            | MimeType::Yaml => Self::read_yaml(source),
+            | _ => Err(eyre!("Unsupported CKAN package file extension")),
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<Self> {
+        Codec::read(MimeType::Json, path)
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
+        Codec::read(MimeType::Yaml, path)
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into();
+        match MimeType::from_path(&output) {
+            | MimeType::Json => self.write_json(output),
+            | MimeType::Yaml => self.write_yaml(output),
+            | _ => Err(eyre!("Unsupported CKAN package file extension for writing")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        Codec::write(MimeType::Json, self, path.into().with_extension("json"))
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        Codec::write(MimeType::Yaml, self, path.into().with_extension("yaml"))
+    }
 }
 macro_rules! impl_logbook_input_output {
     ($type:ty, $label:literal) => {
@@ -126,58 +201,18 @@ macro_rules! impl_logbook_input_output {
         }
     };
 }
-impl InputOutput for Cff {
-    fn read(path: impl Into<PathBuf>) -> ApiResult<Cff> {
-        let source = path.into();
-        match MimeType::from(source.display().to_string()) {
-            | MimeType::Cff | MimeType::Yaml => Cff::read_yaml(source),
-            | MimeType::Json => Cff::read_json(source),
-            | _ => Err(eyre!("Unsupported CFF data file extension")),
-        }
+impl Codec {
+    fn errors(errors: Vec<CodecDiagnostic>) -> color_eyre::Report {
+        eyre!(errors.into_iter().map(|error| error.to_string()).collect::<Vec<_>>().join("\n"))
     }
-    fn read_cff(path: impl Into<PathBuf>) -> ApiResult<Cff> {
-        Cff::read_yaml(path.into())
+    fn read<T: DocumentCodec>(format: MimeType, path: PathBuf) -> ApiResult<T> {
+        read_file(path).and_then(|content| T::decode(&content, &format).map_err(Self::errors))
     }
-    fn read_json(path: PathBuf) -> ApiResult<Cff> {
-        read_file(path.clone()).and_then(|content| {
-            eserde::json::from_str::<Cff>(&content).map_err(|errors| {
-                let details: Vec<String> = errors
-                    .iter()
-                    .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
-                    .collect();
-                eyre!("{}", details.join("\n"))
-            })
-        })
-    }
-    fn read_yaml(path: PathBuf) -> ApiResult<Cff> {
-        read_file(path.clone()).and_then(|content| serde_norway::from_str(&content).map_err(|why| eyre!("Failed to parse YAML CFF — {why}")))
-    }
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into();
-        match MimeType::from(output.display().to_string()) {
-            | MimeType::Cff => self.write_cff(output),
-            | MimeType::Json => self.write_json(output),
-            | MimeType::Yaml => self.write_yaml(output),
-            | _ => Err(eyre!("Unsupported CFF data file extension for writing")),
-        }
-    }
-    fn write_cff(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("cff");
-        serde_norway::to_string(self)
-            .map_err(|why| eyre!("Failed to serialize CFF — {why}"))
-            .and_then(|content| write_file(output, content))
-    }
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("json");
-        serde_json::to_string_pretty(self)
-            .map_err(|why| eyre!("Failed to serialize JSON CFF — {why}"))
-            .and_then(|content| write_file(output, content))
-    }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("yaml");
-        serde_norway::to_string(self)
-            .map_err(|why| eyre!("Failed to serialize YAML CFF — {why}"))
-            .and_then(|content| write_file(output, content))
+    fn write<T: DocumentCodec>(format: MimeType, value: &T, path: PathBuf) -> ApiResult<()> {
+        value
+            .encode(&format)
+            .map_err(|error| eyre!(error.to_string()))
+            .and_then(|content| write_file(path, content))
     }
 }
 impl InputOutput for datacite::Record {
@@ -190,48 +225,10 @@ impl InputOutput for datacite::Record {
         }
     }
     fn read_json(path: PathBuf) -> ApiResult<datacite::Record> {
-        #[derive(serde::Deserialize)]
-        #[serde(untagged)]
-        enum JsonInput {
-            One(Box<datacite::Record>),
-            Many(Vec<datacite::Record>),
-        }
-        read_file(path).and_then(|content| {
-            serde_json::from_str::<JsonInput>(&content)
-                .map_err(|why| eyre!("Failed to parse JSON DataCite record — {why}"))
-                .and_then(|value| match value {
-                    | JsonInput::One(record) => Ok(*record),
-                    | JsonInput::Many(records) => match records.len() {
-                        | 1 => records
-                            .into_iter()
-                            .next()
-                            .ok_or_else(|| eyre!("Expected one DataCite record but found none")),
-                        | len => Err(eyre!("Expected one DataCite record but found {len}")),
-                    },
-                })
-        })
+        Codec::read(MimeType::Json, path)
     }
     fn read_yaml(path: PathBuf) -> ApiResult<datacite::Record> {
-        #[derive(serde::Deserialize)]
-        #[serde(untagged)]
-        enum YamlInput {
-            One(Box<datacite::Record>),
-            Many(Vec<datacite::Record>),
-        }
-        read_file(path).and_then(|content| {
-            serde_norway::from_str::<YamlInput>(&content)
-                .map_err(|why| eyre!("Failed to parse YAML DataCite record — {why}"))
-                .and_then(|value| match value {
-                    | YamlInput::One(record) => Ok(*record),
-                    | YamlInput::Many(records) => match records.len() {
-                        | 1 => records
-                            .into_iter()
-                            .next()
-                            .ok_or_else(|| eyre!("Expected one DataCite record but found none")),
-                        | len => Err(eyre!("Expected one DataCite record but found {len}")),
-                    },
-                })
-        })
+        Codec::read(MimeType::Yaml, path)
     }
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into();
@@ -243,56 +240,11 @@ impl InputOutput for datacite::Record {
     }
     fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("json");
-        serde_json::to_string_pretty(self)
-            .map_err(|why| eyre!("Failed to serialize JSON DataCite record — {why}"))
-            .and_then(|content| write_file(output, content))
+        Codec::write(MimeType::Json, self, output)
     }
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("yaml");
-        serde_norway::to_string(self)
-            .map_err(|why| eyre!("Failed to serialize YAML DataCite record — {why}"))
-            .and_then(|content| write_file(output, content))
-    }
-}
-impl InputOutput for ckan::Package {
-    fn parse(content: &str) -> Option<Self> {
-        ckan::Package::parse(content, MimeType::Json).ok().and_then(|packages| match packages {
-            | OneOrMany::One(package) => Some(package),
-            | OneOrMany::Many(mut packages) if packages.len() == 1 => packages.pop(),
-            | OneOrMany::Many(_) => None,
-        })
-    }
-    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        let source = path.into();
-        match MimeType::from_path(&source) {
-            | MimeType::Json => Self::read_json(source),
-            | MimeType::Yaml => Self::read_yaml(source),
-            | _ => Err(eyre!("Unsupported CKAN package file extension")),
-        }
-    }
-    fn read_json(path: PathBuf) -> ApiResult<Self> {
-        read_ckan_package(path, MimeType::Json)
-    }
-    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
-        read_ckan_package(path, MimeType::Yaml)
-    }
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into();
-        match MimeType::from_path(&output) {
-            | MimeType::Json => self.write_json(output),
-            | MimeType::Yaml => self.write_yaml(output),
-            | _ => Err(eyre!("Unsupported CKAN package file extension for writing")),
-        }
-    }
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        serde_json::to_string_pretty(self)
-            .map_err(|why| eyre!("Failed to serialize JSON CKAN package — {why}"))
-            .and_then(|content| write_file(path.into().with_extension("json"), content))
-    }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        serde_norway::to_string(self)
-            .map_err(|why| eyre!("Failed to serialize YAML CKAN package — {why}"))
-            .and_then(|content| write_file(path.into().with_extension("yaml"), content))
+        Codec::write(MimeType::Yaml, self, output)
     }
 }
 impl InputOutput for dcat::Dataset {
@@ -305,36 +257,10 @@ impl InputOutput for dcat::Dataset {
         }
     }
     fn read_json(path: PathBuf) -> ApiResult<dcat::Dataset> {
-        read_file(path).and_then(|content| {
-            serde_json::from_str::<OneOrMany<dcat::Dataset>>(&content)
-                .map_err(|why| eyre!("Failed to parse JSON DCAT dataset — {why}"))
-                .and_then(|value| match value {
-                    | OneOrMany::One(dataset) => Ok(dataset),
-                    | OneOrMany::Many(datasets) => match datasets.len() {
-                        | 1 => datasets
-                            .into_iter()
-                            .next()
-                            .ok_or_else(|| eyre!("Expected one DCAT dataset but found none")),
-                        | len => Err(eyre!("Expected one DCAT dataset but found {len}")),
-                    },
-                })
-        })
+        Codec::read(MimeType::Json, path)
     }
     fn read_yaml(path: PathBuf) -> ApiResult<dcat::Dataset> {
-        read_file(path).and_then(|content| {
-            serde_norway::from_str::<OneOrMany<dcat::Dataset>>(&content)
-                .map_err(|why| eyre!("Failed to parse YAML DCAT dataset — {why}"))
-                .and_then(|value| match value {
-                    | OneOrMany::One(dataset) => Ok(dataset),
-                    | OneOrMany::Many(datasets) => match datasets.len() {
-                        | 1 => datasets
-                            .into_iter()
-                            .next()
-                            .ok_or_else(|| eyre!("Expected one DCAT dataset but found none")),
-                        | len => Err(eyre!("Expected one DCAT dataset but found {len}")),
-                    },
-                })
-        })
+        Codec::read(MimeType::Yaml, path)
     }
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into();
@@ -346,29 +272,12 @@ impl InputOutput for dcat::Dataset {
     }
     fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("json");
-        serde_json::to_string_pretty(self)
-            .map_err(|why| eyre!("Failed to serialize JSON DCAT dataset — {why}"))
-            .and_then(|content| write_file(output, content))
+        Codec::write(MimeType::Json, self, output)
     }
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("yaml");
-        serde_norway::to_string(self)
-            .map_err(|why| eyre!("Failed to serialize YAML DCAT dataset — {why}"))
-            .and_then(|content| write_file(output, content))
+        Codec::write(MimeType::Yaml, self, output)
     }
-}
-fn read_ckan_package(path: PathBuf, mime: MimeType) -> ApiResult<ckan::Package> {
-    read_file(path).and_then(|content| {
-        ckan::Package::parse(&content, mime)
-            .map_err(|why| eyre!("Failed to parse CKAN package — {why}"))
-            .and_then(|packages| match packages {
-                | OneOrMany::One(package) => Ok(package),
-                | OneOrMany::Many(mut packages) if packages.len() == 1 => {
-                    packages.pop().ok_or_else(|| eyre!("Expected one CKAN package but found none"))
-                }
-                | OneOrMany::Many(packages) => Err(eyre!("Expected one CKAN package but found {}", packages.len())),
-            })
-    })
 }
 impl InputOutput for huwise::Dataset {
     fn read(path: impl Into<PathBuf>) -> ApiResult<huwise::Dataset> {
@@ -380,48 +289,10 @@ impl InputOutput for huwise::Dataset {
         }
     }
     fn read_json(path: PathBuf) -> ApiResult<huwise::Dataset> {
-        #[derive(serde::Deserialize)]
-        #[serde(untagged)]
-        enum JsonInput {
-            One(Box<huwise::Dataset>),
-            Many(Vec<huwise::Dataset>),
-        }
-        read_file(path).and_then(|content| {
-            serde_json::from_str::<JsonInput>(&content)
-                .map_err(|why| eyre!("Failed to parse JSON HuWise dataset — {why}"))
-                .and_then(|value| match value {
-                    | JsonInput::One(dataset) => Ok(*dataset),
-                    | JsonInput::Many(datasets) => match datasets.len() {
-                        | 1 => datasets
-                            .into_iter()
-                            .next()
-                            .ok_or_else(|| eyre!("Expected one HuWise dataset but found none")),
-                        | len => Err(eyre!("Expected one HuWise dataset but found {len}")),
-                    },
-                })
-        })
+        Codec::read(MimeType::Json, path)
     }
     fn read_yaml(path: PathBuf) -> ApiResult<huwise::Dataset> {
-        #[derive(serde::Deserialize)]
-        #[serde(untagged)]
-        enum YamlInput {
-            One(Box<huwise::Dataset>),
-            Many(Vec<huwise::Dataset>),
-        }
-        read_file(path).and_then(|content| {
-            serde_norway::from_str::<YamlInput>(&content)
-                .map_err(|why| eyre!("Failed to parse YAML HuWise dataset — {why}"))
-                .and_then(|value| match value {
-                    | YamlInput::One(dataset) => Ok(*dataset),
-                    | YamlInput::Many(datasets) => match datasets.len() {
-                        | 1 => datasets
-                            .into_iter()
-                            .next()
-                            .ok_or_else(|| eyre!("Expected one HuWise dataset but found none")),
-                        | len => Err(eyre!("Expected one HuWise dataset but found {len}")),
-                    },
-                })
-        })
+        Codec::read(MimeType::Yaml, path)
     }
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into();
@@ -433,15 +304,11 @@ impl InputOutput for huwise::Dataset {
     }
     fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("json");
-        serde_json::to_string_pretty(self)
-            .map_err(|why| eyre!("Failed to serialize JSON HuWise dataset — {why}"))
-            .and_then(|content| write_file(output, content))
+        Codec::write(MimeType::Json, self, output)
     }
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("yaml");
-        serde_norway::to_string(self)
-            .map_err(|why| eyre!("Failed to serialize YAML HuWise dataset — {why}"))
-            .and_then(|content| write_file(output, content))
+        Codec::write(MimeType::Yaml, self, output)
     }
 }
 impl InputOutput for invenio::Record {
@@ -454,48 +321,10 @@ impl InputOutput for invenio::Record {
         }
     }
     fn read_json(path: PathBuf) -> ApiResult<invenio::Record> {
-        #[derive(serde::Deserialize)]
-        #[serde(untagged)]
-        enum JsonInput {
-            One(Box<invenio::Record>),
-            Many(Vec<invenio::Record>),
-        }
-        read_file(path).and_then(|content| {
-            serde_json::from_str::<JsonInput>(&content)
-                .map_err(|why| eyre!("Failed to parse JSON Invenio record — {why}"))
-                .and_then(|value| match value {
-                    | JsonInput::One(record) => Ok(*record),
-                    | JsonInput::Many(records) => match records.len() {
-                        | 1 => records
-                            .into_iter()
-                            .next()
-                            .ok_or_else(|| eyre!("Expected one Invenio record but found none")),
-                        | len => Err(eyre!("Expected one Invenio record but found {len}")),
-                    },
-                })
-        })
+        Codec::read(MimeType::Json, path)
     }
     fn read_yaml(path: PathBuf) -> ApiResult<invenio::Record> {
-        #[derive(serde::Deserialize)]
-        #[serde(untagged)]
-        enum YamlInput {
-            One(Box<invenio::Record>),
-            Many(Vec<invenio::Record>),
-        }
-        read_file(path).and_then(|content| {
-            serde_norway::from_str::<YamlInput>(&content)
-                .map_err(|why| eyre!("Failed to parse YAML Invenio record — {why}"))
-                .and_then(|value| match value {
-                    | YamlInput::One(record) => Ok(*record),
-                    | YamlInput::Many(records) => match records.len() {
-                        | 1 => records
-                            .into_iter()
-                            .next()
-                            .ok_or_else(|| eyre!("Expected one Invenio record but found none")),
-                        | len => Err(eyre!("Expected one Invenio record but found {len}")),
-                    },
-                })
-        })
+        Codec::read(MimeType::Yaml, path)
     }
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into();
@@ -507,15 +336,11 @@ impl InputOutput for invenio::Record {
     }
     fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("json");
-        serde_json::to_string_pretty(self)
-            .map_err(|why| eyre!("Failed to serialize JSON Invenio record — {why}"))
-            .and_then(|content| write_file(output, content))
+        Codec::write(MimeType::Json, self, output)
     }
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("yaml");
-        serde_norway::to_string(self)
-            .map_err(|why| eyre!("Failed to serialize YAML Invenio record — {why}"))
-            .and_then(|content| write_file(output, content))
+        Codec::write(MimeType::Yaml, self, output)
     }
 }
 impl InputOutput for Kitfile {
@@ -601,31 +426,19 @@ impl InputOutput for Metadata {
         }
     }
     fn read_json(path: PathBuf) -> ApiResult<Self> {
-        read_file(path).and_then(|content| {
-            eserde::json::from_str::<Self>(&content).map_err(|errors| {
-                eyre!(errors
-                    .iter()
-                    .map(|error| format!("{}: {}", error.path().map_or("root".into(), |path| path.to_string()), error.message()))
-                    .collect::<Vec<_>>()
-                    .join("\n"))
-            })
-        })
+        Codec::read(MimeType::Json, path)
     }
     fn read_yaml(path: PathBuf) -> ApiResult<Self> {
-        read_file(path).and_then(|content| serde_norway::from_str(&content).map_err(|why| eyre!(why)))
+        Codec::read(MimeType::Yaml, path)
     }
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         self.write_json(path)
     }
     fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        serde_json::to_string_pretty(self)
-            .map_err(|why| eyre!(why))
-            .and_then(|content| write_file(path, content))
+        Codec::write(MimeType::Json, self, path.into())
     }
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        serde_norway::to_string(self)
-            .map_err(|why| eyre!(why))
-            .and_then(|content| write_file(path, content))
+        Codec::write(MimeType::Yaml, self, path.into())
     }
 }
 impl Batch for OneOrMany<ResearchActivity> {
@@ -691,11 +504,9 @@ impl Batch for ResearchActivity {
 }
 impl InputOutput for ResearchActivity {
     fn parse(content: &str) -> Option<Self> {
-        jsonc_parse_value(content)
-            .ok()
-            .and_then(|value| serde_json::from_value(value).ok())
-            .or_else(|| serde_norway::from_str(content).ok())
-            .or_else(|| zon::decode(content).ok())
+        [MimeType::Jsonc, MimeType::Yaml, MimeType::Zon]
+            .into_iter()
+            .find_map(|format| Self::decode(content, &format).ok())
     }
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into().clone();
@@ -723,7 +534,7 @@ impl InputOutput for ResearchActivity {
         .format()
     }
     fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
-        Ok(ResearchActivity::serialize_as(self, mime)?)
+        self.encode(mime).map_err(|error| eyre!(error.to_string()))
     }
     fn linked_content(&self) -> ApiResult<Option<String>> {
         serde_json::to_string_pretty(&self.with_context())
@@ -737,35 +548,19 @@ impl InputOutput for ResearchActivity {
                 .as_ref()
                 .into_iter()
                 .for_each(Self::print_migration_warnings);
-            eserde::json::from_str::<Self>(&content).map_err(|errors| {
-                let details: Vec<String> = errors
-                    .iter()
-                    .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
-                    .collect();
-                eyre!("{}", details.join("\n"))
-            })
+            Self::decode(&content, &MimeType::Json).map_err(Codec::errors)
         })
     }
     fn read_jsonc(path: PathBuf) -> ApiResult<Self> {
         read_file(path.clone()).and_then(|content| {
             jsonc_parse_value(&content).and_then(|value| {
                 Self::print_migration_warnings(&value);
-                serde_json::to_string(&value)
-                    .map_err(|why| eyre!("JSONC conversion error — {why}"))
-                    .and_then(|json| {
-                        eserde::json::from_str::<Self>(&json).map_err(|errors| {
-                            let details: Vec<String> = errors
-                                .iter()
-                                .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
-                                .collect();
-                            eyre!("{}", details.join("\n"))
-                        })
-                    })
+                Self::decode(&content, &MimeType::Jsonc).map_err(Codec::errors)
             })
         })
     }
     fn read_markdown(path: PathBuf) -> ApiResult<Self> {
-        read_file(path).and_then(|content| Self::from_markdown(&content).map_err(|why| eyre!("{why}")))
+        Codec::read(MimeType::Markdown, path)
     }
     fn read_yaml(path: PathBuf) -> ApiResult<Self> {
         read_file(path.clone()).and_then(|content| {
@@ -774,7 +569,7 @@ impl InputOutput for ResearchActivity {
                 .as_ref()
                 .into_iter()
                 .for_each(Self::print_migration_warnings);
-            serde_norway::from_str(&content).map_err(|why| eyre!("Failed to parse YAML RAD — {why}"))
+            Self::decode(&content, &MimeType::Yaml).map_err(Codec::errors)
         })
     }
     fn read_zon(path: PathBuf) -> ApiResult<Self> {
@@ -783,17 +578,7 @@ impl InputOutput for ResearchActivity {
                 .map_err(|why| eyre!("Failed to parse ZON RAD — {why}"))
                 .and_then(|value| {
                     Self::print_migration_warnings(&value);
-                    serde_json::to_string(&value)
-                        .map_err(|why| eyre!("Failed to convert ZON RAD to JSON — {why}"))
-                        .and_then(|json| {
-                            eserde::json::from_str::<Self>(&json).map_err(|errors| {
-                                let details: Vec<String> = errors
-                                    .iter()
-                                    .map(|error| format!("{}: {}", error.path().map_or("root".into(), |path| path.to_string()), error.message()))
-                                    .collect();
-                                eyre!("{}", details.join("\n"))
-                            })
-                        })
+                    Self::decode(&content, &MimeType::Zon).map_err(Codec::errors)
                 })
         })
     }
@@ -812,32 +597,22 @@ impl InputOutput for ResearchActivity {
     fn write_cff(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("cff");
         let data: Cff = self.into();
-        serde_norway::to_string(&data)
-            .map_err(|why| eyre!("Failed to serialize RAD CITATION.cff — {why}"))
-            .and_then(|content| write_file(output, content))
+        Codec::write(MimeType::Cff, &data, output)
     }
     fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into();
-        serde_json::to_string_pretty(&self)
-            .map_err(|why| eyre!("Failed to serialize JSON RAD — {why}"))
-            .and_then(|content| write_file(output, content))
+        Codec::write(MimeType::Json, self, output)
     }
     fn write_markdown(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("md");
-        let content = self.to_markdown();
-        write_file(output, content)
+        Codec::write(MimeType::Markdown, self, output)
     }
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("yaml");
-        serde_json::to_value(self)
-            .map_err(|why| eyre!("Failed to convert RAD to value for YAML serialization — {why}"))
-            .and_then(|value| serde_norway::to_string(&value).map_err(|why| eyre!("Failed to serialize YAML RAD — {why}")))
-            .and_then(|content| write_file(output, content))
+        Codec::write(MimeType::Yaml, self, output)
     }
     fn write_zon(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        zon::encode(self)
-            .map_err(|why| eyre!("Failed to serialize ZON RAD — {why}"))
-            .and_then(|content| write_file(path.into(), content))
+        Codec::write(MimeType::Zon, self, path.into())
     }
 }
 impl InputOutput for Text {

@@ -1,13 +1,10 @@
-#[cfg(feature = "std")]
 use super::Research;
 use super::{Logbook, ResearchActivity, ResearchActivityContext, ResearchActivityMetadata, Sections};
 use crate::research_activity::aspect::AspectFramework;
 use crate::util::constants::app::RAD_MARKDOWN_SCHEMA;
-#[cfg(feature = "std")]
 use crate::util::constants::app::{RAD_MARKDOWN_OPTIONAL_SECTIONS, RAD_MARKDOWN_PROSE_SECTIONS, RAD_MARKDOWN_REQUIRED_SECTIONS};
 use crate::{ContactPoint, ContactPointContext, Other};
 use acorn_core::prelude::alloc::{format, String, ToString};
-#[cfg(feature = "std")]
 use acorn_core::prelude::alloc::{HashMap, Vec};
 use acorn_core::util::{frontmatter_and_body, MarkdownSupport};
 use acorn_core::{AcornError, AcornResult};
@@ -19,14 +16,12 @@ struct Body {
     sections: Option<Sections>,
     contact: ContactPoint,
 }
-#[cfg(feature = "std")]
 #[derive(Debug)]
 struct BodySections {
     title: String,
     subtitle: Option<String>,
     values: HashMap<String, String>,
 }
-#[cfg(feature = "std")]
 #[derive(Debug)]
 struct Contact {
     job_title: String,
@@ -70,7 +65,6 @@ struct Header {
     #[serde(default, skip_serializing_if = "ContactMetadata::is_empty")]
     contact: ContactMetadata,
 }
-#[cfg(feature = "std")]
 impl BodySections {
     fn into_body(self, frontmatter: &Header) -> AcornResult<Body> {
         self.sections().and_then(|sections| {
@@ -177,7 +171,6 @@ impl BodySections {
             .map(|value| value.into_contact(frontmatter.contact.clone()))
     }
 }
-#[cfg(feature = "std")]
 impl TryFrom<&str> for BodySections {
     type Error = AcornError;
 
@@ -254,7 +247,6 @@ impl TryFrom<&str> for BodySections {
         }
     }
 }
-#[cfg(feature = "std")]
 impl Contact {
     fn email(value: &str) -> String {
         value
@@ -361,12 +353,10 @@ impl Document {
                 .is_some_and(|schema| schema == RAD_MARKDOWN_SCHEMA)
         })
     }
-    #[cfg(feature = "std")]
     fn normalize_empty_required_lists(value: serde_json::Value) -> serde_json::Value {
         let defaults = serde_json::to_value(Document::from(&ResearchActivity::default()).frontmatter).unwrap_or_default();
         Self::normalize_empty_lists(value, &defaults)
     }
-    #[cfg(feature = "std")]
     fn normalize_empty_lists(value: serde_json::Value, defaults: &serde_json::Value) -> serde_json::Value {
         match (value, defaults) {
             | (serde_json::Value::Null, serde_json::Value::Array(_)) => serde_json::Value::Array(Vec::new()),
@@ -385,7 +375,6 @@ impl Document {
             | (value, _) => value,
         }
     }
-    #[cfg(feature = "std")]
     fn parse_frontmatter(content: &str) -> AcornResult<(Header, String)> {
         let normalized = content.replace("\r\n", "\n");
         let (frontmatter, body) = frontmatter_and_body(&normalized);
@@ -404,7 +393,6 @@ impl Document {
                     })
             })
     }
-    #[cfg(feature = "std")]
     fn parse_body(content: &str, frontmatter: &Header) -> AcornResult<Body> {
         BodySections::try_from(content).and_then(|sections| sections.into_body(frontmatter))
     }
@@ -457,7 +445,6 @@ impl MarkdownSupport for Document {
         )
     }
 }
-#[cfg(feature = "std")]
 impl TryFrom<&str> for Document {
     type Error = AcornError;
 
@@ -470,7 +457,6 @@ impl MarkdownSupport for Header {
         self.to_front_matter().unwrap_or_default()
     }
 }
-#[cfg(feature = "std")]
 impl TryFrom<Document> for ResearchActivity {
     type Error = AcornError;
 

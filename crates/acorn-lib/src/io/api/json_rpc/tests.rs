@@ -5,8 +5,10 @@ use crate::agent::{
     HydratedPrompt, InMemoryBackend, InferenceFinishReason, InferencePermissionPolicy, InferenceProvenance, InferenceRequest, InferenceResult,
 };
 use crate::analyzer::fix::{CheckReference, FixOptions, FixReport, FixSuggestionRequest, IntoFixes, FIX_ENVELOPE_VERSION};
+use acorn_core::util::constants::app::APPLICATION;
 use acorn_schema::agent::{FrontMatter, PromptFileAsset};
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct AddInput {
@@ -93,9 +95,9 @@ fn inference_result() -> InferenceResult {
         usage: None,
     }
 }
-fn registry() -> OperationRegistry {
+fn registry() -> JsonRpcOperationRegistry {
     let definition = OperationDefinition::new::<AddInput, AddOutput>(MethodName::from(["add"]), OperationEffects::default()).unwrap();
-    OperationRegistry::default()
+    JsonRpcOperationRegistry::default()
         .register(definition, |input: AddInput, _| async move {
             Ok(AddOutput {
                 total: input.left + input.right,
@@ -160,7 +162,7 @@ async fn test_invalid_documents_return_standard_errors() {
 }
 #[test]
 fn test_method_names_are_validated() {
-    assert!(MethodName::from([""]).validate().is_err());
+    assert!(MethodName::new(format!("{APPLICATION}.")).is_err());
     assert!(MethodName::try_from(format!("{APPLICATION}.valid")).is_ok());
     assert!(MethodName::try_from("rpc.reserved").is_err());
     assert!(MethodName::try_from("other.invalid").is_err());
@@ -175,7 +177,7 @@ async fn test_mutation_and_offline_policies_are_enforced() {
     };
     let method = MethodName::from(["mutate"]);
     let definition = OperationDefinition::new::<AddInput, AddOutput>(method.clone(), effects).unwrap();
-    let registry = OperationRegistry::default()
+    let registry = JsonRpcOperationRegistry::default()
         .register(definition, |input: AddInput, _| async move {
             Ok(AddOutput {
                 total: input.left + input.right,
@@ -216,7 +218,7 @@ async fn test_registered_inference_matches_direct_service_and_requires_authoriza
     let expected = inference_result();
     let backend = InMemoryBackend::new(expected.clone());
     let direct = crate::agent::run_inference(&backend, &inference_request()).await.unwrap();
-    let registry = OperationRegistry::default().register_inference(backend).unwrap();
+    let registry = JsonRpcOperationRegistry::default().register_inference(backend).unwrap();
     let method = MethodName::from(["inference", "run"]);
     let params = serde_json::to_value(inference_request()).unwrap();
     let denied = registry.invoke(&method, params.clone(), InvocationContext::default()).await.unwrap_err();
@@ -237,7 +239,7 @@ async fn test_registered_inference_matches_direct_service_and_requires_authoriza
 #[tokio::test]
 async fn test_registered_readiness_and_fix_suggestions_require_inference_authorization() {
     let reference = fix_reference();
-    let registry = OperationRegistry::default()
+    let registry = JsonRpcOperationRegistry::default()
         .register_inference(InMemoryBackend::new(fix_result(&reference)))
         .unwrap();
     let context = InvocationContext {
@@ -268,7 +270,7 @@ async fn test_registered_readiness_and_fix_suggestions_require_inference_authori
 }
 #[tokio::test]
 async fn test_repository_workflow_is_equivalent_directly_and_over_json_rpc() {
-    let registry = OperationRegistry::acorn().unwrap();
+    let registry = JsonRpcOperationRegistry::acorn().unwrap();
     let params = serde_json::json!({
         "workflow": "repository-quality",
         "input": {

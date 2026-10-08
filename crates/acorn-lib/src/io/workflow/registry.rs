@@ -1,5 +1,5 @@
 //! Native compatibility wrapper over the portable repository service.
-use super::repository::{RepositoryChangeSet, RepositoryInput};
+use super::repository::{ProcessRepositoryRequest, ProcessRepositoryResponse};
 use crate::io::ApiResult;
 use acorn_service::AcornService;
 use color_eyre::eyre::eyre;
@@ -17,18 +17,11 @@ impl RepositoryWorkflowRegistry {
         vec!["repository-quality".to_string()]
     }
     /// Process a repository snapshot through the portable service.
-    pub fn process(&self, name: &str, input: RepositoryInput) -> ApiResult<RepositoryChangeSet> {
+    pub fn process(&self, name: &str, input: ProcessRepositoryRequest) -> ApiResult<ProcessRepositoryResponse> {
         match name {
-            | "repository-quality" => serde_json::to_value(input)
-                .map_err(|why| eyre!("Encode repository workflow request — {why}"))
-                .and_then(|value| serde_json::from_value(value).map_err(|why| eyre!("Decode repository workflow request — {why}")))
-                .and_then(|request| {
-                    AcornService
-                        .process_repository(request)
-                        .map_err(|why| eyre!("Repository workflow failed — {why}"))
-                })
-                .and_then(|response| serde_json::to_value(response).map_err(|why| eyre!("Encode repository workflow response — {why}")))
-                .and_then(|value| serde_json::from_value(value).map_err(|why| eyre!("Decode repository workflow response — {why}"))),
+            | "repository-quality" => AcornService
+                .process_repository(input)
+                .map_err(|why| eyre!("Repository workflow failed — {why}")),
             | _ => Err(eyre!("Unknown repository workflow '{name}'")),
         }
     }

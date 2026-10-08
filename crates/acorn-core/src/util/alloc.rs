@@ -51,18 +51,15 @@ pub trait LinkedData {
     /// Add linked data (e.g., JSON-LD) context
     fn with_context(&self) -> Self;
 }
-/// Read and write Markdown data, including YAML front matter and escaped text
+/// Decode Markdown data into a typed value.
+pub trait MarkdownDecode: Sized {
+    /// Parse Markdown content into a value.
+    fn from_markdown(content: &str) -> Result<Self, String>;
+}
+/// Write Markdown data, including YAML front matter and escaped text
 pub trait MarkdownSupport {
     /// Convert `self` to Markdown format string
     fn to_markdown(&self) -> String;
-    /// Parse Markdown content into a value.
-    fn from_markdown(content: &str) -> Result<Self, String>
-    where
-        Self: Sized,
-    {
-        let _ = content;
-        Err("Markdown parsing is not implemented for this type".to_string())
-    }
     /// Deserialize YAML front matter while preserving nested enum representations.
     fn from_front_matter(value: &str) -> Result<Self, String>
     where
@@ -108,6 +105,11 @@ pub trait MarkdownSupport {
             .trim()
             .to_string()
     }
+}
+/// Shared parsing policies for JSON-with-comments options.
+pub trait ParseOptionsExt {
+    /// Return the strict JSON-with-comments parsing policy shared by ACORN entry points.
+    fn strict_jsonc() -> Self;
 }
 /// Helper trait for searching lists of named elements
 pub trait Searchable<T> {
@@ -872,6 +874,19 @@ impl<P: AsRef<str>> MarkdownSupport for Option<Vec<P>> {
         }
     }
 }
+impl ParseOptionsExt for ParseOptions {
+    fn strict_jsonc() -> Self {
+        Self {
+            allow_comments: true,
+            allow_trailing_commas: true,
+            allow_loose_object_property_names: false,
+            allow_missing_commas: false,
+            allow_single_quoted_strings: false,
+            allow_hexadecimal_numbers: false,
+            allow_unary_plus_numbers: false,
+        }
+    }
+}
 #[cfg(feature = "std")]
 impl StringConversion for &Path {
     fn file_name_with_parent(&self) -> String {
@@ -1322,24 +1337,6 @@ fn cross_platform_path(path: &Path) -> String {
     #[cfg(windows)]
     let value = value.strip_prefix(r"\\?\").unwrap_or(&value).replace('/', "\\");
     value
-}
-/// Shared parsing policies for JSON-with-comments options.
-pub trait ParseOptionsExt {
-    /// Return the strict JSON-with-comments parsing policy shared by ACORN entry points.
-    fn strict_jsonc() -> Self;
-}
-impl ParseOptionsExt for ParseOptions {
-    fn strict_jsonc() -> Self {
-        Self {
-            allow_comments: true,
-            allow_trailing_commas: true,
-            allow_loose_object_property_names: false,
-            allow_missing_commas: false,
-            allow_single_quoted_strings: false,
-            allow_hexadecimal_numbers: false,
-            allow_unary_plus_numbers: false,
-        }
-    }
 }
 /// Try to parse text as JSON or JSONC and return `true` if successful, `false` otherwise
 pub fn detect_json(text: impl ToString) -> bool {

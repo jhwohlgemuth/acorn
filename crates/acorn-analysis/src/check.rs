@@ -37,6 +37,7 @@ use alloc::borrow::Cow;
 use bon::Builder;
 use core::str::FromStr;
 use derive_more::Display;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::{EnumIs, EnumIter, VariantNames};
 use validator::{Validate, ValidationError, ValidationErrors, ValidationErrorsKind};
@@ -120,7 +121,7 @@ pub enum CheckKind {
     Lifecycle,
 }
 /// Severity level of a check result
-#[derive(Clone, Debug, Default, Deserialize, Display, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Display, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CheckSeverity {
     /// Hard error requiring immediate attention
@@ -415,18 +416,18 @@ impl From<Vec<Check>> for CheckBatch {
         Self(checks)
     }
 }
-impl<'a> IntoIterator for &'a CheckBatch {
-    type Item = &'a Check;
-    type IntoIter = core::slice::Iter<'a, Check>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
 impl IntoIterator for CheckBatch {
     type Item = Check;
     type IntoIter = alloc::vec::IntoIter<Check>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+impl<'a> IntoIterator for &'a CheckBatch {
+    type Item = &'a Check;
+    type IntoIter = core::slice::Iter<'a, Check>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 impl CheckCategory {

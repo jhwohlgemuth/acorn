@@ -22,12 +22,12 @@ fn proposal(content: String, entry: LogbookEntry) -> LogbookProposal {
 #[test]
 fn test_logbook_proposal_appends_replays_and_rejects_conflicts() {
     let content = serde_json::to_string_pretty(&ResearchActivity::default()).expect("serialize fixture");
-    let first = RepositoryChangeSet::try_from(proposal(content, entry("form-123", "Submitted"))).expect("append entry");
+    let first = ProcessRepositoryResponse::try_from(proposal(content, entry("form-123", "Submitted"))).expect("append entry");
     assert_eq!(first.files.len(), 1);
     let updated = first.files.first().expect("updated file").content.clone();
-    let replay = RepositoryChangeSet::try_from(proposal(updated.clone(), entry("form-123", "Submitted"))).expect("accept replay");
+    let replay = ProcessRepositoryResponse::try_from(proposal(updated.clone(), entry("form-123", "Submitted"))).expect("accept replay");
     assert!(replay.files.is_empty());
-    let second = RepositoryChangeSet::try_from(proposal(updated.clone(), entry("form-124", "Reviewed"))).expect("append second entry");
+    let second = ProcessRepositoryResponse::try_from(proposal(updated.clone(), entry("form-124", "Reviewed"))).expect("append second entry");
     let activity = serde_json::from_str::<ResearchActivity>(&second.files.first().expect("updated file").content).expect("updated research activity");
     assert_eq!(
         activity
@@ -44,14 +44,14 @@ fn test_logbook_proposal_appends_replays_and_rejects_conflicts() {
     before.as_object_mut().expect("before object").remove("logbook");
     after.as_object_mut().expect("after object").remove("logbook");
     assert_eq!(after, before);
-    let conflict = RepositoryChangeSet::try_from(proposal(updated, entry("form-123", "Changed")));
+    let conflict = ProcessRepositoryResponse::try_from(proposal(updated, entry("form-123", "Changed")));
     assert!(conflict.is_err());
 }
 #[test]
 fn test_logbook_proposal_rejects_malformed_rad_and_unsafe_paths() {
-    assert!(RepositoryChangeSet::try_from(proposal("{}".to_string(), entry("form-123", "Submitted"))).is_err());
+    assert!(ProcessRepositoryResponse::try_from(proposal("{}".to_string(), entry("form-123", "Submitted"))).is_err());
     let content = serde_json::to_string_pretty(&ResearchActivity::default()).expect("serialize fixture");
     let mut unsafe_proposal = proposal(content, entry("form-123", "Submitted"));
     unsafe_proposal.path = "../index.json".to_string();
-    assert!(RepositoryChangeSet::try_from(unsafe_proposal).is_err());
+    assert!(ProcessRepositoryResponse::try_from(unsafe_proposal).is_err());
 }

@@ -6,7 +6,7 @@ use crate::http::HttpState;
 use crate::proto::acorn_service_server::AcornServiceServer;
 use crate::{ServerConfig, ServerResult};
 use acorn_service::registry::DurableOperations;
-use acorn_service::{AcornService, InvocationContext, OperationRegistry};
+use acorn_service::{AcornService, InvocationContext, Memory, OperationRegistry};
 use alloc::sync::Arc;
 use axum_server::tls_rustls::RustlsConfig;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -83,10 +83,11 @@ pub async fn serve_with_durable(config: ServerConfig, durable: Option<Arc<dyn Du
         | true => Err("Mutation requires a configured durable-operation adapter".into()),
         | false => {
             let service = AcornService;
+            let max_request = Memory::kb(config.max_request_bytes as f64 / 1024.0);
             let context = InvocationContext {
                 allow_mutation: config.allow_mutation,
-                max_input_bytes: config.max_request_bytes,
-                max_output_bytes: config.max_request_bytes,
+                max_input: max_request.clone(),
+                max_output: max_request,
                 ..InvocationContext::default()
             };
             match OperationRegistry::acorn(service, env!("CARGO_PKG_VERSION"), durable) {

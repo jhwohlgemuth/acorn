@@ -2,14 +2,14 @@ use jiff::SignedDuration;
 
 pub use acorn_core::util::constants::app::APPLICATION;
 
-/// Initial Application Configuration for Research Enablement schema version.
-pub const ACRE_SCHEMA_VERSION: &str = "1.0.0";
 /// Default ACORN HTTP User-Agent header value when std is available.
 #[cfg(any(feature = "analysis", feature = "std"))]
 pub const ACORN_USER_AGENT: &str = concat!("ACORN/", env!("CARGO_PKG_VERSION"), " (https://acorn.ornl.gov; mailto:research@ornl.gov)");
 /// Default ACORN HTTP User-Agent header value when std is unavailable.
 #[cfg(not(any(feature = "analysis", feature = "std")))]
 pub const ACORN_USER_AGENT: &str = "ACORN (https://acorn.ornl.gov; mailto:research@ornl.gov)";
+/// Initial Application Configuration for Research Enablement schema version.
+pub const ACRE_SCHEMA_VERSION: &str = "1.0.0";
 /// Maximum number of archive bytes inspected while inferring its format.
 pub const ARCHIVE_INFERENCE_BYTES: u64 = 8192;
 /// BagIt tag file name holding the bag declaration.
@@ -118,8 +118,6 @@ pub const HTTP_RETRY_INITIAL_BACKOFF_MILLISECONDS: i64 = 250;
 pub const HTTP_RETRY_MAX_BACKOFF_SECONDS: i64 = 60;
 /// Files ignored by default when processing configured buckets.
 pub const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Store", "README.md"];
-/// JSON-RPC protocol version emitted and accepted by ACORN transports.
-pub const JSON_RPC_VERSION: &str = "2.0";
 /// File size threshold in bytes for switching to large-file read strategy (100 MB).
 pub const LARGE_FILE_THRESHOLD_BYTES: u64 = 100 * 1024 * 1024;
 /// ASCII art logo for ACORN

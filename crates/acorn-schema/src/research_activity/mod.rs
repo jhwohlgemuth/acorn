@@ -28,7 +28,7 @@ use crate::{
 use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
 #[cfg(feature = "std")]
 use acorn_core::util::MimeType;
-use acorn_core::util::{LinkedData, MarkdownSupport, ToProse, Unstructured};
+use acorn_core::util::{LinkedData, MarkdownDecode, MarkdownSupport, ToProse, Unstructured};
 use acorn_core::validation::ValidationError;
 use acorn_core::AcornResult;
 use acorn_macros::With;
@@ -738,6 +738,37 @@ impl MarkdownSupport for Research {
         )
     }
 }
+impl Default for ResearchActivity {
+    fn default() -> Self {
+        ResearchActivity::init().build()
+    }
+}
+impl Hash for ResearchActivity {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.meta.identifier.hash(state);
+    }
+}
+impl LinkedData for ResearchActivity {
+    fn with_context(&self) -> Self {
+        Self {
+            context: Some(ResearchActivityContext::default()),
+            research_activity_type: None,
+            meta: self.meta.with_context(),
+            contact: self.contact.with_context(),
+            ..self.clone().copy()
+        }
+    }
+}
+impl MarkdownDecode for ResearchActivity {
+    fn from_markdown(content: &str) -> Result<Self, String> {
+        Document::try_from(content).and_then(Self::try_from).map_err(|why| why.to_string())
+    }
+}
+impl MarkdownSupport for ResearchActivity {
+    fn to_markdown(&self) -> String {
+        Document::from(self).to_markdown()
+    }
+}
 impl ResearchActivity {
     /// Return the first non-empty authored image URL.
     pub fn authored_image_url(&self) -> Option<String> {
@@ -892,40 +923,6 @@ impl ResearchActivity {
         }
     }
 }
-impl Default for ResearchActivity {
-    fn default() -> Self {
-        ResearchActivity::init().build()
-    }
-}
-impl Hash for ResearchActivity {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.meta.identifier.hash(state);
-    }
-}
-impl LinkedData for ResearchActivity {
-    fn with_context(&self) -> Self {
-        Self {
-            context: Some(ResearchActivityContext::default()),
-            research_activity_type: None,
-            meta: self.meta.with_context(),
-            contact: self.contact.with_context(),
-            ..self.clone().copy()
-        }
-    }
-}
-impl MarkdownSupport for ResearchActivity {
-    fn to_markdown(&self) -> String {
-        Document::from(self).to_markdown()
-    }
-    #[cfg(feature = "std")]
-    fn from_markdown(content: &str) -> Result<Self, String> {
-        Document::try_from(content).and_then(Self::try_from).map_err(|why| why.to_string())
-    }
-    #[cfg(not(feature = "std"))]
-    fn from_markdown(_content: &str) -> Result<Self, String> {
-        Err("Markdown parsing requires the std feature".to_string())
-    }
-}
 impl ToProse for ResearchActivity {
     fn to_prose(&self) -> String {
         let websites = self
@@ -966,6 +963,20 @@ impl Default for ResearchActivityContext {
             .contact(dcat("contactPoint"))
             .notes(schema_org("Text"))
             .build()
+    }
+}
+impl Default for ResearchActivityMetadata {
+    fn default() -> Self {
+        ResearchActivityMetadata::init().build()
+    }
+}
+impl LinkedData for ResearchActivityMetadata {
+    fn with_context(&self) -> Self {
+        Self {
+            context: Some(ResearchActivityMetadataContext::default()),
+            metadata_type: None,
+            ..self.clone()
+        }
     }
 }
 impl ResearchActivityMetadata {
@@ -1025,20 +1036,6 @@ impl ResearchActivityMetadata {
             partners,
             funders,
             ..self
-        }
-    }
-}
-impl Default for ResearchActivityMetadata {
-    fn default() -> Self {
-        ResearchActivityMetadata::init().build()
-    }
-}
-impl LinkedData for ResearchActivityMetadata {
-    fn with_context(&self) -> Self {
-        Self {
-            context: Some(ResearchActivityMetadataContext::default()),
-            metadata_type: None,
-            ..self.clone()
         }
     }
 }

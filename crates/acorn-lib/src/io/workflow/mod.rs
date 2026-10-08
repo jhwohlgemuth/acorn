@@ -52,7 +52,9 @@ pub(crate) use transaction::Artifacts;
 
 pub use logbook::LogbookProposal;
 pub use registry::RepositoryWorkflowRegistry;
-pub use repository::{FileChange, FileChangeKind, RepositoryChangeSet, RepositoryFileInput, RepositoryInput, WorkflowAction, WorkflowFileReport};
+pub use repository::{
+    FileChange, FileChangeKind, ProcessRepositoryRequest, ProcessRepositoryResponse, RepositoryFileInput, WorkflowAction, WorkflowFileReport,
+};
 
 /// Options shared by workflow interfaces.
 pub type Options = RuntimeOptions<WorkflowExtension>;

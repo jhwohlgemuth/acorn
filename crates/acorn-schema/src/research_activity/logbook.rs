@@ -4,7 +4,7 @@ use crate::enrichment::Provider;
 use crate::validation::{rules, Validate, ValidationReport};
 use crate::{ClassificationLevel, OneOrMany};
 use acorn_core::prelude::alloc::{format, String, ToString, Vec};
-use acorn_core::util::{frontmatter_and_body, MarkdownSupport};
+use acorn_core::util::{frontmatter_and_body, MarkdownDecode, MarkdownSupport};
 use acorn_core::validation::ValidationError;
 use bon::Builder;
 use core::cmp::Reverse;
@@ -351,17 +351,19 @@ impl Logbook {
             .map_or(Ok(()), Err)
     }
 }
-impl MarkdownSupport for Logbook {
-    fn to_markdown(&self) -> String {
-        let summary = self.summary.as_ref().map(|value| format!("\n{value}\n")).unwrap_or_default();
-        let entries = self.entries.iter().map(MarkdownSupport::to_markdown).collect::<Vec<_>>().join("\n\n");
-        format!("# Logbook\n{summary}\n{entries}\n")
-    }
+impl MarkdownDecode for Logbook {
     fn from_markdown(content: &str) -> Result<Self, String> {
         frontmatter_and_body(content)
             .0
             .ok_or_else(|| "Logbook Markdown requires YAML frontmatter delimited by '---'".to_string())
             .and_then(|frontmatter| Self::from_front_matter(&frontmatter))
+    }
+}
+impl MarkdownSupport for Logbook {
+    fn to_markdown(&self) -> String {
+        let summary = self.summary.as_ref().map(|value| format!("\n{value}\n")).unwrap_or_default();
+        let entries = self.entries.iter().map(MarkdownSupport::to_markdown).collect::<Vec<_>>().join("\n\n");
+        format!("# Logbook\n{summary}\n{entries}\n")
     }
 }
 impl From<&str> for LogbookCategory {
@@ -440,6 +442,14 @@ impl LogbookEntry {
         report.finish()
     }
 }
+impl MarkdownDecode for LogbookEntry {
+    fn from_markdown(content: &str) -> Result<Self, String> {
+        frontmatter_and_body(content)
+            .0
+            .ok_or_else(|| "Logbook entry Markdown requires YAML frontmatter delimited by '---'".to_string())
+            .and_then(|frontmatter| Self::from_front_matter(&frontmatter))
+    }
+}
 impl MarkdownSupport for LogbookEntry {
     fn to_markdown(&self) -> String {
         let archived = if self.archived { " · archived" } else { Default::default() };
@@ -454,12 +464,6 @@ impl MarkdownSupport for LogbookEntry {
             "## {} — {:?}\n\n**{:?}{classification}{event_type} · {:?}{archived}**\n\n{}{}",
             self.timestamp, self.state, self.category, self.origin, self.summary, items
         )
-    }
-    fn from_markdown(content: &str) -> Result<Self, String> {
-        frontmatter_and_body(content)
-            .0
-            .ok_or_else(|| "Logbook entry Markdown requires YAML frontmatter delimited by '---'".to_string())
-            .and_then(|frontmatter| Self::from_front_matter(&frontmatter))
     }
 }
 impl core::error::Error for LogbookError {}

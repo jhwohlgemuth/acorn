@@ -56,7 +56,7 @@ use crate::{
     io::{
         api::{
             self,
-            json_rpc::{InvocationContext, InvocationOrigin, MethodName, OperationDefinition, OperationEffects, OperationRegistry},
+            json_rpc::{InvocationContext, InvocationOrigin, JsonRpcOperationRegistry, MethodName, OperationDefinition, OperationEffects},
             powerautomate::{FormSubmission, PowerAutomateCallbackResolver, PowerAutomateConfig, PowerAutomateProvider},
             webhooks::{
                 store::{CallbackWorker, OperationQueue, OperationWorker},
@@ -274,7 +274,7 @@ impl Config {
     pub fn with_address(self, address: SocketAddr) -> Self {
         Self { address, ..self }
     }
-    fn registry(&self) -> ApiResult<OperationRegistry> {
+    fn registry(&self) -> ApiResult<JsonRpcOperationRegistry> {
         let effects = OperationEffects {
             filesystem_read: true,
             filesystem_write: true,
@@ -287,23 +287,26 @@ impl Config {
             MethodName::from(["webhooks", "gitlab", "note"]),
         ]
         .into_iter()
-        .try_fold(OperationRegistry::default(), |registry, method| {
-            OperationDefinition::new::<Value, Value>(method, effects).and_then(|definition| {
-                let config = self.clone();
-                registry.register(definition, move |params: Value, _| {
-                    let config = config.clone();
-                    async move {
-                        match serde_json::from_value::<WebhookDelivery>(params) {
-                            | Ok(delivery) => delivery.process(&config).await.map(|()| Value::Null),
-                            | Err(why) => Err(eyre!("Failed to decode normalized GitLab webhook operation — {why}")),
+        .try_fold(JsonRpcOperationRegistry::default(), |registry, method| {
+            OperationDefinition::new::<Value, Value>(method, effects)
+                .map_err(color_eyre::Report::from)
+                .and_then(|definition| {
+                    let config = self.clone();
+                    registry.register(definition, move |params: Value, _| {
+                        let config = config.clone();
+                        async move {
+                            match serde_json::from_value::<WebhookDelivery>(params) {
+                                | Ok(delivery) => delivery.process(&config).await.map(|()| Value::Null),
+                                | Err(why) => Err(eyre!("Failed to decode normalized GitLab webhook operation — {why}")),
+                            }
                         }
-                    }
+                    })
                 })
-            })
         });
         match (registry, self.powerautomate.clone()) {
             | (Ok(registry), Some(provider)) => {
-                let definition = OperationDefinition::new::<Value, Value>(MethodName::from(["webhooks", "powerautomate", "form"]), effects);
+                let definition = OperationDefinition::new::<Value, Value>(MethodName::from(["webhooks", "powerautomate", "form"]), effects)
+                    .map_err(color_eyre::Report::from);
                 match definition {
                     | Ok(definition) => {
                         let options = self.options.clone().with_identifier(provider.config().gitlab_project.clone());

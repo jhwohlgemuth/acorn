@@ -1,5 +1,5 @@
 //! Pure repository proposals for normalized logbook form entries.
-use super::{FileChange, FileChangeKind, RepositoryChangeSet, WorkflowFileReport};
+use super::{FileChange, FileChangeKind, ProcessRepositoryResponse, WorkflowFileReport};
 use crate::io::ApiResult;
 use acorn_core::{
     prelude::{String, Vec},
@@ -24,7 +24,7 @@ pub struct LogbookProposal {
     /// Repository-relative research activity path.
     pub path: String,
 }
-impl TryFrom<LogbookProposal> for RepositoryChangeSet {
+impl TryFrom<LogbookProposal> for ProcessRepositoryResponse {
     type Error = color_eyre::eyre::Report;
 
     /// Append a missing entry, accept an identical replay, or reject an identifier conflict.
@@ -86,7 +86,7 @@ impl TryFrom<LogbookProposal> for RepositoryChangeSet {
                 .and_then(|(activity, changed)| {
                     let path = safe_path.as_path().to_string_lossy().to_string();
                     match changed {
-                        | false => Ok(RepositoryChangeSet {
+                        | false => Ok(ProcessRepositoryResponse {
                             base_revision,
                             files: Vec::new(),
                             reports: vec![WorkflowFileReport {
@@ -97,7 +97,7 @@ impl TryFrom<LogbookProposal> for RepositoryChangeSet {
                         }),
                         | true => serde_json::to_string_pretty(&activity)
                             .map_err(|why| eyre!("Failed to serialize research activity JSON — {why}"))
-                            .map(|content| RepositoryChangeSet {
+                            .map(|content| ProcessRepositoryResponse {
                                 base_revision,
                                 files: vec![FileChange {
                                     content: format!("{content}\n"),
