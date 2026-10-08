@@ -107,6 +107,11 @@ impl<'de> Deserialize<'de> for Memory {
         deserializer.deserialize_any(MemoryVisitor)
     }
 }
+impl From<u64> for Memory {
+    fn from(bytes: u64) -> Self {
+        Self::kb(bytes as f64 / 1024_f64)
+    }
+}
 impl FromStr for Memory {
     type Err = AcornError;
     fn from_str(value: &str) -> AcornResult<Self> {
@@ -276,6 +281,12 @@ mod tests {
         let deserialized = serde_json::from_str::<Memory>(r#""1.5GiB""#).unwrap();
         assert_eq!(parsed, deserialized);
         assert_eq!(parsed.checked_bytes(), Some(1_610_612_736));
+    }
+    #[test]
+    fn test_memory_from_u64_preserves_bytes() {
+        let memory = Memory::from(1_572_864_u64);
+        assert_eq!(memory, Memory::kb(1_536));
+        assert_eq!(u64::from(memory), 1_572_864);
     }
     #[test]
     fn test_memory_into_u64_uses_binary_units_and_defaults_invalid_values() {
