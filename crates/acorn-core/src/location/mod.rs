@@ -91,6 +91,9 @@ pub enum Scheme {
     /// Local file or folder.
     #[display("file")]
     File,
+    /// Open Container Initiative artifact.
+    #[display("oci")]
+    OCI,
     /// Secure Shell endpoint.
     #[display("ssh")]
     SSH,
@@ -497,6 +500,7 @@ impl From<&str> for Scheme {
             | "https" => Self::HTTPS,
             | "http" => Self::HTTP,
             | "file" => Self::File,
+            | "oci" => Self::OCI,
             | "ssh" => Self::SSH,
             | _ => Self::Unsupported,
         }

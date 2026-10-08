@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 2,
+  "mediaType": "application/vnd.oci.image.manifest.v1+json",
+  "config": {
+    "mediaType": "application/vnd.kitops.modelkit.config.v1+json",
+    "digest": "sha256:777e188b2c433e5a184f5636452da4caa958cd18b0bc7dbd6f533d377f27a52f",
+    "size": 149,
+    "annotations": {}
+  },
+  "layers": [
+    {
+      "mediaType": "application/vnd.kitops.modelkit.model.v1.tar+gzip",
+      "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "size": 123,
+      "annotations": {}
+    }
+  ]
+}

@@ -26,7 +26,6 @@ use acorn_schema::standard::crosswalk::mapping::{
 };
 #[cfg(feature = "analysis")]
 use acorn_schema::standard::crosswalk::{Conversion, ConversionWarning, Crosswalk, CrosswalkError, FieldMapping, Fields, SchemaExtractor};
-#[cfg(feature = "analysis")]
 use acorn_schema::standard::Standard;
 #[cfg(feature = "analysis")]
 use acorn_schema::standard::{ckan, datacite, dcat, huwise, invenio};
@@ -50,6 +49,11 @@ pub type ConversionWarnings = Vec<ConversionWarning>;
 pub trait IntoChecks {
     /// Convert to an ordered batch of checks.
     fn to_checks(&self, uri: Option<String>) -> CheckBatch;
+}
+/// Portable category capabilities implemented by a metadata standard.
+pub trait StandardCheckCapabilities {
+    /// Return whether the standard supports the selected check category.
+    fn supports_check(self, category: &CheckCategory) -> bool;
 }
 /// Crosswalk behavior implemented for portable metadata standards.
 #[cfg(feature = "analysis")]
@@ -706,6 +710,23 @@ impl IntoIterator for Findings {
         self.values.into_iter()
     }
 }
+impl StandardCheckCapabilities for Standard {
+    fn supports_check(self, category: &CheckCategory) -> bool {
+        match self {
+            | Self::ApplicationConfigurationResearchEnablement | Self::Ckan => category.is_schema(),
+            | Self::CitationFileFormat | Self::Document => {
+                category.is_schema() || category.is_link() || category.is_prose() || category.is_quality() || category.is_readability()
+            }
+            | Self::Datacite | Self::Dcat | Self::Invenio => !category.is_compute() && !category.is_crosswalk(),
+            | Self::Huwise => category.is_schema() || category.is_prose() || category.is_quality() || category.is_fair() || category.is_readability(),
+            | Self::Kitfile | Self::ModelKit | Self::Oci => category.is_schema() || category.is_quality(),
+            | Self::Raid => category.is_schema() || category.is_quality() || category.is_fair(),
+            | Self::ResearchActivityData => !category.is_crosswalk(),
+            | Self::Text => category.is_schema() || category.is_prose() || category.is_quality() || category.is_readability(),
+            | Self::DublinCore => false,
+        }
+    }
+}
 #[cfg(feature = "analysis")]
 impl StandardCrosswalk for Standard {
     /// Convert serialized content from one metadata standard to another.
@@ -803,6 +824,7 @@ impl StandardCrosswalk for Standard {
             | Standard::ApplicationConfigurationResearchEnablement
             | Standard::Kitfile
             | Standard::ModelKit
+            | Standard::Oci
             | Standard::CitationFileFormat
             | Standard::Document
             | Standard::DublinCore

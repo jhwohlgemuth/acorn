@@ -49,7 +49,6 @@ Plans within a lane normally serialize. Different lanes still check secondary lo
 | Lane | Plans | Primary surface and rule |
 |---|---|---|
 | Portable boundaries | [diff](refactors/acorn-diff-resource-and-api-hardening.md), [ZON](refactors/zon-codec-hardening.md) | Portable leaves may run separately; manifests, package roots, and CI integration serialize. |
-| Analysis and service | [OCI artifact checks](features/oci-artifact-checks.md) | The analysis/service owners are frozen. OCI checks integrate the remote source, standard selector, analyzer dispatch, and staged OCI findings while holding the analyzer/check, schema-root, CLI, transfer/OCI, and generated-documentation locks. |
 | API contract | [shared API client](refactors/api/shared-client-contract.md) | Contract slices land endpoint/request -> invocation -> resolved config -> response/error/health -> OpenAPI/RAiD. Provider files may shard after each contract freezes. |
 | MCP client | [outbound MCP interface](refactors/api/outbound-mcp-client-interface.md) | Direct construction, the associated-type client trait, bounded cancellation, and focused tests are implemented. Book integration is separately owned. |
 | Provider/model leaves | [model acquisition](features/model-acquisition-hardening.md), [Cosmos](features/azure-cosmos-buckets.md), [dPID](features/dpid-research-object-support.md) | Shard provider leaves only when they avoid shared registration, configuration, discovery enums, archive/GGUF, and CLI roots. |

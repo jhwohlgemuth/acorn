@@ -67,7 +67,7 @@ pub async fn read_bytes(client: &HttpClient, location: &Location, policy: Source
             | Err(error) => Err(error.into()),
         },
         | Scheme::Unsupported if location.is_path() => read_local(PathBuf::from(raw)).await,
-        | Scheme::SSH | Scheme::Unsupported => Err(SourceError::Unsupported(redact_url(raw))),
+        | Scheme::OCI | Scheme::SSH | Scheme::Unsupported => Err(SourceError::Unsupported(redact_url(raw))),
     }
 }
 /// Read UTF-8 source text from a local path, file URI, or HTTP(S) location.

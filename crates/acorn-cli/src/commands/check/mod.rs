@@ -21,6 +21,7 @@ use acorn::{
         host::discovery::Record,
         host::{
             context::{AnalysisContext, AnalysisOptions, ExecutionExtension, ExecutionOptions, OutputFormat, ReportExtension, ReportOptions},
+            oci::analyze as analyze_oci,
             render::{Render, RenderContext},
             runtime::StaticAnalyzer,
             service::{analyze_paths, AnalysisReport, ExecutionStatus},
@@ -38,7 +39,7 @@ use acorn::{
     LocationExt,
 };
 use acorn_analysis::readability::ReadabilityType;
-use acorn_analysis::{Check, CheckBatch, CheckCategory, CheckSummary, FairProfile};
+use acorn_analysis::{Check, CheckBatch, CheckCategory, CheckSummary, FairProfile, StandardCheckCapabilities};
 use acorn_core::{
     options::CommonRuntime,
     util::{regex_join, suffix, MimeType},
@@ -58,12 +59,20 @@ use std::{
     fs::{create_dir_all, remove_dir_all, remove_file, write},
     path::{Path, PathBuf},
 };
-use tracing::{debug, error};
+use tracing::{debug, error, info};
+
+trait InputSourceExt {
+    fn resolve_standard(&self, selected: Option<Standard>) -> Result<Standard, Report>;
+}
 trait PrepareLocation {
     async fn prepare(&self, options: &CommandOptions) -> Result<Prepared<Input>, Report>;
 }
 trait PrepareText {
     fn prepare(self, content: &str, format: Option<&MimeType>) -> Result<Prepared<Input>, Report>;
+}
+enum Input {
+    Oci(String),
+    Paths { paths: Vec<PathBuf>, temporary: Option<Temporary> },
 }
 enum Temporary {
     Directory(PathBuf),
@@ -80,9 +89,15 @@ struct HookConfiguration<'a> {
     explicit: bool,
     project_root: &'a Path,
 }
-struct Input {
-    paths: Vec<PathBuf>,
-    temporary: Option<Temporary>,
+struct OciPolicyOptions<'a> {
+    filter: &'a [String],
+    ignore: &'a [String],
+    merge_request: bool,
+    offline: bool,
+    suggest_fixes: bool,
+    watch: bool,
+    branch: Option<&'a str>,
+    commit: Option<&'a str>,
 }
 #[derive(Clone)]
 struct SuggestionConfiguration {
@@ -91,22 +106,28 @@ struct SuggestionConfiguration {
     offline: bool,
     output: CheckOutputFormat,
 }
-impl Drop for Input {
-    fn drop(&mut self) {
-        self.temporary.iter().for_each(|temporary| match temporary {
-            | Temporary::Directory(path) => {
-                let _ = remove_dir_all(path);
-            }
-            | Temporary::File(path) => {
-                let _ = remove_file(path);
-            }
-        });
+impl InputSourceExt for InputSource {
+    fn resolve_standard(&self, selected: Option<Standard>) -> Result<Standard, Report> {
+        let is_oci = matches!(self, Self::Location(location) if location.scheme().is_oci());
+        match (is_oci, selected) {
+            | (true, None | Some(Standard::Oci)) => Ok(Standard::Oci),
+            | (true, Some(standard)) => Err(eyre!("OCI check source conflicts with --standard {standard}")),
+            | (false, Some(Standard::Oci)) => Err(eyre!("--standard oci requires an explicit oci:// registry reference")),
+            | (false, Some(standard)) => Ok(standard),
+            | (false, None) => Ok(Standard::ResearchActivityData),
+        }
     }
 }
 impl PrepareLocation for Location {
     async fn prepare(&self, options: &CommandOptions) -> Result<Prepared<Input>, Report> {
         let scheme = self.scheme();
+        let raw: &str = self.into();
         match self {
+            | _ if scheme.is_oci() => {
+                let reference = raw.to_string();
+                let fingerprint = Fingerprint::from_entries([(reference.clone(), Vec::new())]);
+                Ok(Prepared::new(Input::Oci(reference), fingerprint))
+            }
             | _ if scheme.is_http() || scheme.is_https() => {
                 let uri = self.uri().unwrap_or_default();
                 Source::read_bytes(&uri, options.offline).await.and_then(|content| {
@@ -116,7 +137,7 @@ impl PrepareLocation for Location {
                     write(&path, content)
                         .map(|()| {
                             Prepared::new(
-                                Input {
+                                Input::Paths {
                                     paths: vec![path.clone()],
                                     temporary: Some(Temporary::File(path.clone())),
                                 },
@@ -129,15 +150,50 @@ impl PrepareLocation for Location {
             | _ if scheme.is_file() => resolve_paths_including(&Some(self.uri_as_path()), options, &["Kitfile"])
                 .await
                 .and_then(|paths| {
-                    Fingerprint::from_files(paths.clone()).map(|fingerprint| Prepared::new(Input { paths, temporary: None }, fingerprint))
+                    Fingerprint::from_files(paths.clone()).map(|fingerprint| Prepared::new(Input::Paths { paths, temporary: None }, fingerprint))
                 }),
             | Location::Simple(value) if scheme.is_unsupported() => resolve_paths_including(&Some(PathBuf::from(value)), options, &["Kitfile"])
                 .await
                 .and_then(|paths| {
-                    Fingerprint::from_files(paths.clone()).map(|fingerprint| Prepared::new(Input { paths, temporary: None }, fingerprint))
+                    Fingerprint::from_files(paths.clone()).map(|fingerprint| Prepared::new(Input::Paths { paths, temporary: None }, fingerprint))
                 }),
             | Location::Detailed { uri, .. } => Err(eyre!("Unsupported check source URI scheme — {uri}")),
             | Location::Simple(value) => Err(eyre!("Unsupported check source — {value}")),
+        }
+    }
+}
+impl OciPolicyOptions<'_> {
+    fn validate(&self, standard: Standard) -> Result<(), Report> {
+        let unsupported = (standard == Standard::Oci).then(|| {
+            [
+                self.branch.is_some().then_some("--branch"),
+                self.commit.is_some().then_some("--commit"),
+                (!self.filter.is_empty()).then_some("--filter"),
+                (!self.ignore.is_empty()).then_some("--ignore"),
+                self.merge_request.then_some("--merge-request"),
+                self.watch.then_some("--watch"),
+                self.suggest_fixes.then_some("--suggest-fixes"),
+            ]
+            .into_iter()
+            .flatten()
+            .next()
+        });
+        match (standard, self.offline, unsupported.flatten()) {
+            | (Standard::Oci, true, _) => Err(eyre!("OCI artifact checks are unavailable in offline mode")),
+            | (Standard::Oci, false, Some(argument)) => Err(eyre!("{argument} is not supported for OCI artifact checks")),
+            | _ => Ok(()),
+        }
+    }
+}
+impl Drop for Temporary {
+    fn drop(&mut self) {
+        match self {
+            | Temporary::Directory(path) => {
+                let _ = remove_dir_all(path);
+            }
+            | Temporary::File(path) => {
+                let _ = remove_file(path);
+            }
         }
     }
 }
@@ -152,7 +208,7 @@ impl PrepareText for TextOrigin {
         };
         match create_dir_all(&input).and_then(|()| write(&path, content)) {
             | Ok(()) => Ok(Prepared::new(
-                Input {
+                Input::Paths {
                     paths: vec![path],
                     temporary: Some(Temporary::Directory(root)),
                 },
@@ -297,11 +353,60 @@ async fn execute(
     explicit_configuration: bool,
     suggestions: &SuggestionConfiguration,
 ) -> Result<(), Report> {
-    let report = analyze_paths(&input.paths, options).await;
+    match input {
+        | Input::Oci(reference) => execute_oci(&reference, options, configuration, suggestions.output),
+        | Input::Paths { paths, temporary } => {
+            execute_paths(
+                paths,
+                options,
+                configuration,
+                project_root,
+                explicit_configuration,
+                suggestions,
+                temporary,
+            )
+            .await
+        }
+    }
+}
+fn execute_oci(
+    reference: &str,
+    options: &AnalysisContext,
+    configuration: &ApplicationConfiguration,
+    output: CheckOutputFormat,
+) -> Result<(), Report> {
+    analyze_oci(reference, options, configuration).and_then(|report| {
+        let collected = collect(&report, options);
+        let issues = filter_by_visibility(collected.as_slice(), options.report.extension.all);
+        match output {
+            | CheckOutputFormat::Human => {
+                if options.report.extension.all && !options.report.common.quiet {
+                    issues
+                        .iter()
+                        .filter(|check| !check.is_failure())
+                        .for_each(|check| info!("=> {} {}", Label::pass(), check.message));
+                }
+                handle(&issues, &[], &[], options, report.render_context(&options.report))
+            }
+            | CheckOutputFormat::Json => handle_json(&issues, &FixReport::default(), options),
+            | CheckOutputFormat::Diff | CheckOutputFormat::JsonPatch => Err(eyre!("OCI artifact checks do not support fix-preview output")),
+        }
+    })
+}
+async fn execute_paths(
+    paths: Vec<PathBuf>,
+    options: &AnalysisContext,
+    configuration: &ApplicationConfiguration,
+    project_root: &Path,
+    explicit_configuration: bool,
+    suggestions: &SuggestionConfiguration,
+    temporary: Option<Temporary>,
+) -> Result<(), Report> {
+    let report = analyze_paths(&paths, options).await;
     let fair_profiles = Vec::<FairProfile>::from(&report);
     let collected = collect(&report, options);
     #[cfg(feature = "exec")]
-    let collected = configured_checks(&input.paths, options, configuration, project_root, explicit_configuration)
+    let collected = configured_checks(&paths, options, configuration, project_root, explicit_configuration)
         .await
         .map(|checks| collected.combine(checks.into()));
     #[cfg(not(feature = "exec"))]
@@ -321,13 +426,13 @@ async fn execute(
                 },
             };
             match (suggestions.output, fixes) {
-                | (CheckOutputFormat::Diff, Ok(fixes)) => fixes.build_preview(&report, input.temporary.is_some()).render(
+                | (CheckOutputFormat::Diff, Ok(fixes)) => fixes.build_preview(&report, temporary.is_some()).render(
                     &issues,
                     options,
                     report.render_context(&options.report),
                     DiffFormat::Unified,
                 ),
-                | (CheckOutputFormat::JsonPatch, Ok(fixes)) => fixes.build_preview(&report, input.temporary.is_some()).render(
+                | (CheckOutputFormat::JsonPatch, Ok(fixes)) => fixes.build_preview(&report, temporary.is_some()).render(
                     &issues,
                     options,
                     report.render_context(&options.report),
@@ -336,12 +441,12 @@ async fn execute(
                 | (CheckOutputFormat::Diff | CheckOutputFormat::Json | CheckOutputFormat::JsonPatch, Err(why)) => Err(why),
                 | (CheckOutputFormat::Json, Ok(fixes)) => handle_json(&issues, &fixes, options),
                 | (CheckOutputFormat::Human, Ok(fixes)) => {
-                    let checked = handle(&issues, &fair_profiles, &input.paths, options, report.render_context(&options.report));
+                    let checked = handle(&issues, &fair_profiles, &paths, options, report.render_context(&options.report));
                     print!("{fixes}");
                     checked
                 }
                 | (CheckOutputFormat::Human, Err(why)) => {
-                    let checked = handle(&issues, &fair_profiles, &input.paths, options, report.render_context(&options.report));
+                    let checked = handle(&issues, &fair_profiles, &paths, options, report.render_context(&options.report));
                     checked.and(Err(why))
                 }
             }
@@ -477,7 +582,7 @@ pub async fn run(
     no_fail: &bool,
     raw: &bool,
     terse: &bool,
-    standard: &Standard,
+    standard: &Option<Standard>,
     readability_metric: &ReadabilityType,
     verbose: &Verbosity,
     offline: bool,
@@ -513,54 +618,74 @@ pub async fn run(
     match select_source(path, *paste, filesystem_selected, watch.is_some(), read_stdin, read_clipboard) {
         | Ok(InputSource::Location(_)) if format.is_some() => Err(eyre!("--format requires piped standard input or --paste")),
         | Ok(source) => {
-            let readability_metric = resolve_readability_metric(readability_metric);
-            let options = build_analysis_context(
-                skip,
-                *disable_website_checks,
-                *all,
-                *exit_on_first_error,
-                *skip_verify_checksum,
-                *no_fail,
-                *raw,
-                *terse,
-                *standard,
-                readability_metric,
-                is_silent,
+            let policy = OciPolicyOptions {
+                filter,
+                ignore,
+                merge_request: *merge_request,
                 offline,
-                ignore_sync_failure,
-                sync_retry_interval,
-                vale_directory.clone(),
-            );
-            match ApplicationConfiguration::load_with_path(config) {
-                | Err(why) => Err(why),
-                | Ok((configuration, resolved)) => {
+                suggest_fixes,
+                watch: watch.is_some(),
+                branch: branch.as_deref(),
+                commit: commit.as_deref(),
+            };
+            let prepared = source
+                .resolve_standard(*standard)
+                .and_then(|standard| policy.validate(standard).map(|()| standard))
+                .and_then(|standard| {
+                    let readability_metric = resolve_readability_metric(readability_metric);
+                    let options = build_analysis_context(
+                        skip,
+                        *disable_website_checks,
+                        *all,
+                        *exit_on_first_error,
+                        *skip_verify_checksum,
+                        *no_fail,
+                        *raw,
+                        *terse,
+                        standard,
+                        readability_metric,
+                        is_silent,
+                        offline,
+                        ignore_sync_failure,
+                        sync_retry_interval,
+                        vale_directory.clone(),
+                    );
+                    ApplicationConfiguration::load_with_path(config).map(|configuration| (options, configuration))
+                })
+                .and_then(|(options, (configuration, resolved))| {
                     let project_root = ApplicationConfiguration::root(&resolved);
+                    let has_hooks = configuration.has_hook(Hook::Check) || configuration.has_hook(Hook::Validate);
+                    let oci_hooks = options.analysis.standard == Standard::Oci && has_hooks;
                     #[cfg(feature = "exec")]
-                    let supported = Ok::<(), Report>(());
-                    #[cfg(not(feature = "exec"))]
-                    let supported = match config.is_some() || configuration.has_hook(Hook::Check) || configuration.has_hook(Hook::Validate) {
-                        | true => Err(eyre!("configured Rhai check hooks require the `exec` feature")),
-                        | false => Ok(()),
+                    let supported = match oci_hooks {
+                        | true => Err(eyre!("Configured Rhai check hooks are not supported for OCI artifact checks")),
+                        | false => Ok::<(), Report>(()),
                     };
-                    match supported {
-                        | Ok(()) => {
-                            run_source(
-                                source,
-                                &command_options,
-                                &options,
-                                HookConfiguration {
-                                    application: &configuration,
-                                    explicit: config.is_some(),
-                                    project_root: &project_root,
-                                },
-                                format.as_ref(),
-                                watch,
-                                &suggestions,
-                            )
-                            .await
-                        }
-                        | Err(why) => Err(why),
-                    }
+                    #[cfg(not(feature = "exec"))]
+                    let supported = match (oci_hooks, config.is_some() || has_hooks) {
+                        | (true, _) => Err(eyre!("Configured Rhai check hooks are not supported for OCI artifact checks")),
+                        | (false, true) => Err(eyre!("configured Rhai check hooks require the `exec` feature")),
+                        | (false, false) => Ok(()),
+                    };
+                    supported.map(|()| (options, configuration, project_root))
+                });
+            match prepared {
+                | Err(why) => Err(why),
+                | Ok((options, configuration, project_root)) => {
+                    run_source(
+                        source,
+                        &command_options,
+                        &options,
+                        HookConfiguration {
+                            application: &configuration,
+                            explicit: config.is_some(),
+                            project_root: &project_root,
+                        },
+                        format.as_ref(),
+                        watch,
+                        &suggestions,
+                    )
+                    .await
                 }
             }
         }
@@ -608,7 +733,7 @@ async fn run_source(
     }
 }
 fn should_sync_analyzer(options: &AnalysisContext) -> bool {
-    options.analysis.standard != Standard::ApplicationConfigurationResearchEnablement
+    options.analysis.standard.supports_check(&CheckCategory::Prose)
         && !options
             .analysis
             .skip

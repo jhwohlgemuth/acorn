@@ -13,6 +13,7 @@ use acorn::{
 use acorn_core::options::CommonRuntime;
 use acorn_host::terminal::Label;
 use acorn_schema::discovery::RemoteOrganizationRole;
+use acorn_schema::standard::Standard;
 use clap_verbosity_flag::VerbosityFilter;
 use color_eyre::{eyre, eyre::eyre};
 use core::future::Future;
@@ -111,7 +112,9 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
         network: false,
     };
     let watch = args.watch.then_some(options);
-    validate_watch_arguments(args).and_then(|()| run_command(args, offline, config, threads, watch))
+    validate_watch_arguments(args)
+        .and_then(|()| validate_oci_standard_arguments(args))
+        .and_then(|()| run_command(args, offline, config, threads, watch))
 }
 fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: usize, watch: Option<WatchOptions>) -> Void {
     match &args.command {
@@ -668,6 +671,26 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             Ok(())
         }
     }
+}
+pub(crate) fn validate_oci_standard_arguments(args: &Arguments) -> Void {
+    let unsupported = match &args.command {
+        | Some(Commands::Diff(arguments)) if arguments.standard == Some(Standard::Oci) => Some("diff"),
+        | Some(Commands::Export(arguments))
+            if !arguments.schema
+                && (arguments.standard == Standard::Oci || arguments.from == Some(Standard::Oci) || arguments.to == Some(Standard::Oci)) =>
+        {
+            Some("export")
+        }
+        | Some(Commands::Format(arguments)) if arguments.standard == Standard::Oci => Some("format"),
+        | Some(Commands::Gather(arguments)) if arguments.standard == Some(Standard::Oci) => Some("gather"),
+        | Some(Commands::Link(arguments)) if arguments.standard == Standard::Oci => Some("link"),
+        | _ => None,
+    };
+    unsupported.map_or(Ok(()), |command| {
+        Err(eyre!(
+            "The OCI standard is only supported by the check command; '{command}' cannot use it"
+        ))
+    })
 }
 pub(crate) fn validate_watch_arguments(args: &Arguments) -> Void {
     let watch_supported = matches!(args.command, Some(Commands::Check(_) | Commands::Gather(_)));

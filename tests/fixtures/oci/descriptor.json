@@ -1,0 +1,6 @@
+{
+  "mediaType": "application/vnd.oci.image.manifest.v1+json",
+  "digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "size": 512,
+  "annotations": {}
+}

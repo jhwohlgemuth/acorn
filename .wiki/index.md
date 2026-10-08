@@ -17,7 +17,7 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Portfolio review
 
-Reviewed against the current tree on 2026-10-06. The portfolio now contains 23 executable plans and one coordination record. The completed MCP client and dependency-capability plans were removed after their implementations, focused tests, feature and portability checks, Darwin size measurements, and durable documentation landed. The embedder-interface plan covers the remaining direct-construction and external-cancellation contracts required by the first downstream workflow consumer.
+Reviewed against the current tree on 2026-10-07. The portfolio now contains 22 executable plans and one coordination record. The completed MCP client, dependency-capability, and OCI artifact-check plans were removed after their implementations, focused tests, feature and portability checks, and durable documentation landed. The embedder-interface plan covers the remaining direct-construction and external-cancellation contracts required by the first downstream workflow consumer.
 
 Ranking uses impact first, then remaining difficulty, with user/architecture value and readiness as tie-breakers. “Quality” rates the plan rather than the proposed feature:
 
@@ -30,7 +30,6 @@ Ranking uses impact first, then remaining difficulty, with user/architecture val
 |---:|---|---|---|---|---|---|---|
 | 1 | [Power Automate deployment validation](features/powerapps-gitlab-logbook-reporting.md) | Waiting on validation | Critical | Medium | A | Highest | Resolve the external access gates, then complete one deployed, duplicate-safe reporting cycle. |
 | 2 | [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) | In progress | Critical | High | A | Highest | Removes silent/stale template output and partial PPTX mutation while unlocking `acorn-export`. |
-| 3 | [OCI model-artifact checks](features/oci-artifact-checks.md) | Planned | High | Medium | A | High | Reuses mature OCI resolution to add bounded schema and quality checks on the settled service-boundary contract. |
 | 4 | [Outbound MCP client embedder interface](refactors/api/outbound-mcp-client-interface.md) | In progress | High | Medium | A | High | Client code and focused tests are complete; separately owned book integration remains before plan retirement. |
 | 5 | [Needle 3 release-host validation](migrations/needle-3-upgrade.md) | Waiting on validation | High | Medium | A | High | A narrow four-host gate closes a shipped migration with little design uncertainty. |
 | 6 | [GitLab runner-pool isolation](refactors/ci-runner-pools.md) | In progress | High | Medium | A− | High | Directly addresses observed checkout collisions and protects reporting credentials, but requires administrator evidence. |

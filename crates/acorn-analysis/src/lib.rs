@@ -9,7 +9,10 @@ pub mod fair;
 pub mod readability;
 pub mod vale;
 
-pub use check::{check_readability_for_text, Check, CheckBatch, CheckCategory, CheckKind, CheckSeverity, CheckSummary, Finding, Findings};
+pub use check::{
+    check_readability_for_text, Check, CheckBatch, CheckCategory, CheckKind, CheckSeverity, CheckSummary, Finding, Findings,
+    StandardCheckCapabilities,
+};
 #[cfg(feature = "analysis")]
 pub use check::{IntoChecks, StandardCrosswalk};
 pub use fair::{

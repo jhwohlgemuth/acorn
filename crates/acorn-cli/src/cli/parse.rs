@@ -237,15 +237,16 @@ pub(crate) fn parse_standard(s: &str) -> Result<Standard, String> {
         | "dcat" => Ok(Standard::Dcat),
         | "dcmi" | "dublin-core" => Ok(Standard::DublinCore),
         | "document" | "docx" | "pdf" => Ok(Standard::Document),
+        | "huwise" => Ok(Standard::Huwise),
         | "invenio" | "inveniordm" => Ok(Standard::Invenio),
         | "kitfile" => Ok(Standard::Kitfile),
         | "modelkit" => Ok(Standard::ModelKit),
-        | "huwise" => Ok(Standard::Huwise),
+        | "oci" => Ok(Standard::Oci),
         | "raid" => Ok(Standard::Raid),
         | "text" => Ok(Standard::Text),
         | _ => Err(format!(
             "unknown standard '{s}' — expected one of: \
-             acre, rad/rads, cff, ckan, datacite, dcat, dcmi, document, invenio/inveniordm, huwise, kitfile, modelkit, raid, text"
+             acre, rad/rads, cff, ckan, datacite, dcat, dcmi, document, huwise, invenio/inveniordm, kitfile, modelkit, oci, raid, text"
         )),
     }
 }

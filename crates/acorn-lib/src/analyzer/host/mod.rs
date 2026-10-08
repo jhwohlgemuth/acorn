@@ -5,6 +5,7 @@ use serde_json::Value;
 
 pub mod context;
 pub mod discovery;
+pub mod oci;
 pub mod render;
 pub mod runtime;
 pub mod service;

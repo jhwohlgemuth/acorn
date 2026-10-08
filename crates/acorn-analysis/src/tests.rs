@@ -1,7 +1,7 @@
 use super::error::ErrorKind;
 use super::fair::{indicator, FairCounts, FairEvidence, FairEvidenceItem, FairIndicatorId, FairPrinciple, FairPriority, FairState};
 use super::vale::ValeOutputItem;
-use super::{Check, CheckBatch, CheckCategory, CheckSeverity, CheckSummary, Finding};
+use super::{Check, CheckBatch, CheckCategory, CheckSeverity, CheckSummary, Finding, StandardCheckCapabilities};
 use crate::StandardCrosswalk;
 use acorn_core::util::MimeType;
 use acorn_core::validation::ValidationError;
@@ -70,6 +70,13 @@ fn test_check_batch_iterates_and_round_trips_explicitly() {
     assert!(!round_trip.is_empty());
     assert!(CheckBatch::empty().is_empty());
     assert_eq!(CheckBatch::single(check_ok!(CheckCategory::Quality)).len(), 1);
+}
+#[test]
+fn test_check_capabilities_limit_oci_to_schema_and_quality() {
+    assert!(Standard::Oci.supports_check(&CheckCategory::Schema));
+    assert!(Standard::Oci.supports_check(&CheckCategory::Quality));
+    assert!(!Standard::Oci.supports_check(&CheckCategory::Link));
+    assert!(!Standard::Oci.supports_check(&CheckCategory::Prose));
 }
 #[test]
 fn test_check_summary_combine_is_associative() {

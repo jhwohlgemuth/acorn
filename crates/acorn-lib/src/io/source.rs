@@ -177,12 +177,12 @@ impl Source {
                 action: None,
             },
             | Location::Detailed {
-                scheme: Scheme::SSH | Scheme::Unsupported,
+                scheme: Scheme::OCI | Scheme::SSH | Scheme::Unsupported,
                 uri,
                 ..
             } if simple_as_remote => Self::Remote { name: None, identifier: uri },
             | Location::Detailed {
-                scheme: Scheme::SSH | Scheme::Unsupported,
+                scheme: Scheme::OCI | Scheme::SSH | Scheme::Unsupported,
                 uri,
                 ..
             } => Self::Unsupported(uri),

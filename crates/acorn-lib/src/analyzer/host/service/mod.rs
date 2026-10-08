@@ -17,7 +17,7 @@ use crate::{
     },
     util::StringConversion,
 };
-use acorn_analysis::{check, check_err, check_ok};
+use acorn_analysis::{check, check_err, check_ok, StandardCheckCapabilities};
 use acorn_core::{
     prelude::{Arc, HashMap, Path, PathBuf},
     util::{MimeType, ToProse},
@@ -199,6 +199,14 @@ impl AnalysisReport {
     pub fn render_context<'a>(&'a self, options: &'a ReportOptions) -> RenderContext<'a> {
         RenderContext::with_documents(options, &self.documents)
     }
+    /// Assemble a report for a non-filesystem analysis target.
+    pub(crate) fn remote(batch: AnalysisBatch, skipped_categories: Vec<CheckCategory>) -> Self {
+        Self {
+            batches: vec![batch],
+            documents: HashMap::new(),
+            skipped_categories,
+        }
+    }
     pub(crate) async fn with_link_evidence(self, evidence: Vec<LinkEvidence>, options: &AnalysisContext) -> Self {
         let reachability_enabled = !(options.execution.common.offline || options.execution.extension.disable_website_checks);
         let checks = CheckBatch::evaluate_link_evidence(evidence, reachability_enabled).await;
@@ -222,19 +230,7 @@ impl AnalysisReport {
 }
 impl StandardHostExt for Standard {
     fn execution_status(self, category: &CheckCategory, options: Option<&AnalysisContext>) -> ExecutionStatus {
-        let supported = match self {
-            | Self::ApplicationConfigurationResearchEnablement | Self::Ckan => category.is_schema(),
-            | Self::CitationFileFormat | Self::Document => {
-                category.is_schema() || category.is_link() || category.is_prose() || category.is_quality() || category.is_readability()
-            }
-            | Self::Datacite | Self::Dcat | Self::Invenio => !category.is_compute() && !category.is_crosswalk(),
-            | Self::Huwise => category.is_schema() || category.is_prose() || category.is_quality() || category.is_fair() || category.is_readability(),
-            | Self::Kitfile | Self::ModelKit => category.is_schema() || category.is_quality(),
-            | Self::Raid => category.is_schema() || category.is_quality() || category.is_fair(),
-            | Self::ResearchActivityData => !category.is_crosswalk(),
-            | Self::Text => category.is_schema() || category.is_prose() || category.is_quality() || category.is_readability(),
-            | Self::DublinCore => false,
-        };
+        let supported = self.supports_check(category);
         match supported {
             | false => ExecutionStatus::Unsupported {
                 reason: format!("{self} does not support {category} checks"),
@@ -371,7 +367,7 @@ pub async fn analyze_paths(paths: &[PathBuf], options: &AnalysisContext) -> Anal
             | Standard::ResearchActivityData => analyze::<ResearchActivity>(&paths, options, &categories, &documents).await,
             | Standard::Raid => analyze::<raid::Metadata>(&paths, options, &categories, &documents).await,
             | Standard::Text => analyze::<Text>(&paths, options, &categories, &documents).await,
-            | Standard::DublinCore => standard.unsupported(&categories),
+            | Standard::DublinCore | Standard::Oci => standard.unsupported(&categories),
         };
         batches.push(AnalysisBatch { standard, paths, categories });
     }
@@ -618,7 +614,7 @@ fn document_indexes(paths: &[PathBuf]) -> HashMap<String, Arc<DocumentIndex>> {
             documents
         })
 }
-fn skipped_categories(options: &AnalysisContext) -> Vec<CheckCategory> {
+pub(crate) fn skipped_categories(options: &AnalysisContext) -> Vec<CheckCategory> {
     options
         .analysis
         .skip

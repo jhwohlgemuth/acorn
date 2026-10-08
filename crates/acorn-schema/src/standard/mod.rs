@@ -106,6 +106,9 @@ pub enum Standard {
     /// Resolved KitOps ModelKit configuration.
     #[display("modelkit")]
     ModelKit,
+    /// Open Container Initiative model artifact profile.
+    #[display("oci")]
+    Oci,
     /// Research Activity Identifier metadata (RAiD).
     #[display("raid")]
     Raid,

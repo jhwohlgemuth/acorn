@@ -1182,5 +1182,7 @@ fn test_schema_export_covers_every_modeled_standard_in_json_and_yaml() {
 #[test]
 fn test_schema_export_rejects_unmodeled_and_artifact_formats() {
     assert!(export_schema(Standard::DublinCore, &FileFormat::Json).is_err());
+    let oci = export_schema(Standard::Oci, &FileFormat::Json).expect_err("OCI has no single schema");
+    assert!(oci.to_string().contains("OCI checking has no single generated schema"));
     assert!(export_schema(Standard::ResearchActivityData, &FileFormat::Pdf).is_err());
 }

@@ -92,6 +92,7 @@ async fn test_analyze_paths_dispatches_every_standard() {
         Standard::Invenio,
         Standard::Kitfile,
         Standard::ModelKit,
+        Standard::Oci,
         Standard::Raid,
         Standard::ResearchActivityData,
         Standard::Text,

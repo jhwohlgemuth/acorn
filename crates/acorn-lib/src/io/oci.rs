@@ -51,6 +51,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
+type InspectionResult<T> = Result<T, OciInspectionError>;
+/// Result of one manifest-level OCI inspection.
+pub(crate) type OciInspectionResult = Result<OciResolution, OciInspectionError>;
+/// Manifest-level inspection boundary shared by checking and materialization.
+pub(crate) trait OciInspector {
+    /// Inspect and select artifact metadata without transferring selected layers.
+    fn inspect(&self, reference: &OciReference, filter: &[String], ignore: &[String], quantization: &[Quantization]) -> OciInspectionResult;
+}
 /// Narrow content-transfer boundary for OCI artifact planning and pulling.
 pub trait OciTransport {
     /// Resolve and validate an artifact manifest without materializing files.
@@ -79,6 +87,20 @@ pub enum OciExtraction {
     TarGzip,
     /// Extract a Zstandard-compressed TAR archive.
     TarZstd,
+}
+/// Stage responsible for a retrieved artifact validation failure.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum OciInspectionStage {
+    /// Package configuration blob parsing or integrity.
+    Configuration,
+    /// Top-level registry descriptor parsing or validation.
+    Descriptor,
+    /// OCI image index parsing, validation, or selection.
+    Index,
+    /// OCI image manifest parsing or structural validation.
+    Manifest,
+    /// Model-artifact classification, inventory, or selection.
+    Package,
 }
 /// An OCI tag or immutable digest.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -153,6 +175,11 @@ pub struct OciFile {
 }
 #[derive(Clone, Debug, Default)]
 pub(crate) struct OciFiles(pub(crate) Vec<OciFile>);
+/// Typed inspection failure separating artifact findings from execution errors.
+pub(crate) struct OciInspectionError {
+    report: color_eyre::Report,
+    stage: Option<OciInspectionStage>,
+}
 /// One selected OCI transfer layer.
 #[derive(Builder, Clone, Debug, Eq, PartialEq, Serialize, Validate)]
 #[builder(start_fn = init)]
@@ -617,6 +644,23 @@ impl OciFiles {
             .map(|()| self)
     }
 }
+impl OciInspectionError {
+    pub(crate) fn artifact(stage: OciInspectionStage, report: color_eyre::Report) -> Self {
+        Self { report, stage: Some(stage) }
+    }
+    pub(crate) fn execution(report: color_eyre::Report) -> Self {
+        Self { report, stage: None }
+    }
+    pub(crate) fn into_report(self) -> color_eyre::Report {
+        self.report
+    }
+    pub(crate) fn message(&self) -> String {
+        self.report.to_string()
+    }
+    pub(crate) fn stage(&self) -> Option<OciInspectionStage> {
+        self.stage
+    }
+}
 impl From<Descriptor> for OciLayer {
     fn from(descriptor: Descriptor) -> Self {
         let (role, extraction, selected) = modelpack_layer_type(&descriptor.media_type).unwrap_or((ModelLayerRole::Model, OciExtraction::None, true));
@@ -1012,40 +1056,47 @@ impl From<&RegistryProfile> for OciTransportOptions {
         }
     }
 }
-impl OciTransport for OrasTransport {
-    fn resolve(&self, reference: &OciReference, filter: &[String], ignore: &[String], quantization: &[Quantization]) -> ApiResult<OciResolution> {
+impl OciInspector for OrasTransport {
+    fn inspect(&self, reference: &OciReference, filter: &[String], ignore: &[String], quantization: &[Quantization]) -> OciInspectionResult {
         let oras_reference = reference.oras_reference();
         self.invoke(args!["manifest", "fetch", "--descriptor", oras_reference])
-            .and_then(|content| serde_json::from_str::<Descriptor>(&content).map_err(|why| eyre!("Invalid OCI descriptor — {why}")))
+            .map_err(OciInspectionError::execution)
+            .and_then(|content| {
+                serde_json::from_str::<Descriptor>(&content)
+                    .map_err(|why| OciInspectionError::artifact(OciInspectionStage::Descriptor, eyre!("Invalid OCI descriptor — {why}")))
+            })
             .and_then(|descriptor| {
                 descriptor
                     .validate()
-                    .map_err(|why| eyre!("Invalid OCI descriptor — {why}"))
+                    .map_err(|why| OciInspectionError::artifact(OciInspectionStage::Descriptor, eyre!("Invalid OCI descriptor — {why}")))
                     .map(|()| descriptor)
             })
             .and_then(|descriptor| self.resolve_descriptor(reference, descriptor))
             .and_then(|(descriptor, manifest, kind)| {
                 self.content(reference, &manifest, kind)
-                    .and_then(OciPlan::validate)
+                    .and_then(|plan| OciPlan::validate(plan).map_err(|why| OciInspectionError::artifact(OciInspectionStage::Package, why)))
                     .and_then(|plan| {
                         let (models, supporting): (Vec<_>, Vec<_>) = plan
                             .files
                             .0
                             .into_iter()
                             .partition(|file| matches!(file.role, ModelLayerRole::Model | ModelLayerRole::ModelWeight));
-                        OciFiles(models).select_known(filter, ignore, quantization).map(|models| {
-                            (
-                                plan.layers,
-                                plan.ignored_layers,
-                                models.0.into_iter().chain(supporting).collect::<Vec<_>>(),
-                            )
-                        })
+                        OciFiles(models)
+                            .select_known(filter, ignore, quantization)
+                            .map_err(|why| OciInspectionError::artifact(OciInspectionStage::Package, why))
+                            .map(|models| {
+                                (
+                                    plan.layers,
+                                    plan.ignored_layers,
+                                    models.0.into_iter().chain(supporting).collect::<Vec<_>>(),
+                                )
+                            })
                     })
                     .and_then(|(layers, ignored_layers, files)| {
                         let transfer_size = layers.iter().try_fold(0u64, |total, layer| {
-                            total
-                                .checked_add(layer.transfer_size)
-                                .ok_or_else(|| eyre!("OCI artifact transfer size overflow"))
+                            total.checked_add(layer.transfer_size).ok_or_else(|| {
+                                OciInspectionError::artifact(OciInspectionStage::Package, eyre!("OCI artifact transfer size overflow"))
+                            })
                         });
                         let deferred = layers.iter().any(|layer| layer.inventory_deferred);
                         let inventory_status = match (deferred, files.iter().all(|file| file.installed_size.is_some())) {
@@ -1058,9 +1109,9 @@ impl OciTransport for OrasTransport {
                             | _ => files
                                 .iter()
                                 .try_fold(0u64, |total, file| {
-                                    file.installed_size
-                                        .and_then(|size| total.checked_add(size))
-                                        .ok_or_else(|| eyre!("OCI artifact installed size overflow"))
+                                    file.installed_size.and_then(|size| total.checked_add(size)).ok_or_else(|| {
+                                        OciInspectionError::artifact(OciInspectionStage::Package, eyre!("OCI artifact installed size overflow"))
+                                    })
                                 })
                                 .map(Some),
                         };
@@ -1086,6 +1137,12 @@ impl OciTransport for OrasTransport {
                         })
                     })
             })
+    }
+}
+impl OciTransport for OrasTransport {
+    fn resolve(&self, reference: &OciReference, filter: &[String], ignore: &[String], quantization: &[Quantization]) -> ApiResult<OciResolution> {
+        self.inspect(reference, filter, ignore, quantization)
+            .map_err(OciInspectionError::into_report)
     }
     fn pull(&self, reference: &OciReference, resolution: &OciResolution, destination: &Path) -> ApiResult<()> {
         match destination.exists() {
@@ -1205,12 +1262,26 @@ impl OrasTransport {
             }
         })
     }
-    fn modelkit_content(&self, reference: &OciReference, manifest: &Manifest) -> ApiResult<OciPlan> {
+    fn modelkit_content(&self, reference: &OciReference, manifest: &Manifest) -> InspectionResult<OciPlan> {
         let config_reference = reference.with_digest(&manifest.config.digest).trim_start_matches(OCI_PREFIX).to_string();
         self.invoke_bytes(args!["blob", "fetch", "--output", "-", config_reference])
-            .and_then(|content| manifest.config.validate_blob(&content).map(|()| content))
-            .and_then(|content| Kitfile::from_resolved_json(&content).map_err(|why| eyre!("Invalid KitOps ModelKit config — {why}")))
-            .and_then(|config| config.modelkit_content(manifest))
+            .map_err(OciInspectionError::execution)
+            .and_then(|content| {
+                manifest
+                    .config
+                    .validate_blob(&content)
+                    .map_err(|why| OciInspectionError::artifact(OciInspectionStage::Configuration, why))
+                    .map(|()| content)
+            })
+            .and_then(|content| {
+                Kitfile::from_resolved_json(&content)
+                    .map_err(|why| OciInspectionError::artifact(OciInspectionStage::Configuration, eyre!("Invalid KitOps ModelKit config — {why}")))
+            })
+            .and_then(|config| {
+                config
+                    .modelkit_content(manifest)
+                    .map_err(|why| OciInspectionError::artifact(OciInspectionStage::Package, why))
+            })
     }
     fn annotated_content(&self, manifest: &Manifest) -> ApiResult<(Vec<OciLayer>, Vec<OciFile>)> {
         manifest
@@ -1237,12 +1308,22 @@ impl OrasTransport {
             .collect::<ApiResult<Vec<_>>>()
             .map(|selected| selected.into_iter().unzip())
     }
-    fn modelpack_content(&self, reference: &OciReference, manifest: &Manifest) -> ApiResult<OciPlan> {
+    fn modelpack_content(&self, reference: &OciReference, manifest: &Manifest) -> InspectionResult<OciPlan> {
         let config_reference = reference.with_digest(&manifest.config.digest).trim_start_matches(OCI_PREFIX).to_string();
         self.invoke_bytes(args!["blob", "fetch", "--output", "-", config_reference])
-            .and_then(|content| manifest.config.validate_blob(&content).map(|()| content))
-            .and_then(|content| serde_json::from_slice::<ModelPackConfig>(&content).map_err(|why| eyre!("Invalid ModelPack config — {why}")))
-            .and_then(validate_modelpack_config)
+            .map_err(OciInspectionError::execution)
+            .and_then(|content| {
+                manifest
+                    .config
+                    .validate_blob(&content)
+                    .map_err(|why| OciInspectionError::artifact(OciInspectionStage::Configuration, why))
+                    .map(|()| content)
+            })
+            .and_then(|content| {
+                serde_json::from_slice::<ModelPackConfig>(&content)
+                    .map_err(|why| OciInspectionError::artifact(OciInspectionStage::Configuration, eyre!("Invalid ModelPack config — {why}")))
+            })
+            .and_then(|config| validate_modelpack_config(config).map_err(|why| OciInspectionError::artifact(OciInspectionStage::Package, why)))
             .and_then(|()| {
                 manifest
                     .layers
@@ -1271,13 +1352,17 @@ impl OrasTransport {
                         })
                     })
                     .collect::<ApiResult<Vec<_>>>()
+                    .map_err(|why| OciInspectionError::artifact(OciInspectionStage::Package, why))
             })
             .and_then(|layers| {
                 let (selected, ignored): (Vec<_>, Vec<_>) = layers.into_iter().partition(|(_, selected)| *selected);
                 let selected = selected.into_iter().map(|(layer, _)| layer).collect::<Vec<_>>();
                 let ignored_layers = ignored.into_iter().map(|(layer, _)| layer).collect::<Vec<_>>();
                 match selected.iter().any(|layer| layer.role == ModelLayerRole::ModelWeight) {
-                    | false => Err(eyre!("ModelPack does not contain a supported model-weight layer")),
+                    | false => Err(OciInspectionError::artifact(
+                        OciInspectionStage::Package,
+                        eyre!("ModelPack does not contain a supported model-weight layer"),
+                    )),
                     | true => {
                         let files = selected
                             .iter()
@@ -1302,54 +1387,94 @@ impl OrasTransport {
                 }
             })
     }
-    fn content(&self, reference: &OciReference, manifest: &Manifest, kind: ArtifactKind) -> ApiResult<OciPlan> {
+    fn content(&self, reference: &OciReference, manifest: &Manifest, kind: ArtifactKind) -> InspectionResult<OciPlan> {
         match kind {
             | ArtifactKind::ModelPack => self.modelpack_content(reference, manifest),
             | ArtifactKind::ModelKit => self.modelkit_content(reference, manifest),
-            | ArtifactKind::Annotated => self.annotated_content(manifest).map(OciPlan::from),
-            | ArtifactKind::RunnableImage => Err(eyre!("OCI reference identifies a runnable container image")),
-            | ArtifactKind::InvalidModelPack | ArtifactKind::Unsupported => Err(eyre!("OCI artifact classification was not validated")),
+            | ArtifactKind::Annotated => self
+                .annotated_content(manifest)
+                .map(OciPlan::from)
+                .map_err(|why| OciInspectionError::artifact(OciInspectionStage::Package, why)),
+            | ArtifactKind::RunnableImage => Err(OciInspectionError::artifact(
+                OciInspectionStage::Package,
+                eyre!("OCI reference identifies a runnable container image"),
+            )),
+            | ArtifactKind::InvalidModelPack | ArtifactKind::Unsupported => Err(OciInspectionError::artifact(
+                OciInspectionStage::Package,
+                eyre!("OCI artifact classification was not validated"),
+            )),
         }
     }
-    fn fetch_manifest(&self, reference: &OciReference, digest: &str) -> ApiResult<Manifest> {
+    fn fetch_manifest(&self, reference: &OciReference, digest: &str) -> InspectionResult<Manifest> {
         let resolved_reference = reference.with_digest(digest).trim_start_matches(OCI_PREFIX).to_string();
         self.invoke(args!["manifest", "fetch", resolved_reference])
-            .and_then(|content| serde_json::from_str::<Manifest>(&content).map_err(|why| eyre!("Invalid OCI manifest — {why}")))
+            .map_err(OciInspectionError::execution)
+            .and_then(|content| {
+                serde_json::from_str::<Manifest>(&content)
+                    .map_err(|why| OciInspectionError::artifact(OciInspectionStage::Manifest, eyre!("Invalid OCI manifest — {why}")))
+            })
             .and_then(|manifest| {
                 Manifest::structure_valid(&manifest, &())
-                    .map_err(|why| eyre!("Invalid OCI manifest — {why}"))
+                    .map_err(|why| OciInspectionError::artifact(OciInspectionStage::Manifest, eyre!("Invalid OCI manifest — {why}")))
                     .map(|()| manifest)
             })
     }
-    fn resolve_descriptor(&self, reference: &OciReference, descriptor: Descriptor) -> ApiResult<(Descriptor, Manifest, ArtifactKind)> {
+    fn resolve_descriptor(&self, reference: &OciReference, descriptor: Descriptor) -> InspectionResult<(Descriptor, Manifest, ArtifactKind)> {
         match descriptor.media_type.as_str() {
             | OCI_IMAGE_MANIFEST => self.fetch_manifest(reference, &descriptor.digest).and_then(|manifest| {
-                ArtifactKind::from(&manifest).validate(&manifest).and_then(|kind| match kind {
-                    | ArtifactKind::RunnableImage => Err(eyre!("OCI reference identifies a runnable container image")),
-                    | _ => Ok((descriptor, manifest, kind)),
-                })
+                ArtifactKind::from(&manifest)
+                    .validate(&manifest)
+                    .map_err(|why| OciInspectionError::artifact(OciInspectionStage::Package, why))
+                    .and_then(|kind| match kind {
+                        | ArtifactKind::RunnableImage => Err(OciInspectionError::artifact(
+                            OciInspectionStage::Package,
+                            eyre!("OCI reference identifies a runnable container image"),
+                        )),
+                        | _ => Ok((descriptor, manifest, kind)),
+                    })
             }),
             | OCI_IMAGE_INDEX | DOCKER_MANIFEST_LIST => self.resolve_index(reference, descriptor),
-            | media_type => Err(eyre!("Unsupported OCI descriptor media type '{media_type}'")),
+            | media_type => Err(OciInspectionError::artifact(
+                OciInspectionStage::Descriptor,
+                eyre!("Unsupported OCI descriptor media type '{media_type}'"),
+            )),
         }
     }
-    fn resolve_index(&self, reference: &OciReference, descriptor: Descriptor) -> ApiResult<(Descriptor, Manifest, ArtifactKind)> {
+    fn resolve_index(&self, reference: &OciReference, descriptor: Descriptor) -> InspectionResult<(Descriptor, Manifest, ArtifactKind)> {
         let resolved_reference = reference.with_digest(&descriptor.digest).trim_start_matches(OCI_PREFIX).to_string();
         self.invoke(args!["manifest", "fetch", resolved_reference])
-            .and_then(|content| serde_json::from_str::<Index>(&content).map_err(|why| eyre!("Invalid OCI index — {why}")))
-            .and_then(|index| index.validate().map_err(|why| eyre!("Invalid OCI index — {why}")).map(|()| index))
+            .map_err(OciInspectionError::execution)
+            .and_then(|content| {
+                serde_json::from_str::<Index>(&content)
+                    .map_err(|why| OciInspectionError::artifact(OciInspectionStage::Index, eyre!("Invalid OCI index — {why}")))
+            })
+            .and_then(|index| {
+                index
+                    .validate()
+                    .map_err(|why| OciInspectionError::artifact(OciInspectionStage::Index, eyre!("Invalid OCI index — {why}")))
+                    .map(|()| index)
+            })
             .and_then(|index| {
                 index
                     .manifests
                     .into_iter()
                     .map(|candidate| match candidate.media_type.as_str() {
-                        | OCI_IMAGE_INDEX | DOCKER_MANIFEST_LIST => Err(eyre!("Nested OCI model indexes are not supported")),
-                        | OCI_IMAGE_MANIFEST => self
-                            .fetch_manifest(reference, &candidate.digest)
-                            .and_then(|manifest| ArtifactKind::from(&manifest).validate(&manifest).map(|kind| (candidate, manifest, kind))),
-                        | media_type => Err(eyre!("Unsupported OCI index descriptor media type '{media_type}'")),
+                        | OCI_IMAGE_INDEX | DOCKER_MANIFEST_LIST => Err(OciInspectionError::artifact(
+                            OciInspectionStage::Index,
+                            eyre!("Nested OCI model indexes are not supported"),
+                        )),
+                        | OCI_IMAGE_MANIFEST => self.fetch_manifest(reference, &candidate.digest).and_then(|manifest| {
+                            ArtifactKind::from(&manifest)
+                                .validate(&manifest)
+                                .map_err(|why| OciInspectionError::artifact(OciInspectionStage::Package, why))
+                                .map(|kind| (candidate, manifest, kind))
+                        }),
+                        | media_type => Err(OciInspectionError::artifact(
+                            OciInspectionStage::Index,
+                            eyre!("Unsupported OCI index descriptor media type '{media_type}'"),
+                        )),
                     })
-                    .collect::<ApiResult<Vec<_>>>()
+                    .collect::<InspectionResult<Vec<_>>>()
             })
             .and_then(|candidates| {
                 let has_runnable = candidates.iter().any(|(_, _, kind)| *kind == ArtifactKind::RunnableImage);
@@ -1358,21 +1483,27 @@ impl OrasTransport {
                     .filter(|(_, _, kind)| *kind != ArtifactKind::RunnableImage)
                     .collect::<Vec<_>>();
                 match (models.as_slice(), has_runnable) {
-                    | ([_], false) => models
-                        .into_iter()
-                        .next()
-                        .ok_or_else(|| eyre!("OCI model index has no eligible model artifact")),
-                    | ([_], true) => Err(eyre!(
-                        "OCI index mixes runnable images and model artifacts; explicit selection is required"
+                    | ([_], false) => models.into_iter().next().ok_or_else(|| {
+                        OciInspectionError::artifact(OciInspectionStage::Index, eyre!("OCI model index has no eligible model artifact"))
+                    }),
+                    | ([_], true) => Err(OciInspectionError::artifact(
+                        OciInspectionStage::Index,
+                        eyre!("OCI index mixes runnable images and model artifacts; explicit selection is required"),
                     )),
-                    | ([], _) => Err(eyre!("OCI model index has no eligible model artifact")),
-                    | _ => Err(eyre!(
-                        "OCI model index is ambiguous; eligible manifest digests: {}",
-                        models
-                            .iter()
-                            .map(|(candidate, _, _)| candidate.digest.as_str())
-                            .collect::<Vec<_>>()
-                            .join(", ")
+                    | ([], _) => Err(OciInspectionError::artifact(
+                        OciInspectionStage::Index,
+                        eyre!("OCI model index has no eligible model artifact"),
+                    )),
+                    | _ => Err(OciInspectionError::artifact(
+                        OciInspectionStage::Index,
+                        eyre!(
+                            "OCI model index is ambiguous; eligible manifest digests: {}",
+                            models
+                                .iter()
+                                .map(|(candidate, _, _)| candidate.digest.as_str())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        ),
                     )),
                 }
             })

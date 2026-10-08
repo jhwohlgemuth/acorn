@@ -33,13 +33,14 @@ Versions appear where ACORN pins one. An unversioned name describes the implemen
 | [InvenioRDM record metadata](https://inveniordm.docs.cern.ch/reference/metadata/) | JSON and YAML | Modeled record, creators, contributors, funding, rights, dates, identifiers, and CodeMeta fields | Canonical serialization | Direct conversion to DataCite; conversion to DCAT and HuWise through DataCite |
 | RAiD metadata, governed by [ISO 23527:2022](https://www.iso.org/standard/75931.html) | JSON, JSONC, and YAML | Modeled RAiD metadata, identifiers, dates, roles, organizations, subjects, and related objects | No | RAD to RAiD and RAiD to RAD |
 | [KitOps](https://kitops.org/) Kitfile and resolved [ModelKit](https://kitops.org/docs/modelkit/intro/) configuration | Authoring YAML and resolved JSON | Structure, manifest compatibility, paths, layer identities, digests, local package readiness, and referenced MCP Bundles | No general metadata formatting | Kitfile resolution and OCI ModelKit packaging |
+| OCI model artifact profile | Remote `oci://` references | Registry descriptor, index or manifest, configuration blob, package convention, and declared model inventory | No | Manifest-level inspection of annotated GGUF artifacts, KitOps ModelKits, and CNCF ModelPacks |
 | [Dublin Core](https://www.dublincore.org/specifications/dublin-core/dcmi-terms/) | In progress | In progress: recognized as a CLI standard name, but no analyzer is implemented | No | No generated schema or crosswalk yet |
 
 Document and text selectors are analysis sources. They let `check` extract or analyze prose, but they are not metadata models.
 
 ### Schema generation
 
-`acorn export --schema --standard <STANDARD>` prints deterministic JSON Schema as JSON by default or YAML with `--format yaml` for ACRE, RAD/RADS, CFF, CKAN, DataCite, DCAT, HuWise, InvenioRDM, RAiD, Kitfile, ModelKit, document, and text models. Dublin Core is recognized but fails explicitly until it has a modeled schema.
+`acorn export --schema --standard <STANDARD>` prints deterministic JSON Schema as JSON by default or YAML with `--format yaml` for ACRE, RAD/RADS, CFF, CKAN, DataCite, DCAT, HuWise, InvenioRDM, RAiD, Kitfile, ModelKit, document, and text models. Dublin Core is recognized but fails explicitly until it has a modeled schema. OCI checking has no single generated schema because it spans a registry reference, distribution responses, manifests or indexes, and configuration blobs.
 
 ### Validation levels
 
@@ -161,7 +162,7 @@ The metadata layer sits inside a wider set of interoperability boundaries.
 
 | Format or specification | ACORN use and enforcement |
 | --- | --- |
-| [OCI Image Specification and Distribution Specification](https://specs.opencontainers.org/) | Model downloads parse schema version 2 manifests and indexes, validate media types, descriptor sizes, SHA-256 digests, and safe layer paths, then use ORAS with OCI Distribution-compatible registries. Runnable container images, ambiguous indexes, malformed descriptors, and unsafe paths fail closed. Digest integrity establishes content identity, not publisher authenticity. |
+| [OCI Image Specification and Distribution Specification](https://specs.opencontainers.org/) | Model checks and downloads parse schema version 2 manifests and indexes, validate media types, descriptor sizes, SHA-256 digests, and safe layer paths, then use ORAS with OCI Distribution-compatible registries. Routine checks fetch manifest metadata and required configuration blobs but never model-weight layers. Runnable container images, ambiguous indexes, malformed descriptors, and unsafe paths fail closed. Digest integrity establishes content identity, not publisher authenticity. |
 | KitOps ModelKit | ACORN implements the portable KitOps v1.15.0 Kitfile shape with `manifestVersion: v1.0.0`, authoring YAML, resolved JSON layer identities, and OCI packaging. Unsupported manifest versions produce compatibility warnings where the workflow can continue safely. |
 | [CNCF ModelPack](https://github.com/cncf/modelpack-spec) | Model downloads recognize the implemented ModelPack manifest, configuration, role, and layer media types for weights, weight configuration, documentation, code, and datasets. Raw, TAR, gzip, and Zstandard layer forms are bounded and path-checked. |
 | [GGUF](https://github.com/ggml-org/ggml/blob/master/docs/gguf.md) | ACORN checks the magic value, supported container version, bounded metadata, tensor declarations and data bounds, and split-file consistency before using a model. This is a safe-consumption check, not validation of every model architecture or tensor semantic. |

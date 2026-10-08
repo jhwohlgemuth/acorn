@@ -1385,6 +1385,102 @@ fn test_oci_descriptor_media_types_map_to_model_layers() {
 }
 #[cfg(unix)]
 #[test]
+fn test_oci_descriptor_resolution_uses_fixture_index_without_weight_transfer() {
+    let fixture_root = fixtures_dir().join("oci");
+    let temp = tempfile::tempdir().unwrap();
+    let binary = temp.path().join("oras");
+    let log = temp.path().join("calls.log");
+    let script = format!(
+        r#"#!/bin/sh
+printf '%s\n' "$*" >> '{}'
+if [ "$1" = "manifest" ] && [ "$3" = "--descriptor" ]; then
+  printf '%s' '{{"mediaType":"{OCI_IMAGE_INDEX}","digest":"{OCI_TEST_DIGEST}","size":1,"annotations":{{}}}}'
+elif [ "$1" = "manifest" ]; then
+  case "$3" in
+    *0123456789abcdef*) cat '{}' ;;
+    *) cat '{}' ;;
+  esac
+else
+  exit 98
+fi
+"#,
+        log.display(),
+        fixture_root.join("index.json").display(),
+        fixture_root.join("manifest-annotated.json").display(),
+    );
+    write(&binary, script).unwrap();
+    set_permissions(&binary, Permissions::from_mode(0o700)).unwrap();
+    let transport = OrasTransport {
+        binary,
+        options: OciTransportOptions::default(),
+    };
+    let reference = OciReference::parse("oci://registry.example.org/models/fixture:latest").unwrap();
+    let resolution = transport.resolve(&reference, &[], &[], &[]).unwrap();
+    assert_eq!(
+        resolution.resolved_digest,
+        "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    );
+    let calls = read_to_string(log).unwrap();
+    assert_eq!(calls.lines().filter(|call| call.starts_with("manifest ")).count(), 3);
+    assert!(!calls.contains("pull"));
+    assert!(!calls.contains("sha256:1111111111111111111111111111111111111111111111111111111111111111"));
+}
+#[cfg(unix)]
+#[test]
+fn test_oci_descriptor_resolution_uses_fixture_manifests_without_weight_transfer() {
+    let fixture_root = fixtures_dir().join("oci");
+    for (manifest, config, package) in [
+        ("manifest-annotated.json", None, acorn_schema::oci::ModelArtifactKind::Annotated),
+        (
+            "manifest-modelkit.json",
+            Some("modelkit-config.json"),
+            acorn_schema::oci::ModelArtifactKind::ModelKit,
+        ),
+        (
+            "manifest-modelpack.json",
+            Some("modelpack-config.json"),
+            acorn_schema::oci::ModelArtifactKind::ModelPack,
+        ),
+    ] {
+        let temp = tempfile::tempdir().unwrap();
+        let binary = temp.path().join("oras");
+        let log = temp.path().join("calls.log");
+        let config_command = config.map_or_else(|| "exit 99".to_string(), |name| format!("cat '{}'", fixture_root.join(name).display()));
+        let script = format!(
+            r#"#!/bin/sh
+printf '%s\n' "$*" >> '{}'
+if [ "$1" = "manifest" ] && [ "$3" = "--descriptor" ]; then
+  cat '{}'
+elif [ "$1" = "manifest" ]; then
+  cat '{}'
+elif [ "$1" = "blob" ] && [ "$4" = "-" ]; then
+  {config_command}
+else
+  exit 98
+fi
+"#,
+            log.display(),
+            fixture_root.join("descriptor.json").display(),
+            fixture_root.join(manifest).display(),
+        );
+        write(&binary, script).unwrap();
+        set_permissions(&binary, Permissions::from_mode(0o700)).unwrap();
+        let transport = OrasTransport {
+            binary,
+            options: OciTransportOptions::default(),
+        };
+        let reference = OciReference::parse("oci://registry.example.org/models/fixture:latest").unwrap();
+        let resolution = transport.resolve(&reference, &[], &[], &[]).unwrap();
+        assert_eq!(resolution.package_format, package);
+        assert_eq!(resolution.resolved_digest, OCI_TEST_DIGEST);
+        let calls = read_to_string(log).unwrap();
+        assert!(!calls.contains("pull"));
+        assert!(!calls.contains("sha256:1111111111111111111111111111111111111111111111111111111111111111"));
+        assert!(!calls.contains("sha256:2222222222222222222222222222222222222222222222222222222222222222"));
+    }
+}
+#[cfg(unix)]
+#[test]
 fn test_oci_fake_oras_defers_and_extracts_modelpack_archive_inventory() {
     let temp = tempfile::tempdir().unwrap();
     let binary = temp.path().join("oras");

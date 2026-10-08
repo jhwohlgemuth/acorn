@@ -193,9 +193,12 @@ impl StandardDiffExt for Standard {
             | Standard::Kitfile | Standard::ModelKit => Kitfile::from_resolved_json(input.content.as_bytes())
                 .map_err(|error| input.parse_error(error.to_string()))
                 .and_then(to_value),
-            | Standard::ApplicationConfigurationResearchEnablement | Standard::Ckan | Standard::Document | Standard::DublinCore | Standard::Text => {
-                Err(SemanticDiffError::UnsupportedStandard(self))
-            }
+            | Standard::ApplicationConfigurationResearchEnablement
+            | Standard::Ckan
+            | Standard::Document
+            | Standard::DublinCore
+            | Standard::Oci
+            | Standard::Text => Err(SemanticDiffError::UnsupportedStandard(self)),
         }
     }
     fn detect(input: &DiffInput<'_>) -> Result<Self, SemanticDiffError> {

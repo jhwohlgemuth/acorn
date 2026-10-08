@@ -16,7 +16,8 @@
     clippy::arithmetic_side_effects
 )]
 mod context;
-use super::{run, PrepareText};
+mod oci;
+use super::{run, Input, PrepareText};
 use crate::cli::arguments::{CheckOutputFormat, InferenceArgs, InferenceBackendKind};
 use crate::test::server::spawn_source_server;
 use crate::test::util::fixture_path;
@@ -39,6 +40,14 @@ use std::path::PathBuf;
 use tempfile::tempdir;
 const OFFLINE: bool = true;
 const SKIP_PROSE: &[CheckCategory] = &[CheckCategory::Prose];
+impl Input {
+    fn paths(&self) -> &[PathBuf] {
+        match self {
+            | Self::Oci(_) => &[],
+            | Self::Paths { paths, .. } => paths,
+        }
+    }
+}
 async fn assert_schema_issue_count<T>(path: &str, expected: usize) -> Result<()>
 where
     T: Analysis + Send,
@@ -70,7 +79,7 @@ async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
         &true,
         &false,
         &false,
-        &standard,
+        &Some(standard),
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         OFFLINE,
@@ -141,7 +150,7 @@ async fn test_check_invalid_project_with_no_fail() -> Result<()> {
         &true,
         &false,
         &false,
-        &Standard::default(),
+        &None,
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         OFFLINE,
@@ -183,7 +192,7 @@ async fn test_check_kitfile_and_modelkit_without_standard_override() -> Result<(
             &false,
             &false,
             &false,
-            &Standard::default(),
+            &None,
             &ReadabilityType::FKGL,
             &Verbosity::new(0, 1),
             OFFLINE,
@@ -223,7 +232,7 @@ async fn test_check_remote_project() -> Result<()> {
         &true,
         &false,
         &false,
-        &Standard::default(),
+        &None,
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         false,
@@ -261,7 +270,7 @@ async fn test_check_remote_project_rejects_offline_mode() -> Result<()> {
         &true,
         &false,
         &false,
-        &Standard::default(),
+        &None,
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         true,
@@ -298,7 +307,7 @@ async fn test_check_terse_mode() -> Result<()> {
         &true,
         &false,
         &true, // terse mode
-        &Standard::default(),
+        &None,
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         OFFLINE,
@@ -335,7 +344,7 @@ async fn test_check_valid_highlight() -> Result<()> {
         &true,
         &false,
         &false,
-        &Standard::default(),
+        &None,
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         OFFLINE,
@@ -372,7 +381,7 @@ async fn test_check_valid_project() -> Result<()> {
         &true,
         &false,
         &false,
-        &Standard::default(),
+        &None,
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         OFFLINE,
@@ -411,7 +420,7 @@ async fn test_check_with_different_readability_metrics() -> Result<()> {
             &true,
             &false,
             &false,
-            &Standard::default(),
+            &None,
             &metric,
             &Verbosity::new(0, 1),
             OFFLINE,
@@ -449,7 +458,7 @@ async fn test_check_with_skip_categories() -> Result<()> {
         &true,
         &false,
         &false,
-        &Standard::default(),
+        &None,
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         OFFLINE,
@@ -589,7 +598,7 @@ fn test_text_input_format_is_inferred_and_cleaned_up() {
     .into_iter()
     .for_each(|(content, filename, standard)| {
         let prepared = TextOrigin::Stdin.prepare(&content, None).expect("prepare standard input");
-        let path = prepared.value.paths[0].clone();
+        let path = prepared.value.paths()[0].clone();
         let input = path.parent().expect("temporary input parent").to_path_buf();
         assert_eq!(path.file_name().and_then(|value| value.to_str()), Some(filename));
         assert_eq!(input.file_name().and_then(|value| value.to_str()), Some("input"));
@@ -612,7 +621,7 @@ fn test_text_input_format_is_inferred_and_cleaned_up() {
         let prepared = TextOrigin::Clipboard
             .prepare("forced format", Some(&format))
             .expect("prepare forced clipboard format");
-        let path = prepared.value.paths[0].clone();
+        let path = prepared.value.paths()[0].clone();
         let input = path.parent().expect("temporary input parent").to_path_buf();
         assert_eq!(path.file_name().and_then(|value| value.to_str()), Some(filename));
         drop(prepared.value);

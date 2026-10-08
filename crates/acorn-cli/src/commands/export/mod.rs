@@ -622,6 +622,7 @@ pub(crate) fn export_schema(standard: Standard, format: &FileFormat) -> ApiResul
         | Standard::Huwise => serialize::<huwise::Dataset>(format),
         | Standard::Invenio => serialize::<invenio::Record>(format),
         | Standard::Kitfile | Standard::ModelKit => serialize::<kitfile::Kitfile>(format),
+        | Standard::Oci => Err(eyre!("OCI checking has no single generated schema")),
         | Standard::Raid => serialize::<Metadata>(format),
         | Standard::ResearchActivityData => serialize::<ResearchActivity>(format),
     }

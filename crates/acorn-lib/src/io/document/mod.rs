@@ -232,6 +232,7 @@ impl SourceDocument {
                 .map(|response| response.body)
                 .and_then(|bytes| Self::from_bytes(&bytes, &source)),
             | (false, Scheme::File | Scheme::Unsupported, _) => file_uri_to_path(&source).map_err(Into::into).and_then(Self::from_path),
+            | (false, Scheme::OCI, _) => Err(eyre!("OCI document sources are not supported: {source}")),
             | (false, Scheme::SSH, _) => Err(eyre!("SSH document sources are not supported: {source}")),
         }
     }

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 2,
+  "mediaType": "application/vnd.oci.image.manifest.v1+json",
+  "artifactType": "application/vnd.cncf.model.manifest.v1+json",
+  "config": {
+    "mediaType": "application/vnd.cncf.model.config.v1+json",
+    "digest": "sha256:9bec61c208d1f26ac3e72e6a763ef3dfc7edc736a729fbfe4f9188cc7f50a8d2",
+    "size": 144,
+    "annotations": {}
+  },
+  "layers": [
+    {
+      "mediaType": "application/vnd.cncf.model.weight.v1.raw",
+      "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "size": 456,
+      "annotations": {
+        "org.cncf.model.filepath": "weights/model-Q4_K_M.gguf"
+      }
+    }
+  ]
+}

@@ -123,6 +123,11 @@ fn test_location_round_trips_supported_uri_schemes() {
         ("http://user@example.org:8080/data", "http://user@example.org:8080/data", Scheme::HTTP),
         ("https://user@example.org:8443/data", "https://user@example.org:8443/data", Scheme::HTTPS),
         (
+            "oci://registry.example.org/models/fixture:latest",
+            "oci://registry.example.org/models/fixture:latest",
+            Scheme::OCI,
+        ),
+        (
             "ssh://git@example.org:2222/group/project.git",
             "ssh://git@example.org:2222/group/project.git",
             Scheme::SSH,
@@ -136,6 +141,7 @@ fn test_location_round_trips_supported_uri_schemes() {
     });
     assert_eq!(serde_json::to_string(&Scheme::SSH).expect("serialize SSH scheme"), "\"ssh\"");
     assert_eq!(serde_json::from_str::<Scheme>("\"ssh\"").expect("deserialize SSH scheme"), Scheme::SSH);
+    assert!(Scheme::from("oci").is_oci());
 }
 #[test]
 fn test_repository_classification_requires_provider_domain() {

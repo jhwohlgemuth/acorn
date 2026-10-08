@@ -55,6 +55,13 @@ fn test_json_patch_never_falls_back() {
     assert!(matches!(result, Err(SemanticDiffError::UnknownStandard { .. })));
 }
 #[test]
+fn test_oci_is_not_a_semantic_diff_standard() {
+    let before = input("{}", "a/manifest.json", MimeType::Json);
+    let after = input("{}", "b/manifest.json", MimeType::Json);
+    let result = SemanticDiff::compare(&before, &after, DiffFormat::JsonPatch, Some(Standard::Oci));
+    assert!(matches!(result, Err(SemanticDiffError::UnsupportedStandard(Standard::Oci))));
+}
+#[test]
 fn test_rad_jsonc_yaml_zon_and_markdown_are_compared_semantically() {
     let source = include_str!("../../../../../tests/fixtures/analyzer/fair/metadata-minimal-rad.json");
     let value = serde_json::from_str::<serde_json::Value>(source).expect("fixture is valid JSON");

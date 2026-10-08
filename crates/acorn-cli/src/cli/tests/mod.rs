@@ -81,6 +81,7 @@ fn test_check_format_argument() {
         "document",
         "huwise",
         "invenio",
+        "oci",
         "raid",
         "rads",
         "research-activity-data",
@@ -1070,6 +1071,23 @@ fn test_no_color_flags_for_dry_run_diffs() {
         }
         | other => panic!("unexpected command: {other:?}"),
     }
+}
+#[test]
+fn test_oci_standard_is_rejected_outside_check_and_schema_export() {
+    [
+        ["acorn", "diff", "before.json", "after.json", "--standard", "oci"].as_slice(),
+        ["acorn", "export", ".", "--standard", "oci"].as_slice(),
+        ["acorn", "format", ".", "--standard", "oci"].as_slice(),
+        ["acorn", "gather", "--standard", "oci"].as_slice(),
+        ["acorn", "link", ".", "--standard", "oci"].as_slice(),
+    ]
+    .into_iter()
+    .for_each(|arguments| {
+        let parsed = Arguments::try_parse_from(arguments).expect("parse OCI standard");
+        assert!(crate::commands::validate_oci_standard_arguments(&parsed).is_err());
+    });
+    let schema = Arguments::try_parse_from(["acorn", "export", "--schema", "--standard", "oci"]).expect("parse OCI schema export");
+    assert!(crate::commands::validate_oci_standard_arguments(&schema).is_ok());
 }
 #[test]
 fn test_paste_rejects_watch_mode() {

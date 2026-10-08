@@ -22,6 +22,9 @@ acorn check path/to/project/CITATION.cff
 acorn check path/to/model/Kitfile
 acorn check path/to/model/modelkit.json
 
+# Check a remote OCI model artifact
+acorn check oci://registry.example.org/models/qwen:latest
+
 # Validate canonical or custom ACRE configuration
 acorn check path/to/project/.acorn.jsonc
 acorn check path/to/project/settings.yaml --standard acre
@@ -72,6 +75,16 @@ The aliases `md`, `txt`, `yml`, and `zonf` are accepted. `--format` applies only
 An explicit filesystem selection or `--paste` takes precedence over piped standard input. Empty implicit standard input preserves the existing behavior of checking the current directory. Clipboard input must contain non-whitespace text, and clipboard or standard-input checks cannot be combined with `--watch`.
 
 Application Configuration for Research Enablement is auto-detected only for the exact filenames `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, and `.acorn.yml`. Use `--standard acre` for custom filenames, standard input, or clipboard content. ACRE runs schema validation only; prose, readability, link, FAIR, quality, and crosswalk checks are not applicable.
+
+## Checking OCI model artifacts
+
+An explicit `oci://registry/repository:tag` or `oci://registry/repository@sha256:...` source selects the OCI model-artifact profile automatically. `--standard oci` is accepted but optional for these sources. A conflicting standard is rejected.
+
+OCI checks resolve a tag to an immutable digest and inspect the registry descriptor, one unambiguous index child when present, the manifest, and a ModelKit or ModelPack configuration blob when required. Schema findings cover malformed references and distribution structures. Quality findings cover the supported artifact convention and declared model inventory. Use `--all` to display the resolved digest, package format, and selected or ignored layer counts.
+
+The check is deliberately manifest-level. It does not transfer model-weight layers, inspect GGUF bytes, create an installation destination, verify signatures or attestations, or establish publisher identity. Deep layer verification remains part of model materialization. OCI checks require ORAS and network access; `--offline` rejects the target before invoking ORAS.
+
+OCI sources cannot be combined with clipboard or standard-input content, local or HTTP paths, Git revision selectors, merge-request selection, watch mode, filters, configured workflow hooks, or fix suggestions. Only schema and quality categories apply, so selecting OCI does not install or synchronize Vale.
 
 ## Checking Kitfiles and ModelKits
 

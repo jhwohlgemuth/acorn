@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 2,
+  "mediaType": "application/vnd.oci.image.manifest.v1+json",
+  "artifactType": "application/vnd.acorn.model.v1",
+  "config": {
+    "mediaType": "application/vnd.oci.empty.v1+json",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "size": 2,
+    "annotations": {}
+  },
+  "layers": [
+    {
+      "mediaType": "application/octet-stream",
+      "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "size": 123,
+      "annotations": {
+        "org.opencontainers.image.title": "model-Q4_K_M.gguf"
+      }
+    }
+  ]
+}

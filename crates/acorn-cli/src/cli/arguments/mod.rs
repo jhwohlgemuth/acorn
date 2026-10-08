@@ -361,7 +361,7 @@ pub enum Target {
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub struct Check {
-    /// Local path or HTTP(S) URI to check; piped standard input is used when omitted
+    /// Local path, HTTP(S) URI, or explicit OCI artifact reference to check; piped standard input is used when omitted
     #[arg(required = false, value_name = "LOCATION", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
     pub(crate) path: Option<PathBuf>,
     /// Check text copied to the system clipboard
@@ -439,9 +439,9 @@ pub struct Check {
     pub(crate) skip_verify_checksum: bool,
     /// Metadata standard to validate against
     ///
-    /// Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
-    #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
-    pub(crate) standard: Standard,
+    /// Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, oci, raid, text (`docx` and `pdf` alias `document`)
+    #[arg(short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
+    pub(crate) standard: Option<Standard>,
     /// Readability test to use
     #[arg(default_value = "fkgl", short, long = "readability-test", value_name = "METRIC", value_parser = parse_readability, help_heading = "OPTIONS")]
     pub(crate) readability_metric: ReadabilityType,

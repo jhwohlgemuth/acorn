@@ -82,6 +82,10 @@ fn test_should_sync_analyzer_reflects_prose_selection() {
         )
         .build();
     assert!(!should_sync_analyzer(&acre));
+    let oci = AnalysisContext::init()
+        .analysis(AnalysisOptions::init().standard(Standard::Oci).build())
+        .build();
+    assert!(!should_sync_analyzer(&oci));
 }
 #[tokio::test]
 async fn test_sync_analyzer_skips_resolution_when_prose_is_omitted() {

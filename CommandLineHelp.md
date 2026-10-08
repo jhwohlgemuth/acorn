@@ -171,7 +171,7 @@ Perform static analysis on research activity data and apply standardized best pr
 
 ###### **Arguments:**
 
-* `<LOCATION>` — Local path or HTTP(S) URI to check; piped standard input is used when omitted
+* `<LOCATION>` — Local path, HTTP(S) URI, or explicit OCI artifact reference to check; piped standard input is used when omitted
 
 ###### **Options:**
 
@@ -214,9 +214,7 @@ Perform static analysis on research activity data and apply standardized best pr
 * `--skip-verify-checksum` — Skip checksum verification when downloading files (e.g., downloading Vale to perform static analysis of prose) > CAUTION: Use at your own risk
 * `-s`, `--standard <STANDARD>` — Metadata standard to validate against
 
-   Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
-
-  Default value: `rads`
+   Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, oci, raid, text (`docx` and `pdf` alias `document`)
 * `-r`, `--readability-test <METRIC>` — Readability test to use
 
   Default value: `fkgl`

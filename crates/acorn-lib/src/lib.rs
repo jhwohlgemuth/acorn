@@ -101,7 +101,7 @@ impl LocationExt for Location {
                 | _ => false,
             },
             | Scheme::File => uri.is_some_and(|_| PathBuf::from(self.path().unwrap_or_default()).exists()),
-            | Scheme::SSH | Scheme::Unsupported => false,
+            | Scheme::OCI | Scheme::SSH | Scheme::Unsupported => false,
         }
     }
 }
