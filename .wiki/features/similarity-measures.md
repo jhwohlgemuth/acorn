@@ -15,7 +15,7 @@ tags:
   - matching
   - similarity
   - vocabulary
-status: planned
+status: in-progress
 ---
 
 # Portable similarity measures, vocabulary coercion, and explicit comparison
@@ -24,7 +24,7 @@ status: planned
 
 Add reusable Rust similarity calculations and an explicit ACORN comparison workflow for research titles, descriptions, contributor names, keywords, dates, and numeric values. Scores describe resemblance; they are not probabilities or proof that records identify the same activity.
 
-Reviewed and augmented 2026-10-08. Planning only: no algorithms, commands, or tests have been implemented by this plan. First consumers are controlled-vocabulary coercion and explicit pairwise comparison. Improve keyword, technology, sponsor, partner, organization, and affiliation resolution without silently losing unresolved input or accepting ambiguous matches. Batch duplicate suggestions are a separately gated follow-on; automatic record merging, new schema rejection rules, model inference, and network lookups are outside scope.
+Core foundation implemented and validated 2026-10-08. `acorn_core::similarity` now supplies the bounded phase-1 primitives, independently checked fixtures, differential/property tests, benchmarks, and durable semantics documentation. The explicit comparison CLI, vocabulary coercion and consumer migrations, and phases 2-4 remain planned. First consumers remain controlled-vocabulary coercion and explicit pairwise comparison. Improve keyword, technology, sponsor, partner, organization, and affiliation resolution without silently losing unresolved input or accepting ambiguous matches. Batch duplicate suggestions are a separately gated follow-on; automatic record merging, new schema rejection rules, model inference, and network lookups are outside scope.
 
 Source: Felix Naumann, *Similarity measures*, 11 June 2013, supplied as `C:/Users/jason/Downloads/similarity_measures.pdf` (41 PDF pages). Page references below are physical PDF pages, not printed slide numbers, which skip numbers. The document is reference material, not an instruction source. It is not copied into the repository. Preserve the source identity and page references in durable documentation and independently specify every implemented method.
 
@@ -32,20 +32,20 @@ Source: Felix Naumann, *Similarity measures*, 11 June 2013, supplied as `C:/User
 
 | Family | Methods and supporting procedures | PDF pages | Coverage and implementation disposition |
 |---|---|---|---|
-| Baselines | Exact equality; beginning/end truncation match; equality after encoding | 6 | Defined. Phase 1; specify truncation length and short-input behavior. Encoding equality composes with phase 3. |
-| Character distance | Hamming | 7 | Defined for equal lengths. Phase 1; return an error on unequal lengths. |
-| Edit distance | Levenshtein; configurable edit costs | 8-12 | Dynamic programming, two-row optimization, and normalized score described. Unit costs in phase 1; weighted costs in phase 3 with a separate normalization contract. |
-| Transpositions | Algorithm labeled Damerau-Levenshtein | 13 | Displayed local recurrence is restricted optimal string alignment (OSA). Phase 1 exposes OSA and full Damerau-Levenshtein under different names. |
-| Name matching | Jaro; Winkler prefix adjustment; Winkler long-string adjustment | 14-16 | Described. Jaro and conventional Jaro-Winkler in phase 1. Slide-compatible variants require explicit naming and conformance decisions in phase 3. |
-| Token preparation | Word tokenization; character n-grams/q-grams; optional boundary padding and positional weighting | 19-21 | Procedures, not standalone scores. Basic word and n-gram modes in phase 1. Positional weighting is only suggested; defer until a weight function and use case exist. |
-| Set similarity | Overlap coefficient; Jaccard; Dice/Sorensen-Dice | 22 | Formulas given. Phase 1 uses deduplicated sets; multiset variants must have distinct names. |
+| Baselines | Exact equality; beginning/end truncation match; equality after encoding | 6 | Raw exact and positive-length prefix/suffix comparisons shipped under explicit bounds. Encoding equality composes with phase 3. |
+| Character distance | Hamming | 7 | Distance and normalized similarity shipped for equal scalar lengths; unequal lengths are a typed error. |
+| Edit distance | Levenshtein; configurable edit costs | 8-12 | Unit-cost distance and normalized similarity shipped with two-row storage. Weighted costs remain phase 3 with a separate normalization contract. |
+| Transpositions | Algorithm labeled Damerau-Levenshtein | 13 | Restricted OSA and unrestricted Damerau-Levenshtein shipped under distinct names with the `CA`/`ABC` regression. |
+| Name matching | Jaro; Winkler prefix adjustment; Winkler long-string adjustment | 14-16 | Jaro and conventional bounded Jaro-Winkler shipped. Slide-compatible variants still require explicit naming and conformance decisions in phase 3. |
+| Token preparation | Word tokenization; character n-grams/q-grams; optional boundary padding and positional weighting | 19-21 | Explicit raw/lowercase word and character n-gram preparation shipped, including collision-checked caller-supplied boundary markers. Positional weighting remains deferred. |
+| Set similarity | Overlap coefficient; Jaccard; Dice/Sorensen-Dice | 22 | Deduplicated overlap, Jaccard, and Sorensen-Dice shipped with explicit empty-set semantics. Multiset variants require distinct names. |
 | Phonetic encoding | Soundex; Cologne phonetics (Kolner Phonetik); original Metaphone | 24, 26, 28 | Rules supplied. Phase 3, with language and normalization contracts and authoritative conformance fixtures. |
 | Phonetic extensions | Double Metaphone; Metaphone 3 | 27 | Named and characterized, not specified. Double Metaphone requires an external specification before phase 3. Metaphone 3 is deferred pending specification, license, and demonstrated need. Accuracy claims in slides are not ACORN acceptance targets. |
 | Hybrid token matching | Monge-Elkan | 30-31 | Mean of each left token's best right-token score. Phase 2; directional by default, with separately named symmetric mean if needed. |
 | Fuzzy set matching | Extended Jaccard | 32 | Thresholded token-pair construction shown. Phase 2 only after ambiguity is resolved; do not silently substitute one-to-one assignment. |
 | Vector similarity | Cosine; term frequency and inverse document frequency; TF-IDF weighting | 33-35 | Cosine and weighting described. Phase 2 with an explicit corpus snapshot and weighting formula. TF-IDF is a representation, not an independent pairwise similarity. |
 | Weighted hybrid | Soft TF-IDF | 36 | Sketch given; formula requires clarification. Phase 2 uses a cited reference implementation/specification and reports the variant. |
-| Numeric | Absolute-difference similarity; percentage-difference similarity | 38 | Piecewise linear functions with user-selected cutoffs. Phase 1. |
+| Numeric | Absolute-difference similarity; percentage-difference similarity | 38 | Finite percentage difference plus cutoff-based absolute and percentage similarities shipped with checked arithmetic results. |
 | Temporal | Day-distance similarity; age-percentage similarity; swapped-day/month and month-error rules | 39 | Date/age methods and heuristic examples. Phase 3; heuristics opt-in, with explicit calendar/reference date. |
 | Sequence alignment | Smith-Waterman; Smith-Waterman-Gotoh; Needleman-Wunsch | 3 and repeated overview, 41 | Named only; Needleman-Wunsch appears in the package list. Phase 4 after primary algorithm specifications and scoring conventions are selected. |
 | Spatial/domain rules | Geographic distance through a projection; domain-specific rules | 39, 41 | No geographic algorithm or general rule engine specified. Defer a concrete geographic method until coordinate system, units, and research use case exist. |
@@ -54,12 +54,12 @@ SecondString, SimMetrics, and GeographicLib on page 41 are implementation packag
 
 ## Current repository evidence and boundaries
 
-- [acorn-core manifest](../../crates/acorn-core/Cargo.toml) already separates `core`, `alloc`, and `std`; its package purpose is portable foundations. Put pure similarity primitives in a proposed `acorn_core::similarity` module under `alloc`. Do not create another crate initially.
+- [acorn-core](../../crates/acorn-core/src/similarity/mod.rs) now exposes pure similarity primitives behind its existing `alloc` feature. Production code adds no dependency; `strsim` and Criterion are dev-only oracle/benchmark dependencies.
 - [acorn-lib analyzer](../../crates/acorn-lib/src/analyzer/mod.rs) exposes supplied-content analysis separately from host orchestration. [Its manifest](../../crates/acorn-lib/Cargo.toml) defines `analyzer = ["alloc"]`, while `analysis` brings host capabilities. Put research-field policies and corpus preparation here, with file loading in host/CLI adapters.
-- CodeGraph exploration followed by targeted text search found no definitions containing Levenshtein, Jaro, cosine, or Jaccard in core/lib/CLI sources. This supports a new leaf module, not a claim that every existing matching facility has been audited. Existing `similar` and `nucleo-matcher` dependencies are not evidence of an equivalent public scoring API.
+- The new core module exposes validated `SimilarityScore`, typed errors, configurable limits, raw distances, normalized scores, explicit preprocessing, and distinct OSA/unrestricted Damerau variants. No CLI, analyzer, schema, or existing matching behavior changed in this slice.
 - [Check results](../../crates/acorn-lib/src/analyzer/check.rs) have established categories and summaries. Pair comparison should initially return a separate typed result, avoiding changes to every check consumer. Advisory batch checking needs a later explicit analyzer-contract integration slice.
 - [Makefile](../../Makefile) supplies `check-portable` and `check-wasm`; [WASM bindings](../../crates/acorn-wasm/src/lib.rs) already wrap portable supplied-content analysis. Browser bindings for similarity are optional follow-on work, not a prerequisite for portable Rust.
-- The working tree contains other active changes. Recheck current source and locks immediately before implementation; do not overwrite concurrent edits or rely on historical AGENTS.md paths.
+- The core slice started from a clean tree and used the workspace-graph, library-roots, and documentation-generation surfaces serially. Recheck current source and locks before later slices.
 
 ## Controlled-vocabulary coercion and related consumers
 
@@ -133,6 +133,8 @@ Freeze the contracts above, record which methods are symmetric/metric/bounded, a
 
 Implement exact/truncated comparisons, Hamming, Levenshtein, OSA, full Damerau-Levenshtein, Jaro, conventional Jaro-Winkler, word/n-gram preparation, overlap/Jaccard/Dice, and absolute/percentage numeric similarity. Expose an explicit proposed `acorn compare` command with a required method, two supplied values (or explicit file operands), and text/JSON output. Confirm that command name is free in phase 0 and follow the current command registry rather than an assumed main.rs match layout.
 
+The portable primitive portion is complete. The `acorn compare` command and its result envelope remain the next independent phase-1 slice and require the CLI/documentation locks.
+
 The command result reports variant, preprocessing, optional raw distance, score semantics, and relevant parameters. Invalid input and budget failures are errors; a low similarity is a successful comparison. File operands use existing host I/O and work offline. No automatic interpretation of arbitrary arguments as paths or URLs. Use existing terminal labels and command error conventions. Add command discovery/dispatch/help tests and update generated help.
 
 ### Phase 1A: vocabulary resolution and consumer migration
@@ -159,18 +161,31 @@ Implement Needleman-Wunsch, Smith-Waterman, and Smith-Waterman-Gotoh using vette
 
 Evaluate titles with token similarity, names with Jaro-Winkler/phonetics, descriptions with TF-IDF, and dates with explicit cutoffs on a labeled research-record corpus. Measure precision, recall, false positives, and candidate coverage by field and language; select thresholds from held-out data, not the lecture. Missing fields stay missing. Freeze any combined-score policy and blocking strategy separately; avoid unbounded all-pairs comparison. Only after this evidence should a new atomic plan add opt-in advisory findings to `check`. No automatic merge or change to default validation behavior is authorized by this plan.
 
-## Proposed implementation write boundaries and locks
+## Core foundation validation
+
+Validated on 2026-10-08:
+
+- `cargo test -p acorn-core`: 38 unit, 15 similarity integration, and 12 passing doc tests (one ignored); the similarity suite also passes with `--no-default-features --features alloc --test similarity`.
+- `cargo clippy -p acorn-core --all-targets --all-features -- -D warnings`; featureless, `core`, and `alloc` checks; `core` and `alloc` WASM checks; Rust documentation; and the mdBook all pass.
+- Repository gates `make lint`, `make test`, `make check-portable`, `make doc`, and `make book` pass. The full Nextest run executed 2,284 tests successfully with 17 skipped.
+- Randomized differential tests agree with `strsim 0.11.1` for Hamming, Levenshtein, OSA, unrestricted Damerau-Levenshtein, Jaro, and conventional Jaro-Winkler. Property tests cover symmetry and the claimed Levenshtein/Damerau metric triangle inequality.
+- Criterion's 10-sample local baseline measured 1,024-scalar Levenshtein at 4.91-5.03 ms, OSA at 8.24-8.42 ms, unrestricted Damerau-Levenshtein at 11.28-11.39 ms, and Jaro-Winkler at 208-213 µs. Unicode Levenshtein measured 436-452 µs; character n-grams 25.0-25.3 µs; word tokens 10.4-10.6 µs; and 256-by-256 Jaccard 19.5-19.7 µs. These are development-host observations, not portable performance guarantees.
+- macOS `xcrun` emitted sandbox cache warnings during linked test/benchmark builds, but every command completed successfully.
+
+## Implementation write boundaries and locks
 
 This planning change owns only this file and its entries in `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, and `.wiki/parallel-execution.md`.
 
 Before each implementation assignment, replace the proposed boundaries below with a complete exact create/update/delete list verified against the then-current tree:
 
-- Portable leaves: proposed `crates/acorn-core/src/similarity/{mod,error,edit,token,vector,hybrid,numeric,phonetic,alignment,tests}.rs`. Assign exact leaf files per phase. `crates/acorn-core/src/lib.rs` registration requires the library-roots lock.
+The completed core foundation slice created `crates/acorn-core/src/similarity/{mod,error,edit,numeric,token}.rs`, `crates/acorn-core/tests/similarity.rs`, `crates/acorn-core/benches/similarity.rs`, `tests/fixtures/similarity.json`, and `docs/src/concepts/similarity.md`; it updated `crates/acorn-core/src/lib.rs`, `crates/acorn-core/Cargo.toml`, `Cargo.lock`, `docs/src/SUMMARY.md`, this plan, and `.wiki/index.md`. It created or deleted no other tracked paths.
+
+- Remaining portable leaves: proposed `crates/acorn-core/src/similarity/{vector,hybrid,phonetic,alignment}.rs`. Assign exact leaf files per phase; any further root registration requires the library-roots lock.
 - Domain adapter: proposed `crates/acorn-lib/src/analyzer/similarity.rs` and its registration in `crates/acorn-lib/src/analyzer/mod.rs`; library-roots lock. No existing check categories change in phases 0-4.
 - Vocabulary implementation: proposed `crates/acorn-schema/src/vocabulary/resolution.rs`; update `crates/acorn-schema/src/vocabulary.rs`, `crates/acorn-schema/src/types.rs`, and `crates/acorn-schema/src/research_activity/mod.rs` under schema-roots/library-roots locks. Tests: `crates/acorn-schema/src/tests/mod.rs` and `crates/acorn-schema/tests/portable_semantics.rs`; proposed dedicated fixtures `tests/fixtures/vocabulary-resolution.json`. Claim specific asset files only if the audit requires corrections; do not broadly rewrite embedded vocabularies.
 - Vocabulary consumers: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, `crates/acorn-lib/src/io/api/gitlab/intake.rs`, and `crates/acorn-lib/src/lib.rs`, with focused existing tests claimed by exact filename before migration. Coordinate discovery/intake/provenance edits with enrichment and gather owners. Diagnostics/fix integration requires a separately enumerated write set and analyzer/check lock within phase 1A; it does not authorize wholesale fix-service changes.
 - CLI: proposed `crates/acorn-cli/src/commands/compare/mod.rs` and adjacent tests; resolve exact registry/parser/dispatch files during phase 0 and claim the CLI-contract lock before editing them. Generated help and book integration take the documentation-generation lock.
-- Fixtures/documentation: proposed `tests/fixtures/similarity.json` and `docs/src/similarity.md`; identify the exact book index and help output before assignment. Keep examples synthetic or explicitly approved for redistribution.
+- Fixtures/documentation: extend `tests/fixtures/similarity.json` and `docs/src/concepts/similarity.md` only for the owning algorithm slice. CLI work must separately identify its exact command page and generated help output. Keep examples synthetic or explicitly approved for redistribution.
 - Any root/crate manifest or lockfile change takes the workspace-graph lock and follows the dependency-capabilities prerequisite. CI/Makefile changes require CI/build ownership. Benchmarks must name their file and registration explicitly before work starts.
 
 Dependencies: pure specification/fixture work can proceed independently. Manifest additions follow [dependency capabilities](../refactors/portability/dependency-features-and-macos-size.md). CLI integration coordinates with [CLI composition](../refactors/core/cli-composition-boundary.md). Any later check integration serializes with CEL and enrichment under the analyzer/check contract. WASM exposure coordinates with the browser tools plan only if separately scheduled.
@@ -185,9 +200,9 @@ Vocabulary phase 1A depends only on its selected phase-1 primitives, not TF-IDF,
 - [ ] RAD formatting, contact resolution, discovery, GitLab intake, and repository-language enrichment use the shared policy with fixture-backed compatibility evidence, idempotence, accepted-value deduplication, and preserved per-input provenance.
 - [ ] The vocabulary audit detects alias/normalization collisions and malformed assets; threshold quality targets and search-budget behavior pass before fuzzy coercion is enabled for each vocabulary. Optional diagnostics use existing correction workflows and never automatically merge concepts or records.
 
-- [ ] Every inventory row is mapped to a shipped, explicitly specified method or an explicit deferral; named-only methods are never presented as fully specified by the slides.
-- [ ] Required API contracts, normalization rules, variant names, errors, and resource budgets are documented and tested before public exposure.
-- [ ] Unit and property tests cover identity, bounds, symmetry only where promised, metric properties only where valid, empty inputs, Unicode, repeated tokens, and invalid parameters.
+- [x] Every inventory row is mapped to a shipped, explicitly specified method or an explicit deferral; named-only methods are never presented as fully specified by the slides.
+- [x] Phase-1 core API contracts, normalization rules, variant names, errors, and resource budgets are documented and tested before public exposure. Later phases retain their own contract gates.
+- [x] Phase-1 core unit and property tests cover identity, bounds, promised symmetry, valid metric properties, empty inputs, Unicode, repeated tokens, and invalid parameters.
 - [ ] Differential tests use matching variants; OSA/full-Damerau separation, directional Monge-Elkan, fuzzy-token collisions, and Soft TF-IDF normalization have dedicated regression cases.
 - [ ] Benchmarks show bounded behavior for long strings, repeated tokens, nested comparisons, and growing corpora; resource-limit failures are deterministic.
 - [ ] CLI text and JSON results agree with library calls; malformed parameters and file errors fail cleanly; offline execution requires no network or model.

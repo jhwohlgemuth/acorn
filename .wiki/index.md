@@ -51,7 +51,7 @@ Ranking uses impact first, then remaining difficulty, with user/architecture val
 | 21 | [Portable PID verification](testing/pid-verification.md) | Planned | Medium | High | B+ | Medium | Consolidation and Miri are practical; full Creusot/solver maintenance should proceed only after toolchain feasibility is proven. |
 | 22 | [WebMCP browser tools](features/webmcp-browser-tools.md) | Planned | Medium | Medium | B+ | Medium | Reuses shipped WASM bindings for a concrete demonstration; native browser compatibility and bounded execution need verification before implementation. |
 | 23 | [Beam inference integration](features/beam-inference-integration.md) | Planned | Medium | High | B | Medium | Release and serving evidence gate an explicit endpoint integration and ACORN evaluation. |
-| 24 | [Portable similarity measures and vocabulary coercion](features/similarity-measures.md) | Planned | Medium | High | B+ | Medium | Portable primitives support early vocabulary/organization resolution and loss-aware consumer migration; calibrated thresholds and compatibility evidence gate adoption. |
+| 24 | [Portable similarity measures and vocabulary coercion](features/similarity-measures.md) | In progress | Medium | High | B+ | Medium | Portable phase-1 primitives, tests, benchmarks, and documentation are implemented; the CLI and calibrated vocabulary/organization migration remain. |
 
 ### Coordination record
 

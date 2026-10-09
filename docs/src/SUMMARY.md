@@ -20,6 +20,7 @@
   - [Standards, formats, and interoperability](./concepts/standards.md)
   - [Persistent identifier lifecycle](./concepts/persistent-identifiers.md)
   - [Metadata enrichment](./concepts/enrichment.md)
+  - [Similarity and distance](./concepts/similarity.md)
   - [FAIR evidence assessment](./concepts/fair-assessment.md)
   - [Rooted in Category Theory](./concepts/category-theory.md)
   - [...But Is It Agentic?](./concepts/agentic.md)

@@ -1,0 +1,105 @@
+{
+  "source": {
+    "document": "Felix Naumann, Similarity measures, 11 June 2013",
+    "pageNumbering": "Physical PDF pages"
+  },
+  "edits": [
+    {
+      "name": "empty identity",
+      "left": "",
+      "right": "",
+      "levenshtein": 0,
+      "optimal_string_alignment": 0,
+      "damerau_levenshtein": 0,
+      "jaro": 1.0,
+      "jaro_winkler": 1.0
+    },
+    {
+      "name": "Jones and Johnson",
+      "left": "Jones",
+      "right": "Johnson",
+      "levenshtein": 4,
+      "optimal_string_alignment": 4,
+      "damerau_levenshtein": 4,
+      "jaro": 0.7904761904761904
+    },
+    {
+      "name": "Paul transposition",
+      "left": "Paul",
+      "right": "Pual",
+      "levenshtein": 2,
+      "optimal_string_alignment": 1,
+      "damerau_levenshtein": 1,
+      "jaro": 0.9166666666666666,
+      "jaro_winkler": 0.925
+    },
+    {
+      "name": "OSA and unrestricted Damerau separation",
+      "left": "CA",
+      "right": "ABC",
+      "levenshtein": 3,
+      "optimal_string_alignment": 3,
+      "damerau_levenshtein": 2,
+      "jaro": 0.0
+    },
+    {
+      "name": "Unicode scalar substitution",
+      "left": "é",
+      "right": "e",
+      "levenshtein": 1,
+      "optimal_string_alignment": 1,
+      "damerau_levenshtein": 1,
+      "jaro": 0.0
+    }
+  ],
+  "hamming": [
+    {
+      "name": "Peter and Pedro",
+      "left": "peter",
+      "right": "pedro",
+      "distance": 3
+    },
+    {
+      "name": "Unicode scalar substitution",
+      "left": "🙂",
+      "right": "🙃",
+      "distance": 1
+    }
+  ],
+  "numeric": [
+    {
+      "left": 10.0,
+      "right": 12.0,
+      "absolute_cutoff": 4.0,
+      "absolute_score": 0.5,
+      "percentage_difference": 16.666666666666668,
+      "percentage_cutoff": 25.0,
+      "percentage_score": 0.33333333333333326
+    },
+    {
+      "left": 0.0,
+      "right": 0.0,
+      "absolute_cutoff": 1.0,
+      "absolute_score": 1.0,
+      "percentage_difference": 0.0,
+      "percentage_cutoff": 10.0,
+      "percentage_score": 1.0
+    }
+  ],
+  "sets": [
+    {
+      "left": ["research", "data", "data"],
+      "right": ["research", "software"],
+      "overlap": 0.5,
+      "jaccard": 0.3333333333333333,
+      "dice": 0.5
+    },
+    {
+      "left": [],
+      "right": [],
+      "overlap": 1.0,
+      "jaccard": 1.0,
+      "dice": 1.0
+    }
+  ]
+}

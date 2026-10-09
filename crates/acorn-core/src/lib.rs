@@ -6,6 +6,8 @@ pub mod error;
 mod location;
 pub mod options;
 pub mod prelude;
+#[cfg(feature = "alloc")]
+pub mod similarity;
 pub mod time;
 pub mod util;
 pub mod validation;
