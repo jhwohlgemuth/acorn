@@ -395,6 +395,7 @@ version = "0.4.0"
 dependencies = [
  "acorn-analysis",
  "acorn-core",
+ "acorn-diff",
  "acorn-schema",
  "acorn-service",
  "eserde",

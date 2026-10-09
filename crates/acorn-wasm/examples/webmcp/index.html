@@ -7,58 +7,249 @@
   <style>
     :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
     body { margin: 0 auto; max-width: 72rem; padding: 2rem; }
-    button, select, textarea { font: inherit; }
+    button, input, select, textarea { font: inherit; }
     button { padding: .6rem 1rem; }
-    fieldset { border: 1px solid CanvasText; margin: 1.5rem 0; padding: 1rem; }
     label { display: block; font-weight: 600; margin: .75rem 0 .35rem; }
-    pre, textarea { box-sizing: border-box; width: 100%; }
+    input, pre, select, textarea { box-sizing: border-box; width: 100%; }
+    input, select { padding: .6rem; }
     pre { background: Canvas; border: 1px solid CanvasText; min-height: 6rem; overflow: auto; padding: 1rem; white-space: pre-wrap; }
     textarea { min-height: 10rem; padding: .75rem; }
     .actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .75rem; }
     .notice { border-inline-start: .35rem solid #8a6d00; padding-inline-start: 1rem; }
+    .output { background: Canvas; font-family: ui-monospace, monospace; min-height: 12rem; }
+    .tab-list { border-bottom: 1px solid CanvasText; display: flex; flex-wrap: wrap; gap: .25rem; margin-top: 1.5rem; }
+    .tab-list button { background: Canvas; border: 1px solid CanvasText; border-bottom: 0; }
+    .tab-list button[aria-selected="true"] { font-weight: 700; position: relative; top: 1px; }
+    [role="tabpanel"] { border: 1px solid CanvasText; border-top: 0; padding: 1rem; }
   </style>
 </head>
 <body>
   <main>
     <h1>ACORN browser tools</h1>
-    <p>Validate Research Activity JSON and assess prose locally with ACORN WebAssembly. Manual controls remain available when WebMCP is unsupported.</p>
+    <p>Validate and assess metadata, work with research identifiers, compare content, run typed crosswalks, and check prose locally with ACORN WebAssembly. Manual controls remain available when WebMCP is unsupported.</p>
     <p class="notice">A browser agent may send tool inputs and outputs to its configured model provider. ACORN itself performs these operations locally and does not add network, filesystem, storage, or process access.</p>
     <p id="capability-status" role="status" aria-live="polite">Initializing ACORN WebAssembly…</p>
 
-    <fieldset>
-      <legend>Research Activity validation</legend>
-      <label for="research-json">Research Activity JSON</label>
-      <textarea id="research-json" spellcheck="false">{
+    <div class="tab-list" role="tablist" aria-label="ACORN tools">
+      <button id="validation-tab" type="button" role="tab" aria-controls="validation-panel" aria-selected="true">Validate activity</button>
+      <button id="metadata-tab" type="button" role="tab" aria-controls="metadata-panel" aria-selected="false" tabindex="-1">Validate standard</button>
+      <button id="discovery-tab" type="button" role="tab" aria-controls="discovery-panel" aria-selected="false" tabindex="-1">Discover identifiers</button>
+      <button id="identifier-tab" type="button" role="tab" aria-controls="identifier-panel" aria-selected="false" tabindex="-1">Inspect identifier</button>
+      <button id="diff-tab" type="button" role="tab" aria-controls="diff-panel" aria-selected="false" tabindex="-1">Diff content</button>
+      <button id="fair-tab" type="button" role="tab" aria-controls="fair-panel" aria-selected="false" tabindex="-1">Assess FAIR</button>
+      <button id="crosswalk-tab" type="button" role="tab" aria-controls="crosswalk-panel" aria-selected="false" tabindex="-1">Crosswalk</button>
+      <button id="readability-tab" type="button" role="tab" aria-controls="readability-panel" aria-selected="false" tabindex="-1">Check readability</button>
+    </div>
+
+    <section id="validation-panel" role="tabpanel" aria-labelledby="validation-tab">
+      <h2>Validate Research Activity JSON</h2>
+      <p>Check supplied metadata against ACORN's Research Activity schema and review ordered diagnostics.</p>
+      <form id="validation-form">
+        <label for="research-json">Research Activity JSON</label>
+        <textarea id="research-json" spellcheck="false">{
   "title": "WebMCP demonstration",
   "contact": { "name": "ACORN user" }
 }</textarea>
-      <div class="actions">
-        <button id="validate" type="button" disabled>Validate JSON</button>
-      </div>
-    </fieldset>
+        <div class="actions">
+          <button id="validate" type="submit" disabled>Validate JSON</button>
+        </div>
+      </form>
+      <h3>Output</h3>
+      <p id="validation-status" role="status" aria-live="polite">No validation has run.</p>
+      <textarea id="validation-output" class="output" aria-label="Validation output" readonly spellcheck="false">{}</textarea>
+    </section>
 
-    <fieldset>
-      <legend>Readability</legend>
-      <label for="prose">Prose</label>
-      <textarea id="prose">Clear research summaries help people understand a project's purpose, methods, and expected outcomes.</textarea>
-      <label for="metric">Metric</label>
-      <select id="metric">
-        <option value="ari">Automated Readability Index</option>
-        <option value="cli">Coleman–Liau Index</option>
-        <option value="fkgl" selected>Flesch–Kincaid Grade Level</option>
-        <option value="fres">Flesch Reading Ease</option>
-        <option value="gfi">Gunning Fog Index</option>
-        <option value="lix">LIX</option>
-        <option value="smog">SMOG</option>
-      </select>
-      <div class="actions">
-        <button id="readability" type="button" disabled>Check readability</button>
-      </div>
-    </fieldset>
+    <section id="metadata-panel" role="tabpanel" aria-labelledby="metadata-tab" hidden>
+      <h2>Validate a metadata standard</h2>
+      <p>Parse supplied content with one of ACORN's portable metadata codecs and report ordered schema diagnostics.</p>
+      <form id="metadata-form">
+        <label for="metadata-content">Metadata content</label>
+        <textarea id="metadata-content" spellcheck="false">A plain text metadata document.</textarea>
+        <label for="metadata-standard">Standard</label>
+        <select id="metadata-standard">
+          <option value="citation-file-format">Citation File Format</option>
+          <option value="ckan">CKAN</option>
+          <option value="datacite">DataCite</option>
+          <option value="document">Document</option>
+          <option value="invenio">InvenioRDM</option>
+          <option value="kitfile">Kitfile</option>
+          <option value="modelkit">ModelKit</option>
+          <option value="raid">RAiD</option>
+          <option value="research-activity-data">Research Activity Data</option>
+          <option value="text" selected>Text</option>
+        </select>
+        <label for="metadata-format">Format</label>
+        <select id="metadata-format">
+          <option value="cff">CFF</option>
+          <option value="json">JSON</option>
+          <option value="jsonc">JSONC</option>
+          <option value="markdown">Markdown</option>
+          <option value="text" selected>Text</option>
+          <option value="yaml">YAML</option>
+          <option value="zon">ZON</option>
+        </select>
+        <div class="actions"><button id="validate-metadata" type="submit" disabled>Validate metadata</button></div>
+      </form>
+      <h3>Output</h3>
+      <p id="metadata-status" role="status" aria-live="polite">No metadata validation has run.</p>
+      <textarea id="metadata-output" class="output" aria-label="Metadata validation output" readonly spellcheck="false">{}</textarea>
+    </section>
 
-    <h2>Operation result</h2>
-    <p id="operation-status" role="status" aria-live="polite">No operation has run.</p>
-    <pre id="result" aria-label="Operation result">{}</pre>
+    <section id="discovery-panel" role="tabpanel" aria-labelledby="discovery-tab" hidden>
+      <h2>Discover persistent identifiers</h2>
+      <p>Find, classify, normalize, and deduplicate supported research identifiers in supplied text without resolving them.</p>
+      <form id="discovery-form">
+        <label for="discovery-text">Text</label>
+        <textarea id="discovery-text">Related work: https://doi.org/10.1000/182 and RRID:SCR_003512.</textarea>
+        <div class="actions"><button id="discover" type="submit" disabled>Discover identifiers</button></div>
+      </form>
+      <h3>Output</h3>
+      <p id="discovery-status" role="status" aria-live="polite">No identifier discovery has run.</p>
+      <textarea id="discovery-output" class="output" aria-label="Identifier discovery output" readonly spellcheck="false">{}</textarea>
+    </section>
+
+    <section id="identifier-panel" role="tabpanel" aria-labelledby="identifier-tab" hidden>
+      <h2>Inspect a persistent identifier</h2>
+      <p>Classify and normalize a research identifier locally, or select a kind to validate it strictly.</p>
+      <form id="identifier-form">
+        <label for="identifier-value">Identifier</label>
+        <input id="identifier-value" type="text" value="https://doi.org/10.1000/182" spellcheck="false">
+        <label for="identifier-kind">Kind</label>
+        <select id="identifier-kind">
+          <option value="" selected>Infer when unambiguous</option>
+          <option value="ark">ARK</option>
+          <option value="arxiv">arXiv</option>
+          <option value="doi">DOI</option>
+          <option value="handle">Handle</option>
+          <option value="isbn">ISBN</option>
+          <option value="isni">ISNI</option>
+          <option value="orcid">ORCID</option>
+          <option value="patent">Patent</option>
+          <option value="raid">RAiD</option>
+          <option value="ror">ROR</option>
+          <option value="rrid">RRID</option>
+          <option value="swhid">SWHID</option>
+        </select>
+        <div class="actions">
+          <button id="inspect" type="submit" disabled>Inspect identifier</button>
+        </div>
+      </form>
+      <h3>Output</h3>
+      <p id="identifier-status" role="status" aria-live="polite">No identifier inspection has run.</p>
+      <textarea id="identifier-output" class="output" aria-label="Identifier inspection output" readonly spellcheck="false">{}</textarea>
+    </section>
+
+    <section id="diff-panel" role="tabpanel" aria-labelledby="diff-tab" hidden>
+      <h2>Diff supplied content</h2>
+      <p>Compare two values as a unified text diff or a deterministic RFC 6902 JSON Patch.</p>
+      <form id="diff-form">
+        <label for="diff-before">Before</label>
+        <textarea id="diff-before" spellcheck="false">{"title":"Before"}</textarea>
+        <label for="diff-after">After</label>
+        <textarea id="diff-after" spellcheck="false">{"title":"After"}</textarea>
+        <label for="diff-mode">Mode</label>
+        <select id="diff-mode"><option value="json-patch" selected>JSON Patch</option><option value="unified">Unified text</option></select>
+        <div class="actions"><button id="diff" type="submit" disabled>Diff content</button></div>
+      </form>
+      <h3>Output</h3>
+      <p id="diff-status" role="status" aria-live="polite">No diff has run.</p>
+      <textarea id="diff-output" class="output" aria-label="Content diff output" readonly spellcheck="false">{}</textarea>
+    </section>
+
+    <section id="fair-panel" role="tabpanel" aria-labelledby="fair-tab" hidden>
+      <h2>Assess FAIR metadata</h2>
+      <p>Evaluate supplied JSON against ACORN's 41 portable RDA FAIR indicators and summarize support and coverage.</p>
+      <form id="fair-form">
+        <label for="fair-json">JSON metadata</label>
+        <textarea id="fair-json" spellcheck="false">{"title":"Example dataset","doi":"10.1000/182","license":"https://spdx.org/licenses/MIT.html"}</textarea>
+        <label for="fair-standard">Standard</label>
+        <select id="fair-standard">
+          <option value="datacite" selected>DataCite</option>
+          <option value="raid">RAiD</option>
+          <option value="research-activity-data">Research Activity Data</option>
+        </select>
+        <label for="fair-resource">Resource label or URI (optional)</label>
+        <input id="fair-resource" type="text" value="memory://dataset" spellcheck="false">
+        <div class="actions"><button id="assess-fair" type="submit" disabled>Assess FAIR metadata</button></div>
+      </form>
+      <h3>Output</h3>
+      <p id="fair-status" role="status" aria-live="polite">No FAIR assessment has run.</p>
+      <textarea id="fair-output" class="output" aria-label="FAIR assessment output" readonly spellcheck="false">{}</textarea>
+    </section>
+
+    <section id="crosswalk-panel" role="tabpanel" aria-labelledby="crosswalk-tab" hidden>
+      <h2>Crosswalk metadata</h2>
+      <p>Run an existing typed ACORN conversion and retain explicit warnings for fields that cannot be represented exactly.</p>
+      <form id="crosswalk-form">
+        <label for="crosswalk-content">Source metadata</label>
+        <textarea id="crosswalk-content" spellcheck="false">{
+  "meta": {
+    "archive": false,
+    "draft": true,
+    "status": "active",
+    "identifier": "datacite-project",
+    "doi": "https://doi.org/10.5072/acorn-project",
+    "typedDates": { "dateType": "Issued", "date": "2026-09-17T12:30:00-04:00" },
+    "organizations": {
+      "name": "Example Repository",
+      "identifiers": [{ "value": "https://ror.org/01qz5mb56", "scheme": "ROR", "schemeUri": "https://ror.org" }],
+      "roles": [{ "organization": { "value": "https://ror.org/01qz5mb56", "scheme": "ROR", "schemeUri": "https://ror.org" }, "role": "Publisher" }]
+    }
+  },
+  "title": "DataCite Project activity",
+  "contact": {
+    "jobTitle": "Researcher",
+    "givenName": "Jane",
+    "familyName": "Doe",
+    "email": "first_last@example.com",
+    "telephone": "123-456-7890",
+    "url": "https://example.com",
+    "organization": "Some Organization"
+  }
+}</textarea>
+        <label for="crosswalk-format">Source format</label>
+        <select id="crosswalk-format"><option value="json" selected>JSON</option><option value="jsonc">JSONC</option><option value="yaml">YAML</option><option value="zon">ZON</option></select>
+        <label for="crosswalk-pair">Conversion</label>
+        <select id="crosswalk-pair">
+          <option value="research-activity-data:datacite" selected>RAD → DataCite</option>
+          <option value="research-activity-data:raid">RAD → RAiD</option>
+          <option value="raid:research-activity-data">RAiD → RAD</option>
+        </select>
+        <label for="crosswalk-contact">RAiD → RAD contact seed (JSON)</label>
+        <textarea id="crosswalk-contact" spellcheck="false">{"first":"Ada","last":"Lovelace","email":"ada@example.org"}</textarea>
+        <label for="crosswalk-identifier">RAiD → RAD local identifier (optional)</label>
+        <input id="crosswalk-identifier" type="text" spellcheck="false">
+        <div class="actions"><button id="crosswalk" type="submit" disabled>Crosswalk metadata</button></div>
+      </form>
+      <h3>Output</h3>
+      <p id="crosswalk-status" role="status" aria-live="polite">No crosswalk has run.</p>
+      <textarea id="crosswalk-output" class="output" aria-label="Metadata crosswalk output" readonly spellcheck="false">{}</textarea>
+    </section>
+
+    <section id="readability-panel" role="tabpanel" aria-labelledby="readability-tab" hidden>
+      <h2>Check prose readability</h2>
+      <p>Score supplied prose with one of ACORN's portable readability metrics.</p>
+      <form id="readability-form">
+        <label for="prose">Prose</label>
+        <textarea id="prose">Clear research summaries help people understand a project's purpose, methods, and expected outcomes.</textarea>
+        <label for="metric">Metric</label>
+        <select id="metric">
+          <option value="ari">Automated Readability Index</option>
+          <option value="cli">Coleman–Liau Index</option>
+          <option value="fkgl" selected>Flesch–Kincaid Grade Level</option>
+          <option value="fres">Flesch Reading Ease</option>
+          <option value="gfi">Gunning Fog Index</option>
+          <option value="lix">LIX</option>
+          <option value="smog">SMOG</option>
+        </select>
+        <div class="actions">
+          <button id="readability" type="submit" disabled>Check readability</button>
+        </div>
+      </form>
+      <h3>Output</h3>
+      <p id="readability-status" role="status" aria-live="polite">No readability check has run.</p>
+      <textarea id="readability-output" class="output" aria-label="Readability output" readonly spellcheck="false">{}</textarea>
+    </section>
     <section id="smoke" hidden>
       <h2>Native WebMCP smoke</h2>
       <pre id="smoke-output" aria-label="Native WebMCP smoke result"></pre>

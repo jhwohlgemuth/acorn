@@ -3,6 +3,14 @@ import test from "node:test";
 
 import { createAcornWebMcpAdapter } from "./webmcp.js";
 
+const identifierValue = (overrides = {}) => ({
+    candidates: [],
+    kind: "doi",
+    normalized: "10.1000/182",
+    status: "valid",
+    ...overrides,
+});
+
 const readabilityValue = (overrides = {}) => ({
     checks: [
         {
@@ -20,8 +28,19 @@ const readabilityValue = (overrides = {}) => ({
     summary: [["Readability items found", "1"]],
 });
 
+const fairValue = () => ({
+    findings: Array.from({ length: 41 }, (_, index) => ({ indicator: { id: `RDA-${index}` }, state: "indeterminate" })),
+    profile: { resource: "memory://metadata", total: { indeterminate: 41, notApplicable: 0, supported: 0, unsupported: 0 } },
+});
+
 const bindings = (overrides = {}) => ({
+    assessFairMetadata: () => fairValue(),
     checkReadability: () => readabilityValue(),
+    crosswalkMetadata: (_content, _format, source, target) => ({ content: "{}", format: "json", source, target, warnings: [] }),
+    diffContent: () => ({ changed: true, diff: "--- before\n+++ after", mode: "unified" }),
+    discoverPersistentIdentifiers: () => ({ count: 1, identifiers: [{ kind: "doi", normalized: "10.1000/182" }], truncated: false }),
+    inspectPersistentIdentifier: () => identifierValue(),
+    validateMetadataStandard: () => ({ diagnostics: [], valid: true }),
     validateResearchActivity: () => ({ diagnostics: [], valid: true, value: { private: true } }),
     ...overrides,
 });
@@ -90,6 +109,81 @@ test("binding failures are redacted", async () => {
     });
 });
 
+test("new portable tools validate arguments and forward normalized values", async () => {
+    const calls = [];
+    const adapter = createAcornWebMcpAdapter(bindings({
+        assessFairMetadata: (...args) => {
+            calls.push(["fair", ...args]);
+            return fairValue();
+        },
+        crosswalkMetadata: (...args) => {
+            calls.push(["crosswalk", ...args]);
+            return { content: "{}", format: "json", source: args[2], target: args[3], warnings: [] };
+        },
+        diffContent: (...args) => {
+            calls.push(["diff", ...args]);
+            return { changed: true, mode: "json-patch", operations: [{ op: "replace", path: "/title", value: "After" }] };
+        },
+        discoverPersistentIdentifiers: (...args) => {
+            calls.push(["discover", ...args]);
+            return { count: 1, identifiers: [{ kind: "doi", normalized: "10.1000/182" }], truncated: false };
+        },
+        validateMetadataStandard: (...args) => {
+            calls.push(["validate", ...args]);
+            return { diagnostics: [], valid: true };
+        },
+    }));
+    assert.equal((await adapter.assessFairMetadata({ json: "{}", standard: "datacite" })).result.findings.length, 41);
+    assert.equal((await adapter.crosswalkMetadata({ content: "{}", format: "json", source: "research-activity-data", target: "datacite" })).ok, true);
+    assert.equal((await adapter.diffContent({ after: "{\"title\":\"After\"}", before: "{\"title\":\"Before\"}", mode: "json-patch" })).result.mode, "json-patch");
+    assert.equal((await adapter.discoverPersistentIdentifiers({ text: "doi:10.1000/182" })).result.identifiers[0].kind, "doi");
+    assert.equal((await adapter.validateMetadataStandard({ content: "{}", format: "json", standard: "datacite" })).result.valid, true);
+    assert.deepEqual(calls, [
+        ["fair", "{}", "datacite", undefined],
+        ["crosswalk", "{}", "json", "research-activity-data", "datacite", undefined, undefined],
+        ["diff", "{\"title\":\"Before\"}", "{\"title\":\"After\"}", "json-patch"],
+        ["discover", "doi:10.1000/182"],
+        ["validate", "{}", "datacite", "json"],
+    ]);
+});
+
+test("crosswalk enforces supported pairs and RAiD import contact", async () => {
+    const adapter = createAcornWebMcpAdapter(bindings());
+    assert.equal((await adapter.crosswalkMetadata({ content: "{}", format: "json", source: "datacite", target: "raid" })).error.code, "invalid_arguments");
+    assert.equal((await adapter.crosswalkMetadata({ content: "{}", format: "json", source: "raid", target: "research-activity-data" })).error.code, "invalid_arguments");
+    assert.equal((await adapter.crosswalkMetadata({
+        contact: { email: "person@example.org", name: "Example Person" },
+        content: "{}",
+        format: "json",
+        source: "raid",
+        target: "research-activity-data",
+    })).ok, true);
+    const contact = {};
+    contact.self = contact;
+    assert.equal((await adapter.crosswalkMetadata({
+        contact,
+        content: "{}",
+        format: "json",
+        source: "raid",
+        target: "research-activity-data",
+    })).error.code, "invalid_arguments");
+});
+
+test("diff and discovery enforce independent UTF-8 limits", async () => {
+    const adapter = createAcornWebMcpAdapter(bindings());
+    assert.equal((await adapter.diffContent({ after: "", before: "é".repeat(64 * 1024), mode: "unified" })).ok, true);
+    assert.equal((await adapter.diffContent({ after: "", before: `${"é".repeat(64 * 1024)}x`, mode: "unified" })).error.code, "input_too_large");
+    assert.equal((await adapter.discoverPersistentIdentifiers({ text: "é".repeat(8 * 1024) })).ok, true);
+    assert.equal((await adapter.discoverPersistentIdentifiers({ text: `${"é".repeat(8 * 1024)}x` })).error.code, "input_too_large");
+});
+
+test("bindings are required for every installed tool", () => {
+    assert.throws(
+        () => createAcornWebMcpAdapter({ checkReadability: () => readabilityValue(), validateResearchActivity: () => ({}) }),
+        /bindings are required/,
+    );
+});
+
 test("busy and cancellation policies avoid overlapping binding calls", async () => {
     const controller = new AbortController();
     const adapter = createAcornWebMcpAdapter(
@@ -106,16 +200,66 @@ test("busy and cancellation policies avoid overlapping binding calls", async () 
     assert.equal((await adapter.checkReadability({ metric: "fkgl", text: "Text." }, { signal: controller.signal })).error.code, "cancelled");
 });
 
+test("identifier inspection enforces optional kind and UTF-8 byte limits", async () => {
+    const calls = [];
+    const adapter = createAcornWebMcpAdapter(
+        bindings({
+            inspectPersistentIdentifier: (value, kind) => {
+                calls.push([value, kind]);
+                return identifierValue({ kind: kind ?? "doi" });
+            },
+        }),
+    );
+    assert.equal((await adapter.inspectPersistentIdentifier({ value: "10.1000/182" })).ok, true);
+    assert.equal((await adapter.inspectPersistentIdentifier({ kind: "doi", value: "10.1000/182" })).ok, true);
+    assert.equal((await adapter.inspectPersistentIdentifier({ kind: "unknown", value: "10.1000/182" })).error.code, "invalid_arguments");
+    assert.equal((await adapter.inspectPersistentIdentifier({ extra: true, value: "10.1000/182" })).error.code, "invalid_arguments");
+    assert.equal((await adapter.inspectPersistentIdentifier({ value: " " })).error.code, "invalid_arguments");
+    assert.equal((await adapter.inspectPersistentIdentifier({ value: "é".repeat(1024) })).ok, true);
+    assert.equal((await adapter.inspectPersistentIdentifier({ value: `${"é".repeat(1024)}x` })).error.code, "input_too_large");
+    assert.deepEqual(calls, [
+        ["10.1000/182", undefined],
+        ["10.1000/182", "doi"],
+        ["é".repeat(1024), undefined],
+    ]);
+});
+
+test("identifier inspection preserves valid invalid and ambiguous results", async () => {
+    const values = [
+        identifierValue(),
+        identifierValue({ candidates: [], kind: null, normalized: null, status: "invalid" }),
+        identifierValue({ candidates: ["isni", "orcid"], kind: null, normalized: null, status: "ambiguous" }),
+    ];
+    const adapter = createAcornWebMcpAdapter(bindings({ inspectPersistentIdentifier: () => values.shift() }));
+    assert.equal((await adapter.inspectPersistentIdentifier({ value: "10.1000/182" })).result.status, "valid");
+    assert.equal((await adapter.inspectPersistentIdentifier({ value: "invalid" })).result.status, "invalid");
+    assert.deepEqual((await adapter.inspectPersistentIdentifier({ value: "0000-0002-2057-9115" })).result.candidates, ["isni", "orcid"]);
+});
+
+test("identifier inspection rejects malformed binding results", async () => {
+    const adapter = createAcornWebMcpAdapter(bindings({ inspectPersistentIdentifier: () => ({ status: "valid" }) }));
+    assert.equal((await adapter.inspectPersistentIdentifier({ value: "10.1000/182" })).error.code, "execution_failed");
+});
+
 test("installation cleans up partial registration and permits retry", async () => {
     const adapter = createAcornWebMcpAdapter(bindings());
-    const failing = new FakeModelContext("acorn_validate_research_activity");
+    const failing = new FakeModelContext("acorn_inspect_persistent_identifier");
     await assert.rejects(adapter.install(failing).ready, /registration failed/);
     assert.equal(failing.tools.size, 0);
     assert.equal((await adapter.validateResearchActivity({ json: "{}" })).ok, true);
     const succeeding = new FakeModelContext();
     const installation = adapter.install(succeeding);
     assert.equal(await installation.ready, "installed");
-    assert.deepEqual([...succeeding.tools.keys()], ["acorn_check_readability", "acorn_validate_research_activity"]);
+    assert.deepEqual([...succeeding.tools.keys()], [
+        "acorn_assess_fair_metadata",
+        "acorn_check_readability",
+        "acorn_crosswalk_metadata",
+        "acorn_diff_content",
+        "acorn_discover_persistent_identifiers",
+        "acorn_inspect_persistent_identifier",
+        "acorn_validate_metadata_standard",
+        "acorn_validate_research_activity",
+    ]);
     installation.dispose();
     assert.equal(succeeding.tools.size, 0);
 });
@@ -150,6 +294,8 @@ test("installation registers strict schemas and safety annotations", async () =>
     const installation = adapter.install(context);
     assert.equal(await installation.ready, "installed");
     const readability = context.tools.get("acorn_check_readability");
+    const identifier = context.tools.get("acorn_inspect_persistent_identifier");
+    const metadata = context.tools.get("acorn_validate_metadata_standard");
     const validation = context.tools.get("acorn_validate_research_activity");
     assert.deepEqual(readability.annotations, {
         consequentialHint: false,
@@ -159,8 +305,27 @@ test("installation registers strict schemas and safety annotations", async () =>
     assert.equal(readability.inputSchema.additionalProperties, false);
     assert.deepEqual(readability.inputSchema.required, ["metric", "text"]);
     assert.deepEqual(readability.inputSchema.properties.metric.enum, ["ari", "cli", "fkgl", "fres", "gfi", "lix", "smog"]);
+    assert.equal(identifier.inputSchema.additionalProperties, false);
+    assert.deepEqual(identifier.inputSchema.required, ["value"]);
+    assert.deepEqual(identifier.inputSchema.properties.kind.enum, [
+        "ark",
+        "arxiv",
+        "doi",
+        "handle",
+        "isbn",
+        "isni",
+        "orcid",
+        "patent",
+        "raid",
+        "ror",
+        "rrid",
+        "swhid",
+    ]);
     assert.equal(validation.inputSchema.additionalProperties, false);
     assert.deepEqual(validation.inputSchema.required, ["json"]);
+    assert.deepEqual(metadata.inputSchema.required, ["content", "format", "standard"]);
+    assert.deepEqual(context.tools.get("acorn_diff_content").inputSchema.properties.mode.enum, ["json-patch", "unified"]);
+    assert.deepEqual(context.tools.get("acorn_crosswalk_metadata").inputSchema.required, ["content", "format", "source", "target"]);
     installation.dispose();
 });
 

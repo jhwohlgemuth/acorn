@@ -1,6 +1,6 @@
 # ACORN WebMCP demonstration
 
-This page exercises ACORN's generated browser WASM package through manual controls and the experimental native WebMCP imperative API. ACORN performs both operations locally. A browser agent may still send tool inputs and outputs to its configured model provider.
+This page exercises ACORN's generated browser WASM package through an eight-tab manual interface and the experimental native WebMCP imperative API. Each tool tab has its own description, inputs, action, status, and output. ACORN performs metadata and Research Activity validation, persistent-identifier discovery and inspection, content diffing, FAIR assessment, typed metadata crosswalks, and readability analysis locally. A browser agent may still send tool inputs and outputs to its configured model provider.
 
 ## Build and serve
 
@@ -24,4 +24,4 @@ Record the test date, Chrome version/channel, enabled flag or origin-trial confi
 
 The smoke uses `getTools()` and `executeTool()` directly and requires no model-provider credentials. It accepts Chrome 154's serialized `inputSchema` and JSON-string execution arguments as well as the current draft's structured values. Cross-origin exposure is outside the initial support matrix; WebMCP's `tools` Permissions Policy defaults to the top-level and same-origin contexts used here.
 
-Reference result: Chrome 154.0.8037.98 on macOS passed on 2026-10-08 with maximum warm times of 2.90 ms across 20 validation calls at 256 KiB and 15.30 ms across 20 readability calls at 16 KiB.
+The eight-tool reference result passed in Chrome 154.0.0.0 on macOS on 2026-10-09, with maximum warm times of 12.60 ms across 20 identifier calls at 2 KiB, 2.90 ms across 20 validation calls at 256 KiB, and 8.20 ms across 20 readability calls at 16 KiB.
