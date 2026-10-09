@@ -10,7 +10,9 @@
 // returns Err during `try_parse_from` as a signal to display version info.
 
 use crate::cli::arguments::osti::DoeLab;
-use crate::cli::arguments::{AcpAgentKind, CheckOutputFormat, DiffOutputFormat, FileFormat, InferenceBackendKind, SyncTarget};
+use crate::cli::arguments::{
+    AcpAgentKind, CheckOutputFormat, DiffOutputFormat, FileFormat, InferenceBackendKind, SimilarityMethod, SimilarityPreprocessing, SyncTarget,
+};
 use crate::cli::parse::infer_standard_from_content;
 use crate::cli::{
     resolve_export_paths, resolve_paths, resolve_paths_including, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands,
@@ -384,9 +386,65 @@ fn test_diff_arguments() {
         Some(Commands::Diff(arguments))
             if arguments.before.as_path() == Path::new("before.json")
                 && arguments.after.as_path() == Path::new("after.yaml")
-                && arguments.format == DiffOutputFormat::Diff
+                && arguments.format == Some(DiffOutputFormat::Diff)
                 && arguments.standard == Some(Standard::ResearchActivityData)
     ));
+}
+#[test]
+fn test_diff_rejects_similarity_flags_without_method() {
+    assert!(Arguments::try_parse_from(["acorn", "diff", "before.txt", "after.txt", "--values"]).is_err());
+    assert!(Arguments::try_parse_from(["acorn", "diff", "before.txt", "after.txt", "--preprocessing", "lowercase"]).is_err());
+    assert!(Arguments::try_parse_from(["acorn", "diff", "before.txt", "after.txt", "--preprocessing", "raw"]).is_err());
+    assert!(Arguments::try_parse_from(["acorn", "diff", "before.txt", "after.txt", "--max-work-units", "10"]).is_err());
+}
+#[test]
+fn test_diff_similarity_aliases() {
+    [
+        ("osa", SimilarityMethod::OptimalStringAlignment),
+        ("dice", SimilarityMethod::SorensenDice),
+    ]
+    .into_iter()
+    .for_each(|(alias, expected)| {
+        let arguments =
+            Arguments::try_parse_from(["acorn", "diff", "left", "right", "--method", alias, "--values"]).expect("parse similarity method alias");
+        assert!(matches!(
+            arguments.command,
+            Some(Commands::Diff(arguments))
+                if arguments.method == Some(expected) && arguments.preprocessing == SimilarityPreprocessing::Raw
+        ));
+    });
+}
+#[test]
+fn test_diff_similarity_arguments() {
+    let arguments = Arguments::try_parse_from([
+        "acorn",
+        "diff",
+        "Research Data",
+        "research software",
+        "--method",
+        "jaccard",
+        "--values",
+        "--preprocessing",
+        "lowercase",
+        "--format",
+        "json",
+        "--max-collection-items",
+        "128",
+    ])
+    .expect("parse diff similarity arguments");
+    assert!(matches!(
+        arguments.command,
+        Some(Commands::Diff(arguments))
+            if arguments.method == Some(SimilarityMethod::Jaccard)
+                && arguments.values
+                && arguments.preprocessing == SimilarityPreprocessing::Lowercase
+                && arguments.format == Some(DiffOutputFormat::Json)
+                && arguments.max_collection_items == Some(128)
+    ));
+}
+#[test]
+fn test_diff_similarity_conflicts_with_standard() {
+    assert!(Arguments::try_parse_from(["acorn", "diff", "left", "right", "--method", "exact", "--values", "--standard", "rads",]).is_err());
 }
 #[test]
 fn test_download_canonicalize_argument() {

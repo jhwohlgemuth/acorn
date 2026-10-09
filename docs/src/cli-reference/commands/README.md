@@ -3,6 +3,7 @@
 - [✅ Check](./check.md)
 - [🏗️ Create](./create.md)
 - [👨‍⚕️ Doctor](./doctor.md)
+- [🔀 Diff](./diff.md)
 - [📥 Download](./download.md)
 - [📤 Export](./export.md)
 - [🤖 Format](./format.md)

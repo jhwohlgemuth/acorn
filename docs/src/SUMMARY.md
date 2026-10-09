@@ -32,6 +32,7 @@
     - [check](./cli-reference/commands/check.md)
     - [create](./cli-reference/commands/create.md)
     - [doctor](./cli-reference/commands/doctor.md)
+    - [diff](./cli-reference/commands/diff.md)
     - [download](./cli-reference/commands/download.md)
     - [export](./cli-reference/commands/export.md)
     - [format](./cli-reference/commands/format.md)

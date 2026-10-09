@@ -81,6 +81,43 @@ fn damerau_levenshtein(left: &[char], right: &[char]) -> usize {
     }
     current[columns.len() + 1]
 }
+/// Calculate unrestricted Damerau-Levenshtein distance with unit edit costs.
+pub fn damerau_levenshtein_distance(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<usize> {
+    checked_pair(left, right, limits).map(|(left, right)| damerau_levenshtein(&left, &right))
+}
+/// Calculate normalized unrestricted Damerau-Levenshtein similarity.
+pub fn damerau_levenshtein_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
+    checked_pair(left, right, limits)
+        .and_then(|(left, right)| SimilarityScore::normalized(damerau_levenshtein(&left, &right), left.len().max(right.len())))
+}
+/// Return one for exact raw string equality and zero otherwise.
+pub fn exact_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
+    limits
+        .check_input(left, "left")
+        .and_then(|_| limits.check_input(right, "right"))
+        .map(|_| match left == right {
+            | true => SimilarityScore::ONE,
+            | false => SimilarityScore::ZERO,
+        })
+}
+/// Calculate Hamming distance over Unicode scalar values.
+pub fn hamming_distance(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<usize> {
+    limits.check_input(left, "left").and_then(|left_len| {
+        limits.check_input(right, "right").and_then(|right_len| match left_len == right_len {
+            | true => Ok(left.chars().zip(right.chars()).filter(|(left, right)| left != right).count()),
+            | false => Err(SimilarityError::UnequalLengths {
+                left: left_len,
+                right: right_len,
+            }),
+        })
+    })
+}
+/// Calculate normalized Hamming similarity over Unicode scalar values.
+pub fn hamming_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
+    limits
+        .check_input(left, "left")
+        .and_then(|left_len| hamming_distance(left, right, limits).and_then(|distance| SimilarityScore::normalized(distance, left_len)))
+}
 fn jaro(left: &[char], right: &[char]) -> f64 {
     match (left.len(), right.len()) {
         | (0, 0) => 1.0,
@@ -113,6 +150,24 @@ fn jaro(left: &[char], right: &[char]) -> f64 {
         }
     }
 }
+/// Calculate Jaro similarity over Unicode scalar values.
+pub fn jaro_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
+    checked_pair(left, right, limits).and_then(|(left, right)| SimilarityScore::new(jaro(&left, &right)))
+}
+/// Calculate conventional Jaro-Winkler similarity with a four-scalar prefix and 0.1 scale.
+pub fn jaro_winkler_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
+    checked_pair(left, right, limits).and_then(|(left, right)| {
+        let score = jaro(&left, &right);
+        let adjusted = match score > 0.7 {
+            | true => {
+                let prefix = left.iter().zip(&right).take(4).take_while(|(left, right)| left == right).count();
+                score + 0.1 * prefix as f64 * (1.0 - score)
+            }
+            | false => score,
+        };
+        SimilarityScore::new(adjusted)
+    })
+}
 fn levenshtein(left: &[char], right: &[char]) -> usize {
     let (rows, columns) = match left.len() >= right.len() {
         | true => (left, right),
@@ -132,11 +187,13 @@ fn levenshtein(left: &[char], right: &[char]) -> usize {
     }
     result
 }
-fn normalized(distance: usize, maximum_length: usize) -> SimilarityResult<SimilarityScore> {
-    match maximum_length {
-        | 0 => Ok(SimilarityScore::ONE),
-        | _ => SimilarityScore::new(1.0 - distance as f64 / maximum_length as f64),
-    }
+/// Calculate Levenshtein distance with unit insertion, deletion, and substitution costs.
+pub fn levenshtein_distance(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<usize> {
+    checked_pair(left, right, limits).map(|(left, right)| levenshtein(&left, &right))
+}
+/// Calculate normalized Levenshtein similarity.
+pub fn levenshtein_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
+    checked_pair(left, right, limits).and_then(|(left, right)| SimilarityScore::normalized(levenshtein(&left, &right), left.len().max(right.len())))
 }
 fn optimal_string_alignment(left: &[char], right: &[char]) -> usize {
     let (rows, columns) = match left.len() >= right.len() {
@@ -165,75 +222,14 @@ fn optimal_string_alignment(left: &[char], right: &[char]) -> usize {
     }
     previous[columns.len()]
 }
-/// Calculate unrestricted Damerau-Levenshtein distance with unit edit costs.
-pub fn damerau_levenshtein_distance(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<usize> {
-    checked_pair(left, right, limits).map(|(left, right)| damerau_levenshtein(&left, &right))
-}
-/// Calculate normalized unrestricted Damerau-Levenshtein similarity.
-pub fn damerau_levenshtein_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
-    checked_pair(left, right, limits).and_then(|(left, right)| normalized(damerau_levenshtein(&left, &right), left.len().max(right.len())))
-}
-/// Return one for exact raw string equality and zero otherwise.
-pub fn exact_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
-    limits
-        .check_input(left, "left")
-        .and_then(|_| limits.check_input(right, "right"))
-        .map(|_| match left == right {
-            | true => SimilarityScore::ONE,
-            | false => SimilarityScore::ZERO,
-        })
-}
-/// Calculate Hamming distance over Unicode scalar values.
-pub fn hamming_distance(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<usize> {
-    limits.check_input(left, "left").and_then(|left_len| {
-        limits.check_input(right, "right").and_then(|right_len| match left_len == right_len {
-            | true => Ok(left.chars().zip(right.chars()).filter(|(left, right)| left != right).count()),
-            | false => Err(SimilarityError::UnequalLengths {
-                left: left_len,
-                right: right_len,
-            }),
-        })
-    })
-}
-/// Calculate normalized Hamming similarity over Unicode scalar values.
-pub fn hamming_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
-    limits
-        .check_input(left, "left")
-        .and_then(|left_len| hamming_distance(left, right, limits).and_then(|distance| normalized(distance, left_len)))
-}
-/// Calculate Jaro similarity over Unicode scalar values.
-pub fn jaro_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
-    checked_pair(left, right, limits).and_then(|(left, right)| SimilarityScore::new(jaro(&left, &right)))
-}
-/// Calculate conventional Jaro-Winkler similarity with a four-scalar prefix and 0.1 scale.
-pub fn jaro_winkler_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
-    checked_pair(left, right, limits).and_then(|(left, right)| {
-        let score = jaro(&left, &right);
-        let adjusted = match score > 0.7 {
-            | true => {
-                let prefix = left.iter().zip(&right).take(4).take_while(|(left, right)| left == right).count();
-                score + 0.1 * prefix as f64 * (1.0 - score)
-            }
-            | false => score,
-        };
-        SimilarityScore::new(adjusted)
-    })
-}
-/// Calculate Levenshtein distance with unit insertion, deletion, and substitution costs.
-pub fn levenshtein_distance(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<usize> {
-    checked_pair(left, right, limits).map(|(left, right)| levenshtein(&left, &right))
-}
-/// Calculate normalized Levenshtein similarity.
-pub fn levenshtein_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
-    checked_pair(left, right, limits).and_then(|(left, right)| normalized(levenshtein(&left, &right), left.len().max(right.len())))
-}
 /// Calculate restricted optimal-string-alignment distance with unit edit costs.
 pub fn optimal_string_alignment_distance(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<usize> {
     checked_pair(left, right, limits).map(|(left, right)| optimal_string_alignment(&left, &right))
 }
 /// Calculate normalized restricted optimal-string-alignment similarity.
 pub fn optimal_string_alignment_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
-    checked_pair(left, right, limits).and_then(|(left, right)| normalized(optimal_string_alignment(&left, &right), left.len().max(right.len())))
+    checked_pair(left, right, limits)
+        .and_then(|(left, right)| SimilarityScore::normalized(optimal_string_alignment(&left, &right), left.len().max(right.len())))
 }
 /// Compare the first requested number of Unicode scalar values for exact equality.
 pub fn prefix_similarity(left: &str, right: &str, count: usize, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {

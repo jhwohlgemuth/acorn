@@ -102,13 +102,19 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Doctor(Box<arguments::Doctor>),
-    /// Compare two files using their typed metadata representation
+    /// Compare files semantically or calculate pairwise similarity
     ///
     ///     Print a unified semantic diff
     ///     $> acorn diff before.json after.json
     ///
     ///     Print an RFC 6902 JSON Patch
     ///     $> acorn diff before.yaml after.yaml --format json-patch
+    ///
+    ///     Compare literal text with optimal string alignment
+    ///     $> acorn diff Paul Pual --method optimal-string-alignment --values
+    ///
+    ///     Compare file word sets and emit structured JSON
+    ///     $> acorn diff before.txt after.txt --method jaccard --format json
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Diff(Box<arguments::Diff>),

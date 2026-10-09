@@ -11,7 +11,7 @@
 
 ## Planned
 
-- [Portable similarity measures, vocabulary coercion, and explicit comparison](similarity-measures.md) - Add bounded Rust primitives and an early vocabulary-resolution slice with explicit aliases, ambiguity reporting, portable parity, and loss-aware formatting/enrichment; expose pairwise comparison before evaluating duplicate suggestions.
+- [Portable similarity measures, vocabulary coercion, and explicit comparison](similarity-measures.md) - Bounded Rust primitives and `acorn diff --method` pairwise comparison are implemented; next add vocabulary resolution with explicit aliases, ambiguity reporting, portable parity, and loss-aware formatting/enrichment.
 
 - [Release-gated Beam inference integration](beam-inference-integration.md) - Verify released serving contracts, then evaluate an explicitly configured hosted or operator-owned endpoint independently of local SLM sidecars.
 

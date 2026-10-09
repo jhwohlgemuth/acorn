@@ -73,7 +73,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * `check` — Perform static analysis on research activity data and apply standardized best practices
 * `create` — Create research resources like GitLab runners, MCP servers, etc.
 * `doctor` — Diagnose and correct system requirements for using acorn
-* `diff` — Compare two files using their typed metadata representation
+* `diff` — Compare files semantically or calculate pairwise similarity
 * `download` — Download research activity data from buckets or model weights for local inference
 * `export` — Export research activity data to a specific target
 * `infer` — Run bounded inference through Needle or a configured prompt backend
@@ -442,7 +442,7 @@ Diagnose and correct system requirements for using acorn
 
 ## `acorn-cli diff`
 
-Compare two files using their typed metadata representation
+Compare files semantically or calculate pairwise similarity
 
     Print a unified semantic diff
     $> acorn diff before.json after.json
@@ -450,26 +450,83 @@ Compare two files using their typed metadata representation
     Print an RFC 6902 JSON Patch
     $> acorn diff before.yaml after.yaml --format json-patch
 
+    Compare literal text with optimal string alignment
+    $> acorn diff Paul Pual --method optimal-string-alignment --values
+
+    Compare file word sets and emit structured JSON
+    $> acorn diff before.txt after.txt --method jaccard --format json
+
 **Usage:** `acorn-cli diff [OPTIONS] <BEFORE> <AFTER>`
 
 ###### **Arguments:**
 
-* `<BEFORE>` — Original file
-* `<AFTER>` — Revised file
+* `<BEFORE>` — Original file, or left literal with --values
+* `<AFTER>` — Revised file, or right literal with --values
 
 ###### **Options:**
 
+* `--cutoff <FLOAT>` — Positive numeric difference cutoff
 * `--format <FORMAT>` — Comparison output format
-
-  Default value: `diff`
 
   Possible values:
   - `diff`:
     Unified semantic diff
+  - `json`:
+    Structured similarity result
   - `json-patch`:
     RFC 6902 JSON Patch
+  - `text`:
+    Human-readable similarity result
+
+* `--length <N>` — Positive prefix or suffix scalar count
+* `--max-collection-items <N>` — Maximum generated or supplied collection items
+* `--max-input-scalars <N>` — Maximum Unicode scalar values in either textual operand
+* `--max-work-units <N>` — Maximum charged comparison work units
+* `--method <METHOD>` — Pairwise similarity method; switches from semantic diff mode
+
+  Possible values:
+  - `absolute-difference`:
+    Piecewise-linear similarity over absolute numeric difference
+  - `damerau-levenshtein`:
+    Unrestricted unit-cost Damerau-Levenshtein similarity
+  - `exact`:
+    Exact textual equality
+  - `hamming`:
+    Equal-length scalar Hamming similarity
+  - `jaccard`:
+    Deduplicated Jaccard set similarity
+  - `jaro`:
+    Conventional Jaro similarity
+  - `jaro-winkler`:
+    Conventional Jaro-Winkler similarity
+  - `levenshtein`:
+    Unit-cost Levenshtein similarity
+  - `optimal-string-alignment`:
+    Restricted optimal string alignment similarity
+  - `overlap`:
+    Deduplicated overlap coefficient
+  - `percentage-difference`:
+    Piecewise-linear similarity over symmetric percentage difference
+  - `prefix`:
+    Exact equality over a leading scalar count
+  - `sorensen-dice`:
+    Deduplicated Sorensen-Dice set similarity
+  - `suffix`:
+    Exact equality over a trailing scalar count
+
+* `--ngram-width <N>` — Use unpadded character n-grams instead of words for set methods
+* `--preprocessing <MODE>` — Text preprocessing; defaults to raw
+
+  Default value: `raw`
+
+  Possible values:
+  - `lowercase`:
+    Apply Rust Unicode lowercase mapping
+  - `raw`:
+    Preserve the original scalar sequence
 
 * `-s`, `--standard <STANDARD>` — Metadata standard override
+* `--values` — Treat both operands as literal values instead of file paths
 
 
 

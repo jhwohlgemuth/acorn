@@ -1,3 +1,4 @@
+//! Integration tests for portable similarity primitives and comparisons.
 #![allow(
     clippy::arithmetic_side_effects,
     clippy::expect_used,
@@ -61,6 +62,9 @@ fn assert_close(actual: f64, expected: f64) {
 fn fixtures() -> Fixture {
     serde_json::from_str(FIXTURES).expect("similarity fixture should deserialize")
 }
+fn options(method: SimilarityMethod) -> ComparisonOptions {
+    ComparisonOptions::init().method(method).build()
+}
 
 proptest! {
     #[test]
@@ -102,6 +106,74 @@ proptest! {
     }
 }
 
+#[test]
+fn test_binary_and_truncated_text_methods() {
+    [
+        (SimilarityMethod::Exact, "same", "same", None),
+        (SimilarityMethod::Jaro, "same", "same", None),
+        (SimilarityMethod::JaroWinkler, "same", "same", None),
+        (SimilarityMethod::Prefix, "acorn", "apple", Some(1)),
+        (SimilarityMethod::Suffix, "data", "meta", Some(1)),
+    ]
+    .into_iter()
+    .for_each(|(method, left, right, length)| {
+        let result = compare(left, right, ComparisonOptions::init().method(method).maybe_length(length).build()).expect("compare text values");
+        assert_eq!(result.score, SimilarityScore::ONE);
+    });
+}
+#[test]
+fn test_display_values_are_stable() {
+    assert_eq!(SimilarityMethod::OptimalStringAlignment.to_string(), "optimal-string-alignment");
+    assert_eq!(SimilarityScoreSemantics::default().to_string(), "zero-to-one-higher-is-more-similar");
+    assert_eq!(
+        SimilarityTokenization::CharacterNgrams { width: 3 }.to_string(),
+        "character-ngrams (width=3)"
+    );
+}
+#[test]
+fn test_edit_scores_match_core_functions() {
+    let limits = SimilarityLimits::default();
+    [
+        (
+            SimilarityMethod::DamerauLevenshtein,
+            damerau_levenshtein_similarity("CA", "ABC", limits).expect("calculate Damerau-Levenshtein score"),
+        ),
+        (
+            SimilarityMethod::Hamming,
+            hamming_similarity("peter", "pedro", limits).expect("calculate Hamming score"),
+        ),
+        (
+            SimilarityMethod::Levenshtein,
+            levenshtein_similarity("kitten", "sitting", limits).expect("calculate Levenshtein score"),
+        ),
+        (
+            SimilarityMethod::OptimalStringAlignment,
+            optimal_string_alignment_similarity("Paul", "Pual", limits).expect("calculate OSA score"),
+        ),
+    ]
+    .into_iter()
+    .for_each(|(method, expected)| {
+        let actual = compare(
+            match method {
+                | SimilarityMethod::DamerauLevenshtein => "CA",
+                | SimilarityMethod::Hamming => "peter",
+                | SimilarityMethod::Levenshtein => "kitten",
+                | SimilarityMethod::OptimalStringAlignment => "Paul",
+                | _ => unreachable!(),
+            },
+            match method {
+                | SimilarityMethod::DamerauLevenshtein => "ABC",
+                | SimilarityMethod::Hamming => "pedro",
+                | SimilarityMethod::Levenshtein => "sitting",
+                | SimilarityMethod::OptimalStringAlignment => "Pual",
+                | _ => unreachable!(),
+            },
+            options(method),
+        )
+        .expect("compare edit values");
+        assert_eq!(actual.score, expected);
+    });
+}
 #[test]
 fn test_empty_and_unicode_inputs_use_scalar_semantics() {
     let limits = SimilarityLimits::default();
@@ -217,6 +289,16 @@ fn test_limits_reject_work_before_processing() {
     assert!(SimilarityLimits::new(0, 1, 1).is_err());
 }
 #[test]
+fn test_lowercase_exact_comparison() {
+    let options = ComparisonOptions::init()
+        .method(SimilarityMethod::Exact)
+        .preprocessing(SimilarityPreprocessing::Lowercase)
+        .build();
+    let result = compare("ACORN", "acorn", options).expect("compare lowercase values");
+    assert_eq!(result.score, SimilarityScore::ONE);
+    assert_eq!(result.preprocessing, Some(SimilarityPreprocessing::Lowercase));
+}
+#[test]
 fn test_ngram_preparation_is_explicit_and_bounded() {
     let limits = SimilarityLimits::default();
     let plain = NgramOptions::new(2).expect("valid width");
@@ -242,6 +324,35 @@ fn test_ngram_preparation_is_explicit_and_bounded() {
     assert!(character_ngrams("a", TextPreprocessing::Raw, oversized, limits).is_err());
 }
 #[test]
+fn test_numeric_comparison_rejects_text_preprocessing() {
+    let options = ComparisonOptions::init()
+        .method(SimilarityMethod::AbsoluteDifference)
+        .cutoff(2.0)
+        .preprocessing(SimilarityPreprocessing::Lowercase)
+        .build();
+    assert!(matches!(
+        compare("1", "2", options),
+        Err(ComparisonError::IncompatibleOption { option: "preprocessing", .. })
+    ));
+}
+#[test]
+fn test_numeric_comparison_reports_absolute_difference() {
+    let options = ComparisonOptions::init().method(SimilarityMethod::AbsoluteDifference).cutoff(4.0).build();
+    let result = compare("10", "12", options).expect("compare numeric values");
+    assert_eq!(result.distance, Some(SimilarityDistance::AbsoluteDifference(2.0)));
+    assert_eq!(result.score.value(), 0.5);
+}
+#[test]
+fn test_numeric_comparison_reports_raw_distance() {
+    let options = ComparisonOptions::init()
+        .method(SimilarityMethod::PercentageDifference)
+        .cutoff(25.0)
+        .build();
+    let result = compare(" 10\n", "12", options).expect("compare numeric values");
+    assert_eq!(result.distance, Some(SimilarityDistance::PercentageDifference(100.0 / 6.0)));
+    assert_eq!(result.score.value(), 0.333_333_333_333_333_26);
+}
+#[test]
 fn test_numeric_validation_rejects_invalid_values() {
     assert_eq!(absolute_difference_similarity(1.0, 2.0, 0.0), Err(SimilarityError::InvalidCutoff));
     assert!(absolute_difference_similarity(f64::MAX, -f64::MAX, 1.0).is_err());
@@ -249,10 +360,43 @@ fn test_numeric_validation_rejects_invalid_values() {
     assert_eq!(percentage_difference(-1.0, 1.0), Ok(200.0));
 }
 #[test]
+fn test_prefix_requires_length() {
+    assert!(matches!(
+        compare("acorn", "acoustic", options(SimilarityMethod::Prefix)),
+        Err(ComparisonError::MissingOption { option: "length", .. })
+    ));
+}
+#[test]
 fn test_score_validation_and_serialization() {
     assert_eq!(SimilarityScore::new(-0.1), Err(SimilarityError::InvalidScore));
     assert_eq!(SimilarityScore::new(f64::NAN), Err(SimilarityError::InvalidScore));
+    assert_eq!(SimilarityScore::normalized(3, 7).map(SimilarityScore::value), Ok(4.0 / 7.0));
+    assert_eq!(SimilarityScore::normalized(0, 0), Ok(SimilarityScore::ONE));
     assert_eq!(serde_json::to_string(&SimilarityScore::ONE).expect("score should serialize"), "1.0");
+}
+#[test]
+fn test_set_comparison_supports_character_ngrams() {
+    let options = ComparisonOptions::init()
+        .method(SimilarityMethod::Jaccard)
+        .tokenization(SimilarityTokenization::CharacterNgrams { width: 2 })
+        .build();
+    let result = compare("abc", "abd", options).expect("compare n-gram sets");
+    assert_eq!(result.score.value(), 1.0 / 3.0);
+    assert_eq!(result.parameters.tokenization, Some(SimilarityTokenization::CharacterNgrams { width: 2 }));
+}
+#[test]
+fn test_set_comparison_uses_deduplicated_words() {
+    [
+        (SimilarityMethod::Jaccard, 1.0 / 3.0),
+        (SimilarityMethod::Overlap, 0.5),
+        (SimilarityMethod::SorensenDice, 0.5),
+    ]
+    .into_iter()
+    .for_each(|(method, expected)| {
+        let result = compare("research data data", "research software", options(method)).expect("compare word sets");
+        assert_eq!(result.score.value(), expected);
+        assert_eq!(result.parameters.tokenization, Some(SimilarityTokenization::Words));
+    });
 }
 #[test]
 fn test_word_preprocessing_preserves_sequence_and_duplicates() {

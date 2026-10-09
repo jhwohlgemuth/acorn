@@ -204,15 +204,19 @@ pub enum Diagnostic {
     Gpu,
     Software,
 }
-/// Output format for semantic comparisons.
+/// Output format for semantic or similarity comparisons.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, strum::EnumIs, ValueEnum)]
 pub(crate) enum DiffOutputFormat {
     /// Unified semantic diff.
     #[default]
     #[value(alias = "unified")]
     Diff,
+    /// Structured similarity result.
+    Json,
     /// RFC 6902 JSON Patch.
     JsonPatch,
+    /// Human-readable similarity result.
+    Text,
 }
 /// Target export file formats available when exporting research activity data
 #[derive(Clone, Debug, Default, Display, EnumIs, ValueEnum)]
@@ -301,6 +305,50 @@ pub(crate) enum PromptDataFormatArg {
     /// Canonical ZON.
     #[default]
     Zon,
+}
+/// Pairwise similarity method.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub(crate) enum SimilarityMethod {
+    /// Piecewise-linear similarity over absolute numeric difference.
+    AbsoluteDifference,
+    /// Unrestricted unit-cost Damerau-Levenshtein similarity.
+    DamerauLevenshtein,
+    /// Exact textual equality.
+    Exact,
+    /// Equal-length scalar Hamming similarity.
+    Hamming,
+    /// Deduplicated Jaccard set similarity.
+    Jaccard,
+    /// Conventional Jaro similarity.
+    Jaro,
+    /// Conventional Jaro-Winkler similarity.
+    JaroWinkler,
+    /// Unit-cost Levenshtein similarity.
+    Levenshtein,
+    /// Restricted optimal string alignment similarity.
+    #[value(alias = "osa")]
+    OptimalStringAlignment,
+    /// Deduplicated overlap coefficient.
+    Overlap,
+    /// Piecewise-linear similarity over symmetric percentage difference.
+    PercentageDifference,
+    /// Exact equality over a leading scalar count.
+    Prefix,
+    /// Deduplicated Sorensen-Dice set similarity.
+    #[value(alias = "dice")]
+    SorensenDice,
+    /// Exact equality over a trailing scalar count.
+    Suffix,
+}
+/// Text preprocessing for similarity comparisons.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, strum::Display, ValueEnum)]
+#[strum(serialize_all = "kebab-case")]
+pub(crate) enum SimilarityPreprocessing {
+    /// Preserve the original scalar sequence.
+    #[default]
+    Raw,
+    /// Apply Rust Unicode lowercase mapping.
+    Lowercase,
 }
 /// Target artifact aspect ratio size available when exporting research activity data using acorn
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
@@ -506,18 +554,45 @@ pub(crate) struct DetachArgs {
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub(crate) struct Diff {
-    /// Original file.
+    /// Original file, or left literal with --values.
     #[arg(value_name = "BEFORE", value_hint = ValueHint::FilePath, help_heading = "ARGS")]
     pub(crate) before: PathBuf,
-    /// Revised file.
+    /// Revised file, or right literal with --values.
     #[arg(value_name = "AFTER", value_hint = ValueHint::FilePath, help_heading = "ARGS")]
     pub(crate) after: PathBuf,
+    /// Positive numeric difference cutoff.
+    #[arg(long, requires = "method", value_name = "FLOAT", help_heading = "OPTIONS")]
+    pub(crate) cutoff: Option<f64>,
     /// Comparison output format.
-    #[arg(long, default_value = "diff", value_enum, value_name = "FORMAT", help_heading = "OPTIONS")]
-    pub(crate) format: DiffOutputFormat,
+    #[arg(long, value_enum, value_name = "FORMAT", help_heading = "OPTIONS")]
+    pub(crate) format: Option<DiffOutputFormat>,
+    /// Positive prefix or suffix scalar count.
+    #[arg(long, requires = "method", value_name = "N", help_heading = "OPTIONS")]
+    pub(crate) length: Option<usize>,
+    /// Maximum generated or supplied collection items.
+    #[arg(long, requires = "method", value_name = "N", help_heading = "OPTIONS")]
+    pub(crate) max_collection_items: Option<usize>,
+    /// Maximum Unicode scalar values in either textual operand.
+    #[arg(long, requires = "method", value_name = "N", help_heading = "OPTIONS")]
+    pub(crate) max_input_scalars: Option<usize>,
+    /// Maximum charged comparison work units.
+    #[arg(long, requires = "method", value_name = "N", help_heading = "OPTIONS")]
+    pub(crate) max_work_units: Option<usize>,
+    /// Pairwise similarity method; switches from semantic diff mode.
+    #[arg(long, value_enum, value_name = "METHOD", help_heading = "OPTIONS")]
+    pub(crate) method: Option<SimilarityMethod>,
+    /// Use unpadded character n-grams instead of words for set methods.
+    #[arg(long, requires = "method", value_name = "N", help_heading = "OPTIONS")]
+    pub(crate) ngram_width: Option<usize>,
+    /// Text preprocessing; defaults to raw.
+    #[arg(long, requires = "method", default_value_t, value_enum, value_name = "MODE", help_heading = "OPTIONS")]
+    pub(crate) preprocessing: SimilarityPreprocessing,
     /// Metadata standard override.
-    #[arg(short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
+    #[arg(short, long, conflicts_with = "method", value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
     pub(crate) standard: Option<Standard>,
+    /// Treat both operands as literal values instead of file paths.
+    #[arg(long, requires = "method", help_heading = "FLAGS")]
+    pub(crate) values: bool,
 }
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
