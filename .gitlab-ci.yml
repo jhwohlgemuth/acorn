@@ -130,7 +130,7 @@ test:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
     - command -v buf >/dev/null || (curl -fsSL "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-$(uname -m)" -o /usr/local/bin/buf && chmod +x /usr/local/bin/buf)
-    - cargo-shear --version 2>/dev/null | grep -Fxq 'Version: 1.14.0' || cargo install --force --locked cargo-shear@1.14.0
+    - "cargo-shear --version 2>/dev/null | grep -Fxq 'Version: 1.14.0' || cargo install --force --locked cargo-shear@1.14.0"
     - make check-dependencies
     - make test-ci
     - make check-host
