@@ -38,7 +38,7 @@
 //!
 //! ```js
 //! // Browser / Vite / ESM — after `make build-wasm`
-//! import init, { checkReadability, validateResearchActivity } from "./target/acorn-wasm/pkg/acorn_wasm.js";
+//! import init, { checkReadability, validateResearchActivity } from "./target/acorn-wasm/pkg/acorn.js";
 //!
 //! await init();
 //!

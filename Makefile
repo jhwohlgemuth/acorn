@@ -84,7 +84,14 @@ release-checksums: ## Generate SHA256 checksums for release artifacts.
 	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION).exe)
 
 build-wasm: ## Build and test the WebAssembly package.
-	@wasm-pack build $(WASM_PACK_BUILD_ARGS) crates/acorn-wasm --target web --out-dir ../../target/acorn-wasm/pkg
+	@wasm-pack build $(WASM_PACK_BUILD_ARGS) crates/acorn-wasm --target web --out-dir ../../target/acorn-wasm/pkg --out-name acorn
+	@cp crates/acorn-wasm/web/webmcp.js crates/acorn-wasm/web/webmcp.d.ts target/acorn-wasm/pkg/
+	@node -e 'const fs = require("node:fs"); const manifestPath = "target/acorn-wasm/pkg/package.json"; const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")); const files = [...new Set([...manifest.files, "webmcp.d.ts", "webmcp.js"])].sort(); fs.writeFileSync(manifestPath, JSON.stringify({ ...manifest, files }, null, 2) + "\n");'
+	@rm -rf target/acorn-wasm/webmcp
+	@mkdir -p target/acorn-wasm/webmcp
+	@cp crates/acorn-wasm/examples/webmcp/index.html crates/acorn-wasm/examples/webmcp/main.js crates/acorn-wasm/examples/webmcp/README.md crates/acorn-wasm/examples/webmcp/smoke.js target/acorn-wasm/webmcp/
+	@$(MAKE) test-webmcp
+	@$(MAKE) test-webmcp-package
 	@wasm-pack test --node crates/acorn-wasm
 
 clean: ## Remove build artifacts and generated binaries.
@@ -242,6 +249,12 @@ test-openai: ## Run configured OpenAI-compatible interoperability tests.
 	@test -n "$(TEST_OPENAI_BASE_URL)" || (echo "TEST_OPENAI_BASE_URL must be set in .env or the make environment"; exit 2)
 	@test -n "$(TEST_OPENAI_MODEL)" || (echo "TEST_OPENAI_MODEL must be set in .env or the make environment"; exit 2)
 	@ACORN_TEST_OPENAI_COMPATIBLE=1 ACORN_TEST_OPENAI_BASE_URL="$(TEST_OPENAI_BASE_URL)" ACORN_TEST_OPENAI_MODEL="$(TEST_OPENAI_MODEL)" OPENAI_API_KEY="$(TEST_OPENAI_API_KEY)" cargo nextest run -p acorn-lib --test openai_interoperability --no-default-features --features analysis --run-ignored only --success-output final
+
+test-webmcp: ## Run the WebMCP adapter contract tests.
+	@node --test crates/acorn-wasm/web/webmcp.test.mjs
+
+test-webmcp-package: ## Verify the staged WebMCP package contents.
+	@node -e 'const assert = require("node:assert/strict"); const fs = require("node:fs"); const path = require("node:path"); const root = "target/acorn-wasm/pkg"; const manifest = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")); const required = ["acorn.d.ts", "acorn.js", "acorn_bg.wasm", "webmcp.d.ts", "webmcp.js"]; assert.equal(manifest.main, "acorn.js"); assert.equal(manifest.types, "acorn.d.ts"); assert.deepEqual(required.filter((file) => !manifest.files.includes(file)), []); required.forEach((file) => assert.ok(fs.existsSync(path.join(root, file)), `Missing package file: $${file}`));'
 
 fuzz: ## Run the configured fuzz target.
 	@cargo +nightly fuzz run --fuzz-dir fuzz $(FUZZ_TARGET) $(FUZZ_ARGS)
@@ -476,6 +489,8 @@ TASKS = \
 	test-acp \
 	test-ci \
 	test-openai \
+	test-webmcp \
+	test-webmcp-package \
 	check-dependencies \
 	check-release-crates \
 	check-wasm \

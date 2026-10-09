@@ -5,7 +5,6 @@
 use acorn_core::prelude::{HashMap, String, ToString, Vec};
 use aho_corasick::{AhoCorasickBuilder, MatchKind};
 use derive_more::Display;
-use fancy_regex::Regex;
 use itertools::Itertools;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -376,16 +375,9 @@ pub fn singular_form(word: &str) -> String {
             | None => value.to_string(),
         },
         | value => {
-            let pair = PLURAL_TO_SINGULAR.iter().find(|(pattern, _)| {
-                #[allow(clippy::unwrap_used)]
-                Regex::new(pattern).unwrap().is_match(value).unwrap_or(false)
-            });
+            let pair = PLURAL_TO_SINGULAR.iter().find(|(pattern, _)| pattern.is_match(value).unwrap_or(false));
             match pair {
-                | Some((pattern, replacement)) => {
-                    #[allow(clippy::unwrap_used)]
-                    let re = Regex::new(pattern).unwrap();
-                    re.replace_all(value, *replacement).to_string()
-                }
+                | Some((pattern, replacement)) => pattern.replace_all(value, *replacement).to_string(),
                 | None => value.to_string(),
             }
         }

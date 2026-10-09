@@ -8,6 +8,7 @@ use core::hint::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 const SAMPLE_TEXT: &str = "ACORN standardizes and automates the research content creation process to better communicate projects, capabilities, and technology. Research project communication mediums should be straightforward and standardized, but the creation process is often cumbersome and involves multiple editing rounds among different teams.";
+const WEBMCP_TEXT_BYTES: usize = 16 * 1024;
 
 fn bench_readability_acronym_expansion(c: &mut Criterion) {
     let text = "Use ARI, CLI, and FKGL in ACORN quality checks. ACORN also reports FRES and GFI.".repeat(32);
@@ -29,7 +30,11 @@ fn bench_readability_acronym_expansion(c: &mut Criterion) {
     group.finish();
 }
 fn bench_readability_metrics(c: &mut Criterion) {
-    let text = SAMPLE_TEXT.repeat(8);
+    let text = SAMPLE_TEXT
+        .repeat(WEBMCP_TEXT_BYTES.div_ceil(SAMPLE_TEXT.len()))
+        .chars()
+        .take(WEBMCP_TEXT_BYTES)
+        .collect::<String>();
     let mut group = c.benchmark_group("readability.metrics");
     group.bench_function("word_count", |b| b.iter(|| black_box(word_count(black_box(text.as_str())))));
     group.bench_function("syllable_count", |b| b.iter(|| black_box(syllable_count(black_box(text.as_str())))));

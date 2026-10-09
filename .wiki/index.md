@@ -17,7 +17,7 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Portfolio review
 
-Reviewed against the current tree on 2026-10-07. The portfolio now contains 24 executable plans and one coordination record. The completed MCP client, dependency-capability, and OCI artifact-check plans were removed after their implementations, focused tests, feature and portability checks, and durable documentation landed. The embedder-interface plan covers the remaining direct-construction and external-cancellation contracts required by the first downstream workflow consumer. Beam integration, WebMCP browser tools, and similarity measures were added on 2026-10-08.
+Reviewed against the current tree on 2026-10-07. The portfolio now contains 23 executable plans and one coordination record. The completed MCP client, dependency-capability, OCI artifact-check, and WebMCP browser-tools plans were removed after their implementations, focused tests, feature and portability checks, native browser verification where applicable, and durable documentation landed. The embedder-interface plan covers the remaining direct-construction and external-cancellation contracts required by the first downstream workflow consumer. Beam integration and similarity measures were added on 2026-10-08.
 
 Ranking uses impact first, then remaining difficulty, with user/architecture value and readiness as tie-breakers. “Quality” rates the plan rather than the proposed feature:
 
@@ -49,9 +49,8 @@ Ranking uses impact first, then remaining difficulty, with user/architecture val
 | 19 | [ZON codec hardening](refactors/zon-codec-hardening.md) | Planned | Medium | Medium | A | Medium | A contained correctness/maintainability leaf with strong tests and low integration risk. |
 | 20 | [CLI coverage](testing/cli-coverage.md) | Planned | Medium | Medium | A− | Medium | Targets known command and binary failure gaps without reviving obsolete test layout or chasing raw line coverage. |
 | 21 | [Portable PID verification](testing/pid-verification.md) | Planned | Medium | High | B+ | Medium | Consolidation and Miri are practical; full Creusot/solver maintenance should proceed only after toolchain feasibility is proven. |
-| 22 | [WebMCP browser tools](features/webmcp-browser-tools.md) | Planned | Medium | Medium | B+ | Medium | Reuses shipped WASM bindings for a concrete demonstration; native browser compatibility and bounded execution need verification before implementation. |
-| 23 | [Beam inference integration](features/beam-inference-integration.md) | Planned | Medium | High | B | Medium | Release and serving evidence gate an explicit endpoint integration and ACORN evaluation. |
-| 24 | [Portable similarity measures and vocabulary coercion](features/similarity-measures.md) | In progress | Medium | High | B+ | Medium | Portable phase-1 primitives, tests, benchmarks, and documentation are implemented; the CLI and calibrated vocabulary/organization migration remain. |
+| 22 | [Beam inference integration](features/beam-inference-integration.md) | Planned | Medium | High | B | Medium | Release and serving evidence gate an explicit endpoint integration and ACORN evaluation. |
+| 23 | [Portable similarity measures and vocabulary coercion](features/similarity-measures.md) | In progress | Medium | High | B+ | Medium | Portable phase-1 primitives, tests, benchmarks, and documentation are implemented; the CLI and calibrated vocabulary/organization migration remain. |
 
 ### Coordination record
 

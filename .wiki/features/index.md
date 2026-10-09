@@ -13,8 +13,6 @@
 
 - [Portable similarity measures, vocabulary coercion, and explicit comparison](similarity-measures.md) - Add bounded Rust primitives and an early vocabulary-resolution slice with explicit aliases, ambiguity reporting, portable parity, and loss-aware formatting/enrichment; expose pairwise comparison before evaluating duplicate suggestions.
 
-- [WebMCP browser validation and readability tools](webmcp-browser-tools.md) - Expose the existing WASM bindings through an optional browser adapter with bounded structured results, a demonstration, and native browser verification.
-
 - [Release-gated Beam inference integration](beam-inference-integration.md) - Verify released serving contracts, then evaluate an explicitly configured hosted or operator-owned endpoint independently of local SLM sidecars.
 
 - [Database-backed artifact generation](database-backed-artifact-generation.md) - Generate reproducible current or historical artifacts from canonical database state through existing typed renderers.

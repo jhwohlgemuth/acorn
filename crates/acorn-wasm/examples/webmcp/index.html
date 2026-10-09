@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ACORN WebMCP tools</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { margin: 0 auto; max-width: 72rem; padding: 2rem; }
+    button, select, textarea { font: inherit; }
+    button { padding: .6rem 1rem; }
+    fieldset { border: 1px solid CanvasText; margin: 1.5rem 0; padding: 1rem; }
+    label { display: block; font-weight: 600; margin: .75rem 0 .35rem; }
+    pre, textarea { box-sizing: border-box; width: 100%; }
+    pre { background: Canvas; border: 1px solid CanvasText; min-height: 6rem; overflow: auto; padding: 1rem; white-space: pre-wrap; }
+    textarea { min-height: 10rem; padding: .75rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .75rem; }
+    .notice { border-inline-start: .35rem solid #8a6d00; padding-inline-start: 1rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ACORN browser tools</h1>
+    <p>Validate Research Activity JSON and assess prose locally with ACORN WebAssembly. Manual controls remain available when WebMCP is unsupported.</p>
+    <p class="notice">A browser agent may send tool inputs and outputs to its configured model provider. ACORN itself performs these operations locally and does not add network, filesystem, storage, or process access.</p>
+    <p id="capability-status" role="status" aria-live="polite">Initializing ACORN WebAssembly…</p>
+
+    <fieldset>
+      <legend>Research Activity validation</legend>
+      <label for="research-json">Research Activity JSON</label>
+      <textarea id="research-json" spellcheck="false">{
+  "title": "WebMCP demonstration",
+  "contact": { "name": "ACORN user" }
+}</textarea>
+      <div class="actions">
+        <button id="validate" type="button" disabled>Validate JSON</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Readability</legend>
+      <label for="prose">Prose</label>
+      <textarea id="prose">Clear research summaries help people understand a project's purpose, methods, and expected outcomes.</textarea>
+      <label for="metric">Metric</label>
+      <select id="metric">
+        <option value="ari">Automated Readability Index</option>
+        <option value="cli">Coleman–Liau Index</option>
+        <option value="fkgl" selected>Flesch–Kincaid Grade Level</option>
+        <option value="fres">Flesch Reading Ease</option>
+        <option value="gfi">Gunning Fog Index</option>
+        <option value="lix">LIX</option>
+        <option value="smog">SMOG</option>
+      </select>
+      <div class="actions">
+        <button id="readability" type="button" disabled>Check readability</button>
+      </div>
+    </fieldset>
+
+    <h2>Operation result</h2>
+    <p id="operation-status" role="status" aria-live="polite">No operation has run.</p>
+    <pre id="result" aria-label="Operation result">{}</pre>
+    <section id="smoke" hidden>
+      <h2>Native WebMCP smoke</h2>
+      <pre id="smoke-output" aria-label="Native WebMCP smoke result"></pre>
+    </section>
+  </main>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

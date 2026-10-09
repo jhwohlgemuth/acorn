@@ -44,8 +44,6 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 
 ### Gather, inference, and agent tools
 
-- [WebMCP browser tools](features/webmcp-browser-tools.md) consumes the existing portable WASM bindings and is independent of the outbound MCP client and inference plans. Native browser contract verification precedes adapter implementation; packaging and CI changes serialize under CI/build. Any manifest change follows dependency capabilities and the workspace-graph lock.
-
 - [Deterministic and assisted gather extraction](features/gather-extraction.md) lands deterministic selector and transport policy before its optional inference adapter. Its TUI cutover follows the shared source contract.
 - [SLM sidecars](features/slm-sidecars.md) may build explicit Tongue, Redact, and Title runners independently. Schemer integration, if it becomes available, consumes the gather inference contract.
 - The [Julia-1 decision slice](features/slm-sidecars.md#julia-1-decision-sidecar-planned-follow-on) stays within SLM sidecars, consumes the landed asset/distribution contracts, and coordinates acquisition changes with the model acquisition plan. Its CPU packaging and quality gates are independent of the Swift adapters and Title's macOS prerequisite; shared feature, sidecar, CLI, and CI/build integration still serializes.

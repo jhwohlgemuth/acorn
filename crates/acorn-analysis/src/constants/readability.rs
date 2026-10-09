@@ -3,7 +3,7 @@
 //!
 //! Used to inform and configure readability analysis
 //!
-use acorn_core::prelude::{vec, HashMap, String, ToString};
+use acorn_core::prelude::{vec, HashMap, String, ToString, Vec};
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
 
@@ -178,38 +178,46 @@ lazy_static! {
         .filter_map(|line| line.split_once(','))
         .filter_map(|(word, count)| count.parse::<usize>().ok().map(|value| (word.to_string(), value)))
         .collect();
+    /// Ordered plural-to-singular regex replacements
+    pub static ref PLURAL_TO_SINGULAR: Vec<(Regex, &'static str)> = [
+        (r#"(quiz)zes$"#, r#"${1}"#),
+        (r#"(matr)ices$"#, r#"${1}ix"#),
+        (r#"(vert|ind)ices$"#, r#"${1}ex"#),
+        (r#"^(ox)en$"#, r#"${1}"#),
+        (r#"(alias)es$"#, r#"${1}"#),
+        (r#"(octop|vir)i$"#, r#"${1}us"#),
+        (r#"(cris|ax|test)es$"#, r#"${1}is"#),
+        (r#"(shoe)s$"#, r#"${1}"#),
+        (r#"(o)es$"#, r#"${1}"#),
+        (r#"(bus)es$"#, r#"${1}"#),
+        (r#"([m|l])ice$"#, r#"${1}ouse"#),
+        (r#"(x|ch|ss|sh)es$"#, r#"${1}"#),
+        (r#"(m)ovies$"#, r#"${1}ovie"#),
+        (r#"(s)eries$"#, r#"${1}eries"#),
+        (r#"([^aeiouy]|qu)ies$"#, r#"${1}y"#),
+        (r#"([lr])ves$"#, r#"${1}f"#),
+        (r#"(tive)s$"#, r#"${1}"#),
+        (r#"(hive)s$"#, r#"${1}"#),
+        (r#"(li|wi|kni)ves$"#, r#"${1}fe"#),
+        (r#"(shea|loa|lea|thie)ves$"#, r#"${1}f"#),
+        (r#"(^analy)ses$"#, r#"${1}sis"#),
+        (r#"((a)naly|(b)a|(d)iagno|(p)arenthe|(p)rogno|(s)ynop|(t)he)ses$"#, r#"${1}${2}sis"#),
+        (r#"([ti])a$"#, r#"${1}um"#),
+        (r#"(n)ews$"#, r#"${1}ews"#),
+        (r#"(h|bl)ouses$"#, r#"${1}ouse"#),
+        (r#"(corpse)s$"#, r#"${1}"#),
+        (r#"(us)es$"#, r#"${1}"#),
+        (r#"s$"#, r#""#),
+    ]
+    .into_iter()
+    .map(|(pattern, replacement)| {
+        (
+            Regex::new(pattern).expect("PLURAL_TO_SINGULAR should contain valid regexes"),
+            replacement,
+        )
+    })
+    .collect();
 }
-/// Plural to singular regex patterns
-pub const PLURAL_TO_SINGULAR: [(&str, &str); 28] = [
-    (r#"(quiz)zes$"#, r#"${1}"#),
-    (r#"(matr)ices$"#, r#"${1}ix"#),
-    (r#"(vert|ind)ices$"#, r#"${1}ex"#),
-    (r#"^(ox)en$"#, r#"${1}"#),
-    (r#"(alias)es$"#, r#"${1}"#),
-    (r#"(octop|vir)i$"#, r#"${1}us"#),
-    (r#"(cris|ax|test)es$"#, r#"${1}is"#),
-    (r#"(shoe)s$"#, r#"${1}"#),
-    (r#"(o)es$"#, r#"${1}"#),
-    (r#"(bus)es$"#, r#"${1}"#),
-    (r#"([m|l])ice$"#, r#"${1}ouse"#),
-    (r#"(x|ch|ss|sh)es$"#, r#"${1}"#),
-    (r#"(m)ovies$"#, r#"${1}ovie"#),
-    (r#"(s)eries$"#, r#"${1}eries"#),
-    (r#"([^aeiouy]|qu)ies$"#, r#"${1}y"#),
-    (r#"([lr])ves$"#, r#"${1}f"#),
-    (r#"(tive)s$"#, r#"${1}"#),
-    (r#"(hive)s$"#, r#"${1}"#),
-    (r#"(li|wi|kni)ves$"#, r#"${1}fe"#),
-    (r#"(shea|loa|lea|thie)ves$"#, r#"${1}f"#),
-    (r#"(^analy)ses$"#, r#"${1}sis"#),
-    (r#"((a)naly|(b)a|(d)iagno|(p)arenthe|(p)rogno|(s)ynop|(t)he)ses$"#, r#"${1}${2}sis"#),
-    (r#"([ti])a$"#, r#"${1}um"#),
-    (r#"(n)ews$"#, r#"${1}ews"#),
-    (r#"(h|bl)ouses$"#, r#"${1}ouse"#),
-    (r#"(corpse)s$"#, r#"${1}"#),
-    (r#"(us)es$"#, r#"${1}"#),
-    (r#"s$"#, r#""#),
-];
 /// Nouns with the same singular and plural forms
 pub const SAME_SINGULAR_PLURAL: [&str; 110] = [
     "accommodation",
