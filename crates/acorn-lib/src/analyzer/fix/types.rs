@@ -1,8 +1,9 @@
 use super::{
-    BTreeMap, Deserialize, Error, JsonSchema, OneOrMany, Serialize, String, Vec, DEFAULT_MAX_CONTEXT_BYTES, DEFAULT_MAX_EXCERPT_BYTES,
-    DEFAULT_MAX_FINDINGS_PER_BATCH, MAX_MESSAGE_BYTES,
+    BTreeMap, Box, Deserialize, Error, JsonSchema, OneOrMany, Serialize, String, Vec, VocabularyAdvisory, DEFAULT_MAX_CONTEXT_BYTES,
+    DEFAULT_MAX_EXCERPT_BYTES, DEFAULT_MAX_FINDINGS_PER_BATCH, MAX_MESSAGE_BYTES,
 };
 use acorn_core::time::Milliseconds;
+use acorn_core::Noul;
 /// Stable category for a host discovery finding.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, strum::AsRefStr, strum::Display, strum::EnumIs)]
 #[serde(rename_all = "lowercase")]
@@ -181,12 +182,18 @@ pub struct CheckReference {
     pub locator: Option<String>,
     /// Bounded diagnostic message.
     pub message: String,
+    /// Stable rule identifier supplied by the analyzer.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rule_id: Option<String>,
     /// Check severity.
     pub severity: String,
     /// Metadata standard used by the analysis batch.
     pub standard: String,
     /// Optional source URI.
     pub uri: Option<String>,
+    /// Structured controlled-vocabulary evidence.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vocabulary_advisory: Option<Box<VocabularyAdvisory>>,
 }
 /// Normalized discovery finding supplied to proposal generation.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -219,7 +226,7 @@ pub struct Fix {
     /// Proposed automation level.
     pub automation: FixAutomation,
     /// Model or provider confidence from zero through one.
-    pub confidence: f64,
+    pub confidence: Noul,
     /// Declared effects that trusted planning must enforce.
     pub effects: FixEffects,
     /// Source finding.

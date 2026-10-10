@@ -1,11 +1,17 @@
 //! Embedded vocabulary preparation.
-use super::matching::valid_asset_value;
+use super::matching::{normalize_identifier, valid_asset_value};
 use super::types::{Entry, VocabularyError, VocabularyKind};
 use crate::vocabulary::{csv, from_asset};
 use crate::Organization;
-use acorn_core::prelude::alloc::{format, ToString, Vec};
+use acorn_core::prelude::alloc::{format, String, ToString, Vec};
+use alloc::collections::{BTreeMap, BTreeSet};
 use core::iter::once;
 
+impl Entry {
+    fn normalize(&self, index: usize) -> impl Iterator<Item = (String, usize)> + '_ {
+        self.identifiers.iter().map(move |identifier| (normalize_identifier(identifier), index))
+    }
+}
 fn csv_entries(kind: VocabularyKind) -> Result<Vec<Entry>, VocabularyError> {
     let rows = csv(kind.to_string());
     let expected_columns = match kind {
@@ -76,7 +82,7 @@ fn csv_entries(kind: VocabularyKind) -> Result<Vec<Entry>, VocabularyError> {
         })
 }
 pub(super) fn entries(kind: VocabularyKind) -> Result<Vec<Entry>, VocabularyError> {
-    match kind {
+    let entries = match kind {
         | VocabularyKind::Organizations => from_asset("organization.json")
             .and_then(|content| serde_json::from_str::<Vec<Organization>>(content).ok())
             .map(|organizations| {
@@ -90,7 +96,8 @@ pub(super) fn entries(kind: VocabularyKind) -> Result<Vec<Entry>, VocabularyErro
                 vocabulary: kind,
             }),
         | _ => csv_entries(kind),
-    }
+    };
+    entries.and_then(|entries| validate_unique_identifiers(kind, &entries).map(|()| entries))
 }
 fn organization_entries(organization: &Organization, parent: &str) -> Vec<Entry> {
     let locator = format!("{parent}/{}", organization.name);
@@ -102,4 +109,26 @@ fn organization_entries(organization: &Organization, parent: &str) -> Vec<Entry>
     })
     .chain(organization.member.iter().flat_map(|member| organization_entries(member, &locator)))
     .collect()
+}
+pub(super) fn validate_unique_identifiers(kind: VocabularyKind, entries: &[Entry]) -> Result<(), VocabularyError> {
+    match kind {
+        | VocabularyKind::Keywords | VocabularyKind::Technology => Ok(()),
+        | VocabularyKind::Organizations | VocabularyKind::Partners | VocabularyKind::Sponsors => entries
+            .iter()
+            .enumerate()
+            .flat_map(|(index, entry)| entry.normalize(index))
+            .filter(|(identifier, _)| !identifier.is_empty())
+            .fold(BTreeMap::<String, BTreeSet<usize>>::new(), |mut identifiers, (identifier, index)| {
+                identifiers.entry(identifier).or_default().insert(index);
+                identifiers
+            })
+            .into_iter()
+            .find(|(_, indices)| indices.len() > 1)
+            .map_or(Ok(()), |(identifier, _)| {
+                Err(VocabularyError::InvalidAsset {
+                    message: format!("unique identifier '{identifier}' belongs to more than one canonical entry"),
+                    vocabulary: kind,
+                })
+            }),
+    }
 }

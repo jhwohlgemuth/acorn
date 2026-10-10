@@ -484,6 +484,9 @@ pub struct Check {
     /// Supported formats: cff, json, jsonc, markdown, text, yaml, zon
     #[arg(long, value_name = "FORMAT", value_parser = parse_check_format, help_heading = "OPTIONS", conflicts_with_all = ["path", "branch", "commit", "filter", "ignore", "merge_request"])]
     pub(crate) format: Option<MimeType>,
+    /// Controlled-vocabulary fuzzy matching profile used by prose checks
+    #[arg(long, default_value = "relaxed", value_enum, value_name = "MODE", help_heading = "OPTIONS")]
+    pub(crate) fuzzy: FuzzyMode,
     /// Regular expression pattern(s) applied to absolute paths of files to exclude from checking
     ///
     /// Only applies to `--path` values that point to a directory

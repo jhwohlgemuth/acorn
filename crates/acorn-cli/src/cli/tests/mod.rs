@@ -783,7 +783,17 @@ fn test_filter_paths_by_pattern_returns_empty_for_invalid_regex() {
     assert!(filtered.is_err());
 }
 #[test]
-fn test_fuzzy_profiles_parse_for_format_and_gather() {
+fn test_fuzzy_profiles_parse_for_check_format_and_gather() {
+    let check = Arguments::try_parse_from(["acorn", "check", "--fuzzy", "strict"]).unwrap();
+    match check.command {
+        | Some(Commands::Check(arguments)) => assert_eq!(arguments.fuzzy, FuzzyMode::Strict),
+        | _ => panic!("expected check arguments"),
+    }
+    let check_default = Arguments::try_parse_from(["acorn", "check"]).unwrap();
+    match check_default.command {
+        | Some(Commands::Check(arguments)) => assert_eq!(arguments.fuzzy, FuzzyMode::Relaxed),
+        | _ => panic!("expected check arguments"),
+    }
     let format = Arguments::try_parse_from(["acorn", "format", "--fuzzy", "off"]).unwrap();
     match format.command {
         | Some(Commands::Format(arguments)) => assert_eq!(arguments.fuzzy, FuzzyMode::Off),

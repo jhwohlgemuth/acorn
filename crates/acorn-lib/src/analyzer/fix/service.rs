@@ -1,10 +1,11 @@
 use super::{
     async_trait, eyre, format, is_identifier, run_inference, schema_for, stream, validate_options, AnalysisReport, ApiResult, BTreeMap, BTreeSet,
     CheckReference, CheckReferences, Deserialize, FindingReference, Fingerprint, Fix, FixAction, FixAutomation, FixDiagnostic, FixEffects, FixError,
-    FixOptions, FixReport, FixRisk, FixStatus, HydratedPrompt, InferenceBackend, InferencePermissionPolicy, InferenceProvenance, InferenceRequest,
-    InferenceResult, JsonSchema, Parse, PromptContext, PromptFileAsset, PromptHydrator, PromptTemplateConfiguration, SafePath, Serialize, StreamExt,
-    String, StringConversion, ToString, Validate, Value, Vec, FIX_ENVELOPE_VERSION, MAX_MESSAGE_BYTES,
+    FixOptions, FixProvenance, FixReport, FixRisk, FixStatus, HydratedPrompt, InferenceBackend, InferencePermissionPolicy, InferenceProvenance,
+    InferenceRequest, InferenceResult, JsonSchema, Parse, PromptContext, PromptFileAsset, PromptHydrator, PromptTemplateConfiguration, SafePath,
+    Serialize, StreamExt, String, StringConversion, ToString, Validate, Value, Vec, FIX_ENVELOPE_VERSION, MAX_MESSAGE_BYTES,
 };
+use acorn_core::Noul;
 pub(super) trait PendingReferences {
     fn normalize(self, options: &FixOptions) -> ApiResult<Vec<CheckReference>>;
 }
@@ -17,7 +18,7 @@ pub(super) struct PendingReference<'a> {
 pub(super) struct SuggestedFix {
     pub(super) actions: Vec<FixAction>,
     pub(super) automation: FixAutomation,
-    pub(super) confidence: f64,
+    pub(super) confidence: Noul,
     pub(super) effects: FixEffects,
     pub(super) finding_id: String,
     pub(super) id: String,
@@ -69,6 +70,56 @@ impl AnalysisReport {
         match self.normalize_checks(options) {
             | Ok(references) => references.suggest(backend, options).await,
             | Err(why) => Err(why),
+        }
+    }
+}
+impl TryFrom<CheckReference> for Fix {
+    type Error = CheckReference;
+    fn try_from(reference: CheckReference) -> Result<Self, Self::Error> {
+        let pair = reference
+            .vocabulary_advisory
+            .as_deref()
+            .zip(reference.uri.clone().or(reference.locator.clone()));
+        match pair {
+            | Some((advisory, target)) => advisory
+                .replacement
+                .as_ref()
+                .filter(|replacement| advisory.complete && advisory.outcome.is_accepted() && replacement.as_str() != advisory.original)
+                .map(|replacement| {
+                    let action = FixAction::DocumentChange {
+                        description: format!("Use canonical {} vocabulary value", advisory.vocabulary),
+                        expected: advisory.original.clone(),
+                        replacement: replacement.clone(),
+                    };
+                    let effects = FixEffects {
+                        filesystem_write: true,
+                        reversible: true,
+                        ..FixEffects::default()
+                    };
+                    let provenance = FixProvenance {
+                        agent: None,
+                        backend: "host".to_string(),
+                        model: None,
+                        prompt_version: FIX_ENVELOPE_VERSION.to_string(),
+                        request_id: None,
+                    };
+                    Fix::init()
+                        .actions(vec![action])
+                        .automation(FixAutomation::SafeAutomatic)
+                        .confidence(Noul::ONE)
+                        .effects(effects)
+                        .finding(FindingReference::Check(reference.clone()))
+                        .id(format!("vocabulary-{}", reference.id))
+                        .provenance(provenance)
+                        .rationale("The deterministic vocabulary resolver selected one complete, unambiguous canonical value")
+                        .risk(FixRisk::Low)
+                        .status(FixStatus::Proposed)
+                        .summary(format!("Replace '{}' with '{}'", advisory.original, replacement))
+                        .target(target)
+                        .build()
+                })
+                .ok_or_else(|| reference.clone()),
+            | None => Err(reference),
         }
     }
 }
@@ -166,11 +217,20 @@ impl CheckReferences for Vec<CheckReference> {
         match validate_options(options).and_then(|()| self.validate_with(options)) {
             | Err(why) => Err(why),
             | Ok(()) => {
-                let outcomes = stream::iter(self.batch(options))
+                let (mut deterministic, inference) =
+                    self.into_iter()
+                        .fold((Vec::new(), Vec::new()), |(mut deterministic, mut inference), reference| {
+                            match Fix::try_from(reference) {
+                                | Ok(fix) => deterministic.push(fix),
+                                | Err(reference) => inference.push(reference),
+                            }
+                            (deterministic, inference)
+                        });
+                let outcomes = stream::iter(inference.batch(options))
                     .then(|batch| suggest_batch(backend, batch, options))
                     .collect::<Vec<_>>()
                     .await;
-                let (fixes, diagnostics) = outcomes
+                let (mut inferred, diagnostics) = outcomes
                     .into_iter()
                     .fold((Vec::new(), Vec::new()), |(mut fixes, mut diagnostics), outcome| {
                         match outcome {
@@ -179,7 +239,8 @@ impl CheckReferences for Vec<CheckReference> {
                         }
                         (fixes, diagnostics)
                     });
-                Ok(FixReport::from_parts(fixes, diagnostics))
+                deterministic.append(&mut inferred);
+                Ok(FixReport::from_parts(deterministic, diagnostics))
             }
         }
     }
@@ -236,13 +297,17 @@ impl PendingReferences for Vec<PendingReference<'_>> {
                     .map(|value| value.truncate_utf8(options.max_excerpt_bytes));
                 let message = pending.check.message.truncate_utf8(MAX_MESSAGE_BYTES);
                 let id = format!("check-{:04}", index.saturating_add(1));
+                let advisory = pending.check.vocabulary_advisory.clone();
+                let advisory_identity = advisory.as_ref().and_then(|value| serde_json::to_string(value).ok()).unwrap_or_default();
                 let identity = [
                     pending.standard.as_str(),
                     &pending.check.category.to_string(),
                     pending.check.uri.as_deref().unwrap_or_default(),
                     pending.check.locator.as_deref().unwrap_or_default(),
                     &pending.check.index.to_string(),
+                    pending.check.rule_id.as_deref().unwrap_or_default(),
                     message.as_str(),
+                    advisory_identity.as_str(),
                 ]
                 .join("\u{1f}");
                 let excerpt = context.as_deref().unwrap_or(message.as_str());
@@ -254,9 +319,11 @@ impl PendingReferences for Vec<PendingReference<'_>> {
                     id,
                     locator: pending.check.locator.clone(),
                     message,
+                    rule_id: pending.check.rule_id.clone(),
                     severity: pending.check.severity.to_string(),
                     standard: pending.standard,
                     uri: pending.check.uri.clone(),
+                    vocabulary_advisory: advisory,
                 };
                 reference.validate().map_err(|why| eyre!(why)).map(|()| reference)
             })
@@ -335,10 +402,11 @@ pub(super) fn validate_suggested_fix(
         | FixStatus::Rejected | FixStatus::Unsupported => suggested.actions.is_empty(),
         | _ => false,
     };
-    let valid_confidence = suggested.confidence.is_finite()
-        && (0.0..=1.0).contains(&suggested.confidence)
-        && (!suggested.status.is_proposed() || suggested.confidence >= f64::from(options.min_confidence));
+    let valid_confidence = !suggested.status.is_proposed() || suggested.confidence >= options.min_confidence;
     let valid_actions = unique_actions && suggested.actions.validate().is_ok();
+    let valid_vocabulary_actions = reference.vocabulary_advisory.as_ref().is_none_or(|advisory| {
+        advisory.replacement.is_some() || !suggested.actions.iter().any(|action| matches!(action, FixAction::DocumentChange { .. }))
+    });
     let valid_fingerprint = suggested.source_fingerprint == reference.fingerprint;
     let valid_identifier = is_identifier(&suggested.id);
     let valid_target = allowed_target && SafePath::new(&suggested.target).is_ok();
@@ -351,17 +419,18 @@ pub(super) fn validate_suggested_fix(
         valid_status,
         valid_action_count,
         valid_actions,
+        valid_vocabulary_actions,
         valid_description,
     );
     match validation {
-        | (false, _, _, _, _, _, _, _) => Err(FixError::InvalidIdentifier.into()),
-        | (_, false, _, _, _, _, _, _) => Err(FixError::StaleFingerprint.into()),
-        | (_, _, false, _, _, _, _, _) => Err(FixError::UnsafeTarget.into()),
-        | (_, _, _, false, _, _, _, _) => Err(FixError::InvalidConfidence.into()),
-        | (_, _, _, _, false, _, _, _) => Err(FixError::InvalidStatus.into()),
-        | (_, _, _, _, _, false, _, _) => Err(FixError::ActionCountMismatch.into()),
-        | (_, _, _, _, _, _, false, _) => Err(FixError::InvalidActions.into()),
-        | (_, _, _, _, _, _, _, false) => Err(FixError::MissingDescription.into()),
+        | (false, _, _, _, _, _, _, _, _) => Err(FixError::InvalidIdentifier.into()),
+        | (_, false, _, _, _, _, _, _, _) => Err(FixError::StaleFingerprint.into()),
+        | (_, _, false, _, _, _, _, _, _) => Err(FixError::UnsafeTarget.into()),
+        | (_, _, _, false, _, _, _, _, _) => Err(FixError::InvalidConfidence.into()),
+        | (_, _, _, _, false, _, _, _, _) => Err(FixError::InvalidStatus.into()),
+        | (_, _, _, _, _, false, _, _, _) => Err(FixError::ActionCountMismatch.into()),
+        | (_, _, _, _, _, _, false, _, _) | (_, _, _, _, _, _, _, false, _) => Err(FixError::InvalidActions.into()),
+        | (_, _, _, _, _, _, _, _, false) => Err(FixError::MissingDescription.into()),
         | _ => Ok(Fix {
             actions: suggested.actions,
             automation: suggested.automation,

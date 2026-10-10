@@ -4,7 +4,10 @@ use super::{
     DiscoveryReference, FindingReference, Fix, FixAction, FixAutomation, FixEffects, FixProvenance, FixReport, FixRisk, FixStatus,
     FIX_ENVELOPE_VERSION,
 };
-use acorn_core::prelude::{ToString, Vec};
+use acorn_core::{
+    prelude::{ToString, Vec},
+    Noul,
+};
 use acorn_schema::software::Software;
 /// Converts normalized observations into reviewable, non-arbitrary fixes.
 pub trait Provider {
@@ -51,7 +54,7 @@ impl DiscoveryReference {
         Fix::init()
             .actions(actions)
             .automation(automation)
-            .confidence(1.0)
+            .confidence(Noul::ONE)
             .effects(effects)
             .finding(FindingReference::Discovery(self.clone()))
             .id(format!("host-fix-{index:04}"))

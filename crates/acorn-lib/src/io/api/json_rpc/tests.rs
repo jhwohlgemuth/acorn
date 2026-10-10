@@ -28,9 +28,11 @@ fn fix_reference() -> CheckReference {
         id: "check-0001".to_string(),
         locator: Some("title".to_string()),
         message: "Title is invalid".to_string(),
+        rule_id: None,
         severity: "error".to_string(),
         standard: "research-activity-data".to_string(),
         uri: Some("activity.json".to_string()),
+        vocabulary_advisory: None,
     }
 }
 fn fix_result(reference: &CheckReference) -> InferenceResult {

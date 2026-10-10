@@ -24,9 +24,10 @@ use crate::{
     util::{values_as_table, StringConversion},
     LocationExt,
 };
-use acorn_analysis::check_err;
+use acorn_analysis::{check_err, VocabularyAdvisory};
 use acorn_core::{
     options::{CommonRuntime, RuntimeOptions},
+    prelude::Box,
     util::merge_unique,
     Location, Repository,
 };
@@ -159,10 +160,16 @@ pub enum Record {
         message: String,
         /// Check severity
         severity: CheckSeverity,
+        /// Stable rule identifier.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        rule_id: Option<String>,
         /// Whether the check passed
         success: bool,
         /// Optional source URI
         uri: Option<String>,
+        /// Structured controlled-vocabulary evidence.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        vocabulary_advisory: Option<Box<VocabularyAdvisory>>,
     },
     /// Persistent identifier discovered in a source document
     Discovery {
@@ -950,23 +957,6 @@ impl From<bool> for FindingStatus {
         }
     }
 }
-impl<'a> From<&'a Options> for GatherOutputPolicy<'a> {
-    fn from(options: &'a Options) -> Self {
-        let (format, quiet, terse, verbosity) = (
-            options.extension.format,
-            options.common.quiet,
-            options.extension.terse,
-            options.extension.verbosity,
-        );
-        Self {
-            format,
-            output: options.output.as_ref(),
-            quiet,
-            terse,
-            verbosity,
-        }
-    }
-}
 impl GatherOutputPolicy<'_> {
     fn format(self) -> OutputFormat {
         self.format
@@ -983,6 +973,23 @@ impl From<CandidateAction> for LifecycleState {
             | CandidateAction::Enriched => Self::Enriched,
             | CandidateAction::Unchanged => Self::Unchanged,
             | CandidateAction::Conflict => Self::Conflict,
+        }
+    }
+}
+impl<'a> From<&'a Options> for GatherOutputPolicy<'a> {
+    fn from(options: &'a Options) -> Self {
+        let (format, quiet, terse, verbosity) = (
+            options.extension.format,
+            options.common.quiet,
+            options.extension.terse,
+            options.extension.verbosity,
+        );
+        Self {
+            format,
+            output: options.output.as_ref(),
+            quiet,
+            terse,
+            verbosity,
         }
     }
 }
@@ -1052,8 +1059,10 @@ impl From<&Check> for Record {
             locator: value.locator.clone(),
             message: value.message.clone(),
             severity: value.severity.clone(),
+            rule_id: value.rule_id.clone(),
             success: value.success,
             uri: value.uri.clone(),
+            vocabulary_advisory: value.vocabulary_advisory.clone(),
         }
     }
 }
@@ -1988,6 +1997,16 @@ impl TryFrom<ArtifactCandidate> for ResearchActivityCandidate {
         }
     }
 }
+impl ResolutionOutcome<String> {
+    fn into_parts(self) -> (Option<String>, ResolutionStatus) {
+        let status = self.status();
+        let metadata = match self {
+            | Self::Resolved(metadata) | Self::Failed(metadata) => Some(metadata),
+            | Self::NotRequested | Self::Unsupported => None,
+        };
+        (metadata, status)
+    }
+}
 impl<T> From<ApiResult<T>> for ResolutionOutcome<String>
 where
     T: Serialize,
@@ -2000,16 +2019,6 @@ where
             },
             | Err(why) => Self::Failed(why.to_string()),
         }
-    }
-}
-impl ResolutionOutcome<String> {
-    fn into_parts(self) -> (Option<String>, ResolutionStatus) {
-        let status = self.status();
-        let metadata = match self {
-            | Self::Resolved(metadata) | Self::Failed(metadata) => Some(metadata),
-            | Self::NotRequested | Self::Unsupported => None,
-        };
-        (metadata, status)
     }
 }
 impl<T> ResolutionOutcome<T> {

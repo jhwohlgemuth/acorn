@@ -5,7 +5,11 @@ use crate::agent::{InMemoryBackend, InferenceCapabilities, InferenceFinishReason
 use crate::analyzer::{check, CheckCategory, CheckSeverity};
 use acorn_core::prelude::Box;
 use acorn_core::util::{constants::app::APPLICATION, MimeType};
-use acorn_schema::standard::Standard::ResearchActivityData;
+use acorn_core::Noul;
+use acorn_schema::{
+    standard::Standard::ResearchActivityData,
+    vocabulary::{VocabularyFuzzyMode, VocabularyOutcome},
+};
 use core::cell::RefCell;
 use serde_json::json;
 use std::fs;
@@ -49,9 +53,11 @@ fn reference(id: &str) -> CheckReference {
         id: id.to_string(),
         locator: Some("title".to_string()),
         message: "Title is invalid".to_string(),
+        rule_id: None,
         severity: "error".to_string(),
         standard: "research-activity-data".to_string(),
         uri: Some("activity.json".to_string()),
+        vocabulary_advisory: None,
     }
 }
 fn result(reference: &CheckReference) -> InferenceResult {
@@ -104,7 +110,7 @@ fn suggested(reference: &CheckReference) -> SuggestedFix {
     SuggestedFix {
         actions: vec![action()],
         automation: FixAutomation::SafeAutomatic,
-        confidence: 0.95,
+        confidence: Noul::new(0.95).expect("valid unit value"),
         effects: FixEffects {
             filesystem_write: true,
             reversible: true,
@@ -118,6 +124,39 @@ fn suggested(reference: &CheckReference) -> SuggestedFix {
         status: FixStatus::Proposed,
         summary: "Replace the invalid title".to_string(),
         target: "activity.json".to_string(),
+    }
+}
+fn vocabulary_reference(id: &str, outcome: VocabularyOutcome, replacement: Option<&str>) -> CheckReference {
+    CheckReference {
+        category: "prose".to_string(),
+        context: Some("chemistrx".to_string()),
+        fingerprint: "b".repeat(64),
+        id: id.to_string(),
+        locator: Some("meta.keywords[0]".to_string()),
+        message: "Use canonical vocabulary value 'chemistry' instead of 'chemistrx'.".to_string(),
+        rule_id: Some("vocabulary.relaxed-match".to_string()),
+        severity: "warning".to_string(),
+        standard: "research-activity-data".to_string(),
+        uri: Some("activity.json".to_string()),
+        vocabulary_advisory: Some(Box::new(VocabularyAdvisory {
+            candidates: Vec::new(),
+            complete: true,
+            edit_distance: Some(1),
+            evidence: Some("fuzzy".to_string()),
+            mode: VocabularyFuzzyMode::Relaxed,
+            method: Some("optimal-string-alignment".to_string()),
+            original: "chemistrx".to_string(),
+            outcome,
+            policy_revision: "vocabulary-v2".to_string(),
+            replacement: replacement.map(str::to_string),
+            runner_up_margin: Some(Noul::new(0.2).expect("valid unit value")),
+            score: Some(Noul::new(0.9).expect("valid unit value")),
+            source_locator: "meta.keywords[0]".to_string(),
+            variant: Some("restricted-optimal-string-alignment".to_string()),
+            version: 1,
+            vocabulary: "keywords".to_string(),
+            vocabulary_revision: "keywords-vocabulary-v2".to_string(),
+        })),
     }
 }
 #[test]
@@ -141,6 +180,20 @@ fn test_build_request_hydrates_bounded_finding_data_and_schema() {
     let schema = request.response_schema.expect("fix request must include a response schema");
     assert!(request.prompt.body.contains("# Response Schema"));
     assert!(request.prompt.body.contains(&serde_json::to_string_pretty(&schema).unwrap()));
+}
+#[test]
+fn test_check_reference_serialization_omits_optional_vocabulary_advisory() {
+    let ordinary = serde_json::to_value(reference("check-0001")).unwrap();
+    assert!(ordinary.get("vocabulary_advisory").is_none());
+    let vocabulary = serde_json::to_value(vocabulary_reference("check-0001", VocabularyOutcome::FuzzyAccepted, Some("chemistry"))).unwrap();
+    assert!(vocabulary.get("vocabulary_advisory").is_some());
+}
+#[test]
+fn test_check_reference_validation_rejects_unknown_vocabulary_mode() {
+    let mut reference = serde_json::to_value(vocabulary_reference("check-0001", VocabularyOutcome::FuzzyAccepted, Some("chemistry")))
+        .expect("reference should serialize");
+    *reference.pointer_mut("/vocabulary_advisory/mode").expect("advisory mode") = json!("unknown");
+    assert!(serde_json::from_value::<CheckReference>(reference).is_err());
 }
 #[test]
 fn test_fix_actions_reject_executable_fields() {
@@ -422,6 +475,27 @@ async fn test_suggestion_failures_are_reported_without_partial_fixes() {
         .is_some_and(|diagnostic| diagnostic.message.contains("fixture backend failure")));
 }
 #[tokio::test]
+async fn test_suggestion_service_builds_vocabulary_fix_without_inference() {
+    let report = vec![vocabulary_reference("check-0001", VocabularyOutcome::FuzzyAccepted, Some("chemistry"))]
+        .suggest(&FailingBackend, &FixOptions::default())
+        .await
+        .unwrap();
+    assert!(report.diagnostics.is_empty());
+    let fixes = report.fixes();
+    assert_eq!(fixes.len(), 1);
+    let fix = fixes.first().expect("deterministic vocabulary fix");
+    assert_eq!(fix.automation, FixAutomation::SafeAutomatic);
+    assert_eq!(fix.provenance.backend, "host");
+    assert_eq!(
+        fix.actions,
+        [FixAction::DocumentChange {
+            description: "Use canonical keywords vocabulary value".to_string(),
+            expected: "chemistrx".to_string(),
+            replacement: "chemistry".to_string(),
+        }]
+    );
+}
+#[tokio::test]
 async fn test_suggestion_service_returns_validated_grouped_fixes() {
     let reference = reference("check-0001");
     let backend = InMemoryBackend::new(result(&reference));
@@ -442,6 +516,11 @@ async fn test_suggestion_service_returns_validated_grouped_fixes() {
     assert_eq!(summary.proposed, 1);
 }
 #[test]
+fn test_suggestion_validation_rejects_ambiguous_vocabulary_replacement() {
+    let reference = vocabulary_reference("check-0001", VocabularyOutcome::Ambiguous, None);
+    assert!(validate_suggested_fix(suggested(&reference), &reference, &FixOptions::default(), result(&reference).provenance).is_err());
+}
+#[test]
 fn test_suggestion_validation_rejects_duplicate_actions_and_unsafe_targets() {
     let reference = reference("check-0001");
     let mut duplicate = suggested(&reference);
@@ -450,9 +529,13 @@ fn test_suggestion_validation_rejects_duplicate_actions_and_unsafe_targets() {
     let mut unsafe_target = suggested(&reference);
     unsafe_target.target = "../activity.json".to_string();
     assert!(validate_suggested_fix(unsafe_target, &reference, &FixOptions::default(), result(&reference).provenance).is_err());
-    let mut invalid_confidence = suggested(&reference);
-    invalid_confidence.confidence = f64::NAN;
-    assert!(validate_suggested_fix(invalid_confidence, &reference, &FixOptions::default(), result(&reference).provenance).is_err());
+    let mut low_confidence = suggested(&reference);
+    low_confidence.confidence = Noul::ZERO;
+    let options = FixOptions {
+        min_confidence: 0.5,
+        ..FixOptions::default()
+    };
+    assert!(validate_suggested_fix(low_confidence, &reference, &options, result(&reference).provenance).is_err());
 }
 #[test]
 fn test_suggestion_validation_rejects_unknown_and_stale_findings() {

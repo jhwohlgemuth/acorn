@@ -60,9 +60,11 @@ fn fix_reference() -> CheckReference {
         id: "check-0001".to_string(),
         locator: None,
         message: "Replace the placeholder title \"TBD\" in activity.json with \"Interoperability Activity\".".to_string(),
+        rule_id: None,
         severity: "error".to_string(),
         standard: "research-activity-data".to_string(),
         uri: Some("activity.json".to_string()),
+        vocabulary_advisory: None,
     }
 }
 fn general_content_request() -> InferenceRequest {
@@ -178,7 +180,7 @@ fn run_agent_interoperability<A: AgentProfile>() {
                 fix.summary,
                 fix.target,
                 fix.rationale,
-                fix.confidence * 100.0,
+                f64::from(fix.confidence) * 100.0,
                 fix.risk,
                 fix.automation,
                 actions

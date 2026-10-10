@@ -4,6 +4,7 @@
 extern crate alloc;
 pub mod error;
 mod location;
+mod noul;
 pub mod options;
 pub mod prelude;
 #[cfg(feature = "alloc")]
@@ -13,3 +14,4 @@ pub mod util;
 pub mod validation;
 pub use error::{AcornError, AcornResult};
 pub use location::{Location, Release, Repository, Scheme, SimpleOrDetailed};
+pub use noul::{Noul, NoulError};

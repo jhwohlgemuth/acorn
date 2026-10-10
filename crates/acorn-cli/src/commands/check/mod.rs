@@ -1,6 +1,6 @@
 use crate::{
     cli::{
-        arguments::{CheckOutputFormat, InferenceArgs},
+        arguments::{CheckOutputFormat, FuzzyMode, InferenceArgs},
         resolve_paths_including, CommandOptions, WatchOptions,
     },
     commands::{
@@ -49,6 +49,7 @@ use acorn_host::terminal::Label;
 #[cfg(feature = "exec")]
 use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::standard::Standard;
+use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
 use dotenvy::dotenv;
@@ -246,6 +247,7 @@ fn build_analysis_context(
     terse: bool,
     standard: Standard,
     readability_metric: ReadabilityType,
+    vocabulary_fuzzy: VocabularyFuzzyMode,
     silent: bool,
     offline: bool,
     ignore_sync_failure: bool,
@@ -257,6 +259,7 @@ fn build_analysis_context(
         .maybe_readability_threshold(resolve_readability_threshold(readability_metric))
         .skip(skip.iter().map(|value| value.to_string()).collect::<Vec<_>>())
         .standard(standard)
+        .vocabulary_fuzzy(vocabulary_fuzzy)
         .build();
     let execution = ExecutionOptions::init()
         .common(CommonRuntime {
@@ -584,6 +587,7 @@ pub async fn run(
     terse: &bool,
     standard: &Option<Standard>,
     readability_metric: &ReadabilityType,
+    fuzzy: &FuzzyMode,
     verbose: &Verbosity,
     offline: bool,
     watch: Option<WatchOptions>,
@@ -644,6 +648,7 @@ pub async fn run(
                         *terse,
                         standard,
                         readability_metric,
+                        (*fuzzy).into(),
                         is_silent,
                         offline,
                         ignore_sync_failure,

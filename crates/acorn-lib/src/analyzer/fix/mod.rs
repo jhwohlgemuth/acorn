@@ -7,7 +7,8 @@ use crate::agent::{
 use crate::analyzer::host::service::AnalysisReport;
 use crate::io::{ApiResult, Fingerprint, Parse};
 use crate::util::StringConversion;
-use acorn_core::prelude::{format, String, ToString, Vec};
+use acorn_analysis::VocabularyAdvisory;
+use acorn_core::prelude::{format, Box, String, ToString, Vec};
 use acorn_core::time::{Milliseconds, UnitOfTime};
 use acorn_core::util::StringExt;
 use acorn_core::validation::{digest, ValidationError};
@@ -83,6 +84,15 @@ impl CheckReference {
     fn context_bytes(&self) -> usize {
         self.context.as_ref().map_or(0, String::len).saturating_add(self.message.len())
     }
+    fn has_valid_vocabulary_advisory(&self) -> bool {
+        self.vocabulary_advisory.as_ref().is_none_or(|advisory| {
+            let valid_candidates = advisory.candidates.len() <= 3;
+            advisory.version == 1
+                && advisory.original.len() <= DEFAULT_MAX_EXCERPT_BYTES
+                && advisory.source_locator.len() <= MAX_MESSAGE_BYTES
+                && valid_candidates
+        })
+    }
 }
 impl Validate for CheckReference {
     fn validate(&self) -> Result<(), ValidationReport> {
@@ -98,11 +108,13 @@ impl Validate for CheckReference {
         let valid_fingerprint = digest(&prefixed_fingerprint).is_ok();
         let valid_message = self.message.len() <= MAX_MESSAGE_BYTES;
         let valid_context = self.context.as_ref().is_none_or(|value| value.len() <= DEFAULT_MAX_EXCERPT_BYTES);
-        match (invalid_finding, valid_fingerprint, valid_message, valid_context) {
-            | (true, _, _, _) => Err(FixError::InvalidFinding.report("")),
-            | (_, false, _, _) => Err(FixError::InvalidFingerprint.report("fingerprint")),
-            | (_, _, false, _) => Err(FixError::MessageExceeded.report("message")),
-            | (_, _, _, false) => Err(FixError::ExcerptExceeded.report("context")),
+        let valid_advisory = self.has_valid_vocabulary_advisory();
+        match (invalid_finding, valid_fingerprint, valid_message, valid_context, valid_advisory) {
+            | (true, _, _, _, _) => Err(FixError::InvalidFinding.report("")),
+            | (_, false, _, _, _) => Err(FixError::InvalidFingerprint.report("fingerprint")),
+            | (_, _, false, _, _) => Err(FixError::MessageExceeded.report("message")),
+            | (_, _, _, false, _) => Err(FixError::ExcerptExceeded.report("context")),
+            | (_, _, _, _, false) => Err(FixError::InvalidFinding.report("vocabulary_advisory")),
             | _ => Ok(()),
         }
     }

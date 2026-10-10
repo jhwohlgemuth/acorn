@@ -196,6 +196,18 @@ Perform static analysis on research activity data and apply standardized best pr
 * `--format <FORMAT>` — Force the file format used for standard input or clipboard text
 
    Supported formats: cff, json, jsonc, markdown, text, yaml, zon
+* `--fuzzy <MODE>` — Controlled-vocabulary fuzzy matching profile used by prose checks
+
+  Default value: `relaxed`
+
+  Possible values:
+  - `strict`:
+    Require high-confidence fuzzy matches
+  - `off`:
+    Disable fuzzy scoring; exact, alias, identifier, and normalized matches remain enabled
+  - `relaxed`:
+    Accept lower-confidence fuzzy matches while retaining ambiguity safeguards
+
 * `-i`, `--ignore <LIST>` — Regular expression pattern(s) applied to absolute paths of files to exclude from checking
 
    Only applies to `--path` values that point to a directory

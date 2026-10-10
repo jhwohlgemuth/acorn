@@ -153,20 +153,20 @@ fn test_check_summary_zero_is_identity_on_both_sides() {
 fn test_ckan_crosswalk_matches_golden_fixtures() {
     let fixtures = [
         (
-            include_str!("../../../tests/fixtures/schema/ckan/0sbdv-gh024.json"),
-            include_str!("../../../tests/fixtures/schema/dcat/0sbdv-gh024.json"),
+            include_str!("../../../../tests/fixtures/schema/ckan/0sbdv-gh024.json"),
+            include_str!("../../../../tests/fixtures/schema/dcat/0sbdv-gh024.json"),
         ),
         (
-            include_str!("../../../tests/fixtures/schema/ckan/6rpmk-n3x82.json"),
-            include_str!("../../../tests/fixtures/schema/dcat/6rpmk-n3x82.json"),
+            include_str!("../../../../tests/fixtures/schema/ckan/6rpmk-n3x82.json"),
+            include_str!("../../../../tests/fixtures/schema/dcat/6rpmk-n3x82.json"),
         ),
         (
-            include_str!("../../../tests/fixtures/schema/ckan/j5xbm-d7v43.json"),
-            include_str!("../../../tests/fixtures/schema/dcat/j5xbm-d7v43.json"),
+            include_str!("../../../../tests/fixtures/schema/ckan/j5xbm-d7v43.json"),
+            include_str!("../../../../tests/fixtures/schema/dcat/j5xbm-d7v43.json"),
         ),
         (
-            include_str!("../../../tests/fixtures/schema/ckan/resources.json"),
-            include_str!("../../../tests/fixtures/schema/dcat/resources.json"),
+            include_str!("../../../../tests/fixtures/schema/ckan/resources.json"),
+            include_str!("../../../../tests/fixtures/schema/dcat/resources.json"),
         ),
     ];
     fixtures.into_iter().for_each(|(source, expected)| {
@@ -182,7 +182,7 @@ fn test_ckan_crosswalk_matches_golden_fixtures() {
 }
 #[test]
 fn test_ckan_crosswalk_reports_losses() {
-    let source = include_str!("../../../tests/fixtures/schema/ckan/0sbdv-gh024.json");
+    let source = include_str!("../../../../tests/fixtures/schema/ckan/0sbdv-gh024.json");
     let conversion = Standard::Ckan
         .crosswalk_with_warnings(source, MimeType::Json, Standard::Dcat, MimeType::Json)
         .expect("CKAN fixture should crosswalk");
@@ -190,7 +190,7 @@ fn test_ckan_crosswalk_reports_losses() {
     assert!(conversion.warnings().iter().any(|warning| warning.field == "metadata_modified"));
     assert!(conversion.warnings().iter().any(|warning| warning.field == "notes"));
     assert!(conversion.warnings().iter().any(|warning| warning.field == "url"));
-    let resources = include_str!("../../../tests/fixtures/schema/ckan/resources.json");
+    let resources = include_str!("../../../../tests/fixtures/schema/ckan/resources.json");
     let conversion = Standard::Ckan
         .crosswalk_with_warnings(resources, MimeType::Json, Standard::Dcat, MimeType::Json)
         .expect("CKAN resource fixture should crosswalk");
@@ -251,7 +251,7 @@ fn test_fair_evidence_normalizes_and_assesses_serialized_metadata() {
 }
 #[test]
 fn test_fair_fixture_pair_covers_findings_and_fixed_metadata() {
-    let findings = fair_fixture(include_str!("../../../tests/fixtures/analyzer/fair/metadata-findings.json"));
+    let findings = fair_fixture(include_str!("../../../../tests/fixtures/analyzer/fair/metadata-findings.json"));
     let actionable = findings
         .iter()
         .filter(|finding| !finding.success && finding.fair.as_ref().is_none_or(|fair| fair.target_uri.is_none()));
@@ -259,7 +259,7 @@ fn test_fair_fixture_pair_covers_findings_and_fixed_metadata() {
     assert!(findings.iter().any(|finding| finding.severity == CheckSeverity::Info));
     assert!(findings.iter().any(|finding| finding.severity == CheckSeverity::Suggestion));
 
-    let fixed = fair_fixture(include_str!("../../../tests/fixtures/analyzer/fair/metadata-fixed.json"));
+    let fixed = fair_fixture(include_str!("../../../../tests/fixtures/analyzer/fair/metadata-fixed.json"));
     let unresolved = fixed
         .iter()
         .filter(|finding| finding.fair.as_ref().is_none_or(|fair| fair.target_uri.is_none()))
@@ -399,7 +399,7 @@ fn test_json_lines_crosswalk_warnings_include_record_index_and_line() {
 }
 #[test]
 fn test_minimum_valid_rad_fixture_validates() {
-    let activity = eserde::json::from_str::<ResearchActivity>(include_str!("../../../tests/fixtures/analyzer/fair/metadata-minimal-rad.json"))
+    let activity = eserde::json::from_str::<ResearchActivity>(include_str!("../../../../tests/fixtures/analyzer/fair/metadata-minimal-rad.json"))
         .expect("minimum RAD fixture deserializes");
     assert!(activity.validate().is_ok());
 }

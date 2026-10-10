@@ -3,11 +3,25 @@ use super::types::{Entry, FuzzyGate, ScoredCandidate, VocabularyError, Vocabular
 use crate::util::constants::app::DEFAULT_ROR_URL;
 use acorn_core::prelude::alloc::{String, ToString, Vec};
 use acorn_core::similarity::{
-    jaro_winkler_similarity, optimal_string_alignment_distance, optimal_string_alignment_similarity, sorensen_dice_similarity, SimilarityLimits,
+    jaro_winkler_similarity, optimal_string_alignment_distance, optimal_string_alignment_similarity, preprocess_text, sorensen_dice_similarity,
+    SimilarityLimits, SimilarityPreprocessing,
 };
+use acorn_core::Noul;
 use alloc::collections::BTreeSet;
 use core::cmp::Ordering;
 
+impl VocabularyKind {
+    fn unicode(self, value: &str) -> String {
+        let limits = SimilarityLimits::new(usize::MAX, usize::MAX, usize::MAX).unwrap_or_default();
+        let normalization = match self {
+            | Self::Organizations | Self::Partners | Self::Sponsors => SimilarityPreprocessing::Nfc,
+            | Self::Keywords | Self::Technology => SimilarityPreprocessing::Nfkc,
+        };
+        preprocess_text(value, normalization, limits)
+            .and_then(|normalized| preprocess_text(&normalized, SimilarityPreprocessing::CaseFold, limits))
+            .unwrap_or_else(|_| value.to_lowercase())
+    }
+}
 pub(super) fn check_limit(name: &'static str, actual: usize, limit: usize) -> Result<(), VocabularyError> {
     (actual <= limit)
         .then_some(())
@@ -17,8 +31,7 @@ pub(super) fn compare_scored(left: &ScoredCandidate, right: &ScoredCandidate) ->
     right
         .candidate
         .score
-        .partial_cmp(&left.candidate.score)
-        .unwrap_or(Ordering::Equal)
+        .cmp(&left.candidate.score)
         .then_with(|| left.candidate.canonical.cmp(&right.candidate.canonical))
         .then_with(|| left.candidate.locator.cmp(&right.candidate.locator))
 }
@@ -57,21 +70,18 @@ pub(super) fn gate(kind: VocabularyKind, input_length: usize, mode: VocabularyFu
     }
 }
 pub(super) fn normalize(kind: VocabularyKind, value: &str) -> String {
-    let collapsed = value
-        .replace(['.', ','], "")
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .to_lowercase();
+    let folded = kind.unicode(value);
     match kind {
-        | VocabularyKind::Keywords => collapsed.replace([' ', '_'], "-"),
-        | VocabularyKind::Organizations | VocabularyKind::Partners => collapsed
+        | VocabularyKind::Keywords => folded.split_whitespace().collect::<Vec<_>>().join(" ").replace([' ', '_'], "-"),
+        | VocabularyKind::Organizations | VocabularyKind::Partners => folded
+            .replace(['.', ','], "")
             .split_whitespace()
             .map(|token| if token == "&" { "and" } else { token })
             .collect::<Vec<_>>()
             .join(" "),
         | VocabularyKind::Sponsors => {
-            let normalized = collapsed
+            let normalized = folded
+                .replace(['.', ','], "")
                 .split_whitespace()
                 .map(|token| match token {
                     | "&" => "and",
@@ -93,7 +103,7 @@ pub(super) fn normalize(kind: VocabularyKind, value: &str) -> String {
                 })
                 .to_string()
         }
-        | VocabularyKind::Technology => collapsed
+        | VocabularyKind::Technology => folded
             .split_whitespace()
             .map(|token| if token == "lib" { "library" } else { token })
             .collect::<Vec<_>>()
@@ -117,12 +127,12 @@ pub(super) fn score_term(
     candidate: &str,
     limits: SimilarityLimits,
     mode: VocabularyFuzzyMode,
-) -> (String, f64, Option<usize>) {
+) -> (String, Noul, Option<usize>) {
     match kind {
         | VocabularyKind::Keywords | VocabularyKind::Technology => {
             let distance = optimal_string_alignment_distance(input, candidate, limits).ok();
             let score = optimal_string_alignment_similarity(input, candidate, limits)
-                .map(|score| score.value())
+                .map(Noul::from)
                 .unwrap_or_default();
             ("optimal-string-alignment".to_string(), score, distance)
         }
@@ -130,11 +140,7 @@ pub(super) fn score_term(
             let input_tokens = input.split_whitespace().collect::<Vec<_>>();
             let candidate_tokens = candidate.split_whitespace().collect::<Vec<_>>();
             let dice = (input_tokens.len() > 1 && candidate_tokens.len() > 1)
-                .then(|| {
-                    sorensen_dice_similarity(&input_tokens, &candidate_tokens, limits)
-                        .ok()
-                        .map(|score| score.value())
-                })
+                .then(|| sorensen_dice_similarity(&input_tokens, &candidate_tokens, limits).ok().map(Noul::from))
                 .flatten();
             let dice_floor = match mode {
                 | VocabularyFuzzyMode::Strict => 1.0,
@@ -144,9 +150,7 @@ pub(super) fn score_term(
                 | Some(score) => ("sorensen-dice".to_string(), score, None),
                 | None => (
                     "jaro-winkler".to_string(),
-                    jaro_winkler_similarity(input, candidate, limits)
-                        .map(|score| score.value())
-                        .unwrap_or_default(),
+                    jaro_winkler_similarity(input, candidate, limits).map(Noul::from).unwrap_or_default(),
                     None,
                 ),
             }

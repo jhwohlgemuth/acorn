@@ -57,6 +57,7 @@ use acorn_schema::{
     },
     util::assets::Constant as SchemaConstant,
     validation::Validate,
+    vocabulary::{VocabularyFuzzyMode, VocabularyKind},
     Organization, ProgrammingLanguage, Website,
 };
 use alloc::collections::BTreeSet;
@@ -65,6 +66,7 @@ use async_trait::async_trait;
 use bat::PrettyPrinter;
 use color_eyre::{eyre::eyre, owo_colors::OwoColorize};
 use convert_case::{Case, Casing};
+use core::iter::once;
 use flate2::read::GzDecoder;
 use futures::future::{join_all, BoxFuture, FutureExt};
 use ini::Ini;
@@ -94,7 +96,6 @@ macro_rules! impl_schema_check {
         )+
     };
 }
-
 pub(crate) trait CheckBatchExt {
     fn evaluate_link_evidence(
         values: impl IntoIterator<Item = LinkEvidence>,
@@ -956,7 +957,18 @@ impl Analysis for ResearchActivity {
             .into()
     }
     async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
-        check_prose_for::<Self>(paths, options).await
+        let prose = check_prose_for::<Self>(paths, options).await;
+        let fuzzy = options.map_or(VocabularyFuzzyMode::Relaxed, |value| value.analysis.vocabulary_fuzzy);
+        let vocabulary = paths
+            .par_iter()
+            .map(|path| match Self::read(path) {
+                | Ok(data) => vocabulary_checks(path, &data, fuzzy),
+                | Err(_) => CheckBatch::empty(),
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .collect();
+        prose.combine(vocabulary)
     }
     async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         check_quality_for::<Self>(paths)
@@ -1514,7 +1526,7 @@ impl ValeConfig {
             .resolve_package_sources()
             .packages
             .into_iter()
-            .chain(core::iter::once(package_url.to_string()))
+            .chain(once(package_url.to_string()))
             .collect::<Vec<String>>();
         let mut conf = Ini::new();
         // CAUTION: Order of attributes in INI file matter. "StylesPath" must come before "Vocab"
@@ -1800,6 +1812,64 @@ fn validate_mcp_manifest(manifest: &serde_json::Value, files: &BTreeSet<PathBuf>
                     )),
                 })
         })
+}
+fn vocabulary_checks(path: &Path, data: &ResearchActivity, mode: VocabularyFuzzyMode) -> CheckBatch {
+    let uri = path.file_name_with_parent();
+    let fields = [
+        (
+            VocabularyKind::Keywords,
+            data.meta
+                .keywords
+                .iter()
+                .enumerate()
+                .map(|(index, value)| (format!("meta.keywords[{index}]"), value.clone()))
+                .collect(),
+        ),
+        (
+            VocabularyKind::Organizations,
+            once(("contact.organization".to_string(), data.contact.organization.clone()))
+                .chain(
+                    data.contact
+                        .affiliation
+                        .iter()
+                        .map(|value| ("contact.affiliation".to_string(), value.clone())),
+                )
+                .collect(),
+        ),
+        (
+            VocabularyKind::Partners,
+            data.meta
+                .partners
+                .iter()
+                .flat_map(|values| values.iter())
+                .enumerate()
+                .map(|(index, value)| (format!("meta.partners[{index}]"), value.clone()))
+                .collect(),
+        ),
+        (
+            VocabularyKind::Sponsors,
+            data.meta
+                .funders
+                .iter()
+                .flat_map(|values| values.iter())
+                .enumerate()
+                .map(|(index, value)| (format!("meta.funders[{index}].name"), value.name.clone()))
+                .collect(),
+        ),
+        (
+            VocabularyKind::Technology,
+            data.meta
+                .technology
+                .iter()
+                .enumerate()
+                .map(|(index, value)| (format!("meta.technology[{index}]"), value.clone()))
+                .collect(),
+        ),
+    ];
+    fields
+        .into_iter()
+        .map(|(kind, values)| CheckBatch::resolve_vocabulary(kind, values, mode, &uri))
+        .collect()
 }
 #[cfg(test)]
 mod tests;

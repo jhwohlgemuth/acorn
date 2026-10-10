@@ -451,9 +451,11 @@ fn test_markdown_report_contains_checks_and_summary() {
             category: CheckCategory::Schema,
             locator: None,
             message: "example".to_string(),
+            rule_id: None,
             severity: CheckSeverity::Error,
             success: false,
             uri: None,
+            vocabulary_advisory: None,
         }],
         discoveries: Records(
             vec![Record::Discovery {
@@ -884,9 +886,11 @@ fn test_report_table_contains_only_discoveries() {
             category: CheckCategory::Schema,
             locator: None,
             message: "example".to_string(),
+            rule_id: None,
             severity: CheckSeverity::Error,
             success: false,
             uri: None,
+            vocabulary_advisory: None,
         }],
         discoveries: Records(
             vec![Record::Discovery {

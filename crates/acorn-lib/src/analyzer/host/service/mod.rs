@@ -582,7 +582,7 @@ fn correlate_link_evidence(categories: Vec<CategoryChecks>) -> Vec<CategoryCheck
                                         }
                                         | FairState::Indeterminate | FairState::NotApplicable => finding.remediation.clone(),
                                     };
-                                    check.with_fair_details(FairDetails {
+                                    Check::from(FairDetails {
                                         evidence,
                                         remediation,
                                         state,

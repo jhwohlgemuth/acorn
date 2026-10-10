@@ -38,6 +38,7 @@
 //! assert_eq!(comparison.score, SimilarityScore::new(4.0 / 7.0)?);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
+use crate::Noul;
 use core::fmt;
 use serde::Serialize;
 
@@ -299,9 +300,14 @@ pub struct SimilarityParameters {
     pub tokenization: Option<SimilarityTokenization>,
 }
 /// Finite similarity score bounded to the inclusive range from zero to one.
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd, Serialize)]
 #[serde(transparent)]
-pub struct SimilarityScore(f64);
+pub struct SimilarityScore(Noul);
+impl From<SimilarityScore> for Noul {
+    fn from(value: SimilarityScore) -> Self {
+        value.0
+    }
+}
 impl Default for SimilarityLimits {
     fn default() -> Self {
         Self {
@@ -384,17 +390,19 @@ impl fmt::Display for SimilarityScore {
         self.0.fmt(formatter)
     }
 }
+impl From<Noul> for SimilarityScore {
+    fn from(value: Noul) -> Self {
+        Self(value)
+    }
+}
 impl SimilarityScore {
     /// Exact mismatch.
-    pub const ZERO: Self = Self(0.0);
+    pub const ZERO: Self = Self(Noul::ZERO);
     /// Exact match.
-    pub const ONE: Self = Self(1.0);
+    pub const ONE: Self = Self(Noul::ONE);
     /// Construct a finite score in the inclusive range from zero to one.
     pub fn new(value: f64) -> SimilarityResult<Self> {
-        match value.is_finite() && (0.0..=1.0).contains(&value) {
-            | true => Ok(Self(value)),
-            | false => Err(SimilarityError::InvalidScore),
-        }
+        Noul::new(value).map(Self).map_err(|_| SimilarityError::InvalidScore)
     }
     /// Normalize a distance by its maximum possible length.
     pub fn normalized(distance: usize, maximum_length: usize) -> SimilarityResult<Self> {
@@ -405,6 +413,6 @@ impl SimilarityScore {
     }
     /// Return the numeric score.
     pub fn value(self) -> f64 {
-        self.0
+        self.0.get()
     }
 }

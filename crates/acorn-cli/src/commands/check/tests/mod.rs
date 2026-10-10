@@ -18,7 +18,7 @@
 mod context;
 mod oci;
 use super::{run, Input, PrepareText};
-use crate::cli::arguments::{CheckOutputFormat, InferenceArgs, InferenceBackendKind};
+use crate::cli::arguments::{CheckOutputFormat, FuzzyMode, InferenceArgs, InferenceBackendKind};
 use crate::test::server::spawn_source_server;
 use crate::test::util::fixture_path;
 use acorn::analyzer::host::service::{classify_paths, Analysis};
@@ -81,6 +81,7 @@ async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
         &false,
         &Some(standard),
         &ReadabilityType::FKGL,
+        &FuzzyMode::Relaxed,
         &Verbosity::new(0, 1),
         OFFLINE,
         None,
@@ -152,6 +153,7 @@ async fn test_check_invalid_project_with_no_fail() -> Result<()> {
         &false,
         &None,
         &ReadabilityType::FKGL,
+        &FuzzyMode::Relaxed,
         &Verbosity::new(0, 1),
         OFFLINE,
         None,
@@ -194,6 +196,7 @@ async fn test_check_kitfile_and_modelkit_without_standard_override() -> Result<(
             &false,
             &None,
             &ReadabilityType::FKGL,
+            &FuzzyMode::Relaxed,
             &Verbosity::new(0, 1),
             OFFLINE,
             None,
@@ -234,6 +237,7 @@ async fn test_check_remote_project() -> Result<()> {
         &false,
         &None,
         &ReadabilityType::FKGL,
+        &FuzzyMode::Relaxed,
         &Verbosity::new(0, 1),
         false,
         None,
@@ -272,6 +276,7 @@ async fn test_check_remote_project_rejects_offline_mode() -> Result<()> {
         &false,
         &None,
         &ReadabilityType::FKGL,
+        &FuzzyMode::Relaxed,
         &Verbosity::new(0, 1),
         true,
         None,
@@ -309,6 +314,7 @@ async fn test_check_terse_mode() -> Result<()> {
         &true, // terse mode
         &None,
         &ReadabilityType::FKGL,
+        &FuzzyMode::Relaxed,
         &Verbosity::new(0, 1),
         OFFLINE,
         None,
@@ -346,6 +352,7 @@ async fn test_check_valid_highlight() -> Result<()> {
         &false,
         &None,
         &ReadabilityType::FKGL,
+        &FuzzyMode::Relaxed,
         &Verbosity::new(0, 1),
         OFFLINE,
         None,
@@ -383,6 +390,7 @@ async fn test_check_valid_project() -> Result<()> {
         &false,
         &None,
         &ReadabilityType::FKGL,
+        &FuzzyMode::Relaxed,
         &Verbosity::new(0, 1),
         OFFLINE,
         None,
@@ -422,6 +430,7 @@ async fn test_check_with_different_readability_metrics() -> Result<()> {
             &false,
             &None,
             &metric,
+            &FuzzyMode::Relaxed,
             &Verbosity::new(0, 1),
             OFFLINE,
             None,
@@ -460,6 +469,7 @@ async fn test_check_with_skip_categories() -> Result<()> {
         &false,
         &None,
         &ReadabilityType::FKGL,
+        &FuzzyMode::Relaxed,
         &Verbosity::new(0, 1),
         OFFLINE,
         None,

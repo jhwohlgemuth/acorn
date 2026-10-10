@@ -18,6 +18,8 @@ use acorn_core::prelude::alloc::{format, String, Vec};
 #[cfg(feature = "alloc")]
 use acorn_core::similarity::SimilarityLimits;
 #[cfg(feature = "alloc")]
+use acorn_core::Noul;
+#[cfg(feature = "alloc")]
 use alloc::collections::{BTreeMap, BTreeSet};
 #[cfg(feature = "alloc")]
 use core::cmp::Ordering;
@@ -31,10 +33,16 @@ use matching::{check_limit, compare_scored, gate, normalize, normalize_identifie
 use types::{Entry, FuzzyGate, ScoredCandidate};
 
 #[cfg(feature = "alloc")]
-const POLICY_REVISION: &str = "vocabulary-v1";
+const POLICY_REVISION: &str = "vocabulary-v2";
 
 #[cfg(feature = "alloc")]
 impl VocabularyKind {
+    fn minimum_fuzzy_length(self) -> usize {
+        match self {
+            | Self::Keywords | Self::Technology => 5,
+            | Self::Organizations | Self::Partners | Self::Sponsors => 8,
+        }
+    }
     /// Resolve values to accepted canonical entries using this embedded vocabulary.
     pub fn resolve<T: Into<String>>(self, values: impl IntoIterator<Item = T>, fuzzy: VocabularyFuzzyMode) -> Vec<String> {
         VocabularyResolver::embedded(self)
@@ -91,8 +99,20 @@ impl VocabularyResolver {
             .and_then(|()| check_limit("aliases", aliases, options.limits.max_aliases))
             .and_then(|()| check_limit("inputs", inputs.len(), options.limits.max_inputs))
             .map(|()| {
+                let fuzzy_available = options.fuzzy == VocabularyFuzzyMode::Off
+                    || inputs
+                        .iter()
+                        .filter(|input| {
+                            !input.trim().is_empty()
+                                && input.chars().count() <= options.limits.max_input_scalars
+                                && self.exact(input, options.limits.max_candidates).is_none()
+                                && self.fuzzy_eligible(input)
+                        })
+                        .map(|input| self.fuzzy_work(input))
+                        .try_fold(0_usize, |batch, work| batch.checked_add(work))
+                        .is_some_and(|work| work <= options.limits.max_batch_work);
                 let (resolutions, _) = inputs.into_iter().fold((Vec::new(), 0_usize), |(mut resolved, batch_work), input| {
-                    let (resolution, work) = self.resolve_one(input, options, batch_work);
+                    let (resolution, work) = self.resolve_one(input, options, batch_work, fuzzy_available);
                     resolved.push(resolution);
                     (resolved, batch_work.saturating_add(work))
                 });
@@ -124,7 +144,7 @@ impl VocabularyResolver {
             report
         })
     }
-    fn exact(&self, input: &str) -> Option<VocabularyResolution> {
+    fn exact(&self, input: &str, max_candidates: usize) -> Option<VocabularyResolution> {
         let trimmed = input.trim();
         let canonical = self
             .entries
@@ -178,9 +198,14 @@ impl VocabularyResolver {
         [canonical, aliases, identifiers, normalized]
             .into_iter()
             .find(|matches| !matches.is_empty())
-            .map(|matches| self.exact_resolution(input.to_string(), matches))
+            .map(|matches| self.exact_resolution(input.to_string(), matches, max_candidates))
     }
-    fn exact_resolution(&self, input: String, matches: Vec<(usize, String, VocabularyMatchKind, &'static str)>) -> VocabularyResolution {
+    fn exact_resolution(
+        &self,
+        input: String,
+        matches: Vec<(usize, String, VocabularyMatchKind, &'static str)>,
+        max_candidates: usize,
+    ) -> VocabularyResolution {
         let distinct = matches.iter().map(|(index, ..)| *index).collect::<BTreeSet<_>>();
         match distinct.len() {
             | 1 => {
@@ -203,25 +228,44 @@ impl VocabularyResolver {
                     .matched(matched)
                     .match_kind(match_kind)
                     .method(method.to_string())
-                    .score(1.0)
+                    .score(Noul::ONE)
                     .call()
             }
-            | _ => VocabularyResolution::resolution()
-                .input(input)
-                .outcome(VocabularyOutcome::Ambiguous)
-                .score(1.0)
-                .runner_up_margin(0.0)
-                .call(),
+            | _ => {
+                let candidates = matches
+                    .into_iter()
+                    .filter_map(|(index, matched, _, method)| {
+                        self.entries.get(index).map(|entry| VocabularyCandidate {
+                            canonical: entry.canonical.clone(),
+                            edit_distance: None,
+                            locator: entry.locator.clone(),
+                            matched,
+                            method: method.to_string(),
+                            score: Noul::ONE,
+                        })
+                    })
+                    .fold(Vec::<VocabularyCandidate>::new(), |mut candidates, candidate| {
+                        if !candidates.iter().any(|value| value.canonical == candidate.canonical) {
+                            candidates.push(candidate);
+                        }
+                        candidates
+                    })
+                    .into_iter()
+                    .take(max_candidates)
+                    .collect();
+                VocabularyResolution::resolution()
+                    .input(input)
+                    .outcome(VocabularyOutcome::Ambiguous)
+                    .candidates(candidates)
+                    .score(Noul::ONE)
+                    .runner_up_margin(Noul::ZERO)
+                    .call()
+            }
         }
     }
     fn fuzzy(&self, input: &str, options: VocabularyOptions, batch_work: usize) -> (VocabularyResolution, usize) {
         let normalized = normalize(self.kind, input);
-        let length = normalized.chars().count();
-        let eligible = match self.kind {
-            | VocabularyKind::Keywords | VocabularyKind::Technology => length >= 5,
-            | VocabularyKind::Organizations | VocabularyKind::Partners | VocabularyKind::Sponsors => length >= 8,
-        };
-        match options.fuzzy == VocabularyFuzzyMode::Off || !eligible {
+        match options.fuzzy == VocabularyFuzzyMode::Off || !self.fuzzy_eligible(&normalized) {
             | true => (
                 VocabularyResolution::resolution()
                     .input(input.to_string())
@@ -249,10 +293,15 @@ impl VocabularyResolver {
             ),
         }
     }
+    fn fuzzy_eligible(&self, input: &str) -> bool {
+        let length = normalize(self.kind, input).chars().count();
+        let minimum = self.kind.minimum_fuzzy_length();
+        length >= minimum
+    }
     fn fuzzy_resolution(&self, input: String, scored: Vec<ScoredCandidate>, gate: FuzzyGate, max_candidates: usize) -> VocabularyResolution {
         let top = scored.first();
         let runner_up = top.and_then(|top| scored.iter().find(|candidate| candidate.entry != top.entry));
-        let margin = top.map(|top| runner_up.map(|candidate| top.candidate.score - candidate.candidate.score));
+        let margin = top.map(|top| runner_up.map(|candidate| top.candidate.score.saturating_sub(candidate.candidate.score)));
         let candidates = scored
             .iter()
             .take(max_candidates)
@@ -271,6 +320,7 @@ impl VocabularyResolver {
                 .input(input)
                 .outcome(VocabularyOutcome::FuzzyAccepted)
                 .candidates(candidates)
+                .maybe_edit_distance(top.distance)
                 .maybe_entry(self.entries.get(top.entry))
                 .matched(top.candidate.matched.clone())
                 .match_kind(VocabularyMatchKind::Fuzzy)
@@ -282,6 +332,7 @@ impl VocabularyResolver {
                 .input(input)
                 .outcome(VocabularyOutcome::Ambiguous)
                 .candidates(candidates)
+                .maybe_edit_distance(top.distance)
                 .method(top.candidate.method.clone())
                 .score(top.candidate.score)
                 .maybe_runner_up_margin(margin.flatten())
@@ -290,6 +341,7 @@ impl VocabularyResolver {
                 .input(input)
                 .outcome(VocabularyOutcome::Unmatched)
                 .candidates(candidates)
+                .maybe_edit_distance(top.distance)
                 .method(top.candidate.method.clone())
                 .score(top.candidate.score)
                 .maybe_runner_up_margin(margin.flatten())
@@ -301,7 +353,15 @@ impl VocabularyResolver {
                 .call(),
         }
     }
-    fn resolve_one(&self, input: String, options: VocabularyOptions, batch_work: usize) -> (VocabularyResolution, usize) {
+    fn fuzzy_work(&self, input: &str) -> usize {
+        let input_length = normalize(self.kind, input).chars().count();
+        self.entries
+            .iter()
+            .flat_map(|entry| once(entry.canonical.as_str()).chain(entry.aliases.iter().map(String::as_str)))
+            .map(|term| input_length.saturating_mul(normalize(self.kind, term).chars().count()))
+            .fold(0_usize, usize::saturating_add)
+    }
+    fn resolve_one(&self, input: String, options: VocabularyOptions, batch_work: usize, fuzzy_available: bool) -> (VocabularyResolution, usize) {
         let length = input.chars().count();
         match () {
             | _ if input.trim().is_empty() => (
@@ -316,8 +376,16 @@ impl VocabularyResolver {
                     .call(),
                 0,
             ),
+            | _ if self.exact(&input, options.limits.max_candidates).is_none() && self.fuzzy_eligible(&input) && !fuzzy_available => (
+                VocabularyResolution::resolution()
+                    .input(input)
+                    .outcome(VocabularyOutcome::ResourceLimited)
+                    .complete(false)
+                    .call(),
+                0,
+            ),
             | _ => self
-                .exact(&input)
+                .exact(&input, options.limits.max_candidates)
                 .map_or_else(|| self.fuzzy(&input, options, batch_work), |resolution| (resolution, 0)),
         }
     }
@@ -352,6 +420,7 @@ impl VocabularyResolver {
                             let scored = ScoredCandidate {
                                 candidate: VocabularyCandidate {
                                     canonical: source.canonical.clone(),
+                                    edit_distance: distance,
                                     locator: source.locator.clone(),
                                     matched: term.to_string(),
                                     method,

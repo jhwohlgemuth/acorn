@@ -22,8 +22,11 @@ use crate::{
         service::Analysis,
         vale::{parse_vale_output, preprocess_vale_output, try_parse_vale_output, Vale, ValeConfig, ValeOutputItem, ValeOutputItemSeverity},
     },
-    io::document::{DocumentIndex, DocumentMatch, DocumentQuery, SourceDocument},
-    test::utils::unique_path,
+    io::{
+        document::{DocumentIndex, DocumentMatch, DocumentQuery, SourceDocument},
+        InputOutput,
+    },
+    test::utils::{fixture_path, unique_path},
 };
 use acorn_analysis::error::{DocumentTarget, ErrorCode, ErrorKind, ValidatorIssue, ValidatorIssues};
 use acorn_analysis::{check, check_ok, Check, CheckBatch, CheckCategory, CheckSeverity, CheckSummary, IntoChecks};
@@ -35,10 +38,14 @@ use acorn_core::{
 use acorn_host::fs::make_executable;
 use acorn_schema::{
     modelkit::kitfile::Kitfile,
+    research_activity::output::Funding,
+    research_activity::ResearchActivity,
     standard::{cff::Cff, crosswalk::ConversionWarning, Standard},
     validation::{Validate, ValidationReport},
+    vocabulary::{VocabularyFuzzyMode, VocabularyKind},
     OneOrMany,
 };
+use alloc::collections::BTreeSet;
 use ariadne::{Color, ReportKind};
 use core::sync::atomic::{AtomicUsize, Ordering};
 use jiff::SignedDuration;
@@ -1241,6 +1248,94 @@ fn test_validator_query_uses_source_path_override() {
         panic!("expected source path override to resolve the MCP bundle path");
     };
     assert_eq!(&content[span.0], "server.zip");
+}
+#[test]
+fn test_vocabulary_checks_classify_strict_and_relaxed_changes() {
+    let strict = CheckBatch::resolve_vocabulary(
+        VocabularyKind::Keywords,
+        vec![("meta.keywords[0]".to_string(), "alternative-fuel".to_string())],
+        VocabularyFuzzyMode::Strict,
+        "activity.json",
+    );
+    assert_eq!(strict.len(), 1);
+    let strict_check = &strict.as_slice()[0];
+    assert_eq!(strict_check.rule_id.as_deref(), Some("vocabulary.canonical-change"));
+    assert_eq!(strict_check.severity, CheckSeverity::Info);
+    assert!(!strict_check.is_failure());
+
+    let relaxed = CheckBatch::resolve_vocabulary(
+        VocabularyKind::Keywords,
+        vec![("meta.keywords[0]".to_string(), "chemistrx".to_string())],
+        VocabularyFuzzyMode::Relaxed,
+        "activity.json",
+    );
+    assert_eq!(relaxed.len(), 1);
+    let relaxed_check = &relaxed.as_slice()[0];
+    assert_eq!(relaxed_check.rule_id.as_deref(), Some("vocabulary.relaxed-match"));
+    assert_eq!(relaxed_check.severity, CheckSeverity::Warning);
+    assert!(relaxed_check.is_failure());
+    let advisory = relaxed_check.vocabulary_advisory.as_deref().expect("vocabulary advisory");
+    assert_eq!(advisory.source_locator, "meta.keywords[0]");
+    assert_eq!(advisory.replacement.as_deref(), Some("chemistry"));
+    assert!(advisory.candidates.len() <= 3);
+}
+#[test]
+fn test_vocabulary_checks_cover_all_authored_rad_surfaces() {
+    let mut data = ResearchActivity::read(fixture_path("data/valid_project/index.json")).expect("RAD fixture");
+    data.meta.keywords = vec!["alternative-fuel".to_string()];
+    data.meta.technology = vec!["airflo".to_string()];
+    data.meta.partners = Some(vec!["Kitware, Inc.".to_string()].into());
+    data.meta.funders = Some(vec![Funding::init().name("Scientific Discovery through Advanced Computign").build()].into());
+    data.contact.organization = "Materials Science and Technology Divisio".to_string();
+    data.contact.affiliation = Some("Physics Divisio".to_string());
+    let checks = super::vocabulary_checks(
+        fixture_path("data/valid_project/index.json").as_path(),
+        &data,
+        VocabularyFuzzyMode::Strict,
+    );
+    let locators = checks.iter().filter_map(|check| check.locator.as_deref()).collect::<BTreeSet<_>>();
+    assert_eq!(
+        locators,
+        BTreeSet::from([
+            "contact.affiliation",
+            "contact.organization",
+            "meta.funders[0].name",
+            "meta.keywords[0]",
+            "meta.partners[0]",
+            "meta.technology[0]",
+        ])
+    );
+}
+#[test]
+fn test_vocabulary_checks_emit_ambiguity_warning() {
+    let checks = CheckBatch::resolve_vocabulary(
+        VocabularyKind::Partners,
+        vec![("meta.partners[0]".to_string(), "OSU".to_string())],
+        VocabularyFuzzyMode::Relaxed,
+        "activity.json",
+    );
+    assert_eq!(checks.len(), 1);
+    let check = &checks.as_slice()[0];
+    assert_eq!(check.rule_id.as_deref(), Some("vocabulary.ambiguous"));
+    assert_eq!(check.severity, CheckSeverity::Warning);
+    assert!(check.is_failure());
+}
+#[test]
+fn test_vocabulary_checks_skip_canonical_and_off_values() {
+    let canonical = CheckBatch::resolve_vocabulary(
+        VocabularyKind::Keywords,
+        vec![("meta.keywords[0]".to_string(), "chemistry".to_string())],
+        VocabularyFuzzyMode::Relaxed,
+        "activity.json",
+    );
+    assert!(canonical.is_empty());
+    let off = CheckBatch::resolve_vocabulary(
+        VocabularyKind::Keywords,
+        vec![("meta.keywords[0]".to_string(), "chemistrx".to_string())],
+        VocabularyFuzzyMode::Off,
+        "activity.json",
+    );
+    assert!(off.is_empty());
 }
 #[test]
 fn test_with_context_and_with_uri_preserve_severity() {

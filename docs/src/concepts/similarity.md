@@ -26,6 +26,22 @@ Three profiles are available:
 - `relaxed` lowers the vocabulary-specific fuzzy score and separation gates but keeps ambiguity and resource safeguards.
 - `off` disables fuzzy scoring while retaining exact canonical, alias, identifier, and normalized matches.
 
+Vocabulary policy revision `vocabulary-v2` uses NFC plus full Unicode case folding for organization, partner, and sponsor names. Keywords and technologies use NFKC plus full folding. Organization punctuation is normalized as part of name matching; technology punctuation is preserved unless an asset declares an alias, so values such as `C++`, `C#`, and `node.js` remain distinct. Keyword spaces and underscores normalize to hyphens.
+
+The resolver preflights total fuzzy work for a batch. If the complete fuzzy stage would exceed its configured ceiling, deterministic exact, alias, identifier, and normalized lookups still run, but every otherwise fuzzy-eligible unresolved input is marked resource-limited. It never accepts a prefix of an over-budget batch, and input reordering cannot change accepted canonical results.
+
+The post-migration release corpus contains 1,465 provenance-labeled compatibility and evaluation cases generated against the historical `nucleo-matcher 0.3.1` behavior at source revision `b4007f43^`. Nucleo is not a production or development dependency. Held-out relaxed results are:
+
+| Vocabulary | Accepted | Precision | Recall | 95% Wilson precision interval | Ambiguous | Protected-negative failures |
+|---|---:|---:|---:|---:|---:|---:|
+| Keywords | 221 | 100% | 100% | 98.29–100% | 0 | 0 |
+| Organizations | 198 | 100% | 100% | 98.10–100% | 0 | 0 |
+| Partners | 234 | 100% | 100% | 98.38–100% | 1 | 0 |
+| Sponsors | 170 | 100% | 97.70% | 97.79–100% | 0 | 0 |
+| Technology | 226 | 100% | 100% | 98.33–100% | 0 | 0 |
+
+These measurements describe the checked-in corpus, not a universal probability of correctness. The tests recompute the table and enforce zero known strict false canonicalizations, at least 99% relaxed observed precision, and no protected-hard-negative failures.
+
 `acorn format --fuzzy <MODE>` applies the selected policy to RAD fields and contact organization data. `acorn gather --fuzzy <MODE>` applies it when provider evidence becomes a persisted candidate. Unknown evidence is preserved in formatted fields or provider provenance; similarity never establishes organizational or record identity.
 
 ## Pairwise comparison

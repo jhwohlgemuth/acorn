@@ -68,9 +68,11 @@ fn fix_reference() -> CheckReference {
         id: "check-0001".to_string(),
         locator: None,
         message: "Replace the placeholder title \"TBD\" in activity.json with \"Interoperability Activity\".".to_string(),
+        rule_id: None,
         severity: "error".to_string(),
         standard: "research-activity-data".to_string(),
         uri: Some("activity.json".to_string()),
+        vocabulary_advisory: None,
     }
 }
 fn general_content_request() -> InferenceRequest {
@@ -183,7 +185,7 @@ async fn smoke_mode(mode: EndpointMode, contents: &[u8]) {
                 fix.summary,
                 fix.target,
                 fix.rationale,
-                fix.confidence * 100.0,
+                f64::from(fix.confidence) * 100.0,
                 fix.risk,
                 fix.automation,
                 actions
@@ -205,7 +207,7 @@ fn synthetic_input() -> (TempDir, PathBuf, Vec<u8>) {
     (directory, path, contents)
 }
 #[test]
-fn hydrated_request_uses_valid_rad_fixture() {
+fn test_hydrated_request_uses_valid_rad_fixture() {
     let (activity, request) = hydrated_request();
     assert_eq!(activity.title, "Minimal Valid RAD");
     assert!(request.prompt.body.contains("Minimal Valid RAD"));
@@ -213,7 +215,7 @@ fn hydrated_request_uses_valid_rad_fixture() {
 }
 #[test]
 #[ignore = "requires ACORN_TEST_OPENAI_COMPATIBLE=1 and explicit OpenAI-compatible endpoint configuration"]
-fn openai_compatible_returns_text_and_validated_fix_suggestions_without_mutating_input() {
+fn test_openai_compatible_returns_text_and_validated_fix_suggestions_without_mutating_input() {
     if !enabled() {
         return;
     }

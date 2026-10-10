@@ -7,6 +7,7 @@ name = "acorn-analysis"
 version = "0.4.0"
 dependencies = [
  "acorn-core",
+ "acorn-macros",
  "acorn-schema",
  "aho-corasick",
  "bon",

@@ -8,6 +8,7 @@ use acorn_core::prelude::Vec;
 use acorn_core::util::MimeType;
 use acorn_schema::hardware::gpu;
 use acorn_schema::standard::Standard;
+use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use bon::Builder;
 use jiff::SignedDuration;
 
@@ -45,7 +46,7 @@ pub struct AnalysisContext {
     pub report: ReportOptions,
 }
 /// Portable analysis selection and calculation options.
-#[derive(Builder, Clone, Debug, Default)]
+#[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init, on(ReadabilityType, into))]
 pub struct AnalysisOptions {
     /// Caller-supplied GPU inventory used by compute compatibility checks.
@@ -61,6 +62,9 @@ pub struct AnalysisOptions {
     /// Metadata standard used to resolve check behavior.
     #[builder(default)]
     pub standard: Standard,
+    /// Fuzzy profile used for controlled-vocabulary prose advisories.
+    #[builder(default = VocabularyFuzzyMode::Relaxed)]
+    pub vocabulary_fuzzy: VocabularyFuzzyMode,
 }
 /// Host-specific execution policy fields.
 #[derive(Builder, Clone, Debug)]
@@ -108,6 +112,18 @@ pub struct ReportExtension {
     pub terse: bool,
     /// Effective check visibility level.
     pub verbosity: Option<u8>,
+}
+impl Default for AnalysisOptions {
+    fn default() -> Self {
+        Self {
+            gpu_inventory: None,
+            readability_metric: ReadabilityType::default(),
+            readability_threshold: None,
+            skip: Vec::new(),
+            standard: Standard::default(),
+            vocabulary_fuzzy: VocabularyFuzzyMode::Relaxed,
+        }
+    }
 }
 impl Default for ExecutionExtension {
     fn default() -> Self {

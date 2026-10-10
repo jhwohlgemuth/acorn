@@ -2,6 +2,7 @@ use crate::commands::check::{build_analysis_context, should_sync_analyzer, sync_
 use acorn::analyzer::host::context::{AnalysisContext, AnalysisOptions, OutputFormat};
 use acorn_analysis::{readability::ReadabilityType, CheckCategory};
 use acorn_schema::standard::Standard;
+use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use jiff::SignedDuration;
 use std::path::PathBuf;
 
@@ -18,6 +19,7 @@ fn test_check_context_builder_assigns_every_option_to_its_owner() {
         true,
         Standard::Datacite,
         ReadabilityType::ARI,
+        VocabularyFuzzyMode::Strict,
         false,
         true,
         true,
@@ -27,6 +29,7 @@ fn test_check_context_builder_assigns_every_option_to_its_owner() {
     assert_eq!(context.analysis.readability_metric, ReadabilityType::ARI);
     assert_eq!(context.analysis.skip, ["schema", "link"]);
     assert_eq!(context.analysis.standard, Standard::Datacite);
+    assert_eq!(context.analysis.vocabulary_fuzzy, VocabularyFuzzyMode::Strict);
     assert!(context.execution.extension.disable_website_checks);
     assert!(context.execution.extension.ignore_sync_failure);
     assert!(context.execution.common.offline);
@@ -58,6 +61,7 @@ fn test_check_context_builder_keeps_non_raw_output_visible() {
         false,
         Standard::ResearchActivityData,
         ReadabilityType::FKGL,
+        VocabularyFuzzyMode::Relaxed,
         false,
         false,
         false,

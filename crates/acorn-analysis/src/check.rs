@@ -2,20 +2,20 @@
 use super::error::ErrorKind;
 #[cfg(feature = "analysis")]
 use super::error::{DocumentTarget, ValidatorIssues};
-#[cfg(feature = "analysis")]
-use super::fair::FairState;
 use super::fair::{FairDetails, FairIndicatorId};
 use super::readability::score::{ReadabilityScore, ReadabilitySeverity};
 use super::readability::ReadabilityType;
 use super::vale::ValeOutputItemSeverity;
-#[cfg(feature = "analysis")]
-use crate::check_err;
-use crate::{check, check_ok};
-use acorn_core::prelude::{format, vec, Box, String, ToString, Vec};
+use crate::{check, check_err, check_ok};
 #[cfg(feature = "analysis")]
 use acorn_core::util::MimeType;
 #[cfg(feature = "analysis")]
 use acorn_core::validation::ValidationError as PortableValidationError;
+use acorn_core::{
+    prelude::{format, vec, Box, String, ToString, Vec},
+    Noul,
+};
+use acorn_macros::With;
 #[cfg(feature = "analysis")]
 use acorn_schema::pid::raid;
 #[cfg(feature = "analysis")]
@@ -31,6 +31,9 @@ use acorn_schema::standard::Standard;
 use acorn_schema::standard::{ckan, datacite, dcat, huwise, invenio};
 #[cfg(feature = "analysis")]
 use acorn_schema::validation::ValidationReport;
+use acorn_schema::vocabulary::{
+    VocabularyFuzzyMode, VocabularyKind, VocabularyOptions, VocabularyOutcome, VocabularyReport, VocabularyResolution, VocabularyResolver,
+};
 #[cfg(feature = "analysis")]
 use acorn_schema::OneOrMany;
 use alloc::borrow::Cow;
@@ -139,7 +142,7 @@ pub enum CheckSeverity {
     Warning,
 }
 /// Data structure for holding the result of a schema validation check
-#[derive(Builder, Clone, Debug)]
+#[derive(Builder, Clone, Debug, With)]
 #[builder(start_fn = init, on(String, into))]
 #[cfg_attr(not(feature = "analysis"), allow(dead_code))]
 pub struct Check {
@@ -148,16 +151,22 @@ pub struct Check {
     pub index: usize,
     /// Check category
     pub category: CheckCategory,
+    /// Optional controlled-vocabulary advisory.
+    #[with(some)]
+    pub vocabulary_advisory: Option<Box<VocabularyAdvisory>>,
     /// Unified issue location for checks (prose location or schema path)
     pub locator: Option<String>,
     /// Per-item normalized prose locations retained without host document state.
     #[builder(default)]
     pub prose_locators: Vec<Option<String>>,
     /// Textual context of check (e.g., paragraph where prose issues were found)
+    #[with(some)]
     pub context: Option<String>,
     /// Internal payload used by check-specific renderers (e.g., prose source text)
+    #[with(some)]
     pub data: Option<String>,
     /// Structured FAIR assessment payload.
+    #[with(skip)]
     pub(super) fair_details: Option<Box<FairDetails>>,
     /// Rendering behavior associated with this check.
     #[builder(default)]
@@ -174,6 +183,9 @@ pub struct Check {
     pub errors: Option<ErrorKind>,
     /// Path of file being validated
     pub uri: Option<String>,
+    /// Stable rule identifier when supplied by a built-in or extension check.
+    #[with(some)]
+    pub rule_id: Option<String>,
     /// Message related to or description of validation issue (e.g., key name of invalid value, result of validation, etc.)
     #[builder(default = "".to_string())]
     pub message: String,
@@ -233,7 +245,137 @@ pub struct Findings {
     #[cfg_attr(feature = "exec", validate(nested))]
     values: Vec<Finding>,
 }
+/// Structured controlled-vocabulary evidence attached to a check.
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct VocabularyAdvisory {
+    /// At most three distinct canonical candidates.
+    pub candidates: Vec<VocabularyAdvisoryCandidate>,
+    /// Whether the eligible candidate search completed.
+    pub complete: bool,
+    /// Edit distance for the leading candidate when available.
+    pub edit_distance: Option<usize>,
+    /// Exact, alias, identifier, normalized, or fuzzy evidence kind.
+    pub evidence: Option<String>,
+    /// Effective fuzzy mode.
+    pub mode: VocabularyFuzzyMode,
+    /// Similarity method or typed lookup for the leading result.
+    pub method: Option<String>,
+    /// Resolver outcome.
+    pub outcome: VocabularyOutcome,
+    /// Original authored value.
+    pub original: String,
+    /// Stable matching-policy revision.
+    pub policy_revision: String,
+    /// Declared canonical replacement when accepted.
+    pub replacement: Option<String>,
+    /// Difference from the runner-up distinct canonical candidate.
+    pub runner_up_margin: Option<Noul>,
+    /// Similarity score for the leading result.
+    pub score: Option<Noul>,
+    /// Stable source-document locator.
+    pub source_locator: String,
+    /// Payload schema version.
+    pub version: u8,
+    /// Controlled-vocabulary identity.
+    pub vocabulary: String,
+    /// Embedded vocabulary revision.
+    pub vocabulary_revision: String,
+    /// Stable algorithm or typed-lookup variant for the leading result.
+    pub variant: Option<String>,
+}
+/// Bounded canonical candidate attached to a vocabulary advisory.
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct VocabularyAdvisoryCandidate {
+    /// Declared canonical value.
+    pub canonical: String,
+    /// Edit distance when the matching method reports one.
+    pub edit_distance: Option<usize>,
+    /// Stable vocabulary locator.
+    pub locator: String,
+    /// Declared term that produced the candidate.
+    pub matched: String,
+    /// Similarity method or typed lookup.
+    pub method: String,
+    /// Similarity score from zero through one.
+    pub score: Noul,
+    /// Stable algorithm or typed-lookup variant.
+    pub variant: String,
+}
 impl Check {
+    /// Convert one controlled-vocabulary resolution into an advisory check when action is warranted.
+    pub fn from_vocabulary_resolution(
+        report: &VocabularyReport,
+        resolution: &VocabularyResolution,
+        strict: Option<&VocabularyResolution>,
+        uri: &str,
+    ) -> Option<Self> {
+        let original = resolution.input.as_str();
+        let details = match resolution.outcome {
+            | VocabularyOutcome::ExactAlias | VocabularyOutcome::ExactIdentifier | VocabularyOutcome::FuzzyAccepted => {
+                resolution.canonical.as_deref().map(|replacement| {
+                    let relaxed_only = report.fuzzy == VocabularyFuzzyMode::Relaxed
+                        && !strict.is_some_and(|value| value.outcome.is_accepted() && value.canonical.as_deref() == Some(replacement));
+                    let rule_id = match relaxed_only {
+                        | true => "vocabulary.relaxed-match",
+                        | false => "vocabulary.canonical-change",
+                    };
+                    let severity = match relaxed_only {
+                        | true => CheckSeverity::Warning,
+                        | false => CheckSeverity::Info,
+                    };
+                    (
+                        format!("Use canonical vocabulary value '{replacement}' instead of '{original}'."),
+                        rule_id,
+                        severity,
+                    )
+                })
+            }
+            | VocabularyOutcome::ExactCanonical if resolution.canonical.as_deref() != Some(original) => {
+                resolution.canonical.as_deref().map(|replacement| {
+                    (
+                        format!("Use canonical vocabulary value '{replacement}' instead of '{original}'."),
+                        "vocabulary.canonical-change",
+                        CheckSeverity::Info,
+                    )
+                })
+            }
+            | VocabularyOutcome::Ambiguous => {
+                let candidates = resolution
+                    .candidates
+                    .iter()
+                    .take(3)
+                    .map(|candidate| candidate.canonical.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                Some((
+                    format!("Vocabulary value '{original}' is ambiguous; candidates: {candidates}."),
+                    "vocabulary.ambiguous",
+                    CheckSeverity::Warning,
+                ))
+            }
+            | VocabularyOutcome::ResourceLimited => Some((
+                format!("Vocabulary matching did not complete for '{original}' within configured resource limits."),
+                "vocabulary.resource-limited",
+                CheckSeverity::Warning,
+            )),
+            | VocabularyOutcome::ExactCanonical | VocabularyOutcome::Invalid | VocabularyOutcome::Unmatched => None,
+        };
+        details.map(|(message, rule_id, severity)| {
+            check!(
+                CheckCategory::Prose,
+                false,
+                context: original.to_string(),
+                message: message,
+                severity: severity,
+                uri: uri.to_string()
+            )
+            .with_locator(resolution.source_locator.clone())
+            .with_rule_id(rule_id)
+            .with_vocabulary_advisory(VocabularyAdvisory::new(report, resolution))
+        })
+    }
     /// Returns whether this check represents a failure (not successful and severity warrants failure)
     pub fn is_failure(&self) -> bool {
         !self.success && self.severity.is_failure()
@@ -278,57 +420,9 @@ impl Check {
             }
         }
     }
-    /// Returns a new LinkCheckResult with the given context
-    pub fn with_context(self, value: String) -> Self {
-        Self {
-            context: Some(value),
-            ..self
-        }
-    }
     /// Return the structured FAIR finding associated with this check.
     pub fn fair_details(&self) -> Option<&FairDetails> {
         self.fair_details.as_deref()
-    }
-    /// Replace the structured FAIR finding associated with this check.
-    #[cfg(feature = "analysis")]
-    pub fn with_fair_details(self, finding: FairDetails) -> Self {
-        let context = finding.evidence.clone();
-        let locator = finding.locator.clone().or_else(|| Some(finding.indicator.id.to_string()));
-        let message = finding.remediation.clone();
-        let severity = CheckSeverity::from(finding.clone());
-        let success = FairState::is_supported(&finding.state) || FairState::is_not_applicable(&finding.state);
-        Self {
-            context,
-            fair_details: Some(Box::new(finding)),
-            locator,
-            message,
-            severity,
-            success,
-            ..self
-        }
-    }
-    /// Returns a new check with renderer data attached.
-    pub fn with_data(self, value: String) -> Self {
-        Self { data: Some(value), ..self }
-    }
-    /// Returns a new LinkCheckResult with the given index
-    pub fn with_index(self, value: usize) -> Self {
-        Self { index: value, ..self }
-    }
-    /// Returns a new LinkCheckResult with the given locator
-    pub fn with_locator(self, value: Option<String>) -> Self {
-        Self { locator: value, ..self }
-    }
-    /// Returns a new check with resolved prose locators.
-    pub fn with_prose_locators(self, values: Vec<Option<String>>) -> Self {
-        Self {
-            prose_locators: values,
-            ..self
-        }
-    }
-    /// Returns a new LinkCheckResult with the given URL
-    pub fn with_uri(self, value: Option<String>) -> Self {
-        Self { uri: value, ..self }
     }
 }
 impl From<Finding> for Check {
@@ -336,6 +430,7 @@ impl From<Finding> for Check {
         Self {
             index: 0,
             category: value.category,
+            vocabulary_advisory: None,
             locator: value.locator,
             prose_locators: Vec::new(),
             context: value.context,
@@ -347,6 +442,7 @@ impl From<Finding> for Check {
             status_code: None,
             errors: None,
             uri: value.uri,
+            rule_id: Some(value.rule_id),
             message: value.message,
         }
     }
@@ -368,6 +464,51 @@ impl CheckBatch {
             .lines()
             .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(uri.clone()))
             .collect()
+    }
+    /// Resolve located vocabulary values into an ordered batch of advisory checks.
+    pub fn resolve_vocabulary(kind: VocabularyKind, values: Vec<(String, String)>, mode: VocabularyFuzzyMode, uri: &str) -> Self {
+        match values.is_empty() || mode == VocabularyFuzzyMode::Off {
+            | true => Self::empty(),
+            | false => match VocabularyResolver::embedded(kind) {
+                | Err(error) => CheckCategory::Prose.failure_checks(error, Some(uri.to_string())),
+                | Ok(resolver) => match resolver.resolve_located(
+                    values.clone(),
+                    VocabularyOptions {
+                        fuzzy: mode,
+                        ..Default::default()
+                    },
+                ) {
+                    | Err(error) => CheckCategory::Prose.failure_checks(error, Some(uri.to_string())),
+                    | Ok(report) => {
+                        let strict = match mode {
+                            | VocabularyFuzzyMode::Relaxed => resolver
+                                .resolve_located(
+                                    values,
+                                    VocabularyOptions {
+                                        fuzzy: VocabularyFuzzyMode::Strict,
+                                        ..Default::default()
+                                    },
+                                )
+                                .ok(),
+                            | VocabularyFuzzyMode::Off | VocabularyFuzzyMode::Strict => None,
+                        };
+                        report
+                            .resolutions
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(index, resolution)| {
+                                Check::from_vocabulary_resolution(
+                                    &report,
+                                    resolution,
+                                    strict.as_ref().and_then(|value| value.resolutions.get(index)),
+                                    uri,
+                                )
+                            })
+                            .collect()
+                    }
+                },
+            },
+        }
     }
     /// Combine two batches while preserving their left-to-right order.
     pub fn combine(self, other: Self) -> Self {
@@ -432,7 +573,6 @@ impl<'a> IntoIterator for &'a CheckBatch {
 }
 impl CheckCategory {
     /// Convert a category-specific diagnostic into one failed check.
-    #[cfg(feature = "analysis")]
     pub fn failure_checks(self, diagnostic: impl ToString, uri: Option<String>) -> CheckBatch {
         CheckBatch::single(check_err!(self, context: diagnostic.to_string()).with_uri(uri))
     }
@@ -945,6 +1085,57 @@ impl From<CheckBatch> for Vec<Check> {
 impl From<Findings> for Vec<Finding> {
     fn from(value: Findings) -> Self {
         value.values
+    }
+}
+impl VocabularyAdvisory {
+    /// Build an advisory from one controlled-vocabulary resolution.
+    pub fn new(report: &VocabularyReport, resolution: &VocabularyResolution) -> Self {
+        Self {
+            candidates: resolution
+                .candidates
+                .iter()
+                .take(3)
+                .map(|candidate| VocabularyAdvisoryCandidate {
+                    canonical: candidate.canonical.clone(),
+                    edit_distance: candidate.edit_distance,
+                    locator: candidate.locator.clone(),
+                    matched: candidate.matched.clone(),
+                    method: candidate.method.clone(),
+                    score: candidate.score,
+                    variant: Self::method_variant(&candidate.method),
+                })
+                .collect(),
+            complete: resolution.complete,
+            edit_distance: resolution.edit_distance,
+            evidence: resolution
+                .method
+                .as_deref()
+                .filter(|method| method.starts_with("normalized-"))
+                .map(|_| "normalized".to_string())
+                .or_else(|| resolution.match_kind.map(|kind| kind.to_string())),
+            mode: report.fuzzy,
+            method: resolution.method.clone(),
+            outcome: resolution.outcome,
+            original: resolution.input.clone(),
+            policy_revision: report.policy_revision.clone(),
+            replacement: resolution.canonical.clone(),
+            runner_up_margin: resolution.runner_up_margin,
+            score: resolution.score,
+            source_locator: resolution.source_locator.clone().unwrap_or_default(),
+            variant: resolution.method.as_deref().map(Self::method_variant),
+            version: 1,
+            vocabulary: report.vocabulary.to_string(),
+            vocabulary_revision: report.vocabulary_revision.clone(),
+        }
+    }
+    fn method_variant(method: &str) -> String {
+        match method {
+            | "optimal-string-alignment" => "restricted-optimal-string-alignment",
+            | "jaro-winkler" => "conventional-jaro-winkler",
+            | "sorensen-dice" => "set-sorensen-dice",
+            | value => value,
+        }
+        .to_string()
     }
 }
 /// Portable readability check over supplied text (no filesystem or env)

@@ -1,14 +1,102 @@
 //! Controlled-vocabulary resolution regression tests.
+#![allow(clippy::expect_used, clippy::indexing_slicing)]
 use super::*;
+use alloc::collections::BTreeSet;
 use serde::Deserialize;
 
+const CORPUS_SCHEMA_VERSION: u8 = 1;
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+enum Compatibility {
+    ChangedCanonical,
+    NewlyAccepted,
+    NewlyAmbiguous,
+    NewlyRejected,
+    ResourceLimited,
+    Unchanged,
+}
+#[derive(Clone, Copy, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+enum Partition {
+    Calibration,
+    HeldOut,
+}
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Baseline {
+    implementation: String,
+    source_revision: String,
+}
+#[derive(Deserialize)]
+struct Expected {
+    relaxed: Observation,
+    strict: Observation,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Fixture {
-    canonical: Option<String>,
-    fuzzy: VocabularyFuzzyMode,
+    baseline: Baseline,
+    cases: Vec<FixtureCase>,
+    policy_revision: String,
+    release_measurements: Vec<ReleaseMeasurement>,
+    schema_version: u8,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FixtureCase {
+    compatibility: Compatibility,
+    expected: Expected,
+    expected_canonical: Option<String>,
+    historical_canonical: Option<String>,
+    id: String,
     input: String,
-    outcome: VocabularyOutcome,
+    partition: Partition,
+    protected_hard_negative: bool,
+    rationale: Option<String>,
+    source_class: String,
     vocabulary: VocabularyKind,
+}
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct ModeMeasurement {
+    accepted: usize,
+    ambiguity: usize,
+    correct: usize,
+    observed_precision: f64,
+    recall: f64,
+    top_three_recall: f64,
+    wilson_95: WilsonInterval,
+}
+#[derive(Debug, Deserialize, PartialEq)]
+struct Observation {
+    candidates: Vec<String>,
+    canonical: Option<String>,
+    complete: bool,
+    outcome: VocabularyOutcome,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ReleaseMeasurement {
+    held_out_cases: usize,
+    protected_hard_negative_failures: usize,
+    relaxed: ModeMeasurement,
+    strict: ModeMeasurement,
+    vocabulary: VocabularyKind,
+}
+#[derive(Debug, Deserialize, PartialEq)]
+struct WilsonInterval {
+    lower: f64,
+    upper: f64,
+}
+fn assert_measurement_close(actual: &ModeMeasurement, expected: &ModeMeasurement) {
+    assert_eq!(actual.accepted, expected.accepted);
+    assert_eq!(actual.ambiguity, expected.ambiguity);
+    assert_eq!(actual.correct, expected.correct);
+    assert!((actual.observed_precision - expected.observed_precision).abs() < f64::EPSILON);
+    assert!((actual.recall - expected.recall).abs() < f64::EPSILON);
+    assert!((actual.top_three_recall - expected.top_three_recall).abs() < f64::EPSILON);
+    assert!((actual.wilson_95.lower - expected.wilson_95.lower).abs() < f64::EPSILON);
+    assert!((actual.wilson_95.upper - expected.wilson_95.upper).abs() < f64::EPSILON);
 }
 fn assert_pair(kind: VocabularyKind, input: &str, expected: Option<&str>) {
     let resolutions = VocabularyResolver::embedded(kind)
@@ -22,25 +110,168 @@ fn assert_pair(kind: VocabularyKind, input: &str, expected: Option<&str>) {
         "input: {input}"
     );
 }
+fn classify(historical: &Option<String>, current: &Observation) -> Compatibility {
+    match (historical, &current.canonical, current.outcome, current.complete) {
+        | (_, _, VocabularyOutcome::ResourceLimited, _) | (_, _, _, false) => Compatibility::ResourceLimited,
+        | (Some(_), _, VocabularyOutcome::Ambiguous, _) => Compatibility::NewlyAmbiguous,
+        | (Some(old), Some(new), _, _) if old != new => Compatibility::ChangedCanonical,
+        | (Some(old), Some(new), _, _) if old == new => Compatibility::Unchanged,
+        | (Some(_), None, _, _) => Compatibility::NewlyRejected,
+        | (None, Some(_), _, _) => Compatibility::NewlyAccepted,
+        | (None, None, _, _) => Compatibility::Unchanged,
+        | _ => Compatibility::ChangedCanonical,
+    }
+}
+fn fixture() -> Fixture {
+    serde_json::from_str(include_str!("../../../../tests/fixtures/vocabulary-resolution.json")).expect("vocabulary fixtures")
+}
+fn measure(cases: &[FixtureCase], vocabulary: VocabularyKind, relaxed: bool) -> ModeMeasurement {
+    let observations = cases
+        .iter()
+        .filter(|case| case.vocabulary == vocabulary && case.partition == Partition::HeldOut)
+        .map(|case| {
+            let observation = if relaxed { &case.expected.relaxed } else { &case.expected.strict };
+            (case, observation)
+        })
+        .collect::<Vec<_>>();
+    let positives = observations.iter().filter(|(case, _)| case.expected_canonical.is_some()).count();
+    let accepted = observations.iter().filter(|(_, observation)| observation.canonical.is_some()).count();
+    let correct = observations
+        .iter()
+        .filter(|(case, observation)| observation.canonical == case.expected_canonical && observation.canonical.is_some())
+        .count();
+    let ambiguity = observations
+        .iter()
+        .filter(|(_, observation)| observation.outcome == VocabularyOutcome::Ambiguous)
+        .count();
+    let top_three = observations
+        .iter()
+        .filter(|(case, observation)| {
+            case.expected_canonical
+                .as_ref()
+                .is_some_and(|expected| observation.candidates.contains(expected) || observation.canonical.as_ref() == Some(expected))
+        })
+        .count();
+    ModeMeasurement {
+        accepted,
+        ambiguity,
+        correct,
+        observed_precision: ratio(correct, accepted),
+        recall: ratio(correct, positives),
+        top_three_recall: ratio(top_three, positives),
+        wilson_95: wilson(correct, accepted),
+    }
+}
+fn ratio(numerator: usize, denominator: usize) -> f64 {
+    if denominator > 0 {
+        numerator as f64 / denominator as f64
+    } else {
+        0.0
+    }
+}
+fn wilson(successes: usize, total: usize) -> WilsonInterval {
+    const Z: f64 = 1.959_963_984_540_054;
+    match total {
+        | 0 => WilsonInterval { lower: 0.0, upper: 0.0 },
+        | _ => {
+            let count = total as f64;
+            let proportion = successes as f64 / count;
+            let z_squared = Z * Z;
+            let denominator = 1.0 + z_squared / count;
+            let center = proportion + z_squared / (2.0 * count);
+            let spread = Z * ((proportion * (1.0 - proportion) + z_squared / (4.0 * count)) / count).sqrt();
+            WilsonInterval {
+                lower: ((center - spread) / denominator).clamp(0.0, 1.0),
+                upper: ((center + spread) / denominator).clamp(0.0, 1.0),
+            }
+        }
+    }
+}
 
 #[test]
 fn test_committed_resolution_fixtures() {
-    let fixtures =
-        serde_json::from_str::<Vec<Fixture>>(include_str!("../../../../tests/fixtures/vocabulary-resolution.json")).expect("vocabulary fixtures");
-    fixtures.into_iter().for_each(|fixture| {
-        let resolver = VocabularyResolver::embedded(fixture.vocabulary).expect("embedded vocabulary");
-        let report = resolver
-            .resolve(
-                [fixture.input],
-                VocabularyOptions {
-                    fuzzy: fixture.fuzzy,
-                    ..Default::default()
-                },
-            )
-            .expect("resolve fixture");
-        let resolution = report.resolutions.first().expect("one fixture resolution");
-        assert_eq!(resolution.canonical, fixture.canonical);
-        assert_eq!(resolution.outcome, fixture.outcome);
+    let fixture = fixture();
+    assert_eq!(fixture.schema_version, CORPUS_SCHEMA_VERSION);
+    assert_eq!(fixture.baseline.implementation, "nucleo-matcher 0.3.1");
+    assert_eq!(fixture.baseline.source_revision, "b4007f43^");
+    let mut identifiers = BTreeSet::new();
+    fixture.cases.iter().for_each(|case| {
+        assert!(identifiers.insert(case.id.as_str()), "duplicate corpus ID: {}", case.id);
+        assert!(!case.source_class.is_empty(), "missing source class: {}", case.id);
+        assert_eq!(case.compatibility, classify(&case.historical_canonical, &case.expected.relaxed));
+        if case.compatibility != Compatibility::Unchanged || case.expected.relaxed.outcome == VocabularyOutcome::Ambiguous {
+            assert!(case.rationale.is_some(), "missing compatibility rationale: {}", case.id);
+        }
+        let resolver = VocabularyResolver::embedded(case.vocabulary).expect("embedded vocabulary");
+        [
+            (VocabularyFuzzyMode::Relaxed, &case.expected.relaxed),
+            (VocabularyFuzzyMode::Strict, &case.expected.strict),
+        ]
+        .into_iter()
+        .for_each(|(fuzzy, expected)| {
+            let report = resolver
+                .resolve([case.input.as_str()], VocabularyOptions { fuzzy, ..Default::default() })
+                .expect("resolve corpus case");
+            assert_eq!(report.policy_revision, fixture.policy_revision, "case: {}", case.id);
+            let resolution = report.resolutions.first().expect("one corpus resolution");
+            assert_eq!(resolution.canonical, expected.canonical, "case: {}", case.id);
+            assert_eq!(resolution.complete, expected.complete, "case: {}", case.id);
+            assert_eq!(resolution.outcome, expected.outcome, "case: {}", case.id);
+            assert_eq!(
+                resolution
+                    .candidates
+                    .iter()
+                    .map(|candidate| candidate.canonical.clone())
+                    .collect::<Vec<_>>(),
+                expected.candidates,
+                "case: {}",
+                case.id
+            );
+        });
+    });
+}
+#[test]
+fn test_corpus_release_measurements_meet_policy() {
+    let fixture = fixture();
+    assert_eq!(fixture.release_measurements.len(), 5);
+    fixture.release_measurements.iter().for_each(|expected| {
+        let relaxed = measure(&fixture.cases, expected.vocabulary, true);
+        let strict = measure(&fixture.cases, expected.vocabulary, false);
+        let held_out_cases = fixture
+            .cases
+            .iter()
+            .filter(|case| case.vocabulary == expected.vocabulary && case.partition == Partition::HeldOut)
+            .count();
+        let protected_hard_negative_failures = fixture
+            .cases
+            .iter()
+            .filter(|case| case.vocabulary == expected.vocabulary && case.protected_hard_negative && case.expected.relaxed.canonical.is_some())
+            .count();
+        assert_eq!(expected.held_out_cases, held_out_cases);
+        assert_eq!(expected.protected_hard_negative_failures, protected_hard_negative_failures);
+        assert_measurement_close(&relaxed, &expected.relaxed);
+        assert_measurement_close(&strict, &expected.strict);
+        assert!(relaxed.accepted >= 100, "insufficient relaxed sample for {}", expected.vocabulary);
+        assert!(
+            relaxed.observed_precision >= 0.99,
+            "relaxed precision below target for {}",
+            expected.vocabulary
+        );
+        assert_eq!(
+            protected_hard_negative_failures, 0,
+            "protected hard negative accepted for {}",
+            expected.vocabulary
+        );
+        let strict_wrong = fixture
+            .cases
+            .iter()
+            .filter(|case| {
+                case.vocabulary == expected.vocabulary
+                    && case.expected.strict.canonical.is_some()
+                    && case.expected.strict.canonical != case.expected_canonical
+            })
+            .count();
+        assert_eq!(strict_wrong, 0, "strict false canonicalization for {}", expected.vocabulary);
     });
 }
 #[test]
@@ -82,6 +313,27 @@ fn test_declared_terms_are_stable_when_entry_order_changes() {
     });
 }
 #[test]
+fn test_duplicate_identifiers_invalidate_vocabulary_assets() {
+    let entries = [
+        Entry {
+            aliases: Vec::new(),
+            canonical: "First".to_string(),
+            identifiers: vec!["https://ror.org/01qz5mb56".to_string()],
+            locator: "test[0]".to_string(),
+        },
+        Entry {
+            aliases: Vec::new(),
+            canonical: "Second".to_string(),
+            identifiers: vec!["01qz5mb56".to_string()],
+            locator: "test[1]".to_string(),
+        },
+    ];
+    assert!(matches!(
+        data::validate_unique_identifiers(VocabularyKind::Organizations, &entries),
+        Err(VocabularyError::InvalidAsset { .. })
+    ));
+}
+#[test]
 fn test_keyword_before_after_pairs_are_retained() {
     [
         ("critical-infrastructure", "critical-infrastructure"),
@@ -100,6 +352,23 @@ fn test_keyword_before_after_pairs_are_retained() {
     ]
     .into_iter()
     .for_each(|(input, expected)| assert_pair(VocabularyKind::Keywords, input, Some(expected)));
+}
+#[test]
+fn test_match_kind_display_uses_wire_names() {
+    assert_eq!(VocabularyMatchKind::Alias.to_string(), "alias");
+    assert_eq!(VocabularyMatchKind::Canonical.to_string(), "canonical");
+    assert_eq!(VocabularyMatchKind::Fuzzy.to_string(), "fuzzy");
+    assert_eq!(VocabularyMatchKind::Identifier.to_string(), "identifier");
+    assert_eq!(VocabularyMatchKind::Normalized.to_string(), "normalized");
+}
+#[test]
+fn test_normalization_uses_vocabulary_specific_unicode_and_punctuation_rules() {
+    assert_eq!(normalize(VocabularyKind::Keywords, "ＡＩ"), "ai");
+    assert_eq!(normalize(VocabularyKind::Technology, "Straße"), "strasse");
+    assert_eq!(normalize(VocabularyKind::Technology, "C++"), "c++");
+    assert_eq!(normalize(VocabularyKind::Technology, "node.js"), "node.js");
+    assert_eq!(normalize(VocabularyKind::Organizations, "Kitware, Inc."), "kitware inc");
+    assert_eq!(normalize(VocabularyKind::Organizations, "ＯＲＮＬ"), "ｏｒｎｌ");
 }
 #[test]
 fn test_off_mode_preserves_unknown_values() {
@@ -179,23 +448,27 @@ fn test_relaxed_mode_accepts_longer_keyword_truncation() {
 #[test]
 fn test_resource_exhaustion_never_accepts_a_partial_search() {
     let resolver = VocabularyResolver::embedded(VocabularyKind::Keywords).expect("keywords");
-    let report = resolver
-        .resolve(
-            ["high-performance-computi"],
-            VocabularyOptions {
-                limits: VocabularyLimits {
-                    max_batch_work: 1,
-                    max_work_per_input: 1,
-                    ..Default::default()
-                },
-                ..Default::default()
-            },
-        )
-        .expect("bounded report");
-    let resolution = report.resolutions.first().expect("one bounded resolution");
-    assert_eq!(resolution.outcome, VocabularyOutcome::ResourceLimited);
-    assert!(!resolution.complete);
-    assert!(resolution.canonical.is_none());
+    let options = VocabularyOptions {
+        limits: VocabularyLimits {
+            max_batch_work: 1,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let inputs = ["high-performance-computi", "AI", "automatin"];
+    let report = resolver.resolve(inputs, options).expect("bounded report");
+    let reversed = resolver.resolve(inputs.into_iter().rev(), options).expect("reversed bounded report");
+    assert_eq!(report.resolutions[0].outcome, VocabularyOutcome::ResourceLimited);
+    assert_eq!(report.resolutions[1].outcome, VocabularyOutcome::ExactAlias);
+    assert_eq!(report.resolutions[2].outcome, VocabularyOutcome::ResourceLimited);
+    assert_eq!(reversed.resolutions[0].outcome, VocabularyOutcome::ResourceLimited);
+    assert_eq!(reversed.resolutions[1].outcome, VocabularyOutcome::ExactAlias);
+    assert_eq!(reversed.resolutions[2].outcome, VocabularyOutcome::ResourceLimited);
+    assert!(report
+        .resolutions
+        .iter()
+        .filter(|resolution| resolution.outcome == VocabularyOutcome::ResourceLimited)
+        .all(|resolution| !resolution.complete && resolution.canonical.is_none()));
 }
 #[test]
 fn test_short_unknowns_are_never_fuzzy_accepted() {

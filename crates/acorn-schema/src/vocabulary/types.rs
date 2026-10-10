@@ -1,7 +1,9 @@
 //! Vocabulary resolution data types.
 use super::matching::stable_unique;
 use acorn_core::prelude::alloc::{String, ToString, Vec};
+use acorn_core::Noul;
 use bon::bon;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::EnumIs;
 
@@ -28,8 +30,9 @@ pub enum VocabularyError {
     },
 }
 /// Fuzzy-matching policy selected by a caller.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, EnumIs, Eq, JsonSchema, PartialEq, Serialize, strum::Display)]
 #[serde(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
 pub enum VocabularyFuzzyMode {
     /// Disable similarity scoring while retaining exact and normalized matching.
     Off,
@@ -40,7 +43,7 @@ pub enum VocabularyFuzzyMode {
     Strict,
 }
 /// Embedded controlled-vocabulary identity.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize, strum::Display)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, Ord, PartialEq, PartialOrd, Serialize, strum::Display)]
 #[serde(rename_all = "kebab-case")]
 #[strum(serialize_all = "kebab-case")]
 pub enum VocabularyKind {
@@ -56,8 +59,9 @@ pub enum VocabularyKind {
     Technology,
 }
 /// How an accepted or suggested candidate matched an entry.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, strum::Display)]
 #[serde(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
 pub enum VocabularyMatchKind {
     /// Declared alias.
     Alias,
@@ -71,8 +75,9 @@ pub enum VocabularyMatchKind {
     Normalized,
 }
 /// Per-input resolution status.
-#[derive(Clone, Copy, Debug, Deserialize, EnumIs, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, EnumIs, Eq, JsonSchema, PartialEq, Serialize, strum::Display)]
 #[serde(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
 pub enum VocabularyOutcome {
     /// More than one canonical identity is equally eligible.
     Ambiguous,
@@ -127,6 +132,9 @@ pub struct VocabularyAudit {
 pub struct VocabularyCandidate {
     /// Canonical output value.
     pub canonical: String,
+    /// Edit distance when the selected method reports one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub edit_distance: Option<usize>,
     /// Stable hierarchy or asset locator.
     pub locator: String,
     /// Term that produced this score.
@@ -134,7 +142,7 @@ pub struct VocabularyCandidate {
     /// Matching method or typed lookup used.
     pub method: String,
     /// Similarity score from zero to one.
-    pub score: f64,
+    pub score: Noul,
 }
 /// A formatted value together with every vocabulary report produced while formatting it.
 #[derive(Clone, Debug, PartialEq)]
@@ -196,6 +204,9 @@ pub struct VocabularyResolution {
     pub canonical: Option<String>,
     /// Whether every eligible entry was searched.
     pub complete: bool,
+    /// Edit distance for the leading candidate when available.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub edit_distance: Option<usize>,
     /// Original caller-supplied value.
     pub input: String,
     /// Stable hierarchy or asset locator for an accepted value.
@@ -214,10 +225,10 @@ pub struct VocabularyResolution {
     pub outcome: VocabularyOutcome,
     /// Difference between the best and runner-up distinct canonical scores.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub runner_up_margin: Option<f64>,
+    pub runner_up_margin: Option<Noul>,
     /// Accepted or leading similarity score.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub score: Option<f64>,
+    pub score: Option<Noul>,
     /// Caller-supplied field or source locator for this input.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_locator: Option<String>,
@@ -276,17 +287,19 @@ impl VocabularyResolution {
         outcome: VocabularyOutcome,
         #[builder(default)] candidates: Vec<VocabularyCandidate>,
         #[builder(default = true)] complete: bool,
+        edit_distance: Option<usize>,
         entry: Option<&Entry>,
         matched: Option<String>,
         match_kind: Option<VocabularyMatchKind>,
         method: Option<String>,
-        score: Option<f64>,
-        runner_up_margin: Option<f64>,
+        score: Option<Noul>,
+        runner_up_margin: Option<Noul>,
     ) -> Self {
         Self {
             candidates,
             canonical: entry.map(|entry| entry.canonical.clone()),
             complete,
+            edit_distance,
             input,
             locator: entry.map(|entry| entry.locator.clone()),
             match_kind,
