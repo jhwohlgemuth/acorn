@@ -17,6 +17,8 @@ derive_more = { workspace = true }
 fancy-regex = { workspace = true }
 fluent-uri = { workspace = true }
 hashbrown = { version = "0.17.0", features = ["default-hasher", "serde"], default-features = false }
+icu_casemap = { version = "~2.2.0", features = ["compiled_data"], default-features = false }
+icu_normalizer = { version = "~2.2.0", features = ["compiled_data"], default-features = false }
 jiff = { workspace = true }
 jsonc-parser = { workspace = true }
 quick-xml = { workspace = true, features = ["serialize"] }

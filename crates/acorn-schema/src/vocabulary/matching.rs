@@ -1,0 +1,169 @@
+//! Vocabulary normalization, scoring, and result construction.
+use super::types::{Entry, FuzzyGate, ScoredCandidate, VocabularyError, VocabularyFuzzyMode, VocabularyKind};
+use crate::util::constants::app::DEFAULT_ROR_URL;
+use acorn_core::prelude::alloc::{String, ToString, Vec};
+use acorn_core::similarity::{
+    jaro_winkler_similarity, optimal_string_alignment_distance, optimal_string_alignment_similarity, sorensen_dice_similarity, SimilarityLimits,
+};
+use alloc::collections::BTreeSet;
+use core::cmp::Ordering;
+
+pub(super) fn check_limit(name: &'static str, actual: usize, limit: usize) -> Result<(), VocabularyError> {
+    (actual <= limit)
+        .then_some(())
+        .ok_or(VocabularyError::LimitExceeded { actual, name, limit })
+}
+pub(super) fn compare_scored(left: &ScoredCandidate, right: &ScoredCandidate) -> Ordering {
+    right
+        .candidate
+        .score
+        .partial_cmp(&left.candidate.score)
+        .unwrap_or(Ordering::Equal)
+        .then_with(|| left.candidate.canonical.cmp(&right.candidate.canonical))
+        .then_with(|| left.candidate.locator.cmp(&right.candidate.locator))
+}
+pub(super) fn gate(kind: VocabularyKind, input_length: usize, mode: VocabularyFuzzyMode) -> FuzzyGate {
+    match (kind, mode, input_length) {
+        | (VocabularyKind::Keywords | VocabularyKind::Technology, VocabularyFuzzyMode::Strict, 5..=8) => FuzzyGate {
+            margin: 0.20,
+            maximum_distance: Some(1),
+            minimum_score: 0.80,
+        },
+        | (VocabularyKind::Keywords | VocabularyKind::Technology, VocabularyFuzzyMode::Strict, _) => FuzzyGate {
+            margin: 0.10,
+            maximum_distance: Some(2),
+            minimum_score: 0.90,
+        },
+        | (VocabularyKind::Keywords | VocabularyKind::Technology, VocabularyFuzzyMode::Relaxed, 5..=8) => FuzzyGate {
+            margin: 0.10,
+            maximum_distance: Some(2),
+            minimum_score: 0.70,
+        },
+        | (VocabularyKind::Keywords | VocabularyKind::Technology, VocabularyFuzzyMode::Relaxed, _) => FuzzyGate {
+            margin: 0.05,
+            maximum_distance: Some(3),
+            minimum_score: 0.80,
+        },
+        | (_, VocabularyFuzzyMode::Strict, _) => FuzzyGate {
+            margin: 0.05,
+            maximum_distance: None,
+            minimum_score: 0.96,
+        },
+        | (_, VocabularyFuzzyMode::Off | VocabularyFuzzyMode::Relaxed, _) => FuzzyGate {
+            margin: 0.03,
+            maximum_distance: None,
+            minimum_score: 0.90,
+        },
+    }
+}
+pub(super) fn normalize(kind: VocabularyKind, value: &str) -> String {
+    let collapsed = value
+        .replace(['.', ','], "")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase();
+    match kind {
+        | VocabularyKind::Keywords => collapsed.replace([' ', '_'], "-"),
+        | VocabularyKind::Organizations | VocabularyKind::Partners => collapsed
+            .split_whitespace()
+            .map(|token| if token == "&" { "and" } else { token })
+            .collect::<Vec<_>>()
+            .join(" "),
+        | VocabularyKind::Sponsors => {
+            let normalized = collapsed
+                .split_whitespace()
+                .map(|token| match token {
+                    | "&" => "and",
+                    | "dept" => "department",
+                    | _ => token,
+                })
+                .collect::<Vec<_>>()
+                .join(" ");
+            ["united states ", "us "]
+                .into_iter()
+                .find_map(|prefix| normalized.strip_prefix(prefix))
+                .unwrap_or(normalized.as_str())
+                .strip_prefix("office of ")
+                .unwrap_or_else(|| {
+                    ["united states ", "us "]
+                        .into_iter()
+                        .find_map(|prefix| normalized.strip_prefix(prefix))
+                        .unwrap_or(normalized.as_str())
+                })
+                .to_string()
+        }
+        | VocabularyKind::Technology => collapsed
+            .split_whitespace()
+            .map(|token| if token == "lib" { "library" } else { token })
+            .collect::<Vec<_>>()
+            .join(" "),
+    }
+}
+pub(super) fn normalize_identifier(value: &str) -> String {
+    let lowered = value.trim().to_lowercase();
+    let normalized = lowered
+        .strip_prefix(DEFAULT_ROR_URL)
+        .or_else(|| lowered.strip_prefix("http://ror.org/"))
+        .unwrap_or(lowered.as_str())
+        .trim_start_matches("https://")
+        .trim_start_matches("http://")
+        .trim_end_matches('/');
+    normalized.strip_prefix("programming_").unwrap_or(normalized).to_string()
+}
+pub(super) fn score_term(
+    kind: VocabularyKind,
+    input: &str,
+    candidate: &str,
+    limits: SimilarityLimits,
+    mode: VocabularyFuzzyMode,
+) -> (String, f64, Option<usize>) {
+    match kind {
+        | VocabularyKind::Keywords | VocabularyKind::Technology => {
+            let distance = optimal_string_alignment_distance(input, candidate, limits).ok();
+            let score = optimal_string_alignment_similarity(input, candidate, limits)
+                .map(|score| score.value())
+                .unwrap_or_default();
+            ("optimal-string-alignment".to_string(), score, distance)
+        }
+        | VocabularyKind::Organizations | VocabularyKind::Partners | VocabularyKind::Sponsors => {
+            let input_tokens = input.split_whitespace().collect::<Vec<_>>();
+            let candidate_tokens = candidate.split_whitespace().collect::<Vec<_>>();
+            let dice = (input_tokens.len() > 1 && candidate_tokens.len() > 1)
+                .then(|| {
+                    sorensen_dice_similarity(&input_tokens, &candidate_tokens, limits)
+                        .ok()
+                        .map(|score| score.value())
+                })
+                .flatten();
+            let dice_floor = match mode {
+                | VocabularyFuzzyMode::Strict => 1.0,
+                | VocabularyFuzzyMode::Off | VocabularyFuzzyMode::Relaxed => 0.90,
+            };
+            match dice.filter(|score| *score >= dice_floor) {
+                | Some(score) => ("sorensen-dice".to_string(), score, None),
+                | None => (
+                    "jaro-winkler".to_string(),
+                    jaro_winkler_similarity(input, candidate, limits)
+                        .map(|score| score.value())
+                        .unwrap_or_default(),
+                    None,
+                ),
+            }
+        }
+    }
+}
+pub(super) fn stable_unique(values: impl IntoIterator<Item = String>) -> Vec<String> {
+    values
+        .into_iter()
+        .fold((Vec::new(), BTreeSet::new()), |(mut ordered, mut seen), value| {
+            if seen.insert(value.clone()) {
+                ordered.push(value);
+            }
+            (ordered, seen)
+        })
+        .0
+}
+pub(super) fn valid_asset_value(value: &str) -> bool {
+    !value.trim().is_empty() && value.trim() != "---"
+}

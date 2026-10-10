@@ -81,6 +81,7 @@ acorn gather path/to/project --enrich
 acorn gather path/to/project --raw --enrich > enriched.jsonl
 acorn gather report.docx --resolve
 acorn gather --text "ISNI: 0000 0004 9229 9539" --raw --resolve
+acorn gather --osti projects "ACORN" --fuzzy relaxed
 ```
 
 ## Watch mode
@@ -121,7 +122,7 @@ Candidates merge only when they share an exact normalized project identity. A ne
 
 ### Enrichment mapping
 
-Enrichment is additive and evidence-driven. ACORN starts with the identifiers found locally or returned by the selected provider, calls only the resolvers applicable to that entity and URL, and maps explicitly asserted values into candidate fields. Identifiers are normalized before use; arrays are deduplicated; and websites are deduplicated by URL. Keywords and technologies are resolved to canonical values from ACORN's embedded controlled vocabularies, including known aliases; values with no vocabulary match are omitted from the mapped candidate but remain in provider provenance when that source is persisted. At database persistence, a new scalar fills an empty field, while a conflict with an existing populated scalar preserves the stored value and records the new observation as provenance. Unmapped values are not coerced into unrelated fields. Failure of an optional ORCID, GitHub, or GitLab lookup leaves the original provider result intact.
+Enrichment is additive and evidence-driven. ACORN starts with the identifiers found locally or returned by the selected provider, calls only the resolvers applicable to that entity and URL, and maps explicitly asserted values into candidate fields. Identifiers are normalized before use; arrays are deduplicated; and websites are deduplicated by URL. Keywords and technologies are resolved to canonical values from ACORN's embedded controlled vocabularies, including known aliases. `--fuzzy strict` is the default; `relaxed` lowers the automatic acceptance gates, while `off` disables fuzzy scoring and retains exact and normalized lookup. Values with no accepted vocabulary match are omitted from mapped candidate fields but remain in provider provenance. At database persistence, a new scalar fills an empty field, while a conflict with an existing populated scalar preserves the stored value and records the new observation as provenance. Unmapped values are not coerced into unrelated fields. Failure of an optional ORCID, GitHub, or GitLab lookup leaves the original provider result intact.
 
 | Source and trigger | Candidate mapping | Guardrails |
 |---|---|---|

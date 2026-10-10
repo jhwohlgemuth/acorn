@@ -1,7 +1,7 @@
 #![allow(clippy::arithmetic_side_effects, clippy::expect_used, missing_docs)]
 use acorn_core::similarity::{
     character_ngrams, damerau_levenshtein_distance, jaccard_similarity, jaro_winkler_similarity, levenshtein_distance,
-    optimal_string_alignment_distance, word_tokens, NgramOptions, SimilarityLimits, TextPreprocessing,
+    optimal_string_alignment_distance, word_tokens, NgramOptions, SimilarityLimits, SimilarityPreprocessing,
 };
 use core::hint::black_box;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
@@ -39,10 +39,10 @@ fn bench_preparation(criterion: &mut Criterion) {
     let unicode = "é🙂research-data".repeat(64);
     let mut group = criterion.benchmark_group("similarity.preparation");
     group.bench_function("character_ngrams", |bencher| {
-        bencher.iter(|| character_ngrams(black_box(&unicode), TextPreprocessing::Lowercase, ngrams, limits).expect("bounded preparation"))
+        bencher.iter(|| character_ngrams(black_box(&unicode), SimilarityPreprocessing::Lowercase, ngrams, limits).expect("bounded preparation"))
     });
     group.bench_function("word_tokens", |bencher| {
-        bencher.iter(|| word_tokens(black_box(&text), TextPreprocessing::Lowercase, limits).expect("bounded preparation"))
+        bencher.iter(|| word_tokens(black_box(&text), SimilarityPreprocessing::Lowercase, limits).expect("bounded preparation"))
     });
     group.finish();
 }

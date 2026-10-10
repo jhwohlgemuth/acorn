@@ -21,10 +21,11 @@ use crate::util::constants::{
 };
 use crate::util::constants::{MAX_LENGTH_APPROACH, MAX_LENGTH_CAPABILIY, MAX_LENGTH_IMPACT, MAX_LENGTH_RESEARCH_AREA};
 use crate::validation::{Validate, ValidationReport};
-use crate::vocabulary;
-use crate::{
-    ClassificationLevel, ContactPoint, ControlledVocabulary, ImageObject, Keyword, MediaObject, OneOrMany, OrganizationType, Other, Status, Website,
+#[cfg(feature = "alloc")]
+use crate::vocabulary::{
+    VocabularyError, VocabularyFormat, VocabularyFuzzyMode, VocabularyKind, VocabularyOptions, VocabularyReport, VocabularyResolver,
 };
+use crate::{ClassificationLevel, ContactPoint, ImageObject, Keyword, MediaObject, OneOrMany, OrganizationType, Other, Status, Website};
 use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
 #[cfg(feature = "std")]
 use acorn_core::util::MimeType;
@@ -68,7 +69,8 @@ enum StringOrStructured<T> {
     String(String),
     Structured(T),
 }
-#[derive(Debug, Display)]
+#[cfg(feature = "alloc")]
+#[derive(Clone, Copy, Debug, Display)]
 enum Vocabulary {
     #[display("keywords")]
     Keywords,
@@ -915,12 +917,37 @@ impl ResearchActivity {
     /// - Resolves keywords, technology, organization, partners, sponsors, and affiliation using fuzzy matching against controlled vocabularies
     /// - Formats contact telephone number
     pub fn format(self) -> ResearchActivity {
-        let Self { meta, contact, .. } = self.clone();
-        Self {
-            meta: meta.format(),
-            contact: contact.format(),
-            ..self
+        #[cfg(feature = "alloc")]
+        {
+            self.clone()
+                .format_with_vocabulary_report(VocabularyFuzzyMode::Strict)
+                .map(|formatted| formatted.value)
+                .unwrap_or(self)
         }
+        #[cfg(not(feature = "alloc"))]
+        {
+            let Self { meta, contact, .. } = self.clone();
+            Self {
+                meta: meta.format(),
+                contact: contact.format(),
+                ..self
+            }
+        }
+    }
+    /// Format research activity data with the selected fuzzy policy and retain resolution reports.
+    #[cfg(feature = "alloc")]
+    pub fn format_with_vocabulary_report(self, fuzzy: VocabularyFuzzyMode) -> Result<VocabularyFormat<Self>, VocabularyError> {
+        let Self { meta, contact, .. } = self.clone();
+        meta.format_with_vocabulary_report(fuzzy).and_then(|formatted_meta| {
+            contact.format_with_vocabulary_report(fuzzy).map(|formatted_contact| VocabularyFormat {
+                reports: formatted_meta.reports.into_iter().chain(formatted_contact.reports).collect(),
+                value: Self {
+                    meta: formatted_meta.value,
+                    contact: formatted_contact.value,
+                    ..self
+                },
+            })
+        })
     }
 }
 impl ToProse for ResearchActivity {
@@ -1011,32 +1038,54 @@ impl ResearchActivityMetadata {
     }
     /// Fix, resolve, and augment research activity metadata
     pub fn format(self) -> Self {
-        let keywords = Vocabulary::Keywords.resolve(Some(self.keywords.clone()));
-        let technology = Vocabulary::Technology.resolve(Some(self.technology.clone()));
-        let partners = match Vocabulary::Partners.resolve(self.partners.clone().map(OneOrMany::into_vec)) {
-            | values if !values.is_empty() => Some(values.into()),
-            | _ => None,
-        };
-        let funders = self.funders.clone().and_then(|funders| {
-            let funders = funders
-                .into_iter()
-                .filter_map(|funder| {
-                    Vocabulary::Sponsors
-                        .resolve(Some(vec![funder.name.clone()]))
-                        .into_iter()
-                        .next()
-                        .map(|name| Funding { name, ..funder })
-                })
-                .collect::<Vec<_>>();
-            (!funders.is_empty()).then_some(funders.into())
-        });
-        Self {
-            keywords,
-            technology,
-            partners,
-            funders,
-            ..self
+        #[cfg(feature = "alloc")]
+        {
+            self.clone()
+                .format_with_vocabulary_report(VocabularyFuzzyMode::Strict)
+                .map(|formatted| formatted.value)
+                .unwrap_or(self)
         }
+        #[cfg(not(feature = "alloc"))]
+        self
+    }
+    /// Format controlled metadata fields and retain per-input resolution reports.
+    #[cfg(feature = "alloc")]
+    pub fn format_with_vocabulary_report(self, fuzzy: VocabularyFuzzyMode) -> Result<VocabularyFormat<Self>, VocabularyError> {
+        let keyword_values = self.keywords.clone();
+        let technology_values = self.technology.clone();
+        let partner_values = self.partners.clone().map(OneOrMany::into_vec).unwrap_or_default();
+        let sponsor_values = self
+            .funders
+            .as_ref()
+            .map(|funders| funders.iter().map(|funder| funder.name.clone()).collect())
+            .unwrap_or_default();
+        Vocabulary::Keywords.resolve(keyword_values, fuzzy).and_then(|keywords| {
+            Vocabulary::Technology.resolve(technology_values, fuzzy).and_then(|technology| {
+                Vocabulary::Partners.resolve(partner_values, fuzzy).and_then(|partners| {
+                    Vocabulary::Sponsors.resolve(sponsor_values, fuzzy).map(|sponsors| {
+                        let funders = self.funders.clone().map(|funders| {
+                            funders
+                                .into_iter()
+                                .zip(sponsors.lossless_values())
+                                .map(|(funder, name)| Funding { name, ..funder })
+                                .collect::<Vec<_>>()
+                                .into()
+                        });
+                        let partner_values = partners.lossless_values();
+                        VocabularyFormat {
+                            reports: vec![keywords.clone(), technology.clone(), partners, sponsors],
+                            value: Self {
+                                funders,
+                                keywords: keywords.lossless_values(),
+                                partners: (!partner_values.is_empty()).then(|| partner_values.into()),
+                                technology: technology.lossless_values(),
+                                ..self
+                            },
+                        }
+                    })
+                })
+            })
+        })
     }
 }
 impl Default for ResearchActivityMetadataContext {
@@ -1153,10 +1202,33 @@ impl From<String> for TypedRelatedResource {
             .build()
     }
 }
+#[cfg(feature = "alloc")]
 impl Vocabulary {
-    /// Resolve values to intended values according to associated controlled vocabulary
-    fn resolve(self, values: Option<Vec<String>>) -> Vec<String> {
-        ControlledVocabulary::normalize(&self.to_string(), values.unwrap_or_default()).into_values()
+    fn field(self) -> &'static str {
+        match self {
+            | Self::Keywords => "meta.keywords",
+            | Self::Partners => "meta.partners",
+            | Self::Sponsors => "meta.funders",
+            | Self::Technology => "meta.technology",
+        }
+    }
+    /// Resolve values according to the associated controlled vocabulary.
+    fn resolve(self, values: Vec<String>, fuzzy: VocabularyFuzzyMode) -> Result<VocabularyReport, VocabularyError> {
+        let field = self.field();
+        let located = values.into_iter().enumerate().map(|(index, value)| (format!("{field}[{index}]"), value));
+        VocabularyResolver::embedded(self.into())
+            .and_then(|resolver| resolver.resolve_located(located, VocabularyOptions { fuzzy, ..Default::default() }))
+    }
+}
+#[cfg(feature = "alloc")]
+impl From<Vocabulary> for VocabularyKind {
+    fn from(value: Vocabulary) -> Self {
+        match value {
+            | Vocabulary::Keywords => Self::Keywords,
+            | Vocabulary::Partners => Self::Partners,
+            | Vocabulary::Sponsors => Self::Sponsors,
+            | Vocabulary::Technology => Self::Technology,
+        }
     }
 }
 fn default_access_context() -> String {
@@ -1371,10 +1443,6 @@ pub(crate) fn is_attribute_swhid_list(value: &[String]) -> ValidationResult {
         .position(|identifier| !SWHID::is_valid(identifier))
         .map(|index| validation_error_with_index(CODE, "Every SWHID should be valid".to_string(), index))
         .map_or(Ok(()), Err)
-}
-pub(crate) fn resolve_from_csv_asset(name: String, value: String) -> Option<String> {
-    let data = vocabulary::csv(&name);
-    super::resolve_from_list_of_lists(value, data)
 }
 fn validation_error_with_index(code: &'static str, message: String, index: usize) -> ValidationError {
     let mut err = ValidationError::new(code).with_message(message);

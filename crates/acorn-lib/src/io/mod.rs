@@ -34,7 +34,7 @@ use acorn_host::{
     fs::{file_checksum, file_uri_to_path, project_cache_directory, read_text, SafePath},
     terminal::Label,
 };
-use acorn_schema::standard::zon;
+use acorn_schema::{standard::zon, vocabulary::VocabularyFuzzyMode};
 pub use archive::{
     archive, extract, zip_entries, ArchiveCandidate, ArchiveCreation, ArchiveExtraction, ArchiveFormat, DeterministicZipEntry, ZipEntrySource,
 };
@@ -178,6 +178,10 @@ pub trait InputOutput: Sized {
     /// Normalize this value using optional filesystem context before workflow output.
     fn format_with(self, _context: Option<PathBuf>) -> Self {
         self
+    }
+    /// Normalize this value with an explicit controlled-vocabulary policy.
+    fn format_with_vocabulary(self, _fuzzy: VocabularyFuzzyMode, context: Option<PathBuf>) -> Self {
+        self.format_with(context)
     }
     /// Serialize this value in a workflow source format.
     fn serialize_as(&self, mime: &MimeType) -> ApiResult<String>

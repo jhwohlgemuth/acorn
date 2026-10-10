@@ -17,7 +17,7 @@ use acorn_core::util::MarkdownSupport;
 use acorn_core::Repository;
 use acorn_schema::pid::{Identifier, PersistentIdentifierParse, DOI, PID};
 use acorn_schema::standard::cff::{self, Agent, Cff, IdentifierType, Person};
-use acorn_schema::ControlledVocabulary;
+use acorn_schema::vocabulary::{VocabularyFuzzyMode, VocabularyKind};
 use alloc::collections::BTreeSet;
 use color_eyre::eyre::eyre;
 use core::iter::once;
@@ -144,7 +144,7 @@ impl ArtifactCandidate {
                 .chain(metadata.websites)
                 .unique_by(|candidate| candidate.url().unwrap_or_default().to_string())
                 .collect(),
-            keywords: ControlledVocabulary::normalize("keywords", self.keywords.into_iter().chain(metadata.keywords)).into_values(),
+            keywords: VocabularyKind::Keywords.resolve(self.keywords.into_iter().chain(metadata.keywords), VocabularyFuzzyMode::Strict),
             sponsors: self.sponsors,
             partners: self.partners,
             related: self.related,
@@ -155,7 +155,7 @@ impl ArtifactCandidate {
     pub(crate) fn apply_citeas(self, citations: citeas::Citations) -> Self {
         let metadata = citations.metadata;
         let title = (!metadata.title.trim().is_empty()).then_some(metadata.title);
-        let keywords = ControlledVocabulary::normalize("keywords", self.keywords.into_iter().chain(metadata.categories)).into_values();
+        let keywords = VocabularyKind::Keywords.resolve(self.keywords.into_iter().chain(metadata.categories), VocabularyFuzzyMode::Strict);
         let authors = metadata
             .author
             .into_iter()
@@ -256,7 +256,7 @@ impl From<Cff> for ArtifactCandidate {
             provider_ids: Vec::new(),
             provenance: Vec::new(),
             websites,
-            keywords: ControlledVocabulary::normalize("keywords", cff.keywords.unwrap_or_default()).into_values(),
+            keywords: VocabularyKind::Keywords.resolve(cff.keywords.unwrap_or_default(), VocabularyFuzzyMode::Strict),
             sponsors: Vec::new(),
             partners: Vec::new(),
             related: Vec::new(),

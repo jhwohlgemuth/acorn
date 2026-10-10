@@ -4,7 +4,6 @@ use super::{
     percentage_difference_similarity, prefix_similarity, preprocess_text, sorensen_dice_similarity, suffix_similarity, word_tokens, Comparison,
     ComparisonError, ComparisonOptions, NgramOptions, SimilarityDistance, SimilarityError, SimilarityLimitParameters, SimilarityLimits,
     SimilarityMethod, SimilarityParameters, SimilarityPreprocessing, SimilarityScore, SimilarityScoreSemantics, SimilarityTokenization,
-    TextPreprocessing,
 };
 use alloc::borrow::Cow;
 use core::{error::Error, fmt};
@@ -335,14 +334,6 @@ impl fmt::Display for SimilarityTokenization {
         }
     }
 }
-impl From<SimilarityPreprocessing> for TextPreprocessing {
-    fn from(preprocessing: SimilarityPreprocessing) -> Self {
-        match preprocessing {
-            | SimilarityPreprocessing::Lowercase => Self::Lowercase,
-            | SimilarityPreprocessing::Raw => Self::Raw,
-        }
-    }
-}
 /// Compare two supplied values with the selected bounded similarity method.
 ///
 /// # Errors
@@ -363,18 +354,17 @@ fn parse_number(value: &str, operand: &'static str) -> Result<f64, ComparisonErr
 }
 fn prepare_pair<'a>(left: &'a str, right: &'a str, options: ComparisonOptions) -> Result<(Cow<'a, str>, Cow<'a, str>), ComparisonError> {
     match options.preprocessing {
-        | SimilarityPreprocessing::Lowercase => preprocess_text(left, TextPreprocessing::Lowercase, options.limits)
-            .and_then(|left| preprocess_text(right, TextPreprocessing::Lowercase, options.limits).map(|right| (Cow::Owned(left), Cow::Owned(right))))
-            .map_err(ComparisonError::from),
         | SimilarityPreprocessing::Raw => Ok((Cow::Borrowed(left), Cow::Borrowed(right))),
+        | preprocessing => preprocess_text(left, preprocessing, options.limits)
+            .and_then(|left| preprocess_text(right, preprocessing, options.limits).map(|right| (Cow::Owned(left), Cow::Owned(right))))
+            .map_err(ComparisonError::from),
     }
 }
 fn tokenize(value: &str, options: ComparisonOptions) -> Result<alloc::vec::Vec<alloc::string::String>, ComparisonError> {
-    let preprocessing = options.preprocessing.into();
     match options.tokenization {
         | SimilarityTokenization::CharacterNgrams { width } => NgramOptions::new(width)
-            .and_then(|ngrams| character_ngrams(value, preprocessing, ngrams, options.limits))
+            .and_then(|ngrams| character_ngrams(value, options.preprocessing, ngrams, options.limits))
             .map_err(ComparisonError::from),
-        | SimilarityTokenization::Words => word_tokens(value, preprocessing, options.limits).map_err(ComparisonError::from),
+        | SimilarityTokenization::Words => word_tokens(value, options.preprocessing, options.limits).map_err(ComparisonError::from),
     }
 }

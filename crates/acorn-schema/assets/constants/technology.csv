@@ -22,7 +22,7 @@ go,programming_language::Go,Golang,https://go.dev/,BSD-3-Clause,true
 hdf5,data_format::Hdf5,HDF5,https://www.hdfgroup.org/solutions/hdf5/,BSD-3-Clause,true
 html,programming_language::Html,HTML,https://html.spec.whatwg.org/,W3C,true
 java,programming_language::Java,Oracle Java,https://www.java.com/,GPL-2.0-with-classpath-exception,true
-javascript,programming_language::Ecmascript,JavaScript,NodeJS,Various,true
+javascript,programming_language::Ecmascript,JavaScript|js,---,Various,true
 julia,programming_language::Julia,jl,https://julialang.org/,MIT,true
 jupyter,---,Jupyter,https://jupyter.org/,BSD-3-Clause,true
 keras,---,Keras,https://keras.io/,Apache-2.0,true
@@ -38,7 +38,7 @@ mysql,database::Mysql,MySQL,https://www.mysql.com/,GPL-2.0-only,true
 nanopublication,data_format::Nanopublication,Nanopublication,https://nanopub.net/,MIT,true
 neo4j,database::Neo4j,Neo4j Community,https://github.com/neo4j/neo4j/,GPL-3.0-only,true
 nix,---,Nix,https://nixos.org/,LGPL-2.1-only,true
-node,programming_language::Nodejs,NodeJS,https://nodejs.org/,MIT,true
+node,programming_language::Nodejs,NodeJS|node.js,https://nodejs.org/,MIT,true
 numpy,---,NumPy,https://numpy.org/,BSD-3-Clause,true
 octave,programming_language::Octave,GNU Octave,https://octave.org/,GPL-3.0-or-later,true
 open mpi,---,Open MPI,https://www.open-mpi.org/,BSD-3-Clause,true

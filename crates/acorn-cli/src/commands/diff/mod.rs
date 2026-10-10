@@ -70,7 +70,10 @@ impl From<arguments::SimilarityMethod> for SimilarityMethod {
 impl From<arguments::SimilarityPreprocessing> for SimilarityPreprocessing {
     fn from(preprocessing: arguments::SimilarityPreprocessing) -> Self {
         match preprocessing {
+            | arguments::SimilarityPreprocessing::CaseFold => Self::CaseFold,
             | arguments::SimilarityPreprocessing::Lowercase => Self::Lowercase,
+            | arguments::SimilarityPreprocessing::Nfc => Self::Nfc,
+            | arguments::SimilarityPreprocessing::Nfkc => Self::Nfkc,
             | arguments::SimilarityPreprocessing::Raw => Self::Raw,
         }
     }
@@ -213,7 +216,7 @@ fn validate_similarity_arguments(arguments: &arguments::Diff, method: arguments:
             ("max-input-scalars", arguments.max_input_scalars.is_some()),
             ("max-work-units", arguments.max_work_units.is_some()),
             ("ngram-width", arguments.ngram_width.is_some()),
-            ("preprocessing", arguments.preprocessing != arguments::SimilarityPreprocessing::Raw),
+            ("preprocess", arguments.preprocessing != arguments::SimilarityPreprocessing::Raw),
         ]
         .into_iter()
         .find_map(|(option, present)| present.then_some(option)),

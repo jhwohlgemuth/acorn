@@ -27,6 +27,7 @@ use acorn_schema::{
     standard::Standard,
     standard::{cff::Cff, datacite, invenio},
     validation::Validate,
+    vocabulary::VocabularyFuzzyMode,
 };
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{eyre, Report, Result};
@@ -103,7 +104,7 @@ where
                     eyre!("Serialize original content — {why}")
                 })
                 .and_then(|old_content| {
-                    let formatted = data.format_with(Some(path.to_path_buf()));
+                    let formatted = data.format_with_vocabulary(options.fuzzy, Some(path.to_path_buf()));
                     formatted
                         .serialize_as(&mime)
                         .map_err(|why| {
@@ -125,6 +126,7 @@ pub async fn run(
     config: &Option<PathBuf>,
     dry_run: bool,
     enrich: bool,
+    fuzzy: VocabularyFuzzyMode,
     no_color: bool,
     providers: &[Provider],
     merge_request: &bool,
@@ -141,6 +143,7 @@ pub async fn run(
         .merge_request(*merge_request)
         .offline(offline)
         .dry_run(dry_run)
+        .fuzzy(fuzzy)
         .no_color(no_color)
         .verbose(*verbose)
         .quiet(verbose.is_silent())
@@ -243,6 +246,7 @@ where
             check: false,
             enrich,
             format: true,
+            fuzzy: options.fuzzy,
             show_changes: options.verbose.log_level().is_some(),
             ..WorkflowExtension::default()
         })

@@ -279,13 +279,13 @@ fn test_research_activity_format() {
             .map(MediaObject::description),
         Some(String::new())
     );
-    assert_eq!(post.contact.affiliation.as_deref(), Some("Oak Ridge National Laboratory"));
+    assert_eq!(post.contact.affiliation.as_deref(), Some("Not an actual affiliation"));
     let mut pre = post.clone();
     pre.contact.organization = "Not an actual organization".to_string();
     pre.contact.affiliation = None;
     let post = pre.format_with(None);
-    assert_eq!(post.contact.organization, String::new());
-    assert_eq!(post.contact.affiliation.as_deref(), Some("Oak Ridge National Laboratory"));
+    assert_eq!(post.contact.organization, "Not an actual organization");
+    assert!(post.contact.affiliation.is_none());
     let mut pre = post.clone();
     pre.contact.organization = "Oak Ridge National Laboratory".to_string();
     pre.contact.affiliation = None;

@@ -28,10 +28,31 @@ fn test_classification() {
     assert!(ClassificationLevel::Secret < ClassificationLevel::TopSecret);
 }
 #[test]
-fn test_controlled_vocabulary_normalizes_aliases_and_discards_unknown_values() {
+fn test_contact_formatting_preserves_unresolved_supplied_organizations() {
+    let contact = crate::ContactPoint::init()
+        .organization("Example Research Unit".to_string())
+        .affiliation("Example Directorate".to_string())
+        .build();
+    let formatted = contact
+        .format_with_vocabulary_report(vocabulary::VocabularyFuzzyMode::Strict)
+        .expect("organization vocabulary");
+    assert_eq!(formatted.value.organization, "Example Research Unit");
+    assert_eq!(formatted.value.affiliation.as_deref(), Some("Example Directorate"));
     assert_eq!(
-        ControlledVocabulary::normalize("keywords", ["AI", "unknown-value", "hpc", "AI"]).into_values(),
-        ["artificial-intelligence", "high-performance-computing"]
+        formatted.reports[0].resolutions[0].source_locator.as_deref(),
+        Some("contact.organization")
+    );
+    assert_eq!(formatted.reports[0].resolutions[1].source_locator.as_deref(), Some("contact.affiliation"));
+}
+#[test]
+fn test_controlled_vocabulary_preserves_unknown_values() {
+    let resolver = vocabulary::VocabularyResolver::embedded(vocabulary::VocabularyKind::Keywords).unwrap();
+    let report = resolver
+        .resolve(["AI", "unknown-value", "hpc", "AI"], vocabulary::VocabularyOptions::default())
+        .unwrap();
+    assert_eq!(
+        report.lossless_values(),
+        ["artificial-intelligence", "unknown-value", "high-performance-computing"]
     );
 }
 #[test]
@@ -297,159 +318,87 @@ fn test_dcat_w3c_backward_compat_deserialization() {
 }
 #[test]
 fn test_fuzzy_matching_keywords() {
-    let name = "keywords".to_string();
-    let exact: String = "critical-infrastructure".into();
-    let misspelled: String = "cyb".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    assert_eq!(resolve_from_csv_asset(name.clone(), misspelled), Some("cyber".into()));
+    let resolver = vocabulary::VocabularyResolver::embedded(vocabulary::VocabularyKind::Keywords).unwrap();
+    let strict = resolver
+        .resolve(["AI", "cyb", "high-performance-computi"], vocabulary::VocabularyOptions::default())
+        .unwrap();
     assert_eq!(
-        resolve_from_csv_asset(name.clone(), "machine-learn".into()),
-        Some("machine-learning".into())
+        strict.lossless_values(),
+        ["artificial-intelligence", "cyber", "high-performance-computing"]
     );
-    assert_eq!(resolve_from_csv_asset(name.clone(), "Automation".into()), Some("automation".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "math".into()), Some("mathematics".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "mathematics".into()), Some("mathematics".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "ml".into()), Some("machine-learning".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "ai".into()), Some("artificial-intelligence".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "stats".into()), Some("statistics".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "statistics".into()), Some("statistics".into()));
-    let exact: String = "high-performance-computing".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "hpc".into()), Some(exact.clone()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "high-performance-computi".into()),
-        Some(exact.clone())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let relaxed = resolver
+        .resolve(
+            ["machine-learn"],
+            vocabulary::VocabularyOptions {
+                fuzzy: vocabulary::VocabularyFuzzyMode::Relaxed,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(relaxed.accepted_values(), ["machine-learning"]);
 }
 #[test]
 fn test_fuzzy_matching_organizations() {
-    let exact: String = "Oak Ridge National Laboratory".into();
-    assert_eq!(resolve_from_organization_json(exact.clone()), Some(exact.clone()));
-    assert_eq!(resolve_from_organization_json("ORNL".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_organization_json("Oak Ridge National Laborato".into()), Some(exact.clone()));
-    let exact: String = "Geospatial Science and Human Security Division".into();
-    assert_eq!(resolve_from_organization_json("GSHS".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_organization_json(exact.clone()), Some(exact.clone()));
+    let resolver = vocabulary::VocabularyResolver::embedded(vocabulary::VocabularyKind::Organizations).unwrap();
+    let report = resolver
+        .resolve(
+            ["ORNL", "Oak Ridge National Laborato", "GSHS", "Research Accelerator Division"],
+            vocabulary::VocabularyOptions::default(),
+        )
+        .unwrap();
     assert_eq!(
-        resolve_from_organization_json("Geospatial Science & Human Security".into()),
-        Some(exact.clone())
-    );
-    assert_eq!(
-        resolve_from_organization_json("Geospatial Science and Human Security".into()),
-        Some(exact.clone())
-    );
-    assert_eq!(
-        resolve_from_organization_json("Geospatial Science and Human Security".to_lowercase()),
-        Some(exact.clone())
-    );
-    assert_eq!(resolve_from_organization_json("PSD".into()), Some("Physical Sciences Directorate".into()));
-    assert_eq!(
-        resolve_from_organization_json("Research Accelerator Division".into()),
-        Some("Research Accelerator Division".into())
+        report.accepted_values(),
+        [
+            "Oak Ridge National Laboratory",
+            "Geospatial Science and Human Security Division",
+            "Research Accelerator Division"
+        ]
     );
 }
 #[test]
 fn test_fuzzy_matching_partners() {
-    let name = "partners".to_string();
-    let exact: String = "National Renewable Energy Laboratory".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "NREL".into()), Some(exact.clone()));
+    let resolver = vocabulary::VocabularyResolver::embedded(vocabulary::VocabularyKind::Partners).unwrap();
+    let report = resolver
+        .resolve(
+            ["NREL", "National Renewable Energy Lab", "iu", "kitware"],
+            vocabulary::VocabularyOptions::default(),
+        )
+        .unwrap();
     assert_eq!(
-        resolve_from_csv_asset(name.clone(), "National Renewable Energy Lab".into()),
-        Some(exact.clone())
+        report.accepted_values(),
+        ["National Renewable Energy Laboratory", "Indiana University", "Kitware Inc"]
     );
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Indiana University".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "iu".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Kitware Inc".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "kitware".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "Kitware, Inc.".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-}
-#[cfg(feature = "std")]
-#[test]
-fn test_fuzzy_matching_retains_nucleo_pattern_semantics() {
-    let values = || vec![vec!["Alpha Beta".to_string()], vec!["Beta Alpha".to_string()]];
-    assert_eq!(resolve_from_list_of_lists("^alpha".to_string(), values()), Some("Alpha Beta".to_string()));
-    assert_eq!(resolve_from_list_of_lists("alpha$".to_string(), values()), Some("Beta Alpha".to_string()));
 }
 #[test]
 fn test_fuzzy_matching_sponsors() {
-    let name = "sponsors".to_string();
-    let exact: String = "Oak Ridge National Laboratory".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "ORNL".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Department of Energy".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "Dept of Energy".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "Dept. of Energy".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Department of Homeland Security".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "DHS".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Environmental Protection Agency".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), " epa".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Office of Intelligence and Counterintelligence".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "DOE-IN".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Defense Advanced Research Projects Agency".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "darpa".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Office of Energy Efficiency and Renewable Energy".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "eere".into()), Some(exact.clone()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "Energy Efficiency and Renewable Energy".into()),
-        Some(exact.clone())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let resolver = vocabulary::VocabularyResolver::embedded(vocabulary::VocabularyKind::Sponsors).unwrap();
+    let report = resolver
+        .resolve(
+            ["ORNL", "DHS", "EPA", "DOE-IN", "DARPA", "DOE-EERE"],
+            vocabulary::VocabularyOptions::default(),
+        )
+        .unwrap();
+    assert_eq!(report.accepted_values().len(), 6);
 }
 #[test]
-fn test_fuzzy_matching_techology() {
-    let name = "technology".to_string();
-    let exact: String = "react".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "astro".into()), Some("astro".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "CSS".into()), Some("css".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "React.js".into()), Some("react".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "ReactJS".into()), Some("react".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "rs".into()), Some("rust".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "jl".into()), Some("julia".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "VHDL".into()), Some("vhdl".into()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "programming_language::Rust".into()),
-        Some("rust".into())
-    );
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "programming_language::R_language".into()),
-        Some("r".into())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), "r".into()), Some("r".into()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "Geospatial Data Abstraction Lib".into()),
-        Some("gdal".into())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), "node.js".into()), Some("node".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "js".into()), Some("javascript".into()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "language::Ecmascript".into()),
-        Some("javascript".into())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), "kt".into()), Some("kotlin".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "Redis Open Source".into()), Some("redis".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "scss".into()), Some("sass".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "TypeSpec".into()), Some("typespec".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "pwsh".into()), Some("powershell".into()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "https://airflow.apache.org".into()),
-        Some("airflow".into())
-    );
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "http://airflow.apache.org".into()),
-        Some("airflow".into())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), "airflow.apache.org".into()), Some("airflow".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "foobarbaz".into()), None);
-    assert_eq!(resolve_from_csv_asset(name.clone(), "".into()), None);
+fn test_fuzzy_matching_technology() {
+    let resolver = vocabulary::VocabularyResolver::embedded(vocabulary::VocabularyKind::Technology).unwrap();
+    let report = resolver
+        .resolve(
+            ["CSS", "programming_language::Rust", "https://airflow.apache.org", "foobarbaz", ""],
+            vocabulary::VocabularyOptions::default(),
+        )
+        .unwrap();
+    assert_eq!(report.accepted_values(), ["css", "rust", "airflow"]);
+    assert_eq!(report.lossless_values(), ["css", "rust", "airflow", "foobarbaz"]);
+}
+#[test]
+fn test_fuzzy_matching_treats_pattern_characters_as_literals() {
+    let resolver = vocabulary::VocabularyResolver::embedded(vocabulary::VocabularyKind::Keywords).unwrap();
+    let report = resolver
+        .resolve(["^alpha", "alpha$", "!alpha"], vocabulary::VocabularyOptions::default())
+        .unwrap();
+    assert!(report.accepted_values().is_empty());
 }
 #[test]
 fn test_geonames() {
@@ -479,6 +428,23 @@ fn test_geonames() {
     assert!(alpha2_languages.iter().all(|value| value.len() == 2));
     let alpha3_languages = Constant::languages(CodeFormat::Alpha3);
     assert!(alpha3_languages.iter().all(|value| value.contains('-')));
+}
+#[test]
+fn test_metadata_formatting_applies_selected_fuzzy_policy() {
+    let metadata = ResearchActivityMetadata {
+        keywords: vec!["automatin".to_string(), "unknown-value".to_string()],
+        ..ResearchActivityMetadata::default()
+    };
+    let strict = metadata
+        .clone()
+        .format_with_vocabulary_report(vocabulary::VocabularyFuzzyMode::Strict)
+        .expect("strict vocabulary format");
+    assert_eq!(strict.value.keywords, ["automation", "unknown-value"]);
+    assert_eq!(strict.reports[0].resolutions[0].source_locator.as_deref(), Some("meta.keywords[0]"));
+    let off = metadata
+        .format_with_vocabulary_report(vocabulary::VocabularyFuzzyMode::Off)
+        .expect("exact-only vocabulary format");
+    assert_eq!(off.value.keywords, ["automatin", "unknown-value"]);
 }
 #[test]
 fn test_organization() {

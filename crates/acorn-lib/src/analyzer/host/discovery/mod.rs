@@ -1,5 +1,4 @@
-//! Artifact discovery, resolution, persistence, and grouping helpers.
-
+//! Artifact discovery, resolution, persistence, and grouping helpers
 use super::{
     context::{AnalysisContext, AnalysisOptions, ExecutionExtension, ExecutionOptions, OutputFormat, ReportExtension, ReportOptions},
     render::{Render, RenderContext},
@@ -36,7 +35,8 @@ use acorn_schema::{
     discovery::{RemoteEntity, RemoteOrganizationRole},
     pid::{self, Arxiv, Handle, Identifier, PersistentIdentifierParse, DOI, PID, SWHID},
     standard::Standard,
-    ControlledVocabulary, Keyword,
+    vocabulary::{VocabularyFuzzyMode, VocabularyKind},
+    Keyword,
 };
 use alloc::collections::{BTreeMap, BTreeSet};
 use bon::{bon, Builder};
@@ -281,6 +281,8 @@ pub struct DiscoveryExtension {
     pub enrich: bool,
     /// Report format
     pub format: Option<OutputFormat>,
+    /// Controlled-vocabulary fuzzy matching profile.
+    pub fuzzy: VocabularyFuzzyMode,
     /// Input locations
     pub input: Vec<String>,
     /// Maximum directory traversal depth
@@ -530,6 +532,10 @@ impl ArtifactCandidate {
     }
     /// Build partial RAD JSON from fields that map without information loss
     pub fn to_partial_rad_json(&self) -> serde_json::Value {
+        self.to_partial_rad_json_with_vocabulary(VocabularyFuzzyMode::Strict)
+    }
+    /// Build partial RAD JSON with an explicit controlled-vocabulary policy.
+    pub fn to_partial_rad_json_with_vocabulary(&self, fuzzy: VocabularyFuzzyMode) -> serde_json::Value {
         let canonical_websites = self.canonical_url.as_ref().map(|url| Candidate::Website {
             description: "Provider-confirmed project URL".to_string(),
             url: url.clone(),
@@ -538,8 +544,8 @@ impl ArtifactCandidate {
             .into_iter()
             .filter_map(|website| serde_json::to_value(website).ok())
             .collect::<Vec<_>>();
-        let keywords = ControlledVocabulary::normalize("keywords", self.keywords.iter().cloned()).into_values();
-        let technology = ControlledVocabulary::normalize("technology", self.technology.iter().cloned()).into_values();
+        let keywords = VocabularyKind::Keywords.resolve(self.keywords.iter().cloned(), fuzzy);
+        let technology = VocabularyKind::Technology.resolve(self.technology.iter().cloned(), fuzzy);
         let pairs: [(&str, &[PID]); 7] = [
             ("doi", &[PID::DOI, PID::Arxiv]),
             ("handle", &[PID::Handle]),
@@ -643,7 +649,7 @@ impl ArtifactCandidate {
             identifiers: self.identifiers.into_iter().chain(identifier).collect(),
             canonical_url: (!url.trim().is_empty()).then_some(url).or(self.canonical_url),
             title: (!title.trim().is_empty()).then_some(title).or(self.title),
-            keywords: ControlledVocabulary::normalize("keywords", self.keywords.into_iter().chain(categories)).into_values(),
+            keywords: merge_unique(self.keywords, categories),
             ..self
         }
     }
@@ -689,7 +695,7 @@ impl ArtifactCandidate {
             .flat_map(|subject| subject.keyword.iter().flatten())
             .map(|keyword| keyword.text.clone());
         let keyword_candidates = self.keywords.into_iter().chain(values);
-        let keywords = ControlledVocabulary::normalize("keywords", keyword_candidates).into_values();
+        let keywords = merge_unique(Vec::new(), keyword_candidates);
         let related_candidates = records
             .iter()
             .flat_map(|record| record.related_raid.iter().flatten())
@@ -735,9 +741,9 @@ impl ArtifactCandidate {
         let identifiers = merge_unique(self.identifiers, candidate.identifiers);
         let provider_ids = merge_unique(self.provider_ids, candidate.provider_ids);
         let provenance = self.provenance.into_iter().chain(candidate.provenance).unique().collect();
-        let technology = ControlledVocabulary::normalize("technology", self.technology.into_iter().chain(candidate.technology)).into_values();
+        let technology = merge_unique(self.technology, candidate.technology);
         let websites = merge_websites(self.websites, candidate.websites);
-        let keywords = ControlledVocabulary::normalize("keywords", self.keywords.into_iter().chain(candidate.keywords)).into_values();
+        let keywords = merge_unique(self.keywords, candidate.keywords);
         let sponsors = merge_unique(self.sponsors, candidate.sponsors);
         let partners = merge_unique(self.partners, candidate.partners);
         let related = merge_unique(self.related, candidate.related);
@@ -944,15 +950,6 @@ impl From<bool> for FindingStatus {
         }
     }
 }
-impl GatherOutputPolicy<'_> {
-    fn format(self) -> OutputFormat {
-        self.format
-            .unwrap_or_else(|| match (self.terse, self.output.is_none() && io::stdout().is_terminal()) {
-                | (true, _) | (false, true) => OutputFormat::Text,
-                | (false, false) => OutputFormat::Json,
-            })
-    }
-}
 impl<'a> From<&'a Options> for GatherOutputPolicy<'a> {
     fn from(options: &'a Options) -> Self {
         let (format, quiet, terse, verbosity) = (
@@ -968,6 +965,15 @@ impl<'a> From<&'a Options> for GatherOutputPolicy<'a> {
             terse,
             verbosity,
         }
+    }
+}
+impl GatherOutputPolicy<'_> {
+    fn format(self) -> OutputFormat {
+        self.format
+            .unwrap_or_else(|| match (self.terse, self.output.is_none() && io::stdout().is_terminal()) {
+                | (true, _) | (false, true) => OutputFormat::Text,
+                | (false, false) => OutputFormat::Json,
+            })
     }
 }
 impl From<CandidateAction> for LifecycleState {
@@ -1468,7 +1474,7 @@ impl Records {
             .collect()
     }
     /// Persist exact-identity project candidates and return results plus failure checks.
-    pub fn persist_candidates(&self, database_path: &Option<PathBuf>) -> (Vec<CandidatePersistence>, CheckBatch) {
+    pub fn persist_candidates(&self, fuzzy: VocabularyFuzzyMode, database_path: &Option<PathBuf>) -> (Vec<CandidatePersistence>, CheckBatch) {
         let database = Database::<Table>::from_path(database_path.clone());
         self.candidates()
             .into_iter()
@@ -1481,7 +1487,7 @@ impl Records {
                     .and_then(serde_json::Value::as_str)
                     .unwrap_or("gather")
                     .to_string();
-                ResearchActivityCandidate::try_from(candidate).ok().map(|value| (locator, uri, value))
+                ResearchActivityCandidate::from_candidate(candidate, fuzzy).map(|value| (locator, uri, value))
             })
             .fold(
                 (Vec::new(), CheckBatch::empty()),
@@ -1635,6 +1641,7 @@ impl RemoteSearchRequest {
         let DiscoveryExtension {
             citation_format,
             database_path,
+            fuzzy,
             no_local_database,
             resolve,
             ..
@@ -1660,7 +1667,7 @@ impl RemoteSearchRequest {
                         responses
                             .clone()
                             .into_iter()
-                            .map(|response| response.persist(&database, self.organization_ror.as_deref()))
+                            .map(|response| response.persist_with_vocabulary(&database, *fuzzy, self.organization_ror.as_deref()))
                             .collect::<ApiResult<Vec<_>>>()
                             .map(|results| results.into_iter().flatten().collect())
                     }
@@ -1728,6 +1735,15 @@ impl RemoteSearchResponse {
     }
     /// Persist project matches as canonical research activity candidates, optionally associated with an organization ROR.
     pub fn persist(self, database: &Database<Table>, organization_ror: Option<&str>) -> ApiResult<Vec<CandidatePersistence>> {
+        self.persist_with_vocabulary(database, VocabularyFuzzyMode::Strict, organization_ror)
+    }
+    /// Persist project matches with an explicit controlled-vocabulary policy.
+    pub fn persist_with_vocabulary(
+        self,
+        database: &Database<Table>,
+        fuzzy: VocabularyFuzzyMode,
+        organization_ror: Option<&str>,
+    ) -> ApiResult<Vec<CandidatePersistence>> {
         let RemoteSearchResponse { provider, matches, .. } = self;
         matches
             .into_iter()
@@ -1778,7 +1794,7 @@ impl RemoteSearchResponse {
                 }
                 | RemoteEntity::Person | RemoteEntity::Organization | RemoteEntity::Repository => None,
             })
-            .filter_map(|candidate| ResearchActivityCandidate::try_from(candidate).ok())
+            .filter_map(|candidate| ResearchActivityCandidate::from_candidate(candidate, fuzzy))
             .map(|candidate| database.create_or_enrich(candidate))
             .collect()
     }
@@ -1947,6 +1963,15 @@ impl Report {
             })
         });
         (vec!["Type", "Value", "Status", "Source"], discoveries.chain(remote).collect())
+    }
+}
+impl ResearchActivityCandidate {
+    fn from_candidate(candidate: ArtifactCandidate, fuzzy: VocabularyFuzzyMode) -> Option<Self> {
+        let keys = candidate.identity_keys();
+        (!keys.is_empty()).then(|| {
+            let rad_json = candidate.to_partial_rad_json_with_vocabulary(fuzzy);
+            Self::new(rad_json, keys, candidate.provenance)
+        })
     }
 }
 impl TryFrom<ArtifactCandidate> for ResearchActivityCandidate {

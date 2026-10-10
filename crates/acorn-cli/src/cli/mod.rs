@@ -5,7 +5,7 @@ use acorn::io::{
 use acorn::util::constants::app::DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT;
 use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH, NO_LOCAL_DATABASE};
 use acorn_core::util::{regex_inverse, regex_join, MimeType};
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::{research_activity::ResearchActivity, vocabulary::VocabularyFuzzyMode};
 use arguments::DatabaseBackend;
 use bon::Builder;
 use clap::builder::{
@@ -576,6 +576,9 @@ pub struct CommandOptions {
     pub commit: Option<String>,
     /// Regex pattern of files to include at a given path desginated by `path`
     pub filter: Option<String>,
+    /// Controlled-vocabulary fuzzy matching profile.
+    #[builder(default)]
+    pub fuzzy: VocabularyFuzzyMode,
     /// Regex pattern of files to ignore at a given path desginated by `path`
     pub ignore: Option<String>,
     /// Path to file or folder to be used for output

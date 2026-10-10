@@ -6,6 +6,8 @@ pub const CREDIT_SCHEMA_URI: &str = "https://credit.niso.org/";
 pub const DEFAULT_AFFILIATION: &str = "Oak Ridge National Laboratory";
 /// Default Hugging Face domain represented by agent schema values.
 pub const DEFAULT_HUGGINGFACE_DOMAIN: &str = "huggingface.co";
+/// Default Research Organization Registry URL.
+pub const DEFAULT_ROR_URL: &str = "https://ror.org/";
 /// Public Handle proxy resolver URI.
 pub const HANDLE_RESOLVER_URI: &str = "https://hdl.handle.net";
 /// identifiers.org resolver URI accepted for SWHID values.

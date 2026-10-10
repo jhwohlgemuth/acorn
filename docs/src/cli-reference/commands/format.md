@@ -21,6 +21,9 @@ acorn format path/to/project/
 # Perform a dry-run to see proposed changes without modifying files
 acorn format path/to/project/index.json --dry-run
 
+# Keep exact aliases but disable fuzzy typo correction
+acorn format path/to/project/index.json --fuzzy off
+
 # Preview formatting and provider enrichment together
 acorn format path/to/project/index.json --enrich --dry-run
 
@@ -73,6 +76,10 @@ Markdown formatting rewrites the document into ACORN's canonical representation.
 - 🎨 **Consistent Formatting**: Ensure consistent JSON formatting across all data files
 - 🩹 **Resolve Values**: Resolve certain values against controlled vocabularies to ensure correct meaning 
 - 🖼️ **Resolve missing images**: Find first image in associated RAD folders and add to metadata if missing
+
+## Fuzzy matching policy
+
+`--fuzzy strict` is the default and applies high-precision vocabulary-specific score and runner-up separation gates. Use `--fuzzy relaxed` to accept more typo and truncation matches, or `--fuzzy off` to retain only exact canonical, declared alias, typed identifier, and normalized matches. Ambiguous, unmatched, and resource-limited values are preserved rather than erased. The selected policy also applies when `--enrich` or configured format hooks run.
 
 ## Enrichment
 

@@ -121,3 +121,28 @@ fn test_diff_similarity_numeric_files_trim_outer_whitespace() {
     assert_eq!(result["distance"]["value"], 2.0);
     assert_eq!(result["score"], 0.5);
 }
+#[test]
+fn test_diff_similarity_unicode_preprocessing() {
+    [("Straße", "STRASSE", "case-fold"), ("Café", "Cafe\u{301}", "nfc"), ("①", "1", "nfkc")]
+        .into_iter()
+        .for_each(|(left, right, preprocessing)| {
+            let output = acorn_diff()
+                .args([
+                    left,
+                    right,
+                    "--method",
+                    "exact",
+                    "--values",
+                    "--preprocess",
+                    preprocessing,
+                    "--format",
+                    "json",
+                ])
+                .output()
+                .expect("Unicode preprocessing output");
+            assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+            let result: Value = serde_json::from_slice(&output.stdout).expect("JSON similarity output");
+            assert_eq!(result["preprocessing"], preprocessing);
+            assert_eq!(result["score"], 1.0);
+        });
+}

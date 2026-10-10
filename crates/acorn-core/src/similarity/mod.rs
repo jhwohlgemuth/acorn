@@ -2,7 +2,7 @@
 //!
 //! Similarity functions return a [`SimilarityScore`] between zero (no similarity) and one (identity under that measure).
 //! Distance functions return their natural, unnormalized units.
-//! Callers select preprocessing explicitly, so the module never normalizes Unicode or discards punctuation implicitly.
+//! Callers select preprocessing explicitly, so the module never normalizes Unicode, folds case, or discards punctuation implicitly.
 //!
 //! [`SimilarityLimits`] bounds input sizes, generated collections, and nested comparison work before expensive processing occurs.
 //! The module requires the crate's `alloc` feature but does not require `std`.
@@ -49,10 +49,7 @@ pub use edit::{
 };
 pub use error::SimilarityError;
 pub use numeric::{absolute_difference_similarity, percentage_difference, percentage_difference_similarity};
-pub use token::{
-    character_ngrams, jaccard_similarity, overlap_coefficient, preprocess_text, sorensen_dice_similarity, word_tokens, NgramOptions,
-    TextPreprocessing,
-};
+pub use token::{character_ngrams, jaccard_similarity, overlap_coefficient, preprocess_text, sorensen_dice_similarity, word_tokens, NgramOptions};
 
 mod comparison;
 mod edit;
@@ -187,9 +184,20 @@ pub enum SimilarityMethod {
 #[serde(rename_all = "kebab-case")]
 #[strum(serialize_all = "kebab-case")]
 pub enum SimilarityPreprocessing {
+    /// Apply full, locale-independent Unicode case folding without normalization.
+    /// Before: `"Straße"`; after: `"strasse"`.
+    CaseFold,
     /// Apply Rust Unicode lowercase mapping without normalization or full case folding.
+    /// Before: `"Straße"`; after: `"straße"`.
     Lowercase,
+    /// Apply Unicode canonical normalization form C.
+    /// Before: `"Cafe\u{301}"`; after: `"Café"`.
+    Nfc,
+    /// Apply Unicode compatibility normalization form KC.
+    /// Before: `"①"`; after: `"1"`.
+    Nfkc,
     /// Preserve the original scalar sequence.
+    /// Before: `"Straße"`; after: `"Straße"`.
     #[default]
     Raw,
 }

@@ -41,7 +41,7 @@ use acorn_host::fs::file_uri_to_path;
 use acorn_host::http::{HttpClient, HttpPolicy};
 pub use acorn_macros::{Validate, With};
 #[cfg(feature = "analysis")]
-use acorn_schema::ControlledVocabulary;
+use acorn_schema::vocabulary::{VocabularyFuzzyMode, VocabularyKind};
 #[cfg(feature = "analysis")]
 use std::path::PathBuf;
 #[cfg(feature = "analysis")]
@@ -120,7 +120,7 @@ impl RepositoryExt for Repository {
             | Some(repository) => github::languages(repository.project_path()?)
                 .await
                 .ok()
-                .map(|values| ControlledVocabulary::normalize("technology", values).into_values()),
+                .map(|values| VocabularyKind::Technology.resolve(values, VocabularyFuzzyMode::Strict)),
             | None => match repositories
                 .iter()
                 .find(|repository| repository.is_gitlab())
@@ -128,7 +128,7 @@ impl RepositoryExt for Repository {
                 .map(|path| options.with_identifier(path))
             {
                 | Some(options) => gitlab::language_use(&options).await.ok().map(|response| {
-                    ControlledVocabulary::normalize("technology", response.languages.into_iter().map(|language| language.name)).into_values()
+                    VocabularyKind::Technology.resolve(response.languages.into_iter().map(|language| language.name), VocabularyFuzzyMode::Strict)
                 }),
                 | None => None,
             },

@@ -19,6 +19,7 @@ use acorn_schema::enrichment::Provider;
 use acorn_schema::hardware::memory::Memory;
 use acorn_schema::standard::Standard;
 use acorn_schema::validation::{Validate, ValidationReport};
+use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use bon::Builder;
 use clap::ValueEnum;
 use clap::{Args, ValueHint};
@@ -244,6 +245,17 @@ pub enum FileFormat {
     #[display("ZON")]
     Zon,
 }
+/// Controlled-vocabulary similarity profile.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
+pub(crate) enum FuzzyMode {
+    /// Require high-confidence fuzzy matches.
+    #[default]
+    Strict,
+    /// Disable fuzzy scoring; exact, alias, identifier, and normalized matches remain enabled.
+    Off,
+    /// Accept lower-confidence fuzzy matches while retaining ambiguity safeguards.
+    Relaxed,
+}
 /// Structured output format for gathered identifiers.
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
 pub enum GatherOutputFormat {
@@ -349,6 +361,12 @@ pub(crate) enum SimilarityPreprocessing {
     Raw,
     /// Apply Rust Unicode lowercase mapping.
     Lowercase,
+    /// Apply full, locale-independent Unicode case folding.
+    CaseFold,
+    /// Apply Unicode canonical normalization form C.
+    Nfc,
+    /// Apply Unicode compatibility normalization form KC.
+    Nfkc,
 }
 /// Target artifact aspect ratio size available when exporting research activity data using acorn
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
@@ -585,7 +603,14 @@ pub(crate) struct Diff {
     #[arg(long, requires = "method", value_name = "N", help_heading = "OPTIONS")]
     pub(crate) ngram_width: Option<usize>,
     /// Text preprocessing; defaults to raw.
-    #[arg(long, requires = "method", default_value_t, value_enum, value_name = "MODE", help_heading = "OPTIONS")]
+    #[arg(
+        long = "preprocess",
+        requires = "method",
+        default_value_t,
+        value_enum,
+        value_name = "MODE",
+        help_heading = "OPTIONS"
+    )]
     pub(crate) preprocessing: SimilarityPreprocessing,
     /// Metadata standard override.
     #[arg(short, long, conflicts_with = "method", value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
@@ -954,6 +979,9 @@ pub(crate) struct Format {
     /// Enrich metadata after formatting it.
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) enrich: bool,
+    /// Controlled-vocabulary fuzzy matching profile.
+    #[arg(long, value_enum, default_value_t, value_name = "MODE", help_heading = "OPTIONS")]
+    pub(crate) fuzzy: FuzzyMode,
     /// Disable color in dry-run output
     #[arg(long = "no-color", value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) no_color: bool,
@@ -991,6 +1019,9 @@ pub(crate) struct Gather {
     /// Files, directories, URLs, or PID values; piped standard input is included automatically.
     #[arg(value_name = "INPUT", value_hint = ValueHint::AnyPath)]
     pub(crate) input: Vec<String>,
+    /// Controlled-vocabulary fuzzy matching profile.
+    #[arg(long, value_enum, default_value_t, value_name = "MODE", help_heading = "OPTIONS")]
+    pub(crate) fuzzy: FuzzyMode,
     /// Set the interval used by watch polling
     #[arg(short = 'p', long, value_parser = parse_watch_duration, value_name = "DURATION", help_heading = "OPTIONS")]
     pub(crate) poll_interval: Option<SignedDuration>,
@@ -1713,6 +1744,15 @@ impl From<&FileFormat> for OutputFormat {
             | FileFormat::Json => Self::Json,
             | FileFormat::Yaml => Self::Yaml,
             | _ => Self::default(),
+        }
+    }
+}
+impl From<FuzzyMode> for VocabularyFuzzyMode {
+    fn from(value: FuzzyMode) -> Self {
+        match value {
+            | FuzzyMode::Off => Self::Off,
+            | FuzzyMode::Relaxed => Self::Relaxed,
+            | FuzzyMode::Strict => Self::Strict,
         }
     }
 }

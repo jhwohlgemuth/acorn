@@ -11,7 +11,8 @@
 
 use crate::cli::arguments::osti::DoeLab;
 use crate::cli::arguments::{
-    AcpAgentKind, CheckOutputFormat, DiffOutputFormat, FileFormat, InferenceBackendKind, SimilarityMethod, SimilarityPreprocessing, SyncTarget,
+    AcpAgentKind, CheckOutputFormat, DiffOutputFormat, FileFormat, FuzzyMode, InferenceBackendKind, SimilarityMethod, SimilarityPreprocessing,
+    SyncTarget,
 };
 use crate::cli::parse::infer_standard_from_content;
 use crate::cli::{
@@ -393,8 +394,8 @@ fn test_diff_arguments() {
 #[test]
 fn test_diff_rejects_similarity_flags_without_method() {
     assert!(Arguments::try_parse_from(["acorn", "diff", "before.txt", "after.txt", "--values"]).is_err());
-    assert!(Arguments::try_parse_from(["acorn", "diff", "before.txt", "after.txt", "--preprocessing", "lowercase"]).is_err());
-    assert!(Arguments::try_parse_from(["acorn", "diff", "before.txt", "after.txt", "--preprocessing", "raw"]).is_err());
+    assert!(Arguments::try_parse_from(["acorn", "diff", "before.txt", "after.txt", "--preprocess", "lowercase"]).is_err());
+    assert!(Arguments::try_parse_from(["acorn", "diff", "before.txt", "after.txt", "--preprocess", "raw"]).is_err());
     assert!(Arguments::try_parse_from(["acorn", "diff", "before.txt", "after.txt", "--max-work-units", "10"]).is_err());
 }
 #[test]
@@ -424,7 +425,7 @@ fn test_diff_similarity_arguments() {
         "--method",
         "jaccard",
         "--values",
-        "--preprocessing",
+        "--preprocess",
         "lowercase",
         "--format",
         "json",
@@ -445,6 +446,37 @@ fn test_diff_similarity_arguments() {
 #[test]
 fn test_diff_similarity_conflicts_with_standard() {
     assert!(Arguments::try_parse_from(["acorn", "diff", "left", "right", "--method", "exact", "--values", "--standard", "rads",]).is_err());
+}
+#[test]
+fn test_diff_similarity_preprocessing_modes() {
+    [
+        ("case-fold", SimilarityPreprocessing::CaseFold),
+        ("lowercase", SimilarityPreprocessing::Lowercase),
+        ("nfc", SimilarityPreprocessing::Nfc),
+        ("nfkc", SimilarityPreprocessing::Nfkc),
+        ("raw", SimilarityPreprocessing::Raw),
+    ]
+    .into_iter()
+    .for_each(|(mode, expected)| {
+        let arguments = Arguments::try_parse_from(["acorn", "diff", "left", "right", "--method", "exact", "--values", "--preprocess", mode])
+            .expect("parse similarity preprocessing mode");
+        assert!(matches!(
+            arguments.command,
+            Some(Commands::Diff(arguments)) if arguments.preprocessing == expected
+        ));
+    });
+    assert!(Arguments::try_parse_from([
+        "acorn",
+        "diff",
+        "left",
+        "right",
+        "--method",
+        "exact",
+        "--values",
+        "--preprocessing",
+        "raw",
+    ])
+    .is_err());
 }
 #[test]
 fn test_download_canonicalize_argument() {
@@ -749,6 +781,24 @@ fn test_filter_paths_by_pattern_returns_empty_for_invalid_regex() {
     let paths = vec![root.join("acorn/index.json")];
     let filtered = filter_ignored_with_root(paths, Some("[".to_string()), root);
     assert!(filtered.is_err());
+}
+#[test]
+fn test_fuzzy_profiles_parse_for_format_and_gather() {
+    let format = Arguments::try_parse_from(["acorn", "format", "--fuzzy", "off"]).unwrap();
+    match format.command {
+        | Some(Commands::Format(arguments)) => assert_eq!(arguments.fuzzy, FuzzyMode::Off),
+        | _ => panic!("expected format arguments"),
+    }
+    let gather = Arguments::try_parse_from(["acorn", "gather", "--fuzzy", "relaxed"]).unwrap();
+    match gather.command {
+        | Some(Commands::Gather(arguments)) => assert_eq!(arguments.fuzzy, FuzzyMode::Relaxed),
+        | _ => panic!("expected gather arguments"),
+    }
+    let default = Arguments::try_parse_from(["acorn", "format"]).unwrap();
+    match default.command {
+        | Some(Commands::Format(arguments)) => assert_eq!(arguments.fuzzy, FuzzyMode::Strict),
+        | _ => panic!("expected format arguments"),
+    }
 }
 #[test]
 fn test_gather_lab_parses_acronyms_case_insensitively() {

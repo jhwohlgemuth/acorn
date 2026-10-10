@@ -36,7 +36,7 @@ pub mod standard;
 pub mod util;
 mod types;
 pub mod validation;
-pub(crate) mod vocabulary;
+pub mod vocabulary;
 pub use hardware::memory::{Memory, MemoryUnit};
 pub use hardware::{
     AcceleratorArchitecture, Architecture, Backend, CpuArchitecture, DspArchitecture, FpgaArchitecture, GpuArchitecture, Model, Paradigm, Regime,

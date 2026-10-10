@@ -4,14 +4,13 @@
 
 - [Model acquisition and metadata hardening](model-acquisition-hardening.md) - Complete identity-safe Hugging Face requests, exact GGUF metadata, and ModelKit/ModelPack interoperability evidence.
 - [Small language model (SLM) sidecars](slm-sidecars.md) - Ship explicitly selected Tongue, Redact, and Title sidecars; plan a separately gated [Julia-1 decision sidecar](slm-sidecars.md#julia-1-decision-sidecar-planned-follow-on) with offline CPU packaging and ACORN quality gates.
+- [Portable similarity measures, vocabulary coercion, and explicit comparison](similarity-measures.md) - Bounded Rust primitives, `acorn diff --method`, and portable report-bearing vocabulary coercion are implemented; phases 2-4 cover corpus, hybrid, phonetic, field-policy, and alignment methods.
 
 ## Waiting on validation
 
 - [Power Automate logbook reporting deployment](powerapps-gitlab-logbook-reporting.md) - Clear the access gates, configure one pilot, and run the intake, graduation, publication, callback, and idempotency smoke test.
 
 ## Planned
-
-- [Portable similarity measures, vocabulary coercion, and explicit comparison](similarity-measures.md) - Bounded Rust primitives and `acorn diff --method` pairwise comparison are implemented; next add vocabulary resolution with explicit aliases, ambiguity reporting, portable parity, and loss-aware formatting/enrichment.
 
 - [Release-gated Beam inference integration](beam-inference-integration.md) - Verify released serving contracts, then evaluate an explicitly configured hosted or operator-owned endpoint independently of local SLM sidecars.
 

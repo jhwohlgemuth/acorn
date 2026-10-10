@@ -515,15 +515,21 @@ Compare files semantically or calculate pairwise similarity
     Exact equality over a trailing scalar count
 
 * `--ngram-width <N>` — Use unpadded character n-grams instead of words for set methods
-* `--preprocessing <MODE>` — Text preprocessing; defaults to raw
+* `--preprocess <MODE>` — Text preprocessing; defaults to raw
 
   Default value: `raw`
 
   Possible values:
-  - `lowercase`:
-    Apply Rust Unicode lowercase mapping
   - `raw`:
     Preserve the original scalar sequence
+  - `lowercase`:
+    Apply Rust Unicode lowercase mapping
+  - `case-fold`:
+    Apply full, locale-independent Unicode case folding
+  - `nfc`:
+    Apply Unicode canonical normalization form C
+  - `nfkc`:
+    Apply Unicode compatibility normalization form KC
 
 * `-s`, `--standard <STANDARD>` — Metadata standard override
 * `--values` — Treat both operands as literal values instead of file paths
@@ -957,6 +963,18 @@ Formats supported metadata standards in place (inherently includes some elements
 * `--config <PATH>` — Path to application configuration containing Rhai quality gates
 * `-d`, `--dry-run` [alias: `what-if`] — Run format without making changes to target file(s). Will print a diff of changes
 * `--enrich` — Enrich metadata after formatting it
+* `--fuzzy <MODE>` — Controlled-vocabulary fuzzy matching profile
+
+  Default value: `strict`
+
+  Possible values:
+  - `strict`:
+    Require high-confidence fuzzy matches
+  - `off`:
+    Disable fuzzy scoring; exact, alias, identifier, and normalized matches remain enabled
+  - `relaxed`:
+    Accept lower-confidence fuzzy matches while retaining ambiguity safeguards
+
 * `--no-color` — Disable color in dry-run output
 * `--provider <PROVIDER>` — Enrichment provider(s); may be repeated or comma-delimited
 * `--filter <REGEX>` — Regex pattern applied to absolute paths of files to include in formatting process
@@ -997,6 +1015,18 @@ Directory inputs are searched recursively. Use `--max-depth 1` to search only di
 * `<INPUT>` — Files, directories, URLs, or PID values; piped standard input is included automatically
 
 ###### **Options:**
+
+* `--fuzzy <MODE>` — Controlled-vocabulary fuzzy matching profile
+
+  Default value: `strict`
+
+  Possible values:
+  - `strict`:
+    Require high-confidence fuzzy matches
+  - `off`:
+    Disable fuzzy scoring; exact, alias, identifier, and normalized matches remain enabled
+  - `relaxed`:
+    Accept lower-confidence fuzzy matches while retaining ambiguity safeguards
 
 * `-p`, `--poll-interval <DURATION>` — Set the interval used by watch polling
 * `--filter <REGEX>` — Regex pattern applied to absolute paths of files to include in processing

@@ -122,6 +122,24 @@ fn test_binary_and_truncated_text_methods() {
     });
 }
 #[test]
+fn test_case_fold_exact_comparison() {
+    let lowercase = ComparisonOptions::init()
+        .method(SimilarityMethod::Exact)
+        .preprocessing(SimilarityPreprocessing::Lowercase)
+        .build();
+    let case_fold = ComparisonOptions::init()
+        .method(SimilarityMethod::Exact)
+        .preprocessing(SimilarityPreprocessing::CaseFold)
+        .build();
+    assert_eq!(
+        compare("Straße", "STRASSE", lowercase).expect("compare lowercase values").score,
+        SimilarityScore::ZERO
+    );
+    let result = compare("Straße", "STRASSE", case_fold).expect("compare case-folded values");
+    assert_eq!(result.score, SimilarityScore::ONE);
+    assert_eq!(result.preprocessing, Some(SimilarityPreprocessing::CaseFold));
+}
+#[test]
 fn test_display_values_are_stable() {
     assert_eq!(SimilarityMethod::OptimalStringAlignment.to_string(), "optimal-string-alignment");
     assert_eq!(SimilarityScoreSemantics::default().to_string(), "zero-to-one-higher-is-more-similar");
@@ -285,7 +303,7 @@ fn test_limits_reject_work_before_processing() {
         levenshtein_distance("abc", "abc", limits),
         Err(SimilarityError::WorkLimitExceeded { limit: 4, required: 9 })
     );
-    assert!(word_tokens("a b c", TextPreprocessing::Raw, SimilarityLimits::new(8, 8, 2).unwrap()).is_err());
+    assert!(word_tokens("a b c", SimilarityPreprocessing::Raw, SimilarityLimits::new(8, 8, 2).unwrap()).is_err());
     assert!(SimilarityLimits::new(0, 1, 1).is_err());
 }
 #[test]
@@ -304,24 +322,48 @@ fn test_ngram_preparation_is_explicit_and_bounded() {
     let plain = NgramOptions::new(2).expect("valid width");
     let padded = plain.with_boundary_markers('^', '$').expect("distinct boundaries");
     assert_eq!(
-        character_ngrams("Ab", TextPreprocessing::Lowercase, plain, limits),
+        character_ngrams("Ab", SimilarityPreprocessing::Lowercase, plain, limits),
         Ok(vec!["ab".to_string()])
     );
-    assert_eq!(character_ngrams("a", TextPreprocessing::Raw, plain, limits), Ok(Vec::new()));
+    assert_eq!(character_ngrams("a", SimilarityPreprocessing::Raw, plain, limits), Ok(Vec::new()));
     assert_eq!(
-        character_ngrams("a", TextPreprocessing::Raw, padded, limits),
+        character_ngrams("a", SimilarityPreprocessing::Raw, padded, limits),
         Ok(vec!["^a".to_string(), "a$".to_string()])
     );
     assert_eq!(
-        character_ngrams("^a", TextPreprocessing::Raw, padded, limits),
+        character_ngrams("^a", SimilarityPreprocessing::Raw, padded, limits),
         Err(SimilarityError::BoundaryMarkerCollision { marker: '^' })
     );
-    assert_eq!(character_ngrams("", TextPreprocessing::Raw, padded, limits), Ok(Vec::new()));
+    assert_eq!(character_ngrams("", SimilarityPreprocessing::Raw, padded, limits), Ok(Vec::new()));
     let oversized = NgramOptions::new(10_000)
         .expect("positive width")
         .with_boundary_markers('^', '$')
         .expect("distinct boundaries");
-    assert!(character_ngrams("a", TextPreprocessing::Raw, oversized, limits).is_err());
+    assert!(character_ngrams("a", SimilarityPreprocessing::Raw, oversized, limits).is_err());
+}
+#[test]
+fn test_normalized_exact_comparison() {
+    let canonical = ComparisonOptions::init()
+        .method(SimilarityMethod::Exact)
+        .preprocessing(SimilarityPreprocessing::Nfc)
+        .build();
+    let compatibility = ComparisonOptions::init()
+        .method(SimilarityMethod::Exact)
+        .preprocessing(SimilarityPreprocessing::Nfkc)
+        .build();
+    assert_eq!(
+        compare("Café", "Cafe\u{301}", canonical)
+            .expect("compare canonically equivalent values")
+            .score,
+        SimilarityScore::ONE
+    );
+    assert_eq!(
+        compare("①", "1", canonical).expect("preserve compatibility distinction").score,
+        SimilarityScore::ZERO
+    );
+    let result = compare("①", "1", compatibility).expect("compare compatibility-equivalent values");
+    assert_eq!(result.score, SimilarityScore::ONE);
+    assert_eq!(result.preprocessing, Some(SimilarityPreprocessing::Nfkc));
 }
 #[test]
 fn test_numeric_comparison_rejects_text_preprocessing() {
@@ -367,12 +409,36 @@ fn test_prefix_requires_length() {
     ));
 }
 #[test]
+fn test_preprocessing_rechecks_expanded_input_limit() {
+    let limits = SimilarityLimits::new(1, 1, 1).expect("valid limits");
+    assert!(matches!(
+        preprocess_text("ß", SimilarityPreprocessing::CaseFold, limits),
+        Err(SimilarityError::InputTooLong {
+            actual: 2,
+            limit: 1,
+            operand: "preprocessed input",
+        })
+    ));
+}
+#[test]
 fn test_score_validation_and_serialization() {
     assert_eq!(SimilarityScore::new(-0.1), Err(SimilarityError::InvalidScore));
     assert_eq!(SimilarityScore::new(f64::NAN), Err(SimilarityError::InvalidScore));
     assert_eq!(SimilarityScore::normalized(3, 7).map(SimilarityScore::value), Ok(4.0 / 7.0));
     assert_eq!(SimilarityScore::normalized(0, 0), Ok(SimilarityScore::ONE));
     assert_eq!(serde_json::to_string(&SimilarityScore::ONE).expect("score should serialize"), "1.0");
+    assert_eq!(
+        serde_json::to_string(&SimilarityPreprocessing::CaseFold).expect("preprocessing should serialize"),
+        "\"case-fold\""
+    );
+    assert_eq!(
+        serde_json::to_string(&SimilarityPreprocessing::Nfc).expect("preprocessing should serialize"),
+        "\"nfc\""
+    );
+    assert_eq!(
+        serde_json::to_string(&SimilarityPreprocessing::Nfkc).expect("preprocessing should serialize"),
+        "\"nfkc\""
+    );
 }
 #[test]
 fn test_set_comparison_supports_character_ngrams() {
@@ -402,7 +468,7 @@ fn test_set_comparison_uses_deduplicated_words() {
 fn test_word_preprocessing_preserves_sequence_and_duplicates() {
     let limits = SimilarityLimits::default();
     assert_eq!(
-        word_tokens("AI  Research AI", TextPreprocessing::Lowercase, limits),
+        word_tokens("AI  Research AI", SimilarityPreprocessing::Lowercase, limits),
         Ok(vec!["ai".to_string(), "research".to_string(), "ai".to_string()])
     );
 }

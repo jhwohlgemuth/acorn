@@ -3,6 +3,7 @@ use acorn_core::util::MimeType;
 use acorn_schema::{
     agent::{AuthenticationScheme, ProviderDetails},
     validation::{format_timestamp, rules},
+    vocabulary::{VocabularyKind, VocabularyOptions, VocabularyOutcome, VocabularyResolver},
     ContactPoint, OneOrMany,
 };
 use serde::{Deserialize, Serialize};
@@ -14,7 +15,7 @@ struct CrosswalkRecord {
 }
 
 #[test]
-fn contact_normalization_is_portable() {
+fn test_contact_normalization_is_portable() {
     let contact = ContactPoint::init()
         .organization("ORNL".to_string())
         .telephone("(555) 123-4567".to_string())
@@ -24,7 +25,7 @@ fn contact_normalization_is_portable() {
     assert_eq!(contact.telephone, "555.123.4567");
 }
 #[test]
-fn one_or_many_crosswalk_data_round_trips_zon() {
+fn test_one_or_many_crosswalk_data_round_trips_zon() {
     let values: OneOrMany<CrosswalkRecord> = vec![
         CrosswalkRecord {
             id: 1,
@@ -41,7 +42,7 @@ fn one_or_many_crosswalk_data_round_trips_zon() {
     assert_eq!(decoded, values);
 }
 #[test]
-fn provider_authentication_keeps_its_typed_wire_shape() {
+fn test_provider_authentication_keeps_its_typed_wire_shape() {
     let details = ProviderDetails::init()
         .authentication(vec![AuthenticationScheme::Basic, AuthenticationScheme::ApiKey])
         .build();
@@ -55,7 +56,7 @@ fn provider_authentication_keeps_its_typed_wire_shape() {
     ));
 }
 #[test]
-fn timestamp_and_year_rules_are_portable() {
+fn test_timestamp_and_year_rules_are_portable() {
     assert_eq!(
         format_timestamp("2026-03-10T15:37:24.355614500+00:00"),
         "2026-03-10T15:37:24.355614+00:00"
@@ -65,4 +66,17 @@ fn timestamp_and_year_rules_are_portable() {
     #[cfg(not(feature = "std"))]
     assert!(rules::year("3000").is_ok());
     assert!(rules::year("999").is_err());
+}
+#[test]
+fn test_vocabulary_resolution_is_portable() {
+    let report = VocabularyResolver::embedded(VocabularyKind::Technology)
+        .and_then(|resolver| resolver.resolve(["rs", "typescirpt", "not-a-technology"], VocabularyOptions::default()))
+        .expect("technology vocabulary should resolve");
+    let rust = report.resolutions.first().expect("rust resolution");
+    let typescript = report.resolutions.get(1).expect("typescript resolution");
+    let unknown = report.resolutions.get(2).expect("unknown resolution");
+    assert_eq!(rust.canonical.as_deref(), Some("rust"));
+    assert_eq!(typescript.canonical.as_deref(), Some("typescript"));
+    assert_eq!(unknown.outcome, VocabularyOutcome::Unmatched);
+    assert_eq!(report.lossless_values(), vec!["rust", "typescript", "not-a-technology"]);
 }

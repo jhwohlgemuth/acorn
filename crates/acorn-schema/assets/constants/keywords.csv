@@ -9,7 +9,7 @@ computational
 computer-science
 computer-vision
 critical-infrastructure
-cyber
+cyber,cyb
 data-governance
 data-science
 decentralized-systems,offline-first,local-first,file-over-app
@@ -25,7 +25,7 @@ grid
 high-performance-computing,hpc
 information-science
 isotope
-machine-learning,ml
+machine-learning,ml,machine-learn
 manufacturing
 materials
 mathematics,math

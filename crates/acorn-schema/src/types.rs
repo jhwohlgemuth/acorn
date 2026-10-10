@@ -8,10 +8,11 @@ use crate::util::constants::app::DEFAULT_AFFILIATION;
 use crate::util::constants::MAX_LENGTH_IMAGE_CAPTION;
 use crate::validation::format_phone_number;
 use crate::validation::{has_image_extension, Each, Validate, ValidationReport};
-use crate::{research_activity, vocabulary};
+use crate::vocabulary;
+#[cfg(feature = "alloc")]
+use crate::vocabulary::{VocabularyError, VocabularyFormat, VocabularyFuzzyMode, VocabularyKind, VocabularyOptions, VocabularyResolver};
 use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
 use acorn_core::util::{LinkedData, MarkdownSupport, MimeType};
-use alloc::collections::BTreeSet;
 use bon::Builder;
 use core::hash::Hash;
 use core::iter::{once, FromIterator};
@@ -19,11 +20,6 @@ use core::num::NonZeroU64;
 use core::ops::Deref;
 use core::slice::Iter;
 use derive_more::Display;
-#[cfg(feature = "std")]
-use nucleo_matcher::{
-    pattern::{CaseMatching, Normalization, Pattern},
-    Config, Matcher,
-};
 #[cfg(feature = "std")]
 use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
 use petgraph::graph::Graph;
@@ -386,10 +382,6 @@ pub struct ContactPointContext {
     /// Affiliation
     pub affiliation: String,
 }
-/// Canonical values resolved against one of ACORN's controlled-vocabulary assets.
-#[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(transparent)]
-pub struct ControlledVocabulary(Vec<Keyword>);
 /// Shared start/end date interval used across schema standards.
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
@@ -562,6 +554,19 @@ pub struct Website {
 impl ContactPoint {
     /// Fix, resolve, and augment contact point data
     pub fn format(self) -> Self {
+        #[cfg(feature = "alloc")]
+        {
+            self.clone()
+                .format_with_vocabulary_report(VocabularyFuzzyMode::Strict)
+                .map(|formatted| formatted.value)
+                .unwrap_or_else(|_| self.format_phone())
+        }
+        #[cfg(not(feature = "alloc"))]
+        self.format_phone()
+    }
+    /// Format contact data and report controlled-vocabulary decisions.
+    #[cfg(feature = "alloc")]
+    pub fn format_with_vocabulary_report(self, fuzzy: VocabularyFuzzyMode) -> Result<VocabularyFormat<Self>, VocabularyError> {
         let ContactPoint {
             affiliation,
             context,
@@ -575,44 +580,67 @@ impl ContactPoint {
             telephone,
             url,
             ..
-        } = self.clone();
-        let updated_organization = match resolve_from_organization_json(organization) {
-            | Some(value) => value,
-            | None => "".to_string(),
-        };
-        let updated_affiliation = match affiliation {
-            | Some(ref affiliation) => match resolve_from_organization_json(affiliation.to_string()) {
-                | Some(resolved) => Some(resolved),
-                | None => Some(DEFAULT_AFFILIATION.to_string()),
-            },
-            | None => match Organization::load().into_iter().next() {
-                | Some(ornl) => match ornl.member(&updated_organization) {
-                    | Some(organization) => match organization.nearest(OrganizationType::Directorate) {
-                        | Some(Organization { name, .. }) => Some(name),
-                        | None => Some(DEFAULT_AFFILIATION.to_string()),
-                    },
-                    | None => Some(DEFAULT_AFFILIATION.to_string()),
-                },
-                | None => Some(DEFAULT_AFFILIATION.to_string()),
-            },
-        };
-        let updated_telephone = match format_phone_number(&telephone) {
-            | Ok(value) => value,
-            | Err(_) => telephone.to_string(),
-        };
-        Self::init()
-            .maybe_affiliation(updated_affiliation)
-            .maybe_context(context)
-            .maybe_contact_point_type(contact_point_type)
-            .email(email)
-            .family_name(family_name)
-            .given_name(given_name)
-            .maybe_identifier(identifier)
-            .job_title(job_title)
-            .organization(updated_organization)
-            .telephone(updated_telephone)
-            .url(url)
-            .build()
+        } = self;
+        let inputs = once(("contact.organization".to_string(), organization.clone()))
+            .chain(affiliation.clone().map(|value| ("contact.affiliation".to_string(), value)))
+            .collect::<Vec<_>>();
+        VocabularyResolver::embedded(VocabularyKind::Organizations).and_then(|resolver| {
+            resolver
+                .resolve_located(inputs, VocabularyOptions { fuzzy, ..Default::default() })
+                .map(|report| {
+                    let resolved_organization = report
+                        .resolutions
+                        .first()
+                        .filter(|resolution| resolution.outcome.is_accepted())
+                        .and_then(|resolution| resolution.canonical.clone());
+                    let updated_organization = resolved_organization.clone().unwrap_or(organization);
+                    let updated_affiliation = affiliation.as_ref().map_or_else(
+                        || {
+                            resolved_organization.and_then(|resolved| {
+                                Organization::load().into_iter().next().and_then(|ornl| {
+                                    ornl.member(&resolved)
+                                        .and_then(|organization| organization.nearest(OrganizationType::Directorate))
+                                        .map(|organization| organization.name)
+                                        .or_else(|| Some(DEFAULT_AFFILIATION.to_string()))
+                                })
+                            })
+                        },
+                        |original| {
+                            report
+                                .resolutions
+                                .get(1)
+                                .filter(|resolution| resolution.outcome.is_accepted())
+                                .and_then(|resolution| resolution.canonical.clone())
+                                .or_else(|| Some(original.clone()))
+                        },
+                    );
+                    let updated_telephone = match format_phone_number(&telephone) {
+                        | Ok(value) => value,
+                        | Err(_) => telephone.to_string(),
+                    };
+                    let value = Self::init()
+                        .maybe_affiliation(updated_affiliation)
+                        .maybe_context(context)
+                        .maybe_contact_point_type(contact_point_type)
+                        .email(email)
+                        .family_name(family_name)
+                        .given_name(given_name)
+                        .maybe_identifier(identifier)
+                        .job_title(job_title)
+                        .organization(updated_organization)
+                        .telephone(updated_telephone)
+                        .url(url)
+                        .build();
+                    VocabularyFormat {
+                        reports: vec![report],
+                        value,
+                    }
+                })
+        })
+    }
+    fn format_phone(self) -> Self {
+        let telephone = format_phone_number(&self.telephone).unwrap_or_else(|_| self.telephone.clone());
+        Self { telephone, ..self }
     }
 }
 impl Default for ContactPoint {
@@ -710,23 +738,6 @@ impl Default for ContactPointContext {
             .organization(schema_org("worksFor"))
             .affiliation(schema_org("affiliation"))
             .build()
-    }
-}
-impl ControlledVocabulary {
-    /// Normalize candidate values against the named controlled-vocabulary asset.
-    pub fn normalize<T: Into<String>>(name: &str, values: impl IntoIterator<Item = T>) -> Self {
-        Self(
-            values
-                .into_iter()
-                .filter_map(|value| research_activity::resolve_from_csv_asset(name.to_string(), value.into()))
-                .collect::<BTreeSet<_>>()
-                .into_iter()
-                .collect(),
-        )
-    }
-    /// Consume the vocabulary and return its canonical values.
-    pub fn into_values(self) -> Vec<Keyword> {
-        self.0
     }
 }
 impl MediaObject {
@@ -998,16 +1009,8 @@ impl Organization {
     /// This function collects the organization, its directorates, divisions, and groups
     /// into a single vector, maintaining their hierarchical order.
     pub fn members(self) -> Vec<Organization> {
-        let organization = self.clone();
-        once(organization.clone())
-            .chain(organization.member.iter().flat_map(|directorate| {
-                once(directorate.clone()).chain(
-                    directorate
-                        .member
-                        .iter()
-                        .flat_map(|division| once(division.clone()).chain(division.member.iter().cloned())),
-                )
-            }))
+        once(self.clone())
+            .chain(self.member.iter().flat_map(|member| member.clone().members()))
             .collect()
     }
     /// Returns the nearest organization of the given type in the organization hierarchy.
@@ -1128,117 +1131,4 @@ where
                 .into()
         })
     })
-}
-#[cfg(feature = "std")]
-pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, data: I) -> Option<String> {
-    fn match_list<I: IntoIterator<Item = String>>(value: &str, values: I) -> Vec<(String, u32)> {
-        let pattern = Pattern::parse(value, CaseMatching::Ignore, Normalization::Smart);
-        let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
-        pattern.match_list(values, &mut matcher)
-    }
-    let sanitized = value.normalize();
-    data.into_iter()
-        .filter_map(|values| {
-            values.first().cloned().and_then(|canonical| {
-                let matched = match_list(&sanitized, values.into_iter().take(4));
-                match (canonical == value, matched.into_iter().map(|(_, score)| score).max()) {
-                    | (true, Some(_)) => Some((canonical, 10_000)),
-                    | (false, Some(score)) if score > 0 => Some((canonical, score)),
-                    | _ => None,
-                }
-            })
-        })
-        .max_by_key(|(_, score)| *score)
-        .map(|(canonical, _)| canonical)
-}
-#[cfg(not(feature = "std"))]
-pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, data: I) -> Option<String> {
-    fn normalize(value: &str) -> String {
-        value.normalize().split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase()
-    }
-    fn is_subsequence(query: &str, candidate: &str) -> bool {
-        query
-            .chars()
-            .try_fold(candidate.chars(), |mut remaining, character| {
-                remaining.find(|candidate| *candidate == character).map(|_| remaining)
-            })
-            .is_some()
-    }
-    fn acronym(value: &str) -> String {
-        value
-            .split_whitespace()
-            .filter(|token| !matches!(*token, "a" | "an" | "and" | "of" | "office" | "the"))
-            .filter_map(|token| token.chars().next())
-            .collect()
-    }
-    fn token_prefix(query: &str, candidate: &str) -> bool {
-        fn token_matches(query: &str, candidate: &str) -> bool {
-            query == candidate
-                || (query.len() >= 3
-                    && (candidate.starts_with(query)
-                        || query
-                            .get(..query.len().saturating_sub(1))
-                            .is_some_and(|prefix| candidate.starts_with(prefix))
-                        || is_subsequence(query, candidate)))
-        }
-        let query = query.split_whitespace().collect::<Vec<_>>();
-        let candidate = candidate.split_whitespace().collect::<Vec<_>>();
-        query.len() == candidate.len() && query.iter().zip(candidate).all(|(query, candidate)| token_matches(query, candidate))
-    }
-    fn score(query: &str, candidate: &str, canonical: bool) -> Option<usize> {
-        let minimum = query.len().min(candidate.len());
-        match () {
-            | _ if query.is_empty() || candidate.is_empty() => None,
-            | _ if canonical && query == candidate => Some(100_000_usize.saturating_add(minimum)),
-            | _ if canonical && minimum >= 3 && query.starts_with(candidate) => Some(60_000_usize.saturating_add(minimum)),
-            | _ if canonical && query.len() >= 2 && query == acronym(candidate) => Some(55_000_usize.saturating_add(minimum)),
-            | _ if canonical && minimum >= 2 && is_subsequence(query, candidate) => Some(45_000_usize.saturating_add(minimum)),
-            | _ if query == candidate => Some(50_000_usize.saturating_add(minimum)),
-            | _ if minimum >= 3 && candidate.starts_with(query) => Some(40_000_usize.saturating_add(minimum)),
-            | _ if minimum >= 2 && candidate.ends_with(query) => Some(35_000_usize.saturating_add(minimum)),
-            | _ if minimum >= 3 && token_prefix(query, candidate) => Some(30_000_usize.saturating_add(minimum)),
-            | _ if minimum >= 3 && candidate.contains(query) => Some(20_000_usize.saturating_add(minimum)),
-            | _ if minimum >= 3 && query.starts_with(candidate) => Some(10_000_usize.saturating_add(minimum)),
-            | _ if minimum >= 3 && query.contains(candidate) => Some(minimum),
-            | _ => None,
-        }
-    }
-    let query = normalize(&value);
-    data.into_iter()
-        .filter_map(|values| {
-            values.first().cloned().zip(
-                values
-                    .iter()
-                    .take(4)
-                    .enumerate()
-                    .filter_map(|(index, candidate)| score(&query, &normalize(candidate), index == 0))
-                    .max(),
-            )
-        })
-        .fold(None::<(String, usize)>, |best, current| match best {
-            | Some(best) if best.1 >= current.1 => Some(best),
-            | _ => Some(current),
-        })
-        .map(|(canonical, _)| canonical)
-}
-pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
-    let organization = Organization::load().into_iter().next()?;
-    let items: Vec<Organization> = once(organization.clone())
-        .chain(
-            organization
-                .member
-                .iter()
-                .flat_map(|directorate| once(directorate.clone()).chain(directorate.member.iter().cloned())),
-        )
-        .collect();
-    let data = items
-        .into_iter()
-        .map(|x| (x.name.clone(), x.alternative_name.clone()))
-        .filter(|(name, alias)| !(name.is_empty() && alias.is_none()))
-        .map(|(name, alias)| {
-            let alternative_name = alias.as_ref().map_or(name.clone(), |x| x.to_string());
-            vec![name, alternative_name]
-        })
-        .collect::<Vec<Vec<String>>>();
-    resolve_from_list_of_lists(value, data)
 }

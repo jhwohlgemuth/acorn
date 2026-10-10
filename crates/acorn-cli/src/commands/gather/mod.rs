@@ -43,6 +43,7 @@ impl Process for SourceDocuments {
             citation_format,
             database_path,
             enrich,
+            fuzzy,
             no_local_database,
             resolve,
             ..
@@ -62,7 +63,7 @@ impl Process for SourceDocuments {
             (Vec::new(), CheckBatch::empty())
         } else {
             let history_checks = discoveries.persist(database_path);
-            let (candidate_results, candidate_checks) = discoveries.persist_candidates(database_path);
+            let (candidate_results, candidate_checks) = discoveries.persist_candidates(*fuzzy, database_path);
             (candidate_results, history_checks.combine(candidate_checks))
         };
         let (analysis_checks, temporary_paths) = discoveries.analyze(options).await;

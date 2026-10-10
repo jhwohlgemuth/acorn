@@ -40,7 +40,6 @@ sophia = { workspace = true }
 swhid = { workspace = true, features = ["git"], optional = true }
 # std-gated hosts (mirrors acorn-lib gating)
 ammonia = { version = "4.1.2", default-features = false, optional = true }
-nucleo-matcher = { version = "0.3.1", features = ["unicode-casefold", "unicode-normalization"], default-features = false, optional = true }
 percy-dom = { version = "0.10.0", features = ["macro"], default-features = false, optional = true }
 ring = { version = "0.17.14", default-features = false, optional = true }
 rust-embed = { workspace = true, optional = true }
@@ -52,17 +51,22 @@ fancy-regex = { workspace = true, features = ["unicode"] }
 pomsky = { workspace = true }
 
 [dev-dependencies]
+criterion = "0.8.2"
 glob = { workspace = true }
 insta = { workspace = true, features = ["json", "yaml"] }
 pretty_assertions = "1.4.1"
 proptest = "1.9.0"
 tokio = { workspace = true, features = ["macros", "rt"] }
 
+[[bench]]
+name = "vocabulary"
+harness = false
+
 [features]
 default = ["std"]
 core = ["acorn-core/core"]
 alloc = ["core", "acorn-core/alloc", "serde/alloc", "jiff/alloc"]
-std = ["alloc", "acorn-core/std", "jiff/std", "dep:ammonia", "dep:nucleo-matcher", "dep:percy-dom", "dep:rust-embed", "dep:tera", "dep:tracing", "dep:swhid", "ring"]
+std = ["alloc", "acorn-core/std", "jiff/std", "dep:ammonia", "dep:percy-dom", "dep:rust-embed", "dep:tera", "dep:tracing", "dep:swhid", "ring"]
 wasm = ["alloc"]
 swhid-compute = ["std", "dep:swhid"]
 analysis = []

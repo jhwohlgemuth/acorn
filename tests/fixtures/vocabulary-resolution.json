@@ -1,0 +1,51 @@
+[
+  {
+    "vocabulary": "keywords",
+    "fuzzy": "strict",
+    "input": "AI",
+    "canonical": "artificial-intelligence",
+    "outcome": "exact-alias"
+  },
+  {
+    "vocabulary": "keywords",
+    "fuzzy": "strict",
+    "input": "automatin",
+    "canonical": "automation",
+    "outcome": "fuzzy-accepted"
+  },
+  {
+    "vocabulary": "technology",
+    "fuzzy": "off",
+    "input": "rs",
+    "canonical": "rust",
+    "outcome": "exact-alias"
+  },
+  {
+    "vocabulary": "partners",
+    "fuzzy": "strict",
+    "input": "NREL",
+    "canonical": "National Renewable Energy Laboratory",
+    "outcome": "exact-alias"
+  },
+  {
+    "vocabulary": "sponsors",
+    "fuzzy": "strict",
+    "input": "DOE",
+    "canonical": "Department of Energy",
+    "outcome": "exact-alias"
+  },
+  {
+    "vocabulary": "organizations",
+    "fuzzy": "strict",
+    "input": "GSHS",
+    "canonical": "Geospatial Science and Human Security Division",
+    "outcome": "exact-alias"
+  },
+  {
+    "vocabulary": "keywords",
+    "fuzzy": "relaxed",
+    "input": "cyb",
+    "canonical": "cyber",
+    "outcome": "exact-alias"
+  }
+]

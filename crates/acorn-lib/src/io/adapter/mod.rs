@@ -31,6 +31,7 @@ use acorn_schema::{
     pid::raid::Metadata,
     research_activity::{Logbook, LogbookEntry, ResearchActivity, ResearchActivityMetadata},
     standard::{cff::Cff, ckan, datacite, dcat, huwise, invenio, text, text::Text},
+    vocabulary::VocabularyFuzzyMode,
     ImageObject, MediaObject, OneOrMany,
 };
 use color_eyre::eyre::eyre;
@@ -525,13 +526,19 @@ impl InputOutput for ResearchActivity {
         result
     }
     fn format_with(self, context: Option<PathBuf>) -> Self {
+        self.format_with_vocabulary(VocabularyFuzzyMode::Strict, context)
+    }
+    fn format_with_vocabulary(self, fuzzy: VocabularyFuzzyMode, context: Option<PathBuf>) -> Self {
         let ResearchActivity { meta, contact, .. } = self.clone();
-        ResearchActivity {
+        let contextualized = ResearchActivity {
             meta: format_metadata(meta, context.clone()),
-            contact: contact.format(),
+            contact,
             ..self
-        }
-        .format()
+        };
+        contextualized
+            .clone()
+            .format_with_vocabulary_report(fuzzy)
+            .map_or(contextualized, |formatted| formatted.value)
     }
     fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
         self.encode(mime).map_err(|error| eyre!(error.to_string()))

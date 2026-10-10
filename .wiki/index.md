@@ -50,7 +50,7 @@ Ranking uses impact first, then remaining difficulty, with user/architecture val
 | 20 | [CLI coverage](testing/cli-coverage.md) | Planned | Medium | Medium | A− | Medium | Targets known command and binary failure gaps without reviving obsolete test layout or chasing raw line coverage. |
 | 21 | [Portable PID verification](testing/pid-verification.md) | Planned | Medium | High | B+ | Medium | Consolidation and Miri are practical; full Creusot/solver maintenance should proceed only after toolchain feasibility is proven. |
 | 22 | [Beam inference integration](features/beam-inference-integration.md) | Planned | Medium | High | B | Medium | Release and serving evidence gate an explicit endpoint integration and ACORN evaluation. |
-| 23 | [Portable similarity measures and vocabulary coercion](features/similarity-measures.md) | In progress | Medium | High | B+ | Medium | Phase-1 primitives and `acorn diff --method` are implemented; calibrated vocabulary and organization migration remain. |
+| 23 | [Portable similarity measures and vocabulary coercion](features/similarity-measures.md) | In progress | Medium | High | B+ | Medium | Phase-1 primitives, `acorn diff --method`, and portable vocabulary coercion are implemented; corpus, hybrid, phonetic, field-policy, and alignment phases remain. |
 
 ### Coordination record
 

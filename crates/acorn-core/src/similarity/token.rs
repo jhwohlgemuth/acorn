@@ -1,17 +1,10 @@
 //! Text preparation and set similarity measures.
-use super::{SimilarityError, SimilarityLimits, SimilarityResult, SimilarityScore};
+use super::{SimilarityError, SimilarityLimits, SimilarityPreprocessing, SimilarityResult, SimilarityScore};
 use crate::prelude::{String, ToString, Vec};
 use alloc::collections::BTreeSet;
+use icu_casemap::CaseMapper;
+use icu_normalizer::ComposingNormalizer;
 
-/// Explicit text preprocessing applied before tokenization.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub enum TextPreprocessing {
-    /// Preserve the original scalar sequence.
-    #[default]
-    Raw,
-    /// Apply Rust Unicode lowercase mapping without normalization or full case folding.
-    Lowercase,
-}
 /// Character n-gram preparation options.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NgramOptions {
@@ -51,16 +44,10 @@ fn as_score(numerator: usize, denominator: usize) -> SimilarityResult<Similarity
         | _ => SimilarityScore::new(numerator as f64 / denominator as f64),
     }
 }
-fn checked_sets<'a, T: Ord>(left: &'a [T], right: &'a [T], limits: SimilarityLimits) -> SimilarityResult<(BTreeSet<&'a T>, BTreeSet<&'a T>)> {
-    limits
-        .check_collection(left.len())
-        .and_then(|_| limits.check_collection(right.len()))
-        .map(|_| (left.iter().collect(), right.iter().collect()))
-}
 /// Prepare character n-grams after explicit preprocessing.
 pub fn character_ngrams(
     value: &str,
-    preprocessing: TextPreprocessing,
+    preprocessing: SimilarityPreprocessing,
     options: NgramOptions,
     limits: SimilarityLimits,
 ) -> SimilarityResult<Vec<String>> {
@@ -108,6 +95,12 @@ fn check_ngram_work(scalar_count: usize, width: usize, limits: SimilarityLimits)
         }
     }
 }
+fn checked_sets<'a, T: Ord>(left: &'a [T], right: &'a [T], limits: SimilarityLimits) -> SimilarityResult<(BTreeSet<&'a T>, BTreeSet<&'a T>)> {
+    limits
+        .check_collection(left.len())
+        .and_then(|_| limits.check_collection(right.len()))
+        .map(|_| (left.iter().collect(), right.iter().collect()))
+}
 /// Calculate Jaccard similarity over deduplicated set values.
 pub fn jaccard_similarity<T: Ord>(left: &[T], right: &[T], limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
     checked_sets(left, right, limits).and_then(|(left, right)| {
@@ -130,12 +123,15 @@ pub fn overlap_coefficient<T: Ord>(left: &[T], right: &[T], limits: SimilarityLi
         | (false, false) => as_score(left.intersection(&right).count(), left.len().min(right.len())),
     })
 }
-/// Apply explicit preprocessing without Unicode normalization or implicit punctuation changes.
-pub fn preprocess_text(value: &str, preprocessing: TextPreprocessing, limits: SimilarityLimits) -> SimilarityResult<String> {
+/// Apply the selected explicit preprocessing without implicit punctuation changes.
+pub fn preprocess_text(value: &str, preprocessing: SimilarityPreprocessing, limits: SimilarityLimits) -> SimilarityResult<String> {
     limits.check_input(value, "input").and_then(|_| {
         let prepared = match preprocessing {
-            | TextPreprocessing::Lowercase => value.to_lowercase(),
-            | TextPreprocessing::Raw => value.to_string(),
+            | SimilarityPreprocessing::CaseFold => CaseMapper::new().fold_string(value).into_owned(),
+            | SimilarityPreprocessing::Lowercase => value.to_lowercase(),
+            | SimilarityPreprocessing::Nfc => ComposingNormalizer::new_nfc().normalize(value).into_owned(),
+            | SimilarityPreprocessing::Nfkc => ComposingNormalizer::new_nfkc().normalize(value).into_owned(),
+            | SimilarityPreprocessing::Raw => value.to_string(),
         };
         limits.check_input(&prepared, "preprocessed input").map(|_| prepared)
     })
@@ -154,7 +150,7 @@ pub fn sorensen_dice_similarity<T: Ord>(left: &[T], right: &[T], limits: Similar
     })
 }
 /// Split explicitly preprocessed text on Unicode whitespace while preserving order and duplicates.
-pub fn word_tokens(value: &str, preprocessing: TextPreprocessing, limits: SimilarityLimits) -> SimilarityResult<Vec<String>> {
+pub fn word_tokens(value: &str, preprocessing: SimilarityPreprocessing, limits: SimilarityLimits) -> SimilarityResult<Vec<String>> {
     preprocess_text(value, preprocessing, limits).and_then(|prepared| {
         let count = prepared.split_whitespace().count();
         limits

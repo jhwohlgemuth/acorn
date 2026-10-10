@@ -139,6 +139,8 @@ pub struct WorkflowExtension {
     pub enrich: bool,
     /// Normalize research activity data before output.
     pub format: bool,
+    /// Controlled-vocabulary fuzzy matching profile.
+    pub fuzzy: acorn_schema::vocabulary::VocabularyFuzzyMode,
     /// Create a JSON-LD companion file.
     pub link: bool,
     /// Render changes even when the workflow will write them.
@@ -562,7 +564,12 @@ where
         enrichment: Option<&dyn Enrich<(Location, T), Output = ApiResult<EnrichmentResult<T>>>>,
     ) -> ApiResult<Change<T>> {
         let WorkflowExtension {
-            check, enrich, format, link, ..
+            check,
+            enrich,
+            format,
+            fuzzy,
+            link,
+            ..
         } = &options.extension;
         let prepared = source
             .local_path()
@@ -571,7 +578,7 @@ where
                 read_file(path.clone()).and_then(|content| {
                     T::read(path.clone()).map(|data| {
                         let data = match format {
-                            | true => InputOutput::format_with(data, Some(path.clone())),
+                            | true => InputOutput::format_with_vocabulary(data, *fuzzy, Some(path.clone())),
                             | false => data,
                         };
                         (path, content, data)
@@ -598,7 +605,7 @@ where
                 enriched
                     .map(|result| match format {
                         | true => EnrichmentResult {
-                            data: InputOutput::format_with(result.data, Some(path.clone())),
+                            data: InputOutput::format_with_vocabulary(result.data, *fuzzy, Some(path.clone())),
                             ..result
                         },
                         | false => result,
@@ -645,6 +652,7 @@ impl Default for WorkflowExtension {
             check: true,
             enrich: false,
             format: false,
+            fuzzy: acorn_schema::vocabulary::VocabularyFuzzyMode::Strict,
             link: false,
             show_changes: false,
         }

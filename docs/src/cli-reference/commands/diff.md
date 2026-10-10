@@ -36,7 +36,7 @@ Available methods are:
 - `overlap`, `jaccard`, and `sorensen-dice` (`dice`)
 - `absolute-difference` and `percentage-difference`
 
-Prefix and suffix require `--length`. Numeric methods require a finite positive `--cutoff`. Set methods split on Unicode whitespace by default; `--ngram-width N` switches to unpadded character n-grams. `--preprocessing lowercase` is explicit and never performs Unicode normalization or full case folding.
+Prefix and suffix require `--length`. Numeric methods require a finite positive `--cutoff`. Set methods split on Unicode whitespace by default; `--ngram-width N` switches to unpadded character n-grams. Preprocessing is explicit through `--preprocess`: choose `raw` (the default), `lowercase`, full locale-independent `case-fold`, canonical `nfc`, or compatibility `nfkc`. The modes are not combined. NFC is the recommended opt-in for human-language text that should ignore canonically equivalent encodings; NFKC is appropriate only when compatibility distinctions may also be erased.
 
 Similarity mode accepts `text` and `json`, defaulting to text. A low score is a successful result. Invalid input, incompatible parameters, unreadable files, and exceeded resource limits fail the command.
 

@@ -55,12 +55,12 @@ fn test_arxiv_discovery_preserves_versions_and_uses_work_identity() {
 #[test]
 fn test_candidate_enrichment_normalizes_controlled_vocabularies() {
     assert_eq!(
-        ControlledVocabulary::normalize("keywords", ["AI".to_string(), "unknown-value".to_string()]).into_values(),
+        VocabularyKind::Keywords.resolve(["AI".to_string(), "unknown-value".to_string()], VocabularyFuzzyMode::Strict,),
         ["artificial-intelligence"]
     );
     assert_eq!(
-        ControlledVocabulary::normalize("technology", ["Rust".to_string(), "Python".to_string()]).into_values(),
-        ["python", "rust"]
+        VocabularyKind::Technology.resolve(["Rust".to_string(), "Python".to_string()], VocabularyFuzzyMode::Strict,),
+        ["rust", "python"]
     );
 }
 #[test]

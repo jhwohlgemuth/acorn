@@ -2,7 +2,7 @@
 set -euo pipefail
 
 readonly allowed_diff='^(acorn-diff|itoa|memchr|proc-macro2|quote|serde|serde_core|serde_derive|serde_json|similar|syn|unicode-ident|zmij) v'
-readonly forbidden='^(ammonia|anydoc|arboard|ariadne|async-trait|axum|bat|color-eyre|comfy-table|console|directories|dotenvy|flate2|glob|http|httpdate|indicatif|infer|is_executable|lychee-lib|nanoid|owo-colors|pdf-inspector|percy-dom|polars|rand|rayon|reqwest|ring|rsa|rusqlite|rust-embed|rust-ini|sevenz-rust2|shell-words|shuck-linter|shuck-parser|similar|tar|tera|tokio|tower|which|zip) v'
+readonly forbidden='^(ammonia|anydoc|arboard|ariadne|async-trait|axum|bat|color-eyre|comfy-table|console|directories|dotenvy|flate2|glob|http|httpdate|indicatif|infer|is_executable|lychee-lib|nanoid|owo-colors|pdf-inspector|percy-dom|polars|rand|rayon|reqwest|ring|rsa|rusqlite|rust-embed|rust-ini|sevenz-rust2|shell-words|shuck-linter|shuck-parser|tar|tera|tokio|tower|which|zip) v'
 readonly forbidden_portable='^(acorn-host|acorn-lib|acorn-server|arboard|axum|color-eyre|directories|dotenvy|duckdb|lychee-lib|polars|reqwest|resvg|rmcp|rusqlite|shuck-linter|shuck-parser|sysinfo|tokio|tonic|tracing-subscriber|which) v'
 
 check_diff_tree() {
