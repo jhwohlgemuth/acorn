@@ -2,7 +2,7 @@
 //!
 //! See <https://opencode.ai/docs/config> for more information on OpenCode configuration.
 use crate::agent::Provider;
-use acorn_core::AcornResult;
+use acorn_core::{AcornResult, Noul};
 use acorn_macros::With;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
@@ -196,7 +196,7 @@ pub struct AgentConfig {
     /// Sampling temperature for this agent
     pub temperature: Option<f64>,
     /// Top-p sampling value for this agent
-    pub top_p: Option<f64>,
+    pub top_p: Option<Noul>,
     /// System prompt or instructions for this agent
     pub prompt: Option<String>,
     /// Per-tool enablement map

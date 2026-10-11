@@ -12,6 +12,7 @@ use crate::io::sidecar::{ResolvedAssets, Sidecar, SidecarAssets};
 use crate::io::{standard_project_folder, write_file, ApiResult};
 use crate::util::constants::app::{DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, DEFAULT_NEEDLE_MAX_ROUNDS};
 use acorn_core::prelude::{create_dir, PathBuf, String, Vec};
+use acorn_core::Noul;
 use acorn_schema::agent::tools::ToolResult;
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
@@ -35,16 +36,16 @@ pub struct Needle {
     runner: Runner,
     client: Client,
     registry: ToolRegistry,
-    confidence_threshold: f64,
+    confidence_threshold: Noul,
     max_rounds: usize,
     offline: bool,
 }
 impl CompleteResponse {
-    fn execution_confidence(&self, threshold: f64) -> ApiResult<f64> {
+    fn execution_confidence(&self, threshold: Noul) -> ApiResult<()> {
         let valid_type = self.response_type.is_call();
         let confidence = self
             .confidence
-            .filter(|confidence| confidence.is_finite() && (0.0..=1.0).contains(confidence))
+            .and_then(|confidence| Noul::new(confidence).ok())
             .ok_or_else(|| eyre!("Needle response has no valid calibrated confidence; automatic execution is disabled"));
         match (valid_type, self.validation.as_ref(), confidence) {
             | (false, _, _) => Err(eyre!("Needle response type '{}' cannot contain function calls", self.response_type)),
@@ -56,7 +57,7 @@ impl CompleteResponse {
             | (_, _, Ok(confidence)) if confidence < threshold => {
                 Err(eyre!("Needle confidence {confidence:.3} is below the {threshold:.3} execution threshold"))
             }
-            | (_, _, confidence) => confidence,
+            | (_, _, confidence) => confidence.map(|_| ()),
         }
     }
     fn response_error(&self) -> color_eyre::eyre::Report {
@@ -71,13 +72,10 @@ impl CompleteResponse {
 }
 impl Needle {
     /// Override the confidence threshold, constrained to the inclusive unit interval
-    pub fn with_confidence_threshold(self, threshold: f64) -> ApiResult<Self> {
-        match (0.0..=1.0).contains(&threshold) {
-            | true => Ok(Self {
-                confidence_threshold: threshold,
-                ..self
-            }),
-            | false => Err(eyre!("Needle confidence threshold must be between 0 and 1")),
+    pub fn with_confidence_threshold(self, threshold: Noul) -> Self {
+        Self {
+            confidence_threshold: threshold,
+            ..self
         }
     }
     /// Override the positive maximum inference rounds

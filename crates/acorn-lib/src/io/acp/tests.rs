@@ -2,6 +2,7 @@ use super::{AcpSessionEvent, AgentProcessConfig, AgentProfile, Client, Codex, Er
 use crate::agent::{HydratedPrompt, InferencePermissionPolicy, InferenceRequest};
 use crate::analyzer::fix::{CheckReference, CheckReferences, FixOptions, IntoFixes};
 use acorn_cmd::{find_executable, CommandSpec};
+use acorn_core::Noul;
 use acorn_schema::{
     agent::{FrontMatter, PromptFileAsset},
     software::Software,
@@ -196,7 +197,7 @@ fn test_acp_suggestion_service_returns_validated_fix_report() {
             &Client::new(fake.config("fake")),
             &FixOptions {
                 agent: Some("fake".to_string()),
-                min_confidence: 0.5,
+                min_confidence: Noul::new(0.5).expect("valid unit value"),
                 model: Some("fake-model".to_string()),
                 ..FixOptions::default()
             },

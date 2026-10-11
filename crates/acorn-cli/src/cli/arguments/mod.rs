@@ -1178,7 +1178,7 @@ pub(crate) struct Infer {
     pub(crate) custom_location: Option<String>,
     /// Minimum calibrated confidence required before executing a tool
     #[arg(long, default_value_t = DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, value_name = "0..1", help_heading = "OPTIONS")]
-    pub(crate) threshold: f64,
+    pub(crate) threshold: Noul,
     /// Maximum number of Needle tool-selection rounds
     #[arg(long, default_value_t = DEFAULT_NEEDLE_MAX_ROUNDS, value_name = "N", help_heading = "OPTIONS")]
     pub(crate) max_rounds: usize,

@@ -111,9 +111,9 @@ pub(super) struct Entry {
 }
 #[derive(Clone, Copy)]
 pub(super) struct FuzzyGate {
-    pub(super) margin: f64,
+    pub(super) margin: Noul,
     pub(super) maximum_distance: Option<usize>,
-    pub(super) minimum_score: f64,
+    pub(super) minimum_score: Noul,
 }
 #[derive(Clone, Debug)]
 pub(super) struct ScoredCandidate {

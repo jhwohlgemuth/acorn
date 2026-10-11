@@ -119,8 +119,9 @@ impl Noul {
     /// Upper bound of the unit interval.
     pub const ONE: Self = Self(1.0);
     /// Construct a finite value on the inclusive interval from zero to one.
-    pub fn new(value: f64) -> Result<Self, NoulError> {
-        match value.is_finite() && (0.0..=1.0).contains(&value) {
+    #[allow(clippy::manual_range_contains)]
+    pub const fn new(value: f64) -> Result<Self, NoulError> {
+        match value.is_finite() && value >= 0.0 && value <= 1.0 {
             | true => Ok(Self(if value == 0.0 { 0.0 } else { value })),
             | false => Err(NoulError),
         }

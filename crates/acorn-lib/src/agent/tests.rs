@@ -2,6 +2,8 @@
 use super::prompt::{Prompt, PromptFileAssetExt, Rendered};
 use super::*;
 #[cfg(feature = "template")]
+use acorn_core::Noul;
+#[cfg(feature = "template")]
 use acorn_schema::agent::PromptTemplateConfiguration;
 use acorn_schema::agent::{FrontMatter, PromptFileAsset};
 use acorn_schema::standard::zon;
@@ -17,7 +19,7 @@ fn context(data: serde_json::Value) -> PromptContext<serde_json::Value> {
             .language("French".to_string())
             .max_items(3)
             .max_words(42)
-            .min_confidence(0.75)
+            .min_confidence(Noul::new(0.75).expect("valid unit value"))
             .text("legacy source".to_string())
             .build(),
         data,

@@ -12,6 +12,7 @@ use acorn_core::prelude::{format, Box, String, ToString, Vec};
 use acorn_core::time::{Milliseconds, UnitOfTime};
 use acorn_core::util::StringExt;
 use acorn_core::validation::{digest, ValidationError};
+use acorn_core::Noul;
 use acorn_host::fs::SafePath;
 use acorn_schema::{
     agent::{PromptFileAsset, PromptTemplateConfiguration},
@@ -174,7 +175,7 @@ impl Default for FixOptions {
             max_context_bytes: DEFAULT_MAX_CONTEXT_BYTES,
             max_excerpt_bytes: DEFAULT_MAX_EXCERPT_BYTES,
             max_findings_per_batch: DEFAULT_MAX_FINDINGS_PER_BATCH,
-            min_confidence: 0.0,
+            min_confidence: Noul::ZERO,
             model: None,
             timeout: Milliseconds::new(30_000),
         }
@@ -182,17 +183,15 @@ impl Default for FixOptions {
 }
 impl Validate for FixOptions {
     fn validate(&self) -> Result<(), ValidationReport> {
-        let valid_confidence = self.min_confidence.is_finite() && (0.0..=1.0).contains(&self.min_confidence);
         let limits = (self.max_context_bytes, self.max_excerpt_bytes, self.max_findings_per_batch, self.timeout);
-        match (limits, valid_confidence) {
-            | ((0, _, _, _), _) => Err(FixError::ContextLimitZero.report("maxContextBytes")),
-            | ((value, _, _, _), _) if value > DEFAULT_MAX_CONTEXT_BYTES => Err(FixError::ContextLimitExceeded.report("maxContextBytes")),
-            | ((_, 0, _, _), _) => Err(FixError::ExcerptLimitZero.report("maxExcerptBytes")),
-            | ((_, value, _, _), _) if value > DEFAULT_MAX_EXCERPT_BYTES => Err(FixError::ExcerptLimitExceeded.report("maxExcerptBytes")),
-            | ((_, _, 0, _), _) => Err(FixError::FindingLimitZero.report("maxFindingsPerBatch")),
-            | ((_, _, value, _), _) if value > DEFAULT_MAX_FINDINGS_PER_BATCH => Err(FixError::FindingLimitExceeded.report("maxFindingsPerBatch")),
-            | ((_, _, _, _), false) => Err(FixError::InvalidMinimumConfidence.report("minConfidence")),
-            | ((_, _, _, timeout), _) if timeout.is_zero() => Err(FixError::TimeoutZero.report("timeout")),
+        match limits {
+            | (0, _, _, _) => Err(FixError::ContextLimitZero.report("maxContextBytes")),
+            | (value, _, _, _) if value > DEFAULT_MAX_CONTEXT_BYTES => Err(FixError::ContextLimitExceeded.report("maxContextBytes")),
+            | (_, 0, _, _) => Err(FixError::ExcerptLimitZero.report("maxExcerptBytes")),
+            | (_, value, _, _) if value > DEFAULT_MAX_EXCERPT_BYTES => Err(FixError::ExcerptLimitExceeded.report("maxExcerptBytes")),
+            | (_, _, 0, _) => Err(FixError::FindingLimitZero.report("maxFindingsPerBatch")),
+            | (_, _, value, _) if value > DEFAULT_MAX_FINDINGS_PER_BATCH => Err(FixError::FindingLimitExceeded.report("maxFindingsPerBatch")),
+            | (_, _, _, timeout) if timeout.is_zero() => Err(FixError::TimeoutZero.report("timeout")),
             | _ => Ok(()),
         }
     }

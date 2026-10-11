@@ -5,6 +5,7 @@ use crate::{
     io::api::Configuration,
     test::server::TestServer,
 };
+use acorn_core::Noul;
 use acorn_schema::agent::{FrontMatter, PromptFileAsset};
 use alloc::sync::Arc;
 use axum::{extract::State as AxumState, http::StatusCode, routing::post, Json, Router};
@@ -213,7 +214,7 @@ async fn test_endpoint_modes_return_equivalent_validated_fix_reports() {
     let (server, _) = server().await;
     let reference = fix_reference();
     let options = FixOptions {
-        min_confidence: 0.5,
+        min_confidence: Noul::new(0.5).expect("valid unit value"),
         ..FixOptions::default()
     };
     let responses = vec![reference.clone()]

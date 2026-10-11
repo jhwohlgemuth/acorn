@@ -10,6 +10,37 @@ use acorn_core::Noul;
 use alloc::collections::BTreeSet;
 use core::cmp::Ordering;
 
+const DICE_RELAXED_FLOOR: Noul = noul(0.90);
+const GENERIC_RELAXED_GATE: FuzzyGate = FuzzyGate {
+    margin: noul(0.03),
+    maximum_distance: None,
+    minimum_score: noul(0.90),
+};
+const GENERIC_STRICT_GATE: FuzzyGate = FuzzyGate {
+    margin: noul(0.05),
+    maximum_distance: None,
+    minimum_score: noul(0.96),
+};
+const TERM_RELAXED_GATE: FuzzyGate = FuzzyGate {
+    margin: noul(0.05),
+    maximum_distance: Some(3),
+    minimum_score: noul(0.80),
+};
+const TERM_RELAXED_SHORT_GATE: FuzzyGate = FuzzyGate {
+    margin: noul(0.10),
+    maximum_distance: Some(2),
+    minimum_score: noul(0.70),
+};
+const TERM_STRICT_GATE: FuzzyGate = FuzzyGate {
+    margin: noul(0.10),
+    maximum_distance: Some(2),
+    minimum_score: noul(0.90),
+};
+const TERM_STRICT_SHORT_GATE: FuzzyGate = FuzzyGate {
+    margin: noul(0.20),
+    maximum_distance: Some(1),
+    minimum_score: noul(0.80),
+};
 impl VocabularyKind {
     fn unicode(self, value: &str) -> String {
         let limits = SimilarityLimits::new(usize::MAX, usize::MAX, usize::MAX).unwrap_or_default();
@@ -37,36 +68,12 @@ pub(super) fn compare_scored(left: &ScoredCandidate, right: &ScoredCandidate) ->
 }
 pub(super) fn gate(kind: VocabularyKind, input_length: usize, mode: VocabularyFuzzyMode) -> FuzzyGate {
     match (kind, mode, input_length) {
-        | (VocabularyKind::Keywords | VocabularyKind::Technology, VocabularyFuzzyMode::Strict, 5..=8) => FuzzyGate {
-            margin: 0.20,
-            maximum_distance: Some(1),
-            minimum_score: 0.80,
-        },
-        | (VocabularyKind::Keywords | VocabularyKind::Technology, VocabularyFuzzyMode::Strict, _) => FuzzyGate {
-            margin: 0.10,
-            maximum_distance: Some(2),
-            minimum_score: 0.90,
-        },
-        | (VocabularyKind::Keywords | VocabularyKind::Technology, VocabularyFuzzyMode::Relaxed, 5..=8) => FuzzyGate {
-            margin: 0.10,
-            maximum_distance: Some(2),
-            minimum_score: 0.70,
-        },
-        | (VocabularyKind::Keywords | VocabularyKind::Technology, VocabularyFuzzyMode::Relaxed, _) => FuzzyGate {
-            margin: 0.05,
-            maximum_distance: Some(3),
-            minimum_score: 0.80,
-        },
-        | (_, VocabularyFuzzyMode::Strict, _) => FuzzyGate {
-            margin: 0.05,
-            maximum_distance: None,
-            minimum_score: 0.96,
-        },
-        | (_, VocabularyFuzzyMode::Off | VocabularyFuzzyMode::Relaxed, _) => FuzzyGate {
-            margin: 0.03,
-            maximum_distance: None,
-            minimum_score: 0.90,
-        },
+        | (VocabularyKind::Keywords | VocabularyKind::Technology, VocabularyFuzzyMode::Strict, 5..=8) => TERM_STRICT_SHORT_GATE,
+        | (VocabularyKind::Keywords | VocabularyKind::Technology, VocabularyFuzzyMode::Strict, _) => TERM_STRICT_GATE,
+        | (VocabularyKind::Keywords | VocabularyKind::Technology, VocabularyFuzzyMode::Relaxed, 5..=8) => TERM_RELAXED_SHORT_GATE,
+        | (VocabularyKind::Keywords | VocabularyKind::Technology, VocabularyFuzzyMode::Relaxed, _) => TERM_RELAXED_GATE,
+        | (_, VocabularyFuzzyMode::Strict, _) => GENERIC_STRICT_GATE,
+        | (_, VocabularyFuzzyMode::Off | VocabularyFuzzyMode::Relaxed, _) => GENERIC_RELAXED_GATE,
     }
 }
 pub(super) fn normalize(kind: VocabularyKind, value: &str) -> String {
@@ -121,6 +128,13 @@ pub(super) fn normalize_identifier(value: &str) -> String {
         .trim_end_matches('/');
     normalized.strip_prefix("programming_").unwrap_or(normalized).to_string()
 }
+#[allow(clippy::panic)] // This helper is used only by constants, so invalid policy literals fail compilation.
+const fn noul(value: f64) -> Noul {
+    match Noul::new(value) {
+        | Ok(value) => value,
+        | Err(_) => panic!("Fuzzy gate value must be a unit value"),
+    }
+}
 pub(super) fn score_term(
     kind: VocabularyKind,
     input: &str,
@@ -143,8 +157,8 @@ pub(super) fn score_term(
                 .then(|| sorensen_dice_similarity(&input_tokens, &candidate_tokens, limits).ok().map(Noul::from))
                 .flatten();
             let dice_floor = match mode {
-                | VocabularyFuzzyMode::Strict => 1.0,
-                | VocabularyFuzzyMode::Off | VocabularyFuzzyMode::Relaxed => 0.90,
+                | VocabularyFuzzyMode::Strict => Noul::ONE,
+                | VocabularyFuzzyMode::Off | VocabularyFuzzyMode::Relaxed => DICE_RELAXED_FLOOR,
             };
             match dice.filter(|score| *score >= dice_floor) {
                 | Some(score) => ("sorensen-dice".to_string(), score, None),

@@ -259,6 +259,16 @@ fn test_normalization_sorts_and_bounds_check_fields() {
         .all(|reference| digest(&format!("sha256:{}", reference.fingerprint)).is_ok()));
 }
 #[test]
+fn test_options_deserialization_rejects_invalid_minimum_confidence() {
+    [0.0, 1.0].into_iter().for_each(|min_confidence| {
+        let options = serde_json::from_value::<FixOptions>(json!({ "min_confidence": min_confidence })).expect("valid minimum confidence");
+        assert_eq!(options.min_confidence, Noul::new(min_confidence).expect("valid unit value"));
+    });
+    [-0.1, 1.1].into_iter().for_each(|min_confidence| {
+        assert!(serde_json::from_value::<FixOptions>(json!({ "min_confidence": min_confidence })).is_err());
+    });
+}
+#[test]
 fn test_options_reject_requests_above_fixed_ceiling() {
     let options = FixOptions {
         max_findings_per_batch: DEFAULT_MAX_FINDINGS_PER_BATCH.saturating_add(1),
@@ -506,7 +516,7 @@ async fn test_suggestion_service_returns_validated_grouped_fixes() {
         .suggest(
             &backend,
             &FixOptions {
-                min_confidence: 0.9,
+                min_confidence: Noul::new(0.9).expect("valid unit value"),
                 ..FixOptions::default()
             },
         )
@@ -535,7 +545,7 @@ fn test_suggestion_validation_rejects_duplicate_actions_and_unsafe_targets() {
     let mut low_confidence = suggested(&reference);
     low_confidence.confidence = Noul::ZERO;
     let options = FixOptions {
-        min_confidence: 0.5,
+        min_confidence: Noul::new(0.5).expect("valid unit value"),
         ..FixOptions::default()
     };
     assert!(validate_suggested_fix(low_confidence, &reference, &options, result(&reference).provenance).is_err());

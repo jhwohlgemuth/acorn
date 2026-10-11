@@ -110,8 +110,6 @@ pub(super) enum FixError {
     InvalidFingerprint,
     #[error("Fix identifier cannot be empty")]
     InvalidIdentifier,
-    #[error("Fix minimum confidence must be finite and between zero and one")]
-    InvalidMinimumConfidence,
     #[error("Inference returned a fix status reserved for trusted execution")]
     InvalidStatus,
     #[error("Fix finding message exceeds {MAX_MESSAGE_BYTES} bytes")]
@@ -296,7 +294,7 @@ pub struct FixOptions {
     /// Maximum findings in one inference request.
     pub max_findings_per_batch: usize,
     /// Minimum accepted proposal confidence.
-    pub min_confidence: f32,
+    pub min_confidence: Noul,
     /// Optional backend-specific model selection.
     pub model: Option<String>,
     /// Inference timeout.

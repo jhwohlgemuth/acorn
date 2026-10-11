@@ -20,7 +20,7 @@ use acorn::{
         ApiResult,
     },
 };
-use acorn_core::time::Milliseconds;
+use acorn_core::{time::Milliseconds, Noul};
 use acorn_schema::validation::Validate;
 use color_eyre::eyre::{eyre, Result};
 use core::time::Duration;
@@ -156,14 +156,12 @@ where
         .ok_or_else(|| eyre!("Provide a prompt argument or pipe a prompt through standard input"))
 }
 /// Run one bounded Needle inference request and print its native result as JSON.
-pub async fn run(prompt: Option<&str>, custom_location: Option<&str>, threshold: f64, max_rounds: usize, offline: bool) -> ApiResult<()> {
+pub async fn run(prompt: Option<&str>, custom_location: Option<&str>, threshold: Noul, max_rounds: usize, offline: bool) -> ApiResult<()> {
     match resolve_prompt(prompt, read_stdin) {
         | Err(why) => Err(why),
         | Ok(prompt) => {
             let configured = match Needle::start(custom_location, offline).await {
-                | Ok(sidecar) => sidecar
-                    .with_confidence_threshold(threshold)
-                    .and_then(|sidecar| sidecar.with_max_rounds(max_rounds)),
+                | Ok(sidecar) => sidecar.with_confidence_threshold(threshold).with_max_rounds(max_rounds),
                 | Err(why) => Err(why),
             };
             match configured {

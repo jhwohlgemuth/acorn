@@ -13,7 +13,7 @@ use crate::agent::{
 };
 use crate::research_activity::aspect::data::Modality;
 use crate::OneOrMany;
-use acorn_core::util::MarkdownSupport;
+use acorn_core::{util::MarkdownSupport, Noul};
 
 fn all_known_assets() -> [PromptFileAsset; 7] {
     [
@@ -249,6 +249,21 @@ fn test_prompt_file_asset_unknown_from_str_round_trips() {
     let value = "does-not-exist.prompt";
     let mapped = PromptFileAsset::from(value);
     assert_eq!(mapped.to_string(), value);
+}
+#[test]
+fn test_prompt_template_configuration_rejects_invalid_minimum_confidence() {
+    let configuration = serde_json::to_value(PromptTemplateConfiguration::default()).expect("serialize prompt configuration");
+    [0.0, 1.0].into_iter().for_each(|min_confidence| {
+        let mut value = configuration.clone();
+        value["min-confidence"] = serde_json::json!(min_confidence);
+        let parsed = serde_json::from_value::<PromptTemplateConfiguration>(value).expect("valid minimum confidence");
+        assert_eq!(parsed.min_confidence, Some(Noul::new(min_confidence).expect("valid unit value")));
+    });
+    [-0.1, 1.1].into_iter().for_each(|min_confidence| {
+        let mut value = configuration.clone();
+        value["min-confidence"] = serde_json::json!(min_confidence);
+        assert!(serde_json::from_value::<PromptTemplateConfiguration>(value).is_err());
+    });
 }
 #[test]
 fn test_quantization_compact_aliases_from_str_map_to_canonical_values() {

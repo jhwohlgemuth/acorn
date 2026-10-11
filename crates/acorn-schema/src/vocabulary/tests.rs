@@ -334,6 +334,20 @@ fn test_duplicate_identifiers_invalidate_vocabulary_assets() {
     ));
 }
 #[test]
+fn test_fuzzy_gate_profiles_preserve_unit_policy() {
+    let assert_gate = |gate: FuzzyGate, margin: f64, maximum_distance: Option<usize>, minimum_score: f64| {
+        assert_eq!(gate.margin, Noul::new(margin).expect("valid unit value"));
+        assert_eq!(gate.maximum_distance, maximum_distance);
+        assert_eq!(gate.minimum_score, Noul::new(minimum_score).expect("valid unit value"));
+    };
+    assert_gate(gate(VocabularyKind::Keywords, 6, VocabularyFuzzyMode::Strict), 0.20, Some(1), 0.80);
+    assert_gate(gate(VocabularyKind::Keywords, 9, VocabularyFuzzyMode::Strict), 0.10, Some(2), 0.90);
+    assert_gate(gate(VocabularyKind::Keywords, 6, VocabularyFuzzyMode::Relaxed), 0.10, Some(2), 0.70);
+    assert_gate(gate(VocabularyKind::Keywords, 9, VocabularyFuzzyMode::Relaxed), 0.05, Some(3), 0.80);
+    assert_gate(gate(VocabularyKind::Organizations, 9, VocabularyFuzzyMode::Strict), 0.05, None, 0.96);
+    assert_gate(gate(VocabularyKind::Organizations, 9, VocabularyFuzzyMode::Relaxed), 0.03, None, 0.90);
+}
+#[test]
 fn test_keyword_before_after_pairs_are_retained() {
     [
         ("critical-infrastructure", "critical-infrastructure"),

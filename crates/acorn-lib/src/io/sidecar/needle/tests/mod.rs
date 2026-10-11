@@ -6,6 +6,7 @@ use crate::io::sidecar::{
     modelkit_download_items, ModelKitAsset, ModelKitFile, ModelKitManifest, ModelKitSidecar, ResolvedAssets, Sidecar, SidecarAssets,
     SidecarDistribution, ToolIndex,
 };
+use acorn_core::Noul;
 use acorn_schema::agent::tools::NeedleToolDefinition;
 use acorn_schema::modelkit::kitfile::MANIFEST_VERSION;
 use alloc::collections::BTreeMap;
@@ -87,20 +88,21 @@ fn test_execution_requires_safe_calibrated_call() {
         .expect("Needle response")
     };
     let safe = serde_json::json!({ "ungrounded": [], "negation": false });
-    assert!(response(Some(0.8), "call", safe.clone()).execution_confidence(0.8).is_ok());
-    assert!(response(None, "call", safe.clone()).execution_confidence(0.8).is_err());
-    assert!(response(Some(1.1), "call", safe.clone()).execution_confidence(0.8).is_err());
-    assert!(response(Some(0.7), "call", safe).execution_confidence(0.8).is_err());
+    let threshold = Noul::new(0.8).expect("valid unit value");
+    assert!(response(Some(0.8), "call", safe.clone()).execution_confidence(threshold).is_ok());
+    assert!(response(None, "call", safe.clone()).execution_confidence(threshold).is_err());
+    assert!(response(Some(1.1), "call", safe.clone()).execution_confidence(threshold).is_err());
+    assert!(response(Some(0.7), "call", safe).execution_confidence(threshold).is_err());
     assert!(
         response(Some(0.9), "call", serde_json::json!({ "ungrounded": ["tool.field"], "negation": false }))
-            .execution_confidence(0.8)
+            .execution_confidence(threshold)
             .is_err()
     );
     assert!(response(Some(0.9), "call", serde_json::json!({ "ungrounded": [], "negation": true }))
-        .execution_confidence(0.8)
+        .execution_confidence(threshold)
         .is_err());
     assert!(response(Some(0.9), "respond", serde_json::json!({ "ungrounded": [], "negation": false }))
-        .execution_confidence(0.8)
+        .execution_confidence(threshold)
         .is_err());
 }
 #[test]

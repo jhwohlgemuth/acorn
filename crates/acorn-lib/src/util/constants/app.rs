@@ -1,3 +1,4 @@
+use acorn_core::Noul;
 use jiff::SignedDuration;
 
 pub use acorn_core::util::constants::app::APPLICATION;
@@ -70,7 +71,11 @@ pub const DEFAULT_LLAMA_SWAP_CONFIG_PATH: &str = ".config/llama-swap/config.yaml
 /// Default directory under the user's home directory for downloaded models.
 pub const DEFAULT_MODELS_DIRECTORY: &str = ".models";
 /// Default minimum confidence required before ACORN executes a Needle call.
-pub const DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD: f64 = 0.8;
+#[allow(clippy::panic)] // An invalid hardcoded policy value must fail during compilation.
+pub const DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD: Noul = match Noul::new(0.8) {
+    | Ok(value) => value,
+    | Err(_) => panic!("Needle confidence threshold must be a unit value"),
+};
 /// Default maximum tool-selection rounds in one Needle inference request.
 pub const DEFAULT_NEEDLE_MAX_ROUNDS: usize = 8;
 /// Default OpenAI API domain.

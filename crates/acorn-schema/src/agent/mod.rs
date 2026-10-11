@@ -14,7 +14,7 @@ use acorn_core::prelude::alloc::{format, vec, Box, String, ToString, Vec};
 use acorn_core::util::longest_character_run;
 use acorn_core::util::{strip_suffixes, MarkdownSupport, SemanticVersion, StringInterpolation};
 use acorn_core::validation::ValidationError;
-use acorn_core::{AcornError, AcornResult, Location};
+use acorn_core::{AcornError, AcornResult, Location, Noul};
 use bon::Builder;
 #[cfg(feature = "std")]
 use convert_case::{Case, Casing};
@@ -598,7 +598,7 @@ pub struct PromptTemplateConfiguration {
     /// Word budget for summaries and explanations
     pub max_words: Option<u32>,
     /// Minimum confidence threshold for extracted claims
-    pub min_confidence: Option<f32>,
+    pub min_confidence: Option<Noul>,
     /// Specific strings that signal the model to halt generation
     #[builder(default = Vec::new())]
     pub stop_sequences: Vec<String>,

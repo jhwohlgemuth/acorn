@@ -22,7 +22,10 @@ use crate::cli::{
 use crate::test::util::{temp_test_dir, TestCleanup};
 use acorn::io::filter_ignored_with_root;
 use acorn::util::constants::env::CHROME_PATH;
-use acorn_core::util::{MarkdownSupport, MimeType};
+use acorn_core::{
+    util::{MarkdownSupport, MimeType},
+    Noul,
+};
 use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::standard::zon;
 use acorn_schema::standard::Standard;
@@ -1539,11 +1542,13 @@ fn test_tools_export_and_needle_custom_location_arguments() {
             assert!(arguments.command.is_none());
             assert_eq!(arguments.prompt.as_deref(), Some("validate this"));
             assert_eq!(arguments.custom_location.as_deref(), Some("oci://harbor.example/acorn/needle@sha256:abc"));
-            assert_eq!(arguments.threshold, 0.9);
+            assert_eq!(arguments.threshold, Noul::new(0.9).expect("valid unit value"));
             assert_eq!(arguments.max_rounds, 4);
         }
         | other => panic!("unexpected command: {other:?}"),
     }
+    assert!(Arguments::try_parse_from(["acorn", "infer", "validate this", "--threshold=-0.1"]).is_err());
+    assert!(Arguments::try_parse_from(["acorn", "infer", "validate this", "--threshold=1.1"]).is_err());
     assert!(matches!(
         Arguments::try_parse_from(["acorn", "infer"])
             .expect("parse piped Needle inference")
