@@ -7,7 +7,7 @@
 
 ## Waiting on validation
 
-- [Power Automate logbook reporting deployment](powerapps-gitlab-logbook-reporting.md) - Clear the access gates, configure one pilot, and run the intake, graduation, publication, callback, and idempotency smoke test.
+- [Power Automate logbook reporting deployment](powerapps-gitlab-logbook-reporting.md) - No gateway or trusted cloud ingress is available. Verify outbound callbacks and evaluate intake transport before the end-to-end pilot.
 
 ## Planned
 

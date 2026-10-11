@@ -17,6 +17,7 @@ This plan is the sole setup reference while work remains active. It records the 
 
 # Current evidence
 
+- **Infrastructure correction (2026-10-11):** the user has no on-premises data gateway or managed relay. Available infrastructure consists of self-managed servers with self-signed TLS at best. Do not treat either a gateway or a cloud-reachable, publicly trusted HTTPS origin as available. Bot health and GitLab access can be verified independently, but the direct Power Automate intake deployment remains blocked on transport. The gateway/relay instructions below are conditional future options, not the user's next available setup step.
 - `crates/acorn-lib/src/io/api/powerautomate/` implements strict form decoding, project and submitter authorization, shared-header authentication, durable intake, and direct callback resolution.
 - `crates/acorn-lib/src/io/api/webhooks/` provides constant-time secret verification, durable idempotent operations, retryable callbacks, readiness, and graceful drain state.
 - `crates/acorn-lib/src/io/api/gitlab/` implements rolling merge-request automation, authorized graduation commands, and immutable report-package publication.
@@ -52,6 +53,7 @@ This plan is the sole setup reference while work remains active. It records the 
 
 # Architecture decisions
 
+- With the currently available infrastructure, first verify outbound access from Vergil to the tenant's Power Automate callback endpoint. A server initiating an HTTPS request does not need a publicly trusted server certificate of its own; it must validate the remote endpoint's certificate. For intake, evaluate an outbound worker that retrieves submissions from an approved cloud-accessible durable queue and forwards them to ACORN locally. This is a proposed alternative requiring transport design, permissions, implementation, and validation; it is not supplied by GitLab `--event-source poll`. No queue service or tenant application permissions are assumed available.
 - Use the existing GitLab data project for `.acorn.json`, project `index.json` files, review merge requests, pipeline schedules, and generic-package artifacts. Do not place deployment configuration or operational research data in the ACORN source project.
 - Begin with one project mapping and the two explicitly approved tester addresses. Add projects or any other submitters and recipients only after the pilot passes the duplicate-submission smoke test.
 - Use an organization-only Power Apps canvas app as the primary intake interface and an instant flow with the Power Apps (V2) trigger as its adapter to ACORN. Microsoft Forms is not required by the ACORN interface.
@@ -126,10 +128,22 @@ The callback flow uses this request schema:
 
 # Dependencies and stop gates
 
-Do not create intake credentials or production flows until all of these gates pass. The notification-only canvas pilot is explicitly allowed before gates 2 and 3 because it does not call ACORN, GitLab, or an HTTP trigger:
+## Next steps with the available servers
+
+1. Finish the Vergil bot health, readiness, and isolated GitLab access checks in polling mode.
+2. Test a policy-approved Power Automate callback flow from Vergil over outbound HTTPS and confirm Teams/email delivery. Store the callback URL securely before real intake.
+3. Establish whether an approved cloud-accessible durable queue is available to both the app's flow and a worker on Vergil, including permission for unattended authentication. This is the next intake feasibility check; do not assume a gateway can be installed or a managed relay supplied.
+4. If a queue is available, design and implement the outbound worker and queue-writing flow as separately scoped work. Preserve the submission UUID across retries, acknowledge only after durable ACORN acceptance, and distinguish queued receipts from accepted operations. If no queue or direct trusted route is available, retain the notification-only app.
+5. Once transport is validated, run one isolated submission through human review, graduation, merge, report publication, callback delivery, and duplicate replay as described in steps 7–9.
+
+The direct HTTP walkthrough below remains a conditional alternative if infrastructure changes. Microsoft's [workflow TLS guidance](https://learn.microsoft.com/azure/logic-apps/logic-apps-securing-a-logic-app) documents self-signed server-certificate trust failures; do not plan around disabling certificate verification.
+
+## Gates for full intake
+
+Do not enable full intake or production flows until all of these gates pass. A protected local intake credential is permitted for the bounded bot boot. The notification-only canvas pilot is explicitly allowed before gates 2 and 3 because it does not call ACORN, GitLab, or an HTTP trigger. An isolated callback test may proceed before gate 2 once callback policy and recipients are approved:
 
 1. Power Automate Premium with HTTP actions and maker access to a GCC Moderate Power Apps developer environment are confirmed for `o9w@ornl.gov`; this proves build capability, not a deployable shared environment or end-user entitlement. The notification-only app no longer has its Dataverse source, is shared with the one approved tester, and the tester has launched the cleaned version without a trial prompt. Confirm that she can establish the required Teams and Office 365 Outlook connections and complete one notification-only submission. Before broader use, obtain an ORNL-approved shared or production GCC environment with sufficient sharing capacity and verify the resulting app license designation and dependent-resource access. Use the GCC maker portals, not the commercial endpoints.
-2. Vergil is approved as the persistent service target with protected settings, and the infrastructure owner supplies one approved Power Automate route: an ORNL-managed on-premises data gateway/custom connector with private reachability to Vergil, or an organization-managed HTTPS reverse proxy or relay.
+2. Intake transport is proven. No gateway or managed relay is currently available, and self-signed TLS alone establishes neither cloud reachability nor cloud certificate trust. Either an approved direct route with cloud-trusted TLS becomes available, or a separately designed and validated outbound queue worker supplies local intake. Until then, keep the app notification-only; callback testing and local bot checks may proceed independently.
 3. The tenant permits the callback trigger's `Anyone` mode, or an approved intermediary exists for callbacks.
 4. The isolated GitLab data project supplies its numeric project ID, default branch, package permission, one safe repository-relative `index.json` path, one stable pilot identifier, and the explicitly approved tester email allowlist. No deployment credential or integration may target the production source project.
 5. Named owners exist for the Vergil ACORN service, Power Apps canvas app and flows, GitLab review and merge, Teams destination, and email recipient list.
@@ -204,6 +218,8 @@ export POWER_AUTOMATE_INBOUND_SECRET
 
 ## 4. Create the callback notification flow
 
+This can be tested independently of the unavailable inbound route after callback policy and recipient approval are confirmed. Vergil initiates the request to Power Automate; Power Automate does not connect to Vergil for this test. Verify outbound DNS, HTTPS, and certificate validation from the actual service environment.
+
 Create an automated flow with **When an HTTP request is received**, the callback schema under Public interfaces, and the policy-approved trigger mode. Add a Switch on `event`. Send both Teams and email messages for `mr-created`, `review-needed`, `artifact-ready`, and `failed`; record `report-no-changes` and only announce it if operators want the noise. Ensure accepted callbacks receive a successful 2xx response.
 
 Save the flow, copy the complete generated URL including its `sig` query parameter, and store it as the protected `POWER_AUTOMATE_CALLBACK_URL` runtime value. Enable Secure Inputs on the trigger and Secure Inputs and Secure Outputs on actions that can reveal callback content.
@@ -259,6 +275,8 @@ acorn serve bot 22464 \
 - **Verify the selected integration route:** for the gateway design, an ORNL-managed Windows gateway host can reach Vergil's private health, readiness, and form endpoints while Vergil remains unreachable from the public Internet; the custom connector is bound to the canvas environment. For the relay design, the organization-managed HTTPS origin reaches those same endpoints. Register a GitLab webhook only if the public route exists; otherwise retain polling. Startup and gateway logs must contain no secret or SAS values.
 
 ## 6. Create the Power Apps intake flow
+
+**Blocked for the current infrastructure:** do not add a cloud HTTP action targeting `https://vergil:3000` on the assumption that a self-signed certificate or working local browser connection makes it usable from Power Automate. The direct-flow instructions below apply only after a reachable, trusted route exists. If the outbound queue option is selected, revise this step to persist the version-1 envelope and stable submission UUID in the selected queue, return a queued receipt to the app, and separately report ACORN acceptance after the worker delivers it. Do not report a queued item as ACORN-accepted.
 
 Evolve or replace the environment-local notification pilot with an instant cloud flow in the canvas app's environment. Use the **Power Apps (V2)** trigger and typed inputs matching the full canvas controls. Generate one `guid()` output per invocation and reuse it for `submissionId` and `x-acorn-delivery-id`. Through the approved custom connector/gateway or organization-managed HTTPS intermediary, POST to the ACORN intake endpoint with the three required headers and the strict version-1 JSON body. Use UTC RFC 3339 timestamps and omit null or additional fields. Return the HTTP status, disposition, and operation ID to the app so it can show a clear success or failure message. Microsoft documents the supported canvas-app invocation pattern in [Create a canvas app that can trigger a Power Automate flow](https://learn.microsoft.com/en-us/power-apps/maker/canvas-apps/how-to/trigger-flow).
 
@@ -349,6 +367,7 @@ Submit authorized test entries for two different projects and one deliberately u
 
 # Validation evidence
 
+- **2026-10-11 transport status:** no gateway or managed relay is available; self-managed servers have self-signed TLS at best. No cloud-to-Vergil intake route has been demonstrated. Next steps after bot verification are an outbound callback test and a transport feasibility decision. An outbound intake worker remains a proposal, not implemented or validated functionality.
 - The 2026-10-07 canvas version is published. The live launch confirms `SubmitEntryScreen` is the start screen; preview also verifies it at the default canvas size and at 360 by 800. The controlled category list contains only the placeholder plus the twelve documented categories. The environment-local notification flow is attached, the blank form keeps **Submit highlight** disabled, the tooltip is `Submit highlight to Teams and email`, and the status is `Ready to send Teams and email notifications.`
 - App checker reports zero formula issues for the saved draft. Its 21 missing-label and two missing-tab-stop errors are confined to named controls on the pre-existing generated `Logbooks screen`; no new contributor control appears in those findings.
 - Notification-only run `08584102113387025966515574751CU09` completed successfully in three seconds on 2026-10-07. Its Power Apps trigger, Microsoft Teams direct-chat action, and Office 365 Outlook email action all report **Succeeded**, and the canvas displayed **Notifications sent.** The run contains no HTTP, ACORN, GitLab, or NSSD action. Record human confirmation that the Teams chat and email are visible before treating delivery as accepted.
@@ -363,9 +382,10 @@ Submit authorized test entries for two different projects and one deliberately u
 
 # Acceptance criteria
 
+- The chosen intake transport is demonstrated from the actual runtime. If an outbound queue worker is adopted, document its approved queue and authentication, durable retry/acknowledgement behavior, preservation of submission UUIDs, and queued-versus-accepted app status before claiming end-to-end acceptance. Self-signed TLS on Vergil and GitLab polling alone do not satisfy this criterion.
 - All licensing, approved-reachability, callback-authentication, ownership, and pilot-mapping gates pass without weakening organizational policy; public ingress to Vergil is not required when the approved private gateway path is used.
 - One organization-only Power Apps canvas app and two protected Power Automate flows implement the documented intake and callback contracts.
-- The managed ACORN service on Vergil remains healthy and ready through the approved private gateway or organization-managed HTTPS route and authenticates both Power Automate intake and GitLab review events.
+- The managed ACORN service on Vergil remains healthy and ready, receives authenticated intake through the validated transport, and authenticates GitLab review events. A gateway or managed HTTPS route is required only if that transport is selected.
 - Missing or incorrect intake credentials fail closed, while one valid response returns HTTP `202` and creates the expected monthly review branch and merge request.
 - Human graduation preserves the routed project identifier, and a person—not the bot—merges the reviewed entry.
 - The scheduled job publishes one immutable report package and Power Automate sends both Teams and email notifications for the accepted artifact.

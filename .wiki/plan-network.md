@@ -56,7 +56,7 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 
 ### Reliability and operations
 
-- [Power Automate deployment validation](features/powerapps-gitlab-logbook-reporting.md) is an operational closeout over implemented code and can finish independently after its licensing, public-ingress, callback-policy, and pilot-mapping gates pass.
+- [Power Automate deployment validation](features/powerapps-gitlab-logbook-reporting.md) is blocked on intake transport: no gateway or trusted cloud ingress is available. Outbound callback validation can proceed independently; an outbound queue worker is a proposed alternative requiring separately scoped implementation before the full pilot.
 - [Runner-pool isolation](refactors/ci-runner-pools.md) precedes claims that Rust/fuzz/reporting jobs are concurrently isolated. Its reporting pool supports the scheduled reporting workflow.
 - [Remote container creation](refactors/core/remote-create-container-targets.md) consumes normalized CLI requests when that boundary lands; leaf rollback/preflight work can proceed first.
 - [Podman Makefile migration](migrations/podman-makefile.md) changes development/release tooling only and must preserve product-level Docker and Podman support.
