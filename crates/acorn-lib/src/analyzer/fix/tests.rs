@@ -1,3 +1,4 @@
+use super::execution::{apply_vocabulary_replacement, VocabularyDocument, VocabularyTarget};
 use super::plan::Recipe;
 use super::service::{validate_envelope, validate_suggested_fix, PendingReference, PendingReferences, SuggestedFix, SuggestionEnvelope};
 use super::*;
@@ -127,7 +128,7 @@ fn suggested(reference: &CheckReference) -> SuggestedFix {
     }
 }
 fn vocabulary_reference(id: &str, outcome: VocabularyOutcome, replacement: Option<&str>) -> CheckReference {
-    CheckReference {
+    let mut reference = CheckReference {
         category: "prose".to_string(),
         context: Some("chemistrx".to_string()),
         fingerprint: "b".repeat(64),
@@ -157,7 +158,9 @@ fn vocabulary_reference(id: &str, outcome: VocabularyOutcome, replacement: Optio
             vocabulary: "keywords".to_string(),
             vocabulary_revision: "keywords-vocabulary-v2".to_string(),
         })),
-    }
+    };
+    reference.fingerprint = reference.computed_fingerprint();
+    reference
 }
 #[test]
 fn test_batch_limits_count_and_context_deterministically() {
@@ -588,4 +591,35 @@ fn test_trusted_document_plan_applies_and_rolls_back_on_failed_verification() {
         .unwrap();
     assert_eq!(rollback, vec![Outcome::RolledBack("write activity.json".to_string())]);
     assert_eq!(fs::read_to_string(&target).unwrap(), "Old title");
+}
+#[test]
+fn test_vocabulary_fix_deduplicates_scalars_but_preserves_funder_records() {
+    let mut data = serde_json::from_str::<acorn_schema::research_activity::ResearchActivity>(include_str!(
+        "../../../../../tests/fixtures/data/valid_project/index.json"
+    ))
+    .expect("research activity fixture");
+    data.meta.keywords = vec!["chemistrx".to_string(), "chemistry".to_string()];
+    let data = apply_vocabulary_replacement(data, &VocabularyTarget::Keyword(0), "chemistrx", "chemistry").expect("keyword replacement");
+    let funder_count = data.meta.funders.as_ref().map_or(0, |values| values.iter().count());
+    let data = data.stable_deduplicate();
+    assert_eq!(data.meta.keywords, ["chemistry"]);
+    assert_eq!(data.meta.funders.as_ref().map_or(0, |values| values.iter().count()), funder_count);
+}
+#[test]
+fn test_vocabulary_fix_revalidates_resolver_evidence_and_fingerprint() {
+    let reference = vocabulary_reference("check-0001", VocabularyOutcome::FuzzyAccepted, Some("chemistry"));
+    assert!(reference.verified_vocabulary_replacement().is_ok());
+    let mut stale = reference;
+    stale.message.push('!');
+    assert!(stale.verified_vocabulary_replacement().is_err());
+}
+#[test]
+fn test_vocabulary_target_parses_supported_locators() {
+    assert_eq!(
+        VocabularyTarget::try_from("contact.affiliation"),
+        Ok(VocabularyTarget::ContactAffiliation)
+    );
+    assert_eq!(VocabularyTarget::try_from("meta.funders[2].name"), Ok(VocabularyTarget::Funder(2)));
+    assert_eq!(VocabularyTarget::try_from("meta.technology[1]"), Ok(VocabularyTarget::Technology(1)));
+    assert!(VocabularyTarget::try_from("meta.unknown[0]").is_err());
 }

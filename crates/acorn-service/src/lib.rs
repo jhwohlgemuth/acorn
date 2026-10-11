@@ -10,6 +10,7 @@ pub mod registry;
 pub mod repository;
 pub mod service;
 
+pub use acorn_schema::vocabulary::VocabularyFuzzyMode;
 pub use client::ServiceClient;
 pub use error::{ServiceError, ServiceErrorKind, ServiceResult};
 pub use model::{

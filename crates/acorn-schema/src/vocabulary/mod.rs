@@ -61,6 +61,55 @@ impl VocabularyResolver {
             revision: format!("{}-{POLICY_REVISION}", kind),
         })
     }
+    /// Return a deterministic digest of the source asset for cache validation.
+    pub fn embedded_asset_digest(kind: VocabularyKind) -> Result<String, VocabularyError> {
+        let file_name = match kind {
+            | VocabularyKind::Keywords => "keywords.csv",
+            | VocabularyKind::Organizations => "organization.json",
+            | VocabularyKind::Partners => "partners.csv",
+            | VocabularyKind::Sponsors => "sponsors.csv",
+            | VocabularyKind::Technology => "technology.csv",
+        };
+        from_asset(file_name)
+            .ok_or_else(|| VocabularyError::InvalidAsset {
+                message: "embedded asset is unavailable".to_string(),
+                vocabulary: kind,
+            })
+            .map(|asset| {
+                let hash = asset.as_bytes().iter().fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| {
+                    (hash ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3)
+                });
+                format!("{hash:016x}")
+            })
+    }
+    /// Return a deterministic digest of the prepared vocabulary content.
+    pub fn content_digest(&self) -> String {
+        let hash = self.entries.iter().fold(0xcbf2_9ce4_8422_2325_u64, |hash, entry| {
+            core::iter::once(entry.canonical.as_str())
+                .chain(entry.aliases.iter().map(String::as_str))
+                .chain(entry.identifiers.iter().map(String::as_str))
+                .chain(core::iter::once(entry.locator.as_str()))
+                .fold(hash, |value, part| {
+                    part.as_bytes()
+                        .iter()
+                        .chain(core::iter::once(&0_u8))
+                        .fold(value, |hash, byte| (hash ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3))
+                })
+        });
+        format!("{hash:016x}")
+    }
+    /// Return the embedded vocabulary identity.
+    pub const fn kind(&self) -> VocabularyKind {
+        self.kind
+    }
+    /// Return the matching-policy revision used to prepare this resolver.
+    pub const fn policy_revision(&self) -> &'static str {
+        POLICY_REVISION
+    }
+    /// Return the embedded vocabulary revision.
+    pub fn revision(&self) -> &str {
+        &self.revision
+    }
     /// Inspect normalized collisions without modifying the embedded asset.
     pub fn audit(&self) -> VocabularyAudit {
         let aliases = self.entries.iter().map(|entry| entry.aliases.len()).sum();

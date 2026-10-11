@@ -4,7 +4,6 @@
 
 - [Model acquisition and metadata hardening](model-acquisition-hardening.md) - Complete identity-safe Hugging Face requests, exact GGUF metadata, and ModelKit/ModelPack interoperability evidence.
 - [Small language model (SLM) sidecars](slm-sidecars.md) - Ship explicitly selected Tongue, Redact, and Title sidecars; plan a separately gated [Julia-1 decision sidecar](slm-sidecars.md#julia-1-decision-sidecar-planned-follow-on) with offline CPU packaging and ACORN quality gates.
-- [Portable similarity measures, vocabulary coercion, and explicit comparison](similarity-measures.md) - Bounded Rust primitives, `acorn diff --method`, and portable report-bearing vocabulary coercion are implemented; phases 2-4 cover corpus, hybrid, phonetic, field-policy, and alignment methods.
 
 ## Waiting on validation
 

@@ -1,6 +1,8 @@
 #[cfg(feature = "std")]
 use super::MimeType;
-use super::{detect_json, Checksum, ChecksumAlgorithm, ParseOptions, ParseOptionsExt, SemanticVersion, StringConversion, StringExt};
+use super::{
+    detect_json, stable_deduplicate, Checksum, ChecksumAlgorithm, ParseOptions, ParseOptionsExt, SemanticVersion, StringConversion, StringExt,
+};
 use crate::prelude::alloc::{String, ToString};
 use crate::util::constants::app::EXEC_HEADER_PREFIX;
 use jsonc_parser::parse_to_serde_value;
@@ -105,6 +107,10 @@ fn test_semantic_version_extracts_prefixed_version() {
         SemanticVersion::extract("// @acorn-exec-v0.2.0", EXEC_HEADER_PREFIX),
         Some(SemanticVersion::init().major(0).minor(2).patch(0).build())
     );
+}
+#[test]
+fn test_stable_deduplicate_retains_first_occurrence_order() {
+    assert_eq!(stable_deduplicate(["beta", "alpha", "beta", "gamma"]), vec!["beta", "alpha", "gamma"]);
 }
 #[test]
 fn test_string_conversion_complete_date() {

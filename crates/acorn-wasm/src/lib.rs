@@ -124,6 +124,7 @@ use acorn_schema::pid::{raid, Identifier, PersistentIdentifierParse, ISNI, ORCID
 use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::standard::crosswalk::{ConversionWarning, Crosswalk, RaidImportOptions};
 use acorn_schema::standard::{datacite, Standard};
+use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use acorn_schema::ContactPoint;
 use acorn_service::{AcornService, CheckReadabilityRequest, ValidateResearchActivityRequest, ValidateStandardRequest};
 use serde::Serialize;
@@ -194,6 +195,7 @@ export interface ValidationResult {
   diagnostics: Diagnostic[];
   valid: boolean;
   value: unknown | null;
+  vocabularyFuzzy: "off" | "relaxed" | "strict" | null;
 }
 export type ContentDiffResult =
   | { changed: boolean; diff: string; mode: "unified" }
@@ -224,6 +226,14 @@ extern "C" {
     pub type JsValidationResult;
 }
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase", tag = "mode")]
+enum ContentDiffResult {
+    #[serde(rename = "json-patch")]
+    JsonPatch { changed: bool, operations: JsonPatch },
+    #[serde(rename = "unified")]
+    Unified { changed: bool, diff: String },
+}
+#[derive(Serialize)]
 #[serde(rename_all = "lowercase")]
 enum DiagnosticKind {
     Parse,
@@ -235,15 +245,6 @@ enum IdentifierInspectionStatus {
     Ambiguous,
     Invalid,
     Valid,
-}
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct Diagnostic {
-    code: Option<String>,
-    kind: DiagnosticKind,
-    message: String,
-    params: Map<String, Value>,
-    path: Option<String>,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -264,22 +265,23 @@ struct CrosswalkWarning {
     to: &'static str,
 }
 #[derive(Serialize)]
-#[serde(rename_all = "camelCase", tag = "mode")]
-enum ContentDiffResult {
-    #[serde(rename = "json-patch")]
-    JsonPatch { changed: bool, operations: JsonPatch },
-    #[serde(rename = "unified")]
-    Unified { changed: bool, diff: String },
-}
-#[derive(Serialize)]
-struct FairAssessmentResult {
-    findings: Vec<FairDetails>,
-    profile: FairProfile,
+#[serde(rename_all = "camelCase")]
+struct Diagnostic {
+    code: Option<String>,
+    kind: DiagnosticKind,
+    message: String,
+    params: Map<String, Value>,
+    path: Option<String>,
 }
 #[derive(Serialize)]
 struct DiscoveredIdentifier {
     kind: PID,
     normalized: String,
+}
+#[derive(Serialize)]
+struct FairAssessmentResult {
+    findings: Vec<FairDetails>,
+    profile: FairProfile,
 }
 #[derive(Serialize)]
 struct IdentifierDiscoveryResult {
@@ -319,6 +321,7 @@ struct ValidationResult {
     diagnostics: Vec<Diagnostic>,
     valid: bool,
     value: Option<ResearchActivity>,
+    vocabulary_fuzzy: Option<VocabularyFuzzyMode>,
 }
 impl From<ConversionWarning> for CrosswalkWarning {
     fn from(warning: ConversionWarning) -> Self {
@@ -382,27 +385,6 @@ impl IdentifierInspectionResult {
         }
     }
 }
-fn assess_fair(json: &str, standard: &str, resource: Option<&str>) -> Result<FairAssessmentResult, String> {
-    parse_standard(standard).and_then(|standard| {
-        serde_json::from_str::<Value>(json)
-            .map_err(|_| "FAIR assessment requires valid JSON metadata".to_string())
-            .map(|value| {
-                let resource = resource.unwrap_or("memory://metadata");
-                let evidence = FairEvidence::from_value(resource, standard.to_string(), &value);
-                let findings = evidence.assess();
-                let profile = FairProfile::from_findings(evidence.resource, &findings);
-                FairAssessmentResult { findings, profile }
-            })
-    })
-}
-/// Assess supplied JSON metadata against ACORN's 41 portable RDA FAIR indicators.
-#[wasm_bindgen(js_name = assessFairMetadata)]
-pub fn assess_fair_metadata(json: &str, standard: &str, resource: Option<String>) -> Result<JsFairAssessmentResult, JsValue> {
-    assess_fair(json, standard, resource.as_deref())
-        .map_err(|why| JsValue::from_str(&why))
-        .and_then(|result| serialize_json_compatible(&result))
-        .map(JsValue::unchecked_into)
-}
 fn analyze_readability(text: &str, metric: &str, uri: Option<String>) -> Result<ReadabilityResult, String> {
     parse_metric(metric).and_then(|metric| {
         AcornService
@@ -442,6 +424,27 @@ fn analyze_readability(text: &str, metric: &str, uri: Option<String>) -> Result<
                 }
             })
     })
+}
+fn assess_fair(json: &str, standard: &str, resource: Option<&str>) -> Result<FairAssessmentResult, String> {
+    parse_standard(standard).and_then(|standard| {
+        serde_json::from_str::<Value>(json)
+            .map_err(|_| "FAIR assessment requires valid JSON metadata".to_string())
+            .map(|value| {
+                let resource = resource.unwrap_or("memory://metadata");
+                let evidence = FairEvidence::from_value(resource, standard.to_string(), &value);
+                let findings = evidence.assess();
+                let profile = FairProfile::from_findings(evidence.resource, &findings);
+                FairAssessmentResult { findings, profile }
+            })
+    })
+}
+/// Assess supplied JSON metadata against ACORN's 41 portable RDA FAIR indicators.
+#[wasm_bindgen(js_name = assessFairMetadata)]
+pub fn assess_fair_metadata(json: &str, standard: &str, resource: Option<String>) -> Result<JsFairAssessmentResult, JsValue> {
+    assess_fair(json, standard, resource.as_deref())
+        .map_err(|why| JsValue::from_str(&why))
+        .and_then(|result| serialize_json_compatible(&result))
+        .map(JsValue::unchecked_into)
 }
 /// Analyze supplied text with one of ACORN's portable readability metrics.
 #[wasm_bindgen(js_name = checkReadability)]
@@ -595,6 +598,18 @@ pub fn inspect_persistent_identifier(value: &str, kind: Option<String>) -> Resul
         .and_then(|result| serialize_json_compatible(&result))
         .map(JsValue::unchecked_into)
 }
+fn parse_format(format: &str) -> Result<MimeType, String> {
+    match format {
+        | "cff" => Ok(MimeType::Cff),
+        | "json" => Ok(MimeType::Json),
+        | "jsonc" => Ok(MimeType::Jsonc),
+        | "markdown" => Ok(MimeType::Markdown),
+        | "text" => Ok(MimeType::Text),
+        | "yaml" => Ok(MimeType::Yaml),
+        | "zon" => Ok(MimeType::Zon),
+        | _ => Err(format!("Unsupported metadata format '{format}'")),
+    }
+}
 fn parse_identifier_kind(kind: &str) -> Result<PID, String> {
     match PID::from(kind) {
         | kind @ (PID::ARK
@@ -624,18 +639,6 @@ fn parse_metric(metric: &str) -> Result<ReadabilityType, String> {
         | _ => Err(format!("Unsupported readability metric '{metric}'")),
     }
 }
-fn parse_format(format: &str) -> Result<MimeType, String> {
-    match format {
-        | "cff" => Ok(MimeType::Cff),
-        | "json" => Ok(MimeType::Json),
-        | "jsonc" => Ok(MimeType::Jsonc),
-        | "markdown" => Ok(MimeType::Markdown),
-        | "text" => Ok(MimeType::Text),
-        | "yaml" => Ok(MimeType::Yaml),
-        | "zon" => Ok(MimeType::Zon),
-        | _ => Err(format!("Unsupported metadata format '{format}'")),
-    }
-}
 fn parse_standard(standard: &str) -> Result<Standard, String> {
     match standard {
         | "citation-file-format" => Ok(Standard::CitationFileFormat),
@@ -651,18 +654,58 @@ fn parse_standard(standard: &str) -> Result<Standard, String> {
         | _ => Err(format!("Unsupported portable metadata standard '{standard}'")),
     }
 }
+fn parse_vocabulary_fuzzy(fuzzy: Option<&str>) -> Result<VocabularyFuzzyMode, String> {
+    match fuzzy.unwrap_or("relaxed") {
+        | "off" => Ok(VocabularyFuzzyMode::Off),
+        | "relaxed" => Ok(VocabularyFuzzyMode::Relaxed),
+        | "strict" => Ok(VocabularyFuzzyMode::Strict),
+        | value => Err(format!("Unsupported vocabulary fuzzy mode '{value}'")),
+    }
+}
 fn serialize<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(value).map_err(|why| JsValue::from_str(&why.to_string()))
+}
+fn serialize_crosswalk<T: Serialize>(value: T, warnings: Vec<ConversionWarning>) -> Result<(String, Vec<CrosswalkWarning>), String> {
+    serde_json::to_string_pretty(&value)
+        .map_err(|_| "Crosswalk output could not be serialized".to_string())
+        .map(|content| (content, warnings.into_iter().map(CrosswalkWarning::from).collect()))
 }
 fn serialize_json_compatible<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
     value
         .serialize(&serde_wasm_bindgen::Serializer::json_compatible())
         .map_err(|why| JsValue::from_str(&why.to_string()))
 }
-fn serialize_crosswalk<T: Serialize>(value: T, warnings: Vec<ConversionWarning>) -> Result<(String, Vec<CrosswalkWarning>), String> {
-    serde_json::to_string_pretty(&value)
-        .map_err(|_| "Crosswalk output could not be serialized".to_string())
-        .map(|content| (content, warnings.into_iter().map(CrosswalkWarning::from).collect()))
+#[cfg(test)]
+fn validate_json(json: &str) -> ValidationResult {
+    validate_json_with_fuzzy(json, VocabularyFuzzyMode::Relaxed)
+}
+fn validate_json_with_fuzzy(json: &str, vocabulary_fuzzy: VocabularyFuzzyMode) -> ValidationResult {
+    let response = AcornService.validate_research_activity(ValidateResearchActivityRequest {
+        content: json.to_string(),
+        format: MimeType::Json,
+        source_uri: None,
+        vocabulary_fuzzy,
+    });
+    match response {
+        | Ok(response) if response.valid => ValidationResult {
+            diagnostics: response.diagnostics.into_iter().map(Diagnostic::from).collect(),
+            valid: true,
+            value: eserde::json::from_str::<ResearchActivity>(json).ok(),
+            vocabulary_fuzzy: response.vocabulary_fuzzy,
+        },
+        | Ok(response) => ValidationResult {
+            diagnostics: response.diagnostics.into_iter().map(Diagnostic::from).collect(),
+            valid: false,
+            value: None,
+            vocabulary_fuzzy: response.vocabulary_fuzzy,
+        },
+        | Err(error) => ValidationResult {
+            diagnostics: vec![Diagnostic::parse(error.path, error.message)],
+            valid: false,
+            value: None,
+            vocabulary_fuzzy: None,
+        },
+    }
 }
 fn validate_metadata(content: &str, standard: &str, format: &str) -> Result<ValidationResult, String> {
     parse_standard(standard).and_then(|standard| {
@@ -678,11 +721,13 @@ fn validate_metadata(content: &str, standard: &str, format: &str) -> Result<Vali
                     diagnostics: response.diagnostics.into_iter().map(Diagnostic::from).collect(),
                     valid: response.valid,
                     value: None,
+                    vocabulary_fuzzy: response.vocabulary_fuzzy,
                 })
                 .unwrap_or_else(|error| ValidationResult {
                     diagnostics: vec![Diagnostic::parse(error.path, error.message)],
                     valid: false,
                     value: None,
+                    vocabulary_fuzzy: None,
                 })
         })
     })
@@ -695,45 +740,23 @@ pub fn validate_metadata_standard(content: &str, standard: &str, format: &str) -
         .and_then(|result| serialize(&result))
         .map(JsValue::unchecked_into)
 }
-fn validate_json(json: &str) -> ValidationResult {
-    let response = AcornService.validate_research_activity(ValidateResearchActivityRequest {
-        content: json.to_string(),
-        format: MimeType::Json,
-        source_uri: None,
-    });
-    match response {
-        | Ok(response) if response.valid => ValidationResult {
-            diagnostics: Vec::new(),
-            valid: true,
-            value: eserde::json::from_str::<ResearchActivity>(json).ok(),
-        },
-        | Ok(response) => ValidationResult {
-            diagnostics: response.diagnostics.into_iter().map(Diagnostic::from).collect(),
-            valid: false,
-            value: None,
-        },
-        | Err(error) => ValidationResult {
-            diagnostics: vec![Diagnostic::parse(error.path, error.message)],
-            valid: false,
-            value: None,
-        },
-    }
-}
 /// Parse and validate Research Activity JSON without filesystem or network access.
 #[wasm_bindgen(js_name = validateResearchActivity)]
-pub fn validate_research_activity(json: &str) -> Result<JsValidationResult, JsValue> {
-    serialize(&validate_json(json)).map(JsValue::unchecked_into)
+pub fn validate_research_activity(json: &str, fuzzy: Option<String>) -> Result<JsValidationResult, JsValue> {
+    parse_vocabulary_fuzzy(fuzzy.as_deref())
+        .map_err(|why| JsValue::from_str(&why))
+        .and_then(|mode| serialize(&validate_json_with_fuzzy(json, mode)))
+        .map(JsValue::unchecked_into)
 }
+
+#[cfg(test)]
+mod tests;
 
 #[cfg(all(test, target_arch = "wasm32"))]
 mod wasm_tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
-    #[wasm_bindgen_test]
-    fn test_javascript_fair_binding_returns_a_value() {
-        assert!(assess_fair_metadata("{}", "datacite", None).is_ok());
-    }
     #[wasm_bindgen_test]
     fn test_javascript_crosswalk_binding_propagates_invalid_metadata() {
         assert!(crosswalk_metadata("{}", "json", "research-activity-data", "datacite", None, None).is_err());
@@ -745,6 +768,10 @@ mod wasm_tests {
     #[wasm_bindgen_test]
     fn test_javascript_discovery_binding_returns_a_value() {
         assert!(discover_persistent_identifiers("doi:10.1000/182").is_ok());
+    }
+    #[wasm_bindgen_test]
+    fn test_javascript_fair_binding_returns_a_value() {
+        assert!(assess_fair_metadata("{}", "datacite", None).is_ok());
     }
     #[wasm_bindgen_test]
     fn test_javascript_identifier_binding_returns_a_value() {
@@ -760,9 +787,6 @@ mod wasm_tests {
     }
     #[wasm_bindgen_test]
     fn test_javascript_validation_binding_returns_a_value() {
-        assert!(validate_research_activity(r#"{"title": 1}"#).is_ok());
+        assert!(validate_research_activity(r#"{"title": 1}"#, None).is_ok());
     }
 }
-
-#[cfg(test)]
-mod tests;

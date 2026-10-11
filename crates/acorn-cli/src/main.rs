@@ -3,7 +3,7 @@
 extern crate alloc;
 use acorn::{
     analyzer::host::discovery,
-    io::{env_var_is_truthy, progress_renderer},
+    io::{env_var_is_truthy, progress_renderer, vocabulary::clear_vocabulary_logs},
     util::constants::env::{CACHE_TTL, NO_LOCAL_DATABASE},
 };
 use acorn_host::terminal::Label;
@@ -12,7 +12,7 @@ use color_eyre::eyre::eyre;
 use dotenvy::dotenv;
 use owo_colors::OwoColorize;
 use std::{env, process::exit};
-use tracing::debug;
+use tracing::{debug, info};
 use tracing_indicatif::writer::{IndicatifWriter, Stderr};
 use tracing_log::AsTrace;
 use tracing_subscriber::{
@@ -71,6 +71,7 @@ fn main() -> Void {
         database_backend: ref selected_database_backend,
         database_path: ref configured_database_path,
         clear_cache,
+        clear_logs,
         reset_database,
         no_clear_cache,
         cache_ttl,
@@ -91,22 +92,34 @@ fn main() -> Void {
         Ok(())
     };
     let config = DatabaseConfig {
-        offline,
-        no_local_database,
+        cache_ttl,
+        clear_cache,
+        clear_logs: false,
         database_backend: selected_database_backend.as_ref().map(|b| b.to_string()),
         database_path,
-        clear_cache,
-        reset_database,
-        no_clear_cache,
-        cache_ttl,
         initial_download: true,
+        no_clear_cache,
+        no_local_database,
+        offline,
+        reset_database,
     };
     let pre_check = if no_local_database && (reset_database || clear_cache) {
         Err(eyre!("Cannot use --reset-database or --clear-cache with --no-local-database"))
     } else {
         Ok(())
     };
-    match pre_check.and(pool_result).and_then(|_| run(&args, offline, &config, threads)) {
+    let logs_cleared = match clear_logs {
+        | true => clear_vocabulary_logs()
+            .map_err(color_eyre::eyre::Report::msg)
+            .inspect(|count| info!("{} Cleared {count} vocabulary audit logs", Label::pass()))
+            .map(|_| ()),
+        | false => Ok(()),
+    };
+    let execute = pre_check
+        .and(logs_cleared)
+        .and(pool_result)
+        .and_then(|_| run(&args, offline, &config, threads));
+    match execute {
         | Ok(()) => exit(exitcode::OK),
         | Err(report) => {
             let is_silent = report

@@ -4,6 +4,7 @@ use acorn_analysis::{CheckCategory, CheckSeverity};
 use acorn_core::prelude::{format, String, Vec};
 use acorn_core::util::{MarkdownSupport, MimeType};
 use acorn_schema::standard::Standard;
+use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -129,6 +130,9 @@ pub struct ValidateResearchActivityRequest {
     pub format: MimeType,
     /// Optional logical source identifier used only in diagnostics.
     pub source_uri: Option<String>,
+    /// Controlled-vocabulary matching policy; defaults to relaxed advisory matching.
+    #[serde(default = "relaxed_vocabulary_fuzzy")]
+    pub vocabulary_fuzzy: VocabularyFuzzyMode,
 }
 /// Complete validation outcome for supplied research activity data.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
@@ -138,6 +142,8 @@ pub struct ValidateResearchActivityResponse {
     pub diagnostics: Vec<Diagnostic>,
     /// Whether parsing and schema validation succeeded.
     pub valid: bool,
+    /// Effective controlled-vocabulary policy for research-activity validation.
+    pub vocabulary_fuzzy: Option<VocabularyFuzzyMode>,
 }
 /// Validate one supplied document against a selected metadata standard.
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
@@ -198,4 +204,7 @@ impl From<FileChangeKind> for &'static str {
             | FileChangeKind::Update => "update",
         }
     }
+}
+const fn relaxed_vocabulary_fuzzy() -> VocabularyFuzzyMode {
+    VocabularyFuzzyMode::Relaxed
 }

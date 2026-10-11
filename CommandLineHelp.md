@@ -124,6 +124,7 @@ This document contains the help content for the `acorn-cli` command-line program
 
   Default value: `10`
 * `--clear-cache` — Clear database cache data and downloaded Chromium artifacts
+* `--clear-logs` — Clear ACORN-managed application audit logs
 * `--reset-database` — Clear all data from database (all tables)
 * `--no-clear-cache` — Disable automatic cache cleanup on startup (expires old cache entries)
 * `--cache-ttl <SECONDS>` — Override default cache TTL (in seconds). Default is 2592000 (30 days)
@@ -499,10 +500,16 @@ Compare files semantically or calculate pairwise similarity
   Possible values:
   - `absolute-difference`:
     Piecewise-linear similarity over absolute numeric difference
+  - `cologne-phonetic`:
+    German-language Cologne phonetic encoding equality
+  - `cosine`:
+    Cosine similarity over comma- or whitespace-delimited finite vectors
   - `damerau-levenshtein`:
     Unrestricted unit-cost Damerau-Levenshtein similarity
   - `exact`:
     Exact textual equality
+  - `extended-jaccard`:
+    Thresholded fuzzy Jaccard over unique token matches
   - `hamming`:
     Equal-length scalar Hamming similarity
   - `jaccard`:
@@ -513,6 +520,10 @@ Compare files semantically or calculate pairwise similarity
     Conventional Jaro-Winkler similarity
   - `levenshtein`:
     Unit-cost Levenshtein similarity
+  - `metaphone`:
+    English-language original Metaphone encoding equality
+  - `monge-elkan`:
+    Directional Monge-Elkan token similarity
   - `optimal-string-alignment`:
     Restricted optimal string alignment similarity
   - `overlap`:
@@ -521,10 +532,18 @@ Compare files semantically or calculate pairwise similarity
     Piecewise-linear similarity over symmetric percentage difference
   - `prefix`:
     Exact equality over a leading scalar count
+  - `soft-tfidf`:
+    Soft TF-IDF over an explicit two-document corpus
   - `sorensen-dice`:
     Deduplicated Sorensen-Dice set similarity
+  - `soundex`:
+    English-language American Soundex encoding equality
   - `suffix`:
     Exact equality over a trailing scalar count
+  - `tfidf-cosine`:
+    TF-IDF cosine over an explicit two-document corpus
+  - `weighted-levenshtein`:
+    Weighted Levenshtein with the documented default edit costs
 
 * `--ngram-width <N>` — Use unpadded character n-grams instead of words for set methods
 * `--preprocess <MODE>` — Text preprocessing; defaults to raw
@@ -532,18 +551,19 @@ Compare files semantically or calculate pairwise similarity
   Default value: `raw`
 
   Possible values:
-  - `raw`:
-    Preserve the original scalar sequence
-  - `lowercase`:
-    Apply Rust Unicode lowercase mapping
   - `case-fold`:
     Apply full, locale-independent Unicode case folding
+  - `lowercase`:
+    Apply Rust Unicode lowercase mapping
   - `nfc`:
     Apply Unicode canonical normalization form C
   - `nfkc`:
     Apply Unicode compatibility normalization form KC
+  - `raw`:
+    Preserve the original scalar sequence
 
 * `-s`, `--standard <STANDARD>` — Metadata standard override
+* `--threshold <0..1>` — Token-match threshold from zero to one
 * `--values` — Treat both operands as literal values instead of file paths
 
 

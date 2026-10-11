@@ -59,7 +59,7 @@ fn format_file(path: &Path, options: &CommandOptions) -> Result<(), Report> {
                 .map(|source| (configuration, source))
         })
         .and_then(|(configuration, source)| configuration.format(path, &source).map(|formatted| (source, formatted)))
-        .and_then(|(source, formatted)| write_formatted_content(path, options, &source, &formatted))
+        .and_then(|(source, formatted)| write_formatted_content(path, options, &source, &formatted).map(|_| ()))
 }
 async fn format_paths(path: &Option<PathBuf>, options: &CommandOptions) -> Result<(), Report> {
     let explicit_file = path.as_ref().is_some_and(|candidate| candidate.is_file());

@@ -17,6 +17,16 @@ async fn test_malformed_typed_enum_is_rejected() {
         .await
         .expect_err("unknown enum");
     assert_eq!(status.code(), tonic::Code::InvalidArgument);
+    let request = proto::ValidateResearchActivityRequest {
+        content: "{}".to_string(),
+        format: proto::DataFormat::Json as i32,
+        source_uri: None,
+        vocabulary_fuzzy: 999,
+    };
+    let status = proto::acorn_service_server::AcornService::validate_research_activity(&service, authenticated(request))
+        .await
+        .expect_err("unknown vocabulary mode");
+    assert_eq!(status.code(), tonic::Code::InvalidArgument);
 }
 #[tokio::test]
 async fn test_typed_readability_rpc_requires_authentication() {

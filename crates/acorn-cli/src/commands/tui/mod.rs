@@ -1,4 +1,5 @@
 use crate::cli::Void;
+use acorn_schema::vocabulary::VocabularyFuzzyMode;
 #[cfg(not(feature = "tui"))]
 use color_eyre::eyre;
 use std::path::PathBuf;
@@ -12,6 +13,7 @@ pub fn run(database_path: &Option<PathBuf>, no_local_database: bool, offline: bo
             doctor_fix: false,
             no_local_database,
             offline,
+            vocabulary_fuzzy: VocabularyFuzzyMode::Relaxed,
         },
     )
     .map(|_| ())

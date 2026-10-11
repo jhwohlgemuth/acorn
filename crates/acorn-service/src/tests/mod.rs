@@ -6,7 +6,10 @@ use acorn_core::util::{MarkdownSupport, MimeType};
 use acorn_schema::hardware::Memory;
 use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::standard::Standard;
+use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use futures::executor::block_on;
+
+const VALID_RESEARCH_ACTIVITY: &str = include_str!("../../../../tests/fixtures/data/valid_project/index.json");
 
 #[test]
 fn test_json_rpc_keeps_version_informational_and_registers_canonical_operations() {
@@ -189,6 +192,45 @@ fn test_repository_output_is_sorted_by_portable_path() {
         response.reports.iter().map(|report| report.path.as_str()).collect::<Vec<_>>(),
         ["a.json", "z.json"]
     );
+}
+#[test]
+fn test_research_activity_validation_reports_effective_vocabulary_policy() {
+    let relaxed = AcornService
+        .validate_research_activity(ValidateResearchActivityRequest {
+            content: VALID_RESEARCH_ACTIVITY.to_string(),
+            format: MimeType::Json,
+            source_uri: Some("fixture.json".to_string()),
+            vocabulary_fuzzy: VocabularyFuzzyMode::Relaxed,
+        })
+        .expect("research activity response");
+    assert!(relaxed.valid);
+    assert_eq!(relaxed.vocabulary_fuzzy, Some(VocabularyFuzzyMode::Relaxed));
+    assert!(relaxed.diagnostics.iter().any(|diagnostic| diagnostic.code.starts_with("vocabulary.")));
+    let off = AcornService
+        .validate_research_activity(ValidateResearchActivityRequest {
+            content: VALID_RESEARCH_ACTIVITY.to_string(),
+            format: MimeType::Json,
+            source_uri: None,
+            vocabulary_fuzzy: VocabularyFuzzyMode::Off,
+        })
+        .expect("research activity response");
+    assert!(off.diagnostics.is_empty());
+    assert_eq!(off.vocabulary_fuzzy, Some(VocabularyFuzzyMode::Off));
+}
+#[test]
+fn test_research_activity_vocabulary_request_defaults_and_rejects_unknown_modes() {
+    let request: ValidateResearchActivityRequest = serde_json::from_value(serde_json::json!({
+        "content": "{}",
+        "format": "json"
+    }))
+    .expect("default request");
+    assert_eq!(request.vocabulary_fuzzy, VocabularyFuzzyMode::Relaxed);
+    assert!(serde_json::from_value::<ValidateResearchActivityRequest>(serde_json::json!({
+        "content": "{}",
+        "format": "json",
+        "vocabularyFuzzy": "unknown"
+    }))
+    .is_err());
 }
 #[test]
 fn test_standard_validation_supports_text_and_rejects_malformed_datacite() {

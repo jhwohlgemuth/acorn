@@ -6,7 +6,7 @@ use crate::model::{
 use crate::repository::process_repository;
 use crate::{ServiceError, ServiceErrorKind, ServiceResult};
 use acorn_analysis::readability::score::ReadabilityScore;
-use acorn_analysis::CheckSeverity;
+use acorn_analysis::{CheckBatch, CheckSeverity};
 use acorn_core::prelude::{format, ToString, Vec};
 use acorn_core::util::MimeType;
 use acorn_schema::codec::{CodecDiagnostic, DocumentCodec};
@@ -17,6 +17,7 @@ use acorn_schema::standard::{cff::Cff, ckan, datacite, invenio, text, Standard};
 #[cfg(feature = "std")]
 use acorn_schema::standard::{dcat, huwise};
 use acorn_schema::validation::{Validate, ValidationReport};
+use acorn_schema::vocabulary::{VocabularyFuzzyMode, VocabularyResolver};
 
 /// Stateless portable ACORN application service.
 #[derive(Clone, Copy, Debug, Default)]
@@ -24,7 +25,25 @@ pub struct AcornService;
 impl AcornService {
     /// Validate caller-supplied research activity data and return every diagnostic.
     pub fn validate_research_activity(&self, request: ValidateResearchActivityRequest) -> ServiceResult<ValidateResearchActivityResponse> {
-        validate_decoded::<ResearchActivity>(&request.content, &request.format, request.source_uri.as_deref())
+        let source = request.source_uri.as_deref();
+        decode_validated::<ResearchActivity>(&request.content, &request.format, source)
+            .map(|value| {
+                let diagnostics = CheckBatch::resolve_research_activity_vocabulary(
+                    &value,
+                    request.vocabulary_fuzzy,
+                    source.unwrap_or("input"),
+                    VocabularyResolver::embedded,
+                )
+                .into_iter()
+                .map(vocabulary_diagnostic)
+                .collect();
+                ValidateResearchActivityResponse {
+                    diagnostics,
+                    valid: true,
+                    vocabulary_fuzzy: Some(request.vocabulary_fuzzy),
+                }
+            })
+            .or_else(Ok)
     }
     /// Validate caller-supplied data against a selected portable metadata standard.
     pub fn validate_standard(&self, request: ValidateStandardRequest) -> ServiceResult<ValidateResearchActivityResponse> {
@@ -41,7 +60,12 @@ impl AcornService {
             | Standard::Invenio => validate_decoded::<invenio::Record>(&request.content, &request.format, source),
             | Standard::Kitfile | Standard::ModelKit => validate_decoded::<Kitfile>(&request.content, &request.format, source),
             | Standard::Raid => validate_decoded::<raid::Metadata>(&request.content, &request.format, source),
-            | Standard::ResearchActivityData => validate_decoded::<ResearchActivity>(&request.content, &request.format, source),
+            | Standard::ResearchActivityData => self.validate_research_activity(ValidateResearchActivityRequest {
+                content: request.content,
+                format: request.format,
+                source_uri: request.source_uri,
+                vocabulary_fuzzy: VocabularyFuzzyMode::Relaxed,
+            }),
             | standard => Err(ServiceError::new(
                 ServiceErrorKind::Unsupported,
                 format!("Validation is not available for '{standard}' at the portable service boundary"),
@@ -81,26 +105,36 @@ impl From<CodecDiagnostic> for Diagnostic {
         }
     }
 }
-fn validate_decoded<T: DocumentCodec + Validate>(
+fn decode_validated<T: DocumentCodec + Validate>(
     content: &str,
     format: &MimeType,
     source: Option<&str>,
-) -> ServiceResult<ValidateResearchActivityResponse> {
+) -> Result<T, ValidateResearchActivityResponse> {
     T::decode(content, format)
         .map_err(|diagnostics| diagnostics.into_iter().map(Diagnostic::from).collect())
         .map_err(|diagnostics| ValidateResearchActivityResponse {
             diagnostics: with_source(diagnostics, source),
             valid: false,
+            vocabulary_fuzzy: None,
         })
         .and_then(|value| {
-            value.validate().map_err(|report| ValidateResearchActivityResponse {
+            value.validate().map(|()| value).map_err(|report| ValidateResearchActivityResponse {
                 diagnostics: with_source(validation_diagnostics(report), source),
                 valid: false,
+                vocabulary_fuzzy: None,
             })
         })
-        .map(|()| ValidateResearchActivityResponse {
+}
+fn validate_decoded<T: DocumentCodec + Validate>(
+    content: &str,
+    format: &MimeType,
+    source: Option<&str>,
+) -> ServiceResult<ValidateResearchActivityResponse> {
+    decode_validated::<T>(content, format, source)
+        .map(|_| ValidateResearchActivityResponse {
             diagnostics: Vec::new(),
             valid: true,
+            vocabulary_fuzzy: None,
         })
         .or_else(Ok)
 }
@@ -115,6 +149,14 @@ fn validation_diagnostics(report: ValidationReport) -> Vec<Diagnostic> {
             severity: CheckSeverity::Error,
         })
         .collect()
+}
+fn vocabulary_diagnostic(check: acorn_analysis::Check) -> Diagnostic {
+    Diagnostic {
+        code: check.rule_id.unwrap_or_else(|| "vocabulary.advisory".to_string()),
+        message: check.message,
+        path: check.locator,
+        severity: check.severity,
+    }
 }
 fn with_source(diagnostics: Vec<Diagnostic>, source: Option<&str>) -> Vec<Diagnostic> {
     diagnostics

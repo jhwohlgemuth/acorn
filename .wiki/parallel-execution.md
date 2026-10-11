@@ -48,7 +48,6 @@ Plans within a lane normally serialize. Different lanes still check secondary lo
 
 | Lane | Plans | Primary surface and rule |
 |---|---|---|
-| Similarity | [Portable similarity measures and vocabulary coercion](features/similarity-measures.md) | Core variants, resolver reports, budgets, and vocabulary phase 1A are complete. Later corpus, hybrid, phonetic, field-policy, and alignment leaves continue to use their named library-root, manifest, CLI, diagnostics, and documentation locks. Duplicate-check integration remains separately gated. |
 | Portable boundaries | [diff](refactors/acorn-diff-resource-and-api-hardening.md), [ZON](refactors/zon-codec-hardening.md) | Portable leaves may run separately; manifests, package roots, and CI integration serialize. |
 | API contract | [shared API client](refactors/api/shared-client-contract.md) | Contract slices land endpoint/request -> invocation -> resolved config -> response/error/health -> OpenAPI/RAiD. Provider files may shard after each contract freezes. |
 | MCP client | [outbound MCP interface](refactors/api/outbound-mcp-client-interface.md) | Direct construction, the associated-type client trait, bounded cancellation, and focused tests are implemented. Book integration is separately owned. |

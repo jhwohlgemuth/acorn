@@ -5,8 +5,8 @@ use crate::{
 use acorn::analyzer::diff::{DiffFormat, DiffInput, SemanticDiff};
 use acorn_core::{
     similarity::{
-        compare, Comparison, ComparisonOptions, SimilarityDistance, SimilarityLimits, SimilarityMethod, SimilarityPreprocessing,
-        SimilarityTokenization,
+        compare, Comparison, ComparisonOptions, EditCosts, SimilarityDistance, SimilarityLimitParameters, SimilarityLimits, SimilarityMethod,
+        SimilarityPreprocessing, SimilarityTokenization,
     },
     util::MimeType,
 };
@@ -51,19 +51,28 @@ impl From<arguments::SimilarityMethod> for SimilarityMethod {
     fn from(method: arguments::SimilarityMethod) -> Self {
         match method {
             | arguments::SimilarityMethod::AbsoluteDifference => Self::AbsoluteDifference,
+            | arguments::SimilarityMethod::ColognePhonetic => Self::ColognePhonetic,
+            | arguments::SimilarityMethod::Cosine => Self::Cosine,
             | arguments::SimilarityMethod::DamerauLevenshtein => Self::DamerauLevenshtein,
             | arguments::SimilarityMethod::Exact => Self::Exact,
+            | arguments::SimilarityMethod::ExtendedJaccard => Self::ExtendedJaccard,
             | arguments::SimilarityMethod::Hamming => Self::Hamming,
             | arguments::SimilarityMethod::Jaccard => Self::Jaccard,
             | arguments::SimilarityMethod::Jaro => Self::Jaro,
             | arguments::SimilarityMethod::JaroWinkler => Self::JaroWinkler,
             | arguments::SimilarityMethod::Levenshtein => Self::Levenshtein,
+            | arguments::SimilarityMethod::Metaphone => Self::Metaphone,
+            | arguments::SimilarityMethod::MongeElkan => Self::MongeElkan,
             | arguments::SimilarityMethod::OptimalStringAlignment => Self::OptimalStringAlignment,
             | arguments::SimilarityMethod::Overlap => Self::Overlap,
             | arguments::SimilarityMethod::PercentageDifference => Self::PercentageDifference,
             | arguments::SimilarityMethod::Prefix => Self::Prefix,
             | arguments::SimilarityMethod::SorensenDice => Self::SorensenDice,
+            | arguments::SimilarityMethod::SoftTfidf => Self::SoftTfidf,
+            | arguments::SimilarityMethod::Soundex => Self::Soundex,
             | arguments::SimilarityMethod::Suffix => Self::Suffix,
+            | arguments::SimilarityMethod::TfidfCosine => Self::TfidfCosine,
+            | arguments::SimilarityMethod::WeightedLevenshtein => Self::WeightedLevenshtein,
         }
     }
 }
@@ -99,30 +108,41 @@ fn render_similarity(comparison: &Comparison) -> String {
     let score = Some(format!("score: {}", comparison.score));
     let semantics = Some(format!("score semantics: {}", comparison.score_semantics));
     let cutoff = comparison.parameters.cutoff.map(|value| format!("cutoff: {value}"));
+    let corpus = comparison.parameters.corpus_identity.as_ref().map(|value| format!("corpus: {value}"));
+    let edit_costs = comparison.parameters.edit_costs.map(|costs| {
+        let EditCosts {
+            insertion,
+            deletion,
+            substitution,
+        } = costs;
+        format!("edit costs: insertion={insertion}, deletion={deletion}, substitution={substitution}")
+    });
     let length = comparison.parameters.length.map(|value| format!("length: {value}"));
     let tokenization = comparison.parameters.tokenization.map(|value| format!("tokenization: {value}"));
+    let threshold = comparison.parameters.threshold.map(|value| format!("threshold: {value}"));
     let limits = comparison.parameters.limits.map(|limits| {
-        format!(
-            "limits: max-input-scalars={}, max-work-units={}, max-collection-items={}",
-            limits.max_input_scalars, limits.max_work_units, limits.max_collection_items
-        )
+        let SimilarityLimitParameters {
+            max_input_scalars,
+            max_work_units,
+            max_collection_items,
+        } = limits;
+        format!("limits: max-input-scalars={max_input_scalars}, max-work-units={max_work_units}, max-collection-items={max_collection_items}")
     });
-    [
+    let items = [
         Some(header),
         preprocessing,
         distance,
         score,
         semantics,
+        corpus,
         cutoff,
+        edit_costs,
         length,
         tokenization,
+        threshold,
         limits,
-    ]
-    .into_iter()
-    .flatten()
-    .collect::<Vec<_>>()
-    .join("\n")
-        + "\n"
+    ];
+    items.into_iter().flatten().collect::<Vec<_>>().join("\n") + "\n"
 }
 pub(crate) fn run(arguments: &arguments::Diff) -> Void {
     arguments
@@ -199,6 +219,7 @@ fn similarity_options(arguments: &arguments::Diff, method: arguments::Similarity
             .maybe_length(arguments.length)
             .limits(limits)
             .preprocessing(arguments.preprocessing.into())
+            .maybe_threshold(arguments.threshold)
             .tokenization(
                 arguments
                     .ngram_width
@@ -217,23 +238,34 @@ fn validate_similarity_arguments(arguments: &arguments::Diff, method: arguments:
             ("max-work-units", arguments.max_work_units.is_some()),
             ("ngram-width", arguments.ngram_width.is_some()),
             ("preprocess", arguments.preprocessing != arguments::SimilarityPreprocessing::Raw),
+            ("threshold", arguments.threshold.is_some()),
         ]
         .into_iter()
         .find_map(|(option, present)| present.then_some(option)),
-        | SimilarityMethod::Jaccard | SimilarityMethod::Overlap | SimilarityMethod::SorensenDice => {
+        | SimilarityMethod::Jaccard | SimilarityMethod::Overlap | SimilarityMethod::SorensenDice => [
+            ("cutoff", arguments.cutoff.is_some()),
+            ("length", arguments.length.is_some()),
+            ("threshold", arguments.threshold.is_some()),
+        ]
+        .into_iter()
+        .find_map(|(option, present)| present.then_some(option)),
+        | SimilarityMethod::ExtendedJaccard | SimilarityMethod::SoftTfidf => {
             [("cutoff", arguments.cutoff.is_some()), ("length", arguments.length.is_some())]
                 .into_iter()
                 .find_map(|(option, present)| present.then_some(option))
         }
-        | SimilarityMethod::Prefix | SimilarityMethod::Suffix => {
-            [("cutoff", arguments.cutoff.is_some()), ("ngram-width", arguments.ngram_width.is_some())]
-                .into_iter()
-                .find_map(|(option, present)| present.then_some(option))
-        }
+        | SimilarityMethod::Prefix | SimilarityMethod::Suffix => [
+            ("cutoff", arguments.cutoff.is_some()),
+            ("ngram-width", arguments.ngram_width.is_some()),
+            ("threshold", arguments.threshold.is_some()),
+        ]
+        .into_iter()
+        .find_map(|(option, present)| present.then_some(option)),
         | _ => [
             ("cutoff", arguments.cutoff.is_some()),
             ("length", arguments.length.is_some()),
             ("ngram-width", arguments.ngram_width.is_some()),
+            ("threshold", arguments.threshold.is_some()),
         ]
         .into_iter()
         .find_map(|(option, present)| present.then_some(option)),

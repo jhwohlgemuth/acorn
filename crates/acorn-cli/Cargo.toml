@@ -94,5 +94,23 @@ tempfile = "3"
 [package.metadata.cargo-shear]
 ignored = ["openssl-sys"]
 
+[package.metadata.deb]
+assets = [
+  ["target/release/acorn", "usr/bin/", "755"],
+  ["../../README.md", "usr/share/doc/acorn-cli/README.md", "644"],
+  ["../../packaging/linux/gov.ornl.acorn-icon.svg", "usr/share/icons/hicolor/scalable/apps/gov.ornl.acorn.svg", "644"],
+  ["../../packaging/linux/gov.ornl.acorn.desktop", "usr/share/applications/gov.ornl.acorn.desktop", "644"],
+  ["../../packaging/linux/gov.ornl.acorn.metainfo.xml", "usr/share/metainfo/gov.ornl.acorn.metainfo.xml", "644"],
+]
+conflicts = "node-acorn"
+depends = "ca-certificates"
+extended-description = "ACORN validates, formats, analyzes, and exports research activity data from one command-line application."
+license-file = ["../../LICENSE", "0"]
+maintainer = "Jason Wohlgemuth <wohlgemuthjh@ornl.gov>"
+name = "acorn-cli"
+priority = "optional"
+replaces = "node-acorn"
+section = "science"
+
 [lints]
 workspace = true

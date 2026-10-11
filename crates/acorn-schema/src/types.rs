@@ -86,6 +86,8 @@ pub enum MediaObject {
     /// Video format media
     Video(VideoObject),
 }
+/// A pair of values identified by their left and right positions.
+pub use acorn_core::ThisOrThat;
 /// Generic wrapper for a single value or multiple values.
 ///
 /// Supports schema fields and metadata entry points that accept either one item

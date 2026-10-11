@@ -1,8 +1,10 @@
-ARG RUST_VERSION=1.96.0
 ARG BUF_VERSION=1.73.0
-ARG NIGHTLY_TOOLCHAIN=nightly-2026-08-01
+ARG CARGO_DEB_VERSION=3.8.0
 ARG DOCKER_HUB_REGISTRY=docker.io/library
+ARG NIGHTLY_TOOLCHAIN=nightly-2026-08-01
+ARG RUST_VERSION=1.96.0
 FROM ${DOCKER_HUB_REGISTRY}/rust:${RUST_VERSION}-slim
+ARG CARGO_DEB_VERSION
 ARG NIGHTLY_TOOLCHAIN
 #
 # %labels
@@ -22,6 +24,7 @@ ENV PATH="/opt/zigbuild/bin:/root/.cargo/bin:${PATH}"
 #
 # %post
 #
+COPY scripts/install-appimage-tools.sh /usr/local/bin/install-appimage-tools
 COPY scripts/install-zigbuild.sh /usr/local/bin/install-zigbuild
 RUN case "${TARGETARCH}" in \
         amd64) powershell_arch=x64 ;; \
@@ -29,9 +32,11 @@ RUN case "${TARGETARCH}" in \
         *) echo "Unsupported PowerShell architecture: ${TARGETARCH}" >&2; exit 1 ;; \
     esac \
     && apt-get update && apt-get install --no-install-recommends --yes \
+        appstream \
         ca-certificates \
         clang \
         curl \
+        file \
         git \
         gnupg \
         libssl-dev \
@@ -58,10 +63,12 @@ RUN case "${TARGETARCH}" in \
         --component clippy \
         --component rust-analyzer \
         --component rustfmt \
+        --target aarch64-unknown-linux-musl \
         --target wasm32-unknown-unknown \
         --target x86_64-pc-windows-gnu \
         --target x86_64-unknown-linux-musl \
     && rustup toolchain install "${NIGHTLY_TOOLCHAIN}" --profile minimal \
+    && cargo install --locked cargo-deb --version "${CARGO_DEB_VERSION}" \
     && cargo install --locked cargo-fuzz --version 0.13.1 \
     && cargo install --locked cargo-shear --version 1.14.0 \
     && cargo install --locked mdbook --version 0.5.2 \
@@ -73,6 +80,8 @@ RUN case "${TARGETARCH}" in \
     && rm -rf /tmp/* /var/lib/apt/lists/* /var/tmp/* \
     && rm -rf /usr/share/man/?? \
     && rm -rf /usr/share/man/??_*
+RUN sh /usr/local/bin/install-appimage-tools /usr/local \
+    && APPIMAGE_EXTRACT_AND_RUN=1 appimagetool --version
 HEALTHCHECK NONE
 RUN mkdir -p /tmp/build-playwright-rust \
     && curl -kL --retry 3 -o /tmp/build-playwright-rust/driver.zip \

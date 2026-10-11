@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=ACORN
+Comment=Maintain and validate research activity data
+Exec=acorn
+Icon=gov.ornl.acorn
+Terminal=true
+Categories=Science;
+Keywords=research;metadata;validation;

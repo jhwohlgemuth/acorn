@@ -126,6 +126,7 @@ export interface ValidationResult {
     diagnostics: Diagnostic[];
     truncated: boolean;
     valid: boolean;
+    vocabularyFuzzy?: "off" | "relaxed" | "strict";
 }
 
 export interface ExecutionOptions {
@@ -161,7 +162,7 @@ export interface AcornBindings {
     discoverPersistentIdentifiers(text: string): unknown;
     inspectPersistentIdentifier(value: string, kind?: string): unknown;
     validateMetadataStandard(content: string, standard: string, format: string): unknown;
-    validateResearchActivity(json: string): unknown;
+    validateResearchActivity(json: string, fuzzy?: "off" | "relaxed" | "strict"): unknown;
 }
 
 export interface ModelContextTool {
@@ -214,7 +215,7 @@ export interface AcornWebMcpAdapter {
         options?: ExecutionOptions,
     ): Promise<ToolResult<ValidationResult>>;
     validateResearchActivity(
-        input: { json: string },
+        input: { fuzzy?: "off" | "relaxed" | "strict"; json: string },
         options?: ExecutionOptions,
     ): Promise<ToolResult<ValidationResult>>;
 }

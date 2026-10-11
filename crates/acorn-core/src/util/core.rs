@@ -34,6 +34,10 @@ pub fn longest_character_run(value: &str, character: char) -> usize {
         })
         .0
 }
+/// Return the greatest value from an iterator.
+pub fn maximum<T: Ord>(values: impl IntoIterator<Item = T>) -> Option<T> {
+    values.into_iter().max()
+}
 /// Remove the first matching suffix from a string slice.
 pub fn strip_suffixes<'a>(values: &[&str], name: &'a str) -> &'a str {
     values.iter().find_map(|value| name.strip_suffix(value)).unwrap_or(name)

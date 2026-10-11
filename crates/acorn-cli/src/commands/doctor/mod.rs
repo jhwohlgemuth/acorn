@@ -8,6 +8,7 @@ use acorn::analyzer::{
     host::discovery::{FindingStatus, Record, Records},
 };
 use acorn_host::terminal::Label;
+use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use color_eyre::eyre::{eyre, Report, Result};
 use core::time::Duration;
 use std::{env::current_dir, path::Path};
@@ -87,6 +88,7 @@ fn interactive_run(fix: bool, offline: bool) -> Result<(), Report> {
                 doctor_fix: fix,
                 no_local_database: true,
                 offline,
+                vocabulary_fuzzy: VocabularyFuzzyMode::Relaxed,
             },
         )
         .map(|_| ())

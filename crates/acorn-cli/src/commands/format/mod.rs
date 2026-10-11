@@ -13,6 +13,7 @@ use acorn::{
         config::application::{ApplicationConfiguration, Hook},
         enrichment::{EnrichmentMetadata, Pipeline},
         slice_path,
+        vocabulary::write_vocabulary_report_audits,
         workflow::{self, Workflow, WorkflowExtension},
         FromPath, InputOutput,
     },
@@ -27,7 +28,7 @@ use acorn_schema::{
     standard::Standard,
     standard::{cff::Cff, datacite, invenio},
     validation::Validate,
-    vocabulary::VocabularyFuzzyMode,
+    vocabulary::{VocabularyFuzzyMode, VocabularyReport},
 };
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{eyre, Report, Result};
@@ -35,7 +36,7 @@ use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
-    fs::write,
+    fs::{read_to_string, write},
     path::{Path, PathBuf},
 };
 use strum::IntoEnumIterator;
@@ -50,6 +51,13 @@ struct StandardOptions<'a> {
     providers: &'a [Provider],
     root: &'a Path,
     standard: Standard,
+}
+struct VocabularyAudit {
+    after: String,
+    before: String,
+    path: PathBuf,
+    reports: Vec<VocabularyReport>,
+    source: String,
 }
 impl StandardOptions<'_> {
     fn config_is_unsupported(&self) -> Option<Report> {
@@ -66,9 +74,30 @@ async fn format<T>(path: &Option<PathBuf>, options: &CommandOptions) -> Result<(
 where
     T: InputOutput + Serialize,
 {
-    resolve_paths(path, options)
-        .await
-        .and_then(|paths| paths.par_iter().try_for_each(|path| format_file::<T>(path, options)))
+    resolve_paths(path, options).await.and_then(|paths| {
+        let results = paths.par_iter().map(|path| format_file::<T>(path, options)).collect::<Vec<_>>();
+        let audits = results
+            .iter()
+            .filter_map(|result| result.as_ref().ok().and_then(Option::as_ref))
+            .collect::<Vec<_>>();
+        write_vocabulary_report_audits(audits.iter().map(|audit| {
+            (
+                audit.source.as_str(),
+                audit.before.as_str(),
+                audit.after.as_str(),
+                audit.reports.as_slice(),
+            )
+        }))
+        .map_err(Report::msg)
+        .or_else(|audit_error| {
+            audits
+                .iter()
+                .try_for_each(|audit| write(&audit.path, &audit.before))
+                .map_err(|rollback_error| eyre!("{audit_error}; rollback failed — {rollback_error}"))
+                .and_then(|()| Err(audit_error))
+        })
+        .and_then(|_| results.into_iter().collect::<Result<Vec<_>, _>>().map(|_| ()))
+    })
 }
 fn format_diff(old: &str, new: &str, path: &Path, color: bool) -> String {
     let before_label = format!("a/{}", path.display());
@@ -87,16 +116,18 @@ fn format_diff(old: &str, new: &str, path: &Path, color: bool) -> String {
             .collect(),
     }
 }
-fn format_file<T>(path: &Path, options: &CommandOptions) -> Result<(), Report>
+fn format_file<T>(path: &Path, options: &CommandOptions) -> Result<Option<VocabularyAudit>, Report>
 where
     T: InputOutput + Serialize,
 {
-    T::read(path.to_path_buf())
+    read_to_string(path)
+        .map_err(|why| eyre!("Read original metadata — {why}"))
+        .and_then(|original| T::read(path.to_path_buf()).map(|data| (data, original)))
         .map_err(|why| {
             fail!("Read metadata — {why}");
             eyre!("Read metadata — {why}")
         })
-        .and_then(|data| {
+        .and_then(|(data, original)| {
             let mime = MimeType::from_path(path);
             data.serialize_as(&mime)
                 .map_err(|why| {
@@ -104,16 +135,28 @@ where
                     eyre!("Serialize original content — {why}")
                 })
                 .and_then(|old_content| {
-                    let formatted = data.format_with_vocabulary(options.fuzzy, Some(path.to_path_buf()));
+                    let formatted = data.format_with_vocabulary_report(options.fuzzy, Some(path.to_path_buf()));
                     formatted
+                        .value
                         .serialize_as(&mime)
                         .map_err(|why| {
                             fail!("Serialize formatted content — {why}");
                             eyre!("Serialize formatted content — {why}")
                         })
-                        .map(|new_content| (old_content, new_content))
+                        .map(|new_content| (old_content, new_content, formatted.reports, original))
                 })
-                .and_then(|(old_content, new_content)| write_formatted_content(path, options, &old_content, &new_content))
+                .and_then(|(old_content, new_content, reports, original)| {
+                    write_formatted_content(path, options, &old_content, &new_content).map(|applied| match applied {
+                        | false => None,
+                        | true => Some(VocabularyAudit {
+                            after: new_content,
+                            before: original,
+                            path: path.to_path_buf(),
+                            reports,
+                            source: path.display().to_string(),
+                        }),
+                    })
+                })
         })
 }
 #[allow(clippy::too_many_arguments)]
@@ -281,12 +324,12 @@ where
         | Err(why) => Err(why),
     }
 }
-fn write_formatted_content(path: &Path, options: &CommandOptions, old_content: &str, new_content: &str) -> Result<(), Report> {
+fn write_formatted_content(path: &Path, options: &CommandOptions, old_content: &str, new_content: &str) -> Result<bool, Report> {
     match old_content == new_content {
         | true => {
             let display_path = slice_path(path, DISPLAY_PATH_CHARACTER_COUNT);
             info!("=> {} No format changes for {display_path}", Label::skip());
-            Ok(())
+            Ok(false)
         }
         | false => {
             let CommandOptions {
@@ -307,15 +350,18 @@ fn write_formatted_content(path: &Path, options: &CommandOptions, old_content: &
                 print!("{}", format_diff(old_content, new_content, path, !options.no_color));
             }
             match *dry_run {
-                | true => Ok(()),
+                | true => Ok(false),
                 | false => write(path, new_content.as_bytes())
                     .map_err(|why| {
                         fail!("Write — {why}");
                         eyre!("Write — {why}")
                     })
-                    .map(|_| match no_color {
-                        | true => info!("=> {} Formatted {}", Label::pass(), path.display()),
-                        | false => info!("=> {} Formatted {}", Label::pass(), path.display().cyan()),
+                    .map(|_| {
+                        match no_color {
+                            | true => info!("=> {} Formatted {}", Label::pass(), path.display()),
+                            | false => info!("=> {} Formatted {}", Label::pass(), path.display().cyan()),
+                        }
+                        true
                     }),
             }
         }

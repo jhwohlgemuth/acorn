@@ -472,7 +472,9 @@ fn test_format_file_logs_path_for_changes() -> Result<()> {
     let dest_file = temp_dir.join("index.json");
     copy(&source, &dest_file)?;
     let options = CommandOptions::init().no_color(true).build();
-    let logs = captured_logs(|| format_file::<ResearchActivity>(&dest_file, &options).expect("format changed file"));
+    let logs = captured_logs(|| {
+        format_file::<ResearchActivity>(&dest_file, &options).expect("format changed file");
+    });
     assert!(logs.contains("Formatted"));
     assert!(logs.contains(&dest_file.display().to_string()));
     Ok(())
@@ -485,7 +487,9 @@ fn test_format_file_logs_path_for_no_changes() -> Result<()> {
     let dest_file = temp_dir.join("index.json");
     copy(&source, &dest_file)?;
     let options = CommandOptions::init().no_color(true).build();
-    let logs = captured_logs(|| format_file::<ResearchActivity>(&dest_file, &options).expect("format unchanged file"));
+    let logs = captured_logs(|| {
+        format_file::<ResearchActivity>(&dest_file, &options).expect("format unchanged file");
+    });
     let message_index = logs.find("No format changes for").expect("no-change message");
     assert_eq!(logs.as_bytes().get(message_index.saturating_sub(1)), Some(&b' '));
     assert!(logs.contains("INFO"));

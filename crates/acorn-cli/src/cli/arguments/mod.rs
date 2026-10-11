@@ -13,7 +13,7 @@ use acorn::util::constants::app::{
 };
 use acorn::util::constants::env::{CHROME_PATH, MINIMUM_DOWNLOAD_COUNT, SEARCH_LIMIT};
 use acorn_analysis::{readability::ReadabilityType, CheckCategory};
-use acorn_core::{time::Milliseconds, util::MimeType, validation::ValidationError};
+use acorn_core::{time::Milliseconds, util::MimeType, validation::ValidationError, Noul};
 use acorn_schema::agent::Quantization;
 use acorn_schema::enrichment::Provider;
 use acorn_schema::hardware::memory::Memory;
@@ -323,10 +323,16 @@ pub(crate) enum PromptDataFormatArg {
 pub(crate) enum SimilarityMethod {
     /// Piecewise-linear similarity over absolute numeric difference.
     AbsoluteDifference,
+    /// German-language Cologne phonetic encoding equality.
+    ColognePhonetic,
+    /// Cosine similarity over comma- or whitespace-delimited finite vectors.
+    Cosine,
     /// Unrestricted unit-cost Damerau-Levenshtein similarity.
     DamerauLevenshtein,
     /// Exact textual equality.
     Exact,
+    /// Thresholded fuzzy Jaccard over unique token matches.
+    ExtendedJaccard,
     /// Equal-length scalar Hamming similarity.
     Hamming,
     /// Deduplicated Jaccard set similarity.
@@ -337,6 +343,10 @@ pub(crate) enum SimilarityMethod {
     JaroWinkler,
     /// Unit-cost Levenshtein similarity.
     Levenshtein,
+    /// English-language original Metaphone encoding equality.
+    Metaphone,
+    /// Directional Monge-Elkan token similarity.
+    MongeElkan,
     /// Restricted optimal string alignment similarity.
     #[value(alias = "osa")]
     OptimalStringAlignment,
@@ -346,27 +356,35 @@ pub(crate) enum SimilarityMethod {
     PercentageDifference,
     /// Exact equality over a leading scalar count.
     Prefix,
+    /// Soft TF-IDF over an explicit two-document corpus.
+    SoftTfidf,
     /// Deduplicated Sorensen-Dice set similarity.
     #[value(alias = "dice")]
     SorensenDice,
+    /// English-language American Soundex encoding equality.
+    Soundex,
     /// Exact equality over a trailing scalar count.
     Suffix,
+    /// TF-IDF cosine over an explicit two-document corpus.
+    TfidfCosine,
+    /// Weighted Levenshtein with the documented default edit costs.
+    WeightedLevenshtein,
 }
 /// Text preprocessing for similarity comparisons.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, strum::Display, ValueEnum)]
 #[strum(serialize_all = "kebab-case")]
 pub(crate) enum SimilarityPreprocessing {
-    /// Preserve the original scalar sequence.
-    #[default]
-    Raw,
-    /// Apply Rust Unicode lowercase mapping.
-    Lowercase,
     /// Apply full, locale-independent Unicode case folding.
     CaseFold,
+    /// Apply Rust Unicode lowercase mapping.
+    Lowercase,
     /// Apply Unicode canonical normalization form C.
     Nfc,
     /// Apply Unicode compatibility normalization form KC.
     Nfkc,
+    /// Preserve the original scalar sequence.
+    #[default]
+    Raw,
 }
 /// Target artifact aspect ratio size available when exporting research activity data using acorn
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
@@ -618,6 +636,9 @@ pub(crate) struct Diff {
     /// Metadata standard override.
     #[arg(short, long, conflicts_with = "method", value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
     pub(crate) standard: Option<Standard>,
+    /// Token-match threshold from zero to one.
+    #[arg(long, requires = "method", value_name = "0..1", help_heading = "OPTIONS")]
+    pub(crate) threshold: Option<Noul>,
     /// Treat both operands as literal values instead of file paths.
     #[arg(long, requires = "method", help_heading = "FLAGS")]
     pub(crate) values: bool,

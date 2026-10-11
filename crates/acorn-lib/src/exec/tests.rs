@@ -210,13 +210,15 @@ fn test_configured_scripts_compile_completely_before_evaluation() {
         ..ApplicationConfiguration::default()
     };
     let changes = vec![Change::Document {
-        source: Location::from("activity.json"),
-        data: Box::new(ResearchActivity::default()),
-        content: String::new(),
         changed: false,
-        linked: None,
-        failures: Vec::new(),
         conflicts: Vec::new(),
+        content: String::new(),
+        data: Box::new(ResearchActivity::default()),
+        failures: Vec::new(),
+        linked: None,
+        original: String::new(),
+        source: Location::from("activity.json"),
+        vocabulary_reports: Vec::new(),
     }];
     let error = configuration
         .check_scripts(&changes, temporary.path(), WorkflowAction::Check, ExecutionOrigin::Local)

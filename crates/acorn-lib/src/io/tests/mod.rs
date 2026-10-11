@@ -87,6 +87,7 @@ use zip::ZipArchive;
 mod enrichment;
 #[cfg(feature = "swhid-compute")]
 mod swhid;
+mod vocabulary;
 
 const OCI_TEST_DIGEST: &str = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const TEST_BAGGING_DATE: &str = "2026-02-22";
@@ -175,166 +176,9 @@ fn remote_endpoint() -> impl Strategy<Value = String> {
             format!("ssh://{user}{host}.example.org{port}{socket}")
         })
 }
-#[ignore]
-#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn test_files_from_gitlab_merge_request() {
-    let extensions = Some(vec!["json", "yaml"]);
-    let expected = PathBuf::from("project/gravity/gravity.json");
-    let files = temp_env::with_vars(
-        [
-            ("CI_API_V4_URL", Some("https://code.ornl.gov/api/v4")),
-            ("CI_MERGE_REQUEST_PROJECT_ID", Some("17410")),
-            ("CI_MERGE_REQUEST_IID", Some("27")),
-        ],
-        || {
-            tokio::task::block_in_place(|| {
-                tokio::runtime::Handle::current().block_on(async { files_from_gitlab_merge_request(extensions.clone()).await })
-            })
-        },
-    );
-    assert_eq!(files.len(), 1);
-    assert_eq!(files[0], expected);
-}
-#[tokio::test]
-async fn test_location_exists() {
-    let server = crate::test::server::TestServer::start(axum::Router::new().route("/", axum::routing::get(|| async {})))
-        .await
-        .expect("test server should start");
-    let location = Location::Simple(server.base_url.clone());
-    assert!(location.exists().await);
-    let location = Location::Simple("https://does-not-exist.com".into());
-    assert!(!location.exists().await);
-    let location = Location::Simple("file:./Cargo.toml".into());
-    assert!(location.exists().await);
-    let location = Location::Simple("file:./does-not-exist".into());
-    assert!(!location.exists().await);
-    let location = Location::Detailed {
-        scheme: Scheme::HTTPS,
-        uri: "42".into(),
-        revision: None,
-    };
-    assert!(!location.exists().await);
-    let location = Location::Detailed {
-        scheme: Scheme::File,
-        uri: "should fail to parse?".into(),
-        revision: None,
-    };
-    assert!(!location.exists().await);
-    server.stop().await.expect("test server should stop");
-}
 /// The generated payload shared by the verification fixtures.
 fn test_payload() -> [(&'static str, &'static str); 2] {
     [("project-a/index.json", "{\"name\":\"a\"}\n"), ("project-b/index.yaml", "name: b\n")]
-}
-#[tokio::test]
-async fn test_read_source_from_file_uri() {
-    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let path = temp_dir().join(format!("acorn-read-source-uri-{stamp}.yaml"));
-    let expected = "openapi: 3.1.0\ninfo:\n  title: URI\n".to_string();
-    write(path.clone(), expected.clone()).unwrap();
-    let source = if cfg!(windows) {
-        format!("file:///{}", path.to_string_lossy().replace('\\', "/"))
-    } else {
-        format!("file://{}", path.to_string_lossy())
-    };
-    let content = Source::read(&source, false).await.unwrap();
-    assert_eq!(content, expected);
-    remove_file(path).unwrap();
-}
-#[cfg(not(windows))]
-#[tokio::test]
-async fn test_read_source_from_file_uri_localhost() {
-    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let path = temp_dir().join(format!("acorn-read-source-localhost-{stamp}.yaml"));
-    let expected = "openapi: 3.1.0\ninfo:\n  title: Localhost\n".to_string();
-    write(path.clone(), expected.clone()).unwrap();
-    let source = format!("file://localhost{}", path.to_string_lossy());
-    let content = Source::read(&source, false).await.unwrap();
-    assert_eq!(content, expected);
-    remove_file(path).unwrap();
-}
-#[tokio::test]
-async fn test_read_source_from_local_path() {
-    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let path = temp_dir().join(format!("acorn-read-source-local-{stamp}.yaml"));
-    let expected = "openapi: 3.1.0\n".to_string();
-    write(path.clone(), expected.clone()).unwrap();
-    let content = Source::read(path.to_string_lossy().as_ref(), false).await.unwrap();
-    assert_eq!(content, expected);
-    remove_file(path).unwrap();
-}
-#[tokio::test]
-async fn test_read_source_rejects_remote_when_offline() {
-    let result = Source::read("https://example.com/openapi.yaml", true).await;
-    assert!(result.is_err());
-    let why = result.unwrap_err().to_string();
-    assert!(why.contains("disabled while offline"));
-}
-#[tokio::test]
-async fn test_read_source_rejects_unsupported_uri_scheme() {
-    let result = Source::read("s3://example/openapi.yaml", false).await;
-    assert!(result.is_err());
-    let why = result.unwrap_err().to_string();
-    assert!(why.contains("unsupported source location"));
-}
-#[ignore]
-#[tokio::test]
-async fn test_repository_github() {
-    let repository = Repository::GitHub {
-        location: Box::new(Location::Simple("https://github.com/jhwohlgemuth/voxelcss".to_string())),
-    };
-    let release = repository.latest_release().await;
-    assert!(release.is_some());
-}
-#[ignore]
-#[tokio::test]
-async fn test_repository_gitlab() {
-    let repository = Repository::GitLab {
-        id: Some(18243_u64),
-        location: Box::new(Location::Simple("https://code.ornl.gov/research-enablement/vale-package".to_string())),
-    };
-    let release = repository.latest_release().await;
-    assert!(release.is_some());
-}
-#[tokio::test]
-async fn test_source_document_enrichment_preserves_unsupported_content() {
-    let document = SourceDocument::init().content("plain text").format("text").source("<text:1>").build();
-    let (enriched, content, failures) = document.enrich(()).await;
-    assert_eq!(enriched.content, "plain text");
-    assert!(content.is_none());
-    assert!(failures.is_empty());
-}
-#[tokio::test]
-async fn test_source_documents_enrichment_can_be_disabled() {
-    let document = SourceDocument::init().content("plain text").format("text").source("<text:1>").build();
-    let (documents, content, failures) = SourceDocuments::from(vec![document]).enrich(false).await;
-    assert_eq!(documents.0.len(), 1);
-    assert!(content.is_empty());
-    assert!(failures.is_empty());
-}
-#[tokio::test]
-async fn test_write_file_bytes_creates_parent_and_writes_content() {
-    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let dir = temp_dir().join(format!("acorn-write-file-bytes-{stamp}"));
-    let path = dir.join("nested").join("output.bin");
-    let expected = b"acorn-bytes".to_vec();
-    let result = write_file_bytes(path.clone(), || async { Ok::<Vec<u8>, Report>(expected.clone()) }).await;
-    assert!(result.is_ok());
-    assert!(path.exists());
-    assert_eq!(std::fs::read(path.clone()).unwrap(), expected);
-    remove_dir_all(dir).unwrap();
-}
-#[tokio::test]
-async fn test_write_file_bytes_propagates_get_bytes_error() {
-    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let dir = temp_dir().join(format!("acorn-write-file-bytes-error-{stamp}"));
-    let path = dir.join("nested").join("output.bin");
-    let result = write_file_bytes(path.clone(), || async { Err::<Vec<u8>, Report>(Report::msg("byte source failure")) }).await;
-    assert!(result.is_err());
-    assert_eq!(result.unwrap_err().to_string(), "byte source failure");
-    assert!(path.exists());
-    assert_eq!(std::fs::metadata(path.clone()).unwrap().len(), 0);
-    remove_dir_all(dir).unwrap();
 }
 
 proptest! {
@@ -1125,6 +969,26 @@ fn test_files_from_git_main() {
     let expected = "tests/fixtures/data/invalid_project_a/index.json";
     assert_eq!(files[0].to_str().unwrap(), expected);
 }
+#[ignore]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn test_files_from_gitlab_merge_request() {
+    let extensions = Some(vec!["json", "yaml"]);
+    let expected = PathBuf::from("project/gravity/gravity.json");
+    let files = temp_env::with_vars(
+        [
+            ("CI_API_V4_URL", Some("https://code.ornl.gov/api/v4")),
+            ("CI_MERGE_REQUEST_PROJECT_ID", Some("17410")),
+            ("CI_MERGE_REQUEST_IID", Some("27")),
+        ],
+        || {
+            tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async { files_from_gitlab_merge_request(extensions.clone()).await })
+            })
+        },
+    );
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0], expected);
+}
 #[test]
 fn test_filter_git_command_result() {
     let response = "crates/acorn-schema/assets/constants/keywords.csv\ncrates/acorn-schema/assets/constants/technology.csv".to_string();
@@ -1252,6 +1116,33 @@ fn test_jsonc_rejects_single_quotes() {
 fn test_jsonc_rejects_unquoted_keys() {
     let content = r#"{ buckets: [] }"#;
     assert!(jsonc_parse_value(content).is_err());
+}
+#[tokio::test]
+async fn test_location_exists() {
+    let server = crate::test::server::TestServer::start(axum::Router::new().route("/", axum::routing::get(|| async {})))
+        .await
+        .expect("test server should start");
+    let location = Location::Simple(server.base_url.clone());
+    assert!(location.exists().await);
+    let location = Location::Simple("https://does-not-exist.com".into());
+    assert!(!location.exists().await);
+    let location = Location::Simple("file:./Cargo.toml".into());
+    assert!(location.exists().await);
+    let location = Location::Simple("file:./does-not-exist".into());
+    assert!(!location.exists().await);
+    let location = Location::Detailed {
+        scheme: Scheme::HTTPS,
+        uri: "42".into(),
+        revision: None,
+    };
+    assert!(!location.exists().await);
+    let location = Location::Detailed {
+        scheme: Scheme::File,
+        uri: "should fail to parse?".into(),
+        revision: None,
+    };
+    assert!(!location.exists().await);
+    server.stop().await.expect("test server should stop");
 }
 #[test]
 fn test_location_hash() {
@@ -2148,6 +2039,57 @@ fn test_read_large_file() {
     assert_eq!(content, expected);
     remove_file(path).unwrap();
 }
+#[tokio::test]
+async fn test_read_source_from_file_uri() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let path = temp_dir().join(format!("acorn-read-source-uri-{stamp}.yaml"));
+    let expected = "openapi: 3.1.0\ninfo:\n  title: URI\n".to_string();
+    write(path.clone(), expected.clone()).unwrap();
+    let source = if cfg!(windows) {
+        format!("file:///{}", path.to_string_lossy().replace('\\', "/"))
+    } else {
+        format!("file://{}", path.to_string_lossy())
+    };
+    let content = Source::read(&source, false).await.unwrap();
+    assert_eq!(content, expected);
+    remove_file(path).unwrap();
+}
+#[cfg(not(windows))]
+#[tokio::test]
+async fn test_read_source_from_file_uri_localhost() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let path = temp_dir().join(format!("acorn-read-source-localhost-{stamp}.yaml"));
+    let expected = "openapi: 3.1.0\ninfo:\n  title: Localhost\n".to_string();
+    write(path.clone(), expected.clone()).unwrap();
+    let source = format!("file://localhost{}", path.to_string_lossy());
+    let content = Source::read(&source, false).await.unwrap();
+    assert_eq!(content, expected);
+    remove_file(path).unwrap();
+}
+#[tokio::test]
+async fn test_read_source_from_local_path() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let path = temp_dir().join(format!("acorn-read-source-local-{stamp}.yaml"));
+    let expected = "openapi: 3.1.0\n".to_string();
+    write(path.clone(), expected.clone()).unwrap();
+    let content = Source::read(path.to_string_lossy().as_ref(), false).await.unwrap();
+    assert_eq!(content, expected);
+    remove_file(path).unwrap();
+}
+#[tokio::test]
+async fn test_read_source_rejects_remote_when_offline() {
+    let result = Source::read("https://example.com/openapi.yaml", true).await;
+    assert!(result.is_err());
+    let why = result.unwrap_err().to_string();
+    assert!(why.contains("disabled while offline"));
+}
+#[tokio::test]
+async fn test_read_source_rejects_unsupported_uri_scheme() {
+    let result = Source::read("s3://example/openapi.yaml", false).await;
+    assert!(result.is_err());
+    let why = result.unwrap_err().to_string();
+    assert!(why.contains("unsupported source location"));
+}
 #[test]
 fn test_remote_container_target_arguments() {
     let command = args!["run", "--detach", "acorn:latest"];
@@ -2188,6 +2130,25 @@ fn test_replace_file_accepts_generic_content_and_replaces_existing_file() {
     write(&path, "before").expect("write original file");
     replace_file(&path, b"after").expect("replace file");
     assert_eq!(read_to_string(path).expect("read replacement"), "after");
+}
+#[ignore]
+#[tokio::test]
+async fn test_repository_github() {
+    let repository = Repository::GitHub {
+        location: Box::new(Location::Simple("https://github.com/jhwohlgemuth/voxelcss".to_string())),
+    };
+    let release = repository.latest_release().await;
+    assert!(release.is_some());
+}
+#[ignore]
+#[tokio::test]
+async fn test_repository_gitlab() {
+    let repository = Repository::GitLab {
+        id: Some(18243_u64),
+        location: Box::new(Location::Simple("https://code.ornl.gov/research-enablement/vale-package".to_string())),
+    };
+    let release = repository.latest_release().await;
+    assert!(release.is_some());
 }
 #[test]
 fn test_retry_delay_honors_http_date_header() {
@@ -2341,6 +2302,22 @@ fn test_source_classification_is_independent_of_location_representation() {
     assert_eq!(Source::from(raw), Source::from(Location::Simple(raw.to_string())));
     let raw = "https://example.org/model.gguf";
     assert_eq!(Source::from(raw), Source::from(Location::from(raw)));
+}
+#[tokio::test]
+async fn test_source_document_enrichment_preserves_unsupported_content() {
+    let document = SourceDocument::init().content("plain text").format("text").source("<text:1>").build();
+    let (enriched, content, failures) = document.enrich(()).await;
+    assert_eq!(enriched.content, "plain text");
+    assert!(content.is_none());
+    assert!(failures.is_empty());
+}
+#[tokio::test]
+async fn test_source_documents_enrichment_can_be_disabled() {
+    let document = SourceDocument::init().content("plain text").format("text").source("<text:1>").build();
+    let (documents, content, failures) = SourceDocuments::from(vec![document]).enrich(false).await;
+    assert_eq!(documents.0.len(), 1);
+    assert!(content.is_empty());
+    assert!(failures.is_empty());
 }
 #[test]
 fn test_source_from_repository_uses_hugging_face_identifier() {
@@ -2574,6 +2551,30 @@ fn test_walk_returns_portable_relative_file_paths() {
         ["config.json".to_string(), "models/weights.gguf".to_string()].into_iter().collect()
     );
     remove_dir_all(root).unwrap();
+}
+#[tokio::test]
+async fn test_write_file_bytes_creates_parent_and_writes_content() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let dir = temp_dir().join(format!("acorn-write-file-bytes-{stamp}"));
+    let path = dir.join("nested").join("output.bin");
+    let expected = b"acorn-bytes".to_vec();
+    let result = write_file_bytes(path.clone(), || async { Ok::<Vec<u8>, Report>(expected.clone()) }).await;
+    assert!(result.is_ok());
+    assert!(path.exists());
+    assert_eq!(std::fs::read(path.clone()).unwrap(), expected);
+    remove_dir_all(dir).unwrap();
+}
+#[tokio::test]
+async fn test_write_file_bytes_propagates_get_bytes_error() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let dir = temp_dir().join(format!("acorn-write-file-bytes-error-{stamp}"));
+    let path = dir.join("nested").join("output.bin");
+    let result = write_file_bytes(path.clone(), || async { Err::<Vec<u8>, Report>(Report::msg("byte source failure")) }).await;
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().to_string(), "byte source failure");
+    assert!(path.exists());
+    assert_eq!(std::fs::metadata(path.clone()).unwrap().len(), 0);
+    remove_dir_all(dir).unwrap();
 }
 #[test]
 fn test_write_rsa_keypair_returns_error_for_invalid_path() {

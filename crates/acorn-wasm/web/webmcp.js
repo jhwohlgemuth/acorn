@@ -139,6 +139,11 @@ const validationInputSchema = Object.freeze({
             maxLength: JSON_INPUT_LIMIT,
             type: "string",
         },
+        fuzzy: {
+            description: "Controlled-vocabulary advisory policy (default: relaxed).",
+            enum: ["off", "relaxed", "strict"],
+            type: "string",
+        },
     },
     required: ["json"],
     type: "object",
@@ -267,11 +272,16 @@ function validationResult(value) {
         throw new AdapterError("execution_failed", "ACORN returned an invalid validation result.");
     }
     const diagnostics = value.diagnostics.slice(0, DIAGNOSTIC_LIMIT).map((diagnostic) => normalize(diagnostic));
+    const vocabularyFuzzy = value.vocabularyFuzzy ?? null;
+    if (vocabularyFuzzy !== null && !["off", "relaxed", "strict"].includes(vocabularyFuzzy)) {
+        throw new AdapterError("execution_failed", "ACORN returned an invalid vocabulary fuzzy mode.");
+    }
     return {
         diagnosticCount: value.diagnostics.length,
         diagnostics,
         truncated: value.diagnostics.length > DIAGNOSTIC_LIMIT,
         valid: value.valid,
+        ...(vocabularyFuzzy === null ? {} : { vocabularyFuzzy }),
     };
 }
 
@@ -437,12 +447,15 @@ function readabilityArguments(input) {
 }
 
 function validationArguments(input) {
-    validateKeys(input, ["json"]);
+    validateKeys(input, ["fuzzy", "json"], ["json"]);
     if (typeof input.json !== "string") {
         throw new AdapterError("invalid_arguments", "Validation requires a JSON string.");
     }
     if (byteLength(input.json) > JSON_INPUT_LIMIT) {
         throw new AdapterError("input_too_large", "Research Activity JSON exceeded the 256 KiB UTF-8 input limit.");
+    }
+    if (input.fuzzy !== undefined && !["off", "relaxed", "strict"].includes(input.fuzzy)) {
+        throw new AdapterError("invalid_arguments", "Unsupported vocabulary fuzzy mode.");
     }
     return input;
 }
@@ -531,8 +544,8 @@ export function createAcornWebMcpAdapter(bindings, options = {}) {
         return validationResult(bindings.validateMetadataStandard(content, standard, format));
     });
     const validateResearchActivity = (input, execution = {}) => run(VALIDATION_TOOL_NAME, execution.signal, () => {
-        const { json } = validationArguments(input);
-        return validationResult(bindings.validateResearchActivity(json));
+        const { fuzzy, json } = validationArguments(input);
+        return validationResult(bindings.validateResearchActivity(json, fuzzy));
     });
     const install = (modelContext = defaultModelContext()) => {
         if (installation !== undefined) {

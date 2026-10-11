@@ -4,6 +4,7 @@ pub mod export;
 mod screens;
 mod theme;
 mod widgets;
+use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use app::App;
 pub use app::{Candidate, GgufPickerData, State};
 use color_eyre::eyre::{Ok, Result};
@@ -30,7 +31,7 @@ pub enum Screen {
     ThemePicker,
 }
 /// Runtime settings inherited from the ACORN command line.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TuiOptions {
     /// Override the local database path.
     pub database_path: Option<PathBuf>,
@@ -40,6 +41,19 @@ pub struct TuiOptions {
     pub no_local_database: bool,
     /// Prevent remote input retrieval.
     pub offline: bool,
+    /// Controlled-vocabulary advisory policy used by interactive checks.
+    pub vocabulary_fuzzy: VocabularyFuzzyMode,
+}
+impl Default for TuiOptions {
+    fn default() -> Self {
+        Self {
+            database_path: None,
+            doctor_fix: false,
+            no_local_database: false,
+            offline: false,
+            vocabulary_fuzzy: VocabularyFuzzyMode::Relaxed,
+        }
+    }
 }
 /// Run the TUI with a given start screen
 pub fn run(initial_screen: Screen) -> Result<()> {

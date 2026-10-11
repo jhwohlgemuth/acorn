@@ -341,6 +341,37 @@ pub(crate) fn project_cache_directory_from(
                 .map_err(|source| FsError::Io { path, source })
         })
 }
+/// Resolve and create a stable namespace beneath an application's platform data directory.
+pub fn project_data_directory(qualifier: &str, organization: &str, application: &str, namespace: &SafePath) -> Result<PathBuf, FsError> {
+    let directories = ProjectDirs::from(qualifier, organization, application);
+    project_data_directory_from(
+        qualifier,
+        organization,
+        application,
+        namespace,
+        directories.as_ref().map(ProjectDirs::data_local_dir),
+    )
+}
+pub(crate) fn project_data_directory_from(
+    qualifier: &str,
+    organization: &str,
+    application: &str,
+    namespace: &SafePath,
+    data_root: Option<&Path>,
+) -> Result<PathBuf, FsError> {
+    data_root
+        .ok_or_else(|| FsError::ProjectDirectoryUnavailable {
+            qualifier: qualifier.to_string(),
+            organization: organization.to_string(),
+            application: application.to_string(),
+        })
+        .and_then(|root| {
+            let path = root.join(namespace.as_path());
+            create_dir_all(&path)
+                .map(|()| path.clone())
+                .map_err(|source| FsError::Io { path, source })
+        })
+}
 /// Read a UTF-8 file completely.
 pub fn read_text(path: impl AsRef<Path>) -> Result<String, FsError> {
     let path = path.as_ref();

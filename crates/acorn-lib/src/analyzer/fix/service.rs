@@ -1,9 +1,9 @@
 use super::{
     async_trait, eyre, format, is_identifier, run_inference, schema_for, stream, validate_options, AnalysisReport, ApiResult, BTreeMap, BTreeSet,
-    CheckReference, CheckReferences, Deserialize, FindingReference, Fingerprint, Fix, FixAction, FixAutomation, FixDiagnostic, FixEffects, FixError,
-    FixOptions, FixProvenance, FixReport, FixRisk, FixStatus, HydratedPrompt, InferenceBackend, InferencePermissionPolicy, InferenceProvenance,
-    InferenceRequest, InferenceResult, JsonSchema, Parse, PromptContext, PromptFileAsset, PromptHydrator, PromptTemplateConfiguration, SafePath,
-    Serialize, StreamExt, String, StringConversion, ToString, Validate, Value, Vec, FIX_ENVELOPE_VERSION, MAX_MESSAGE_BYTES,
+    CheckReference, CheckReferences, Deserialize, FindingReference, Fix, FixAction, FixAutomation, FixDiagnostic, FixEffects, FixError, FixOptions,
+    FixProvenance, FixReport, FixRisk, FixStatus, HydratedPrompt, InferenceBackend, InferencePermissionPolicy, InferenceProvenance, InferenceRequest,
+    InferenceResult, JsonSchema, Parse, PromptContext, PromptFileAsset, PromptHydrator, PromptTemplateConfiguration, SafePath, Serialize, StreamExt,
+    String, StringConversion, ToString, Validate, Value, Vec, FIX_ENVELOPE_VERSION, MAX_MESSAGE_BYTES,
 };
 use acorn_core::Noul;
 pub(super) trait PendingReferences {
@@ -298,24 +298,10 @@ impl PendingReferences for Vec<PendingReference<'_>> {
                 let message = pending.check.message.truncate_utf8(MAX_MESSAGE_BYTES);
                 let id = format!("check-{:04}", index.saturating_add(1));
                 let advisory = pending.check.vocabulary_advisory.clone();
-                let advisory_identity = advisory.as_ref().and_then(|value| serde_json::to_string(value).ok()).unwrap_or_default();
-                let identity = [
-                    pending.standard.as_str(),
-                    &pending.check.category.to_string(),
-                    pending.check.uri.as_deref().unwrap_or_default(),
-                    pending.check.locator.as_deref().unwrap_or_default(),
-                    &pending.check.index.to_string(),
-                    pending.check.rule_id.as_deref().unwrap_or_default(),
-                    message.as_str(),
-                    advisory_identity.as_str(),
-                ]
-                .join("\u{1f}");
-                let excerpt = context.as_deref().unwrap_or(message.as_str());
-                let fingerprint = Fingerprint::from_entries([(identity, excerpt.as_bytes())]).to_string();
-                let reference = CheckReference {
+                let mut reference = CheckReference {
                     category: pending.check.category.to_string(),
                     context,
-                    fingerprint,
+                    fingerprint: String::new(),
                     id,
                     locator: pending.check.locator.clone(),
                     message,
@@ -325,6 +311,7 @@ impl PendingReferences for Vec<PendingReference<'_>> {
                     uri: pending.check.uri.clone(),
                     vocabulary_advisory: advisory,
                 };
+                reference.fingerprint = reference.computed_fingerprint();
                 reference.validate().map_err(|why| eyre!(why)).map(|()| reference)
             })
             .collect::<ApiResult<Vec<_>>>()

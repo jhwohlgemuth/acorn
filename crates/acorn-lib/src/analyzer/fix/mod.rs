@@ -81,6 +81,25 @@ impl CategoryFixes {
     }
 }
 impl CheckReference {
+    fn computed_fingerprint(&self) -> String {
+        let advisory = self
+            .vocabulary_advisory
+            .as_ref()
+            .and_then(|value| serde_json::to_string(value).ok())
+            .unwrap_or_default();
+        let identity = [
+            self.standard.as_str(),
+            self.category.as_str(),
+            self.uri.as_deref().unwrap_or_default(),
+            self.locator.as_deref().unwrap_or_default(),
+            self.rule_id.as_deref().unwrap_or_default(),
+            self.message.as_str(),
+            advisory.as_str(),
+        ]
+        .join("\u{1f}");
+        let excerpt = self.context.as_deref().unwrap_or(self.message.as_str());
+        Fingerprint::from_entries([(identity, excerpt.as_bytes())]).to_string()
+    }
     fn context_bytes(&self) -> usize {
         self.context.as_ref().map_or(0, String::len).saturating_add(self.message.len())
     }
@@ -92,6 +111,9 @@ impl CheckReference {
                 && advisory.source_locator.len() <= MAX_MESSAGE_BYTES
                 && valid_candidates
         })
+    }
+    fn fingerprint_matches(&self) -> bool {
+        self.fingerprint == self.computed_fingerprint()
     }
 }
 impl Validate for CheckReference {

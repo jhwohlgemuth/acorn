@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+
+appdir="${APPDIR:-$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)}"
+
+if [ "$#" -eq 0 ]; then
+    set -- --interactive
+fi
+
+exec "${appdir}/usr/bin/acorn" "$@"

@@ -1,6 +1,7 @@
 use crate::app::App;
 use crate::event::{to_internal_event, Event};
 use crate::Screen;
+use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use crossterm::event;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style};
@@ -8,6 +9,27 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 
+pub fn handle_event(app: &mut App, evt: event::Event) {
+    let event = match evt {
+        | event::Event::Key(key) => to_internal_event(key),
+        | _ => None,
+    };
+    let Some(event) = event else {
+        return;
+    };
+    match event {
+        | Event::Quit => app.should_quit = true,
+        | Event::Back => app.navigate_to(Screen::Dashboard),
+        | Event::Char('f' | 'F') => {
+            app.options.vocabulary_fuzzy = match app.options.vocabulary_fuzzy {
+                | VocabularyFuzzyMode::Off => VocabularyFuzzyMode::Strict,
+                | VocabularyFuzzyMode::Relaxed => VocabularyFuzzyMode::Off,
+                | VocabularyFuzzyMode::Strict => VocabularyFuzzyMode::Relaxed,
+            };
+        }
+        | _ => {}
+    }
+}
 pub fn render(f: &mut Frame, _app: &mut App) {
     let area = f.area();
     let chunks = Layout::default()
@@ -17,6 +39,43 @@ pub fn render(f: &mut Frame, _app: &mut App) {
     render_top_bar(f, chunks[0], _app);
     render_main(f, chunks[1], _app);
     render_controls(f, chunks[2], _app);
+}
+fn render_controls(f: &mut Frame, area: Rect, app: &App) {
+    let controls = Line::from(vec![
+        Span::styled(" [Esc] Back  ", Style::default().fg(app.theme.text_muted)),
+        Span::styled("[F] Fuzzy mode  ", Style::default().fg(app.theme.text_muted)),
+        Span::styled("[Q] Quit", Style::default().fg(app.theme.text_muted)),
+    ]);
+    let paragraph = Paragraph::new(controls)
+        .block(Block::default().borders(Borders::TOP).border_style(Style::default().fg(app.theme.border)))
+        .alignment(Alignment::Center);
+    f.render_widget(paragraph, area);
+}
+fn render_main(f: &mut Frame, area: Rect, app: &App) {
+    let placeholder = vec![
+        Line::from(Span::styled(
+            " Interactive check browser is under construction",
+            Style::default().fg(app.theme.text_muted),
+        )),
+        Line::from(Span::styled(
+            " Use 'acorn check' from the command line to run checks",
+            Style::default().fg(app.theme.text_muted),
+        )),
+        Line::from(Span::styled(
+            format!(" Vocabulary matching: {}", app.options.vocabulary_fuzzy),
+            Style::default().fg(app.theme.text_muted),
+        )),
+    ];
+    let paragraph = Paragraph::new(placeholder)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Check Results ")
+                .title_alignment(Alignment::Center)
+                .border_style(Style::default().fg(app.theme.border)),
+        )
+        .alignment(Alignment::Center);
+    f.render_widget(paragraph, area);
 }
 fn render_top_bar(f: &mut Frame, area: Rect, app: &App) {
     let tabs = vec![
@@ -35,49 +94,17 @@ fn render_top_bar(f: &mut Frame, area: Rect, app: &App) {
         .alignment(Alignment::Center);
     f.render_widget(top, area);
 }
-fn render_main(f: &mut Frame, area: Rect, app: &App) {
-    let placeholder = vec![
-        Line::from(Span::styled(
-            " Interactive check browser is under construction",
-            Style::default().fg(app.theme.text_muted),
-        )),
-        Line::from(Span::styled(
-            " Use 'acorn check' from the command line to run checks",
-            Style::default().fg(app.theme.text_muted),
-        )),
-    ];
-    let paragraph = Paragraph::new(placeholder)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(" Check Results ")
-                .title_alignment(Alignment::Center)
-                .border_style(Style::default().fg(app.theme.border)),
-        )
-        .alignment(Alignment::Center);
-    f.render_widget(paragraph, area);
-}
-fn render_controls(f: &mut Frame, area: Rect, app: &App) {
-    let controls = Line::from(vec![
-        Span::styled(" [Esc] Back  ", Style::default().fg(app.theme.text_muted)),
-        Span::styled("[Q] Quit", Style::default().fg(app.theme.text_muted)),
-    ]);
-    let paragraph = Paragraph::new(controls)
-        .block(Block::default().borders(Borders::TOP).border_style(Style::default().fg(app.theme.border)))
-        .alignment(Alignment::Center);
-    f.render_widget(paragraph, area);
-}
-pub fn handle_event(app: &mut App, evt: event::Event) {
-    let event = match evt {
-        | event::Event::Key(key) => to_internal_event(key),
-        | _ => None,
-    };
-    let Some(event) = event else {
-        return;
-    };
-    match event {
-        | Event::Quit => app.should_quit = true,
-        | Event::Back => app.navigate_to(Screen::Dashboard),
-        | _ => {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    #[test]
+    fn test_check_fuzzy_mode_defaults_to_relaxed_and_cycles() {
+        let mut app = App::new(Screen::Check);
+        assert_eq!(app.options.vocabulary_fuzzy, VocabularyFuzzyMode::Relaxed);
+        handle_event(&mut app, event::Event::Key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE)));
+        assert_eq!(app.options.vocabulary_fuzzy, VocabularyFuzzyMode::Off);
     }
 }

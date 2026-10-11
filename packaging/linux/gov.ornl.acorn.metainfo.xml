@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>gov.ornl.acorn</id>
+  <name>ACORN</name>
+  <summary>Maintain and validate research activity data</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>ACORN validates, formats, analyzes, and exports research activity data from a command-line or terminal interface.</p>
+  </description>
+  <content_rating type="oars-1.1" />
+  <developer id="gov.ornl">
+    <name>Oak Ridge National Laboratory</name>
+  </developer>
+  <launchable type="desktop-id">gov.ornl.acorn.desktop</launchable>
+  <provides>
+    <binary>acorn</binary>
+  </provides>
+  <url type="homepage">https://acorn.ornl.gov</url>
+</component>

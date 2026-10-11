@@ -1215,14 +1215,6 @@ where
             .collect::<Vec<_>>()
     }
 }
-impl StringExt for Vec<&str> {
-    fn is_numeric(&self) -> bool {
-        self.iter().any(|value| value.is_numeric())
-    }
-    fn trim_and_compact(self) -> Self {
-        self.into_iter().map(str::trim).filter(|value| !value.is_empty()).collect()
-    }
-}
 impl<P: AsRef<str>> MarkdownSupport for Vec<P> {
     fn to_markdown(&self) -> String {
         if self.is_empty() {
@@ -1233,6 +1225,14 @@ impl<P: AsRef<str>> MarkdownSupport for Vec<P> {
                 .collect::<Vec<String>>()
                 .join("")
         }
+    }
+}
+impl StringExt for Vec<&str> {
+    fn is_numeric(&self) -> bool {
+        self.iter().any(|value| value.is_numeric())
+    }
+    fn trim_and_compact(self) -> Self {
+        self.into_iter().map(str::trim).filter(|value| !value.is_empty()).collect()
     }
 }
 impl StringExt for Vec<String> {
@@ -1698,6 +1698,21 @@ pub fn regex_to_glob(pattern: impl AsRef<str>) -> Option<String> {
     } else {
         None
     }
+}
+/// Remove duplicate values while retaining their first-occurrence order.
+pub fn stable_deduplicate<T>(values: impl IntoIterator<Item = T>) -> Vec<T>
+where
+    T: Clone + Ord,
+{
+    values
+        .into_iter()
+        .fold((BTreeSet::new(), Vec::new()), |(mut seen, mut unique), value| {
+            if seen.insert(value.clone()) {
+                unique.push(value);
+            }
+            (seen, unique)
+        })
+        .1
 }
 /// Returns "s" if the given value is not 1, otherwise returns an empty string.
 /// ### Example

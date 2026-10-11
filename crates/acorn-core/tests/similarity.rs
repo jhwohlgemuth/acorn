@@ -6,7 +6,7 @@
     clippy::unwrap_used,
     missing_docs
 )]
-use acorn_core::similarity::*;
+use acorn_core::{similarity::*, Noul, OneOrMany, ThisOrThat};
 use proptest::prelude::*;
 use serde::Deserialize;
 
@@ -65,6 +65,9 @@ fn fixtures() -> Fixture {
 fn options(method: SimilarityMethod) -> ComparisonOptions {
     ComparisonOptions::init().method(method).build()
 }
+fn tokens(values: &[&str]) -> OneOrMany<String> {
+    values.iter().map(ToString::to_string).collect()
+}
 
 proptest! {
     #[test]
@@ -107,6 +110,44 @@ proptest! {
 }
 
 #[test]
+fn test_alignment_empty_restart_affine_convention_and_validation() {
+    let limits = SimilarityLimits::default();
+    let linear = AlignmentScoring {
+        gap: -1,
+        matched: 2,
+        mismatched: -2,
+    };
+    let affine = AffineGapScoring {
+        gap_extend: -1,
+        gap_open: -2,
+        matched: 2,
+        mismatched: -2,
+    };
+    assert_eq!(needleman_wunsch_score(ThisOrThat::new("", "AC"), linear, limits), Ok(-2));
+    assert_eq!(smith_waterman_score(ThisOrThat::new("A", "T"), linear, limits), Ok(0));
+    assert_eq!(smith_waterman_gotoh_score(ThisOrThat::new("ABXCD", "ABCD"), affine, limits), Ok(6));
+    assert!(smith_waterman_score(ThisOrThat::new("A", "A"), AlignmentScoring { matched: 0, ..linear }, limits).is_err());
+}
+#[test]
+fn test_alignment_scores_and_limits() {
+    let limits = SimilarityLimits::default();
+    let linear = AlignmentScoring {
+        gap: -1,
+        matched: 2,
+        mismatched: -1,
+    };
+    let affine = AffineGapScoring {
+        gap_extend: -1,
+        gap_open: -2,
+        matched: 2,
+        mismatched: -1,
+    };
+    assert_eq!(needleman_wunsch_score(ThisOrThat::new("AC", "AC"), linear, limits), Ok(4));
+    assert_eq!(smith_waterman_score(ThisOrThat::new("TTAC", "AC"), linear, limits), Ok(4));
+    assert_eq!(smith_waterman_gotoh_score(ThisOrThat::new("TTAC", "AC"), affine, limits), Ok(4));
+    assert!(needleman_wunsch_score(ThisOrThat::new("abc", "abc"), linear, SimilarityLimits::new(8, 4, 8).unwrap()).is_err());
+}
+#[test]
 fn test_binary_and_truncated_text_methods() {
     [
         (SimilarityMethod::Exact, "same", "same", None),
@@ -120,6 +161,27 @@ fn test_binary_and_truncated_text_methods() {
         let result = compare(left, right, ComparisonOptions::init().method(method).maybe_length(length).build()).expect("compare text values");
         assert_eq!(result.score, SimilarityScore::ONE);
     });
+}
+#[test]
+fn test_calendar_date_and_age_policies_are_explicit() {
+    let first = "2024-01-03".parse::<CalendarDate>().expect("valid date");
+    let second = "2024-03-01".parse::<CalendarDate>().expect("valid date");
+    let swapped = day_distance_similarity(
+        first,
+        second,
+        DateSimilarityOptions {
+            cutoff_days: 10,
+            swapped_day_month: true,
+        },
+    )
+    .expect("swapped date score");
+    assert_eq!(swapped, SimilarityScore::ONE);
+    let reference = "2025-01-01".parse::<CalendarDate>().expect("valid reference");
+    assert_eq!(age_percentage_similarity(first, first, reference, 10.0), Ok(SimilarityScore::ONE));
+    assert!(age_percentage_similarity(reference, reference, first, 10.0).is_err());
+    assert!("2023-02-29".parse::<CalendarDate>().is_err());
+    assert!("2024-02-29".parse::<CalendarDate>().is_ok());
+    assert!("2024-02-31".parse::<CalendarDate>().is_err());
 }
 #[test]
 fn test_case_fold_exact_comparison() {
@@ -138,6 +200,63 @@ fn test_case_fold_exact_comparison() {
     let result = compare("Straße", "STRASSE", case_fold).expect("compare case-folded values");
     assert_eq!(result.score, SimilarityScore::ONE);
     assert_eq!(result.preprocessing, Some(SimilarityPreprocessing::CaseFold));
+}
+#[test]
+fn test_comparison_exposes_later_bounded_methods() {
+    let cosine = compare("1,0", "1,1", options(SimilarityMethod::Cosine)).expect("compare vectors");
+    assert_close(cosine.score.value(), 1.0 / 2.0_f64.sqrt());
+    [SimilarityMethod::ColognePhonetic, SimilarityMethod::Metaphone, SimilarityMethod::Soundex]
+        .into_iter()
+        .for_each(|method| assert_eq!(compare("Smith", "Smyth", options(method)).unwrap().score, SimilarityScore::ONE));
+    [SimilarityMethod::ExtendedJaccard, SimilarityMethod::SoftTfidf]
+        .into_iter()
+        .for_each(|method| {
+            let result = compare(
+                "research data",
+                "research datum",
+                ComparisonOptions::init().method(method).threshold(Noul::new(0.7).unwrap()).build(),
+            )
+            .expect("compare thresholded tokens");
+            assert!(result.score > SimilarityScore::ZERO);
+            assert_eq!(result.parameters.threshold, Some(SimilarityScore::new(0.7).unwrap()));
+        });
+    assert!(compare("research data", "research", options(SimilarityMethod::MongeElkan)).is_ok());
+    assert_eq!(
+        compare("research data", "research data", options(SimilarityMethod::TfidfCosine))
+            .unwrap()
+            .score,
+        SimilarityScore::ONE
+    );
+    assert!(compare("kitten", "sitting", options(SimilarityMethod::WeightedLevenshtein)).is_ok());
+}
+#[test]
+fn test_corpus_and_cosine_scores_are_reproducible() {
+    let limits = SimilarityLimits::default();
+    let left_vector = OneOrMany::Many(vec![1.0, 0.0]);
+    let right_vector = OneOrMany::Many(vec![1.0, 1.0]);
+    assert_close(
+        cosine_similarity(ThisOrThat::new(&left_vector, &right_vector), limits)
+            .expect("cosine score")
+            .value(),
+        1.0 / 2.0_f64.sqrt(),
+    );
+    let zero = OneOrMany::One(0.0);
+    assert!(cosine_similarity(ThisOrThat::new(&zero, &zero), limits).is_err());
+    let invalid = OneOrMany::Many(vec![-1.0, 0.0]);
+    assert_eq!(
+        cosine_similarity(ThisOrThat::new(&invalid, &left_vector), limits),
+        Err(SimilarityError::InvalidVectorComponent)
+    );
+    let documents = vec![tokens(&["research", "data"]), tokens(&["research", "software"])];
+    let corpus = TfidfCorpus::new(&documents, limits).expect("explicit corpus");
+    assert_eq!(corpus.document_count(), 2);
+    assert_eq!(corpus.similarity(ThisOrThat::new(&documents[0], &documents[0])), Ok(SimilarityScore::ONE));
+    let outside = ThisOrThat::new(tokens(&["outside-left"]), tokens(&["outside-right"]));
+    assert_eq!(corpus.similarity(outside.as_ref()), Ok(SimilarityScore::ZERO));
+    assert_eq!(corpus.identity(), TfidfCorpus::new(&documents, limits).unwrap().identity());
+    let common = TfidfCorpus::new(&[tokens(&["common"]), tokens(&["common"])], limits).expect("smoothed common-term corpus");
+    let common_values = ThisOrThat::new(tokens(&["common"]), tokens(&["common"]));
+    assert_eq!(common.similarity(common_values.as_ref()), Ok(SimilarityScore::ONE));
 }
 #[test]
 fn test_display_values_are_stable() {
@@ -211,6 +330,25 @@ fn test_exact_prefix_and_suffix_comparisons() {
     assert_eq!(suffix_similarity("research", "search", 6, limits), Ok(SimilarityScore::ONE));
     assert!(prefix_similarity("a", "a", 0, limits).is_err());
     assert!(suffix_similarity("a", "a", 2, limits).is_err());
+}
+#[test]
+fn test_extended_jaccard_rejects_fuzzy_token_collisions() {
+    let limits = SimilarityLimits::default();
+    let threshold = SimilarityScore::new(0.7).expect("valid threshold");
+    let score = |left: &str, right: &str| jaro_winkler_similarity(left, right, limits);
+    let unique = ThisOrThat::new(tokens(&["research", "data"]), tokens(&["research", "datum"]));
+    assert_eq!(
+        extended_jaccard_similarity(unique.as_ref(), threshold, score, limits)
+            .expect("unique fuzzy matches")
+            .value(),
+        (1.0 + jaro_winkler_similarity("data", "datum", limits).unwrap().value())
+            / (4.0 - 1.0 - jaro_winkler_similarity("data", "datum", limits).unwrap().value())
+    );
+    let collision = ThisOrThat::new(tokens(&["alpha", "alfa"]), tokens(&["alpha"]));
+    assert_eq!(
+        extended_jaccard_similarity(collision.as_ref(), threshold, score, limits),
+        Err(SimilarityError::FuzzyTokenCollision)
+    );
 }
 #[test]
 fn test_fixture_edit_cases() {
@@ -295,6 +433,29 @@ fn test_fixture_set_cases() {
             fixture.dice,
         );
     }
+}
+#[test]
+fn test_hybrid_token_methods_preserve_direction_and_bounds() {
+    let limits = SimilarityLimits::default();
+    let left = tokens(&["research", "data"]);
+    let right = tokens(&["research"]);
+    let scorer = |left: &str, right: &str| exact_similarity(left, right, limits);
+    assert_eq!(
+        monge_elkan_similarity(ThisOrThat::new(&left, &right), scorer, limits).unwrap().value(),
+        0.5
+    );
+    assert_eq!(
+        monge_elkan_similarity(ThisOrThat::new(&right, &left), scorer, limits),
+        Ok(SimilarityScore::ONE)
+    );
+    assert_eq!(
+        symmetric_monge_elkan_similarity(ThisOrThat::new(&left, &right), scorer, limits)
+            .unwrap()
+            .value(),
+        0.75
+    );
+    let corpus = TfidfCorpus::new(&[left.clone(), right.clone()], limits).expect("explicit corpus");
+    assert!(soft_tfidf_similarity(&corpus, ThisOrThat::new(&left, &right), SimilarityScore::ONE, scorer).is_ok());
 }
 #[test]
 fn test_limits_reject_work_before_processing() {
@@ -402,6 +563,24 @@ fn test_numeric_validation_rejects_invalid_values() {
     assert_eq!(percentage_difference(-1.0, 1.0), Ok(200.0));
 }
 #[test]
+fn test_phonetic_encodings_have_distinct_language_contracts() {
+    let limits = SimilarityLimits::default();
+    let owned = String::from("Smith");
+    assert_eq!(soundex("Robert", limits).as_deref(), Ok("R163"));
+    assert_eq!(soundex("Rupert", limits).as_deref(), Ok("R163"));
+    assert_eq!(soundex("Ashcraft", limits).as_deref(), Ok("A261"));
+    assert_eq!(soundex("Pfister", limits).as_deref(), Ok("P236"));
+    assert_eq!(soundex("Tymczak", limits).as_deref(), Ok("T522"));
+    assert_eq!(cologne_phonetic("Müller-Lüdenscheidt", limits).as_deref(), Ok("65752682"));
+    assert_eq!(cologne_phonetic("Breschnew", limits).as_deref(), Ok("17863"));
+    assert_eq!(metaphone("Smith", limits).as_deref(), Ok("SM0"));
+    assert_eq!(metaphone("phone", limits).as_deref(), Ok("FN"));
+    assert_eq!(owned.metaphone(limits).as_deref(), Ok("SM0"));
+    assert_eq!("Smith".to_ascii(), vec!['S', 'M', 'I', 'T', 'H']);
+    assert_eq!("Smith".cologne_code('X', None, None, true), "48");
+    assert!("Smith".is_vowel(Some('A')));
+}
+#[test]
 fn test_prefix_requires_length() {
     assert!(matches!(
         compare("acorn", "acoustic", options(SimilarityMethod::Prefix)),
@@ -463,6 +642,38 @@ fn test_set_comparison_uses_deduplicated_words() {
         assert_eq!(result.score.value(), expected);
         assert_eq!(result.parameters.tokenization, Some(SimilarityTokenization::Words));
     });
+}
+#[test]
+fn test_soft_tfidf_normalization_is_l2_bounded() {
+    let limits = SimilarityLimits::default();
+    let left = tokens(&["alpha"]);
+    let right = tokens(&["alfa"]);
+    let corpus = TfidfCorpus::new(&[left.clone(), right.clone()], limits).expect("explicit corpus");
+    let threshold = SimilarityScore::new(0.7).expect("valid threshold");
+    let scorer = |left: &str, right: &str| jaro_winkler_similarity(left, right, limits);
+    assert_eq!(
+        soft_tfidf_similarity(&corpus, ThisOrThat::new(&left, &right), threshold, scorer),
+        jaro_winkler_similarity("alpha", "alfa", limits)
+    );
+    assert_eq!(
+        soft_tfidf_similarity(&corpus, ThisOrThat::new(&left, &left), SimilarityScore::ONE, scorer),
+        Ok(SimilarityScore::ONE)
+    );
+}
+#[test]
+fn test_weighted_edit_costs_are_configurable() {
+    let costs = EditCosts {
+        deletion: 1,
+        insertion: 1,
+        substitution: 2,
+    };
+    let limits = SimilarityLimits::default();
+    assert_eq!(weighted_levenshtein_distance(ThisOrThat::new("kitten", "sitting"), costs, limits), Ok(5));
+    assert_eq!(
+        weighted_levenshtein_similarity(ThisOrThat::new("same", "same"), costs, limits),
+        Ok(SimilarityScore::ONE)
+    );
+    assert!(weighted_levenshtein_distance(ThisOrThat::new("a", "b"), EditCosts { substitution: 0, ..costs }, limits).is_err());
 }
 #[test]
 fn test_word_preprocessing_preserves_sequence_and_duplicates() {

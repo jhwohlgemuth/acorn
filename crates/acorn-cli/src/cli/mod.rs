@@ -546,6 +546,9 @@ pub struct Arguments {
     /// Clear database cache data and downloaded Chromium artifacts
     #[arg(long = "clear-cache", value_name = "BOOL", help_heading = "FLAGS")]
     pub clear_cache: bool,
+    /// Clear ACORN-managed application audit logs
+    #[arg(long = "clear-logs", value_name = "BOOL", help_heading = "FLAGS")]
+    pub clear_logs: bool,
     /// Clear all data from database (all tables)
     #[arg(long = "reset-database", value_name = "BOOL", help_heading = "FLAGS")]
     pub reset_database: bool,

@@ -64,9 +64,9 @@ else
 	@$(CLEAN_BIN_CMD)
 	@mkdir -p ./bin
 	@$(MUSL_BUILD) --release --package acorn-cli --target $(DEFAULT_TARGET)
-	@mv $(ARTIFACT_TARGET_DIR)/$(DEFAULT_TARGET)/release/acorn ./bin/acorn-v$(VERSION)
+	@cp $(ARTIFACT_TARGET_DIR)/$(DEFAULT_TARGET)/release/acorn ./bin/acorn-v$(VERSION)
 	@cargo build --release --package acorn-cli --target $(DEFAULT_WINDOWS_TARGET)
-	@mv $(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe ./bin/acorn-v$(VERSION).exe
+	@cp $(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe ./bin/acorn-v$(VERSION).exe
 endif
 
 build-in-image: clean ## Build the project in a Docker image environment.
@@ -78,6 +78,12 @@ mcpb: ## Build the MCP bundle artifacts for release packaging.
 	@./bin/acorn-v$(VERSION) create mcp --binary ./bin/acorn-v$(VERSION).exe --platform win32 --output ./bin/acorn-v$(VERSION)-x86_64-pc-windows-gnu.mcpb --clobber
 	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION)-x86_64-unknown-linux-musl.mcpb)
 	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION)-x86_64-pc-windows-gnu.mcpb)
+
+linux-packages: ## Build x86_64 and ARM64 AppImage and Debian release packages.
+	@$(MUSL_BUILD) --release --package acorn-cli --target $(DEFAULT_TARGET)
+	@$(MUSL_BUILD) --release --package acorn-cli --target $(DEFAULT_ARM64_TARGET)
+	@./scripts/package-linux.sh $(VERSION) $(DEFAULT_TARGET) amd64 x86_64
+	@./scripts/package-linux.sh $(VERSION) $(DEFAULT_ARM64_TARGET) arm64 aarch64
 
 release-checksums: ## Generate SHA256 checksums for release artifacts.
 	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION))
@@ -421,6 +427,7 @@ RUST_IMAGE_GHCR_VERSION = $(RUST_IMAGE_GHCR):rust-$(VERSION)
 DOCKER_HUB_REGISTRY = mirror.gcr.io/library
 ORNL_HUB_PROXY = regproxy.ornl.gov/hub_proxy
 REGISTRY = savannah.ornl.gov/research-enablement
+DEFAULT_ARM64_TARGET = aarch64-unknown-linux-musl
 DEFAULT_TARGET = `awk -F ' = ' '$$1 ~ /default-target/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml | tr . _`
 DEFAULT_WINDOWS_TARGET = x86_64-pc-windows-gnu
 MUSL_BUILD ?= cargo build
@@ -428,6 +435,7 @@ ARTIFACT_TARGET_DIR = $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),target)
 DEV_DEPENDENCIES = \
 	cargo-audit \
 	cargo-auditable \
+	cargo-deb@3.8.0 \
 	cargo-deny \
 	cargo-fuzz \
 	cargo-insta \
@@ -464,6 +472,7 @@ TASKS = \
 	book \
 	build \
 	build-wasm \
+	linux-packages \
 	mcpb \
 	release-checksums \
 	changelog \

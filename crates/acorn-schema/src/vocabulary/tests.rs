@@ -560,3 +560,16 @@ fn test_technology_before_after_pairs_are_retained() {
     assert_pair(VocabularyKind::Technology, "foobarbaz", None);
     assert_pair(VocabularyKind::Technology, "", None);
 }
+#[test]
+fn test_vocabulary_kind_parses_wire_names() {
+    [
+        ("keywords", VocabularyKind::Keywords),
+        ("organizations", VocabularyKind::Organizations),
+        ("partners", VocabularyKind::Partners),
+        ("sponsors", VocabularyKind::Sponsors),
+        ("technology", VocabularyKind::Technology),
+    ]
+    .into_iter()
+    .for_each(|(value, expected)| assert_eq!(VocabularyKind::try_from(value), Ok(expected)));
+    assert!(VocabularyKind::try_from("unknown").is_err());
+}

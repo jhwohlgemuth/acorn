@@ -87,6 +87,28 @@ fn test_diff_similarity_json_reports_distance_and_score() {
     assert_eq!(result["parameters"]["limits"]["maxInputScalars"], 4096);
 }
 #[test]
+fn test_diff_similarity_later_methods_report_reproducible_parameters() {
+    let output = acorn_diff()
+        .args([
+            "research data",
+            "research datum",
+            "--method",
+            "soft-tfidf",
+            "--threshold",
+            "0.7",
+            "--values",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("Soft TF-IDF output");
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let result: Value = serde_json::from_slice(&output.stdout).expect("JSON similarity output");
+    assert_eq!(result["method"], "soft-tfidf");
+    assert_eq!(result["parameters"]["threshold"], 0.7);
+    assert!(result["parameters"]["corpusIdentity"].as_str().is_some());
+}
+#[test]
 fn test_diff_similarity_limit_failure_is_an_error() {
     let output = acorn_diff()
         .args(["acorn", "acorn", "--method", "exact", "--values", "--max-input-scalars", "4"])
@@ -120,6 +142,26 @@ fn test_diff_similarity_numeric_files_trim_outer_whitespace() {
     let result: Value = serde_json::from_slice(&output.stdout).expect("JSON similarity output");
     assert_eq!(result["distance"]["value"], 2.0);
     assert_eq!(result["score"], 0.5);
+}
+#[test]
+fn test_diff_similarity_threshold_is_required_for_fuzzy_token_methods() {
+    let output = acorn_diff()
+        .args(["research", "research", "--method", "extended-jaccard", "--values"])
+        .output()
+        .expect("similarity failure output");
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("requires --threshold"));
+}
+#[test]
+fn test_diff_similarity_threshold_outside_unit_interval_is_an_error() {
+    ["1.1", "NaN"].into_iter().for_each(|threshold| {
+        let output = acorn_diff()
+            .args(["research", "research", "--method", "soft-tfidf", "--threshold", threshold, "--values"])
+            .output()
+            .expect("similarity failure output");
+        assert!(!output.status.success());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("invalid value"));
+    });
 }
 #[test]
 fn test_diff_similarity_unicode_preprocessing() {

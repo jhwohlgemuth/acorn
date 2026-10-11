@@ -1,4 +1,4 @@
-use crate::fs::{file_checksum, file_uri_to_path, project_cache_directory_from, FsError, SafePath, TempDir};
+use crate::fs::{file_checksum, file_uri_to_path, project_cache_directory_from, project_data_directory_from, FsError, SafePath, TempDir};
 use acorn_core::util::ChecksumAlgorithm;
 use ring::digest::{Algorithm, SHA1_FOR_LEGACY_USE_ONLY, SHA256, SHA384, SHA512};
 use std::{
@@ -62,6 +62,14 @@ fn test_project_cache_directory_reports_unavailable_root() {
         Err(FsError::ProjectDirectoryUnavailable { qualifier, organization, application })
             if qualifier == "org" && organization == "example" && application == "xylem"
     ));
+}
+#[test]
+fn test_project_data_directory_creates_namespace() {
+    let directory = tempfile::tempdir().expect("data root");
+    let namespace = SafePath::new("logs/vocabulary").expect("safe namespace");
+    let path = project_data_directory_from("org", "example", "xylem", &namespace, Some(directory.path())).expect("project data namespace");
+    assert!(path.is_dir());
+    assert!(path.ends_with("logs/vocabulary"));
 }
 #[test]
 fn test_safe_path_rejects_empty_traversal_and_absolute_paths() {

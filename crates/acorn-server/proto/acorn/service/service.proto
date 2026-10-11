@@ -41,6 +41,13 @@ enum Severity {
   SEVERITY_WARNING = 4;
 }
 
+enum VocabularyFuzzyMode {
+  VOCABULARY_FUZZY_MODE_UNSPECIFIED = 0;
+  VOCABULARY_FUZZY_MODE_OFF = 1;
+  VOCABULARY_FUZZY_MODE_RELAXED = 2;
+  VOCABULARY_FUZZY_MODE_STRICT = 3;
+}
+
 enum RepositoryAction {
   REPOSITORY_ACTION_UNSPECIFIED = 0;
   REPOSITORY_ACTION_CHECK = 1;
@@ -67,11 +74,13 @@ message ValidateResearchActivityRequest {
   string content = 1;
   DataFormat format = 2;
   optional string source_uri = 3;
+  VocabularyFuzzyMode vocabulary_fuzzy = 4;
 }
 
 message ValidateResearchActivityResponse {
   repeated Diagnostic diagnostics = 1;
   bool valid = 2;
+  optional VocabularyFuzzyMode vocabulary_fuzzy = 3;
 }
 
 message CheckReadabilityRequest {

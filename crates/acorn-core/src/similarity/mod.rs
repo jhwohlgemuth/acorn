@@ -1,7 +1,7 @@
 //! Bounded, portable similarity measures for text, numbers, and token sets.
 //!
 //! Similarity functions return a [`SimilarityScore`] between zero (no similarity) and one (identity under that measure).
-//! Distance functions return their natural, unnormalized units.
+//! Distance functions and sequence-alignment functions return their natural, unnormalized units.
 //! Callers select preprocessing explicitly, so the module never normalizes Unicode, folds case, or discards punctuation implicitly.
 //!
 //! [`SimilarityLimits`] bounds input sizes, generated collections, and nested comparison work before expensive processing occurs.
@@ -38,24 +38,34 @@
 //! assert_eq!(comparison.score, SimilarityScore::new(4.0 / 7.0)?);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
-use crate::Noul;
+use crate::{prelude::String, Noul};
 use core::fmt;
 use serde::Serialize;
 
+pub use alignment::{needleman_wunsch_score, smith_waterman_gotoh_score, smith_waterman_score, AffineGapScoring, AlignmentScoring};
 pub use comparison::compare;
+pub use corpus::{
+    cosine_similarity, extended_jaccard_similarity, monge_elkan_similarity, soft_tfidf_similarity, symmetric_monge_elkan_similarity, TfidfCorpus,
+};
 pub use edit::{
     damerau_levenshtein_distance, damerau_levenshtein_similarity, exact_similarity, hamming_distance, hamming_similarity, jaro_similarity,
     jaro_winkler_similarity, levenshtein_distance, levenshtein_similarity, optimal_string_alignment_distance, optimal_string_alignment_similarity,
-    prefix_similarity, suffix_similarity,
+    prefix_similarity, suffix_similarity, weighted_levenshtein_distance, weighted_levenshtein_similarity, EditCosts,
 };
 pub use error::SimilarityError;
 pub use numeric::{absolute_difference_similarity, percentage_difference, percentage_difference_similarity};
+pub use phonetic::{cologne_phonetic, metaphone, soundex, NaturalLanguage};
+pub use temporal::{age_percentage_similarity, day_distance_similarity, CalendarDate, DateSimilarityOptions};
 pub use token::{character_ngrams, jaccard_similarity, overlap_coefficient, preprocess_text, sorensen_dice_similarity, word_tokens, NgramOptions};
 
+mod alignment;
 mod comparison;
+mod corpus;
 mod edit;
 mod error;
 mod numeric;
+mod phonetic;
+mod temporal;
 mod token;
 
 const DEFAULT_MAX_COLLECTION_ITEMS: usize = 4_096;
@@ -63,6 +73,9 @@ const DEFAULT_MAX_INPUT_SCALARS: usize = 4_096;
 const DEFAULT_MAX_WORK_UNITS: usize = 4_000_000;
 /// Result returned by portable similarity operations.
 pub type SimilarityResult<T> = core::result::Result<T, SimilarityError>;
+trait Validate: Sized {
+    fn validate(self) -> SimilarityResult<Self>;
+}
 /// Failure to configure or calculate a pairwise similarity comparison.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ComparisonError {
@@ -73,17 +86,17 @@ pub enum ComparisonError {
         /// Unsupported option name.
         option: &'static str,
     },
+    /// A numeric operand could not be parsed.
+    InvalidNumber {
+        /// Operand that failed to parse.
+        operand: &'static str,
+    },
     /// A required method option was omitted.
     MissingOption {
         /// Selected method.
         method: SimilarityMethod,
         /// Required option name.
         option: &'static str,
-    },
-    /// A numeric operand could not be parsed.
-    InvalidNumber {
-        /// Operand that failed to parse.
-        operand: &'static str,
     },
     /// A portable similarity primitive rejected the request.
     Similarity(SimilarityError),
@@ -110,6 +123,16 @@ pub enum SimilarityMethod {
     ///
     /// This cutoff mapping is ACORN-defined; [`absolute_difference_similarity`] is its canonical specification.
     AbsoluteDifference,
+    /// Compares German-language Cologne phonetic encodings for equality:
+    /// $S(x,y)=\mathbf{1}[C(x)=C(y)]$.
+    ///
+    /// Reference: Hans Joachim Postel, “Die Kölner Phonetik,” 1969.
+    ColognePhonetic,
+    /// Compares equal-length finite, non-negative vectors by dot product divided by their L2 norms:
+    /// $S(\mathbf{x},\mathbf{y})=(\mathbf{x}\cdot\mathbf{y})/(\lVert\mathbf{x}\rVert_2\lVert\mathbf{y}\rVert_2)$.
+    ///
+    /// Zero-norm vectors have an undefined score.
+    Cosine,
     /// Uses the minimum number of unit-cost insertions, deletions, substitutions, and adjacent
     /// transpositions, with transposed substrings allowed to participate in later edits:
     /// $S(x,y)=1-d_{DL}(x,y)/\max(|x|,|y|)$.
@@ -121,6 +144,11 @@ pub enum SimilarityMethod {
     ///
     /// Reference: [Unicode scalar values](https://www.unicode.org/versions/latest/core-spec/chapter-3/).
     Exact,
+    /// Uses thresholded unique best token matches $M_\tau$ in a fuzzy Jaccard ratio:
+    /// $I_\tau=\sum_{(a,b)\in M_\tau}s(a,b)$ and $S(A,B)=I_\tau/(|A|+|B|-I_\tau)$.
+    ///
+    /// Tied or reused best candidates are reported as collisions rather than silently assigned.
+    ExtendedJaccard,
     /// Counts unequal positions in equal-length Unicode scalar sequences:
     /// $d_H(x,y)=\sum_i\mathbf{1}[x_i\ne y_i]$ and $S(x,y)=1-d_H(x,y)/|x|$.
     ///
@@ -146,6 +174,16 @@ pub enum SimilarityMethod {
     ///
     /// Reference: [Levenshtein, 1966](https://www.mathnet.ru/eng/dan31411).
     Levenshtein,
+    /// Compares English-language original Metaphone encodings for equality:
+    /// $S(x,y)=\mathbf{1}[M(x)=M(y)]$.
+    ///
+    /// Reference: Lawrence Philips, “Hanging on the Metaphone,” 1990.
+    Metaphone,
+    /// Averages each left token's best right-token Jaro-Winkler score:
+    /// $S_{ME}(A,B)=|A|^{-1}\sum_{a\in A}\max_{b\in B}s_{JW}(a,b)$.
+    ///
+    /// The result is directional; use [`symmetric_monge_elkan_similarity`] for a symmetric mean.
+    MongeElkan,
     /// Adds adjacent transpositions to Levenshtein edits while allowing each substring to be edited
     /// at most once: $S(x,y)=1-d_{OSA}(x,y)/\max(|x|,|y|)$.
     ///
@@ -168,17 +206,31 @@ pub enum SimilarityMethod {
     /// This truncation rule is ACORN-defined; scalar indexing follows the
     /// [Unicode Standard](https://www.unicode.org/versions/latest/core-spec/chapter-3/).
     Prefix,
+    /// Uses explicit two-document TF-IDF weights and thresholded Jaro-Winkler token matches:
+    /// $S(A,B)=\sum_{(a,b)\in M_\tau}w_A(a)w_B(b)s_{JW}(a,b)$.
+    SoftTfidf,
     /// Compares deduplicated token sets using twice the intersection over total cardinality:
     /// $S(A,B)=2|A\cap B|/(|A|+|B|)$.
     ///
     /// Reference: [Dice, 1945](https://doi.org/10.2307/1932409).
     SorensenDice,
+    /// Compares English-language American Soundex encodings for equality:
+    /// $S(x,y)=\mathbf{1}[X(x)=X(y)]$.
+    ///
+    /// The variant retains the first letter and three census-style consonant codes.
+    Soundex,
     /// Returns one when the last $k$ Unicode scalars match exactly:
     /// $S_k(x,y)=\mathbf{1}[x_{|x|-k..}=y_{|y|-k..}]$.
     ///
     /// This truncation rule is ACORN-defined; scalar indexing follows the
     /// [Unicode Standard](https://www.unicode.org/versions/latest/core-spec/chapter-3/).
     Suffix,
+    /// Compares explicit two-document TF-IDF vectors with cosine similarity:
+    /// $S(A,B)=(\mathbf{w}_A\cdot\mathbf{w}_B)/(\lVert\mathbf{w}_A\rVert_2\lVert\mathbf{w}_B\rVert_2)$.
+    TfidfCosine,
+    /// Uses configurable positive insertion, deletion, and substitution costs:
+    /// $S(x,y)=1-d_w(x,y)/(d|x|+i|y|)$, where $d$ and $i$ are deletion and insertion costs.
+    WeightedLevenshtein,
 }
 /// Explicit text preprocessing applied before comparison.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, strum::Display)]
@@ -250,6 +302,9 @@ pub struct Comparison {
 pub struct ComparisonOptions {
     /// Positive numeric difference cutoff.
     pub cutoff: Option<f64>,
+    /// Weighted edit costs.
+    #[builder(default)]
+    pub edit_costs: EditCosts,
     /// Positive prefix or suffix scalar count.
     pub length: Option<usize>,
     /// Resource limits for textual work.
@@ -260,6 +315,8 @@ pub struct ComparisonOptions {
     /// Text preprocessing applied before textual comparison.
     #[builder(default)]
     pub preprocessing: SimilarityPreprocessing,
+    /// Bounded token-match threshold.
+    pub threshold: Option<Noul>,
     /// Token preparation for set methods.
     #[builder(default)]
     pub tokenization: SimilarityTokenization,
@@ -283,12 +340,18 @@ pub struct SimilarityLimits {
     max_work_units: usize,
 }
 /// Relevant effective parameters used for a comparison.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SimilarityParameters {
+    /// Identity of an explicit corpus snapshot and weighting formula.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub corpus_identity: Option<String>,
     /// Positive numeric difference cutoff.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cutoff: Option<f64>,
+    /// Weighted edit costs.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub edit_costs: Option<EditCosts>,
     /// Positive prefix or suffix scalar count.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub length: Option<usize>,
@@ -298,6 +361,9 @@ pub struct SimilarityParameters {
     /// Token preparation used for set methods.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tokenization: Option<SimilarityTokenization>,
+    /// Bounded token-match threshold.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub threshold: Option<SimilarityScore>,
 }
 /// Finite similarity score bounded to the inclusive range from zero to one.
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd, Serialize)]

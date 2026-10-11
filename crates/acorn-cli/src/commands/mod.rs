@@ -14,6 +14,7 @@ use acorn_core::options::CommonRuntime;
 use acorn_host::terminal::Label;
 use acorn_schema::discovery::RemoteOrganizationRole;
 use acorn_schema::standard::Standard;
+use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use clap_verbosity_flag::VerbosityFilter;
 use color_eyre::{eyre, eyre::eyre};
 use core::future::Future;
@@ -652,6 +653,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                             doctor_fix: false,
                             no_local_database: config.no_local_database,
                             offline,
+                            vocabulary_fuzzy: VocabularyFuzzyMode::Relaxed,
                         },
                     )
                     .map(|_| ())

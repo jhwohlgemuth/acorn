@@ -92,6 +92,8 @@ test("argument validation enforces exact fields and UTF-8 byte limits", async ()
     assert.equal((await adapter.checkReadability({ metric: "unknown", text: "Text." })).error.code, "invalid_arguments");
     assert.equal((await adapter.checkReadability({ metric: "fkgl", text: "é".repeat(8 * 1024) })).ok, true);
     assert.equal((await adapter.checkReadability({ metric: "fkgl", text: `${"é".repeat(8 * 1024)}x` })).error.code, "input_too_large");
+    assert.equal((await adapter.validateResearchActivity({ fuzzy: "strict", json: "{}" })).ok, true);
+    assert.equal((await adapter.validateResearchActivity({ fuzzy: "unknown", json: "{}" })).error.code, "invalid_arguments");
     assert.equal(calls, 1);
 });
 
@@ -323,6 +325,7 @@ test("installation registers strict schemas and safety annotations", async () =>
     ]);
     assert.equal(validation.inputSchema.additionalProperties, false);
     assert.deepEqual(validation.inputSchema.required, ["json"]);
+    assert.deepEqual(validation.inputSchema.properties.fuzzy.enum, ["off", "relaxed", "strict"]);
     assert.deepEqual(metadata.inputSchema.required, ["content", "format", "standard"]);
     assert.deepEqual(context.tools.get("acorn_diff_content").inputSchema.properties.mode.enum, ["json-patch", "unified"]);
     assert.deepEqual(context.tools.get("acorn_crosswalk_metadata").inputSchema.required, ["content", "format", "source", "target"]);

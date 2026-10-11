@@ -18,7 +18,6 @@ use acorn_core::{
 use acorn_macros::With;
 #[cfg(feature = "analysis")]
 use acorn_schema::pid::raid;
-#[cfg(feature = "analysis")]
 use acorn_schema::research_activity::ResearchActivity;
 #[cfg(feature = "analysis")]
 use acorn_schema::standard::crosswalk::mapping::{
@@ -32,7 +31,8 @@ use acorn_schema::standard::{ckan, datacite, dcat, huwise, invenio};
 #[cfg(feature = "analysis")]
 use acorn_schema::validation::ValidationReport;
 use acorn_schema::vocabulary::{
-    VocabularyFuzzyMode, VocabularyKind, VocabularyOptions, VocabularyOutcome, VocabularyReport, VocabularyResolution, VocabularyResolver,
+    VocabularyError, VocabularyFuzzyMode, VocabularyKind, VocabularyOptions, VocabularyOutcome, VocabularyReport, VocabularyResolution,
+    VocabularyResolver,
 };
 #[cfg(feature = "analysis")]
 use acorn_schema::OneOrMany;
@@ -471,44 +471,111 @@ impl CheckBatch {
             | true => Self::empty(),
             | false => match VocabularyResolver::embedded(kind) {
                 | Err(error) => CheckCategory::Prose.failure_checks(error, Some(uri.to_string())),
-                | Ok(resolver) => match resolver.resolve_located(
-                    values.clone(),
-                    VocabularyOptions {
-                        fuzzy: mode,
-                        ..Default::default()
-                    },
-                ) {
-                    | Err(error) => CheckCategory::Prose.failure_checks(error, Some(uri.to_string())),
-                    | Ok(report) => {
-                        let strict = match mode {
-                            | VocabularyFuzzyMode::Relaxed => resolver
-                                .resolve_located(
-                                    values,
-                                    VocabularyOptions {
-                                        fuzzy: VocabularyFuzzyMode::Strict,
-                                        ..Default::default()
-                                    },
-                                )
-                                .ok(),
-                            | VocabularyFuzzyMode::Off | VocabularyFuzzyMode::Strict => None,
-                        };
-                        report
-                            .resolutions
-                            .iter()
-                            .enumerate()
-                            .filter_map(|(index, resolution)| {
-                                Check::from_vocabulary_resolution(
-                                    &report,
-                                    resolution,
-                                    strict.as_ref().and_then(|value| value.resolutions.get(index)),
-                                    uri,
-                                )
-                            })
-                            .collect()
-                    }
-                },
+                | Ok(resolver) => Self::resolve_vocabulary_with(&resolver, values, mode, uri),
             },
         }
+    }
+    /// Resolve located values with a caller-prepared vocabulary.
+    pub fn resolve_vocabulary_with(resolver: &VocabularyResolver, values: Vec<(String, String)>, mode: VocabularyFuzzyMode, uri: &str) -> Self {
+        match values.is_empty() || mode == VocabularyFuzzyMode::Off {
+            | true => Self::empty(),
+            | false => match resolver.resolve_located(
+                values.clone(),
+                VocabularyOptions {
+                    fuzzy: mode,
+                    ..Default::default()
+                },
+            ) {
+                | Err(error) => CheckCategory::Prose.failure_checks(error, Some(uri.to_string())),
+                | Ok(report) => {
+                    let strict = match mode {
+                        | VocabularyFuzzyMode::Relaxed => resolver
+                            .resolve_located(
+                                values,
+                                VocabularyOptions {
+                                    fuzzy: VocabularyFuzzyMode::Strict,
+                                    ..Default::default()
+                                },
+                            )
+                            .ok(),
+                        | VocabularyFuzzyMode::Off | VocabularyFuzzyMode::Strict => None,
+                    };
+                    report
+                        .resolutions
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(index, resolution)| {
+                            let indices = strict.as_ref().and_then(|value| value.resolutions.get(index));
+                            Check::from_vocabulary_resolution(&report, resolution, indices, uri)
+                        })
+                        .collect()
+                }
+            },
+        }
+    }
+    /// Resolve every authored vocabulary surface using a caller-supplied resolver loader.
+    pub fn resolve_research_activity_vocabulary<F>(data: &ResearchActivity, mode: VocabularyFuzzyMode, uri: &str, mut resolver: F) -> Self
+    where
+        F: FnMut(VocabularyKind) -> Result<VocabularyResolver, VocabularyError>,
+    {
+        let fields = [
+            (
+                VocabularyKind::Keywords,
+                data.meta
+                    .keywords
+                    .iter()
+                    .enumerate()
+                    .map(|(index, value)| (format!("meta.keywords[{index}]"), value.clone()))
+                    .collect(),
+            ),
+            (
+                VocabularyKind::Organizations,
+                core::iter::once(("contact.organization".to_string(), data.contact.organization.clone()))
+                    .chain(
+                        data.contact
+                            .affiliation
+                            .iter()
+                            .map(|value| ("contact.affiliation".to_string(), value.clone())),
+                    )
+                    .collect(),
+            ),
+            (
+                VocabularyKind::Partners,
+                data.meta
+                    .partners
+                    .iter()
+                    .flat_map(|values| values.iter())
+                    .enumerate()
+                    .map(|(index, value)| (format!("meta.partners[{index}]"), value.clone()))
+                    .collect(),
+            ),
+            (
+                VocabularyKind::Sponsors,
+                data.meta
+                    .funders
+                    .iter()
+                    .flat_map(|values| values.iter())
+                    .enumerate()
+                    .map(|(index, value)| (format!("meta.funders[{index}].name"), value.name.clone()))
+                    .collect(),
+            ),
+            (
+                VocabularyKind::Technology,
+                data.meta
+                    .technology
+                    .iter()
+                    .enumerate()
+                    .map(|(index, value)| (format!("meta.technology[{index}]"), value.clone()))
+                    .collect(),
+            ),
+        ];
+        fields
+            .into_iter()
+            .map(|(kind, values)| match resolver(kind) {
+                | Ok(resolver) => Self::resolve_vocabulary_with(&resolver, values, mode, uri),
+                | Err(error) => CheckCategory::Prose.failure_checks(error, Some(uri.to_string())),
+            })
+            .collect()
     }
     /// Combine two batches while preserving their left-to-right order.
     pub fn combine(self, other: Self) -> Self {
@@ -557,18 +624,18 @@ impl From<Vec<Check>> for CheckBatch {
         Self(checks)
     }
 }
-impl IntoIterator for CheckBatch {
-    type Item = Check;
-    type IntoIter = alloc::vec::IntoIter<Check>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
-}
 impl<'a> IntoIterator for &'a CheckBatch {
     type Item = &'a Check;
     type IntoIter = core::slice::Iter<'a, Check>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+impl IntoIterator for CheckBatch {
+    type Item = Check;
+    type IntoIter = alloc::vec::IntoIter<Check>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 impl CheckCategory {

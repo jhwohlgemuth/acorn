@@ -1,4 +1,7 @@
-use super::{format, ApiResult, DiscoveryReference, Error, Fix, FixAction, FixAutomation, FixEffects, FixStatus, SafePath, String, Vec};
+use super::{
+    format, ApiResult, CheckReference, DiscoveryReference, Error, FindingReference, Fix, FixAction, FixAutomation, FixEffects, FixStatus, SafePath,
+    String, Vec,
+};
 use acorn_core::util::constants::app::APPLICATION;
 #[derive(Clone, Debug)]
 pub(super) enum ExecutableFix {
@@ -11,6 +14,10 @@ pub(super) enum ExecutableFix {
     Recipe {
         recipe: Recipe,
         references: Vec<DiscoveryReference>,
+    },
+    VocabularyDocument {
+        references: Vec<CheckReference>,
+        target: SafePath,
     },
 }
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
@@ -52,6 +59,8 @@ impl ExecutableFix {
     fn conflicts_with(&self, other: &Self) -> bool {
         match (self, other) {
             | (Self::Document { target: left, .. }, Self::Document { target: right, .. }) => left == right && self != other,
+            | (Self::Document { target: left, .. }, Self::VocabularyDocument { target: right, .. })
+            | (Self::VocabularyDocument { target: left, .. }, Self::Document { target: right, .. }) => left == right,
             | _ => false,
         }
     }
@@ -63,23 +72,33 @@ impl ExecutableFix {
                     references.push(reference.clone());
                 }
             }),
+            | (Self::VocabularyDocument { references, .. }, Self::VocabularyDocument { references: additions, .. }) => {
+                additions.iter().for_each(|reference| {
+                    if !references.iter().any(|existing| existing.fingerprint == reference.fingerprint) {
+                        references.push(reference.clone());
+                    }
+                });
+            }
             | _ => {}
         }
     }
     pub(super) fn preview(&self) -> String {
         match self {
-            | Self::Document { target, .. } => format!("write {}", target.as_path().display()),
+            | Self::Document { target, .. } | Self::VocabularyDocument { target, .. } => {
+                format!("write {}", target.as_path().display())
+            }
             | Self::Recipe { recipe, .. } => format!("run {recipe}"),
         }
     }
     pub(super) fn references(&self) -> &[DiscoveryReference] {
         match self {
             | Self::Document { references, .. } | Self::Recipe { references, .. } => references,
+            | Self::VocabularyDocument { .. } => &[],
         }
     }
     fn effects(&self) -> FixEffects {
         match self {
-            | Self::Document { .. } => FixEffects {
+            | Self::Document { .. } | Self::VocabularyDocument { .. } => FixEffects {
                 filesystem_write: true,
                 reversible: true,
                 ..FixEffects::default()
@@ -106,6 +125,7 @@ impl PartialEq for ExecutableFix {
                 },
             ) => left_expected == right_expected && left_replacement == right_replacement && left_target == right_target,
             | (Self::Recipe { recipe: left, .. }, Self::Recipe { recipe: right, .. }) => left == right,
+            | (Self::VocabularyDocument { target: left, .. }, Self::VocabularyDocument { target: right, .. }) => left == right,
             | _ => false,
         }
     }
@@ -116,8 +136,12 @@ impl Fix {
             | super::FindingReference::Discovery(reference) => vec![reference.clone()],
             | super::FindingReference::Check(_) => Vec::new(),
         };
-        policy.allows(self).and_then(|()| {
-            self.actions
+        policy.allows(self).and_then(|()| match &self.finding {
+            | FindingReference::Check(reference) if reference.vocabulary_advisory.is_some() => {
+                self.resolve_vocabulary(reference).map(|action| vec![action]).map_err(Into::into)
+            }
+            | _ => self
+                .actions
                 .iter()
                 .map(|action| action.resolve(&self.target, &references))
                 .collect::<Result<Vec<_>, PlanError>>()
@@ -132,8 +156,29 @@ impl Fix {
                         | (_, false) => Ok(actions),
                     }
                 })
-                .map_err(color_eyre::eyre::Report::from)
+                .map_err(color_eyre::eyre::Report::from),
         })
+    }
+    fn resolve_vocabulary(&self, reference: &CheckReference) -> Result<ExecutableFix, PlanError> {
+        let action = match self.actions.as_slice() {
+            | [FixAction::DocumentChange { expected, replacement, .. }] => reference
+                .vocabulary_advisory
+                .as_deref()
+                .filter(|advisory| {
+                    let same_change =
+                        (advisory.original.as_str(), advisory.replacement.as_deref()) == (expected.as_str(), Some(replacement.as_str()));
+                    advisory.complete && advisory.outcome.is_accepted() && same_change
+                })
+                .map(|_| ()),
+            | _ => None,
+        };
+        action
+            .ok_or(PlanError::Unsupported)
+            .and_then(|()| SafePath::new(&self.target).map_err(|_| PlanError::Unsupported))
+            .map(|target| ExecutableFix::VocabularyDocument {
+                references: vec![reference.clone()],
+                target,
+            })
     }
 }
 impl FixAction {
@@ -213,6 +258,17 @@ impl Policy {
         }
     }
 }
+impl core::fmt::Display for Recipe {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            | Self::Chromium => formatter.write_str("chromium.install"),
+            | Self::HomebrewNode => formatter.write_str("node.homebrew"),
+            | Self::Unsupported => formatter.write_str("unsupported"),
+            | Self::Vale => formatter.write_str("vale.install"),
+            | Self::WinGetNode => formatter.write_str("node.winget"),
+        }
+    }
+}
 impl From<&str> for Recipe {
     fn from(value: &str) -> Self {
         match value {
@@ -260,17 +316,6 @@ impl Recipe {
                 ..FixEffects::default()
             },
             | Self::Unsupported => FixEffects::default(),
-        }
-    }
-}
-impl core::fmt::Display for Recipe {
-    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            | Self::Chromium => formatter.write_str("chromium.install"),
-            | Self::HomebrewNode => formatter.write_str("node.homebrew"),
-            | Self::Unsupported => formatter.write_str("unsupported"),
-            | Self::Vale => formatter.write_str("vale.install"),
-            | Self::WinGetNode => formatter.write_str("node.winget"),
         }
     }
 }

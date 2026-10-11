@@ -6,7 +6,7 @@ use acorn_core::util::{constant_time_eq, MimeType};
 use acorn_service::{
     AcornService, CheckReadabilityRequest, CheckReadabilityResponse, Diagnostic, FileChange, FileChangeKind, ProcessRepositoryRequest,
     ProcessRepositoryResponse, RepositoryFileInput, ServiceError, ServiceErrorKind, ValidateResearchActivityRequest,
-    ValidateResearchActivityResponse, WorkflowAction, WorkflowFileReport,
+    ValidateResearchActivityResponse, VocabularyFuzzyMode, WorkflowAction, WorkflowFileReport,
 };
 use alloc::sync::Arc;
 use tonic::metadata::MetadataValue;
@@ -81,6 +81,7 @@ impl GrpcClient {
             content: request.content,
             format: wire_mime(&request.format) as i32,
             source_uri: request.source_uri,
+            vocabulary_fuzzy: wire_vocabulary_fuzzy(request.vocabulary_fuzzy) as i32,
         });
         self.authenticate(&mut request);
         self.inner
@@ -101,9 +102,16 @@ impl GrpcClient {
                         })
                     })
                     .collect::<Result<Vec<_>, GrpcClientError>>()
-                    .map(|diagnostics| ValidateResearchActivityResponse {
-                        diagnostics,
-                        valid: response.valid,
+                    .and_then(|diagnostics| {
+                        response
+                            .vocabulary_fuzzy
+                            .map(response_vocabulary_fuzzy)
+                            .transpose()
+                            .map(|vocabulary_fuzzy| ValidateResearchActivityResponse {
+                                diagnostics,
+                                valid: response.valid,
+                                vocabulary_fuzzy,
+                            })
                     })
             })
     }
@@ -215,28 +223,32 @@ impl proto::acorn_service_server::AcornService for GrpcService {
         self.authenticate(&request).and_then(|()| {
             let request = request.into_inner();
             mime(request.format).and_then(|format| {
-                self.service
-                    .validate_research_activity(ValidateResearchActivityRequest {
-                        content: request.content,
-                        format,
-                        source_uri: request.source_uri,
-                    })
-                    .map(|response| {
-                        Response::new(proto::ValidateResearchActivityResponse {
-                            diagnostics: response
-                                .diagnostics
-                                .into_iter()
-                                .map(|diagnostic| proto::Diagnostic {
-                                    code: diagnostic.code,
-                                    message: diagnostic.message,
-                                    path: diagnostic.path,
-                                    severity: severity(diagnostic.severity) as i32,
-                                })
-                                .collect(),
-                            valid: response.valid,
+                vocabulary_fuzzy(request.vocabulary_fuzzy).and_then(|vocabulary_fuzzy| {
+                    self.service
+                        .validate_research_activity(ValidateResearchActivityRequest {
+                            content: request.content,
+                            format,
+                            source_uri: request.source_uri,
+                            vocabulary_fuzzy,
                         })
-                    })
-                    .map_err(status)
+                        .map(|response| {
+                            Response::new(proto::ValidateResearchActivityResponse {
+                                diagnostics: response
+                                    .diagnostics
+                                    .into_iter()
+                                    .map(|diagnostic| proto::Diagnostic {
+                                        code: diagnostic.code,
+                                        message: diagnostic.message,
+                                        path: diagnostic.path,
+                                        severity: severity(diagnostic.severity) as i32,
+                                    })
+                                    .collect(),
+                                valid: response.valid,
+                                vocabulary_fuzzy: response.vocabulary_fuzzy.map(wire_vocabulary_fuzzy).map(|value| value as i32),
+                            })
+                        })
+                        .map_err(status)
+                })
             })
         })
     }
@@ -379,6 +391,18 @@ fn mime(value: i32) -> Result<MimeType, Status> {
         | proto::DataFormat::Unspecified => Err(Status::invalid_argument("Data format is required")),
     }
 }
+fn response_vocabulary_fuzzy(value: i32) -> Result<VocabularyFuzzyMode, GrpcClientError> {
+    proto::VocabularyFuzzyMode::try_from(value)
+        .map_err(|_| GrpcClientError::Configuration("response vocabulary-fuzzy mode is unknown".to_string()))
+        .and_then(|value| match value {
+            | proto::VocabularyFuzzyMode::Off => Ok(VocabularyFuzzyMode::Off),
+            | proto::VocabularyFuzzyMode::Relaxed => Ok(VocabularyFuzzyMode::Relaxed),
+            | proto::VocabularyFuzzyMode::Strict => Ok(VocabularyFuzzyMode::Strict),
+            | proto::VocabularyFuzzyMode::Unspecified => Err(GrpcClientError::Configuration(
+                "response vocabulary-fuzzy mode is unspecified".to_string(),
+            )),
+        })
+}
 fn severity(value: CheckSeverity) -> proto::Severity {
     match value {
         | CheckSeverity::Error => proto::Severity::Error,
@@ -395,6 +419,15 @@ fn status(error: ServiceError) -> Status {
         | ServiceErrorKind::DurableOperationsUnavailable => Status::unavailable(error.to_string()),
         | ServiceErrorKind::Internal => Status::internal("Internal service failure"),
     }
+}
+fn vocabulary_fuzzy(value: i32) -> Result<VocabularyFuzzyMode, Status> {
+    proto::VocabularyFuzzyMode::try_from(value)
+        .map_err(|_| Status::invalid_argument("Vocabulary fuzzy mode is unknown"))
+        .map(|value| match value {
+            | proto::VocabularyFuzzyMode::Off => VocabularyFuzzyMode::Off,
+            | proto::VocabularyFuzzyMode::Relaxed | proto::VocabularyFuzzyMode::Unspecified => VocabularyFuzzyMode::Relaxed,
+            | proto::VocabularyFuzzyMode::Strict => VocabularyFuzzyMode::Strict,
+        })
 }
 fn wire_action(value: WorkflowAction) -> proto::RepositoryAction {
     match value {
@@ -425,6 +458,13 @@ fn wire_mime(value: &MimeType) -> proto::DataFormat {
         | MimeType::Yaml => proto::DataFormat::Yaml,
         | MimeType::Zon => proto::DataFormat::Zon,
         | _ => proto::DataFormat::Unspecified,
+    }
+}
+fn wire_vocabulary_fuzzy(value: VocabularyFuzzyMode) -> proto::VocabularyFuzzyMode {
+    match value {
+        | VocabularyFuzzyMode::Off => proto::VocabularyFuzzyMode::Off,
+        | VocabularyFuzzyMode::Relaxed => proto::VocabularyFuzzyMode::Relaxed,
+        | VocabularyFuzzyMode::Strict => proto::VocabularyFuzzyMode::Strict,
     }
 }
 

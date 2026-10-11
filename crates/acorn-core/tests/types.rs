@@ -1,4 +1,7 @@
-use super::*;
+//! Integration tests for portable value types.
+#![allow(clippy::expect_used, missing_docs)]
+extern crate alloc;
+use acorn_core::{Noul, NoulError, OneOrMany, ThisOrThat};
 use alloc::collections::BTreeSet;
 use schemars::schema_for;
 use serde_json::json;
@@ -36,10 +39,49 @@ fn test_noul_rejects_invalid_values() {
 #[test]
 fn test_noul_schema_and_serialization_retain_numeric_bounds() {
     let schema = serde_json::to_value(schema_for!(Noul)).expect("schema should serialize");
-    assert_eq!(schema.pointer("/minimum"), Some(&json!(0.0)), "{schema}");
     assert_eq!(schema.pointer("/maximum"), Some(&json!(1.0)), "{schema}");
+    assert_eq!(schema.pointer("/minimum"), Some(&json!(0.0)), "{schema}");
     assert_eq!(
         serde_json::to_value(Noul::new(0.5).expect("valid unit value")).expect("value should serialize"),
         json!(0.5)
     );
+}
+#[test]
+fn test_one_or_many_preserves_shape_and_iteration_order() {
+    let one = OneOrMany::One(1);
+    let many = OneOrMany::Many(vec![2, 3]);
+
+    assert_eq!(one.as_slice(), &[1]);
+    assert_eq!(many.iter().copied().collect::<Vec<_>>(), vec![2, 3]);
+    assert_eq!(many.map(|value| value * 2).into_vec(), vec![4, 6]);
+}
+#[test]
+fn test_this_or_that_maps_both_values_in_position_order() {
+    let mut positions = Vec::new();
+    let values = ThisOrThat::new(2, 3).map(|value| {
+        positions.push(value);
+        value * 2
+    });
+
+    assert_eq!(positions, vec![2, 3]);
+    assert_eq!(values.into_parts(), (4, 6));
+}
+#[test]
+fn test_this_or_that_provides_named_access_to_each_value() {
+    let values = ThisOrThat::new("left", "right");
+
+    assert_eq!(values.left(), &"left");
+    assert_eq!(values.right(), &"right");
+}
+#[test]
+fn test_this_or_that_try_map_with_transforms_each_position_independently() {
+    let values = ThisOrThat::new(2, 3).try_map_with(|left| Ok::<_, ()>(left * 2), |right| Ok(right * 3));
+
+    assert_eq!(values, Ok(ThisOrThat::new(4, 9)));
+}
+#[test]
+fn test_this_or_that_zips_values_in_position_order() {
+    let values = ThisOrThat::new([1, 2], [3, 4]).zip().collect::<Vec<_>>();
+
+    assert_eq!(values, vec![(1, 3), (2, 4)]);
 }

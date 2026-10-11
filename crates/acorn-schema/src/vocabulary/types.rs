@@ -28,6 +28,12 @@ pub enum VocabularyError {
         /// Configured maximum.
         limit: usize,
     },
+    /// A serialized vocabulary name is not recognized.
+    #[error("Unknown vocabulary kind: {value}")]
+    UnknownKind {
+        /// Unrecognized serialized name.
+        value: String,
+    },
 }
 /// Fuzzy-matching policy selected by a caller.
 #[derive(Clone, Copy, Debug, Default, Deserialize, EnumIs, Eq, JsonSchema, PartialEq, Serialize, strum::Display)]
@@ -96,7 +102,7 @@ pub enum VocabularyOutcome {
     /// No candidate passed the selected policy.
     Unmatched,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct Entry {
     pub(super) aliases: Vec<String>,
     pub(super) canonical: String,
@@ -234,13 +240,27 @@ pub struct VocabularyResolution {
     pub source_locator: Option<String>,
 }
 /// Prepared reusable resolver for one embedded vocabulary.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct VocabularyResolver {
     pub(super) entries: Vec<Entry>,
     pub(super) kind: VocabularyKind,
     pub(super) revision: String,
 }
 
+impl TryFrom<&str> for VocabularyKind {
+    type Error = VocabularyError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            | "keywords" => Ok(Self::Keywords),
+            | "organizations" => Ok(Self::Organizations),
+            | "partners" => Ok(Self::Partners),
+            | "sponsors" => Ok(Self::Sponsors),
+            | "technology" => Ok(Self::Technology),
+            | _ => Err(VocabularyError::UnknownKind { value: value.to_string() }),
+        }
+    }
+}
 impl Default for VocabularyLimits {
     fn default() -> Self {
         Self {

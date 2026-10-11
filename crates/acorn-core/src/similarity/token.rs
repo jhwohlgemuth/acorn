@@ -1,6 +1,9 @@
 //! Text preparation and set similarity measures.
 use super::{SimilarityError, SimilarityLimits, SimilarityPreprocessing, SimilarityResult, SimilarityScore};
-use crate::prelude::{String, ToString, Vec};
+use crate::{
+    prelude::{String, ToString, Vec},
+    ThisOrThat,
+};
 use alloc::collections::BTreeSet;
 use icu_casemap::CaseMapper;
 use icu_normalizer::ComposingNormalizer;
@@ -95,17 +98,17 @@ fn check_ngram_work(scalar_count: usize, width: usize, limits: SimilarityLimits)
         }
     }
 }
-fn checked_sets<'a, T: Ord>(left: &'a [T], right: &'a [T], limits: SimilarityLimits) -> SimilarityResult<(BTreeSet<&'a T>, BTreeSet<&'a T>)> {
+fn checked_sets<'a, T: Ord>(left: &'a [T], right: &'a [T], limits: SimilarityLimits) -> SimilarityResult<ThisOrThat<BTreeSet<&'a T>>> {
     limits
         .check_collection(left.len())
         .and_then(|_| limits.check_collection(right.len()))
-        .map(|_| (left.iter().collect(), right.iter().collect()))
+        .map(|_| ThisOrThat::new(left.iter().collect(), right.iter().collect()))
 }
 /// Calculate Jaccard similarity over deduplicated set values.
 pub fn jaccard_similarity<T: Ord>(left: &[T], right: &[T], limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
-    checked_sets(left, right, limits).and_then(|(left, right)| {
-        let intersection = left.intersection(&right).count();
-        let union = left.union(&right).count();
+    checked_sets(left, right, limits).and_then(|values| {
+        let intersection = values.left().intersection(values.right()).count();
+        let union = values.left().union(values.right()).count();
         as_score(intersection, union)
     })
 }
@@ -117,10 +120,13 @@ fn ngrams(scalars: &[char], width: usize, limits: SimilarityLimits) -> Similarit
 }
 /// Calculate overlap coefficient over deduplicated set values.
 pub fn overlap_coefficient<T: Ord>(left: &[T], right: &[T], limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
-    checked_sets(left, right, limits).and_then(|(left, right)| match (left.is_empty(), right.is_empty()) {
+    checked_sets(left, right, limits).and_then(|values| match (values.left().is_empty(), values.right().is_empty()) {
         | (true, true) => Ok(SimilarityScore::ONE),
         | (true, false) | (false, true) => Ok(SimilarityScore::ZERO),
-        | (false, false) => as_score(left.intersection(&right).count(), left.len().min(right.len())),
+        | (false, false) => as_score(
+            values.left().intersection(values.right()).count(),
+            values.left().len().min(values.right().len()),
+        ),
     })
 }
 /// Apply the selected explicit preprocessing without implicit punctuation changes.
@@ -138,11 +144,11 @@ pub fn preprocess_text(value: &str, preprocessing: SimilarityPreprocessing, limi
 }
 /// Calculate Sorensen-Dice similarity over deduplicated set values.
 pub fn sorensen_dice_similarity<T: Ord>(left: &[T], right: &[T], limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
-    checked_sets(left, right, limits).and_then(|(left, right)| {
-        let intersection = left.intersection(&right).count();
+    checked_sets(left, right, limits).and_then(|values| {
+        let intersection = values.left().intersection(values.right()).count();
         intersection
             .checked_mul(2)
-            .zip(left.len().checked_add(right.len()))
+            .zip(values.left().len().checked_add(values.right().len()))
             .ok_or(SimilarityError::ArithmeticOverflow {
                 operation: "Sorensen-Dice score",
             })

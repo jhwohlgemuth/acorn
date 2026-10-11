@@ -23,16 +23,51 @@
 //! assert_eq!(damerau_levenshtein_distance("CA", "ABC", limits), Ok(2));
 //! ```
 #![allow(clippy::arithmetic_side_effects, clippy::indexing_slicing)]
-use super::{SimilarityError, SimilarityLimits, SimilarityResult, SimilarityScore};
-use crate::prelude::{vec, HashMap, Vec};
+use super::{SimilarityError, SimilarityLimits, SimilarityResult, SimilarityScore, Validate};
+use crate::{
+    prelude::{vec, HashMap, Vec},
+    ThisOrThat,
+};
 use core::mem;
+use serde::Serialize;
 
-fn checked_pair(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<(Vec<char>, Vec<char>)> {
+/// Positive insertion, deletion, and substitution costs for weighted Levenshtein distance.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+pub struct EditCosts {
+    /// Cost of deleting one scalar from the left operand.
+    pub deletion: usize,
+    /// Cost of inserting one scalar into the left operand.
+    pub insertion: usize,
+    /// Cost of substituting one unequal scalar.
+    pub substitution: usize,
+}
+impl Default for EditCosts {
+    fn default() -> Self {
+        Self {
+            deletion: 1,
+            insertion: 1,
+            substitution: 2,
+        }
+    }
+}
+impl Validate for EditCosts {
+    fn validate(self) -> SimilarityResult<Self> {
+        [
+            ("deletion", self.deletion),
+            ("insertion", self.insertion),
+            ("substitution", self.substitution),
+        ]
+        .into_iter()
+        .find(|(_, cost)| *cost == 0)
+        .map_or(Ok(self), |(parameter, _)| Err(SimilarityError::InvalidEditCost { parameter }))
+    }
+}
+fn checked_pair(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<ThisOrThat<Vec<char>>> {
     limits.check_input(left, "left").and_then(|left_len| {
         limits.check_input(right, "right").and_then(|right_len| {
             limits
                 .check_pair_work(left_len, right_len)
-                .map(|()| (left.chars().collect(), right.chars().collect()))
+                .map(|()| ThisOrThat::new(left.chars().collect(), right.chars().collect()))
         })
     })
 }
@@ -83,12 +118,16 @@ fn damerau_levenshtein(left: &[char], right: &[char]) -> usize {
 }
 /// Calculate unrestricted Damerau-Levenshtein distance with unit edit costs.
 pub fn damerau_levenshtein_distance(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<usize> {
-    checked_pair(left, right, limits).map(|(left, right)| damerau_levenshtein(&left, &right))
+    checked_pair(left, right, limits).map(|values| damerau_levenshtein(values.left(), values.right()))
 }
 /// Calculate normalized unrestricted Damerau-Levenshtein similarity.
 pub fn damerau_levenshtein_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
-    checked_pair(left, right, limits)
-        .and_then(|(left, right)| SimilarityScore::normalized(damerau_levenshtein(&left, &right), left.len().max(right.len())))
+    checked_pair(left, right, limits).and_then(|values| {
+        SimilarityScore::normalized(
+            damerau_levenshtein(values.left(), values.right()),
+            values.left().len().max(values.right().len()),
+        )
+    })
 }
 /// Return one for exact raw string equality and zero otherwise.
 pub fn exact_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
@@ -152,15 +191,15 @@ fn jaro(left: &[char], right: &[char]) -> f64 {
 }
 /// Calculate Jaro similarity over Unicode scalar values.
 pub fn jaro_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
-    checked_pair(left, right, limits).and_then(|(left, right)| SimilarityScore::new(jaro(&left, &right)))
+    checked_pair(left, right, limits).and_then(|values| SimilarityScore::new(jaro(values.left(), values.right())))
 }
 /// Calculate conventional Jaro-Winkler similarity with a four-scalar prefix and 0.1 scale.
 pub fn jaro_winkler_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
-    checked_pair(left, right, limits).and_then(|(left, right)| {
-        let score = jaro(&left, &right);
+    checked_pair(left, right, limits).and_then(|values| {
+        let score = jaro(values.left(), values.right());
         let adjusted = match score > 0.7 {
             | true => {
-                let prefix = left.iter().zip(&right).take(4).take_while(|(left, right)| left == right).count();
+                let prefix = values.zip().take(4).take_while(|(left, right)| left == right).count();
                 score + 0.1 * prefix as f64 * (1.0 - score)
             }
             | false => score,
@@ -189,11 +228,12 @@ fn levenshtein(left: &[char], right: &[char]) -> usize {
 }
 /// Calculate Levenshtein distance with unit insertion, deletion, and substitution costs.
 pub fn levenshtein_distance(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<usize> {
-    checked_pair(left, right, limits).map(|(left, right)| levenshtein(&left, &right))
+    checked_pair(left, right, limits).map(|values| levenshtein(values.left(), values.right()))
 }
 /// Calculate normalized Levenshtein similarity.
 pub fn levenshtein_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
-    checked_pair(left, right, limits).and_then(|(left, right)| SimilarityScore::normalized(levenshtein(&left, &right), left.len().max(right.len())))
+    checked_pair(left, right, limits)
+        .and_then(|values| SimilarityScore::normalized(levenshtein(values.left(), values.right()), values.left().len().max(values.right().len())))
 }
 fn optimal_string_alignment(left: &[char], right: &[char]) -> usize {
     let (rows, columns) = match left.len() >= right.len() {
@@ -224,12 +264,16 @@ fn optimal_string_alignment(left: &[char], right: &[char]) -> usize {
 }
 /// Calculate restricted optimal-string-alignment distance with unit edit costs.
 pub fn optimal_string_alignment_distance(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<usize> {
-    checked_pair(left, right, limits).map(|(left, right)| optimal_string_alignment(&left, &right))
+    checked_pair(left, right, limits).map(|values| optimal_string_alignment(values.left(), values.right()))
 }
 /// Calculate normalized restricted optimal-string-alignment similarity.
 pub fn optimal_string_alignment_similarity(left: &str, right: &str, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
-    checked_pair(left, right, limits)
-        .and_then(|(left, right)| SimilarityScore::normalized(optimal_string_alignment(&left, &right), left.len().max(right.len())))
+    checked_pair(left, right, limits).and_then(|values| {
+        SimilarityScore::normalized(
+            optimal_string_alignment(values.left(), values.right()),
+            values.left().len().max(values.right().len()),
+        )
+    })
 }
 /// Compare the first requested number of Unicode scalar values for exact equality.
 pub fn prefix_similarity(left: &str, right: &str, count: usize, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
@@ -260,5 +304,41 @@ fn truncated_similarity(left: &str, right: &str, count: usize, limits: Similarit
                     right: right_len,
                 }),
             })
+    })
+}
+/// Calculate directional weighted Levenshtein distance with positive edit costs.
+pub fn weighted_levenshtein_distance(values: ThisOrThat<&str>, costs: EditCosts, limits: SimilarityLimits) -> SimilarityResult<usize> {
+    costs.validate().and_then(|costs| {
+        checked_pair(values.left(), values.right(), limits).map(|values| {
+            let (left, right) = values.into_parts();
+            let mut previous = (0..=right.len()).map(|index| index.saturating_mul(costs.insertion)).collect::<Vec<_>>();
+            let mut current = vec![0; right.len().saturating_add(1)];
+            left.iter().enumerate().for_each(|(row, left)| {
+                current[0] = row.saturating_add(1).saturating_mul(costs.deletion);
+                right.iter().enumerate().for_each(|(column, right)| {
+                    let substitution = previous[column].saturating_add(match left == right {
+                        | true => 0,
+                        | false => costs.substitution,
+                    });
+                    current[column.saturating_add(1)] = substitution
+                        .min(previous[column.saturating_add(1)].saturating_add(costs.deletion))
+                        .min(current[column].saturating_add(costs.insertion));
+                });
+                core::mem::swap(&mut previous, &mut current);
+            });
+            previous[right.len()]
+        })
+    })
+}
+/// Calculate directional weighted Levenshtein similarity normalized by delete-all/insert-all cost.
+pub fn weighted_levenshtein_similarity(values: ThisOrThat<&str>, costs: EditCosts, limits: SimilarityLimits) -> SimilarityResult<SimilarityScore> {
+    weighted_levenshtein_distance(values, costs, limits).and_then(|distance| {
+        let maximum = values
+            .left()
+            .chars()
+            .count()
+            .saturating_mul(costs.deletion)
+            .saturating_add(values.right().chars().count().saturating_mul(costs.insertion));
+        SimilarityScore::normalized(distance, maximum)
     })
 }

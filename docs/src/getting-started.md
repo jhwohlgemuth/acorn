@@ -14,7 +14,7 @@ If you are running ACORN locally, choose one method from the table below. For ba
 | CI pipeline | [CI template](https://code.ornl.gov/research-enablement/templates/-/blob/main/bucket.gitlab-ci.yml) | You only need automated validation or publishing; no local installation is required. |
 | Windows workstation | [Scoop](#install-with-scoop-windows-only) | You want straightforward installation and upgrades. |
 | macOS workstation | [Homebrew](#install-with-homebrew-linux-and-macos) | You want a managed installation; standalone macOS binaries are not available. |
-| Linux workstation | [Homebrew](#install-with-homebrew-linux-and-macos) or a [pre-compiled binary](#download-pre-compiled-binary) | Use Homebrew for managed upgrades or the binary for minimal dependencies. |
+| Linux workstation | [AppImage](#run-the-appimage-linux), [Debian package](#install-the-debian-package-linux), [Homebrew](#install-with-homebrew-linux-and-macos), or a [pre-compiled binary](#download-pre-compiled-binary) | Use an AppImage without installation, a Debian package for system integration, Homebrew for managed upgrades, or the binary for minimal dependencies. |
 | Rust developer | [Cargo](#install-with-cargo) | Rust is already installed or you want a source-built executable. |
 | Containerized environment | [Docker or Podman](#run-inside-a-container) | You want isolation, reproducibility, or a pinned ACORN version. |
 | ACORN contributor | [Install from source](#install-from-source) | You plan to modify, test, or debug ACORN itself. |
@@ -99,6 +99,42 @@ If you are running ACORN locally, choose one method from the table below. For ba
 > ```sh
 > docker run --rm -v $(pwd):/data savannah.ornl.gov/research-enablement/acorn/runner:latest check /data/project
 > ```
+
+### Run the AppImage (Linux)
+
+> Use this if you want one portable file with both the command-line and terminal interfaces.
+
+- Download the AppImage for your architecture from the [ACORN GitLab Releases page](https://code.ornl.gov/research-enablement/acorn/-/releases):
+    - x86_64: `acorn-v<version>-x86_64.AppImage`
+    - ARM64: `acorn-v<version>-aarch64.AppImage`
+- Download its adjacent `.sha256` file and verify it before running:
+    ```sh
+    sha256sum -c acorn-v<version>-<architecture>.AppImage.sha256
+    chmod +x acorn-v<version>-<architecture>.AppImage
+    ```
+- Launch without arguments to open the terminal interface, or pass any ordinary ACORN arguments:
+    ```sh
+    ./acorn-v<version>-<architecture>.AppImage
+    ./acorn-v<version>-<architecture>.AppImage check /path/to/project
+    ```
+
+### Install the Debian package (Linux)
+
+> Use this on Debian, Ubuntu, or a compatible distribution when you want `/usr/bin/acorn` managed by the system package database.
+
+- Download the package and its `.sha256` file from the [ACORN GitLab Releases page](https://code.ornl.gov/research-enablement/acorn/-/releases):
+    - amd64: `acorn_<version>-1_amd64.deb`
+    - ARM64: `acorn_<version>-1_arm64.deb`
+- Verify and install the local package:
+    ```sh
+    sha256sum -c acorn_<version>-1_<architecture>.deb.sha256
+    sudo apt install ./acorn_<version>-1_<architecture>.deb
+    acorn --version
+    ```
+
+The downloaded filename begins with `acorn_`; the package database records it as `acorn-cli`, and the installed command is `acorn`. These direct downloads do not configure an APT repository or automatic updates.
+
+Debian's unrelated `node-acorn` package installs a command with the same name. The ACORN package declares that conflict, so APT may remove `node-acorn` when installing `acorn-cli`.
 
 ### Download pre-compiled binary
 

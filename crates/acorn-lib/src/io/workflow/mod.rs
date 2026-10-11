@@ -27,7 +27,10 @@ use acorn_core::{
     Location,
 };
 use acorn_host::terminal::Label;
-use acorn_schema::validation::Validate;
+use acorn_schema::{
+    validation::Validate,
+    vocabulary::{VocabularyFormat, VocabularyReport},
+};
 use color_eyre::eyre::eyre;
 use core::marker::PhantomData;
 use futures::stream::{self, StreamExt, TryStreamExt};
@@ -63,20 +66,24 @@ pub type Options = RuntimeOptions<WorkflowExtension>;
 pub enum Change<T> {
     /// A fully planned document rewrite and its optional companion artifact.
     Document {
-        /// Source represented by this change.
-        source: Location,
-        /// Parsed and transformed standard data.
-        data: Box<T>,
-        /// Serialized content in the source file's format.
-        content: String,
         /// Whether applying the plan will rewrite the source file.
         changed: bool,
-        /// Optional JSON-LD companion artifact.
-        linked: Option<Artifact>,
-        /// Provider failures encountered while producing this change.
-        failures: Vec<String>,
         /// Non-fatal enrichment conflicts encountered while producing this change.
         conflicts: Vec<String>,
+        /// Serialized content in the source file's format.
+        content: String,
+        /// Parsed and transformed standard data.
+        data: Box<T>,
+        /// Provider failures encountered while producing this change.
+        failures: Vec<String>,
+        /// Optional JSON-LD companion artifact.
+        linked: Option<Artifact>,
+        /// Exact source content retained for transactional audit rollback.
+        original: String,
+        /// Source represented by this change.
+        source: Location,
+        /// Controlled-vocabulary resolutions that contributed to this rewrite.
+        vocabulary_reports: Vec<VocabularyReport>,
     },
     /// A check retained as the input to a future automated fix.
     #[cfg(feature = "analysis")]
@@ -518,6 +525,38 @@ where
             linked: plan.changes.iter().filter(|change| change.has_linked_artifact()).count(),
             ..Report::default()
         };
+        let vocabulary_audits = plan
+            .changes
+            .iter()
+            .filter_map(|change| match change {
+                | Change::Document {
+                    changed: true,
+                    content,
+                    original,
+                    source,
+                    vocabulary_reports,
+                    ..
+                } if !vocabulary_reports.is_empty() => Some((source.to_string(), original.clone(), content.clone(), vocabulary_reports.clone())),
+                | _ => None,
+            })
+            .collect::<Vec<_>>();
+        let vocabulary_rollbacks = plan
+            .changes
+            .iter()
+            .filter_map(|change| match change {
+                | Change::Document {
+                    changed: true,
+                    original,
+                    source,
+                    vocabulary_reports,
+                    ..
+                } if !vocabulary_reports.is_empty() => source.local_path().map(|path| Artifact {
+                    content: original.clone(),
+                    path,
+                }),
+                | _ => None,
+            })
+            .collect::<Vec<_>>();
         match options.common.dry_run {
             | true => Ok(report),
             | false => plan
@@ -544,7 +583,22 @@ where
                     #[cfg(feature = "analysis")]
                     | Change::Check(_) => Err(eyre!("A check must be resolved into a document change before it can be applied")),
                 })
-                .and_then(|files| transaction::Artifacts::from(files).apply().map(|written| Report { written, ..report })),
+                .and_then(|files| transaction::Artifacts::from(files).apply())
+                .and_then(|written| {
+                    crate::io::vocabulary::write_vocabulary_report_audits(
+                        vocabulary_audits
+                            .iter()
+                            .map(|(source, before, after, reports)| (source.as_str(), before.as_str(), after.as_str(), reports.as_slice())),
+                    )
+                    .map_err(|why| eyre!(why))
+                    .map(|_| Report { written, ..report })
+                    .or_else(|audit_error| {
+                        Artifacts::from(vocabulary_rollbacks.clone())
+                            .apply()
+                            .map_err(|rollback_error| eyre!("{audit_error}; rollback failed — {rollback_error}"))
+                            .and_then(|_| Err(audit_error))
+                    })
+                }),
         }
     }
     /// Plan and apply processing for all sources
@@ -577,23 +631,26 @@ where
             .and_then(|path| {
                 read_file(path.clone()).and_then(|content| {
                     T::read(path.clone()).map(|data| {
-                        let data = match format {
-                            | true => InputOutput::format_with_vocabulary(data, *fuzzy, Some(path.clone())),
-                            | false => data,
+                        let formatted = match format {
+                            | true => InputOutput::format_with_vocabulary_report(data, *fuzzy, Some(path.clone())),
+                            | false => VocabularyFormat {
+                                reports: Vec::new(),
+                                value: data,
+                            },
                         };
-                        (path, content, data)
+                        (path, content, formatted.value, formatted.reports)
                     })
                 })
             })
-            .and_then(|(path, content, data)| match check {
+            .and_then(|(path, content, data, reports)| match check {
                 | true => data
                     .validate()
                     .map_err(|why| eyre!("Workflow data at {} is invalid — {why}", path.display()))
-                    .map(|()| (path, content, data)),
-                | false => Ok((path, content, data)),
+                    .map(|()| (path, content, data, reports)),
+                | false => Ok((path, content, data, reports)),
             });
         match prepared {
-            | Ok((path, original, data)) => {
+            | Ok((path, original, data, mut vocabulary_reports)) => {
                 let enriched = match (*enrich, enrichment) {
                     | (true, Some(capability)) => capability.enrich((source.clone(), data)).await,
                     | _ => Ok(EnrichmentResult {
@@ -603,22 +660,34 @@ where
                     }),
                 };
                 enriched
-                    .map(|result| match format {
-                        | true => EnrichmentResult {
-                            data: InputOutput::format_with_vocabulary(result.data, *fuzzy, Some(path.clone())),
-                            ..result
-                        },
-                        | false => result,
+                    .map(|result| {
+                        let EnrichmentResult { data, conflicts, failures } = result;
+                        let formatted = match format {
+                            | true => InputOutput::format_with_vocabulary_report(data, *fuzzy, Some(path.clone())),
+                            | false => VocabularyFormat {
+                                reports: Vec::new(),
+                                value: data,
+                            },
+                        };
+                        vocabulary_reports.extend(formatted.reports);
+                        (
+                            EnrichmentResult {
+                                data: formatted.value,
+                                conflicts,
+                                failures,
+                            },
+                            vocabulary_reports,
+                        )
                     })
-                    .and_then(|result| match check {
+                    .and_then(|(result, vocabulary_reports)| match check {
                         | true => result
                             .data
                             .validate()
-                            .map(|()| result)
+                            .map(|()| (result, vocabulary_reports))
                             .map_err(|why| eyre!("Workflow data at {} is invalid — {why}", path.display())),
-                        | false => Ok(result),
+                        | false => Ok((result, vocabulary_reports)),
                     })
-                    .and_then(|result| {
+                    .and_then(|(result, vocabulary_reports)| {
                         let EnrichmentResult { data, conflicts, failures } = result;
                         InputOutput::serialize_as(&data, &MimeType::from_path(&path)).and_then(|content| {
                             let linked = match link {
@@ -631,13 +700,15 @@ where
                                 | false => Ok(None),
                             };
                             linked.map(|linked| Change::Document {
-                                source: source.clone(),
                                 changed: original != content,
-                                data: Box::new(data),
-                                content,
                                 conflicts,
+                                content,
+                                data: Box::new(data),
                                 failures,
                                 linked,
+                                original,
+                                source: source.clone(),
+                                vocabulary_reports,
                             })
                         })
                     })

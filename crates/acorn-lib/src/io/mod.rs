@@ -34,7 +34,10 @@ use acorn_host::{
     fs::{file_checksum, file_uri_to_path, project_cache_directory, read_text, SafePath},
     terminal::Label,
 };
-use acorn_schema::{standard::zon, vocabulary::VocabularyFuzzyMode};
+use acorn_schema::{
+    standard::zon,
+    vocabulary::{VocabularyFormat, VocabularyFuzzyMode},
+};
 pub use archive::{
     archive, extract, zip_entries, ArchiveCandidate, ArchiveCreation, ArchiveExtraction, ArchiveFormat, DeterministicZipEntry, ZipEntrySource,
 };
@@ -116,6 +119,7 @@ pub mod source;
 #[cfg(feature = "swhid-compute")]
 pub mod swhid;
 pub mod sync;
+pub mod vocabulary;
 pub mod workflow;
 
 pub use email::EmailAddress;
@@ -182,6 +186,13 @@ pub trait InputOutput: Sized {
     /// Normalize this value with an explicit controlled-vocabulary policy.
     fn format_with_vocabulary(self, _fuzzy: VocabularyFuzzyMode, context: Option<PathBuf>) -> Self {
         self.format_with(context)
+    }
+    /// Normalize this value and retain controlled-vocabulary resolution reports.
+    fn format_with_vocabulary_report(self, fuzzy: VocabularyFuzzyMode, context: Option<PathBuf>) -> VocabularyFormat<Self> {
+        VocabularyFormat {
+            reports: Vec::new(),
+            value: self.format_with_vocabulary(fuzzy, context),
+        }
     }
     /// Serialize this value in a workflow source format.
     fn serialize_as(&self, mime: &MimeType) -> ApiResult<String>
