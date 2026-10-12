@@ -192,7 +192,15 @@ impl RepositoryFileInput {
         let format = self.format.clone().unwrap_or_else(|| MimeType::from(self.path.as_str()));
         matches!(
             format,
-            MimeType::Cff | MimeType::Json | MimeType::Jsonc | MimeType::Markdown | MimeType::Yaml | MimeType::Zon
+            MimeType::Cff
+                | MimeType::Json
+                | MimeType::Jsonc
+                | MimeType::LdJson
+                | MimeType::Markdown
+                | MimeType::RdfXml
+                | MimeType::Turtle
+                | MimeType::Yaml
+                | MimeType::Zon
         )
         .then_some(format)
     }

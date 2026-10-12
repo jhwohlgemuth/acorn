@@ -45,7 +45,6 @@ use strum::EnumIs;
 use urlencoding::encode;
 
 static DATE_TIME_PARSER: DateTimeParser = DateTimeParser::new();
-
 /// Trait for augmenting data with linked data context
 pub trait LinkedData {
     /// Add linked data (e.g., JSON-LD) context
@@ -441,6 +440,9 @@ pub enum MimeType {
     /// This includes .prompt files (see <https://google.github.io/dotprompt/>)
     #[display("application/vnd.ai.prompt.v1+json")]
     Prompt,
+    /// Resource Description Framework XML syntax.
+    #[display("application/rdf+xml")]
+    RdfXml,
     /// Rich Text Format.
     #[display("application/rtf")]
     Rtf,
@@ -482,6 +484,9 @@ pub enum MimeType {
     /// TrueType Font (TTF)
     #[display("font/ttf")]
     Ttf,
+    /// Resource Description Framework Turtle syntax.
+    #[display("text/turtle")]
+    Turtle,
     /// YAML Ain't Markup Language (YAML)
     ///
     /// See <https://yaml.org/>
@@ -692,6 +697,7 @@ impl From<&str> for MimeType {
             | "powerpoint" if extension.is_none() => MimeType::Powerpoint,
             | "pptx" | "pptm" | "ppsx" | "ppsm" => MimeType::Powerpoint,
             | "prompt" => MimeType::Prompt,
+            | "rdf" | "rdfxml" => MimeType::RdfXml,
             | "rhai" => MimeType::Rhai,
             | "rtf" => MimeType::Rtf,
             | "rs" => MimeType::Rust,
@@ -701,6 +707,7 @@ impl From<&str> for MimeType {
             | "svg" => MimeType::Svg,
             | "tar" => MimeType::Tar,
             | "toml" => MimeType::Toml,
+            | "ttl" => MimeType::Turtle,
             | "txt" => MimeType::Text,
             | "xls" | "xlsb" | "xlsm" | "xlsx" => MimeType::Excel,
             | "yml" | "yaml" => MimeType::Yaml,
@@ -804,7 +811,15 @@ impl MimeType {
     }
     /// Return whether this MIME type is supported by repository automation.
     pub fn is_repository_file(&self) -> bool {
-        self.is_cff() || self.is_json() || self.is_jsonc() || self.is_markdown() || self.is_yaml() || self.is_zon()
+        self.is_cff()
+            || self.is_json()
+            || self.is_jsonc()
+            || self.is_ld_json()
+            || self.is_markdown()
+            || self.is_rdf_xml()
+            || self.is_turtle()
+            || self.is_yaml()
+            || self.is_zon()
     }
     /// Returns the file type as a string
     /// ### Example
@@ -847,6 +862,7 @@ impl MimeType {
             | MimeType::Pytorch => "pt",
             | MimeType::Powerpoint => "pptx",
             | MimeType::Prompt => "prompt",
+            | MimeType::RdfXml => "rdf",
             | MimeType::Rhai => "rhai",
             | MimeType::Rtf => "rtf",
             | MimeType::Rust => "rs",
@@ -857,6 +873,7 @@ impl MimeType {
             | MimeType::Tar => "tar",
             | MimeType::Text => "txt",
             | MimeType::Toml => "toml",
+            | MimeType::Turtle => "ttl",
             | MimeType::Yaml => "yaml",
             | MimeType::Zon => "zonf",
             | MimeType::Zip => "zip",
@@ -911,7 +928,6 @@ impl StringConversion for &Path {
         <Path as StringConversion>::truncate_utf8(self, max_bytes)
     }
 }
-
 #[cfg(feature = "std")]
 impl StringConversion for Path {
     fn file_name_with_parent(&self) -> String {
@@ -936,7 +952,6 @@ impl StringConversion for Path {
         self.as_os_str().to_string_lossy().as_ref().truncate_utf8(max_bytes)
     }
 }
-
 #[cfg(feature = "std")]
 impl StringConversion for PathBuf {
     fn file_name_with_parent(&self) -> String {
@@ -1362,6 +1377,20 @@ pub fn detect_xml(text: impl ToString) -> bool {
         | false => false,
     }
 }
+/// Escape a lexical form for an N-Triples string literal.
+pub fn escape_ntriples_literal(value: &str) -> String {
+    value
+        .chars()
+        .flat_map(|character| match character {
+            | '\\' => "\\\\".chars().collect::<Vec<_>>(),
+            | '\n' => "\\n".chars().collect(),
+            | '\r' => "\\r".chars().collect(),
+            | '\t' => "\\t".chars().collect(),
+            | '"' => "\\\"".chars().collect(),
+            | value => vec![value],
+        })
+        .collect()
+}
 /// Expand one comma-separated brace expression in a glob pattern.
 ///
 /// # Example
@@ -1730,7 +1759,6 @@ where
 {
     (if value == T::from(1) { "" } else { "s" }).to_string()
 }
-
 #[cfg(feature = "std")]
 fn to_absolute_path(path: &Path) -> String {
     let result = canonicalize(path).unwrap_or_else(|_| path.to_path_buf());

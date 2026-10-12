@@ -184,8 +184,12 @@ impl TryFrom<CrosswalkInput> for CrosswalkOutput {
     fn try_from(input: CrosswalkInput) -> Result<Self, Self::Error> {
         let input_format = input.input_format.unwrap_or(MimeType::Json);
         let output_format = input.output_format.unwrap_or(MimeType::Json);
-        match (&input_format, &output_format) {
-            | (MimeType::Json | MimeType::Yaml | MimeType::Zon, MimeType::Json | MimeType::Yaml | MimeType::Zon) => standard_from(input.source)
+        let input_supported = matches!(input_format, MimeType::Json | MimeType::Yaml | MimeType::Zon)
+            || (input.source == CrosswalkStandard::DublinCore && matches!(input_format, MimeType::LdJson | MimeType::RdfXml | MimeType::Turtle));
+        let output_supported = matches!(output_format, MimeType::Json | MimeType::Yaml | MimeType::Zon)
+            || (input.target == CrosswalkStandard::DublinCore && matches!(output_format, MimeType::LdJson | MimeType::RdfXml | MimeType::Turtle));
+        match input_supported && output_supported {
+            | true => standard_from(input.source)
                 .crosswalk_with_warnings(&input.content, input_format, standard_from(input.target), output_format)
                 .map(|conversion| {
                     let (content, warnings) = conversion.into_parts();
@@ -195,7 +199,9 @@ impl TryFrom<CrosswalkInput> for CrosswalkOutput {
                     }
                 })
                 .map_err(|why| eyre!("Crosswalk failed — {why}")),
-            | _ => Err(eyre!("Crosswalk formats must be JSON, YAML, or ZON")),
+            | false => Err(eyre!(
+                "Crosswalk formats must be JSON, YAML, or ZON; Dublin Core also supports JSON-LD, RDF/XML, and Turtle"
+            )),
         }
     }
 }
@@ -557,6 +563,7 @@ fn standard_from(standard: CrosswalkStandard) -> Standard {
     match standard {
         | CrosswalkStandard::Datacite => Standard::Datacite,
         | CrosswalkStandard::Dcat => Standard::Dcat,
+        | CrosswalkStandard::DublinCore => Standard::DublinCore,
         | CrosswalkStandard::Huwise => Standard::Huwise,
         | CrosswalkStandard::Invenio => Standard::Invenio,
     }

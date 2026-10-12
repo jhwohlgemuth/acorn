@@ -47,6 +47,7 @@ import init, {
     assessFairMetadata,
     checkReadability,
     crosswalkMetadata,
+    crosswalkMetadataAs,
     diffContent,
     discoverPersistentIdentifiers,
     inspectPersistentIdentifier,
@@ -71,13 +72,15 @@ const readability = checkReadability("Supplied text to assess.", "fkgl");
 
 `discoverPersistentIdentifiers` finds the same supported identifier kinds in supplied text, excludes generic URLs, normalizes and deduplicates the results, and returns at most 100 entries with a total count and truncation flag.
 
-`validateMetadataStandard` accepts content, a standard, and a format. Portable standards are Citation File Format, CKAN, DataCite, document text, InvenioRDM, Kitfile, ModelKit, RAiD, Research Activity Data, and plain text. Formats are `cff`, `json`, `jsonc`, `markdown`, `text`, `yaml`, and `zon`; each standard still rejects formats its codec does not support.
+`validateMetadataStandard` accepts content, a standard, and a format. Portable standards are Citation File Format, CKAN, DataCite, Dublin Core, document text, InvenioRDM, Kitfile, ModelKit, RAiD, Research Activity Data, and plain text. Formats are `cff`, `json`, `jsonc`, `json-ld`, `markdown`, `rdf-xml`, `text`, `turtle`, `yaml`, and `zon`; each standard still rejects formats its codec does not support. Dublin Core accepts native graph JSON or YAML, JSON-LD, RDF/XML, and Turtle.
 
 `diffContent` returns either a three-line-context unified text diff or a deterministic RFC 6902 JSON Patch. JSON Patch mode requires valid JSON on both sides.
 
 `assessFairMetadata` evaluates JSON metadata against all 41 RDA FAIR Data Maturity Model indicators and returns the ordered findings plus per-principle and total counts. It uses only evidence present in the supplied value and does not resolve evidence URIs.
 
-`crosswalkMetadata` returns pretty JSON plus loss warnings for the existing portable typed conversions RAD → DataCite, RAD → RAiD, and RAiD → RAD. RAiD → RAD requires a caller-supplied `ContactPoint` JSON seed because RAiD cannot represent all required local contact data; it also accepts an optional local identifier.
+`crosswalkMetadata` returns pretty JSON plus loss warnings for portable typed conversions between RAD, DataCite, RAiD, and Dublin Core. The supported Dublin Core paths are RAD → Dublin Core, DataCite ↔ Dublin Core, Dublin Core → RAD, and Dublin Core syntax-to-syntax conversion. Dublin Core and RAiD imports into RAD require a caller-supplied `ContactPoint` JSON seed because those standards cannot represent all required local contact data; both accept an optional local identifier.
+
+Use `crosswalkMetadataAs(content, inputFormat, source, target, outputFormat, contact?, localIdentifier?)` when the Dublin Core target should be `json`, `json-ld`, `rdf-xml`, `turtle`, or `yaml`. Other browser crosswalk targets currently require JSON output.
 
 `checkReadability` accepts the canonical metrics `ari`, `cli`, `fkgl`, `fres`, `gfi`, `lix`, and `smog`. It returns the ordered checks and the category summary produced from those checks. An optional URI may be supplied as the third argument.
 
@@ -122,11 +125,11 @@ The adapter registers eight read-only tools:
 |---|---|---|
 | `acorn_assess_fair_metadata` | `{ json: string, standard: MetadataStandard, resource?: string }` | All 41 ordered RDA FAIR findings plus profile counts |
 | `acorn_check_readability` | `{ text: string, metric: "ari" | "cli" | "fkgl" | "fres" | "gfi" | "lix" | "smog" }` | The selected readability check and category summary |
-| `acorn_crosswalk_metadata` | `{ content, format, source, target, contact?, localIdentifier? }` | Pretty JSON target content and typed data-loss warnings; supports RAD → DataCite, RAD → RAiD, and RAiD → RAD |
+| `acorn_crosswalk_metadata` | `{ content, format, source, target, contact?, localIdentifier? }` | Pretty JSON target content and typed data-loss warnings for supported RAD, DataCite, RAiD, and Dublin Core conversions |
 | `acorn_diff_content` | `{ before: string, after: string, mode: "json-patch" | "unified" }` | Deterministic RFC 6902 operations or a unified text diff |
 | `acorn_discover_persistent_identifiers` | `{ text: string }` | Up to 100 normalized, deduplicated supported identifiers plus count and truncation state |
 | `acorn_inspect_persistent_identifier` | `{ value: string, kind?: "ark" | "arxiv" | "doi" | "handle" | "isbn" | "isni" | "orcid" | "patent" | "raid" | "ror" | "rrid" | "swhid" }` | Valid, invalid, or ambiguous status with a canonical value and deterministic candidates |
-| `acorn_validate_metadata_standard` | `{ content: string, format: MetadataFormat, standard: MetadataStandard }` | Validity plus ordered diagnostics for ten portable standards |
+| `acorn_validate_metadata_standard` | `{ content: string, format: MetadataFormat, standard: MetadataStandard }` | Validity plus ordered diagnostics for eleven portable standards |
 | `acorn_validate_research_activity` | `{ json: string }` | Validity plus ordered diagnostics; parsed research data is never echoed |
 
 All schemas reject unknown fields. The adapter limits JSON and metadata documents to 256 KiB, each diff side to 128 KiB, prose and discovery text to 16 KiB, identifier and resource labels to 2 KiB, output to 256 KiB, discovered identifiers to 100, and returned diagnostics to the first 100. It permits only one active invocation per adapter and returns structured, bounded errors for invalid input, cancellation, contention, or execution failures. ACORN runs all operations locally. Identifier operations and FAIR assessment do not resolve or fetch metadata. The adapter makes no network requests and does not persist supplied content, but a browser agent may send tool inputs and outputs to its configured model provider.
@@ -158,7 +161,7 @@ The WASM build exposes Rust APIs that operate on supplied in-memory values. It c
 | Capability | Available functionality |
 |---|---|
 | Research metadata | `ResearchActivity` and its supporting metadata, section, linked-data, and media types |
-| Metadata standards | Serde-compatible CFF, DataCite, DCAT, Dublin Core, Huwise, Invenio, and text models; in-memory schema crosswalk contracts and conversions |
+| Metadata standards | Serde-compatible CFF, DataCite, DCAT, Dublin Core, Huwise, Invenio, and text models; Dublin Core graph codecs for JSON-LD, RDF/XML, and Turtle; in-memory schema crosswalk contracts and conversions |
 | Persistent identifiers | ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, patent, RAiD, ROR, RRID, and SWHID parsing, recognition, normalization, component access, and checksum validation where the identifier defines one |
 | Validation | Research schema validation plus helpers for identifiers, dates and timestamps, URLs, semantic versions, geographic coordinates and polygons, language and country codes, phone numbers, and media extensions |
 | Hardware metadata | Architecture, accelerator, processor, memory, sensor, topology, vendor, and computing-resource models |

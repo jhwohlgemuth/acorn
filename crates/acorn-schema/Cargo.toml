@@ -36,6 +36,8 @@ jsonc-parser = { workspace = true, features = ["serde", "serde_json"] }
 lazy_static = { workspace = true }
 data-encoding = { workspace = true }
 eserde = { workspace = true }
+oxixml-model = { workspace = true }
+oxixml-rdfxml = { workspace = true }
 sophia = { workspace = true }
 swhid = { workspace = true, features = ["git"], optional = true }
 # std-gated hosts (mirrors acorn-lib gating)

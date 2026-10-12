@@ -19,14 +19,14 @@ Versions appear where ACORN pins one. An unversioned name describes the implemen
 
 ## Metadata models
 
-[`acorn check`](../cli-reference/commands/check.md) runs schema and semantic validation for the implemented models below. [`acorn format`](../cli-reference/commands/format.md) supports a smaller set. For CFF, DataCite, and InvenioRDM, formatting means parse and canonical reserialization. RAD formatting also normalizes controlled values and contact data, while ACRE formatting preserves comments and property order where its format permits.
+[`acorn check`](../cli-reference/commands/check.md) runs schema and semantic validation for the implemented models below. [`acorn format`](../cli-reference/commands/format.md) supports a smaller set. For CFF, DataCite, Dublin Core, and InvenioRDM, formatting means parse and canonical reserialization. RAD formatting also normalizes controlled values and contact data, while ACRE formatting preserves comments and property order where its format permits.
 
 | Model or profile | Accepted representations | `check` | `format` | Interchange and generation |
 | --- | --- | --- | --- | --- |
-| Research Activity Data (RAD) | JSON, JSONC, YAML, [ZON](zon.md), and ACORN Markdown; JSON Lines for batches | Structure, modeled fields, cross-field rules, quality, links, prose, and optional FAIR evidence | Canonical serialization plus controlled vocabulary, organization, affiliation, telephone, and contextual media normalization | RAD to DataCite, RAiD, CFF, JSON-LD, and document or archive exports; RAiD to RAD |
+| Research Activity Data (RAD) | JSON, JSONC, YAML, [ZON](zon.md), and ACORN Markdown; JSON Lines for batches | Structure, modeled fields, cross-field rules, quality, links, prose, and optional FAIR evidence | Canonical serialization plus controlled vocabulary, organization, affiliation, telephone, and contextual media normalization | RAD to DataCite, Dublin Core, RAiD, CFF, JSON-LD, and document or archive exports; RAiD and Dublin Core to RAD with explicit local context |
 | Application Configuration for Research Enablement (ACRE) 1.0.0 | JSON, JSONC, and YAML | Schema validation | Two-space layout, LF line endings, and final newline; comments, property order, and existing trailing commas are retained where supported | JSON Schema generation |
 | [Citation File Format 1.2.0](https://citation-file-format.github.io/1.2.0/) | `CITATION.cff`, YAML, and JSON | Structure, dates, identifiers, nested authors and references, prose, and links | Canonical serialization | Generated from RAD as `CITATION.cff`; no general CFF crosswalk target |
-| [DataCite Metadata Schema 4.7](https://datacite-metadata-schema.readthedocs.io/en/4.7/) | JSON and YAML | Modeled structure, required fields, present recommended metadata, controlled values, identifiers, dates, rights, and relations | Canonical serialization | Direct conversion to DCAT, InvenioRDM, and HuWise; conversion from those models; RAD to DataCite |
+| [DataCite Metadata Schema 4.7](https://datacite-metadata-schema.readthedocs.io/en/4.7/) | JSON and YAML | Modeled structure, required fields, present recommended metadata, controlled values, identifiers, dates, rights, and relations | Canonical serialization | Direct conversion to DCAT, Dublin Core, InvenioRDM, and HuWise; conversion from those models; RAD to DataCite |
 | [CKAN package and Action API](https://docs.ckan.org/en/latest/api/) | JSON and YAML for direct checks; JSON, JSON Lines, YAML, and ZON in crosswalk batches | Modeled package, resource, organization, tag, temporal, and spatial fields | No | CKAN package to DCAT Dataset only |
 | [Data Catalog Vocabulary 3](https://www.w3.org/TR/vocab-dcat-3/) | JSON and YAML | Modeled Dataset, Distribution, DataService, checksum, temporal, spatial, identifier, and relation fields | No | Direct conversion to DataCite; conversion to InvenioRDM and HuWise through DataCite |
 | HuWise dataset metadata | JSON and YAML | Modeled dataset, contributor, funding, resource, rights, date, identifier, and relation fields | No | Direct conversion to DataCite; conversion to DCAT and InvenioRDM through DataCite |
@@ -34,13 +34,13 @@ Versions appear where ACORN pins one. An unversioned name describes the implemen
 | RAiD metadata, governed by [ISO 23527:2022](https://www.iso.org/standard/75931.html) | JSON, JSONC, and YAML | Modeled RAiD metadata, identifiers, dates, roles, organizations, subjects, and related objects | No | RAD to RAiD and RAiD to RAD |
 | [KitOps](https://kitops.org/) Kitfile and resolved [ModelKit](https://kitops.org/docs/modelkit/intro/) configuration | Authoring YAML and resolved JSON | Structure, manifest compatibility, paths, layer identities, digests, local package readiness, and referenced MCP Bundles | No general metadata formatting | Kitfile resolution and OCI ModelKit packaging |
 | OCI model artifact profile | Remote `oci://` references | Registry descriptor, index or manifest, configuration blob, package convention, and declared model inventory | No | Manifest-level inspection of annotated GGUF artifacts, KitOps ModelKits, and CNCF ModelPacks |
-| [Dublin Core](https://www.dublincore.org/specifications/dublin-core/dcmi-terms/) | In progress | In progress: recognized as a CLI standard name, but no analyzer is implemented | No | No generated schema or crosswalk yet |
+| [Dublin Core](dublin-core.md) | Native tagged JSON and YAML, JSON-LD, RDF/XML, and Turtle | Graph structure, DCMI syntax encodings, quality guidance, FAIR evidence, links, prose, and readability | Deterministic graph serialization with canonical blank-node labels | Bidirectional DataCite, DCAT, InvenioRDM, and HuWise conversion; RAD export and explicit-context RAD import; JSON Schema generation |
 
 Document and text selectors are analysis sources. They let `check` extract or analyze prose, but they are not metadata models.
 
 ### Schema generation
 
-`acorn export --schema --standard <STANDARD>` prints deterministic JSON Schema as JSON by default or YAML with `--format yaml` for ACRE, RAD/RADS, CFF, CKAN, DataCite, DCAT, HuWise, InvenioRDM, RAiD, Kitfile, ModelKit, document, and text models. Dublin Core is recognized but fails explicitly until it has a modeled schema. OCI checking has no single generated schema because it spans a registry reference, distribution responses, manifests or indexes, and configuration blobs.
+`acorn export --schema --standard <STANDARD>` prints deterministic JSON Schema as JSON by default or YAML with `--format yaml` for ACRE, RAD/RADS, CFF, CKAN, DataCite, DCAT, Dublin Core, HuWise, InvenioRDM, RAiD, Kitfile, ModelKit, document, and text models. OCI checking has no single generated schema because it spans a registry reference, distribution responses, manifests or indexes, and configuration blobs.
 
 ### Validation levels
 
@@ -54,36 +54,38 @@ DataCite recommended and optional properties are validated when present. Their a
 
 ### Crosswalk boundaries
 
-The structured crosswalk command accepts JSON, JSON Lines, YAML, and ZON. Its supported paths are:
+The structured crosswalk command accepts JSON, JSON Lines, YAML, and ZON. Dublin Core also accepts JSON-LD, RDF/XML, and Turtle. Its supported paths are:
 
 ```pikchr
 scale = 0.82
 ActivityBackground: box wid 1.65in ht 2.05in rad 0.14in fill 0xF2F2F2 thickness 0
 HubBackground: box wid 1.85in ht 1.0in rad 0.14in fill 0xF2F2F2 thickness 0 at ActivityBackground+(2.25in,0.42in)
-ExternalBackground: box wid 1.75in ht 4.05in rad 0.14in fill 0xF2F2F2 thickness 0 at HubBackground+(2.45in,-0.42in)
+ExternalBackground: box wid 1.75in ht 4.95in rad 0.14in fill 0xF2F2F2 thickness 0 at HubBackground+(2.45in,-0.42in)
 RAD: box "RAD" bold wid 1.15in ht 0.52in rad 0.08in fill 0xE8F1FB thickness 0 at ActivityBackground+(0,0.42in)
 RAID: box "RAiD" bold wid 1.15in ht 0.52in rad 0.08in fill 0xE8F1FB thickness 0 at ActivityBackground+(0,-0.42in)
 DataCite: box "DataCite" bold "crosswalk hub" italic wid 1.55in ht 0.62in rad 0.08in fill 0xFFF4D6 thickness 0 at HubBackground
-CKAN: box "CKAN" bold wid 1.35in ht 0.52in rad 0.08in fill 0xE7F3E9 thickness 0 at ExternalBackground+(0,1.35in)
-DCAT: box "DCAT" bold wid 1.35in ht 0.52in rad 0.08in fill 0xE7F3E9 thickness 0 at ExternalBackground+(0,0.45in)
-Invenio: box "InvenioRDM" bold wid 1.35in ht 0.52in rad 0.08in fill 0xE7F3E9 thickness 0 at ExternalBackground+(0,-0.45in)
-HuWise: box "HuWise" bold wid 1.35in ht 0.52in rad 0.08in fill 0xE7F3E9 thickness 0 at ExternalBackground+(0,-1.35in)
+CKAN: box "CKAN" bold wid 1.35in ht 0.52in rad 0.08in fill 0xE7F3E9 thickness 0 at ExternalBackground+(0,1.8in)
+DCAT: box "DCAT" bold wid 1.35in ht 0.52in rad 0.08in fill 0xE7F3E9 thickness 0 at ExternalBackground+(0,0.9in)
+Invenio: box "InvenioRDM" bold wid 1.35in ht 0.52in rad 0.08in fill 0xE7F3E9 thickness 0 at ExternalBackground
+HuWise: box "HuWise" bold wid 1.35in ht 0.52in rad 0.08in fill 0xE7F3E9 thickness 0 at ExternalBackground+(0,-0.9in)
+DublinCore: box "Dublin Core" bold wid 1.35in ht 0.52in rad 0.08in fill 0xE7F3E9 thickness 0 at ExternalBackground+(0,-1.8in)
 arrow from RAD.e to DataCite.w thick color 0x00662C
 arrow <-> from RAD.s to RAID.n thick color 0x00662C
 arrow <-> from DataCite.e to DCAT.w thick color 0x00662C
 arrow <-> from DataCite.e to Invenio.w thick color 0x00662C
 arrow <-> from DataCite.e to HuWise.w thick color 0x00662C
+arrow <-> from DataCite.e to DublinCore.w thick color 0x00662C
 arrow from CKAN.s to DCAT.n thick color 0x00662C
 ```
 
-Each arrow is a direct mapping. Conversions between DCAT, InvenioRDM, and HuWise follow two arrows through DataCite.
+Each arrow is a direct mapping. A user-facing conversion may follow more than one arrow; RAD to Dublin Core and conversions among DCAT, Dublin Core, InvenioRDM, and HuWise use DataCite as the shared intermediate model.
 
-- RAD to DataCite or RAiD, and RAiD to RAD.
+- RAD to DataCite or RAiD directly, and to Dublin Core through DataCite; RAiD and Dublin Core to RAD require explicit local context.
 - CKAN to DCAT.
-- DataCite directly to DCAT, InvenioRDM, or HuWise.
-- DCAT, InvenioRDM, and HuWise directly to DataCite. Conversions between those three models use DataCite as the intermediate representation.
+- DataCite directly to DCAT, Dublin Core, InvenioRDM, or HuWise.
+- DCAT, Dublin Core, InvenioRDM, and HuWise directly to DataCite. Conversions among those four models use DataCite as the intermediate representation where no direct field adapter exists.
 
-`--strict` rejects output when the conversion reports a warning. Warning coverage is strongest for direct conversions; loss reporting for routes through DataCite remains incomplete. CKAN conversion produces ACORN's flexible DCAT Dataset representation. It does not produce a DCAT Catalog or CatalogRecord and does not claim DCAT-US conformance.
+`--strict` rejects output when the conversion reports a warning. Dublin Core to RAD requires `--crosswalk-contact` and `--local-identifier`; ACORN does not create placeholder local identity data. Warning coverage is strongest for direct conversions, and loss reporting for routes through DataCite remains incomplete. CKAN conversion produces ACORN's flexible DCAT Dataset representation. It does not produce a DCAT Catalog or CatalogRecord and does not claim DCAT-US conformance.
 
 ## Field-level standards and profiles
 
@@ -151,7 +153,8 @@ The metadata layer sits inside a wider set of interoperability boundaries.
 | [JSON](https://www.json.org/json-en.html) and [JSONC](https://jsonc.org) | Metadata, configuration, API, manifest, and linked-data representations. Typed readers reject malformed input and, for models that deny unknown fields, unknown properties. ACRE's JSONC formatter preserves comments and property order. |
 | [YAML](https://yaml.org) | Metadata, ACRE configuration, CFF, and Kitfile authoring. Typed readers apply the selected schema after parsing. |
 | [JSON Lines](https://jsonlines.org) | Batch RAD and crosswalk records. Each nonblank physical line must contain one complete JSON value; blank or malformed records fail with a record location. |
-| [JSON-LD 1.1](https://www.w3.org/TR/json-ld11/) | Generated linked RAD with defined context mappings. ACORN generates its supported graph shape rather than acting as a general JSON-LD processor. |
+| [JSON-LD 1.1](https://www.w3.org/TR/json-ld11/) | Generated linked RAD with defined context mappings, plus Dublin Core expanded or inline-context graphs. Dublin Core decoding rejects remote contexts and does not fetch vocabulary data. |
+| [RDF 1.1 XML Syntax](https://www.w3.org/TR/rdf-syntax-grammar/) and [Turtle](https://www.w3.org/TR/turtle/) | Dublin Core default-graph input and output. ACORN rejects named graphs, RDF-star, and relative IRIs, and canonicalizes blank nodes before semantic comparison. |
 | [JSON Schema](https://json-schema.org/specification) | Generated from ACORN's typed models for inspection and integration. The generated schema complements runtime semantic validation; it does not encode every cross-field or external check. |
 | [ZON](zon.md) | ACORN's deterministic, strict representation of the JSON data model. ZON is an ACORN profile, not an ISO or RFC standard. |
 | [Markdown](https://en.wikipedia.org/wiki/Markdown) | RAD authoring and export, prompt and skill content, and extracted document text. RAD Markdown requires ACORN's frontmatter discriminator or a recognized legacy representation. |

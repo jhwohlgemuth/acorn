@@ -62,6 +62,21 @@ fn infer_json_lines_standard(path: &Path, content: &str) -> ApiResult<Standard> 
                 })
         })
 }
+fn infer_rdf_standard(path: &Path, content: &str, mime: &MimeType) -> ApiResult<Standard> {
+    Standard::detect_rdf(content, mime)
+        .map_err(|diagnostics| {
+            eyre!(
+                "Unable to infer source schema for {} — invalid {mime} ({})",
+                path.display(),
+                diagnostics
+                    .into_iter()
+                    .map(|diagnostic| diagnostic.to_string())
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            )
+        })
+        .and_then(|standard| standard.ok_or_else(|| unknown_standard(path, None, None)))
+}
 /// Infer the metadata standard from JSON, JSON Lines, YAML, or ZON content.
 ///
 /// Returns `ApiResult<Standard>` — the inferred standard based on
@@ -69,6 +84,7 @@ fn infer_json_lines_standard(path: &Path, content: &str) -> ApiResult<Standard> 
 pub(crate) fn infer_standard_from_content(path: &Path, content: &str, mime: &MimeType) -> ApiResult<Standard> {
     match mime {
         | MimeType::JsonLines => infer_json_lines_standard(path, content),
+        | MimeType::LdJson | MimeType::RdfXml | MimeType::Turtle => infer_rdf_standard(path, content, mime),
         | _ => {
             let root = match mime {
                 | mime @ MimeType::Json => serde_json::from_str::<Value>(content)
@@ -139,12 +155,15 @@ pub(crate) fn parse_check_format(s: &str) -> Result<MimeType, String> {
         | "cff" => Ok(MimeType::Cff),
         | "json" => Ok(MimeType::Json),
         | "jsonc" => Ok(MimeType::Jsonc),
+        | "json-ld" | "jsonld" => Ok(MimeType::LdJson),
         | "markdown" | "md" => Ok(MimeType::Markdown),
+        | "rdf-xml" | "rdfxml" => Ok(MimeType::RdfXml),
         | "text" | "txt" => Ok(MimeType::Text),
+        | "ttl" | "turtle" => Ok(MimeType::Turtle),
         | "yaml" | "yml" => Ok(MimeType::Yaml),
         | "zon" | "zonf" => Ok(MimeType::Zon),
         | _ => Err(format!(
-            "unknown check format '{s}' — expected one of: cff, json, jsonc, markdown, text, yaml, zon"
+            "unknown check format '{s}' — expected one of: cff, json, jsonc, jsonld, markdown, rdfxml, text, turtle, yaml, zon"
         )),
     }
 }

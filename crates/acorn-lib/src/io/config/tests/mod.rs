@@ -192,7 +192,7 @@ fn test_acre_schema_has_human_title_and_feature_independent_fields() {
     let schema = serde_json::to_value(schemars::schema_for!(ApplicationConfiguration)).unwrap();
     assert_eq!(schema["title"], "Application Configuration for Research Enablement");
     let properties = schema["properties"].as_object().expect("schema properties");
-    ["mcp", "powerAutomate", "schemaVersion", "scriptManifest", "workflow"]
+    ["mcp", "options", "powerAutomate", "schemaVersion", "scriptManifest", "workflow"]
         .into_iter()
         .for_each(|name| assert!(properties.contains_key(name), "missing {name}"));
     let bucket_properties = schema["$defs"]["Bucket"]["properties"].as_object().expect("bucket schema properties");
@@ -205,6 +205,15 @@ fn test_acre_schema_version_defaults_and_serializes() {
     let configuration = ApplicationConfiguration::parse("{}").expect("parse legacy configuration");
     assert_eq!(configuration.schema_version, AcreSchemaVersion::V1_0_0);
     assert_eq!(serde_json::to_value(configuration).unwrap()["schemaVersion"], ACRE_SCHEMA_VERSION);
+}
+#[test]
+fn test_acre_supports_crosswalk_import_defaults() {
+    let configuration =
+        ApplicationConfiguration::parse(r#"{"options":{"crosswalk":{"contact":"contacts/default.yaml","localIdentifier":"imported-record"}}}"#)
+            .expect("parse crosswalk options");
+    let options = configuration.options.and_then(|options| options.crosswalk).expect("crosswalk options");
+    assert_eq!(options.contact.as_deref(), Some(Path::new("contacts/default.yaml")));
+    assert_eq!(options.local_identifier.as_deref(), Some("imported-record"));
 }
 #[test]
 fn test_bucket() {

@@ -30,7 +30,7 @@ use acorn_schema::{
     modelkit::kitfile::{Kitfile, LayerInfo, McpServer},
     pid::raid::Metadata,
     research_activity::{Logbook, LogbookEntry, ResearchActivity, ResearchActivityMetadata},
-    standard::{cff::Cff, ckan, datacite, dcat, huwise, invenio, text, text::Text},
+    standard::{cff::Cff, ckan, datacite, dcat, dublin_core::DublinCoreDocument, huwise, invenio, text, text::Text},
     vocabulary::{VocabularyFormat, VocabularyFuzzyMode},
     ImageObject, MediaObject, OneOrMany,
 };
@@ -278,6 +278,44 @@ impl InputOutput for dcat::Dataset {
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("yaml");
         Codec::write(MimeType::Yaml, self, output)
+    }
+}
+impl InputOutput for DublinCoreDocument {
+    fn parse(content: &str) -> Option<Self> {
+        [MimeType::Json, MimeType::LdJson, MimeType::Turtle, MimeType::RdfXml, MimeType::Yaml]
+            .iter()
+            .find_map(|format| Self::decode(content, format).ok())
+    }
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
+        let source = path.into();
+        let format = MimeType::from_path(&source);
+        match format {
+            | MimeType::Json | MimeType::LdJson | MimeType::RdfXml | MimeType::Turtle | MimeType::Yaml => Codec::read(format, source),
+            | _ => Err(eyre!("Unsupported Dublin Core data file extension")),
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<Self> {
+        Codec::read(MimeType::Json, path)
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
+        Codec::read(MimeType::Yaml, path)
+    }
+    fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
+        self.encode(mime).map_err(|error| eyre!(error.to_string()))
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into();
+        let format = MimeType::from_path(&output);
+        match format {
+            | MimeType::Json | MimeType::LdJson | MimeType::RdfXml | MimeType::Turtle | MimeType::Yaml => Codec::write(format, self, output),
+            | _ => Err(eyre!("Unsupported Dublin Core data file extension for writing")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        Codec::write(MimeType::Json, self, path.into().with_extension("json"))
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        Codec::write(MimeType::Yaml, self, path.into().with_extension("yaml"))
     }
 }
 impl InputOutput for huwise::Dataset {

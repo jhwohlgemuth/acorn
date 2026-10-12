@@ -42,7 +42,6 @@ fn fixture_content_root() -> PathBuf {
 fn has_suffix(path: &Path, suffix: &str) -> bool {
     path.to_string_lossy().replace('\\', "/").ends_with(suffix)
 }
-
 #[test]
 fn test_bot_identifier_from_ci_project_id_env() {
     let _guard = ENV_LOCK.lock().unwrap_or_else(|why| why.into_inner());
@@ -96,7 +95,7 @@ fn test_check_format_argument() {
     ]
     .into_iter()
     .flat_map(|standard| {
-        ["cff", "json", "jsonc", "markdown", "text", "yaml"]
+        ["cff", "json", "jsonc", "jsonld", "markdown", "rdfxml", "text", "turtle", "yaml"]
             .into_iter()
             .map(move |format| (standard, format))
     })
@@ -108,6 +107,15 @@ fn test_check_format_argument() {
         | Some(Commands::Check(arguments)) => assert_eq!(arguments.format, Some(MimeType::Markdown)),
         | _ => panic!("expected check arguments"),
     }
+    [("json-ld", MimeType::LdJson), ("rdf-xml", MimeType::RdfXml), ("ttl", MimeType::Turtle)]
+        .into_iter()
+        .for_each(|(format, expected)| {
+            let arguments = Arguments::try_parse_from(["acorn", "check", "--paste", "--format", format]).expect("parse linked-data format alias");
+            match arguments.command {
+                | Some(Commands::Check(arguments)) => assert_eq!(arguments.format, Some(expected)),
+                | _ => panic!("expected check arguments"),
+            }
+        });
     assert!(Arguments::try_parse_from(["acorn", "check", "--paste", "--format", "pdf"]).is_err());
     assert!(Arguments::try_parse_from(["acorn", "check", "notes.json", "--format", "json"]).is_err());
 }
@@ -380,6 +388,40 @@ fn test_create_runner_no_config_arguments() {
         }) if arguments.no_config
     ));
     assert!(Arguments::try_parse_from(["acorn", "create", "runner", "--no-config", "--config", "runner.json",]).is_err());
+}
+#[test]
+fn test_dcat_standard_inference_precedes_dublin_core_for_linked_data_syntaxes() {
+    let documents = [
+        (
+            "metadata.jsonld",
+            r#"{
+                "@context": { "dcat": "http://www.w3.org/ns/dcat#" },
+                "@id": "https://example.org/dataset",
+                "@type": "dcat:Dataset"
+            }"#,
+            MimeType::LdJson,
+        ),
+        (
+            "metadata.rdf",
+            r#"<?xml version="1.0"?>
+            <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                     xmlns:dcat="http://www.w3.org/ns/dcat#">
+              <rdf:Description rdf:about="https://example.org/dataset">
+                <rdf:type rdf:resource="http://www.w3.org/ns/dcat#Dataset"/>
+              </rdf:Description>
+            </rdf:RDF>"#,
+            MimeType::RdfXml,
+        ),
+        (
+            "metadata.ttl",
+            "@prefix dcat: <http://www.w3.org/ns/dcat#> .\n<https://example.org/dataset> a dcat:Dataset .\n",
+            MimeType::Turtle,
+        ),
+    ];
+    documents.into_iter().for_each(|(path, content, mime)| {
+        let inferred = infer_standard_from_content(Path::new(path), content, &mime).expect("linked-data document should infer");
+        assert_eq!(inferred, Standard::Dcat);
+    });
 }
 #[test]
 fn test_diff_arguments() {
@@ -684,6 +726,40 @@ fn test_download_strict_argument() {
     }
 }
 #[test]
+fn test_dublin_core_standard_inference_accepts_linked_data_syntaxes() {
+    let documents = [
+        (
+            "metadata.jsonld",
+            r#"{
+                "@context": { "dcterms": "http://purl.org/dc/terms/" },
+                "@id": "https://example.org/work",
+                "dcterms:title": "Example"
+            }"#,
+            MimeType::LdJson,
+        ),
+        (
+            "metadata.rdf",
+            r#"<?xml version="1.0"?>
+            <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                     xmlns:dcterms="http://purl.org/dc/terms/">
+              <rdf:Description rdf:about="https://example.org/work">
+                <dcterms:title>Example</dcterms:title>
+              </rdf:Description>
+            </rdf:RDF>"#,
+            MimeType::RdfXml,
+        ),
+        (
+            "metadata.ttl",
+            "@prefix dcterms: <http://purl.org/dc/terms/> .\n<https://example.org/work> dcterms:title \"Example\" .\n",
+            MimeType::Turtle,
+        ),
+    ];
+    documents.into_iter().for_each(|(path, content, mime)| {
+        let inferred = infer_standard_from_content(Path::new(path), content, &mime).expect("linked-data document should infer");
+        assert_eq!(inferred, Standard::DublinCore);
+    });
+}
+#[test]
 fn test_exec_hook_argument() {
     assert!(Arguments::try_parse_from([
         "acorn",
@@ -753,6 +829,29 @@ fn test_export_chrome_path_argument_and_environment() {
             | other => panic!("unexpected command: {other:?}"),
         }
     });
+}
+#[test]
+fn test_export_parses_crosswalk_import_context() {
+    let parsed = Arguments::try_parse_from([
+        "acorn",
+        "export",
+        "--from",
+        "dcmi",
+        "--to",
+        "rads",
+        "--crosswalk-contact",
+        "contact.json",
+        "--local-identifier",
+        "dublin-core-import",
+    ])
+    .expect("parse Dublin Core import context");
+    match parsed.command {
+        | Some(Commands::Export(arguments)) => {
+            assert_eq!(arguments.crosswalk_contact, Some(PathBuf::from("contact.json")));
+            assert_eq!(arguments.local_identifier.as_deref(), Some("dublin-core-import"));
+        }
+        | other => panic!("unexpected command: {other:?}"),
+    }
 }
 #[test]
 fn test_filter_paths_by_pattern_applies_ignore_pattern_to_relative_paths() {

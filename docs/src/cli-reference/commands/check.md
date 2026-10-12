@@ -1,7 +1,7 @@
 # ✅ Check
 <blockquote class="blockquote-tag acorn-nutshell">
 <p class="blockquote-tag-title acorn-nutshell-title">In a nutshell</p>
-<p>Validate RAD structure, links, and prose with <code>acorn check &lt;PATH&gt;</code>.</p>
+<p>Validate research metadata structure, links, FAIR evidence, and prose with <code>acorn check &lt;PATH&gt;</code>.</p>
 </blockquote>
 
 ## Example Use
@@ -17,6 +17,11 @@ acorn check path/to/project/index.zonf
 
 # Check a Citation File Format file
 acorn check path/to/project/CITATION.cff
+
+# Check Dublin Core in any supported RDF syntax
+acorn check path/to/metadata.jsonld
+acorn check path/to/metadata.rdf
+acorn check path/to/metadata.ttl
 
 # Check a KitOps authoring file or resolved ModelKit configuration
 acorn check path/to/model/Kitfile
@@ -82,7 +87,7 @@ When `--suggest-fixes` is enabled, a complete and unambiguous accepted result be
 
 When no file, directory, Git selector, filter, or ignore pattern is supplied, `acorn check` reads non-empty piped standard input automatically. Use `--paste` to read text from the system clipboard instead. ACORN infers JSON, JSONC, RAD Markdown, RAD YAML, and ZON; other content is checked as plain text.
 
-Use `--format` to override inference with `cff`, `json`, `jsonc`, `markdown`, `text`, `yaml`, or `zon`. Combine it with `--standard` to select the schema or analyzer independently:
+Use `--format` to override inference with `cff`, `json`, `jsonc`, `jsonld`, `markdown`, `rdfxml`, `text`, `turtle`, `yaml`, or `zon`. Combine it with `--standard` to select the schema or analyzer independently:
 
 ```sh
 cat metadata.jsonc | acorn check --format jsonc --standard datacite
@@ -90,13 +95,22 @@ acorn check --paste --format cff --standard cff
 printf '# Notes\n\nText to check.' | acorn check --format markdown --standard text
 cat activity.zonf | acorn check --format zon --standard rads
 cat settings.yaml | acorn check --format yaml --standard acre
+cat metadata.ttl | acorn check --format turtle --standard dcmi
 ```
 
-The aliases `md`, `txt`, `yml`, and `zonf` are accepted. `--format` applies only to piped standard input and clipboard content and conflicts with filesystem, Git, filter, and merge-request selectors. ZON selects the input serialization only; check reports retain their existing output formats.
+The aliases `json-ld`, `md`, `rdf-xml`, `ttl`, `txt`, `yml`, and `zonf` are accepted. `--format` applies only to piped standard input and clipboard content and conflicts with filesystem, Git, filter, and merge-request selectors. The option selects the input serialization only; check reports retain their existing output formats.
 
 An explicit filesystem selection or `--paste` takes precedence over piped standard input. Empty implicit standard input preserves the existing behavior of checking the current directory. Clipboard input must contain non-whitespace text, and clipboard or standard-input checks cannot be combined with `--watch`.
 
 Application Configuration for Research Enablement is auto-detected only for the exact filenames `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, and `.acorn.yml`. Use `--standard acre` for custom filenames, standard input, or clipboard content. ACRE runs schema validation only; prose, readability, link, FAIR, quality, and crosswalk checks are not applicable.
+
+## Checking Dublin Core
+
+ACORN accepts its native normalized graph JSON, compact or expanded JSON-LD, RDF/XML, and Turtle. The standard names `dcmi` and `dublin-core` are equivalent. Files ending in `.jsonld`, `.rdf`, `.rdfxml`, or `.ttl` are detected by syntax and extension; use `--standard dcmi` when ordinary `.json` contains the native graph form.
+
+Dublin Core checks validate absolute term and resource IRIs, language tags, registered DCMI syntax, blank-node structure, and literal datatype rules. Prose and readability use `title`, `alternative`, `description`, `abstract`, `tableOfContents`, and `subject` literals. Link checks visit IRI-valued objects unless offline mode or `--disable-website-checks` suppresses them. FAIR assessment projects the graph into the common evidence model. Quality suggestions report declared DCMI domain or range guidance without treating that guidance as a schema error.
+
+ACORN rejects remote JSON-LD contexts, relative IRIs, RDF-star quoted triples, and named graphs. This keeps decoding local and deterministic. Unknown absolute extension predicates and their values are preserved.
 
 ## Checking OCI model artifacts
 
@@ -176,7 +190,7 @@ Link checks require network access. Use `acorn --offline check ./CITATION.cff` o
 
 The command can validate data against its schema, assess evidence of support for the FAIR principles, analyze prose and readability, check links, find inconsistent or incomplete data, and enforce naming or organization-specific conventions.[^metrics]
 
-FAIR checks evaluate all 41 indicators in the RDA FAIR Data Maturity Model. They report an evidence profile rather than a compliance grade. Native assessment is available for ACORN Research Activity Data, DataCite, DCAT, Huwise, InvenioRDM, and RAiD metadata. See [FAIR evidence assessment](../../concepts/fair-assessment.md) for the evidence states and output contract.
+FAIR checks evaluate all 41 indicators in the RDA FAIR Data Maturity Model. They report an evidence profile rather than a compliance grade. Native assessment is available for ACORN Research Activity Data, DataCite, DCAT, Dublin Core, Huwise, InvenioRDM, and RAiD metadata. See [FAIR evidence assessment](../../concepts/fair-assessment.md) for the evidence states and output contract.
 
 ## Customization options
 Use command options to select or skip checks and to control when the command exits.

@@ -308,6 +308,8 @@ dependencies = [
  "jiff",
  "jsonc-parser 0.33.0",
  "lazy_static",
+ "oxixml-model",
+ "oxixml-rdfxml",
  "percy-dom",
  "petgraph",
  "pomsky",
@@ -5896,6 +5898,92 @@ name = "oxiri"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "54b4ed3a7192fa19f5f48f99871f2755047fabefd7f222f12a1df1773796a102"
+
+[[package]]
+name = "oxixml-iri"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "876520f85a4d66ccdbf499d8c9c501a60543ed091eefc7b475141ff1d159d94e"
+dependencies = [
+ "oxixml-support",
+ "oxixml-text",
+]
+
+[[package]]
+name = "oxixml-langtag"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3480c714dfe356ccab305ebab4dd1eafd89fd9fbe0cd39ff9405e8d9987e5e89"
+
+[[package]]
+name = "oxixml-model"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed3417a264362bc0ed568572be38caadf90440ae3c846b564d28fb45723e5cfd"
+dependencies = [
+ "oxixml-iri",
+ "oxixml-langtag",
+ "oxixml-support",
+ "oxixml-xsd",
+]
+
+[[package]]
+name = "oxixml-qname"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9caf21e5676e02e6c7953180af5bff88049a4f6426ffd754702d5753cae8ad8b"
+dependencies = [
+ "oxixml-unicode",
+]
+
+[[package]]
+name = "oxixml-rdfxml"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1312e2e43fd3d5caf5d27ce8a3e2b5ee955758acaf67b180d19080a59b7a925"
+dependencies = [
+ "oxixml-iri",
+ "oxixml-langtag",
+ "oxixml-model",
+ "oxixml-qname",
+ "oxixml-xml",
+]
+
+[[package]]
+name = "oxixml-support"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "822ab227407d022b23cba7e0f58d9dcb31851636983f6b9852c69fa2b658bd52"
+
+[[package]]
+name = "oxixml-text"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "758208d48bd16d75ce434bbbeea2afa2054cb7b500b8ecfe552add148f1509a0"
+dependencies = [
+ "oxixml-support",
+]
+
+[[package]]
+name = "oxixml-unicode"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f4fe405939d195999b5e957038d6c66e14ee766c94a98b08309afa04548bdb6"
+
+[[package]]
+name = "oxixml-xml"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0397a4a82dc1e65bc2392afdac9a4a134f2a7d1acedf461ecfeee3464a6ea52c"
+dependencies = [
+ "oxixml-support",
+]
+
+[[package]]
+name = "oxixml-xsd"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8ea470c30c6cefe7aa62ef4e2f09178f9042b70fc7a9a13b201f6e523a9550f"
 
 [[package]]
 name = "p256"

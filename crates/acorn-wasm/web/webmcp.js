@@ -1,6 +1,11 @@
 const CROSSWALK_PAIRS = Object.freeze([
+    "datacite:dublin-core",
+    "dublin-core:datacite",
+    "dublin-core:dublin-core",
+    "dublin-core:research-activity-data",
     "raid:research-activity-data",
     "research-activity-data:datacite",
+    "research-activity-data:dublin-core",
     "research-activity-data:raid",
 ]);
 const CROSSWALK_TOOL_NAME = "acorn_crosswalk_metadata";
@@ -10,7 +15,7 @@ const DIFF_MODES = Object.freeze(["json-patch", "unified"]);
 const DIFF_TOOL_NAME = "acorn_diff_content";
 const DISCOVERY_TOOL_NAME = "acorn_discover_persistent_identifiers";
 const FAIR_TOOL_NAME = "acorn_assess_fair_metadata";
-const FORMATS = Object.freeze(["cff", "json", "jsonc", "markdown", "text", "yaml", "zon"]);
+const FORMATS = Object.freeze(["cff", "json", "jsonc", "json-ld", "markdown", "rdf-xml", "text", "turtle", "yaml", "zon"]);
 const IDENTIFIER_INPUT_LIMIT = 2 * 1024;
 const IDENTIFIER_KINDS = Object.freeze(["ark", "arxiv", "doi", "handle", "isbn", "isni", "orcid", "patent", "raid", "ror", "rrid", "swhid"]);
 const IDENTIFIER_TOOL_NAME = "acorn_inspect_persistent_identifier";
@@ -19,6 +24,7 @@ const METADATA_STANDARDS = Object.freeze([
     "citation-file-format",
     "ckan",
     "datacite",
+    "dublin-core",
     "document",
     "invenio",
     "kitfile",
@@ -62,12 +68,12 @@ const fairInputSchema = Object.freeze({
 const crosswalkInputSchema = Object.freeze({
     additionalProperties: false,
     properties: {
-        contact: { description: "ContactPoint seed required only for RAiD to RAD.", type: "object" },
+        contact: { description: "ContactPoint seed required for Dublin Core or RAiD imports to RAD.", type: "object" },
         content: { description: "Complete source metadata document.", maxLength: JSON_INPUT_LIMIT, type: "string" },
         format: { description: "Source document format.", enum: FORMATS, type: "string" },
-        localIdentifier: { description: "Optional local RAD identifier for RAiD imports.", maxLength: IDENTIFIER_INPUT_LIMIT, type: "string" },
-        source: { description: "Source metadata standard.", enum: ["raid", "research-activity-data"], type: "string" },
-        target: { description: "Target metadata standard.", enum: ["datacite", "raid", "research-activity-data"], type: "string" },
+        localIdentifier: { description: "Local RAD identifier required for Dublin Core imports and optional for RAiD imports.", maxLength: IDENTIFIER_INPUT_LIMIT, type: "string" },
+        source: { description: "Source metadata standard.", enum: ["datacite", "dublin-core", "raid", "research-activity-data"], type: "string" },
+        target: { description: "Target metadata standard.", enum: ["datacite", "dublin-core", "raid", "research-activity-data"], type: "string" },
     },
     required: ["content", "format", "source", "target"],
     type: "object",
@@ -318,8 +324,11 @@ function crosswalkArguments(input) {
     if (input.contact !== undefined && !isRecord(input.contact)) {
         throw new AdapterError("invalid_arguments", "Crosswalk contact must be an object when supplied.");
     }
-    if (input.source === "raid" && input.target === "research-activity-data" && !isRecord(input.contact)) {
-        throw new AdapterError("invalid_arguments", "RAiD to RAD conversion requires a contact seed.");
+    if (["dublin-core", "raid"].includes(input.source) && input.target === "research-activity-data" && !isRecord(input.contact)) {
+        throw new AdapterError("invalid_arguments", `${input.source} to RAD conversion requires a contact seed.`);
+    }
+    if (input.source === "dublin-core" && input.target === "research-activity-data" && typeof input.localIdentifier !== "string") {
+        throw new AdapterError("invalid_arguments", "Dublin Core to RAD conversion requires a localIdentifier.");
     }
     if (input.localIdentifier !== undefined && (typeof input.localIdentifier !== "string" || input.localIdentifier.trim().length === 0)) {
         throw new AdapterError("invalid_arguments", "Crosswalk localIdentifier must be a non-empty string when supplied.");

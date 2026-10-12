@@ -11,6 +11,29 @@ fn acorn_diff() -> Command {
     command
 }
 #[test]
+fn test_diff_dublin_core_compares_rdf_syntaxes_semantically() {
+    let directory = tempdir().expect("temporary directory");
+    let before = directory.path().join("before.ttl");
+    let after = directory.path().join("after.jsonld");
+    write(
+        &before,
+        "@prefix dcterms: <http://purl.org/dc/terms/> .\n<https://example.org/work> dcterms:title \"Example\" .\n",
+    )
+    .expect("write Turtle fixture");
+    write(
+        &after,
+        r#"[{"@id":"https://example.org/work","http://purl.org/dc/terms/title":[{"@value":"Example"}]}]"#,
+    )
+    .expect("write JSON-LD fixture");
+    let output = acorn_diff()
+        .args([before.as_os_str(), after.as_os_str()])
+        .args(["--standard", "dcmi"])
+        .output()
+        .expect("Dublin Core semantic diff output");
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert!(String::from_utf8_lossy(&output.stdout).trim().is_empty());
+}
+#[test]
 fn test_diff_semantic_default_remains_unified() {
     let directory = tempdir().expect("temporary directory");
     let before = directory.path().join("before.json");

@@ -243,6 +243,19 @@ fn test_standard_validation_supports_text_and_rejects_malformed_datacite() {
         })
         .expect("text validation response");
     assert!(text.valid);
+    let dublin_core = AcornService
+        .validate_standard(ValidateStandardRequest {
+            content: r#"{
+                "@id": "https://example.org/work",
+                "http://purl.org/dc/terms/title": { "@value": "A title", "@language": "en" }
+            }"#
+            .to_string(),
+            format: MimeType::LdJson,
+            source_uri: Some("fixture.jsonld".to_string()),
+            standard: Standard::DublinCore,
+        })
+        .expect("Dublin Core validation response");
+    assert!(dublin_core.valid);
     let datacite = AcornService
         .validate_standard(ValidateStandardRequest {
             content: "{}".to_string(),

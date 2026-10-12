@@ -2,6 +2,7 @@ mod cff;
 #[cfg(feature = "std")]
 mod ckan;
 mod datacite;
+mod dublin_core;
 #[cfg(feature = "std")]
 mod huwise;
 mod invenio;

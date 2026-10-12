@@ -25,7 +25,7 @@ ACORN manages research activity data (RAD) and the artifacts and workflows aroun
 | Normalize content | Fix common values, formatting, contact data, vocabularies, and missing media references | `format` |
 | Add linked data | Produce JSON-LD with standards-based semantic context | `link` |
 | Publish artifacts | Create PDF, PowerPoint, Markdown, YAML, JSON, CFF, and BagIt output | `export` |
-| Convert standards | Crosswalk DataCite, DCAT, InvenioRDM, and HuWise metadata | `export --from ... --to ...` |
+| Convert standards | Crosswalk DataCite, DCAT, Dublin Core, InvenioRDM, and HuWise metadata | `export --from ... --to ...` |
 | Discover identifiers | Find DOI, ORCID, ROR, arXiv, ISBN, RAiD, Handle, and other identifiers in text and documents | `gather` |
 | Resolve and catalog research | Look up identifier metadata and retain discovery/candidate history | `gather --resolve` |
 | Move research content | Download remote buckets or import local/remote content and BagIt archives | `download`, `import` |
@@ -36,7 +36,7 @@ ACORN manages research activity data (RAD) and the artifacts and workflows aroun
 | Support agents | Extract ACORN's embedded agent skill | `skill` |
 | Run interactive/services | Open the TUI or run/create GitLab bots and runners | `tui`, `serve`, `create` |
 
-The CLI also supports JSON, JSONC, YAML, Markdown RAD, CFF, DataCite, DCAT, InvenioRDM, HuWise, RAiD, plain text, PDF, and Word document inputs where appropriate. Global controls cover offline operation, local SQLite or DuckDB storage, watch mode, concurrency, cache lifetime, verbosity, and quiet output.
+The CLI also supports JSON, JSONC, YAML, Markdown RAD, CFF, DataCite, DCAT, Dublin Core native JSON, JSON-LD, RDF/XML, Turtle, InvenioRDM, HuWise, RAiD, plain text, PDF, and Word document inputs where appropriate. Global controls cover offline operation, local SQLite or DuckDB storage, watch mode, concurrency, cache lifetime, verbosity, and quiet output.
 
 ## Rules for the tester
 
@@ -193,6 +193,22 @@ foreach ($case in $cases) {
 Write-Host "[PASS] JSONC, YAML, Markdown, CFF, RAiD, DataCite, DCAT, InvenioRDM, and HuWise inputs were accepted" -ForegroundColor Green
 ```
 
+### CHECK-03B — Check Dublin Core RDF syntaxes
+
+```powershell
+$ttl = "$env:ACORN_QA_OUTPUT\dublin-core.ttl"
+$jsonld = "$env:ACORN_QA_OUTPUT\dublin-core.jsonld"
+$rdf = "$env:ACORN_QA_OUTPUT\dublin-core.rdf"
+'@prefix dcterms: <http://purl.org/dc/terms/> . <https://example.org/acceptance> dcterms:title "Acceptance dataset"@en .' | Set-Content -LiteralPath $ttl
+'[{"@id":"https://example.org/acceptance","http://purl.org/dc/terms/title":[{"@language":"en","@value":"Acceptance dataset"}]}]' | Set-Content -LiteralPath $jsonld
+'<?xml version="1.0"?><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dcterms="http://purl.org/dc/terms/"><rdf:Description rdf:about="https://example.org/acceptance"><dcterms:title xml:lang="en">Acceptance dataset</dcterms:title></rdf:Description></rdf:RDF>' | Set-Content -LiteralPath $rdf
+foreach ($path in $ttl, $jsonld, $rdf) {
+    & $env:ACORN_BIN --offline --no-local-database check $path --standard dcmi --disable-website-checks --skip prose --no-fail *> $null
+    if ($LASTEXITCODE -ne 0) { throw "[FAIL] Dublin Core check failed for $path" }
+}
+Write-Host "[PASS] Turtle, JSON-LD, and RDF/XML Dublin Core inputs were accepted" -ForegroundColor Green
+```
+
 ### CHECK-04 — Check text from standard input
 
 ```powershell
@@ -282,6 +298,19 @@ Confirm-NonzeroExitCode -Actual $code -Test "Unsupported offline format mode is 
 ```
 
 Expected in the current CLI: a clear message says offline mode is not implemented for `format`.
+
+### FORMAT-04 — Format and compare Dublin Core across syntaxes
+
+```powershell
+$ttl = "$env:ACORN_QA_OUTPUT\dublin-core.ttl"
+$jsonld = "$env:ACORN_QA_OUTPUT\dublin-core.jsonld"
+& $env:ACORN_BIN --no-local-database format $ttl --standard dcmi --dry-run --no-color *> $null
+Confirm-ExitCode -Actual $LASTEXITCODE -Expected 0 -Test "Dublin Core format preview"
+& $env:ACORN_BIN --no-local-database diff $ttl $jsonld --standard dcmi
+Confirm-ExitCode -Actual $LASTEXITCODE -Expected 0 -Test "Dublin Core cross-syntax semantic diff"
+```
+
+Expected: formatting succeeds without modifying the Turtle file, and the semantic diff is empty because both files describe the same graph.
 
 ### LINK-01 — Preview linked-data output without changing files
 
@@ -411,7 +440,7 @@ Confirm-ExitCode -Actual $LASTEXITCODE -Expected 0 -Test "Generated CFF can be c
 ### EXPORT-04 — Export JSON Schemas for supported standards
 
 ```powershell
-$standards = 'acre','rads','cff','datacite','dcat','invenio','huwise','raid'
+$standards = 'acre','rads','cff','datacite','dcat','dcmi','invenio','huwise','raid'
 foreach ($standard in $standards) {
     $schema = "$env:ACORN_QA_OUTPUT\$standard.schema.json"
     & $env:ACORN_BIN --offline --no-local-database export --schema --standard $standard --format json --raw > $schema
@@ -419,10 +448,10 @@ foreach ($standard in $standards) {
     if ((Get-Item -LiteralPath $schema).Length -lt 100) { throw "[FAIL] Schema was unexpectedly small for $standard" }
     Get-Content -LiteralPath $schema -Raw | ConvertFrom-Json | Out-Null
 }
-Write-Host "[PASS] Eight supported standards produced valid JSON Schemas" -ForegroundColor Green
+Write-Host "[PASS] Nine supported standards produced valid JSON Schemas" -ForegroundColor Green
 ```
 
-Expected: RAD, CFF, DataCite, DCAT, InvenioRDM, HuWise, and RAiD schemas are non-empty JSON. Dublin Core can be selected for checks but currently has no generated schema.
+Expected: ACRE, RAD, CFF, DataCite, DCAT, Dublin Core, InvenioRDM, HuWise, and RAiD schemas are non-empty JSON.
 
 ### EXPORT-05 — Crosswalk DataCite to DCAT
 
@@ -435,6 +464,21 @@ $result = "$destination\datacite.json"
 Confirm-ExitCode -Actual $code -Expected 0 -Test "DataCite-to-DCAT crosswalk"
 Confirm-Path -Path $result -Test "Crosswalk output exists"
 Confirm-Text -Path $result -Pattern 'Example Dataset Title' -Test "Crosswalk retained the title"
+```
+
+### EXPORT-05A — Crosswalk DataCite to Dublin Core Turtle
+
+```powershell
+$destination = "$env:ACORN_QA_OUTPUT\crosswalk-dublin-core"
+New-Item -ItemType Directory -Force -Path $destination | Out-Null
+& $env:ACORN_BIN --offline --no-local-database export "$env:ACORN_QA_INPUT\schema\datacite.json" --format turtle --from datacite --to dcmi --output $destination
+$code = $LASTEXITCODE
+$result = "$destination\datacite.ttl"
+Confirm-ExitCode -Actual $code -Expected 0 -Test "DataCite-to-Dublin-Core crosswalk"
+Confirm-Path -Path $result -Test "Dublin Core Turtle exists"
+Confirm-Text -Path $result -Pattern 'purl.org/dc/terms' -Test "Turtle uses DCMI terms"
+& $env:ACORN_BIN --offline --no-local-database check $result --standard dcmi --disable-website-checks --skip prose --no-fail *> $null
+Confirm-ExitCode -Actual $LASTEXITCODE -Expected 0 -Test "Crosswalked Dublin Core can be checked"
 ```
 
 ### EXPORT-05B — Exercise every supported crosswalk pairing
@@ -458,6 +502,25 @@ foreach ($from in $sources.Keys) {
 if ($failures) { throw "[FAIL] Crosswalk pairings failed: $($failures -join ', ')" }
 Write-Host "[PASS] All 12 crosswalk pairings completed" -ForegroundColor Green
 ```
+
+### EXPORT-05C — Import Dublin Core into RAD with explicit local context
+
+```powershell
+$source = "$env:ACORN_QA_OUTPUT\crosswalk-dublin-core\datacite.ttl"
+$contact = "$env:ACORN_QA_OUTPUT\dublin-core-contact.json"
+$destination = "$env:ACORN_QA_OUTPUT\dublin-core-rad"
+(Get-Content "$env:ACORN_QA_INPUT\valid-rad\index.json" -Raw | ConvertFrom-Json).contact |
+    ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $contact
+New-Item -ItemType Directory -Force -Path $destination | Out-Null
+& $env:ACORN_BIN --offline --no-local-database export $source --format json --from dcmi --to rads --crosswalk-contact $contact --local-identifier dcmi-acceptance --output $destination
+$code = $LASTEXITCODE
+$result = "$destination\datacite.json"
+Confirm-ExitCode -Actual $code -Expected 0 -Test "Dublin Core-to-RAD import"
+Confirm-Path -Path $result -Test "Imported RAD exists"
+Confirm-Text -Path $result -Pattern 'dcmi-acceptance' -Test "Caller-supplied local identifier was retained"
+```
+
+Expected: the import succeeds only because the tester supplied both a local contact and identifier. Running the same command without either required option must fail before writing output.
 
 ### EXPORT-06 — Create a PDF fact sheet
 

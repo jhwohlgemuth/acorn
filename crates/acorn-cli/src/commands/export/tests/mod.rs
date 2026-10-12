@@ -16,11 +16,12 @@
 use crate::cli::arguments::{FileFormat, Target};
 #[cfg(feature = "pdf")]
 use crate::commands::export::pdf::{browser_executable, configured_browser_executable};
-use crate::commands::export::{export_schema, run, tools};
+use crate::commands::export::{export_schema, run, run_with_import_context, tools, CrosswalkImportOptions};
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
 #[cfg(feature = "pdf")]
 use acorn::util::constants::env::CHROME_PATH;
 use acorn_core::util::MimeType;
+use acorn_schema::codec::DocumentCodec;
 use acorn_schema::pid::raid;
 use acorn_schema::research_activity::{
     ActivityContributor, ActivityDateType, ActivityOrganization, AgentIdentifier, DatedAgentRole, DatedOrganizationRole, Logbook, LogbookEntry,
@@ -28,6 +29,7 @@ use acorn_schema::research_activity::{
 };
 use acorn_schema::standard::datacite;
 use acorn_schema::standard::dcat;
+use acorn_schema::standard::dublin_core::DublinCoreDocument;
 use acorn_schema::standard::invenio;
 use acorn_schema::standard::zon;
 use acorn_schema::standard::Standard;
@@ -376,6 +378,45 @@ async fn test_export_ckan_crosswalk_strict_rejects_losses_before_writing() -> Re
     assert!(!output.join("package.json").exists());
     Ok(())
 }
+#[tokio::test]
+async fn test_export_crosswalk_datacite_to_dublin_core_turtle() -> Result<()> {
+    let temp_dir = temp_test_dir("export_crosswalk_datacite_to_dublin_core_turtle");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output_dir = temp_dir.join("output");
+    create_dir_all(&output_dir)?;
+    let source = fixture_path("schema/datacite.json");
+    run(
+        &Some(output_dir.clone()),
+        &Some(source),
+        &None,
+        &None,
+        &None,
+        &[],
+        &[],
+        false,
+        false,
+        &FileFormat::Turtle,
+        None,
+        &None,
+        &Some(Standard::Datacite),
+        &Some(Standard::DublinCore),
+        &false,
+        &false,
+        &false,
+        &[],
+        false,
+        false,
+        Target::FactSheet,
+        None,
+        TEST_THREADS,
+        &silent(),
+        OFFLINE,
+    )
+    .await?;
+    let content = read_to_string(output_dir.join("datacite.ttl"))?;
+    assert!(DublinCoreDocument::decode(&content, &MimeType::Turtle).is_ok());
+    Ok(())
+}
 #[ignore = "Only works on Windows?"]
 #[tokio::test]
 async fn test_export_crosswalk_datacite_to_invenio() -> Result<()> {
@@ -420,6 +461,105 @@ async fn test_export_crosswalk_datacite_to_invenio() -> Result<()> {
     let output_content = read_to_string(output_dir.join("datacite.json"))?;
     let parsed: Vec<invenio::Record> = serde_json::from_str(&output_content)?;
     assert!(!parsed.is_empty(), "Expected at least one Invenio record in output");
+    Ok(())
+}
+#[tokio::test]
+async fn test_export_crosswalk_dublin_core_to_rad_requires_explicit_context() -> Result<()> {
+    let temp_dir = temp_test_dir("export_crosswalk_dublin_core_to_rad_requires_explicit_context");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = temp_dir.join("dataset.ttl");
+    write(
+        &source,
+        "@prefix dcterms: <http://purl.org/dc/terms/> .\n<https://example.org/dataset> dcterms:title \"Imported dataset\" .\n",
+    )?;
+    let missing_output = temp_dir.join("missing");
+    create_dir_all(&missing_output)?;
+    let missing = run(
+        &Some(missing_output),
+        &Some(source.clone()),
+        &None,
+        &None,
+        &None,
+        &[],
+        &[],
+        false,
+        false,
+        &FileFormat::Json,
+        None,
+        &None,
+        &Some(Standard::DublinCore),
+        &Some(Standard::ResearchActivityData),
+        &false,
+        &false,
+        &false,
+        &[],
+        false,
+        false,
+        Target::FactSheet,
+        None,
+        TEST_THREADS,
+        &silent(),
+        OFFLINE,
+    )
+    .await;
+    assert!(missing.is_err_and(|error| error.to_string().contains("options.identifier")));
+    let contact = temp_dir.join("contact.json");
+    write(&contact, serde_json::to_string_pretty(&ContactPoint::default())?)?;
+    let output = temp_dir.join("output");
+    create_dir_all(&output)?;
+    run_with_import_context(
+        &Some(output.clone()),
+        &Some(source),
+        &None,
+        &None,
+        &None,
+        &[],
+        &[],
+        false,
+        false,
+        &FileFormat::Json,
+        None,
+        &None,
+        &Some(Standard::DublinCore),
+        &Some(Standard::ResearchActivityData),
+        &None,
+        Some(contact.as_path()),
+        Some("dublin-core-import"),
+        &false,
+        &false,
+        &false,
+        &[],
+        false,
+        false,
+        Target::FactSheet,
+        None,
+        TEST_THREADS,
+        &silent(),
+        OFFLINE,
+    )
+    .await?;
+    let activity: ResearchActivity = serde_json::from_str(&read_to_string(output.join("dataset.json"))?)?;
+    assert_eq!(activity.meta.identifier, "dublin-core-import");
+    assert_eq!(activity.title, "Imported dataset");
+    Ok(())
+}
+#[test]
+fn test_export_crosswalk_import_options_loads_acre_defaults_and_cli_overrides() -> Result<()> {
+    let temp_dir = temp_test_dir("crosswalk_import_options_loads_acre_defaults_and_cli_overrides");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let contact = temp_dir.join("contact.json");
+    let config = temp_dir.join(".acorn.json");
+    write(&contact, serde_json::to_string_pretty(&ContactPoint::default())?)?;
+    write(
+        &config,
+        r#"{"options":{"crosswalk":{"contact":"contact.json","localIdentifier":"configured-import"}}}"#,
+    )?;
+    let configured = CrosswalkImportOptions::load(&Some(config.clone()), None, None)?;
+    assert!(configured.contact.is_some());
+    assert_eq!(configured.identifier.as_deref(), Some("configured-import"));
+    let overridden = CrosswalkImportOptions::load(&Some(config), Some(contact.as_path()), Some("cli-import"))?;
+    assert!(overridden.contact.is_some());
+    assert_eq!(overridden.identifier.as_deref(), Some("cli-import"));
     Ok(())
 }
 #[ignore = "Only works on Windows?"]
@@ -1163,6 +1303,7 @@ fn test_schema_export_covers_every_modeled_standard_in_json_and_yaml() {
         Standard::Datacite,
         Standard::Dcat,
         Standard::Document,
+        Standard::DublinCore,
         Standard::Huwise,
         Standard::Invenio,
         Standard::Kitfile,
@@ -1181,7 +1322,6 @@ fn test_schema_export_covers_every_modeled_standard_in_json_and_yaml() {
 }
 #[test]
 fn test_schema_export_rejects_unmodeled_and_artifact_formats() {
-    assert!(export_schema(Standard::DublinCore, &FileFormat::Json).is_err());
     let oci = export_schema(Standard::Oci, &FileFormat::Json).expect_err("OCI has no single schema");
     assert!(oci.to_string().contains("OCI checking has no single generated schema"));
     assert!(export_schema(Standard::ResearchActivityData, &FileFormat::Pdf).is_err());

@@ -115,6 +115,19 @@ Feature: Human acceptance of the ACORN command line
         | schema/invenio-single.json | invenio  |
         | schema/huwise.json         | huwise   |
 
+    @baseline @CHECK-03B
+    Scenario Outline: Check a Dublin Core RDF syntax
+      Given equivalent Dublin Core metadata encoded as "<format>"
+      When the tester checks it as "dcmi" without network services
+      Then the input is parsed
+      And a check report is produced
+
+      Examples:
+        | format  |
+        | JSON-LD |
+        | RDF/XML |
+        | Turtle  |
+
     @baseline @CHECK-04
     Scenario: Check plain text from standard input
       Given plain text is piped to ACORN
@@ -173,6 +186,13 @@ Feature: Human acceptance of the ACORN command line
       When the tester requests an offline format dry run
       Then the command fails
       And the error says offline format is not implemented
+
+    @baseline @FORMAT-04
+    Scenario: Format and compare equivalent Dublin Core syntaxes
+      Given equivalent Dublin Core metadata encoded as Turtle and JSON-LD
+      When the tester previews Turtle formatting and compares both files semantically
+      Then formatting leaves the source unchanged
+      And the semantic diff is empty
 
     @baseline @LINK-01
     Scenario: Preview linked data without changing the source
@@ -254,10 +274,12 @@ Feature: Human acceptance of the ACORN command line
 
       Examples:
         | standard |
+        | acre     |
         | rads     |
         | cff      |
         | datacite |
         | dcat     |
+        | dcmi     |
         | invenio  |
         | huwise   |
         | raid     |
@@ -282,6 +304,20 @@ Feature: Human acceptance of the ACORN command line
         | huwise   | datacite |
         | huwise   | dcat     |
         | huwise   | invenio  |
+
+    @baseline @EXPORT-05A
+    Scenario: Crosswalk DataCite to Dublin Core Turtle
+      Given valid DataCite metadata
+      When the tester exports it as Dublin Core Turtle
+      Then a non-empty Turtle artifact is created
+      And ACORN can check it as Dublin Core
+
+    @baseline @EXPORT-05C
+    Scenario: Import Dublin Core with explicit RAD identity context
+      Given valid Dublin Core metadata and a caller-supplied contact and local identifier
+      When the tester exports it as RAD JSON
+      Then a non-empty RAD artifact is created
+      And the caller-supplied local identifier is retained
 
     @optional @browser @visual @EXPORT-06
     Scenario: Create a visually usable PDF

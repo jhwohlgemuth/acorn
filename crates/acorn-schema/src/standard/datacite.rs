@@ -324,62 +324,8 @@ pub enum RelationType {
     /// Other
     Other,
 }
-impl From<&str> for RelationType {
-    fn from(value: &str) -> Self {
-        match value.to_ascii_lowercase().replace(['_', '-', ' '], "").as_str() {
-            | "cites" => Self::Cites,
-            | "collects" => Self::Collects,
-            | "compiles" => Self::Compiles,
-            | "continues" => Self::Continues,
-            | "describes" => Self::Describes,
-            | "documents" => Self::Documents,
-            | "hasmetadata" => Self::HasMetadata,
-            | "haspart" | "parentof" => Self::HasPart,
-            | "hastranslation" => Self::HasTranslation,
-            | "hasversion" => Self::HasVersion,
-            | "iscitedby" => Self::IsCitedBy,
-            | "iscollectedby" => Self::IsCollectedBy,
-            | "iscompiledby" => Self::IsCompiledBy,
-            | "iscontinuedby" => Self::IsContinuedBy,
-            | "derivesfrom" | "isderivedfrom" => Self::IsDerivedFrom,
-            | "isdescribedby" => Self::IsDescribedBy,
-            | "isdocumentedby" => Self::IsDocumentedBy,
-            | "isidenticalto" => Self::IsIdenticalTo,
-            | "ismetadatafor" => Self::IsMetadataFor,
-            | "isnewversionof" => Self::IsNewVersionOf,
-            | "isobsoletedby" => Self::IsObsoletedBy,
-            | "isoriginalformof" => Self::IsOriginalFormOf,
-            | "childof" | "ispartof" => Self::IsPartOf,
-            | "ispreviousversionof" => Self::IsPreviousVersionOf,
-            | "ispublishedin" => Self::IsPublishedIn,
-            | "isreferencedby" => Self::IsReferencedBy,
-            | "dependencyof" | "isrequiredby" => Self::IsRequiredBy,
-            | "isreviewedby" => Self::IsReviewedBy,
-            | "hasderivation" | "issourceof" => Self::IsSourceOf,
-            | "issupplementto" => Self::IsSupplementTo,
-            | "issupplementedby" => Self::IsSupplementedBy,
-            | "istranslationof" => Self::IsTranslationOf,
-            | "isvariantformof" => Self::IsVariantFormOf,
-            | "isversionof" => Self::IsVersionOf,
-            | "obsoletes" => Self::Obsoletes,
-            | "linksfrom" | "linksto" | "references" => Self::References,
-            | "dependson" | "requires" => Self::Requires,
-            | "reviews" => Self::Reviews,
-            | _ => Self::Other,
-        }
-    }
-}
-impl FromStr for RelationType {
-    type Err = strum::ParseError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match Self::from(value) {
-            | Self::Other if !value.eq_ignore_ascii_case("other") => Err(strum::ParseError::VariantNotFound),
-            | relation => Ok(relation),
-        }
-    }
-}
 /// General resource type enumeration per DataCite 4.7 property 10.a
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, strum::Display, strum::EnumString)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, strum::Display)]
 pub enum ResourceTypeGeneral {
     /// Series of visual representations imparting an impression of motion when shown in succession (may or may not include sound)
     /// ### Dublin Core equivalent
@@ -1678,6 +1624,60 @@ impl TryFrom<invenio::Record> for Record {
         crosswalk::convert(&record, &mapping).map(|(record, _)| record)
     }
 }
+impl From<&str> for RelationType {
+    fn from(value: &str) -> Self {
+        match value.to_ascii_lowercase().replace(['_', '-', ' '], "").as_str() {
+            | "cites" => Self::Cites,
+            | "collects" => Self::Collects,
+            | "compiles" => Self::Compiles,
+            | "continues" => Self::Continues,
+            | "describes" => Self::Describes,
+            | "documents" => Self::Documents,
+            | "hasmetadata" => Self::HasMetadata,
+            | "haspart" | "parentof" => Self::HasPart,
+            | "hastranslation" => Self::HasTranslation,
+            | "hasversion" => Self::HasVersion,
+            | "iscitedby" => Self::IsCitedBy,
+            | "iscollectedby" => Self::IsCollectedBy,
+            | "iscompiledby" => Self::IsCompiledBy,
+            | "iscontinuedby" => Self::IsContinuedBy,
+            | "derivesfrom" | "isderivedfrom" => Self::IsDerivedFrom,
+            | "isdescribedby" => Self::IsDescribedBy,
+            | "isdocumentedby" => Self::IsDocumentedBy,
+            | "isidenticalto" => Self::IsIdenticalTo,
+            | "ismetadatafor" => Self::IsMetadataFor,
+            | "isnewversionof" => Self::IsNewVersionOf,
+            | "isobsoletedby" => Self::IsObsoletedBy,
+            | "isoriginalformof" => Self::IsOriginalFormOf,
+            | "childof" | "ispartof" => Self::IsPartOf,
+            | "ispreviousversionof" => Self::IsPreviousVersionOf,
+            | "ispublishedin" => Self::IsPublishedIn,
+            | "isreferencedby" => Self::IsReferencedBy,
+            | "dependencyof" | "isrequiredby" => Self::IsRequiredBy,
+            | "isreviewedby" => Self::IsReviewedBy,
+            | "hasderivation" | "issourceof" => Self::IsSourceOf,
+            | "issupplementto" => Self::IsSupplementTo,
+            | "issupplementedby" => Self::IsSupplementedBy,
+            | "istranslationof" => Self::IsTranslationOf,
+            | "isvariantformof" => Self::IsVariantFormOf,
+            | "isversionof" => Self::IsVersionOf,
+            | "obsoletes" => Self::Obsoletes,
+            | "linksfrom" | "linksto" | "references" => Self::References,
+            | "dependson" | "requires" => Self::Requires,
+            | "reviews" => Self::Reviews,
+            | _ => Self::Other,
+        }
+    }
+}
+impl FromStr for RelationType {
+    type Err = strum::ParseError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match Self::from(value) {
+            | Self::Other if !value.eq_ignore_ascii_case("other") => Err(strum::ParseError::VariantNotFound),
+            | relation => Ok(relation),
+        }
+    }
+}
 impl Resource {
     /// Validate that the XML resource satisfies DataCite deposit-mandatory properties.
     pub fn validate_deposit_ready(&self) -> Result<(), Vec<String>> {
@@ -1690,6 +1690,55 @@ impl Resource {
             Property::new("resourceType", self.resource_type.resource_type_general.is_some()),
         ])
         .validate()
+    }
+}
+impl From<&str> for ResourceTypeGeneral {
+    fn from(value: &str) -> Self {
+        match value {
+            | "Audiovisual" | "MovingImage" => Self::Audiovisual,
+            | "Award" => Self::Award,
+            | "Book" => Self::Book,
+            | "BookChapter" => Self::BookChapter,
+            | "Collection" => Self::Collection,
+            | "ComputationalNotebook" => Self::ComputationalNotebook,
+            | "ConferencePaper" => Self::ConferencePaper,
+            | "ConferenceProceeding" => Self::ConferenceProceeding,
+            | "DataPaper" => Self::DataPaper,
+            | "Dataset" => Self::Dataset,
+            | "Dissertation" => Self::Dissertation,
+            | "Event" => Self::Event,
+            | "Image" | "StillImage" => Self::Image,
+            | "Instrument" => Self::Instrument,
+            | "InteractiveResource" => Self::InteractiveResource,
+            | "Journal" => Self::Journal,
+            | "JournalArticle" => Self::JournalArticle,
+            | "Model" => Self::Model,
+            | "OutputManagementPlan" => Self::OutputManagementPlan,
+            | "PeerReview" => Self::PeerReview,
+            | "PhysicalObject" => Self::PhysicalObject,
+            | "Poster" => Self::Poster,
+            | "Preprint" => Self::Preprint,
+            | "Presentation" => Self::Presentation,
+            | "Project" => Self::Project,
+            | "Report" => Self::Report,
+            | "Service" => Self::Service,
+            | "Software" => Self::Software,
+            | "Sound" => Self::Sound,
+            | "Standard" => Self::Standard,
+            | "StudyRegistration" => Self::StudyRegistration,
+            | "Text" => Self::Text,
+            | "Workflow" => Self::Workflow,
+            | _ => Self::Other,
+        }
+    }
+}
+impl FromStr for ResourceTypeGeneral {
+    type Err = strum::ParseError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match Self::from(value) {
+            | Self::Other if value != "Other" => Err(strum::ParseError::VariantNotFound),
+            | resource_type => Ok(resource_type),
+        }
     }
 }
 fn default_identifier_type() -> String {

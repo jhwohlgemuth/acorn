@@ -74,7 +74,7 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 | JSON-RPC registry, protobuf, and server lifecycle | analysis/service extraction; CLI composition consumes the finished server contract |
 | `io/api/mod.rs`, configuration roots, endpoint snapshots | shared API contract, dPID, Cosmos, model acquisition |
 | `io/mcp/client.rs`, outbound client tests and documentation | outbound MCP client interface; the landed feature graph and manifest boundary remain fixed |
-| Research-activity/PID schema roots | dPID, structured enrichment, PID verification |
+| Research-activity/PID schema roots | Dublin Core, dPID, structured enrichment, PID verification |
 | `io/{archive,oci}.rs`, `io/model/gguf/`, and model planner | model acquisition, SLM/Needle artifact work |
 | CLI parser, `main.rs`, generated help | analysis/service serve cutover, CLI composition, dPID, gather, CEL, remote create, SLM |
 | Export dispatch/templates/PowerPoint | export pipeline, database-backed artifacts |

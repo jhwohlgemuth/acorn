@@ -29,14 +29,18 @@ use acorn_core::{
 };
 use acorn_host::{fs::read_text, terminal::Label};
 use acorn_schema::{
+    codec::DocumentCodec,
     modelkit::kitfile,
     pid::raid::Metadata,
     research_activity::ResearchActivity,
     standard::{
         cff, ckan,
-        crosswalk::{Conversion, CrosswalkError},
-        datacite, dcat, huwise, invenio, text, Standard,
+        crosswalk::{Conversion, CrosswalkError, DublinCoreImportOptions},
+        datacite, dcat,
+        dublin_core::DublinCoreDocument,
+        huwise, invenio, text, Standard,
     },
+    ContactPoint,
 };
 use bon::Builder;
 use clap_verbosity_flag::Verbosity;
@@ -71,6 +75,11 @@ trait ExportHandler {
 }
 struct BagExportHandler;
 struct CffExportHandler;
+#[derive(Clone, Debug, Default)]
+struct CrosswalkImportOptions {
+    contact: Option<ContactPoint>,
+    identifier: Option<String>,
+}
 #[derive(Builder, Debug, Default)]
 #[builder(start_fn = init)]
 struct ExportRequest {
@@ -93,6 +102,8 @@ struct ExportRequest {
     dry_run: bool,
     #[builder(default)]
     strict: bool,
+    #[builder(default)]
+    crosswalk_import: CrosswalkImportOptions,
     #[builder(default)]
     skip: Vec<CheckCategory>,
     #[builder(default)]
@@ -167,14 +178,55 @@ impl ExportHandler for CffExportHandler {
         })
     }
 }
+impl CrosswalkImportOptions {
+    fn load(config: &Option<PathBuf>, contact: Option<&Path>, identifier: Option<&str>) -> ApiResult<Self> {
+        ApplicationConfiguration::load_with_path(config).and_then(|(configuration, resolved)| {
+            let configured = configuration.options.as_ref().and_then(|options| options.crosswalk.as_ref());
+            let root = ApplicationConfiguration::root(&resolved);
+            let contact = contact.map(Path::to_path_buf).or_else(|| {
+                configured.and_then(|options| {
+                    options.contact.as_ref().map(|path| match path.is_absolute() {
+                        | true => path.clone(),
+                        | false => root.join(path),
+                    })
+                })
+            });
+            let identifier = identifier
+                .map(str::to_string)
+                .or_else(|| configured.and_then(|options| options.local_identifier.clone()));
+            contact
+                .as_deref()
+                .map(Self::load_contact)
+                .transpose()
+                .map(|contact| Self { contact, identifier })
+        })
+    }
+    fn load_contact(path: &Path) -> ApiResult<ContactPoint> {
+        read_text(path)
+            .map_err(|why| eyre!("Read crosswalk contact — {why}"))
+            .and_then(|content| match MimeType::from_path(path) {
+                | MimeType::Json => serde_json::from_str(&content).map_err(|why| eyre!("Parse crosswalk contact JSON — {why}")),
+                | MimeType::Yaml => serde_norway::from_str(&content).map_err(|why| eyre!("Parse crosswalk contact YAML — {why}")),
+                | format => Err(eyre!("Crosswalk contact must use JSON or YAML, not {format}")),
+            })
+    }
+}
 impl ExportRequest {
     fn exporter(&self) -> Box<dyn ExportHandler> {
         match (self.target, &self.format) {
             | (Target::Updates, _) | (_, FileFormat::Docx) => Box::new(UpdatesExportHandler),
             | (_, FileFormat::Cff) => Box::new(CffExportHandler),
-            | (_, FileFormat::Json | FileFormat::JsonLines | FileFormat::Markdown | FileFormat::Yaml | FileFormat::Zon) => {
-                Box::new(StructuredExportHandler)
-            }
+            | (
+                _,
+                FileFormat::Json
+                | FileFormat::JsonLd
+                | FileFormat::JsonLines
+                | FileFormat::Markdown
+                | FileFormat::RdfXml
+                | FileFormat::Turtle
+                | FileFormat::Yaml
+                | FileFormat::Zon,
+            ) => Box::new(StructuredExportHandler),
             | (_, FileFormat::Bag) => Box::new(BagExportHandler),
             | (_, FileFormat::Pdf) => Box::new(PdfExportHandler),
             | (_, FileFormat::Powerpoint) => Box::new(PowerPointExportHandler),
@@ -343,6 +395,7 @@ impl ExportHandler for StructuredExportHandler {
                 request.dry_run,
                 request.strict,
                 request.skip,
+                request.crosswalk_import,
                 &request.output,
             )
             .await
@@ -360,6 +413,7 @@ fn crosswalk_item(
     target: Standard,
     format: &FileFormat,
     skip_crosswalk: bool,
+    import: &CrosswalkImportOptions,
 ) -> Result<Conversion<String>, CrosswalkError> {
     read_text(item)
         .map_err(|error| CrosswalkError::ParseFailed(error.to_string()))
@@ -371,13 +425,39 @@ fn crosswalk_item(
             };
             source.and_then(|resolved| {
                 let target_mime = MimeType::from(format);
-                if skip_crosswalk {
-                    resolved
+                let conversion = match (resolved, target) {
+                    | (Standard::DublinCore, Standard::ResearchActivityData) => DublinCoreDocument::decode(&content, &mime)
+                        .map_err(|diagnostics| {
+                            CrosswalkError::ParseFailed(
+                                diagnostics
+                                    .into_iter()
+                                    .map(|diagnostic| diagnostic.to_string())
+                                    .collect::<Vec<_>>()
+                                    .join("\n"),
+                            )
+                        })
+                        .and_then(|document| {
+                            document
+                                .to_research_activity(&DublinCoreImportOptions {
+                                    contact: import.contact.clone(),
+                                    identifier: import.identifier.clone(),
+                                })
+                                .and_then(|(activity, warnings)| {
+                                    activity
+                                        .encode(&target_mime)
+                                        .map(|content| Conversion::new(content, warnings))
+                                        .map_err(|error| CrosswalkError::SerializeFailed(error.to_string()))
+                                })
+                        }),
+                    | (source, _) if skip_crosswalk => source
                         .crosswalk(&content, mime, target, target_mime)
-                        .map(|converted| Conversion::new(converted, Vec::new()))
-                } else {
-                    resolved.crosswalk_with_warnings(&content, mime, target, target_mime)
-                }
+                        .map(|converted| Conversion::new(converted, Vec::new())),
+                    | (source, _) => source.crosswalk_with_warnings(&content, mime, target, target_mime),
+                };
+                conversion.map(|conversion| match skip_crosswalk {
+                    | true => Conversion::new(conversion.into_value(), Vec::new()),
+                    | false => conversion,
+                })
             })
         })
 }
@@ -461,6 +541,7 @@ async fn export_as_format_crosswalk(
     dry_run: bool,
     strict: bool,
     skip: Vec<CheckCategory>,
+    import: CrosswalkImportOptions,
     output: &Option<PathBuf>,
 ) -> ApiResult<()> {
     match to {
@@ -482,7 +563,7 @@ async fn export_as_format_crosswalk(
                     let skip_crosswalk = skip.contains(&CheckCategory::Crosswalk);
                     if strict && !skip_crosswalk {
                         let preflight = items.iter().try_fold(Vec::new(), |mut checks, item| {
-                            crosswalk_item(item, from, target, format, false).map(|conversion| {
+                            crosswalk_item(item, from, target, format, false, &import).map(|conversion| {
                                 let (_, warnings) = conversion.into_parts();
                                 checks.extend(warnings.to_checks(Some(item.to_string_lossy().to_string())));
                                 checks
@@ -512,6 +593,7 @@ async fn export_as_format_crosswalk(
                             let ext = ext.clone();
                             let checks = Arc::clone(&collected_checks);
                             let output_dir = output_dir.clone();
+                            let import = import.clone();
                             async move {
                                 let output = match &output_dir {
                                     | Some(dir) => {
@@ -520,7 +602,7 @@ async fn export_as_format_crosswalk(
                                     }
                                     | None => output_path(&item, &ext),
                                 };
-                                match crosswalk_item(&item, from, target, format, skip_crosswalk) {
+                                match crosswalk_item(&item, from, target, format, skip_crosswalk, &import) {
                                     | Ok(conversion) => {
                                         let (content, warnings) = conversion.into_parts();
                                         let uri = item.to_string_lossy().to_string();
@@ -597,7 +679,7 @@ async fn export_as_format_crosswalk(
             }
         }
         | None => Err(eyre!(
-            "Crosswalk export requires --to <STANDARD> (supported: rads, raid, datacite, dcat, invenio, huwise)"
+            "Crosswalk export requires --to <STANDARD> (supported: rads, raid, datacite, dcmi, dcat, invenio, huwise)"
         )),
     }
 }
@@ -618,7 +700,7 @@ pub(crate) fn export_schema(standard: Standard, format: &FileFormat) -> ApiResul
         | Standard::Datacite => serialize::<datacite::Record>(format),
         | Standard::Dcat => serialize::<dcat::Dataset>(format),
         | Standard::Document | Standard::Text => serialize::<text::Text>(format),
-        | Standard::DublinCore => Err(eyre!("Schema generation is not supported for Dublin Core because no model is defined")),
+        | Standard::DublinCore => serialize::<DublinCoreDocument>(format),
         | Standard::Huwise => serialize::<huwise::Dataset>(format),
         | Standard::Invenio => serialize::<invenio::Record>(format),
         | Standard::Kitfile | Standard::ModelKit => serialize::<kitfile::Kitfile>(format),
@@ -628,6 +710,7 @@ pub(crate) fn export_schema(standard: Standard, format: &FileFormat) -> ApiResul
     }
 }
 #[allow(clippy::too_many_arguments)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub async fn run(
     output: &Option<PathBuf>,
     path: &Option<PathBuf>,
@@ -655,6 +738,70 @@ pub async fn run(
     verbose: &Verbosity,
     offline: bool,
 ) -> ApiResult<()> {
+    run_with_import_context(
+        output,
+        path,
+        branch,
+        chrome_path,
+        commit,
+        filter,
+        ignore,
+        show_aspect_labels,
+        show_aspect_scores,
+        format,
+        archive_format,
+        reference,
+        from,
+        to,
+        &None,
+        None,
+        None,
+        combine,
+        merge_request,
+        raw,
+        skip,
+        dry_run,
+        strict,
+        target,
+        since,
+        threads,
+        verbose,
+        offline,
+    )
+    .await
+}
+#[allow(clippy::too_many_arguments)]
+pub async fn run_with_import_context(
+    output: &Option<PathBuf>,
+    path: &Option<PathBuf>,
+    branch: &Option<String>,
+    chrome_path: &Option<PathBuf>,
+    commit: &Option<String>,
+    filter: &[String],
+    ignore: &[String],
+    show_aspect_labels: bool,
+    show_aspect_scores: bool,
+    format: &FileFormat,
+    archive_format: Option<ArchiveType>,
+    reference: &Option<PathBuf>,
+    from: &Option<Standard>,
+    to: &Option<Standard>,
+    config: &Option<PathBuf>,
+    crosswalk_contact: Option<&Path>,
+    local_identifier: Option<&str>,
+    combine: &bool,
+    merge_request: &bool,
+    raw: &bool,
+    skip: &[CheckCategory],
+    dry_run: bool,
+    strict: bool,
+    target: Target,
+    since: Option<&str>,
+    threads: usize,
+    verbose: &Verbosity,
+    offline: bool,
+) -> ApiResult<()> {
+    let crosswalk_import = CrosswalkImportOptions::load(config, crosswalk_contact, local_identifier)?;
     match archive_format.is_some() && !format.is_bag() {
         | true => Err(eyre!("--archive-format is only supported for BagIt exports")),
         | false => {
@@ -690,6 +837,7 @@ pub async fn run(
                         .combine(*combine)
                         .dry_run(dry_run)
                         .strict(strict)
+                        .crosswalk_import(crosswalk_import)
                         .target(target)
                         .maybe_since(since.map(str::to_string))
                         .skip(skip.to_vec())

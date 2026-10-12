@@ -27,4 +27,6 @@ See the [`acorn-schema` API documentation](https://docs.rs/acorn-schema/latest/a
 
 The alloc-capable `acorn_schema::standard::zon` module encodes and decodes the JSON data model without host I/O or an additional runtime dependency. See [ZON serialization](../concepts/zon.md) for the supported profile and file conventions.
 
+The portable `acorn_schema::standard::dublin_core` module models the current DCMI terms, legacy element namespace, DCMI type vocabulary, and DCAM terms as a normalized RDF graph. Its local codecs cover native graph JSON and YAML, JSON-LD, RDF/XML, and Turtle. See [Dublin Core](../concepts/dublin-core.md) for the data model, safety boundaries, and crosswalk behavior.
+
 Local PID validation checks parsed structure and, for ISBNs, ISNIs, ORCIDs, and RORs, the implemented check digit. It does not confirm registration with an external authority.

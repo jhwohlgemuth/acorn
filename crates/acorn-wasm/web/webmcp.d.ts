@@ -1,5 +1,5 @@
-export type CrosswalkSource = "raid" | "research-activity-data";
-export type CrosswalkTarget = "datacite" | "raid" | "research-activity-data";
+export type CrosswalkSource = "datacite" | "dublin-core" | "raid" | "research-activity-data";
+export type CrosswalkTarget = "datacite" | "dublin-core" | "raid" | "research-activity-data";
 export type DiffMode = "json-patch" | "unified";
 export type ErrorCode =
     | "busy"
@@ -11,11 +11,12 @@ export type ErrorCode =
 export type IdentifierInspectionStatus = "ambiguous" | "invalid" | "valid";
 export type IdentifierKind = "ark" | "arxiv" | "doi" | "handle" | "isbn" | "isni" | "orcid" | "patent" | "raid" | "ror" | "rrid" | "swhid";
 export type InstallationStatus = "disposed" | "installed" | "unsupported";
-export type MetadataFormat = "cff" | "json" | "jsonc" | "markdown" | "text" | "yaml" | "zon";
+export type MetadataFormat = "cff" | "json" | "jsonc" | "json-ld" | "markdown" | "rdf-xml" | "text" | "turtle" | "yaml" | "zon";
 export type MetadataStandard =
     | "citation-file-format"
     | "ckan"
     | "datacite"
+    | "dublin-core"
     | "document"
     | "invenio"
     | "kitfile"

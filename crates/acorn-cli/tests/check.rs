@@ -7,8 +7,32 @@
 )]
 //! Integration tests for `acorn check`
 use assert_cmd::Command;
+use std::fs::write;
 use std::path::PathBuf;
+use tempfile::tempdir;
 
+fn dcat_fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("tests")
+        .join("fixtures")
+        .join("schema")
+        .join("dcat")
+        .join(name)
+}
+fn fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("tests")
+        .join("fixtures")
+        .join(name)
+}
 fn normalized_process(args: &[String]) -> String {
     let output = Command::cargo_bin("acorn")
         .unwrap()
@@ -51,30 +75,6 @@ fn normalized_process(args: &[String]) -> String {
         normalize(&output.stderr)
     )
 }
-
-fn dcat_fixture(name: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("tests")
-        .join("fixtures")
-        .join("schema")
-        .join("dcat")
-        .join(name)
-}
-fn fixture(name: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("tests")
-        .join("fixtures")
-        .join(name)
-}
-
 #[test]
 fn test_check_diagnostics_remain_on_stdout() {
     let output = Command::cargo_bin("acorn")
@@ -94,6 +94,33 @@ fn test_check_diagnostics_remain_on_stdout() {
     assert!(output.status.success());
     assert!(String::from_utf8_lossy(&output.stdout).contains("Deserialization error"));
     assert!(!String::from_utf8_lossy(&output.stderr).contains("Deserialization error"));
+}
+#[test]
+fn test_check_dublin_core_turtle() {
+    let directory = tempdir().expect("temporary directory");
+    let path = directory.path().join("metadata.ttl");
+    write(
+        &path,
+        "@prefix dcterms: <http://purl.org/dc/terms/> .\n<https://example.org/work> dcterms:title \"Example\" .\n",
+    )
+    .expect("write Dublin Core fixture");
+    let output = Command::cargo_bin("acorn")
+        .expect("ACORN binary")
+        .env("NO_COLOR", "1")
+        .env("ACORN_NO_LOCAL_DATABASE", "true")
+        .args([
+            "--offline",
+            "check",
+            &path.to_string_lossy(),
+            "--standard",
+            "dcmi",
+            "--no-fail",
+            "--skip",
+            "link,prose,readability",
+        ])
+        .output()
+        .expect("Dublin Core check output");
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
 }
 #[test]
 fn test_check_fair_output_contract() {
@@ -118,7 +145,6 @@ fn test_check_fair_output_contract() {
     let detailed = String::from_utf8_lossy(&detailed.stdout);
     assert!(detailed.contains("RDA-F1-01D — Findable — Essential"));
     assert!(detailed.contains("Overall"));
-
     let terse = Command::cargo_bin("acorn")
         .unwrap()
         .env("ACORN_NO_LOCAL_DATABASE", "true")
@@ -180,6 +206,22 @@ fn test_check_kitfile_fixtures() {
         ];
         insta::assert_snapshot!(name, normalized_process(&args));
     });
+}
+#[test]
+fn test_check_pdf_as_document_text() {
+    Command::cargo_bin("acorn")
+        .unwrap()
+        .env("ACORN_NO_LOCAL_DATABASE", "true")
+        .args([
+            "--offline",
+            "check",
+            &fixture("gather/resume.pdf").to_string_lossy(),
+            "--skip",
+            "prose,readability,schema",
+            "--all",
+        ])
+        .assert()
+        .success();
 }
 #[test]
 fn test_check_validation_compatibility_snapshots() {
@@ -313,29 +355,18 @@ fn test_check_validation_compatibility_snapshots() {
         .into_iter()
         .for_each(|(name, args)| insta::assert_snapshot!(name, normalized_process(&args)));
 }
+#[ignore = "Broken for reasons unknown"]
 #[test]
-fn test_check_pdf_as_document_text() {
+fn test_dcat_check_invalid_dataset() {
     Command::cargo_bin("acorn")
         .unwrap()
         .env("ACORN_NO_LOCAL_DATABASE", "true")
         .args([
-            "--offline",
             "check",
-            &fixture("gather/resume.pdf").to_string_lossy(),
-            "--skip",
-            "prose,readability,schema",
-            "--all",
+            "--standard",
+            "dcat",
+            &dcat_fixture("dcat-invalid-2-errors.json").to_string_lossy(),
         ])
-        .assert()
-        .success();
-}
-#[ignore = "Broken for reasons unknown"]
-#[test]
-fn test_dcat_check_valid_dataset() {
-    Command::cargo_bin("acorn")
-        .unwrap()
-        .env("ACORN_NO_LOCAL_DATABASE", "true")
-        .args(["check", "--standard", "dcat", &dcat_fixture("dcat-us-dataset.json").to_string_lossy()])
         .assert()
         .success();
 }
@@ -351,16 +382,11 @@ fn test_dcat_check_valid_catalog() {
 }
 #[ignore = "Broken for reasons unknown"]
 #[test]
-fn test_dcat_check_invalid_dataset() {
+fn test_dcat_check_valid_dataset() {
     Command::cargo_bin("acorn")
         .unwrap()
         .env("ACORN_NO_LOCAL_DATABASE", "true")
-        .args([
-            "check",
-            "--standard",
-            "dcat",
-            &dcat_fixture("dcat-invalid-2-errors.json").to_string_lossy(),
-        ])
+        .args(["check", "--standard", "dcat", &dcat_fixture("dcat-us-dataset.json").to_string_lossy()])
         .assert()
         .success();
 }

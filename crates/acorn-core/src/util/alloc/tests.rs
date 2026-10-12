@@ -1,7 +1,8 @@
 #[cfg(feature = "std")]
 use super::MimeType;
 use super::{
-    detect_json, stable_deduplicate, Checksum, ChecksumAlgorithm, ParseOptions, ParseOptionsExt, SemanticVersion, StringConversion, StringExt,
+    detect_json, escape_ntriples_literal, stable_deduplicate, Checksum, ChecksumAlgorithm, ParseOptions, ParseOptionsExt, SemanticVersion,
+    StringConversion, StringExt,
 };
 use crate::prelude::alloc::{String, ToString};
 use crate::util::constants::app::EXEC_HEADER_PREFIX;
@@ -24,6 +25,11 @@ fn test_checksum_from_uses_default_algorithm_for_malformed_values() {
         assert_eq!(checksum.algorithm, ChecksumAlgorithm::Sha256);
         assert_eq!(checksum.checksum_value, value);
     });
+}
+#[test]
+fn test_escape_ntriples_literal_escapes_string_delimiters_and_controls() {
+    assert_eq!(escape_ntriples_literal("plain"), "plain");
+    assert_eq!(escape_ntriples_literal("a\\b\"c\n\r\t"), "a\\\\b\\\"c\\n\\r\\t");
 }
 #[test]
 fn test_mime_type_from_resolves_file_type_names_and_aliases() {
@@ -67,6 +73,16 @@ fn test_mime_type_recognizes_only_canonical_zon_extension() {
     assert_eq!(MimeType::Zon.file_type(), "zonf");
     assert_eq!(MimeType::Zon.to_string(), "text/zonf");
     assert_eq!(MimeType::from("activity.zon"), MimeType::Vendor("zon".to_string()));
+}
+#[test]
+fn test_mime_type_resolves_rdf_formats_without_claiming_generic_xml() {
+    assert_eq!(MimeType::from("record.jsonld"), MimeType::LdJson);
+    assert_eq!(MimeType::from("record.rdf"), MimeType::RdfXml);
+    assert_eq!(MimeType::from("record.rdfxml"), MimeType::RdfXml);
+    assert_eq!(MimeType::from("record.ttl"), MimeType::Turtle);
+    assert_eq!(MimeType::from("record.xml"), MimeType::Vendor("xml".to_string()));
+    assert_eq!(MimeType::RdfXml.to_string(), "application/rdf+xml");
+    assert_eq!(MimeType::Turtle.to_string(), "text/turtle");
 }
 #[test]
 fn test_parse_options_strict_jsonc_enforces_shared_syntax() {

@@ -29,6 +29,9 @@ acorn format path/to/project/index.json --enrich --dry-run
 
 # Format an ACRE configuration file while preserving comments and property order
 acorn format .acorn.jsonc --standard acre
+
+# Canonicalize a Dublin Core graph while retaining Turtle syntax
+acorn format metadata.ttl --standard dcmi
 ```
 
 ## ACRE configuration
@@ -36,6 +39,12 @@ acorn format .acorn.jsonc --standard acre
 Use `--standard acre` to format Application Configuration for Research Enablement files. JSON and JSONC use two-space indentation, LF line endings, and a final newline while retaining property order, comments, and existing trailing commas. YAML uses the same indentation and line-ending policy and retains comments. Formatting validates the file first and preserves an omitted legacy `schemaVersion` field.
 
 When the path is a directory, only `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, and `.acorn.yml` are selected. An explicit file may use any supported JSON, JSONC, YAML, or YML filename. ACRE formatting is side-effect free and rejects `--config`, `--enrich`, and `--provider`.
+
+## Dublin Core
+
+Dublin Core formatting parses the complete graph, normalizes statement order and repeated values, and writes deterministic native JSON, JSON-LD, RDF/XML, Turtle, or YAML according to the source extension. A dry run shows the resulting textual change without writing the file.
+
+Formatting preserves unknown absolute extension predicates. It does not resolve remote JSON-LD contexts or add inferred statements. Because Dublin Core has no ACORN enrichment or format-hook pipeline, `--enrich`, explicit configuration, and configured format hooks are rejected for this standard.
 
 ## Example output
 ```diff

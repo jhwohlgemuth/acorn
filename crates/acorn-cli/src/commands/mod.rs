@@ -303,6 +303,9 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                     reference,
                     from,
                     to,
+                    config: export_config,
+                    crosswalk_contact,
+                    local_identifier,
                     combine,
                     merge_request,
                     raw,
@@ -315,7 +318,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                     ..
                 } = arguments.as_ref();
                 initialize_database(config).await?;
-                export::run(
+                export::run_with_import_context(
                     output,
                     path,
                     branch,
@@ -330,6 +333,9 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                     reference,
                     from,
                     to,
+                    export_config,
+                    crosswalk_contact.as_deref(),
+                    local_identifier.as_deref(),
                     combine,
                     merge_request,
                     raw,

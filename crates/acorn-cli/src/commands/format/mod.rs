@@ -26,7 +26,7 @@ use acorn_schema::{
     enrichment::Provider,
     research_activity::ResearchActivity,
     standard::Standard,
-    standard::{cff::Cff, datacite, invenio},
+    standard::{cff::Cff, datacite, dublin_core::DublinCoreDocument, invenio},
     validation::Validate,
     vocabulary::{VocabularyFuzzyMode, VocabularyReport},
 };
@@ -214,6 +214,7 @@ pub async fn run(
                     match standard {
                         | Standard::CitationFileFormat => run_as::<Cff>(standard_options).await,
                         | Standard::Datacite => run_as::<datacite::Record>(standard_options).await,
+                        | Standard::DublinCore => run_format_only::<DublinCoreDocument>(standard_options).await,
                         | Standard::Invenio => run_as::<invenio::Record>(standard_options).await,
                         | Standard::ResearchActivityData => run_as::<ResearchActivity>(standard_options).await,
                         | _ => Err(eyre!("Formatting is not supported for the {standard} standard")),
@@ -264,6 +265,17 @@ where
         },
     };
     workflow
+}
+async fn run_format_only<T>(options: StandardOptions<'_>) -> Result<(), Report>
+where
+    T: InputOutput + Serialize,
+{
+    let has_unsupported_hook = options.explicit_configuration || options.configuration.has_hook(Hook::Format);
+    match (options.enrich, has_unsupported_hook) {
+        | (true, _) => Err(eyre!("Enrichment is not supported for the {} standard", options.standard)),
+        | (false, true) => Err(eyre!("Format hooks are not supported for the {} standard", options.standard)),
+        | (false, false) => format::<T>(options.path, options.command).await,
+    }
 }
 async fn run_workflow<T>(
     options: &CommandOptions,

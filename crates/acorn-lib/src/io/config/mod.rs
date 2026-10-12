@@ -21,7 +21,7 @@ use acorn_schema::{
     hardware::memory::Memory,
     validation::{Validate, ValidationReport},
 };
-pub use application::{AcreSchemaVersion, ApplicationConfiguration, WhitelistLookup};
+pub use application::{AcreSchemaVersion, ApplicationConfiguration, ApplicationOptions, CrosswalkOptions, WhitelistLookup};
 use bon::Builder;
 pub use bucket::{
     Bucket, BucketExtension, BucketOptions, BucketSource, BucketSourceIdentity, BucketSourceKind, Buckets, ResolvedBucket, SourceInput,

@@ -1,7 +1,14 @@
 //! Portable standards records and crosswalks.
-use crate::validation::{rules, IntoValidationReport, Validate, ValidationReport};
-use acorn_core::prelude::alloc::{String, ToString};
+use crate::{
+    codec::CodecDiagnostic,
+    util::constants::app::DCAT_NAMESPACE,
+    validation::{rules, IntoValidationReport, Validate, ValidationReport},
+};
 use acorn_core::validation::ValidationError;
+use acorn_core::{
+    prelude::alloc::{String, ToString, Vec},
+    util::MimeType,
+};
 use bon::Builder;
 use derive_more::Display;
 use schemars::{JsonSchema, Schema, SchemaGenerator};
@@ -16,12 +23,13 @@ pub mod crosswalk;
 pub mod datacite;
 #[cfg(feature = "std")]
 pub mod dcat;
-#[cfg(feature = "std")]
 pub mod dublin_core;
 #[cfg(feature = "std")]
 pub mod huwise;
 pub mod invenio;
 pub mod ocp;
+pub mod rdf;
+pub mod relation;
 pub mod text;
 pub mod zon;
 
@@ -70,7 +78,7 @@ pub enum ContributionKind {
     WhitePaper,
 }
 /// Metadata standard used to gate parsing, validation, conversion, and schema export.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Display, Eq, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Display, Eq, JsonSchema, PartialEq, Serialize, strum::EnumIs)]
 #[serde(rename_all = "kebab-case")]
 pub enum Standard {
     /// Application Configuration for Research Enablement (ACRE).
@@ -243,8 +251,10 @@ impl Standard {
             Some(Self::CitationFileFormat)
         } else if object.contains_key("success") && is_ckan(object) {
             Some(Self::Ckan)
-        } else if object.get("@type").and_then(Value::as_str).is_some_and(|value| value.contains("dcat:")) {
+        } else if object.get("@type").is_some_and(is_dcat_type) {
             Some(Self::Dcat)
+        } else if is_dublin_core(object) {
+            Some(Self::DublinCore)
         } else if object.contains_key("dataset_id") && object.contains_key("metas") {
             Some(Self::Huwise)
         } else if object.contains_key("attributes") && object.contains_key("id") {
@@ -264,6 +274,23 @@ impl Standard {
         } else {
             None
         }
+    }
+    /// Strictly detect a supported metadata standard from an RDF graph.
+    pub fn detect_rdf(content: &str, format: &MimeType) -> Result<Option<Self>, Vec<CodecDiagnostic>> {
+        rdf::decode(content, format).map(|document| {
+            let terms = document
+                .descriptions
+                .iter()
+                .flat_map(|description| description.types.iter().chain(description.properties.keys()));
+            let mut terms = terms.peekable();
+            if terms.clone().any(|value| value.starts_with(DCAT_NAMESPACE)) {
+                Some(Self::Dcat)
+            } else if terms.any(|value| dublin_core::term(value).is_some()) {
+                Some(Self::DublinCore)
+            } else {
+                None
+            }
+        })
     }
 }
 impl StandardsClaim {
@@ -292,6 +319,40 @@ fn is_ckan(object: &Map<String, Value>) -> bool {
             .into_iter()
             .any(|field| object.contains_key(field));
     package || object.get("success").and_then(Value::as_bool).is_some() && object.get("result").and_then(Value::as_object).is_some_and(is_ckan)
+}
+fn is_dcat_type(value: &Value) -> bool {
+    match value {
+        | Value::Array(values) => values.iter().any(is_dcat_type),
+        | Value::String(value) => value.contains("dcat:") || value.contains(DCAT_NAMESPACE),
+        | _ => false,
+    }
+}
+fn is_dublin_core(object: &Map<String, Value>) -> bool {
+    let dcmi_key = |key: &str| {
+        key.starts_with("dc:")
+            || key.starts_with("dcterms:")
+            || [
+                dublin_core::DCAM_NAMESPACE,
+                dublin_core::DCTERMS_NAMESPACE,
+                dublin_core::ELEMENTS_NAMESPACE,
+                dublin_core::TYPE_NAMESPACE,
+            ]
+            .into_iter()
+            .any(|namespace| key.starts_with(namespace))
+    };
+    object.keys().any(|key| dcmi_key(key))
+        || object.get("descriptions").and_then(Value::as_array).is_some_and(|descriptions| {
+            descriptions.iter().any(|description| {
+                description
+                    .get("properties")
+                    .and_then(Value::as_object)
+                    .is_some_and(|properties| properties.keys().any(|key| dcmi_key(key)))
+            })
+        })
+        || object
+            .get("@context")
+            .and_then(Value::as_object)
+            .is_some_and(|context| context.values().filter_map(Value::as_str).any(dcmi_key))
 }
 
 #[cfg(all(test, feature = "std"))]

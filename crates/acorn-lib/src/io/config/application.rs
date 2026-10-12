@@ -353,6 +353,10 @@ pub struct ApplicationConfiguration {
     #[eserde(compat)]
     #[serde(default)]
     pub models: Option<Vec<ModelEntry>>,
+    /// Command defaults that may be overridden explicitly on the command line.
+    #[eserde(compat)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub options: Option<ApplicationOptions>,
     /// Deployment-owned PowerAutomate form intake and callback configuration.
     #[eserde(compat)]
     #[schemars(with = "Option<feature_configuration::PowerAutomateConfig>")]
@@ -385,6 +389,25 @@ pub struct ApplicationConfiguration {
     #[eserde(compat)]
     #[serde(default)]
     pub scripts: Option<Vec<Entry>>,
+}
+/// Command defaults stored in application configuration.
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApplicationOptions {
+    /// Defaults used when importing metadata through a crosswalk.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crosswalk: Option<CrosswalkOptions>,
+}
+/// Local identity defaults required by metadata imports.
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct CrosswalkOptions {
+    /// JSON or YAML contact file, resolved relative to the configuration file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contact: Option<PathBuf>,
+    /// Local RAD identifier assigned to imported metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_identifier: Option<String>,
 }
 /// One entry in the top-level `scripts` attribute.
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
@@ -801,6 +824,24 @@ impl Validate for ApplicationConfiguration {
                 report.append_prefixed(&format!("mcp.{name}"), errors);
             }
         });
+        self.options
+            .as_ref()
+            .and_then(|options| options.crosswalk.as_ref())
+            .into_iter()
+            .for_each(|options| {
+                if options.contact.as_ref().is_some_and(|path| path.as_os_str().is_empty()) {
+                    report.add(
+                        "options.crosswalk.contact",
+                        ValidationError::new("required").with_message("Crosswalk contact path must not be empty"),
+                    );
+                }
+                if options.local_identifier.as_deref().is_some_and(|identifier| !is_identifier(identifier)) {
+                    report.add(
+                        "options.crosswalk.localIdentifier",
+                        ValidationError::new("format").with_message("Crosswalk local identifier must be a valid identifier"),
+                    );
+                }
+            });
         entries.iter().enumerate().for_each(|(index, entry)| {
             if let Err(errors) = entry.validate() {
                 report.append_prefixed(&format!("scripts[{index}]"), errors);

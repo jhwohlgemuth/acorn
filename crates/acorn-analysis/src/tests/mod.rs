@@ -5,7 +5,8 @@ use super::{Check, CheckBatch, CheckCategory, CheckSeverity, CheckSummary, Findi
 use crate::StandardCrosswalk;
 use acorn_core::util::MimeType;
 use acorn_core::validation::ValidationError;
-use acorn_schema::standard::Standard;
+use acorn_schema::codec::DocumentCodec;
+use acorn_schema::standard::{dublin_core::DublinCoreDocument, Standard};
 use acorn_schema::validation::{Validate, ValidationReport};
 use acorn_schema::{research_activity::ResearchActivity, standard::dcat, OneOrMany};
 use alloc::string::{String, ToString};
@@ -208,6 +209,34 @@ fn test_combined_batch_summaries_equal_flattened_summary() {
     ]);
     let combined_summary = CheckSummary::from(&first).combine(CheckSummary::from(&second));
     assert_eq!(combined_summary, CheckSummary::from(first.combine(second)));
+}
+#[test]
+fn test_dublin_core_crosswalk_round_trips_datacite_through_turtle() {
+    let datacite = r#"{
+        "id": "10.5072/example",
+        "type": "dois",
+        "attributes": {
+            "doi": "10.5072/example",
+            "titles": [{ "title": "A dataset" }],
+            "creators": [{ "name": "Ada Lovelace" }],
+            "publisher": { "name": "Example Publisher" },
+            "publicationYear": 2024,
+            "types": { "resourceTypeGeneral": "Dataset" }
+        }
+    }"#;
+    let turtle = Standard::Datacite
+        .crosswalk(datacite, MimeType::Json, Standard::DublinCore, MimeType::Turtle)
+        .expect("DataCite to Dublin Core");
+    assert!(DublinCoreDocument::decode(&turtle, &MimeType::Turtle).is_ok());
+    let restored = Standard::DublinCore
+        .crosswalk(&turtle, MimeType::Turtle, Standard::Datacite, MimeType::Json)
+        .expect("Dublin Core to DataCite");
+    let value: serde_json::Value = serde_json::from_str(&restored).expect("DataCite JSON");
+    assert_eq!(value.get("id").and_then(serde_json::Value::as_str), Some("10.5072/example"));
+    assert_eq!(
+        value.pointer("/attributes/titles/0/title").and_then(serde_json::Value::as_str),
+        Some("A dataset")
+    );
 }
 #[test]
 fn test_fair_counts_report_support_and_coverage() {

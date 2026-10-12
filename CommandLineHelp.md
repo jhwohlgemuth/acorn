@@ -196,7 +196,7 @@ Perform static analysis on research activity data and apply standardized best pr
    Only files matching at least one pattern will be processed
 * `--format <FORMAT>` — Force the file format used for standard input or clipboard text
 
-   Supported formats: cff, json, jsonc, markdown, text, yaml, zon
+   Supported formats: cff, json, jsonc, jsonld, markdown, rdfxml, text, turtle, yaml, zon
 * `--fuzzy <MODE>` — Controlled-vocabulary fuzzy matching profile used by prose checks
 
   Default value: `relaxed`
@@ -760,6 +760,7 @@ Export research activity data to a specific target
 * `--chrome-path <PATH>` — Chrome or Chromium executable to use for PDF export
 * `--combine` — Combine all export artifacts into a single artifact
 * `-c`, `--commit <COMMIT>` — Export files that were changed in a given Git commit
+* `--config <PATH>` — Path to application configuration containing crosswalk import defaults
 * `--dry-run` [alias: `what-if`] — Run export without making changes. Will print what would happen
 * `-f`, `--format <FORMAT>` — Export target file format
 
@@ -767,7 +768,7 @@ Export research activity data to a specific target
 
   Default value: `pdf`
 
-  Possible values: `pdf`, `bag`, `cff`, `docx`, `json`, `jsonl`, `markdown`, `powerpoint`, `yaml`, `zon`
+  Possible values: `pdf`, `bag`, `cff`, `docx`, `json`, `json-ld`, `jsonl`, `markdown`, `powerpoint`, `rdf-xml`, `turtle`, `yaml`, `zon`
 
 * `--archive-format <FORMAT>` — BagIt archive container format
 
@@ -830,6 +831,8 @@ Export research activity data to a specific target
 * `--from <STANDARD>` — Metadata standard to use for source data inference (default: auto-detect)
 
    Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
+* `--crosswalk-contact <PATH>` — JSON or YAML contact required for Dublin Core or RAiD import; overrides options.crosswalk.contact
+* `--local-identifier <IDENTIFIER>` — Local RAD import identifier; overrides options.crosswalk.localIdentifier
 * `--to <STANDARD>` — Target metadata standard for crosswalk conversion
 
    Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)

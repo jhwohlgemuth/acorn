@@ -233,6 +233,9 @@ pub enum FileFormat {
     Docx,
     #[display("JSON")]
     Json,
+    #[value(name = "json-ld", alias = "jsonld")]
+    #[display("JSON-LD")]
+    JsonLd,
     #[value(name = "jsonl", alias = "ndjson")]
     #[display("JSONL")]
     JsonLines,
@@ -240,6 +243,11 @@ pub enum FileFormat {
     Markdown,
     #[display("PPTX")]
     Powerpoint,
+    #[value(name = "rdf-xml", alias = "rdfxml", alias = "rdf")]
+    #[display("RDF/XML")]
+    RdfXml,
+    #[display("Turtle")]
+    Turtle,
     #[display("YAML")]
     Yaml,
     #[display("ZON")]
@@ -499,7 +507,7 @@ pub struct Check {
     pub(crate) filter: Vec<String>,
     /// Force the file format used for standard input or clipboard text
     ///
-    /// Supported formats: cff, json, jsonc, markdown, text, yaml, zon
+    /// Supported formats: cff, json, jsonc, jsonld, markdown, rdfxml, text, turtle, yaml, zon
     #[arg(long, value_name = "FORMAT", value_parser = parse_check_format, help_heading = "OPTIONS", conflicts_with_all = ["path", "branch", "commit", "filter", "ignore", "merge_request"])]
     pub(crate) format: Option<MimeType>,
     /// Controlled-vocabulary fuzzy matching profile used by prose checks
@@ -859,6 +867,9 @@ pub(crate) struct Export {
     /// Export files that were changed in a given Git commit
     #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) commit: Option<String>,
+    /// Path to application configuration containing crosswalk import defaults
+    #[arg(long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS", conflicts_with_all = ["schema", "tools"])]
+    pub(crate) config: Option<PathBuf>,
     /// Run export without making changes. Will print what would happen.
     #[arg(
         long = "dry-run",
@@ -927,8 +938,8 @@ pub(crate) struct Export {
         value_name = "BOOL",
         help_heading = "FLAGS",
         conflicts_with_all = [
-            "schema", "branch", "chrome_path", "combine", "commit", "archive_format", "filter", "ignore", "show_aspect_labels",
-            "show_aspect_scores", "merge_request", "skip", "reference", "strict", "from", "to"
+            "schema", "branch", "chrome_path", "combine", "commit", "config", "archive_format", "filter", "ignore", "show_aspect_labels",
+            "show_aspect_scores", "merge_request", "skip", "reference", "strict", "from", "to", "crosswalk_contact", "local_identifier"
         ]
     )]
     pub(crate) tools: bool,
@@ -974,6 +985,19 @@ pub(crate) struct Export {
     /// Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
     #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) from: Option<Standard>,
+    /// JSON or YAML contact required for Dublin Core or RAiD import; overrides options.crosswalk.contact
+    #[arg(
+        long,
+        value_name = "PATH",
+        value_hint = ValueHint::FilePath,
+        help_heading = "OPTIONS",
+        requires = "to",
+        conflicts_with = "schema"
+    )]
+    pub(crate) crosswalk_contact: Option<PathBuf>,
+    /// Local RAD import identifier; overrides options.crosswalk.localIdentifier
+    #[arg(long, value_name = "IDENTIFIER", help_heading = "OPTIONS", requires = "to", conflicts_with = "schema")]
+    pub(crate) local_identifier: Option<String>,
     /// Target metadata standard for crosswalk conversion
     ///
     /// Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
@@ -1669,7 +1693,7 @@ impl FileFormat {
     }
     /// Return whether the format is structured data.
     pub fn is_structured(&self) -> bool {
-        self.is_cff() || self.is_batch()
+        self.is_cff() || self.is_json_ld() || self.is_rdf_xml() || self.is_turtle() || self.is_batch()
     }
 }
 impl Default for InferenceArgs {
@@ -1739,9 +1763,12 @@ impl From<&FileFormat> for MimeType {
             | FileFormat::Cff => MimeType::Cff,
             | FileFormat::Docx => MimeType::Docx,
             | FileFormat::Json => MimeType::Json,
+            | FileFormat::JsonLd => MimeType::LdJson,
             | FileFormat::JsonLines => MimeType::JsonLines,
             | FileFormat::Markdown => MimeType::Markdown,
             | FileFormat::Powerpoint => MimeType::Powerpoint,
+            | FileFormat::RdfXml => MimeType::RdfXml,
+            | FileFormat::Turtle => MimeType::Turtle,
             | FileFormat::Yaml => MimeType::Yaml,
             | FileFormat::Zon => MimeType::Zon,
         }

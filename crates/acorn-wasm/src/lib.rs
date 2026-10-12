@@ -122,8 +122,8 @@ use acorn_diff::{unified_diff, DiffValue, JsonPatch};
 use acorn_schema::codec::DocumentCodec;
 use acorn_schema::pid::{raid, Identifier, PersistentIdentifierParse, ISNI, ORCID, PID};
 use acorn_schema::research_activity::ResearchActivity;
-use acorn_schema::standard::crosswalk::{ConversionWarning, Crosswalk, RaidImportOptions};
-use acorn_schema::standard::{datacite, Standard};
+use acorn_schema::standard::crosswalk::{ConversionWarning, Crosswalk, DublinCoreImportOptions, RaidImportOptions};
+use acorn_schema::standard::{datacite, dublin_core::DublinCoreDocument, Standard};
 use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use acorn_schema::ContactPoint;
 use acorn_service::{AcornService, CheckReadabilityRequest, ValidateResearchActivityRequest, ValidateStandardRequest};
@@ -250,7 +250,7 @@ enum IdentifierInspectionStatus {
 #[serde(rename_all = "camelCase")]
 struct CrosswalkResult {
     content: String,
-    format: &'static str,
+    format: String,
     source: String,
     target: String,
     warnings: Vec<CrosswalkWarning>,
@@ -462,50 +462,121 @@ fn crosswalk(
     contact_json: Option<&str>,
     local_identifier: Option<&str>,
 ) -> Result<CrosswalkResult, String> {
-    let format = parse_format(format)?;
-    let (content, warnings) = match (source, target) {
-        | ("raid", "research-activity-data") => {
-            let metadata = raid::Metadata::decode(content, &format).map_err(|diagnostics| format!("Cannot decode RAiD metadata: {diagnostics:?}"))?;
-            let contact = contact_json
-                .ok_or_else(|| "RAiD to RAD conversion requires a contact seed".to_string())
-                .and_then(|contact| {
-                    serde_json::from_str::<ContactPoint>(contact).map_err(|_| "Crosswalk contact must be valid ContactPoint JSON".to_string())
-                })?;
-            let options = RaidImportOptions {
-                contact: Some(contact),
-                identifier: local_identifier.map(str::to_string),
-                ..RaidImportOptions::default()
-            };
-            metadata
-                .to_research_activity(&options)
-                .map_err(|error| error.to_string())
-                .and_then(|(value, warnings)| serialize_crosswalk(value, warnings))?
-        }
-        | ("research-activity-data", "datacite") => {
-            let activity =
-                ResearchActivity::decode(content, &format).map_err(|diagnostics| format!("Cannot decode Research Activity Data: {diagnostics:?}"))?;
-            activity
-                .crosswalk()
-                .map_err(|error| error.to_string())
-                .and_then(|(value, warnings): (datacite::Record, _)| serialize_crosswalk(value, warnings))?
-        }
-        | ("research-activity-data", "raid") => {
-            let activity =
-                ResearchActivity::decode(content, &format).map_err(|diagnostics| format!("Cannot decode Research Activity Data: {diagnostics:?}"))?;
-            activity
-                .crosswalk()
-                .map_err(|error| error.to_string())
-                .and_then(|(value, warnings): (raid::Metadata, _)| serialize_crosswalk(value, warnings))?
-        }
-        | _ => return Err(format!("Unsupported metadata crosswalk '{source}' to '{target}'")),
-    };
-    Ok(CrosswalkResult {
-        content,
-        format: "json",
-        source: source.to_string(),
-        target: target.to_string(),
-        warnings,
+    crosswalk_as(content, format, source, target, "json", contact_json, local_identifier)
+}
+fn crosswalk_as(
+    content: &str,
+    format: &str,
+    source: &str,
+    target: &str,
+    output_format: &str,
+    contact_json: Option<&str>,
+    local_identifier: Option<&str>,
+) -> Result<CrosswalkResult, String> {
+    parse_format(format).and_then(|format| {
+        let output_format_name = output_format.to_string();
+        parse_format(output_format).and_then(
+            |output_format| match !matches!(target, "dcmi" | "dublin-core") && output_format != MimeType::Json {
+                | true => Err("Non-Dublin Core browser crosswalk targets currently require JSON output".to_string()),
+                | false => {
+                    crosswalk_content(content, &format, source, target, &output_format, contact_json, local_identifier).map(|(content, warnings)| {
+                        CrosswalkResult {
+                            content,
+                            format: output_format_name,
+                            source: source.to_string(),
+                            target: target.to_string(),
+                            warnings,
+                        }
+                    })
+                }
+            },
+        )
     })
+}
+fn crosswalk_content(
+    content: &str,
+    format: &MimeType,
+    source: &str,
+    target: &str,
+    output_format: &MimeType,
+    contact_json: Option<&str>,
+    local_identifier: Option<&str>,
+) -> Result<(String, Vec<CrosswalkWarning>), String> {
+    match (source, target) {
+        | ("raid", "research-activity-data") => raid::Metadata::decode(content, format)
+            .map_err(|diagnostics| format!("Cannot decode RAiD metadata: {diagnostics:?}"))
+            .and_then(|metadata| {
+                parse_crosswalk_contact(contact_json, "RAiD").and_then(|contact| {
+                    let options = RaidImportOptions {
+                        contact: Some(contact),
+                        identifier: local_identifier.map(str::to_string),
+                        ..RaidImportOptions::default()
+                    };
+                    metadata
+                        .to_research_activity(&options)
+                        .map_err(|error| error.to_string())
+                        .and_then(|(value, warnings)| serialize_crosswalk(value, warnings))
+                })
+            }),
+        | ("research-activity-data", "datacite") => ResearchActivity::decode(content, format)
+            .map_err(|diagnostics| format!("Cannot decode Research Activity Data: {diagnostics:?}"))
+            .and_then(|activity| {
+                activity
+                    .crosswalk()
+                    .map_err(|error| error.to_string())
+                    .and_then(|(value, warnings): (datacite::Record, _)| serialize_crosswalk(value, warnings))
+            }),
+        | ("research-activity-data", "raid") => ResearchActivity::decode(content, format)
+            .map_err(|diagnostics| format!("Cannot decode Research Activity Data: {diagnostics:?}"))
+            .and_then(|activity| {
+                activity
+                    .crosswalk()
+                    .map_err(|error| error.to_string())
+                    .and_then(|(value, warnings): (raid::Metadata, _)| serialize_crosswalk(value, warnings))
+            }),
+        | ("dcmi" | "dublin-core", "research-activity-data") => DublinCoreDocument::decode(content, format)
+            .map_err(|diagnostics| format!("Cannot decode Dublin Core metadata: {diagnostics:?}"))
+            .and_then(|document| {
+                parse_crosswalk_contact(contact_json, "Dublin Core").and_then(|contact| {
+                    let options = DublinCoreImportOptions {
+                        contact: Some(contact),
+                        identifier: local_identifier.map(str::to_string),
+                    };
+                    document
+                        .to_research_activity(&options)
+                        .map_err(|error| error.to_string())
+                        .and_then(|(value, warnings)| serialize_crosswalk(value, warnings))
+                })
+            }),
+        | ("dcmi" | "dublin-core", "datacite") => DublinCoreDocument::decode(content, format)
+            .map_err(|diagnostics| format!("Cannot decode Dublin Core metadata: {diagnostics:?}"))
+            .and_then(|document| {
+                document
+                    .crosswalk()
+                    .map_err(|error| error.to_string())
+                    .and_then(|(value, warnings): (datacite::Record, _)| serialize_crosswalk(value, warnings))
+            }),
+        | ("dcmi" | "dublin-core", "dcmi" | "dublin-core") => DublinCoreDocument::decode(content, format)
+            .map_err(|diagnostics| format!("Cannot decode Dublin Core metadata: {diagnostics:?}"))
+            .and_then(|document| serialize_dublin_core(&document, Vec::new(), output_format)),
+        | ("datacite", "dcmi" | "dublin-core") => datacite::Record::decode(content, format)
+            .map_err(|diagnostics| format!("Cannot decode DataCite metadata: {diagnostics:?}"))
+            .and_then(|record| {
+                record
+                    .crosswalk()
+                    .map_err(|error| error.to_string())
+                    .and_then(|(value, warnings): (DublinCoreDocument, _)| serialize_dublin_core(&value, warnings, output_format))
+            }),
+        | ("research-activity-data", "dcmi" | "dublin-core") => ResearchActivity::decode(content, format)
+            .map_err(|diagnostics| format!("Cannot decode Research Activity Data: {diagnostics:?}"))
+            .and_then(|activity| {
+                activity
+                    .crosswalk()
+                    .map_err(|error| error.to_string())
+                    .and_then(|(value, warnings): (DublinCoreDocument, _)| serialize_dublin_core(&value, warnings, output_format))
+            }),
+        | _ => Err(format!("Unsupported metadata crosswalk '{source}' to '{target}'")),
+    }
 }
 /// Convert supplied metadata through one of ACORN's typed portable crosswalks.
 #[wasm_bindgen(js_name = crosswalkMetadata)]
@@ -521,6 +592,30 @@ pub fn crosswalk_metadata(
         .map_err(|why| JsValue::from_str(&why))
         .and_then(|result| serialize_json_compatible(&result))
         .map(JsValue::unchecked_into)
+}
+/// Convert supplied metadata while selecting an explicit output syntax.
+#[wasm_bindgen(js_name = crosswalkMetadataAs)]
+pub fn crosswalk_metadata_as(
+    content: &str,
+    format: &str,
+    source: &str,
+    target: &str,
+    output_format: &str,
+    contact_json: Option<String>,
+    local_identifier: Option<String>,
+) -> Result<JsCrosswalkResult, JsValue> {
+    crosswalk_as(
+        content,
+        format,
+        source,
+        target,
+        output_format,
+        contact_json.as_deref(),
+        local_identifier.as_deref(),
+    )
+    .map_err(|why| JsValue::from_str(&why))
+    .and_then(|result| serialize_json_compatible(&result))
+    .map(JsValue::unchecked_into)
 }
 fn diff(before: &str, after: &str, mode: &str) -> Result<ContentDiffResult, String> {
     match mode {
@@ -598,13 +693,23 @@ pub fn inspect_persistent_identifier(value: &str, kind: Option<String>) -> Resul
         .and_then(|result| serialize_json_compatible(&result))
         .map(JsValue::unchecked_into)
 }
+fn parse_crosswalk_contact(contact_json: Option<&str>, source: &str) -> Result<ContactPoint, String> {
+    contact_json
+        .ok_or_else(|| format!("{source} to RAD conversion requires a contact seed"))
+        .and_then(|contact| {
+            serde_json::from_str::<ContactPoint>(contact).map_err(|_| "Crosswalk contact must be valid ContactPoint JSON".to_string())
+        })
+}
 fn parse_format(format: &str) -> Result<MimeType, String> {
     match format {
         | "cff" => Ok(MimeType::Cff),
         | "json" => Ok(MimeType::Json),
         | "jsonc" => Ok(MimeType::Jsonc),
+        | "json-ld" | "jsonld" => Ok(MimeType::LdJson),
         | "markdown" => Ok(MimeType::Markdown),
+        | "rdf-xml" | "rdfxml" => Ok(MimeType::RdfXml),
         | "text" => Ok(MimeType::Text),
+        | "ttl" | "turtle" => Ok(MimeType::Turtle),
         | "yaml" => Ok(MimeType::Yaml),
         | "zon" => Ok(MimeType::Zon),
         | _ => Err(format!("Unsupported metadata format '{format}'")),
@@ -644,6 +749,7 @@ fn parse_standard(standard: &str) -> Result<Standard, String> {
         | "citation-file-format" => Ok(Standard::CitationFileFormat),
         | "ckan" => Ok(Standard::Ckan),
         | "datacite" => Ok(Standard::Datacite),
+        | "dcmi" | "dublin-core" => Ok(Standard::DublinCore),
         | "document" => Ok(Standard::Document),
         | "invenio" => Ok(Standard::Invenio),
         | "kitfile" => Ok(Standard::Kitfile),
@@ -668,6 +774,16 @@ fn serialize<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
 fn serialize_crosswalk<T: Serialize>(value: T, warnings: Vec<ConversionWarning>) -> Result<(String, Vec<CrosswalkWarning>), String> {
     serde_json::to_string_pretty(&value)
         .map_err(|_| "Crosswalk output could not be serialized".to_string())
+        .map(|content| (content, warnings.into_iter().map(CrosswalkWarning::from).collect()))
+}
+fn serialize_dublin_core(
+    value: &DublinCoreDocument,
+    warnings: Vec<ConversionWarning>,
+    format: &MimeType,
+) -> Result<(String, Vec<CrosswalkWarning>), String> {
+    value
+        .encode(format)
+        .map_err(|error| format!("Dublin Core output could not be serialized: {error}"))
         .map(|content| (content, warnings.into_iter().map(CrosswalkWarning::from).collect()))
 }
 fn serialize_json_compatible<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
@@ -749,9 +865,6 @@ pub fn validate_research_activity(json: &str, fuzzy: Option<String>) -> Result<J
         .map(JsValue::unchecked_into)
 }
 
-#[cfg(test)]
-mod tests;
-
 #[cfg(all(test, target_arch = "wasm32"))]
 mod wasm_tests {
     use super::*;
@@ -790,3 +903,6 @@ mod wasm_tests {
         assert!(validate_research_activity(r#"{"title": 1}"#, None).is_ok());
     }
 }
+
+#[cfg(test)]
+mod tests;

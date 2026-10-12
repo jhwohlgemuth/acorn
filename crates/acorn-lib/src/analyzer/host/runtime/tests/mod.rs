@@ -40,12 +40,17 @@ use acorn_schema::{
     modelkit::kitfile::Kitfile,
     research_activity::output::Funding,
     research_activity::ResearchActivity,
-    standard::{cff::Cff, crosswalk::ConversionWarning, Standard},
+    standard::{
+        cff::Cff,
+        crosswalk::ConversionWarning,
+        dublin_core::{DublinCoreDescription, DublinCoreDocument, DublinCoreLiteral, DublinCoreResource, DublinCoreValue, DCTERMS_NAMESPACE},
+        Standard,
+    },
     validation::{Validate, ValidationReport},
     vocabulary::{VocabularyFuzzyMode, VocabularyKind},
     OneOrMany,
 };
-use alloc::collections::BTreeSet;
+use alloc::collections::{BTreeMap, BTreeSet};
 use ariadne::{Color, ReportKind};
 use core::sync::atomic::{AtomicUsize, Ordering};
 use jiff::SignedDuration;
@@ -340,6 +345,25 @@ fn test_conversion_warnings_use_into_checks_trait() {
     assert_eq!(checks.as_slice()[0].issue_count(), 1);
     assert_eq!(checks.as_slice()[0].uri.as_deref(), Some("record.json"));
     assert_eq!(checks.as_slice()[0].locator.as_deref(), Some("attributes.publisher"));
+}
+#[test]
+fn test_dublin_core_quality_reports_advisory_domain_guidance() {
+    let document = DublinCoreDocument::new(vec![DublinCoreDescription {
+        properties: BTreeMap::from([(
+            format!("{DCTERMS_NAMESPACE}medium"),
+            vec![DublinCoreValue::Literal(DublinCoreLiteral {
+                datatype: None,
+                language: None,
+                value: "paper".to_string(),
+            })],
+        )]),
+        subject: DublinCoreResource::iri("https://example.org/work"),
+        types: Vec::new(),
+    }]);
+    let checks = super::dublin_core_quality_checks(&document, "work.ttl".to_string());
+    assert_eq!(checks.len(), 1);
+    assert_eq!(checks.as_slice()[0].rule_id.as_deref(), Some("dublin-core.domain"));
+    assert_eq!(checks.as_slice()[0].severity, CheckSeverity::Suggestion);
 }
 #[test]
 fn test_kitfile_content_paths_preserves_section_order_and_remote_filtering() {

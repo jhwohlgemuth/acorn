@@ -53,7 +53,6 @@ fn datacite_project_json() -> String {
     };
     serde_json::to_string(&activity).unwrap()
 }
-
 #[test]
 fn test_assess_fair_metadata_rejects_invalid_json_and_unknown_standards() {
     assert!(assess_fair("not-json", "datacite", None).is_err());
@@ -138,6 +137,51 @@ fn test_discover_identifiers_filters_urls_and_normalizes_supported_pids() {
         Some("10.1000/182")
     );
     assert_eq!(result.identifiers.get(1).map(|identifier| &identifier.kind), Some(&PID::RRID));
+}
+#[test]
+fn test_dublin_core_crosswalk_supports_turtle_and_requires_rad_context() {
+    let turtle = r#"@prefix dcterms: <http://purl.org/dc/terms/> .
+<https://example.org/dataset> dcterms:title "Imported dataset" .
+"#;
+    assert!(crosswalk(turtle, "turtle", "dublin-core", "research-activity-data", None, None)
+        .unwrap_err()
+        .contains("contact seed"));
+    let contact = serde_json::to_string(&ContactPoint::default()).unwrap();
+    let result = crosswalk(
+        turtle,
+        "turtle",
+        "dublin-core",
+        "research-activity-data",
+        Some(&contact),
+        Some("browser-import"),
+    )
+    .unwrap();
+    let activity = serde_json::from_str::<ResearchActivity>(&result.content).unwrap();
+    assert_eq!(activity.meta.identifier, "browser-import");
+    assert_eq!(activity.title, "Imported dataset");
+}
+#[test]
+fn test_dublin_core_crosswalk_writes_turtle() {
+    let result = crosswalk_as(
+        &datacite_project_json(),
+        "json",
+        "research-activity-data",
+        "dublin-core",
+        "turtle",
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(result.format, "turtle");
+    assert!(DublinCoreDocument::decode(&result.content, &MimeType::Turtle).is_ok());
+}
+#[test]
+fn test_dublin_core_validation_accepts_turtle() {
+    let turtle = r#"@prefix dcterms: <http://purl.org/dc/terms/> .
+<https://example.org/dataset> dcterms:title "Dataset" .
+"#;
+    let result = validate_metadata(turtle, "dublin-core", "turtle").unwrap();
+    assert!(result.valid);
 }
 #[test]
 fn test_inspect_identifier_accepts_every_supported_kind() {

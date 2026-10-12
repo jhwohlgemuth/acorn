@@ -16,9 +16,12 @@ use crate::commands::format::{format_diff, format_file, run};
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
 use acorn::io::slice_path;
 use acorn::util::constants::app::DISPLAY_PATH_CHARACTER_COUNT;
+use acorn_core::util::MimeType;
+use acorn_schema::codec::DocumentCodec;
 use acorn_schema::enrichment::Provider;
 use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::standard::cff::Cff;
+use acorn_schema::standard::dublin_core::DublinCoreDocument;
 use acorn_schema::standard::zon;
 use acorn_schema::standard::Standard;
 use acorn_schema::vocabulary::VocabularyFuzzyMode;
@@ -399,6 +402,38 @@ async fn test_format_dry_run() -> Result<()> {
     .await;
     assert!(result.is_ok(), "Format dry run should succeed");
     assert_eq!(fs::read_to_string(dest_file)?, original);
+    Ok(())
+}
+#[tokio::test]
+async fn test_format_dublin_core_turtle() -> Result<()> {
+    let temp_dir = temp_test_dir("format_dublin_core_turtle");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = temp_dir.join("metadata.ttl");
+    fs::write(
+        &source,
+        "@prefix dcterms: <http://purl.org/dc/terms/> .\n<https://example.org/work> dcterms:subject \"metadata\" ; dcterms:title \"Example\" .\n",
+    )?;
+    run(
+        &Some(source.clone()),
+        &None,
+        &None,
+        &None,
+        &None,
+        &None,
+        false,
+        false,
+        VocabularyFuzzyMode::Strict,
+        true,
+        &[],
+        &false,
+        Standard::DublinCore,
+        1,
+        &Verbosity::new(0, 0),
+        OFFLINE,
+    )
+    .await?;
+    let formatted = fs::read_to_string(source)?;
+    assert!(DublinCoreDocument::decode(&formatted, &MimeType::Turtle).is_ok());
     Ok(())
 }
 #[tokio::test]

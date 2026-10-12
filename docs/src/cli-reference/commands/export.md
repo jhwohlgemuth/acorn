@@ -67,9 +67,12 @@ acorn export --schema --standard acre
 
 # Print the RAiD schema as YAML
 acorn export --schema --standard raid --format yaml
+
+# Print the native Dublin Core graph schema
+acorn export --schema --standard dcmi --format json
 ```
 
-Schema mode defaults to JSON without changing the ordinary export default of PDF. ACRE, RAD/RADS, CFF, CKAN, DataCite, DCAT, HuWise, InvenioRDM, Kitfile, ModelKit, RAiD, document, and text are supported. Dublin Core and non-JSON/YAML schema formats fail explicitly.
+Schema mode defaults to JSON without changing the ordinary export default of PDF. ACRE, RAD/RADS, CFF, CKAN, DataCite, DCAT, Dublin Core, HuWise, InvenioRDM, Kitfile, ModelKit, RAiD, document, and text are supported. Schema output is limited to JSON and YAML.
 
 > [!NOTE]
 > Most export formats use the `--output` option to specify the output file or directory path. If not provided, ACORN will generate a default output path based on the input path and selected format. For example, `--format pdf` and `--format powerpoint` will generate files in the default export location (`./export/`) with names based on the project parent folder(s), `--format bag` will add `.zip` to the output path (i.e., `--output ./export` will create `./export.zip` and `--output /path/to/bag` will create `/path/to/bag.zip`). CFF output is the exception described below.
@@ -105,7 +108,7 @@ Record order and cardinality are preserved when converting among JSON Lines, JSO
 
 ## Standard crosswalks
 
-Use `--to` with JSON, JSON Lines, YAML, or ZON export to convert metadata between supported metadata standards. ACORN can infer the source standard from recognizable fields, but `--from` is recommended for repeatable scripts and for records with an ambiguous shape.
+Use `--to` with JSON, JSON Lines, YAML, or ZON export to convert metadata between supported metadata standards. Dublin Core may also use JSON-LD, RDF/XML, or Turtle. ACORN can infer the source standard from recognizable fields, but `--from` is recommended for repeatable scripts and for records with an ambiguous shape.
 
 ```sh
 # Convert one DataCite JSON record to DCAT JSON
@@ -125,22 +128,47 @@ acorn export package.json --format json --from ckan --to dcat --output ./export
 
 # Preview a directory conversion without writing files
 acorn export ./metadata --format json --from invenio --to dcat --dry-run
+
+# Export DataCite as deterministic Turtle
+acorn export datacite.json --format turtle --from datacite --to dcmi --output ./export
+
+# Import Dublin Core into RAD with required local context
+acorn export metadata.ttl --format json --from dcmi --to rads \
+  --crosswalk-contact contact.json \
+  --local-identifier imported-dataset \
+  --output ./export
 ```
 
-The source and target may each be `datacite`, `dcat`, `invenio`, or `huwise`. CKAN is supported only as a source for DCAT Dataset output. Some conversions use DataCite as an intermediate representation:
+Reusable import defaults can be stored in ACRE configuration and selected with `--config`:
+
+```yaml
+options:
+  crosswalk:
+    contact: contacts/default.yaml
+    localIdentifier: imported-dataset
+```
+
+The command-line contact and identifier override configured values. A configured relative contact path is resolved from the directory containing the ACRE file.
+
+The crosswalk graph includes RAD/RADS, RAiD, DataCite, Dublin Core (`dcmi`), DCAT, InvenioRDM, HuWise, and the CKAN source adapter. Some conversions use DataCite as an intermediate representation:
 
 | Source | Direct targets | Targets routed through DataCite |
 |---|---|---|
 | CKAN | DCAT | None |
-| DataCite | DCAT, InvenioRDM, HuWise | None |
-| DCAT | DataCite | InvenioRDM, HuWise |
-| InvenioRDM | DataCite | DCAT, HuWise |
-| HuWise | DataCite | DCAT, InvenioRDM |
+| RAD/RADS | DataCite, RAiD | Dublin Core |
+| RAiD | RAD/RADS | None |
+| DataCite | DCAT, Dublin Core, InvenioRDM, HuWise | None |
+| Dublin Core | DataCite, RAD/RADS | DCAT, InvenioRDM, HuWise |
+| DCAT | DataCite | Dublin Core, InvenioRDM, HuWise |
+| InvenioRDM | DataCite | DCAT, Dublin Core, HuWise |
+| HuWise | DataCite | DCAT, Dublin Core, InvenioRDM |
 
 Crosswalk export has these constraints:
 
-- The input and output must be JSON, JSON Lines, YAML, or ZON. PDF, PowerPoint, CFF, BagIt, and Markdown are not crosswalk targets.
+- The input and output must be JSON, JSON Lines, YAML, or ZON unless the Dublin Core source or target uses JSON-LD, RDF/XML, or Turtle. PDF, PowerPoint, CFF, BagIt, and Markdown are not crosswalk targets.
 - A single object, an array of objects, or one object per JSON Lines record is accepted. Directory export writes one target file for each resolved source file.
+- Dublin Core describes one RDF default graph rather than a JSON Lines batch. ACORN preserves unknown predicates inside that graph.
+- Dublin Core to RAD requires a JSON or YAML `ContactPoint` file through `--crosswalk-contact` and a kebab-case `--local-identifier`. Missing local context fails before output is written.
 - CKAN input may be an unwrapped `package_show` result or a successful `{ "success": true, "result": ... }` Action API response. Package-search result envelopes are not supported.
 - Source-standard inference checks every JSON Lines record. A batch containing mixed standards fails at the first conflicting record and reports its record index and physical line.
 - Conversion can be lossy because the standards have different fields and cardinalities. Normal direct conversions report field-level crosswalk warnings when ACORN has a mapping for that pair.

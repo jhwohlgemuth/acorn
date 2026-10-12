@@ -1,7 +1,7 @@
 //! Generalized metadata schema crosswalk infrastructure
 //!
 //! This module provides trait abstractions and utilities for bidirectional conversion
-//! among metadata standards: CFF, DataCite, DCAT, InvenioRDM, and HuWise.
+//! among metadata standards including Dublin Core, DataCite, DCAT, InvenioRDM, and HuWise.
 //!
 //! # Design Principles
 //!
@@ -36,16 +36,39 @@
 //! # Schema Extractors & Builders
 //!
 //! Each schema provides implementations of [`SchemaExtractor`] and [`SchemaBuilder`] in its standard-specific module.
-use acorn_core::prelude::alloc::{format, String, Vec};
+use crate::codec::CodecDiagnostic;
+use acorn_core::prelude::alloc::{format, String, ToString, Vec};
 use core::fmt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
+macro_rules! via_datacite {
+    ($from:ty => $target:ty) => {
+        impl $crate::standard::crosswalk::Crosswalk<$target> for $from {
+            fn crosswalk(
+                &self,
+            ) -> Result<($target, Vec<$crate::standard::crosswalk::ConversionWarning>), $crate::standard::crosswalk::CrosswalkError> {
+                <Self as $crate::standard::crosswalk::Crosswalk<$crate::standard::datacite::Record>>::crosswalk(self)
+                    .and_then(|(record, warnings)| <$target>::try_from(record).map(|target| (target, warnings)))
+            }
+        }
+        impl $crate::standard::crosswalk::Crosswalk<$from> for $target {
+            fn crosswalk(&self) -> Result<($from, Vec<$crate::standard::crosswalk::ConversionWarning>), $crate::standard::crosswalk::CrosswalkError> {
+                $crate::standard::datacite::Record::try_from(self.clone())
+                    .and_then(|record| <$crate::standard::datacite::Record as $crate::standard::crosswalk::Crosswalk<$from>>::crosswalk(&record))
+            }
+        }
+    };
+}
+pub(crate) use via_datacite;
+
+mod dublin_core;
 pub mod mapping;
 mod research_activity;
 mod rrid;
 
+pub use dublin_core::DublinCoreImportOptions;
 pub use mapping::{FieldMapping, FieldRule, FieldValue, Fields};
 pub use research_activity::{RaidExportOptions, RaidImportOptions};
 /// Convert between metadata schemas with tracking of warnings and data loss
@@ -108,6 +131,7 @@ pub enum CrosswalkError {
 #[derive(Clone, Copy, Debug)]
 enum CrosswalkSchema {
     DataCite,
+    DublinCore,
     Rad,
     RadOutput,
     Raid,
@@ -121,6 +145,10 @@ pub enum CrosswalkStandard {
     Datacite,
     /// Data Catalog Vocabulary metadata.
     Dcat,
+    /// Dublin Core metadata.
+    #[serde(alias = "dcmi", rename = "dublin-core")]
+    #[strum(serialize = "dcmi", serialize = "dublin-core")]
+    DublinCore,
     /// HuWise metadata.
     Huwise,
     /// InvenioRDM metadata.
@@ -267,9 +295,19 @@ impl fmt::Display for CrosswalkError {
         }
     }
 }
+impl From<CodecDiagnostic> for CrosswalkError {
+    fn from(error: CodecDiagnostic) -> Self {
+        Self::SerializeFailed(error.to_string())
+    }
+}
 impl From<String> for CrosswalkError {
     fn from(err: String) -> Self {
         CrosswalkError::BuildFailed(err)
+    }
+}
+impl From<Vec<CodecDiagnostic>> for CrosswalkError {
+    fn from(errors: Vec<CodecDiagnostic>) -> Self {
+        Self::ParseFailed(errors.into_iter().map(|error| error.to_string()).collect::<Vec<_>>().join("\n"))
     }
 }
 impl fmt::Display for FieldLossType {
@@ -287,6 +325,7 @@ impl From<CrosswalkSchema> for &'static str {
     fn from(schema: CrosswalkSchema) -> Self {
         match schema {
             | CrosswalkSchema::DataCite => "datacite",
+            | CrosswalkSchema::DublinCore => "dublin-core",
             | CrosswalkSchema::Rad => "rad",
             | CrosswalkSchema::RadOutput => "rad-output",
             | CrosswalkSchema::Raid => "raid",
@@ -331,3 +370,6 @@ where
         T::build_from_fields(&target_fields).map(|target| (target, warnings))
     })
 }
+
+#[cfg(test)]
+mod tests;

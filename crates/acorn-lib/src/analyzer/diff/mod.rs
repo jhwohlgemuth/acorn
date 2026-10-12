@@ -2,10 +2,11 @@
 use acorn_core::util::{MarkdownDecode, MarkdownSupport, MimeType};
 use acorn_diff::{unified_diff, DiffValue, JsonPatch};
 use acorn_schema::{
+    codec::DocumentCodec,
     modelkit::kitfile::Kitfile,
     pid::raid,
     research_activity::ResearchActivity,
-    standard::{cff, datacite, dcat, huwise, invenio, zon, Standard},
+    standard::{cff, datacite, dcat, dublin_core::DublinCoreDocument, huwise, invenio, zon, Standard},
 };
 use core::{error::Error, fmt};
 use serde::{de::DeserializeOwned, Serialize};
@@ -180,6 +181,17 @@ impl StandardDiffExt for Standard {
             | Standard::CitationFileFormat => input.parse_typed::<cff::Cff>(),
             | Standard::Datacite => input.parse_typed::<datacite::Record>(),
             | Standard::Dcat => input.parse_typed::<dcat::Dataset>(),
+            | Standard::DublinCore => DublinCoreDocument::decode(input.content, &input.media_type)
+                .map_err(|diagnostics| {
+                    input.parse_error(
+                        diagnostics
+                            .into_iter()
+                            .map(|diagnostic| diagnostic.to_string())
+                            .collect::<Vec<_>>()
+                            .join("\n"),
+                    )
+                })
+                .and_then(to_value),
             | Standard::Huwise => input.parse_typed::<huwise::Dataset>(),
             | Standard::Invenio => input.parse_typed::<invenio::Record>(),
             | Standard::Raid => input.parse_typed::<raid::Metadata>(),
@@ -193,18 +205,19 @@ impl StandardDiffExt for Standard {
             | Standard::Kitfile | Standard::ModelKit => Kitfile::from_resolved_json(input.content.as_bytes())
                 .map_err(|error| input.parse_error(error.to_string()))
                 .and_then(to_value),
-            | Standard::ApplicationConfigurationResearchEnablement
-            | Standard::Ckan
-            | Standard::Document
-            | Standard::DublinCore
-            | Standard::Oci
-            | Standard::Text => Err(SemanticDiffError::UnsupportedStandard(self)),
+            | Standard::ApplicationConfigurationResearchEnablement | Standard::Ckan | Standard::Document | Standard::Oci | Standard::Text => {
+                Err(SemanticDiffError::UnsupportedStandard(self))
+            }
         }
     }
     fn detect(input: &DiffInput<'_>) -> Result<Self, SemanticDiffError> {
-        match input.media_type.is_markdown() && ResearchActivity::is_markdown(input.content) {
-            | true => Ok(Self::ResearchActivityData),
-            | false => input
+        let is_research_activity = input.media_type.is_markdown() && ResearchActivity::is_markdown(input.content);
+        let is_dublin_core_format = matches!(input.media_type, MimeType::LdJson | MimeType::RdfXml | MimeType::Turtle);
+        let is_dublin_core = is_dublin_core_format && DublinCoreDocument::decode(input.content, &input.media_type).is_ok();
+        match (is_research_activity, is_dublin_core) {
+            | (true, _) => Ok(Self::ResearchActivityData),
+            | (_, true) => Ok(Self::DublinCore),
+            | _ => input
                 .parse_untyped()
                 .ok()
                 .and_then(|value| Self::detect_value(&value))
@@ -225,11 +238,18 @@ impl StandardDiffExt for Standard {
         }
     }
     fn render(self, value: &Value, media_type: &MimeType) -> Result<String, SemanticDiffError> {
-        match self == Self::ResearchActivityData && media_type.is_markdown() {
-            | true => serde_json::from_value::<ResearchActivity>(value.clone())
+        match (self, media_type) {
+            | (Self::DublinCore, _) => serde_json::from_value::<DublinCoreDocument>(value.clone())
+                .map_err(|error| SemanticDiffError::Serialize(error.to_string()))
+                .and_then(|document| {
+                    document
+                        .encode(media_type)
+                        .map_err(|error| SemanticDiffError::Serialize(error.to_string()))
+                }),
+            | (Self::ResearchActivityData, MimeType::Markdown) => serde_json::from_value::<ResearchActivity>(value.clone())
                 .map_err(|error| SemanticDiffError::Serialize(error.to_string()))
                 .map(|activity| activity.to_markdown()),
-            | false => match media_type {
+            | _ => match media_type {
                 | MimeType::Json | MimeType::Jsonc | MimeType::LdJson => {
                     serde_json::to_string_pretty(value).map_err(|error| SemanticDiffError::Serialize(error.to_string()))
                 }

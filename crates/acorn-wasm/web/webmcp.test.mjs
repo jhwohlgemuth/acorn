@@ -149,10 +149,26 @@ test("new portable tools validate arguments and forward normalized values", asyn
     ]);
 });
 
-test("crosswalk enforces supported pairs and RAiD import contact", async () => {
+test("crosswalk enforces supported pairs and RAD import context", async () => {
     const adapter = createAcornWebMcpAdapter(bindings());
     assert.equal((await adapter.crosswalkMetadata({ content: "{}", format: "json", source: "datacite", target: "raid" })).error.code, "invalid_arguments");
     assert.equal((await adapter.crosswalkMetadata({ content: "{}", format: "json", source: "raid", target: "research-activity-data" })).error.code, "invalid_arguments");
+    assert.equal((await adapter.crosswalkMetadata({ content: "{}", format: "json-ld", source: "dublin-core", target: "research-activity-data" })).error.code, "invalid_arguments");
+    assert.equal((await adapter.crosswalkMetadata({
+        contact: { email: "person@example.org", name: "Example Person" },
+        content: "{}",
+        format: "json-ld",
+        source: "dublin-core",
+        target: "research-activity-data",
+    })).error.code, "invalid_arguments");
+    assert.equal((await adapter.crosswalkMetadata({
+        contact: { email: "person@example.org", name: "Example Person" },
+        content: "{}",
+        format: "turtle",
+        localIdentifier: "browser-import",
+        source: "dublin-core",
+        target: "research-activity-data",
+    })).ok, true);
     assert.equal((await adapter.crosswalkMetadata({
         contact: { email: "person@example.org", name: "Example Person" },
         content: "{}",

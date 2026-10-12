@@ -17,7 +17,7 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Portfolio review
 
-Reviewed against the current tree on 2026-10-11. The portfolio contains 22 executable plans and one coordination record. The completed MCP client, dependency-capability, OCI artifact-check, WebMCP browser-tools, and similarity-measures plans were removed after their implementations, focused tests, feature and portability checks, native browser verification where applicable, and durable documentation landed. The embedder-interface plan now contains only its remaining documentation and portability closeout. Completed GGUF metadata work is evidence in the model plan rather than an executable phase.
+Reviewed against the current tree on 2026-10-12. The portfolio contains 22 executable plans and one coordination record. The completed MCP client, dependency-capability, OCI artifact-check, WebMCP browser-tools, similarity-measures, and Dublin Core plans were removed after their implementations, focused tests, feature and portability checks, native browser verification where applicable, and durable documentation landed. The embedder-interface plan now contains only its remaining documentation and portability closeout. Completed GGUF metadata work is evidence in the model plan rather than an executable phase.
 
 Ranking uses impact first, then remaining difficulty, with user/architecture value and readiness as tie-breakers. “Quality” rates the plan rather than the proposed feature:
 
@@ -31,7 +31,7 @@ Ranking uses impact first, then remaining difficulty, with user/architecture val
 | 1 | [Power Automate deployment validation](features/powerapps-gitlab-logbook-reporting.md) | Waiting on validation | Critical | Medium | A | Highest | No gateway or trusted cloud ingress is available; validate outbound callbacks and resolve intake transport before the reporting pilot. |
 | 2 | [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) | In progress | Critical | High | A | Highest | Removes silent/stale template output and partial PPTX mutation while unlocking `acorn-export`. |
 | 3 | [Outbound MCP client embedder interface](refactors/api/outbound-mcp-client-interface.md) | In progress | High | Medium | A | High | Client code and focused tests are complete; separately owned book integration remains before plan retirement. |
-| 4 | [Needle 3 release-host validation](migrations/needle-3-upgrade.md) | Waiting on validation | High | Medium | A | High | A narrow four-host gate closes a shipped migration with little design uncertainty. |
+| 5 | [Needle 3 release-host validation](migrations/needle-3-upgrade.md) | Waiting on validation | High | Medium | A | High | A narrow four-host gate closes a shipped migration with little design uncertainty. |
 | 5 | [GitLab runner-pool isolation](refactors/ci-runner-pools.md) | In progress | High | Medium | A− | High | Directly addresses observed checkout collisions and protects reporting credentials, but requires administrator evidence. |
 | 6 | [Database-backed artifact generation](features/database-backed-artifact-generation.md) | Planned | High | Medium | A− | High | Reuses mature renderers and revisions to provide reproducible current/historical artifacts. |
 | 7 | [Structured research-activity enrichment](refactors/core/research-activity-enrichment-integration.md) | Planned | High | Medium | A− | High | Converts already available provider evidence into typed fields with deterministic conflict handling. |

@@ -8,9 +8,12 @@
 acorn diff before.json after.json
 acorn diff before.yaml after.yaml --format json-patch
 acorn diff before.json after.json --standard rads
+acorn diff before.ttl after.jsonld --standard dcmi
 ```
 
 Semantic mode accepts `diff` (`unified` is an alias) and `json-patch`. A standard override is available only in this mode.
+
+For Dublin Core, semantic mode decodes native graph JSON, JSON-LD, RDF/XML, and Turtle into the same normalized graph before comparison. Equivalent RDF in different syntaxes produces an empty diff. Unified output uses the first file's syntax; JSON Patch operates on ACORN's canonical graph JSON representation.
 
 ## Similarity comparison
 

@@ -18,6 +18,7 @@
     - [🦾 Motivity](./concepts/aspect/motivity.md)
     - [💾 Data](./concepts/aspect/data.md)
   - [Standards, formats, and interoperability](./concepts/standards.md)
+    - [Dublin Core](./concepts/dublin-core.md)
   - [Persistent identifier lifecycle](./concepts/persistent-identifiers.md)
   - [Metadata enrichment](./concepts/enrichment.md)
   - [Similarity and distance](./concepts/similarity.md)

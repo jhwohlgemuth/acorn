@@ -51,11 +51,13 @@ use acorn_schema::{
     research_activity::ResearchActivity,
     standard::{
         cff::{self, Cff, IdentifierType, Reference},
-        ckan, datacite, dcat, huwise, invenio,
+        ckan, datacite, dcat,
+        dublin_core::{self, DublinCoreDocument, DublinCoreRelationshipKind, DublinCoreResource, DublinCoreValue},
+        huwise, invenio,
         text::{Document, Text},
         Standard,
     },
-    util::assets::Constant as SchemaConstant,
+    util::{assets::Constant as SchemaConstant, constants::app::RDFS_NAMESPACE},
     validation::Validate,
     vocabulary::VocabularyFuzzyMode,
     Organization, ProgrammingLanguage, Website,
@@ -166,6 +168,7 @@ impl_schema_check!(
     Text,
     datacite::Record,
     dcat::Dataset,
+    DublinCoreDocument,
     invenio::Record,
     huwise::Dataset,
     ResearchActivity
@@ -626,6 +629,76 @@ impl Analysis for Document {
             }
         });
         Self::flatten_checks(futures).await
+    }
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
+        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
+    }
+}
+#[cfg(feature = "analysis")]
+#[async_trait]
+impl Analysis for DublinCoreDocument {
+    fn standard() -> Standard {
+        Standard::DublinCore
+    }
+    async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        paths
+            .par_iter()
+            .flat_map(|path| {
+                let uri = path.file_name_with_parent();
+                match Self::read(path) {
+                    | Ok(document) => match serde_json::to_value(document.metadata_values()) {
+                        | Ok(value) => FairEvidence::from_value(uri.clone(), "Dublin Core", &value)
+                            .assess()
+                            .into_iter()
+                            .map(|finding| Check::from(finding).with_uri(Some(uri.clone())))
+                            .collect(),
+                        | Err(why) => CheckCategory::Fair.failure_checks(why, Some(uri)).into_vec(),
+                    },
+                    | Err(why) => CheckCategory::Fair.failure_checks(why, Some(uri)).into_vec(),
+                }
+            })
+            .collect::<Vec<_>>()
+            .into()
+    }
+    async fn check_links(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        let futures = paths.iter().map(|path| {
+            let path = path.clone();
+            async move {
+                match Self::read(&path) {
+                    | Ok(document) => {
+                        let links = document.descriptions.iter().flat_map(|description| {
+                            description.properties.iter().flat_map(|(predicate, values)| {
+                                values.iter().enumerate().filter_map(move |(index, value)| match value {
+                                    | DublinCoreValue::Resource(DublinCoreResource::Iri(value)) => {
+                                        Some(link_check(Some(value.as_str()), Some(format!("{predicate}[{index}]"))))
+                                    }
+                                    | _ => None,
+                                })
+                            })
+                        });
+                        Self::collect_checks(links.collect::<Vec<_>>(), &path).await
+                    }
+                    | Err(why) => CheckCategory::Link.failure_checks(why, Some(path.file_name_with_parent())),
+                }
+            }
+        });
+        Self::flatten_checks(futures).await
+    }
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
+        check_prose_for::<Self>(paths, options).await
+    }
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        paths
+            .par_iter()
+            .flat_map(|path| match Self::read(path) {
+                | Ok(document) => dublin_core_quality_checks(&document, path.file_name_with_parent()).into_vec(),
+                | Err(why) => CheckCategory::Quality.failure_checks(why, Some(path.file_name_with_parent())).into_vec(),
+            })
+            .collect::<Vec<_>>()
+            .into()
+    }
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
+        check_readability_for::<Self>(paths, options)
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
@@ -1604,6 +1677,80 @@ pub(crate) fn convert_lychee_response(value: Response) -> LinkOutcome {
             "Ignored or otherwise successful",
             Some(status_code.clone()),
         ),
+    }
+}
+fn dublin_core_quality_checks(document: &DublinCoreDocument, uri: String) -> CheckBatch {
+    let checks = document.descriptions.iter().flat_map(|description| {
+        description.properties.iter().flat_map(|(predicate, values)| {
+            let declarations = dublin_core::relationships()
+                .iter()
+                .filter(|relationship| relationship.subject == predicate)
+                .collect::<Vec<_>>();
+            let domains = declarations
+                .iter()
+                .filter(|relationship| {
+                    matches!(
+                        relationship.kind,
+                        DublinCoreRelationshipKind::Domain | DublinCoreRelationshipKind::DomainIncludes
+                    )
+                })
+                .map(|relationship| relationship.object)
+                .collect::<Vec<_>>();
+            let domain_check = (!domains.is_empty() && !description.types.iter().any(|kind| domains.contains(&kind.as_str()))).then(|| {
+                check!(
+                    CheckCategory::Quality,
+                    false,
+                    severity: CheckSeverity::Suggestion,
+                    locator: predicate.clone(),
+                    message: format!("DCMI suggests subject type {} for {predicate}", domains.join(" or ")),
+                    rule_id: "dublin-core.domain".to_string(),
+                    uri: uri.clone()
+                )
+            });
+            let literal_range = declarations.iter().any(|relationship| {
+                relationship.kind == DublinCoreRelationshipKind::Range && relationship.object.strip_prefix(RDFS_NAMESPACE) == Some("Literal")
+            });
+            let ranges = declarations
+                .iter()
+                .filter(|relationship| relationship.kind == DublinCoreRelationshipKind::RangeIncludes)
+                .map(|relationship| relationship.object)
+                .collect::<Vec<_>>();
+            let range_uri = uri.clone();
+            let range_checks = values.iter().enumerate().filter_map(move |(index, value)| match value {
+                | DublinCoreValue::Resource(_) if literal_range => Some(check!(
+                    CheckCategory::Quality,
+                    false,
+                    severity: CheckSeverity::Suggestion,
+                    locator: format!("{predicate}[{index}]"),
+                    message: format!("DCMI declares a literal range for {predicate}"),
+                    rule_id: "dublin-core.range".to_string(),
+                    uri: range_uri.clone()
+                )),
+                | DublinCoreValue::Resource(resource) if !ranges.is_empty() => document
+                    .descriptions
+                    .iter()
+                    .find(|target| &target.subject == resource)
+                    .filter(|target| !target.types.iter().any(|kind| ranges.contains(&kind.as_str())))
+                    .map(|_| {
+                        check!(
+                            CheckCategory::Quality,
+                            false,
+                            severity: CheckSeverity::Suggestion,
+                            locator: format!("{predicate}[{index}]"),
+                            message: format!("DCMI suggests object type {} for {predicate}", ranges.join(" or ")),
+                            rule_id: "dublin-core.range-includes".to_string(),
+                            uri: range_uri.clone()
+                        )
+                    }),
+                | _ => None,
+            });
+            domain_check.into_iter().chain(range_checks).collect::<Vec<_>>()
+        })
+    });
+    let checks = checks.collect::<Vec<_>>();
+    match checks.is_empty() {
+        | true => CheckBatch::single(check_ok!(CheckCategory::Quality, uri: uri)),
+        | false => checks.into(),
     }
 }
 fn inspect_mcp_archive_entries(archive: &mut ZipArchive<File>) -> Result<BTreeSet<PathBuf>, String> {

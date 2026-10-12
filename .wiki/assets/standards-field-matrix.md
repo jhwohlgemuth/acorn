@@ -2,9 +2,9 @@
 okf_version: "0.1"
 ---
 
-# Standards Field Matrix — RAD | RAiD 1.x | DataCite 4.7 | DCAT 3 | CodeMeta | Schema.org
+# Standards Field Matrix — RAD | RAiD 1.x | DataCite 4.7 | Dublin Core | DCAT 3 | CodeMeta | Schema.org
 
-**Pin:** DataCite kernel-4.7 `https://schema.datacite.org/meta/kernel-4.7/metadata.xsd` + JSON API, RAiD `https://metadata.raid.org/en/latest/` (ISO 23527:2022), DCAT 3 `https://www.w3.org/TR/vocab-dcat-3/`, CodeMeta `https://codemeta.github.io/`, Schema.org `https://schema.org/`. Reconciled `2026-09-17` against `acorn-schema` at `0.2.0` after completion of the RAD alignment implementation.
+**Pin:** DataCite kernel-4.7 `https://schema.datacite.org/meta/kernel-4.7/metadata.xsd` + JSON API, RAiD `https://metadata.raid.org/en/latest/` (ISO 23527:2022), DCMI Metadata Terms `https://www.dublincore.org/specifications/dublin-core/dcmi-terms/2020-01-20/`, DCAT 3 `https://www.w3.org/TR/vocab-dcat-3/`, CodeMeta `https://codemeta.github.io/`, Schema.org `https://schema.org/`. Reconciled `2026-10-11` against `acorn-schema` after completion of the Dublin Core implementation.
 
 Slice 0 fixtures (referenced per row): `tests/fixtures/schema/datacite/4.7/valid-4.7-deltas.json` (Poster/Presentation + RAiD/SWHID/Other+info + RelatedItem), `tests/fixtures/schema/datacite/4.7/valid-4.7-related-item.xml` (Resource + RelatedItems), `tests/fixtures/schema/datacite/4.7/invalid-missing-mandatory.json` (missing `titles`), `tests/fixtures/schema/datacite/4.7/invalid-missing-creators.json`.
 
@@ -15,6 +15,7 @@ Slice 0 fixtures (referenced per row): `tests/fixtures/schema/datacite/4.7/valid
 | Valid RAD | `Validate` derive | `ResearchActivity.title` len 4..MAX, `ResearchActivityMetadata.identifier` kebabcase, `ContactPoint`, `Sections`, vocab-normalized keywords/technology | `crates/acorn-schema/src/research_activity/mod.rs:160`, `crates/acorn-schema/src/validation/` |
 | RAiD-ready | `pid/raid/mod.rs` `Metadata::validate` | `access` (required), `contributor` ≥1 (leader/contact flags), `date.startDate`, `title` Primary≥1, `organization` LeadResearchOrganisation | `crates/acorn-schema/src/pid/raid/mod.rs` |
 | Deposit-ready | `validate_deposit_ready(&Record)` / `&Resource` | `doi`/`identifier`, `titles`, `creators`, `publisher`, `publicationYear`, `resourceTypes`/`resourceType` (general) | `crates/acorn-schema/src/standard/datacite.rs:1525` (distinct from `Validate`) |
+| Valid Dublin Core graph | `DublinCoreDocument::decode` plus `Validate` | At least one description; absolute subject, predicate, resource, and datatype IRIs; valid blank-node labels and language tags; no remote JSON-LD context, relative IRI, named graph, or RDF-star quoted triple | `crates/acorn-schema/src/standard/dublin_core.rs`, `crates/acorn-schema/src/standard/dublin_core/rdf.rs` |
 
 Recommended vs optional: `subjects`, `contributors`, `dates`, `relatedIdentifiers`, `descriptions`, `geoLocations`; Optional: `language`, `alternateIdentifiers`, `sizes`, `formats`, `version`, `rightsList`, `fundingReferences`, `relatedItems` (DataCite 4.7 prop 20) — validated but not deposit-blocking.
 
@@ -139,6 +140,27 @@ Inference rule: **Do not fabricate** `date`, `leader`/`contact` role, `owner`/`r
 
 The implemented CKAN adapter accepts unwrapped `package_show` results, successful Action API responses, arrays, and JSON Lines. It is source-only and targets ACORN's flexible `dcat::Dataset`; Catalog, CatalogRecord, DCAT-US profile output, and CKAN publishing remain separate work.
 
+### Dublin Core graph and crosswalk profile
+
+ACORN's normalized graph retains resource subjects, blank nodes, RDF types, ordered predicate maps, repeated values, language-tagged or typed literals, and unknown absolute extension predicates. The bundled registry covers 129 current terms from DCMI Metadata Terms, the legacy elements/1.1 namespace, the DCMI Type Vocabulary, and DCAM, plus 78 published subproperty, subclass, domain, and range relationships. JSON-LD, RDF/XML, and Turtle codecs canonicalize the same graph without fetching contexts or vocabularies.
+
+| Research output / DataCite field | Dublin Core projection | Policy |
+|---|---|---|
+| resource identity and DOI | description subject plus `dcterms:identifier` | Prefer the subject IRI; normalize DOI URI prefixes on import |
+| `title` | `dcterms:title` | Required for typed crosswalks; repeated graph titles remain valid Dublin Core |
+| creators and contributors | `dcterms:creator`, `dcterms:contributor` | Preserve display names; typed person subfields and affiliations may produce loss warnings |
+| publisher | `dcterms:publisher` | Preserve the publisher name |
+| publication and typed dates | `dcterms:issued`, `created`, `modified`, `available`, and other DCMI date refinements | Attach the DCMI W3CDTF datatype where emitted |
+| language | `dcterms:language` | Attach the DCMI RFC5646 datatype; the research-output adapter retains two-letter language values |
+| DataCite general resource type | DCMI Type Vocabulary IRI | Map dataset, collection, event, image, service, software, sound, physical object, interactive resource, moving image, and text families |
+| formats and sizes | `dcterms:format`, `dcterms:extent` | Preserve literal values |
+| subjects | `dcterms:subject` | Preserve a controlled value URI as a resource; otherwise retain the label literal |
+| abstract, description, table of contents | corresponding DCMI refinements | Preserve literal language where available |
+| rights | `dcterms:rights` | Prefer a rights URI; otherwise retain the label literal |
+| typed related identifiers | DCMI relation refinements | Map supported directional DataCite relations and fall back to `dcterms:relation` with an explicit warning where needed |
+
+`ResearchOutput ↔ DublinCoreDocument` and `DataCite Record ↔ DublinCoreDocument` are direct typed adapters. RAD exports through the strict DataCite Project profile. Dublin Core imports into RAD require caller-supplied contact data and a local identifier; neither value is inferred. DCAT, InvenioRDM, and HuWise conversions route through the existing DataCite adapters, preserving their structured conversion warnings. Additional graph roots and extension predicates remain visible as deterministic omission or no-equivalent warnings when the narrower typed target cannot hold them.
+
 ### DCAT 3 / Invenio / HuWise / CFF Crosswalk (existing `crosswalk/`)
 
 | Concern | Source Field | Target Field | Mapping | Classification | Vocab |
@@ -149,7 +171,7 @@ The implemented CKAN adapter accepts unwrapped `package_show` results, successfu
 | License | `license` `IRI` | `rightsURI` | direct | exact | SPDX `validate_license` |
 | Type | `resource-type` `String` | `type_` `IRI` | `resource_type_to_iri` / `iri_to_resource_type` `mapping.rs:482` (`Poster`→`Poster`) | transformed | DataCite ↔ DCAT IRI |
 
-`Standard::crosswalk` supports `ckan -> dcat`, `datacite ↔ dcat ↔ invenio ↔ huwise`, `rads -> raid`, `raid -> rads` with required caller identity enforced, and opt-in `rads -> datacite` Project export. Structured CLI export infers CKAN, RAD, and RAiD documents, reports conversion warnings during dry runs, and makes strict mode fail before writing. The DataCite Project profile requires exactly one authored project DOI, one `Issued` date, and one organization with a `Publisher` role; it does not infer deposit assertions.
+`Standard::crosswalk` supports `ckan -> dcat`, DataCite bidirectionally with DCAT, Dublin Core, InvenioRDM, and HuWise, `rads -> dublin-core`, `dublin-core -> rads` with required caller identity enforced, `rads -> raid`, `raid -> rads` with required caller identity enforced, and opt-in `rads -> datacite` Project export. Structured CLI export infers CKAN, Dublin Core, RAD, and RAiD documents, reports conversion warnings during dry runs, and makes strict mode fail before writing. The DataCite Project profile requires exactly one authored project DOI, one `Issued` date, and one organization with a `Publisher` role; it does not infer deposit assertions.
 
 ## Controlled Vocabularies & Normalization
 
@@ -175,3 +197,4 @@ The implemented CKAN adapter accepts unwrapped `package_show` results, successfu
 * 2026-09-16 Slice 1: Added output contributor/funder profile fields, complete DataCite date vocabulary coverage, `ResearchOutput::validate_deposit_ready`, and warning-aware `ResearchOutput <-> DataCite Record` conversion with focused round-trip coverage.
 * 2026-09-17 Slice 2 (RAiD adapter): Added warning-aware `ResearchActivity <-> RAiD Metadata`, strict default export, explicit dated inference, caller-supplied import identity context/name maps, and pinned-fixture coverage.
 * 2026-09-17 final slice: Added strict `ResearchActivity -> DataCite Project`, RAD/RAiD structured-export dispatch and inference, warning-aware dry runs, pre-write strict failure, and conflict tests proving canonical `funders`/`relatedResources` cannot be combined with their legacy aliases.
+* 2026-10-11 Dublin Core: Added the complete current DCMI registry and relationship metadata, normalized graph model, local JSON-LD/RDF/XML/Turtle codecs, schema and analyzer integration, warning-aware typed crosswalks, guarded RAD import, CLI workflows, and portable browser APIs.

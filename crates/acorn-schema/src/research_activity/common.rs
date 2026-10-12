@@ -6,6 +6,7 @@ use crate::pid::PID;
 use crate::validation::{is_license, rules, validate_agent_identifier, IntoValidationReport, Validate, ValidationReport};
 use acorn_core::prelude::alloc::{String, Vec};
 use bon::Builder;
+use core::fmt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_trim::{option_string_trim, string_trim};
@@ -296,6 +297,22 @@ pub struct TypedRelatedResource {
     pub resource_type_general: Option<String>,
     /// Activity category for related activities (e.g. `sponsors`, `partners`, `related`)
     pub category: Option<RelatedResourceCategory>,
+}
+impl fmt::Display for ActivityDateType {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value = match self {
+            | Self::Accepted => "dateAccepted",
+            | Self::Available => "available",
+            | Self::Copyrighted => "dateCopyrighted",
+            | Self::Created => "created",
+            | Self::Collected | Self::Coverage | Self::EndDate | Self::Other | Self::StartDate => "date",
+            | Self::Issued => "issued",
+            | Self::Submitted => "dateSubmitted",
+            | Self::Updated => "modified",
+            | Self::Valid | Self::Withdrawn => "valid",
+        };
+        formatter.write_str(value)
+    }
 }
 impl TypedIdentifier {
     pub(crate) fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {

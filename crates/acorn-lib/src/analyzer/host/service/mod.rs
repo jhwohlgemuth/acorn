@@ -28,7 +28,9 @@ use acorn_schema::{
     research_activity::ResearchActivity,
     standard::{
         cff::Cff,
-        ckan, datacite, dcat, huwise, invenio,
+        ckan, datacite, dcat,
+        dublin_core::DublinCoreDocument,
+        huwise, invenio,
         text::{Document, Text},
         Standard,
     },
@@ -259,11 +261,12 @@ impl StandardHostExt for Standard {
             match mime {
                 | MimeType::Cff => Self::CitationFileFormat,
                 | MimeType::Docx | MimeType::Pdf => Self::Document,
+                | MimeType::LdJson | MimeType::RdfXml | MimeType::Turtle => Self::DublinCore,
                 | MimeType::Json => read_file(path)
                     .ok()
                     .and_then(|content| serde_json::from_str::<serde_json::Value>(&content).ok())
                     .and_then(|value| value.as_object().map(Self::from))
-                    .filter(|standard| *standard == Self::ModelKit)
+                    .filter(|standard| standard.is_dublin_core() || standard.is_model_kit())
                     .unwrap_or(Self::ResearchActivityData),
                 | MimeType::Markdown if read_file(path).is_ok_and(ResearchActivity::is_markdown) => Self::ResearchActivityData,
                 | MimeType::Text | MimeType::Markdown => Self::Text,
@@ -271,7 +274,7 @@ impl StandardHostExt for Standard {
                     .ok()
                     .and_then(|content| serde_norway::from_str::<serde_json::Value>(&content).ok())
                     .and_then(|value| value.as_object().map(Self::from))
-                    .filter(|standard| *standard == Self::Kitfile)
+                    .filter(|standard| standard.is_dublin_core() || standard.is_kitfile())
                     .unwrap_or(Self::ResearchActivityData),
                 | _ => Self::ResearchActivityData,
             }
@@ -360,6 +363,7 @@ pub async fn analyze_paths(paths: &[PathBuf], options: &AnalysisContext) -> Anal
             | Standard::Datacite => analyze::<datacite::Record>(&paths, options, &categories, &documents).await,
             | Standard::Dcat => analyze::<dcat::Dataset>(&paths, options, &categories, &documents).await,
             | Standard::Document => analyze::<Document>(&paths, options, &categories, &documents).await,
+            | Standard::DublinCore => analyze::<DublinCoreDocument>(&paths, options, &categories, &documents).await,
             | Standard::Huwise => analyze::<huwise::Dataset>(&paths, options, &categories, &documents).await,
             | Standard::Invenio => analyze::<invenio::Record>(&paths, options, &categories, &documents).await,
             | Standard::Kitfile => analyze::<KitfileStandard>(&paths, options, &categories, &documents).await,
@@ -367,7 +371,7 @@ pub async fn analyze_paths(paths: &[PathBuf], options: &AnalysisContext) -> Anal
             | Standard::ResearchActivityData => analyze::<ResearchActivity>(&paths, options, &categories, &documents).await,
             | Standard::Raid => analyze::<raid::Metadata>(&paths, options, &categories, &documents).await,
             | Standard::Text => analyze::<Text>(&paths, options, &categories, &documents).await,
-            | Standard::DublinCore | Standard::Oci => standard.unsupported(&categories),
+            | Standard::Oci => standard.unsupported(&categories),
         };
         batches.push(AnalysisBatch { standard, paths, categories });
     }
