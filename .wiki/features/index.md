@@ -5,11 +5,9 @@
 - [Model acquisition and metadata hardening](model-acquisition-hardening.md) - Complete identity-safe Hugging Face requests, exact GGUF metadata, and ModelKit/ModelPack interoperability evidence.
 - [Small language model (SLM) sidecars](slm-sidecars.md) - Ship explicitly selected Tongue, Redact, and Title sidecars; plan a separately gated [Julia-1 decision sidecar](slm-sidecars.md#julia-1-decision-sidecar-planned-follow-on) with offline CPU packaging and ACORN quality gates.
 
-## Waiting on validation
-
-- [Power Automate logbook reporting deployment](powerapps-gitlab-logbook-reporting.md) - No gateway or trusted cloud ingress is available. Verify outbound callbacks and evaluate intake transport before the end-to-end pilot.
-
 ## Planned
+
+- [Power Automate GitLab JSONL intake and reporting](powerapps-gitlab-logbook-reporting.md) - Append Logbook envelopes to GitLab; Vergil durably ingests and removes them, then routes by project ID to augment the associated `index.json` through review.
 
 - [Release-gated Beam inference integration](beam-inference-integration.md) - Verify released serving contracts, then evaluate an explicitly configured hosted or operator-owned endpoint independently of local SLM sidecars.
 

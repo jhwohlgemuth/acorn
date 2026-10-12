@@ -28,7 +28,7 @@ Ranking uses impact first, then remaining difficulty, with user/architecture val
 
 | Rank | Plan | Status | Impact | Difficulty | Quality | Value | Assessment |
 |---:|---|---|---|---|---|---|---|
-| 1 | [Power Automate deployment validation](features/powerapps-gitlab-logbook-reporting.md) | Waiting on validation | Critical | Medium | A | Highest | No gateway or trusted cloud ingress is available; validate outbound callbacks and resolve intake transport before the reporting pilot. |
+| 1 | [Power Automate GitLab JSONL intake](features/powerapps-gitlab-logbook-reporting.md) | Planned | Critical | Medium | A | Highest | Append Logbook envelopes to the GitLab inbox and implement durable repository polling on Vergil before the reporting pilot. |
 | 2 | [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) | In progress | Critical | High | A | Highest | Removes silent/stale template output and partial PPTX mutation while unlocking `acorn-export`. |
 | 3 | [Outbound MCP client embedder interface](refactors/api/outbound-mcp-client-interface.md) | In progress | High | Medium | A | High | Client code and focused tests are complete; separately owned book integration remains before plan retirement. |
 | 5 | [Needle 3 release-host validation](migrations/needle-3-upgrade.md) | Waiting on validation | High | Medium | A | High | A narrow four-host gate closes a shipped migration with little design uncertainty. |
