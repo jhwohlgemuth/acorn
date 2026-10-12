@@ -7,6 +7,8 @@ impact: high
 package: [workspace]
 tags: [migration, podman, containers, make, build, release, portability]
 status: planned
+execution: phased
+phase_budget_hours: 5
 ---
 
 # Project code boundaries
@@ -183,3 +185,148 @@ After the platform and registry acceptance matrix passes, delete this plan and r
 [^5]: [Podman for Windows volume mounting](https://github.com/containers/podman/blob/main/docs/tutorials/podman-for-windows.md#volume-mounting)
 [^6]: [Podman machine documentation](https://docs.podman.io/en/latest/markdown/podman-machine.1.html)
 [^7]: [Podman Windows binfmt issue 28174](https://github.com/containers/podman/issues/28174)
+
+# Execution phases
+
+## POD-01 — Add Podman preflight and static contract
+
+- Status: ready
+- Budget: 5 active hours maximum
+- Prerequisites: none
+- Exact write set: `Makefile`, `CONTRIBUTING.md`
+- Primary integration lock: Makefile
+- Outcome: Define `PODMAN`, minimum version checks, help text, and dry-run invariants without changing image outcomes.
+- Focused validation: Run `make -n` for affected targets and verify the existing task-name mismatch.
+- Handoff: Remove POD-01 and freeze preflight behavior for command replacement.
+
+## POD-02 — Replace local inspect, run, and cleanup commands
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: POD-01
+- Exact write set: `Makefile`
+- Primary integration lock: Makefile
+- Outcome: Use Podman for image inspection, execution, removal, and local tag cleanup.
+- Focused validation: Dry-run each changed target and run local inspection/cleanup against disposable tags.
+- Handoff: Remove POD-02 and record the compatible command set.
+
+## POD-03 — Replace ordinary image build and push commands
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: POD-01
+- Exact write set: `Makefile`
+- Primary integration lock: Makefile
+- Outcome: Build, tag, and push ACORN and bucket images with Docker-format Podman output.
+- Focused validation: Dry-run and execute disposable native builds and pushes.
+- Handoff: Remove POD-03 and preserve registry/media-type evidence.
+
+## POD-04 — Repair build-in-image mounts and fallback
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: POD-02
+- Exact write set: `Makefile`, `CONTRIBUTING.md`
+- Primary integration lock: Makefile
+- Outcome: Preserve source/target mounts, MSYS guards, SELinux policy, ownership, and exact-tag fallback behavior.
+- Focused validation: Run build-in-image twice and verify reuse, visibility, and artifact ownership.
+- Handoff: Remove POD-04 and record host-specific mount requirements.
+
+## POD-05 — Split native Rust architecture targets
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: POD-03
+- Exact write set: `Makefile`, `Dockerfile.rust`
+- Primary integration lock: Makefile
+- Outcome: Build and push immutable AMD64 and ARM64 Rust images independently with explicit platforms.
+- Focused validation: Dry-run aggregate/leaf targets and inspect native image architecture and PowerShell artifacts.
+- Handoff: Remove POD-05 and provide immutable tags to POD-06.
+
+## POD-06 — Replace Buildx with Podman manifests
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: POD-05
+- Exact write set: `Makefile`
+- Primary integration lock: Makefile
+- Outcome: Create, add, inspect, push, and clean versioned/latest manifests from remote immutable tags.
+- Focused validation: Exercise the lifecycle in a disposable registry and reject incomplete architecture sets.
+- Handoff: Remove POD-06 and record the publication commands.
+
+## POD-07 — Validate rootless Linux AMD64
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: POD-03, POD-04
+- Exact write set: rootless Linux AMD64 host, Podman validation record
+- Primary integration lock: Podman platform matrix
+- Outcome: Prove native builds, build-in-image, disposable push, and cleanup without SELinux.
+- Focused validation: Execute the documented Linux AMD64 smoke matrix.
+- Handoff: Remove POD-07 and preserve versions and measured results.
+
+## POD-08 — Validate enforcing-SELinux Linux
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: POD-04
+- Exact write set: enforcing-SELinux Linux host, `CONTRIBUTING.md`
+- Primary integration lock: Podman platform matrix
+- Outcome: Prove labeled source access and artifact writes without weakening host SELinux.
+- Focused validation: Run build-in-image from a clean checkout and inspect labels/ownership.
+- Handoff: Remove POD-08 and retain the accepted mount policy.
+
+## POD-09 — Validate native Linux ARM64
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: POD-05
+- Exact write set: Linux ARM64 host, Podman validation record
+- Primary integration lock: Podman platform matrix
+- Outcome: Build, run, and publish the immutable ARM64 Rust image natively.
+- Focused validation: Execute the image and inspect architecture, metadata, and pushed tag.
+- Handoff: Remove POD-09 and provide the immutable tag to POD-12.
+
+## POD-10 — Validate macOS ARM64
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: POD-04
+- Exact write set: macOS ARM64 Podman machine, `CONTRIBUTING.md`
+- Primary integration lock: Podman platform matrix
+- Outcome: Prove machine-backed builds, shared paths, named volumes, and build-in-image.
+- Focused validation: Run the documented macOS smoke matrix and record client/server versions.
+- Handoff: Remove POD-10 and retain machine prerequisites.
+
+## POD-11 — Validate Windows AMD64
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: POD-04
+- Exact write set: Windows 11 Podman machine, Git Bash/MSYS2 workflow, `CONTRIBUTING.md`
+- Primary integration lock: Podman platform matrix
+- Outcome: Prove native-client AMD64 build and source/volume behavior without ARM emulation assumptions.
+- Focused validation: Run the WSL2 provider matrix and Hyper-V only when it is supported baseline.
+- Handoff: Remove POD-11 and retain path-conversion prerequisites.
+
+## POD-12 — Validate registry manifests end to end
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: POD-06, POD-07, POD-09
+- Exact write set: staging Savannah, Docker Hub, and GHCR namespaces; manifest validation record
+- Primary integration lock: release manifest publication
+- Outcome: Publish, inspect, pull, and execute versioned/latest AMD64+ARM64 manifests without overwriting on partial failure.
+- Focused validation: Inspect remote manifests independently and run combined tags on both native architectures.
+- Handoff: Remove POD-12 and preserve the release evidence.
+
+## POD-13 — Update guidance and retire
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: POD-08, POD-10, POD-11, POD-12
+- Exact write set: `CONTRIBUTING.md`, `.gitlab-ci.yml`, wiki indexes, this plan
+- Primary integration lock: CI build entry points
+- Outcome: Document the supported matrix, add only proven CI checks, and remove the migration plan.
+- Focused validation: Run all Make dry-runs, CI lint, link checks, and wiki validation.
+- Handoff: Delete this plan and all index, network, and lane entries.

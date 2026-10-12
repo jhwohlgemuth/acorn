@@ -8,6 +8,8 @@ impact: high
 package: [acorn-schema, acorn-lib, acorn-cli]
 tags: [feature, model, huggingface, oci, modelkit, modelpack, gguf, download, provenance]
 status: in-progress
+execution: phased
+phase_budget_hours: 5
 ---
 
 # Goal
@@ -96,3 +98,137 @@ Extend the existing bounded GGUF reader to capture `general.architecture` and `{
 - Dry-run transfers no weights and reports resolved identity, format, selected/ignored roles, transfer size, and inventory confidence.
 - Distribution and Harbor validation passes on Linux and Windows for tag/digest and public/authenticated cases.
 - Existing selection, quantization, checksum, fallback, offline, OCI, and TUI behavior remains compatible except for the declared request-API break.
+
+# Execution phases
+
+## MOD-01 — Characterize the request API break
+
+- Status: ready
+- Budget: 5 active hours maximum
+- Prerequisites: none
+- Exact write set: Hugging Face request tests, this plan
+- Primary integration lock: model acquisition API
+- Outcome: Freeze current callers, invalid states, URL identity, selection, and download behavior before replacement.
+- Focused validation: Run focused Hugging Face library, CLI, and TUI tests.
+- Handoff: Remove MOD-01 and publish the exact caller migration list.
+
+## MOD-02 — Add RepositoryIdentifier
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: MOD-01
+- Exact write set: `crates/acorn-lib/src/io/api/huggingface.rs`, identifier tests
+- Primary integration lock: model acquisition API
+- Outcome: Enforce one owner/name separator, safe components, canonical display, and pre-network rejection.
+- Focused validation: Run valid/invalid/path/Unicode/URL construction tests.
+- Handoff: Remove MOD-02 and require the type in operation requests.
+
+## MOD-03 — Split operation-specific requests
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: MOD-02
+- Exact write set: `crates/acorn-lib/src/io/api/huggingface.rs`, request tests
+- Primary integration lock: model acquisition API
+- Outcome: Replace broad options with required `RepositoryRequest`, `SelectionContext`, and `DownloadOptions` values.
+- Focused validation: Test construction, serde where applicable, defaults, and invalid combinations.
+- Handoff: Remove MOD-03 and freeze the breaking request surface.
+
+## MOD-04 — Make resolved file sets identity-bearing
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: MOD-03
+- Exact write set: `crates/acorn-lib/src/io/api/huggingface.rs`, resolved-file tests
+- Primary integration lock: model acquisition API
+- Outcome: Make file sets opaque and preserve repository/revision through filtering and shard selection.
+- Focused validation: Test identity retention, shard selection, filtering, and URL generation.
+- Handoff: Remove MOD-04 and expose only identity-safe accessors.
+
+## MOD-05 — Migrate all Hugging Face callers
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: MOD-04
+- Exact write set: model download command, model planning service, TUI model workflow, focused caller tests
+- Primary integration lock: model acquisition integration
+- Outcome: Remove repeated identity inputs and compile every public caller against the new boundary.
+- Focused validation: Run library, CLI, TUI, offline, dry-run, and compatibility tests.
+- Handoff: Remove MOD-05 and record the declared source-breaking change.
+
+## MOD-06 — Reconcile ModelPack annotations
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: MOD-05
+- Exact write set: ModelPack planning module, annotation fixtures and tests
+- Primary integration lock: model artifact planning
+- Outcome: Reconcile standard annotations with validated descriptors and stable provenance.
+- Focused validation: Test missing, matching, conflicting, unknown, and redacted annotations.
+- Handoff: Remove MOD-06 and freeze annotation precedence.
+
+## MOD-07 — Complete split and projector behavior
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: MOD-06
+- Exact write set: ModelPack planning module, split/projector fixtures
+- Primary integration lock: model artifact planning
+- Outcome: Select primary shards, required configuration, and projector assets without unsafe collisions.
+- Focused validation: Test raw/archive encodings, split order, missing parts, projectors, and dry-run inventory confidence.
+- Handoff: Remove MOD-07 and preserve the selected/ignored role report.
+
+## MOD-08 — Stabilize redacted diagnostic categories
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: MOD-07
+- Exact write set: model acquisition error types, diagnostic tests
+- Primary integration lock: model acquisition API
+- Outcome: Give callers stable categories without exposing credentials, repository contents, or registry responses.
+- Focused validation: Test malformed, unsupported, collision, checksum, auth, transport, and oversize failures.
+- Handoff: Remove MOD-08 and document category semantics.
+
+## MOD-09 — Add independent producer fixtures
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: MOD-07
+- Exact write set: `tests/fixtures/model/modctl/`, fixture attribution record
+- Primary integration lock: model interoperability fixtures
+- Outcome: Pin independently produced ModelKit/ModelPack artifacts and expected normalized results.
+- Focused validation: Decode, verify, plan, and materialize each fixture offline.
+- Handoff: Remove MOD-09 and provide immutable fixtures to both platform matrices.
+
+## MOD-10 — Validate Linux registry interoperability
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: MOD-08, MOD-09
+- Exact write set: Linux Distribution/Harbor test environment, interoperability evidence
+- Primary integration lock: model registry matrix
+- Outcome: Prove tag/digest and public/authenticated flows on Linux.
+- Focused validation: Run the frozen ModelKit/raw/archive/annotated/index/corrupt matrix.
+- Handoff: Remove MOD-10 and retain dated registry/version evidence.
+
+## MOD-11 — Validate Windows registry interoperability
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: MOD-08, MOD-09
+- Exact write set: Windows Distribution/Harbor test environment, interoperability evidence
+- Primary integration lock: model registry matrix
+- Outcome: Prove the same tag/digest and public/authenticated flows on Windows.
+- Focused validation: Run the frozen interoperability matrix and path/collision cases.
+- Handoff: Remove MOD-11 and retain dated registry/version evidence.
+
+## MOD-12 — Publish support evidence and retire
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: MOD-10, MOD-11
+- Exact write set: model support documentation, wiki indexes, this plan
+- Primary integration lock: model documentation
+- Outcome: Publish the supported matrix and release evidence, run full gates, and remove the plan.
+- Focused validation: Run focused suites, portability, `make lint`, `make test`, `make doc`, and wiki validation.
+- Handoff: Delete this plan and every index, network, and lane entry.

@@ -7,6 +7,8 @@ impact: high
 package: [workspace]
 tags: [ci, gitlab, runners, reliability, isolation, reporting]
 status: in-progress
+execution: phased
+phase_budget_hours: 5
 ---
 
 # Project code boundaries
@@ -71,3 +73,71 @@ Register the reporting worker independently with isolated configuration/build vo
 
 [^1]: [GitLab Runner custom build directories and concurrency](https://docs.gitlab.com/ci/runners/configure_runners/#handling-concurrency)
 [^2]: [GitLab Runner security guidance for cloned runners](https://docs.gitlab.com/runner/security/#cloning-a-runner)
+
+# Execution phases
+
+## RUN-01 — Register isolated Rust workers
+
+- Status: blocked
+- Budget: 5 active hours maximum
+- Prerequisites: GitLab runner-administrator access and worker capacity
+- Exact write set: project `16689` runner registrations, dedicated configuration volumes, dedicated build volumes
+- Primary integration lock: runner administration
+- Outcome: Create independently registered `cpu,rust-tests` workers with `limit = 1` and untagged jobs disabled.
+- Focused validation: Inspect runner tokens, tags, configuration volumes, build volumes, and executor mounts.
+- Handoff: Remove RUN-01 and record non-secret runner identifiers for RUN-02.
+
+## RUN-02 — Route Rust and fuzz jobs
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: RUN-01
+- Exact write set: `.gitlab-ci.yml`
+- Primary integration lock: CI pipeline
+- Outcome: Require architecture plus `rust-tests` tags while retaining stale-lock recovery.
+- Focused validation: Run GitLab CI Lint and inspect expanded job tags and rules.
+- Handoff: Remove RUN-02 and record the pipeline used for concurrency proof.
+
+## RUN-03 — Prove isolated concurrency and remove serialization
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: RUN-02
+- Exact write set: `.gitlab-ci.yml`, Rust worker build storage
+- Primary integration lock: CI pipeline
+- Outcome: Prove concurrent test/fuzz execution, checkout recovery, and reusable caches before removing the shared `tests` resource group.
+- Focused validation: Run concurrent, cancelled, and consecutive pipelines and inspect runner/build identities.
+- Handoff: Remove RUN-03 and retain the operational evidence outside the plan.
+
+## RUN-04 — Register the reporting worker
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: RUN-01
+- Exact write set: reporting runner registration, protected `artifact-creation` tag, protected reporting variables
+- Primary integration lock: reporting runner administration
+- Outcome: Isolate reporting configuration, build storage, package token, and callback credentials from ordinary jobs.
+- Focused validation: Inspect protected-tag policy, variable scope, volumes, and merge-request inaccessibility.
+- Handoff: Remove RUN-04 and provide the non-secret runner identity to RUN-05.
+
+## RUN-05 — Prove scheduled reporting isolation
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: RUN-04
+- Exact write set: `templates/gitlab/reporting.gitlab-ci.yml`, protected default-branch schedule
+- Primary integration lock: reporting CI template
+- Outcome: Run one scheduled report on the isolated worker without leaking credentials or publishing undeclared files.
+- Focused validation: Inspect job rules, runner identity, package contents, retained diagnostics, and redacted logs.
+- Handoff: Remove RUN-05 and record the accepted security evidence.
+
+## RUN-06 — Document operations and retire
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: RUN-03, RUN-05
+- Exact write set: CI operations documentation, wiki indexes, this plan
+- Primary integration lock: CI operations documentation
+- Outcome: Publish pool scaling/recovery guidance and remove the completed plan.
+- Focused validation: Re-run CI lint, check internal links, and run wiki validation.
+- Handoff: Delete this plan and every index, network, and lane entry.

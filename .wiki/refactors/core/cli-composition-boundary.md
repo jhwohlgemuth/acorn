@@ -8,6 +8,8 @@ impact: high
 package: [acorn-cli]
 tags: [refactor, cli, clap, startup, errors, composition]
 status: planned
+execution: phased
+phase_budget_hours: 5
 ---
 
 # Goal
@@ -71,3 +73,115 @@ Schedule after any active CLI syntax owner releases `src/cli/` and generated hel
 - Silent failures, usage failures, expected operation failures, and internal failures have explicit tested report and exit behavior.
 - RPC, gRPC, and MCP share remote dispatch while retaining protocol-specific local startup and policy.
 - Public CLI syntax, generated help, offline behavior, terminal output, and existing successful command behavior remain compatible.
+
+# Execution phases
+
+## CLI-01 — Freeze parser-to-command crossings
+
+- Status: ready
+- Budget: 5 active hours maximum
+- Prerequisites: no active CLI syntax owner
+- Exact write set: `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/cli/arguments/mod.rs`, CLI characterization tests
+- Primary integration lock: CLI syntax and generated help
+- Outcome: Inventory parser types crossing command boundaries and define immutable normalized request conventions.
+- Focused validation: Run parser snapshots and generated-help comparison without syntax changes.
+- Handoff: Remove CLI-01 and publish the migration groups used below.
+
+## CLI-02 — Normalize check and doctor requests
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CLI-01
+- Exact write set: `crates/acorn-cli/src/commands/check/mod.rs`, `crates/acorn-cli/src/commands/doctor/mod.rs`, focused tests
+- Primary integration lock: CLI command signatures
+- Outcome: Remove clap-only wrappers from check/doctor command execution values.
+- Focused validation: Run focused command, parser, offline, and output tests.
+- Handoff: Remove CLI-02 and record the reusable normalization pattern.
+
+## CLI-03 — Normalize transform and export requests
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CLI-01
+- Exact write set: `crates/acorn-cli/src/commands/diff/mod.rs`, `crates/acorn-cli/src/commands/format/mod.rs`, `crates/acorn-cli/src/commands/export/mod.rs`, `crates/acorn-cli/src/commands/link/mod.rs`
+- Primary integration lock: CLI command signatures
+- Outcome: Pass immutable normalized values to diff, format, export, and link leaves.
+- Focused validation: Run focused command tests and confirm generated help is unchanged.
+- Handoff: Remove CLI-03 and preserve stable output/exit behavior.
+
+## CLI-04 — Normalize gather and import requests
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CLI-01
+- Exact write set: `crates/acorn-cli/src/commands/gather/mod.rs`, `crates/acorn-cli/src/commands/import/mod.rs`, focused tests
+- Primary integration lock: CLI command signatures
+- Outcome: Resolve mutually exclusive sources/defaults at the parse boundary for gather/import.
+- Focused validation: Run focused parser, command, offline, and collision tests.
+- Handoff: Remove CLI-04 and provide normalized requests to later gather work.
+
+## CLI-05 — Normalize download and sync requests
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CLI-01
+- Exact write set: `crates/acorn-cli/src/commands/download/mod.rs`, `crates/acorn-cli/src/commands/sync/mod.rs`, focused tests
+- Primary integration lock: CLI command signatures
+- Outcome: Resolve acquisition options and feature availability before command execution.
+- Focused validation: Run focused request, offline, missing-feature, and dry-run tests.
+- Handoff: Remove CLI-05 and record the acquisition request contract.
+
+## CLI-06 — Normalize create and inference requests
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CLI-01
+- Exact write set: `crates/acorn-cli/src/commands/create/mod.rs`, `crates/acorn-cli/src/commands/infer/mod.rs`, focused tests
+- Primary integration lock: CLI command signatures
+- Outcome: Move parser-specific defaults and conflicts out of create/inference leaves.
+- Focused validation: Run focused parser, command, feature, and failure tests.
+- Handoff: Remove CLI-06 and record normalized creation/inference requests.
+
+## CLI-07 — Normalize exec and outbound MCP requests
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CLI-01, MCP-02
+- Exact write set: `crates/acorn-cli/src/commands/exec/mod.rs`, `crates/acorn-cli/src/commands/mcp.rs`, focused tests
+- Primary integration lock: CLI command signatures
+- Outcome: Separate configuration loading, request normalization, execution, and presentation.
+- Focused validation: Run exec and compiled-binary MCP interoperability tests.
+- Handoff: Remove CLI-07 and preserve the narrow MCP client boundary.
+
+## CLI-08 — Consolidate remote serve dispatch
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CLI-01
+- Exact write set: `crates/acorn-cli/src/commands/serve/mod.rs`, RPC/gRPC/MCP serve tests
+- Primary integration lock: serve composition
+- Outcome: Share target validation and SSH/subprocess diagnostics while retaining protocol-local startup.
+- Focused validation: Test local, SSH, context, detached, spawn, and nonzero-exit cases.
+- Handoff: Remove CLI-08 and record the shared remote dispatcher.
+
+## CLI-09 — Extract startup services
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CLI-02, CLI-03, CLI-04, CLI-05, CLI-06, CLI-07, CLI-08
+- Exact write set: `crates/acorn-cli/src/main.rs`, `crates/acorn-cli/src/startup.rs`, startup tests
+- Primary integration lock: CLI composition root
+- Outcome: Isolate tracing, thread pool, database/cache, preflight, runtime, and dispatch units without exiting.
+- Focused validation: Test ordering, duplicate initialization, disabled database, and thread-pool failures.
+- Handoff: Remove CLI-09 and expose one result-returning application entry point.
+
+## CLI-10 — Establish the outer error and exit boundary
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CLI-09
+- Exact write set: `crates/acorn-cli/src/main.rs`, binary integration tests, `CommandLineHelp.md`
+- Primary integration lock: CLI composition root
+- Outcome: Render one report and map parse/setup/command/silent/internal failures to explicit tested exits.
+- Focused validation: Run binary failure tests, feature combinations, help generation, `make lint`, and `make test`.
+- Handoff: Remove this completed plan and all index, network, and lane entries.

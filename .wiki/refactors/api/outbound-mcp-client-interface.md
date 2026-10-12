@@ -8,6 +8,8 @@ impact: high
 package: [acorn-lib]
 tags: [refactor, mcp, api, cancellation, embedding, interoperability]
 status: in-progress
+execution: phased
+phase_budget_hours: 5
 ---
 
 # Goal
@@ -275,3 +277,27 @@ dependency-deny checks owned by the prerequisite plan.
 - No typed-error overhaul; cancellation uses the existing `ApiResult` boundary.
 - No change to `ApplicationConfiguration.mcp` or serialized MCP configuration.
 - No exposure of tools that are not configured, allowed, and advertised.
+
+# Execution phases
+
+## MCP-01 — Finish embedder documentation
+
+- Status: ready
+- Budget: 5 active hours maximum
+- Prerequisites: none
+- Exact write set: `docs/src/packages/mcp-client.md`, `docs/src/SUMMARY.md`
+- Primary integration lock: book documentation
+- Outcome: Document direct construction, backend dispatch, cancellation, cleanup, and preserved semantic-error behavior.
+- Focused validation: Run the narrow `mcp-client` check/tests and `make doc`.
+- Handoff: Remove MCP-01 and record the accepted documentation and narrow graph.
+
+## MCP-02 — Complete portability evidence and retire
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: MCP-01
+- Exact write set: this plan, wiki indexes
+- Primary integration lock: portability validation
+- Outcome: Run the remaining WASM/portable gate, confirm the downstream handoff, and remove the plan.
+- Focused validation: Run `make check-portable`, the WASM check, focused clippy, and wiki validation.
+- Handoff: Delete this plan and all index, network, and lane entries.

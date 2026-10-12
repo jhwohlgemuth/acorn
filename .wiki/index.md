@@ -17,7 +17,7 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Portfolio review
 
-Reviewed against the current tree on 2026-10-10. The portfolio now contains 22 executable plans and one coordination record. The completed MCP client, dependency-capability, OCI artifact-check, WebMCP browser-tools, and similarity-measures plans were removed after their implementations, focused tests, feature and portability checks, native browser verification where applicable, and durable documentation landed. The embedder-interface plan covers the remaining direct-construction and external-cancellation contracts required by the first downstream workflow consumer. Beam integration was added on 2026-10-08.
+Reviewed against the current tree on 2026-10-11. The portfolio contains 22 executable plans and one coordination record. The completed MCP client, dependency-capability, OCI artifact-check, WebMCP browser-tools, and similarity-measures plans were removed after their implementations, focused tests, feature and portability checks, native browser verification where applicable, and durable documentation landed. The embedder-interface plan now contains only its remaining documentation and portability closeout. Completed GGUF metadata work is evidence in the model plan rather than an executable phase.
 
 Ranking uses impact first, then remaining difficulty, with user/architecture value and readiness as tie-breakers. “Quality” rates the plan rather than the proposed feature:
 
@@ -77,16 +77,19 @@ The former workspace-duplication umbrella was removed. Its valuable work moved t
 
 1. Create one semantically named Markdown file for one atomic outcome.
 2. Add `type: Plan`, `title`, `description`, `difficulty`, `impact`, a non-empty `package` list, `tags`, and `status` to YAML frontmatter.
-3. Use `low`, `medium`, `high`, `mixed`, or `not-assessed` for difficulty; use `low`, `medium`, `high`, `critical`, `mixed`, or `not-assessed` for impact.
-4. Use `planned`, `in-progress`, or `waiting-on-validation` for status. Reserve `waiting-on-validation` for implemented work whose only remaining acceptance gates are tests, deployment checks, or external validation. Add `priority: next` only when the ranked portfolio and dependency network agree.
-5. Document goal, current evidence, exact project boundaries, dependencies, decisions, validation, and acceptance criteria. Cite external claims.
-6. Link the concept from the nearest directory index, the dependency network, and one parallel-execution lane.
+3. Add `execution: phased` and `phase_budget_hours: 5`. Use `execution: coordination` without phases or a phase budget only for a portfolio coordination record.
+4. Use `low`, `medium`, `high`, `mixed`, or `not-assessed` for difficulty; use `low`, `medium`, `high`, `critical`, `mixed`, or `not-assessed` for impact.
+5. Use `planned`, `in-progress`, or `waiting-on-validation` for status. Reserve `waiting-on-validation` for implemented work whose only remaining acceptance gates are tests, deployment checks, or external validation. Add `priority: next` only when the ranked portfolio and dependency network agree.
+6. Document goal, current evidence, exact project boundaries, dependencies, decisions, validation, acceptance criteria, and at least one remaining five-hour execution phase. Cite external claims.
+7. Link the concept from the nearest directory index, the dependency network, and one parallel-execution lane.
 
 ### Maintaining plans
 
 1. Verify evidence and status against current code before editing.
-2. Update frontmatter, boundaries, dependencies, validation, and acceptance criteria together.
-3. Delete finished plans and remove every index, network, and lane entry; durable knowledge belongs in code, tests, architecture documentation, or release history.
-4. Consolidate overlapping proposals into one canonical concept. Do not preserve an umbrella plan after its work has moved to owners.
-5. Before implementation, replace directory/glob boundaries with an exact write set and name each integration lock.
-6. After changes, check required frontmatter, internal links, legacy references, whitespace, and plan counts.
+2. Keep only remaining work. After completion, remove the completed section, phase, or task; do not retain checked boxes or `done` phase records. Preserve stable IDs for unfinished phases.
+3. Update frontmatter, boundaries, dependencies, validation, acceptance criteria, remaining phases, and handoffs together.
+4. Delete finished plans and remove every index, network, and lane entry; durable knowledge belongs in code, tests, architecture documentation, or release history.
+5. Consolidate overlapping proposals into one canonical concept. Do not preserve an umbrella plan after its work has moved to owners.
+6. Every phase must fit five active hours, name one outcome, use an exact write set or named external systems, claim at most one primary integration lock, and include focused validation plus a mergeable handoff.
+7. Treat external waiting as a prerequisite. Create a new bounded repair phase for an unexpected defect instead of expanding the active phase.
+8. Run `python3 .agents/skills/planning/scripts/validate_wiki.py` after changes, then check internal links, legacy references, whitespace, and plan counts.

@@ -7,6 +7,8 @@ impact: high
 package: [workspace, acorn-lib, acorn-cli]
 tags: [migration, inference, sidecar, needle, release-validation]
 status: waiting-on-validation
+execution: phased
+phase_budget_hours: 5
 ---
 
 # Project code boundaries
@@ -67,3 +69,71 @@ Delete this plan after the four host jobs pass, then remove its migration-index,
 - [SLM sidecars](../features/slm-sidecars.md)
 - [Model acquisition and metadata hardening](../features/model-acquisition-hardening.md)
 - [Deterministic and assisted gather extraction](../features/gather-extraction.md)
+
+# Execution phases
+
+## NDL-01 — Prepare release-host jobs
+
+- Status: blocked
+- Budget: 5 active hours maximum
+- Prerequisites: schedulable Windows and Linux release hosts
+- Exact write set: `.gitlab-ci.yml`, existing Needle smoke harness
+- Primary integration lock: CI build entry points
+- Outcome: Define four real-engine jobs that use the pinned artifacts and common evidence schema.
+- Focused validation: GitLab CI lint and focused synthetic Needle tests.
+- Handoff: Remove NDL-01 and make the four host phases ready.
+
+## NDL-02 — Validate Windows x86_64
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: NDL-01
+- Exact write set: Windows x86_64 release host, `docs/src/inference/needle.md`
+- Primary integration lock: Needle host matrix
+- Outcome: Record verified acquisition, inference, policy, offline, cancellation, and cleanup evidence.
+- Focused validation: Run the real-engine smoke harness on Windows x86_64.
+- Handoff: Remove NDL-02 and retain only the durable platform result.
+
+## NDL-03 — Validate Windows ARM64
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: NDL-01
+- Exact write set: Windows ARM64 release host, `docs/src/inference/needle.md`
+- Primary integration lock: Needle host matrix
+- Outcome: Record the pinned real-engine contract on Windows ARM64.
+- Focused validation: Run the real-engine smoke harness on Windows ARM64.
+- Handoff: Remove NDL-03 and retain only the durable platform result.
+
+## NDL-04 — Validate Linux x86_64
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: NDL-01
+- Exact write set: Linux x86_64 release host, `docs/src/inference/needle.md`
+- Primary integration lock: Needle host matrix
+- Outcome: Record the pinned real-engine contract on Linux x86_64.
+- Focused validation: Run the real-engine smoke harness on Linux x86_64.
+- Handoff: Remove NDL-04 and retain only the durable platform result.
+
+## NDL-05 — Validate Linux ARM64
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: NDL-01
+- Exact write set: Linux ARM64 release host, `docs/src/inference/needle.md`
+- Primary integration lock: Needle host matrix
+- Outcome: Record the pinned real-engine contract on Linux ARM64.
+- Focused validation: Run the real-engine smoke harness on Linux ARM64.
+- Handoff: Remove NDL-05 and retain only the durable platform result.
+
+## NDL-06 — Publish the verified matrix and retire
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: NDL-02, NDL-03, NDL-04, NDL-05
+- Exact write set: `docs/src/inference/needle.md`, wiki indexes, this plan
+- Primary integration lock: inference documentation
+- Outcome: Consolidate the five-platform matrix, run final gates, and remove the migration plan.
+- Focused validation: Run focused Needle tests, applicable platform checks, `make lint`, `make test`, and wiki validation.
+- Handoff: Delete this plan and its index, network, and lane entries.

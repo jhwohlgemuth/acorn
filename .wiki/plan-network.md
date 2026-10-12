@@ -6,6 +6,8 @@ okf_version: "0.1"
 
 This map records implementation dependencies among the active consolidated plans. Portfolio rank is maintained in the [planning index](index.md); dependency order can override rank when a prerequisite contract is not ready.
 
+Executable detail lives in each plan's `# Execution phases` section. Cross-plan edges name stable phase IDs; completed phases are pruned without renumbering unfinished phases. A plan-level edge is not permission to start every phase in that plan.
+
 ## Boundary critical path
 
 ```text
@@ -83,5 +85,7 @@ Exact ownership and safe concurrent slices are maintained in the [parallel execu
 ## Completion discipline
 
 - A plan closes only after its acceptance criteria and durable documentation are complete.
+- Remove each completed section, phase, and task after reconciling durable evidence. Do not retain checked lists or completed phase records.
+- Preserve the IDs of unfinished phases when earlier phases are pruned, and remove dangling phase dependencies in the same change.
 - Delete completed plan files and remove their index, network, and lane entries immediately.
 - If a plan discovers a materially different outcome, create a new atomic concept instead of widening the active write set silently.

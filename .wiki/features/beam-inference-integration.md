@@ -8,6 +8,8 @@ impact: medium
 package: [acorn-lib, acorn-cli]
 tags: [feature, inference, beam, api, evaluation]
 status: planned
+execution: phased
+phase_budget_hours: 5
 ---
 
 # Goal
@@ -44,7 +46,7 @@ Local evidence: `crates/acorn-lib/src/io/api/openai/mod.rs` exposes Chat Complet
 - **Conditional integration surfaces:** API/configuration roots, endpoint snapshots, CLI parsing/generated help, and manifests require an exact write set and their named locks. Do not edit all candidate files by default. No deletion is planned.
 - Consume the [shared API client contract](../refactors/api/shared-client-contract.md) and coordinate changes with its owner. Existing landed transport functionality can be evaluated without waiting for the entire refactor.
 - Any gather integration is owned by [gather extraction](gather-extraction.md) and follows its typed validation/provenance contract; it is not required for the first explicit inference consumer.
-- Follow the [Provider/model leaves lane](../parallel-execution.md). Workspace changes, if proven necessary, follow [dependency capabilities](../refactors/portability/dependency-features-and-macos-size.md). Beam does not depend on Julia, Noul, ONNX, or Needle release validation.
+- Follow the [Provider/model leaves lane](../parallel-execution.md). Workspace changes, if proven necessary, use the workspace-graph lock defined there. Beam does not depend on Julia, Noul, ONNX, or Needle release validation.
 
 # Sequence and stop gates
 
@@ -63,3 +65,104 @@ Local evidence: `crates/acorn-lib/src/io/api/openai/mod.rs` exposes Chat Complet
 - [ ] The frozen ACORN quality gates and predeclared latency/cost budgets pass; vendor benchmarks do not substitute for task evaluation.
 - [ ] Focused interoperability/configuration tests, `make lint`, `make test`, and applicable portability/generated-help checks pass for implementation changes. Live tests stay opt-in.
 - [ ] Documentation identifies the tested hosting profile and operator responsibilities. Remove this plan and its index/network/lane entries only after acceptance and durable documentation are complete.
+
+# Execution phases
+
+## BEAM-01 — Verify release, license, and hosting evidence
+
+- Status: blocked
+- Budget: 5 active hours maximum
+- Prerequisites: published Beam release and serving contract
+- Exact write set: this plan, dated Beam evidence record
+- Primary integration lock: Beam adoption decision
+- Outcome: Record immutable identity, license, API, limits, retention, cost, and supported hosting from primary sources.
+- Focused validation: Cross-check every release gate and stop promotion if any required evidence is absent.
+- Handoff: Remove BEAM-01 or retain the plan blocked without implementation.
+
+## BEAM-02 — Capture authorized protocol fixtures
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: BEAM-01 and an authorized deployment
+- Exact write set: `tests/fixtures/inference/beam/`, fixture attribution record
+- Primary integration lock: Beam interoperability fixtures
+- Outcome: Capture sanitized success, refusal, incomplete, malformed, auth, rate, timeout, oversize, and offline cases.
+- Focused validation: Verify credentials/source content are absent and expected semantics are explicit.
+- Handoff: Remove BEAM-02 and freeze the deployment profile.
+
+## BEAM-03 — Prove existing inference compatibility
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: BEAM-02
+- Exact write set: `crates/acorn-lib/tests/openai_interoperability.rs`, Beam fixtures
+- Primary integration lock: inference interoperability
+- Outcome: Exercise explicit endpoint/model selection through the current interface before adding code.
+- Focused validation: Run all sanitized fixtures, unsupported-capability rejection, redaction, and offline behavior.
+- Handoff: Remove BEAM-03 and record configuration-only success or exact protocol gaps.
+
+## BEAM-04 — Add only the proven adapter gap
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: BEAM-03 reports an incompatibility
+- Exact write set: `crates/acorn-lib/src/io/api/openai/inference.rs`, Beam adapter tests
+- Primary integration lock: inference API
+- Outcome: Implement the smallest reusable protocol difference without a registry or automatic fallback.
+- Focused validation: Run existing OpenAI and Beam fixtures to prove no regression or silent capability stripping.
+- Handoff: Remove BEAM-04; prune it entirely when BEAM-03 proves configuration-only integration.
+
+## BEAM-05 — Freeze the ACORN evaluation
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: BEAM-03 and named evaluation owner
+- Exact write set: frozen 100-example corpus, reviewer rubric, prompt/model/budget policy
+- Primary integration lock: Beam evaluation
+- Outcome: Predeclare baseline, 90% acceptance, zero material unsupported claims, cost, latency, and failure accounting.
+- Focused validation: Review held-out separation, denominator rules, and owner approval.
+- Handoff: Remove BEAM-05 and prohibit post-hoc gate changes.
+
+## BEAM-06 — Complete offline conformance coverage
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: BEAM-03
+- Exact write set: Beam interoperability tests, Beam fixtures
+- Primary integration lock: inference interoperability
+- Outcome: Cover the supported profile entirely offline, including refusals, truncation, schema failures, redaction, and limits.
+- Focused validation: Run focused interoperability/configuration tests with network disabled.
+- Handoff: Remove BEAM-06 and preserve the protocol oracle.
+
+## BEAM-07 — Add explicit invocation documentation
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: BEAM-04 or configuration-only result from BEAM-03
+- Exact write set: `docs/src/inference/beam.md`, `docs/src/SUMMARY.md`, conditional CLI configuration docs
+- Primary integration lock: book documentation
+- Outcome: Document explicit endpoint/model selection, capabilities, limitations, data handling, and deployment responsibility.
+- Focused validation: Run docs/help generation, internal links, and offline example configuration.
+- Handoff: Remove BEAM-07 and preserve the tested hosting profile.
+
+## BEAM-08 — Run live smoke and frozen evaluation
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: BEAM-05, BEAM-06, BEAM-07
+- Exact write set: authorized Beam deployment, frozen evaluation results
+- Primary integration lock: Beam evaluation
+- Outcome: Measure the explicit profile against quality, refusal, completeness, latency, and cost gates.
+- Focused validation: Run one bounded live smoke and the frozen held-out evaluation without dropping failures.
+- Handoff: Remove BEAM-08 or record the failed adoption gate without automatic workflow use.
+
+## BEAM-09 — Decide support and retire
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: BEAM-08
+- Exact write set: Beam support documentation, wiki indexes, this plan
+- Primary integration lock: Beam adoption decision
+- Outcome: Release only the passing profile or prune implementation artifacts, then remove the plan.
+- Focused validation: Run focused tests, portability/help as applicable, `make lint`, `make test`, docs, and wiki validation.
+- Handoff: Delete this plan and every index, network, and lane entry.

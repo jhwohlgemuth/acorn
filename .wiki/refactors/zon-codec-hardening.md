@@ -7,6 +7,8 @@ impact: medium
 package: [acorn-schema]
 tags: [refactor, serialization, zon, testing, portability]
 status: planned
+execution: phased
+phase_budget_hours: 5
 ---
 
 # Goal
@@ -72,3 +74,82 @@ The first-class ZON feature is implemented, so this plan has no implementation p
 # Related plans
 
 - [Crate boundary architecture](crate-boundary-architecture.md)
+
+# Execution phases
+
+## ZON-01 — Complete the behavior matrix
+
+- Status: ready
+- Budget: 5 active hours maximum
+- Prerequisites: none
+- Exact write set: ZON golden/property tests, behavior matrix in this plan
+- Primary integration lock: ZON codec
+- Outcome: Characterize roots, groups, compounds, tables, strings, numbers, aliases, line endings, duplicates, limits, and every error code.
+- Focused validation: Run the focused `acorn-schema` ZON suite and confirm each matrix cell has an assertion.
+- Handoff: Remove ZON-01 and retain uncovered cases as tests.
+
+## ZON-02 — Consolidate quoted strings and escapes
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ZON-01
+- Exact write set: `crates/acorn-schema/src/zon/decode.rs`, ZON string tests
+- Primary integration lock: ZON codec
+- Outcome: Share one quoted-string/escape routine while retaining distinct CSV doubling rules.
+- Focused validation: Run root, CSV, inline, Unicode, malformed escape, and exact-location tests.
+- Handoff: Remove ZON-02 and freeze accepted transitions.
+
+## ZON-03 — Simplify root classification
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ZON-01
+- Exact write set: `crates/acorn-schema/src/zon/decode.rs`, root classification tests
+- Primary integration lock: ZON codec
+- Outcome: Classify and parse root syntax once without constructing discarded parse errors.
+- Focused validation: Run scalar, grouped, table, alias, malformed header, and ambiguity cases.
+- Handoff: Remove ZON-03 and record the single classification path.
+
+## ZON-04 — Assign authoritative resource limits
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ZON-02, ZON-03
+- Exact write set: `crates/acorn-schema/src/zon/decode.rs`, `crates/acorn-schema/src/zon/encode.rs`, limit tests
+- Primary integration lock: ZON codec
+- Outcome: Give each document, line, depth, array, and object bound one enforcement point and remove redundant traversal state.
+- Focused validation: Test encode/decode at, below, and above every limit with stable codes.
+- Handoff: Remove ZON-04 and preserve the authoritative limit table.
+
+## ZON-05 — Strengthen diagnostic locations
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ZON-02, ZON-03
+- Exact write set: `crates/acorn-schema/src/zon/decode.rs`, diagnostic tests
+- Primary integration lock: ZON codec
+- Outcome: Preserve public errors while making one-based locations exact for escapes, numbers, duplicates, headers, and row widths.
+- Focused validation: Run exact code/message/location assertions with bounded context.
+- Handoff: Remove ZON-05 and record diagnostic invariants.
+
+## ZON-06 — Expand property and regression coverage
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ZON-04, ZON-05
+- Exact write set: ZON property tests, ZON regression fixtures
+- Primary integration lock: ZON codec
+- Outcome: Cover wide numbers, exponents, nested quoted values, Unicode, CRLF, near limits, and deterministic round trips.
+- Focused validation: Run property tests and retain a seed for every discovered failure.
+- Handoff: Remove ZON-06 and preserve the expanded oracle.
+
+## ZON-07 — Measure, document, and retire
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ZON-06
+- Exact write set: ZON benchmark record, codec documentation, wiki indexes, this plan
+- Primary integration lock: ZON acceptance
+- Outcome: Measure flat/nested/tabular cases, optimize only proven hotspots, run full gates, and remove the plan.
+- Focused validation: Run focused benchmarks/tests, alloc/no-default/WASM, `make lint`, `make test`, docs, and wiki validation.
+- Handoff: Delete this plan and every index, network, and lane entry.

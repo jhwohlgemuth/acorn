@@ -8,6 +8,8 @@ impact: high
 package: [acorn-lib, acorn-schema]
 tags: [refactor, api, endpoints, requests, configuration, errors, dto, health, raid]
 status: in-progress
+execution: phased
+phase_budget_hours: 5
 ---
 
 # Goal
@@ -75,3 +77,148 @@ Each slice lands with focused provider tests before another shared abstraction i
 - Missing OpenAPI operations or template keys fail before network access.
 - RAiD list, lookup, and create workflows are fixture-backed, validate metadata before writes, and cannot target production accidentally from ordinary tests.
 - The resulting ownership is acyclic and ready to move into `acorn-api` without moving workflow orchestration or persistence with it.
+
+# Execution phases
+
+## API-01 — Inventory remaining client duplication
+
+- Status: ready
+- Budget: 5 active hours maximum
+- Prerequisites: none
+- Exact write set: this plan, focused API characterization tests
+- Primary integration lock: shared API contract
+- Outcome: Freeze remaining endpoint, parameter, invocation, environment, health, DTO, and error duplication by provider.
+- Focused validation: Run existing provider tests and record exact callers for each later phase.
+- Handoff: Remove API-01 and make only the first provider-family phase ready.
+
+## API-02 — Migrate identity-provider endpoint composition
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: API-01
+- Exact write set: `crates/acorn-lib/src/io/api/orcid.rs`, `crates/acorn-lib/src/io/api/ror.rs`, `crates/acorn-lib/src/io/api/isni.rs`, `crates/acorn-lib/src/io/api/handle.rs`
+- Primary integration lock: shared API contract
+- Outcome: Use shared endpoints and immutable required/optional parameters for the identity providers.
+- Focused validation: Run focused ORCID, ROR, ISNI, and Handle tests.
+- Handoff: Remove API-02 and record any reusable call shape for API-05.
+
+## API-03 — Migrate research-metadata endpoint composition
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: API-01
+- Exact write set: `crates/acorn-lib/src/io/api/citeas.rs`, `crates/acorn-lib/src/io/api/openalex.rs`, `crates/acorn-lib/src/io/api/osti.rs`, `crates/acorn-lib/src/io/api/swhid.rs`
+- Primary integration lock: shared API contract
+- Outcome: Use shared endpoint and parameter mechanics while preserving provider fallback policy.
+- Focused validation: Run focused CiteAs, OpenAlex, OSTI, and SWHID tests.
+- Handoff: Remove API-03 and record repeated invocation shapes.
+
+## API-04 — Migrate artifact and model endpoint composition
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: API-01
+- Exact write set: `crates/acorn-lib/src/io/api/github/mod.rs`, `crates/acorn-lib/src/io/api/gitlab/service.rs`, `crates/acorn-lib/src/io/api/harbor.rs`, `crates/acorn-lib/src/io/api/huggingface.rs`, `crates/acorn-lib/src/io/api/models_dev.rs`
+- Primary integration lock: shared API contract
+- Outcome: Remove local template/domain and raw-parameter construction from artifact/model providers.
+- Focused validation: Run focused GitHub, GitLab, Harbor, Hugging Face, and models.dev tests.
+- Handoff: Remove API-04 and record shared mechanics for API-05.
+
+## API-05 — Add narrow invocation and parsing helpers
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: API-02, API-03, API-04
+- Exact write set: `crates/acorn-lib/src/io/api/mod.rs`, API helper tests
+- Primary integration lock: shared API contract
+- Outcome: Centralize only duplicated injected-transport invocation, parsing, and explicit fallback shapes.
+- Focused validation: Run helper and migrated-provider success/error/fallback tests.
+- Handoff: Remove API-05 and freeze the minimal helper surface.
+
+## API-06 — Resolve provider configuration once
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: API-04
+- Exact write set: `crates/acorn-lib/src/io/api/mod.rs`, provider configuration tests
+- Primary integration lock: API host composition
+- Outcome: Produce immutable provider configuration with explicit precedence and no operation-time environment reads.
+- Focused validation: Test precedence, missing secrets, empty values, redaction, and configuration immutability.
+- Handoff: Remove API-06 and pass resolved configuration to migrated providers.
+
+## API-07 — Unify health and status classification
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: API-05
+- Exact write set: `crates/acorn-lib/src/io/api/localhost.rs`, `crates/acorn-lib/src/io/api/orcid.rs`, `crates/acorn-lib/src/io/api/ror.rs`, `crates/acorn-lib/src/io/api/harbor.rs`
+- Primary integration lock: shared API contract
+- Outcome: Classify transport-neutral response metadata through provider-owned success predicates.
+- Focused validation: Run health/status tests for success, degraded, transport, and malformed responses.
+- Handoff: Remove API-07 and preserve provider-specific predicates.
+
+## API-08 — Type stable consumed response fields
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: API-05
+- Exact write set: provider DTO modules named by API-01, adjacent fixture tests
+- Primary integration lock: shared response DTOs
+- Outcome: Type only stable fields currently consumed while retaining evolving payloads as optional/raw data.
+- Focused validation: Decode minimum, extended, unknown-field, and malformed provider fixtures.
+- Handoff: Remove API-08 and record stable DTO ownership.
+
+## API-09 — Normalize redacted error envelopes
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: API-05
+- Exact write set: `crates/acorn-lib/src/io/api/mod.rs`, provider error tests
+- Primary integration lock: shared API contract
+- Outcome: Preserve provider detail while exposing one redaction-aware diagnostic message boundary.
+- Focused validation: Test secret removal, nested messages, missing detail, and transport failures.
+- Handoff: Remove API-09 and document error semantics for consumers.
+
+## API-10 — Validate OpenAPI templates before transport
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: API-02, API-03, API-04
+- Exact write set: `crates/acorn-lib/src/io/api/openapi.rs`, OpenAPI snapshot tests
+- Primary integration lock: endpoint catalog
+- Outcome: Reject missing operations and required template keys before the first request.
+- Focused validation: Run imported-operation, missing-key, duplicate, and snapshot tests.
+- Handoff: Remove API-10 and record the accepted catalog contract.
+
+## API-11 — Rebase RAiD list and lookup workflows
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: API-05, API-06, API-09
+- Exact write set: `crates/acorn-lib/src/io/api/raid.rs`, RAiD read fixtures and tests
+- Primary integration lock: RAiD provider
+- Outcome: Use the completed shared contract for list and lookup without changing workflow semantics.
+- Focused validation: Run offline list/lookup fixtures, pagination, not-found, and redaction cases.
+- Handoff: Remove API-11 and reuse the contract for create.
+
+## API-12 — Rebase and guard RAiD creation
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: API-11
+- Exact write set: `crates/acorn-lib/src/io/api/raid.rs`, ignored RAiD sandbox tests
+- Primary integration lock: RAiD provider
+- Outcome: Validate metadata before writes and make production targeting impossible in ordinary tests.
+- Focused validation: Run offline request fixtures and explicitly ignored sandbox write tests.
+- Handoff: Remove API-12 and record the safe live-test invocation.
+
+## API-13 — Close the shared client contract
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: API-07, API-08, API-10, API-12
+- Exact write set: API package documentation, wiki indexes, this plan
+- Primary integration lock: API documentation
+- Outcome: Run full gates, document ownership, and remove the plan before crate extraction.
+- Focused validation: Run focused provider suites, portability, `make lint`, `make test`, `make doc`, and wiki validation.
+- Handoff: Delete this plan and every index, network, and lane entry.

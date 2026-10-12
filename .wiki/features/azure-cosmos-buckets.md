@@ -16,6 +16,8 @@ tags:
   - download
   - provider
 status: planned
+execution: phased
+phase_budget_hours: 5
 ---
 
 # Project code boundaries
@@ -134,3 +136,126 @@ Implement the optional Cosmos client and envelope validation as a provider leaf,
 - Pagination, deterministic ordering, duplicate and unsafe paths, malformed envelopes, unsupported media, response bounds, throttling, and partial failure have focused regression coverage.
 - Azure dependencies are optional and absent from portable/WASM and unrelated feature graphs.
 - The first release is read-only, JSON-only, and does not add Cosmos as a local database backend, upload destination, binary store, change-feed consumer, or generic provider registry.
+
+# Execution phases
+
+## COS-01 — Confirm demand and SDK feasibility
+
+- Status: blocked
+- Budget: 5 active hours maximum
+- Prerequisites: named Cosmos deployment consumer and accessible non-production container
+- Exact write set: this plan, Cosmos feasibility evidence
+- Primary integration lock: Cosmos adoption decision
+- Outcome: Verify the preview SDK, license, MSRV, identity chain, transport controls, and required deployment shape before adding dependencies.
+- Focused validation: Compile a minimal pinned client and record unsupported policy controls or stop adoption.
+- Handoff: Remove COS-01 or retire the plan if demand/feasibility fails.
+
+## COS-02 — Add the optional feature graph
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: COS-01
+- Exact write set: `Cargo.toml`, `Cargo.lock`, `crates/acorn-lib/Cargo.toml`, `deny.toml`
+- Primary integration lock: workspace manifests
+- Outcome: Keep Azure dependencies behind `cosmos` and absent from portable, WASM, and unrelated graphs.
+- Focused validation: Run dependency/license checks plus default, cosmos, no-default, and WASM builds.
+- Handoff: Remove COS-02 and freeze the optional dependency boundary.
+
+## COS-03 — Add typed Cosmos source configuration
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: COS-02
+- Exact write set: bucket source configuration type, configuration tests
+- Primary integration lock: bucket source schema
+- Outcome: Add endpoint/database/container/partition configuration without credentials or repository-enum changes.
+- Focused validation: Run serde, unknown-field, endpoint, partition, compatibility, and secret-rejection tests.
+- Handoff: Remove COS-03 and expose the variant to the adapter.
+
+## COS-04 — Validate the item envelope
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: COS-03
+- Exact write set: `crates/acorn-lib/src/io/cosmos.rs`, envelope tests
+- Primary integration lock: Cosmos adapter
+- Outcome: Enforce version, safe path, JSON media, object content, size, identifier, and duplicate-path rules.
+- Focused validation: Run valid and every malformed/unsafe/conflicting envelope case.
+- Handoff: Remove COS-04 and expose normalized source items.
+
+## COS-05 — Implement bounded paginated listing
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: COS-04
+- Exact write set: `crates/acorn-lib/src/io/cosmos.rs`, listing tests
+- Primary integration lock: Cosmos adapter
+- Outcome: List deterministic source items through parameterized bounded pages and continuation tokens.
+- Focused validation: Test ordering, pagination, item/page/byte/time ceilings, throttling, and redacted errors.
+- Handoff: Remove COS-05 and expose selected item identities.
+
+## COS-06 — Implement authenticated point reads
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: COS-05
+- Exact write set: `crates/acorn-lib/src/io/cosmos.rs`, point-read tests
+- Primary integration lock: Cosmos adapter
+- Outcome: Read selected items with Entra credentials, partition identity, retries, bounds, and early offline rejection.
+- Focused validation: Test credential chain, not-found, ETag, partition mismatch, retry, oversize, timeout, and offline paths.
+- Handoff: Remove COS-06 and publish the provider-neutral item stream.
+
+## COS-07 — Integrate the shared transfer executor
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: COS-06
+- Exact write set: bucket transfer dispatch, Cosmos transfer tests
+- Primary integration lock: bucket transfer service
+- Outcome: Reuse filtering, flattening, clobbering, canonicalization, persistence, and manifest behavior.
+- Focused validation: Run provider-neutral transfer cases against the Cosmos adapter.
+- Handoff: Remove COS-07 and record shared-policy parity.
+
+## COS-08 — Cover CLI configuration and filtering
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: COS-07
+- Exact write set: bucket download command tests, Cosmos configuration fixtures
+- Primary integration lock: bucket CLI integration
+- Outcome: Prove expansion, output, filters, flattening, clobbering, quiet output, and strict validation.
+- Focused validation: Run focused compiled-command tests without public network access.
+- Handoff: Remove COS-08 and preserve command fixtures.
+
+## COS-09 — Persist bounded provenance
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: COS-07
+- Exact write set: transfer provenance model, Cosmos provenance tests
+- Primary integration lock: bucket transfer service
+- Outcome: Record credential-free authority, database, container, partition, item, path, observation, and ETag data.
+- Focused validation: Test serialization, redaction, canonical ingestion, replay, and partial failure.
+- Handoff: Remove COS-09 and freeze provenance fields.
+
+## COS-10 — Document the preview capability
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: COS-08, COS-09
+- Exact write set: bucket source documentation, `CommandLineHelp.md`
+- Primary integration lock: bucket documentation
+- Outcome: Document envelope, partition key, identity, limits, optional feature, preview status, and read-only scope.
+- Focused validation: Run docs/help generation, examples, dependency-graph checks, and internal links.
+- Handoff: Remove COS-10 and preserve the supported profile.
+
+## COS-11 — Run opt-in live evidence and retire
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: COS-10
+- Exact write set: non-production Cosmos container, this plan, wiki indexes
+- Primary integration lock: Cosmos acceptance
+- Outcome: Run the bounded live smoke, full offline gates, and remove the plan for the tested profile.
+- Focused validation: Run live list/read/transfer, focused tests, feature/portable checks, `make lint`, `make test`, and wiki validation.
+- Handoff: Delete this plan and every index, network, and lane entry.

@@ -8,6 +8,8 @@ impact: critical
 package: [acorn-core, acorn-schema, acorn-lib, acorn-cli, acorn-fuzz]
 tags: [refactor, export, powerpoint, ooxml, interpolation, fuzzing]
 status: in-progress
+execution: phased
+phase_budget_hours: 5
 ---
 
 # Goal
@@ -69,3 +71,115 @@ The replacement contract lands before renderer integration. The complete context
 - Sectionless drafts and authored/fallback media retain their documented behavior.
 - Bounded fuzz runs find no panic or invariant violation, and all regression artifacts are retained as deterministic tests.
 - Generated presentations open without a repair prompt, and the boundary is ready to move into `acorn-export`.
+
+# Execution phases
+
+## EXP-01 — Characterize replacement behavior
+
+- Status: ready
+- Budget: 5 active hours maximum
+- Prerequisites: none
+- Exact write set: `crates/acorn-core/src/util/interpolation.rs`, adjacent interpolation tests
+- Primary integration lock: portable export primitives
+- Outcome: Freeze scalar, list, absence, escaping, repetition, and split-placeholder behavior.
+- Focused validation: Run the focused `acorn-core` interpolation tests.
+- Handoff: Remove EXP-01 and use its fixtures for EXP-02.
+
+## EXP-02 — Add the portable replacement plan
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: EXP-01
+- Exact write set: `crates/acorn-core/src/util/interpolation.rs`, `crates/acorn-core/src/util/mod.rs`
+- Primary integration lock: portable export primitives
+- Outcome: Return an immutable scalar/list replacement plan without HTML or XML dependencies.
+- Focused validation: Run focused tests plus `cargo check -p acorn-core --no-default-features --features alloc`.
+- Handoff: Remove EXP-02 and expose the stable replacement values to EXP-03.
+
+## EXP-03 — Project one ExportContext
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: EXP-02
+- Exact write set: `crates/acorn-lib/src/io/export.rs`, `crates/acorn-lib/src/io/mod.rs`, focused export tests
+- Primary integration lock: export projection
+- Outcome: Project typed scalar, list, and image values once with draft and required-section validation.
+- Focused validation: Run focused export projection tests.
+- Handoff: Remove EXP-03 and freeze the adapter input contract.
+
+## EXP-04 — Migrate HTML rendering to ExportContext
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: EXP-03
+- Exact write set: `crates/acorn-cli/src/template/mod.rs`, template tests
+- Primary integration lock: HTML export adapter
+- Outcome: Render HTML exclusively from the shared context without changing authored/fallback image behavior.
+- Focused validation: Run focused template and PDF export tests.
+- Handoff: Remove EXP-04 and record parity fixtures for EXP-05.
+
+## EXP-05 — Migrate PowerPoint projection to ExportContext
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: EXP-03
+- Exact write set: `crates/acorn-lib/src/powerpoint/mod.rs`, PowerPoint projection tests
+- Primary integration lock: PowerPoint export adapter
+- Outcome: Consume the shared context and match HTML missing-value and image semantics.
+- Focused validation: Run focused PowerPoint tests against parity fixtures.
+- Handoff: Remove EXP-05 and make parser-backed mutation work ready.
+
+## EXP-06 — Replace regex interpolation with event parsing
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: EXP-05
+- Exact write set: `crates/acorn-lib/src/powerpoint/interpolation.rs`, interpolation tests
+- Primary integration lock: OOXML interpolation
+- Outcome: Transform scalar and list placeholders split across runs and return part-qualified errors.
+- Focused validation: Run interpolation tests for namespaces, properties, malformed XML, and I/O failure.
+- Handoff: Remove EXP-06 and pass fallible transforms to EXP-07.
+
+## EXP-07 — Stage OOXML mutations atomically
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: EXP-06
+- Exact write set: `crates/acorn-lib/src/powerpoint/mod.rs`, atomic-mutation tests
+- Primary integration lock: OOXML archive mutation
+- Outcome: Validate slide, relationship, media, content-type, and ASPECT changes before publication.
+- Focused validation: Run failure-injection tests proving no usable partial export.
+- Handoff: Remove EXP-07 and expose pure transforms to fuzzing.
+
+## EXP-08 — Add bounded OOXML fuzz targets
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: EXP-06, EXP-07
+- Exact write set: `crates/acorn-fuzz/fuzz_targets/powerpoint.rs`, `crates/acorn-fuzz/Cargo.toml`
+- Primary integration lock: fuzz manifest
+- Outcome: Cover interpolation, slide lists, relationships, content types, and ASPECT mutations with bounded invariants.
+- Focused validation: Run bounded seed fuzzing and retain every regression input.
+- Handoff: Remove EXP-08 and record seeds and commands for EXP-09.
+
+## EXP-09 — Verify generated presentations visually
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: EXP-04, EXP-07
+- Exact write set: deterministic export fixtures, visual validation record in this plan
+- Primary integration lock: renderer validation
+- Outcome: Prove representative generated presentations open without repair and preserve expected layout.
+- Focused validation: Inspect outputs in PowerPoint or LibreOffice and compare HTML/PDF/PPTX semantics.
+- Handoff: Remove EXP-09 and record application versions and results.
+
+## EXP-10 — Close export hardening
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: EXP-08, EXP-09
+- Exact write set: `docs/src/packages/acorn-export.md`, wiki indexes, this plan
+- Primary integration lock: export documentation
+- Outcome: Document the shared contract, run final gates, and remove this completed plan.
+- Focused validation: Run focused suites, portability checks, `make lint`, `make test`, `make doc`, and wiki validation.
+- Handoff: Delete this plan and its index, network, and lane entries.

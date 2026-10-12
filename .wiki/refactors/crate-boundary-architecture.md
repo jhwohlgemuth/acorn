@@ -7,6 +7,7 @@ impact: critical
 package: [workspace, acorn-lib, acorn-core, acorn-schema, acorn-analysis, acorn-api, acorn-store, acorn-export, acorn-host, acorn-wasm, acorn-service, acorn-server, acorn-cmd]
 tags: [refactor, architecture, crate-extraction, portability, dependencies]
 status: in-progress
+execution: coordination
 ---
 
 # Goal

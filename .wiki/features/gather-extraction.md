@@ -8,6 +8,8 @@ impact: high
 package: [workspace, acorn-lib, acorn-cli, acorn-tui]
 tags: [feature, gather, scraping, html, css, inference, provenance]
 status: planned
+execution: phased
+phase_budget_hours: 5
 ---
 
 # Goal
@@ -86,3 +88,126 @@ Each step must pass before the next begins. The inference slice cannot weaken a 
 - CLI and TUI share loading, extraction, discovery, persistence, HTTP, and offline behavior without blocking the TUI event loop.
 - Scraping and provider dependencies remain absent unless their independent capabilities are enabled.
 - No Rhai hook, generic sidecar registry, remote script access, workflow hook, or automatic model selection is introduced.
+
+# Execution phases
+
+## GAT-01 — Define normalized selector requests
+
+- Status: ready
+- Budget: 5 active hours maximum
+- Prerequisites: none
+- Exact write set: `crates/acorn-lib/src/io/gather/extraction.rs`, selector tests
+- Primary integration lock: gather extraction service
+- Outcome: Parse first-`=` field/CSS mappings and freeze field, text/attribute, cardinality, order, whitespace, duplicate, and required rules.
+- Focused validation: Run valid/invalid selector and normalization table tests.
+- Handoff: Remove GAT-01 and expose immutable selector requests.
+
+## GAT-02 — Implement pure deterministic extraction
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: GAT-01
+- Exact write set: `crates/acorn-lib/src/io/gather/extraction.rs`, HTML extraction fixtures and tests
+- Primary integration lock: gather extraction service
+- Outcome: Extract ordered values and per-value provenance from supplied HTML without transport or inference.
+- Focused validation: Run zero/one/many, attribute, Unicode, malformed markup, duplicate, and required-field tests.
+- Handoff: Remove GAT-02 and freeze deterministic results.
+
+## GAT-03 — Add bounded asynchronous fetching
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: GAT-02
+- Exact write set: `crates/acorn-lib/src/io/gather/fetch.rs`, transport policy tests
+- Primary integration lock: gather transport
+- Outcome: Enforce dedicated concurrency, bytes, decompression, media, redirects, destinations, retries, timeouts, and cache provenance.
+- Focused validation: Run local-server tests for every limit, redirect, private address, encoding, and offline rejection.
+- Handoff: Remove GAT-03 and expose fetched original responses to extraction.
+
+## GAT-04 — Add CLI scraping composition
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: GAT-03
+- Exact write set: `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/commands/gather/mod.rs`, `CommandLineHelp.md`
+- Primary integration lock: CLI syntax and generated help
+- Outcome: Add explicit scrape/selectors and compose fetching, extraction, discovery, validation, and persistence.
+- Focused validation: Run parser, command, offline, transport-failure, deterministic-output, and help tests.
+- Handoff: Remove GAT-04 and freeze CLI behavior.
+
+## GAT-05 — Migrate TUI gather to the shared pipeline
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: GAT-04
+- Exact write set: `crates/acorn-tui/src/screens/gather.rs`, TUI gather tests
+- Primary integration lock: TUI gather screen
+- Outcome: Reuse shared source/extraction/discovery/persistence off the event loop and remove direct HTTP ownership.
+- Focused validation: Test responsiveness, cancellation, offline behavior, persistence, and CLI/TUI parity.
+- Handoff: Remove GAT-05 and record the single shared service boundary.
+
+## GAT-06 — Freeze typed inference DTOs
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: GAT-02
+- Exact write set: `crates/acorn-lib/src/io/gather/inference.rs`, inference contract tests
+- Primary integration lock: gather inference contract
+- Outcome: Define versioned requests/responses with source, schema, provider/model, prompt, limits, cancellation, and provenance.
+- Focused validation: Run strict serde, identity, limit, unknown-field, and fingerprint tests.
+- Handoff: Remove GAT-06 and expose the provider-neutral contract.
+
+## GAT-07 — Implement one fake-backed provider adapter
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: GAT-06
+- Exact write set: `crates/acorn-lib/src/io/gather/inference.rs`, fake provider tests
+- Primary integration lock: gather inference contract
+- Outcome: Prove request, response, error, cancellation, and capability behavior without a registry.
+- Focused validation: Test success, refusal, malformed, timeout, cancellation, oversize, and redacted diagnostics.
+- Handoff: Remove GAT-07 and retain the concrete adapter boundary.
+
+## GAT-08 — Enforce deterministic-first fallback ordering
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: GAT-04, GAT-07
+- Exact write set: `crates/acorn-lib/src/io/gather/mod.rs`, ordering tests
+- Primary integration lock: gather extraction service
+- Outcome: Invoke explicit inference only for unresolved required fields and never on deterministic transport/validation failure.
+- Focused validation: Run complete, missing, failed-fetch, failed-validation, unavailable-provider, and offline cases.
+- Handoff: Remove GAT-08 and freeze fallback semantics.
+
+## GAT-09 — Validate proposals and cache identity
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: GAT-08
+- Exact write set: `crates/acorn-lib/src/io/gather/mod.rs`, proposal/cache tests
+- Primary integration lock: gather extraction service
+- Outcome: Keep proposals separate until schema/domain validation and key cache entries by every behavior-affecting input.
+- Focused validation: Test rejected proposals, deterministic precedence, credential exclusion, stale fingerprints, and cache replay.
+- Handoff: Remove GAT-09 and expose validated candidate merges.
+
+## GAT-10 — Document the combined pipeline
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: GAT-05, GAT-09
+- Exact write set: gather CLI documentation, TUI documentation, `CommandLineHelp.md`
+- Primary integration lock: gather documentation
+- Outcome: Document selector rules, transport limits, provenance, explicit inference, precedence, cache, and failure behavior.
+- Focused validation: Run docs/help generation and example commands offline.
+- Handoff: Remove GAT-10 and preserve the public contract.
+
+## GAT-11 — Run full gates and retire
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: GAT-10
+- Exact write set: this plan, wiki indexes
+- Primary integration lock: gather acceptance
+- Outcome: Complete feature/portable/full validation and remove the plan.
+- Focused validation: Run focused CLI/TUI/library tests, portability, `make lint`, `make test`, `make doc`, and wiki validation.
+- Handoff: Delete this plan and every index, network, and lane entry.

@@ -7,6 +7,8 @@ impact: high
 package: [workspace, acorn-diff, acorn-lib, acorn-cli]
 tags: [refactor, diff, security, performance, portability, api]
 status: planned
+execution: phased
+phase_budget_hours: 5
 ---
 
 # Goal
@@ -105,3 +107,137 @@ Translate the aligned edit script with one current target index: equal elements 
 # Related plans
 
 - [Crate boundary architecture](crate-boundary-architecture.md)
+
+# Execution phases
+
+## DIF-01 — Characterize cost and output behavior
+
+- Status: ready
+- Budget: 5 active hours maximum
+- Prerequisites: none
+- Exact write set: `crates/acorn-diff/benches/diff.rs`, diff characterization tests
+- Primary integration lock: acorn-diff public API
+- Outcome: Freeze compatibility output and baseline representative resource cases.
+- Focused validation: Run current default/alloc/preserve-order tests and benchmark seeds.
+- Handoff: Remove DIF-01 and use the baselines for option defaults.
+
+## DIF-02 — Add typed errors and option contracts
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: DIF-01
+- Exact write set: `crates/acorn-diff/src/lib.rs`, options/error tests
+- Primary integration lock: acorn-diff public API
+- Outcome: Add `DiffError`, JSON options, unified options, limits, context, and positional default.
+- Focused validation: Test defaults, zero limits, builders, display, and alloc-only compilation.
+- Handoff: Remove DIF-02 and freeze the limit semantics.
+
+## DIF-03 — Preflight JSON depth and nodes iteratively
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: DIF-02
+- Exact write set: `crates/acorn-diff/src/json_patch/mod.rs`, JSON limit tests
+- Primary integration lock: acorn-diff public API
+- Outcome: Reject excessive programmatic values before recursive equality or traversal.
+- Focused validation: Test at/below/above depth and node bounds without panic or stack exhaustion.
+- Handoff: Remove DIF-03 and pass accepted values to bounded comparison.
+
+## DIF-04 — Bound JSON operations and traversal
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: DIF-03
+- Exact write set: `crates/acorn-diff/src/json_patch/mod.rs`, JSON bounded tests
+- Primary integration lock: acorn-diff public API
+- Outcome: Enforce deterministic visited-node, operation, output, and alignment-work ceilings with no partial patch.
+- Focused validation: Run every limit boundary and independent patch-application oracle.
+- Handoff: Remove DIF-04 and expose the bounded JSON entry point.
+
+## DIF-05 — Add bounded sink-based unified rendering
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: DIF-02
+- Exact write set: `crates/acorn-diff/src/unified/mod.rs`, unified bounded tests
+- Primary integration lock: acorn-diff public API
+- Outcome: Render through `core::fmt::Write` with input, line, context, and output limits.
+- Focused validation: Test byte/line/output boundaries and prove writers never exceed the ceiling.
+- Handoff: Remove DIF-05 and retain the compatibility string wrapper.
+
+## DIF-06 — Migrate library and fix-preview consumers
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: DIF-04, DIF-05
+- Exact write set: `crates/acorn-lib/src/analyzer/diff/mod.rs`, `crates/acorn-lib/src/analyzer/fix/preview.rs`, focused tests
+- Primary integration lock: analyzer diff integration
+- Outcome: Use explicit bounded entry points for semantic adapters and fix previews.
+- Focused validation: Run analyzer semantic/fix tests for accepted and rejected limits.
+- Handoff: Remove DIF-06 and record first-party limit policy.
+
+## DIF-07 — Bound CLI file and terminal output handling
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: DIF-06
+- Exact write set: `crates/acorn-cli/src/commands/diff/mod.rs`, CLI diff tests
+- Primary integration lock: CLI diff command
+- Outcome: Enforce byte limits before allocation and sanitize only human terminal presentation.
+- Focused validation: Test files, redirects, terminals, oversize input, raw patch applicability, and exits.
+- Handoff: Remove DIF-07 and preserve raw-versus-terminal behavior.
+
+## DIF-08 — Escape unified header labels
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: DIF-05
+- Exact write set: `crates/acorn-diff/src/unified/mod.rs`, header tests
+- Primary integration lock: acorn-diff public API
+- Outcome: Keep labels on one physical line while preserving ordinary Unicode.
+- Focused validation: Test backslash, tab, CR, LF, escape, NUL, DEL, Unicode, and literal escaped forms.
+- Handoff: Remove DIF-08 and document the machine-output contract.
+
+## DIF-09 — Complete patch construction and iteration
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: DIF-02
+- Exact write set: `crates/acorn-diff/src/json_patch/mod.rs`, patch API tests
+- Primary integration lock: acorn-diff public API
+- Outcome: Add operation constructors/accessors plus patch construction, length, and owned/borrowed iteration.
+- Focused validation: Test all six RFC 6902 operation shapes and compatibility-trait parity.
+- Handoff: Remove DIF-09 and record any retained compatibility trait.
+
+## DIF-10 — Add bounded sequence-aware arrays
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: DIF-04
+- Exact write set: `crates/acorn-diff/src/json_patch/mod.rs`, sequence tests
+- Primary integration lock: acorn-diff public API
+- Outcome: Add opt-in deterministic sequence alignment with positional fallback at the work ceiling.
+- Focused validation: Apply generated patches for insert/remove/replace, repeats, nesting, and fallback boundaries.
+- Handoff: Remove DIF-10 and keep positional output as the default.
+
+## DIF-11 — Run fuzz, benchmark, and portability gates
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: DIF-07, DIF-08, DIF-09, DIF-10
+- Exact write set: `crates/acorn-diff/benches/diff.rs`, diff fuzz targets, benchmark record
+- Primary integration lock: diff validation
+- Outcome: Measure limits/sequence behavior and prove normal, alloc-only, preserve-order, and WASM compatibility.
+- Focused validation: Run bounded fuzz seeds, benchmarks, crate tests, clippy, rustdoc, and WASM checks.
+- Handoff: Remove DIF-11 and retain measured defaults and regression seeds.
+
+## DIF-12 — Document and retire diff hardening
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: DIF-11
+- Exact write set: `docs/src/packages/acorn-diff.md`, wiki indexes, this plan
+- Primary integration lock: diff documentation
+- Outcome: Document limits, raw output, patch API, array strategies, and remove the completed plan.
+- Focused validation: Run package docs, focused consumers, `make lint`, `make test`, and wiki validation.
+- Handoff: Delete this plan and every index, network, and lane entry.

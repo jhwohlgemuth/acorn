@@ -4,7 +4,7 @@ okf_version: "0.1"
 
 # Parallel execution guide
 
-This guide overlays exact write ownership and integration locks on the [plan dependency network](plan-network.md). A plan title is not an implementation assignment: every active slice must first name exact files, public contracts, prerequisite baseline, focused validation, and landing order.
+This guide overlays exact write ownership and integration locks on the [plan dependency network](plan-network.md). A plan title is not an implementation assignment: start one named phase only after confirming its exact files or external systems, public contracts, prerequisite baseline, focused validation, and landing order.
 
 ## Orthogonality test
 
@@ -79,3 +79,5 @@ On the current tree, these leaf slices can proceed together if they honor the lo
 Before starting, record the plan, atomic slice, exact update/create/delete set, requested locks, public contracts, baseline, focused test, and landing order.
 
 Before handoff, report changed files, public-contract changes, regenerated artifacts, validation results, and locks still needed. If the slice expands, stop and reschedule it rather than silently taking another lane.
+
+After a phase completes, preserve durable evidence and remove the completed phase or task from its plan. Keep unfinished phase IDs stable, release its lock, update newly eligible phases, and remove any dangling dependency. Do not retain completed checklists as execution history.

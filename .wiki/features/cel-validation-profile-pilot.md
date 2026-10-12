@@ -7,6 +7,8 @@ impact: high
 package: [acorn-lib, acorn-cli]
 tags: [feature, policy, validation, cel]
 status: planned
+execution: phased
+phase_budget_hours: 5
 ---
 
 # Goal and recommendation
@@ -152,3 +154,137 @@ Add separate fixtures for `record.title` returning a string (evaluation-error), 
 - [ ] User documentation and generated help explain selection, enforcement, compatibility, and testing.
 
 When completed, remove this plan and its index/network/lane entries; retain implemented contracts and verified evidence in code, tests, and public documentation.
+
+# Execution phases
+
+## CEL-01 — Obtain owner-backed rules and fixtures
+
+- Status: blocked
+- Budget: 5 active hours maximum
+- Prerequisites: named validation-profile owner
+- Exact write set: `tests/fixtures/cel/pilot.json`, this plan
+- Primary integration lock: CEL pilot contract
+- Outcome: Freeze three useful rules with positive, negative, missing, null, and type-mismatch cases.
+- Focused validation: Review each expected finding and compare it with current Rust/Rhai behavior.
+- Handoff: Remove CEL-01 and make the runtime gates ready.
+
+## CEL-02 — Pin the dependency and license gate
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CEL-01
+- Exact write set: `Cargo.toml`, `Cargo.lock`, `deny.toml`, this plan
+- Primary integration lock: workspace manifests
+- Outcome: Select a pinned CEL crate only if license, MSRV, dependency graph, and portability are acceptable.
+- Focused validation: Run dependency/license checks and minimal native/portable builds.
+- Handoff: Remove CEL-02 or record the stop decision without adding runtime code.
+
+## CEL-03 — Characterize language and checker semantics
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CEL-02
+- Exact write set: `tests/fixtures/cel/conformance.json`, this plan
+- Primary integration lock: CEL pilot contract
+- Outcome: Freeze the supported syntax, checking behavior, macros, numbers, nulls, errors, and reference differences.
+- Focused validation: Run the fixture corpus through the selected crate and reference implementation.
+- Handoff: Remove CEL-03 and document the supported subset.
+
+## CEL-04 — Prove enforceable runtime budgets
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CEL-02
+- Exact write set: CEL resource harness, `tests/fixtures/cel/resources.json`, this plan
+- Primary integration lock: CEL runtime feasibility
+- Outcome: Demonstrate bounded CPU, memory, recursion, input, output, and thread isolation or stop adoption.
+- Focused validation: Exercise adversarial expressions at every proposed boundary.
+- Handoff: Remove CEL-04 or record the stop gate and retire the plan.
+
+## CEL-05 — Add the versioned profile manifest
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CEL-03, CEL-04
+- Exact write set: `crates/acorn-lib/src/analyzer/cel/manifest.rs`, manifest tests
+- Primary integration lock: analyzer profile schema
+- Outcome: Decode strict rule IDs, messages, paths, severities, and boolean expressions with collected errors.
+- Focused validation: Run valid, multi-error, unknown-field, and duplicate-ID tests.
+- Handoff: Remove CEL-05 and freeze the serialized profile contract.
+
+## CEL-06 — Implement compile-once evaluation
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CEL-05
+- Exact write set: `crates/acorn-lib/src/analyzer/cel/runtime.rs`, runtime tests
+- Primary integration lock: CEL analyzer module
+- Outcome: Compile profiles once and evaluate fresh allowlisted bindings within the proven limits.
+- Focused validation: Test deterministic reuse, isolation, timeout/resource failure, and offline operation.
+- Handoff: Remove CEL-06 and expose typed evaluation results.
+
+## CEL-07 — Map findings and provenance
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CEL-06
+- Exact write set: `crates/acorn-lib/src/analyzer/cel/mod.rs`, finding tests
+- Primary integration lock: analyzer result model
+- Outcome: Emit ordered findings, skipped/error states, profile identity, and bounded provenance.
+- Focused validation: Compare results with the frozen expected fixture cases.
+- Handoff: Remove CEL-07 and provide the analyzer boundary to CLI integration.
+
+## CEL-08 — Add explicit CLI profile selection
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CEL-07
+- Exact write set: `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/commands/check/mod.rs`, `CommandLineHelp.md`
+- Primary integration lock: CLI syntax and generated help
+- Outcome: Add explicit local profile selection with distinct advisory and enforcement behavior.
+- Focused validation: Run parser, absent-profile, advisory, enforcement, offline, and generated-help tests.
+- Handoff: Remove CEL-08 and freeze user-visible behavior.
+
+## CEL-09 — Integrate analyzer summaries
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CEL-08
+- Exact write set: `crates/acorn-analysis/src/check.rs`, analyzer summary tests
+- Primary integration lock: check analyzer pipeline
+- Outcome: Include CEL findings and skipped/error states without changing existing check ordering.
+- Focused validation: Run mixed native/CEL batch and summary tests.
+- Handoff: Remove CEL-09 and record compatibility evidence.
+
+## CEL-10 — Measure conformance and resource cost
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CEL-09
+- Exact write set: CEL benchmark harness, this plan
+- Primary integration lock: CEL acceptance evidence
+- Outcome: Record cold/warm performance, binary size, memory, and conformance against frozen budgets.
+- Focused validation: Run the predeclared benchmark and resource corpus on the supported profile.
+- Handoff: Remove CEL-10 and preserve dated measurements.
+
+## CEL-11 — Prove owner-editable policy
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CEL-10
+- Exact write set: representative CEL profiles, CEL user documentation
+- Primary integration lock: CEL profile documentation
+- Outcome: Have the named owner change a requirement and tests without Rust changes.
+- Focused validation: Run the edited profile and review its resulting findings.
+- Handoff: Remove CEL-11 and record owner acceptance.
+
+## CEL-12 — Decide adoption and retire
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CEL-11
+- Exact write set: CEL user documentation, wiki indexes, this plan
+- Primary integration lock: CEL release decision
+- Outcome: Keep the capability opt-in or remove it according to the frozen gates, then retire the plan.
+- Focused validation: Run focused tests, portability, `make lint`, `make test`, docs/help checks, and wiki validation.
+- Handoff: Delete this plan and all index, network, and lane entries after the decision is durable.

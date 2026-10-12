@@ -7,6 +7,8 @@ impact: high
 package: [workspace, acorn-lib, acorn-cli]
 tags: [feature, inference, sidecar, slm, enrichment, privacy, semantic-decision]
 status: in-progress
+execution: phased
+phase_budget_hours: 5
 ---
 
 # Goal
@@ -170,7 +172,7 @@ The [official ONNX export](https://huggingface.co/SupersonicLabs/Julia-1-ONNX) s
 5. **Wire explicit CLI and docs.** Claim the current inference/download command files, parser/dispatch roots, generated help, `docs/src/inference/slm.md`, and book index under the parent locks. Add dedicated `tests/fixtures/slm/decision/` protocol and evaluation fixtures, listing exact files at implementation handoff. No research-activity schema, analyzer/check, gather, or database changes belong to this slice.
 6. **Validate and release separately.** Run protocol tests without model downloads, then opt-in real-model offline/package tests on every advertised target. Record the measured decision quality and resource report. Julia can ship only after its own gates pass, independent of the three Swift adapters.
 
-The [model acquisition plan](model-acquisition-hardening.md) owns shared Hugging Face/OCI/materialization changes; consume its landed contracts and coordinate any missing capability there. Workspace feature changes follow [dependency capabilities](../refactors/portability/dependency-features-and-macos-size.md). The [Agent tools lane](../parallel-execution.md) serializes shared sidecar, CLI, artifact, and CI/build changes with Needle and the other SLM adapters. No dependency on Title's macOS runner is imposed on the Linux-only Julia pilot.
+The [model acquisition plan](model-acquisition-hardening.md) owns shared Hugging Face/OCI/materialization changes; consume its landed contracts and coordinate any missing capability there. Workspace feature changes use the workspace-graph lock in the [parallel execution guide](../parallel-execution.md). The Agent tools lane serializes shared sidecar, CLI, artifact, and CI/build changes with Needle and the other SLM adapters. No dependency on Title's macOS runner is imposed on the Linux-only Julia pilot.
 
 ## Julia validation and acceptance
 
@@ -205,3 +207,412 @@ Measure cold/warm latency, p50/p95, peak process-tree RSS, installed/download by
 - [ ] Tongue, Redact, and Title meet their frozen numeric quality gates; all three also pass license, artifact, lifecycle, documentation, and platform gates before stable release.
 - [ ] Title is clearly macOS ARM64-only, Windows is clearly unsupported, and unavailable capabilities fail with actionable errors rather than remote fallback.
 - [ ] Schemer, persistence, and semantic-decision work remain gated follow-ons and are not represented as shipped.
+
+# Execution phases
+
+## SLM-01 — Obtain redistribution approval
+
+- Status: blocked
+- Budget: 5 active hours maximum
+- Prerequisites: legal owner availability
+- Exact write set: Desert Ant SDK/weight approval record, this plan
+- Primary integration lock: SLM release gate
+- Outcome: Record approval or rejection for the pinned SDK and Tongue, Redact, and Title weights.
+- Focused validation: Verify every artifact and required notice is covered by the dated decision.
+- Handoff: Remove SLM-01 or stop the Swift release path without speculative packaging.
+
+## SLM-02 — Prove the macOS build host
+
+- Status: blocked
+- Budget: 5 active hours maximum
+- Prerequisites: schedulable macOS ARM64 host
+- Exact write set: macOS ARM64 runner configuration, `scripts/slm/check-macos-host.sh`, this plan
+- Primary integration lock: SLM release gate
+- Outcome: Record one schedulable Xcode 26 and Swift 6.2+ native build host.
+- Focused validation: Run the host check and one pinned Swift package compilation.
+- Handoff: Remove SLM-02 and publish non-secret host evidence.
+
+## SLM-03 — Freeze the one-request protocol fixtures
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-01
+- Exact write set: `tests/fixtures/slm/protocol/`, protocol contract
+- Primary integration lock: SLM protocol
+- Outcome: Freeze readiness, request, response, error, timeout, and request-ID envelopes for three capabilities.
+- Focused validation: Review strict JSON-lines, byte limits, stdout/stderr, and redaction cases.
+- Handoff: Remove SLM-03 and use the fixtures for every runner and Rust adapter.
+
+## SLM-04 — Implement shared Swift protocol support
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-02, SLM-03
+- Exact write set: `scripts/slm/runner/Package.swift`, `scripts/slm/runner/Package.resolved`, `scripts/slm/runner/Sources/SlmProtocol/Protocol.swift`
+- Primary integration lock: Swift SLM package
+- Outcome: Read one bounded request, emit readiness/typed response, isolate diagnostics, and exit deterministically.
+- Focused validation: Run protocol-only Swift tests for malformed, oversize, timeout, and request-ID cases.
+- Handoff: Remove SLM-04 and freeze the shared runner API.
+
+## SLM-05 — Implement TongueRunner
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-04
+- Exact write set: `scripts/slm/runner/Sources/TongueRunner/main.swift`, Tongue runner tests
+- Primary integration lock: Swift SLM package
+- Outcome: Produce typed language, reliability, and explicit abstention within 512 scalars.
+- Focused validation: Run protocol fixtures and pinned-model smoke tests on a supported host.
+- Handoff: Remove SLM-05 and preserve runner/model revisions.
+
+## SLM-06 — Implement RedactRunner
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-04
+- Exact write set: `scripts/slm/runner/Sources/RedactRunner/main.swift`, Redact runner tests
+- Primary integration lock: Swift SLM package
+- Outcome: Return validated non-overlapping UTF-8 spans and an optional explicitly requested copy.
+- Focused validation: Run structured-rule/model, boundary, malformed, and 64-KiB limit cases.
+- Handoff: Remove SLM-06 and preserve runner/model revisions.
+
+## SLM-07 — Implement TitleRunner
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-04
+- Exact write set: `scripts/slm/runner/Sources/TitleRunner/main.swift`, Title runner tests
+- Primary integration lock: Swift SLM package
+- Outcome: Return title/subtitle proposals, findings, revisions, and source fingerprint without silent truncation.
+- Focused validation: Run malformed, unsupported-claim, subtitle-validation, and 16-KiB input cases on macOS ARM64.
+- Handoff: Remove SLM-07 and preserve runner/model revisions.
+
+## SLM-08 — Build Linux x86_64 runner artifacts
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-05, SLM-06
+- Exact write set: `.gitlab-ci.yml`, `scripts/slm/create-oci-artifact.sh`, Linux x86_64 build record
+- Primary integration lock: CI build entry points
+- Outcome: Build and smoke Tongue/Redact artifacts for Linux x86_64.
+- Focused validation: Verify clean build, protocol, real model, offline execution, bytes, hashes, and notices.
+- Handoff: Remove SLM-08 and retain immutable artifact facts.
+
+## SLM-09 — Build Linux ARM64 runner artifacts
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-05, SLM-06
+- Exact write set: `.gitlab-ci.yml`, `scripts/slm/create-oci-artifact.sh`, Linux ARM64 build record
+- Primary integration lock: CI build entry points
+- Outcome: Build and smoke Tongue/Redact artifacts for Linux ARM64.
+- Focused validation: Verify clean build, protocol, real model, offline execution, bytes, hashes, and notices.
+- Handoff: Remove SLM-09 and retain immutable artifact facts.
+
+## SLM-10 — Build macOS ARM64 runner artifacts
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-02, SLM-05, SLM-06, SLM-07
+- Exact write set: macOS ARM64 build job, `scripts/slm/create-oci-artifact.sh`, macOS artifact record
+- Primary integration lock: CI build entry points
+- Outcome: Build and smoke Tongue, Redact, and Title artifacts for macOS ARM64.
+- Focused validation: Verify clean build, protocol, real models, offline execution, bytes, hashes, and notices.
+- Handoff: Remove SLM-10 and retain immutable artifact facts.
+
+## SLM-11 — Publish immutable Swift artifacts
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-08, SLM-09, SLM-10
+- Exact write set: `scripts/slm/upload-runners.sh`, versioned artifact registry, artifact manifest record
+- Primary integration lock: SLM artifact publication
+- Outcome: Publish each capability/platform artifact and record exact URL, size, SHA-256, and license.
+- Focused validation: Install each artifact into a clean cache and rerun offline protocol/model smoke tests.
+- Handoff: Remove SLM-11 and provide immutable facts to Rust integration.
+
+## SLM-12 — Add the opt-in Rust feature and manifests
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-11
+- Exact write set: `crates/acorn-lib/Cargo.toml`, `crates/acorn-lib/src/io/mod.rs`, `crates/acorn-lib/src/io/sidecar/slm/assets.rs`
+- Primary integration lock: library feature graph
+- Outcome: Add `slm` and pin validated capability/platform assets without predicting checksums.
+- Focused validation: Run feature/no-feature, dependency, manifest, custom-location, and unsupported-target tests.
+- Handoff: Remove SLM-12 and freeze asset identity.
+
+## SLM-13 — Implement bounded SLM process lifecycle
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-03, SLM-12
+- Exact write set: `crates/acorn-lib/src/io/sidecar/slm/process.rs`, `crates/acorn-lib/src/io/sidecar/slm/protocol.rs`, lifecycle tests
+- Primary integration lock: shared sidecar root
+- Outcome: Start verified assets with telemetry off, bounded I/O, cancellation, isolation, and process-tree cleanup.
+- Focused validation: Run fixture-only startup, timeout, cancellation, concurrency, cleanup, stderr, and redaction tests.
+- Handoff: Remove SLM-13 and expose a typed consuming lifecycle.
+
+## SLM-14 — Add LanguageSidecar
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-13
+- Exact write set: `crates/acorn-lib/src/io/sidecar/slm/language.rs`, language adapter tests
+- Primary integration lock: shared sidecar root
+- Outcome: Validate and return language results without remote fallback or mutation.
+- Focused validation: Run fixtures, limits, uncertain outcomes, asset, offline, and real-model smoke tests.
+- Handoff: Remove SLM-14 and freeze the typed result.
+
+## SLM-15 — Add RedactSidecar
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-13
+- Exact write set: `crates/acorn-lib/src/io/sidecar/slm/redact.rs`, redact adapter tests
+- Primary integration lock: shared sidecar root
+- Outcome: Validate source spans, scores, modes, and optional copies without claiming complete detection.
+- Focused validation: Run UTF-8, overlap, threshold, limit, asset, offline, and real-model smoke tests.
+- Handoff: Remove SLM-15 and freeze the typed result.
+
+## SLM-16 — Add TitleSidecar
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-13
+- Exact write set: `crates/acorn-lib/src/io/sidecar/slm/title.rs`, title adapter tests
+- Primary integration lock: shared sidecar root
+- Outcome: Validate title/subtitle proposals and preserve findings, model/prompt identity, and source fingerprint.
+- Focused validation: Run schema, subtitle, stale-source, limit, asset, offline, and real-model smoke tests.
+- Handoff: Remove SLM-16 and freeze the typed result.
+
+## SLM-17 — Add explicit infer and download commands
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-14, SLM-15, SLM-16
+- Exact write set: inference/download command modules, CLI argument/dispatch roots, `CommandLineHelp.md`
+- Primary integration lock: CLI syntax and generated help
+- Outcome: Add language/redact/title commands and status downloads while preserving legacy Needle parsing and escapes.
+- Focused validation: Run parser, stdin/argument conflict, unavailable platform, missing cache, custom location, and help tests.
+- Handoff: Remove SLM-17 and freeze public syntax.
+
+## SLM-18 — Document supported SLM behavior
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-17
+- Exact write set: `docs/src/inference/slm.md`, `docs/src/SUMMARY.md`
+- Primary integration lock: book documentation
+- Outcome: Document explicit invocation, supported targets, limits, typed outcomes, quality caveats, and no automatic mutation/fallback.
+- Focused validation: Run `make book`, `make doc`, internal links, and example commands.
+- Handoff: Remove SLM-18 and preserve the public support contract.
+
+## SLM-19 — Evaluate Tongue quality
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-14
+- Exact write set: frozen Tongue evaluation corpus, Tongue quality report
+- Primary integration lock: SLM evaluation
+- Outcome: Measure at least 95% top-1 accuracy and required abstention on predeclared ambiguous cases.
+- Focused validation: Run the frozen corpus once and report every failure without post-hoc threshold changes.
+- Handoff: Remove SLM-19 or create a bounded repair/evaluation phase.
+
+## SLM-20 — Evaluate Redact quality
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-15
+- Exact write set: frozen Redact evaluation corpus, Redact quality report
+- Primary integration lock: SLM evaluation
+- Outcome: Measure at least 85% macro recall and 95% precision across the frozen labels.
+- Focused validation: Run the frozen corpus and report misses, false positives, latency, memory, and bytes.
+- Handoff: Remove SLM-20 or create a bounded repair/evaluation phase.
+
+## SLM-21 — Evaluate Title quality
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-16
+- Exact write set: frozen Title evaluation corpus, Title quality report
+- Primary integration lock: SLM evaluation
+- Outcome: Measure 90% reviewer acceptance, zero unsupported claims, and 95% canonical validation compliance.
+- Focused validation: Run blinded review and report rejected, invalid, omitted, and resource cases.
+- Handoff: Remove SLM-21 or create a bounded repair/evaluation phase.
+
+## SLM-22 — Release the Swift profile
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-18, SLM-19, SLM-20, SLM-21
+- Exact write set: SLM support documentation, release configuration, this plan
+- Primary integration lock: SLM release gate
+- Outcome: Run all platform/lifecycle/license/quality gates and mark only the tested three-capability profile stable.
+- Focused validation: Run focused tests, feature/WASM checks, dependency/license checks, help/docs, Linux CI, and macOS real-model jobs.
+- Handoff: Prune all SLM-* sections; retain this plan only while JUL-* work remains.
+
+## JUL-01 — Pin Julia feasibility inputs
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: named Julia pilot owner
+- Exact write set: Julia revision/license/dependency record, `scripts/slm/julia/README.md`, this plan
+- Primary integration lock: Julia adoption decision
+- Outcome: Pin code, weights, tokenizer, APIs, licenses, build, and offline packaging for Linux x86_64.
+- Focused validation: Reproduce one CPU reference inference from locked inputs or stop promotion.
+- Handoff: Remove JUL-01 or prune the Julia section if feasibility fails.
+
+## JUL-02 — Freeze protocol, corpus, and gates
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: JUL-01
+- Exact write set: `tests/fixtures/slm/decision/contract.json`, frozen choice/Noul corpora, evaluation policy
+- Primary integration lock: Julia pilot contract
+- Outcome: Approve schemas, abstention, limits, baseline, at least 200 cases, quality, parity, and resource gates.
+- Focused validation: Review development/test separation and every expected outcome with the named owner.
+- Handoff: Remove JUL-02 and prohibit post-hoc gate changes.
+
+## JUL-03 — Implement the pinned Python reference runner
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: JUL-02
+- Exact write set: `scripts/slm/julia/runner.py`, `scripts/slm/julia/pyproject.toml`, `scripts/slm/julia/uv.lock`, reference tests
+- Primary integration lock: Julia runner
+- Outcome: Run strict Choice and Noul inference through the locked upstream API with one bounded JSON-lines request.
+- Focused validation: Test encoding, IDs, limits, invalid probabilities, timeout, cleanup, and offline operation.
+- Handoff: Remove JUL-03 and freeze reference tensors/results.
+
+## JUL-04 — Implement and test Noul types
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: JUL-02
+- Exact write set: `crates/acorn-lib/src/io/sidecar/slm/decision.rs`, Noul tests
+- Primary integration lock: shared sidecar root
+- Outcome: Model criteria, validated probability, complement, threshold answer/abstention, and policy revision explicitly.
+- Focused validation: Run serde, ordering, endpoints, midpoint, threshold, missing evidence, and invalid-number tests.
+- Handoff: Remove JUL-04 and expose the stable Boolean contract.
+
+## JUL-05 — Validate ONNX graph assets
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: JUL-01
+- Exact write set: `scripts/slm/julia/onnx_backend.py`, ONNX asset inspection tests
+- Primary integration lock: Julia runner
+- Outcome: Pin graph/external data/tokenizer and freeze containment, hashes, opset, names, dtypes, shapes, and dimensions.
+- Focused validation: Test missing, altered, escaping, unsupported-op, and provider-initialization failures.
+- Handoff: Remove JUL-05 and publish the accepted graph contract.
+
+## JUL-06 — Reproduce strict Julia encoding
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: JUL-03, JUL-05
+- Exact write set: `scripts/slm/julia/onnx_backend.py`, encoding parity tests
+- Primary integration lock: Julia runner
+- Outcome: Match reference Choice/Noul tokenization, option order, masks, padding, and overflow without truncation.
+- Focused validation: Compare encoded tensors for 2/20 options, default/descriptive Noul, Unicode, mixed batches, and limits.
+- Handoff: Remove JUL-06 and freeze encoded fixtures.
+
+## JUL-07 — Implement ONNX CPU inference
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: JUL-06
+- Exact write set: `scripts/slm/julia/onnx_backend.py`, ONNX inference tests
+- Primary integration lock: Julia runner
+- Outcome: Run explicit CPU provider inference and stable softmax over valid logits with recorded settings.
+- Focused validation: Test provider selection, unsupported operators, repeated determinism, malformed outputs, and no fallback.
+- Handoff: Remove JUL-07 and expose full-precision ONNX results.
+
+## JUL-08 — Prove Python/ONNX parity
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: JUL-03, JUL-07
+- Exact write set: `scripts/slm/julia/test_onnx_parity.py`, parity report
+- Primary integration lock: Julia evaluation
+- Outcome: Meet frozen tensor/logit/probability/decision tolerances and report every near-boundary difference.
+- Focused validation: Run the complete development parity corpus without adjusting tolerances afterward.
+- Handoff: Remove JUL-08 or create a bounded parity repair phase.
+
+## JUL-09 — Package immutable Julia artifacts
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: JUL-08
+- Exact write set: Julia ModelKit manifest, versioned artifact registry, artifact record
+- Primary integration lock: SLM artifact publication
+- Outcome: Package graph, external weights, tokenizer, runtime, launcher, dependencies, and notices with hashes.
+- Focused validation: Install on a clean Linux x86_64 host and run both explicit backends offline.
+- Handoff: Remove JUL-09 and provide immutable asset facts to Rust.
+
+## JUL-10 — Add JuliaSidecar
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: JUL-04, JUL-09
+- Exact write set: `crates/acorn-lib/src/io/sidecar/slm/decision.rs`, decision sidecar tests
+- Primary integration lock: shared sidecar root
+- Outcome: Add typed Choice/Noul requests/results, assets, limits, provenance, and consuming lifecycle behind `slm`.
+- Focused validation: Run fixture, asset, offline, timeout, cancellation, cleanup, redaction, and real-model smoke tests.
+- Handoff: Remove JUL-10 and freeze the typed Rust interface.
+
+## JUL-11 — Add explicit decision CLI and backend selection
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: JUL-10
+- Exact write set: inference/download command modules, CLI argument/dispatch roots, `CommandLineHelp.md`
+- Primary integration lock: CLI syntax and generated help
+- Outcome: Add `infer decide` and `download slm decide` with explicit `onnx|python` selection and Needle compatibility.
+- Focused validation: Run parser, input, option-count, backend/cache, custom-location, unsupported-host, and help tests.
+- Handoff: Remove JUL-11 and freeze public syntax.
+
+## JUL-12 — Complete decision lifecycle tests
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: JUL-11
+- Exact write set: `tests/fixtures/slm/decision/`, decision protocol integration tests
+- Primary integration lock: Julia acceptance
+- Outcome: Cover readiness, IDs, sizes, startup, timeout, cancellation, cleanup, diagnostics, and explicit download/inference.
+- Focused validation: Run all model-independent protocol tests without downloading weights.
+- Handoff: Remove JUL-12 and preserve regression fixtures.
+
+## JUL-13 — Evaluate Choice decisions
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: JUL-12
+- Exact write set: frozen Choice corpus, Choice quality/calibration report
+- Primary integration lock: Julia evaluation
+- Outcome: Meet 90% answered accuracy, 80% coverage, and full-corpus baseline requirements.
+- Focused validation: Run the held-out corpus once and report per-label metrics, confusion, calibration, and abstentions.
+- Handoff: Remove JUL-13 or create a bounded evaluation repair phase.
+
+## JUL-14 — Evaluate Noul and resource gates
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: JUL-12
+- Exact write set: frozen Noul corpus, Julia resource report
+- Primary integration lock: Julia evaluation
+- Outcome: Pass independent Boolean metrics plus frozen latency, memory, bytes, threads, and parity ceilings.
+- Focused validation: Run the held-out Noul corpus and measured cold/warm Linux x86_64 profile.
+- Handoff: Remove JUL-14 or create a bounded evaluation repair phase.
+
+## JUL-15 — Document, release, and retire
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: JUL-13, JUL-14, SLM-22
+- Exact write set: `docs/src/inference/slm.md`, `docs/src/SUMMARY.md`, wiki indexes, this plan
+- Primary integration lock: SLM release gate
+- Outcome: Publish the advisory decision profile and remove the SLM plan after every independent gate passes.
+- Focused validation: Run focused tests, lint/full suite, feature/WASM, license/dependency, help/docs, real-model smoke, and wiki validation.
+- Handoff: Delete this plan and every index, network, and lane entry.

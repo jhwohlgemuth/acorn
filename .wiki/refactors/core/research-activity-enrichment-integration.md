@@ -7,6 +7,8 @@ impact: high
 package: [acorn-schema, acorn-lib]
 tags: [schema, research-activity, enrichment, provenance, logbook]
 status: planned
+execution: phased
+phase_budget_hours: 5
 ---
 
 # Goal
@@ -53,3 +55,82 @@ Preserve the implemented [standards field matrix](../../assets/standards-field-m
 - Each logbook graduation target has an explicit source rule, stable candidate identity, accepted-merge test, and conflict test.
 - Unsupported or ambiguous assertions remain in provenance without manufacturing structured values.
 - Existing research-activity documents remain compatible and the portable feature matrix passes.
+
+# Execution phases
+
+## ENR-01 — Freeze merge identities and conflict policy
+
+- Status: ready
+- Budget: 5 active hours maximum
+- Prerequisites: none
+- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, focused enrichment policy tests
+- Primary integration lock: discovery candidate merge
+- Outcome: Define deterministic identities, authored-value precedence, replay behavior, and conflict provenance.
+- Focused validation: Run table tests for identical, complementary, and conflicting evidence.
+- Handoff: Remove ENR-01 and reuse the policy in each field slice.
+
+## ENR-02 — Map typed activity dates
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ENR-01
+- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, date enrichment tests
+- Primary integration lock: discovery candidate merge
+- Outcome: Map only explicit OSTI, CFF, RAiD, and supported logbook date assertions.
+- Focused validation: Test identities, conflicts, replay, and absence of inferred dates.
+- Handoff: Remove ENR-02 and preserve date fixtures for integration.
+
+## ENR-03 — Map contributors and organizations
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ENR-01
+- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, contributor enrichment tests
+- Primary integration lock: discovery candidate merge
+- Outcome: Project explicitly credited people, roles, and organizations without list-position inference.
+- Focused validation: Test stable identity, role conflicts, provider replay, and authored precedence.
+- Handoff: Remove ENR-03 and preserve contributor fixtures.
+
+## ENR-04 — Map rights and access
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ENR-01
+- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, rights enrichment tests
+- Primary integration lock: discovery candidate merge
+- Outcome: Project explicit licenses, rights statements, and access assertions with loss reporting.
+- Focused validation: Test URI/label identities, incompatible values, ambiguity, and replay.
+- Handoff: Remove ENR-04 and preserve rights fixtures.
+
+## ENR-05 — Map funding awards
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ENR-01
+- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, funding enrichment tests
+- Primary integration lock: discovery candidate merge
+- Outcome: Project explicit sponsor and award evidence without manufacturing missing funders.
+- Focused validation: Test award identities, sponsor conflicts, missing fields, and replay.
+- Handoff: Remove ENR-05 and preserve funding fixtures.
+
+## ENR-06 — Extend graduation rules
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ENR-02, ENR-03, ENR-04, ENR-05
+- Exact write set: `crates/acorn-lib/src/io/database/logbook.rs`, graduation tests
+- Primary integration lock: logbook graduation
+- Outcome: Add explicit category/event targets and archive only after selected candidates merge successfully.
+- Focused validation: Test accepted merges, conflicts, retry, and retained unarchived entries.
+- Handoff: Remove ENR-06 and record supported graduation mappings.
+
+## ENR-07 — Prove provenance and retire
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ENR-06
+- Exact write set: provider/discovery fixtures, enrichment documentation, wiki indexes, this plan
+- Primary integration lock: enrichment integration
+- Outcome: Prove end-to-end replay, conflicts, compatibility, and durable provenance before removing the plan.
+- Focused validation: Run focused provider/database tests, portable checks, `make lint`, `make test`, and wiki validation.
+- Handoff: Delete this plan and every index, network, and lane entry.

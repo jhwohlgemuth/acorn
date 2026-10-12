@@ -1,6 +1,8 @@
 # AGENTS.md
 
-**USE [guidelines SKILL](./.github/skills/guidelines/SKILL.md) WHENEVER CODE IS TOUCHED OR CONSIDERED**
+**USE [guidelines SKILL](./.agents/skills/guidelines/SKILL.md) WHENEVER CODE IS TOUCHED OR CONSIDERED**
+
+**USE [planning SKILL](./.agents/skills/planning/SKILL.md) WHENEVER `.wiki` PLANS ARE CREATED, REVIEWED, UPDATED, EXECUTED, PRUNED, OR RETIRED**
 
 This file provides guidance to agents (including WARP) when working with code in this repository.
 
@@ -575,6 +577,8 @@ make book-write  # Serve and auto-rebuild on changes
 The authoritative entry point for refactor, fix, migration, and implementation plans is **[.wiki/index.md](.wiki/index.md)**. The `.wiki/` directory is an Open Knowledge Format bundle with one plan concept per atomic topic.
 
 Before implementing planned work, read the relevant concept and verify its evidence and status against the current code. New plans must use the Plan metadata and authoring rules in the wiki index, including difficulty, impact, and a non-empty package list. While work remains active, update the concept's status, evidence, validation, and acceptance criteria together and move its entry to the appropriate group in the nearest index. When work finishes, delete the completed plan and remove its index and network entries; keep durable implementation details in code, tests, documentation, and release history rather than the planning wiki.
+
+Active plans contain only remaining work. After a phase or task completes, preserve any durable evidence, then remove the completed section, phase, or task instead of retaining checked boxes or completed phase records. Preserve the stable IDs of unfinished phases when pruning earlier work.
 
 ## Repository Information
 

@@ -7,6 +7,8 @@ impact: critical
 package: [workspace, acorn-lib, acorn-cli, acorn-schema]
 tags: [feature, automation, powerapps, powerautomate, gitlab, webhook, logbook, reporting, pdf]
 status: waiting-on-validation
+execution: phased
+phase_budget_hours: 5
 ---
 
 # Goal
@@ -393,3 +395,104 @@ Submit authorized test entries for two different projects and one deliberately u
 - Before multi-project rollout, two authorized project selections route only to their configured `index.json` files and an unauthorized project/member combination creates no repository change.
 - No credential appears in source control, logs, artifacts, app controls, ordinary Compose actions, or visible Power Automate run history.
 - The redacted evidence set is sufficient for another operator to verify every acceptance criterion; the verified process can then transition to `.wiki/assets/powerautomate-logbook-reporting.md`, durable references can be redirected, and this plan and its active index entries can be deleted.
+
+# Execution phases
+
+## PA-01 — Verify the published notification pilot
+
+- Status: blocked
+- Budget: 5 active hours maximum
+- Prerequisites: tester availability in the `221f…` Power Platform environment
+- Exact write set: Power Apps app `15ae605b-585b-49f5-a413-2b091f919a35`, flow `18677f6b-21af-435c-a000-a2d471551019`, this plan
+- Primary integration lock: Power Platform pilot
+- Outcome: Record one tester-visible enriched Teams and email delivery from the published canvas.
+- Focused validation: Inspect the flow run, app status, and redacted tester evidence.
+- Handoff: Remove PA-01 and make PA-02 ready when delivery is proven.
+
+## PA-02 — Resolve production owners and access gates
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PA-01
+- Exact write set: Power Platform environment policy, Vergil gateway approval, this plan
+- Primary integration lock: deployment approvals
+- Outcome: Name owners and record approved environment, HTTP action, callback-trigger, gateway, licensing, and secret-storage decisions.
+- Focused validation: Verify every stop gate has an accountable owner and dated evidence.
+- Handoff: Remove PA-02 and expose the approved route to PA-03 and PA-04.
+
+## PA-03 — Prove a native ARM64 Vergil service boot
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PA-02
+- Exact write set: Vergil managed service definition, protected Vergil runtime environment, this plan
+- Primary integration lock: Vergil service
+- Outcome: Run the pinned native ARM64 ACORN service in polling mode with healthy readiness and redacted logs.
+- Focused validation: Check `/health`, `/ready`, process supervision, architecture, and absence of secret values.
+- Handoff: Remove PA-03 and record the verified private service origin.
+
+## PA-04 — Provision intake and callback secrets
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PA-02
+- Exact write set: protected `POWER_AUTOMATE_INBOUND_SECRET`, protected `POWER_AUTOMATE_CALLBACK_URL`, callback flow
+- Primary integration lock: Power Automate credentials
+- Outcome: Establish protected inbound authentication and one schema-valid callback flow without exposing either value.
+- Focused validation: Send a redacted test callback and inspect 2xx, Teams, email, and secure run-history behavior.
+- Handoff: Remove PA-04 and provide only secret references to PA-05.
+
+## PA-05 — Connect the full intake flow
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PA-03, PA-04
+- Exact write set: Power Apps intake flow, approved gateway or HTTPS intermediary, canvas submit action
+- Primary integration lock: intake route
+- Outcome: Replace the notification-only call with the strict version-1 ACORN intake request and typed response handling.
+- Focused validation: Verify one UUID source, allowed values, secure HTTP inputs/outputs, retry stability, and no embedded secret.
+- Handoff: Remove PA-05 and record the ready intake endpoint and flow revision.
+
+## PA-06 — Create the first duplicate-safe review operation
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PA-05
+- Exact write set: isolated GitLab project `22464`, Power Automate intake run, this plan
+- Primary integration lock: isolated pilot repository
+- Outcome: Submit one authorized response and create exactly one routed branch and draft merge request.
+- Focused validation: Inspect operation ID, branch path, proposed entry, callback, and duplicate-safe persistence.
+- Handoff: Remove PA-06 and pass the merge request to human review.
+
+## PA-07 — Graduate and merge the reviewed entry
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PA-06
+- Exact write set: isolated GitLab merge request, `acorn/index.json`
+- Primary integration lock: pilot merge request
+- Outcome: Complete human review, authorized graduation, approval, and human merge while preserving project identity.
+- Focused validation: Compare the merged entry with the accepted submission and reviewed diff.
+- Handoff: Remove PA-07 and record the exact merged commit for reporting.
+
+## PA-08 — Publish and replay the single-project pilot
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PA-07
+- Exact write set: project `22464` schedule, generic package `acorn-automated-artifacts`, callback flow
+- Primary integration lock: scheduled artifact publication
+- Outcome: Publish one immutable report package, deliver `artifact-ready`, and prove replay creates no duplicate effect.
+- Focused validation: Inspect manifest, PDF, checksum, cutoff, callback, replay disposition, and package count.
+- Handoff: Remove PA-08 and preserve the redacted single-project acceptance bundle.
+
+## PA-09 — Validate routing and retire the deployment plan
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PA-08
+- Exact write set: isolated `.acorn.json`, canvas project choices, `.wiki/assets/powerautomate-logbook-reporting.md`, wiki indexes
+- Primary integration lock: Power Automate operational record
+- Outcome: Prove two authorized project routes and one unauthorized rejection, publish the durable runbook, and remove this plan.
+- Focused validation: Verify isolated file changes, rejected unauthorized work, internal links, and wiki validation.
+- Handoff: Delete this plan and all index, network, and lane entries.
