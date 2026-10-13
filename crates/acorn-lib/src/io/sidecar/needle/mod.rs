@@ -1,7 +1,7 @@
 //! Managed [Needle 3](https://cactuscompute.com/needle) inference sidecar.
 //!
-//! Needle 3 is a compact local model specialized for selecting and calling tools. ACORN runs the
-//! pinned standalone engine from the [upstream project](https://github.com/cactus-compute/needle);
+//! Needle 3 is a compact local model specialized for selecting and calling tools.
+//! ACORN runs the pinned standalone engine from the [upstream project](https://github.com/cactus-compute/needle);
 //! see the [ACORN Needle guide](https://acorn.ornl.gov/inference/needle.html) for usage details.
 pub mod assets;
 mod process;
@@ -19,9 +19,35 @@ use color_eyre::eyre::eyre;
 use futures::stream::{self, StreamExt};
 use process::Runner;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
 const MAX_CATALOG_BYTES: usize = 32 * 1024;
+/// Reason to withhold automatic execution of a proposed Needle call.
+///
+/// Withholding is an abstention, not a technical failure.
+/// The response stays reportable and the calls are never executed.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case", tag = "reason")]
+pub enum WithheldExecution {
+    /// Calibrated confidence fell below the configured execution threshold.
+    Confidence {
+        /// Calibrated confidence Needle reported for the call.
+        confidence: Noul,
+        /// Minimum confidence ACORN required before executing a call.
+        threshold: Noul,
+    },
+    /// Needle reported no usable calibrated confidence for the call.
+    Uncalibrated,
+    /// Needle reported that the request negated the proposed call.
+    Negation,
+    /// Needle reported argument fields that were not grounded in the request.
+    Ungrounded {
+        /// Argument fields Needle could not ground.
+        fields: Vec<String>,
+    },
+}
 /// Result of a bounded Needle inference loop.
+#[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct InferenceResult {
@@ -29,6 +55,8 @@ pub struct InferenceResult {
     pub response: CompleteResponse,
     /// Tool results executed during the loop.
     pub results: Vec<ToolResult>,
+    /// Why the execution gate withheld the final response's calls, when it did.
+    pub withheld: Option<WithheldExecution>,
 }
 /// Running Needle 3 sidecar bound to one immutable tool catalog.
 #[derive(Debug)]
@@ -41,23 +69,21 @@ pub struct Needle {
     offline: bool,
 }
 impl CompleteResponse {
-    fn execution_confidence(&self, threshold: Noul) -> ApiResult<()> {
+    fn execution_gate(&self, threshold: Noul) -> ApiResult<Result<(), WithheldExecution>> {
         let valid_type = self.response_type.is_call();
         let confidence = self
             .confidence
             .and_then(|confidence| Noul::new(confidence).ok())
-            .ok_or_else(|| eyre!("Needle response has no valid calibrated confidence; automatic execution is disabled"));
+            .ok_or(WithheldExecution::Uncalibrated);
         match (valid_type, self.validation.as_ref(), confidence) {
             | (false, _, _) => Err(eyre!("Needle response type '{}' cannot contain function calls", self.response_type)),
-            | (_, Some(validation), _) if validation.negation => Err(eyre!("Needle rejected automatic execution because the request was negated")),
-            | (_, Some(validation), _) if !validation.ungrounded.is_empty() => Err(eyre!(
-                "Needle rejected automatic execution because these fields were not grounded: {}",
-                validation.ungrounded.join(", ")
-            )),
-            | (_, _, Ok(confidence)) if confidence < threshold => {
-                Err(eyre!("Needle confidence {confidence:.3} is below the {threshold:.3} execution threshold"))
-            }
-            | (_, _, confidence) => confidence.map(|_| ()),
+            | (_, Some(validation), _) if validation.negation => Ok(Err(WithheldExecution::Negation)),
+            | (_, Some(validation), _) if !validation.ungrounded.is_empty() => Ok(Err(WithheldExecution::Ungrounded {
+                fields: validation.ungrounded.clone(),
+            })),
+            | (_, _, Ok(confidence)) if confidence < threshold => Ok(Err(WithheldExecution::Confidence { confidence, threshold })),
+            | (_, _, Ok(_)) => Ok(Ok(())),
+            | (_, _, Err(denied)) => Ok(Err(denied)),
         }
     }
     fn response_error(&self) -> color_eyre::eyre::Report {
@@ -150,42 +176,50 @@ impl Sidecar for Needle {
                 | Ok(response) if !(response.response_type.is_call() || response.response_type.is_refuse() || response.response_type.is_respond()) => {
                     break Err(eyre!("Needle returned unknown response type '{}'", response.response_type));
                 }
-                | Ok(response) if response.function_calls.is_empty() => break Ok(InferenceResult { response, results }),
-                | Ok(response) => {
-                    let confidence = response.execution_confidence(self.confidence_threshold);
-                    match confidence {
-                        | Ok(_) => {
-                            let called = stream::iter(response.function_calls.iter())
-                                .then(|call| {
-                                    let context = ToolCallContext::needle(self.offline);
-                                    self.registry.call_with_context(&call.name, call.arguments.clone(), context)
-                                })
-                                .collect::<Vec<_>>()
-                                .await
-                                .into_iter()
-                                .collect::<ApiResult<Vec<_>>>();
-                            match called {
-                                | Ok(called) => {
-                                    let payload = match called.as_slice() {
-                                        | [result] => result.structured_content.clone(),
-                                        | results => {
-                                            serde_json::Value::Array(results.iter().map(|result| result.structured_content.clone()).collect())
-                                        }
-                                    };
-                                    match serde_json::to_string(&payload) {
-                                        | Ok(serialized) => {
-                                            input = serialized;
-                                            results.extend(called);
-                                        }
-                                        | Err(why) => break Err(eyre!("Failed to serialize Needle tool results — {why}")),
-                                    }
-                                }
-                                | Err(why) => break Err(why),
-                            }
-                        }
-                        | Err(why) => break Err(why),
-                    }
+                | Ok(response) if response.function_calls.is_empty() => {
+                    break Ok(InferenceResult {
+                        response,
+                        results,
+                        withheld: None,
+                    })
                 }
+                | Ok(response) => match response.execution_gate(self.confidence_threshold) {
+                    | Ok(Ok(())) => {
+                        let called = stream::iter(response.function_calls.iter())
+                            .then(|call| {
+                                let context = ToolCallContext::needle(self.offline);
+                                self.registry.call_with_context(&call.name, call.arguments.clone(), context)
+                            })
+                            .collect::<Vec<_>>()
+                            .await
+                            .into_iter()
+                            .collect::<ApiResult<Vec<_>>>();
+                        match called {
+                            | Ok(called) => {
+                                let payload = match called.as_slice() {
+                                    | [result] => result.structured_content.clone(),
+                                    | results => serde_json::Value::Array(results.iter().map(|result| result.structured_content.clone()).collect()),
+                                };
+                                match serde_json::to_string(&payload) {
+                                    | Ok(serialized) => {
+                                        input = serialized;
+                                        results.extend(called);
+                                    }
+                                    | Err(why) => break Err(eyre!("Failed to serialize Needle tool results — {why}")),
+                                }
+                            }
+                            | Err(why) => break Err(why),
+                        }
+                    }
+                    | Ok(Err(withheld)) => {
+                        break Ok(InferenceResult {
+                            response,
+                            results,
+                            withheld: Some(withheld),
+                        })
+                    }
+                    | Err(why) => break Err(why),
+                },
                 | Err(why) => break Err(why),
             }
         }

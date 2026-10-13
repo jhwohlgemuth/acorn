@@ -1,4 +1,4 @@
-use super::{assets, write_tools, InferenceResult, Needle};
+use super::{assets, write_tools, InferenceResult, Needle, WithheldExecution};
 use crate::io::api::needle::CompleteResponse;
 use crate::io::file_checksum;
 use crate::io::mcp::{ToolCallContext, ToolRegistry};
@@ -68,7 +68,7 @@ fn test_custom_catalog_must_match_exactly() {
     .is_err());
 }
 #[test]
-fn test_execution_requires_safe_calibrated_call() {
+fn test_execution_gate_abstains_instead_of_failing() {
     let response = |confidence: Option<f64>, response_type: &str, validation: serde_json::Value| {
         serde_json::from_value::<CompleteResponse>(serde_json::json!({
             "type": response_type,
@@ -89,21 +89,51 @@ fn test_execution_requires_safe_calibrated_call() {
     };
     let safe = serde_json::json!({ "ungrounded": [], "negation": false });
     let threshold = Noul::new(0.8).expect("valid unit value");
-    assert!(response(Some(0.8), "call", safe.clone()).execution_confidence(threshold).is_ok());
-    assert!(response(None, "call", safe.clone()).execution_confidence(threshold).is_err());
-    assert!(response(Some(1.1), "call", safe.clone()).execution_confidence(threshold).is_err());
-    assert!(response(Some(0.7), "call", safe).execution_confidence(threshold).is_err());
-    assert!(
-        response(Some(0.9), "call", serde_json::json!({ "ungrounded": ["tool.field"], "negation": false }))
-            .execution_confidence(threshold)
-            .is_err()
+    let noul = |value: f64| Noul::new(value).expect("valid unit value");
+    let gate = |confidence: Option<f64>, response_type: &str, validation: serde_json::Value| {
+        response(confidence, response_type, validation)
+            .execution_gate(threshold)
+            .map_err(|why| why.to_string())
+    };
+    assert_eq!(gate(Some(0.8), "call", safe.clone()), Ok(Ok(())));
+    assert_eq!(
+        gate(Some(0.114), "call", safe.clone()),
+        Ok(Err(WithheldExecution::Confidence {
+            confidence: noul(0.114),
+            threshold
+        }))
     );
-    assert!(response(Some(0.9), "call", serde_json::json!({ "ungrounded": [], "negation": true }))
-        .execution_confidence(threshold)
-        .is_err());
-    assert!(response(Some(0.9), "respond", serde_json::json!({ "ungrounded": [], "negation": false }))
-        .execution_confidence(threshold)
-        .is_err());
+    assert_eq!(gate(None, "call", safe.clone()), Ok(Err(WithheldExecution::Uncalibrated)));
+    assert_eq!(gate(Some(1.1), "call", safe.clone()), Ok(Err(WithheldExecution::Uncalibrated)));
+    assert_eq!(
+        gate(Some(0.9), "call", serde_json::json!({ "ungrounded": ["tool.field"], "negation": false })),
+        Ok(Err(WithheldExecution::Ungrounded {
+            fields: vec!["tool.field".to_string()]
+        }))
+    );
+    assert_eq!(
+        gate(Some(0.9), "call", serde_json::json!({ "ungrounded": [], "negation": true })),
+        Ok(Err(WithheldExecution::Negation))
+    );
+    assert!(gate(Some(0.9), "respond", safe).is_err());
+}
+#[test]
+fn test_withheld_execution_round_trips_as_json() {
+    let result = InferenceResult {
+        response: serde_json::from_str(include_str!("../../../../../../../tests/fixtures/needle/complete-call-v3.json")).expect("Needle response"),
+        results: Vec::new(),
+        withheld: Some(WithheldExecution::Confidence {
+            confidence: Noul::new(0.114).expect("valid unit value"),
+            threshold: Noul::new(0.8).expect("valid unit value"),
+        }),
+    };
+    let json = serde_json::to_string(&result).expect("serialize result");
+    let round_trip = serde_json::to_string(&serde_json::from_str::<InferenceResult>(&json).expect("parse result")).expect("re-serialize result");
+    assert_eq!(round_trip, json);
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&json).expect("result JSON")["withheld"],
+        serde_json::json!({ "reason": "confidence", "confidence": 0.114, "threshold": 0.8 })
+    );
 }
 #[test]
 fn test_modelkit_download_items_are_deterministic() {

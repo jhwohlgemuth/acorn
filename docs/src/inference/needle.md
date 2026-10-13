@@ -28,7 +28,15 @@ The command prints the engine path. The adjacent cache directory also contains `
 acorn --offline infer "Return the running ACORN version"
 ```
 
-ACORN executes calls only when Needle returns a successful `call` response with finite calibrated confidence at or above the configured threshold. Calls are rejected when Needle reports negation, ungrounded arguments, an unknown response type, or a failed response. `suppressed_calls` remain diagnostic and are never executed.
+ACORN executes calls only when Needle returns a successful `call` response with finite calibrated confidence at or above the configured threshold. Calls are not executed when Needle reports negation, ungrounded arguments, or unusable confidence, and an unknown response type or a failed response is a failure. `suppressed_calls` remain diagnostic and are never executed.
+
+Withholding is an abstention rather than a failure, so `acorn infer` still prints the native response and exits successfully. The `withheld` field of the result reports why execution was declined, and `results` stays empty because nothing ran:
+
+```json
+"withheld": { "reason": "confidence", "confidence": 0.1137, "threshold": 0.8 }
+```
+
+Lower `--threshold` to let Needle act on a call it is unsure about.
 
 ```console
 acorn infer "Validate this research activity" \
