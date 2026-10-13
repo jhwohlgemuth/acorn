@@ -4,11 +4,13 @@ use crate::commands::check::InputSourceExt;
 use acorn::io::InputSource;
 use acorn_core::Location;
 use clap::Parser;
+#[cfg(unix)]
 use std::env;
 #[cfg(unix)]
 use std::fs::{read_to_string, set_permissions, write, Permissions};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+#[cfg(unix)]
 const OCI_TEST_DIGEST: &str = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
 #[cfg(unix)]

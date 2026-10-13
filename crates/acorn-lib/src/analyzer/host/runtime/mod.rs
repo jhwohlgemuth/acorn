@@ -77,7 +77,7 @@ use lychee_lib::{CacheStatus, Response, Status};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
     fs::{create_dir_all, remove_file, write, File},
-    io::{ErrorKind as IoErrorKind, Read},
+    io::{self as std_io, Read},
     path::{Path, PathBuf},
 };
 use tar::Archive;
@@ -1819,7 +1819,7 @@ fn kitfile_packaging_checks(path: &Path, value: &Kitfile) -> Vec<Check> {
                         .and_then(|safe| {
                             let target = canonical_root.join(safe.as_path());
                             target.canonicalize().map_err(|why| match why.kind() {
-                                | IoErrorKind::NotFound => format!("Referenced content path does not exist: {content_path}"),
+                                | std_io::ErrorKind::NotFound => format!("Referenced content path does not exist: {content_path}"),
                                 | _ => format!("Cannot inspect referenced content path {content_path}: {why}"),
                             })
                         })

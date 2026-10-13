@@ -13,7 +13,7 @@ use core::fmt;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{remove_file, rename, File},
-    io::{ErrorKind, Read},
+    io::{self, Read},
     path::{Path, PathBuf},
 };
 use zip::ZipArchive;
@@ -195,7 +195,7 @@ impl BundlePlan {
         match output.symlink_metadata() {
             | Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_file() => Err(McpbError::DestinationInvalid.into()),
             | Ok(_) if !overwrite => Err(McpbError::DestinationExists.into()),
-            | Err(why) if why.kind() != ErrorKind::NotFound => Err(McpbError::InspectOutput(why.to_string().into_boxed_str()).into()),
+            | Err(why) if why.kind() != io::ErrorKind::NotFound => Err(McpbError::InspectOutput(why.to_string().into_boxed_str()).into()),
             | Ok(_) | Err(_) => {
                 let parent = output
                     .parent()

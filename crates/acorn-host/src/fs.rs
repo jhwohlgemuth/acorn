@@ -10,7 +10,7 @@ use std::fs::set_permissions;
 use std::os::unix::fs::PermissionsExt;
 use std::{
     fs::{self, create_dir_all, read_to_string, remove_dir_all, File, OpenOptions},
-    io::{BufReader, Read, Write},
+    io::{self, BufReader, Read, Write},
     path::{Component, Path, PathBuf},
     sync::Mutex,
 };
@@ -34,7 +34,7 @@ pub enum FsError {
         path: PathBuf,
         /// Underlying filesystem error.
         #[source]
-        source: std::io::Error,
+        source: io::Error,
     },
     /// The platform could not resolve project directories for an application.
     #[error("project directories are unavailable for {qualifier}.{organization}.{application}")]
@@ -106,7 +106,7 @@ impl SafePath {
             .try_for_each(|parent| match parent.symlink_metadata() {
                 | Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => Err(FsError::UnsafeDestination(parent)),
                 | Ok(_) => Ok(()),
-                | Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                | Err(source) if source.kind() == io::ErrorKind::NotFound => Ok(()),
                 | Err(source) => Err(FsError::Io { path: parent, source }),
             })
             .map(|()| root.join(&self.0))
@@ -130,7 +130,7 @@ impl SafePath {
                 path: path.to_path_buf(),
                 source,
             }),
-            | Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            | Err(source) if source.kind() == io::ErrorKind::NotFound => Ok(()),
             | Err(source) => Err(FsError::Io {
                 path: path.to_path_buf(),
                 source,
@@ -148,7 +148,7 @@ impl SafePath {
             .try_for_each(|parent| match parent.symlink_metadata() {
                 | Ok(metadata) if metadata.is_dir() => Ok(()),
                 | Ok(_) => remove(&parent).and_then(|()| create_dir_all(&parent).map_err(|source| FsError::Io { path: parent, source })),
-                | Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
+                | Err(source) if source.kind() == io::ErrorKind::NotFound => {
                     create_dir_all(&parent).map_err(|source| FsError::Io { path: parent, source })
                 }
                 | Err(source) => Err(FsError::Io { path: parent, source }),
@@ -307,7 +307,7 @@ pub fn make_executable(path: impl AsRef<Path>) -> Result<(), FsError> {
     let path = path.as_ref();
     path.is_file().then_some(()).ok_or_else(|| FsError::Io {
         path: path.to_path_buf(),
-        source: std::io::Error::new(std::io::ErrorKind::NotFound, "executable does not exist"),
+        source: std::io::Error::new(io::ErrorKind::NotFound, "executable does not exist"),
     })
 }
 /// Resolve and create a stable namespace beneath an application's platform cache directory.

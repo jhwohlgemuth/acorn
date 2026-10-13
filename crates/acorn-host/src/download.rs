@@ -9,7 +9,7 @@ use reqwest::{Method, Response};
 use ring::digest::{Algorithm as RingAlgorithm, SHA1_FOR_LEGACY_USE_ONLY, SHA256, SHA384, SHA512};
 use std::{
     fs::{hard_link, remove_file as remove_file_sync},
-    io::ErrorKind,
+    io,
     path::{Path, PathBuf},
 };
 use thiserror::Error;
@@ -195,7 +195,7 @@ async fn create_destination_parent(destination: &Path) -> Result<(), DownloadErr
 }
 fn install_partial(partial: &Path, destination: &Path) -> Result<(), DownloadError> {
     hard_link(partial, destination).map_err(|source| {
-        if source.kind() == ErrorKind::AlreadyExists {
+        if source.kind() == io::ErrorKind::AlreadyExists {
             DownloadError::DestinationExists(destination.to_path_buf())
         } else {
             DownloadError::Io {

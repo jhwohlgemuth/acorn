@@ -78,7 +78,7 @@ use std::{
     env::temp_dir,
     ffi::OsString,
     fs::{create_dir_all, read_dir, read_to_string, remove_dir_all, remove_file, write, File},
-    io::{self, Cursor, Read, Write},
+    io::{self, Read, Write},
     path::{Path, PathBuf, MAIN_SEPARATOR},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -478,7 +478,7 @@ fn test_archive_zip_entries_reject_unsafe_and_duplicate_paths() {
 #[test]
 fn test_archive_zip_entries_write_named_content() {
     let bytes = zip_entries(&[("word/document.xml", b"document")]).expect("create ZIP archive");
-    let mut archive = ZipArchive::new(Cursor::new(bytes)).expect("read ZIP archive");
+    let mut archive = ZipArchive::new(io::Cursor::new(bytes)).expect("read ZIP archive");
     let mut content = String::new();
     archive
         .by_name("word/document.xml")

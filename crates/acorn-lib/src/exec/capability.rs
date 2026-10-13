@@ -16,7 +16,7 @@ use core::{
 };
 use rhai::{Dynamic, Engine, EvalAltResult, Position};
 use std::{
-    io::{ErrorKind, Read},
+    io::{self, Read},
     net::ToSocketAddrs,
     path::{Path, PathBuf},
     sync::Mutex,
@@ -92,7 +92,7 @@ impl DirectoryRoot {
                     Err(format!("unsafe write target `{}`", self.path.join(relative.as_path()).display()))
                 }
                 | Ok(_) => Ok(()),
-                | Err(why) if why.kind() == ErrorKind::NotFound => Ok(()),
+                | Err(why) if why.kind() == io::ErrorKind::NotFound => Ok(()),
                 | Err(why) => Err(format!(
                     "failed to inspect write target `{}` — {why}",
                     self.path.join(relative.as_path()).display()

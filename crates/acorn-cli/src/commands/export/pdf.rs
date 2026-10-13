@@ -20,7 +20,7 @@ use nanoid::nanoid;
 use std::{
     env::{consts, temp_dir},
     fs::{canonicalize, create_dir_all, remove_dir_all, remove_file, OpenOptions},
-    io::ErrorKind,
+    io,
     path::{absolute, Path, PathBuf},
 };
 use tokio::task::JoinHandle;
@@ -99,7 +99,7 @@ pub async fn create(page: &Page, options: CommandOptions, chart_options: ChartOp
             if let Some(ref index) = index_path {
                 let can_navigate = match OpenOptions::new().write(true).create_new(true).open(index) {
                     | Ok(_) => true,
-                    | Err(why) if why.kind() == ErrorKind::AlreadyExists => true,
+                    | Err(why) if why.kind() == io::ErrorKind::AlreadyExists => true,
                     | Err(why) => {
                         error!(path = index.to_absolute_path(), "=> {} Create temporary index — {why}", Label::fail());
                         false

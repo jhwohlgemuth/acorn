@@ -17,6 +17,7 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 use core::time::Duration;
 use rmcp::model::{CallToolResult, Tool};
 use serde_json::Value;
+#[cfg(unix)]
 use std::process::Command;
 use std::time::Instant;
 use temp_env::with_vars;

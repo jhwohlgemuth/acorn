@@ -81,7 +81,7 @@ use std::{
     env::{consts, current_dir, temp_dir, var, var_os},
     ffi::OsString,
     fs::{self, canonicalize, create_dir_all, write, File, Metadata, OpenOptions},
-    io::{self, BufReader, Cursor, Error, ErrorKind, Read, Write},
+    io::{self, BufReader, Read, Write},
     path::{absolute, Component, Path, PathBuf, MAIN_SEPARATOR},
     thread,
 };
@@ -1639,12 +1639,12 @@ where
 /// A symlink is always removed as a link, never followed, so a link that points at a directory cannot delete that directory's contents.
 pub fn remove_any<E>(path: &Path) -> Result<(), E>
 where
-    E: From<Error>,
+    E: From<io::Error>,
 {
     match path.symlink_metadata() {
         | Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => fs::remove_file(path).map_err(E::from),
         | Ok(_) => fs::remove_dir_all(path).map_err(E::from),
-        | Err(why) if why.kind() == ErrorKind::NotFound => Ok(()),
+        | Err(why) if why.kind() == io::ErrorKind::NotFound => Ok(()),
         | Err(why) => Err(E::from(why)),
     }
 }
@@ -2021,7 +2021,7 @@ where
                 | Ok(_) => match OpenOptions::new().write(true).create_new(true).open(&path) {
                     | Ok(mut file) => match get_bytes().await.map_err(Into::into) {
                         | Ok(bytes) => {
-                            let mut content = Cursor::new(bytes);
+                            let mut content = io::Cursor::new(bytes);
                             match io::copy(&mut content, &mut file) {
                                 | Ok(_) => Ok(()),
                                 | Err(why) => Err(eyre!("Failed to write bytes — {why}")),

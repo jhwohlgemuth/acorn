@@ -7,7 +7,7 @@
 )]
 use core::time::Duration;
 use std::fs::OpenOptions;
-use std::io::{ErrorKind, Read, Write};
+use std::io::{self, Read, Write};
 use std::net::TcpListener;
 use std::path::PathBuf;
 use std::sync::mpsc::{self, TryRecvError};
@@ -106,7 +106,7 @@ pub(crate) fn spawn_basic_model_config_server() -> (String, mpsc::Sender<()>, Jo
                     };
                     stream.write_all(&response).expect("write basic model config response");
                 }
-                | Err(why) if why.kind() == ErrorKind::WouldBlock => thread::sleep(Duration::from_millis(1)),
+                | Err(why) if why.kind() == io::ErrorKind::WouldBlock => thread::sleep(Duration::from_millis(1)),
                 | Err(why) => panic!("accept basic model config request: {why}"),
             },
         }
@@ -293,7 +293,7 @@ pub(crate) fn spawn_retry_resume_server(
                     stream.set_nonblocking(false).expect("set retry-resume stream blocking");
                     stream
                 }
-                | Err(why) if why.kind() == ErrorKind::WouldBlock => {
+                | Err(why) if why.kind() == io::ErrorKind::WouldBlock => {
                     idle += 1;
                     thread::sleep(Duration::from_millis(10));
                     continue;

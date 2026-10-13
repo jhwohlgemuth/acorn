@@ -7,7 +7,7 @@ use acorn_cmd::CommandSpec;
 use acorn_core::{Location, Scheme};
 use alloc::string::FromUtf8Error;
 use core::time::Duration;
-use std::path::PathBuf;
+use std::{io, path::PathBuf};
 use thiserror::Error;
 
 /// Failure while opening or probing a source.
@@ -89,7 +89,7 @@ pub fn probe_git(remote: &str, timeout: Duration) -> Result<(), SourceError> {
             .map(|_| ())
             .map_err(|error| SourceError::GitProbe {
                 url: redact_url(remote),
-                kind: if error.kind() == std::io::ErrorKind::TimedOut {
+                kind: if error.kind() == io::ErrorKind::TimedOut {
                     "probe timed out"
                 } else {
                     "remote was not reachable"

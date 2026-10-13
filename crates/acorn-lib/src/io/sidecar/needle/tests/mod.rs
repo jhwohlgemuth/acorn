@@ -131,8 +131,8 @@ fn test_withheld_execution_round_trips_as_json() {
     let round_trip = serde_json::to_string(&serde_json::from_str::<InferenceResult>(&json).expect("parse result")).expect("re-serialize result");
     assert_eq!(round_trip, json);
     assert_eq!(
-        serde_json::from_str::<serde_json::Value>(&json).expect("result JSON")["withheld"],
-        serde_json::json!({ "reason": "confidence", "confidence": 0.114, "threshold": 0.8 })
+        serde_json::from_str::<serde_json::Value>(&json).expect("result JSON").get("withheld"),
+        Some(&serde_json::json!({ "reason": "confidence", "confidence": 0.114, "threshold": 0.8 }))
     );
 }
 #[test]

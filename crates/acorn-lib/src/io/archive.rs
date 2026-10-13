@@ -19,7 +19,7 @@ use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use sevenz_rust2::{ArchiveEntry, ArchiveReader, ArchiveWriter, Password};
 use std::{
     fs::{create_dir_all, read_dir, remove_dir_all, remove_file, rename, DirEntry, File, OpenOptions},
-    io::{self, Cursor, ErrorKind, Read, Write},
+    io::{self, Read, Write},
     path::{Path, PathBuf},
     process,
 };
@@ -570,7 +570,7 @@ impl StagedArchive {
         let output = match output.symlink_metadata() {
             | Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_file() => Err(ArchiveError::OutputInvalid.into()),
             | Ok(_) => Ok(output.to_path_buf()),
-            | Err(why) if why.kind() == ErrorKind::NotFound => Ok(output.to_path_buf()),
+            | Err(why) if why.kind() == io::ErrorKind::NotFound => Ok(output.to_path_buf()),
             | Err(why) => Err(why.into()),
         };
         output.and_then(|output| {
@@ -648,7 +648,7 @@ impl TryFrom<PathBuf> for StagedExtraction {
         let output = match output.symlink_metadata() {
             | Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => Err(ArchiveError::DestinationInvalid.into()),
             | Ok(_) => Ok(output),
-            | Err(why) if why.kind() == ErrorKind::NotFound => Ok(output),
+            | Err(why) if why.kind() == io::ErrorKind::NotFound => Ok(output),
             | Err(why) => Err(why.into()),
         };
         output.and_then(|output| {
@@ -748,7 +748,7 @@ fn publish_entry(entry: &DirEntry, to: &Path) -> ApiResult<()> {
             | true => match target.symlink_metadata() {
                 | Ok(metadata) if !metadata.is_dir() => remove_any(&target).and_then(|()| create_dir_all(&target).map_err(Into::into)),
                 | Ok(_) => Ok(()),
-                | Err(why) if why.kind() == ErrorKind::NotFound => create_dir_all(&target).map_err(Into::into),
+                | Err(why) if why.kind() == io::ErrorKind::NotFound => create_dir_all(&target).map_err(Into::into),
                 | Err(why) => Err(why.into()),
             }
             .and_then(|()| publish_children(&source, &target)),
@@ -778,7 +778,7 @@ fn validate_publish_target(target: &Path) -> ApiResult<()> {
     match target.symlink_metadata() {
         | Ok(metadata) if metadata.file_type().is_symlink() => Err(ArchiveError::DestinationInvalid.into()),
         | Ok(_) => Ok(()),
-        | Err(why) if why.kind() == ErrorKind::NotFound => Ok(()),
+        | Err(why) if why.kind() == io::ErrorKind::NotFound => Ok(()),
         | Err(why) => Err(why.into()),
     }
 }
@@ -798,7 +798,7 @@ pub fn zip_entries(entries: &[(&str, &[u8])]) -> ApiResult<Vec<u8>> {
     entries
         .iter()
         .try_fold(
-            (ZipWriter::new(Cursor::new(Vec::new())), Vec::<SafePath>::new()),
+            (ZipWriter::new(io::Cursor::new(Vec::new())), Vec::<SafePath>::new()),
             |(mut archive, seen), (name, content)| {
                 SafePath::new(name)
                     .map_err(|_| Report::from(ArchiveError::UnsafeZipPath((*name).into())))
@@ -813,5 +813,5 @@ pub fn zip_entries(entries: &[(&str, &[u8])]) -> ApiResult<Vec<u8>> {
             },
         )
         .and_then(|(archive, _)| archive.finish().map_err(Into::into))
-        .map(Cursor::into_inner)
+        .map(io::Cursor::into_inner)
 }

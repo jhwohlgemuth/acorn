@@ -47,7 +47,7 @@ use std::{
     env,
     ffi::OsString,
     fs::{self, create_dir, create_dir_all, remove_dir_all, remove_file, rename},
-    io::ErrorKind,
+    io,
     path::{Path, PathBuf},
 };
 
@@ -1244,7 +1244,7 @@ impl OrasTransport {
                     | Some(secret) => run_output_with_stdin(binary.as_ref(), &args, None, ExposeSecret::expose_secret(secret).as_bytes()),
                     | None => run_output(binary.as_ref(), &args, None),
                 },
-                |why| why.kind() == ErrorKind::ExecutableFileBusy,
+                |why| why.kind() == io::ErrorKind::ExecutableFileBusy,
                 Some(&ORAS_EXECUTABLE_BUSY_RETRY_DELAYS_MILLISECONDS),
             );
             match output {

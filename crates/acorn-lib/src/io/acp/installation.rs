@@ -4,7 +4,7 @@ use acorn_cmd::{find_executable, CommandOutput, CommandSpec};
 use acorn_core::{util::SemanticVersion, validation::ValidationError};
 use acorn_schema::validation::{Validate, ValidationReport};
 use core::time::Duration;
-use std::{fs::canonicalize, io::ErrorKind, path::PathBuf};
+use std::{fs::canonicalize, io, path::PathBuf};
 
 const VERSION_PROBE_LIMIT: Duration = Duration::from_secs(10);
 
@@ -28,7 +28,7 @@ impl AgentProcessConfig {
             |command, (key, value)| command.env(key.clone(), value.clone()),
         );
         match command.output_with_timeout(timeout) {
-            | Err(why) if why.kind() == ErrorKind::TimedOut => Err(Error::VersionProbeTimeout {
+            | Err(why) if why.kind() == io::ErrorKind::TimedOut => Err(Error::VersionProbeTimeout {
                 agent_id: self.agent_id.clone(),
                 timeout,
             }),
