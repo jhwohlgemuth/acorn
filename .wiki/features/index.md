@@ -7,7 +7,7 @@
 
 ## Planned
 
-- [Power Automate GitLab JSONL intake and reporting](powerapps-gitlab-logbook-reporting.md) - Append Logbook envelopes to GitLab; Vergil durably ingests and removes them, then routes by project ID to augment the associated `index.json` through review.
+- [Power Automate GitLab JSONL intake and reporting](powerapps-gitlab-logbook-reporting.md) - Append Logbook envelopes to GitLab; Vergil durably ingests and removes them, then multiplexes records by project ID or configured folder name to augment the associated `index.json` through review. Top blocking priorities are the single first-priority PA-11 ACRE refactor (including ACORN/Xylem variables, schemas, migration, examples, and docs), then validated JSONL ingestion.
 
 - [Release-gated Beam inference integration](beam-inference-integration.md) - Verify released serving contracts, then evaluate an explicitly configured hosted or operator-owned endpoint independently of local SLM sidecars.
 

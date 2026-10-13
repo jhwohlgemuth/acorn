@@ -8,7 +8,7 @@ use acorn_core::validation::ValidationError;
 use acorn_schema::codec::DocumentCodec;
 use acorn_schema::standard::{dublin_core::DublinCoreDocument, Standard};
 use acorn_schema::validation::{Validate, ValidationReport};
-use acorn_schema::{research_activity::ResearchActivity, standard::dcat, OneOrMany};
+use acorn_schema::{research_activity::ResearchActivity, standard::dcat, OneOrMany, OneOrManyCodec};
 use alloc::string::{String, ToString};
 use alloc::{vec, vec::Vec};
 

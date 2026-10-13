@@ -1,74 +1,77 @@
 ---
 source: crates/acorn-lib/src/io/config/tests/mod.rs
-assertion_line: 612
 expression: "format!(\"{:#?}\", config.runners)"
 ---
 Some(
-    [
-        RunnerDetails {
-            code_repository: GitLab {
-                id: Some(
-                    16689,
-                ),
-                location: Detailed {
-                    scheme: HTTPS,
-                    uri: "https://code.ornl.gov/research-enablement/acorn",
-                    revision: None,
+    Many(
+        [
+            RunnerDetails {
+                code_repository: GitLab {
+                    id: Some(
+                        16689,
+                    ),
+                    location: Detailed {
+                        scheme: HTTPS,
+                        uri: "https://code.ornl.gov/research-enablement/acorn",
+                        revision: None,
+                    },
                 },
+                name: None,
+                runner_type: Project,
+                description: Some(
+                    "ACORN Runner (DELETE ME)",
+                ),
+                executor: Docker,
+                gpu_enabled: false,
+                tags: Some(
+                    Many(
+                        [
+                            "bucket",
+                            "gpu",
+                        ],
+                    ),
+                ),
+                run_untagged: false,
+                host: None,
+                target: Some(
+                    RunnerTarget {
+                        host: Remote(
+                            Detailed {
+                                scheme: SSH,
+                                uri: "ssh://oklahoma",
+                                revision: None,
+                            },
+                        ),
+                    },
+                ),
+                docker_image: "gitlab/gitlab-runner:latest",
+                identifier: None,
+                token: None,
             },
-            name: None,
-            runner_type: Project,
-            description: Some(
-                "ACORN Runner (DELETE ME)",
-            ),
-            executor: Docker,
-            gpu_enabled: false,
-            tags: Some(
-                [
-                    "bucket",
-                    "gpu",
-                ],
-            ),
-            run_untagged: false,
-            host: None,
-            target: Some(
-                RunnerTarget {
-                    host: Remote(
-                        Detailed {
-                            scheme: SSH,
-                            uri: "ssh://oklahoma",
-                            revision: None,
-                        },
+            RunnerDetails {
+                code_repository: GitLab {
+                    id: Some(
+                        24758,
+                    ),
+                    location: Simple(
+                        "https://code.ornl.gov/research-enablement",
                     ),
                 },
-            ),
-            docker_image: "gitlab/gitlab-runner:latest",
-            identifier: None,
-            token: None,
-        },
-        RunnerDetails {
-            code_repository: GitLab {
-                id: Some(
-                    24758,
+                name: None,
+                runner_type: Group,
+                description: Some(
+                    "Research Enablement Runner (DELETE ME)",
                 ),
-                location: Simple(
-                    "https://code.ornl.gov/research-enablement",
-                ),
+                executor: Docker,
+                gpu_enabled: false,
+                tags: None,
+                run_untagged: true,
+                host: None,
+                target: None,
+                docker_image: "gitlab/gitlab-runner:latest",
+                identifier: None,
+                token: None,
             },
-            name: None,
-            runner_type: Group,
-            description: Some(
-                "Research Enablement Runner (DELETE ME)",
-            ),
-            executor: Docker,
-            gpu_enabled: false,
-            tags: None,
-            run_untagged: true,
-            host: None,
-            target: None,
-            docker_image: "gitlab/gitlab-runner:latest",
-            identifier: None,
-            token: None,
-        },
-    ],
+        ],
+    ),
 )

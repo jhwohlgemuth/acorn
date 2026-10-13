@@ -4,7 +4,7 @@ use acorn_schema::{
     agent::{AuthenticationScheme, ProviderDetails},
     validation::{format_timestamp, rules},
     vocabulary::{VocabularyKind, VocabularyOptions, VocabularyOutcome, VocabularyResolver},
-    ContactPoint, OneOrMany,
+    ContactPoint, OneOrMany, OneOrManyCodec,
 };
 use serde::{Deserialize, Serialize};
 
@@ -37,7 +37,7 @@ fn test_one_or_many_crosswalk_data_round_trips_zon() {
         },
     ]
     .into();
-    let encoded = values.serialize(MimeType::Zon).expect("crosswalk data should serialize as ZON");
+    let encoded = values.encode(MimeType::Zon).expect("crosswalk data should serialize as ZON");
     let decoded = OneOrMany::<CrosswalkRecord>::parse(&encoded, MimeType::Zon).expect("crosswalk ZON should parse");
     assert_eq!(decoded, values);
 }

@@ -918,7 +918,7 @@ impl MarkdownSupport for ModelDetails {
             self.attachment.map(|value| format!("- Attachment: {value}")),
             self.benchmarks
                 .as_ref()
-                .map(|value| format!("- Benchmarks\n{}", value.to_markdown().with_additional_indent(2))),
+                .map(|value| format!("- Benchmarks\n{}", BenchmarkList(value.clone()).to_markdown().with_additional_indent(2))),
             self.family.as_ref().map(|value| format!("- Family: {value}")),
             self.id.as_ref().map(|value| format!("- ID: {value}")),
             self.knowledge.as_ref().map(|value| format!("- Knowledge: {value}")),
@@ -1187,11 +1187,15 @@ impl ModelSelectors {
         }
     }
 }
-impl MarkdownSupport for OneOrMany<Benchmark> {
+/// Markdown rendering for a one-or-many benchmark list.
+///
+/// This is a local newtype because [`OneOrMany`] is defined in `acorn-core`, so a direct `MarkdownSupport` impl for it would violate the orphan rule.
+pub struct BenchmarkList(pub OneOrMany<Benchmark>);
+impl MarkdownSupport for BenchmarkList {
     fn to_markdown(&self) -> String {
-        match self {
-            | Self::One(value) => format!("- Benchmark\n{}", value.to_markdown().with_additional_indent(2)),
-            | Self::Many(values) => values
+        match &self.0 {
+            | OneOrMany::One(value) => format!("- Benchmark\n{}", value.to_markdown().with_additional_indent(2)),
+            | OneOrMany::Many(values) => values
                 .iter()
                 .map(|value| format!("- Benchmark\n{}", value.to_markdown().with_additional_indent(2)))
                 .collect::<Vec<_>>()

@@ -32,7 +32,7 @@ use acorn_schema::{
     research_activity::{Logbook, LogbookEntry, ResearchActivity, ResearchActivityMetadata},
     standard::{cff::Cff, ckan, datacite, dcat, dublin_core::DublinCoreDocument, huwise, invenio, text, text::Text},
     vocabulary::{VocabularyFormat, VocabularyFuzzyMode},
-    ImageObject, MediaObject, OneOrMany,
+    ImageObject, MediaObject, OneOrMany, OneOrManyCodec,
 };
 use color_eyre::eyre::eyre;
 use owo_colors::OwoColorize;
@@ -483,7 +483,7 @@ impl InputOutput for Metadata {
 impl Batch for OneOrMany<ResearchActivity> {
     fn batch_write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into();
-        self.serialize(MimeType::from_path(&output))
+        self.encode(MimeType::from_path(&output))
             .map_err(|why| eyre!("Serialize research activity data — {why}"))
             .and_then(|content| write_file(output, content))
     }

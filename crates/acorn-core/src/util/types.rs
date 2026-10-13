@@ -9,13 +9,23 @@ use core::{
     str::FromStr,
 };
 #[cfg(feature = "alloc")]
-use core::{iter::FromIterator, ops::Deref, slice::Iter};
+use core::{
+    iter::FromIterator,
+    ops::{Deref, DerefMut},
+    slice::Iter,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
 
 /// Generic wrapper for a single value or multiple values.
+///
+/// Accepts either one item or an array of items and preserves which form was supplied, so a singleton round-trips as a singleton and a one-element array round-trips as an array.
+///
+/// ### Known limitation
+/// Deserialization is derived as `#[serde(untagged)]`, which discards the inner error and reports only "data did not match any variant".
 #[cfg(feature = "alloc")]
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Deserialize, Eq, Hash, JsonSchema, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(untagged)]
 pub enum OneOrMany<T> {
     /// A single item.
     One(T),
@@ -212,6 +222,15 @@ impl<T> Deref for OneOrMany<T> {
     }
 }
 #[cfg(feature = "alloc")]
+impl<T> DerefMut for OneOrMany<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            | Self::One(value) => core::slice::from_mut(value),
+            | Self::Many(values) => values.as_mut_slice(),
+        }
+    }
+}
+#[cfg(feature = "alloc")]
 impl<T> From<Vec<T>> for OneOrMany<T> {
     fn from(values: Vec<T>) -> Self {
         Self::Many(values)
@@ -261,6 +280,10 @@ impl<T> OneOrMany<T> {
             | Self::Many(values) => values,
         }
     }
+    /// Normalize the contained items to the multiple-values representation.
+    pub fn into_many(self) -> Self {
+        Self::Many(self.into_vec())
+    }
     /// Iterate over contained items by reference.
     pub fn iter(&self) -> Iter<'_, T> {
         self.as_slice().iter()
@@ -279,6 +302,13 @@ impl<T> OneOrMany<T> {
             | Self::One(value) => OneOrMany::One(transform(value)),
             | Self::Many(values) => OneOrMany::Many(values.into_iter().map(transform).collect()),
         }
+    }
+    /// Transform every contained item while preserving the one-or-many shape.
+    pub fn map_items<U, F>(self, transform: F) -> OneOrMany<U>
+    where
+        F: FnMut(T) -> U,
+    {
+        self.map(transform)
     }
 }
 impl<T> From<(T, T)> for ThisOrThat<T> {

@@ -15,6 +15,7 @@ use acorn_analysis::{Finding, Findings};
 use acorn_core::util::constants::app::{MAX_EXEC_BYTES, SUPPORTED_EXEC_VERSION};
 use acorn_core::util::MimeType;
 use acorn_core::Location;
+use acorn_core::OneOrMany;
 use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::validation::Validate as SchemaValidate;
 use alloc::collections::BTreeMap;
@@ -32,7 +33,7 @@ fn authorization(capabilities: ScriptCapabilities) -> ScriptAuthorization {
         capabilities,
         digest: "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad".to_string(),
         entry: "evaluate".to_string(),
-        hooks: vec![Hook::Check, Hook::Format],
+        hooks: OneOrMany::Many(vec![Hook::Check, Hook::Format]),
         id: "quality".to_string(),
         limits: ResourceLimits::default(),
     }
@@ -73,19 +74,19 @@ fn fixture_execution(name: &str, hook: WorkflowAction, data: &serde_json::Value,
 fn manifest(capabilities: ScriptCapabilities) -> ScriptManifest {
     ScriptManifest {
         version: SCRIPT_MANIFEST_VERSION.to_string(),
-        scripts: vec![authorization(capabilities)],
+        scripts: OneOrMany::One(authorization(capabilities)),
     }
 }
 
 #[test]
 fn test_application_configuration_has_hook() {
     let configuration = ApplicationConfiguration {
-        scripts: Some(vec![Entry {
+        scripts: Some(OneOrMany::One(Entry {
             id: None,
             path: "quality".to_string(),
-            hooks: vec![Hook::Check, Hook::Format],
+            hooks: OneOrMany::Many(vec![Hook::Check, Hook::Format]),
             absolute: false,
-        }]),
+        })),
         ..ApplicationConfiguration::default()
     };
     assert!(configuration.has_hook(Hook::Check));
@@ -96,20 +97,20 @@ fn test_application_configuration_has_hook() {
 #[test]
 fn test_application_configuration_validates_entries_and_duplicate_paths() {
     let configuration = ApplicationConfiguration {
-        scripts: Some(vec![
+        scripts: Some(OneOrMany::Many(vec![
             Entry {
                 id: None,
                 path: "quality".to_string(),
-                hooks: vec![Hook::Check],
+                hooks: OneOrMany::One(Hook::Check),
                 absolute: false,
             },
             Entry {
                 id: None,
                 path: "quality".to_string(),
-                hooks: vec![Hook::Format],
+                hooks: OneOrMany::One(Hook::Format),
                 absolute: false,
             },
-        ]),
+        ])),
         ..ApplicationConfiguration::default()
     };
     let report = SchemaValidate::validate(&configuration).expect_err("duplicate paths fail validation");
@@ -142,7 +143,7 @@ fn test_config_entry_validation_duplicate_hooks() {
     let entry = Entry {
         id: None,
         path: "foo".to_string(),
-        hooks: vec![Hook::Check, Hook::Check],
+        hooks: OneOrMany::Many(vec![Hook::Check, Hook::Check]),
         absolute: false,
     };
     assert!(SchemaValidate::validate(&entry).is_err());
@@ -152,7 +153,7 @@ fn test_config_entry_validation_empty_hooks() {
     let entry = Entry {
         id: None,
         path: "foo".to_string(),
-        hooks: vec![],
+        hooks: OneOrMany::Many(Vec::new()),
         absolute: false,
     };
     assert!(SchemaValidate::validate(&entry).is_err());
@@ -162,7 +163,7 @@ fn test_config_entry_validation_parent_traversal() {
     let entry = Entry {
         id: None,
         path: "../escape".to_string(),
-        hooks: vec![Hook::Check],
+        hooks: OneOrMany::One(Hook::Check),
         absolute: false,
     };
     assert!(SchemaValidate::validate(&entry).is_err());
@@ -172,7 +173,7 @@ fn test_config_entry_validation_repeated_root() {
     let entry = Entry {
         id: None,
         path: ".acorn/quality".to_string(),
-        hooks: vec![Hook::Check],
+        hooks: OneOrMany::One(Hook::Check),
         absolute: false,
     };
     assert!(SchemaValidate::validate(&entry).is_err());
@@ -193,20 +194,20 @@ fn test_configured_scripts_compile_completely_before_evaluation() {
     write(script_root.join("first.rhai"), "// @acorn-exec-v0.2.0\nfn evaluate(context) { loop {} }").expect("first script");
     write(script_root.join("second.rhai"), "// @acorn-exec-v0.2.0\nfn evaluate(context) {").expect("second script");
     let configuration = ApplicationConfiguration {
-        scripts: Some(vec![
+        scripts: Some(OneOrMany::Many(vec![
             Entry {
                 id: None,
                 path: "first".to_string(),
-                hooks: vec![Hook::Check],
+                hooks: OneOrMany::One(Hook::Check),
                 absolute: false,
             },
             Entry {
                 id: None,
                 path: "second".to_string(),
-                hooks: vec![Hook::Check],
+                hooks: OneOrMany::One(Hook::Check),
                 absolute: false,
             },
-        ]),
+        ])),
         ..ApplicationConfiguration::default()
     };
     let changes = vec![Change::Document {
@@ -234,7 +235,7 @@ fn test_configured_scripts_deny_non_local_callers() {
     let entry = Entry {
         id: None,
         path: "quality".to_string(),
-        hooks: vec![Hook::Check],
+        hooks: OneOrMany::One(Hook::Check),
         absolute: false,
     };
     let error = entry
@@ -252,7 +253,7 @@ fn test_configured_scripts_use_immutable_compiled_snapshot() {
     let resolved = Entry {
         id: None,
         path: "quality".to_string(),
-        hooks: vec![Hook::Check],
+        hooks: OneOrMany::One(Hook::Check),
         absolute: false,
     }
     .resolve(temporary.path(), ExecutionOrigin::Local)
@@ -274,7 +275,7 @@ fn test_configured_validate_findings_use_schema_category() {
     let resolved = Entry {
         id: None,
         path: "quality".to_string(),
-        hooks: vec![Hook::Validate],
+        hooks: OneOrMany::One(Hook::Validate),
         absolute: false,
     }
     .resolve(temporary.path(), ExecutionOrigin::Local)
@@ -506,10 +507,10 @@ fn test_infer_rhai_header_is_independent_of_compilation() {
 }
 #[test]
 fn test_inline_effectful_manifest_requires_explicit_configuration() {
-    let source = ScriptManifestSource::Inline(manifest(ScriptCapabilities {
+    let source = ScriptManifestSource::Inline(Box::new(manifest(ScriptCapabilities {
         mutation: true,
         ..ScriptCapabilities::default()
-    }));
+    })));
     assert!(source.resolve(false).is_err());
     assert!(source.resolve(true).is_ok());
 }
@@ -546,7 +547,7 @@ fn test_module_loads() {
 fn test_network_capability_denies_offline_requests() {
     let authorization = authorization(ScriptCapabilities {
         network: Some(NetworkCapability {
-            hosts: vec!["example.com".to_string()],
+            hosts: OneOrMany::One("example.com".to_string()),
             max_requests: 1,
             max_response_bytes: 1024,
             timeout: 100,
@@ -563,7 +564,7 @@ fn test_network_capability_denies_offline_requests() {
 fn test_network_capability_denies_unlisted_and_private_targets() {
     let authorization = authorization(ScriptCapabilities {
         network: Some(NetworkCapability {
-            hosts: vec!["127.0.0.1".to_string()],
+            hosts: OneOrMany::One("127.0.0.1".to_string()),
             max_requests: 2,
             max_response_bytes: 1024,
             timeout: 100,

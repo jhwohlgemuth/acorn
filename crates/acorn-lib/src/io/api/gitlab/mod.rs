@@ -21,6 +21,7 @@ use crate::{
 use acorn_core::{
     prelude::HashMap,
     util::{Searchable, SemanticVersion},
+    OneOrMany,
 };
 use acorn_host::terminal::Label;
 use acorn_schema::validation::{is_iso_date_or_rfc3339_timestamp, Validate};
@@ -1736,7 +1737,7 @@ impl From<RunnerDetails> for RunnerMetadata {
             runner_type,
             run_untagged: false,
             status: None,
-            tags,
+            tags: tags.map(OneOrMany::into_vec),
             version: None,
         }
     }

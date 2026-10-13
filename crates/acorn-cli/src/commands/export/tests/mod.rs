@@ -34,7 +34,7 @@ use acorn_schema::standard::invenio;
 use acorn_schema::standard::zon;
 use acorn_schema::standard::Standard;
 use acorn_schema::validation::Validate;
-use acorn_schema::{ContactPoint, OneOrMany};
+use acorn_schema::{ContactPoint, OneOrMany, OneOrManyCodec};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;
 use color_eyre::eyre::Result;

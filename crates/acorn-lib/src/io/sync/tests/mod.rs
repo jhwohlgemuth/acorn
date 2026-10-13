@@ -8,7 +8,7 @@
 use super::*;
 use crate::io::config::{ApplicationConfiguration, ModelEntry, ModelEntryOptions};
 use crate::test::utils::temp_dir;
-use acorn_core::{Location, Repository};
+use acorn_core::{Location, OneOrMany, Repository};
 use std::fs::{create_dir_all, read_to_string, remove_dir_all, write};
 #[path = "goose.rs"]
 mod goose_tests;
@@ -27,7 +27,7 @@ fn detailed_model(name: &str, filter: Option<Vec<String>>) -> ModelEntry {
         },
         revision: None,
         auth: None,
-        filter,
+        filter: filter.map(OneOrMany::Many),
         ignore: None,
         quantization: None,
         gpu_memory: None,
@@ -334,7 +334,7 @@ fn test_resolve_models_applies_detailed_filters() {
     write(model_dir.join("qwen-q4.gguf"), b"q4").unwrap();
     write(model_dir.join("qwen-q8.gguf"), b"q8").unwrap();
     let configuration = ApplicationConfiguration {
-        models: Some(vec![detailed_model("qwen", Some(vec!["q4".to_string()]))]),
+        models: Some(OneOrMany::Many(vec![detailed_model("qwen", Some(vec!["q4".to_string()]))])),
         ..Default::default()
     };
     let resolved = resolve_models(&configuration, &dir).unwrap();
@@ -350,22 +350,27 @@ fn test_resolve_models_fails_for_missing_ambiguous_and_duplicate_models() {
     write(ambiguous_dir.join("one.gguf"), b"one").unwrap();
     write(ambiguous_dir.join("two.gguf"), b"two").unwrap();
     let missing = ApplicationConfiguration {
-        models: Some(vec![ModelEntry::Selector("missing".to_string())]),
+        models: Some(OneOrMany::Many(vec![ModelEntry::Selector("missing".to_string())])),
         ..Default::default()
     };
     assert!(resolve_models(&missing, &dir).is_err());
     let missing_direct = ApplicationConfiguration {
-        models: Some(vec![ModelEntry::Selector(dir.join("missing.gguf").display().to_string())]),
+        models: Some(OneOrMany::Many(vec![ModelEntry::Selector(
+            dir.join("missing.gguf").display().to_string(),
+        )])),
         ..Default::default()
     };
     assert!(resolve_models(&missing_direct, &dir).is_err());
     let ambiguous = ApplicationConfiguration {
-        models: Some(vec![ModelEntry::Selector("ambiguous".to_string())]),
+        models: Some(OneOrMany::Many(vec![ModelEntry::Selector("ambiguous".to_string())])),
         ..Default::default()
     };
     assert!(resolve_models(&ambiguous, &dir).is_err());
     let duplicate = ApplicationConfiguration {
-        models: Some(vec![detailed_model("duplicate", None), detailed_model("duplicate", None)]),
+        models: Some(OneOrMany::Many(vec![
+            detailed_model("duplicate", None),
+            detailed_model("duplicate", None),
+        ])),
         ..Default::default()
     };
     assert!(resolve_models(&duplicate, &dir).is_err());
@@ -378,7 +383,7 @@ fn test_resolve_models_uses_direct_local_gguf_source() {
     let path = dir.join("direct.gguf");
     write(&path, b"gguf").unwrap();
     let configuration = ApplicationConfiguration {
-        models: Some(vec![ModelEntry::Selector(path.display().to_string())]),
+        models: Some(OneOrMany::Many(vec![ModelEntry::Selector(path.display().to_string())])),
         ..Default::default()
     };
     let resolved = resolve_models(&configuration, &dir).unwrap();

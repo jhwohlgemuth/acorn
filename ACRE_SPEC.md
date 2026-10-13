@@ -62,6 +62,100 @@ acorn export --schema --standard acre
 
 Use `--standard acre` with `acorn check` when the input has a non-canonical filename or comes from standard input.
 
+## Proposed folder-to-bucket association
+
+These are proposed ACRE extensions, not fields accepted by the current 1.0.0 validator. The example version 2.0.0 remains subject to implementation and migration validation.
+
+This proposed configuration demonstrates a folder belonging to a local bucket and a standalone folder. Neither declaration triggers copying. Bucket IDs and folder bucket references are planned additions.
+
+```json
+{
+  "schemaVersion": "2.0.0",
+  "members": ["administrator@example.org"],
+  "buckets": [
+    { "id": "research", "name": "Research activities", "source": "file:///C:/research/" }
+  ],
+  "folders": [
+    { "id": "acorn", "bucket": "research", "path": "file:///C:/research/acorn/index.json" },
+    { "id": "independent-study", "path": "file:///C:/independent-study/index.json" }
+  ]
+}
+```
+
+This JSON is also valid JSONC. Equivalent YAML:
+
+```yaml
+schema_version: "2.0.0"
+members: [administrator@example.org]
+buckets:
+  - id: research
+    name: Research activities
+    source: file:///C:/research/
+folders:
+  - id: acorn
+    bucket: research
+    path: file:///C:/research/acorn/index.json
+  - id: independent-study
+    path: file:///C:/independent-study/index.json
+```
+
+Both folders use absolute URIs because neither a folder root nor a GitLab fallback is configured; the bucket reference supplies no implicit root. The standalone activity is accessed in place, with its parent directory as the associated-file base. Importing the research bucket into a different destination is a separate explicit operation and does not redirect registered folders. Bucket membership and copying are separate concerns.
+
+Discovery within a bucket grants no intake access. Global and folder members govern authorization. Standalone local JSONL intake requires a durable proposal and explicit human application before canonical writes; it does not infer GitLab review support from filesystem location. During implementation, add these distinctions and examples to the ACRE specification and configuration guides, alongside local bucket import/copy documentation.
+
+
+### Index references for concise buckets
+
+A folder may use a zero-based integer `bucket` reference instead of a string ID. This works for both concise and detailed bucket entries. String `"0"` is an ID, while integer `0` selects the first declared bucket. Resolve indexes before filtering or discovery. Reject negative, fractional, out-of-range, and boolean references. Index references and bucket array order must survive formatting and cross-format serialization unchanged; zero must not be omitted as empty.
+
+JSON:
+
+```json
+{
+  "schemaVersion": "2.0.0",
+  "members": ["administrator@example.org"],
+  "buckets": ["file:///C:/research/", "file:///C:/archive/"],
+  "folders": [
+    { "id": "acorn", "bucket": 0, "path": "file:///C:/research/acorn/index.json" },
+    { "id": "history", "bucket": 1, "path": "file:///C:/archive/history/index.json" }
+  ]
+}
+```
+
+JSONC:
+
+```jsonc
+{
+  "schemaVersion": "2.0.0",
+  "members": ["administrator@example.org"],
+  // Order matters for integer references.
+  "buckets": ["file:///C:/research/", "file:///C:/archive/"],
+  "folders": [
+    { "id": "acorn", "bucket": 0, "path": "file:///C:/research/acorn/index.json" },
+    { "id": "history", "bucket": 1, "path": "file:///C:/archive/history/index.json" }
+  ]
+}
+```
+
+YAML:
+
+```yaml
+schema_version: "2.0.0"
+members: [administrator@example.org]
+buckets:
+  - file:///C:/research/
+  - file:///C:/archive/
+folders:
+  - id: acorn
+    bucket: 0
+    path: file:///C:/research/acorn/index.json
+  - id: history
+    bucket: 1
+    path: file:///C:/archive/history/index.json
+```
+
+Prefer IDs in long-lived configurations: reordering buckets changes index associations for new work. Persist the resolved bucket identity and destination at admission so retries retain their original routing. Index association does not supply a path root, trigger copying, or grant access. These examples are proposed extensions, not valid current ACRE 1.0.0 configurations.
+
 ## Top-level attributes
 
 | Attribute | Type | Description |

@@ -21,7 +21,7 @@ use crate::util::constants::app::{
 };
 use crate::util::constants::env::{OPENAI_API_KEY, OPENAI_SERVER_HOST};
 use acorn_core::util::Searchable;
-use acorn_core::{Location, Repository, Scheme};
+use acorn_core::{Location, OneOrMany, Repository, Scheme};
 use acorn_schema::pid::{PersistentIdentifierParse, PublicationIdentifierType, DOI};
 use secrecy::ExposeSecret;
 
@@ -1010,7 +1010,7 @@ fn test_endpoint_context() {
         param!(TemplateValue, "three", "four"),
     ];
     let data = Some(params);
-    let endpoint = Endpoint::at("example.org").root("v3.0").resources(vec![]).build();
+    let endpoint = Endpoint::at("example.org").root("v3.0").resources(OneOrMany::Many(Vec::new())).build();
     let context = endpoint.context_with::<orcid::SearchField, orcid::OutputColumn>(data);
     assert_eq!(context.get("base").unwrap().as_str(), Some("https://example.org/v3.0"));
     assert!(context.get("query").is_some());
@@ -1247,8 +1247,7 @@ fn test_ror_search_response() {
 }
 #[test]
 fn test_search_resource_find_by_name() {
-    let resources = vec![
-        Resource {
+    let resources = [Resource {
             name: "status".to_string(),
             method: api::HttpMethod::Get,
             template: "/status".to_string(),
@@ -1257,8 +1256,7 @@ fn test_search_resource_find_by_name() {
             name: "search".to_string(),
             method: api::HttpMethod::Get,
             template: "/search{{ query }}".to_string(),
-        },
-    ];
+        }];
     let found = resources.find_by_name("SEARCH");
     assert!(found.is_some());
     assert_eq!(found.unwrap().name, "search");

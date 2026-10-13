@@ -1,17 +1,22 @@
 ---
 type: Plan
 title: "Implement GitLab JSONL intake and deploy Power Automate logbook reporting"
-description: "Append Logbook submissions from Power Automate to a GitLab JSONL file, poll them from Vergil, and validate reviewed, duplicate-safe reporting."
+description: "Prioritize ingestion of Logbook JSONL into one or more projects, multiplexed by project ID or configured folder name, before reviewed, duplicate-safe reporting."
 difficulty: medium
 impact: critical
 package: [workspace, acorn-lib, acorn-cli, acorn-schema]
 tags: [feature, automation, powerapps, powerautomate, gitlab, webhook, logbook, reporting, pdf]
 status: planned
+priority: next
 execution: phased
 phase_budget_hours: 5
 ---
 
 # Goal
+
+**Top blocking priorities:** (1) complete the ACRE update, including the full ACORN/Xylem variable contract, `OneOrMany` for all array attributes, format adapters, migration, schemas, and documentation; (2) implement and validate JSONL ingestion against that contract. Both gates must pass before PA-05, pilot reporting, or broader rollout. Operational preparation may continue independently but cannot substitute for either gate.
+
+[Complete proposed JSON, JSONC, YAML, and deployment environment examples](../assets/acre-logbook-configuration-examples.md) define the intended layout and behavior. They remain proposed until validated by the updated schema; schema version and newly proposed field names must be settled in PA-11.
 
 Implement the selected sequence: Power Apps form → Power Automate flow → append to the JSONL Logbook inbox in GitLab → Vergil polls GitLab → the bot durably ingests new items and removes them from the inbox → the bot routes each item by `projectId` and augments the associated project's `index.json`. Use `.acorn/intake/submissions.jsonl` for the pending inbox. Each line wraps form-controlled Logbook fields in the existing version-1 submission envelope. Preserve the established review branch and human-merge policy for canonical changes, followed by PDF publication and notifications. Complete one single-project pilot before expanding mappings or submitters.
 
@@ -19,6 +24,7 @@ This plan is the sole setup reference while work remains active. It records the 
 
 # Current evidence
 
+- **Priority update (2026-10-13):** prioritize JSONL ingestion into one or more projects, multiplexed by project ID or folder name. At local revision `c7ea474d`, `FormSubmission` still requires `projectId`, authorizes through the configured project mapping, and derives the project/month review branch from that ID; `Server::poll_once` still reads note events. Folder aliases and mixed-project JSONL ingestion remain planned. Validate the multiplexed ingestion contract before reporting rollout; broader live app sharing still follows the single-project pilot.
 - **Selected transport (2026-10-11):** the user reports testing form data saved as a CSV row and selects GitLab JSONL for the planned intake. Power Automate will append to `.acorn/intake/submissions.jsonl` in the target project; Vergil will poll that file. The CSV test does not establish that the JSONL flow or poller exists. This turn updates planning only; no flow or remote project is changed.
 - **Infrastructure:** the user has self-managed servers with self-signed TLS at best and has not provisioned a gateway. Organizational gateway availability is unverified and is not a dependency of the selected design. Power Automate must reach and authenticate to GitLab; Vergil must reach GitLab and the callback endpoint over outbound HTTPS. No Power Automate-to-Vergil route is required.
 - **Implementation gap:** `Server::poll_once` in `crates/acorn-lib/src/io/api/gitlab/bot.rs` polls GitLab note events, not repository files. The JSONL reader, append retry contract, durable record outcomes, and deployment configuration remain planned. Existing `FormSubmission::entry` converts validated, authorized form fields into `LogbookEntry`; reuse this contract rather than inventing a second Logbook schema.
@@ -92,13 +98,140 @@ The flow would then own full Logbook construction, validation, submitter authori
 
 # Multi-project routing model
 
+- **First implementation priority:** one JSONL inbox must accept interleaved records for multiple projects as well as a single-project stream. Each record resolves to exactly one canonical project; multiplexing means distributing records to their selected projects, not copying every record to every project. Prove this locally before enabling reporting or expanding live submitters.
+- Accept a stable project ID or an explicitly configured folder-name alias as the intake routing selector. Resolve folder names through an approved alias-to-project-ID-to-`index.json` mapping before constructing the existing version-1 envelope; keep its required canonical `projectId` and strict schema unchanged. PA-10 must specify the JSONL adapter's selector representation and normalization boundary before implementation. Never add an undeclared folder field to `FormSubmission` or infer a destination from prose, email, or an arbitrary filesystem path.
+- Require unique, exact folder aliases within the configured source repository. Reject missing, unknown, ambiguous, traversal-like, or conflicting selectors; if an ID and folder name are both provided, they must resolve to the same project. Distinguish the research project ID from the numeric GitLab repository ID. Preserve the original selector and canonical route in durable intake evidence so a retry cannot silently switch destinations after a mapping change.
+- Name the optional per-project alias list `aliases` (not `folder_aliases`). It contains explicit routing aliases, including folder names, that resolve to that project's canonical ID; omitted lists default to empty.
+- Use root `folders` for the shared destination registry, with stable `id`, optional `aliases`, `members`, `variables`, and `path` in each entry. This supersedes the earlier proposed root `projects` and mapping `projectId`/`project_id` names; existing submission/RAD `projectId` fields remain compatible. Name the GitLab repository setting `gitlabProjectId` in JSON/JSONC and `gitlab_project_id` in YAML.
+- Add `options.folders.root` as an absolute local or remote URI identifying the base directory/container for folder destinations (for example, `file:///C:/research/` or `https://data.example.org/research/`). An explicit root takes precedence over `options.powerAutomate.gitlabProjectId`; that GitLab setting supplies repository-relative resolution only when the root is absent. Never fall back to the ACRE file directory or process working directory. YAML uses `options.folders.root` and `options.power_automate.gitlab_project_id`.
+- Resolve each folder `path` with this order: an explicit absolute URI identifies its own destination; otherwise resolve a relative path against `options.folders.root`; otherwise use the configured GitLab repository; otherwise reject the path because it must be an absolute URI. An omitted path becomes `<id>/index.json` only when a root or GitLab repository is configured. With neither configured, require an explicit absolute URI for every folder. Paths continue to designate the index file, and aliases never affect the destination.
+- Treat roots as directory bases, normalizing a missing trailing slash before URI joining. Preserve URI escaping and reject traversal outside a configured root. Local absolute filesystem paths remain supported with a configured local file root, normalized to `file:` URIs on the executing host; without either root or GitLab configuration, native `/srv/...`, `C:/...`, and UNC paths are not substitutes for the required absolute URI. Use `file:///srv/research/acorn/index.json`, `file:///C:/research/acorn/index.json`, or a valid file URI for UNC destinations. Reject native paths against remote roots rather than interpreting them as remote paths.
+- URI designation does not imply write support for every scheme. Validate against the selected consumer/adapter and fail explicitly for unsupported schemes or mutation operations; an HTTPS root alone does not grant repository commit capability. For GitLab writes, resolve the destination inside the selected repository or an explicitly mapped checkout and convert it to a repository-relative API path; reject conflicting repository/root targets and symlink/junction escapes. Never send a host path to the GitLab API. HTTP intake, JSONL intake, and reporting share this resolver.
+- Add a global email allowlist as the top-level `members` attribute of the ACRE document, alongside root `variables` and `folders`. If this attribute is absent, its inline contribution defaults to empty; resolve any `variables.members` contribution as specified below before validating access. A submitter is authorized when present in top-level `members` OR the resolved project's `members`. Global members have intake access to every configured project, including projects added later; an omitted or empty project `members` list defaults to empty and is valid when the effective global member list is nonempty. Reject a project configuration when both its effective project member list and effective global member list are empty. Apply the same email validation and normalization to both lists. This is intake authorization, not GitLab administrator, graduation, or merge permission; unknown projects remain invalid.
+- Authorize against the combined global and project member allowlists and preserve unrelated `index.json` fields and existing Logbook entries. Isolate per-record failures: a rejected or retryable record for one project must not prevent valid records for another project from being admitted. Retain existing UUID/content conflict checks, durable outcomes, and exact-record cleanup rules across all routes.
 - The current pilot is intentionally fixed to `projectId` `acorn`; it proves intake, authorization, review, publication, and notification before the project list expands.
 - ACORN already supports multiple mappings in `.acorn.json`. Each mapping owns one stable `project_id`, one safe repository-relative `index.json` path, and an allowlist of submitter email addresses.
 - After the pilot passes, expose a required, controlled **Project** choice in the organization-only canvas app. The app maps each display label to a stable configured `projectId`; users never supply a repository path or free-form routing identifier.
-- The app-triggered flow sends the selected `projectId` and `User().Email` from the signed-in ORNL session. ACORN rejects an unknown project or a submitter who is not a member of that project before any repository write; app filtering is user experience, not the authorization boundary.
-- The GitLab bot resolves the authorized mapping and publishes the entry only to that mapping's `path`, on a project- and month-specific review branch. The `projectId` remains attached through graduation, callbacks, and report packaging.
+- The app-triggered flow sends the selected `projectId` and `User().Email` from the signed-in ORNL session. ACORN rejects an unknown project or a submitter absent from both the global and selected project's member allowlists before any repository write; app filtering is user experience, not the authorization boundary.
+- The GitLab bot resolves the authorized mapping and publishes the entry only to that mapping's resolved destination path, on a project- and month-specific review branch. The `projectId` remains attached through graduation, callbacks, and report packaging.
 - Routing is explicit rather than inferred. A user who works on several projects selects the related project in the app; the current implementation does not guess a project from email or logbook prose.
 - The HTTP action makes the app-triggered flow premium. Before sharing beyond the pilot, every invoking user must have suitable Premium rights or ORNL must assign a Power Automate Process license to the flow; a shared service account is not a licensing workaround.
+
+## Member lists from environment variables
+
+Support an optional `variables` object at the ACRE document root and within each project, with `variables.members` naming the member-list environment variable. Root `folders` is the shared destination registry; neither root attribute belongs inside `options.powerAutomate`. Power Automate consumes this shared configuration; its integration-specific settings belong under `options.powerAutomate`, not at the ACRE root. Migrate existing root `powerAutomate` settings to `options.powerAutomate`, its `variables` to root `variables`, and its `projects` to root `folders` through an explicit compatibility adapter; reject conflicting legacy/root declarations rather than silently merging them. The `members` value inside `variables` names one environment variable; it does not contain email addresses. Keep inline `members` arrays supported. At each scope, the effective member list is the union of inline members and the referenced variable's members, normalized and deduplicated. Authorization remains effective global membership OR effective project membership. A project may omit `members` when either its `variables.members` or the global sources supply access. Apply the nonempty-access validation after resolving all sources.
+
+Proposed ACRE-root configuration fragment (not yet implemented):
+
+```json
+{
+  "variables": { "members": "ACORN_LOGBOOK_MEMBERS" },
+  "projects": [
+    {
+      "project_id": "acorn",
+      "aliases": ["acorn-tooling"],
+      "variables": { "members": "ACORN_PROJECT_MEMBERS" }
+    }
+  ]
+}
+```
+
+The same variables may be set in the process environment or in a deployment-owned `.env` file:
+
+```dotenv
+ACORN_LOGBOOK_MEMBERS=admin@example.org,maintainer@example.org
+ACORN_PROJECT_MEMBERS=contributor@example.org
+```
+
+- Parse variable values as comma-separated email addresses, trimming surrounding whitespace and applying the same email normalization/validation as inline members. Empty or whitespace-only values contribute no members; reject malformed addresses and empty items within a nonempty list. Validate variable names and report errors by configuration scope and variable name without echoing the member list.
+- Process environment values take precedence over the same names in `.env`, including explicitly empty values. Read the deployment-owned `.env` next to the resolved local ACORN configuration; do not discover authorization settings from the polled repository or an unrelated working directory. A missing `.env` is allowed when process variables suffice; an unreadable or malformed existing file is an error. A referenced variable missing from both sources is a configuration error, even if inline members are present.
+- Resolve once at startup before authorization validation, consistently for HTTP intake, JSONL intake, and reporting. Keep configuration parsing independent of process environment access; pass the resolved member lists into shared authorization. Restart the service to apply changed variables. Do not expand arbitrary JSON strings or infer project-specific variable names from aliases.
+- Keep the existing literal-member configuration valid. Document that environment members augment inline members: clearing a variable removes only its contribution, and revoking a member requires removing every applicable global/project grant. Keep deployment `.env` contents out of source control and use placeholder examples in documentation.
+- Current `ApplicationConfiguration::load` reads explicit/discovered configuration; this member-variable resolution contract remains planned and must not be assumed to exist merely because other ACORN paths use environment variables.
+
+## Complete ACORN and Xylem variable contract
+
+## Attribute casing across ACRE formats
+
+Use **camelCase for JSON/JSONC attribute names** and **snake_case for YAML attribute names**, recursively across the ACRE model, including root configuration, options, projects, built-in variable references, and nested integration settings. Rust fields remain idiomatic snake_case. Both formats decode into the same typed model; serialization and generated schemas must use the target format's canonical spelling. This rule is a planned migration, not a claim about today's mixed-casing schema.
+
+| Meaning | JSON/JSONC | YAML |
+| --- | --- | --- |
+| Schema version | `schemaVersion` | `schema_version` |
+| Folder identifier | `id` | `id` |
+| Power Automate options | `options.powerAutomate` | `options.power_automate` |
+| Callback destination | `callbackDestination` | `callback_destination` |
+| GitLab repository | `gitlabProjectId` | `gitlab_project_id` |
+| Callback URL variable | `variables.callbackUrl` | `variables.callback_url` |
+| Inbound secret variable | `variables.inboundSecret` | `variables.inbound_secret` |
+
+`members`, `variables`, `projects`, `aliases`, `path`, and `custom` have identical spelling in both formats. This casing rule applies to schema-defined attributes, not values or user-defined map keys: preserve environment-variable names, project IDs, aliases, paths, and keys within `variables.custom` exactly. Likewise preserve opaque third-party payloads. Prose elsewhere in this plan may refer to internal snake_case field names; earlier examples marked proposed or pre-migration do not override this canonical wire-format rule.
+
+Use schema-aware format adapters or equivalent explicit serialization support; do not recursively rename arbitrary object keys. Define and test legacy aliases for existing configurations during migration, reject multiple spellings of the same field in one object, and always emit canonical target-format names. Include equivalent JSON/JSONC and YAML fixtures, format-specific schema checks, and cross-format round trips that preserve meaning. The separate Power Automate submission/callback wire contracts retain their existing casing unless separately versioned; ACRE casing does not rewrite JSONL envelope fields.
+
+## Variable coverage and custom references
+
+## Buckets, folders, and local operation
+
+A **bucket** identifies a collection of research-activity files and its source/provider configuration. A **folder** identifies one addressable activity destination, with a stable ID, aliases, index location, and membership. Current bucket import/download operations enumerate and transfer collection contents; merely declaring a bucket does not copy anything. A folder's resolved path specifies where an operation acts, independently of its collection membership.
+
+- Add optional `folders[].bucket` as a string bucket ID or zero-based integer index into the declared `buckets` array. Strings resolve only unique explicit `buckets[].id` values; integers reference concise or detailed entries by position before filtering, discovery, or transfer. Add optional unique IDs to detailed bucket objects. Never coerce a numeric string such as `"0"` into an index or infer references from display/repository names. Reject unknown IDs, negative/fractional/out-of-range indexes, booleans, and invalid types. Prefer stable IDs for long-lived configurations; indexes support concise bucket syntax.
+- Preserve bucket array order during formatting and serialization. Index `0` is a meaningful value and must never be omitted as empty. Reordering buckets intentionally changes index associations for newly admitted work; persist the resolved credential-free bucket source identity and destination with each admitted operation so retries cannot be redirected by later reordering. Preserve string-versus-integer reference types across JSON/JSONC/YAML round trips.
+- One bucket may contain many folders; each folder has at most one explicit bucket association. Standalone folders are valid. Keep folder IDs unique across the ACRE document so JSONL selectors remain unambiguous. Downloaded copies and snapshots do not create additional writable owners automatically.
+- Association does not introduce a path-resolution fallback: absolute URI, explicit `options.folders.root`, and GitLab fallback retain their established order. With neither root nor GitLab configuration, a folder still requires an explicit absolute URI even when it has a bucket reference. Do not infer a folder root from the bucket source.
+- Validate that an associated folder belongs to the referenced collection using provider-aware identity and containment, not a textual URI prefix. A local mirror of a remote collection requires an explicit verified mapping before it can serve as an associated writable destination. Conflicting or unverifiable associations fail clearly; the exact mapping representation must be settled in PA-11 before implementation.
+- A standalone `file:` URI points directly to an existing local `index.json`; its parent directory is the activity's associated-file base. Supported operations work in place without requiring a bucket import/copy step. Do not infer a Git repository, remote destination, synchronization, or GitLab review workflow merely because the path happens to lie inside a checkout.
+- A local bucket describes a collection that an import command may copy to a requested destination. Declaration alone performs no transfer. Adding or removing `folders[].bucket` does not itself copy, relocate, or synchronize data: membership and transfer are separate concerns. Downloads do not silently redirect later folder writes to the downloaded copy.
+- Bucket discovery does not automatically register folders for JSONL routing or grant intake access. Only registered folders use the global/folder membership contract; a bucket reference grants no additional authorization.
+- Preserve human review for standalone local JSONL intake. Without a configured repository review workflow, stage a durable, reviewable proposal and require explicit human application before changing canonical `index.json`. Do not imply that local paths can create GitLab merge requests. PA-10 must scope the local proposal/apply contract and its validation separately from the GitLab adapter; unsupported local review behavior must fail explicitly until implemented.
+
+Document these distinctions in `ACRE_SPEC.md` and the ACRE/configuration guides during implementation, including examples of a bucket with associated folders, a standalone local folder, and a local bucket import into a separate destination. Explain that standalone local access avoids an import/copy step, while bucket association alone never triggers copying. Document discovery versus registration, path precedence, authorization, local review, and remote-mirror limitations together.
+
+## Options coverage
+
+## OneOrMany for all ACRE array attributes
+
+Refactor every schema-defined array-valued ACRE attribute, at the root and recursively in nested configuration, to use the shared `OneOrMany<T>` abstraction. Accept either one item in its existing item shape or an array of those items in JSON, JSONC, and YAML. This includes `buckets`, `folders`, global/folder `members`, `aliases`, `models`, `endpoints`, `runners`, `scripts`, hook lists, whitelist lists, workflow capability/action lists, and all other nested array fields found by the schema inventory. Maps remain maps, and opaque third-party payload arrays retain their own contracts.
+
+Current evidence: `acorn-core::util::types::OneOrMany` already exposes slice/iterator access and shape-preserving mapping; `acorn-schema::types::OneOrMany` also exists, and ACRE already uses it for some whitelist settings. Verify their serialization/schema/validation capabilities and reuse the appropriate shared implementation rather than adding a third wrapper. Scope any shared-type changes to avoid changing unrelated RAD or provider wire contracts.
+
+- Inventory every ACRE array schema path and its item type, including feature-gated configuration mirrors and ACORN/Xylem consumers. Migrate declarations, constructors/builders, iteration, nested validation, schema generation, configuration writers, and downstream consumers within PA-11. Preserve existing array input compatibility and item validation; scalar syntax is not permission to coerce invalid item types.
+- Preserve the supplied one-versus-many representation when serializing nonempty values: singleton input remains one item, array input remains an array even with one item. Programmatic constructors choose the variant explicitly; conversion between formats preserves it. Empty optional `Many` values are omitted under the existing empty-attribute rule; required nonempty collections still fail validation. Do not wrap a scalar in a new array or collapse an existing array merely during formatting.
+- Normalize to a logical ordered sequence for application behavior. A singleton `buckets` source has length one, so bucket index `0` selects it and `1` is invalid. Preserve order, duplicate checks, numeric-string-versus-integer references, and durable resolved identity. A singleton detailed object must not be mistaken for a map of entries; retain concise/detailed bucket item unions inside `OneOrMany`.
+- Inline `members: "person@example.org"` means one validated email; multiple inline emails use an array. Comma-separated parsing remains specific to environment-variable values. A single folder object can still contain its own scalar or array `members` and `aliases` independently.
+- Generate format-specific schemas accepting both forms for every migrated field. Test singleton, one-element array, multi-element array, empty optional omission, invalid item types, nested validation paths, duplicate members/IDs, index zero, and semantic parity across JSON/JSONC/YAML. If an item type itself accepts arrays, settle its disambiguation explicitly in the field inventory rather than relying on untagged-deserializer ordering.
+- Update `ACRE_SPEC.md`, ACORN/Xylem configuration documentation, and the complete examples with scalar/object and array alternatives. This refactor is part of the top blocking ACRE gate and must be complete before PA-05; it is not a later convenience feature.
+
+## Option counterpart implementation
+
+Provide optional typed `options.<name>` attributes for root configuration features, with explicit exclusions: do not add `options.schemaVersion`, `options.config`, or `options.options`. Combine script-manifest and script settings under `options.scripts`; do not add `options.scriptManifest`. Apply the equivalent exclusions in YAML. Root `schemaVersion`, `config`, `options`, and `scriptManifest` remain unchanged. Use the same format-specific casing as each retained root counterpart. The planned root inventory is `schemaVersion`, `buckets`, `config`, `endpoints`, `folders`, `members`, `mcp`, `models`, `options`, `registries`, `runners`, `scriptManifest`, `scripts`, `variables`, `whitelist`, and `workflow` (snake_case equivalents in YAML). Internal skipped Rust fields such as `cst` are not ACRE attributes. Reconcile this inventory against the implemented schema during PA-11 and automatically check coverage with these explicit exclusions and the script-manifest-to-scripts mapping when root attributes change.
+
+Keep `options.powerAutomate` and the existing `options.crosswalk` as additional operation-specific settings even though they have no root counterpart after migration. `options.scripts` is the single owner of options affecting both root `scripts` and root `scriptManifest`; retain their distinct root data representations and avoid duplicate or conflicting option definitions.
+
+For counterparts with no behavior yet, define optional empty typed option objects and mark their Rust behavior handlers with `unimplemented!("ACRE options.<name> is not implemented")` as requested. Omission or an empty reserved object must deserialize and validate without invoking those handlers; formatting and serialization omit empty reserved objects. Reject unsupported nonempty fields at validation; never silently ignore requested behavior. Only explicit execution of an unfinished handler reaches its `unimplemented!()` placeholder. This applies to unused option handlers, not the already implemented root feature itself. Preserve existing functioning options and document reserved slots as unimplemented in schemas and the specification. Do not put Rust macro text into JSON/YAML values.
+
+## Variable catalog requirements
+
+## Omit empty configuration attributes on serialization
+
+Canonical ACRE JSON, JSONC, and YAML output must omit absent/null optional attributes, empty optional strings, empty collections/maps, and empty option objects. Apply omission recursively to typed configuration: when all serializable children disappear, omit the optional parent as well. This includes unused `options` counterparts, empty `members`/`aliases`, and empty `variables.custom`. Preserve meaningful `false`, numeric zero, nonempty values, and explicitly configured values equal to defaults. Do not emit placeholder `{}`, `[]`, or `null` attributes just to advertise schema support; document available options in the schema/specification instead.
+
+Validate before serialization: missing required values and invalid explicit empty paths or environment-variable references remain errors, not values silently removed to activate defaults. Preserve opaque payloads and user-defined data according to their schema; do not implement this as an indiscriminate JSON cleanup pass that removes array elements or rewrites custom values. Keep the document root valid even when all optional fields are omitted. Where an existing field uses explicit emptiness to mean something different from absence, preserve that distinction through an explicit typed representation and migration rather than silently changing behavior.
+
+Use the same omission policy for model serialization, configuration writing, format conversion, and JSONC formatting, including the existing CST-preserving writer. Preserve surviving comments/order where supported; an empty reserved object may be accepted as input but is omitted from canonical output. Add idempotence and semantic round-trip tests for each format, including nested empty parents, false/zero values, required-field errors, and meaningful opaque values. This is ACRE configuration serialization; it does not change JSONL wire envelopes or environment precedence for explicitly empty process variables.
+
+## Complete variable catalog
+
+The `variables` struct must cover **all environment variables used by ACORN and `../xylem`**, not only Power Automate or member lists. Keep the agreed `variables.members` contract and preserve existing callback/inbound-secret behavior through migration to root `variables`. Define one typed catalog with grouped built-in fields where needed to avoid ACORN/Xylem naming collisions, plus an explicit `custom` map. Do not limit the catalog to variables with an `ACORN_` or `XYLEM_` prefix.
+
+Initial source evidence reviewed on 2026-10-13 includes ACORN's `crates/acorn-lib/src/util/constants/env.rs`, CLI environment bindings, server configuration, provider token fallback chains, dynamic MCP/OCI credential references, and detached-container forwarding. Xylem revision `93cbfc0` includes `XYLEM_LOG_LEVEL`, `CI`, explicit `--env` loading with process-value precedence, and generated workflow variables through `Config::get_environment_variables`. This is starting evidence, not an exhaustive inventory or proof of implemented coverage.
+
+- Inventory both repositories' runtime reads, environment-name constants, CLI bindings, dynamic references, template expansion, subprocess/container forwarding, CI/build scripts, examples, tests, and documented variables. Record every name or dynamic family, source location, owning consumer, type/parser, fallback order, default, sensitivity, scope, and whether it is read, generated, or forwarded. Include platform variables and compile-time/test variables with their actual lifecycle; do not silently omit them from the catalog.
+- Give every fixed built-in variable a typed catalog entry. Cover provider credentials/hosts, server authentication/TLS/tracing, database/cache settings, logging/TUI, inference/model acquisition, HTTP policy, export/reporting, GitLab/CI, Power Automate, platform paths, and Xylem runtime/workflow settings. Preserve established aliases and fallback precedence. Generated workflow and compiler-owned variables remain represented as generated/read-only entries rather than becoming overridable runtime inputs.
+- Add `variables.custom` as a map from a logical custom name to an environment-variable reference. Example: `"custom": { "notification_channel": "ORG_NOTIFICATION_CHANNEL" }`. Values name variables, never embed resolved values. Resolve through the same process-environment-over-deployment-`.env` mechanism; validate names and missing explicitly referenced values. Custom values are opaque strings unless their explicit consumer supplies a parser.
+- Reject unknown built-in field names and collisions with reserved built-in/generated names; custom entries must be declared under `custom`. A project may supply its own custom map, overriding global custom references by logical key only for that project's consumers. Member authorization still unions global and project grants. Do not permit project configuration to override process-wide server credentials, CI identity, or compiler/workflow-owned state.
+- Expose resolved custom values to explicitly named workflow/template consumers without exporting the entire parent environment or mutating global process state. Require an explicit forwarding contract for child processes/containers, preserve Xylem's generated-variable ownership, and redact resolved custom values by default. Adding a custom variable does not automatically grant it execution or forwarding semantics.
+- Add a coverage gate that compares actual environment-use sites in both repositories against the catalog, including reviewed dynamic-name families. Newly introduced uncatalogued reads, bindings, or forwarding entries must fail that gate. Generate schema/documentation from the same catalog and verify behavior with representative runtime, credential, generated, and custom-variable cases. No claim of complete coverage is accepted until both repositories reconcile with zero unexplained omissions.
 
 The callback flow uses this request schema:
 
@@ -141,6 +274,8 @@ The callback flow uses this request schema:
 # Dependencies and stop gates
 
 ## Next steps with the available servers
+
+Prioritize PA-10 and its scoped JSONL ingestion/routing implementation phases independently of external deployment waits. Their integration gate must cover a mixed-project inbox using both project IDs and folder aliases; reporting and notification deployment must not defer this support to PA-09.
 
 1. Finish the Vergil bot health, readiness, and isolated GitLab access checks in polling mode.
 2. Test a policy-approved Power Automate callback flow from Vergil over outbound HTTPS and confirm Teams/email delivery. Store the callback URL securely before real intake.
@@ -242,7 +377,7 @@ Save the flow, copy the complete generated URL including its `sig` query paramet
 
 ## 5. Configure the GitLab data project and ACORN service
 
-Add the following `powerAutomate` section to the data project's `.acorn.json` with the resolved project values. Keep the optional timezone absent or set to `UTC`; no other reporting timezone is supported.
+The following is the existing pre-migration configuration accepted today. The planned ACRE schema moves `variables` and `folders` to the document root, with root `members` providing global access, and moves the remaining integration settings to `options.powerAutomate`; migrate this deployment example when that schema lands. Until then, use the following `powerAutomate` section with the resolved project values. Keep the optional timezone absent or set to `UTC`; no other reporting timezone is supported.
 
 ```json
 {
@@ -410,6 +545,21 @@ Submit authorized test entries for two different projects and one deliberately u
 
 # Acceptance criteria
 
+- Every schema-defined ACRE array attribute supports `OneOrMany<T>`, including nested and feature-gated fields. A source-backed schema inventory has no unexplained omissions. Existing arrays and new singleton forms validate equivalently, retain representation and ordering across serialization, and honor empty omission. Singleton bucket index `0`, nested member/alias forms, invalid item diagnostics, shared-type compatibility, and ACORN/Xylem consumer behavior are covered by tests and documented examples.
+- `folders[].bucket` resolves a unique string ID or a zero-based integer index; tests cover concise/detailed sources, index zero, numeric string IDs, negative/fractional/out-of-range indexes, booleans, preserved array order/reference types, immutable admitted routing after reordering, multiple folders per bucket, duplicate/missing references, containment, and standalone folders. Bucket association does not alter path precedence or grant access. A standalone local folder is read in place without creating an imported copy; declaring a local bucket alone performs no transfer. Local JSONL proposals require explicit review/application before canonical mutation, and unsupported review adapters fail clearly. Specification and user documentation include these distinctions and examples.
+- Canonical configuration output in JSON/JSONC/YAML contains no empty optional attributes or empty option objects, recursively. Empty reserved input objects normalize to omission without invoking unused handlers. Serialization remains idempotent, preserves effective configuration and meaningful false/zero/custom values, and rejects invalid required values before normalization. Both ordinary serializers and the JSONC CST writer pass these checks.
+- Typed option coverage excludes `schemaVersion`, `config`, and `options`, and maps both `scripts` and `scriptManifest` to `options.scripts`. Schema tests reject the removed option slots and catch omissions from the remaining coverage map. Existing options remain functional. Reserved empty objects normalize to omission without panicking, unsupported fields fail validation, and unused behavior handlers contain the requested explicit `unimplemented!()` placeholders. JSON/JSONC/YAML examples and ACRE documentation identify reserved versus implemented options.
+- Both top blocking gates pass before PA-05: the complete ACRE update with cross-repository variable coverage, schema migration, and documentation; then validated multiplexed JSONL ingestion. The JSON, JSONC, and YAML examples validate and normalize to equivalent configurations, preserving custom keys and values.
+
+- ACRE JSON/JSONC uses camelCase and YAML uses snake_case consistently for every schema-defined attribute. Format-aware parsing, serialization, schema export, and formatting agree; equivalent cross-format fixtures resolve identically. Legacy compatibility is explicit, duplicate spellings are rejected, and user-defined keys and values are preserved verbatim.
+- The planned ACRE layout places shared `variables`, `folders`, and global `members` at the document root, and integration settings under `options.powerAutomate`. Schema, examples, consumers, and compatibility tests agree on this layout; conflicting legacy/root/nested declarations are rejected explicitly.
+
+- The typed `variables` catalog accounts for every environment variable used by ACORN and Xylem, with source-backed coverage evidence for fixed names and dynamic families. Built-ins, platform/build/test inputs, and generated/read-only variables retain their documented lifecycles. `variables.custom` supports explicit global/project references, deterministic scope/precedence, collision rejection, missing-variable errors, redaction, and controlled forwarding. Schema and documentation stay aligned with the catalog.
+- Global and project `variables.members` references work with process variables and a deployment `.env`, independently and alongside inline lists. Tests cover process-over-file precedence, whitespace, normalization/deduplication, missing references, empty values, invalid emails, malformed `.env`, omitted project members with environment-only access, and rejection when all effective grants are empty. HTTP and JSONL authorization use identical resolved membership; diagnostics do not expose full member lists.
+- Folder resolution tests cover explicit local/remote roots, root-over-GitLab precedence, GitLab-only fallback, directory-base URI joining, absolute URI overrides, native paths under local roots, omitted-path defaults, and no-root/no-GitLab rejection of relative, omitted, and native non-URI paths. Validate file URIs for POSIX/Windows/UNC, unsupported schemes, remote write limitations, repository conflicts, containment, and consistent resolution across consumers.
+- Proposed configuration uses per-project `aliases` and top-level `members`; omitted lists preserve existing behavior. Global members can submit to every configured project, including a newly added project and projects with omitted or explicitly empty `members`. Validate both forms with nonempty effective global membership, and reject them only when neither global nor project sources supply members. Project-only members cannot submit to other projects; unlisted users and unknown projects are rejected. Both HTTP and JSONL intake enforce the same authorization rule, and global intake membership does not grant graduation or merge privileges.
+- A single-project stream and an interleaved multi-project JSONL stream both ingest successfully. Tests route records by canonical ID and configured folder alias, including an alias different from its ID, and verify only each destination's mapped `index.json` changes through review.
+- Missing/unknown selectors, duplicate folder aliases, conflicting ID/folder pairs, unsafe paths, and unauthorized project/member combinations produce inspectable rejections without project-data changes. A bad record does not block other valid projects; replay and restart do not duplicate entries or change a previously admitted route. These are ingestion implementation gates before reporting rollout.
 - Power Automate appends one compact, schema-valid Logbook submission envelope per line to `.acorn/intake/submissions.jsonl`. Concurrent appends and bot removals lose no submissions; retries after removal produce no duplicate processing effects.
 - Vergil reads immutable snapshots, durably ingests complete items before removing exact matches from the inbox, and routes each by `projectId` to augment only its configured `index.json`. Rejections stay visible, admitted payloads survive removal, and restart/crash replay produces no duplicate effects.
 - All licensing, GitLab reachability/authentication, callback policy, ownership, and pilot-mapping gates pass. No gateway or public Vergil endpoint is required.
@@ -425,15 +575,26 @@ Submit authorized test entries for two different projects and one deliberately u
 
 # Execution phases
 
+## PA-11 — Complete the ACRE refactor (first priority)
+
+- Status: planned
+- Budget: 5 active hours per checkpoint; total effort spans as many checkpoints as required. User-directed exception (2026-10-13) to the planning skill's single-window phase rule: all ACRE work remains one phase, not independently scheduled child phases. The portfolio's five-hour metadata describes checkpoint cadence for this phase, not a claim that the entire refactor fits five hours.
+- Prerequisites: read/write access to the ACORN and Xylem repositories for their respective changes; coordinate shared configuration ownership before mutation. External Power Platform deployment gates do not block this phase.
+- Exact write set: ACORN and Xylem ACRE configuration models, their shared OneOrMany types and configuration consumers, environment resolvers, format adapters, schemas, configuration tests/fixtures, and documentation as the named cross-repository integration surface; `ACRE_SPEC.md`, `docs/src/concepts/acre.md`, `docs/src/cli-reference/configuration.md`, `docs/src/cli-reference/commands/check.md`, `docs/src/cli-reference/commands/format.md`, `docs/src/cli-reference/commands/export.md`, `.wiki/assets/acre-logbook-configuration-examples.md`, this plan, `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`. Record the concrete source-file ownership manifest after the opening inventory and before editing source; unrelated refactors are excluded.
+- Primary integration lock: ACRE cross-repository configuration contract
+- Outcome: Implement and validate the complete ACRE update as one phase: root folders/variables/members; options.powerAutomate migration; bucket IDs/index references and folder associations; local/remote URI resolution and defaults; global/folder authorization; all ACORN/Xylem built-in and custom variable references; shared OneOrMany support for every array field; retained options counterparts and unused handlers; JSON/JSONC camelCase and YAML snake_case; recursive empty omission; schema versioning and compatibility; consumer integration and controlled forwarding. Update the ACRE specification, ACORN/Xylem documentation, generated schemas, and complete JSON/JSONC/YAML/.env examples in this same phase. The bucket-versus-folder and in-place-versus-copy explanations are required deliverables.
+- Focused validation: Source-backed variable and array inventories have no unexplained omissions; test all contracts and migrations above, format-specific schemas, semantic/representation round trips, option coverage, URI resolution, bucket references, and authorization. Validate every published example and documented migration command. Run focused ACORN/Xylem tests, then serialize final `make lint`, `make test`, applicable portability gates, `make book`, and wiki validation through the phase owner. Repair defects within this phase; preserve a clear checkpoint handoff if another work window is needed.
+- Handoff: Only after implementation, coverage, migration, schemas, examples, and documentation all pass, remove PA-11 and unblock PA-10 JSONL implementation planning. PA-12 is absorbed here and no longer a separate phase. Keep this phase open across checkpoints until the complete ACRE gate passes; do not release partial contract work as satisfying the blocker.
+
 ## PA-10 — Scope the JSONL implementation phases
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: selected JSONL transport contract above
+- Prerequisites: selected JSONL transport contract above; PA-11 complete, including implemented ACRE contract, schemas, tests, and documentation
 - Exact write set: this plan, `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
 - Primary integration lock: JSONL intake planning
-- Outcome: Verify current code and add separately bounded implementation phases for snapshot reading/configuration, durable admission/replay, conflict-safe cleanup, and integration validation. Give each an exact file write set and coordinate the existing GitLab, admission, store, and CLI owners before implementation.
-- Focused validation: Trace each transport acceptance criterion to a phase and verify that no phase exceeds five active hours or assumes the existing note poller consumes repository files.
+- Outcome: First scope the prioritized single-/multi-project JSONL ingestion contract, including project-ID/folder-name selectors, `aliases`, top-level `members`, and global/project `variables.members` resolution from process variables or deployment `.env`, absolute/relative optional folder `path` defaulting to `<id>/index.json`, shared destination resolution and HTTP/JSONL authorization, separately scoped standalone-local proposal/review behavior, canonicalization before strict envelope validation, and stable routing across replay. Add separately bounded implementation phases for routing/configuration, snapshot reading, durable admission/replay, conflict-safe cleanup, and integration validation. Give each an exact file write set and coordinate the existing GitLab, admission, store, and CLI owners before implementation.
+- Focused validation: Trace each transport and multiplexed-routing acceptance criterion to a phase, including interleaved projects, folder aliases, rejected selectors, global versus project-only membership, omitted/empty `members` with and without global access, environment/file precedence and member parsing, backward-compatible configuration defaults, omitted-path resolution and explicit overrides, failure isolation, and replay. Verify that no phase exceeds five active hours or assumes the existing note poller consumes repository files. Make the mixed-project ingestion test gate a prerequisite of PA-05 rather than deferring it to PA-09.
 - Handoff: Replace PA-10 with the scoped phases using fresh stable IDs. PA-05 remains blocked until those phases implement and validate the JSONL path; service boot and callback checks can proceed independently.
 
 ## PA-01 — Verify the published notification pilot
@@ -484,7 +645,7 @@ Submit authorized test entries for two different projects and one deliberately u
 
 - Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: PA-03, PA-04, implementation and validation phases scoped by PA-10
+- Prerequisites: PA-03, PA-04, PA-11 complete, JSONL implementation and validation phases scoped by PA-10
 - Exact write set: selected Power Apps intake flow, canvas submit action, isolated project `22464` inbox `.acorn/intake/submissions.jsonl`, Vergil JSONL source configuration
 - Primary integration lock: intake route
 - Outcome: Append the strict version-1 envelope with conflict-safe GitLab retries, configure the implemented repository-file poller, and return a confirmed queued receipt with submission ID and commit SHA.

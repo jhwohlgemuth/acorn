@@ -1,6 +1,6 @@
 //! Deployment policy for capability-brokered Rhai hooks
 use crate::{
-    io::{jsonc_parse_value, read_file, read_file_snapshot, ApiResult, FromPath},
+    io::{config::application::Hook, jsonc_parse_value, read_file, read_file_snapshot, ApiResult, FromPath},
     util::constants::app::{APPLICATION, ORGANIZATION, QUALIFIER},
 };
 use acorn_core::{
@@ -13,6 +13,7 @@ use acorn_core::{
         MimeType,
     },
     validation::ValidationError,
+    OneOrMany,
 };
 use acorn_host::fs::SafePath;
 use acorn_schema::validation::{is_identifier, Validate, ValidationReport};
@@ -35,7 +36,9 @@ pub const SCRIPT_MANIFEST_VERSION: &str = "1.0.0";
 #[serde(untagged)]
 pub enum ScriptManifestSource {
     /// Inline manifest, trusted for effects only from an explicitly selected configuration.
-    Inline(ScriptManifest),
+    ///
+    /// Boxed because `OneOrMany` adds a discriminant that pushes this enum past clippy's `large_enum_variant` threshold.
+    Inline(Box<ScriptManifest>),
     /// Safe relative manifest name beneath the deployment manifest directory.
     Path(String),
 }
@@ -57,7 +60,7 @@ pub struct FilesystemCapability {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct NetworkCapability {
     /// Exact host names, optionally followed by `:port`.
-    pub hosts: Vec<String>,
+    pub hosts: OneOrMany<String>,
     /// Maximum requests per invocation.
     #[serde(default = "default_network_requests")]
     pub max_requests: usize,
@@ -102,7 +105,7 @@ pub struct ScriptAuthorization {
     #[serde(default = "default_entry")]
     pub entry: String,
     /// Workflow hooks this script may handle.
-    pub hooks: Vec<crate::io::config::application::Hook>,
+    pub hooks: OneOrMany<Hook>,
     /// Stable identifier matched from application configuration.
     pub id: String,
     /// Evaluation ceilings that may only narrow host defaults.
@@ -129,7 +132,7 @@ pub struct ScriptManifest {
     /// Manifest schema version.
     pub version: String,
     /// Authorized scripts.
-    pub scripts: Vec<ScriptAuthorization>,
+    pub scripts: OneOrMany<ScriptAuthorization>,
 }
 impl Validate for FilesystemCapability {
     fn validate(&self) -> Result<(), ValidationReport> {
@@ -312,7 +315,7 @@ impl ScriptManifestSource {
         match self {
             | Self::Inline(manifest) => match explicit_configuration || manifest.scripts.iter().all(|script| !script.is_effectful()) {
                 | true => Validate::validate(manifest).map_err(Report::new).map(|()| ResolvedManifest {
-                    manifest: manifest.clone(),
+                    manifest: manifest.as_ref().clone(),
                     source: "inline".to_string(),
                 }),
                 | false => Err(eyre!(

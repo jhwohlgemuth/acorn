@@ -53,6 +53,7 @@ use tracing::{error, info};
 /// Configuration-only representations retained when optional execution features are disabled.
 pub mod feature_configuration {
     use acorn_core::util::MimeType;
+    use acorn_core::OneOrMany;
     use acorn_service::WorkflowAction;
     use alloc::collections::BTreeMap;
     use schemars::JsonSchema;
@@ -72,7 +73,7 @@ pub mod feature_configuration {
         /// GitLab project identifier.
         pub gitlab_project: String,
         /// Stable project-to-path mappings.
-        pub projects: Vec<ProjectIntakeConfig>,
+        pub projects: OneOrMany<ProjectIntakeConfig>,
         /// Optional reporting timezone.
         #[serde(default)]
         pub timezone: Option<String>,
@@ -91,7 +92,7 @@ pub mod feature_configuration {
     #[serde(deny_unknown_fields)]
     pub struct ProjectIntakeConfig {
         /// Project member email allowlist.
-        pub members: Vec<String>,
+        pub members: OneOrMany<String>,
         /// Safe path to the project index.
         pub path: String,
         /// Stable form project identifier.
@@ -147,22 +148,25 @@ pub mod feature_configuration {
     #[serde(deny_unknown_fields, rename_all = "kebab-case")]
     pub struct WorkflowPolicy {
         /// Processing actions allowed for this workflow.
-        pub actions: Vec<WorkflowAction>,
+        pub actions: OneOrMany<WorkflowAction>,
         /// External effects allowed for this workflow.
-        pub effects: Vec<WorkflowEffect>,
+        pub effects: OneOrMany<WorkflowEffect>,
         /// Input formats allowed for this workflow.
-        pub formats: Vec<MimeType>,
+        pub formats: OneOrMany<MimeType>,
         /// Output behavior.
         pub outputs: WorkflowOutputs,
         /// Repository-relative input path patterns.
-        pub paths: Vec<String>,
+        pub paths: OneOrMany<String>,
     }
     /// Application-configuration source for executable-hook policy.
     #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
     #[serde(untagged)]
     pub enum ScriptManifestSource {
         /// Inline executable-hook manifest.
-        Inline(ScriptManifest),
+        ///
+        /// Boxed because `OneOrMany` adds a discriminant that pushes this enum past clippy's
+        /// `large_enum_variant` threshold.
+        Inline(Box<ScriptManifest>),
         /// Safe relative deployment manifest name.
         Path(String),
     }
@@ -184,7 +188,7 @@ pub mod feature_configuration {
     #[serde(deny_unknown_fields, rename_all = "camelCase")]
     pub struct NetworkCapability {
         /// Exact host names, optionally followed by a port.
-        pub hosts: Vec<String>,
+        pub hosts: OneOrMany<String>,
         /// Maximum requests per invocation.
         #[serde(default)]
         pub max_requests: usize,
@@ -234,7 +238,7 @@ pub mod feature_configuration {
         #[serde(default)]
         pub entry: String,
         /// Workflow hooks this script may handle.
-        pub hooks: Vec<super::Hook>,
+        pub hooks: OneOrMany<super::Hook>,
         /// Stable script identifier.
         pub id: String,
         /// Evaluation ceilings.
@@ -248,7 +252,7 @@ pub mod feature_configuration {
         /// Manifest schema version.
         pub version: String,
         /// Authorized scripts.
-        pub scripts: Vec<ScriptAuthorization>,
+        pub scripts: OneOrMany<ScriptAuthorization>,
     }
 }
 /// Supported Application Configuration for Research Enablement schema versions.
@@ -336,7 +340,7 @@ pub struct ApplicationConfiguration {
     /// List of buckets
     #[eserde(compat)]
     #[serde(default)]
-    pub buckets: Option<Vec<Bucket>>,
+    pub buckets: Option<OneOrMany<Bucket>>,
     /// Synchronization targets for llama-swap, OpenCode, VS Code, and Goose
     #[eserde(compat)]
     #[serde(default)]
@@ -344,7 +348,7 @@ pub struct ApplicationConfiguration {
     /// List of endpoints
     #[eserde(compat)]
     #[serde(default)]
-    pub endpoints: Option<Vec<Endpoint>>,
+    pub endpoints: Option<OneOrMany<Endpoint>>,
     /// Named outbound MCP servers and their explicit tool allowlists.
     #[eserde(compat)]
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -352,7 +356,7 @@ pub struct ApplicationConfiguration {
     /// List of models to download — bare IDs/paths or detailed download entries
     #[eserde(compat)]
     #[serde(default)]
-    pub models: Option<Vec<ModelEntry>>,
+    pub models: Option<OneOrMany<ModelEntry>>,
     /// Command defaults that may be overridden explicitly on the command line.
     #[eserde(compat)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -370,7 +374,7 @@ pub struct ApplicationConfiguration {
     /// List of runners
     #[eserde(compat)]
     #[serde(default)]
-    pub runners: Option<Vec<RunnerDetails>>,
+    pub runners: Option<OneOrMany<RunnerDetails>>,
     /// Lookup object for whitelisted downloadable items
     #[eserde(compat)]
     #[serde(default)]
@@ -388,7 +392,7 @@ pub struct ApplicationConfiguration {
     /// Optional ordered list of constrained Rhai script hooks.
     #[eserde(compat)]
     #[serde(default)]
-    pub scripts: Option<Vec<Entry>>,
+    pub scripts: Option<OneOrMany<Entry>>,
 }
 /// Command defaults stored in application configuration.
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -419,7 +423,7 @@ pub struct Entry {
     /// Path to the script, relative to `<project-root>/.acorn/` unless `absolute` is true.
     pub path: String,
     /// Non-empty, duplicate-free hooks.
-    pub hooks: Vec<Hook>,
+    pub hooks: OneOrMany<Hook>,
     /// When true, path is a platform-native absolute path.
     #[serde(default)]
     pub absolute: bool,
@@ -433,7 +437,7 @@ pub struct Entry {
 #[builder(start_fn = init)]
 pub struct WhitelistLookup {
     /// Whitelisted buckets
-    pub buckets: Option<Vec<String>>,
+    pub buckets: Option<OneOrMany<String>>,
     /// Whitelisted model IDs/URLs, or one URL to a JSON whitelist document
     pub models: Option<OneOrMany<String>>,
 }
@@ -480,7 +484,7 @@ impl ApplicationConfiguration {
     /// Return configured model entries and their download whitelist.
     pub fn model_entries_and_whitelist(&self) -> (Vec<ModelEntry>, Option<OneOrMany<String>>) {
         (
-            self.models.clone().unwrap_or_default(),
+            self.models.clone().unwrap_or_default().into_vec(),
             self.whitelist.as_ref().and_then(|lookup| lookup.models.clone()),
         )
     }
@@ -549,7 +553,7 @@ impl ApplicationConfiguration {
             })
             .and_then(|(_, models)| {
                 let mut configuration = self.clone();
-                configuration.models = Some(models);
+                configuration.models = Some(OneOrMany::Many(models));
                 match configuration.cst.clone() {
                     | Some(cst) => serde_json::to_value(&configuration.models)
                         .map_err(|why| eyre!("Failed to serialize ACORN model configuration — {why}"))

@@ -3,6 +3,7 @@ use acorn::io::{
     api::{openapi::import_resources_from_openapi, Authentication, Endpoint, Secret},
     write_file, Source,
 };
+use acorn_core::OneOrMany;
 use acorn_host::terminal::Label;
 use acorn_schema::agent::AuthenticationScheme;
 use clap_verbosity_flag::Verbosity;
@@ -63,7 +64,7 @@ pub(super) fn endpoint_from_import(
                 token: Some(Secret::from(token.clone())),
                 scheme: AuthenticationScheme::Bearer,
             }))
-            .resources(resources)
+            .resources(OneOrMany::Many(resources))
             .build()
             .with_domain(domain)
     })

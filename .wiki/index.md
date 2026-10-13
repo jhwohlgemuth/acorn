@@ -28,7 +28,7 @@ Ranking uses impact first, then remaining difficulty, with user/architecture val
 
 | Rank | Plan | Status | Impact | Difficulty | Quality | Value | Assessment |
 |---:|---|---|---|---|---|---|---|
-| 1 | [Power Automate GitLab JSONL intake](features/powerapps-gitlab-logbook-reporting.md) | Planned | Critical | Medium | A | Highest | Append Logbook envelopes to the GitLab inbox and implement durable repository polling on Vergil before the reporting pilot. |
+| 1 | [Power Automate GitLab JSONL intake](features/powerapps-gitlab-logbook-reporting.md) | Planned | Critical | Medium | A | Highest | Top blockers: PA-11 completes all ACRE refactoring in one first-priority phase, then validate multiplexed JSONL ingestion; both gate the pilot and reporting. |
 | 2 | [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) | In progress | Critical | High | A | Highest | Removes silent/stale template output and partial PPTX mutation while unlocking `acorn-export`. |
 | 3 | [Outbound MCP client embedder interface](refactors/api/outbound-mcp-client-interface.md) | In progress | High | Medium | A | High | Client code and focused tests are complete; separately owned book integration remains before plan retirement. |
 | 5 | [Needle 3 release-host validation](migrations/needle-3-upgrade.md) | Waiting on validation | High | Medium | A | High | A narrow four-host gate closes a shipped migration with little design uncertainty. |

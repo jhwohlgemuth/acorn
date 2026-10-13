@@ -16,6 +16,7 @@ use crate::{
         Constant,
     },
 };
+use acorn_core::OneOrMany;
 use acorn_core::{
     options::{ApiExtension, ApiOptions as CoreApiOptions},
     util::{assets::EmbeddedAssets, detect_json, detect_xml, Searchable},
@@ -83,7 +84,10 @@ pub mod webhooks;
 
 lazy_static! {
     /// Vector of API endpoints used during the endeavor of scientific research, communication, and collaboration
-    pub static ref INCLUDED_ENDPOINTS: Vec<Endpoint> = Constant::json::<ApplicationConfiguration>("application").endpoints.unwrap_or_default();
+    pub static ref INCLUDED_ENDPOINTS: Vec<Endpoint> = Constant::json::<ApplicationConfiguration>("application")
+        .endpoints
+        .unwrap_or_default()
+        .into_vec();
 }
 /// Resolves an API credential from ordered environment-variable and header pairs
 pub trait Authenticator {
@@ -336,8 +340,8 @@ pub struct Endpoint {
     /// "v3.0" for ORCiD API
     pub root: Option<String>,
     /// Resource data for generating full paths for the API endpoint using templates
-    #[builder(default = vec![])]
-    pub resources: Vec<Resource>,
+    #[builder(default)]
+    pub resources: OneOrMany<Resource>,
 }
 /// Wrapper that enables any `Deserialize + fmt::Debug` type as a fallback
 /// error response parser
@@ -1109,7 +1113,7 @@ impl TreeEntry {
         self.path
     }
 }
-impl Searchable<Endpoint> for Vec<Endpoint> {
+impl Searchable<Endpoint> for [Endpoint] {
     fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint> {
         let name = value.into();
         self.iter().find(|endpoint| endpoint.name.eq_ignore_ascii_case(&name)).cloned()
@@ -1173,7 +1177,7 @@ impl IntoHeaders for Vec<Param> {
         headers
     }
 }
-impl Searchable<Resource> for Vec<Resource> {
+impl Searchable<Resource> for [Resource] {
     fn find_by_name(&self, value: impl Into<String>) -> Option<Resource> {
         let name = value.into();
         self.iter().find(|resource| resource.name.eq_ignore_ascii_case(&name)).cloned()

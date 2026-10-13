@@ -519,8 +519,8 @@ fn test_config_parses_model_download_options() {
         | ModelEntry::Entry(entry) => {
             assert_eq!(entry.revision.as_deref(), Some("refs/pr/1"));
             assert_eq!(entry.auth, Some(AuthenticationRequirement::Required));
-            assert_eq!(entry.filter.as_ref().unwrap(), &["Q4_K_M.*\\.gguf$".to_string()]);
-            assert_eq!(entry.ignore.as_ref().unwrap(), &["Q2_".to_string(), "Q3_".to_string()]);
+            assert_eq!(entry.filter.as_ref().unwrap().as_slice(), ["Q4_K_M.*\\.gguf$".to_string()]);
+            assert_eq!(entry.ignore.as_ref().unwrap().as_slice(), ["Q2_".to_string(), "Q3_".to_string()]);
         }
         | ModelEntry::Selector(_) => panic!("expected detailed model entry"),
     }

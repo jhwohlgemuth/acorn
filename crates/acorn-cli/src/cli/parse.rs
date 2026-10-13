@@ -12,7 +12,7 @@ use acorn_core::util::MimeType;
 use acorn_schema::{
     enrichment::Provider,
     standard::{zon, Standard},
-    OneOrMany,
+    OneOrMany, OneOrManyCodec,
 };
 use color_eyre::eyre::{self, eyre};
 use jiff::SignedDuration;

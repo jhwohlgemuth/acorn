@@ -14,6 +14,7 @@ use crate::{
     },
     util::constants::app::IGNORE,
 };
+use acorn_core::OneOrMany;
 use acorn_core::{prelude::HashSet, validation::ValidationError, Location, Repository};
 use acorn_host::terminal::Label;
 use acorn_schema::{
@@ -232,10 +233,10 @@ pub struct ModelEntryOptions {
     pub auth: Option<AuthenticationRequirement>,
     /// Regex pattern(s) used to include model files for this entry
     #[serde(default)]
-    pub filter: Option<Vec<String>>,
+    pub filter: Option<OneOrMany<String>>,
     /// Regex pattern(s) used to exclude model files for this entry
     #[serde(default)]
-    pub ignore: Option<Vec<String>>,
+    pub ignore: Option<OneOrMany<String>>,
     /// Ordered exact GGUF quantization allowlist
     #[serde(default)]
     pub quantization: Option<acorn_schema::OneOrMany<Quantization>>,
@@ -304,7 +305,7 @@ pub struct RunnerDetails {
     pub gpu_enabled: bool,
     /// List of tags associated with the runner
     #[serde(default, alias = "tag_list")]
-    pub tags: Option<Vec<String>>,
+    pub tags: Option<OneOrMany<String>>,
     /// Whether the runner runs untagged jobs (GitLab-specific)
     #[builder(default)]
     #[serde(default, alias = "run_untagged")]

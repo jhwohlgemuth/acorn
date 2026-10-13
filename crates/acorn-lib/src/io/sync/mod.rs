@@ -576,8 +576,8 @@ impl TryFrom<&ModelEntry> for ModelRequest {
             | ModelEntry::Entry(options) => Self::new(
                 options.name.clone(),
                 Source::from(&options.source).with_name(options.name.as_str()),
-                options.filter.clone().unwrap_or_default(),
-                options.ignore.clone().unwrap_or_default(),
+                options.filter.clone().unwrap_or_default().into_vec(),
+                options.ignore.clone().unwrap_or_default().into_vec(),
             ),
         }
     }

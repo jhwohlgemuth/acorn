@@ -10,6 +10,7 @@ use crate::io::{read_file_snapshot, ApiResult, Bytes};
 use crate::util::constants::app::APPLICATION;
 use acorn_core::prelude::{String, Vec};
 use acorn_core::util::constants::app::{MAX_EXEC_BYTES, SUPPORTED_EXEC_VERSION};
+use acorn_core::OneOrMany;
 use acorn_schema::validation::Validate;
 use color_eyre::eyre::{eyre, Report, Result};
 use core::fmt;
@@ -212,7 +213,7 @@ impl Resolved {
                     Self {
                         entry: Entry {
                             absolute: true,
-                            hooks: vec![Hook::Check],
+                            hooks: OneOrMany::One(Hook::Check),
                             id: None,
                             path: path.display().to_string(),
                         },

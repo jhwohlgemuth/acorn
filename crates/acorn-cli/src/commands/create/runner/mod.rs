@@ -10,7 +10,7 @@ use acorn::{
     util::constants::app::{DEFAULT_RUNNER_NAME, DOCKER_SOCKET, GITLAB_RUNNER_GPU_TEMPLATE_PATH},
 };
 use acorn_cmd::{args, cmd, command_exists};
-use acorn_core::{Location, Repository};
+use acorn_core::{Location, OneOrMany, Repository};
 use acorn_host::terminal::Label;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result, WrapErr};
@@ -394,7 +394,7 @@ pub async fn run(
             .ok_or_else(|| eyre!("GitLab runner description is required to detect existing runners"));
         let desired_tags = runner
             .and_then(|value| value.tags.clone())
-            .or_else(|| (!tags.is_empty()).then(|| tags.to_owned()));
+            .or_else(|| (!tags.is_empty()).then(|| OneOrMany::Many(tags.to_owned())));
         let desired_run_untagged = *untagged || runner.map(|value| value.run_untagged).unwrap_or(false);
         let maybe_runner_type = match runner {
             | Some(value) => Ok(value.runner_type.clone()),
