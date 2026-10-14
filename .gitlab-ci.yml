@@ -1,7 +1,7 @@
 include:
   - local: /templates/gitlab/reporting.gitlab-ci.yml
   - project: research-enablement/templates
-    file: /gitlab/rust-release.yml
+    file: /gitlab/rust-release.gitlab-ci.yml
     ref: v1
 
 variables:
