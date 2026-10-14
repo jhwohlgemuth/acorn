@@ -1,6 +1,6 @@
 include:
   - project: research-enablement/templates
-    file: /gitlab/reporting.gitlab-ci.yml
+    file: /gitlab/powerautomate-report.gitlab-ci.yml
     ref: main
   - project: research-enablement/templates
     file: /gitlab/rust-release.gitlab-ci.yml
