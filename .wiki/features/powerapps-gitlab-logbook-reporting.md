@@ -161,15 +161,15 @@ Use **snake_case attribute names in every format** — JSON, JSONC, and YAML ali
 
 | Meaning | JSON/JSONC | YAML |
 | --- | --- | --- |
-| Schema version | `schemaVersion` | `schema_version` |
+| Schema version | `schemaVersion` | `schemaVersion` |
 | Folder identifier | `id` | `id` |
-| Power Automate options | `options.powerAutomate` | `options.power_automate` |
-| Callback destination | `callbackDestination` | `callback_destination` |
-| GitLab repository | `gitlabProjectId` | `gitlab_project_id` |
-| Callback URL variable | `variables.callbackUrl` | `variables.callback_url` |
-| Inbound secret variable | `variables.inboundSecret` | `variables.inbound_secret` |
+| Power Automate options | `options.powerAutomate` | `options.powerAutomate` |
+| Callback destination | `callback_destination` | `callback_destination` |
+| GitLab repository | `gitlab_project` | `gitlab_project` |
+| Callback URL variable | `power_automate.callback_url` | `power_automate.callback_url` |
+| Inbound secret variable | `power_automate.inbound_secret` | `power_automate.inbound_secret` |
 
-`members`, `variables`, `projects`, `aliases`, `path`, and `custom` have identical spelling in both formats. This casing rule applies to schema-defined attributes, not values or user-defined map keys: preserve environment-variable names, project IDs, aliases, paths, and keys within `variables.custom` exactly. Likewise preserve opaque third-party payloads. Prose elsewhere in this plan may refer to internal snake_case field names; earlier examples marked proposed or pre-migration do not override this canonical wire-format rule.
+Only the grandfathered `schemaVersion` and `options.powerAutomate` entry names stay camelCase in every format. `members`, `variables`, `projects`, `aliases`, `path`, and `custom` have identical spelling in both formats. This casing rule applies to schema-defined attributes, not values or user-defined map keys: preserve environment-variable names, project IDs, aliases, paths, and keys within `variables.custom` exactly. Likewise preserve opaque third-party payloads. Prose elsewhere in this plan may refer to internal snake_case field names; earlier examples marked proposed or pre-migration do not override this canonical wire-format rule.
 
 Use schema-aware format adapters or equivalent explicit serialization support; do not recursively rename arbitrary object keys. Define and test legacy aliases for existing configurations during migration, reject multiple spellings of the same field in one object, and always emit canonical target-format names. Include equivalent JSON/JSONC and YAML fixtures, format-specific schema checks, and cross-format round trips that preserve meaning. The separate Power Automate submission/callback wire contracts retain their existing casing unless separately versioned; ACRE casing does not rewrite JSONL envelope fields.
 

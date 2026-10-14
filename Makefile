@@ -190,13 +190,13 @@ check-wasm: ## Validate the WebAssembly target compatibility of the workspace.
 	@cargo check -p acorn-wasm --target wasm32-unknown-unknown
 
 cover: ## Run coverage analysis with tarpaulin.
-	@cargo tarpaulin $(COVER_JOBS) --out lcov --line --force-clean --no-dead-code --engine llvm --profile coverage --locked
+	@cargo tarpaulin $(COVER_JOBS) --out lcov --line --force-clean --no-dead-code --engine llvm --profile coverage --locked --timeout 300
 
 cover-cli: ## Run scoped coverage analysis for acorn-cli.
-	@cargo tarpaulin $(COVER_JOBS) -p acorn-cli --out lcov --line --force-clean --no-dead-code --engine llvm --profile coverage --locked
+	@cargo tarpaulin $(COVER_JOBS) -p acorn-cli --out lcov --line --force-clean --no-dead-code --engine llvm --profile coverage --locked --timeout 300
 
 cover-lib: ## Run scoped coverage analysis for acorn-lib.
-	@cargo tarpaulin $(COVER_JOBS) -p acorn-lib --out lcov --line --force-clean --no-dead-code --engine llvm --profile coverage --locked
+	@cargo tarpaulin $(COVER_JOBS) -p acorn-lib --out lcov --line --force-clean --no-dead-code --engine llvm --profile coverage --locked --timeout 300
 
 doc: ## Build the Rust documentation for the workspace.
 	@cargo clean --doc

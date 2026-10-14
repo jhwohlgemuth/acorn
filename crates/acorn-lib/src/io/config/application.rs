@@ -23,8 +23,9 @@ use crate::{
 };
 use acorn_core::{
     prelude::{HashMap, HashSet},
-    util::{detect_json, MimeType},
+    util::{detect_json, split_list, MimeType},
     validation::ValidationError,
+    Location, Scheme,
 };
 use acorn_host::{config::resolve_config_path, terminal::Label};
 use acorn_schema::{
@@ -34,7 +35,8 @@ use acorn_schema::{
 };
 use alloc::collections::{BTreeMap, BTreeSet};
 use bon::Builder;
-use color_eyre::eyre::eyre;
+use color_eyre::eyre::{eyre, Report};
+use core::iter::once;
 #[cfg(not(feature = "exec"))]
 use feature_configuration::ScriptManifestSource;
 #[cfg(not(feature = "agentic"))]
@@ -231,6 +233,10 @@ pub mod feature_configuration {
         pub scripts: OneOrMany<ScriptAuthorization>,
     }
 }
+/// Root attributes governed by `options.scripts`.
+pub const SCRIPT_OPTION_ROOTS: [&str; 2] = ["scripts", "scriptManifest"];
+/// Root attributes that have no `options` counterpart and are excluded from option coverage.
+pub const UNGOVERNED_ROOT_ATTRIBUTES: [&str; 3] = ["schemaVersion", "config", "options"];
 /// Supported Application Configuration for Research Enablement schema versions.
 ///
 /// Version 1 documents are not supported. Migrate them to 2.0.0 before use.
@@ -240,6 +246,30 @@ pub enum AcreSchemaVersion {
     #[default]
     #[serde(rename = "2.0.0")]
     V2_0_0,
+}
+/// Reference to one configured bucket, by unique identifier or zero-based array index.
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum BucketReference {
+    /// Unique bucket identifier.
+    Identifier(String),
+    /// Zero-based index into the configured `buckets` array.
+    Index(usize),
+}
+/// Resolved destination for one folder.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Destination {
+    /// Absolute local filesystem path.
+    Local(PathBuf),
+    /// Repository-relative path inside the configured GitLab project.
+    GitLab {
+        /// GitLab project identifier owning the file.
+        project: String,
+        /// Repository-relative path to the index file.
+        path: String,
+    },
+    /// Absolute remote URI.
+    Remote(String),
 }
 /// Supported hook for constrained Rhai extensions.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, JsonSchema, PartialEq, Serialize, Display, EnumIs, EnumString)]
@@ -397,29 +427,6 @@ pub struct ApplicationOptions {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scripts: Option<ScriptOptions>,
 }
-/// Options affecting both root `scripts` and root `scriptManifest`.
-///
-/// Root `scripts` registers hooks and root `scriptManifest` authorizes them. They keep separate
-/// representations; this single option entry governs both so the two cannot drift apart.
-#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct ScriptOptions {
-    /// Whether script hooks may run. Both root attributes are ignored when false.
-    #[serde(default = "scripts_enabled_by_default")]
-    pub enabled: bool,
-}
-/// Root attributes governed by `options.scripts`.
-pub const SCRIPT_OPTION_ROOTS: [&str; 2] = ["scripts", "scriptManifest"];
-/// Root attributes that have no `options` counterpart and are excluded from option coverage.
-pub const UNGOVERNED_ROOT_ATTRIBUTES: [&str; 3] = ["schemaVersion", "config", "options"];
-fn scripts_enabled_by_default() -> bool {
-    true
-}
-impl Default for ScriptOptions {
-    fn default() -> Self {
-        Self { enabled: true }
-    }
-}
 /// Local identity defaults required by metadata imports.
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -445,38 +452,6 @@ pub struct Entry {
     /// When true, path is a platform-native absolute path.
     #[serde(default)]
     pub absolute: bool,
-}
-/// Whitelist entry for downloadable items
-/// ### Note
-/// An empty whitelist is interpreted to mean there are no restrictions and any item will be allowed
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
-#[builder(start_fn = init)]
-pub struct WhitelistLookup {
-    /// Whitelisted buckets
-    pub buckets: Option<OneOrMany<String>>,
-    /// Whitelisted model IDs/URLs, or one URL to a JSON whitelist document
-    pub models: Option<OneOrMany<String>>,
-}
-/// Reference to one configured bucket, by unique identifier or zero-based array index.
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(untagged)]
-pub enum BucketReference {
-    /// Unique bucket identifier.
-    Identifier(String),
-    /// Zero-based index into the configured `buckets` array.
-    Index(usize),
-}
-/// Environment-variable references declared at the document root or on one folder.
-#[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-pub struct VariableReferences {
-    /// Name of one environment variable holding the member allowlist.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub members: Option<String>,
-    /// Operator-defined references keyed by catalog name, valued by environment-variable name.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub custom: BTreeMap<String, String>,
 }
 /// One registered destination folder shared by intake and reporting.
 #[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -506,20 +481,16 @@ pub struct FolderOptions {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root: Option<String>,
 }
-/// Resolved destination for one folder.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Destination {
-    /// Absolute local filesystem path.
-    Local(PathBuf),
-    /// Repository-relative path inside the configured GitLab project.
-    GitLab {
-        /// GitLab project identifier owning the file.
-        project: String,
-        /// Repository-relative path to the index file.
-        path: String,
-    },
-    /// Absolute remote URI.
-    Remote(String),
+/// Immutable routing snapshot derived from the ACRE document.
+///
+/// This is the routing half of [`ApplicationConfiguration`]: owned, `Send`, and `Sync`, so intake services can hold it without the JSONC comment-preserving tree.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct FolderRegistry {
+    folders: Vec<Folder>,
+    members: Option<OneOrMany<String>>,
+    project: Option<String>,
+    root: Option<String>,
+    variables: Option<VariableReferences>,
 }
 /// One folder resolved against its configured destination.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -529,82 +500,39 @@ pub struct ResolvedFolder {
     /// Destination derived from `options.folders.root`, the GitLab project, or the path itself.
     pub destination: Destination,
 }
-/// Immutable routing snapshot derived from the ACRE document.
+/// Options affecting both root `scripts` and root `scriptManifest`.
 ///
-/// This is the routing half of [`ApplicationConfiguration`]: owned, `Send`, and `Sync`, so intake
-/// services can hold it without the JSONC comment-preserving tree.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct FolderRegistry {
-    folders: Vec<Folder>,
-    members: Option<OneOrMany<String>>,
-    project: Option<String>,
-    root: Option<String>,
-    variables: Option<VariableReferences>,
+/// Root `scripts` registers hooks and root `scriptManifest` authorizes them.
+/// They keep separate representations; this single option entry governs both so the two cannot drift apart.
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ScriptOptions {
+    /// Whether script hooks may run. Both root attributes are ignored when false.
+    #[serde(default = "scripts_enabled_by_default")]
+    pub enabled: bool,
 }
-impl FolderRegistry {
-    /// Return every configured folder.
-    pub fn folders(&self) -> impl Iterator<Item = &Folder> {
-        self.folders.iter()
-    }
-    /// Return the environment variable naming one built-in root variable reference.
-    pub fn variable(&self, name: &str) -> Option<&str> {
-        self.variables
-            .as_ref()
-            .and_then(|variables| variables.custom.get(name))
-            .map(String::as_str)
-    }
-    /// Return the folder matching a canonical identifier or one configured alias.
-    pub fn folder(&self, selector: &str) -> ApiResult<&Folder> {
-        match self
-            .folders
-            .iter()
-            .filter(|folder| selects(folder, selector))
-            .collect::<Vec<_>>()
-            .as_slice()
-        {
-            | [folder] => Ok(folder),
-            | [] => Err(eyre!("Unknown folder or alias '{selector}'")),
-            | _ => Err(eyre!("Ambiguous folder selector '{selector}'")),
-        }
-    }
-    /// Return one folder resolved against its configured destination.
-    pub fn resolve_folder(&self, selector: &str) -> ApiResult<ResolvedFolder> {
-        self.folder(selector).and_then(|folder| {
-            let path = folder.path.clone().unwrap_or_else(|| format!("{}/index.json", folder.id));
-            destination(&path, self.root.as_deref(), self.project.as_deref()).map(|destination| ResolvedFolder {
-                folder: folder.clone(),
-                destination,
-            })
-        })
-    }
-    /// Return the effective intake members for one folder, or for the whole document when `selector` is `None`.
-    ///
-    /// Inline and variable-sourced members are unioned, lowercased, and deduplicated.
-    pub fn effective_members(&self, selector: Option<&str>, lookup: &dyn Fn(&str) -> Option<String>) -> BTreeSet<String> {
-        let scoped = selector.and_then(|selector| self.folder(selector).ok());
-        [self.members.as_ref(), scoped.and_then(|folder| folder.members.as_ref())]
-            .into_iter()
-            .flatten()
-            .flat_map(OneOrMany::iter)
-            .cloned()
-            .chain(
-                [self.variables.as_ref(), scoped.and_then(|folder| folder.variables.as_ref())]
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|variables| variables.members.as_deref())
-                    .filter_map(lookup),
-            )
-            .flat_map(|value| split_members(&value))
-            .map(|member| member.to_lowercase())
-            .collect()
-    }
-    /// Return whether one submitter may submit to the folder selected by `selector`.
-    pub fn authorizes(&self, selector: &str, email: &str, lookup: &dyn Fn(&str) -> Option<String>) -> ApiResult<bool> {
-        self.folder(selector).map(|folder| {
-            let submitter = email.trim().to_lowercase();
-            self.effective_members(Some(&folder.id), lookup).contains(&submitter)
-        })
-    }
+/// Environment-variable references declared at the document root or on one folder.
+#[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+pub struct VariableReferences {
+    /// Name of one environment variable holding the member allowlist.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub members: Option<String>,
+    /// Operator-defined references keyed by catalog name, valued by environment-variable name.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub custom: BTreeMap<String, String>,
+}
+/// Whitelist entry for downloadable items
+/// ### Note
+/// An empty whitelist is interpreted to mean there are no restrictions and any item will be allowed
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[builder(start_fn = init)]
+pub struct WhitelistLookup {
+    /// Whitelisted buckets
+    pub buckets: Option<OneOrMany<String>>,
+    /// Whitelisted model IDs/URLs, or one URL to a JSON whitelist document
+    pub models: Option<OneOrMany<String>>,
 }
 impl ApplicationConfiguration {
     /// Return the routing snapshot consumed by intake and reporting services.
@@ -622,28 +550,21 @@ impl ApplicationConfiguration {
         }
     }
 }
-impl Destination {
-    /// Return the repository-relative path when this destination lives in the configured GitLab project.
-    pub fn repository_path(&self) -> Option<&str> {
-        match self {
-            | Self::GitLab { path, .. } => Some(path.as_str()),
-            | Self::Local(_) | Self::Remote(_) => None,
-        }
-    }
-}
 impl ApplicationConfiguration {
     /// Return whether any configured script subscribes to the requested hook.
     pub fn has_hook(&self, hook: Hook) -> bool {
-        self.options
+        let enabled = self
+            .options
             .as_ref()
             .and_then(|options| options.scripts.as_ref())
-            .map_or(true, |scripts| scripts.enabled)
-            && self
-                .scripts
-                .as_deref()
-                .unwrap_or_default()
-                .iter()
-                .any(|entry| entry.hooks.contains(&hook))
+            .is_none_or(|scripts| scripts.enabled);
+        let subscribed = self
+            .scripts
+            .as_deref()
+            .unwrap_or_default()
+            .iter()
+            .any(|entry| entry.hooks.contains(&hook));
+        enabled && subscribed
     }
     /// Return the configured PowerAutomate integration settings.
     pub fn power_automate(&self) -> Option<&PowerAutomateConfig> {
@@ -673,7 +594,7 @@ impl ApplicationConfiguration {
     }
     /// Return the folder matching a canonical identifier or one configured alias.
     pub fn folder(&self, selector: &str) -> ApiResult<&Folder> {
-        match self.folders().filter(|folder| selects(folder, selector)).collect::<Vec<_>>().as_slice() {
+        match self.folders().filter(|folder| folder.selects(selector)).collect::<Vec<_>>().as_slice() {
             | [folder] => Ok(folder),
             | [] => Err(eyre!("Unknown folder or alias '{selector}'")),
             | _ => Err(eyre!("Ambiguous folder selector '{selector}'")),
@@ -689,7 +610,7 @@ impl ApplicationConfiguration {
                 .and_then(|folders| folders.root.clone());
             let project = self.power_automate().map(|automation| automation.gitlab_project.as_str());
             let path = folder.path.clone().unwrap_or_else(|| format!("{}/index.json", folder.id));
-            destination(&path, root.as_deref(), project).map(|destination| ResolvedFolder {
+            Destination::new(&path, root.as_deref(), project).map(|destination| ResolvedFolder {
                 folder: folder.clone(),
                 destination,
             })
@@ -711,7 +632,7 @@ impl ApplicationConfiguration {
                     .flatten()
                     .filter_map(|variables| variables.members.as_deref())
                     .filter_map(lookup)
-                    .flat_map(|value| split_members(&value)),
+                    .flat_map(split_list),
             )
             .map(|member| member.to_lowercase())
             .collect()
@@ -966,70 +887,6 @@ impl ApplicationConfiguration {
         serde_norway::from_str(content.as_ref())
     }
 }
-fn selects(folder: &Folder, selector: &str) -> bool {
-    folder.id == selector
-        || folder
-            .aliases
-            .as_ref()
-            .is_some_and(|aliases| aliases.iter().any(|alias| alias == selector))
-}
-fn split_members(value: &str) -> Vec<String> {
-    value
-        .split([',', '\n', '\r', ' ', '\t'])
-        .map(str::trim)
-        .filter(|member| !member.is_empty())
-        .map(String::from)
-        .collect()
-}
-fn destination(path: &str, root: Option<&str>, project: Option<&str>) -> ApiResult<Destination> {
-    match uri_scheme(path) {
-        | Some(_) => uri_destination(path),
-        | None => match root {
-            | Some(root) => uri_destination(&format!("{}/{}", root.trim_end_matches('/'), safe_relative(path)?)),
-            | None => match project {
-                | Some(project) => Ok(Destination::GitLab {
-                    project: project.to_owned(),
-                    path: safe_relative(path)?.to_owned(),
-                }),
-                | None => Err(eyre!(
-                    "Folder path '{path}' requires options.folders.root or options.powerAutomate.gitlabProject"
-                )),
-            },
-        },
-    }
-}
-fn uri_scheme(value: &str) -> Option<&str> {
-    value.split_once("://").map(|(scheme, _)| scheme)
-}
-fn uri_destination(uri: &str) -> ApiResult<Destination> {
-    match uri_scheme(uri) {
-        | Some("file") => file_path(uri).map(Destination::Local),
-        | Some("http" | "https") => Ok(Destination::Remote(uri.to_owned())),
-        | Some(scheme) => Err(eyre!("Unsupported folder URI scheme '{scheme}' — '{uri}'")),
-        | None => Err(eyre!("Folder destinations require an absolute URI — '{uri}'")),
-    }
-}
-fn safe_relative(path: &str) -> ApiResult<&str> {
-    let segments = path.split('/').filter(|segment| !segment.is_empty()).collect::<Vec<_>>();
-    match segments.is_empty() || segments.contains(&"..") || segments.contains(&".") {
-        | true => Err(eyre!("Folder path '{path}' must be a safe relative path")),
-        | false => Ok(path),
-    }
-}
-fn file_path(uri: &str) -> ApiResult<PathBuf> {
-    let rest = uri
-        .strip_prefix("file://")
-        .ok_or_else(|| eyre!("Local folder destinations require a file:// URI — '{uri}'"))?;
-    match rest {
-        | authority if !authority.starts_with('/') => Ok(PathBuf::from(format!(r"\\{authority}"))),
-        | windows if drive_qualified(windows) => Ok(PathBuf::from(windows.trim_start_matches('/'))),
-        | posix => Ok(PathBuf::from(posix)),
-    }
-}
-fn drive_qualified(path: &str) -> bool {
-    let bytes = path.as_bytes();
-    bytes.len() > 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' && bytes[2] == b'/'
-}
 #[cfg(feature = "analysis")]
 impl DocumentCodec for ApplicationConfiguration {
     const NAME: &'static str = "ACRE configuration";
@@ -1191,7 +1048,7 @@ impl Validate for ApplicationConfiguration {
         });
         folders
             .iter()
-            .flat_map(|folder| std::iter::once(&folder.id).chain(folder.aliases.as_ref().into_iter().flat_map(OneOrMany::iter)))
+            .flat_map(|folder| once(&folder.id).chain(folder.aliases.as_ref().into_iter().flat_map(OneOrMany::iter)))
             .fold(HashSet::new(), |mut selectors, selector| {
                 if !selectors.insert(selector) {
                     report.add(
@@ -1255,6 +1112,57 @@ impl Validate for ApplicationConfiguration {
                 identifiers
             });
         report.finish()
+    }
+}
+impl Destination {
+    /// Return the repository-relative path when this destination lives in the configured GitLab project.
+    pub fn repository_path(&self) -> Option<&str> {
+        match self {
+            | Self::GitLab { path, .. } => Some(path.as_str()),
+            | Self::Local(_) | Self::Remote(_) => None,
+        }
+    }
+    /// Return the destination for one folder path against its configured root and project.
+    ///
+    /// An absolute URI names its own destination. A relative path resolves against
+    /// `options.folders.root`, then inside `options.powerAutomate.gitlab_project`.
+    pub fn new(path: &str, root: Option<&str>, project: Option<&str>) -> ApiResult<Self> {
+        let location = Location::from(path);
+        match location.scheme() {
+            | Scheme::File | Scheme::HTTP | Scheme::HTTPS => location.try_into(),
+            | Scheme::Unsupported if location.is_path() => Self::from_relative(path, root, project),
+            | scheme => Err(eyre!("Unsupported folder URI scheme '{scheme}' — '{path}'")),
+        }
+    }
+    /// Return the destination for one relative folder path against its configured root and project.
+    fn from_relative(path: &str, root: Option<&str>, project: Option<&str>) -> ApiResult<Self> {
+        match (root, project) {
+            | (Some(root), _) => safe_relative(path).and_then(|relative| {
+                let resolved = format!("{}/{relative}", root.trim_end_matches('/'));
+                Location::from(resolved.as_str()).try_into()
+            }),
+            | (None, Some(project)) => safe_relative(path).map(|relative| Self::GitLab {
+                project: project.to_owned(),
+                path: relative.to_owned(),
+            }),
+            | (None, None) => Err(eyre!(
+                "Folder path '{path}' requires options.folders.root or options.powerAutomate.gitlab_project"
+            )),
+        }
+    }
+}
+impl TryFrom<Location> for Destination {
+    type Error = Report;
+
+    /// Return the destination named by one absolute folder URI.
+    ///
+    /// `file` URIs become local paths, keeping a Windows UNC authority, and HTTP(S) URIs stay remote.
+    fn try_from(uri: Location) -> Result<Self, Self::Error> {
+        match uri.scheme() {
+            | Scheme::File => Ok(Self::Local(file_path(&uri))),
+            | Scheme::HTTP | Scheme::HTTPS => Ok(Self::Remote(uri.to_string())),
+            | _ => Err(eyre!("Folder destinations require a file, http, or https URI — '{uri}'")),
+        }
     }
 }
 impl Validate for Entry {
@@ -1350,4 +1258,95 @@ impl Validate for Entry {
             });
         error.map_or(Ok(()), |(path, error)| Err(ValidationReport::from_error(path, error)))
     }
+}
+impl Folder {
+    /// Return whether this folder answers to a canonical identifier or one configured alias.
+    pub fn selects(&self, selector: &str) -> bool {
+        self.id == selector || self.aliases.as_ref().is_some_and(|aliases| aliases.iter().any(|alias| alias == selector))
+    }
+}
+impl FolderRegistry {
+    /// Return every configured folder.
+    pub fn folders(&self) -> impl Iterator<Item = &Folder> {
+        self.folders.iter()
+    }
+    /// Return the environment variable naming one built-in root variable reference.
+    pub fn variable(&self, name: &str) -> Option<&str> {
+        self.variables
+            .as_ref()
+            .and_then(|variables| variables.custom.get(name))
+            .map(String::as_str)
+    }
+    /// Return the folder matching a canonical identifier or one configured alias.
+    pub fn folder(&self, selector: &str) -> ApiResult<&Folder> {
+        match self.folders().filter(|folder| folder.selects(selector)).collect::<Vec<_>>().as_slice() {
+            | [folder] => Ok(folder),
+            | [] => Err(eyre!("Unknown folder or alias '{selector}'")),
+            | _ => Err(eyre!("Ambiguous folder selector '{selector}'")),
+        }
+    }
+    /// Return one folder resolved against its configured destination.
+    pub fn resolve_folder(&self, selector: &str) -> ApiResult<ResolvedFolder> {
+        self.folder(selector).and_then(|folder| {
+            let path = folder.path.clone().unwrap_or_else(|| format!("{}/index.json", folder.id));
+            Destination::new(&path, self.root.as_deref(), self.project.as_deref()).map(|destination| ResolvedFolder {
+                folder: folder.clone(),
+                destination,
+            })
+        })
+    }
+    /// Return the effective intake members for one folder, or for the whole document when `selector` is `None`.
+    ///
+    /// Inline and variable-sourced members are unioned, lowercased, and deduplicated.
+    pub fn effective_members(&self, selector: Option<&str>, lookup: &dyn Fn(&str) -> Option<String>) -> BTreeSet<String> {
+        let scoped = selector.and_then(|selector| self.folder(selector).ok());
+        [self.members.as_ref(), scoped.and_then(|folder| folder.members.as_ref())]
+            .into_iter()
+            .flatten()
+            .flat_map(OneOrMany::iter)
+            .cloned()
+            .chain(
+                [self.variables.as_ref(), scoped.and_then(|folder| folder.variables.as_ref())]
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|variables| variables.members.as_deref())
+                    .filter_map(lookup),
+            )
+            .flat_map(split_list)
+            .map(|member| member.to_lowercase())
+            .collect()
+    }
+    /// Return whether one submitter may submit to the folder selected by `selector`.
+    pub fn authorizes(&self, selector: &str, email: &str, lookup: &dyn Fn(&str) -> Option<String>) -> ApiResult<bool> {
+        self.folder(selector).map(|folder| {
+            let submitter = email.trim().to_lowercase();
+            self.effective_members(Some(&folder.id), lookup).contains(&submitter)
+        })
+    }
+}
+impl Default for ScriptOptions {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
+}
+/// Return the local filesystem path named by one `file` location.
+///
+/// A non-empty authority is a Windows UNC host, so it joins the path as a `\\host` prefix.
+fn file_path(uri: &Location) -> PathBuf {
+    let path = uri.path().unwrap_or_default();
+    let host = uri.host().unwrap_or_default();
+    match host.is_empty() {
+        | true => PathBuf::from(path),
+        | false => PathBuf::from(format!(r"\\{host}{path}")),
+    }
+}
+/// Return one folder path as a canonical repository-relative path.
+fn safe_relative(path: &str) -> ApiResult<&str> {
+    match Location::from(path).is_canonical_repository_path() {
+        | true => Ok(path),
+        | false => Err(eyre!("Folder path '{path}' must be a safe relative path")),
+    }
+}
+fn scripts_enabled_by_default() -> bool {
+    true
 }

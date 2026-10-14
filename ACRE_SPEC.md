@@ -266,7 +266,7 @@ Each model is either a selector string (model ID, local path, or URL) or a detai
 | `path` | No | Destination index path. Relative unless it is an absolute URI. Omitted resolves to `<id>/index.json` when a root or GitLab project is configured. |
 | `variables` | No | Folder-scoped environment-variable references. |
 
-Path resolution, in order: an explicit absolute URI identifies its own destination; otherwise a relative path resolves against `options.folders.root`; otherwise it resolves inside `options.powerAutomate.gitlabProject`. With neither configured, a relative or omitted path is rejected.
+Path resolution, in order: an explicit absolute URI identifies its own destination; otherwise a relative path resolves against `options.folders.root`; otherwise it resolves inside `options.powerAutomate.gitlab_project`. With neither configured, a relative or omitted path is rejected.
 
 ### `members`
 
@@ -281,17 +281,17 @@ Environment-variable references shared across the document. Names point at envir
 | `members` | No | Name of one environment variable holding the member allowlist. |
 | `custom` | No | Operator-defined references keyed by catalog name, valued by environment-variable name. |
 
-The built-in Power Automate references are `powerAutomate.callbackUrl` and `powerAutomate.inboundSecret`.
+The built-in Power Automate references are `power_automate.callback_url` and `power_automate.inbound_secret`.
 
 ### `options.powerAutomate`
 
-Deployment-owned PowerAutomate settings. Routing lives in root `folders`, not here.
+Deployment-owned PowerAutomate settings. Routing lives in root `folders`, not here. The entry name is camelCase; its attributes stay snake_case.
 
 | Attribute | Required | Description |
 | --- | --- | --- |
-| `callbackDestination` | Yes | Stable name persisted with callback intents. |
+| `callback_destination` | Yes | Stable name persisted with callback intents. |
 | `package` | Yes | GitLab generic-package name for generated artifacts. |
-| `gitlabProject` | Yes | GitLab project containing bucket files and packages. |
+| `gitlab_project` | Yes | GitLab project containing bucket files and packages. |
 | `timezone` | No | Reporting timezone. Only `UTC` is supported. |
 
 ### `options.folders`

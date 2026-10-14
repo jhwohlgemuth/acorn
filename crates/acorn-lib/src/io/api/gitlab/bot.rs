@@ -64,6 +64,7 @@ use crate::{
             },
             Configuration,
         },
+        config::FolderRegistry,
         http::ReqwestHttpService,
         ApiResult,
     },
@@ -535,7 +536,7 @@ impl Config {
         }
     }
     /// Return a copy configured for signed PowerAutomate form intake and callbacks.
-    pub fn with_powerautomate(self, config: PowerAutomateConfig, routing: crate::io::config::application::FolderRegistry) -> ApiResult<Self> {
+    pub fn with_powerautomate(self, config: PowerAutomateConfig, routing: FolderRegistry) -> ApiResult<Self> {
         PowerAutomateProvider::from_config(config, routing).map(|powerautomate| Self {
             powerautomate: Some(powerautomate),
             ..self

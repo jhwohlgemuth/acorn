@@ -17,7 +17,7 @@ use crate::{
         },
         read_file, InputOutput, Parse,
     },
-    util::constants::app::{ACRE_SCHEMA_VERSION, DEFAULT_CONFIG_FILENAMES, GITLAB_CREDENTIAL_VARIABLE_PAIRS},
+    util::constants::app::{DEFAULT_CONFIG_FILENAMES, GITLAB_CREDENTIAL_VARIABLE_PAIRS},
 };
 use acorn_core::{options::CommonRuntime, Location, OneOrMany, Repository};
 use acorn_host::fs::{FsError, SafePath};
@@ -343,7 +343,7 @@ fn test_acre_options_scripts_owns_both_root_attributes() {
         "scripts": { "enabled": false }
     }))
     .expect("parse options");
-    assert_eq!(options.scripts.as_ref().expect("script options").enabled, false);
+    assert!(!options.scripts.as_ref().expect("script options").enabled);
     assert!(options.folders.is_some());
     assert!(options.crosswalk.is_some());
     assert_eq!(UNGOVERNED_ROOT_ATTRIBUTES.len(), 3);

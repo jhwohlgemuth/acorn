@@ -78,7 +78,7 @@ impl ApplicationConfiguration {
         self.options
             .as_ref()
             .and_then(|options| options.scripts.as_ref())
-            .map_or(true, |scripts| scripts.enabled)
+            .is_none_or(|scripts| scripts.enabled)
     }
     /// Resolve and compile every relevant script before evaluating any hook.
     pub fn prepare_scripts(

@@ -1,7 +1,7 @@
 //! Deployment-owned PowerAutomate integration configuration.
 //!
-//! Intake routing lives in the shared ACRE destination registry, not here. This type owns only
-//! the Power Automate-specific settings reached through `options.powerAutomate`.
+//! Intake routing lives in the shared ACRE destination registry, not here.
+//! This type owns only the Power Automate-specific settings reached through `options.powerAutomate`.
 use acorn_core::{prelude::String, validation::ValidationError};
 use acorn_schema::validation::{Validate, ValidationReport};
 use schemars::JsonSchema;
