@@ -1,0 +1,24 @@
+{
+  // ACRE 2.0.0 destination registry with variable-sourced member lists.
+  "schemaVersion": "2.0.0",
+  "folders": {
+    "id": "pilot",
+    "aliases": "acorn",
+    "variables": {
+      "members": "ACORN_PILOT_MEMBERS"
+    }
+  },
+  "variables": {
+    "custom": {
+      "power_automate.callback_url": "POWER_AUTOMATE_CALLBACK_URL",
+      "power_automate.inbound_secret": "POWER_AUTOMATE_INBOUND_SECRET"
+    }
+  },
+  "options": {
+    "powerAutomate": {
+      "callback_destination": "pilot-flow",
+      "gitlab_project": "22464",
+      "package": "acorn-automated-artifacts"
+    }
+  }
+}

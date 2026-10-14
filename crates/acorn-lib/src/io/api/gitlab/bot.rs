@@ -328,22 +328,32 @@ impl Config {
                                         let prepared = match latest {
                                             | Ok(latest) => {
                                                 let cutoff = latest.as_ref().map(|manifest| manifest.through.as_str());
-                                                let project = provider.config().project(&submission.project_id).cloned();
-                                                let entry = submission.entry_after(provider.config(), cutoff);
+                                                let folder = provider.routing().resolve_folder(&submission.project_id);
+                                                let path = folder
+                                                    .as_ref()
+                                                    .ok()
+                                                    .and_then(|folder| folder.destination.repository_path().map(str::to_owned))
+                                                    .ok_or_else(|| {
+                                                        eyre!(
+                                                            "Folder '{}' does not resolve into the configured GitLab project",
+                                                            submission.project_id
+                                                        )
+                                                    });
+                                                let entry = submission.entry_after(provider.routing(), cutoff);
                                                 let branch = submission.intake_branch();
-                                                match (project, entry, branch) {
-                                                    | (Ok(project), Ok(entry), Ok(branch)) => Ok((project, entry, branch)),
+                                                match (path, entry, branch) {
+                                                    | (Ok(path), Ok(entry), Ok(branch)) => Ok((path, entry, branch)),
                                                     | (Err(why), _, _) | (_, Err(why), _) | (_, _, Err(why)) => Err(why),
                                                 }
                                             }
                                             | Err(why) => Err(why),
                                         };
                                         match prepared {
-                                            | Ok((project, entry, branch)) => options
+                                            | Ok((path, entry, branch)) => options
                                                 .clone()
                                                 .with_branch(branch)
                                                 .with_workflow("logbook-intake")
-                                                .publish_logbook_entry(entry, &queue, &project.path)
+                                                .publish_logbook_entry(entry, &queue, &path)
                                                 .await
                                                 .and_then(|result| {
                                                     let merge_request_url = result.publication.merge_request.web_url.clone();
@@ -525,8 +535,8 @@ impl Config {
         }
     }
     /// Return a copy configured for signed PowerAutomate form intake and callbacks.
-    pub fn with_powerautomate(self, config: PowerAutomateConfig) -> ApiResult<Self> {
-        PowerAutomateProvider::from_config(config).map(|powerautomate| Self {
+    pub fn with_powerautomate(self, config: PowerAutomateConfig, routing: crate::io::config::application::FolderRegistry) -> ApiResult<Self> {
+        PowerAutomateProvider::from_config(config, routing).map(|powerautomate| Self {
             powerautomate: Some(powerautomate),
             ..self
         })
@@ -843,7 +853,7 @@ impl Server {
                 CallbackWorker::new(
                     config.operation_queue.clone(),
                     ReqwestHttpService::default(),
-                    PowerAutomateCallbackResolver::new(provider.config().clone()),
+                    PowerAutomateCallbackResolver::new(provider.config().callback_destination.clone(), provider.routing()),
                     WEBHOOK_STALE_CLAIM_AFTER,
                 )
                 .with_runtime(self.runtime.clone())

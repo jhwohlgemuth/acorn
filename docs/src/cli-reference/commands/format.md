@@ -36,7 +36,7 @@ acorn format metadata.ttl --standard dcmi
 
 ## ACRE configuration
 
-Use `--standard acre` to format Application Configuration for Research Enablement files. JSON and JSONC use two-space indentation, LF line endings, and a final newline while retaining property order, comments, and existing trailing commas. YAML uses the same indentation and line-ending policy and retains comments. Formatting validates the file first and preserves an omitted legacy `schemaVersion` field.
+Use `--standard acre` to format Application Configuration for Research Enablement files. JSON and JSONC use two-space indentation, LF line endings, and a final newline while retaining property order, comments, and existing trailing commas. YAML uses the same indentation and line-ending policy and retains comments. Formatting validates the file first and preserves an omitted `schemaVersion` field.
 
 When the path is a directory, only `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, and `.acorn.yml` are selected. An explicit file may use any supported JSON, JSONC, YAML, or YML filename. ACRE formatting is side-effect free and rejects `--config`, `--enrich`, and `--provider`.
 

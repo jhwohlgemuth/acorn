@@ -35,9 +35,9 @@ fn arguments(projects: Vec<String>) -> Report {
 fn test_prepare_accepts_offline_dry_run_and_project_selection() {
     let prepared = prepare(&arguments(vec!["pilot".to_string()]), true).expect("prepared report");
     assert_eq!(prepared.0.gitlab_project, "42");
-    assert_eq!(prepared.1, "0123456789abcdef");
-    assert_eq!(prepared.2.len(), 1);
-    assert_eq!(prepared.2.first().expect("selected project").project_id, "pilot");
+    assert_eq!(prepared.2, "0123456789abcdef");
+    assert_eq!(prepared.3.len(), 1);
+    assert_eq!(prepared.3.first().expect("selected folder").id, "pilot");
 }
 #[test]
 fn test_prepare_rejects_missing_context_and_unknown_selection() {
@@ -105,7 +105,7 @@ async fn test_report_project_no_change_writes_only_manifest() {
         serde_json::to_vec_pretty(&ResearchActivity::default()).expect("activity fixture"),
     )
     .expect("activity file");
-    let (config, commit, _) = prepare(&arguments, true).expect("prepared report");
+    let (config, _routing, commit, _) = prepare(&arguments, true).expect("prepared report");
     let options = gitlab::Options::default()
         .with_identifier("42")
         .with_path("pilot/index.json")
@@ -147,7 +147,7 @@ async fn test_report_project_with_entries_writes_pdf_when_chrome_is_configured()
             serde_json::to_vec_pretty(&activity).expect("activity fixture"),
         )
         .expect("activity file");
-        let (config, commit, _) = prepare(&arguments, true).expect("prepared report");
+        let (config, _routing, commit, _) = prepare(&arguments, true).expect("prepared report");
         let options = gitlab::Options::default()
             .with_identifier("42")
             .with_path("pilot/index.json")

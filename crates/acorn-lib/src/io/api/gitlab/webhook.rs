@@ -587,7 +587,7 @@ impl webhooks::Delivery<HookPayload> {
                     }) {
                         | Ok(()) => match &config.powerautomate {
                             | Some(provider) => {
-                                let paths = provider.config().projects.iter().map(|project| project.path.clone()).collect::<Vec<_>>();
+                                let paths = provider.routing().folders().filter_map(|folder| folder.path.clone()).collect::<Vec<_>>();
                                 options
                                     .graduate_logbook(&config.operation_queue, &paths, &accepted_ids)
                                     .await

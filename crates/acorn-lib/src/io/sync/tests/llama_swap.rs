@@ -5,6 +5,7 @@ use super::super::{
 };
 use crate::io::home_directory;
 use crate::util::constants::app::DEFAULT_LLAMA_SWAP_CONFIG_PATH;
+use acorn_core::OneOrMany;
 use acorn_schema::agent::ModelDetails;
 use acorn_schema::validation::Validate;
 use serde_norway::Value;
@@ -145,7 +146,7 @@ fn test_validate_rejects_invalid_context_ttl_environment_and_aliases() {
         },
         Config {
             inner: Inner {
-                environment: Some(vec![EnvironmentVariable::from("INVALID")]),
+                environment: Some(OneOrMany::One(EnvironmentVariable::from("INVALID"))),
                 ..Default::default()
             },
             ..Default::default()
@@ -157,14 +158,14 @@ fn test_validate_rejects_invalid_context_ttl_environment_and_aliases() {
                         (
                             "qwen".to_string(),
                             ModelOverride {
-                                aliases: Some(vec![Alias::from("shared")]),
+                                aliases: Some(OneOrMany::One(Alias::from("shared"))),
                                 ..Default::default()
                             },
                         ),
                         (
                             "gemma".to_string(),
                             ModelOverride {
-                                aliases: Some(vec![Alias::from("shared")]),
+                                aliases: Some(OneOrMany::One(Alias::from("shared"))),
                                 ..Default::default()
                             },
                         ),

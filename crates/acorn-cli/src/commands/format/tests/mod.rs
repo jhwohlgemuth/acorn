@@ -184,7 +184,7 @@ async fn test_format_acre_directory_only_formats_canonical_names() -> Result<()>
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let canonical = temp_dir.join(".acorn.json");
     let custom = temp_dir.join("custom.json");
-    let content = "{\"schemaVersion\":\"1.0.0\"}";
+    let content = "{\"schemaVersion\":\"2.0.0\"}";
     fs::write(&canonical, content)?;
     fs::write(&custom, content)?;
     let result = run(
@@ -208,7 +208,7 @@ async fn test_format_acre_directory_only_formats_canonical_names() -> Result<()>
     .await;
     assert!(result.is_ok(), "ACRE directory formatting should succeed: {result:?}");
     assert_eq!(fs::read_to_string(custom)?, content);
-    assert_eq!(fs::read_to_string(canonical)?, "{ \"schemaVersion\": \"1.0.0\" }\n");
+    assert_eq!(fs::read_to_string(canonical)?, "{ \"schemaVersion\": \"2.0.0\" }\n");
     Ok(())
 }
 #[tokio::test]
@@ -254,7 +254,7 @@ async fn test_format_acre_rejects_workflow_options_without_loading_config() -> R
     let temp_dir = temp_test_dir("format_acre_options");
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let path = temp_dir.join(".acorn.yaml");
-    fs::write(&path, "schemaVersion: 1.0.0\n")?;
+    fs::write(&path, "schemaVersion: 2.0.0\n")?;
     let missing = temp_dir.join("missing.json");
     let result = run(
         &Some(path),

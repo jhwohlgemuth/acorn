@@ -22,7 +22,12 @@ use acorn_schema::{
     hardware::memory::Memory,
     validation::{Validate, ValidationReport},
 };
-pub use application::{AcreSchemaVersion, ApplicationConfiguration, ApplicationOptions, CrosswalkOptions, WhitelistLookup};
+pub use application::{
+    AcreSchemaVersion, ApplicationConfiguration, ApplicationOptions, BucketReference, CrosswalkOptions, Destination, Folder, FolderOptions,
+    FolderRegistry, Hook, ResolvedFolder, ScriptOptions, VariableReferences, WhitelistLookup,
+};
+
+pub use application::{SCRIPT_OPTION_ROOTS, UNGOVERNED_ROOT_ATTRIBUTES};
 use bon::Builder;
 pub use bucket::{
     Bucket, BucketExtension, BucketOptions, BucketSource, BucketSourceIdentity, BucketSourceKind, Buckets, ResolvedBucket, SourceInput,

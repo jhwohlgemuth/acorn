@@ -3,13 +3,15 @@
 ## Flat file
 Application Configuration for Research Enablement (ACRE) is the versioned configuration standard used by ACORN and reusable by other research-enablement applications such as Xylem. ACRE files may use JSON, JSONC (JSON with Comments), or YAML.
 
-The current schema version is `1.0.0`. New files should declare it with the `schemaVersion` property. Files that omit the property are interpreted as version `1.0.0` for backward compatibility. Other explicit versions, including a `v` prefix, are rejected.
+The current schema version is `2.0.0`. New files should declare it with the `schemaVersion` property. Files that omit the property are interpreted as version `2.0.0`. Other explicit versions, including a `v` prefix, are rejected. There is no backwards compatibility: version `1.0.0` documents are rejected.
+
+Attribute names are `snake_case` in every format — JSON, JSONC, and YAML — so one document shape is valid everywhere. Pre-existing camelCase attributes such as `schemaVersion` keep their current spelling.
 
 ### Example
 `.acorn.json` file
 ```json
 {
-    "schemaVersion": "1.0.0",
+    "schemaVersion": "2.0.0",
     "buckets": [
         {
             "name": "bessd",

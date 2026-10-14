@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "2.0.0",
+  "members": ["office@example.org"],
+  "folders": [
+    {
+      "id": "pilot",
+      "aliases": ["acorn"],
+      "members": ["scientist@example.org"],
+      "path": "pilot/index.json"
+    },
+    {
+      "id": "standalone",
+      "aliases": "local-acorn",
+      "members": "operator@example.org",
+      "path": "file:///srv/research/standalone/index.json"
+    }
+  ],
+  "variables": {
+    "members": "ACORN_PILOT_MEMBERS",
+    "custom": {
+      "power_automate.callback_url": "POWER_AUTOMATE_CALLBACK_URL",
+      "power_automate.inbound_secret": "POWER_AUTOMATE_INBOUND_SECRET"
+    }
+  },
+  "options": {
+    "folders": {
+      "root": "file:///srv/research/"
+    },
+    "powerAutomate": {
+      "callback_destination": "pilot-flow",
+      "gitlab_project": "22464",
+      "package": "acorn-automated-artifacts"
+    }
+  }
+}

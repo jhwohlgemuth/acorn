@@ -64,10 +64,21 @@ pub struct Resolved {
 impl ApplicationConfiguration {
     /// Resolve the configured deployment manifest using explicit/discovered provenance.
     pub fn resolve_script_manifest(&self, explicit_configuration: bool) -> ApiResult<Option<ResolvedManifest>> {
-        self.script_manifest
+        match self.scripts_enabled() {
+            | false => Ok(None),
+            | true => self
+                .script_manifest
+                .as_ref()
+                .map(|source| source.resolve(explicit_configuration))
+                .transpose(),
+        }
+    }
+    /// Return whether script hooks may run. `options.scripts` governs root `scripts` and root `scriptManifest` together.
+    pub fn scripts_enabled(&self) -> bool {
+        self.options
             .as_ref()
-            .map(|source| source.resolve(explicit_configuration))
-            .transpose()
+            .and_then(|options| options.scripts.as_ref())
+            .map_or(true, |scripts| scripts.enabled)
     }
     /// Resolve and compile every relevant script before evaluating any hook.
     pub fn prepare_scripts(

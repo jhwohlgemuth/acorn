@@ -19,9 +19,10 @@ use crate::{
     },
     util::constants::app::{ACRE_SCHEMA_VERSION, DEFAULT_CONFIG_FILENAMES, GITLAB_CREDENTIAL_VARIABLE_PAIRS},
 };
-use acorn_core::{options::CommonRuntime, Location, Repository};
+use acorn_core::{options::CommonRuntime, Location, OneOrMany, Repository};
 use acorn_host::fs::{FsError, SafePath};
 use acorn_schema::validation::Validate;
+use alloc::collections::BTreeSet;
 use fancy_regex::Regex;
 use secrecy::ExposeSecret;
 #[cfg(unix)]
@@ -174,17 +175,17 @@ fn test_acre_implements_portable_decode_contract() {
 #[test]
 fn test_acre_rejects_unsupported_schema_versions_and_unknown_fields() {
     [
-        r#"{"schemaVersion":"v1.0.0"}"#,
-        r#"{"schemaVersion":"2.0.0"}"#,
+        r#"{"schemaVersion":"1.0.0"}"#,
+        r#"{"schemaVersion":"v2.0.0"}"#,
         r#"{"schemaVersion":1}"#,
         r#"{"unknown":true}"#,
     ]
     .into_iter()
     .for_each(|content| assert!(ApplicationConfiguration::parse(content).is_err(), "accepted {content}"));
-    let message = ApplicationConfiguration::parse(r#"{"schemaVersion":"2.0.0"}"#)
-        .expect_err("future ACRE version should fail")
+    let message = ApplicationConfiguration::parse(r#"{"schemaVersion":"v2.0.0"}"#)
+        .expect_err("unknown ACRE version should fail")
         .to_string();
-    assert!(message.contains("unknown variant `2.0.0`"));
+    assert!(message.contains("unknown variant `v2.0.0`"));
     assert!(!message.contains("missing field"));
 }
 #[test]
@@ -192,7 +193,7 @@ fn test_acre_schema_has_human_title_and_feature_independent_fields() {
     let schema = serde_json::to_value(schemars::schema_for!(ApplicationConfiguration)).unwrap();
     assert_eq!(schema["title"], "Application Configuration for Research Enablement");
     let properties = schema["properties"].as_object().expect("schema properties");
-    ["mcp", "options", "powerAutomate", "schemaVersion", "scriptManifest", "workflow"]
+    ["folders", "mcp", "options", "schemaVersion", "scriptManifest", "variables", "workflow"]
         .into_iter()
         .for_each(|name| assert!(properties.contains_key(name), "missing {name}"));
     let bucket_properties = schema["$defs"]["Bucket"]["properties"].as_object().expect("bucket schema properties");
@@ -202,9 +203,9 @@ fn test_acre_schema_has_human_title_and_feature_independent_fields() {
 }
 #[test]
 fn test_acre_schema_version_defaults_and_serializes() {
-    let configuration = ApplicationConfiguration::parse("{}").expect("parse legacy configuration");
-    assert_eq!(configuration.schema_version, AcreSchemaVersion::V1_0_0);
-    assert_eq!(serde_json::to_value(configuration).unwrap()["schemaVersion"], ACRE_SCHEMA_VERSION);
+    let configuration = ApplicationConfiguration::parse("{}").expect("parse minimal configuration");
+    assert_eq!(configuration.schema_version, AcreSchemaVersion::V2_0_0);
+    assert_eq!(serde_json::to_value(configuration).unwrap()["schemaVersion"], "2.0.0");
 }
 #[test]
 fn test_acre_supports_crosswalk_import_defaults() {
@@ -214,6 +215,166 @@ fn test_acre_supports_crosswalk_import_defaults() {
     let options = configuration.options.and_then(|options| options.crosswalk).expect("crosswalk options");
     assert_eq!(options.contact.as_deref(), Some(Path::new("contacts/default.yaml")));
     assert_eq!(options.local_identifier.as_deref(), Some("imported-record"));
+}
+#[test]
+fn test_acre_supports_power_automate_options_and_folders() {
+    let configuration = ApplicationConfiguration::parse(
+        r#"{"schemaVersion":"2.0.0","folders":{"id":"pilot","members":"scientist@example.org","path":"pilot/index.json"},"variables":{"custom":{"power_automate.inbound_secret":"POWER_AUTOMATE_INBOUND_SECRET"}},"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"42","package":"automated-artifacts"}}}"#,
+    )
+    .expect("parse PowerAutomate options");
+    let automation = configuration.power_automate().expect("PowerAutomate options");
+    assert_eq!(automation.gitlab_project, "42");
+    assert_eq!(
+        configuration.variable("power_automate.inbound_secret"),
+        Some("POWER_AUTOMATE_INBOUND_SECRET")
+    );
+    let registry = configuration.registry();
+    assert_eq!(registry.effective_members(Some("pilot"), &|_| None).len(), 1);
+    assert_eq!(
+        registry.resolve_folder("pilot").expect("resolved folder").destination,
+        Destination::GitLab {
+            project: "42".to_string(),
+            path: "pilot/index.json".to_string()
+        }
+    );
+    assert!(configuration.validate().is_ok());
+}
+#[test]
+fn test_acre_folder_defaults_and_precedence() {
+    let configuration = ApplicationConfiguration::parse(
+        r#"{"folders":[{"id":"pilot","aliases":"acorn"},{"id":"standalone","path":"file:///srv/research/standalone/index.json"}],"options":{"folders":{"root":"file:///srv/research/"}}}"#,
+    )
+    .expect("parse folders");
+    let registry = configuration.registry();
+    assert_eq!(
+        registry.resolve_folder("acorn").expect("alias routing").destination,
+        Destination::Local(std::path::PathBuf::from("/srv/research/pilot/index.json"))
+    );
+    assert_eq!(
+        registry.resolve_folder("standalone").expect("absolute override").destination,
+        Destination::Local(std::path::PathBuf::from("/srv/research/standalone/index.json"))
+    );
+    let mut unsafe_path = configuration;
+    unsafe_path.folders = Some(OneOrMany::One(Folder {
+        id: "pilot".to_string(),
+        path: Some("../escape/index.json".to_string()),
+        ..Folder::default()
+    }));
+    assert!(unsafe_path.validate().is_err());
+}
+#[test]
+fn test_acre_resolves_bucket_references() {
+    let configuration = ApplicationConfiguration::parse(
+        r#"{"buckets":[{"name":"nssd","source":{"provider":"gitlab","uri":"https://code.ornl.gov/research-enablement/buckets/nssd"}}],"folders":[{"id":"pilot","bucket":0},{"id":"other","bucket":"nssd"}],"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"42","package":"automated-artifacts"}}}"#,
+    )
+    .expect("parse bucket references");
+    let folder = configuration.folder("pilot").expect("bucket index zero").clone();
+    assert_eq!(folder.bucket, Some(BucketReference::Index(0)));
+    assert_eq!(
+        configuration.folder("other").expect("bucket identifier").bucket,
+        Some(BucketReference::Identifier("nssd".to_string()))
+    );
+    assert!(configuration.validate().is_ok());
+    let missing = ApplicationConfiguration::parse(r#"{"folders":[{"id":"pilot","bucket":3}]}"#).expect("parse out-of-range bucket");
+    assert!(missing.validate().is_err());
+}
+#[test]
+fn test_acre_folder_fixtures_resolve_across_formats() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/config");
+    let json = ApplicationConfiguration::read(root.join("with_folders.json")).expect("read folder JSON fixture");
+    let yaml = ApplicationConfiguration::read(root.join("with_folders.yaml")).expect("read folder YAML fixture");
+    let jsonc = ApplicationConfiguration::read(root.join("with_folders.jsonc")).expect("read folder JSONC fixture");
+    assert!(json.validate().is_ok());
+    assert!(yaml.validate().is_ok());
+    assert!(jsonc.validate().is_ok());
+    assert_eq!(json.folders().count(), 2);
+    assert_eq!(yaml.folders().count(), json.folders().count());
+    assert_eq!(yaml.folder("pilot").expect("yaml folder").id, "pilot");
+    assert_eq!(yaml.folder("acorn").expect("yaml alias").id, json.folder("acorn").expect("json alias").id);
+    assert_eq!(yaml.variable("power_automate.callback_url"), Some("POWER_AUTOMATE_CALLBACK_URL"));
+    assert_eq!(
+        yaml.folder("standalone").expect("scalar alias").aliases.as_ref().map(OneOrMany::len),
+        Some(1)
+    );
+    assert_eq!(
+        yaml.resolve_folder("standalone").expect("absolute override").destination,
+        Destination::Local(PathBuf::from("/srv/research/standalone/index.json"))
+    );
+    assert_eq!(
+        yaml.resolve_folder("pilot").expect("root-relative default").destination,
+        Destination::Local(PathBuf::from("/srv/research/pilot/index.json"))
+    );
+    let variables = |name: &str| match name {
+        | "ACORN_PILOT_MEMBERS" => Some(" Scientist@example.org, reviewer@example.org ".to_string()),
+        | _ => None,
+    };
+    let registry = json.registry();
+    assert_eq!(
+        registry.effective_members(Some("pilot"), &variables),
+        BTreeSet::from([
+            "office@example.org".to_string(),
+            "reviewer@example.org".to_string(),
+            "scientist@example.org".to_string()
+        ])
+    );
+    assert!(registry
+        .authorizes("pilot", "REVIEWER@example.org", &variables)
+        .expect("variable-sourced member"));
+    assert!(registry
+        .authorizes("standalone", "reviewer@example.org", &variables)
+        .expect("document-root variables.members reaches every configured folder"));
+    assert!(registry
+        .authorizes("standalone", "operator@example.org", &variables)
+        .expect("inline folder member"));
+    assert!(!registry
+        .authorizes("pilot", "operator@example.org", &variables)
+        .expect("folder members stay folder-scoped"));
+    assert!(!registry
+        .authorizes("pilot", "stranger@example.org", &variables)
+        .expect("unlisted submitter"));
+    assert_eq!(jsonc.registry().effective_members(Some("pilot"), &variables).len(), 2);
+}
+#[test]
+fn test_acre_options_scripts_owns_both_root_attributes() {
+    let options = serde_json::from_value::<ApplicationOptions>(serde_json::json!({
+        "crosswalk": { "localIdentifier": "imported-record" },
+        "folders": { "root": "file:///srv/research/" },
+        "powerAutomate": { "callback_destination": "pilot-flow", "gitlab_project": "42", "package": "automated-artifacts" },
+        "scripts": { "enabled": false }
+    }))
+    .expect("parse options");
+    assert_eq!(options.scripts.as_ref().expect("script options").enabled, false);
+    assert!(options.folders.is_some());
+    assert!(options.crosswalk.is_some());
+    assert_eq!(UNGOVERNED_ROOT_ATTRIBUTES.len(), 3);
+    let schema = serde_json::to_value(schemars::schema_for!(ApplicationOptions)).expect("options schema");
+    let properties = schema["properties"].as_object().expect("options schema properties");
+    ["crosswalk", "folders", "powerAutomate", "scripts"].into_iter().for_each(|name| {
+        assert!(properties.contains_key(name), "missing options.{name}");
+    });
+    SCRIPT_OPTION_ROOTS.into_iter().for_each(|root| {
+        assert!(SCRIPT_OPTION_ROOTS.contains(&root));
+        assert!(!UNGOVERNED_ROOT_ATTRIBUTES.contains(&root), "{root} must be governed");
+    });
+    assert!(serde_json::from_value::<ApplicationOptions>(serde_json::json!({ "removed": true })).is_err());
+    let defaults = ApplicationConfiguration::parse("{}").expect("parse default options");
+    assert!(!defaults.has_hook(Hook::Check), "no root scripts are registered by default");
+    let registered = ApplicationConfiguration::parse(r#"{"scripts":[{"path":"a.rhai","hooks":["check"]}]}"#).expect("parse scripts");
+    assert!(registered.has_hook(Hook::Check));
+    let disabled = ApplicationConfiguration::parse(r#"{"scripts":[{"path":"a.rhai","hooks":["check"]}],"options":{"scripts":{"enabled":false}}}"#)
+        .expect("parse disabled scripts");
+    assert!(!disabled.has_hook(Hook::Check), "options.scripts gates root scripts");
+    let empty_object = ApplicationConfiguration::parse(r#"{"options":{"scripts":{}}}"#).expect("parse empty script options");
+    assert_eq!(
+        empty_object
+            .options
+            .as_ref()
+            .and_then(|options| options.scripts.as_ref())
+            .map(|scripts| scripts.enabled),
+        Some(true),
+        "an omitted enabled flag defaults to true"
+    );
+    assert!(serde_json::to_value(empty_object).expect("serialize options")["options"]["scripts"].is_object());
 }
 #[test]
 fn test_bucket() {
