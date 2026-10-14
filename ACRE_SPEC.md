@@ -2,7 +2,7 @@
 
 ACRE is ACORN's versioned configuration format for research-enablement applications. It describes reusable application inputs such as research-activity buckets, model sources, synchronization targets, service endpoints, runners, deployment policy, and constrained script hooks. ACRE configures the application; it does not contain Research Activity Data (RAD).
 
-This document describes ACRE schema version `1.0.0`. The generated JSON Schema is the machine-readable authority for accepted types, unions, enum values, and validation constraints:
+This document describes ACRE schema version `2.0.0`. The generated JSON Schema is the machine-readable authority for accepted types, unions, enum values, and validation constraints:
 
 ```sh
 acorn export --schema --standard acre
@@ -19,13 +19,13 @@ ACRE supports JSON, JSON with Comments (JSONC), and YAML. ACORN discovers the fi
 
 Use `--config <FILE>` with commands that consume a non-canonical filename. JSONC permits line comments, block comments, and trailing commas. Property names are case-sensitive.
 
-An ACRE document is a single object. Every top-level attribute is optional, and omitted attributes have no effect. New files should set `schemaVersion` explicitly; an omitted version is treated as `1.0.0` for compatibility. Unknown top-level attributes and unsupported explicit schema versions are rejected.
+An ACRE document is a single object. Every top-level attribute is optional, and omitted attributes have no effect. New files should set `schemaVersion` explicitly; an omitted version resolves to `2.0.0`. Unknown top-level attributes and unsupported explicit schema versions are rejected.
 
 ## Example
 
 ```json
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "2.0.0",
   "buckets": [
     {
       "name": "science",
@@ -62,11 +62,11 @@ acorn export --schema --standard acre
 
 Use `--standard acre` with `acorn check` when the input has a non-canonical filename or comes from standard input.
 
-## Proposed folder-to-bucket association
+## Folder-to-bucket association
 
-These are proposed ACRE extensions, not fields accepted by the current 1.0.0 validator. The example version 2.0.0 remains subject to implementation and migration validation.
+These are ACRE 2.0.0 attributes accepted by the current validator.
 
-This proposed configuration demonstrates a folder belonging to a local bucket and a standalone folder. Neither declaration triggers copying. Bucket IDs and folder bucket references are planned additions.
+This configuration demonstrates a folder belonging to a local bucket and a standalone folder. Neither declaration triggers copying.
 
 ```json
 {
@@ -154,18 +154,24 @@ folders:
     path: file:///C:/archive/history/index.json
 ```
 
-Prefer IDs in long-lived configurations: reordering buckets changes index associations for new work. Persist the resolved bucket identity and destination at admission so retries retain their original routing. Index association does not supply a path root, trigger copying, or grant access. These examples are proposed extensions, not valid current ACRE 1.0.0 configurations.
+Prefer IDs in long-lived configurations: reordering buckets changes index associations for new work. Persist the resolved bucket identity and destination at admission so retries retain their original routing. Index association does not supply a path root, trigger copying, or grant access.
+
+## Attribute casing across ACRE formats
+
+Attribute names are `snake_case` in every format: JSON, JSONC, and YAML serialize the same spelling. Rust fields are already snake_case, so no per-format adapter is needed to rename keys. Pre-existing camelCase attributes such as `schemaVersion` and `scriptManifest` are grandfathered and keep their current spelling; new attributes must not introduce camelCase. Values are never case-converted — environment-variable names, folder identifiers, aliases, paths, and user-defined keys inside `variables.custom` are preserved verbatim.
 
 ## Top-level attributes
 
 | Attribute | Type | Description |
 | --- | --- | --- |
-| `schemaVersion` | string | ACRE schema version. The only supported explicit value is `1.0.0`; omission also resolves to `1.0.0`. |
+| `schemaVersion` | string | ACRE schema version. The only supported explicit value is `2.0.0`; omission also resolves to `2.0.0`. |
 | `buckets` | array | Research-activity collections that ACORN can import or download. Entries may be concise source strings or detailed bucket objects. |
 | `config` | object | Output targets for synchronizing downloaded models into llama-swap, OpenCode, VS Code, and Goose. |
 | `endpoints` | array | Named HTTP API endpoints and templated resources available to ACORN integrations. |
 | `models` | array | Models to download or synchronize, expressed as selector strings or detailed model entries. |
-| `powerAutomate` | object | Deployment-owned PowerAutomate intake, project routing, and callback configuration. |
+| `folders` | array | Shared destination registry for intake and reporting routing. |
+| `members` | array | Global submitter allowlist applying to every configured folder. |
+| `variables` | object | Document-scoped environment-variable references. |
 | `registries` | object | Map of profile names to credential-free OCI or Harbor registry settings referenced by model sources. |
 | `runners` | array | CI/CD runners that ACORN can create and start locally or on a remote container host. |
 | `whitelist` | object | Optional allowlists that restrict selectable bucket and model identifiers. An empty whitelist imposes no restriction. |
@@ -177,7 +183,7 @@ Prefer IDs in long-lived configurations: reordering buckets changes index associ
 
 ### `schemaVersion`
 
-`schemaVersion` is a string containing `1.0.0`. Values such as `v1.0.0`, numeric versions, and unknown future versions are invalid. Producers should always emit the attribute even though consumers accept its omission for compatibility.
+`schemaVersion` is a string containing `2.0.0`. Values such as `v1.0.0`, numeric versions, and unknown future versions are invalid. Producers should always emit the attribute even though consumers accept its omission.
 
 ### `buckets`
 
@@ -247,18 +253,52 @@ Each model is either a selector string (model ID, local path, or URL) or a detai
 
 `copy` and `symlink` are alternative local-materialization policies and must not both be enabled.
 
-### `powerAutomate`
+### `folders`
 
-This deployment-owned object routes validated PowerAutomate form submissions. Its serialized nested names use snake case.
+`folders` is the shared destination registry used by intake and reporting. Each item has a stable `id`, and accepts one item or an array of items.
+
+| Attribute | Required | Description |
+| --- | --- | --- |
+| `id` | Yes | Stable identifier. Aliases and the default `<id>/index.json` path derive from it. |
+| `aliases` | No | One or more routing selectors, including folder names, that resolve to this folder. Selectors must be unique across the document. |
+| `bucket` | No | Owning bucket, referenced by unique name or zero-based `buckets` index. Association never alters path precedence or grants access. |
+| `members` | No | One or more submitter emails for intake authorization. |
+| `path` | No | Destination index path. Relative unless it is an absolute URI. Omitted resolves to `<id>/index.json` when a root or GitLab project is configured. |
+| `variables` | No | Folder-scoped environment-variable references. |
+
+Path resolution, in order: an explicit absolute URI identifies its own destination; otherwise a relative path resolves against `options.folders.root`; otherwise it resolves inside `options.powerAutomate.gitlab_project`. With neither configured, a relative or omitted path is rejected.
+
+### `members`
+
+Top-level `members` is the global submitter allowlist. A submitter is authorized when present in the effective global list **or** the effective list of the selected folder. Inline and `variables.members` values are unioned, trimmed, lowercased, and deduplicated.
+
+### `variables`
+
+Environment-variable references shared across the document. Names point at environment variables; values are never stored in the document.
+
+| Attribute | Required | Description |
+| --- | --- | --- |
+| `members` | No | Name of one environment variable holding the member allowlist. |
+| `custom` | No | Operator-defined references keyed by catalog name, valued by environment-variable name. |
+
+The built-in Power Automate references are `power_automate.callback_url` and `power_automate.inbound_secret`.
+
+### `options.powerAutomate`
+
+Deployment-owned PowerAutomate settings. Routing lives in root `folders`, not here. The entry name is camelCase; its attributes stay snake_case.
 
 | Attribute | Required | Description |
 | --- | --- | --- |
 | `callback_destination` | Yes | Stable name persisted with callback intents. |
-| `variables` | Yes | Names of the runtime environment variables `callback_url` and `inbound_secret`; values are variable names, not credentials. |
 | `package` | Yes | GitLab generic-package name for generated artifacts. |
 | `gitlab_project` | Yes | GitLab project containing bucket files and packages. |
-| `projects` | Yes | Non-empty project routing list. Each item has `project_id`, `path`, and a `members` email allowlist. |
-| `timezone` | No | Reporting timezone. Version `1.0.0` supports `UTC`. |
+| `timezone` | No | Reporting timezone. Only `UTC` is supported. |
+
+### `options.folders`
+
+| Attribute | Required | Description |
+| --- | --- | --- |
+| `root` | No | Absolute local or remote URI used as the base for relative folder paths, for example `file:///C:/research/` or `https://data.example.org/research/`. |
 
 ### `registries`
 
@@ -323,7 +363,7 @@ Each workflow policy requires:
 | `actions` | Non-empty allowlist of `check`, `enrich`, `format`, `link`, and `validate` processing actions. |
 | `effects` | Non-empty allowlist of external effects such as `branch`, `commit`, `commit-status`, `completion-comment`, `draft-merge-request`, `label`, and `note`. |
 | `formats` | Non-empty allowlist of accepted input MIME types. |
-| `outputs` | Object whose `mode` selects output behavior; version `1.0.0` supports `source-and-artifacts`. |
+| `outputs` | Object whose `mode` selects output behavior; version `2.0.0` supports `source-and-artifacts`. |
 | `paths` | Non-empty list of safe repository-relative input glob patterns. |
 
 ### `scriptManifest`
@@ -353,10 +393,20 @@ Each script registration has:
 | `hooks` | Yes | Non-empty, duplicate-free list containing `check`, `format`, `link`, `enrich`, or `validate`. |
 | `absolute` | No | Interpret `path` as a platform-native absolute path; defaults to `false`. |
 
-Script registrations select when code runs. `scriptManifest` independently defines what that code is authorized to do.
+Script registrations select when code runs. `scriptManifest` independently defines what that code is authorized to do. The two keep distinct representations; `options.scripts` is the single owner of settings affecting both.
+
+### `options.scripts`
+
+| Attribute | Required | Description |
+| --- | --- | --- |
+| `enabled` | No | Whether script hooks may run. Both root `scripts` and root `scriptManifest` are ignored when `false`; defaults to `true`. |
+
+`schemaVersion`, `config`, and `options` have no option counterpart and are excluded from this coverage. `options.crosswalk`, `options.folders`, and `options.powerAutomate` likewise own no root attribute of their own.
 
 ## Compatibility and conformance
 
-Consumers conform to ACRE `1.0.0` when they accept the documented root object, reject unsupported explicit versions, and interpret supported attributes according to the exported schema. Producers conform when they emit `schemaVersion: "1.0.0"`, use canonical attribute names, and emit values accepted by that schema.
+ACRE `2.0.0` is a hard cutover. Version `1.0.0` documents are rejected rather than migrated; there is no compatibility adapter and no migration tool.
+
+Consumers conform to ACRE `2.0.0` when they accept the documented root object, reject unsupported explicit versions, and interpret supported attributes according to the exported schema. Producers conform when they emit `schemaVersion: "2.0.0"`, use canonical snake_case attribute names, and emit values accepted by that schema.
 
 Before committing an ACRE file, run `acorn check` and use `acorn format --standard acre` to normalize supported JSON, JSONC, or YAML syntax. For operational examples, see the [ACORN configuration guide](docs/src/cli-reference/configuration.md).

@@ -138,6 +138,11 @@ path = "tests/acp_interoperability.rs"
 required-features = ["acp", "analysis"]
 
 [[test]]
+name = "network"
+path = "tests/network.rs"
+required-features = ["analysis"]
+
+[[test]]
 name = "openai_interoperability"
 path = "tests/openai_interoperability.rs"
 required-features = ["analysis"]

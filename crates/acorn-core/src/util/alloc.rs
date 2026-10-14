@@ -1728,6 +1728,23 @@ pub fn regex_to_glob(pattern: impl AsRef<str>) -> Option<String> {
         None
     }
 }
+/// Split a delimited list value into its trimmed, non-empty entries.
+///
+/// ### Example
+/// ```rust
+/// use acorn_core::util::split_list;
+///
+/// assert_eq!(split_list(" a, b \n c "), ["a", "b", "c"]);
+/// ```
+pub fn split_list(value: impl AsRef<str>) -> Vec<String> {
+    value
+        .as_ref()
+        .split([',', '\n', '\r', ' ', '\t'])
+        .map(str::trim)
+        .filter(|entry| !entry.is_empty())
+        .map(String::from)
+        .collect()
+}
 /// Remove duplicate values while retaining their first-occurrence order.
 pub fn stable_deduplicate<T>(values: impl IntoIterator<Item = T>) -> Vec<T>
 where

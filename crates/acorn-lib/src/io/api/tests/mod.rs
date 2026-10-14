@@ -5,8 +5,7 @@
     clippy::panic,
     clippy::unwrap_used
 )]
-use crate::analyzer::host::discovery::CitationFormat;
-use crate::io::api::citeas::{self, ToCitations};
+use crate::io::api::citeas::ToCitations;
 use crate::io::api::{
     self, extract_template_keys, orcid, render, require_non_empty_secret, ror, Authenticator, Configuration, Credential, Endpoint, IntoBody,
     IntoHeaders, Param, ParamStyle, Params, RemoteResource, Resource, ResponseContent, TreeEntry, TreeEntryType, INCLUDED_ENDPOINTS,
@@ -22,7 +21,7 @@ use crate::util::constants::app::{
 use crate::util::constants::env::{OPENAI_API_KEY, OPENAI_SERVER_HOST};
 use acorn_core::util::Searchable;
 use acorn_core::{Location, OneOrMany, Repository, Scheme};
-use acorn_schema::pid::{PersistentIdentifierParse, PublicationIdentifierType, DOI};
+use acorn_schema::pid::PublicationIdentifierType;
 use secrecy::ExposeSecret;
 
 mod gguf {
@@ -909,28 +908,6 @@ mod orcid_api {
 
 mod swhid;
 
-#[tokio::test]
-#[ignore = "Requires internet connection and citeas.org to be up"]
-async fn test_citeas() {
-    let status = citeas::status().await;
-    assert!(status.is_ok());
-    if let Ok(citeas::StatusResponse { documentation_url, .. }) = status {
-        assert_eq!(documentation_url, "https://citeas.org/api");
-    }
-    let doi = "10.11578/dc.20250604.1";
-    let params = vec![param!(TemplateValue, "identifier", doi)];
-    let expected = "Wohlgemuth, J. (2025). Accessible Content Optimization for Research Needs (ACORN). Oak Ridge National Laboratory (ORNL), Oak Ridge, TN (United States). http://doi.org/10.11578/DC.20250604.1";
-    let options = citeas::Options::from_env().with_params(params);
-    if let Some(citeas::Citation { text, .. }) = citeas::search(&options).await.unwrap().match_style(CitationFormat::Apa) {
-        println!("CiteAs Test Response Received");
-        assert_eq!(text, expected);
-    };
-    let doi = DOI::from_string("10.11578/dc.20250604.1");
-    if let Some(citeas::Citation { text, .. }) = doi.to_citations().await.unwrap().match_style(CitationFormat::Apa) {
-        println!("CiteAs Test Response Received");
-        assert_eq!(text, expected);
-    };
-}
 #[test]
 fn test_citeas_product_template_accepts_encoded_arxiv_url() {
     let endpoint = Endpoint::from_template("citeas").unwrap();

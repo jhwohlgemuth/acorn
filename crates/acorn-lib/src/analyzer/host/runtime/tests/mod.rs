@@ -20,9 +20,7 @@ use crate::{
             ModelKitStandard, StaticAnalyzer, StaticAnalyzerConfig,
         },
         service::Analysis,
-        vale::{
-            parse_vale_output, preprocess_vale_output, try_parse_vale_output, Vale, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemSeverity,
-        },
+        vale::{parse_vale_output, preprocess_vale_output, try_parse_vale_output, Vale, ValeConfig, ValeOutputItem, ValeOutputItemSeverity},
     },
     io::{
         document::{DocumentIndex, DocumentMatch, DocumentQuery, SourceDocument},

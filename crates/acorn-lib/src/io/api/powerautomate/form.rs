@@ -1,9 +1,8 @@
-//! Strict version-one PowerAutomate form envelope.
-use super::PowerAutomateConfig;
+//! Strict PowerAutomate form envelope.
 use crate::io::api::webhooks::store::EnqueueStatus;
+use crate::io::config::application::FolderRegistry;
 use crate::io::{ApiResult, EmailAddress};
 use acorn_core::prelude::{String, Vec};
-use acorn_core::validation::ValidationError;
 use acorn_schema::research_activity::{LogbookCategory, LogbookEntry, LogbookEventType, LogbookState};
 use acorn_schema::validation::{rules, Validate, ValidationReport};
 use acorn_schema::ClassificationLevel;
@@ -11,6 +10,7 @@ use color_eyre::eyre::eyre;
 use convert_case::{Case, Casing};
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
+use std::env;
 
 /// Receipt disposition backed by the durable webhook queue.
 #[derive(Clone, Copy, Debug, Eq, JsonSchema, PartialEq, Serialize)]
@@ -59,10 +59,8 @@ pub struct FormReceipt {
 pub struct FormSubmission {
     /// Form-controlled logbook fields.
     pub entry: FormEntry,
-    /// Stable deployment-owned project identifier.
+    /// Stable deployment-owned folder identifier or alias.
     pub project_id: String,
-    /// Wire schema version. Version `1` is supported.
-    pub schema_version: u8,
     /// Stable UUID assigned by the submitting flow.
     #[validate(uuid)]
     pub submission_id: String,
@@ -91,18 +89,21 @@ impl FormReceipt {
 }
 impl FormSubmission {
     /// Convert authorized form fields into a manual, active logbook entry.
-    pub fn entry(&self, config: &PowerAutomateConfig) -> ApiResult<LogbookEntry> {
-        self.entry_after(config, None)
+    pub fn entry(&self, routing: &FolderRegistry) -> ApiResult<LogbookEntry> {
+        self.entry_after(routing, None)
     }
     /// Convert a form while rejecting entries older than the latest successful report cutoff.
-    pub fn entry_after(&self, config: &PowerAutomateConfig, cutoff: Option<&str>) -> ApiResult<LogbookEntry> {
+    pub fn entry_after(&self, routing: &FolderRegistry, cutoff: Option<&str>) -> ApiResult<LogbookEntry> {
         self.validate()
             .map_err(|why| eyre!("Invalid PowerAutomate form submission — {why}"))
-            .and_then(|()| config.validate().map_err(|why| eyre!("Invalid PowerAutomate configuration — {why}")))
-            .and_then(|()| config.project(&self.project_id))
-            .and_then(|project| match project.members.contains(&self.submitter.email) {
+            .and_then(|()| {
+                routing
+                    .authorizes(&self.project_id, self.submitter.email.as_str(), &|name| env::var(name).ok())
+                    .map_err(|why| eyre!("{why}"))
+            })
+            .and_then(|authorized| match authorized {
                 | true => Ok(()),
-                | false => Err(eyre!("Submitter is not authorized for PowerAutomate project '{}'", self.project_id)),
+                | false => Err(eyre!("Submitter is not authorized for PowerAutomate folder '{}'", self.project_id)),
             })
             .and_then(|()| {
                 cutoff
@@ -152,12 +153,6 @@ impl FormSubmission {
     }
     fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
         let mut report = ValidationReport::new();
-        if self.schema_version != 1 {
-            report.add(
-                "schemaVersion",
-                ValidationError::new("version").with_message("Only schema version 1 is supported"),
-            );
-        }
         let entry = LogbookEntry::init()
             .category(self.entry.category)
             .maybe_classification(self.entry.classification.clone())

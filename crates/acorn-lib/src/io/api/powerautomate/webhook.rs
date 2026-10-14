@@ -6,7 +6,9 @@ use crate::io::api::webhooks::store::OperationQueue;
 use crate::io::api::webhooks::{
     self, Delivery, ErrorKind, HeaderSecretVerifier, InboundRequest, OperationSpec, Verifier, WebhookError, WebhookProvider, WebhookRuntime,
 };
+use crate::io::config::application::FolderRegistry;
 use crate::io::ApiResult;
+use crate::util::constants::env::POWER_AUTOMATE_INBOUND_SECRET;
 use acorn_schema::validation::Validate;
 use axum::body::to_bytes;
 use axum::extract::State;
@@ -24,6 +26,7 @@ const STALE_CLAIM_AFTER: SignedDuration = SignedDuration::from_mins(5);
 #[derive(Clone)]
 pub struct PowerAutomateProvider {
     config: PowerAutomateConfig,
+    routing: FolderRegistry,
     verifier: HeaderSecretVerifier,
 }
 #[derive(Clone)]
@@ -34,21 +37,23 @@ struct RouterState {
 }
 impl PowerAutomateProvider {
     /// Construct a provider with an explicit inbound shared secret.
-    pub fn new(config: PowerAutomateConfig, inbound_secret: impl Into<api::Secret>) -> ApiResult<Self> {
+    pub fn new(config: PowerAutomateConfig, routing: FolderRegistry, inbound_secret: impl Into<api::Secret>) -> ApiResult<Self> {
         config
             .validate()
             .map_err(|why| color_eyre::eyre::eyre!("Invalid PowerAutomate configuration — {why}"))
             .and_then(|()| {
                 HeaderSecretVerifier::new(SECRET_HEADER, inbound_secret, &[DELIVERY_HEADER])
                     .map_err(Into::into)
-                    .map(|verifier| Self { config, verifier })
+                    .map(|verifier| Self { config, routing, verifier })
             })
     }
     /// Construct a provider by resolving the configured inbound secret environment variable.
-    pub fn from_config(config: PowerAutomateConfig) -> ApiResult<Self> {
-        env::var(&config.variables.inbound_secret)
-            .map_err(|_| color_eyre::eyre::eyre!("PowerAutomate inbound shared secret is unavailable"))
-            .and_then(|secret| Self::new(config, secret))
+    pub fn from_config(config: PowerAutomateConfig, routing: FolderRegistry) -> ApiResult<Self> {
+        routing
+            .variable(POWER_AUTOMATE_INBOUND_SECRET)
+            .ok_or_else(|| color_eyre::eyre::eyre!("PowerAutomate inbound shared secret is not referenced by variables.custom"))
+            .and_then(|name| env::var(name).map_err(|_| color_eyre::eyre::eyre!("PowerAutomate inbound shared secret is unavailable")))
+            .and_then(|secret| Self::new(config, routing, secret))
     }
     /// Build the isolated form intake router.
     pub fn router(self, queue: OperationQueue, runtime: WebhookRuntime) -> Router {
@@ -65,6 +70,10 @@ impl PowerAutomateProvider {
     pub fn config(&self) -> &PowerAutomateConfig {
         &self.config
     }
+    /// Return the ACRE routing snapshot supplying folders and variable references.
+    pub fn routing(&self) -> &FolderRegistry {
+        &self.routing
+    }
 }
 impl WebhookProvider for PowerAutomateProvider {
     type Event = FormSubmission;
@@ -75,7 +84,7 @@ impl WebhookProvider for PowerAutomateProvider {
                 .map_err(|_| WebhookError::new(ErrorKind::BadRequest, "Invalid PowerAutomate form payload"))
                 .and_then(|event| {
                     event
-                        .entry(&self.config)
+                        .entry(&self.routing)
                         .map_err(|_| WebhookError::new(ErrorKind::BadRequest, "Invalid or unauthorized PowerAutomate form payload"))
                         .map(|_| Delivery {
                             delivery_id: verified.delivery_id.to_string(),

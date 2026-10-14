@@ -3,14 +3,14 @@ use crate::{cli::arguments::Report, commands::export::updates};
 use acorn::io::{
     api::{
         gitlab::{self, Package, PackageLifecycle, PackageOptions, ReportManifest, ReportStatus},
-        powerautomate::{PowerAutomateCallbackResolver, PowerAutomateConfig, ProjectIntakeConfig},
+        powerautomate::{PowerAutomateCallbackResolver, PowerAutomateConfig},
         webhooks::{
             store::{CallbackWorker, OperationQueue},
             ArtifactEvent, WebhookRuntime,
         },
         Configuration,
     },
-    config::ApplicationConfiguration,
+    config::application::{ApplicationConfiguration, Folder, FolderRegistry},
     http::ReqwestHttpService,
     ApiResult, InputOutput,
 };
@@ -36,11 +36,11 @@ pub(crate) struct ProjectReportResult {
     through: String,
     version: Option<String>,
 }
-async fn deliver_callbacks(queue: &OperationQueue, config: &PowerAutomateConfig) -> ApiResult<()> {
+async fn deliver_callbacks(queue: &OperationQueue, config: &PowerAutomateConfig, routing: &FolderRegistry) -> ApiResult<()> {
     let callback_worker = CallbackWorker::new(
         queue.clone(),
         ReqwestHttpService::default(),
-        PowerAutomateCallbackResolver::new(config.clone()),
+        PowerAutomateCallbackResolver::new(config.callback_destination.clone(), routing),
         SignedDuration::from_mins(5),
     );
     let worker = callback_worker.with_runtime(WebhookRuntime::default());
@@ -67,7 +67,7 @@ fn enqueue_manifest_event(queue: &OperationQueue, config: &PowerAutomateConfig, 
     };
     event.enqueue(queue, &config.callback_destination, &manifest.version).map(|_| ())
 }
-fn prepare(arguments: &Report, offline: bool) -> ApiResult<(PowerAutomateConfig, String, Vec<ProjectIntakeConfig>)> {
+fn prepare(arguments: &Report, offline: bool) -> ApiResult<(PowerAutomateConfig, FolderRegistry, String, Vec<Folder>)> {
     ApplicationConfiguration::load(&arguments.config)
         .and_then(|configuration| {
             configuration
@@ -76,41 +76,43 @@ fn prepare(arguments: &Report, offline: bool) -> ApiResult<(PowerAutomateConfig,
                 .map(|()| configuration)
         })
         .and_then(|configuration| {
+            let routing = configuration.registry();
             configuration
-                .power_automate
+                .power_automate()
+                .cloned()
+                .map(|automation| (automation, routing))
                 .ok_or_else(|| eyre!("Automated artifact configuration is required"))
         })
-        .and_then(|automation| {
+        .and_then(|(automation, routing)| {
             arguments
                 .commit
                 .as_deref()
                 .filter(|commit| !commit.trim().is_empty())
                 .ok_or_else(|| eyre!("Report source commit is required"))
                 .map(str::to_string)
-                .map(|commit| (automation, commit))
+                .map(|commit| (automation, routing, commit))
         })
-        .and_then(|(automation, commit)| match offline && !arguments.dry_run {
+        .and_then(|(automation, routing, commit)| match offline && !arguments.dry_run {
             | true => Err(eyre!("Report publication cannot run offline unless --dry-run is used")),
-            | false => Ok((automation, commit)),
+            | false => Ok((automation, routing, commit)),
         })
-        .and_then(|(automation, commit)| {
+        .and_then(|(automation, routing, commit)| {
             let pipeline = arguments.pipeline_id.as_deref().is_some_and(|value| !value.trim().is_empty());
             let job = arguments.job_id.as_deref().is_some_and(|value| !value.trim().is_empty());
             match arguments.dry_run || pipeline && job {
-                | true => Ok((automation, commit)),
+                | true => Ok((automation, routing, commit)),
                 | false => Err(eyre!("Report publication requires GitLab pipeline and job identifiers")),
             }
         })
-        .and_then(|(automation, commit)| {
-            let selected = automation
-                .projects
-                .iter()
-                .filter(|project| arguments.projects.is_empty() || arguments.projects.contains(&project.project_id))
+        .and_then(|(automation, routing, commit)| {
+            let selected = routing
+                .folders()
+                .filter(|folder| arguments.projects.is_empty() || arguments.projects.contains(&folder.id))
                 .cloned()
                 .collect::<Vec<_>>();
             match selected.is_empty() {
-                | true => Err(eyre!("No configured automated-artifact projects matched the report selection")),
-                | false => Ok((automation, commit, selected)),
+                | true => Err(eyre!("No configured automated-artifact folders matched the report selection")),
+                | false => Ok((automation, routing, commit, selected)),
             }
         })
 }
@@ -236,30 +238,29 @@ async fn report_project(
 /// Run bounded reporting for every selected project and fail after independent projects finish.
 pub(crate) async fn run(arguments: &Report, offline: bool) -> ApiResult<()> {
     match prepare(arguments, offline) {
-        | Ok((automation, commit, selected)) => run_selected(arguments, &automation, &commit, selected, offline).await,
+        | Ok((automation, routing, commit, selected)) => run_selected(arguments, &automation, &routing, &commit, selected, offline).await,
         | Err(why) => Err(why),
     }
 }
 async fn run_selected(
     arguments: &Report,
     automation: &PowerAutomateConfig,
+    routing: &FolderRegistry,
     commit: &str,
-    selected: Vec<ProjectIntakeConfig>,
+    selected: Vec<Folder>,
     offline: bool,
 ) -> ApiResult<()> {
     let options = gitlab::Options::from_env().with_identifier(automation.gitlab_project.clone());
     let queue = OperationQueue::configured();
     let mut results = Vec::new();
-    for project in selected {
-        let project_options = options
-            .clone()
-            .with_path(project.path.clone())
-            .with_project_id(project.project_id.clone());
+    for folder in selected {
+        let path = folder.path.clone().unwrap_or_else(|| format!("{}/index.json", folder.id));
+        let project_options = options.clone().with_path(path).with_project_id(folder.id.clone());
         let result = report_project(arguments, automation, &project_options, &queue, commit, offline).await;
         match result {
             | Ok(manifest) => results.push(
                 ProjectReportResult::init()
-                    .project_id(project.project_id)
+                    .project_id(folder.id)
                     .status(manifest.status.to_string())
                     .through(manifest.through)
                     .version(manifest.version)
@@ -270,18 +271,18 @@ async fn run_selected(
                 if !arguments.dry_run {
                     let _ = ArtifactEvent::Failed {
                         message: message.clone(),
-                        project_id: project.project_id.clone(),
+                        project_id: folder.id.clone(),
                     }
                     .enqueue(
                         &queue,
                         &automation.callback_destination,
-                        &format!("{}:{}:failed", project.project_id, arguments.through),
+                        &format!("{}:{}:failed", folder.id, arguments.through),
                     );
                 }
                 results.push(
                     ProjectReportResult::init()
                         .error(message)
-                        .project_id(project.project_id)
+                        .project_id(folder.id)
                         .status("failed")
                         .through(arguments.through.clone())
                         .build(),
@@ -291,7 +292,7 @@ async fn run_selected(
     }
     let callbacks = match arguments.dry_run {
         | true => Ok(()),
-        | false => deliver_callbacks(&queue, automation).await,
+        | false => deliver_callbacks(&queue, automation, routing).await,
     };
     let output = serde_json::to_string_pretty(&results).map_err(|why| eyre!("Failed to encode report results — {why}"));
     match output {

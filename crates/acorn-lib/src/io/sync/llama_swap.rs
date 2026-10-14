@@ -14,6 +14,7 @@ use acorn_cmd::{args, runtime::command_string};
 use acorn_core::{
     options::{SyncInner, TargetConfig},
     validation::ValidationError,
+    OneOrMany,
 };
 use acorn_schema::{
     agent::ModelDetails,
@@ -76,10 +77,10 @@ pub struct Inner {
     pub ttl: Option<i64>,
     /// Extra command-line arguments applied to every model command
     #[validate(nested)]
-    pub extra_args: Option<Vec<Argument>>,
+    pub extra_args: Option<OneOrMany<Argument>>,
     /// Extra environment variables as `KEY=VALUE` entries applied to every model
     #[validate(nested)]
-    pub environment: Option<Vec<EnvironmentVariable>>,
+    pub environment: Option<OneOrMany<EnvironmentVariable>>,
     /// Per-model overrides keyed by ACORN model name
     #[validate(nested)]
     pub models: Option<BTreeMap<String, ModelOverride>>,
@@ -97,13 +98,13 @@ pub struct ModelOverride {
     pub ttl: Option<i64>,
     /// Human-readable aliases for selecting this model
     #[validate(nested)]
-    pub aliases: Option<Vec<Alias>>,
+    pub aliases: Option<OneOrMany<Alias>>,
     /// Additional command-line arguments for `llama-server`
     #[validate(nested)]
-    pub extra_args: Option<Vec<Argument>>,
+    pub extra_args: Option<OneOrMany<Argument>>,
     /// Extra environment variables as `KEY=VALUE` entries
     #[validate(nested)]
-    pub environment: Option<Vec<EnvironmentVariable>>,
+    pub environment: Option<OneOrMany<EnvironmentVariable>>,
     /// Executable name or path for this model (overrides global)
     #[validate(length(min = 1))]
     pub executable: Option<String>,

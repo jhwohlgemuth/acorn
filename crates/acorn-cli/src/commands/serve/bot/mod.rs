@@ -2,6 +2,7 @@ use crate::cli::arguments::bot::EventSource;
 use acorn::io::api::gitlab::{self, bot, DeploymentConfig, WebhookOptions};
 use acorn::io::api::powerautomate::PowerAutomateConfig;
 use acorn::io::api::Configuration;
+use acorn::io::config::application::FolderRegistry;
 use acorn::io::config::ApplicationConfiguration;
 use acorn::io::{ContainerTarget, Executor};
 use acorn_schema::validation::Validate;
@@ -121,13 +122,14 @@ async fn run_local(
         .transpose();
     let config_path = config.map(Path::to_path_buf);
     let deployment = ApplicationConfiguration::load(&config_path).and_then(|configuration| {
-        configuration
-            .validate()
-            .map_err(Report::from)
-            .map(|()| (configuration.workflow.unwrap_or_default(), configuration.power_automate))
+        configuration.validate().map_err(Report::from).map(|()| {
+            let routing = configuration.registry();
+            let power_automate = configuration.power_automate().cloned();
+            (configuration.workflow.unwrap_or_default(), power_automate, routing)
+        })
     });
     match (resolve_bind_address(bind), validation, project_id, deployment, register_webhook) {
-        | (Ok(address), Ok(()), Ok(project_id), Ok((deployment, power_automate)), true) => {
+        | (Ok(address), Ok(()), Ok(project_id), Ok((deployment, power_automate, routing)), true) => {
             match gitlab::upsert_project_webhook(&options, &webhook_options).await {
                 | Ok(_) => {
                     start(
@@ -140,13 +142,14 @@ async fn run_local(
                         project_id,
                         deployment,
                         power_automate,
+                        routing,
                     )
                     .await
                 }
                 | Err(why) => Err(why),
             }
         }
-        | (Ok(address), Ok(()), Ok(project_id), Ok((deployment, power_automate)), false) => {
+        | (Ok(address), Ok(()), Ok(project_id), Ok((deployment, power_automate, routing)), false) => {
             start(
                 options,
                 address,
@@ -157,6 +160,7 @@ async fn run_local(
                 project_id,
                 deployment,
                 power_automate,
+                routing,
             )
             .await
         }
@@ -175,6 +179,7 @@ async fn start(
     project_id: Option<u64>,
     deployment: DeploymentConfig,
     power_automate: Option<PowerAutomateConfig>,
+    routing: FolderRegistry,
 ) -> Result<(), Report> {
     let polling_enabled = event_source.is_poll() || event_source.is_hybrid();
     let config = bot::Config::from(deployment)
@@ -183,7 +188,7 @@ async fn start(
         .with_polling_enabled(polling_enabled)
         .with_webhook_options(webhook_options, project_id);
     let config = match power_automate {
-        | Some(power_automate) => config.with_powerautomate(power_automate),
+        | Some(power_automate) => config.with_powerautomate(power_automate, routing),
         | None => Ok(config),
     };
     match config {

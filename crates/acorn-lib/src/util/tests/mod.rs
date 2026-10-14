@@ -10,8 +10,7 @@ use ::std::env::temp_dir;
 use crate::{
     io::{
         api::{IntoBody, ParamStyle},
-        file_name_with_parent, git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, ArchiveCandidate, ArchiveExtraction,
-        FromCommand, FromPath,
+        file_name_with_parent, parent, read_file, to_absolute_string, ArchiveCandidate, ArchiveExtraction, FromCommand, FromPath,
     },
     param,
     util::*,
@@ -218,12 +217,6 @@ fn test_generate_secret() {
         .chars()
         .all(|character| character.is_ascii_digit() || ('a'..='f').contains(&character)));
     assert_ne!(first, second);
-}
-#[ignore]
-#[test]
-fn test_git_branch() {
-    assert_eq!(git_default_branch_name(), Some("main".to_string()));
-    assert!(git_branch_name().is_some());
 }
 #[test]
 fn test_glob_matches() {

@@ -538,7 +538,7 @@ fn test_sync_rejects_reserved_args_and_unknown_overrides() {
     let reserved_args = Config {
         llama_swap: Some(llama_swap::Config {
             inner: llama_swap::Inner {
-                extra_args: Some(vec![llama_swap::Argument::from("--model")]),
+                extra_args: Some(acorn_core::OneOrMany::One(llama_swap::Argument::from("--model"))),
                 ..Default::default()
             },
             ..Default::default()

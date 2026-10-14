@@ -5,7 +5,7 @@ mod form;
 mod webhook;
 
 pub use callback::PowerAutomateCallbackResolver;
-pub use config::{PowerAutomateConfig, PowerAutomateVariables, ProjectIntakeConfig};
+pub use config::PowerAutomateConfig;
 pub use form::{FormEntry, FormReceipt, FormSubmission, ReceiptDisposition, Submitter};
 pub use webhook::PowerAutomateProvider;
 

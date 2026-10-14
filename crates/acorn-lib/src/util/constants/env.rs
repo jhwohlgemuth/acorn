@@ -1,3 +1,7 @@
+/// ACRE variable reference naming the environment variable holding the PowerAutomate callback URL.
+pub const POWER_AUTOMATE_CALLBACK_URL: &str = "power_automate.callback_url";
+/// ACRE variable reference naming the environment variable holding the PowerAutomate inbound shared secret.
+pub const POWER_AUTOMATE_INBOUND_SECRET: &str = "power_automate.inbound_secret";
 /// Environment variable name for cache TTL override.
 pub const CACHE_TTL: &str = "ACORN_CACHE_TTL";
 /// Environment variable used to select a Chrome or Chromium executable for PDF export.

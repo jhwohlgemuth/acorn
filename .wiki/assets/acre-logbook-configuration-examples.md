@@ -10,15 +10,11 @@ These complete configuration documents demonstrate the planned ACRE update in [t
   "members": ["administrator@example.org"],
   "variables": {
     "members": "ACORN_LOGBOOK_MEMBERS",
-    "callbackUrl": "POWER_AUTOMATE_CALLBACK_URL",
-    "inboundSecret": "POWER_AUTOMATE_INBOUND_SECRET",
-    "acorn": {
-      "databasePath": "ACORN_DATABASE_PATH",
-      "gitlabToken": "GITLAB_TOKEN",
-      "logLevel": "ACORN_LOG_LEVEL"
-    },
-    "xylem": { "logLevel": "XYLEM_LOG_LEVEL" },
-    "custom": { "notification_channel": "ORG_NOTIFICATION_CHANNEL" }
+    "custom": {
+      "power_automate.callback_url": "POWER_AUTOMATE_CALLBACK_URL",
+      "power_automate.inbound_secret": "POWER_AUTOMATE_INBOUND_SECRET",
+      "notification_channel": "ORG_NOTIFICATION_CHANNEL"
+    }
   },
   "buckets": [
     {
@@ -46,8 +42,8 @@ These complete configuration documents demonstrate the planned ACRE update in [t
   ],
   "options": {
     "powerAutomate": {
-      "callbackDestination": "powerautomate",
-      "gitlabProjectId": "22464",
+      "callback_destination": "powerautomate",
+      "gitlab_project": "22464",
       "package": "acorn-automated-artifacts",
       "timezone": "UTC",
       "intake": {
@@ -72,16 +68,11 @@ These complete configuration documents demonstrate the planned ACRE update in [t
   "members": ["administrator@example.org"],
   "variables": {
     "members": "ACORN_LOGBOOK_MEMBERS",
-    "callbackUrl": "POWER_AUTOMATE_CALLBACK_URL",
-    "inboundSecret": "POWER_AUTOMATE_INBOUND_SECRET",
-    "acorn": {
-      "databasePath": "ACORN_DATABASE_PATH",
-      "gitlabToken": "GITLAB_TOKEN",
-      "logLevel": "ACORN_LOG_LEVEL"
-    },
-    "xylem": { "logLevel": "XYLEM_LOG_LEVEL" },
-    // Custom map keys retain their spelling across formats.
-    "custom": { "notification_channel": "ORG_NOTIFICATION_CHANNEL" }
+    "custom": {
+      "power_automate.callback_url": "POWER_AUTOMATE_CALLBACK_URL",
+      "power_automate.inbound_secret": "POWER_AUTOMATE_INBOUND_SECRET",
+      "notification_channel": "ORG_NOTIFICATION_CHANNEL"
+    }
   },
   "buckets": [
     {
@@ -110,8 +101,8 @@ These complete configuration documents demonstrate the planned ACRE update in [t
   ],
   "options": {
     "powerAutomate": {
-      "callbackDestination": "powerautomate",
-      "gitlabProjectId": "22464",
+      "callback_destination": "powerautomate",
+      "gitlab_project": "22464",
       "package": "acorn-automated-artifacts",
       "timezone": "UTC",
       // One inbox multiplexes records across the root folder registry.
@@ -135,15 +126,9 @@ members:
   - administrator@example.org
 variables:
   members: ACORN_LOGBOOK_MEMBERS
-  callback_url: POWER_AUTOMATE_CALLBACK_URL
-  inbound_secret: POWER_AUTOMATE_INBOUND_SECRET
-  acorn:
-    database_path: ACORN_DATABASE_PATH
-    gitlab_token: GITLAB_TOKEN
-    log_level: ACORN_LOG_LEVEL
-  xylem:
-    log_level: XYLEM_LOG_LEVEL
   custom:
+    power_automate.callback_url: POWER_AUTOMATE_CALLBACK_URL
+    power_automate.inbound_secret: POWER_AUTOMATE_INBOUND_SECRET
     notification_channel: ORG_NOTIFICATION_CHANNEL
 buckets:
   - id: pilot-data
@@ -167,11 +152,12 @@ folders:
       custom:
         notification_channel: INSTRUMENTATION_CHANNEL
 options:
-  power_automate:
+  powerAutomate:
     callback_destination: powerautomate
-    gitlab_project_id: "22464"
+    gitlab_project: "22464"
     package: acorn-automated-artifacts
     timezone: UTC
+    # Planned JSONL intake settings; not accepted by the current schema.
     intake:
       branch: main
       path: .acorn/intake/submissions.jsonl
@@ -212,7 +198,7 @@ Global access includes administrator, maintainer, and operator for all three pro
 
 ## Folder roots and absolute URI destinations
 
-The full examples above omit `options.folders.root`, so their relative destinations use `options.powerAutomate.gitlabProjectId` as the repository fallback. Power Automate is not required for folder configuration.
+The full examples above omit `options.folders.root`, so their relative destinations use `options.powerAutomate.gitlab_project` as the repository fallback. Power Automate is not required for folder configuration.
 
 A local root without Power Automate, in JSON:
 
