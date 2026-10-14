@@ -1,8 +1,14 @@
 include:
   - local: /templates/gitlab/reporting.gitlab-ci.yml
+  - project: research-enablement/templates
+    file: /gitlab/rust-release.yml
+    ref: v1
 
 variables:
   BINARY_NAME: acorn
+  DEB_PACKAGE_NAME: acorn-cli
+  DESKTOP_ID: gov.ornl.acorn
+  LINUX_PACKAGE_TARGETS: build linux-packages
   BUF_VERSION: "1.73.0"
   GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_JOB_ID/$CI_PROJECT_PATH
   GIT_CLEAN_FLAGS: -ffdx
@@ -16,26 +22,6 @@ variables:
   HOMEBREW_TAP_FORMULA_PATH: Formula/acorn-cli.rb
   IS_VERSION_TAGGED: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
 
-workflow:
-  auto_cancel:
-    on_new_commit: interruptible
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CHECK_MODELPACK_DRIFT == "true"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_TAG
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - when: never
-
-default:
-  interruptible: true
-  retry:
-    max: 2
-    when:
-      - api_failure
-      - runner_system_failure
-      - stuck_or_timeout_failure
-
 stages:
   - prepare
   - test
@@ -47,15 +33,6 @@ stages:
 
 # Hidden job templates. Anchors must precede any job that extends them.
 
-.publish:
-  interruptible: false
-  retry: 0
-
-.rust-arm64:
-  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
-  tags:
-    - arm64
-
 .rust-test:
   extends: .rust-arm64
   resource_group: tests
@@ -66,10 +43,7 @@ stages:
 # ---------------------------------------------------------------- prepare ----
 
 prepare-environment:
-  stage: prepare
-  image: ubuntu@sha256:7b202b0e2e0028c6250f5fcf41d04df492d145a1654c6995a6553f0c1f6f1960
-  tags:
-    - amd64
+  extends: .prepare-environment
   rules:
     - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -293,29 +267,13 @@ benchmark:
 # ------------------------------------------------------------------ build ----
 
 build-release:
-  extends: .rust-arm64
+  extends:
+    - .build-release
+    - .rust-arm64
   stage: build
   timeout: 45 minutes
   needs:
     - job: test
-  script:
-    - command -v appstreamcli >/dev/null && command -v file >/dev/null && command -v xz >/dev/null || (apt-get update && apt-get install --no-install-recommends --yes appstream file xz-utils)
-    - command -v cargo-zigbuild >/dev/null && command -v zig >/dev/null || sh scripts/install-zigbuild.sh "${XDG_CACHE_HOME}/zigbuild"
-    - export PATH="${XDG_CACHE_HOME}/zigbuild/bin:${PATH}"
-    - cargo --version
-    - cargo deb --version 2>/dev/null | grep -Eq 'cargo-deb 3\.8\.0$' || cargo install --locked --force cargo-deb --version 3.8.0
-    - sh scripts/install-appimage-tools.sh "${XDG_CACHE_HOME}/appimage"
-    - export APPIMAGE_RUNTIME_DIR="${XDG_CACHE_HOME}/appimage/lib/appimage"
-    - export PATH="${XDG_CACHE_HOME}/appimage/bin:${PATH}"
-    - cargo-zigbuild --version
-    - cargo-deb --version
-    - rustc --version
-    - zig version
-    - MUSL_BUILD="cargo zigbuild" make build linux-packages
-    - mkdir -p target/linux-package-checksums
-    - cp bin/*.AppImage.sha256 bin/*.deb.sha256 target/linux-package-checksums/
-    - MUSL_BUILD="cargo zigbuild" make linux-packages
-    - for checksum in target/linux-package-checksums/*; do cmp "$checksum" "bin/$(basename "$checksum")"; done
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -337,42 +295,13 @@ build-release:
       - bin/
 
 validate-linux-amd64:
-  stage: build
-  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
-  tags:
-    - amd64
-  needs:
-    - job: prepare-environment
-      artifacts: true
-    - job: build-release
-      artifacts: true
-  script:
-    - appimage="$(pwd)/bin/acorn-v${PKG_VERSION}-x86_64.AppImage"
-    - package="$(pwd)/bin/acorn_${PKG_VERSION}-1_amd64.deb"
-    - test "$(dpkg-deb --field "$package" Package)" = acorn-cli
-    - test "$(dpkg-deb --field "$package" Architecture)" = amd64
-    - test "$(dpkg-deb --field "$package" Version)" = "${PKG_VERSION}-1"
-    - test "$(dpkg-deb --field "$package" Conflicts)" = node-acorn
-    - test "$(dpkg-deb --field "$package" Depends)" = ca-certificates
-    - test "$(dpkg-deb --field "$package" Replaces)" = node-acorn
-    - (cd bin && sha256sum -c "$(basename "$appimage").sha256")
-    - (cd bin && sha256sum -c "$(basename "$package").sha256")
-    - mkdir -p target/appimage-x86_64
-    - dpkg-deb --contents "$package" > target/appimage-x86_64/deb-contents.txt
-    - grep -Eq ' ./usr/bin/acorn$' target/appimage-x86_64/deb-contents.txt
-    - chmod 755 "$appimage"
-    - APPIMAGE_EXTRACT_AND_RUN=1 "$appimage" --version
-    - APPIMAGE_EXTRACT_AND_RUN=1 "$appimage" --help >/dev/null
-    - (cd target/appimage-x86_64 && "$appimage" --appimage-extract >/dev/null)
-    - test -x target/appimage-x86_64/squashfs-root/AppRun
-    - test -x target/appimage-x86_64/squashfs-root/usr/bin/acorn
-    - test -f target/appimage-x86_64/squashfs-root/gov.ornl.acorn.desktop
-    - test -f target/appimage-x86_64/squashfs-root/gov.ornl.acorn.svg
-    - test -f target/appimage-x86_64/squashfs-root/usr/share/metainfo/gov.ornl.acorn.appdata.xml
-    - DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --yes "$package"
-    - acorn --version
-    - acorn --help >/dev/null
-    - dpkg -r acorn-cli
+  extends: .validate-linux
+  variables:
+    DEB_ARCH: amd64
+    APPIMAGE_ARCH: x86_64
+    DEB_CONFLICTS: node-acorn
+    DEB_REPLACES: node-acorn
+    EXPECT_EXEC: acorn
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -389,40 +318,15 @@ validate-linux-amd64:
         - scripts/package-linux.sh
 
 validate-linux-arm64:
-  extends: .rust-arm64
-  stage: build
-  needs:
-    - job: prepare-environment
-      artifacts: true
-    - job: build-release
-      artifacts: true
-  script:
-    - appimage="$(pwd)/bin/acorn-v${PKG_VERSION}-aarch64.AppImage"
-    - package="$(pwd)/bin/acorn_${PKG_VERSION}-1_arm64.deb"
-    - test "$(dpkg-deb --field "$package" Package)" = acorn-cli
-    - test "$(dpkg-deb --field "$package" Architecture)" = arm64
-    - test "$(dpkg-deb --field "$package" Version)" = "${PKG_VERSION}-1"
-    - test "$(dpkg-deb --field "$package" Conflicts)" = node-acorn
-    - test "$(dpkg-deb --field "$package" Depends)" = ca-certificates
-    - test "$(dpkg-deb --field "$package" Replaces)" = node-acorn
-    - (cd bin && sha256sum -c "$(basename "$appimage").sha256")
-    - (cd bin && sha256sum -c "$(basename "$package").sha256")
-    - mkdir -p target/appimage-aarch64
-    - dpkg-deb --contents "$package" > target/appimage-aarch64/deb-contents.txt
-    - grep -Eq ' ./usr/bin/acorn$' target/appimage-aarch64/deb-contents.txt
-    - chmod 755 "$appimage"
-    - APPIMAGE_EXTRACT_AND_RUN=1 "$appimage" --version
-    - APPIMAGE_EXTRACT_AND_RUN=1 "$appimage" --help >/dev/null
-    - (cd target/appimage-aarch64 && "$appimage" --appimage-extract >/dev/null)
-    - test -x target/appimage-aarch64/squashfs-root/AppRun
-    - test -x target/appimage-aarch64/squashfs-root/usr/bin/acorn
-    - test -f target/appimage-aarch64/squashfs-root/gov.ornl.acorn.desktop
-    - test -f target/appimage-aarch64/squashfs-root/gov.ornl.acorn.svg
-    - test -f target/appimage-aarch64/squashfs-root/usr/share/metainfo/gov.ornl.acorn.appdata.xml
-    - DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --yes "$package"
-    - acorn --version
-    - acorn --help >/dev/null
-    - dpkg -r acorn-cli
+  extends:
+    - .validate-linux
+    - .rust-arm64
+  variables:
+    DEB_ARCH: arm64
+    APPIMAGE_ARCH: aarch64
+    DEB_CONFLICTS: node-acorn
+    DEB_REPLACES: node-acorn
+    EXPECT_EXEC: acorn
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -600,24 +504,8 @@ upload-binaries:
 
 publish-book:
   extends:
-    - .publish
+    - .publish-book
     - .rust-arm64
-  stage: docs
-  resource_group: documentation-site
   variables:
     GIT_USER_EMAIL: $GITLAB_USER_EMAIL
     GIT_USER_NAME: ACORN CI
-  rules:
-    - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      changes:
-        - docs/**/*
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      when: manual
-  script:
-    - command -v mdbook >/dev/null && command -v mdbook-mermaid >/dev/null && command -v mdbook-pikchr >/dev/null || cargo install --locked mdbook@0.5.2 mdbook-mermaid@0.17.0 mdbook-pikchr@0.2.0
-    - mdbook --version
-    - git config --global user.name "${GIT_USER_NAME}"
-    - git config --global user.email "${GIT_USER_EMAIL}"
-    - make publish-book
-  allow_failure: true
