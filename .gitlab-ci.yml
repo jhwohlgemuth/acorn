@@ -1,10 +1,10 @@
 include:
   - project: research-enablement/templates
     file: /gitlab/reporting.gitlab-ci.yml
-    ref: v1
+    ref: main
   - project: research-enablement/templates
     file: /gitlab/rust-release.gitlab-ci.yml
-    ref: v1
+    ref: main
 
 variables:
   BINARY_NAME: acorn
