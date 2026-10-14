@@ -1,4 +1,4 @@
-ARG RUST_VERSION=1.96.0
+ARG RUST_VERSION=1.98.0
 ARG DOCKER_HUB_REGISTRY=docker.io/library
 FROM ${DOCKER_HUB_REGISTRY}/debian:trixie-slim AS browser-runtime
 RUN apt-get update \

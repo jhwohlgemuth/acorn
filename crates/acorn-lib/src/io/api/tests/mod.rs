@@ -1247,7 +1247,8 @@ fn test_ror_search_response() {
 }
 #[test]
 fn test_search_resource_find_by_name() {
-    let resources = [Resource {
+    let resources = [
+        Resource {
             name: "status".to_string(),
             method: api::HttpMethod::Get,
             template: "/status".to_string(),
@@ -1256,7 +1257,8 @@ fn test_search_resource_find_by_name() {
             name: "search".to_string(),
             method: api::HttpMethod::Get,
             template: "/search{{ query }}".to_string(),
-        }];
+        },
+    ];
     let found = resources.find_by_name("SEARCH");
     assert!(found.is_some());
     assert_eq!(found.unwrap().name, "search");

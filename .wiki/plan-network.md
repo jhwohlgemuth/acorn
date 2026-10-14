@@ -64,6 +64,7 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 - [Podman Makefile migration](migrations/podman-makefile.md) changes development/release tooling only and must preserve product-level Docker and Podman support.
 - [CLI coverage](testing/cli-coverage.md) may add command-leaf tests at any time; startup/exit tests follow the CLI composition boundary.
 - [PID verification](testing/pid-verification.md) serializes PID production helpers with dPID, then adds Miri and Creusot without blocking ordinary builds.
+- [Coverage throughput](testing/coverage-throughput.md) is developer-workflow only and owns no product contract. It serializes on the `Makefile` and root-manifest locks, so it must not overlap Podman migration, runner-pool, PID verification, or export fuzzing phases. Its bounded-test-time phase must observe the exact write sets of concurrent CLI and MCP test phases.
 
 ## Shared integration surfaces
 
@@ -78,7 +79,8 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 | `io/{archive,oci}.rs`, `io/model/gguf/`, and model planner | model acquisition, SLM/Needle artifact work |
 | CLI parser, `main.rs`, generated help | analysis/service serve cutover, CLI composition, dPID, gather, CEL, remote create, SLM |
 | Export dispatch/templates/PowerPoint | export pipeline, database-backed artifacts |
-| `Makefile` and `.gitlab-ci.yml` | runner pools, Podman, SLM, Needle, PID verification, export fuzzing |
+| `Makefile` and `.gitlab-ci.yml` | runner pools, Podman, SLM, Needle, PID verification, export fuzzing, coverage throughput |
+| Developer test and coverage workflow (`Makefile` test targets, `.config/nextest.toml`, `[profile.coverage]`) | coverage throughput, CLI coverage | Slow-test gating and coverage scoping must not silently drop tests that another plan's acceptance criteria depend on. |
 
 Exact ownership and safe concurrent slices are maintained in the [parallel execution guide](parallel-execution.md).
 

@@ -17,7 +17,7 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Portfolio review
 
-Reviewed against the current tree on 2026-10-12. The portfolio contains 22 executable plans and one coordination record. The completed MCP client, dependency-capability, OCI artifact-check, WebMCP browser-tools, similarity-measures, and Dublin Core plans were removed after their implementations, focused tests, feature and portability checks, native browser verification where applicable, and durable documentation landed. The embedder-interface plan now contains only its remaining documentation and portability closeout. Completed GGUF metadata work is evidence in the model plan rather than an executable phase.
+Reviewed against the current tree on 2026-10-14. The portfolio contains 23 executable plans and one coordination record. The coverage-throughput plan was added on 2026-10-14 from a direct analysis of `make cover` and `make test`; it ranks last because it changes developer workflow only, carries no product or architecture outcome, and its speed claims still need a recorded measurement baseline. The completed MCP client, dependency-capability, OCI artifact-check, WebMCP browser-tools, similarity-measures, and Dublin Core plans were removed after their implementations, focused tests, feature and portability checks, native browser verification where applicable, and durable documentation landed. The embedder-interface plan now contains only its remaining documentation and portability closeout. Completed GGUF metadata work is evidence in the model plan rather than an executable phase.
 
 Ranking uses impact first, then remaining difficulty, with user/architecture value and readiness as tie-breakers. “Quality” rates the plan rather than the proposed feature:
 
@@ -50,6 +50,7 @@ Ranking uses impact first, then remaining difficulty, with user/architecture val
 | 20 | [CLI coverage](testing/cli-coverage.md) | Planned | Medium | Medium | A− | Medium | Targets known command and binary failure gaps without reviving obsolete test layout or chasing raw line coverage. |
 | 21 | [Portable PID verification](testing/pid-verification.md) | Planned | Medium | High | B+ | Medium | Consolidation and Miri are practical; full Creusot/solver maintenance should proceed only after toolchain feasibility is proven. |
 | 22 | [Beam inference integration](features/beam-inference-integration.md) | Planned | Medium | High | B | Medium | Release and serving evidence gate an explicit endpoint integration and ACORN evaluation. |
+| 23 | [Coverage throughput](testing/coverage-throughput.md) | Planned | Medium | Medium | A− | Medium | Developer-workflow only; the forced clean stage is the confirmed cost, but every speed claim still needs a measured baseline. |
 ### Coordination record
 
 | Record | Quality | Impact | Value | Assessment |
