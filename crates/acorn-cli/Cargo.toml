@@ -47,7 +47,6 @@ dprint-plugin-json = { workspace = true }
 exitcode = { version = "1.1.2", default-features = false }
 fast_qr = { version = "0.13.0", features = ["image"], optional = true }
 futures = { workspace = true }
-glob = { workspace = true }
 is-terminal = "0.4.16"
 itertools = { workspace = true }
 nanoid = { workspace = true }

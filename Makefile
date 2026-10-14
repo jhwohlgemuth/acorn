@@ -115,6 +115,7 @@ changelog-release: ## Generate the latest release changelog entry.
 check: check-dependencies check-portable check-host ## Run the full validation suite for the project.
 
 check-dependencies: ## Validate workspace dependency declarations and source linkage.
+	@cargo fetch --locked
 	@actual="$$(cargo-shear --version 2>/dev/null || echo 'not installed')"; \
 		expected="Version: $(CARGO_SHEAR_VERSION)"; \
 		test "$$actual" = "$$expected" || { \

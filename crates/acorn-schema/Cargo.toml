@@ -75,6 +75,3 @@ analysis = []
 
 [lints]
 workspace = true
-
-[package.metadata.cargo-shear]
-ignored-paths = ["src/standard/dublin_core.rs"]

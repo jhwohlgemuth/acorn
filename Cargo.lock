@@ -59,7 +59,6 @@ dependencies = [
  "fast_qr",
  "fluent-uri",
  "futures",
- "glob",
  "insta",
  "is-terminal",
  "itertools 0.14.0",
