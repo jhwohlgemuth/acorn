@@ -1,5 +1,7 @@
 include:
-  - local: /templates/gitlab/reporting.gitlab-ci.yml
+  - project: research-enablement/templates
+    file: /gitlab/reporting.gitlab-ci.yml
+    ref: v1
   - project: research-enablement/templates
     file: /gitlab/rust-release.gitlab-ci.yml
     ref: v1
