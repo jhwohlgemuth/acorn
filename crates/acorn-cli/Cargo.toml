@@ -30,7 +30,7 @@ acorn-server = { workspace = true }
 acorn-service = { workspace = true, features = ["std"] }
 acorn-tui = { version = "0.4.0", path = "../acorn-tui", optional = true }
 arboard = { workspace = true }
-bon = "3.3.2"
+bon = { workspace = true }
 jiff = { workspace = true, features = ["std"] }
 chromiumoxide = { version = "0.9.1", features = ["fetcher", "rustls", "zip8"], optional = true }
 clap = { version = "4.4.2", features = ["derive", "unstable-doc"] }

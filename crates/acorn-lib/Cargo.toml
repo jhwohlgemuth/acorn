@@ -40,7 +40,7 @@ ariadne = { version = "0.6.0", features = ["auto-color"], default-features = fal
 async-trait = { workspace = true, optional = true }
 axum = { workspace = true, features = ["http1", "json", "tokio"], optional = true }
 bat = { version = "0.26.0", features = ["regex-onig"], default-features = false, optional = true }
-bon = { version = "3.8.1", default-features = false }
+bon = { workspace = true }
 cap-std = { version = "4.0.3", default-features = false, optional = true }
 jiff = { workspace = true }
 color-eyre = { workspace = true, optional = true }
