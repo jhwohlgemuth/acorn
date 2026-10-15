@@ -17,7 +17,10 @@ use crate::{
         write_file, ApiResult, CstRootNode, CstValue, FromPath, InputOutput,
     },
     util::{
-        constants::app::{APPLICATION, DEFAULT_CONFIG_FILENAMES},
+        constants::app::{
+            APPLICATION, DEFAULT_CONFIG_FILENAMES, DEFAULT_INTAKE_BRANCH, DEFAULT_INTAKE_MAX_FILE, DEFAULT_INTAKE_MAX_RECORD, DEFAULT_INTAKE_PATH,
+            DEFAULT_INTAKE_POLL_INTERVAL_SECS, MAX_INTAKE_POLL_INTERVAL_SECS,
+        },
         text_diff_changes_with_color,
     },
 };
@@ -30,6 +33,7 @@ use acorn_core::{
 use acorn_host::{config::resolve_config_path, terminal::Label};
 use acorn_schema::{
     codec::{CodecDiagnostic, DocumentCodec},
+    hardware::memory::Memory,
     validation::{is_identifier, Validate, ValidationReport},
     OneOrMany,
 };
@@ -63,7 +67,7 @@ pub mod feature_configuration {
     use std::path::PathBuf;
 
     /// Deployment-owned configuration for PowerAutomate intake and callbacks.
-    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
     #[serde(deny_unknown_fields)]
     pub struct PowerAutomateConfig {
         /// Named callback destination.
@@ -75,6 +79,9 @@ pub mod feature_configuration {
         /// Optional reporting timezone.
         #[serde(default)]
         pub timezone: Option<String>,
+        /// Optional GitLab JSONL inbox source polled by the Vergil bot.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub intake: Option<super::PowerAutomateIntake>,
     }
     /// Allowed external effect produced by a repository workflow.
     #[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -481,6 +488,117 @@ pub struct FolderOptions {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root: Option<String>,
 }
+/// GitLab JSONL inbox source polled by the GitLab bot.
+///
+/// The wire `projectId` of each submission remains the single routing selector: a canonical folder ID or a configured folder-name alias resolved through exact matching.
+/// Intake settings live here; routing lives in root `folders`.
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PowerAutomateIntake {
+    /// Intake branch read by the poller. Defaults to `main`.
+    #[serde(default = "default_intake_branch")]
+    pub branch: String,
+    /// Repository-relative inbox path. Defaults to `.acorn/intake/logbook.jsonl`.
+    #[serde(default = "default_intake_path")]
+    pub path: String,
+    /// Seconds between inbox polls. Defaults to 30.
+    #[serde(default = "default_intake_poll_interval_secs")]
+    pub poll_interval_secs: u64,
+    /// Maximum inbox file size. Defaults to 10 MiB.
+    #[serde(default = "default_intake_max_file")]
+    pub max_file: Memory,
+    /// Maximum single-record size. Defaults to 64 KiB.
+    #[serde(default = "default_intake_max_record")]
+    pub max_record: Memory,
+}
+impl Validate for PowerAutomateIntake {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        let file_bytes = self.max_file.checked_bytes();
+        let record_bytes = self.max_record.checked_bytes();
+        [
+            self.branch.trim().is_empty().then(|| {
+                (
+                    "branch",
+                    ValidationError::new("required").with_message("Intake branch must not be empty".to_string()),
+                )
+            }),
+            self.path.trim().is_empty().then(|| {
+                (
+                    "path",
+                    ValidationError::new("required").with_message("Intake path must not be empty".to_string()),
+                )
+            }),
+            (self.path.contains("://") || self.path.starts_with('/')).then(|| {
+                (
+                    "path",
+                    ValidationError::new("absolute").with_message("Intake path must be repository-relative, not an absolute URI or path".to_string()),
+                )
+            }),
+            (self.path.as_bytes().get(1) == Some(&b':')).then(|| {
+                (
+                    "path",
+                    ValidationError::new("absolute").with_message("Intake path must be repository-relative, not a native absolute path".to_string()),
+                )
+            }),
+            self.path.split('/').any(|segment| segment == "..").then(|| {
+                (
+                    "path",
+                    ValidationError::new("traversal").with_message("Intake path must not traverse outside the repository".to_string()),
+                )
+            }),
+            self.path.contains('\\').then(|| {
+                (
+                    "path",
+                    ValidationError::new("separator").with_message("Intake path must use forward slashes, not backslashes".to_string()),
+                )
+            }),
+            (self.poll_interval_secs == 0 || self.poll_interval_secs > MAX_INTAKE_POLL_INTERVAL_SECS).then(|| {
+                (
+                    "poll_interval_secs",
+                    ValidationError::new("range").with_message("Intake poll interval must be between 1 and 86400 seconds".to_string()),
+                )
+            }),
+            file_bytes.is_none_or(|bytes| bytes == 0).then(|| {
+                (
+                    "max_file",
+                    ValidationError::new("range").with_message("Intake file size limit must be nonzero".to_string()),
+                )
+            }),
+            record_bytes.is_none_or(|bytes| bytes == 0).then(|| {
+                (
+                    "max_record",
+                    ValidationError::new("range").with_message("Intake record size limit must be nonzero".to_string()),
+                )
+            }),
+            (record_bytes.is_some_and(|record| file_bytes.is_some_and(|file| record > file))).then(|| {
+                (
+                    "max_record",
+                    ValidationError::new("range").with_message("Intake record size limit must not exceed the file size limit".to_string()),
+                )
+            }),
+        ]
+        .into_iter()
+        .flatten()
+        .map(|(path, error)| ValidationReport::from_error(path, error))
+        .fold(ValidationReport::new(), |report, next| report.merge("", next))
+        .finish()
+    }
+}
+fn default_intake_branch() -> String {
+    DEFAULT_INTAKE_BRANCH.to_string()
+}
+fn default_intake_path() -> String {
+    DEFAULT_INTAKE_PATH.to_string()
+}
+fn default_intake_poll_interval_secs() -> u64 {
+    DEFAULT_INTAKE_POLL_INTERVAL_SECS
+}
+fn default_intake_max_file() -> Memory {
+    DEFAULT_INTAKE_MAX_FILE.clone()
+}
+fn default_intake_max_record() -> Memory {
+    DEFAULT_INTAKE_MAX_RECORD.clone()
+}
 /// Immutable routing snapshot derived from the ACRE document.
 ///
 /// This is the routing half of [`ApplicationConfiguration`]: owned, `Send`, and `Sync`, so intake services can hold it without the JSONC comment-preserving tree.
@@ -549,8 +667,6 @@ impl ApplicationConfiguration {
             variables: self.variables.clone(),
         }
     }
-}
-impl ApplicationConfiguration {
     /// Return whether any configured script subscribes to the requested hook.
     pub fn has_hook(&self, hook: Hook) -> bool {
         let enabled = self
@@ -648,7 +764,16 @@ impl ApplicationConfiguration {
     pub fn load(path: &Option<PathBuf>) -> ApiResult<Self> {
         match path {
             | Some(path) if !path.is_file() => Err(eyre!("Configuration file does not exist — {}", path.display())),
-            | _ => Self::resolve(path).map_or_else(|| Ok(Self::default()), Self::read),
+            | _ => {
+                let resolved = Self::resolve(path);
+                match Self::load_deployment_env(&resolved) {
+                    | Ok(()) => match resolved {
+                        | Some(path) => Self::read(path),
+                        | None => Ok(Self::default()),
+                    },
+                    | Err(why) => Err(why),
+                }
+            }
         }
     }
     /// Load configuration and return the resolved source path alongside the parsed value.
@@ -657,11 +782,27 @@ impl ApplicationConfiguration {
             | Some(path) if !path.is_file() => Err(eyre!("Configuration file does not exist — {}", path.display())),
             | _ => {
                 let resolved = Self::resolve(path);
-                match &resolved {
-                    | Some(p) => Self::read(p.clone()).map(|cfg| (cfg, resolved)),
-                    | None => Ok((Self::default(), None)),
+                match Self::load_deployment_env(&resolved) {
+                    | Ok(()) => match &resolved {
+                        | Some(path) => Self::read(path.clone()).map(|configuration| (configuration, resolved)),
+                        | None => Ok((Self::default(), None)),
+                    },
+                    | Err(why) => Err(why),
                 }
             }
+        }
+    }
+    /// Load the deployment-owned `.env` file next to the resolved configuration.
+    ///
+    /// Process environment values take precedence: existing variables are never overridden.
+    /// A missing file is allowed when process variables suffice; an unreadable or malformed file is an error.
+    /// Called once at startup by `load` and `load_with_path` so HTTP intake, JSONL intake, and reporting share one member resolution; `read` and `parse` stay side-effect free.
+    pub fn load_deployment_env(resolved: &Option<PathBuf>) -> ApiResult<()> {
+        match resolved.as_ref().and_then(|path| path.parent()).map(|directory| directory.join(".env")) {
+            | Some(path) if path.is_file() => {
+                dotenvy::from_path(&path).map_err(|why| eyre!("Failed to load deployment environment '{}' — {why}", path.display()))
+            }
+            | _ => Ok(()),
         }
     }
     /// Return the project root directory containing the resolved configuration.

@@ -18,7 +18,7 @@ phase_budget_hours: 5
 
 [Complete proposed JSON, JSONC, YAML, and deployment environment examples](../assets/acre-logbook-configuration-examples.md) define the intended layout and behavior. Schema version (`2.0.0` hard cutover, no 1.0.0 migration) and ACRE field names are settled per `ACRE_SPEC.md`; the `options.powerAutomate.intake` source settings in those examples are implemented under PA-20 with the JSONL poller (PA-21–PA-23).
 
-Implement the selected sequence: Power Apps form → Power Automate flow → append to the JSONL Logbook inbox in GitLab → Vergil polls GitLab → the bot durably ingests new items and removes them from the inbox → the bot routes each item by `projectId` and augments the associated project's `index.json`. Use `.acorn/intake/submissions.jsonl` for the pending inbox. Each line wraps form-controlled Logbook fields in the existing version-1 submission envelope. Preserve the established review branch and human-merge policy for canonical changes, followed by PDF publication and notifications. Complete one single-project pilot before expanding mappings or submitters.
+Implement the selected sequence: Power Apps form → Power Automate flow → append to the JSONL Logbook inbox in GitLab → Vergil polls GitLab → the bot durably ingests new items and removes them from the inbox → the bot routes each item by `projectId` and augments the associated project's `index.json`. Use `.acorn/intake/logbook.jsonl` for the pending inbox. Each line wraps form-controlled Logbook fields in the existing version-1 submission envelope. Preserve the established review branch and human-merge policy for canonical changes, followed by PDF publication and notifications. Complete one single-project pilot before expanding mappings or submitters.
 
 This plan is the sole setup reference while work remains active. It records the deployment decisions, stop gates, exact asset boundaries, ordered walkthrough, troubleshooting checks, and acceptance evidence. After acceptance, move the validated operational record to `../assets/powerautomate-logbook-reporting.md` and retire this plan from the active indexes.
 
@@ -29,7 +29,7 @@ This plan is the sole setup reference while work remains active. It records the 
 - **ACRE landings (2026-10-13/14):** `b6e847a4` consolidated the schema wrapper onto `acorn_core::OneOrMany`; follow-ups `984dcb65` and `14970672` finished the refactor (tests fixed). Earlier notes about `Vec` in `powerautomate/config.rs` and `llama_swap.rs`, missing root folders/members/variables, and missing options counterparts no longer apply — those files now use `OneOrMany` and the root/options layout above. Treat the landed contract as the JSONL baseline.
 - **Xylem boundary (landed):** Xylem does not parse ACRE and has no `ApplicationConfiguration` consumer. No second ACRE model was introduced into Xylem. A full cross-repository variable catalog with coverage gate is deferred as non-blocking for JSONL (see Variable references).
 - **Priority update (2026-10-13):** prioritize JSONL ingestion into one or more projects, multiplexed by project ID or folder name. At local revision `c7ea474d`, `FormSubmission` still requires `projectId`, authorizes through the configured project mapping, and derives the project/month review branch from that ID; `Server::poll_once` still reads note events. Folder aliases and mixed-project JSONL ingestion remain planned. Validate the multiplexed ingestion contract before reporting rollout; broader live app sharing still follows the single-project pilot.
-- **Selected transport (2026-10-11):** the user reports testing form data saved as a CSV row and selects GitLab JSONL for the planned intake. Power Automate will append to `.acorn/intake/submissions.jsonl` in the target project; Vergil will poll that file. The CSV test does not establish that the JSONL flow or poller exists. This turn updates planning only; no flow or remote project is changed.
+- **Selected transport (2026-10-11):** the user reports testing form data saved as a CSV row and selects GitLab JSONL for the planned intake. Power Automate will append to `.acorn/intake/logbook.jsonl` in the target project; Vergil will poll that file. The CSV test does not establish that the JSONL flow or poller exists. This turn updates planning only; no flow or remote project is changed.
 - **Infrastructure:** the user has self-managed servers with self-signed TLS at best and has not provisioned a gateway. Organizational gateway availability is unverified and is not a dependency of the selected design. Power Automate must reach and authenticate to GitLab; Vergil must reach GitLab and the callback endpoint over outbound HTTPS. No Power Automate-to-Vergil route is required.
 - **Implementation gap:** `Server::poll_once` in `crates/acorn-lib/src/io/api/gitlab/bot.rs` polls GitLab note events, not repository files. The JSONL reader, append retry contract, durable record outcomes, and deployment configuration remain planned. Existing `FormSubmission::entry` converts validated, authorized form fields into `LogbookEntry`; reuse this contract rather than inventing a second Logbook schema.
 - `crates/acorn-lib/src/io/api/powerautomate/` implements strict form decoding, project and submitter authorization, shared-header authentication, durable intake, and direct callback resolution.
@@ -91,7 +91,7 @@ The flow would then own full Logbook construction, validation, submitter authori
 
 ## Selected JSONL transport
 
-- Selected intake: UTF-8 JSONL at `.acorn/intake/submissions.jsonl` on one explicitly configured GitLab branch. Each nonempty line is one compact version-1 submission object, terminated by LF. The existing `POST /webhooks/powerautomate/forms` remains supported but is not the flow's destination.
+- Selected intake: UTF-8 JSONL at `.acorn/intake/logbook.jsonl` on one explicitly configured GitLab branch. Each nonempty line is one compact version-1 submission object, terminated by LF. The existing `POST /webhooks/powerautomate/forms` remains supported but is not the flow's destination.
 - The version-1 form envelope requires `schemaVersion`, `submissionId`, `projectId`, `submittedAt`, `submitter.email`, and an `entry` containing `timestamp`, `category`, `state`, and `summary`. `classification`, `eventType`, and `items` are optional; omit inapplicable fields instead of sending `null` or extra properties.
 - Categories are `administration`, `collaboration`, `data`, `engagement`, `funding`, `infrastructure`, `method`, `other`, `personnel`, `publication`, `research`, and `software`.
 - States are `completed`, `in-progress`, and `upcoming`; event types are `conference`, `exhibition`, `meeting`, `other`, `presentation`, `tour`, `training`, and `workshop`; classifications are `unclassified`, `confidential`, `secret`, and `top-secret`.
@@ -140,7 +140,7 @@ Landed ACRE-root configuration fragment (validated by the `with_folders.*` fixtu
 }
 ```
 
-The same variables may be set in the process environment; deployment-owned `.env` precedence is implemented with the JSONL service configuration in PA-20 (current callers resolve process environment only):
+The same variables may be set in the process environment; the deployment-owned `.env` next to the resolved configuration loads once at startup with process-over-file precedence:
 
 ```dotenv
 ACORN_LOGBOOK_MEMBERS=admin@example.org,maintainer@example.org
@@ -266,7 +266,7 @@ The callback flow uses this request schema:
 
 - **This update:** planning only, limited to this concept and its index, network, and execution-lane entries. No live flow, GitLab file, runtime, or source implementation is changed.
 - **Production source project:** `research-enablement/buckets/nssd` is a read-only input. Do not commit, push, register webhooks, create variables or schedules, or run write-capable automation against it.
-- **Isolated GitLab data project:** `research-enablement/experiments/power-automate` owns the copied data, `.acorn.json`, `.gitlab-ci.yml`, and proposed `.acorn/intake/submissions.jsonl`. Power Automate appends; Vergil removes durably ingested records. The bot augments only the `index.json` selected by the trusted project mapping, through the established review workflow.
+- **Isolated GitLab data project:** `research-enablement/experiments/power-automate` owns the copied data, `.acorn.json`, `.gitlab-ci.yml`, and proposed `.acorn/intake/logbook.jsonl`. Power Automate appends; Vergil removes durably ingested records. The bot augments only the `index.json` selected by the trusted project mapping, through the established review workflow.
 - **Power Platform:** one organization-only Power Apps canvas app, one app-triggered intake cloud flow, and one callback notification cloud flow.
 - **Managed runtime:** one ACORN service with protected GitLab credentials, callback URL, persistent operation/outcome storage, and any secret still required by existing startup. No webhook signing token is required for polling.
 - **GitLab control plane:** approved intake-branch write permissions, protected CI variables, and one monthly default-branch reporting schedule. Configure intake-only commits so they do not trigger unintended reporting jobs.
@@ -416,7 +416,7 @@ acorn serve bot 22464 \
 
 ## 5a. Implement repository-file polling (planned)
 
-Add an explicitly configured source with the isolated GitLab project ID, exact branch, `.acorn/intake/submissions.jsonl`, poll interval, and bounded file/record sizes. Record the final configuration field names and exact source write set before implementation; the example above describes existing configuration only.
+Add an explicitly configured source with the isolated GitLab project ID, exact branch, `.acorn/intake/logbook.jsonl`, poll interval, and bounded file/record sizes. Record the final configuration field names and exact source write set before implementation; the example above describes existing configuration only.
 
 - Resolve the branch head and read JSONL at that immutable commit. Retain the complete payload plus source project, branch, path, commit, record location, submission ID, and content digest for audit and recovery.
 - Parse records independently as `FormSubmission`; validate Logbook fields, project membership, and report cutoff before admission to the existing durable operation queue. Restrict intake-branch writers to trusted producers; the submitted email alone does not authenticate the human. The flow must derive reporter identity from its authenticated app context.
@@ -432,7 +432,7 @@ Tests must cover escaped newlines/quotes, Unicode, optional arrays, invalid/unau
 
 ## 6. Append Logbook submissions to GitLab JSONL (planned)
 
-Identify the user's tested CSV flow and reuse its verified GitLab connection where applicable. Keep the app-triggered flow in the canvas app's environment. Replace CSV serialization with compact JSON objects appended to `.acorn/intake/submissions.jsonl` on the explicitly selected pilot branch in project `22464`.
+Identify the user's tested CSV flow and reuse its verified GitLab connection where applicable. Keep the app-triggered flow in the canvas app's environment. Replace CSV serialization with compact JSON objects appended to `.acorn/intake/logbook.jsonl` on the explicitly selected pilot branch in project `22464`.
 
 Each line uses the existing version-1 `FormSubmission` envelope. Its nested `entry` models the contributor-owned fields of `LogbookEntry`; ACORN derives `identifier` and owns `origin`, `discovery`, and `archived`. Use typed Power Apps (V2) inputs, UTC RFC 3339 timestamps, and optional fields only when supplied. The expanded object below documents the fields; serialize it compactly onto one physical line followed by LF. A JSON serializer must escape embedded newlines and quotes rather than interpolating raw form text.
 
@@ -533,6 +533,7 @@ Submit authorized test entries for two different projects and one deliberately u
 # Validation evidence
 
 - **2026-10-11 transport status:** the user selects a GitLab JSONL inbox based on a reported CSV-row test. JSONL append, repository polling, and the full workflow remain unimplemented/unvalidated. Gateway availability is not a prerequisite. Only this plan and linked wiki records were updated.
+- **PA-20 landed:** `options.powerAutomate.intake` (branch/path/interval/size limits with validation and documented defaults), `gitlab_project_id()` reconciliation, and startup `.env` loading with process-over-file precedence are implemented with six new `io::config` tests plus the `intake.json` fixture. Focused suites pass (`io::config` 69/69 and `io::api::powerautomate` 11/11 under `analysis,agentic`; mirror path green under `analysis`), `cargo fmt --check` clean, and scoped clippy warning-free. Incidental harness repair outside the PA-20 write set: one missing `ValeOutput` import in the analyzer test module that blocked compiling the lib test target.
 - The 2026-10-07 canvas version is published. The live launch confirms `SubmitEntryScreen` is the start screen; preview also verifies it at the default canvas size and at 360 by 800. The controlled category list contains only the placeholder plus the twelve documented categories. The environment-local notification flow is attached, the blank form keeps **Submit highlight** disabled, the tooltip is `Submit highlight to Teams and email`, and the status is `Ready to send Teams and email notifications.`
 - App checker reports zero formula issues for the saved draft. Its 21 missing-label and two missing-tab-stop errors are confined to named controls on the pre-existing generated `Logbooks screen`; no new contributor control appears in those findings.
 - Notification-only run `08584102113387025966515574751CU09` completed successfully in three seconds on 2026-10-07. Its Power Apps trigger, Microsoft Teams direct-chat action, and Office 365 Outlook email action all report **Succeeded**, and the canvas displayed **Notifications sent.** The run contains no HTTP, ACORN, GitLab, or NSSD action. Record human confirmation that the Teams chat and email are visible before treating delivery as accepted.
@@ -557,12 +558,12 @@ Submit authorized test entries for two different projects and one deliberately u
 - The planned ACRE layout places shared `variables`, `folders`, and global `members` at the document root, and integration settings under `options.powerAutomate`. Schema, examples, consumers, and compatibility tests agree on this layout; conflicting legacy/root/nested declarations are rejected explicitly.
 
 - `variables` supports a `members` environment-variable reference plus a `custom` map of logical-to-environment names, globally and per folder. `variables.custom` carries the `power_automate.callback_url` / `power_automate.inbound_secret` references. A full typed built-in catalog with cross-repository coverage gate is deferred as non-blocking for JSONL. Schema and documentation stay aligned with the implemented references.
-- Global and folder `variables.members` references resolve through the caller-supplied lookup alongside inline lists; tests cover unioning, whitespace trimming, normalization/deduplication, global-or-folder authorization, omitted/empty `members` with global access, and rejection when all effective grants are empty. Deployment `.env` precedence and malformed-file handling are implemented with the JSONL service configuration in PA-20 (current callers resolve process environment only). HTTP and JSONL authorization use identical resolved membership; diagnostics do not expose full member lists.
+- Global and folder `variables.members` references resolve through the caller-supplied lookup alongside inline lists; tests cover unioning, whitespace trimming, normalization/deduplication, global-or-folder authorization, omitted/empty `members` with global access, and rejection when all effective grants are empty. Deployment `.env` precedence and malformed-file handling load with the JSONL service configuration (`load`/`load_with_path`; `read`/`parse` stay side-effect free). HTTP and JSONL authorization use identical resolved membership; diagnostics do not expose full member lists.
 - Folder resolution tests cover explicit local/remote roots, root-over-GitLab precedence, GitLab-only fallback, directory-base URI joining, absolute URI overrides, native paths under local roots, omitted-path defaults, and no-root/no-GitLab rejection of relative, omitted, and native non-URI paths. Validate file URIs for POSIX/Windows/UNC, unsupported schemes, remote write limitations, repository conflicts, containment, and consistent resolution across consumers.
 - Proposed configuration uses per-project `aliases` and top-level `members`; omitted lists preserve existing behavior. Global members can submit to every configured project, including a newly added project and projects with omitted or explicitly empty `members`. Validate both forms with nonempty effective global membership, and reject them only when neither global nor project sources supply members. Project-only members cannot submit to other projects; unlisted users and unknown projects are rejected. Both HTTP and JSONL intake enforce the same authorization rule, and global intake membership does not grant graduation or merge privileges.
 - A single-project stream and an interleaved multi-project JSONL stream both ingest successfully. Tests route records by canonical ID and configured folder alias, including an alias different from its ID, and verify only each destination's mapped `index.json` changes through review.
 - Missing/unknown selectors, duplicate folder aliases, conflicting ID/folder pairs, unsafe paths, and unauthorized project/member combinations produce inspectable rejections without project-data changes. A bad record does not block other valid projects; replay and restart do not duplicate entries or change a previously admitted route. These are ingestion implementation gates before reporting rollout.
-- Power Automate appends one compact, schema-valid Logbook submission envelope per line to `.acorn/intake/submissions.jsonl`. Concurrent appends and bot removals lose no submissions; retries after removal produce no duplicate processing effects.
+- Power Automate appends one compact, schema-valid Logbook submission envelope per line to `.acorn/intake/logbook.jsonl`. Concurrent appends and bot removals lose no submissions; retries after removal produce no duplicate processing effects.
 - Vergil reads immutable snapshots, durably ingests complete items before removing exact matches from the inbox, and routes each by `projectId` to augment only its configured `index.json`. Rejections stay visible, admitted payloads survive removal, and restart/crash replay produces no duplicate effects.
 - All licensing, GitLab reachability/authentication, callback policy, ownership, and pilot-mapping gates pass. No gateway or public Vergil endpoint is required.
 - One organization-only Power Apps canvas app and two protected Power Automate flows implement the documented intake and callback contracts.
@@ -580,7 +581,7 @@ Submit authorized test entries for two different projects and one deliberately u
 ## Settled JSONL contract (PA-10 output)
 
 - **Selector:** the wire `projectId` remains the single routing selector and accepts a canonical folder ID or a configured folder-name alias. Resolution uses `FolderRegistry::folder` (exact match; unknown, ambiguous, and conflicting selectors rejected). No new envelope field; destinations are never inferred from prose, email, or filesystem paths.
-- **Source configuration:** a new optional `intake` sub-object under `options.powerAutomate` carries branch, path (default `.acorn/intake/submissions.jsonl`), poll interval, and file/record size limits, following the asset examples. PA-20 reconciles the config `gitlab_project: String` with the GitLab `Options` numeric identifier.
+- **Source configuration:** a new optional `intake` sub-object under `options.powerAutomate` carries branch, path (default `.acorn/intake/logbook.jsonl`), poll interval, and file/record size limits, following the asset examples. PA-20 reconciles the config `gitlab_project: String` with the GitLab `Options` numeric identifier.
 - **Member resolution:** deployment-owned `.env` next to the resolved configuration plus process-over-file precedence, resolved once at startup and shared by HTTP and JSONL intake (PA-20). Current callers resolve process environment only.
 - **Canonicalization:** each JSONL line parses as strict `FormSubmission` (`deny_unknown_fields`) and converts via `entry_after` (trim/normalize, then validate/authorize/cutoff). No second Logbook schema (PA-22).
 - **Stable routing:** the resolved folder ID, destination, and content digest persist at admission; retries and replays keep the original route across later mapping changes (PA-22).
@@ -596,25 +597,14 @@ Submit authorized test entries for two different projects and one deliberately u
 - Folder resolution precedence and explicit overrides → PA-20 (config) + PA-21 (reader).
 - No phase assumes note polling consumes repository files; the mixed-project gate blocks PA-05, not PA-09.
 
-## PA-20 — JSONL source configuration and member resolution (next)
+## PA-21 — Immutable JSONL snapshot reader
 
 - Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: selected JSONL transport contract above; ACRE 2.0.0 contract landed
-- Exact write set: `crates/acorn-lib/src/io/api/powerautomate/config.rs`, `crates/acorn-lib/src/io/config/application.rs`, `crates/acorn-lib/src/io/config/tests/mod.rs`, `tests/fixtures/automation/powerautomate/config.json`, `tests/fixtures/automation/powerautomate/intake.json` (new)
-- Primary integration lock: JSONL source configuration
-- Outcome: Add the optional `options.powerAutomate.intake` sub-object (branch, path defaulting to `.acorn/intake/submissions.jsonl`, poll interval, file/record size limits) with validation; reconcile config `gitlab_project` with the GitLab `Options` identifier; load the deployment-owned `.env` next to the resolved configuration with process-over-file precedence, resolved once at startup and shared by HTTP/JSONL authorization; document the selector contract (wire `projectId` = folder ID or alias, exact match). No poller, admission, or removal behavior yet.
-- Focused validation: Config parse/validate tests for defaults, invalid branch/path/sizes, unknown fields, and JSON/JSONC/YAML parity; `.env` precedence, whitespace/normalization, missing-file tolerance, and malformed-file errors; `effective_members` parity between HTTP and JSONL lookups; focused tests plus clippy with `--features analysis`.
-- Handoff: Remove PA-20 and unblock PA-21. No note-poller behavior is assumed to consume repository files.
-
-## PA-21 — Immutable JSONL snapshot reader
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: PA-20
-- Exact write set: `crates/acorn-lib/src/io/api/gitlab/jsonl.rs` (new), `crates/acorn-lib/src/io/api/gitlab/mod.rs` (module registration), `crates/acorn-lib/src/io/api/gitlab/service.rs` (branch-head helper, only if the existing branches API needs one), `crates/acorn-lib/src/io/api/gitlab/tests/jsonl.rs` (new), `crates/acorn-lib/src/io/api/gitlab/tests/mod.rs` (test registration), `tests/fixtures/automation/powerautomate/submissions.jsonl` (new mixed-project sample)
+- Prerequisites: settled JSONL contract and source configuration above (landed intake-config phase)
+- Exact write set: `crates/acorn-lib/src/io/api/gitlab/jsonl.rs` (new), `crates/acorn-lib/src/io/api/gitlab/mod.rs` (module registration), `crates/acorn-lib/src/io/api/gitlab/service.rs` (branch-head helper, only if the existing branches API needs one), `crates/acorn-lib/src/io/api/gitlab/tests/jsonl.rs` (new), `crates/acorn-lib/src/io/api/gitlab/tests/mod.rs` (test registration), `tests/fixtures/automation/powerautomate/logbook.jsonl` (new mixed-project sample)
 - Primary integration lock: JSONL snapshot reader
-- Outcome: Resolve the configured branch head, read `.acorn/intake/submissions.jsonl` at that immutable commit via `repository_file`, and split UTF-8 LF-delimited lines with per-line locations and SHA-256 digests. Enforce file/record size limits, reject a nonterminated tail instead of silently repairing it, and treat a missing file as empty intake (not a network/authentication error). No admission, deduplication, or removal yet.
+- Outcome: Resolve the configured branch head, read `.acorn/intake/logbook.jsonl` at that immutable commit via `repository_file`, and split UTF-8 LF-delimited lines with per-line locations and SHA-256 digests. Enforce file/record size limits, reject a nonterminated tail instead of silently repairing it, and treat a missing file as empty intake (not a network/authentication error). No admission, deduplication, or removal yet.
 - Focused validation: Mocked-GitLab tests (existing axum harness style) for escaped quotes/newlines, Unicode, optional arrays, oversize file/record rejection, malformed-tail errors, unchanged-SHA short-circuit, and empty/missing files; focused tests plus clippy.
 - Handoff: Remove PA-21 and unblock PA-22.
 
@@ -645,7 +635,7 @@ Submit authorized test entries for two different projects and one deliberately u
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: PA-23
-- Exact write set: `crates/acorn-lib/src/io/api/gitlab/tests/jsonl.rs`, `crates/acorn-lib/src/io/api/powerautomate/tests/jsonl.rs`, `tests/fixtures/automation/powerautomate/submissions.jsonl`, `tests/fixtures/automation/powerautomate/multi-config.json` (new two-project configuration). Tests and fixtures only; no product code.
+- Exact write set: `crates/acorn-lib/src/io/api/gitlab/tests/jsonl.rs`, `crates/acorn-lib/src/io/api/powerautomate/tests/jsonl.rs`, `tests/fixtures/automation/powerautomate/logbook.jsonl`, `tests/fixtures/automation/powerautomate/multi-config.json` (new two-project configuration). Tests and fixtures only; no product code.
 - Primary integration lock: JSONL integration validation
 - Outcome: Prove the multiplexed ingestion gate: a single-project stream and an interleaved multi-project stream (canonical IDs and folder aliases, including an alias different from its ID) each route only to their configured `index.json`; missing/unknown/ambiguous/conflicting selectors, unsafe paths, and unauthorized project/member combinations produce inspectable rejections with no project-data change; bad records never block valid projects; replay and restart neither duplicate entries nor change admitted routes. This is the PA-05 prerequisite gate, not PA-09 scope.
 - Focused validation: The full matrix above against mocked GitLab plus durable-store restart cases; then `make lint`, workspace `make test`, and the applicable portability gate for touched crates.
@@ -710,8 +700,8 @@ Submit authorized test entries for two different projects and one deliberately u
 
 - Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: PA-03, PA-04, PA-20 through PA-24 landed (ACRE 2.0.0 gate already landed)
-- Exact write set: selected Power Apps intake flow, canvas submit action, isolated project `22464` inbox `.acorn/intake/submissions.jsonl`, Vergil JSONL source configuration
+- Prerequisites: PA-03, PA-04, PA-21 through PA-24 landed (intake source configuration already landed)
+- Exact write set: selected Power Apps intake flow, canvas submit action, isolated project `22464` inbox `.acorn/intake/logbook.jsonl`, Vergil JSONL source configuration
 - Primary integration lock: intake route
 - Outcome: Append the strict version-1 envelope with conflict-safe GitLab retries, configure the implemented repository-file poller, and return a confirmed queued receipt with submission ID and commit SHA.
 - Focused validation: Verify stable UUID/content across retries, concurrent append and cleanup, ambiguous responses, serialization round-trips, protected credentials, and app distinction between GitLab persistence and ACORN admission.

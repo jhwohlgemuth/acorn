@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "2.0.0",
+  "members": ["office@example.org"],
+  "folders": [
+    {
+      "id": "acorn",
+      "aliases": ["acorn-tooling"],
+      "members": ["scientist@example.org"],
+      "path": "acorn/index.json"
+    },
+    {
+      "id": "research-data",
+      "aliases": ["rad"],
+      "members": "researcher@example.org"
+    }
+  ],
+  "variables": {
+    "members": "ACORN_PA20_INTAKE_TEST_MEMBERS",
+    "custom": {
+      "power_automate.callback_url": "POWER_AUTOMATE_CALLBACK_URL",
+      "power_automate.inbound_secret": "POWER_AUTOMATE_INBOUND_SECRET"
+    }
+  },
+  "options": {
+    "folders": {
+      "root": "file:///srv/research/"
+    },
+    "powerAutomate": {
+      "callback_destination": "pilot-flow",
+      "gitlab_project": "22464",
+      "package": "acorn-automated-artifacts",
+      "intake": {
+        "branch": "acorn/powerautomate-pilot",
+        "path": ".acorn/intake/logbook.jsonl",
+        "poll_interval_secs": 30,
+        "max_file": "10MB",
+        "max_record": "64KB"
+      }
+    }
+  }
+}

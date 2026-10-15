@@ -1,4 +1,5 @@
 use acorn_core::Noul;
+use acorn_schema::hardware::memory::{Memory, MemoryUnit};
 use jiff::SignedDuration;
 
 pub use acorn_core::util::constants::app::APPLICATION;
@@ -62,6 +63,22 @@ pub const DEFAULT_HUGGINGFACE_MODEL_REVISION: &str = "main";
 pub const DEFAULT_HUGGINGFACE_SEARCH_LIMIT: usize = 20;
 /// Default Hugging Face model search term.
 pub const DEFAULT_HUGGINGFACE_SEARCH_TERM: &str = "gguf";
+/// Default GitLab branch polled for PowerAutomate JSONL intake submissions.
+pub const DEFAULT_INTAKE_BRANCH: &str = "main";
+/// Default maximum PowerAutomate JSONL inbox file size (10 MiB).
+pub const DEFAULT_INTAKE_MAX_FILE: Memory = Memory {
+    amount: 10.0,
+    unit: MemoryUnit::MB,
+};
+/// Default maximum PowerAutomate JSONL inbox record size (64 KiB).
+pub const DEFAULT_INTAKE_MAX_RECORD: Memory = Memory {
+    amount: 64.0,
+    unit: MemoryUnit::KB,
+};
+/// Default repository-relative PowerAutomate JSONL inbox path.
+pub const DEFAULT_INTAKE_PATH: &str = ".acorn/intake/logbook.jsonl";
+/// Default seconds between PowerAutomate JSONL inbox polls.
+pub const DEFAULT_INTAKE_POLL_INTERVAL_SECS: u64 = 30;
 /// Default ISNI SRU API domain.
 pub const DEFAULT_ISNI_DOMAIN: &str = "isni.oclc.org";
 /// Default maximum JSON-RPC request-body size.
@@ -180,6 +197,8 @@ pub const MAX_ARCHIVE_EXPANDED_BYTES: u64 = 100 * 1024 * 1024 * 1024;
 pub const MAX_CALLBACK_RESPONSE_BYTES: usize = 64 * 1024;
 /// Maximum supported document size in bytes.
 pub const MAX_DOCUMENT_BYTES: usize = 100 * 1024 * 1024;
+/// Maximum PowerAutomate JSONL inbox poll interval in seconds (one day).
+pub const MAX_INTAKE_POLL_INTERVAL_SECS: u64 = 86400;
 /// Maximum supported PDF page count.
 pub const MAX_PDF_PAGES: u32 = 1_000;
 /// Maximum number of durable webhook operation attempts.

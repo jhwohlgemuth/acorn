@@ -48,7 +48,7 @@ These complete configuration documents demonstrate the ACRE 2.0.0 contract in [t
       "timezone": "UTC",
       "intake": {
         "branch": "main",
-        "path": ".acorn/intake/submissions.jsonl",
+        "path": ".acorn/intake/logbook.jsonl",
         "pollIntervalSeconds": 30,
         "maxFileBytes": 10485760,
         "maxRecordBytes": 65536
@@ -108,7 +108,7 @@ These complete configuration documents demonstrate the ACRE 2.0.0 contract in [t
       // One inbox multiplexes records across the root folder registry.
       "intake": {
         "branch": "main",
-        "path": ".acorn/intake/submissions.jsonl",
+        "path": ".acorn/intake/logbook.jsonl",
         "pollIntervalSeconds": 30,
         "maxFileBytes": 10485760,
         "maxRecordBytes": 65536
@@ -160,7 +160,7 @@ options:
     # Planned JSONL intake settings; not accepted by the current schema.
     intake:
       branch: main
-      path: .acorn/intake/submissions.jsonl
+      path: .acorn/intake/logbook.jsonl
       poll_interval_seconds: 30
       max_file_bytes: 10485760
       max_record_bytes: 65536
