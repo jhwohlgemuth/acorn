@@ -1,6 +1,6 @@
 # Proposed ACRE configuration examples
 
-These complete configuration documents demonstrate the planned ACRE update in [the owning plan](../features/powerapps-gitlab-logbook-reporting.md). They are design fixtures, not configurations accepted by today's validator. `2.0.0` is the proposed next major schema version, subject to the versioning decision in PA-11. All three documents describe the same configuration. The built-in variable catalog must cover all ACORN/Xylem variables; a deployment only lists the references it needs, as shown here. Group names and intake option names below are the proposed schema contract to verify during PA-11.
+These complete configuration documents demonstrate the ACRE 2.0.0 contract in [the owning plan](../features/powerapps-gitlab-logbook-reporting.md). Root `folders`/`members`/`variables` and `options` ownership match the implemented schema; the `options.powerAutomate.intake` source settings follow the settled contract implemented in PA-20. A deployment lists only the variable references it needs, as shown here.
 
 ## JSON — `.acorn.json`
 

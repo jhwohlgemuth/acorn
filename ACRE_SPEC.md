@@ -73,7 +73,7 @@ This configuration demonstrates a folder belonging to a local bucket and a stand
   "schemaVersion": "2.0.0",
   "members": ["administrator@example.org"],
   "buckets": [
-    { "id": "research", "name": "Research activities", "source": "file:///C:/research/" }
+    { "name": "research", "description": "Research activities", "source": "file:///C:/research/" }
   ],
   "folders": [
     { "id": "acorn", "bucket": "research", "path": "file:///C:/research/acorn/index.json" },
@@ -85,11 +85,11 @@ This configuration demonstrates a folder belonging to a local bucket and a stand
 This JSON is also valid JSONC. Equivalent YAML:
 
 ```yaml
-schema_version: "2.0.0"
+schemaVersion: "2.0.0"
 members: [administrator@example.org]
 buckets:
-  - id: research
-    name: Research activities
+  - name: research
+    description: Research activities
     source: file:///C:/research/
 folders:
   - id: acorn
@@ -140,7 +140,7 @@ JSONC:
 YAML:
 
 ```yaml
-schema_version: "2.0.0"
+schemaVersion: "2.0.0"
 members: [administrator@example.org]
 buckets:
   - file:///C:/research/
@@ -154,11 +154,11 @@ folders:
     path: file:///C:/archive/history/index.json
 ```
 
-Prefer IDs in long-lived configurations: reordering buckets changes index associations for new work. Persist the resolved bucket identity and destination at admission so retries retain their original routing. Index association does not supply a path root, trigger copying, or grant access.
+Prefer names in long-lived configurations: reordering buckets changes index associations for new work. Persist the resolved bucket identity and destination at admission so retries retain their original routing. Index association does not supply a path root, trigger copying, or grant access.
 
 ## Attribute casing across ACRE formats
 
-Attribute names are `snake_case` in every format: JSON, JSONC, and YAML serialize the same spelling. Rust fields are already snake_case, so no per-format adapter is needed to rename keys. Pre-existing camelCase attributes such as `schemaVersion` and `scriptManifest` are grandfathered and keep their current spelling; new attributes must not introduce camelCase. Values are never case-converted — environment-variable names, folder identifiers, aliases, paths, and user-defined keys inside `variables.custom` are preserved verbatim.
+Attribute names are `snake_case` in every format: JSON, JSONC, and YAML serialize the same spelling. Rust fields are already snake_case, so no per-format adapter is needed to rename keys. Pre-existing camelCase attributes such as `schemaVersion`, `scriptManifest`, and the `options.powerAutomate` entry name are grandfathered and keep their current spelling; new attributes must not introduce camelCase. Values are never case-converted — environment-variable names, folder identifiers, aliases, paths, and user-defined keys inside `variables.custom` are preserved verbatim.
 
 ## Top-level attributes
 
@@ -407,6 +407,6 @@ Script registrations select when code runs. `scriptManifest` independently defin
 
 ACRE `2.0.0` is a hard cutover. Version `1.0.0` documents are rejected rather than migrated; there is no compatibility adapter and no migration tool.
 
-Consumers conform to ACRE `2.0.0` when they accept the documented root object, reject unsupported explicit versions, and interpret supported attributes according to the exported schema. Producers conform when they emit `schemaVersion: "2.0.0"`, use canonical snake_case attribute names, and emit values accepted by that schema.
+Consumers conform to ACRE `2.0.0` when they accept the documented root object, reject unsupported explicit versions, and interpret supported attributes according to the exported schema. Producers conform when they emit `schemaVersion: "2.0.0"`, use the canonical attribute names in this specification, and emit values accepted by that schema.
 
 Before committing an ACRE file, run `acorn check` and use `acorn format --standard acre` to normalize supported JSON, JSONC, or YAML syntax. For operational examples, see the [ACORN configuration guide](docs/src/cli-reference/configuration.md).

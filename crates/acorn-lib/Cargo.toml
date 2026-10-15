@@ -196,6 +196,8 @@ duckdb = ["analysis", "dep:duckdb"]
 powerpoint = ["analysis"]
 mcp-client = [
   "std",
+  "dep:acorn-service",
+  "acorn-service/alloc",
   "dep:http",
   "dep:rmcp",
   "dep:reqwest",
