@@ -1,11 +1,11 @@
 ---
 type: Plan
-title: "Small language model (SLM) sidecars"
-description: "Ship explicitly selected, ACORN-owned Tongue, Redact, and Title sidecars, with a gated Julia-1 decision sidecar and Schemer/GLiDE follow-ons."
+title: "Needle router and capability registry parity"
+description: "Build native capability parity first, then route acorn ask through reusable SLM, MCP, ACP, and configured inference adapters."
 difficulty: high
 impact: high
-package: [workspace, acorn-lib, acorn-cli]
-tags: [feature, inference, sidecar, slm, enrichment, privacy, semantic-decision]
+package: [workspace, acorn-lib, acorn-cli, acorn-schema]
+tags: [feature, inference, routing, tools, parity, sidecar, mcp, acp]
 status: in-progress
 execution: phased
 phase_budget_hours: 5
@@ -13,19 +13,112 @@ phase_budget_hours: 5
 
 # Goal
 
-Ship three stable, explicitly invoked local capabilities alongside Needle:
+Provide one `acorn ask` interface that selects the right available capability and executor. Establish near registry parity with existing bounded ACORN workflows first, then add reusable bindings for local SLMs, configured MCP tools, ACP agents, and existing inference endpoints. Retain this filename and unfinished SLM/JUL phase IDs for link and assignment stability.
 
-- Tongue detects language and exposes uncertainty.
-- Redact reports sensitive spans or produces a user-requested redacted copy.
-- Title proposes a title and optional subtitle from bounded source text.
+```text
+question/command + explicit inputs + application policy
+    -> available capability catalog
+    -> Needle selects capability and grounded arguments
+    -> validate route, arguments, authority, and availability
+    -> deterministic executor binding
+       native Rust | local SLM | configured MCP tool | ACP agent | inference endpoint
+    -> execute once -> typed result / artifacts / provenance
+```
 
-ACORN owns the native runner adapters, download metadata, process protocol, and Rust integration. The first release never runs these models from ordinary check or gather commands, never mutates canonical RAD records, and never routes them through Needle's tool loop. Schemer, durable proposal persistence, and semantic-decision review remain later gated slices.
+Native operations execute existing Rust services; models and agents implement capabilities that require them. The framework is extensible through registered descriptors and adapters, with concrete contracts at operation boundaries. It does not generate shell commands or autonomously orchestrate multiple agents.
 
-Use SLM as the vendor-neutral integration category, including classifiers and extractors as well as generative models. Name public ACORN capabilities by task. Preserve exact upstream identities in adapter code, artifact provenance, citations, and license notices; this plan does not add a generic provider registry.
+# Framework evidence
 
-# Current evidence
+Local evidence checked on 2026-10-14:
 
-Evidence checked on 2026-09-22. Recheck upstream availability, licenses, and immutable artifact revisions before publishing a release.
+- `cli/mod.rs` exposes `ask` as an alias of `infer`; explicit `infer run` already supports configured prompt backends.
+- `io/mcp/tools/mod.rs` contains nine built-in definitions with analysis enabled. Check and validate currently use the same schema validator, so names alone overstate behavioral coverage. Graduation apply is not Needle-exposed.
+- `ToolRegistry` already supports typed handlers, Needle schema projections, and effect/exposure/output policy. Extend it as the source of truth; its current MCP directory does not require a duplicate registry or crate extraction.
+- `io/sidecar/needle/mod.rs` constructs `ToolRegistry::acorn()` during startup, uses a bounded multi-round loop, and caps the catalog at 32 KiB. It already withholds low-confidence, uncalibrated, negated, and ungrounded calls. Caller-owned registry injection, terminal execution, and catalog-size handling are required.
+- `io/mcp/client.rs` exposes `McpClientBackend`, configured discovery/calls, allowlists, context, cancellation, and bounded cleanup. A protocol-successful result can still contain `is_error`.
+- `agent/mod.rs` supplies `InferenceBackend`, typed requests/results, capabilities, provenance, and `InferencePermissionPolicy::DenyMutation`; ACP and OpenAI-compatible implementations exist. ACP mutation remains unsupported in this plan.
+- Analysis has reusable services in `analyzer/host/service/mod.rs`. Other CLI leaves sometimes combine parsing, operation, and presentation; extract only the operation seam required for parity, coordinating with the CLI composition plan.
+- Shared sidecar asset/distribution contracts exist. The four planned SLM adapters remain unimplemented; their external gates do not block native parity or generic adapters.
+
+# Shared framework contract
+
+## Capabilities and executor bindings
+
+A capability declares a stable namespaced ID, versioned input/output schemas, task description/examples, effects, and resource limits. An executor binding declares implementation kind, configured model/server/agent identity, supported contract version, availability, and provenance. Multiple implementations may bind to one capability only when they satisfy the same contract. Arbitrary MCP tools or general-purpose agents are not automatically equivalent to native operations.
+
+Extend the existing `ToolRegistry` with narrow registration/adapter interfaces; reuse `Sidecar`, `McpClientBackend`, and `InferenceBackend`. Keep Rust types canonical for built-ins and validate dynamic MCP JSON at the protocol boundary. Do not force tool calls into a chat API. Registration and policy evaluation are pure; discovery/readiness/execution are explicit effects.
+
+## Routing, selection, and execution
+
+1. Build an immutable request-scoped catalog filtered by features, host, verified assets, allowlists, permissions, network/data policy, and caller constraints.
+2. Needle selects a capability and grounded arguments. Retain confidence/negation/grounding gates. Missing inputs, uncertainty, or multiple incompatible actions return clarification/withheld with no execution. Preserve source data through typed references or verbatim projection.
+3. Bind deterministically: valid explicit caller selection, then configured preference, then an equivalent native implementation, then a compatible local implementation. Equally preferred external bindings require clarification. Do not invent cost/quality rankings or use routing confidence as model-quality evidence.
+4. Revalidate arguments, policy, and availability before dispatch. Stale catalogs or schemas fail explicitly. Configured remote services are eligible only under network/data policy; no implicit remote fallback, provider substitution, or model download. Credentials remain outside prompts/catalogs.
+5. Execute one terminal capability and return its final result. No recursive `ask` or registry changes from provider output. Preserve the legacy Needle loop through its existing API while giving routed capability execution a distinct single-execution contract.
+
+Honor the 32-KiB catalog limit: deduplicate executor alternatives behind capabilities, bound descriptions/schema projections, and measure serialized size. If needed, shortlist deterministically using explicit scope and declared task metadata, with retained-candidate recall measured against the routing corpus. Never silently truncate tools; request narrower scope when a valid catalog cannot fit. Catalog/schema/binding changes invalidate session tool-index caches.
+
+Use a normalized context for offline/data policy, permitted paths, mutation authority, deadline, cancellation, and input/output budgets. Adapters may narrow authority, never broaden it. Existing CLI writes remain available through explicit typed policy; model-generated arguments are not authorization. Default writes yield a proposal or permission-required outcome, and apply authority binds the exact operation, arguments, and destination. Never automatically retry non-idempotent effects.
+
+Distinguish completed, needs-input/withheld, unavailable, permission-required, invalid-input, cancelled, timed-out, transport-failed, and tool-failed outcomes. Preserve structured/text output, bounded artifact references, and secret-free provenance. Transport success does not mean task success. Verify cancellation cleanup per adapter and report already-completed effects accurately.
+
+# Early near-parity milestone
+
+PAR-00 freezes a machine-readable scenario matrix against the current CLI. Each row records code owner, input forms/options, outputs/artifacts, effects, feature/platform requirements, registry binding, phase, and equivalence test or explicit exclusion. Count behavior, not aliases or duplicate handlers. Report covered/total bounded scenarios and covered/total CLI scenarios including exclusions; do not claim a percentage without a frozen denominator.
+
+All mandatory bounded scenarios must pass before new external-adapter/model work. This milestone covers existing behavior, not every shell convenience or planned ACORN feature.
+
+| Capability family | Mandatory behavior | Phase |
+|---|---|---|
+| Existing registry/logbook | Preserve tools and explicit graduation policy; separate schema validation from analysis | SLM-00, RTR-02 |
+| Check | Existing analysis categories, findings, offline and unavailable-category behavior | PAR-02 |
+| Diff/similarity | Existing semantic diff/patch and pairwise metrics | PAR-03 |
+| Gather | Existing PID extraction from text/documents/permitted URLs | PAR-04 |
+| Format/crosswalk | Supported standards, normalization/enrichment, loss warnings, preview/apply | PAR-05 |
+| Linked data | Existing transformation and authorized output | PAR-06 |
+| SWHID | Current calculate/verify over permitted inputs | PAR-07 |
+| Doctor | Structured diagnostics/readiness; no automatic repair | PAR-08 |
+| Export | Existing formats/targets, bounded batches, artifact output | PAR-09 |
+| Import | Current spec/model import, preview and explicit apply | PAR-10 |
+| Download | Existing bucket/model/Needle acquisition/status, explicitly requested | PAR-11 |
+| Sync | Current target configuration preview/apply | PAR-12 |
+| Report | Existing artifact generation and explicit publication | PAR-13 |
+| Script checks | Existing check/check-safe; no unrestricted automation | PAR-14 |
+| Prompt/MCP commands | Preserve direct commands; routed integration follows native parity | ADP-02 through ADP-04 |
+
+Exclude interactive TUI/clipboard UX, persistent servers, infrastructure/secret creation, automatic repair, and unrestricted automation from the bounded milestone. Keep them visible in the total CLI inventory. Unsupported flags/scenarios need explicit entries rather than disappearing from the denominator. Native-handler equivalence tests require no model weights; real Needle routing is a separate gate.
+
+# CLI, ownership, and ordering
+
+`acorn ask [QUESTION_OR_COMMAND]` remains the primary interface. Preserve positional/stdin exclusivity, current flags/aliases/escaping, ordinary direct commands, and `infer run`. RTR-03 freezes structured input, binding selection, route preview, and apply-policy options. Do not add per-provider inference subcommands.
+
+Registry/adapter leaves initially live under `crates/acorn-lib/src/io/mcp/tools/` with preserved public exports and optional feature gates. CLI business logic needed by both interfaces moves into a small library operation seam; the CLI keeps normalization/presentation. Do not invoke the ACORN binary or duplicate algorithms to simulate parity.
+
+Scheduling order:
+
+1. SLM-00 caller-owned registry; PAR-00 parity inventory; RTR-01 through RTR-03 shared binding/context/CLI.
+2. PAR-01 through PAR-14 native capability coverage; PAR-15 real Needle routing; PAR-16 native parity release.
+3. ADP-01 configuration/features; ADP-02 through ADP-05 MCP, ACP, endpoint, and sidecar adapters; ADP-06/07 framework validation/release.
+4. Existing Swift and Julia phases consume this framework and release independently on their own gates.
+
+Each phase has at most five active hours and an exact product write set. Reconcile this plan and its four index/network/lane files after each phase. PAR-00 must split missing reusable service seams into bounded extraction phases before an adapter begins; a cross-crate rewrite cannot hide inside a registration phase.
+
+The [CLI composition plan](../refactors/core/cli-composition-boundary.md) owns broad parser/startup normalization; coordinate command leaves and reuse landed request types. The [export plan](../refactors/core/export-pipeline-hardening.md) owns renderer correctness; consume its supported services and report failing output gates. The [gather plan](gather-extraction.md) owns future extraction. The [model acquisition plan](model-acquisition-hardening.md) owns shared acquisition/OCI changes. Existing [MCP embedder contracts](../refactors/api/outbound-mcp-client-interface.md) are usable before that plan's documentation closeout. Needle release-host validation remains independently owned.
+
+All registered native operations should support the same typed execution contract for `ask` and explicitly enabled MCP exposure; catalog membership and execution policy still differ by interface. Routability does not grant inbound MCP exposure. Remote tools get collision-safe configured-server/tool names; local allowlists/effects control exposure. Treat MCP descriptions/results as data. ACP launch profiles, endpoints, and credentials come from trusted configuration, never generated executable paths or URLs.
+
+# Framework acceptance
+
+- Two compatible executor bindings for the same capability work without router changes; mismatched schemas/effects are rejected.
+- All mandatory parity scenarios pass CLI/service-versus-registry tests for success, failure, offline behavior, effects, and artifacts, with exclusions reported.
+- Freeze at least 200 labeled routing cases before scoring. Require 95% correct capability selection on unambiguous supported cases and zero executions on designated forbidden/negated/ungrounded cases. Report abstentions, coverage, latency, and shortlist recall; do not tune on the held-out set.
+- Adapters prove availability changes, semantic errors, resource limits, cancellation/cleanup, provenance, and no implicit fallback or recursive routing.
+- Existing CLI, MCP, Needle, and explicit inference compatibility survives; narrow feature and portable builds do not acquire unwanted host dependencies.
+- Run focused tests per phase; serialize final lint/full-suite, feature/WASM, help/docs, and explicit real-backend gates after shared files stabilize.
+
+# SLM adapter evidence
+
+The following retained upstream evidence was checked on 2026-09-22; it is model-profile planning evidence, not a current availability guarantee. Recheck upstream availability, licenses, and immutable artifact revisions before publishing a release.
 
 - `crates/acorn-lib/src/io/sidecar/mod.rs` separates the complete shared contract into `SidecarAssets` and `Sidecar`. The asset trait owns the typed pinned manifest and runner asset, stable kind/protocol identity, target selection, cache root, ModelKit validation, and verified acquisition; the runtime trait adds typed input/output, verified-asset startup, and required consuming inference. Its landed, Kitfile-versioned ModelKit manifest validates the runner and every named supporting asset, including paths, byte sizes, and SHA-256 digests.
 - `io/sidecar/needle/` already owns managed process startup and asset resolution. Reuse its lifecycle and download primitives without reusing its HTTP tool-execution protocol.
@@ -38,17 +131,18 @@ Evidence checked on 2026-09-22. Recheck upstream availability, licenses, and imm
 - The macOS GitLab runner remains blocked and cannot provide a reliable host gate. `scripts/slm/check-macos-host.sh` can verify macOS ARM64, Xcode 26, Swift 6.2 or newer, and native Swift compilation manually. A schedulable macOS host and legal approval for SDK and weight redistribution remain hard prerequisites for release implementation.
 - Fastino GLiDE provides typed, probabilistic decisions over caller-defined choices through the hosted `fastino/glide` System One API. Its decision contract is relevant to the retained semantic-decision experiment, but the documented integration is hosted rather than an ACORN-owned offline runner. GLiDE therefore does not replace Needle's local tool-selection loop; it is a candidate policy/approval decision adapter that requires a separate offline or approved self-hosting path before production consideration. [GLiDE announcement](https://fastino.ai/blog/introducing-glide-the-first-thinking-decision-model)
 
-# Decisions locked for the first release
+# Swift adapter profile decisions
 
-- **Capabilities:** Tongue, Redact, and Title only. Schemer remains visibly unavailable until a supported public release, pinned harness, and shared extraction contract exist.
+- **Swift profile:** Tongue, Redact, and Title. Native, MCP, ACP, and Julia profiles have independent release gates. Schemer remains visibly unavailable until a supported public release, pinned harness, and shared extraction contract exist.
 - **Runtime ownership:** ACORN maintains one pinned Swift package with a separate executable for each capability. Do not depend on an unversioned upstream command-line interface.
-- **Platforms:** Tongue and Redact target Linux x86_64, Linux ARM64, and macOS ARM64. Title targets macOS ARM64 only. Windows is unsupported in this slice and returns an actionable capability error.
-- **Stability:** all three commands remain unreleased until their functional, quality, licensing, packaging, and platform gates pass. Do not label only a subset experimental to work around a missing gate.
-- **Invocation:** inference and download are explicit. There is no automatic model download, background inference, remote fallback, record mutation, or default integration with check, gather, export, or validation.
+- **Platforms:** Tongue and Redact target Linux x86_64, Linux ARM64, and macOS ARM64. Title targets macOS ARM64 only. Windows model runners are unsupported in this Swift profile; the generic framework retains existing host support.
+- **Stability:** all three capabilities remain unreleased until their functional, quality, licensing, packaging, and platform gates pass. Do not label only a subset experimental to work around a missing gate.
+- **Routing:** The shared SLM-00/RTR/PAR framework comes first. Register concrete sidecars as executor bindings after ADP-05; Needle selects the capability and its bound sidecar returns the terminal result.
+- **Invocation:** `acorn ask` is the single user-facing question/command interface; download remains explicit. There is no automatic model download, background inference, remote fallback, model-driven record mutation, or default integration with check, gather, export, or validation.
 - **Licensing:** legal/redistribution approval for the pinned SDK and weights is a hard release gate, not a documentation follow-up.
 - **GLiDE placement:** evaluate GLiDE only as a deferred semantic-decision sidecar or comparison adapter. Do not include it in the first Tongue/Redact/Title release, expose it as a generic provider, or present it as a Needle replacement. Needle remains the bounded local tool selector; GLiDE would make task-specific decisions over predefined options.
 
-# Exact implementation boundaries
+# SLM implementation boundaries
 
 ## Owned runner and artifact files
 
@@ -59,13 +153,13 @@ Evidence checked on 2026-09-22. Recheck upstream availability, licenses, and imm
 
 ## Rust and CLI files
 
-- **Update:** `crates/acorn-lib/Cargo.toml` and `crates/acorn-lib/src/io/mod.rs` to add an opt-in `slm` feature and expose the existing sidecar module for either `needle` or `slm`. Extend `crates/acorn-lib/src/io/sidecar/mod.rs` only when a second concrete implementation proves another lifecycle primitive is shared.
-- **Create:** `crates/acorn-lib/src/io/sidecar/slm/{mod,assets,process,protocol,language,redact,title}.rs` with concrete `LanguageSidecar`, `RedactSidecar`, and `TitleSidecar` implementations. Each sidecar implements `SidecarAssets` for acquisition and `Sidecar` for its typed request, result, and process lifecycle. Keep capability-specific result types and validation explicit; do not introduce a registry or erase them behind `serde_json::Value`.
-- **Update:** the existing CLI inference/download command modules, CLI argument definitions, and dispatch roots to add the commands below. Regenerate `CommandLineHelp.md` once under the CLI integration lock.
+- **Update:** `crates/acorn-lib/Cargo.toml` and `crates/acorn-lib/src/io/mod.rs` to consume ADP-01's opt-in `slm` feature/module wiring and add only the concrete profile registrations. Extend `crates/acorn-lib/src/io/sidecar/mod.rs` only when a second concrete implementation proves another lifecycle primitive is shared.
+- **Create:** `crates/acorn-lib/src/io/sidecar/slm/{mod,assets,process,protocol,language,redact,title}.rs` with concrete `LanguageSidecar`, `RedactSidecar`, and `TitleSidecar` implementations. Each sidecar implements `SidecarAssets` for acquisition and `Sidecar` for its typed request, result, and process lifecycle. Keep capability-specific result types and validation explicit; register typed handlers in the existing tools registry; do not introduce a parallel registry or erase capability contracts behind `serde_json::Value`.
+- **Update:** the existing CLI inference/download command modules, CLI argument definitions, and dispatch roots to compose configured executor bindings and explicit model downloads. Regenerate `CommandLineHelp.md` once under the CLI integration lock.
 - **Create:** `tests/fixtures/slm/{language,redact,title}/` and `docs/src/inference/slm.md`; update `docs/src/SUMMARY.md`.
 - **Delete:** none.
 
-# Runner protocol and resource contract
+# SLM runner protocol and resource contract
 
 Each executable writes one JSON-lines readiness envelope, reads exactly one typed request from stdin, writes one typed response to stdout, and exits. Diagnostics go to stderr. Every envelope includes protocol version, capability, and request ID. Responses distinguish success, unsupported input, validation failure, model failure, and timeout; error text must not echo sensitive source content.
 
@@ -79,32 +173,11 @@ Set `DAL_USAGE_DISABLED=1` for every managed process and verify offline executio
 
 `LanguageResult` preserves the detected tag, upstream reliability, and an explicit uncertain/abstained state. `RedactResult` preserves validated, non-overlapping UTF-8 source spans, labels, scores where provided, and an optional copy produced only when requested. `TitleResult` preserves the proposed title, optional subtitle, validation findings, model/prompt revisions, and source fingerprint. Unsupported, insufficient-evidence, and technical-failure outcomes stay distinct.
 
-# CLI contract
+# SLM implementation sequence
 
-Expose explicit subcommands:
+After native parity and the shared adapter contract, retain SLM-01 through SLM-22 for Swift and JUL-01 through JUL-15 for Julia. Publish immutable assets before pinning hashes in Rust. Register each model as a capability executor behind `acorn ask`; retain explicit `acorn download slm <language|redact|title|decide> [--status]` and custom locations. Licensing and host prerequisites apply only to their model profiles.
 
-```text
-acorn infer needle <PROMPT> [legacy Needle options]
-acorn infer language [TEXT]
-acorn infer redact [TEXT] [redaction options]
-acorn infer title [TEXT]
-acorn download slm <language|redact|title> [--status]
-```
-
-Language, redact, and title accept one positional value or stdin, never both. Redact flags select report-only versus copy output and documented thresholds; report-only is the default. Each command accepts the existing custom sidecar location mechanism. There is intentionally no `download slm all` in the first release.
-
-Preserve `acorn infer <PROMPT>` as the legacy Needle form. Because `needle`, `language`, `redact`, and `title` become reserved first tokens, prompts beginning with one of them use `acorn infer needle -- <PROMPT>`. Cover this compatibility rule in parser and generated-help tests.
-
-# Implementation sequence and exit gates
-
-1. **Prove licensing and hosts.** Provision a schedulable macOS ARM64 host with Xcode 26 and Swift 6.2 or newer, record one passing host check, and obtain approval for SDK/weight redistribution before runner release work proceeds; retain local evaluation notes if either gate fails.
-2. **Build the runners.** Implement `SidecarAssets` and `Sidecar` for every capability, package every runner and supporting file through the existing semantic-versioned manifest, pin the SDK and model commits above, implement the one-request protocol, and add protocol-only fixture tests plus real-model smoke tests on every claimed platform.
-3. **Publish immutable artifacts.** Produce capability/platform artifacts, capture exact bytes/hashes/licenses, verify clean offline installation, then pin them in Rust.
-4. **Integrate the library.** Add concrete sidecars, typed results, limits, telemetry opt-out, asset/download behavior, and lifecycle tests behind `slm`.
-5. **Integrate the CLI and docs.** Add the explicit inference/download commands, preserve legacy Needle parsing, regenerate help, and document unsupported targets and limitations.
-6. **Run held-out evaluation.** Freeze fixtures and thresholds before scoring. Release all three commands as stable only when every gate below passes.
-
-# Quality and release gates
+# Swift quality and release gates
 
 - **Tongue:** at least 95% top-1 accuracy on the frozen unambiguous ACORN prose set; every predesignated mixed-language, acronym-only, or otherwise ambiguous case abstains instead of asserting a language.
 - **Redact:** at least 85% macro recall across the frozen sensitive-label set and at least 95% precision. Documentation states that a clean result does not certify absence of sensitive material.
@@ -117,11 +190,11 @@ Preserve `acorn infer <PROMPT>` as the legacy Needle form. Because `needle`, `la
 - **Persistence/application:** proposal-only output may precede persistence. Durable enrichment proposals and reconciliation belong to the canonical database boundary; authored RAD values always win unless a user explicitly accepts a validated proposal.
 - **Semantic decisions:** SemIf/Open-Jev/Needle comparison remains an opt-in experiment over frozen source/proposal fixtures. It must predeclare accuracy, unsupported-claim, false-rejection, abstention, calibration, latency, memory, and installed-size gates. Scores are advisory and conditional on supplied options. Promotion would add one task-specific adapter; it cannot authorize mutation, establish factuality, or block the first three sidecars.
 - **GLiDE decision adapter:** include Fastino GLiDE in the semantic-decision comparison only after verifying an immutable revision, licensing/redistribution terms, data-handling requirements, and an offline or approved self-hosted deployment path. Compare its typed choice, confidence, probability, abstention, latency, memory, and failure behavior against SemIf, Open-Jev, and the existing Needle baseline. A successful evaluation may justify a separate policy/approval sidecar; it must not replace Needle's tool-selection protocol or broaden tool execution authority.
-- **Out of scope:** automatic enrichment, generic providers, remote fallback, browser integration, audio/vision, training, and Windows runners.
+- **Deferred model scope:** automatic enrichment, implicit remote fallback, browser integration, audio/vision, training, and Windows model runners. Generic executor adapters, configured MCP, ACP, and inference endpoints are in scope for the framework.
 
 # Julia-1 decision sidecar (planned follow-on)
 
-This slice was added on 2026-10-06 and remains **planned**; the parent status reflects the existing shared sidecar work. Its outcome is an explicitly invoked, advisory finite-choice decision capability. It does not block Tongue, Redact, or Title and does not inherit their Swift runtime or their all-three release gate. Keep this work in the sidecar concept rather than creating an overlapping model-provider plan.
+This slice was added on 2026-10-06 and remains **planned**; the parent status reflects the existing registry, inference, and sidecar foundations. Its outcome is an explicitly invoked, advisory finite-choice decision capability. It does not block Tongue, Redact, or Title and does not inherit their Swift runtime or their all-three release gate. Keep this work in the router concept rather than creating an overlapping model-provider plan.
 
 ## Evidence and intended use
 
@@ -133,10 +206,10 @@ The first consumer is explicit research-text triage: given a supplied abstract a
 
 ## Contract and architectural decisions
 
-- Propose task-named `acorn infer decide --input <request.json>` (stdin when omitted) and `acorn download slm decide [--status]`. Freeze syntax under the CLI lock; preserve the legacy Needle escape for the newly reserved `decide` token. Use the existing custom-location mechanism. Download is explicit; inference requires verified local assets and cannot silently acquire missing files.
-- Implement a concrete `JuliaSidecar` behind the opt-in host `slm` feature. Preserve `SupersonicLabs/Julia-1`, runtime/tokenizer revisions, artifact hashes, and adapter protocol identity in provenance. Do not send Julia through a chat-completions provider, GGUF loader, or Needle tool loop.
+- Register the decision capability behind `acorn ask` and retain `acorn download slm decide [--status]`. Freeze structured request attachment and explicit backend selection under the CLI lock; do not introduce `infer decide` or reserve a new prompt token. Use the existing custom-location mechanism. Download is explicit; inference requires verified local assets and cannot silently acquire missing files.
+- Implement a concrete `JuliaSidecar` behind the opt-in host `slm` feature. Preserve `SupersonicLabs/Julia-1`, runtime/tokenizer revisions, artifact hashes, and adapter protocol identity in provenance. Needle may select the registered Julia capability; Julia executes the final typed decision without recursive tool selection, a chat-completions provider, or a GGUF loader.
 - Include ONNX Runtime CPU inference in this slice behind the ACORN-owned launcher and bounded JSON-lines protocol. Retain pinned upstream Python/PyTorch as the reference backend for parity testing. Initially use Python ONNX Runtime bindings to keep the existing runner boundary; a native Rust runner is a later packaging decision. Package a locked runtime and all dependencies; never run pip or fetch tokenizer files during inference. ONNX becomes the default only after CPU compatibility, parity, packaging, and quality gates pass; a Python-only result does not complete the ONNX scope.
-- Reuse `SidecarAssets` and `SidecarDistribution`; resolve the required `ToolIndex` with a documented no-op implementation or a narrowly scoped shared-contract change approved under the library-root lock. Do not create a fake tool catalog. Avoid a generic registry or broad sidecar refactor.
+- Reuse `SidecarAssets` and `SidecarDistribution`; resolve the required `ToolIndex` with a documented no-op implementation or a narrowly scoped shared-contract change approved under the library-root lock. Do not create a fake tool catalog. Use the shared capability registry without a Julia-specific registry or broad sidecar refactor.
 - One process loads once, handles one bounded request containing multiple independent questions, then exits, matching consuming `infer`. Persistent sessions require a separate measured justification; warm upstream throughput is not a claim about this cold-start lifecycle.
 - Versioned input contains a request ID, source text, and ordered questions with stable unique IDs. Model questions and answers as tagged Rust enums with `Choice` and `Noul` variants, serialized as `choice` and `noul`. Choice accepts 2–20 unique option IDs and nonempty descriptions. Preserve caller order in an explicit sequence; reject duplicate IDs and unknown fields. Typed `score` remains deferred.
 - Return the selected caller ID, ordered full-precision probabilities, explicit abstention reason, and model/runtime/prompt provenance plus source fingerprint. Reject mismatched IDs, missing/extra probabilities, non-finite or out-of-range values, and distributions outside a documented sum tolerance. Use the named API or verified logits path, not rounded legacy output. Scores are conditional model estimates, not calibrated certainty.
@@ -146,7 +219,7 @@ The first consumer is explicit research-text triage: given a supplied abstract a
 
 ## Noul type modeling
 
-Treat `Noul` as a distinct probabilistic Boolean result, not an alias for `bool` or a nullable choice. Proposed sidecar-local types are `NoulCriteria`, `NoulQuestion`, `Noul`, and `NoulOutcome`; keep them in the decision module until a second consumer justifies a portable shared type.
+Treat `Noul` as a distinct probabilistic Boolean result, not an alias for `bool` or a nullable choice. Reuse the existing `acorn_core::Noul` probability type where its invariants fit; add sidecar-local `NoulCriteria`, `NoulQuestion`, and `NoulOutcome`. Do not introduce an incompatible duplicate probability type.
 
 - `NoulCriteria` has named false/true descriptions, both nonempty when supplied. An omitted criteria object uses literal false/true; a partial, empty, or extra-key object fails validation. Encode exactly two alternatives in false-then-true order regardless of JSON key order. Preserve supplied descriptions: the [upstream model card](https://huggingface.co/SupersonicLabs/Julia-1) reports a corrected API bug that previously discarded Boolean descriptions.
 - `Noul` stores a private, validated full-precision `probability_true` with fallible construction and deserialization. Reject NaN, infinity, and values outside inclusive `[0, 1]`; expose `probability_false` as the complement. Validate any upstream two-value distribution and its agreement with `probability_true` before construction. No implicit Boolean conversion or display rounding enters the inference path.
@@ -190,7 +263,7 @@ Measure cold/warm latency, p50/p95, peak process-tree RSS, installed/download by
 - [ ] Focused tests, `make lint`, `make test`, applicable feature/WASM checks, dependency/license checks, generated help, and real-model platform smoke jobs pass for implementation changes.
 - [ ] Documentation presents advisory decisions and limitations; no automatic RAD mutation, authorization, remote fallback, or background inference is introduced.
 
-# Validation
+# SLM profile validation
 
 - Compile-time contract tests assert that every concrete adapter declares typed input/output, stable identity/protocol values, asset resolution, verified-asset startup, and required inference.
 - Model-independent fixtures cover readiness and typed envelopes, malformed/oversized responses, request ID mismatch, Unicode and byte limits, timeouts, cancellation, concurrent sessions, startup failure, cleanup, stderr separation, and redacted diagnostics.
@@ -199,16 +272,327 @@ Measure cold/warm latency, p50/p95, peak process-tree RSS, installed/download by
 - Measure cold/warm latency, total download, peak memory, and batch behavior on every claimed platform. Keep heavyweight real-model tests explicit and separate from ordinary offline unit tests.
 - Run formatting, lint, focused tests, `make test`, applicable feature/WASM checks, license/dependency checks, generated-help checks, Linux CI smoke jobs, and manual macOS host and real-model checks for implementation changes.
 
-# Acceptance criteria
+# SLM profile acceptance criteria
 
+- [ ] `acorn ask` routes questions/commands through the existing Needle tools registry to exactly one eligible capability sidecar; invalid, unavailable, or withheld routes execute no model.
 - [ ] Pinned, ACORN-owned Tongue, Redact, and Title runners implement the bounded one-request protocol and run offline on every advertised target.
-- [ ] Explicit library and CLI paths return typed results without using Needle's tool loop, mutating RAD records, or downloading during unrelated commands.
-- [ ] Legacy Needle inference parsing remains supported with a documented escape for reserved first tokens.
+- [ ] Explicit library and CLI paths return typed results through Needle-selected capability handlers without mutating RAD records or downloading during inference.
+- [ ] The single `acorn ask` interface, legacy inference parsing, explicit `infer run`, and prompt escaping remain supported; no per-capability inference commands are required.
 - [ ] Tongue, Redact, and Title meet their frozen numeric quality gates; all three also pass license, artifact, lifecycle, documentation, and platform gates before stable release.
 - [ ] Title is clearly macOS ARM64-only, Windows is clearly unsupported, and unavailable capabilities fail with actionable errors rather than remote fallback.
 - [ ] Schemer, persistence, and semantic-decision work remain gated follow-ons and are not represented as shipped.
 
 # Execution phases
+
+SLM-00 remains first. RTR/PAR/ADP phases extend the plan without renumbering model phases. Native parity precedes external-adapter and model implementation. Split any missing operation extraction identified by PAR-00 into its own bounded phase before work begins.
+
+## SLM-00 — Augment the registry and inject it into Needle
+
+- Status: ready
+- Budget: 5 active hours maximum
+- Prerequisites: landed ToolRegistry and Needle contracts; no external model prerequisite
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/needle.rs`, `crates/acorn-lib/src/io/sidecar/needle/mod.rs`, `crates/acorn-lib/src/io/sidecar/needle/tests/mod.rs`, `crates/acorn-lib/src/io/mcp/tests/server.rs`
+- Primary integration lock: Ask capability routing
+- Outcome: Add caller-owned registry/catalog injection while preserving the default constructor and legacy loop. Establish availability-filtered typed terminal handlers without new providers or flags.
+- Focused validation: Fixture-test injected catalog, default behavior, withheld routes, and exactly one terminal handler call.
+- Handoff: Remove SLM-00 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## PAR-00 — Freeze the capability parity matrix
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SLM-00
+- Exact write set: `tests/fixtures/routing/parity.json`, `tests/fixtures/routing/cases.json`, `docs/src/inference/capability-parity.md`
+- Primary integration lock: Capability parity contract
+- Outcome: Inventory all current CLI scenarios, mandatory bounded scope, exclusions, code owners, exact operation-extraction needs, and routing/equivalence cases. Freeze separate bounded and total-CLI denominators.
+- Focused validation: Check unique IDs, command coverage, scenario/phase ownership, at least 200 routing cases with disjoint calibration/held-out splits, and no duplicate-handler coverage inflation.
+- Handoff: Remove PAR-00 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## RTR-01 — Define capabilities and executor bindings
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-00
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/capability.rs`, `crates/acorn-lib/src/io/mcp/tools/capability_tests.rs`
+- Primary integration lock: Ask capability routing
+- Outcome: Add capability identity/schema versions, typed binding registration, availability reasons, and deterministic selection in one registry. Preserve the catalog byte cap immediately, including deterministic explicit-scope filtering and clear narrowing errors; later parity additions must not silently break startup.
+- Focused validation: Test two compatible implementations, ID collisions, schema/effect mismatch, feature/host filtering, explicit override, configured preference, ambiguity, and oversized-catalog rejection/scoping.
+- Handoff: Remove RTR-01 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## RTR-02 — Carry execution context and terminal outcomes
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: RTR-01
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/execution.rs`, `crates/acorn-lib/src/io/mcp/tools/execution_tests.rs`, `crates/acorn-lib/src/io/sidecar/needle/mod.rs`, `crates/acorn-lib/src/io/sidecar/needle/tests/mod.rs`
+- Primary integration lock: Ask capability routing
+- Outcome: Propagate policy, deadline/cancellation, typed result/artifact envelope, exact mutation authority, and final availability checks. Separate routed terminal execution from legacy looping.
+- Focused validation: Test denial before effects, stale bindings, invalid/ungrounded input, no repeated non-idempotent calls, cancellation, bounds, and secret-free results.
+- Handoff: Remove RTR-02 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## RTR-03 — Compose routed acorn ask
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: RTR-02
+- Exact write set: `crates/acorn-cli/src/commands/infer/mod.rs`, `crates/acorn-cli/src/commands/infer/tests/mod.rs`, `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/cli/tests/mod.rs`, `CommandLineHelp.md`
+- Primary integration lock: CLI contract
+- Outcome: Build the caller-owned registry at the CLI boundary; freeze structured inputs, binding override, route preview, and apply-policy syntax while retaining existing aliases/flags and infer run.
+- Focused validation: Parser, stdin conflicts, legacy compatibility, preview-no-execution, authorization, result rendering, and generated-help tests.
+- Handoff: Remove RTR-03 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## PAR-01 — Share bounded inputs and artifact handling
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: RTR-03
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/input.rs`, `crates/acorn-lib/src/io/mcp/tools/input_tests.rs`
+- Primary integration lock: Ask capability routing
+- Outcome: Normalize text/file/directory inputs and artifact destinations with limits, deterministic batches, and explicit write policy. Establish the native leaf module root.
+- Focused validation: Path containment, traversal limits, invalid input, batch ordering/partial failures, destination collisions, and no unintended writes.
+- Handoff: Remove PAR-01 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## PAR-02 — Expose full analysis checks
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-01; reusable operation seam confirmed by PAR-00; coordinate the owning command plan
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/analysis.rs`, `crates/acorn-lib/src/io/mcp/tools/native/analysis_tests.rs`, `crates/acorn-cli/src/commands/check/mod.rs`, `crates/acorn-cli/src/commands/check/registry_tests.rs`
+- Primary integration lock: Native capability parity
+- Outcome: Existing category selection and structured analysis reports; preserve schema-only validation as distinct. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
+- Focused validation: Category selection, offline links, unavailable dependencies, schema/prose fixtures, and matching findings. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
+- Handoff: Remove PAR-02 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## PAR-03 — Expose semantic diff and similarity
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-01; reusable operation seam confirmed by PAR-00; coordinate the owning command plan
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/diff.rs`, `crates/acorn-lib/src/io/mcp/tools/native/diff_tests.rs`, `crates/acorn-cli/src/commands/diff/mod.rs`, `crates/acorn-cli/src/commands/diff/registry_tests.rs`
+- Primary integration lock: Native capability parity
+- Outcome: Current semantic diff, JSON Patch, and supported similarity metrics. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
+- Focused validation: Equal/changed inputs, metric options, limits, and matching patch/score outputs. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
+- Handoff: Remove PAR-03 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## PAR-04 — Expose current gather operations
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-01; reusable operation seam confirmed by PAR-00; coordinate the owning command plan
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/gather.rs`, `crates/acorn-lib/src/io/mcp/tools/native/gather_tests.rs`, `crates/acorn-cli/src/commands/gather/mod.rs`, `crates/acorn-cli/src/commands/gather/registry_tests.rs`
+- Primary integration lock: Native capability parity
+- Outcome: Current PID extraction from text/documents/permitted URLs and its provenance; no future extraction feature. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
+- Focused validation: Input types, offline rejection, duplicates, bounds, and matching extracted identifiers. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
+- Handoff: Remove PAR-04 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## PAR-05 — Align format and crosswalk behavior
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-01; reusable operation seam confirmed by PAR-00; coordinate the owning command plan
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/format.rs`, `crates/acorn-lib/src/io/mcp/tools/native/format_tests.rs`, `crates/acorn-cli/src/commands/format/mod.rs`, `crates/acorn-cli/src/commands/format/registry_tests.rs`
+- Primary integration lock: Native capability parity
+- Outcome: Supported standards, normalization/enrichment, loss warnings, preview and authorized output. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
+- Focused validation: Format/standard matrix, offline enrichment, field-loss warnings, preview/apply, and invalid-input no-write. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
+- Handoff: Remove PAR-05 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## PAR-06 — Expose linked-data operations
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-01; reusable operation seam confirmed by PAR-00; coordinate the owning command plan
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/link.rs`, `crates/acorn-lib/src/io/mcp/tools/native/link_tests.rs`, `crates/acorn-cli/src/commands/link/mod.rs`, `crates/acorn-cli/src/commands/link/registry_tests.rs`
+- Primary integration lock: Native capability parity
+- Outcome: Existing linked-data transformation with typed output and destination policy. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
+- Focused validation: Transformation fixtures, repeated operation behavior, preview/apply, and schema failures. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
+- Handoff: Remove PAR-06 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## PAR-07 — Expose SWHID calculate and verify
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-01; reusable operation seam confirmed by PAR-00; coordinate the owning command plan
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/swhid.rs`, `crates/acorn-lib/src/io/mcp/tools/native/swhid_tests.rs`, `crates/acorn-cli/src/commands/swhid/mod.rs`, `crates/acorn-cli/src/commands/swhid/registry_tests.rs`
+- Primary integration lock: Native capability parity
+- Outcome: Current local object calculation/verification through existing library behavior. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
+- Focused validation: File/directory/revision fixtures, mismatches, permitted paths, and stable identifiers. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
+- Handoff: Remove PAR-07 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## PAR-08 — Expose structured diagnostics
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-01; reusable operation seam confirmed by PAR-00; coordinate the owning command plan
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/doctor.rs`, `crates/acorn-lib/src/io/mcp/tools/native/doctor_tests.rs`, `crates/acorn-cli/src/commands/doctor/mod.rs`, `crates/acorn-cli/src/commands/doctor/registry_tests.rs`
+- Primary integration lock: Native capability parity
+- Outcome: Report-only diagnostics and readiness; keep automatic repair unavailable. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
+- Focused validation: Platform/dependency fixtures, missing tools, no mutations, redaction, and matching report data. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
+- Handoff: Remove PAR-08 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## PAR-09 — Align exports and artifact results
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-01; reusable operation seam confirmed by PAR-00; coordinate the owning command plan
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/export.rs`, `crates/acorn-lib/src/io/mcp/tools/native/export_tests.rs`, `crates/acorn-cli/src/commands/export/mod.rs`, `crates/acorn-cli/src/commands/export/registry_tests.rs`
+- Primary integration lock: Native capability parity
+- Outcome: Existing formats/targets and bounded batch inputs through shared renderers; preserve update export. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
+- Focused validation: Format/target fixtures, output bytes/artifacts, failed renderers, and authorized destinations. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
+- Handoff: Remove PAR-09 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## PAR-10 — Expose bounded imports
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-01; reusable operation seam confirmed by PAR-00; coordinate the owning command plan
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/import.rs`, `crates/acorn-lib/src/io/mcp/tools/native/import_tests.rs`, `crates/acorn-cli/src/commands/import/mod.rs`, `crates/acorn-cli/src/commands/import/registry_tests.rs`
+- Primary integration lock: Native capability parity
+- Outcome: Current spec/model import previews and explicit apply using existing services. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
+- Focused validation: Local/remote inputs, invalid specs, offline behavior, persistence policy, and preview/apply equivalence. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
+- Handoff: Remove PAR-10 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## PAR-11 — Expose explicit downloads and status
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-01; reusable operation seam confirmed by PAR-00; coordinate the owning command plan
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/download.rs`, `crates/acorn-lib/src/io/mcp/tools/native/download_tests.rs`, `crates/acorn-cli/src/commands/download/mod.rs`, `crates/acorn-cli/src/commands/download/registry_tests.rs`
+- Primary integration lock: Native capability parity
+- Outcome: Existing bucket/model/Needle acquisition/status through current planners; only explicit acquisition requests. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
+- Focused validation: Dry-run/cache/status, offline/missing cache, clobber policy, cancellation, and no inference-triggered downloads. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
+- Handoff: Remove PAR-11 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## PAR-12 — Expose configuration synchronization
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-01; reusable operation seam confirmed by PAR-00; coordinate the owning command plan
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/sync.rs`, `crates/acorn-lib/src/io/mcp/tools/native/sync_tests.rs`, `crates/acorn-cli/src/commands/sync/mod.rs`, `crates/acorn-cli/src/commands/sync/registry_tests.rs`
+- Primary integration lock: Native capability parity
+- Outcome: Current target selection, configuration previews, and explicit apply. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
+- Focused validation: Supported targets, unchanged configuration, proposed diffs, exact apply policy, and CLI equivalence. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
+- Handoff: Remove PAR-12 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## PAR-13 — Expose reporting and explicit publication
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-01; reusable operation seam confirmed by PAR-00; coordinate the owning command plan
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/report.rs`, `crates/acorn-lib/src/io/mcp/tools/native/report_tests.rs`, `crates/acorn-cli/src/commands/report/mod.rs`, `crates/acorn-cli/src/commands/report/registry_tests.rs`
+- Primary integration lock: Native capability parity
+- Outcome: Existing report artifact generation and publication through current destination/credential policy. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
+- Focused validation: Deterministic artifacts, denied/default publish, authorized mock publication, retries, and secret-free results. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
+- Handoff: Remove PAR-13 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## PAR-14 — Expose constrained script checking
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-01; reusable operation seam confirmed by PAR-00; coordinate the owning command plan
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/script.rs`, `crates/acorn-lib/src/io/mcp/tools/native/script_tests.rs`, `crates/acorn-cli/src/commands/exec/mod.rs`, `crates/acorn-cli/src/commands/exec/registry_tests.rs`
+- Primary integration lock: Native capability parity
+- Outcome: Current check/check-safe behavior; do not register unrestricted automation. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
+- Focused validation: Static/evaluation fixtures, forbidden operations, fuel/size bounds, and matching findings. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
+- Handoff: Remove PAR-14 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## PAR-15 — Prove routing at near-parity catalog size
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-02 through PAR-14; pinned Needle runner installed on a supported host
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/needle.rs`, `crates/acorn-lib/src/io/sidecar/needle/mod.rs`, `crates/acorn-lib/src/io/sidecar/needle/assets.rs`, `crates/acorn-lib/src/io/sidecar/needle/tests/mod.rs`, `tests/fixtures/routing/results.json`, `docs/src/inference/routing-evaluation.md`
+- Primary integration lock: Needle routing evaluation
+- Outcome: Enforce catalog budgets/cache invalidation and score the frozen corpus against the actual native catalog. Add measured deterministic scoping only if needed.
+- Focused validation: Declared routing gates, no silent truncation, retained-candidate recall, negative-case nonexecution, abstention, latency, and index/schema cache isolation.
+- Handoff: Remove PAR-15 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## PAR-16 — Release native near parity
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-15
+- Exact write set: `tests/fixtures/routing/parity.json`, `docs/src/inference/capability-parity.md`, `docs/src/inference/router.md`, `docs/src/SUMMARY.md`, `CommandLineHelp.md`
+- Primary integration lock: Router release gate
+- Outcome: Publish measured coverage, exclusions, compatibility, and examples before external adapters. Failed scenarios remain remaining work.
+- Focused validation: Serialize make lint, make test, applicable feature/WASM checks, help/book checks, and matrix/equivalence audit.
+- Handoff: Remove PAR-16 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+
+## ADP-01 — Wire optional executor configuration and features
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-16
+- Exact write set: `crates/acorn-lib/Cargo.toml`, `crates/acorn-lib/src/io/mod.rs`, `crates/acorn-lib/src/io/sidecar/mod.rs`, `crates/acorn-lib/src/io/sidecar/slm/mod.rs`, `crates/acorn-cli/src/commands/infer/mod.rs`, `crates/acorn-cli/src/commands/infer/tests/mod.rs`, `crates/acorn-cli/Cargo.toml`, `crates/acorn-lib/src/io/config/application.rs`, `crates/acorn-lib/src/io/config/tests/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/configuration.rs`, `crates/acorn-lib/src/io/mcp/tools/configuration_tests.rs`
+- Primary integration lock: Workspace graph
+- Outcome: Validate configured capability bindings to existing MCP server aliases, trusted ACP profiles, endpoints, and verified sidecars. Reuse transport configuration and isolate optional features; no new transport implementation. Wire composition from the CLI and create the optional SLM module independently of Swift artifacts so Julia can compile and release independently.
+- Focused validation: Minimal/combined feature builds, duplicate/invalid bindings, unavailable executor kinds, secret-free descriptors, and no discovery during configuration parsing.
+- Handoff: Remove ADP-01 after preserving contract/evidence in code, tests, and documentation.
+
+## ADP-02 — Adapt configured MCP tools
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ADP-01
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/mcp.rs`, `crates/acorn-lib/src/io/mcp/tools/mcp_tests.rs`
+- Primary integration lock: Ask capability routing
+- Outcome: Use McpClientBackend discovery/calls with collision-safe IDs, local policy, schemas, cancellation, and bounded content. Preserve semantic tool errors; ask eligibility does not imply inbound MCP re-export.
+- Focused validation: Mock pagination/schema drift, name collisions, untrusted metadata, offline/allowlist rules, is_error, limits, cancellation cleanup, and no provider fallback.
+- Handoff: Remove ADP-02 after preserving contract/evidence in code, tests, and documentation.
+
+## ADP-03 — Adapt trusted ACP agent capabilities
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ADP-01
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/acp.rs`, `crates/acorn-lib/src/io/mcp/tools/acp_tests.rs`
+- Primary integration lock: Ask capability routing
+- Outcome: Bind named tasks to trusted ACP profiles through InferenceBackend and prompt hydration; preserve deny-mutation policy, configured model/agent, schema support, and provenance. Do not grant arbitrary agent authority.
+- Focused validation: Fake sessions for capability mismatch, permission requests, selected model, refusal, timeout/cancellation cleanup, malformed structured output, and final result mapping.
+- Handoff: Remove ADP-03 after preserving contract/evidence in code, tests, and documentation.
+
+## ADP-04 — Adapt configured inference endpoints
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ADP-01
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/inference.rs`, `crates/acorn-lib/src/io/mcp/tools/inference_tests.rs`
+- Primary integration lock: Ask capability routing
+- Outcome: Bind named tasks to existing OpenAI-compatible InferenceBackend with configured endpoint/model, explicit data policy, and validated outputs. No new provider SDK or implicit fallback.
+- Focused validation: Mock refusal/failure, malformed output, unsupported schema/attachments, offline rejection, cancellation, and binding preference.
+- Handoff: Remove ADP-04 after preserving contract/evidence in code, tests, and documentation.
+
+## ADP-05 — Prove reusable local sidecar registration
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ADP-01
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/sidecar.rs`, `crates/acorn-lib/src/io/mcp/tools/sidecar_tests.rs`
+- Primary integration lock: Ask capability routing
+- Outcome: Adapt SidecarAssets/Sidecar into registered handlers with verified installed assets, target availability, bounded lifecycle, and typed final output. Use deterministic fixture runners; real SLMs remain model-profile work.
+- Focused validation: Readiness, input/output contracts, missing/altered assets, unsupported hosts, timeout/cancellation/process cleanup, exactly one invocation, and no implicit acquisition.
+- Handoff: Remove ADP-05 after preserving contract/evidence in code, tests, and documentation.
+
+## ADP-06 — Validate heterogeneous executor selection
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ADP-02, ADP-03, ADP-04, ADP-05
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/capability_tests.rs`, `crates/acorn-lib/src/io/mcp/tools/execution_tests.rs`, `tests/fixtures/routing/executors.json`, `docs/src/inference/routing-evaluation.md`
+- Primary integration lock: Router release gate
+- Outcome: Prove compatible task bindings across native/SLM/MCP/ACP/endpoint fixtures without router changes. Compare task results and explainable selection; no recursive delegation.
+- Focused validation: Cross-adapter schema/effect rejection, explicit override, preference/ambiguity, stale/unavailable bindings, data policy, and no repeated side effects.
+- Handoff: Remove ADP-06 after preserving contract/evidence in code, tests, and documentation.
+
+## ADP-07 — Document and release the generic router
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ADP-06
+- Exact write set: `docs/src/inference/router.md`, `docs/src/inference/capability-parity.md`, `docs/src/SUMMARY.md`, `CommandLineHelp.md`
+- Primary integration lock: Router release gate
+- Outcome: Publish registration examples, configuration, selection rules, supported policies, and measured coverage. Release independently of Swift and Julia availability.
+- Focused validation: Serialized lint/full suite, narrow/combined features, WASM, help/docs, and explicit available-transport smoke tests. Record unsupported/unvalidated profiles; a failed required gate keeps this phase open.
+- Handoff: Remove ADP-07 after preserving contract/evidence in code, tests, and documentation.
 
 ## SLM-01 — Obtain redistribution approval
 
@@ -236,7 +620,7 @@ Measure cold/warm latency, p50/p95, peak process-tree RSS, installed/download by
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SLM-01
+- Prerequisites: ADP-05, SLM-01
 - Exact write set: `tests/fixtures/slm/protocol/`, protocol contract
 - Primary integration lock: SLM protocol
 - Outcome: Freeze readiness, request, response, error, timeout, and request-ID envelopes for three capabilities.
@@ -331,14 +715,14 @@ Measure cold/warm latency, p50/p95, peak process-tree RSS, installed/download by
 - Focused validation: Install each artifact into a clean cache and rerun offline protocol/model smoke tests.
 - Handoff: Remove SLM-11 and provide immutable facts to Rust integration.
 
-## SLM-12 — Add the opt-in Rust feature and manifests
+## SLM-12 — Pin Swift profile manifests and registration
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SLM-11
-- Exact write set: `crates/acorn-lib/Cargo.toml`, `crates/acorn-lib/src/io/mod.rs`, `crates/acorn-lib/src/io/sidecar/slm/assets.rs`
+- Prerequisites: ADP-01, SLM-11
+- Exact write set: `crates/acorn-lib/Cargo.toml`, `crates/acorn-lib/src/io/mod.rs`, `crates/acorn-lib/src/io/sidecar/slm/assets.rs`, `crates/acorn-lib/src/io/sidecar/slm/mod.rs`
 - Primary integration lock: library feature graph
-- Outcome: Add `slm` and pin validated capability/platform assets without predicting checksums.
+- Outcome: Consume the existing opt-in `slm` wiring and pin validated Swift capability/platform assets without predicting checksums.
 - Focused validation: Run feature/no-feature, dependency, manifest, custom-location, and unsupported-target tests.
 - Handoff: Remove SLM-12 and freeze asset identity.
 
@@ -386,15 +770,15 @@ Measure cold/warm latency, p50/p95, peak process-tree RSS, installed/download by
 - Focused validation: Run schema, subtitle, stale-source, limit, asset, offline, and real-model smoke tests.
 - Handoff: Remove SLM-16 and freeze the typed result.
 
-## SLM-17 — Add explicit infer and download commands
+## SLM-17 — Register Swift capabilities behind acorn ask
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SLM-14, SLM-15, SLM-16
-- Exact write set: inference/download command modules, CLI argument/dispatch roots, `CommandLineHelp.md`
+- Prerequisites: ADP-05, SLM-14, SLM-15, SLM-16
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/needle.rs`, `crates/acorn-lib/src/io/mcp/tests/server.rs`, `crates/acorn-cli/src/commands/infer/mod.rs`, `crates/acorn-cli/src/commands/infer/tests/mod.rs`, `crates/acorn-cli/src/commands/download/mod.rs`, `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/cli/tests/mod.rs`, `CommandLineHelp.md`
 - Primary integration lock: CLI syntax and generated help
-- Outcome: Add language/redact/title commands and status downloads while preserving legacy Needle parsing and escapes.
-- Focused validation: Run parser, stdin/argument conflict, unavailable platform, missing cache, custom location, and help tests.
+- Outcome: Register language/redact/title handlers behind `acorn ask` and add explicit status/download support while preserving existing parsing. Needle routes and the selected sidecar executes; return its result without another routing round.
+- Focused validation: Run parser, stdin/argument conflict, unavailable platform, missing cache, custom location, and help tests; run actual Needle-to-sidecar smoke tests for all three capabilities and frozen request-routing cases, including ambiguity/abstention.
 - Handoff: Remove SLM-17 and freeze public syntax.
 
 ## SLM-18 — Document supported SLM behavior
@@ -450,13 +834,13 @@ Measure cold/warm latency, p50/p95, peak process-tree RSS, installed/download by
 - Primary integration lock: SLM release gate
 - Outcome: Run all platform/lifecycle/license/quality gates and mark only the tested three-capability profile stable.
 - Focused validation: Run focused tests, feature/WASM checks, dependency/license checks, help/docs, Linux CI, and macOS real-model jobs.
-- Handoff: Prune all SLM-* sections; retain this plan only while JUL-* work remains.
+- Handoff: Prune completed Swift phases; retain the plan while any router, parity, adapter, or Julia work remains.
 
 ## JUL-01 — Pin Julia feasibility inputs
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: named Julia pilot owner
+- Prerequisites: PAR-16, named Julia pilot owner
 - Exact write set: Julia revision/license/dependency record, `scripts/slm/julia/README.md`, this plan
 - Primary integration lock: Julia adoption decision
 - Outcome: Pin code, weights, tokenizer, APIs, licenses, build, and offline packaging for Linux x86_64.
@@ -489,8 +873,8 @@ Measure cold/warm latency, p50/p95, peak process-tree RSS, installed/download by
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: JUL-02
-- Exact write set: `crates/acorn-lib/src/io/sidecar/slm/decision.rs`, Noul tests
+- Prerequisites: ADP-01, JUL-02
+- Exact write set: `crates/acorn-lib/src/io/sidecar/slm/mod.rs`, `crates/acorn-lib/src/io/sidecar/slm/decision.rs`, `crates/acorn-lib/src/io/sidecar/slm/decision/tests.rs`
 - Primary integration lock: shared sidecar root
 - Outcome: Model criteria, validated probability, complement, threshold answer/abstention, and policy revision explicitly.
 - Focused validation: Run serde, ordering, endpoints, midpoint, threshold, missing evidence, and invalid-number tests.
@@ -562,15 +946,15 @@ Measure cold/warm latency, p50/p95, peak process-tree RSS, installed/download by
 - Focused validation: Run fixture, asset, offline, timeout, cancellation, cleanup, redaction, and real-model smoke tests.
 - Handoff: Remove JUL-10 and freeze the typed Rust interface.
 
-## JUL-11 — Add explicit decision CLI and backend selection
+## JUL-11 — Register decision routing and backend selection
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: JUL-10
-- Exact write set: inference/download command modules, CLI argument/dispatch roots, `CommandLineHelp.md`
+- Prerequisites: ADP-05, JUL-10
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/needle.rs`, `crates/acorn-lib/src/io/mcp/tests/server.rs`, `crates/acorn-cli/src/commands/infer/mod.rs`, `crates/acorn-cli/src/commands/infer/tests/mod.rs`, `crates/acorn-cli/src/commands/download/mod.rs`, `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/cli/tests/mod.rs`, `CommandLineHelp.md`
 - Primary integration lock: CLI syntax and generated help
-- Outcome: Add `infer decide` and `download slm decide` with explicit `onnx|python` selection and Needle compatibility.
-- Focused validation: Run parser, input, option-count, backend/cache, custom-location, unsupported-host, and help tests.
+- Outcome: Register Julia decisions behind `acorn ask` and add `download slm decide` with explicit `onnx|python` selection. Preserve supplied questions/options and existing inference compatibility; Needle selects Julia and Julia returns the final advisory result.
+- Focused validation: Run parser, input, option-count, backend/cache, custom-location, unsupported-host, and help tests plus actual Needle-to-Julia smoke and frozen routing/abstention cases.
 - Handoff: Remove JUL-11 and freeze public syntax.
 
 ## JUL-12 — Complete decision lifecycle tests
@@ -606,13 +990,13 @@ Measure cold/warm latency, p50/p95, peak process-tree RSS, installed/download by
 - Focused validation: Run the held-out Noul corpus and measured cold/warm Linux x86_64 profile.
 - Handoff: Remove JUL-14 or create a bounded evaluation repair phase.
 
-## JUL-15 — Document, release, and retire
+## JUL-15 — Document and release the independent Julia profile
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: JUL-13, JUL-14, SLM-22
+- Prerequisites: JUL-13, JUL-14
 - Exact write set: `docs/src/inference/slm.md`, `docs/src/SUMMARY.md`, wiki indexes, this plan
 - Primary integration lock: SLM release gate
-- Outcome: Publish the advisory decision profile and remove the SLM plan after every independent gate passes.
+- Outcome: Publish the advisory decision profile after its own gates pass; do not wait for Swift release.
 - Focused validation: Run focused tests, lint/full suite, feature/WASM, license/dependency, help/docs, real-model smoke, and wiki validation.
-- Handoff: Delete this plan and every index, network, and lane entry.
+- Handoff: Remove JUL-15 after documenting its release. Retire the plan and all index/network/lane entries only when every router, parity, adapter, and model phase is complete.

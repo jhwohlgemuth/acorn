@@ -3,7 +3,7 @@
 ## In progress
 
 - [Model acquisition and metadata hardening](model-acquisition-hardening.md) - Complete identity-safe Hugging Face requests, exact GGUF metadata, and ModelKit/ModelPack interoperability evidence.
-- [Small language model (SLM) sidecars](slm-sidecars.md) - Ship explicitly selected Tongue, Redact, and Title sidecars; plan a separately gated [Julia-1 decision sidecar](slm-sidecars.md#julia-1-decision-sidecar-planned-follow-on) with offline CPU packaging and ACORN quality gates.
+- [Needle router and capability registry parity](slm-sidecars.md) - First SLM-00/RTR and PAR phases bring bounded native ACORN workflows behind `acorn ask`; then shared MCP, ACP, endpoint, and sidecar adapters. Swift and [Julia](slm-sidecars.md#julia-1-decision-sidecar-planned-follow-on) release independently.
 
 ## Planned
 

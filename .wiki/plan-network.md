@@ -46,9 +46,10 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 ### Gather, inference, and agent tools
 
 - [Deterministic and assisted gather extraction](features/gather-extraction.md) lands deterministic selector and transport policy before its optional inference adapter. Its TUI cutover follows the shared source contract.
-- [SLM sidecars](features/slm-sidecars.md) may build explicit Tongue, Redact, and Title runners independently. Schemer integration, if it becomes available, consumes the gather inference contract.
-- The [Julia-1 decision slice](features/slm-sidecars.md#julia-1-decision-sidecar-planned-follow-on) stays within SLM sidecars, consumes the landed asset/distribution contracts, and coordinates acquisition changes with the model acquisition plan. Its CPU packaging and quality gates are independent of the Swift adapters and Title's macOS prerequisite; shared feature, sidecar, CLI, and CI/build integration still serializes.
-- [Needle 3 host validation](migrations/needle-3-upgrade.md) and SLM sidecars share sidecar artifact and CI/build locks but are functionally independent.
+- [Needle router and capability registry parity](features/slm-sidecars.md) starts with SLM-00 caller-owned registry injection, then PAR-00 and RTR-01/02/03 contracts. PAR-01 through PAR-16 deliver measured native parity before ADP-01 through ADP-07 add generic executor configuration, MCP, ACP, endpoints, and sidecars. SLM-17 and JUL-11 consume ADP-05. Native parity and the generic release do not depend on model licensing or macOS hosts.
+- Router native adapters consume existing operation services and coordinate command seams with CLI composition; export/gather/model-acquisition plans retain their domain behavior ownership. MCP and ACP adapters reuse landed client/inference contracts; outbound MCP documentation closeout is not a code prerequisite. No automatic inbound MCP re-export is implied.
+- The [Julia-1 decision slice](features/slm-sidecars.md#julia-1-decision-sidecar-planned-follow-on) follows PAR-16 and consumes ADP-05 for registration, plus landed acquisition contracts. JUL-15 depends on Julia quality/resource gates, not SLM-22; Swift and Julia releases are independent.
+- [Needle 3 host validation](migrations/needle-3-upgrade.md) and the router plan serialize Needle roots, tool-index/artifact, and CI/build changes. Router implementation uses existing contracts; PAR-15 still needs an installed pinned runner on a supported host for real routing evaluation.
 
 ### Optional policy validation
 
@@ -77,6 +78,7 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 | `io/mcp/client.rs`, outbound client tests and documentation | outbound MCP client interface; the landed feature graph and manifest boundary remain fixed |
 | Research-activity/PID schema roots | Dublin Core, dPID, structured enrichment, PID verification |
 | `io/{archive,oci}.rs`, `io/model/gguf/`, and model planner | model acquisition, SLM/Needle artifact work |
+| Tool registry, Needle startup/catalog, inference dispatch | router/parity, Needle validation, CLI composition; adapter leaves consume the frozen binding contract |
 | CLI parser, `main.rs`, generated help | analysis/service serve cutover, CLI composition, dPID, gather, CEL, remote create, SLM |
 | Export dispatch/templates/PowerPoint | export pipeline, database-backed artifacts |
 | `Makefile` and `.gitlab-ci.yml` | runner pools, Podman, SLM, Needle, PID verification, export fuzzing, coverage throughput |

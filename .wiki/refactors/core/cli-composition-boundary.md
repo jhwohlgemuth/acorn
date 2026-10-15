@@ -40,6 +40,8 @@ Command implementations receive immutable execution values rather than clap-only
 
 Schedule after any active CLI syntax owner releases `src/cli/` and generated help. Provider and service extraction may proceed independently, but this plan consumes their final request and error types rather than inventing interface-owned duplicates.
 
+The [Needle router and registry parity plan](../../features/slm-sidecars.md) owns capability descriptors, executor bindings, and CLI/service equivalence adapters. Its PAR-00 inventories reusable operation seams; coordinate each PAR command leaf with this plan before editing. Share normalized operation requests/results and keep parsing/presentation in the CLI. Neither plan owns a duplicate implementation or requires completion of the other entire plan; a missing service seam gets a separately bounded owner phase.
+
 # Decisions
 
 - Clap structs exist only at the parse boundary. One fallible normalization step produces execution requests with defaults, paths, feature availability, and mutually exclusive inputs resolved.
