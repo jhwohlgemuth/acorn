@@ -859,7 +859,7 @@ pub(crate) struct Export {
     #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) branch: Option<String>,
     /// Chrome or Chromium executable to use for PDF export
-    #[arg(long, env = CHROME_PATH, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS", conflicts_with = "schema")]
+    #[arg(long, env = CHROME_PATH, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
     pub(crate) chrome_path: Option<PathBuf>,
     /// Combine all export artifacts into a single artifact
     #[arg(long = "combine", value_name = "BOOL", help_heading = "FLAGS", conflicts_with = "schema")]
@@ -938,7 +938,7 @@ pub(crate) struct Export {
         value_name = "BOOL",
         help_heading = "FLAGS",
         conflicts_with_all = [
-            "schema", "branch", "chrome_path", "combine", "commit", "config", "archive_format", "filter", "ignore", "show_aspect_labels",
+            "schema", "branch", "combine", "commit", "config", "archive_format", "filter", "ignore", "show_aspect_labels",
             "show_aspect_scores", "merge_request", "skip", "reference", "strict", "from", "to", "crosswalk_contact", "local_identifier"
         ]
     )]

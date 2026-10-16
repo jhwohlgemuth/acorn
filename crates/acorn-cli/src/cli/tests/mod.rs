@@ -1355,8 +1355,10 @@ fn test_oci_standard_is_rejected_outside_check_and_schema_export() {
         let parsed = Arguments::try_parse_from(arguments).expect("parse OCI standard");
         assert!(crate::commands::validate_oci_standard_arguments(&parsed).is_err());
     });
-    let schema = Arguments::try_parse_from(["acorn", "export", "--schema", "--standard", "oci"]).expect("parse OCI schema export");
-    assert!(crate::commands::validate_oci_standard_arguments(&schema).is_ok());
+    temp_env::with_var(CHROME_PATH, Some("/environment/chrome"), || {
+        let schema = Arguments::try_parse_from(["acorn", "export", "--schema", "--standard", "oci"]).expect("parse OCI schema export");
+        assert!(crate::commands::validate_oci_standard_arguments(&schema).is_ok());
+    });
 }
 #[test]
 fn test_paste_rejects_watch_mode() {
@@ -1614,14 +1616,16 @@ fn test_tools_export_and_needle_custom_location_arguments() {
         download.command,
         Some(Commands::Download(ref arguments)) if matches!(arguments.command, Some(DownloadCommands::Needle))
     ));
-    let export = Arguments::try_parse_from(["acorn", "export", "--tools", "--output", "catalog"]).expect("parse tools export");
-    match export.command {
-        | Some(Commands::Export(arguments)) => {
-            assert!(arguments.tools);
-            assert_eq!(arguments.output, Some(PathBuf::from("catalog")));
+    temp_env::with_var(CHROME_PATH, Some("/environment/chrome"), || {
+        let export = Arguments::try_parse_from(["acorn", "export", "--tools", "--output", "catalog"]).expect("parse tools export");
+        match export.command {
+            | Some(Commands::Export(arguments)) => {
+                assert!(arguments.tools);
+                assert_eq!(arguments.output, Some(PathBuf::from("catalog")));
+            }
+            | other => panic!("unexpected command: {other:?}"),
         }
-        | other => panic!("unexpected command: {other:?}"),
-    }
+    });
     assert!(Arguments::try_parse_from(["acorn", "export", "--tools", "--schema"]).is_err());
 
     let infer = Arguments::try_parse_from([
