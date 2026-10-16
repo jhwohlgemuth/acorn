@@ -48,6 +48,8 @@ mod effects;
 #[cfg(all(feature = "agentic", feature = "analysis"))]
 pub mod intake;
 #[cfg(feature = "agentic")]
+pub mod jsonl;
+#[cfg(feature = "agentic")]
 pub mod package;
 #[cfg(feature = "agentic")]
 pub mod policy;

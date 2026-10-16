@@ -277,7 +277,7 @@ The callback flow uses this request schema:
 
 ## Next steps with the available servers
 
-Prioritize PA-20 through PA-24 and their JSONL ingestion/routing implementation independently of external deployment waits. Their integration gate must cover a mixed-project inbox using both project IDs and folder aliases; reporting and notification deployment must not defer this support to PA-09.
+Prioritize PA-22 through PA-24 and their JSONL ingestion/routing implementation independently of external deployment waits. Their integration gate must cover a mixed-project inbox using both project IDs and folder aliases; reporting and notification deployment must not defer this support to PA-09.
 
 1. Finish the Vergil bot health, readiness, and isolated GitLab access checks in polling mode.
 2. Test a policy-approved Power Automate callback flow from Vergil over outbound HTTPS and confirm Teams/email delivery. Store the callback URL securely before real intake.
@@ -534,6 +534,7 @@ Submit authorized test entries for two different projects and one deliberately u
 
 - **2026-10-11 transport status:** the user selects a GitLab JSONL inbox based on a reported CSV-row test. JSONL append, repository polling, and the full workflow remain unimplemented/unvalidated. Gateway availability is not a prerequisite. Only this plan and linked wiki records were updated.
 - **PA-20 landed:** `options.powerAutomate.intake` (branch/path/interval/size limits with validation and documented defaults), `gitlab_project_id()` reconciliation, and startup `.env` loading with process-over-file precedence are implemented with six new `io::config` tests plus the `intake.json` fixture. Focused suites pass (`io::config` 69/69 and `io::api::powerautomate` 11/11 under `analysis,agentic`; mirror path green under `analysis`), `cargo fmt --check` clean, and scoped clippy warning-free. Incidental harness repair outside the PA-20 write set: one missing `ValeOutput` import in the analyzer test module that blocked compiling the lib test target.
+- **PA-21 landed:** `crates/acorn-lib/src/io/api/gitlab/jsonl.rs` exposes `read_snapshot(intake, options)` (branch-head resolution via the existing `commit_sha`, immutable read via the existing `repository_file`, empty snapshot on 404) and pure `split_snapshot` (LF split with 1-based line numbers, byte offsets, and `sha256:`-prefixed `ring` digests matching the shared byte-digest spelling; empty lines skipped; nonterminated tail rejected; `max_file`/`max_record` enforced via `checked_bytes`). `JsonlLine`/`JsonlSnapshot` derive `Validate` with `range`/`nonempty`/`digest`/`commit`/`nested` builtins. No `?` operators (match/combinator style), no new GitLab client, hash, or size-limit logic; no admission, deduplication, or removal. Ten new `gitlab::tests::jsonl` tests plus the mixed-project `tests/fixtures/automation/powerautomate/logbook.jsonl` sample (canonical IDs `acorn`/`rad` plus alias `acorn-tooling`, escaped quotes, Unicode, items array) pass; `io::api::gitlab` + `io::config` + `io::api::powerautomate` suites pass 195/195, scoped clippy warning-free, `cargo fmt` clean, and `--no-default-features` check green.
 - The 2026-10-07 canvas version is published. The live launch confirms `SubmitEntryScreen` is the start screen; preview also verifies it at the default canvas size and at 360 by 800. The controlled category list contains only the placeholder plus the twelve documented categories. The environment-local notification flow is attached, the blank form keeps **Submit highlight** disabled, the tooltip is `Submit highlight to Teams and email`, and the status is `Ready to send Teams and email notifications.`
 - App checker reports zero formula issues for the saved draft. Its 21 missing-label and two missing-tab-stop errors are confined to named controls on the pre-existing generated `Logbooks screen`; no new contributor control appears in those findings.
 - Notification-only run `08584102113387025966515574751CU09` completed successfully in three seconds on 2026-10-07. Its Power Apps trigger, Microsoft Teams direct-chat action, and Office 365 Outlook email action all report **Succeeded**, and the canvas displayed **Notifications sent.** The run contains no HTTP, ACORN, GitLab, or NSSD action. Record human confirmation that the Teams chat and email are visible before treating delivery as accepted.
@@ -592,30 +593,19 @@ Submit authorized test entries for two different projects and one deliberately u
 - Single + interleaved multi-project ingestion (ID and alias, alias ≠ ID; only each destination's `index.json` changes) → PA-24, built on PA-20–PA-23.
 - Rejected selectors/members/paths without project-data change; per-record failure isolation; replay/restart without duplication or route change → PA-22 (identity) + PA-24 (matrix).
 - Flow appends one compact envelope per line; concurrent appends/removals lose nothing; post-removal retries cause no duplicate effects → PA-23 + PA-05.
-- Vergil reads immutable snapshots, ingests before removing exact matches, routes by selector, keeps rejections visible and payloads past removal → PA-21 + PA-22 + PA-23.
+- Vergil reads immutable snapshots, ingests before removing exact matches, routes by selector, keeps rejections visible and payloads past removal → snapshot reader (PA-21 landed) + PA-22 + PA-23.
 - Global/folder authorization parity across HTTP/JSONL → PA-20 (resolution) + PA-22 (enforcement).
-- Folder resolution precedence and explicit overrides → PA-20 (config) + PA-21 (reader).
+- Folder resolution precedence and explicit overrides → PA-20 (config) + snapshot reader (PA-21 landed).
 - No phase assumes note polling consumes repository files; the mixed-project gate blocks PA-05, not PA-09.
-
-## PA-21 — Immutable JSONL snapshot reader
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: settled JSONL contract and source configuration above (landed intake-config phase)
-- Exact write set: `crates/acorn-lib/src/io/api/gitlab/jsonl.rs` (new), `crates/acorn-lib/src/io/api/gitlab/mod.rs` (module registration), `crates/acorn-lib/src/io/api/gitlab/service.rs` (branch-head helper, only if the existing branches API needs one), `crates/acorn-lib/src/io/api/gitlab/tests/jsonl.rs` (new), `crates/acorn-lib/src/io/api/gitlab/tests/mod.rs` (test registration), `tests/fixtures/automation/powerautomate/logbook.jsonl` (new mixed-project sample)
-- Primary integration lock: JSONL snapshot reader
-- Outcome: Resolve the configured branch head, read `.acorn/intake/logbook.jsonl` at that immutable commit via `repository_file`, and split UTF-8 LF-delimited lines with per-line locations and SHA-256 digests. Enforce file/record size limits, reject a nonterminated tail instead of silently repairing it, and treat a missing file as empty intake (not a network/authentication error). No admission, deduplication, or removal yet.
-- Focused validation: Mocked-GitLab tests (existing axum harness style) for escaped quotes/newlines, Unicode, optional arrays, oversize file/record rejection, malformed-tail errors, unchanged-SHA short-circuit, and empty/missing files; focused tests plus clippy.
-- Handoff: Remove PA-21 and unblock PA-22.
 
 ## PA-22 — Durable JSONL admission and replay
 
-- Status: planned
+- Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: PA-21
+- Prerequisites: settled JSONL contract and landed immutable snapshot reader
 - Exact write set: `crates/acorn-lib/src/io/api/powerautomate/jsonl.rs` (new), `crates/acorn-lib/src/io/api/powerautomate/mod.rs` (module registration), `crates/acorn-lib/src/io/api/webhooks/store.rs` (source-evidence and outcome persistence migration), `crates/acorn-lib/src/io/api/powerautomate/tests/jsonl.rs` (new), `crates/acorn-lib/src/io/api/powerautomate/tests/mod.rs` (test registration)
 - Primary integration lock: durable admission identity
-- Outcome: Admit each snapshot line independently through strict `FormSubmission` parsing and `entry_after` (validate, authorize via shared resolution, report cutoff), reusing the canonical `form:v1:{submission_id}` operation identity through `enqueue_spec` with `powerautomate-jsonl:{commit}:{line}` delivery IDs. Persist source evidence (source project, branch, path, commit, line, digest, original selector, resolved route) with each admitted payload and outcome; identical retries reuse the canonical operation, changed content under a known ID is rejected, and one record's rejection never blocks other projects. Persisted routes survive later mapping changes. Coordinate the webhooks-store owner on the migration.
+- Outcome: Admit each snapshot line independently through strict `FormSubmission` parsing and `entry_after` (validate, authorize via shared resolution, report cutoff), reusing the canonical `form:v1:{submission_id}` operation identity through `enqueue_spec` with `powerautomate-jsonl:{commit}:{line}` delivery IDs. Persist source evidence (source project, branch, path, commit, line, digest, original selector, resolved route) with each admitted payload and outcome; identical retries reuse the canonical operation, changed content under a known ID is rejected, and one record's rejection never blocks other projects. Persisted routes survive later mapping changes. Coordinate the webhooks-store owner on the migration. Consume the landed `gitlab::jsonl` snapshot reader (`JsonlSnapshot`/`JsonlLine` with commit, line, byte offset, raw, and digest) rather than reimplementing branch resolution, file fetching, or line splitting.
 - Focused validation: Admission matrix for valid, invalid, unauthorized, and cutoff-rejected records side by side; duplicate and conflicting IDs before and after inbox removal; restart/crash replay before admission, after admission, and after removal; mapping-change stability; focused tests plus clippy.
 - Handoff: Remove PA-22 and unblock PA-23 and PA-25.
 
@@ -700,7 +690,7 @@ Submit authorized test entries for two different projects and one deliberately u
 
 - Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: PA-03, PA-04, PA-21 through PA-24 landed (intake source configuration already landed)
+- Prerequisites: PA-03, PA-04, PA-22 through PA-24 landed (intake source configuration and snapshot reader already landed)
 - Exact write set: selected Power Apps intake flow, canvas submit action, isolated project `22464` inbox `.acorn/intake/logbook.jsonl`, Vergil JSONL source configuration
 - Primary integration lock: intake route
 - Outcome: Append the strict version-1 envelope with conflict-safe GitLab retries, configure the implemented repository-file poller, and return a confirmed queued receipt with submission ID and commit SHA.

@@ -1530,4 +1530,5 @@ mod bot;
 mod database;
 #[cfg(feature = "analysis")]
 mod intake;
+mod jsonl;
 mod package;
