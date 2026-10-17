@@ -236,6 +236,15 @@ pub enum Commands {
     #[clap(verbatim_doc_comment)]
     #[command(long_about = None, visible_alias = "load")]
     Import(Box<arguments::Import>),
+    /// Review local Power Automate JSONL submissions before changing an index
+    ///
+    ///     $> acorn intake stage --config .acorn.json --inbox logbook.jsonl
+    ///     $> acorn intake apply --config .acorn.json --submission-id UUID
+    #[clap(verbatim_doc_comment)]
+    Intake {
+        #[command(subcommand)]
+        command: IntakeCommands,
+    },
     /// Add linked data context to research activity data
     ///
     ///     $> acorn link /path/to/data/
@@ -420,6 +429,29 @@ pub enum ImportCommands {
 pub enum InferCommands {
     /// Hydrate and run one known embedded prompt asset
     Run(Box<arguments::PromptRun>),
+}
+/// Explicit local Power Automate intake operations.
+#[derive(Debug, Subcommand)]
+#[command(long_about = None)]
+pub enum IntakeCommands {
+    /// Write reviewable proposals for valid lines in a local JSONL inbox.
+    Stage {
+        /// Explicit ACRE configuration with local folder destinations.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        config: PathBuf,
+        /// LF-terminated JSONL inbox file.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        inbox: PathBuf,
+    },
+    /// Apply one staged proposal after reviewing its JSON file.
+    Apply {
+        /// Explicit ACRE configuration used for staging.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        config: PathBuf,
+        /// Stable UUID from the submission envelope.
+        #[arg(long)]
+        submission_id: String,
+    },
 }
 #[derive(Clone, Debug, Subcommand)]
 #[command(long_about = None)]

@@ -69,4 +69,16 @@ options:
 
 Each LF-terminated line uses the existing form envelope. Its `projectId` selects a registered folder ID or alias. The bot authorizes and durably queues each entry before removing its exact line. Preserve the UUID and serialized bytes across retries; changes under an accepted UUID are conflicts. Admission fixes the canonical destination so configuration changes cannot redirect retries.
 
-Rejected records remain in the inbox with inspectable outcomes in the durable operation store. Cleanup preserves unrelated bytes and concurrent appends, keeps an empty file after draining, and retries conflicts from a fresh snapshot. GitLab intake proposes changes through the existing review workflow. Local destinations require a separate proposal/apply adapter.
+Rejected records remain in the inbox with inspectable outcomes in the durable operation store. Cleanup preserves unrelated bytes and concurrent appends, keeps an empty file after draining, and retries conflicts from a fresh snapshot. GitLab intake proposes changes through the existing review workflow.
+
+## Standalone local logbook review
+
+For a registered folder with a `file:` destination and no bucket association, use a local JSONL inbox:
+
+```sh
+acorn intake stage --config .acorn.json --inbox logbook.jsonl
+# Review .acorn/intake/proposals/<submission-UUID>.json, then:
+acorn intake apply --config .acorn.json --submission-id <submission-UUID>
+```
+
+Staging checks the same form and member rules and writes a proposal containing the exact source line, normalized entry, destination, base index digest, and proposed index content. It does not edit the inbox or index. Rejected lines are reported separately, so valid lines can still be staged. Applying one reviewed UUID rechecks the route and index digest; if the index changed, stage again. Repeated application is safe. Use one writer per index. The local adapter does not create GitLab merge requests or import bucket data; bucket association alone never registers a folder or starts a copy. GitLab and remote URI destinations use their own workflows.

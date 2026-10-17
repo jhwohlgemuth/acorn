@@ -1,7 +1,7 @@
 use crate::{
     cli::{
         arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ExecCommands, ExecHookCommands, ExecManifestCommands,
-        ImportCommands, InferCommands, ServeCommands, Void, WatchOptions,
+        ImportCommands, InferCommands, IntakeCommands, ServeCommands, Void, WatchOptions,
     },
     io::{is_stdout_piped, read_stdin, write_stdout},
 };
@@ -36,6 +36,7 @@ pub mod format;
 pub mod gather;
 pub mod import;
 pub mod infer;
+pub mod intake;
 pub mod link;
 pub mod mcp;
 pub mod report;
@@ -547,6 +548,10 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 initialize_database(config).await?;
                 import::run(arguments, &config.database_path, threads, offline, config.no_local_database).await
             }),
+        },
+        | Some(Commands::Intake { command }) => match command {
+            | IntakeCommands::Stage { config, inbox } => intake::stage(config, inbox),
+            | IntakeCommands::Apply { config, submission_id } => intake::apply(config, submission_id),
         },
         | Some(Commands::Report(arguments)) => with_runtime(async {
             match initialize_database(config).await {

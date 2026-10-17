@@ -7,7 +7,7 @@
 
 ## Planned
 
-- [Power Automate GitLab JSONL intake and reporting](powerapps-gitlab-logbook-reporting.md) - Append Logbook envelopes to GitLab; Vergil durably ingests and removes them, then multiplexes records by project ID or configured folder name to augment the associated `index.json` through review. ACRE and JSONL source, snapshot, admission, cleanup, and poller are landed; PA-24 mixed-project integration validation is ready, and PA-25 local intake is independently ready.
+- [Power Automate GitLab JSONL intake and reporting](powerapps-gitlab-logbook-reporting.md) - Append Logbook envelopes to GitLab; Vergil durably ingests and removes them, then multiplexes records by project ID or configured folder name to augment the associated `index.json` through review. ACRE and JSONL routing are locally validated; standalone local intake stages reviewable proposals for explicit application. External flow and pilot work remains.
 
 - [Release-gated Beam inference integration](beam-inference-integration.md) - Verify released serving contracts, then evaluate an explicitly configured hosted or operator-owned endpoint independently of local SLM sidecars.
 

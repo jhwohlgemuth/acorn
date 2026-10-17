@@ -1,7 +1,12 @@
 use super::*;
+use crate::io::api::gitlab::bot::{Config, Server};
 use crate::io::api::gitlab::jsonl::{read_snapshot, split_snapshot, JsonlLine, Snapshot};
+use crate::io::api::powerautomate::PowerAutomateProvider;
+use crate::io::api::webhooks::store::OperationQueue;
 use crate::io::config::application::PowerAutomateIntake;
+use crate::io::config::ApplicationConfiguration;
 use crate::test::server::TestServer;
+use crate::test::utils::review_server;
 use acorn_core::time::{Seconds, UnitOfTime};
 use acorn_schema::hardware::memory::Memory;
 use acorn_schema::validation::Validate;
@@ -133,6 +138,78 @@ async fn test_repeated_reads_are_identical() {
     let first = read_from(Some(content.clone()), &intake).await.unwrap();
     let second = read_from(Some(content), &intake).await.unwrap();
     assert_eq!(first, second);
+}
+#[tokio::test]
+async fn test_single_and_mixed_inbox_publish_only_selected_review_indexes() {
+    let fixture = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fixtures/automation/powerautomate/logbook.jsonl"
+    ));
+    let config_fixture = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fixtures/automation/powerautomate/multi-config.json"
+    ));
+    for record_count in [1, 3] {
+        let inbox = fixture.lines().take(record_count).collect::<Vec<_>>().join("\n") + "\n";
+        let (server, state) = review_server(inbox.clone()).await;
+        let document: ApplicationConfiguration = serde_json::from_str(config_fixture).unwrap();
+        let queue = OperationQueue::from(std::env::temp_dir().join(format!("acorn-mixed-jsonl-{}.db", nanoid::nanoid!())));
+        let options = Options::with_token("test").domain(&server.base_url).identifier("42").build();
+        let mut config = Config::new(options, "127.0.0.1:0".parse().unwrap())
+            .with_operation_queue(queue.clone())
+            .with_polling_enabled(false);
+        config.powerautomate = Some(PowerAutomateProvider::new(document.power_automate().unwrap().clone(), document.registry(), "test").unwrap());
+        let bot = Server::new(config.clone());
+        let summary = bot.poll_jsonl_once().await.unwrap();
+        assert_eq!(summary.admitted_count, record_count);
+        assert_eq!(summary.removed_count, record_count);
+        assert!(state.lock().unwrap().inbox.is_empty());
+        if record_count == 3 {
+            let mut changed = serde_json::to_value(&document).unwrap();
+            changed["folders"][0]["path"] = serde_json::json!("moved/index.json");
+            changed["folders"][1]["path"] = serde_json::json!("other/index.json");
+            let changed: ApplicationConfiguration = serde_json::from_value(changed).unwrap();
+            config.powerautomate = Some(PowerAutomateProvider::new(changed.power_automate().unwrap().clone(), changed.registry(), "test").unwrap());
+        }
+        let worker = Server::new(config);
+        for _ in 0..record_count {
+            assert!(worker.process_next().await.unwrap());
+        }
+        assert!(!worker.process_next().await.unwrap());
+        let state_before_replay = state.lock().unwrap().clone();
+        assert_eq!(state_before_replay.review_writes.len(), record_count);
+        assert_eq!(state_before_replay.merge_requests.len(), if record_count == 1 { 1 } else { 2 });
+        assert!(state_before_replay.review_writes.iter().all(|(branch, path)| {
+            (branch.starts_with("acorn/powerautomate/acorn/") && path == "acorn/index.json")
+                || (branch.starts_with("acorn/powerautomate/research-data/") && path == "research-data/index.json")
+        }));
+        let entries = |branch: &str, path: &str| -> usize {
+            let content = state_before_replay.content.get(&(branch.to_string(), path.to_string()));
+            content
+                .map(|content| serde_json::from_str::<acorn_schema::research_activity::ResearchActivity>(content).unwrap())
+                .and_then(|activity| activity.logbook)
+                .map_or(0, |logbook| logbook.entries.len())
+        };
+        assert_eq!(
+            entries("acorn/powerautomate/acorn/2026-10", "acorn/index.json"),
+            if record_count == 1 { 1 } else { 2 }
+        );
+        assert_eq!(
+            entries("acorn/powerautomate/research-data/2026-10", "research-data/index.json"),
+            if record_count == 1 { 0 } else { 1 }
+        );
+        assert_eq!(entries("main", "acorn/index.json"), 0);
+        assert_eq!(entries("main", "research-data/index.json"), 0);
+        state.lock().unwrap().inbox = inbox;
+        bot.poll_jsonl_once().await.unwrap();
+        assert!(!worker.process_next().await.unwrap());
+        {
+            let replayed = state.lock().unwrap();
+            assert_eq!(replayed.review_writes, state_before_replay.review_writes);
+            assert_eq!(replayed.merge_requests.len(), state_before_replay.merge_requests.len());
+        }
+        server.stop().await.unwrap();
+    }
 }
 #[tokio::test]
 async fn test_snapshot_validation_accepts_reader_output() {

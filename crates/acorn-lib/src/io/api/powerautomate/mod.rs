@@ -8,6 +8,7 @@ mod callback;
 mod config;
 mod form;
 pub mod jsonl;
+pub mod local;
 mod webhook;
 
 #[cfg(test)]

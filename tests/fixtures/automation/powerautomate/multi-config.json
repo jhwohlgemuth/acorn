@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "2.0.0",
+  "folders": [
+    {
+      "id": "acorn",
+      "aliases": ["acorn-tooling"],
+      "members": ["scientist@example.org", "office@example.org"],
+      "path": "acorn/index.json"
+    },
+    {
+      "id": "research-data",
+      "aliases": ["rad"],
+      "members": ["researcher@example.org"],
+      "path": "research-data/index.json"
+    }
+  ],
+  "options": {
+    "powerAutomate": {
+      "callback_destination": "pilot-flow",
+      "gitlab_project": "42",
+      "package": "automated-artifacts",
+      "intake": {"branch": "main", "path": ".acorn/intake/logbook.jsonl"}
+    }
+  }
+}

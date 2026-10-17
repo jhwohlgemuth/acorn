@@ -14,7 +14,7 @@ phase_budget_hours: 5
 
 # Goal
 
-**Top blocking priorities:** (1) the ACRE 2.0.0 contract gate is landed — root `folders`/`members`/`variables`, `options.folders.root` + `options.powerAutomate` + `options.scripts` ownership, `OneOrMany` array support, bucket references, folder resolution/authorization, and the `FolderRegistry` snapshot are implemented, tested, and specified in `ACRE_SPEC.md`; (2) validate multiplexed JSONL ingestion against that contract. The JSONL gate must pass before PA-05, pilot reporting, or broader rollout. Operational preparation may continue independently but cannot substitute for it.
+**Top blocking priorities:** The ACRE 2.0.0 contract and multiplexed JSONL integration gates are landed. PA-05 and the pilot now depend on the remaining external ownership, access, and callback preparation in PA-01 through PA-04.
 
 [Complete proposed JSON, JSONC, YAML, and deployment environment examples](../assets/acre-logbook-configuration-examples.md) define the intended layout and behavior. Schema version (`2.0.0` hard cutover, no 1.0.0 migration) and ACRE field names are settled per `ACRE_SPEC.md`; the `options.powerAutomate.intake` source settings and JSONL poller are implemented.
 
@@ -24,7 +24,8 @@ This plan is the sole setup reference while work remains active. It records the 
 
 # Current evidence
 
-- **PA-22 and PA-23 landed locally (2026-10-16):** exact-byte admission, source observations, atomic queue persistence, canonical alias routing, verified bucket association, and immutable worker routes are implemented. `Server::poll_jsonl_once` and the independent configured poll loop admit before cleanup; snapshots preserve original content and the file `last_commit_id`; cleanup rereads/recomputes after conflicts or uncertain responses, keeps the drained file, and preserves unadmitted bytes. Focused GitLab, Power Automate, webhook, and configuration suites pass 238/238, including restart, conflict, rollback, missing metadata, concurrent append/cleanup, and stored-route regressions. Formatting, scoped clippy with no new warnings, the `analysis` feature mirror, and the no-default-features check pass. The pre-existing analyzer test `ValeOutput` unused-import warning remains. Intake uses `poll_interval: Seconds` with a numeric wire value; file and record limits use `Memory`. Added code has no propagation operators or function early returns, and provider dependencies use module namespaces. PA-24 remains the full mixed-project publication gate; no external deployment was changed.
+- **PA-24 and PA-25 implemented locally (2026-10-17):** a two-folder JSONL fixture and mocked GitLab integration exercise one- and three-record streams, canonical IDs and aliases, immutable admitted routes, selected review index writes, rejection isolation, and replay. Standalone local intake is available through `acorn intake stage/apply`: exact-line proposals are stored under `.acorn/intake/proposals/`, canonical indexes stay unchanged until explicit apply, changed bases require restaging, and double apply and crash recovery are idempotent. Focused tests, scoped clippy, the 2,493-test workspace suite, and `acorn-lib` WASM feature check pass. The broader `make check-wasm` stops at an unchanged `acorn-schema` core-only `OneOrMany`/`alloc` feature error; it does not reach the local intake adapter, which is agentic/host-only. No external deployment was changed.
+- **PA-22 and PA-23 landed locally (2026-10-16):** exact-byte admission, source observations, atomic queue persistence, canonical alias routing, verified bucket association, and immutable worker routes are implemented. `Server::poll_jsonl_once` and the independent configured poll loop admit before cleanup; snapshots preserve original content and the file `last_commit_id`; cleanup rereads/recomputes after conflicts or uncertain responses, keeps the drained file, and preserves unadmitted bytes. Focused GitLab, Power Automate, webhook, and configuration suites pass 238/238, including restart, conflict, rollback, missing metadata, concurrent append/cleanup, and stored-route regressions. Formatting, scoped clippy with no new warnings, the `analysis` feature mirror, and the no-default-features check pass. The pre-existing analyzer test `ValeOutput` unused-import warning remains. Intake uses `poll_interval: Seconds` with a numeric wire value; file and record limits use `Memory`. Added code has no propagation operators or function early returns, and provider dependencies use module namespaces.
 
 - **ACRE 2.0.0 gate landed (2026-10-14/15):** commits `984dcb65` and `14970672` completed the refactor on top of `b6e847a4`. `AcreSchemaVersion` declares only `2.0.0` with 1.0.0 rejected (hard cutover, no migration tool per `ACRE_SPEC.md` §Compatibility); root `powerAutomate`/`projects` mappings are removed in favor of root `folders`, `members`, `variables` plus `options.folders.root`, `options.powerAutomate`, and `options.scripts` ownership; the intake envelope carries no wire `schemaVersion`. A `Send`/`Sync` `FolderRegistry` snapshot is derived from the document because `ApplicationConfiguration` holds a non-`Send` JSONC CST. `OneOrMany` covers schema arrays (`buckets`, `folders`, `members`, `aliases`, `endpoints`, `models`, `runners`, `scripts`, whitelist/model/runner/llama-swap nested lists) with singleton and array forms tested across JSON/JSONC/YAML (`with_folders.*` fixtures). Bucket name/index references, folder resolution precedence, global/folder authorization with `variables.members` (process-environment lookup), and casing (snake_case new attributes; grandfathered `schemaVersion`, `scriptManifest`, `options.powerAutomate`) are implemented, tested (`io::config` ACRE tests), and specified (`ACRE_SPEC.md`, `docs/src/concepts/acre.md`). Deliberately deferred as non-blocking for JSONL: a fully typed built-in variable catalog with cross-repository coverage gate, per-root `options.<name>` counterparts beyond the documented set, and recursive empty-object omission.
 
@@ -32,7 +33,7 @@ This plan is the sole setup reference while work remains active. It records the 
 - **Xylem boundary (landed):** Xylem does not parse ACRE and has no `ApplicationConfiguration` consumer. No second ACRE model was introduced into Xylem. A full cross-repository variable catalog with coverage gate is deferred as non-blocking for JSONL (see Variable references).
 - **Selected transport (2026-10-11):** the user reports testing form data saved as a CSV row and selects GitLab JSONL for the planned intake. Power Automate will append to `.acorn/intake/logbook.jsonl` in the target project; Vergil will poll that file. The CSV test does not establish that the external JSONL append flow exists. No remote project was changed during implementation.
 - **Infrastructure:** the user has self-managed servers with self-signed TLS at best and has not provisioned a gateway. Organizational gateway availability is unverified and is not a dependency of the selected design. Power Automate must reach and authenticate to GitLab; Vergil must reach GitLab and the callback endpoint over outbound HTTPS. No Power Automate-to-Vergil route is required.
-- **Remaining gate:** note polling remains `Server::poll_once`; configured repository intake uses the independent `poll_jsonl_once` path. Validate full mixed-project review publication in PA-24, then configure the external append flow in PA-05. Existing `FormSubmission::entry_after` remains the shared authorization and conversion contract.
+- **Remaining deployment work:** note polling remains `Server::poll_once`; configured repository intake uses the independent `poll_jsonl_once` path. The mixed-project review publication gate passed locally; PA-05 still needs the external append flow and its prerequisites. Existing `FormSubmission::entry_after` remains the shared authorization and conversion contract.
 - `crates/acorn-lib/src/io/api/powerautomate/` implements strict form decoding, project and submitter authorization, shared-header authentication, durable intake, and direct callback resolution.
 - `crates/acorn-lib/src/io/api/webhooks/` provides constant-time secret verification, durable idempotent operations, retryable callbacks, readiness, and graceful drain state.
 - `crates/acorn-lib/src/io/api/gitlab/` implements rolling merge-request automation, authorized graduation commands, and immutable report-package publication.
@@ -186,7 +187,7 @@ A **bucket** identifies a collection of research-activity files and its source/p
 - A standalone `file:` URI points directly to an existing local `index.json`; its parent directory is the activity's associated-file base. Supported operations work in place without requiring a bucket import/copy step. Do not infer a Git repository, remote destination, synchronization, or GitLab review workflow merely because the path happens to lie inside a checkout.
 - A local bucket describes a collection that an import command may copy to a requested destination. Declaration alone performs no transfer. Adding or removing `folders[].bucket` does not itself copy, relocate, or synchronize data: membership and transfer are separate concerns. Downloads do not silently redirect later folder writes to the downloaded copy.
 - Bucket discovery does not automatically register folders for JSONL routing or grant intake access. Only registered folders use the global/folder membership contract; a bucket reference grants no additional authorization.
-- Preserve human review for standalone local JSONL intake. Without a configured repository review workflow, stage a durable, reviewable proposal and require explicit human application before changing canonical `index.json`. Do not imply that local paths can create GitLab merge requests. PA-25 implements the local proposal/apply contract and its validation separately from the GitLab adapter; unsupported local review behavior fails explicitly until then.
+- Preserve human review for standalone local JSONL intake. `acorn intake stage` writes a durable, reviewable proposal; `acorn intake apply` explicitly changes canonical `index.json` after checking the staged base. Local paths do not create GitLab merge requests. Bucket-associated folders and nonlocal destinations fail explicitly in this adapter.
 
 Document these distinctions in `ACRE_SPEC.md` and the ACRE/configuration guides during implementation, including examples of a bucket with associated folders, a standalone local folder, and a local bucket import into a separate destination. Explain that standalone local access avoids an import/copy step, while bucket association alone never triggers copying. Document discovery versus registration, path precedence, authorization, local review, and remote-mirror limitations together.
 
@@ -278,12 +279,12 @@ The callback flow uses this request schema:
 
 ## Next steps with the available servers
 
-Prioritize PA-24 mixed-project integration validation independently of external deployment waits. The integration gate must cover a mixed-project inbox using both project IDs and folder aliases; reporting and notification deployment must not defer this support to PA-09.
+The completed PA-24 integration gate covers a mixed-project inbox using both project IDs and folder aliases. Keep that routing contract during reporting and notification deployment.
 
 1. Finish the Vergil bot health, readiness, and isolated GitLab access checks in polling mode.
 2. Test a policy-approved Power Automate callback flow from Vergil over outbound HTTPS and confirm Teams/email delivery. Store the callback URL securely before real intake.
 3. Identify the user's tested CSV flow and verify its GitLab project, branch, credential, and cloud reachability. Plan its JSONL replacement using the existing Logbook submission envelope.
-4. Complete PA-24 integration validation, then configure the flow to append JSONL and enable the implemented poller. Preserve submission UUIDs across retries, durably record admission, and distinguish queued receipts from ACORN acceptance. This is GitLab-mediated intake without a gateway dependency.
+4. Configure the flow to append JSONL and enable the implemented poller after the remaining access and callback prerequisites. Preserve submission UUIDs across retries, durably record admission, and distinguish queued receipts from ACORN acceptance. This is GitLab-mediated intake without a gateway dependency.
 5. Once transport is validated, run one isolated submission through human review, graduation, merge, report publication, callback delivery, and duplicate replay as described in steps 7–9.
 
 The selected route is Power Automate → GitLab → Vergil. Verify reachability and TLS trust on these actual connections; direct HTTP intake on Vergil is not part of this walkthrough.
@@ -380,7 +381,7 @@ Save the flow, copy the complete generated URL including its `sig` query paramet
 
 ## 5. Configure the GitLab data project and ACORN service
 
-Use the current ACRE 2.0.0 layout with the resolved pilot values. Keep `intake` absent during the bounded health/readiness boot so existing inbox records cannot start real work before callback readiness and the PA-24 gate. Only UTC reporting is supported.
+Use the current ACRE 2.0.0 layout with the resolved pilot values. Keep `intake` absent during the bounded health/readiness boot so existing inbox records cannot start real work before callback readiness. Only UTC reporting is supported.
 
 ```json
 {
@@ -420,7 +421,7 @@ acorn serve bot 22464 \
 
 ## 5a. Enable the implemented repository-file intake
 
-After PA-24 and callback readiness, configure `options.powerAutomate.intake` with the same branch/path used by the selected flow. The defaults are `main`, `.acorn/intake/logbook.jsonl`, 30 seconds, `max_file: "10MB"`, and `max_record: "64KB"`; set the pilot branch explicitly until its reviewed cutover. See `ACRE_SPEC.md` and the ACRE guide for the implemented contract.
+After callback readiness, configure `options.powerAutomate.intake` with the same branch/path used by the selected flow. The defaults are `main`, `.acorn/intake/logbook.jsonl`, 30 seconds, `max_file: "10MB"`, and `max_record: "64KB"`; set the pilot branch explicitly until its reviewed cutover. See `ACRE_SPEC.md` and the ACRE guide for the implemented contract.
 
 Restrict intake-branch writers to trusted producers and derive reporter identity from the authenticated app context. Confirm durable outcomes through the operation store; removal means the work is recoverable, while later worker success establishes review publication. Verify authorized graduation through note polling separately. Record the source coordinates, reviewed service revision, and redacted acceptance evidence before enabling real submissions.
 
@@ -459,7 +460,7 @@ Planned append algorithm:
 6. Verify persistence and return `queued`, `submissionId`, and GitLab commit SHA. The app says “Saved to GitLab; awaiting ACORN processing.” The bot records acceptance or rejection later; a GitLab commit is not an ACORN HTTP acceptance receipt.
 7. Protect GitLab request/response content in run history and retain redacted run/commit evidence.
 
-- **Draft evidence (2026-10-07):** the eight-input default-environment scaffold prepares UUIDs, timestamps, and optional item arrays but cannot connect to the canvas across environments. The environment-local six-input flow only sends notifications; if selected, it needs optional event type/items wired. Inspect the user's separately reported CSV flow before choosing the implementation target. The external JSONL append flow remains unimplemented; repository consumption is implemented and locally tested, with the PA-24 publication gate still pending.
+- **Draft evidence (2026-10-07):** the eight-input default-environment scaffold prepares UUIDs, timestamps, and optional item arrays but cannot connect to the canvas across environments. The environment-local six-input flow only sends notifications; if selected, it needs optional event type/items wired. Inspect the user's separately reported CSV flow before choosing the implementation target. The external JSONL append flow remains unimplemented; repository consumption and mixed-project publication are implemented and locally tested.
 
 - **Verify:** simultaneous appends and bot cleanup lose no work; retrying an append after its record was consumed produces no duplicate project update; quotes, multiline summaries, Unicode, and arrays round-trip. A queued receipt refers to confirmed commit persistence even if the bot has since removed the row. Invalid records never change a canonical `index.json`.
 
@@ -565,29 +566,7 @@ Submit authorized test entries for two different projects and one deliberately u
 - **Member resolution:** deployment-owned `.env` next to the resolved configuration plus process-over-file precedence, resolved once at startup and shared by HTTP and JSONL intake (implemented). Current callers share the startup-loaded process environment.
 - **Canonicalization:** each JSONL line parses as strict `FormSubmission` (`deny_unknown_fields`) and converts via `entry_after` (trim/normalize, then validate/authorize/cutoff). No second Logbook schema (implemented).
 - **Stable routing:** the resolved folder ID, destination, and content digest persist at admission; retries and replays keep the original route across later mapping changes (implemented).
-- **Local destinations:** GitLab phases fail clearly on local-only destinations; standalone-local intake is PA-25 only and never implies GitLab review.
-
-## PA-24 — Multiplexed JSONL integration validation
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: landed JSONL admission, cleanup, and poller
-- Exact write set: `crates/acorn-lib/src/io/api/gitlab/tests/jsonl.rs`, `crates/acorn-lib/src/io/api/powerautomate/tests/jsonl.rs`, `tests/fixtures/automation/powerautomate/logbook.jsonl`, `tests/fixtures/automation/powerautomate/multi-config.json` (new two-project configuration). Tests and fixtures only; no product code.
-- Primary integration lock: JSONL integration validation
-- Outcome: Prove the multiplexed ingestion gate: a single-project stream and an interleaved multi-project stream (canonical IDs and folder aliases, including an alias different from its ID) each route only to their configured `index.json`; missing/unknown/ambiguous/conflicting selectors, unsafe paths, and unauthorized project/member combinations produce inspectable rejections with no project-data change; bad records never block valid projects; replay and restart neither duplicate entries nor change admitted routes. This is the PA-05 prerequisite gate, not PA-09 scope.
-- Focused validation: The full matrix above against mocked GitLab plus durable-store restart cases; then `make lint`, workspace `make test`, and the applicable portability gate for touched crates.
-- Handoff: Remove PA-24, record the JSONL implementation gate as passed, and mark PA-05 ready pending PA-03/PA-04.
-
-## PA-25 — Standalone-local proposal and apply
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: landed durable JSONL admission
-- Exact write set: `crates/acorn-lib/src/io/api/powerautomate/local.rs` (new; durable proposal staging under `.acorn/intake/proposals/`), `crates/acorn-cli/src/commands/intake/mod.rs` (new; explicit stage/apply commands), `crates/acorn-cli/src/commands/mod.rs` and `crates/acorn-cli/src/main.rs` (command registration), `crates/acorn-cli/src/commands/intake/tests.rs` (new)
-- Primary integration lock: local intake commands
-- Outcome: Stage admitted local-destination records as durable, reviewable proposals and apply them to canonical `index.json` only through an explicit human command. Never infer GitLab review support from filesystem location; fail clearly where a local adapter is unsupported. Coordinate the CLI composition owner on command registration.
-- Focused validation: Stage/apply round-trip, double-apply idempotence, human-gate enforcement (no silent canonical mutation), and unsupported-adapter errors; focused tests plus clippy.
-- Handoff: Remove PA-25 and record local intake as available; GitLab rollout does not depend on it.
+- **Local destinations:** GitLab phases fail clearly on local-only destinations; standalone-local intake uses `acorn intake stage/apply` and never implies GitLab review.
 
 ## PA-01 — Verify the published notification pilot
 
@@ -637,7 +616,7 @@ Submit authorized test entries for two different projects and one deliberately u
 
 - Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: PA-03, PA-04, PA-24 validated (source configuration, snapshot reader, durable admission, cleanup, and poller are landed)
+- Prerequisites: PA-03, PA-04 (source configuration, snapshot reader, durable admission, cleanup, poller, and mixed-project publication are landed)
 - Exact write set: selected Power Apps intake flow, canvas submit action, isolated project `22464` inbox `.acorn/intake/logbook.jsonl`, Vergil JSONL source configuration
 - Primary integration lock: intake route
 - Outcome: Append the strict version-1 envelope with conflict-safe GitLab retries, configure the implemented repository-file poller, and return a confirmed queued receipt with submission ID and commit SHA.

@@ -24,6 +24,9 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli import`↴](#acorn-cli-import)
 * [`acorn-cli import model`↴](#acorn-cli-import-model)
 * [`acorn-cli import spec`↴](#acorn-cli-import-spec)
+* [`acorn-cli intake`↴](#acorn-cli-intake)
+* [`acorn-cli intake stage`↴](#acorn-cli-intake-stage)
+* [`acorn-cli intake apply`↴](#acorn-cli-intake-apply)
 * [`acorn-cli link`↴](#acorn-cli-link)
 * [`acorn-cli mcp`↴](#acorn-cli-mcp)
 * [`acorn-cli mcp call`↴](#acorn-cli-mcp-call)
@@ -80,6 +83,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * `format` — Formats supported metadata standards in place (inherently includes some elements of `acorn check`)
 * `gather` — Gather persistent identifiers from documents, URLs, or text
 * `import` — Import external metadata into ACORN
+* `intake` — Review local Power Automate JSONL submissions before changing an index
 * `link` — Add linked data context to research activity data
 * `mcp` — Discover and invoke allowlisted tools on configured MCP servers
 * `report` — Generate bounded artifacts and publish immutable GitLab packages
@@ -1284,6 +1288,48 @@ Import endpoint resources from an API specification
 * `--dry-run` [alias: `what-if`] — Print generated endpoint JSON without writing a file
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
+
+
+
+## `acorn-cli intake`
+
+Review local Power Automate JSONL submissions before changing an index
+
+    $> acorn intake stage --config .acorn.json --inbox logbook.jsonl
+    $> acorn intake apply --config .acorn.json --submission-id UUID
+
+**Usage:** `acorn-cli intake <COMMAND>`
+
+###### **Subcommands:**
+
+* `stage` — Write reviewable proposals for valid lines in a local JSONL inbox
+* `apply` — Apply one staged proposal after reviewing its JSON file
+
+
+
+## `acorn-cli intake stage`
+
+Write reviewable proposals for valid lines in a local JSONL inbox
+
+**Usage:** `acorn-cli intake stage --config <CONFIG> --inbox <INBOX>`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Explicit ACRE configuration with local folder destinations
+* `--inbox <INBOX>` — LF-terminated JSONL inbox file
+
+
+
+## `acorn-cli intake apply`
+
+Apply one staged proposal after reviewing its JSON file
+
+**Usage:** `acorn-cli intake apply --config <CONFIG> --submission-id <SUBMISSION_ID>`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Explicit ACRE configuration used for staging
+* `--submission-id <SUBMISSION_ID>` — Stable UUID from the submission envelope
 
 
 

@@ -101,7 +101,7 @@ folders:
 
 Both folders use absolute URIs because neither a folder root nor a GitLab fallback is configured; the bucket reference supplies no implicit root. The standalone activity is accessed in place, with its parent directory as the associated-file base. Importing the research bucket into a different destination is a separate explicit operation and does not redirect registered folders. Bucket membership and copying are separate concerns.
 
-Discovery within a bucket grants no intake access. Global and folder members govern authorization. Standalone local JSONL intake requires a durable proposal and explicit human application before canonical writes; it does not infer GitLab review support from filesystem location. During implementation, add these distinctions and examples to the ACRE specification and configuration guides, alongside local bucket import/copy documentation.
+Discovery within a bucket grants no intake access. Global and folder members govern authorization. Standalone local JSONL intake stages a durable proposal and requires explicit human application before canonical writes; it does not infer GitLab review support from filesystem location.
 
 
 ### Index references for concise buckets
@@ -302,6 +302,12 @@ Each nonempty UTF-8 line contains the existing strict `FormSubmission` envelope 
 The canonical identity is `powerautomate:form:v1:{lowercase submission UUID}`. Retries must preserve the exact serialized line: changed bytes under an admitted UUID are a conflict, including formatting changes. Accepted entries and routes survive mapping changes and inbox removal. Legacy operations without verifiable JSONL byte evidence remain visible conflicts rather than being overwritten.
 
 Cleanup removes only exact matches backed by durable admission, using the observed file's `last_commit_id`. Conflicts and uncertain responses trigger a fresh snapshot and recomputation, with at most three attempts per poll. Draining keeps an empty file. Rejections, malformed records, blank lines, and unadmitted records retain their bytes; network/storage failures remain retryable. Evidence and queued operations remain available through `OperationQueue::intake_records`, `intake_admission`, and existing operation status/replay APIs. Project updates continue through review branches and human merge.
+
+### Standalone local JSONL review
+
+Use `acorn intake stage --config .acorn.json --inbox logbook.jsonl` for a local regular-file inbox. The command accepts a bounded UTF-8, LF-terminated file (10 MiB total, 64 KiB per record), validates each nonempty line with the same strict form and member rules, and writes accepted proposals under `<config-directory>/.acorn/intake/proposals/<lowercase-UUID>.json`. Rejected lines are reported by physical line number; the command returns an error if any line is rejected. The source inbox and canonical indexes remain unchanged during staging. Review each proposal's exact `raw` submission, SHA-256 source digest, normalized `entry`, canonical destination, base index digest, and complete `proposed_content` before applying it.
+
+Run `acorn intake apply --config .acorn.json --submission-id UUID` to replace the selected local index. Apply rechecks the current configuration route and authorization, then compares the index with the staged base digest and proposal content. If the index changed, stage again before applying; a repeated apply is idempotent. A crash after index replacement can be recovered by repeating apply. Staging the same UUID with changed serialized bytes is rejected. The local adapter supports standalone `file:` destinations only: bucket-associated folders and HTTP(S) or GitLab destinations require their own verified review workflows. It does not copy bucket data, open a merge request, drain the inbox, or run concurrently with another index writer.
 
 
 ### `options.folders`

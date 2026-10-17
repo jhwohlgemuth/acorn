@@ -80,7 +80,7 @@ use std::os::windows::fs::{symlink_dir, symlink_file};
 use std::{
     env::{consts, current_dir, temp_dir, var, var_os},
     ffi::OsString,
-    fs::{self, canonicalize, create_dir_all, write, File, Metadata, OpenOptions},
+    fs::{self, canonicalize, create_dir_all, remove_file, rename, write, File, Metadata, OpenOptions},
     io::{self, BufReader, Read, Write},
     path::{absolute, Component, Path, PathBuf, MAIN_SEPARATOR},
     thread,
@@ -456,6 +456,39 @@ pub struct GitlabMergeRequestDiffResponse {
 pub struct Remote(Location);
 /// Struct for adding ToStringList functionality
 pub struct StringList<'a>(pub &'a Vec<PathBuf>);
+impl PathConversion for &Path {
+    fn cross_platform_display(&self) -> String {
+        <Path as PathConversion>::cross_platform_display(*self)
+    }
+}
+impl PathExt for &Path {
+    fn is_open_file(&self, file: &File) -> bool {
+        <Path as PathExt>::is_open_file(self, file)
+    }
+    fn to_gguf_parts(&self) -> Option<(String, u64, u64)> {
+        <Path as PathExt>::to_gguf_parts(self)
+    }
+    fn is_gguf(&self) -> bool {
+        <Path as PathExt>::is_gguf(self)
+    }
+    fn is_auxiliary_gguf(&self) -> bool {
+        <Path as PathExt>::is_auxiliary_gguf(self)
+    }
+    fn is_symlink(&self) -> bool {
+        <Path as PathExt>::is_symlink(self)
+    }
+    fn is_windows(&self) -> bool {
+        <Path as PathExt>::is_windows(self)
+    }
+    fn same_as(&self, other: &Path) -> bool {
+        <Path as PathExt>::same_as(self, other)
+    }
+}
+impl FileExtension for &str {
+    fn extension(&self) -> String {
+        self.to_ascii_lowercase()
+    }
+}
 impl ContainerTarget {
     /// Construct from optional host/context args.
     pub fn from_args(host: Option<Remote>, context: Option<String>) -> Option<Self> {
@@ -685,9 +718,9 @@ impl FromPath for MimeType {
         MimeType::from(value.as_ref().display().to_string())
     }
 }
-impl PathConversion for &Path {
-    fn cross_platform_display(&self) -> String {
-        <Path as PathConversion>::cross_platform_display(*self)
+impl From<Executor> for std::ffi::OsString {
+    fn from(value: Executor) -> Self {
+        Self::from(value.to_string())
     }
 }
 impl PathConversion for Path {
@@ -696,29 +729,6 @@ impl PathConversion for Path {
         #[cfg(windows)]
         let value = value.strip_prefix(r"\\?\").unwrap_or(&value).replace('/', "\\");
         value
-    }
-}
-impl PathExt for &Path {
-    fn is_open_file(&self, file: &File) -> bool {
-        <Path as PathExt>::is_open_file(self, file)
-    }
-    fn to_gguf_parts(&self) -> Option<(String, u64, u64)> {
-        <Path as PathExt>::to_gguf_parts(self)
-    }
-    fn is_gguf(&self) -> bool {
-        <Path as PathExt>::is_gguf(self)
-    }
-    fn is_auxiliary_gguf(&self) -> bool {
-        <Path as PathExt>::is_auxiliary_gguf(self)
-    }
-    fn is_symlink(&self) -> bool {
-        <Path as PathExt>::is_symlink(self)
-    }
-    fn is_windows(&self) -> bool {
-        <Path as PathExt>::is_windows(self)
-    }
-    fn same_as(&self, other: &Path) -> bool {
-        <Path as PathExt>::same_as(self, other)
     }
 }
 impl PathExt for Path {
@@ -857,14 +867,6 @@ impl core::str::FromStr for Remote {
         })
     }
 }
-impl<'de> Deserialize<'de> for Remote {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        String::deserialize(deserializer).and_then(|value| value.parse().map_err(serde::de::Error::custom))
-    }
-}
 impl fmt::Display for Remote {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(self.as_str())
@@ -886,6 +888,14 @@ impl Serialize for Remote {
         S: serde::Serializer,
     {
         serializer.serialize_str(self.as_str())
+    }
+}
+impl<'de> Deserialize<'de> for Remote {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).and_then(|value| value.parse().map_err(serde::de::Error::custom))
     }
 }
 impl FromCommand for SemanticVersion {
@@ -911,16 +921,6 @@ impl FromCommand for SemanticVersion {
                     | Ok(_) | Err(_) => None,
                 })
         })?
-    }
-}
-impl From<Executor> for std::ffi::OsString {
-    fn from(value: Executor) -> Self {
-        Self::from(value.to_string())
-    }
-}
-impl FileExtension for &str {
-    fn extension(&self) -> String {
-        self.to_ascii_lowercase()
     }
 }
 impl FileExtension for String {
@@ -1065,6 +1065,28 @@ where
         },
         | Err(_) => Err(eyre!("Failed to download {url_string}")),
     }
+}
+/// Atomically replace a file and synchronize its bytes and containing directory where supported.
+pub fn durable_replace_file(path: impl AsRef<Path>, content: impl AsRef<[u8]>) -> ApiResult<()> {
+    let path = path.as_ref();
+    path.file_name()
+        .ok_or_else(|| eyre!("File has no name: '{}'", path.display()))
+        .and_then(|name| {
+            let temporary = path.with_file_name(format!(".{}.{}-tmp", name.to_string_lossy(), nanoid!()));
+            let result = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&temporary)
+                .and_then(|mut file| file.write_all(content.as_ref()).and_then(|()| file.sync_all()))
+                .and_then(|()| rename(&temporary, path));
+            match result {
+                | Ok(()) => sync_parent_directory(path),
+                | Err(why) => {
+                    remove_file(&temporary).ok();
+                    Err(eyre!("Cannot replace file '{}': {why}", path.display()))
+                }
+            }
+        })
 }
 /// Returns whether an environment variable is set to a truthy value.
 ///
@@ -1807,6 +1829,24 @@ pub fn symlink(source: &Path, target: &Path) -> ApiResult<()> {
     match result {
         | Ok(_) => Ok(()),
         | Err(why) => Err(why.into()),
+    }
+}
+/// Synchronize the parent directory after creating or renaming a durable file where supported.
+pub(crate) fn sync_parent_directory(path: &Path) -> ApiResult<()> {
+    #[cfg(unix)]
+    {
+        path.parent()
+            .ok_or_else(|| eyre!("File has no parent: '{}'", path.display()))
+            .and_then(|parent| {
+                fs::File::open(parent)
+                    .and_then(|directory| directory.sync_all())
+                    .map_err(|why| eyre!("Cannot sync directory '{}': {why}", parent.display()))
+            })
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        Ok(())
     }
 }
 /// Converts a `PathBuf` into a `String` representation of the **absolute** path.

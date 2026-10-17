@@ -37,6 +37,13 @@ fn configuration() -> ApplicationConfiguration {
     }))
     .unwrap()
 }
+fn multi_configuration() -> ApplicationConfiguration {
+    serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fixtures/automation/powerautomate/multi-config.json"
+    )))
+    .unwrap()
+}
 fn queue() -> OperationQueue {
     OperationQueue::from(temp_dir().join(format!("acorn-jsonl-{}.db", nanoid::nanoid!())))
 }
@@ -217,6 +224,66 @@ async fn test_local_and_unsafe_destinations_are_rejected_without_package_reads()
         .iter()
         .all(|outcome| outcome.as_ref().unwrap().rejection.is_some()));
     assert_eq!(queue.counts().unwrap().queued, 0);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_mixed_fixture_admits_only_its_canonical_routes() {
+    let server = server().await;
+    let options = Options::with_token("test").domain(&server.base_url).identifier("42").build();
+    let queue = queue();
+    let content = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fixtures/automation/powerautomate/logbook.jsonl"
+    ));
+    let outcomes = admit(content, "first", &multi_configuration(), &queue, &options).await;
+    let routes = outcomes
+        .iter()
+        .map(|outcome| {
+            let outcome = outcome.as_ref().unwrap();
+            let admitted: AdmittedSubmission = serde_json::from_str(outcome.admission.as_ref().unwrap()).unwrap();
+            (outcome.selector.clone().unwrap(), admitted.entry.project_id, admitted.path)
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        routes,
+        [
+            ("acorn".to_string(), "acorn".to_string(), "acorn/index.json".to_string()),
+            ("rad".to_string(), "research-data".to_string(), "research-data/index.json".to_string()),
+            ("acorn-tooling".to_string(), "acorn".to_string(), "acorn/index.json".to_string()),
+        ]
+    );
+    assert_eq!(queue.counts().unwrap().queued, 3);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_mixed_selector_rejections_leave_valid_project_queued() {
+    let server = server().await;
+    let options = Options::with_token("test").domain(&server.base_url).identifier("42").build();
+    let queue = queue();
+    let mut config = serde_json::to_value(multi_configuration()).unwrap();
+    config["folders"][1]["aliases"] = serde_json::json!(["rad", "shared"]);
+    config["folders"][0]["aliases"] = serde_json::json!(["acorn-tooling", "shared"]);
+    let config: ApplicationConfiguration = serde_json::from_value(config).unwrap();
+    let source = raw("acorn", "123e4567-e89b-12d3-a456-426614174000");
+    let missing = source.replace("\"projectId\":\"acorn\",", "");
+    let unknown = raw("unknown", "123e4567-e89b-12d3-a456-426614174001");
+    let ambiguous = raw("shared", "123e4567-e89b-12d3-a456-426614174002");
+    let conflicting = source.replace("\"projectId\":\"acorn\"", "\"projectId\":\"acorn\",\"folderName\":\"rad\"");
+    let unauthorized = raw("rad", "123e4567-e89b-12d3-a456-426614174003");
+    let valid = raw("acorn-tooling", "123e4567-e89b-12d3-a456-426614174004");
+    let content = [missing, unknown, ambiguous, conflicting, unauthorized, valid].join("\n") + "\n";
+    let outcomes = admit(&content, "first", &config, &queue, &options).await;
+    let reasons = outcomes[..5]
+        .iter()
+        .map(|outcome| outcome.as_ref().unwrap().rejection.as_ref().unwrap().to_lowercase())
+        .collect::<Vec<_>>();
+    assert!(reasons[0].contains("projectid"));
+    assert!(reasons[1].contains("unknown"));
+    assert!(reasons[2].contains("ambiguous"));
+    assert!(reasons[3].contains("unknown field"));
+    assert!(reasons[4].contains("not authorized"));
+    assert!(outcomes[5].as_ref().unwrap().admission.is_some());
+    assert_eq!(queue.counts().unwrap().queued, 1);
     server.stop().await.unwrap();
 }
 #[tokio::test]

@@ -376,3 +376,4 @@ async fn test_router_accepts_authenticated_form_and_returns_canonical_receipt() 
 }
 
 mod jsonl;
+mod local;
