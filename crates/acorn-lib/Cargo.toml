@@ -68,7 +68,7 @@ lychee-lib = { version = "0.23.0", default-features = false, optional = true }
 nanoid = { workspace = true, optional = true }
 owo-colors = { workspace = true, optional = true }
 pdf-inspector = { workspace = true, optional = true }
-polars = { version = "0.53.0", features = ["lazy", "fmt_no_tty", "csv"], default-features = false, optional = true }
+polars = { version = "0.53.0", features = ["fmt_no_tty", "rows"], default-features = false, optional = true }
 polars-error = { version = "0.53.0", default-features = false, optional = true }
 quick-xml = { workspace = true, features = ["serialize"] }
 rayon = { workspace = true, optional = true }
