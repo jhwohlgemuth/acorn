@@ -171,6 +171,31 @@ mod gitlab_review {
                 state.merge_requests.push(request.clone());
                 (StatusCode::CREATED, Json(request))
             }))
+            .route("/api/v4/projects/42/members/all/1", get(|| async { Json(serde_json::json!({"id":1,"access_level":40})) }))
+            .route("/api/v4/projects/42/merge_requests/{iid}", get(|State(state): State<Arc<Mutex<ReviewState>>>, axum::extract::Path(iid): axum::extract::Path<usize>| async move {
+                let state = state.lock().unwrap();
+                match state.merge_requests.get(iid.saturating_sub(1)) {
+                    | Some(review) => {
+                        let branch = review["source_branch"].as_str().unwrap_or_default();
+                        let head = state.branches.get(branch).cloned().unwrap_or_default();
+                        (StatusCode::OK, Json(serde_json::json!({
+                            "iid":iid,"project_id":42,"source_project_id":42,"sha":head,
+                            "source_branch":branch,"target_branch":"main","title":"Review","description":"",
+                            "web_url":review["web_url"]
+                        })))
+                    }
+                    | None => (StatusCode::NOT_FOUND, Json(serde_json::json!({"message":"404 Merge Request Not Found"}))),
+                }
+            }))
+            .route("/api/v4/projects/42/merge_requests/{iid}/diffs", get(|State(state): State<Arc<Mutex<ReviewState>>>, axum::extract::Path(iid): axum::extract::Path<usize>| async move {
+                let state = state.lock().unwrap();
+                let paths = state.merge_requests.get(iid.saturating_sub(1))
+                    .and_then(|review| review["source_branch"].as_str())
+                    .map(|branch| state.review_writes.iter().filter(|(source, _)| source == branch)
+                        .map(|(_, path)| serde_json::json!({"old_path":path,"new_path":path})).collect::<Vec<_>>())
+                    .unwrap_or_default();
+                Json(paths)
+            }))
             .route("/api/v4/projects/42/merge_requests/{iid}/notes", get(|| async { Json(serde_json::json!([])) }).post(|Json(body): Json<serde_json::Value>| async move {
                 (StatusCode::CREATED, Json(serde_json::json!({"id":1,"body":body["body"],"author":{"id":99}})))
             }))

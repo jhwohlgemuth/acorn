@@ -1,5 +1,5 @@
 use super::*;
-use crate::io::api::gitlab::bot::{Config, Server};
+use crate::io::api::gitlab::bot::{Config, HookActor, HookPayload, Server, WebhookDelivery};
 use crate::io::api::gitlab::jsonl::{read_snapshot, split_snapshot, JsonlLine, Snapshot};
 use crate::io::api::powerautomate::PowerAutomateProvider;
 use crate::io::api::webhooks::store::OperationQueue;
@@ -64,7 +64,6 @@ async fn snapshot_server(content: Option<String>) -> TestServer {
 fn standard_intake() -> PowerAutomateIntake {
     intake("pilot", Memory::mb(10), Memory::kb(64))
 }
-
 #[test]
 fn test_empty_file_yields_no_lines() {
     let snapshot = split_snapshot("", &Memory::kb(64)).unwrap();
@@ -76,6 +75,68 @@ async fn test_empty_inbox_file_yields_empty_snapshot() {
     assert_eq!(snapshot.commit, "9f86d081884c7d659a2feaa0c55ad015a3bf4f1");
     assert!(snapshot.is_empty());
     assert_eq!(snapshot.len(), 0);
+}
+#[tokio::test]
+async fn test_manual_review_worker_graduates_an_authorized_note_once() {
+    let fixture = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fixtures/automation/powerautomate/logbook.jsonl"
+    ));
+    let inbox = format!(
+        "{}\n",
+        fixture
+            .lines()
+            .next()
+            .unwrap()
+            .replace("\"category\":\"research\"", "\"category\":\"personnel\"")
+    );
+    let (server, state) = review_server(inbox).await;
+    let document: ApplicationConfiguration = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fixtures/automation/powerautomate/multi-config.json"
+    )))
+    .unwrap();
+    let queue = OperationQueue::from(std::env::temp_dir().join(format!("acorn-manual-graduate-{}.db", nanoid::nanoid!())));
+    let options = Options::with_token("test").domain(&server.base_url).identifier("42").build();
+    let mut config = Config::new(options, "127.0.0.1:0".parse().unwrap()).with_operation_queue(queue.clone());
+    config.powerautomate = Some(PowerAutomateProvider::new(document.power_automate().unwrap().clone(), document.registry(), "test").unwrap());
+    let worker = Server::new(config);
+    assert_eq!(worker.poll_jsonl_once().await.unwrap().admitted_count, 1);
+    assert!(worker.process_next().await.unwrap());
+    let (branch, identifier) = {
+        let snapshot = state.lock().unwrap();
+        let branch = snapshot.merge_requests[0]["source_branch"].as_str().unwrap().to_string();
+        let content = snapshot.content.get(&(branch.clone(), "acorn/index.json".to_string())).unwrap();
+        let activity: acorn_schema::research_activity::ResearchActivity = serde_json::from_str(content).unwrap();
+        (branch, activity.logbook.unwrap().entries[0].identifier.clone())
+    };
+    let delivery = WebhookDelivery {
+        delivery_id: "manual-graduation-note".to_string(),
+        event: HookPayload::Note {
+            actor: HookActor::new(42, 1, "reviewer", false),
+            note_id: 10,
+            body: format!("/acorn graduate {identifier}"),
+            noteable_type: "MergeRequest".to_string(),
+            noteable_id: Some(1),
+            noteable_iid: Some(1),
+            system: false,
+            confidential: false,
+            internal: false,
+        },
+    };
+    queue
+        .enqueue_spec(&delivery.delivery_id, &delivery.operation().unwrap().unwrap())
+        .unwrap();
+    assert!(worker.process_next().await.unwrap());
+    assert!(!worker.process_next().await.unwrap());
+    let snapshot = state.lock().unwrap();
+    let content = snapshot.content.get(&(branch, "acorn/index.json".to_string())).unwrap();
+    let activity: acorn_schema::research_activity::ResearchActivity = serde_json::from_str(content).unwrap();
+    assert!(activity.logbook.unwrap().entries[0].archived);
+    assert_eq!(snapshot.merge_requests.len(), 1);
+    assert_eq!(snapshot.review_writes.len(), 2);
+    drop(snapshot);
+    server.stop().await.unwrap();
 }
 #[tokio::test]
 async fn test_missing_file_yields_empty_snapshot() {

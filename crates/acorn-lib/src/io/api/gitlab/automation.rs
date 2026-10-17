@@ -147,6 +147,18 @@ pub struct PublishResult {
     /// Draft merge request created or reused for review.
     pub merge_request: MergeRequest,
 }
+/// Exact revisions of an open review merge request for a local diff export.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReviewRevisions {
+    /// Project-scoped merge-request identifier.
+    pub merge_request_iid: u64,
+    /// Source and target merge base from GitLab's latest review diff.
+    pub base: String,
+    /// Current reviewed source branch head.
+    pub head: String,
+    /// Default branch targeted by the review.
+    pub target_branch: String,
+}
 impl GraduationResult {
     /// Render the deterministic merge-request note for a graduation result.
     pub fn render_note(&self, accepted_ids: &[String]) -> String {
@@ -297,6 +309,51 @@ impl MergeRequestDetails {
     }
 }
 impl Options {
+    /// Resolve and verify the latest immutable diff revisions for an open review branch.
+    pub async fn review_revisions(&self, source_branch: &str) -> ApiResult<ReviewRevisions> {
+        let review = self.find_open_merge_request(source_branch).await.and_then(|review| {
+            review
+                .filter(|review| review.state == "opened")
+                .ok_or_else(|| eyre!("Review branch has no open merge request"))
+        });
+        match review {
+            | Ok(review) => match merge_request(&self.clone().with_internal_identifier(review.iid.to_string())).await {
+                | Ok(details) => {
+                    let project_id = self
+                        .identifier()
+                        .and_then(|identifier| identifier.parse::<u64>().ok())
+                        .ok_or_else(|| eyre!("A numeric GitLab project identifier is required"));
+                    match project_id {
+                        | Ok(project_id) => match project_details(self)
+                            .await
+                            .and_then(|project| project.default_branch.ok_or_else(|| eyre!("GitLab project has no default branch")))
+                        {
+                            | Ok(target_branch) => match review_diff_revisions(details, review.iid, project_id, source_branch, &target_branch) {
+                                | Ok((_, head, reviewed_sha)) if reviewed_sha != head => {
+                                    Err(eyre!("Review branch moved after GitLab computed its diff"))
+                                }
+                                | Ok((base, head, _)) => match self.branch_head(source_branch).await {
+                                    | Ok(current_head) if current_head == head => Ok(ReviewRevisions {
+                                        merge_request_iid: review.iid,
+                                        base,
+                                        head,
+                                        target_branch,
+                                    }),
+                                    | Ok(_) => Err(eyre!("Review branch moved after GitLab computed its diff")),
+                                    | Err(why) => Err(why),
+                                },
+                                | Err(why) => Err(why),
+                            },
+                            | Err(why) => Err(why),
+                        },
+                        | Err(why) => Err(why),
+                    }
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
     /// Resolve one GitLab branch to its exact head commit SHA.
     pub async fn branch_head(&self, branch: &str) -> ApiResult<String> {
         self.find_branch(branch).await.map(|branch| branch.commit.id)
@@ -784,5 +841,37 @@ fn is_not_found(error: &color_eyre::Report) -> bool {
     error.downcast_ref::<HttpResponseError>().is_some_and(|error| error.status_code() == 404) || {
         let message = error.to_string().to_ascii_lowercase();
         message.contains("404") && message.contains("not found")
+    }
+}
+fn review_diff_revisions(
+    details: MergeRequestDetails,
+    review_iid: u64,
+    project_id: u64,
+    source_branch: &str,
+    target_branch: &str,
+) -> ApiResult<(String, String, String)> {
+    let review_mismatch = details.iid != review_iid
+        || details.project_id != project_id
+        || details.source_project_id.is_some_and(|source| source != project_id)
+        || details.source_branch != source_branch
+        || details.target_branch != target_branch;
+    match review_mismatch {
+        | true => Err(eyre!("Review merge request does not match the admitted project and branch")),
+        | false => details
+            .diff_refs
+            .ok_or_else(|| eyre!("Review merge request has no computed diff revisions"))
+            .and_then(|references| {
+                references
+                    .base_sha
+                    .filter(|revision| !revision.trim().is_empty())
+                    .ok_or_else(|| eyre!("Review merge request has no base revision"))
+                    .and_then(|base| {
+                        references
+                            .head_sha
+                            .filter(|revision| !revision.trim().is_empty())
+                            .ok_or_else(|| eyre!("Review merge request has no head revision"))
+                            .map(|head| (base, head, details.sha))
+                    })
+            }),
     }
 }

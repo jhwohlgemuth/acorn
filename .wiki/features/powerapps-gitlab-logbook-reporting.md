@@ -14,16 +14,23 @@ phase_budget_hours: 5
 
 # Goal
 
-**Top blocking priorities:** The ACRE 2.0.0 contract and multiplexed JSONL integration gates are landed. PA-05 and the pilot now depend on the remaining external ownership, access, and callback preparation in PA-01 through PA-04.
+**Top blocking priorities:** The ACRE 2.0.0 contract, multiplexed JSONL intake, and local MVP commands are implemented. The notification-only tester pilot is verified. PA-05 depends on external ownership, access, service boot, and callback preparation in PA-02 through PA-04. Live append, merge, package publication, and notification evidence remain in PA-05 through PA-09.
 
 [Complete proposed JSON, JSONC, YAML, and deployment environment examples](../assets/acre-logbook-configuration-examples.md) define the intended layout and behavior. Schema version (`2.0.0` hard cutover, no 1.0.0 migration) and ACRE field names are settled per `ACRE_SPEC.md`; the `options.powerAutomate.intake` source settings and JSONL poller are implemented.
 
 Implement the selected sequence: Power Apps form → Power Automate flow → append to the JSONL Logbook inbox in GitLab → Vergil polls GitLab → the bot durably ingests new items and removes them from the inbox → the bot routes each item by `projectId` and augments the associated project's `index.json`. Use `.acorn/intake/logbook.jsonl` for the pending inbox. Each line wraps form-controlled Logbook fields in the existing version-1 submission envelope. Preserve the established review branch and human-merge policy for canonical changes, followed by PDF publication and notifications. Complete one single-project pilot before expanding mappings or submitters.
 
+The intended end state permits each authorized member to submit one or more forms for an allowed project folder in the designated multi-folder GitLab project. Power Apps sharing and ACRE `members` authorization are separate gates; both must allow the contributor. Power Automate appends one JSONL line per submission. ACORN then supports either a bot-driven or an operator-driven path from that same inbox through routing, project-file updates, a reviewable exported diff artifact, merge requests, and artifact generation. GitLab merge requests carry human review; Teams and email deliveries are sent through the callback flow. The operator-driven path must use ACORN's public API/CLI operations for the processing steps and preserve the same validation, authorization, idempotency, and review rules as the bot path.
+
+**Manual path (implemented 2026-10-17):** `acorn intake stage/apply` handles standalone local indexes. `acorn intake run` polls one configured GitLab inbox snapshot and note page, then executes bounded durable review work. `acorn intake export` writes a UTF-8 unified diff of the selected project file at the open MR's computed base/head revisions, plus a JSON receipt with source digest, route, MR identity, revisions, and SHA-256 checksum. `acorn intake deliver` explicitly drains ready durable callback intents. `acorn report --dry-run` remains the separate PDF/manifest path. The full live sequence still needs PA-05 through PA-09 evidence.
+
+The native MVP executable is `target/debug/acorn`, built with `cargo build --package acorn-cli --bin acorn`. [ACRE operator documentation](../../docs/src/concepts/acre.md#run-one-intake-cycle-from-the-native-executable) gives the exact commands and protected environment. The local stage/apply fixture, mocked GitLab diff export/replay, JSONL cleanup/restart, note authorization, durable callbacks, and headless PDF rendering have focused test evidence. The local operator and Vergil bot must not independently consume the same inbox/branch with separate databases at the same time. The isolated live pilot still needs its GitLab credential, flow, and Vergil service before these commands can be exercised against real submissions.
+
 This plan is the sole setup reference while work remains active. It records the deployment decisions, stop gates, exact asset boundaries, ordered walkthrough, troubleshooting checks, and acceptance evidence. After acceptance, move the validated operational record to `../assets/powerautomate-logbook-reporting.md` and retire this plan from the active indexes.
 
 # Current evidence
 
+- **PA-01 verified (2026-10-17):** the published canvas in environment `221f44a6-1468-ea4e-b93d-cd52f1723079` has `SubmitEntryScreen` and the attached **ACORN Logbook Canvas Notifications** flow. Tester submission run `08584102031146888583116268486CU06` on 2026-10-07 at 16:09 followed the enriched template save at 15:39; its Power Apps trigger, Teams action, and Office 365 Outlook action succeeded. The run's requester was the approved tester `c5c@ornl.gov`. In the private Teams conversation, the tester shared a screenshot of the received message at 16:10 and confirmed at 16:11 that the Teams message matched the email. The screenshot shows the pilot project, requester, date, category, state, summary, and notification-only notice; it is retained in Teams, not copied into this repository. The tester reported that the in-app completion feedback was easy to miss and that optional items were absent from the notification-only message. Carry that feedback into the later queued-receipt and intake-flow review.
 - **PA-24 and PA-25 implemented locally (2026-10-17):** a two-folder JSONL fixture and mocked GitLab integration exercise one- and three-record streams, canonical IDs and aliases, immutable admitted routes, selected review index writes, rejection isolation, and replay. Standalone local intake is available through `acorn intake stage/apply`: exact-line proposals are stored under `.acorn/intake/proposals/`, canonical indexes stay unchanged until explicit apply, changed bases require restaging, and double apply and crash recovery are idempotent. Focused tests, scoped clippy, the 2,493-test workspace suite, and `acorn-lib` WASM feature check pass. The broader `make check-wasm` stops at an unchanged `acorn-schema` core-only `OneOrMany`/`alloc` feature error; it does not reach the local intake adapter, which is agentic/host-only. No external deployment was changed.
 - **PA-22 and PA-23 landed locally (2026-10-16):** exact-byte admission, source observations, atomic queue persistence, canonical alias routing, verified bucket association, and immutable worker routes are implemented. `Server::poll_jsonl_once` and the independent configured poll loop admit before cleanup; snapshots preserve original content and the file `last_commit_id`; cleanup rereads/recomputes after conflicts or uncertain responses, keeps the drained file, and preserves unadmitted bytes. Focused GitLab, Power Automate, webhook, and configuration suites pass 238/238, including restart, conflict, rollback, missing metadata, concurrent append/cleanup, and stored-route regressions. Formatting, scoped clippy with no new warnings, the `analysis` feature mirror, and the no-default-features check pass. The pre-existing analyzer test `ValeOutput` unused-import warning remains. Intake uses `poll_interval: Seconds` with a numeric wire value; file and record limits use `Memory`. Added code has no propagation operators or function early returns, and provider dependencies use module namespaces.
 
@@ -31,7 +38,8 @@ This plan is the sole setup reference while work remains active. It records the 
 
 - **ACRE landings (2026-10-13/14):** `b6e847a4` consolidated the schema wrapper onto `acorn_core::OneOrMany`; follow-ups `984dcb65` and `14970672` finished the refactor (tests fixed). Earlier notes about `Vec` in `powerautomate/config.rs` and `llama_swap.rs`, missing root folders/members/variables, and missing options counterparts no longer apply — those files now use `OneOrMany` and the root/options layout above. Treat the landed contract as the JSONL baseline.
 - **Xylem boundary (landed):** Xylem does not parse ACRE and has no `ApplicationConfiguration` consumer. No second ACRE model was introduced into Xylem. A full cross-repository variable catalog with coverage gate is deferred as non-blocking for JSONL (see Variable references).
-- **Selected transport (2026-10-11):** the user reports testing form data saved as a CSV row and selects GitLab JSONL for the planned intake. Power Automate will append to `.acorn/intake/logbook.jsonl` in the target project; Vergil will poll that file. The CSV test does not establish that the external JSONL append flow exists. No remote project was changed during implementation.
+- **Selected transport (corrected 2026-10-17):** the user tested only form input → Teams/email notifications; no Power Apps submission was saved to CSV or JSONL. GitLab JSONL is the planned intake format: Power Automate will append to `.acorn/intake/logbook.jsonl` in the target project, and Vergil will poll that file. The external append flow has not been implemented. No remote project was changed during the notification pilot.
+- **PA-05 draft checkpoint (2026-10-17):** after the user requested PA-05 ahead of its deployment prerequisites, an app-environment flow named **ACORN Logbook GitLab JSONL Intake (Draft)** was saved with flow ID `6039f419-420f-6922-46ef-04b00d2290f1`. Its Power Apps (V2) trigger has typed Project ID, Reporter Email, Entry Date, Category, State, optional Event Type, Summary, and optional Items inputs. Two Compose actions generate `guid()` and `utcNow()` once per run. The portal shows the draft **Off**, with no associated apps, connection references, or runs. It has no GitLab write, callback, queued receipt, or app submit binding; PA-05 remains blocked on the approved branch/API route, protected credentials, Vergil service, and callback flow.
 - **Infrastructure:** the user has self-managed servers with self-signed TLS at best and has not provisioned a gateway. Organizational gateway availability is unverified and is not a dependency of the selected design. Power Automate must reach and authenticate to GitLab; Vergil must reach GitLab and the callback endpoint over outbound HTTPS. No Power Automate-to-Vergil route is required.
 - **Remaining deployment work:** note polling remains `Server::poll_once`; configured repository intake uses the independent `poll_jsonl_once` path. The mixed-project review publication gate passed locally; PA-05 still needs the external append flow and its prerequisites. Existing `FormSubmission::entry_after` remains the shared authorization and conversion contract.
 - `crates/acorn-lib/src/io/api/powerautomate/` implements strict form decoding, project and submitter authorization, shared-header authentication, durable intake, and direct callback resolution.
@@ -43,7 +51,7 @@ This plan is the sole setup reference while work remains active. It records the 
 - Generated help, focused tests, `make lint`, all 1,914 workspace tests, and `make book` passed on 2026-09-24 for the existing HTTP intake path. Those results do not validate the newly planned JSONL path.
 - The former book page and navigation entry are removed, all durable references point to this active plan, and `make book` passes on 2026-10-06.
 - The source data project is the Internal `research-enablement/buckets/nssd` project, numeric ID `17410`, default branch `main`. Treat it as read-only production throughout this walkthrough; the inspected snapshot is `036c7b0074b2cc1901c0a65c66c254a04663ce74`.
-- The isolated deployment target is the Internal `research-enablement/experiments/power-automate` project, numeric ID `22464`, default branch `main`. Its default branch still contains only its existing README and response CSV; the pilot assets remain isolated on `acorn/powerautomate-pilot`.
+- The isolated deployment target is the Internal `research-enablement/experiments/power-automate` project, numeric ID `22464`, default branch `main`. Its default branch still contains only its pre-existing README and `responses.csv`; that file was not written by the tested Power Apps notification flow. The pilot assets remain isolated on `acorn/powerautomate-pilot`.
 - The NSSD snapshot contains 78 tracked files, 35 project `index.json` files, no Git LFS objects, and about 18 MiB of current working-tree data. All 35 indexes pass an offline ACORN schema check; existing readability warnings do not block the copy.
 - An exact copy of the NSSD project data is published only to the isolated target's `acorn/powerautomate-pilot` branch at commit `7ccb1a7`. The source README and CI configuration were excluded, the target's existing files were preserved, and a checksum-aware dry run shows no copy drift. No merge request has been opened and the target default branch remains unchanged.
 - Pilot commit `66f4bef` adds a cross-project CI include pinned to ACORN commit `aa36e93f76ec22a9b3d2be9ceccf2a8d9cd891aa`; GitLab's pipeline editor reports that the expanded configuration syntax is correct. The schedule-only job remains disabled until the branch is reviewed, merged, and explicitly scheduled.
@@ -64,8 +72,8 @@ This plan is the sole setup reference while work remains active. It records the 
 - The tenant default environment contains a saved instant cloud flow named **ACORN Logbook Intake**, flow ID `e3a4ad29-ac14-4afe-887b-8b905f9e8dbb`. Its Power Apps (V2) trigger defines typed inputs for Project ID, Reporter Email, Entry Date, Category, State, Event Type, Summary, and Items. Flow-owned steps generate one submission GUID, capture `utcNow()`, convert the selected date to a UTC RFC 3339 timestamp, split optional item lines, and filter blank items. It also demonstrates a Teams direct-chat action, an email action, and a Power Apps response with `Notifications sent` plus the submission ID. Flow Checker reports zero errors and zero warnings. It has not been run and cannot be attached to the canvas because the flow and app are in different Power Platform environments; retain it only as the later ACORN-path scaffold. Its fixed pilot recipient values are not the reusable routing contract.
 - The environment-local flow **ACORN Logbook Canvas Notifications**, flow ID `18677f6b-21af-435c-a000-a2d471551019`, is saved in the canvas app's `221f…` environment for the notification-only pilot. Its Power Apps (V2) trigger has six typed inputs: Project Key, Requester Email, Occurred On, Highlight Category, Workflow Status, and Highlight Summary. Microsoft Teams posts a direct `Chat with Flow bot` message to the dynamic Requester Email input and includes project, date, category, state, and summary. Office 365 Outlook `Send an email (V2)` sends **ACORN logbook highlight received** to the same dynamic input and includes all six trigger values, including the requester email. Both retain the explicit notification-only/no-ACORN-or-GitLab-write notice. Flow Checker reports zero errors and zero warnings, and Power Automate confirmed the updated flow was saved. The flow contains no fixed personal recipient, HTTP action, ACORN URL, GitLab action, intake credential, or Power Apps response action.
 - The environment-local flow is attached to the published canvas. `SubmitButton.OnSelect` passes fixed project `acorn`, `User().Email`, the selected date, category, state, and trimmed summary to `ACORNLogbookCanvasNotifications.Run`; it exposes pending, success, and failure states without clearing the contributor's values. `SubmitButton.DisplayMode` enforces the required summary, category, and state and prevents repeat activation while pending. `SubmissionStatus.Text` announces readiness and the current request state. Power Apps reports no formula errors, App checker reports no formula issues, and the published launch was verified to open `SubmitEntryScreen`. The first explicit test displayed **Notifications sent.** and produced successful Teams and Office 365 Outlook actions in flow run `08584102113387025966515574751CU09`.
-- Neither inspected flow has an HTTP action, ACORN URL, or intake credential. These earlier flow observations are distinct from the user's reported CSV test. Identify that tested flow before implementation and verify its target, authentication, and branch; do not assume it is either inspected scaffold.
-- Access to the GCC maker portal and instant-flow creation are confirmed. Remaining gates include the chosen flow's GitLab API access and permissions, callback-trigger policy, and named operational owners.
+- None of the inspected flows has an HTTP action, ACORN URL, GitLab action, or intake credential. The user clarified that the test exercised only Power Apps input → Teams/email; no row was saved. The current **Sponsor Highlights** app links only to the notification flow; the new JSONL draft is separate and off. The separate **Highlight** app links to no flow and uses Dataverse. The pre-existing `responses.csv` in GitLab project `22464` is unrelated to the verified test.
+- Access to the GCC maker portal and instant-flow creation are confirmed. The current environment is explicitly marked as a developer environment. The published **Sponsor Highlights** app is owned by Jason Wohlgemuth and currently has a Standard license designation; that designation does not settle licensing for the future HTTP-based intake flow. On 2026-10-17, GitLab project `22464` was confirmed Internal with `main` as its default branch; `main` permits Maintainer push and merge only. The unprotected `acorn/powerautomate-pilot` branch remains at `447fbd45084496006a70aa9c0bdd2ef5db4c1b75`, and the signed-in owner can push. No project CI variables are configured. These facts do not approve a flow credential, cloud API access, a shared GCC environment, or production owners.
 
 # Architecture decisions
 
@@ -266,13 +274,12 @@ The callback flow uses this request schema:
 
 # Asset boundaries and integration locks
 
-- **This update:** planning only, limited to this concept and its index, network, and execution-lane entries. No live flow, GitLab file, runtime, or source implementation is changed.
 - **Production source project:** `research-enablement/buckets/nssd` is a read-only input. Do not commit, push, register webhooks, create variables or schedules, or run write-capable automation against it.
 - **Isolated GitLab data project:** `research-enablement/experiments/power-automate` owns the copied data, `.acorn.json`, `.gitlab-ci.yml`, and proposed `.acorn/intake/logbook.jsonl`. Power Automate appends; Vergil removes durably ingested records. The bot augments only the `index.json` selected by the trusted project mapping, through the established review workflow.
 - **Power Platform:** one organization-only Power Apps canvas app, one app-triggered intake cloud flow, and one callback notification cloud flow.
 - **Managed runtime:** one ACORN service with protected GitLab credentials, callback URL, persistent operation/outcome storage, and any secret still required by existing startup. No webhook signing token is required for polling.
 - **GitLab control plane:** approved intake-branch write permissions, protected CI variables, and one monthly default-branch reporting schedule. Configure intake-only commits so they do not trigger unintended reporting jobs.
-- **Future implementation:** repository-file polling, source configuration, durable admission/outcomes, and tests are required. Before touching source, declare the exact files and coordinate locks on GitLab bot dispatch, Power Automate admission/configuration, durable store migrations, and CLI configuration with other active plans. This planning update authorizes no implementation.
+- **Local MVP evidence:** The native executable now exposes one-shot intake, diff export, and explicit callback delivery. Source polling, durable admission/outcomes, mixed-project routing, note authorization, diff receipt replay, and callback worker tests passed locally. Live GitLab and Power Platform acceptance remains in PA-05 through PA-09.
 - After the deployed acceptance criteria pass, convert the verified process and redacted evidence requirements into `.wiki/assets/powerautomate-logbook-reporting.md`, redirect dependent wiki plans to that asset, delete this plan, and remove its index, network, and lane entries.
 
 # Dependencies and stop gates
@@ -283,7 +290,7 @@ The completed PA-24 integration gate covers a mixed-project inbox using both pro
 
 1. Finish the Vergil bot health, readiness, and isolated GitLab access checks in polling mode.
 2. Test a policy-approved Power Automate callback flow from Vergil over outbound HTTPS and confirm Teams/email delivery. Store the callback URL securely before real intake.
-3. Identify the user's tested CSV flow and verify its GitLab project, branch, credential, and cloud reachability. Plan its JSONL replacement using the existing Logbook submission envelope.
+3. Select an app-triggered flow in the canvas app's environment and verify the approved GitLab target, branch, credential, and cloud reachability for the new JSONL append using the existing Logbook submission envelope.
 4. Configure the flow to append JSONL and enable the implemented poller after the remaining access and callback prerequisites. Preserve submission UUIDs across retries, durably record admission, and distinguish queued receipts from ACORN acceptance. This is GitLab-mediated intake without a gateway dependency.
 5. Once transport is validated, run one isolated submission through human review, graduation, merge, report publication, callback delivery, and duplicate replay as described in steps 7–9.
 
@@ -293,7 +300,7 @@ The selected route is Power Automate → GitLab → Vergil. Verify reachability 
 
 Do not enable full intake or production flows until all of these gates pass. A protected local intake credential is permitted for the bounded bot boot. The notification-only canvas pilot is explicitly allowed before gates 2 and 3 because it does not call ACORN, GitLab, or an HTTP trigger. An isolated callback test may proceed before gate 2 once callback policy and recipients are approved:
 
-1. Power Automate Premium with HTTP actions and maker access to a GCC Moderate Power Apps developer environment are confirmed for `o9w@ornl.gov`; this proves build capability, not a deployable shared environment or end-user entitlement. The notification-only app no longer has its Dataverse source, is shared with the one approved tester, and the tester has launched the cleaned version without a trial prompt. Confirm that she can establish the required Teams and Office 365 Outlook connections and complete one notification-only submission. Before broader use, obtain an ORNL-approved shared or production GCC environment with sufficient sharing capacity and verify the resulting app license designation and dependent-resource access. Use the GCC maker portals, not the commercial endpoints.
+1. Power Automate Premium with HTTP actions and maker access to a GCC Moderate Power Apps developer environment are confirmed for `o9w@ornl.gov`; this proves build capability, not a deployable shared environment or end-user entitlement. The notification-only app no longer has its Dataverse source, is shared with the one approved tester, and the tester launched the cleaned version without a trial prompt. Her 2026-10-07 submission produced both visible notifications. Before broader use, obtain an ORNL-approved shared or production GCC environment with sufficient sharing capacity and verify the resulting app license designation and dependent-resource access. Use the GCC maker portals, not the commercial endpoints.
 2. Power Automate can read and update the selected GitLab file, Vergil can read it, and the new JSONL poller passes its acceptance tests. Keep the existing app notification-only until the complete intake path is ready. Callback testing and local bot checks may proceed independently.
 3. The tenant permits the callback trigger's `Anyone` mode, or an approved intermediary exists for callbacks.
 4. The isolated GitLab data project supplies its numeric project ID, default branch, package permission, one safe repository-relative `index.json` path, one stable pilot identifier, and the explicitly approved tester email allowlist. No deployment credential or integration may target the production source project.
@@ -305,7 +312,7 @@ The implemented webhook runtime, GitLab automation, reporting-window selection, 
 
 | Owner | Responsibilities |
 | --- | --- |
-| **You** | Identify the tested CSV flow; confirm GitLab access, intake branch, trusted writers, and credentials; coordinate the shared GCC environment and licensing; approve notification destinations; publish the accepted canvas draft; review, graduate, and merge GitLab changes. |
+| **You** | Confirm GitLab access, intake branch, trusted writers, and credentials; coordinate the shared GCC environment and licensing; approve notification destinations; publish the accepted canvas draft; review, graduate, and merge GitLab changes. |
 | **Codex** | Maintain the private plan; prepare and validate GitLab branches, `.acorn.json`, CI, controlled project mappings, flow expressions, schemas, service manifests, and non-production tests; keep NSSD read-only; present exact human instructions at each handoff. |
 | **Together** | Confirm the project roster and member allowlists; place generated credentials into protected stores without exposing them; run the end-to-end and duplicate-submission smoke tests; review redacted acceptance evidence. |
 
@@ -342,19 +349,9 @@ Do not expose `identifier`, `origin`, `discovery`, or `archived` on the contribu
 
 Give every input a persistent label, mark required fields in text as well as color, set a logical tab order, and assign accessible labels to New, Submit, Cancel, Edit, and Delete if any of those controls remain. A submission status must be announced as text, not only by icon or color.
 
-- **Published evidence (2026-10-07):** `SubmitEntryScreen` implements the pilot field set and controlled values, opens first, and calls the environment-local notification flow with six inputs. Required-field validation, pending-state disabling, success/failure status text, and a current Teams-and-email tooltip are active. Default and 360-by-800 previews render the complete form with a scrollable body and fixed status/footer. The pilot ACORN allowlist contains the signed-in `User().Email` value plus `c5c@ornl.gov`; that allowlist is independent of the Power Apps grant. The obsolete generated screen and Dataverse source are removed, the saved Data pane is empty, and the cleaned version is published. Power Apps successfully granted Clark, Niki user-only access after resolving `c5c@ornl.gov`, and she opened the clean launch without a trial prompt. Her notification submission confirmation remains pending.
+- **Published evidence (2026-10-07):** `SubmitEntryScreen` implements the pilot field set and controlled values, opens first, and calls the environment-local notification flow with six inputs. Required-field validation, pending-state disabling, success/failure status text, and a current Teams-and-email tooltip are active. Default and 360-by-800 previews render the complete form with a scrollable body and fixed status/footer. The pilot ACORN allowlist contains the signed-in `User().Email` value plus `c5c@ornl.gov`; that allowlist is independent of the Power Apps grant. The obsolete generated screen and Dataverse source are removed, the saved Data pane is empty, and the cleaned version is published. Power Apps granted Clark, Niki user-only access after resolving `c5c@ornl.gov`; she opened the clean launch without a trial prompt and later confirmed both notifications.
 
 - **Verify:** the shared tester opens the clean launch link without a Power Apps trial prompt, sees the contributor screen and her signed-in ORNL identity, establishes the required flow, Teams, and Office 365 Outlook connections, and can submit the notification-only pilot. In an approved shared or production GCC environment, explicitly share the published app only with approved testers, confirm every tester has the required entitlement for the app's final license designation, and ensure all dependent resources are accessible. The app contains no shared secret, callback URL, or repository path; a blank form defaults to the current time, cannot submit an invalid controlled value, has no ordinary-contributor edit or delete path, and exposes meaningful accessibility names for every actionable control.
-
-## 2a. Prove the canvas-to-notification path
-
-Before introducing Vergil, GitLab, HTTP actions, or credentials, create **ACORN Logbook Canvas Notifications** in the same `221f…` Power Platform environment as the canvas app. Use the Power Apps (V2) trigger with the six reduced pilot inputs already represented by the contributor screen: fixed project key, signed-in requester email, selected date, category, state, and summary. Use that Requester Email input as the recipient for both the direct Teams chat through Flow bot and the Office 365 Outlook email, then let the canvas show a short success status when the flow call completes. Never hard-code a tester address into either notification action. This is a transport demonstration, not an ACORN intake: it deliberately omits event type, items, submission persistence, GitLab routing, and all secrets. Reserve a structured Power Apps response for the GitLab queued receipt and submission ID.
-
-Connect that environment-local flow to **Submit highlight**. Disable the button while the call is pending, validate the required fields, display success or failure in `SubmissionStatus`, and preserve the entered values on failure. Keep the app unpublished until the tester approves the draft behavior.
-
-- **Pilot evidence (2026-10-07):** flow `18677f6b-21af-435c-a000-a2d471551019` and the canvas wiring are saved. Both notification actions route through the dynamic Requester Email input, Flow Checker reports zero errors and zero warnings, and App checker reports no formula issues. One explicit click from the unpublished canvas completed run `08584102113387025966515574751CU09` in three seconds. The Power Apps trigger, Teams direct-chat action, and Office 365 Outlook email action each report **Succeeded**, and the canvas displayed **Notifications sent.** No HTTP, ACORN, GitLab, or NSSD action exists in the run. After that run, the saved message templates were enriched: Teams now includes project, date, category, state, and summary; email includes all six trigger fields. A new published-app submission is required to validate the enriched content and visible delivery in the tester's clients.
-
-- **Verify:** one explicit test click from the unpublished canvas produces exactly one Teams direct-chat message and one email to the signed-in submitter identified by Requester Email, the canvas reports success, and no request reaches Vergil, GitLab, or the production NSSD project. Record the flow run ID and redacted screenshots without copying message content or addresses into public documentation.
 
 ## 3. Configure GitLab credentials
 
@@ -407,27 +404,41 @@ Use the current ACRE 2.0.0 layout with the resolved pilot values. Keep `intake` 
 }
 ```
 
-Deploy the service with protected runtime credentials on Vergil. First use a native ARM64 ACORN binary and polling mode to prove the process and configuration without registering a webhook. `POWER_AUTOMATE_CALLBACK_URL` may remain absent for this health/readiness-only boot; do not send a real intake while it is absent.
+Deploy the service with protected runtime credentials on Vergil. The paths below are examples to adapt to the approved service account and installation. Install an ACORN binary built for Vergil's ARM64 Linux host; the published image is AMD64 only. Keep `/etc/acorn/vergil.env` readable only by the service account. It must supply `CI_SERVER_HOST=code.ornl.gov`, a bot-specific `GITLAB_TOKEN`, a persistent `ACORN_DATABASE_PATH`, and `POWER_AUTOMATE_INBOUND_SECRET` while `options.powerAutomate` is configured. Supply `POWER_AUTOMATE_CALLBACK_URL` before enabling real intake. Store values only in the protected environment file, never in this plan, the repository, or the command line.
+
+For the bounded first boot, leave `options.powerAutomate.intake` absent and use polling mode without registering a webhook. `POWER_AUTOMATE_CALLBACK_URL` may remain absent until the callback flow is ready. Run the service in the foreground while checking its startup logs and local endpoints:
 
 ```bash
-acorn serve bot 22464 \
-  --bind 0.0.0.0:3000 \
-  --config .acorn.json \
+cd /srv/acorn-pilot
+uname -m
+set -a
+. /etc/acorn/vergil.env
+set +a
+/usr/local/bin/acorn serve bot 22464 \
+  --bind 127.0.0.1:3000 \
+  --config /srv/acorn-pilot/.acorn.json \
   --event-source poll
 ```
 
-- **Verify the bounded boot:** local requests to `/health` return `ok`, `/ready` returns HTTP 200, and startup logs contain no secret values. Stop here if the executable is not native ARM64 or the configuration names production project `17410`.
+In another shell on Vergil while the process runs:
+
+```bash
+curl -fsS http://127.0.0.1:3000/health
+curl -fsS http://127.0.0.1:3000/ready
+```
+
+- **Verify the bounded boot:** `uname -m` identifies ARM64, the installed executable runs natively, `/health` returns `ok`, `/ready` returns HTTP 200, and startup logs contain no secret values. Stop here if the configuration names production project `17410`. Do not use the current detached container helper for this boot: it does not forward these protected Power Automate values, and the published image is AMD64 only.
 - **Verify the selected integration route:** the actual Power Automate run can authenticate to GitLab, and Vergil can read the same committed JSONL file and deliver outbound callbacks. No incoming cloud connection to Vergil is part of this test.
 
 ## 5a. Enable the implemented repository-file intake
 
-After callback readiness, configure `options.powerAutomate.intake` with the same branch/path used by the selected flow. The defaults are `main`, `.acorn/intake/logbook.jsonl`, 30 seconds, `max_file: "10MB"`, and `max_record: "64KB"`; set the pilot branch explicitly until its reviewed cutover. See `ACRE_SPEC.md` and the ACRE guide for the implemented contract.
+After callback readiness, set `POWER_AUTOMATE_CALLBACK_URL` in the protected environment file, configure `options.powerAutomate.intake` with the same branch/path used by the selected flow, and restart with the command in Step 5. The defaults are `main`, `.acorn/intake/logbook.jsonl`, 30 seconds, `max_file: "10MB"`, and `max_record: "64KB"`; set the pilot branch explicitly until its reviewed cutover. See `ACRE_SPEC.md` and the ACRE guide for the implemented contract. The `--event-source poll` flag handles GitLab review notes; it does not enable JSONL polling without `options.powerAutomate.intake`.
 
 Restrict intake-branch writers to trusted producers and derive reporter identity from the authenticated app context. Confirm durable outcomes through the operation store; removal means the work is recoverable, while later worker success establishes review publication. Verify authorized graduation through note polling separately. Record the source coordinates, reviewed service revision, and redacted acceptance evidence before enabling real submissions.
 
 ## 6. Append Logbook submissions to GitLab JSONL (planned)
 
-Identify the user's tested CSV flow and reuse its verified GitLab connection where applicable. Keep the app-triggered flow in the canvas app's environment. Replace CSV serialization with compact JSON objects appended to `.acorn/intake/logbook.jsonl` on the explicitly selected pilot branch in project `22464`.
+Keep the app-triggered flow in the canvas app's environment. Build the GitLab write path to append compact JSON objects to `.acorn/intake/logbook.jsonl` on the explicitly selected pilot branch in project `22464`. The verified notification flow provides no existing GitLab connection or persistence action to reuse.
 
 Each line uses the existing version-1 `FormSubmission` envelope. Its nested `entry` models the contributor-owned fields of `LogbookEntry`; ACORN derives `identifier` and owns `origin`, `discovery`, and `archived`. Use typed Power Apps (V2) inputs, UTC RFC 3339 timestamps, and optional fields only when supplied. The expanded object below documents the fields; serialize it compactly onto one physical line followed by LF. A JSON serializer must escape embedded newlines and quotes rather than interpolating raw form text.
 
@@ -460,7 +471,7 @@ Planned append algorithm:
 6. Verify persistence and return `queued`, `submissionId`, and GitLab commit SHA. The app says “Saved to GitLab; awaiting ACORN processing.” The bot records acceptance or rejection later; a GitLab commit is not an ACORN HTTP acceptance receipt.
 7. Protect GitLab request/response content in run history and retain redacted run/commit evidence.
 
-- **Draft evidence (2026-10-07):** the eight-input default-environment scaffold prepares UUIDs, timestamps, and optional item arrays but cannot connect to the canvas across environments. The environment-local six-input flow only sends notifications; if selected, it needs optional event type/items wired. Inspect the user's separately reported CSV flow before choosing the implementation target. The external JSONL append flow remains unimplemented; repository consumption and mixed-project publication are implemented and locally tested.
+- **Draft evidence (corrected 2026-10-17):** the eight-input default-environment scaffold prepares UUIDs, timestamps, and optional item arrays but cannot connect to the canvas across environments. The environment-local six-input flow only sends notifications. A separate environment-local eight-input JSONL draft now generates a submission ID and UTC timestamp, but is off and has no persistence or app binding. The user confirmed there was no CSV write in the tested path. The external JSONL append remains unimplemented; repository consumption and mixed-project publication are implemented and locally tested.
 
 - **Verify:** simultaneous appends and bot cleanup lose no work; retrying an append after its record was consumed produces no duplicate project update; quotes, multiline summaries, Unicode, and arrays round-trip. A queued receipt refers to confirmed commit persistence even if the bot has since removed the row. Invalid records never change a canonical `index.json`.
 
@@ -530,15 +541,14 @@ Submit authorized test entries for two different projects and one deliberately u
 - **Snapshot reader landed:** immutable commit reads reuse the existing GitLab client and SHA-256 spelling, enforce file/record bounds, reject nonterminated tails, and preserve content, line positions, and file concurrency metadata. Missing inboxes are idle; authentication, network, and size failures remain errors.
 - The 2026-10-07 canvas version is published. The live launch confirms `SubmitEntryScreen` is the start screen; preview also verifies it at the default canvas size and at 360 by 800. The controlled category list contains only the placeholder plus the twelve documented categories. The environment-local notification flow is attached, the blank form keeps **Submit highlight** disabled, the tooltip is `Submit highlight to Teams and email`, and the status is `Ready to send Teams and email notifications.`
 - App checker reports zero formula issues for the saved draft. Its 21 missing-label and two missing-tab-stop errors are confined to named controls on the pre-existing generated `Logbooks screen`; no new contributor control appears in those findings.
-- Notification-only run `08584102113387025966515574751CU09` completed successfully in three seconds on 2026-10-07. Its Power Apps trigger, Microsoft Teams direct-chat action, and Office 365 Outlook email action all report **Succeeded**, and the canvas displayed **Notifications sent.** The run contains no HTTP, ACORN, GitLab, or NSSD action. Record human confirmation that the Teams chat and email are visible before treating delivery as accepted.
-- The enriched Teams and email templates were saved after Flow Checker reported zero errors and zero warnings. No test was triggered during the template update; the next tester submission must confirm the expected field values and formatting in both delivered messages.
+- Notification-only run `08584102113387025966515574751CU09` completed successfully in three seconds on 2026-10-07 from the unpublished canvas. The enriched templates were saved afterward. Published-app tester run `08584102031146888583116268486CU06` succeeded after that save; the Power Apps trigger, Microsoft Teams direct-chat action, and Office 365 Outlook email action all report **Succeeded**, with no HTTP, ACORN, GitLab, or NSSD action. The tester's 16:10 Teams screenshot shows the expected pilot fields, and her 16:11 message confirms the Teams and email deliveries matched. The private conversation is the retained evidence location; no unredacted image is committed here.
 - Record screenshots or redacted exports showing the premium HTTP action and callback trigger policy without exposing credentials.
 - Record health/readiness, the flow's queued receipt and commit SHA, and the bot's durable admission/rejection outcome and operation ID.
 - Record the GitLab branch and merge-request URLs, authorized graduation note, merged commit, pipeline URL, package version, manifest, and PDF checksum.
 - Record the Teams and email deliveries for `artifact-ready` and the callback flow's successful 2xx run.
 - Record the duplicate replay response and confirm the data-project diff contains only one normalized entry.
 - Confirm generated secrets, shared-secret headers, callback URLs, SAS query parameters, and GitLab tokens are absent from repository history, service logs, artifacts, and visible flow histories.
-- Historical documentation builds cover the earlier walkthrough only. Run focused poller/append tests and repository lint/tests after implementation; document live append, concurrency, restart, and callback evidence separately.
+- **Local MVP validation (2026-10-17):** `cargo build --package acorn-cli --bin acorn` produced `target/debug/acorn`; all four intake CLI tests passed, including mocked MR-base diff export/replay and missing-branch rejection. A one-shot CLI smoke against a local empty GitLab mock and an idle callback CLI smoke both returned parseable zero-work JSON. The standalone fixture `stage`/`apply` smoke changed only its scratch `index.json`. The GitLab JSONL cleanup/restart suite (13 tests), single/mixed review publication test, authorized graduation through the manual worker, note poll authorization tests, and durable callback success/retry tests passed. Headless Chrome produced the report PDF in the focused report test after running outside the filesystem sandbox. Live append, concurrency, restart, and callback evidence still belong to the external pilot. Preserve redacted evidence separately from local test output.
 
 # Acceptance criteria
 
@@ -551,7 +561,8 @@ Submit authorized test entries for two different projects and one deliberately u
 - The Vergil service remains healthy and ready, authenticates the configured source and review events, and preserves durable receipts after inbox cleanup. Failed project updates remain retryable from bot storage.
 - Unauthorized writes/records fail closed. The app distinguishes GitLab persistence from ACORN admission; one valid queued submission produces one expected monthly review entry and merge request.
 - Human graduation preserves the routed project identifier, and a person—not the bot—merges the reviewed entry.
-- The scheduled job publishes one immutable report package and Power Automate sends both Teams and email notifications for the accepted artifact.
+- The scheduled job publishes one immutable report package and Power Automate sends both Teams and email notifications for the accepted artifact. An operator can explicitly deliver queued callbacks through the ACORN CLI after the callback flow is ready.
+- An operator can use ACORN's public API/CLI operations to process the same GitLab JSONL submissions without a running bot: admit and route records, review and apply proposed changes under the same authorization and duplicate rules, produce the GitLab review update, and export a diff artifact for the changed project files. Artifact generation is independently invocable. Record the exact commands or API calls and compare their results with the bot path; this manual-parity gate is not yet implemented or validated.
 - Replaying the same submission UUID is idempotent and does not create a second entry, merge request operation, package, or notification event.
 - Before multi-project rollout, two authorized project selections route only to their configured `index.json` files and an unauthorized project/member combination creates no canonical project-data change.
 - No credential appears in source control, logs, artifacts, app controls, ordinary Compose actions, or visible Power Automate run history.
@@ -568,27 +579,34 @@ Submit authorized test entries for two different projects and one deliberately u
 - **Stable routing:** the resolved folder ID, destination, and content digest persist at admission; retries and replays keep the original route across later mapping changes (implemented).
 - **Local destinations:** GitLab phases fail clearly on local-only destinations; standalone-local intake uses `acorn intake stage/apply` and never implies GitLab review.
 
-## PA-01 — Verify the published notification pilot
-
-- Status: blocked
-- Budget: 5 active hours maximum
-- Prerequisites: tester availability in the `221f…` Power Platform environment
-- Exact write set: Power Apps app `15ae605b-585b-49f5-a413-2b091f919a35`, flow `18677f6b-21af-435c-a000-a2d471551019`, this plan
-- Primary integration lock: Power Platform pilot
-- Outcome: Record one tester-visible enriched Teams and email delivery from the published canvas.
-- Focused validation: Inspect the flow run, app status, and redacted tester evidence.
-- Handoff: Remove PA-01 and make PA-02 ready when delivery is proven.
-
 ## PA-02 — Resolve production owners and access gates
 
-- Status: planned
+- Status: in-progress
 - Budget: 5 active hours maximum
-- Prerequisites: PA-01
+- Prerequisites: none; the notification-only pilot is verified
 - Exact write set: Power Platform environment policy, isolated GitLab project `22464` access policy, this plan
 - Primary integration lock: deployment approvals
-- Outcome: Name owners and record approved environment, GitLab API access from the selected flow, callback-trigger, licensing, branch permissions, and secret-storage decisions. Identify the user's tested CSV flow before selecting the JSONL flow target. No gateway approval is required.
+- Outcome: Name owners and record approved environment, GitLab API route for the future app-triggered flow, callback-trigger, licensing, branch permissions, and secret-storage decisions. No gateway approval is required.
 - Focused validation: Verify every stop gate has an accountable owner and dated evidence.
 - Handoff: Remove PA-02 and record the approved GitLab target and outbound access requirements for PA-03 and PA-04.
+
+### PA-02 gate audit, 2026-10-17
+
+| Gate | Verified evidence | Decision still needed |
+| --- | --- | --- |
+| Power Platform | Published tester pilot works in the `221f…` developer environment; **Sponsor Highlights** is owned by Jason Wohlgemuth and currently designated Standard. Enterprise Test and Enterprise Prod appear as viewable environments. | ORNL-approved shared GCC environment, maker and sharing rights, dependent-resource access, and final-flow licensing under [Microsoft's current instant-flow rules](https://learn.microsoft.com/en-us/power-platform/admin/power-automate-licensing/faqs). |
+| GitLab | Internal project `22464`, `main` protected for Maintainers, pilot branch unprotected at `447fbd45084496006a70aa9c0bdd2ef5db4c1b75`; signed-in owner can push. Pre-existing `responses.csv` on `main` is unrelated to the Power Apps test; no project CI variables are configured. | Approved branch and separate flow/bot principals with the required scopes; approved API route for the future flow. Live reachability and write proof belong to PA-05. |
+| App-triggered intake flow | The tested **Sponsor Highlights** app attaches only the notification flow. A separate JSONL draft in the same environment is off and has no associated app; **Highlight** has a Dataverse source and no attached flow. The default environment has **ACORN Logbook Intake** and **Test**. The user confirmed no CSV or JSONL save occurred in the tested path. | After the environment and access decisions, finish the draft's JSONL append, secure its actions, and attach it to the canvas only when the queued receipt is valid. |
+| Callback | No callback flow or trigger policy was established by the notification pilot. [Microsoft describes `Anyone` as a legacy open-access trigger mode](https://learn.microsoft.com/en-us/power-automate/oauth-authentication). | Tenant approval for that mode or an approved intermediary, plus approved recipients. |
+| Secrets and operations | Vergil is the selected ARM64 host; no deployment credential was placed in the repository during this audit. | Protected stores and owners for flow/bot GitLab credentials, callback URL, and Vergil service; named app/flow, review/merge, Teams, and email owners. |
+
+### Handoff
+
+- Verified baseline: published tester notification delivery and the read-only Power Platform and isolated GitLab observations above.
+- Changed surfaces: this plan and its portfolio references. Opening the separate **Highlight** app for inspection caused Power Apps to create unpublished version 2 at 14:09:58 on 2026-10-17; version 1 remains live. No Save or Publish action was used, and no flow, GitLab branch, credential, or service was changed.
+- Validation run: Power Automate run details, tester-shared Teams evidence, Power Apps editor inventories, and read-only GitLab project, branch, protection, member-role, and file-list queries.
+- Remaining defect: written deployment decisions are not yet identified. Current branch access for the signed-in user does not establish service-credential access or cloud reachability; no CSV or JSONL write was part of the tested flow.
+- Next action: obtain the existing policy/owner records, verify the approved integration route, and record dated decisions before removing PA-02.
 
 ## PA-03 — Prove a native ARM64 Vergil service boot
 
@@ -622,6 +640,7 @@ Submit authorized test entries for two different projects and one deliberately u
 - Outcome: Append the strict version-1 envelope with conflict-safe GitLab retries, configure the implemented repository-file poller, and return a confirmed queued receipt with submission ID and commit SHA.
 - Focused validation: Verify stable UUID/content across retries, concurrent append and cleanup, ambiguous responses, serialization round-trips, protected credentials, and app distinction between GitLab persistence and ACORN admission.
 - Handoff: Remove PA-05 and record the tested flow revision, source project/branch/path, and poller revision.
+- Draft checkpoint: Flow `6039f419-420f-6922-46ef-04b00d2290f1` is saved and off with typed trigger inputs plus one-time ID and timestamp actions. Resume with the approved branch and secret references from PA-02/04, service/callback readiness from PA-03/04, then implement GitLab read/conditional write/retry, secure run history, confirm commit persistence, return the queued receipt, bind the canvas, and configure the poller. Do not enable or attach the draft before those pieces work together.
 
 ## PA-06 — Create the first duplicate-safe review operation
 

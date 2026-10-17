@@ -550,6 +550,13 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             }),
         },
         | Some(Commands::Intake { command }) => match command {
+            | IntakeCommands::Run { config } => with_runtime(intake::run(config)),
+            | IntakeCommands::Export {
+                config,
+                submission_id,
+                output,
+            } => with_runtime(intake::export(config, submission_id, output)),
+            | IntakeCommands::Deliver { config } => with_runtime(intake::deliver(config)),
             | IntakeCommands::Stage { config, inbox } => intake::stage(config, inbox),
             | IntakeCommands::Apply { config, submission_id } => intake::apply(config, submission_id),
         },

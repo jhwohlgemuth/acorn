@@ -71,6 +71,44 @@ Each LF-terminated line uses the existing form envelope. Its `projectId` selects
 
 Rejected records remain in the inbox with inspectable outcomes in the durable operation store. Cleanup preserves unrelated bytes and concurrent appends, keeps an empty file after draining, and retries conflicts from a fresh snapshot. GitLab intake proposes changes through the existing review workflow.
 
+### Run one intake cycle from the native executable
+
+Build the local MVP with `cargo build --package acorn-cli --bin acorn`; the executable is `target/debug/acorn`. Keep a persistent operation database for this operator and use an isolated GitLab pilot project or branch. The configured `options.powerAutomate.gitlab_project` must be numeric, `options.powerAutomate.intake` must identify the JSONL source, and each folder must resolve to a path in that GitLab project. `tests/fixtures/automation/powerautomate/multi-config.json` shows the two-folder mapping used by mocked integration checks; substitute the pilot project ID and actual GitLab routes for a live run.
+
+```sh
+export CI_SERVER_HOST=code.ornl.gov
+export GITLAB_TOKEN='REPLACE_WITH_PROTECTED_TOKEN'
+umask 077
+mkdir -p .acorn
+export ACORN_DATABASE_PATH="$PWD/.acorn/operator-operations.sqlite"
+export POWER_AUTOMATE_INBOUND_SECRET='REPLACE_WITH_PROTECTED_SECRET'
+export SUBMISSION_ID='REPLACE_WITH_SUBMISSION_UUID'
+target/debug/acorn intake run --config .acorn.json
+target/debug/acorn intake export --config .acorn.json --submission-id "$SUBMISSION_ID" --output change.diff
+```
+
+`intake run` polls one inbox snapshot and one note page, then attempts up to 256 durable review operations. Its JSON output includes intake, note, and queue counts. Repeating it after an authorized `/acorn graduate` merge request note advances the same review workflow as the bot. Replays use the durable database and do not create a second operation. A rejected JSONL line remains in the inbox with its recorded reason. A worker or intake failure exits nonzero; inspect the operation database before retrying. The command starts no HTTP listener and sends no callbacks.
+
+`intake export` reads the admitted route from that database and uses the open merge request's computed base/head revisions. It verifies that GitLab's current review branch head still matches the MR head and that the file contains the admitted entry, then writes a UTF-8 unified diff. A newly created MR may need another invocation after [GitLab computes its diff](https://docs.gitlab.com/api/merge_requests/). The adjacent `change.diff.receipt.json` records the submission ID, source digest, GitLab service and project, repository path, branch, MR IID, target branch, base/head revisions, and SHA-256 digest of the diff. The diff reflects the full selected project file change on that review branch. If that branch carries multiple submissions, the artifact includes all of them. Confirm the branch and receipt before using the artifact. The command does not edit a project file or publish a package.
+
+After the callback flow has a protected `POWER_AUTOMATE_CALLBACK_URL`, deliver ready durable intents explicitly:
+
+```sh
+export POWER_AUTOMATE_CALLBACK_URL='https://REPLACE_WITH_PROTECTED_CALLBACK_URL'
+target/debug/acorn intake deliver --config .acorn.json
+```
+
+The callback command attempts up to 256 ready intents. Its JSON summary contains counts only, including pending retries and terminal failures; retryable intents remain durable for later attempts. Keep the URL and shared secret in protected environment variables. For a local PDF and manifest from a reviewed checkout, use an exact merged commit and an explicit cutoff; dry-run performs no package publication or callback:
+
+```sh
+export MERGED_SHA='REPLACE_WITH_MERGED_COMMIT_SHA'
+target/debug/acorn report --dry-run --config .acorn.json --root . --commit "$MERGED_SHA" --through '2026-11-01T00:00:00Z' --project acorn --output .acorn/reports
+```
+
+Set `CHROME_PATH` or pass `--chrome-path` when ACORN cannot locate a Chromium-compatible browser for PDF rendering.
+
+For an offline local proposal/apply smoke, copy `tests/fixtures/automation/powerautomate/logbook.jsonl` into a scratch directory and configure folder `acorn` with member `scientist@example.org` and a `file:` URI to a writable RAD `index.json`. Run `intake stage`, inspect `.acorn/intake/proposals/<UUID>.json`, then run `intake apply` as shown below. The repository's focused local tests create this fixture from `ResearchActivity::default()` and cover replay and conflict behavior. Keep the local operator stopped when a Vergil bot consumes the same inbox and review branch with a different operation database.
+
 ## Standalone local logbook review
 
 For a registered folder with a `file:` destination and no bucket association, use a local JSONL inbox:

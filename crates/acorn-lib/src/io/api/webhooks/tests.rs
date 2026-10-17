@@ -181,6 +181,7 @@ async fn test_outbound_callback_failures_are_recorded_for_retry() {
         Some(store::OperationState::RetryableFailure)
     );
     assert_eq!(queue.callback_attempts("callback-retry").unwrap(), 1);
+    assert_eq!(queue.callback_counts().unwrap().retryable, 1);
     assert!(queue.runtime_timestamps().unwrap().last_error_at.is_some());
 }
 #[tokio::test]
@@ -201,6 +202,9 @@ async fn test_outbound_callbacks_are_persisted_deduplicated_and_attempted_durabl
     assert!(worker.run_once().await.unwrap());
     assert_eq!(queue.callback_state("callback-1").unwrap(), Some(store::OperationState::Succeeded));
     assert_eq!(queue.callback_attempts("callback-1").unwrap(), 1);
+    let counts = queue.callback_counts().unwrap();
+    assert_eq!(counts.succeeded, 1);
+    assert_eq!(counts.retryable, 0);
     assert!(queue.runtime_timestamps().unwrap().last_success_at.is_some());
     assert!(!worker.run_once().await.unwrap());
     queue

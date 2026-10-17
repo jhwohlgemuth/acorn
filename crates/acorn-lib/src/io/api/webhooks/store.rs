@@ -62,6 +62,20 @@ pub enum OperationState {
     /// Cancelled before a worker started it.
     Cancelled,
 }
+/// Aggregate durable callback states for manual delivery summaries.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
+pub struct CallbackCounts {
+    /// Ready callback intents that have not been attempted.
+    pub queued: u64,
+    /// Callback intents waiting for another attempt.
+    pub retryable: u64,
+    /// Callback intents currently claimed by a worker.
+    pub running: u64,
+    /// Callback intents accepted by their destination.
+    pub succeeded: u64,
+    /// Callback intents that exhausted attempts.
+    pub failed: u64,
+}
 /// Worker that resolves callback credentials at attempt time and dispatches one durable intent.
 pub struct CallbackWorker<S, R> {
     queue: OperationQueue,
@@ -569,6 +583,34 @@ impl From<PathBuf> for OperationQueue {
     }
 }
 impl OperationQueue {
+    /// Count callback intents by durable delivery state.
+    pub fn callback_counts(&self) -> ApiResult<CallbackCounts> {
+        self.migrate().and_then(|_| {
+            self.with_connection(|connection| {
+                let count = |state: &str| {
+                    connection
+                        .query_row("SELECT COUNT(*) FROM webhook_callbacks WHERE state = ?", params![state], |row| {
+                            row.get::<_, i64>(0)
+                        })
+                        .map(|value| u64::try_from(value).unwrap_or_default())
+                };
+                count("queued")
+                    .and_then(|queued| count("retryable-failure").map(|retryable| (queued, retryable)))
+                    .and_then(|(queued, retryable)| count("running").map(|running| (queued, retryable, running)))
+                    .and_then(|(queued, retryable, running)| count("succeeded").map(|succeeded| (queued, retryable, running, succeeded)))
+                    .and_then(|(queued, retryable, running, succeeded)| {
+                        count("terminal-failure").map(|failed| CallbackCounts {
+                            queued,
+                            retryable,
+                            running,
+                            succeeded,
+                            failed,
+                        })
+                    })
+                    .map_err(|why| eyre!("Failed to count callback intents — {why}"))
+            })
+        })
+    }
     #[cfg(not(test))]
     fn before_settlement(&self) -> ApiResult<()> {
         Ok(())

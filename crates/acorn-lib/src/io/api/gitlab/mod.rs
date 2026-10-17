@@ -577,6 +577,9 @@ pub struct MergeRequestDetails {
     pub description: String,
     /// Browser URL for the merge request
     pub web_url: String,
+    /// Exact revisions of the latest GitLab merge-request diff, when populated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diff_refs: Option<MergeRequestDiffRefs>,
 }
 /// One changed file returned by GitLab's merge request diffs API
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -603,6 +606,16 @@ pub struct MergeRequestDiff {
     /// Whether the diff exceeded GitLab's display limits
     #[serde(default)]
     pub too_large: bool,
+}
+/// Revisions GitLab records for the latest merge-request diff.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MergeRequestDiffRefs {
+    /// Merge base of the source and target branches.
+    pub base_sha: Option<String>,
+    /// Reviewed source branch head.
+    pub head_sha: Option<String>,
+    /// Target branch head when this diff version was created.
+    pub start_sha: Option<String>,
 }
 /// GitLab API response for creating a merge request comment
 /// ### Example JSON response
@@ -1081,6 +1094,9 @@ pub struct UserMetadata {
     /// Numeric ID of user
     #[serde(rename = "id")]
     pub identifier: u64,
+    /// Whether GitLab identifies this user as a bot.
+    #[serde(default, rename = "bot")]
+    pub is_bot: bool,
     /// Whether the user is locked
     pub locked: bool,
     /// User's full name
@@ -1605,11 +1621,6 @@ impl From<ProgrammingLanguageMetadata> for ProgrammingLanguageRow {
             .build()
     }
 }
-impl<'de> serde::Deserialize<'de> for ProgrammingLanguagesResponse {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        HashMap::<String, ProgrammingLanguageDetails>::deserialize(deserializer).map(Self::parse)
-    }
-}
 #[async_trait]
 impl DatabasePersistence for ProgrammingLanguagesResponse {
     /// Persist GitLab programming language metadata to local database
@@ -1647,9 +1658,9 @@ impl ProgrammingLanguagesResponse {
         Self { languages }
     }
 }
-impl<'de> serde::Deserialize<'de> for ProgrammingLanguageUseResponse {
+impl<'de> serde::Deserialize<'de> for ProgrammingLanguagesResponse {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        HashMap::<String, f64>::deserialize(deserializer).map(Self::parse)
+        HashMap::<String, ProgrammingLanguageDetails>::deserialize(deserializer).map(Self::parse)
     }
 }
 impl ProgrammingLanguageUseResponse {
@@ -1675,6 +1686,11 @@ impl ProgrammingLanguageUseResponse {
             .collect::<ProgrammingLanguageUseEntries>();
         languages.sort_by(|a, b| a.name.cmp(&b.name));
         Self { languages }
+    }
+}
+impl<'de> serde::Deserialize<'de> for ProgrammingLanguageUseResponse {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        HashMap::<String, f64>::deserialize(deserializer).map(Self::parse)
     }
 }
 impl RepositoryFile {

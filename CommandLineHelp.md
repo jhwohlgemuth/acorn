@@ -25,6 +25,9 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli import model`↴](#acorn-cli-import-model)
 * [`acorn-cli import spec`↴](#acorn-cli-import-spec)
 * [`acorn-cli intake`↴](#acorn-cli-intake)
+* [`acorn-cli intake run`↴](#acorn-cli-intake-run)
+* [`acorn-cli intake export`↴](#acorn-cli-intake-export)
+* [`acorn-cli intake deliver`↴](#acorn-cli-intake-deliver)
 * [`acorn-cli intake stage`↴](#acorn-cli-intake-stage)
 * [`acorn-cli intake apply`↴](#acorn-cli-intake-apply)
 * [`acorn-cli link`↴](#acorn-cli-link)
@@ -83,7 +86,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * `format` — Formats supported metadata standards in place (inherently includes some elements of `acorn check`)
 * `gather` — Gather persistent identifiers from documents, URLs, or text
 * `import` — Import external metadata into ACORN
-* `intake` — Review local Power Automate JSONL submissions before changing an index
+* `intake` — Process Power Automate JSONL intake and reviewed project changes
 * `link` — Add linked data context to research activity data
 * `mcp` — Discover and invoke allowlisted tools on configured MCP servers
 * `report` — Generate bounded artifacts and publish immutable GitLab packages
@@ -1293,17 +1296,60 @@ Import endpoint resources from an API specification
 
 ## `acorn-cli intake`
 
-Review local Power Automate JSONL submissions before changing an index
+Process Power Automate JSONL intake and reviewed project changes
 
     $> acorn intake stage --config .acorn.json --inbox logbook.jsonl
     $> acorn intake apply --config .acorn.json --submission-id UUID
+    $> acorn intake run --config .acorn.json
+    $> acorn intake export --config .acorn.json --submission-id UUID --output change.diff
 
 **Usage:** `acorn-cli intake <COMMAND>`
 
 ###### **Subcommands:**
 
+* `run` — Poll the configured GitLab inbox and notes once, then process bounded review work
+* `export` — Export a reviewed project change as a unified diff and JSON receipt
+* `deliver` — Deliver ready durable callback intents once, without running a bot
 * `stage` — Write reviewable proposals for valid lines in a local JSONL inbox
 * `apply` — Apply one staged proposal after reviewing its JSON file
+
+
+
+## `acorn-cli intake run`
+
+Poll the configured GitLab inbox and notes once, then process bounded review work
+
+**Usage:** `acorn-cli intake run --config <CONFIG>`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Explicit ACRE configuration with a GitLab JSONL source
+
+
+
+## `acorn-cli intake export`
+
+Export a reviewed project change as a unified diff and JSON receipt
+
+**Usage:** `acorn-cli intake export --config <CONFIG> --submission-id <SUBMISSION_ID> --output <OUTPUT>`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Explicit ACRE configuration used for admission
+* `--submission-id <SUBMISSION_ID>` — Stable UUID from the submission envelope
+* `--output <OUTPUT>` — Destination for the UTF-8 unified diff
+
+
+
+## `acorn-cli intake deliver`
+
+Deliver ready durable callback intents once, without running a bot
+
+**Usage:** `acorn-cli intake deliver --config <CONFIG>`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Explicit ACRE configuration used for intake and reporting
 
 
 

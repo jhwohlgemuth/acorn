@@ -236,10 +236,12 @@ pub enum Commands {
     #[clap(verbatim_doc_comment)]
     #[command(long_about = None, visible_alias = "load")]
     Import(Box<arguments::Import>),
-    /// Review local Power Automate JSONL submissions before changing an index
+    /// Process Power Automate JSONL intake and reviewed project changes
     ///
     ///     $> acorn intake stage --config .acorn.json --inbox logbook.jsonl
     ///     $> acorn intake apply --config .acorn.json --submission-id UUID
+    ///     $> acorn intake run --config .acorn.json
+    ///     $> acorn intake export --config .acorn.json --submission-id UUID --output change.diff
     #[clap(verbatim_doc_comment)]
     Intake {
         #[command(subcommand)]
@@ -434,6 +436,30 @@ pub enum InferCommands {
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
 pub enum IntakeCommands {
+    /// Poll the configured GitLab inbox and notes once, then process bounded review work.
+    Run {
+        /// Explicit ACRE configuration with a GitLab JSONL source.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        config: PathBuf,
+    },
+    /// Export a reviewed project change as a unified diff and JSON receipt.
+    Export {
+        /// Explicit ACRE configuration used for admission.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        config: PathBuf,
+        /// Stable UUID from the submission envelope.
+        #[arg(long)]
+        submission_id: String,
+        /// Destination for the UTF-8 unified diff.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        output: PathBuf,
+    },
+    /// Deliver ready durable callback intents once, without running a bot.
+    Deliver {
+        /// Explicit ACRE configuration used for intake and reporting.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        config: PathBuf,
+    },
     /// Write reviewable proposals for valid lines in a local JSONL inbox.
     Stage {
         /// Explicit ACRE configuration with local folder destinations.

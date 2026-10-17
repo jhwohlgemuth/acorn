@@ -1377,6 +1377,7 @@ async fn test_repository_workflow_policy_denies_forks_before_requests() {
         title: "Fork".to_string(),
         description: String::new(),
         web_url: "https://gitlab.example/merge_requests/7".to_string(),
+        diff_refs: None,
     };
     let options = Options::with_token("outbound")
         .domain("http://127.0.0.1:1")
@@ -1459,6 +1460,7 @@ async fn test_repository_workflow_policy_rejects_paths_and_effects_before_mutati
             title: "Policy".to_string(),
             description: String::new(),
             web_url: "https://gitlab.example/merge_requests/7".to_string(),
+            diff_refs: None,
         };
         let options = Options::with_token("outbound")
             .domain(&server.base_url)

@@ -188,6 +188,7 @@ fn user() -> UserMetadata {
     UserMetadata {
         avatar_url: "https://example.com/avatar.png".to_string(),
         identifier: 1,
+        is_bot: false,
         locked: false,
         name: "Test User".to_string(),
         email: None,
@@ -196,7 +197,6 @@ fn user() -> UserMetadata {
         url: "https://example.com/tester".to_string(),
     }
 }
-
 #[test]
 fn test_bot_authored_completion_events_do_not_create_operations() {
     let merge = WebhookDelivery {
@@ -749,6 +749,46 @@ fn test_merge_request_process_command_selects_named_workflow() {
         operation.notification.method,
         crate::io::api::json_rpc::MethodName::from(["webhooks", "gitlab", "note"])
     );
+}
+#[test]
+fn test_note_poll_queues_authorized_graduation_shape_once() {
+    let queue = operation_queue();
+    let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap()).with_operation_queue(queue.clone());
+    let bot = Server::new(config);
+    let mut source = event("2026-07-06T00:00:01Z", "MergeRequest");
+    source.note.as_mut().unwrap().body = "/acorn graduate".to_string();
+    bot.process_events(vec![source.clone()]).unwrap();
+    assert_eq!(queue.counts().unwrap().queued, 1);
+    bot.process_events(vec![source.clone()]).unwrap();
+    assert_eq!(queue.counts().unwrap().queued, 1);
+    source.identifier += 1;
+    source.note.as_mut().unwrap().author.is_bot = true;
+    bot.process_events(vec![source]).unwrap();
+    assert_eq!(queue.counts().unwrap().queued, 1);
+}
+#[tokio::test]
+async fn test_note_poll_worker_rejects_graduation_without_developer_access() {
+    let requests = Arc::new(AtomicUsize::new(0));
+    let router = Router::new()
+        .route(
+            "/api/v4/projects/30/members/all/1",
+            get(|State(requests): State<Arc<AtomicUsize>>| async move {
+                requests.fetch_add(1, Ordering::SeqCst);
+                Json(serde_json::json!({"id":1,"access_level":20}))
+            }),
+        )
+        .with_state(Arc::clone(&requests));
+    let server = TestServer::start(router).await.unwrap();
+    let queue = operation_queue();
+    let options = Options::with_token("test").domain(&server.base_url).identifier("30").build();
+    let bot = Server::new(Config::new(options, "127.0.0.1:0".parse().unwrap()).with_operation_queue(queue.clone()));
+    let mut source = event("2026-07-06T00:00:01Z", "MergeRequest");
+    source.note.as_mut().unwrap().body = "/acorn graduate".to_string();
+    bot.process_events(vec![source]).unwrap();
+    assert!(bot.process_next().await.is_err());
+    assert_eq!(requests.load(Ordering::SeqCst), 1);
+    assert_eq!(queue.counts().unwrap().succeeded, 0);
+    server.stop().await.unwrap();
 }
 #[test]
 fn test_processing_updates_after_to_latest_event_timestamp() {

@@ -4,10 +4,9 @@
 
 - [Model acquisition and metadata hardening](model-acquisition-hardening.md) - Complete identity-safe Hugging Face requests, exact GGUF metadata, and ModelKit/ModelPack interoperability evidence.
 - [Needle router and capability registry parity](slm-sidecars.md) - First SLM-00/RTR and PAR phases bring bounded native ACORN workflows behind `acorn ask`; then shared MCP, ACP, endpoint, and sidecar adapters. Swift and [Julia](slm-sidecars.md#julia-1-decision-sidecar-planned-follow-on) release independently.
+- [Power Automate GitLab JSONL intake and reporting](powerapps-gitlab-logbook-reporting.md) - The native MVP executable, manual GitLab intake and diff commands, and explicit callback delivery are implemented. External flow, Vergil boot, and live publication/callback acceptance remain.
 
 ## Planned
-
-- [Power Automate GitLab JSONL intake and reporting](powerapps-gitlab-logbook-reporting.md) - Append Logbook envelopes to GitLab; Vergil durably ingests and removes them, then multiplexes records by project ID or configured folder name to augment the associated `index.json` through review. ACRE and JSONL routing are locally validated; standalone local intake stages reviewable proposals for explicit application. External flow and pilot work remains.
 
 - [Release-gated Beam inference integration](beam-inference-integration.md) - Verify released serving contracts, then evaluate an explicitly configured hosted or operator-owned endpoint independently of local SLM sidecars.
 

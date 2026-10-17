@@ -14,6 +14,12 @@
       "path": "research-data/index.json"
     }
   ],
+  "variables": {
+    "custom": {
+      "power_automate.callback_url": "POWER_AUTOMATE_CALLBACK_URL",
+      "power_automate.inbound_secret": "POWER_AUTOMATE_INBOUND_SECRET"
+    }
+  },
   "options": {
     "powerAutomate": {
       "callback_destination": "pilot-flow",

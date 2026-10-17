@@ -895,7 +895,8 @@ impl Server {
             | Err(why) => Err(why),
         }
     }
-    async fn process_callback_next(&self) -> ApiResult<bool> {
+    /// Claim and deliver one durable callback intent, if one is ready.
+    pub async fn process_callback_next(&self) -> ApiResult<bool> {
         let Server { config, .. } = self;
         match &config.powerautomate {
             | Some(provider) => {
@@ -922,7 +923,39 @@ impl Server {
             processed_count: events.len(),
             latest_after,
         };
-        match events.iter().cloned().try_for_each(|event| (config.handler)(event)) {
+        let enqueue_result = response.iter().try_for_each(|source| match MergeRequestNoteEvent::try_from(source) {
+            | Ok(event) => (config.handler)(event).and_then(|()| match source.note.as_ref() {
+                | Some(note) => {
+                    let delivery = WebhookDelivery {
+                        delivery_id: format!("gitlab-event:{}", source.identifier),
+                        event: HookPayload::Note {
+                            actor: HookActor::new(
+                                source.project_id,
+                                source.author_id,
+                                &source.author_username,
+                                source.author.is_bot || note.author.is_bot,
+                            ),
+                            note_id: note.identifier,
+                            body: note.body.clone(),
+                            noteable_type: note.noteable_type.clone(),
+                            noteable_id: note.noteable_id,
+                            noteable_iid: note.noteable_iid,
+                            system: note.system,
+                            confidential: note.confidential,
+                            internal: note.internal,
+                        },
+                    };
+                    match delivery.operation() {
+                        | Ok(Some(operation)) => config.operation_queue.enqueue_spec(&delivery.delivery_id, &operation).map(|_| ()),
+                        | Ok(None) => Ok(()),
+                        | Err(why) => Err(why),
+                    }
+                }
+                | None => Ok(()),
+            }),
+            | Err(_) => Ok(()),
+        });
+        match enqueue_result {
             | Ok(()) => match self.record_success(&summary) {
                 | Ok(()) => Ok(summary),
                 | Err(why) => Err(why),
