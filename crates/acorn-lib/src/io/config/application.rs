@@ -10,7 +10,7 @@ use crate::io::api::powerautomate::PowerAutomateConfig;
 use crate::{
     io::{
         api::Endpoint,
-        config::{Bucket, ModelEntry, RegistryProfile, RunnerDetails, SourceInput},
+        config::{bucket, Bucket, ModelEntry, RegistryProfile, RunnerDetails, SourceInput},
         mcp::config::McpServerConfiguration,
         parse_jsonc_cst, read_file, sync,
         sync::ConfigExt,
@@ -26,6 +26,7 @@ use crate::{
 };
 use acorn_core::{
     prelude::{HashMap, HashSet},
+    time::{Seconds, UnitOfTime},
     util::{detect_json, split_list, MimeType},
     validation::ValidationError,
     Location, Scheme,
@@ -66,22 +67,17 @@ pub mod feature_configuration {
     use serde::{Deserialize, Serialize};
     use std::path::PathBuf;
 
-    /// Deployment-owned configuration for PowerAutomate intake and callbacks.
-    #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-    #[serde(deny_unknown_fields)]
-    pub struct PowerAutomateConfig {
-        /// Named callback destination.
-        pub callback_destination: String,
-        /// GitLab generic-package name.
-        pub package: String,
-        /// GitLab project identifier.
-        pub gitlab_project: String,
-        /// Optional reporting timezone.
-        #[serde(default)]
-        pub timezone: Option<String>,
-        /// Optional GitLab JSONL inbox source polled by the Vergil bot.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub intake: Option<super::PowerAutomateIntake>,
+    /// Application-configuration source for executable-hook policy.
+    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(untagged)]
+    pub enum ScriptManifestSource {
+        /// Inline executable-hook manifest.
+        ///
+        /// Boxed because `OneOrMany` adds a discriminant that pushes this enum past clippy's
+        /// `large_enum_variant` threshold.
+        Inline(Box<ScriptManifest>),
+        /// Safe relative deployment manifest name.
+        Path(String),
     }
     /// Allowed external effect produced by a repository workflow.
     #[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -121,40 +117,6 @@ pub mod feature_configuration {
         /// Deployment-approved workflows.
         pub workflows: BTreeMap<String, WorkflowPolicy>,
     }
-    /// Output configuration for a deployment workflow.
-    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-    #[serde(deny_unknown_fields, rename_all = "kebab-case")]
-    pub struct WorkflowOutputs {
-        /// Output behavior.
-        pub mode: WorkflowOutputMode,
-    }
-    /// Deployment-owned policy for one registered workflow.
-    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-    #[serde(deny_unknown_fields, rename_all = "kebab-case")]
-    pub struct WorkflowPolicy {
-        /// Processing actions allowed for this workflow.
-        pub actions: OneOrMany<WorkflowAction>,
-        /// External effects allowed for this workflow.
-        pub effects: OneOrMany<WorkflowEffect>,
-        /// Input formats allowed for this workflow.
-        pub formats: OneOrMany<MimeType>,
-        /// Output behavior.
-        pub outputs: WorkflowOutputs,
-        /// Repository-relative input path patterns.
-        pub paths: OneOrMany<String>,
-    }
-    /// Application-configuration source for executable-hook policy.
-    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-    #[serde(untagged)]
-    pub enum ScriptManifestSource {
-        /// Inline executable-hook manifest.
-        ///
-        /// Boxed because `OneOrMany` adds a discriminant that pushes this enum past clippy's
-        /// `large_enum_variant` threshold.
-        Inline(Box<ScriptManifest>),
-        /// Safe relative deployment manifest name.
-        Path(String),
-    }
     /// Filesystem access granted beneath named roots.
     #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
     #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -184,6 +146,23 @@ pub mod feature_configuration {
         #[serde(default)]
         pub timeout: u64,
     }
+    /// Deployment-owned configuration for PowerAutomate intake and callbacks.
+    #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+    #[serde(deny_unknown_fields)]
+    pub struct PowerAutomateConfig {
+        /// Named callback destination.
+        pub callback_destination: String,
+        /// GitLab generic-package name.
+        pub package: String,
+        /// GitLab project identifier.
+        pub gitlab_project: String,
+        /// Optional reporting timezone.
+        #[serde(default)]
+        pub timezone: Option<String>,
+        /// Optional GitLab JSONL inbox source polled by the Vergil bot.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub intake: Option<super::PowerAutomateIntake>,
+    }
     /// Per-script evaluation ceilings.
     #[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
     #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
@@ -194,19 +173,6 @@ pub mod feature_configuration {
         pub max_operations: u64,
         /// Maximum wall-clock runtime in milliseconds.
         pub max_runtime: u64,
-    }
-    /// Capabilities granted to one script.
-    #[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-    #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
-    pub struct ScriptCapabilities {
-        /// Named filesystem read roots.
-        pub read: Option<FilesystemCapability>,
-        /// Named filesystem write roots.
-        pub write: Option<FilesystemCapability>,
-        /// Permission to replace the proposed workflow document.
-        pub mutation: bool,
-        /// Restricted outbound HTTPS access.
-        pub network: Option<NetworkCapability>,
     }
     /// One digest-pinned script authorization.
     #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -230,6 +196,19 @@ pub mod feature_configuration {
         #[serde(default)]
         pub limits: ResourceLimits,
     }
+    /// Capabilities granted to one script.
+    #[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
+    pub struct ScriptCapabilities {
+        /// Named filesystem read roots.
+        pub read: Option<FilesystemCapability>,
+        /// Named filesystem write roots.
+        pub write: Option<FilesystemCapability>,
+        /// Permission to replace the proposed workflow document.
+        pub mutation: bool,
+        /// Restricted outbound HTTPS access.
+        pub network: Option<NetworkCapability>,
+    }
     /// Versioned deployment manifest for executable hooks.
     #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
     #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -238,6 +217,28 @@ pub mod feature_configuration {
         pub version: String,
         /// Authorized scripts.
         pub scripts: OneOrMany<ScriptAuthorization>,
+    }
+    /// Output configuration for a deployment workflow.
+    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(deny_unknown_fields, rename_all = "kebab-case")]
+    pub struct WorkflowOutputs {
+        /// Output behavior.
+        pub mode: WorkflowOutputMode,
+    }
+    /// Deployment-owned policy for one registered workflow.
+    #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+    #[serde(deny_unknown_fields, rename_all = "kebab-case")]
+    pub struct WorkflowPolicy {
+        /// Processing actions allowed for this workflow.
+        pub actions: OneOrMany<WorkflowAction>,
+        /// External effects allowed for this workflow.
+        pub effects: OneOrMany<WorkflowEffect>,
+        /// Input formats allowed for this workflow.
+        pub formats: OneOrMany<MimeType>,
+        /// Output behavior.
+        pub outputs: WorkflowOutputs,
+        /// Repository-relative input path patterns.
+        pub paths: OneOrMany<String>,
     }
 }
 /// Root attributes governed by `options.scripts`.
@@ -488,6 +489,18 @@ pub struct FolderOptions {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root: Option<String>,
 }
+/// Immutable routing snapshot derived from the ACRE document.
+///
+/// This is the routing half of [`ApplicationConfiguration`]: owned, `Send`, and `Sync`, so intake services can hold it without the JSONC comment-preserving tree.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct FolderRegistry {
+    buckets: Vec<RegisteredBucket>,
+    folders: Vec<Folder>,
+    members: Option<OneOrMany<String>>,
+    project: Option<String>,
+    root: Option<String>,
+    variables: Option<VariableReferences>,
+}
 /// GitLab JSONL inbox source polled by the GitLab bot.
 ///
 /// The wire `projectId` of each submission remains the single routing selector: a canonical folder ID or a configured folder-name alias resolved through exact matching.
@@ -502,8 +515,8 @@ pub struct PowerAutomateIntake {
     #[serde(default = "default_intake_path")]
     pub path: String,
     /// Seconds between inbox polls. Defaults to 30.
-    #[serde(default = "default_intake_poll_interval_secs")]
-    pub poll_interval_secs: u64,
+    #[serde(default = "default_intake_poll_interval")]
+    pub poll_interval: Seconds,
     /// Maximum inbox file size. Defaults to 10 MiB.
     #[serde(default = "default_intake_max_file")]
     pub max_file: Memory,
@@ -511,104 +524,11 @@ pub struct PowerAutomateIntake {
     #[serde(default = "default_intake_max_record")]
     pub max_record: Memory,
 }
-impl Validate for PowerAutomateIntake {
-    fn validate(&self) -> Result<(), ValidationReport> {
-        let file_bytes = self.max_file.checked_bytes();
-        let record_bytes = self.max_record.checked_bytes();
-        [
-            self.branch.trim().is_empty().then(|| {
-                (
-                    "branch",
-                    ValidationError::new("required").with_message("Intake branch must not be empty".to_string()),
-                )
-            }),
-            self.path.trim().is_empty().then(|| {
-                (
-                    "path",
-                    ValidationError::new("required").with_message("Intake path must not be empty".to_string()),
-                )
-            }),
-            (self.path.contains("://") || self.path.starts_with('/')).then(|| {
-                (
-                    "path",
-                    ValidationError::new("absolute").with_message("Intake path must be repository-relative, not an absolute URI or path".to_string()),
-                )
-            }),
-            (self.path.as_bytes().get(1) == Some(&b':')).then(|| {
-                (
-                    "path",
-                    ValidationError::new("absolute").with_message("Intake path must be repository-relative, not a native absolute path".to_string()),
-                )
-            }),
-            self.path.split('/').any(|segment| segment == "..").then(|| {
-                (
-                    "path",
-                    ValidationError::new("traversal").with_message("Intake path must not traverse outside the repository".to_string()),
-                )
-            }),
-            self.path.contains('\\').then(|| {
-                (
-                    "path",
-                    ValidationError::new("separator").with_message("Intake path must use forward slashes, not backslashes".to_string()),
-                )
-            }),
-            (self.poll_interval_secs == 0 || self.poll_interval_secs > MAX_INTAKE_POLL_INTERVAL_SECS).then(|| {
-                (
-                    "poll_interval_secs",
-                    ValidationError::new("range").with_message("Intake poll interval must be between 1 and 86400 seconds".to_string()),
-                )
-            }),
-            file_bytes.is_none_or(|bytes| bytes == 0).then(|| {
-                (
-                    "max_file",
-                    ValidationError::new("range").with_message("Intake file size limit must be nonzero".to_string()),
-                )
-            }),
-            record_bytes.is_none_or(|bytes| bytes == 0).then(|| {
-                (
-                    "max_record",
-                    ValidationError::new("range").with_message("Intake record size limit must be nonzero".to_string()),
-                )
-            }),
-            (record_bytes.is_some_and(|record| file_bytes.is_some_and(|file| record > file))).then(|| {
-                (
-                    "max_record",
-                    ValidationError::new("range").with_message("Intake record size limit must not exceed the file size limit".to_string()),
-                )
-            }),
-        ]
-        .into_iter()
-        .flatten()
-        .map(|(path, error)| ValidationReport::from_error(path, error))
-        .fold(ValidationReport::new(), |report, next| report.merge("", next))
-        .finish()
-    }
-}
-fn default_intake_branch() -> String {
-    DEFAULT_INTAKE_BRANCH.to_string()
-}
-fn default_intake_path() -> String {
-    DEFAULT_INTAKE_PATH.to_string()
-}
-fn default_intake_poll_interval_secs() -> u64 {
-    DEFAULT_INTAKE_POLL_INTERVAL_SECS
-}
-fn default_intake_max_file() -> Memory {
-    DEFAULT_INTAKE_MAX_FILE.clone()
-}
-fn default_intake_max_record() -> Memory {
-    DEFAULT_INTAKE_MAX_RECORD.clone()
-}
-/// Immutable routing snapshot derived from the ACRE document.
-///
-/// This is the routing half of [`ApplicationConfiguration`]: owned, `Send`, and `Sync`, so intake services can hold it without the JSONC comment-preserving tree.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct FolderRegistry {
-    folders: Vec<Folder>,
-    members: Option<OneOrMany<String>>,
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct RegisteredBucket {
+    identity: bucket::BucketSourceIdentity,
+    name: Option<String>,
     project: Option<String>,
-    root: Option<String>,
-    variables: Option<VariableReferences>,
 }
 /// One folder resolved against its configured destination.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -653,38 +573,12 @@ pub struct WhitelistLookup {
     pub models: Option<OneOrMany<String>>,
 }
 impl ApplicationConfiguration {
-    /// Return the routing snapshot consumed by intake and reporting services.
-    pub fn registry(&self) -> FolderRegistry {
-        FolderRegistry {
-            folders: self.folders.clone().unwrap_or_default().into_vec(),
-            members: self.members.clone(),
-            project: self.power_automate().map(|automation| automation.gitlab_project.clone()),
-            root: self
-                .options
-                .as_ref()
-                .and_then(|options| options.folders.as_ref())
-                .and_then(|folders| folders.root.clone()),
-            variables: self.variables.clone(),
-        }
-    }
-    /// Return whether any configured script subscribes to the requested hook.
-    pub fn has_hook(&self, hook: Hook) -> bool {
-        let enabled = self
-            .options
-            .as_ref()
-            .and_then(|options| options.scripts.as_ref())
-            .is_none_or(|scripts| scripts.enabled);
-        let subscribed = self
-            .scripts
-            .as_deref()
-            .unwrap_or_default()
-            .iter()
-            .any(|entry| entry.hooks.contains(&hook));
-        enabled && subscribed
-    }
-    /// Return the configured PowerAutomate integration settings.
-    pub fn power_automate(&self) -> Option<&PowerAutomateConfig> {
-        self.options.as_ref().and_then(|options| options.power_automate.as_ref())
+    /// Return whether one submitter may submit to the folder selected by `selector`.
+    pub fn authorizes(&self, selector: &str, email: &str, lookup: &dyn Fn(&str) -> Option<String>) -> ApiResult<bool> {
+        self.folder(selector).map(|folder| {
+            let submitter = email.trim().to_lowercase();
+            self.effective_members(Some(&folder.id), lookup).contains(&submitter)
+        })
     }
     /// Return the bucket referenced by one folder association.
     ///
@@ -696,41 +590,6 @@ impl ApplicationConfiguration {
             | BucketReference::Index(index) => buckets.get(*index),
         };
         bucket.ok_or_else(|| eyre!("Bucket reference '{reference:?}' does not resolve to a configured bucket"))
-    }
-    /// Return every configured folder.
-    pub fn folders(&self) -> impl Iterator<Item = &Folder> {
-        self.folders.iter().flat_map(OneOrMany::iter)
-    }
-    /// Return the environment variable naming one built-in root variable reference.
-    pub fn variable(&self, name: &str) -> Option<&str> {
-        self.variables
-            .as_ref()
-            .and_then(|variables| variables.custom.get(name))
-            .map(String::as_str)
-    }
-    /// Return the folder matching a canonical identifier or one configured alias.
-    pub fn folder(&self, selector: &str) -> ApiResult<&Folder> {
-        match self.folders().filter(|folder| folder.selects(selector)).collect::<Vec<_>>().as_slice() {
-            | [folder] => Ok(folder),
-            | [] => Err(eyre!("Unknown folder or alias '{selector}'")),
-            | _ => Err(eyre!("Ambiguous folder selector '{selector}'")),
-        }
-    }
-    /// Return one folder resolved against its configured destination.
-    pub fn resolve_folder(&self, selector: &str) -> ApiResult<ResolvedFolder> {
-        self.folder(selector).and_then(|folder| {
-            let root = self
-                .options
-                .as_ref()
-                .and_then(|options| options.folders.as_ref())
-                .and_then(|folders| folders.root.clone());
-            let project = self.power_automate().map(|automation| automation.gitlab_project.as_str());
-            let path = folder.path.clone().unwrap_or_else(|| format!("{}/index.json", folder.id));
-            Destination::new(&path, root.as_deref(), project).map(|destination| ResolvedFolder {
-                folder: folder.clone(),
-                destination,
-            })
-        })
     }
     /// Return the effective intake members for one folder, or for the whole document when `selector` is `None`.
     ///
@@ -753,12 +612,32 @@ impl ApplicationConfiguration {
             .map(|member| member.to_lowercase())
             .collect()
     }
-    /// Return whether one submitter may submit to the folder selected by `selector`.
-    pub fn authorizes(&self, selector: &str, email: &str, lookup: &dyn Fn(&str) -> Option<String>) -> ApiResult<bool> {
-        self.folder(selector).map(|folder| {
-            let submitter = email.trim().to_lowercase();
-            self.effective_members(Some(&folder.id), lookup).contains(&submitter)
-        })
+    /// Return the folder matching a canonical identifier or one configured alias.
+    pub fn folder(&self, selector: &str) -> ApiResult<&Folder> {
+        match self.folders().filter(|folder| folder.selects(selector)).collect::<Vec<_>>().as_slice() {
+            | [folder] => Ok(folder),
+            | [] => Err(eyre!("Unknown folder or alias '{selector}'")),
+            | _ => Err(eyre!("Ambiguous folder selector '{selector}'")),
+        }
+    }
+    /// Return every configured folder.
+    pub fn folders(&self) -> impl Iterator<Item = &Folder> {
+        self.folders.iter().flat_map(OneOrMany::iter)
+    }
+    /// Return whether any configured script subscribes to the requested hook.
+    pub fn has_hook(&self, hook: Hook) -> bool {
+        let enabled = self
+            .options
+            .as_ref()
+            .and_then(|options| options.scripts.as_ref())
+            .is_none_or(|scripts| scripts.enabled);
+        let subscribed = self
+            .scripts
+            .as_deref()
+            .unwrap_or_default()
+            .iter()
+            .any(|entry| entry.hooks.contains(&hook));
+        enabled && subscribed
     }
     /// Load explicit or discovered application configuration, rejecting a missing explicit path.
     pub fn load(path: &Option<PathBuf>) -> ApiResult<Self> {
@@ -770,22 +649,6 @@ impl ApplicationConfiguration {
                     | Ok(()) => match resolved {
                         | Some(path) => Self::read(path),
                         | None => Ok(Self::default()),
-                    },
-                    | Err(why) => Err(why),
-                }
-            }
-        }
-    }
-    /// Load configuration and return the resolved source path alongside the parsed value.
-    pub fn load_with_path(path: &Option<PathBuf>) -> ApiResult<(Self, Option<PathBuf>)> {
-        match path {
-            | Some(path) if !path.is_file() => Err(eyre!("Configuration file does not exist — {}", path.display())),
-            | _ => {
-                let resolved = Self::resolve(path);
-                match Self::load_deployment_env(&resolved) {
-                    | Ok(()) => match &resolved {
-                        | Some(path) => Self::read(path.clone()).map(|configuration| (configuration, resolved)),
-                        | None => Ok((Self::default(), None)),
                     },
                     | Err(why) => Err(why),
                 }
@@ -805,16 +668,21 @@ impl ApplicationConfiguration {
             | _ => Ok(()),
         }
     }
-    /// Return the project root directory containing the resolved configuration.
-    pub fn root(resolved: &Option<PathBuf>) -> PathBuf {
-        resolved
-            .as_ref()
-            .and_then(|p| p.parent())
-            .map_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")), |p| p.to_path_buf())
-    }
-    /// Merge configured synchronization settings with runtime overrides.
-    pub fn resolve_sync_config(&self, overrides: sync::Config) -> sync::Config {
-        self.config.clone().unwrap_or_default().merge(overrides)
+    /// Load configuration and return the resolved source path alongside the parsed value.
+    pub fn load_with_path(path: &Option<PathBuf>) -> ApiResult<(Self, Option<PathBuf>)> {
+        match path {
+            | Some(path) if !path.is_file() => Err(eyre!("Configuration file does not exist — {}", path.display())),
+            | _ => {
+                let resolved = Self::resolve(path);
+                match Self::load_deployment_env(&resolved) {
+                    | Ok(()) => match &resolved {
+                        | Some(path) => Self::read(path.clone()).map(|configuration| (configuration, resolved)),
+                        | None => Ok((Self::default(), None)),
+                    },
+                    | Err(why) => Err(why),
+                }
+            }
+        }
     }
     /// Return configured model entries and their download whitelist.
     pub fn model_entries_and_whitelist(&self) -> (Vec<ModelEntry>, Option<OneOrMany<String>>) {
@@ -822,6 +690,94 @@ impl ApplicationConfiguration {
             self.models.clone().unwrap_or_default().into_vec(),
             self.whitelist.as_ref().and_then(|lookup| lookup.models.clone()),
         )
+    }
+    /// Parse ACORN configuration in JSON, JSONC, or YAML format
+    /// ### Note
+    /// If the content is valid JSON, it is parsed as JSON.
+    /// If it is not valid JSON but starts with `{` or `[`, it is first attempted to be parsed as JSON, and if that fails, it is attempted to be parsed as YAML.
+    /// If the content does not start with `{` or `[`, it is parsed as YAML.
+    pub fn parse(content: impl AsRef<str>) -> ApiResult<Self> {
+        let trimmed = content.as_ref().trim();
+        if detect_json(trimmed) {
+            match Self::parse_json(trimmed) {
+                | Ok(value) => Ok(value),
+                | Err(json_errors) => match Self::parse_jsonc(trimmed) {
+                    | Ok(value) => Ok(value),
+                    | Err(_) => {
+                        let details: Vec<String> = json_errors
+                            .iter()
+                            .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
+                            .collect();
+                        Err(eyre!("{}", details.join("\n")))
+                    }
+                },
+            }
+        } else if trimmed.starts_with('{') || trimmed.starts_with('[') {
+            match Self::parse_json(trimmed) {
+                | Ok(value) => Ok(value),
+                | Err(json_errors) => match Self::parse_yaml(trimmed) {
+                    | Ok(value) => Ok(value),
+                    | Err(why) => {
+                        let details: Vec<String> = json_errors
+                            .iter()
+                            .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
+                            .collect();
+                        Err(eyre!(
+                            "Failed to parse ACORN configuration as JSON or YAML.\nJSON errors:\n{}\nYAML error: {why}",
+                            details.join("\n")
+                        ))
+                    }
+                },
+            }
+        } else {
+            match Self::parse_yaml(trimmed) {
+                | Ok(value) => Ok(value),
+                | Err(why) => Err(eyre!("Failed to parse ACORN configuration YAML — {why}")),
+            }
+        }
+    }
+    fn parse_json(content: impl AsRef<str>) -> Result<Self, eserde::DeserializationErrors> {
+        eserde::json::from_str(content.as_ref())
+    }
+    fn parse_jsonc(content: impl AsRef<str>) -> ApiResult<Self> {
+        parse_jsonc_cst::<ApplicationConfiguration>(content.as_ref()).map(|(mut config, cst)| {
+            config.cst = Some(cst);
+            config
+        })
+    }
+    fn parse_yaml(content: impl AsRef<str>) -> serde_norway::Result<Self> {
+        serde_norway::from_str(content.as_ref())
+    }
+    /// Return the configured PowerAutomate integration settings.
+    pub fn power_automate(&self) -> Option<&PowerAutomateConfig> {
+        self.options.as_ref().and_then(|options| options.power_automate.as_ref())
+    }
+    /// Return the routing snapshot consumed by intake and reporting services.
+    pub fn registry(&self) -> FolderRegistry {
+        FolderRegistry {
+            buckets: self
+                .buckets
+                .iter()
+                .flat_map(OneOrMany::iter)
+                .map(|bucket| RegisteredBucket {
+                    identity: bucket.source.identity(),
+                    name: bucket.name.clone(),
+                    project: match &bucket.source {
+                        | bucket::BucketSource::Repository(repository) => repository.project_path(),
+                        | _ => None,
+                    },
+                })
+                .collect(),
+            folders: self.folders.clone().unwrap_or_default().into_vec(),
+            members: self.members.clone(),
+            project: self.power_automate().map(|automation| automation.gitlab_project.clone()),
+            root: self
+                .options
+                .as_ref()
+                .and_then(|options| options.folders.as_ref())
+                .and_then(|folders| folders.root.clone()),
+            variables: self.variables.clone(),
+        }
     }
     /// Return configured OCI registry profiles after validating their public settings.
     pub fn registry_lookup(&self) -> ApiResult<HashMap<String, RegistryProfile>> {
@@ -843,6 +799,68 @@ impl ApplicationConfiguration {
                         }),
                 }
             })
+    }
+    fn render(&self, path: &Path) -> ApiResult<String> {
+        match MimeType::from_path(path) {
+            | MimeType::Json | MimeType::Jsonc => self.render_json(),
+            | MimeType::Yaml => serde_norway::to_string(self).map_err(|why| eyre!("Failed to serialize YAML config — {why}")),
+            | _ => Err(eyre!("Unsupported configuration file extension")),
+        }
+    }
+    fn render_json(&self) -> ApiResult<String> {
+        match &self.cst {
+            | Some(cst) => Ok(cst.to_string()),
+            | None => serde_json::to_string_pretty(self).map_err(|why| eyre!("Failed to serialize JSON config — {why}")),
+        }
+    }
+    /// Resolve application configuration path
+    pub fn resolve(path: &Option<PathBuf>) -> Option<PathBuf> {
+        let directory = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        Self::resolve_in(path, &directory)
+    }
+    /// Return one folder resolved against its configured destination.
+    pub fn resolve_folder(&self, selector: &str) -> ApiResult<ResolvedFolder> {
+        self.folder(selector).and_then(|folder| {
+            let root = self
+                .options
+                .as_ref()
+                .and_then(|options| options.folders.as_ref())
+                .and_then(|folders| folders.root.clone());
+            let project = self.power_automate().map(|automation| automation.gitlab_project.as_str());
+            let path = folder.path.clone().unwrap_or_else(|| format!("{}/index.json", folder.id));
+            Destination::new(&path, root.as_deref(), project).map(|destination| ResolvedFolder {
+                folder: folder.clone(),
+                destination,
+            })
+        })
+    }
+    /// Resolve an application configuration path relative to an explicit directory.
+    pub fn resolve_in(path: &Option<PathBuf>, directory: &Path) -> Option<PathBuf> {
+        path.as_ref()
+            .filter(|value| value.is_file())
+            .cloned()
+            .or_else(|| resolve_config_path(None, directory, &DEFAULT_CONFIG_FILENAMES))
+    }
+    /// Merge configured synchronization settings with runtime overrides.
+    pub fn resolve_sync_config(&self, overrides: sync::Config) -> sync::Config {
+        self.config.clone().unwrap_or_default().merge(overrides)
+    }
+    /// Return the project root directory containing the resolved configuration.
+    pub fn root(resolved: &Option<PathBuf>) -> PathBuf {
+        resolved
+            .as_ref()
+            .and_then(|p| p.parent())
+            .map_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")), |p| p.to_path_buf())
+    }
+    /// Resolve transfer sources from an explicit or discovered configuration file, or from values.
+    ///
+    /// A configuration file takes precedence over `values`, so a discovered file in the working directory shadows positional sources.
+    /// The result may be empty; callers decide whether an empty selection is an error because the message is specific to each command.
+    pub fn sources(config: &Option<PathBuf>, values: &[String]) -> ApiResult<Vec<SourceInput>> {
+        match Self::resolve(config) {
+            | Some(path) => Self::read(path).map(|content| content.buckets.unwrap_or_default().into_iter().map(SourceInput::from).collect()),
+            | None => Ok(values.iter().cloned().map(SourceInput::from).collect()),
+        }
     }
     /// Synchronize selected model entries with configured local inference targets.
     pub fn sync(&self, options: sync::Options<'_>) -> ApiResult<()> {
@@ -871,6 +889,13 @@ impl ApplicationConfiguration {
         self.sync(options)
             .and_then(|()| self.with_models(options.entries))
             .and_then(|configuration| configuration.write_or_preview(&path, options.dry_run, options.no_color))
+    }
+    /// Return the environment variable naming one built-in root variable reference.
+    pub fn variable(&self, name: &str) -> Option<&str> {
+        self.variables
+            .as_ref()
+            .and_then(|variables| variables.custom.get(name))
+            .map(String::as_str)
     }
     pub(crate) fn with_models(&self, entries: &[ModelEntry]) -> ApiResult<Self> {
         self.models
@@ -934,98 +959,6 @@ impl ApplicationConfiguration {
                     .inspect(|()| info!("=> {} Updated {}", Label::pass(), path.display().cyan())),
             })
         })
-    }
-    fn render(&self, path: &Path) -> ApiResult<String> {
-        match MimeType::from_path(path) {
-            | MimeType::Json | MimeType::Jsonc => self.render_json(),
-            | MimeType::Yaml => serde_norway::to_string(self).map_err(|why| eyre!("Failed to serialize YAML config — {why}")),
-            | _ => Err(eyre!("Unsupported configuration file extension")),
-        }
-    }
-    fn render_json(&self) -> ApiResult<String> {
-        match &self.cst {
-            | Some(cst) => Ok(cst.to_string()),
-            | None => serde_json::to_string_pretty(self).map_err(|why| eyre!("Failed to serialize JSON config — {why}")),
-        }
-    }
-    /// Resolve application configuration path
-    pub fn resolve(path: &Option<PathBuf>) -> Option<PathBuf> {
-        let directory = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        Self::resolve_in(path, &directory)
-    }
-    /// Resolve transfer sources from an explicit or discovered configuration file, or from values.
-    ///
-    /// A configuration file takes precedence over `values`, so a discovered file in the working directory shadows positional sources.
-    /// The result may be empty; callers decide whether an empty selection is an error because the message is specific to each command.
-    pub fn sources(config: &Option<PathBuf>, values: &[String]) -> ApiResult<Vec<SourceInput>> {
-        match Self::resolve(config) {
-            | Some(path) => Self::read(path).map(|content| content.buckets.unwrap_or_default().into_iter().map(SourceInput::from).collect()),
-            | None => Ok(values.iter().cloned().map(SourceInput::from).collect()),
-        }
-    }
-    /// Resolve an application configuration path relative to an explicit directory.
-    pub fn resolve_in(path: &Option<PathBuf>, directory: &Path) -> Option<PathBuf> {
-        path.as_ref()
-            .filter(|value| value.is_file())
-            .cloned()
-            .or_else(|| resolve_config_path(None, directory, &DEFAULT_CONFIG_FILENAMES))
-    }
-    /// Parse ACORN configuration in JSON, JSONC, or YAML format
-    /// ### Note
-    /// If the content is valid JSON, it is parsed as JSON.
-    /// If it is not valid JSON but starts with `{` or `[`, it is first attempted to be parsed as JSON, and if that fails, it is attempted to be parsed as YAML.
-    /// If the content does not start with `{` or `[`, it is parsed as YAML.
-    pub fn parse(content: impl AsRef<str>) -> ApiResult<Self> {
-        let trimmed = content.as_ref().trim();
-        if detect_json(trimmed) {
-            match Self::parse_json(trimmed) {
-                | Ok(value) => Ok(value),
-                | Err(json_errors) => match Self::parse_jsonc(trimmed) {
-                    | Ok(value) => Ok(value),
-                    | Err(_) => {
-                        let details: Vec<String> = json_errors
-                            .iter()
-                            .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
-                            .collect();
-                        Err(eyre!("{}", details.join("\n")))
-                    }
-                },
-            }
-        } else if trimmed.starts_with('{') || trimmed.starts_with('[') {
-            match Self::parse_json(trimmed) {
-                | Ok(value) => Ok(value),
-                | Err(json_errors) => match Self::parse_yaml(trimmed) {
-                    | Ok(value) => Ok(value),
-                    | Err(why) => {
-                        let details: Vec<String> = json_errors
-                            .iter()
-                            .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
-                            .collect();
-                        Err(eyre!(
-                            "Failed to parse ACORN configuration as JSON or YAML.\nJSON errors:\n{}\nYAML error: {why}",
-                            details.join("\n")
-                        ))
-                    }
-                },
-            }
-        } else {
-            match Self::parse_yaml(trimmed) {
-                | Ok(value) => Ok(value),
-                | Err(why) => Err(eyre!("Failed to parse ACORN configuration YAML — {why}")),
-            }
-        }
-    }
-    fn parse_json(content: impl AsRef<str>) -> Result<Self, eserde::DeserializationErrors> {
-        eserde::json::from_str(content.as_ref())
-    }
-    fn parse_jsonc(content: impl AsRef<str>) -> ApiResult<Self> {
-        parse_jsonc_cst::<ApplicationConfiguration>(content.as_ref()).map(|(mut config, cst)| {
-            config.cst = Some(cst);
-            config
-        })
-    }
-    fn parse_yaml(content: impl AsRef<str>) -> serde_norway::Result<Self> {
-        serde_norway::from_str(content.as_ref())
     }
 }
 #[cfg(feature = "analysis")]
@@ -1256,25 +1189,6 @@ impl Validate for ApplicationConfiguration {
     }
 }
 impl Destination {
-    /// Return the repository-relative path when this destination lives in the configured GitLab project.
-    pub fn repository_path(&self) -> Option<&str> {
-        match self {
-            | Self::GitLab { path, .. } => Some(path.as_str()),
-            | Self::Local(_) | Self::Remote(_) => None,
-        }
-    }
-    /// Return the destination for one folder path against its configured root and project.
-    ///
-    /// An absolute URI names its own destination. A relative path resolves against
-    /// `options.folders.root`, then inside `options.powerAutomate.gitlab_project`.
-    pub fn new(path: &str, root: Option<&str>, project: Option<&str>) -> ApiResult<Self> {
-        let location = Location::from(path);
-        match location.scheme() {
-            | Scheme::File | Scheme::HTTP | Scheme::HTTPS => location.try_into(),
-            | Scheme::Unsupported if location.is_path() => Self::from_relative(path, root, project),
-            | scheme => Err(eyre!("Unsupported folder URI scheme '{scheme}' — '{path}'")),
-        }
-    }
     /// Return the destination for one relative folder path against its configured root and project.
     fn from_relative(path: &str, root: Option<&str>, project: Option<&str>) -> ApiResult<Self> {
         match (root, project) {
@@ -1291,10 +1205,28 @@ impl Destination {
             )),
         }
     }
+    /// Return the destination for one folder path against its configured root and project.
+    ///
+    /// An absolute URI names its own destination. A relative path resolves against
+    /// `options.folders.root`, then inside `options.powerAutomate.gitlab_project`.
+    pub fn new(path: &str, root: Option<&str>, project: Option<&str>) -> ApiResult<Self> {
+        let location = Location::from(path);
+        match location.scheme() {
+            | Scheme::File | Scheme::HTTP | Scheme::HTTPS => location.try_into(),
+            | Scheme::Unsupported if location.is_path() => Self::from_relative(path, root, project),
+            | scheme => Err(eyre!("Unsupported folder URI scheme '{scheme}' — '{path}'")),
+        }
+    }
+    /// Return the repository-relative path when this destination lives in the configured GitLab project.
+    pub fn repository_path(&self) -> Option<&str> {
+        match self {
+            | Self::GitLab { path, .. } => Some(path.as_str()),
+            | Self::Local(_) | Self::Remote(_) => None,
+        }
+    }
 }
 impl TryFrom<Location> for Destination {
     type Error = Report;
-
     /// Return the destination named by one absolute folder URI.
     ///
     /// `file` URIs become local paths, keeping a Windows UNC authority, and HTTP(S) URIs stay remote.
@@ -1407,34 +1339,44 @@ impl Folder {
     }
 }
 impl FolderRegistry {
-    /// Return every configured folder.
-    pub fn folders(&self) -> impl Iterator<Item = &Folder> {
-        self.folders.iter()
-    }
-    /// Return the environment variable naming one built-in root variable reference.
-    pub fn variable(&self, name: &str) -> Option<&str> {
-        self.variables
-            .as_ref()
-            .and_then(|variables| variables.custom.get(name))
-            .map(String::as_str)
-    }
-    /// Return the folder matching a canonical identifier or one configured alias.
-    pub fn folder(&self, selector: &str) -> ApiResult<&Folder> {
-        match self.folders().filter(|folder| folder.selects(selector)).collect::<Vec<_>>().as_slice() {
-            | [folder] => Ok(folder),
-            | [] => Err(eyre!("Unknown folder or alias '{selector}'")),
-            | _ => Err(eyre!("Ambiguous folder selector '{selector}'")),
-        }
-    }
-    /// Return one folder resolved against its configured destination.
-    pub fn resolve_folder(&self, selector: &str) -> ApiResult<ResolvedFolder> {
-        self.folder(selector).and_then(|folder| {
-            let path = folder.path.clone().unwrap_or_else(|| format!("{}/index.json", folder.id));
-            Destination::new(&path, self.root.as_deref(), self.project.as_deref()).map(|destination| ResolvedFolder {
-                folder: folder.clone(),
-                destination,
-            })
+    fn associated_bucket(&self, selector: &str) -> ApiResult<Option<&RegisteredBucket>> {
+        self.folder(selector).and_then(|folder| match &folder.bucket {
+            | None => Ok(None),
+            | Some(BucketReference::Index(index)) => self
+                .buckets
+                .get(*index)
+                .map(Some)
+                .ok_or_else(|| eyre!("Bucket index {index} does not resolve")),
+            | Some(BucketReference::Identifier(name)) => {
+                let registered_bucket = self
+                    .buckets
+                    .iter()
+                    .filter(|bucket| bucket.name.as_ref() == Some(name))
+                    .collect::<Vec<_>>();
+                match registered_bucket.as_slice() {
+                    | [bucket] => Ok(Some(*bucket)),
+                    | _ => Err(eyre!("Bucket name '{name}' does not resolve uniquely")),
+                }
+            }
         })
+    }
+    /// Return whether one submitter may submit to the folder selected by `selector`.
+    pub fn authorizes(&self, selector: &str, email: &str, lookup: &dyn Fn(&str) -> Option<String>) -> ApiResult<bool> {
+        self.folder(selector).map(|folder| {
+            let submitter = email.trim().to_lowercase();
+            self.effective_members(Some(&folder.id), lookup).contains(&submitter)
+        })
+    }
+    /// Resolve a folder's bucket association without retaining credentials or positional references.
+    pub fn bucket_identity(&self, selector: &str) -> ApiResult<Option<bucket::BucketSourceIdentity>> {
+        self.associated_bucket(selector)
+            .map(|bucket| bucket.map(|bucket| bucket.identity.clone()))
+    }
+    /// Return the provider-native project named by an associated repository bucket.
+    #[cfg(feature = "agentic")]
+    pub(crate) fn bucket_project(&self, selector: &str) -> ApiResult<Option<String>> {
+        self.associated_bucket(selector)
+            .map(|bucket| bucket.and_then(|bucket| bucket.project.clone()))
     }
     /// Return the effective intake members for one folder, or for the whole document when `selector` is `None`.
     ///
@@ -1457,18 +1399,128 @@ impl FolderRegistry {
             .map(|member| member.to_lowercase())
             .collect()
     }
-    /// Return whether one submitter may submit to the folder selected by `selector`.
-    pub fn authorizes(&self, selector: &str, email: &str, lookup: &dyn Fn(&str) -> Option<String>) -> ApiResult<bool> {
-        self.folder(selector).map(|folder| {
-            let submitter = email.trim().to_lowercase();
-            self.effective_members(Some(&folder.id), lookup).contains(&submitter)
+    /// Return the folder matching a canonical identifier or one configured alias.
+    pub fn folder(&self, selector: &str) -> ApiResult<&Folder> {
+        match self.folders().filter(|folder| folder.selects(selector)).collect::<Vec<_>>().as_slice() {
+            | [folder] => Ok(folder),
+            | [] => Err(eyre!("Unknown folder or alias '{selector}'")),
+            | _ => Err(eyre!("Ambiguous folder selector '{selector}'")),
+        }
+    }
+    /// Return every configured folder.
+    pub fn folders(&self) -> impl Iterator<Item = &Folder> {
+        self.folders.iter()
+    }
+    /// Return one folder resolved against its configured destination.
+    pub fn resolve_folder(&self, selector: &str) -> ApiResult<ResolvedFolder> {
+        self.folder(selector).and_then(|folder| {
+            let path = folder.path.clone().unwrap_or_else(|| format!("{}/index.json", folder.id));
+            Destination::new(&path, self.root.as_deref(), self.project.as_deref()).map(|destination| ResolvedFolder {
+                folder: folder.clone(),
+                destination,
+            })
         })
+    }
+    /// Return the environment variable naming one built-in root variable reference.
+    pub fn variable(&self, name: &str) -> Option<&str> {
+        self.variables
+            .as_ref()
+            .and_then(|variables| variables.custom.get(name))
+            .map(String::as_str)
+    }
+}
+impl Validate for PowerAutomateIntake {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        let file_bytes = self.max_file.checked_bytes();
+        let record_bytes = self.max_record.checked_bytes();
+        [
+            self.branch.trim().is_empty().then(|| {
+                (
+                    "branch",
+                    ValidationError::new("required").with_message("Intake branch must not be empty".to_string()),
+                )
+            }),
+            self.path.trim().is_empty().then(|| {
+                (
+                    "path",
+                    ValidationError::new("required").with_message("Intake path must not be empty".to_string()),
+                )
+            }),
+            (self.path.contains("://") || self.path.starts_with('/')).then(|| {
+                (
+                    "path",
+                    ValidationError::new("absolute").with_message("Intake path must be repository-relative, not an absolute URI or path".to_string()),
+                )
+            }),
+            (self.path.as_bytes().get(1) == Some(&b':')).then(|| {
+                (
+                    "path",
+                    ValidationError::new("absolute").with_message("Intake path must be repository-relative, not a native absolute path".to_string()),
+                )
+            }),
+            self.path.split('/').any(|segment| segment == "..").then(|| {
+                (
+                    "path",
+                    ValidationError::new("traversal").with_message("Intake path must not traverse outside the repository".to_string()),
+                )
+            }),
+            self.path.contains('\\').then(|| {
+                (
+                    "path",
+                    ValidationError::new("separator").with_message("Intake path must use forward slashes, not backslashes".to_string()),
+                )
+            }),
+            (self.poll_interval.is_zero() || self.poll_interval.get() > MAX_INTAKE_POLL_INTERVAL_SECS).then(|| {
+                (
+                    "poll_interval",
+                    ValidationError::new("range").with_message("Intake poll interval must be between 1 and 86400 seconds".to_string()),
+                )
+            }),
+            file_bytes.is_none_or(|bytes| bytes == 0).then(|| {
+                (
+                    "max_file",
+                    ValidationError::new("range").with_message("Intake file size limit must be nonzero".to_string()),
+                )
+            }),
+            record_bytes.is_none_or(|bytes| bytes == 0).then(|| {
+                (
+                    "max_record",
+                    ValidationError::new("range").with_message("Intake record size limit must be nonzero".to_string()),
+                )
+            }),
+            (record_bytes.is_some_and(|record| file_bytes.is_some_and(|file| record > file))).then(|| {
+                (
+                    "max_record",
+                    ValidationError::new("range").with_message("Intake record size limit must not exceed the file size limit".to_string()),
+                )
+            }),
+        ]
+        .into_iter()
+        .flatten()
+        .map(|(path, error)| ValidationReport::from_error(path, error))
+        .fold(ValidationReport::new(), |report, next| report.merge("", next))
+        .finish()
     }
 }
 impl Default for ScriptOptions {
     fn default() -> Self {
         Self { enabled: true }
     }
+}
+fn default_intake_branch() -> String {
+    DEFAULT_INTAKE_BRANCH.to_string()
+}
+fn default_intake_max_file() -> Memory {
+    DEFAULT_INTAKE_MAX_FILE.clone()
+}
+fn default_intake_max_record() -> Memory {
+    DEFAULT_INTAKE_MAX_RECORD.clone()
+}
+fn default_intake_path() -> String {
+    DEFAULT_INTAKE_PATH.to_string()
+}
+fn default_intake_poll_interval() -> Seconds {
+    Seconds::new(DEFAULT_INTAKE_POLL_INTERVAL_SECS)
 }
 /// Return the local filesystem path named by one `file` location.
 ///

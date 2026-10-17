@@ -18,7 +18,7 @@ These complete configuration documents demonstrate the ACRE 2.0.0 contract in [t
   },
   "buckets": [
     {
-      "id": "pilot-data",
+      "name": "pilot-data",
       "source": "https://code.ornl.gov/research-enablement/experiments/power-automate"
     }
   ],
@@ -76,7 +76,7 @@ These complete configuration documents demonstrate the ACRE 2.0.0 contract in [t
   },
   "buckets": [
     {
-      "id": "pilot-data",
+      "name": "pilot-data",
       "source": "https://code.ornl.gov/research-enablement/experiments/power-automate"
     }
   ],
@@ -131,7 +131,7 @@ variables:
     power_automate.inbound_secret: POWER_AUTOMATE_INBOUND_SECRET
     notification_channel: ORG_NOTIFICATION_CHANNEL
 buckets:
-  - id: pilot-data
+  - name: pilot-data
     source: https://code.ornl.gov/research-enablement/experiments/power-automate
 folders:
   - id: acorn
@@ -157,13 +157,13 @@ options:
     gitlab_project: "22464"
     package: acorn-automated-artifacts
     timezone: UTC
-    # Planned JSONL intake settings; not accepted by the current schema.
+    # Optional GitLab JSONL inbox settings.
     intake:
       branch: main
       path: .acorn/intake/logbook.jsonl
-      poll_interval_seconds: 30
-      max_file_bytes: 10485760
-      max_record_bytes: 65536
+      poll_interval: 30
+      max_file: 10MB
+      max_record: 64KB
 ```
 
 Unused option counterparts are intentionally omitted from serialized output. Their typed slots remain documented in the schema: `schemaVersion`, `config`, and `options` have no counterparts, while `options.scripts` covers both root `scripts` and `scriptManifest`. Reserved handlers retain `unimplemented!()` placeholders, but configuration parsing and serialization never invoke them. Empty optional attributes and recursively empty parents are omitted in every format; meaningful `false` and `0` values remain. With `options.folders` omitted here, relative paths use the GitLab fallback.
@@ -272,7 +272,7 @@ An explicit absolute URI designates its own destination. A root takes precedence
 
 ## Bucket association and standalone local folders
 
-This proposed configuration demonstrates a folder belonging to a local bucket and a standalone folder. Neither declaration triggers copying. Bucket IDs and folder bucket references are planned additions.
+This configuration demonstrates a folder belonging to a local bucket and a standalone folder. Neither declaration triggers copying. Bucket references use explicit bucket names or zero-based indexes.
 
 ```json
 {
@@ -359,7 +359,7 @@ folders:
     path: file:///C:/archive/history/index.json
 ```
 
-Prefer IDs in long-lived configurations: reordering buckets changes index associations for new work. Persist the resolved bucket identity and destination at admission so retries retain their original routing. Index association does not supply a path root, trigger copying, or grant access. These examples are proposed extensions, not valid current ACRE 1.0.0 configurations.
+Prefer IDs in long-lived configurations: reordering buckets changes index associations for new work. Persist the resolved bucket identity and destination at admission so retries retain their original routing. Index association does not supply a path root, trigger copying, or grant access. These examples target ACRE 2.0.0; ACRE 1.0.0 is rejected.
 
 ## Specification and migration deliverables
 

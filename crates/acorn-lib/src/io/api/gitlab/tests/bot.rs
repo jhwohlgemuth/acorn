@@ -1,11 +1,32 @@
 use super::*;
+use crate::io::api::gitlab::jsonl::{split_snapshot, Snapshot};
 use crate::io::api::gitlab::{bot::*, NoteMetadata, UserMetadata};
+use crate::io::api::powerautomate::{jsonl::admit_snapshot, PowerAutomateProvider};
 use crate::io::api::webhooks::store::{OperationQueue, OperationState};
 use crate::test::server::TestServer;
 use crate::test::utils;
+use acorn_schema::hardware::memory::Memory;
+use axum::{extract, http::StatusCode};
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::env::temp_dir;
 
+#[derive(Clone)]
+enum JsonlRace {
+    None,
+    Append(String),
+    Ambiguous,
+    Cleaned,
+    Conflict,
+    MissingMetadata,
+}
+#[derive(Clone)]
+struct JsonlRepository {
+    content: Option<String>,
+    head: u64,
+    file_commit: u64,
+    race: JsonlRace,
+    writes: Vec<serde_json::Value>,
+}
 fn event(created_at: &str, noteable_type: &str) -> EventDetails {
     EventDetails {
         identifier: 100,
@@ -24,6 +45,72 @@ fn event(created_at: &str, noteable_type: &str) -> EventDetails {
         author_username: "tester".to_string(),
         note: Some(note(noteable_type, 42)),
     }
+}
+async fn jsonl_bot(content: Option<String>, race: JsonlRace) -> (TestServer, Server, Arc<Mutex<JsonlRepository>>, Config) {
+    let repository = Arc::new(Mutex::new(JsonlRepository {
+        content,
+        head: 99,
+        file_commit: 1,
+        race,
+        writes: vec![],
+    }));
+    let router = Router::new()
+        .route("/api/v4/projects/42/packages", get(|| async { Json(serde_json::json!([])) }))
+        .route("/api/v4/projects/42/repository/commits/{revision}", get(|State(repository): State<Arc<Mutex<JsonlRepository>>>| async move {
+            Json(serde_json::json!({"id":format!("{:040x}", repository.lock().unwrap().head)}))
+        }))
+        .route("/api/v4/projects/42/repository/files/{*path}", get(|State(repository): State<Arc<Mutex<JsonlRepository>>>| async move {
+            let repository = repository.lock().unwrap();
+            match &repository.content {
+                | None => (StatusCode::NOT_FOUND, Json(serde_json::json!({"message":"404 File Not Found"}))),
+                | Some(content) => (StatusCode::OK, Json(serde_json::json!({"file_path":".acorn/intake/logbook.jsonl", "encoding":"base64", "content":data_encoding::BASE64.encode(content.as_bytes()), "size":content.len(), "last_commit_id":(!matches!(repository.race, JsonlRace::MissingMetadata)).then(|| format!("{:040x}", repository.file_commit))}))),
+            }
+        }))
+        .route("/api/v4/projects/42/repository/commits", post(|State(repository): State<Arc<Mutex<JsonlRepository>>>, Json(body): Json<serde_json::Value>| async move {
+            let mut repository = repository.lock().unwrap();
+            repository.writes.push(body.clone());
+            let action = &body["actions"][0];
+            assert_eq!(body["branch"], "main");
+            assert_eq!(action["action"], "update");
+            assert_eq!(action["file_path"], ".acorn/intake/logbook.jsonl");
+            assert_eq!(action["last_commit_id"], format!("{:040x}", repository.file_commit));
+            match repository.race.clone() {
+                | JsonlRace::Append(appended) => {
+                    repository.content.as_mut().unwrap().push_str(&appended);
+                    repository.file_commit += 1;
+                    repository.head += 1;
+                    repository.race = JsonlRace::None;
+                    (StatusCode::BAD_REQUEST, Json(serde_json::json!({"message":"concurrent append"})))
+                },
+                | JsonlRace::Conflict => (StatusCode::BAD_REQUEST, Json(serde_json::json!({"message":"conflict"}))),
+                | race => {
+                    repository.content = Some(action["content"].as_str().unwrap().to_string());
+                    repository.file_commit += 1;
+                    repository.head += 1;
+                    repository.race = JsonlRace::None;
+                    match race {
+                        | JsonlRace::Ambiguous => (StatusCode::OK, Json(serde_json::json!({"unexpected":"commit happened but response is unusable"}))),
+                        | JsonlRace::Cleaned => (StatusCode::BAD_REQUEST, Json(serde_json::json!({"message":"another bot already cleaned the inbox"}))),
+                        | _ => (StatusCode::CREATED, Json(serde_json::json!({"id":format!("{:040x}", repository.head)}))),
+                    }
+                },
+            }
+        }))
+        .with_state(Arc::clone(&repository));
+    let server = TestServer::start(router).await.unwrap();
+    let document: ApplicationConfiguration = serde_json::from_value(serde_json::json!({
+        "folders":[{"id":"pilot", "members":["scientist@example.org"]}],
+        "options":{"powerAutomate":{"callback_destination":"flow", "gitlab_project":"42", "package":"reports", "intake":{"branch":"main", "poll_interval":1}}}
+    })).unwrap();
+    let options = Options::with_token("test").domain(&server.base_url).identifier("42").build();
+    let mut config = Config::new(options, "127.0.0.1:0".parse().unwrap())
+        .with_operation_queue(operation_queue())
+        .with_polling_enabled(false);
+    config.powerautomate = Some(PowerAutomateProvider::new(document.power_automate().unwrap().clone(), document.registry(), "test").unwrap());
+    (server, Server::new(config.clone()), repository, config)
+}
+fn jsonl_form(id: u8) -> String {
+    serde_json::json!({"submissionId":format!("123e4567-e89b-12d3-a456-4266141740{id:02}"), "projectId":"pilot", "submittedAt":"2026-09-18T12:01:00Z", "submitter":{"email":"scientist@example.org"}, "entry":{"timestamp":"2026-09-18T12:00:00Z", "category":"software", "state":"completed", "summary":format!("New functionality {id}")}}).to_string()
 }
 fn mr_payload(project_id: u64, action: &str) -> serde_json::Value {
     serde_json::json!({
@@ -412,6 +499,201 @@ fn test_ignores_merge_request_note_without_iid() {
 fn test_ignores_non_merge_request_note_event() {
     let extracted = MergeRequestNoteEvent::try_from(&event("2026-07-06T00:00:01Z", "Issue"));
     assert!(extracted.is_err());
+}
+#[tokio::test]
+async fn test_jsonl_cleanup_preserves_append_racing_with_removal() {
+    let first = format!("{}\n", jsonl_form(0));
+    let appended = format!("{}\n", jsonl_form(1));
+    let (server, bot, repository, config) = jsonl_bot(Some(first), JsonlRace::Append(appended.clone())).await;
+    let summary = bot.poll_jsonl_once().await.unwrap();
+    assert_eq!(summary.admitted_count, 1);
+    assert_eq!(repository.lock().unwrap().content.as_deref(), Some(appended.as_str()));
+    assert_eq!(repository.lock().unwrap().writes.len(), 2);
+    let second = bot.poll_jsonl_once().await.unwrap();
+    assert_eq!(second.admitted_count, 1);
+    assert_eq!(repository.lock().unwrap().content.as_deref(), Some(""));
+    assert_eq!(config.operation_queue.counts().unwrap().queued, 2);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_jsonl_cleanup_preserves_rejections_blank_lines_and_unicode_bytes() {
+    let invalid = "{malformed ✓}\n";
+    let unknown = jsonl_form(1).replace("pilot", "unknown");
+    let content = format!("\n{}\n\n{invalid}{unknown}\n", jsonl_form(0));
+    let expected = format!("\n\n{invalid}{unknown}\n");
+    let (server, bot, repository, _config) = jsonl_bot(Some(content), JsonlRace::None).await;
+    let summary = bot.poll_jsonl_once().await.unwrap();
+    assert_eq!(summary.rejected_count, 2);
+    assert_eq!(summary.removed_count, 1);
+    assert_eq!(repository.lock().unwrap().content.as_deref(), Some(expected.as_str()));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_jsonl_cleanup_reconciles_ambiguous_success_without_duplicate_work() {
+    let content = format!("{}\n", jsonl_form(0));
+    let (server, bot, repository, config) = jsonl_bot(Some(content.clone()), JsonlRace::Ambiguous).await;
+    bot.poll_jsonl_once().await.unwrap();
+    assert_eq!(repository.lock().unwrap().content.as_deref(), Some(""));
+    assert_eq!(repository.lock().unwrap().writes.len(), 1);
+    repository.lock().unwrap().content = Some(content);
+    bot.poll_jsonl_once().await.unwrap();
+    assert_eq!(config.operation_queue.counts().unwrap().queued, 1);
+    assert_eq!(repository.lock().unwrap().content.as_deref(), Some(""));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_jsonl_cleanup_reconciles_another_bots_removal() {
+    let (server, bot, repository, _config) = jsonl_bot(Some(format!("{}\n", jsonl_form(0))), JsonlRace::Cleaned).await;
+    bot.poll_jsonl_once().await.unwrap();
+    assert_eq!(repository.lock().unwrap().content.as_deref(), Some(""));
+    assert_eq!(repository.lock().unwrap().writes.len(), 1);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_jsonl_conflicting_uuid_is_retained_after_original_was_removed() {
+    let raw = jsonl_form(0);
+    let (server, bot, repository, config) = jsonl_bot(Some(format!("{raw}\n")), JsonlRace::None).await;
+    bot.poll_jsonl_once().await.unwrap();
+    let changed = format!("{}\n", raw.replace("New functionality", "Different content"));
+    repository.lock().unwrap().content = Some(changed.clone());
+    let summary = bot.poll_jsonl_once().await.unwrap();
+    assert_eq!(summary.rejected_count, 1);
+    assert_eq!(summary.removed_count, 0);
+    assert_eq!(repository.lock().unwrap().content.as_deref(), Some(changed.as_str()));
+    assert_eq!(config.operation_queue.counts().unwrap().queued, 1);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_jsonl_conflicts_are_bounded_and_admitted_work_survives_restart() {
+    let (server, bot, repository, config) = jsonl_bot(Some(format!("{}\n", jsonl_form(0))), JsonlRace::Conflict).await;
+    assert!(bot.poll_jsonl_once().await.unwrap_err().to_string().contains("three attempts"));
+    assert_eq!(repository.lock().unwrap().writes.len(), 3);
+    assert_eq!(config.operation_queue.counts().unwrap().queued, 1);
+    repository.lock().unwrap().race = JsonlRace::None;
+    let restarted = Server::new(config.clone());
+    restarted.poll_jsonl_once().await.unwrap();
+    assert_eq!(repository.lock().unwrap().content.as_deref(), Some(""));
+    assert_eq!(config.operation_queue.counts().unwrap().queued, 1);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_jsonl_drain_stops_intake_without_consuming_records() {
+    let content = format!("{}\n", jsonl_form(0));
+    let (server, bot, repository, _config) = jsonl_bot(Some(content.clone()), JsonlRace::None).await;
+    bot.drain().await.unwrap();
+    assert_eq!(bot.poll_jsonl_once().await.unwrap(), JsonlPollSummary::default());
+    assert_eq!(repository.lock().unwrap().content.as_deref(), Some(content.as_str()));
+    assert!(repository.lock().unwrap().writes.is_empty());
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_jsonl_missing_file_is_idle_and_drained_file_is_kept() {
+    let (server, bot, repository, _config) = jsonl_bot(None, JsonlRace::None).await;
+    assert_eq!(bot.poll_jsonl_once().await.unwrap(), JsonlPollSummary::default());
+    assert!(repository.lock().unwrap().content.is_none());
+    repository.lock().unwrap().content = Some(format!("{}\n", jsonl_form(0)));
+    bot.poll_jsonl_once().await.unwrap();
+    assert_eq!(repository.lock().unwrap().content.as_deref(), Some(""));
+    assert_eq!(bot.poll_jsonl_once().await.unwrap(), JsonlPollSummary::default());
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_jsonl_missing_metadata_keeps_durable_admission_and_inbox() {
+    let content = format!("{}\n", jsonl_form(0));
+    let (server, bot, repository, config) = jsonl_bot(Some(content.clone()), JsonlRace::MissingMetadata).await;
+    assert!(bot.poll_jsonl_once().await.unwrap_err().to_string().contains("last_commit_id"));
+    assert_eq!(repository.lock().unwrap().content.as_deref(), Some(content.as_str()));
+    assert!(repository.lock().unwrap().writes.is_empty());
+    assert_eq!(config.operation_queue.counts().unwrap().queued, 1);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_jsonl_size_limit_fails_without_admission_or_removal() {
+    let content = format!("{}\n", "x".repeat(70_000));
+    let (server, bot, repository, config) = jsonl_bot(Some(content.clone()), JsonlRace::None).await;
+    assert!(bot.poll_jsonl_once().await.unwrap_err().to_string().contains("record size limit"));
+    assert_eq!(repository.lock().unwrap().content.as_deref(), Some(content.as_str()));
+    assert!(repository.lock().unwrap().writes.is_empty());
+    assert_eq!(config.operation_queue.counts().unwrap().queued, 0);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_jsonl_storage_failure_never_removes_source() {
+    let content = format!("{}\n", jsonl_form(0));
+    let (server, _bot, repository, config) = jsonl_bot(Some(content.clone()), JsonlRace::None).await;
+    let bot = Server::new(config.with_operation_queue(OperationQueue::from(temp_dir())));
+    assert!(bot.poll_jsonl_once().await.is_err());
+    assert_eq!(repository.lock().unwrap().content.as_deref(), Some(content.as_str()));
+    assert!(repository.lock().unwrap().writes.is_empty());
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_jsonl_unconfigured_intake_is_idle_without_database_access() {
+    let bot = Server::new(Config::new(Options::default(), "127.0.0.1:0".parse().unwrap()).with_operation_queue(OperationQueue::from(temp_dir())));
+    assert_eq!(bot.poll_jsonl_once().await.unwrap(), JsonlPollSummary::default());
+}
+#[tokio::test]
+async fn test_jsonl_worker_uses_admitted_route_after_configuration_changes() {
+    let reads = Arc::new(AtomicUsize::new(0));
+    let captured = Arc::clone(&reads);
+    let server = TestServer::start(
+        Router::new()
+            .route("/api/v4/projects/42/packages", get(|| async { Json(serde_json::json!([])) }))
+            .route(
+                "/api/v4/projects/42",
+                get(|| async { Json(serde_json::json!({"id":42,"default_branch":"main"})) }),
+            )
+            .route(
+                "/api/v4/projects/42/repository/branches/{*branch}",
+                get(|| async { Json(serde_json::json!({"name":"review", "commit":{"id":"abc123"}})) }),
+            )
+            .route(
+                "/api/v4/projects/42/repository/files/{*path}",
+                get(move |extract::Path(path): extract::Path<String>| {
+                    let reads = Arc::clone(&captured);
+                    async move {
+                        assert_eq!(path, "pilot/index.json");
+                        reads.fetch_add(1, Ordering::SeqCst);
+                        StatusCode::SERVICE_UNAVAILABLE
+                    }
+                }),
+            ),
+    )
+    .await
+    .unwrap();
+    let original: ApplicationConfiguration = serde_json::from_value(serde_json::json!({
+        "folders":[{"id":"pilot", "aliases":["folder-name"], "members":["scientist@example.org"]}],
+        "options":{"powerAutomate":{"callback_destination":"flow", "gitlab_project":"42", "package":"reports", "intake":{"branch":"main"}}}
+    }))
+    .unwrap();
+    let options = Options::with_token("test").domain(&server.base_url).identifier("42").build();
+    let queue = operation_queue();
+    let raw = serde_json::json!({"submissionId":"123e4567-e89b-12d3-a456-426614174000", "projectId":"folder-name", "submittedAt":"2026-09-18T12:01:00Z", "submitter":{"email":"scientist@example.org"}, "entry":{"timestamp":"2026-09-18T12:00:00Z", "category":"software", "state":"completed", "summary":"New functionality"}}).to_string();
+    let snapshot = Snapshot {
+        content: format!("{raw}\n"),
+        last_commit_id: Some("abc123".to_string()),
+        commit: "abc123".to_string(),
+        lines: split_snapshot(&format!("{raw}\n"), &Memory::kb(64)).unwrap(),
+    };
+    assert!(
+        admit_snapshot(&snapshot, original.power_automate().unwrap(), &original.registry(), &queue, &options)
+            .await
+            .unwrap()[0]
+            .as_ref()
+            .unwrap()
+            .admission
+            .is_some()
+    );
+    let changed: ApplicationConfiguration = serde_json::from_value(serde_json::json!({
+        "folders":[{"id":"pilot", "path":"moved/index.json"}],
+        "options":{"powerAutomate":{"callback_destination":"flow", "gitlab_project":"43", "package":"reports"}}
+    }))
+    .unwrap();
+    let mut config = Config::new(options.with_identifier("43"), "127.0.0.1:0".parse().unwrap()).with_operation_queue(queue);
+    config.powerautomate = Some(PowerAutomateProvider::new(changed.power_automate().unwrap().clone(), changed.registry(), "test").unwrap());
+    assert!(Server::new(config).process_next().await.is_err());
+    assert!(reads.load(Ordering::SeqCst) > 0);
+    server.stop().await.unwrap();
 }
 #[test]
 fn test_merge_request_actions_share_head_specific_operation_key() {

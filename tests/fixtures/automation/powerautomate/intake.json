@@ -32,7 +32,7 @@
       "intake": {
         "branch": "acorn/powerautomate-pilot",
         "path": ".acorn/intake/logbook.jsonl",
-        "poll_interval_secs": 30,
+        "poll_interval": 30,
         "max_file": "10MB",
         "max_record": "64KB"
       }

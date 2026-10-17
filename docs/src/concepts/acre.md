@@ -48,3 +48,25 @@ Every top-level attribute is optional. Unknown attributes and unsupported explic
 | `options` | Command defaults, resolved from the CLI. `options.scripts` (`enabled`) governs both root `scripts` and root `scriptManifest`; `options.folders.root` sets the folder destination base. |
 
 The [complete ACRE specification](https://code.ornl.gov/research-enablement/acorn/-/blob/main/ACRE_SPEC.md) describes every object field and accepted shorthand. See [CLI configuration](../cli-reference/configuration.md) for working examples, [Model workflows](../cli-reference/model-workflows.md) for downloads, and [Rhai exec](../packages/exec.md) for constrained script hooks.
+
+## GitLab logbook inbox
+
+Set `options.powerAutomate.intake` to enable JSONL polling when running `acorn serve bot --config .acorn.yaml`. Existing Power Automate callback, package, member, and protected-variable settings still apply:
+
+```yaml
+options:
+  powerAutomate:
+    callback_destination: logbook-flow
+    gitlab_project: "42"
+    package: automated-artifacts
+    intake:
+      branch: main
+      path: .acorn/intake/logbook.jsonl
+      poll_interval: 30
+      max_file: 10MB
+      max_record: 64KB
+```
+
+Each LF-terminated line uses the existing form envelope. Its `projectId` selects a registered folder ID or alias. The bot authorizes and durably queues each entry before removing its exact line. Preserve the UUID and serialized bytes across retries; changes under an accepted UUID are conflicts. Admission fixes the canonical destination so configuration changes cannot redirect retries.
+
+Rejected records remain in the inbox with inspectable outcomes in the durable operation store. Cleanup preserves unrelated bytes and concurrent appends, keeps an empty file after draining, and retries conflicts from a fresh snapshot. GitLab intake proposes changes through the existing review workflow. Local destinations require a separate proposal/apply adapter.

@@ -9,6 +9,7 @@ use crate::io::http::HttpService;
 use crate::io::ApiResult;
 use crate::util::constants::app::{MAX_WEBHOOK_OPERATION_ATTEMPTS, MAX_WEBHOOK_OPERATION_BACKOFF_SECONDS};
 use acorn_core::util::to_rfc3339;
+use acorn_schema::validation::Validate;
 use color_eyre::eyre::eyre;
 use core::fmt;
 use jiff::{SignedDuration, Timestamp};
@@ -18,6 +19,7 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
 static CONNECTION_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+const INTAKE_MIGRATION: &str = include_str!("../../../../assets/migrations/0014_create_powerautomate_jsonl.sql");
 const WEBHOOK_EFFECT_MIGRATION: &str = include_str!("../../../../assets/migrations/0013_create_webhook_effects.sql");
 const WEBHOOK_MIGRATION: &str = include_str!("../../../../assets/migrations/0012_create_webhook_runtime.sql");
 /// Provider-neutral name for the durable webhook operation queue.
@@ -25,6 +27,8 @@ pub type WebhookStore = OperationQueue;
 trait ConnectionExt {
     fn begin_effect(&self, effect_key: &str, effect_kind: &str) -> ApiResult<()>;
     fn effect_result<T: DeserializeOwned>(&self, effect_key: &str, effect_kind: &str) -> ApiResult<Option<T>>;
+    fn enqueue_notification(&self, delivery_id: &str, operation_key: &str, event_json: &str) -> ApiResult<EnqueueStatus>;
+    fn read_intake_admission(&self, operation_key: &str) -> ApiResult<Option<IntakeAdmission>>;
     fn read_runtime_timestamps(&self) -> ApiResult<RuntimeTimestamps>;
     fn record_outcome(&self, state: OperationState, now: &str) -> ApiResult<()>;
     fn select_available(&self, now: &str) -> ApiResult<Option<ClaimedOperation>>;
@@ -106,6 +110,44 @@ pub struct ClaimedOperation {
     event_json: String,
     /// One-based attempt number.
     attempts: u32,
+}
+/// Immutable accepted intake payload retained after inbox cleanup.
+#[derive(Clone, Debug, Deserialize, Serialize, Validate)]
+pub struct IntakeAdmission {
+    /// Exact original line, excluding its LF delimiter.
+    pub raw: String,
+    /// Digest of the original bytes.
+    #[validate(digest)]
+    pub digest: String,
+    /// Serialized provider-owned entry and resolved route.
+    pub payload: String,
+}
+/// Inspectable outcome and source evidence for one inbox observation.
+#[derive(bon::Builder, Clone, Debug, Deserialize, Serialize, Validate)]
+pub struct IntakeRecord {
+    /// Credential-free source identity including project, branch, and path.
+    pub source: String,
+    /// Immutable source commit.
+    #[validate(commit)]
+    pub commit: String,
+    /// One-based physical line.
+    #[validate(range(min = 1))]
+    pub line: u64,
+    /// Original byte offset.
+    pub byte_offset: u64,
+    /// Exact line bytes, excluding LF.
+    pub raw: String,
+    /// Digest of the original bytes.
+    #[validate(digest)]
+    pub digest: String,
+    /// Original routing selector when parsing succeeded.
+    pub selector: Option<String>,
+    /// Canonical operation identity when parsing succeeded.
+    pub operation_key: Option<String>,
+    /// Immutable accepted payload, absent on rejection.
+    pub admission: Option<String>,
+    /// Inspectable rejection reason.
+    pub rejection: Option<String>,
 }
 /// Database-backed queue for authenticated, normalized webhook events.
 #[derive(Clone, Debug)]
@@ -217,19 +259,19 @@ impl<S: HttpService, R: CallbackResolver> CallbackWorker<S, R> {
     }
 }
 impl ClaimedCallback {
-    /// Stable callback idempotency key.
-    pub fn callback_key(&self) -> &str {
-        &self.callback_key
-    }
     /// One-based delivery attempt number.
     pub fn attempts(&self) -> u32 {
         self.attempts
     }
+    /// Stable callback idempotency key.
+    pub fn callback_key(&self) -> &str {
+        &self.callback_key
+    }
 }
 impl ClaimedOperation {
-    /// Return the canonical idempotency key.
-    pub fn operation_key(&self) -> &str {
-        &self.operation_key
+    /// Return the one-based attempt number.
+    pub fn attempts(&self) -> u32 {
+        self.attempts
     }
     /// Return the delivery that first created the operation.
     pub fn delivery_id(&self) -> &str {
@@ -243,9 +285,9 @@ impl ClaimedOperation {
     pub fn notification(&self) -> ApiResult<Notification> {
         serde_json::from_str(&self.event_json).map_err(|why| eyre!("Failed to decode webhook operation notification — {why}"))
     }
-    /// Return the one-based attempt number.
-    pub fn attempts(&self) -> u32 {
-        self.attempts
+    /// Return the canonical idempotency key.
+    pub fn operation_key(&self) -> &str {
+        &self.operation_key
     }
 }
 impl ConnectionExt for Connection {
@@ -289,6 +331,57 @@ impl ConnectionExt for Connection {
                 .map(Some)
                 .map_err(|why| eyre!("Failed to decode webhook effect result — {why}")),
             | Ok(_) => Ok(None),
+        }
+    }
+    fn enqueue_notification(&self, delivery_id: &str, operation_key: &str, event_json: &str) -> ApiResult<EnqueueStatus> {
+        let now = to_rfc3339(Timestamp::now());
+        self.execute(
+            "INSERT INTO webhook_deliveries (delivery_id, operation_key, event_json, received_at, deduplicated)
+                         VALUES (?, ?, ?, ?, 0) ON CONFLICT(delivery_id) DO NOTHING",
+            params![delivery_id, operation_key, event_json, now],
+        )
+        .map_err(|why| eyre!("Failed to record webhook delivery — {why}"))
+        .and_then(|deliveries| {
+            if deliveries == 0 {
+                Ok(EnqueueStatus::DuplicateDelivery)
+            } else {
+                self.execute(
+                    "INSERT INTO webhook_operations
+                                     (operation_key, delivery_id, event_json, state, attempts, available_at, created_at, updated_at)
+                                     VALUES (?, ?, ?, 'queued', 0, ?, ?, ?)
+                                     ON CONFLICT(operation_key) DO NOTHING",
+                    params![operation_key, delivery_id, event_json, now, now, now],
+                )
+                .map_err(|why| eyre!("Failed to record webhook operation — {why}"))
+                .and_then(|operations| {
+                    if operations == 0 {
+                        self.execute(
+                            "UPDATE webhook_deliveries SET deduplicated = 1 WHERE delivery_id = ?",
+                            params![delivery_id],
+                        )
+                        .map_err(|why| eyre!("Failed to mark duplicate webhook operation — {why}"))
+                        .map(|_| EnqueueStatus::DuplicateOperation)
+                    } else {
+                        Ok(EnqueueStatus::Inserted)
+                    }
+                })
+            }
+        })
+    }
+    fn read_intake_admission(&self, operation_key: &str) -> ApiResult<Option<IntakeAdmission>> {
+        match self.query_row(
+            "SELECT raw, digest, admission_json FROM webhook_intake_admissions WHERE operation_key = ?",
+            params![operation_key],
+            |row| {
+                row.get(0).and_then(|raw| {
+                    row.get(1)
+                        .and_then(|digest| row.get(2).map(|payload| IntakeAdmission { raw, digest, payload }))
+                })
+            },
+        ) {
+            | Ok(admission) => Ok(Some(admission)),
+            | Err(why) if is_no_rows(&why) => Ok(None),
+            | Err(why) => Err(eyre!("Failed to read intake admission — {why}")),
         }
     }
     fn read_runtime_timestamps(&self) -> ApiResult<RuntimeTimestamps> {
@@ -398,6 +491,74 @@ impl ConnectionExt for Connection {
         })
     }
 }
+impl IntakeRecord {
+    fn insert_admission(&self, connection: &Connection, key: &str, payload: &str) -> ApiResult<Self> {
+        connection
+            .query_row("SELECT COUNT(*) FROM webhook_operations WHERE operation_key = ?", params![key], |row| {
+                row.get::<_, i64>(0)
+            })
+            .map_err(|why| eyre!("Failed to check intake identity — {why}"))
+            .and_then(|count| match count {
+                | 0 => connection
+                    .execute(
+                        "INSERT INTO webhook_intake_admissions (operation_key, raw, digest, admission_json) VALUES (?, ?, ?, ?)",
+                        params![key, self.raw, self.digest, payload],
+                    )
+                    .map_err(|why| eyre!("Failed to retain intake admission — {why}"))
+                    .map(|_| self.clone()),
+                | _ => Ok(Self {
+                    admission: None,
+                    rejection: Some("Existing operation has no verifiable JSONL byte evidence".to_string()),
+                    ..self.clone()
+                }),
+            })
+    }
+    fn persist(&self, connection: &Connection) -> ApiResult<()> {
+        i64::try_from(self.line)
+            .map_err(|why| eyre!("Intake line exceeds database range — {why}"))
+            .and_then(|line| serde_json::to_string(self).map_err(Into::into).map(|json| (line, json)))
+            .and_then(|(line, json)| {
+                connection
+                    .execute(
+                        "INSERT INTO webhook_intake_records (source, commit_sha, line, digest, record_json) VALUES (?, ?, ?, ?, ?)
+                 ON CONFLICT(source, commit_sha, line, digest) DO UPDATE SET record_json = excluded.record_json",
+                        params![self.source, self.commit, line, self.digest, json],
+                    )
+                    .map_err(|why| eyre!("Failed to retain intake observation — {why}"))
+                    .map(|_| ())
+            })
+    }
+    fn prepare(&self, connection: &Connection, operation: Option<&OperationSpec>) -> ApiResult<Self> {
+        match (operation, self.operation_key.as_deref(), self.admission.as_deref()) {
+            | (Some(operation), Some(key), Some(payload)) if format!("{}:{}", operation.provider, operation.idempotency_key) == key => connection
+                .read_intake_admission(key)
+                .and_then(|existing| match existing {
+                    | Some(existing) if existing.raw != self.raw || existing.digest != self.digest => Ok(Self {
+                        admission: None,
+                        rejection: Some("Submission UUID conflicts with previously admitted bytes".to_string()),
+                        ..self.clone()
+                    }),
+                    | Some(existing) => Ok(Self {
+                        admission: Some(existing.payload),
+                        rejection: None,
+                        ..self.clone()
+                    }),
+                    | None => self.insert_admission(connection, key, payload),
+                })
+                .and_then(|outcome| match &outcome.admission {
+                    | Some(_) => serde_json::to_string(&operation.notification)
+                        .map_err(Into::into)
+                        .and_then(|notification| {
+                            let delivery = format!("{}:powerautomate-jsonl:{}:{}:{}", operation.provider, self.source, self.commit, self.line);
+                            connection.enqueue_notification(&delivery, key, &notification).map(|_| outcome)
+                        }),
+                    | None => Ok(outcome),
+                }),
+            | (None, _, None) if self.rejection.is_some() => Ok(self.clone()),
+            | _ => Err(eyre!("Incomplete intake admission")),
+        }
+    }
+}
 impl From<PathBuf> for OperationQueue {
     fn from(path: PathBuf) -> Self {
         Self {
@@ -415,6 +576,16 @@ impl OperationQueue {
     #[cfg(test)]
     fn before_settlement(&self) -> ApiResult<()> {
         self.settlement_hook.map_or(Ok(()), |hook| hook())
+    }
+    /// Begin one idempotent external effect, preserving an existing attempt or result.
+    pub fn begin_effect(&self, key: &str, kind: &str) -> ApiResult<()> {
+        match (key.trim().is_empty(), kind.trim().is_empty()) {
+            | (true, _) => Err(eyre!("Webhook effect key is required")),
+            | (_, true) => Err(eyre!("Webhook effect kind is required")),
+            | _ => self
+                .migrate()
+                .and_then(|_| self.with_connection(|connection| connection.begin_effect(key, kind))),
+        }
     }
     /// Count persisted attempts for one outbound callback.
     pub fn callback_attempts(&self, callback_key: &str) -> ApiResult<u64> {
@@ -447,16 +618,6 @@ impl OperationQueue {
                 }
             })
         })
-    }
-    /// Begin one idempotent external effect, preserving an existing attempt or result.
-    pub fn begin_effect(&self, key: &str, kind: &str) -> ApiResult<()> {
-        match (key.trim().is_empty(), kind.trim().is_empty()) {
-            | (true, _) => Err(eyre!("Webhook effect key is required")),
-            | (_, true) => Err(eyre!("Webhook effect kind is required")),
-            | _ => self
-                .migrate()
-                .and_then(|_| self.with_connection(|connection| connection.begin_effect(key, kind))),
-        }
     }
     /// Cancel queued work. Running or completed work is left unchanged.
     pub fn cancel(&self, operation_key: &str) -> ApiResult<bool> {
@@ -589,48 +750,15 @@ impl OperationQueue {
             })
         })
     }
+    /// Return a completed external effect result, or `None` while absent or pending.
+    pub fn effect_result<T: DeserializeOwned>(&self, key: &str, kind: &str) -> ApiResult<Option<T>> {
+        self.migrate()
+            .and_then(|_| self.with_connection(|connection| connection.effect_result(key, kind)))
+    }
     /// Atomically persist a delivery and its canonical operation.
     pub fn enqueue(&self, delivery_id: &str, operation_key: &str, event_json: &str) -> ApiResult<EnqueueStatus> {
-        self.migrate().and_then(|_| {
-            self.with_transaction(|connection| {
-                let now = to_rfc3339(Timestamp::now());
-                connection
-                    .execute(
-                        "INSERT INTO webhook_deliveries (delivery_id, operation_key, event_json, received_at, deduplicated)
-                         VALUES (?, ?, ?, ?, 0) ON CONFLICT(delivery_id) DO NOTHING",
-                        params![delivery_id, operation_key, event_json, now],
-                    )
-                    .map_err(|why| eyre!("Failed to record webhook delivery — {why}"))
-                    .and_then(|deliveries| {
-                        if deliveries == 0 {
-                            Ok(EnqueueStatus::DuplicateDelivery)
-                        } else {
-                            connection
-                                .execute(
-                                    "INSERT INTO webhook_operations
-                                     (operation_key, delivery_id, event_json, state, attempts, available_at, created_at, updated_at)
-                                     VALUES (?, ?, ?, 'queued', 0, ?, ?, ?)
-                                     ON CONFLICT(operation_key) DO NOTHING",
-                                    params![operation_key, delivery_id, event_json, now, now, now],
-                                )
-                                .map_err(|why| eyre!("Failed to record webhook operation — {why}"))
-                                .and_then(|operations| {
-                                    if operations == 0 {
-                                        connection
-                                            .execute(
-                                                "UPDATE webhook_deliveries SET deduplicated = 1 WHERE delivery_id = ?",
-                                                params![delivery_id],
-                                            )
-                                            .map_err(|why| eyre!("Failed to mark duplicate webhook operation — {why}"))
-                                            .map(|_| EnqueueStatus::DuplicateOperation)
-                                    } else {
-                                        Ok(EnqueueStatus::Inserted)
-                                    }
-                                })
-                        }
-                    })
-            })
-        })
+        self.migrate()
+            .and_then(|_| self.with_transaction(|connection| connection.enqueue_notification(delivery_id, operation_key, event_json)))
     }
     /// Persist one outbound callback intent without storing its URL or credentials.
     pub fn enqueue_callback<T: Serialize>(&self, callback_key: &str, destination: &str, payload: &T) -> ApiResult<bool> {
@@ -727,11 +855,6 @@ impl OperationQueue {
             .map_err(|why| eyre!("Failed to encode webhook operation notification — {why}"))
             .and_then(|notification| self.enqueue(&delivery_id, &operation_key, &notification))
     }
-    /// Return a completed external effect result, or `None` while absent or pending.
-    pub fn effect_result<T: DeserializeOwned>(&self, key: &str, kind: &str) -> ApiResult<Option<T>> {
-        self.migrate()
-            .and_then(|_| self.with_connection(|connection| connection.effect_result(key, kind)))
-    }
     /// Consume a running claim and schedule a bounded retry, or make it terminal after five attempts.
     pub fn fail(&self, operation: ClaimedOperation, error: &str) -> ApiResult<OperationState> {
         let operation_key = operation.operation_key.clone();
@@ -789,12 +912,51 @@ impl OperationQueue {
             })
         })
     }
+    /// Read a previously admitted payload without resolving current configuration.
+    pub fn intake_admission(&self, operation_key: &str) -> ApiResult<Option<IntakeAdmission>> {
+        self.migrate()
+            .and_then(|()| self.with_connection(|connection| connection.read_intake_admission(operation_key)))
+    }
+    /// Return durable observations for one credential-free source identity.
+    pub fn intake_records(&self, source: &str) -> ApiResult<Vec<IntakeRecord>> {
+        self.migrate().and_then(|()| {
+            self.with_connection(|connection| {
+                connection
+                    .prepare("SELECT record_json FROM webhook_intake_records WHERE source = ? ORDER BY commit_sha, line")
+                    .map_err(|why| eyre!("Failed to prepare intake observations — {why}"))
+                    .and_then(|mut statement| {
+                        statement
+                            .query_map(params![source], |row| row.get::<_, String>(0))
+                            .map_err(|why| eyre!("Failed to read intake observations — {why}"))
+                            .and_then(|rows| {
+                                rows.map(|row| {
+                                    row.map_err(|why| eyre!("Failed to read intake observation — {why}"))
+                                        .and_then(|json| serde_json::from_str(&json).map_err(Into::into))
+                                })
+                                .collect()
+                            })
+                    })
+            })
+        })
+    }
     /// Create the durable queue tables when absent.
     pub fn migrate(&self) -> ApiResult<()> {
         self.with_connection(|connection| {
             connection
-                .execute_batch(&format!("{WEBHOOK_MIGRATION}\n{WEBHOOK_EFFECT_MIGRATION}"))
+                .execute_batch(&format!("{WEBHOOK_MIGRATION}\n{WEBHOOK_EFFECT_MIGRATION}\n{INTAKE_MIGRATION}"))
                 .map_err(|why| eyre!("Failed to migrate webhook operation queue — {why}"))
+        })
+    }
+    /// Atomically retain an observation, its immutable admission, and queued operation.
+    ///
+    /// Existing identities require exact bytes. Legacy operations without intake evidence remain conflicts.
+    pub fn record_intake(&self, record: &IntakeRecord, operation: Option<&OperationSpec>) -> ApiResult<IntakeRecord> {
+        self.migrate().and_then(|()| {
+            self.with_transaction(|connection| {
+                record
+                    .prepare(connection, operation)
+                    .and_then(|outcome| outcome.persist(connection).map(|()| outcome))
+            })
         })
     }
     /// Requeue completed, cancelled, or terminal work for an explicit replay.
@@ -998,7 +1160,6 @@ impl From<ClaimedOperation> for OperationState {
 }
 impl TryFrom<&str> for OperationState {
     type Error = color_eyre::Report;
-
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             | "queued" => Ok(Self::Queued),

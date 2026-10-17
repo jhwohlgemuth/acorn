@@ -11,6 +11,7 @@ use super::{
 use crate::io::api;
 use crate::util::constants::app::APPLICATION;
 use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
+use acorn_core::Location;
 use secrecy::ExposeSecret;
 use serde::Deserialize;
 
@@ -611,6 +612,41 @@ pub async fn runners(options: &Options) -> ApiResult<RunnersResponse> {
             | Err(why) => Err(why),
         },
         | Err(why) => Err(why),
+    }
+}
+/// Credential-free HTTP origin of the configured GitLab service.
+pub fn service_url(options: &Options) -> ApiResult<String> {
+    Endpoint::from_template("gitlab::api").and_then(|endpoint| {
+        Location::from(endpoint.with_domain(options.domain()).base().as_str())
+            .origin()
+            .ok_or_else(|| eyre!("GitLab service must have a valid HTTP or HTTPS origin"))
+    })
+}
+/// Replace an existing inbox with an optimistic-concurrency commit.
+///
+/// The file is updated even when drained to zero bytes and is never deleted.
+#[cfg(feature = "agentic")]
+pub(crate) async fn update_intake_file(branch: &str, path: &str, content: &str, last_commit_id: &str, options: &Options) -> ApiResult<()> {
+    let endpoint = authenticated_endpoint("commits::create", options);
+    let empty_commit = last_commit_id.trim().is_empty();
+    match (endpoint, options.identifier(), empty_commit) {
+        | (Ok((endpoint, token)), Some(identifier), false) => {
+            let body = serde_json::json!({
+                "branch": branch,
+                "commit_message": "Remove durably admitted logbook submissions",
+                "actions": [{"action":"update", "file_path":path, "content":content, "encoding":"text", "last_commit_id":last_commit_id}]
+            });
+            let params = Params::new()
+                .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
+                .with_template("identifier", Some(urlencoding::encode(identifier).as_ref()))
+                .with_body("", &body.to_string())
+                .build();
+            let response = endpoint.invoke_with::<EmptyField, EmptyField>("commits::create", Some(params)).await;
+            endpoint.handle_or::<CommitReference, Fallback<ErrorResponse>>(response).map(|_| ())
+        }
+        | (Err(why), _, _) => Err(why),
+        | (_, None, _) => Err(eyre!("GitLab project identifier is required")),
+        | (_, _, true) => Err(eyre!("Inbox cleanup requires the observed last_commit_id")),
     }
 }
 /// Create or update the bot-authored merge request report note

@@ -54,9 +54,9 @@ pub struct FormReceipt {
 }
 /// Strict version-one form submission.
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
-#[validate(schema(function = "FormSubmission::is_valid", skip_on_field_errors = false))]
+#[validate(schema(function = "Submission::is_valid", skip_on_field_errors = false))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct FormSubmission {
+pub struct Submission {
     /// Form-controlled logbook fields.
     pub entry: FormEntry,
     /// Stable deployment-owned folder identifier or alias.
@@ -87,7 +87,16 @@ impl FormReceipt {
         }
     }
 }
-impl FormSubmission {
+impl From<EnqueueStatus> for ReceiptDisposition {
+    fn from(value: EnqueueStatus) -> Self {
+        match value {
+            | EnqueueStatus::Inserted => Self::Inserted,
+            | EnqueueStatus::DuplicateDelivery => Self::DuplicateDelivery,
+            | EnqueueStatus::DuplicateOperation => Self::DuplicateOperation,
+        }
+    }
+}
+impl Submission {
     /// Convert authorized form fields into a manual, active logbook entry.
     pub fn entry(&self, routing: &FolderRegistry) -> ApiResult<LogbookEntry> {
         self.entry_after(routing, None)
@@ -169,14 +178,9 @@ impl FormSubmission {
         }
         report.finish()
     }
-}
-impl From<EnqueueStatus> for ReceiptDisposition {
-    fn from(value: EnqueueStatus) -> Self {
-        match value {
-            | EnqueueStatus::Inserted => Self::Inserted,
-            | EnqueueStatus::DuplicateDelivery => Self::DuplicateDelivery,
-            | EnqueueStatus::DuplicateOperation => Self::DuplicateOperation,
-        }
+    /// Canonical durable operation identity shared by HTTP and JSONL intake.
+    pub fn operation_key(&self) -> String {
+        format!("powerautomate:form:v1:{}", self.submission_id.to_ascii_lowercase())
     }
 }
 fn optional_trimmed_items<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>

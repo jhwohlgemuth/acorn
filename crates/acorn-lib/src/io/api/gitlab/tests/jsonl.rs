@@ -1,7 +1,8 @@
 use super::*;
-use crate::io::api::gitlab::jsonl::{read_snapshot, split_snapshot, JsonlLine, JsonlSnapshot};
+use crate::io::api::gitlab::jsonl::{read_snapshot, split_snapshot, JsonlLine, Snapshot};
 use crate::io::config::application::PowerAutomateIntake;
 use crate::test::server::TestServer;
+use acorn_core::time::{Seconds, UnitOfTime};
 use acorn_schema::hardware::memory::Memory;
 use acorn_schema::validation::Validate;
 use axum::response::IntoResponse;
@@ -12,13 +13,17 @@ fn intake(branch: &str, max_file: Memory, max_record: Memory) -> PowerAutomateIn
     PowerAutomateIntake {
         branch: branch.to_string(),
         path: ".acorn/intake/logbook.jsonl".to_string(),
-        poll_interval_secs: 30,
+        poll_interval: Seconds::new(30),
         max_file,
         max_record,
     }
 }
-fn standard_intake() -> PowerAutomateIntake {
-    intake("pilot", Memory::mb(10), Memory::kb(64))
+async fn read_from(content: Option<String>, intake: &PowerAutomateIntake) -> crate::io::ApiResult<crate::io::api::gitlab::jsonl::Snapshot> {
+    let server = snapshot_server(content).await;
+    let options = Options::with_token("test").domain(&server.base_url).identifier("30").build();
+    let snapshot = read_snapshot(intake, &options).await;
+    server.stop().await.unwrap();
+    snapshot
 }
 async fn snapshot_server(content: Option<String>) -> TestServer {
     let router = Router::new()
@@ -34,6 +39,7 @@ async fn snapshot_server(content: Option<String>) -> TestServer {
                         axum::http::StatusCode::OK,
                         Json(serde_json::json!({
                             "file_path": ".acorn/intake/logbook.jsonl",
+                            "last_commit_id": "0000000000000000000000000000000000000001",
                             "size": content.len(),
                             "encoding": "base64",
                             "content": data_encoding::BASE64.encode(content.as_bytes())
@@ -50,12 +56,8 @@ async fn snapshot_server(content: Option<String>) -> TestServer {
         );
     TestServer::start(router).await.unwrap()
 }
-async fn read_from(content: Option<String>, intake: &PowerAutomateIntake) -> crate::io::ApiResult<crate::io::api::gitlab::jsonl::JsonlSnapshot> {
-    let server = snapshot_server(content).await;
-    let options = Options::with_token("test").domain(&server.base_url).identifier("30").build();
-    let snapshot = read_snapshot(intake, &options).await;
-    server.stop().await.unwrap();
-    snapshot
+fn standard_intake() -> PowerAutomateIntake {
+    intake("pilot", Memory::mb(10), Memory::kb(64))
 }
 
 #[test]
@@ -95,6 +97,8 @@ async fn test_reads_mixed_lines_with_digests_and_offsets() {
     let snapshot = read_from(Some(content.clone()), &standard_intake()).await.unwrap();
     assert_eq!(snapshot.commit, "9f86d081884c7d659a2feaa0c55ad015a3bf4f1");
     assert_eq!(snapshot.len(), 3);
+    assert_eq!(snapshot.content, content);
+    assert_eq!(snapshot.last_commit_id.as_deref(), Some("0000000000000000000000000000000000000001"));
     let raws: Vec<&str> = content.strip_suffix('\n').unwrap().split('\n').collect();
     assert_eq!(snapshot.lines[0].line, 1);
     assert_eq!(snapshot.lines[1].line, 2);
@@ -139,13 +143,17 @@ async fn test_snapshot_validation_accepts_reader_output() {
 #[test]
 fn test_snapshot_validation_rejects_tampered_lines() {
     let valid = split_snapshot("{\"a\":1}\n", &Memory::kb(64)).unwrap().pop().unwrap();
-    assert!(JsonlSnapshot {
+    assert!(Snapshot {
+        content: String::new(),
+        last_commit_id: None,
         commit: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1".to_string(),
         lines: vec![valid.clone()]
     }
     .validate()
     .is_ok());
-    assert!(JsonlSnapshot {
+    assert!(Snapshot {
+        content: String::new(),
+        last_commit_id: None,
         commit: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1".to_string(),
         lines: vec![JsonlLine {
             digest: "not-a-digest".to_string(),
@@ -154,7 +162,9 @@ fn test_snapshot_validation_rejects_tampered_lines() {
     }
     .validate()
     .is_err());
-    assert!(JsonlSnapshot {
+    assert!(Snapshot {
+        content: String::new(),
+        last_commit_id: None,
         commit: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1".to_string(),
         lines: vec![JsonlLine {
             raw: String::new(),
@@ -163,13 +173,17 @@ fn test_snapshot_validation_rejects_tampered_lines() {
     }
     .validate()
     .is_err());
-    assert!(JsonlSnapshot {
+    assert!(Snapshot {
+        content: String::new(),
+        last_commit_id: None,
         commit: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1".to_string(),
         lines: vec![JsonlLine { line: 0, ..valid.clone() }]
     }
     .validate()
     .is_err());
-    assert!(JsonlSnapshot {
+    assert!(Snapshot {
+        content: String::new(),
+        last_commit_id: None,
         commit: "xyz".to_string(),
         lines: vec![valid]
     }

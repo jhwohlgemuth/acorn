@@ -28,6 +28,8 @@ ACORN is context-aware at the data and workflow level. It keeps project descript
 ## What ACORN does
 The `acorn` command checks and formats research records, adds linked-data context, and creates reusable outputs. It runs on Windows, macOS, and Linux. See [Why ACORN?](https://acorn.ornl.gov/motivation.html) for the project-level research model and its intended uses.
 
+The bot can also consume a GitLab JSONL logbook inbox, durably admit authorized submissions, and propose project updates through review. See [ACRE inbox configuration](docs/src/concepts/acre.md#gitlab-logbook-inbox).
+
 ## Installation
 See [the ACORN book](https://acorn.ornl.gov) for detailed installation instructions for the [CLI application](https://acorn.ornl.gov/getting-started.html#installation) and [🦀Rust packages](http://acorn.ornl.gov/packages/README.html). Portable integrations can use `acorn-schema`, `acorn-analysis`, and `acorn-service` directly; authenticated JSON-RPC and typed gRPC deployments use `acorn-server`. Python users can use the independently maintained [🐍`acorn-py` companion project](https://code.ornl.gov/research-enablement/acorn-py). Contributors can check the portable Rust surface using the [WebAssembly development guide](http://acorn.ornl.gov/packages/acorn-web.html).
 

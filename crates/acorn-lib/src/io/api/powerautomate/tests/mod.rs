@@ -68,7 +68,7 @@ fn logbook_fixture() -> Logbook {
     )))
     .expect("valid PowerAutomate logbook fixture")
 }
-fn submission() -> FormSubmission {
+fn submission() -> Submission {
     serde_json::from_value(serde_json::json!({
         "submissionId": "123e4567-e89b-12d3-a456-426614174000",
         "projectId": "pilot",
@@ -134,7 +134,7 @@ fn test_flow_is_authenticated_durable_duplicate_safe_and_reportable() {
     );
     assert_eq!(queue.counts().expect("queue counts").queued, 1);
 
-    let form = serde_json::from_str::<FormSubmission>(fixture).expect("form fixture");
+    let form = serde_json::from_str::<Submission>(fixture).expect("form fixture");
     let entry = form.entry(provider.routing()).expect("normalized entry");
     let content = serde_json::to_string_pretty(&ResearchActivity::default()).expect("activity fixture");
     let changes = ProcessRepositoryResponse::try_from(LogbookProposal {
@@ -200,7 +200,7 @@ fn test_form_payload_is_strict_and_authorized() {
             "archived": true
         }
     });
-    assert!(serde_json::from_value::<FormSubmission>(extra).is_err());
+    assert!(serde_json::from_value::<Submission>(extra).is_err());
     let mut unauthorized = submission();
     unauthorized.submitter.email = serde_json::from_value(serde_json::json!("other@example.org")).expect("email");
     assert!(unauthorized.entry(&FolderRegistry::fixture()).is_err());
@@ -374,3 +374,5 @@ async fn test_router_accepts_authenticated_form_and_returns_canonical_receipt() 
     );
     assert_eq!(queue.counts().expect("queue counts").queued, 1);
 }
+
+mod jsonl;

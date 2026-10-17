@@ -1,5 +1,4 @@
 //! Bucket transfer and local copy logic
-pub mod source;
 use self::source::{ArchiveBucketSource, BucketInput, BucketSourceAdapter, RepositoryBucketSource};
 use crate::io::{
     bagit::Bag,
@@ -19,6 +18,7 @@ use serde_with::skip_serializing_none;
 pub use source::{BagArchive, BucketSource, BucketSourceIdentity, BucketSourceKind};
 use std::path::{Path, PathBuf};
 
+pub mod source;
 /// Options for bucket transfers
 pub type BucketOptions = RuntimeOptions<BucketExtension, PathBuf>;
 /// One import or download source taken from a configuration entry or command-line URI.
@@ -105,6 +105,34 @@ impl Bucket {
             .and_then(Bag::verify_payload)
             .map(|payload| (Self::from_payload(source, payload), source.to_string()))
     }
+    /// Copy files from a local bucket to a local directory
+    pub async fn copy_files(self, options: &BucketOptions) -> ApiResult<TransferManifest> {
+        let Self { name, source, .. } = self;
+        match source.is_local() {
+            | true => source.transfer_files(name, options).await,
+            | false => Ok(TransferManifest::empty(name, source.identity())),
+        }
+    }
+    /// Get the hosting domain for a repository-backed bucket
+    #[cfg(test)]
+    pub(crate) fn domain(&self) -> ApiResult<String> {
+        match &self.source {
+            | BucketSource::Repository(repository) => RepositoryBucketSource::new(repository).domain(),
+            | BucketSource::Archive(_) => Err(eyre!("Archive payloads have no repository domain")),
+        }
+    }
+    /// Downloads this bucket to a local output directory and ingests supported research activity data.
+    pub async fn download(self, options: &BucketOptions, provenance: Option<&str>) -> ApiResult<usize> {
+        self.transfer(options, TransferPolicy::Download, provenance).await
+    }
+    /// Download files from a remote bucket to a local directory
+    pub async fn download_files(self, options: &BucketOptions) -> ApiResult<TransferManifest> {
+        self.transfer_files(options).await
+    }
+    /// Imports this bucket and ingests supported research activity data.
+    pub async fn import(self, options: &BucketOptions, provenance: Option<&str>) -> ApiResult<usize> {
+        self.transfer(options, TransferPolicy::Import, provenance).await
+    }
     /// Transfers this bucket and ingests supported research activity data.
     pub async fn transfer(self, options: &BucketOptions, policy: TransferPolicy, provenance: Option<&str>) -> ApiResult<usize> {
         match (policy, &self.source, options.common.offline) {
@@ -124,34 +152,6 @@ impl Bucket {
                     .map(|()| count)
             }),
         }
-    }
-    /// Imports this bucket and ingests supported research activity data.
-    pub async fn import(self, options: &BucketOptions, provenance: Option<&str>) -> ApiResult<usize> {
-        self.transfer(options, TransferPolicy::Import, provenance).await
-    }
-    /// Downloads this bucket to a local output directory and ingests supported research activity data.
-    pub async fn download(self, options: &BucketOptions, provenance: Option<&str>) -> ApiResult<usize> {
-        self.transfer(options, TransferPolicy::Download, provenance).await
-    }
-    /// Get the hosting domain for a repository-backed bucket
-    #[cfg(test)]
-    pub(crate) fn domain(&self) -> ApiResult<String> {
-        match &self.source {
-            | BucketSource::Repository(repository) => RepositoryBucketSource::new(repository).domain(),
-            | BucketSource::Archive(_) => Err(eyre!("Archive payloads have no repository domain")),
-        }
-    }
-    /// Copy files from a local bucket to a local directory
-    pub async fn copy_files(self, options: &BucketOptions) -> ApiResult<TransferManifest> {
-        let Self { name, source, .. } = self;
-        match source.is_local() {
-            | true => source.transfer_files(name, options).await,
-            | false => Ok(TransferManifest::empty(name, source.identity())),
-        }
-    }
-    /// Download files from a remote bucket to a local directory
-    pub async fn download_files(self, options: &BucketOptions) -> ApiResult<TransferManifest> {
-        self.transfer_files(options).await
     }
     async fn transfer_files(self, options: &BucketOptions) -> ApiResult<TransferManifest> {
         let Self { name, source, .. } = self;
@@ -178,7 +178,7 @@ impl From<Vec<Bucket>> for Buckets {
     }
 }
 impl BucketSource {
-    fn identity(&self) -> BucketSourceIdentity {
+    pub(crate) fn identity(&self) -> BucketSourceIdentity {
         match self {
             | Self::Archive(archive) => ArchiveBucketSource::new(archive).source_identity(),
             | Self::Repository(repository) => RepositoryBucketSource::new(repository).source_identity(),

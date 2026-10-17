@@ -7,6 +7,8 @@
 )]
 #[cfg(feature = "dataframe")]
 use crate::analyzer::host::tabular::checks_to_dataframe;
+#[cfg(windows)]
+use crate::analyzer::host::vale::ValeOutput;
 use crate::analyzer::host::{
     render::{CheckRender, CheckSeverityRender, RenderedCheck},
     runtime::CheckBatchExt,
@@ -20,9 +22,7 @@ use crate::{
             ModelKitStandard, StaticAnalyzer, StaticAnalyzerConfig,
         },
         service::Analysis,
-        vale::{
-            parse_vale_output, preprocess_vale_output, try_parse_vale_output, Vale, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemSeverity,
-        },
+        vale::{parse_vale_output, preprocess_vale_output, try_parse_vale_output, Vale, ValeConfig, ValeOutputItem, ValeOutputItemSeverity},
     },
     io::{
         document::{DocumentIndex, DocumentMatch, DocumentQuery, SourceDocument},
@@ -143,6 +143,7 @@ fn write_mcp_bundle(path: &PathBuf, include_entry_point: bool) {
     }
     archive.finish().expect("MCP bundle should be finalized");
 }
+
 #[tokio::test]
 async fn test_cff_check_quality_returns_ok_for_readable_file() {
     let path = unique_path("cff-quality-valid", "cff");

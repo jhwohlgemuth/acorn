@@ -26,9 +26,9 @@ type BucketSourceInput = SimpleOrDetailed<String, BucketSource>;
 #[allow(async_fn_in_trait)]
 pub(crate) trait BucketSourceAdapter {
     fn is_local(&self) -> bool;
-    fn source_identity(&self) -> BucketSourceIdentity;
     async fn items(&self) -> ApiResult<Vec<BucketSourceItem>>;
     async fn retrieve(&self, item: &BucketSourceItem, destination: &Path) -> ApiResult<()>;
+    fn source_identity(&self) -> BucketSourceIdentity;
 }
 /// Configured origin of one bucket.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -110,12 +110,14 @@ pub(crate) struct DownloadOptions<'a> {
 pub(crate) struct RepositoryBucketSource<'a> {
     repository: &'a Repository,
 }
+impl<'a> ArchiveBucketSource<'a> {
+    pub(crate) const fn new(archive: &'a BagArchive) -> Self {
+        Self { archive }
+    }
+}
 impl BucketSourceAdapter for ArchiveBucketSource<'_> {
     fn is_local(&self) -> bool {
         true
-    }
-    fn source_identity(&self) -> BucketSourceIdentity {
-        BucketSourceIdentity::new(BucketSourceKind::Archive, self.archive.location.clone())
     }
     async fn items(&self) -> ApiResult<Vec<BucketSourceItem>> {
         local_bucket_items(self.archive.payload.as_path())
@@ -124,10 +126,8 @@ impl BucketSourceAdapter for ArchiveBucketSource<'_> {
         let source = self.archive.payload.join(item.path());
         write_file_bytes(destination.to_path_buf(), || async { read(source).map_err(Report::from) }).await
     }
-}
-impl<'a> ArchiveBucketSource<'a> {
-    pub(crate) const fn new(archive: &'a BagArchive) -> Self {
-        Self { archive }
+    fn source_identity(&self) -> BucketSourceIdentity {
+        BucketSourceIdentity::new(BucketSourceKind::Archive, self.archive.location.clone())
     }
 }
 impl Bucket {
@@ -187,18 +187,18 @@ impl TryFrom<String> for Bucket {
     }
 }
 impl BucketSource {
-    pub(crate) fn is_local(&self) -> bool {
-        match self {
-            | Self::Archive(_) => true,
-            | Self::Repository(repository) => repository.is_local(),
-        }
-    }
     /// Whether this source is local and top-level download must reject it.
     ///
     /// A verified archive payload is deliberately excluded: it is the one local source that top-level download accepts, because ACORN resolved and verified it itself.
     pub(crate) fn is_download_restricted(&self) -> bool {
         match self {
             | Self::Archive(_) => false,
+            | Self::Repository(repository) => repository.is_local(),
+        }
+    }
+    pub(crate) fn is_local(&self) -> bool {
+        match self {
+            | Self::Archive(_) => true,
             | Self::Repository(repository) => repository.is_local(),
         }
     }
@@ -230,14 +230,6 @@ impl TryFrom<String> for BucketSource {
     }
 }
 impl BucketSourceIdentity {
-    pub(crate) fn new(kind: BucketSourceKind, locator: impl Into<String>) -> Self {
-        let locator = Secret::from(locator.into());
-        let locator = match Uri::parse(locator.expose_secret()).ok().map(|uri| Scheme::from(uri.scheme().as_str())) {
-            | Some(Scheme::HTTP | Scheme::HTTPS) => redact(locator),
-            | _ => locator.expose_secret().to_string(),
-        };
-        Self { kind, locator }
-    }
     /// Return the stable source class.
     pub const fn kind(&self) -> BucketSourceKind {
         self.kind
@@ -246,28 +238,33 @@ impl BucketSourceIdentity {
     pub fn locator(&self) -> &str {
         &self.locator
     }
+    pub(crate) fn new(kind: BucketSourceKind, locator: impl Into<String>) -> Self {
+        let locator = Secret::from(locator.into());
+        let locator = match Uri::parse(locator.expose_secret()).ok().map(|uri| Scheme::from(uri.scheme().as_str())) {
+            | Some(Scheme::HTTP | Scheme::HTTPS) => redact(locator),
+            | _ => locator.expose_secret().to_string(),
+        };
+        Self { kind, locator }
+    }
     pub(crate) fn with_locator(&self, locator: &str) -> Self {
         Self::new(self.kind, locator)
     }
 }
 impl BucketSourceItem {
+    pub(crate) fn key(&self) -> &str {
+        &self.key
+    }
     pub(crate) fn new(key: String, path: impl AsRef<Path>, version: Option<String>, size: Option<u64>) -> ApiResult<Self> {
         match key.trim().is_empty() {
             | true => Err(eyre!("Bucket source item key cannot be empty")),
             | false => SafePath::new(path).map_err(Report::from).map(|path| Self { key, path, version, size }),
         }
     }
-    pub(crate) fn key(&self) -> &str {
-        &self.key
-    }
     pub(crate) fn path(&self) -> &SafePath {
         &self.path
     }
     pub(crate) const fn size(&self) -> Option<u64> {
         self.size
-    }
-    pub(crate) fn version(&self) -> Option<&str> {
-        self.version.as_deref()
     }
     pub(crate) fn validate(items: Vec<Self>) -> ApiResult<Vec<Self>> {
         items
@@ -277,6 +274,9 @@ impl BucketSourceItem {
                 | false => Err(eyre!("Bucket source contains duplicate path — '{}'", item.path.as_path().display())),
             })
             .map(|_| items)
+    }
+    pub(crate) fn version(&self) -> Option<&str> {
+        self.version.as_deref()
     }
 }
 impl From<Repository> for BucketSourceKind {
@@ -288,6 +288,16 @@ impl From<Repository> for BucketSourceKind {
             | Repository::HuggingFace { .. } => Self::HuggingFace,
             | Repository::OCI { .. } => Self::OCI,
         }
+    }
+}
+impl From<&BucketSourceIdentity> for Location {
+    fn from(identity: &BucketSourceIdentity) -> Self {
+        Self::from(identity.locator())
+    }
+}
+impl From<BucketSourceIdentity> for Location {
+    fn from(identity: BucketSourceIdentity) -> Self {
+        Self::from(&identity)
     }
 }
 impl Parse<&str> for Repository {
@@ -337,12 +347,174 @@ impl Parse<&str> for Repository {
         }
     }
 }
+impl<'a> RepositoryBucketSource<'a> {
+    pub(crate) fn domain(&self) -> ApiResult<String> {
+        let location = match self.repository {
+            | Repository::GitHub { location } | Repository::GitLab { location, .. } => Ok(location),
+            | Repository::Git { .. } => Err(eyre!("Domain is unsupported for generic Git repositories")),
+            | Repository::HuggingFace { .. } => Err(eyre!("Domain is unsupported for Hugging Face repositories")),
+            | Repository::OCI { .. } => Err(eyre!("Domain is unsupported for OCI artifacts used as buckets")),
+        };
+        location.and_then(|location| match location.scheme() {
+            | Scheme::HTTPS => location.host().ok_or_else(|| eyre!("Failed to parse repository host from URI")),
+            | _ => Err(eyre!("Unsupported repository URI scheme")),
+        })
+    }
+    pub(crate) async fn download_file(options: &DownloadOptions<'_>) -> ApiResult<()> {
+        match Self::download_item(options) {
+            | Ok(item) => match item.target(options.output) {
+                | Ok(target) if item.is_complete_at(&target) => Ok(()),
+                | Ok(_) => match DownloadTask::new(item, options.output, true, true) {
+                    | Ok(task) => task.download().await,
+                    | Err(why) => Err(why),
+                },
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    async fn download_gitlab_via_api(options: &DownloadOptions<'_>) -> ApiResult<()> {
+        match (options.repository.domain(), options.repository.id()) {
+            | (Some(domain), Some(identifier)) => {
+                let request = gitlab::Options::from_env()
+                    .with_domain(domain)
+                    .with_identifier(identifier)
+                    .with_path(options.source.display().to_string())
+                    .with_sha(options.version.filter(|value| !value.is_empty()).unwrap_or("HEAD"));
+                match gitlab::repository_file(&request).await.and_then(|file| file.decoded_content()) {
+                    | Ok(bytes) => write_file_bytes(options.output.join(options.destination), || async { Ok::<_, Report>(bytes) }).await,
+                    | Err(why) => Err(why),
+                }
+            }
+            | _ => Err(eyre!("Failed to build GitLab API request for repository path")),
+        }
+    }
+    pub(crate) fn download_item(options: &DownloadOptions<'_>) -> ApiResult<DownloadItem> {
+        let path = options.source.display().to_string();
+        let request = match options.repository {
+            | Repository::GitLab { .. } => {
+                let branch = options.version.filter(|value| !value.is_empty()).unwrap_or("HEAD");
+                let encoded_path = path.percent_encode();
+                let headers = Credential::from_env(&GITLAB_CREDENTIAL_VARIABLE_PAIRS)
+                    .map(Credential::into_header_pair)
+                    .map(|(header, token)| http::headers([(header, ExposeSecret::expose_secret(&token))]));
+                match (options.repository.domain(), options.repository.id()) {
+                    | (Some(domain), Some(identifier)) => {
+                        let params = Params::new()
+                            .with_template("identifier", Some(identifier.as_str()))
+                            .with_template("file_path", Some(encoded_path.as_str()))
+                            .with_keyvalue("ref", Some(branch))
+                            .build();
+                        Endpoint::from_template("gitlab::api")
+                            .map(|endpoint| endpoint.with_domain(domain))
+                            .and_then(|endpoint| endpoint.resource_url("repository-file-raw", Some(params)))
+                            .map(|url| (url, headers))
+                    }
+                    | _ => Err(eyre!("Failed to build GitLab API request for repository path")),
+                }
+            }
+            | _ => options
+                .repository
+                .raw_url(path, options.version)
+                .map(|url| (url, None))
+                .ok_or_else(|| eyre!("Failed to build raw URL for repository path")),
+        };
+        request.map(|(url, headers)| DownloadItem {
+            url,
+            path: options.destination.display().to_string(),
+            size: options.size,
+            sha: None,
+            headers,
+        })
+    }
+    async fn file_paths(&self, directory: &str, version: Option<&str>) -> ApiResult<Vec<String>> {
+        match self.repository {
+            | Repository::Git { .. } => self.local_root().and_then(|root| {
+                local_bucket_items(&root).map(|items| items.iter().map(|item| item.path().as_path().display().to_string()).collect())
+            }),
+            | Repository::GitHub { location } => match (location.path(), self.domain(), version) {
+                | (Some(path), Ok(host), Some(version)) => {
+                    github::tree_paths(format!("api.{host}"), path.trim_start_matches('/').to_string(), version).await
+                }
+                | (None, Ok(_), _) => Err(eyre!("Failed to parse GitHub repository URI")),
+                | (_, Ok(_), None) => Err(eyre!("GitHub bucket source has no resolved version")),
+                | (_, Err(why), _) => Err(why),
+            },
+            | Repository::GitLab { .. } => match self.repository.id() {
+                | Some(identifier) => match self.domain() {
+                    | Ok(domain) => {
+                        let options = gitlab::Options::from_env()
+                            .with_domain(domain)
+                            .with_identifier(identifier)
+                            .with_path(directory)
+                            .with_sha(version.unwrap_or("HEAD"));
+                        let mut page = 1_u32;
+                        let mut paths = Vec::new();
+                        loop {
+                            match gitlab::repository_tree(&options.clone().with_page(page)).await {
+                                | Ok(response) if response.entry_count == 0 => break Ok(paths),
+                                | Ok(response) => {
+                                    paths.extend(response.paths);
+                                    page = page.saturating_add(1);
+                                }
+                                | Err(why) => break Err(why),
+                            }
+                        }
+                    }
+                    | Err(why) => Err(why),
+                },
+                | None => Err(eyre!("Missing GitLab project id")),
+            },
+            | Repository::HuggingFace { .. } => Err(eyre!("Hugging Face repositories are unsupported for bucket downloads")),
+            | Repository::OCI { .. } => Err(eyre!("OCI artifacts are unsupported for bucket downloads")),
+        }
+    }
+    fn local_root(&self) -> ApiResult<PathBuf> {
+        self.repository
+            .location()
+            .local_path()
+            .map(|path| PathBuf::from(path.to_absolute_path()))
+            .ok_or_else(|| eyre!("Git repository has no local path — cannot list files"))
+    }
+    pub(crate) const fn new(repository: &'a Repository) -> Self {
+        Self { repository }
+    }
+    async fn resolve_version(&self) -> ApiResult<Option<String>> {
+        match self.repository {
+            | Repository::GitHub { location } => match (self.repository.project_path(), self.domain()) {
+                | (Some(path), Ok(host)) => {
+                    let revision = location.revision().unwrap_or("main");
+                    github::commit_sha(format!("api.{host}"), path, revision).await.map(Some)
+                }
+                | (None, Ok(_)) => Err(eyre!("Failed to parse GitHub repository path")),
+                | (_, Err(why)) => Err(why),
+            },
+            | Repository::GitLab { location, .. } => match (self.repository.domain(), self.repository.id()) {
+                | (Some(domain), Some(identifier)) => {
+                    let options = gitlab::Options::from_env().with_domain(domain).with_identifier(identifier);
+                    let revision = match location.revision() {
+                        | Some(revision) if !revision.is_empty() => Ok(revision.to_string()),
+                        | _ => gitlab::project_details(&options).await.and_then(|details| {
+                            details
+                                .default_branch
+                                .filter(|value| !value.is_empty())
+                                .ok_or_else(|| eyre!("GitLab bucket source has no configured or default branch"))
+                        }),
+                    };
+                    match revision {
+                        | Ok(revision) => gitlab::commit_sha(&options, &revision).await.map(Some),
+                        | Err(why) => Err(why),
+                    }
+                }
+                | _ => Err(eyre!("GitLab bucket source has no project identity")),
+            },
+            | _ => Ok(None),
+        }
+    }
+}
 impl BucketSourceAdapter for RepositoryBucketSource<'_> {
     fn is_local(&self) -> bool {
         self.repository.is_local()
-    }
-    fn source_identity(&self) -> BucketSourceIdentity {
-        BucketSourceIdentity::new(BucketSourceKind::from(self.repository.clone()), self.repository.location().to_string())
     }
     async fn items(&self) -> ApiResult<Vec<BucketSourceItem>> {
         match self.resolve_version().await {
@@ -400,173 +572,10 @@ impl BucketSourceAdapter for RepositoryBucketSource<'_> {
             | Repository::OCI { .. } => Err(eyre!("OCI artifacts are unsupported for bucket downloads")),
         }
     }
-}
-impl<'a> RepositoryBucketSource<'a> {
-    pub(crate) const fn new(repository: &'a Repository) -> Self {
-        Self { repository }
-    }
-    pub(crate) fn domain(&self) -> ApiResult<String> {
-        let location = match self.repository {
-            | Repository::GitHub { location } | Repository::GitLab { location, .. } => Ok(location),
-            | Repository::Git { .. } => Err(eyre!("Domain is unsupported for generic Git repositories")),
-            | Repository::HuggingFace { .. } => Err(eyre!("Domain is unsupported for Hugging Face repositories")),
-            | Repository::OCI { .. } => Err(eyre!("Domain is unsupported for OCI artifacts used as buckets")),
-        };
-        location.and_then(|location| match location.scheme() {
-            | Scheme::HTTPS => location.host().ok_or_else(|| eyre!("Failed to parse repository host from URI")),
-            | _ => Err(eyre!("Unsupported repository URI scheme")),
-        })
-    }
-    pub(crate) fn download_item(options: &DownloadOptions<'_>) -> ApiResult<DownloadItem> {
-        let path = options.source.display().to_string();
-        let request = match options.repository {
-            | Repository::GitLab { .. } => {
-                let branch = options.version.filter(|value| !value.is_empty()).unwrap_or("HEAD");
-                let encoded_path = path.percent_encode();
-                let headers = Credential::from_env(&GITLAB_CREDENTIAL_VARIABLE_PAIRS)
-                    .map(Credential::into_header_pair)
-                    .map(|(header, token)| http::headers([(header, ExposeSecret::expose_secret(&token))]));
-                match (options.repository.domain(), options.repository.id()) {
-                    | (Some(domain), Some(identifier)) => {
-                        let params = Params::new()
-                            .with_template("identifier", Some(identifier.as_str()))
-                            .with_template("file_path", Some(encoded_path.as_str()))
-                            .with_keyvalue("ref", Some(branch))
-                            .build();
-                        Endpoint::from_template("gitlab::api")
-                            .map(|endpoint| endpoint.with_domain(domain))
-                            .and_then(|endpoint| endpoint.resource_url("repository-file-raw", Some(params)))
-                            .map(|url| (url, headers))
-                    }
-                    | _ => Err(eyre!("Failed to build GitLab API request for repository path")),
-                }
-            }
-            | _ => options
-                .repository
-                .raw_url(path, options.version)
-                .map(|url| (url, None))
-                .ok_or_else(|| eyre!("Failed to build raw URL for repository path")),
-        };
-        request.map(|(url, headers)| DownloadItem {
-            url,
-            path: options.destination.display().to_string(),
-            size: options.size,
-            sha: None,
-            headers,
-        })
-    }
-    pub(crate) async fn download_file(options: &DownloadOptions<'_>) -> ApiResult<()> {
-        match Self::download_item(options) {
-            | Ok(item) => match item.target(options.output) {
-                | Ok(target) if item.is_complete_at(&target) => Ok(()),
-                | Ok(_) => match DownloadTask::new(item, options.output, true, true) {
-                    | Ok(task) => task.download().await,
-                    | Err(why) => Err(why),
-                },
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        }
-    }
-    async fn download_gitlab_via_api(options: &DownloadOptions<'_>) -> ApiResult<()> {
-        match (options.repository.domain(), options.repository.id()) {
-            | (Some(domain), Some(identifier)) => {
-                let request = gitlab::Options::from_env()
-                    .with_domain(domain)
-                    .with_identifier(identifier)
-                    .with_path(options.source.display().to_string())
-                    .with_sha(options.version.filter(|value| !value.is_empty()).unwrap_or("HEAD"));
-                match gitlab::repository_file(&request).await.and_then(|file| file.decoded_content()) {
-                    | Ok(bytes) => write_file_bytes(options.output.join(options.destination), || async { Ok::<_, Report>(bytes) }).await,
-                    | Err(why) => Err(why),
-                }
-            }
-            | _ => Err(eyre!("Failed to build GitLab API request for repository path")),
-        }
-    }
-    async fn file_paths(&self, directory: &str, version: Option<&str>) -> ApiResult<Vec<String>> {
-        match self.repository {
-            | Repository::Git { .. } => self.local_root().and_then(|root| {
-                local_bucket_items(&root).map(|items| items.iter().map(|item| item.path().as_path().display().to_string()).collect())
-            }),
-            | Repository::GitHub { location } => match (location.path(), self.domain(), version) {
-                | (Some(path), Ok(host), Some(version)) => {
-                    github::tree_paths(format!("api.{host}"), path.trim_start_matches('/').to_string(), version).await
-                }
-                | (None, Ok(_), _) => Err(eyre!("Failed to parse GitHub repository URI")),
-                | (_, Ok(_), None) => Err(eyre!("GitHub bucket source has no resolved version")),
-                | (_, Err(why), _) => Err(why),
-            },
-            | Repository::GitLab { .. } => match self.repository.id() {
-                | Some(identifier) => match self.domain() {
-                    | Ok(domain) => {
-                        let options = gitlab::Options::from_env()
-                            .with_domain(domain)
-                            .with_identifier(identifier)
-                            .with_path(directory)
-                            .with_sha(version.unwrap_or("HEAD"));
-                        let mut page = 1_u32;
-                        let mut paths = Vec::new();
-                        loop {
-                            match gitlab::repository_tree(&options.clone().with_page(page)).await {
-                                | Ok(response) if response.entry_count == 0 => break Ok(paths),
-                                | Ok(response) => {
-                                    paths.extend(response.paths);
-                                    page = page.saturating_add(1);
-                                }
-                                | Err(why) => break Err(why),
-                            }
-                        }
-                    }
-                    | Err(why) => Err(why),
-                },
-                | None => Err(eyre!("Missing GitLab project id")),
-            },
-            | Repository::HuggingFace { .. } => Err(eyre!("Hugging Face repositories are unsupported for bucket downloads")),
-            | Repository::OCI { .. } => Err(eyre!("OCI artifacts are unsupported for bucket downloads")),
-        }
-    }
-    fn local_root(&self) -> ApiResult<PathBuf> {
-        self.repository
-            .location()
-            .local_path()
-            .map(|path| PathBuf::from(path.to_absolute_path()))
-            .ok_or_else(|| eyre!("Git repository has no local path — cannot list files"))
-    }
-    async fn resolve_version(&self) -> ApiResult<Option<String>> {
-        match self.repository {
-            | Repository::GitHub { location } => match (self.repository.project_path(), self.domain()) {
-                | (Some(path), Ok(host)) => {
-                    let revision = location.revision().unwrap_or("main");
-                    github::commit_sha(format!("api.{host}"), path, revision).await.map(Some)
-                }
-                | (None, Ok(_)) => Err(eyre!("Failed to parse GitHub repository path")),
-                | (_, Err(why)) => Err(why),
-            },
-            | Repository::GitLab { location, .. } => match (self.repository.domain(), self.repository.id()) {
-                | (Some(domain), Some(identifier)) => {
-                    let options = gitlab::Options::from_env().with_domain(domain).with_identifier(identifier);
-                    let revision = match location.revision() {
-                        | Some(revision) if !revision.is_empty() => Ok(revision.to_string()),
-                        | _ => gitlab::project_details(&options).await.and_then(|details| {
-                            details
-                                .default_branch
-                                .filter(|value| !value.is_empty())
-                                .ok_or_else(|| eyre!("GitLab bucket source has no configured or default branch"))
-                        }),
-                    };
-                    match revision {
-                        | Ok(revision) => gitlab::commit_sha(&options, &revision).await.map(Some),
-                        | Err(why) => Err(why),
-                    }
-                }
-                | _ => Err(eyre!("GitLab bucket source has no project identity")),
-            },
-            | _ => Ok(None),
-        }
+    fn source_identity(&self) -> BucketSourceIdentity {
+        BucketSourceIdentity::new(BucketSourceKind::from(self.repository.clone()), self.repository.location().to_string())
     }
 }
-
 /// Enumerate a local directory as validated bucket source items.
 ///
 /// The root is normalized to `to_absolute_path` spelling first, because `files_all` reports canonical absolute paths and relative paths are recovered by stripping that same root.

@@ -166,6 +166,43 @@ impl FromStr for Location {
     }
 }
 impl Location {
+    /// Get a stable location hash suitable for path components.
+    pub fn hash(&self) -> String {
+        let host = self.host().unwrap_or_default().replace('.', "_");
+        let segments = self
+            .path()
+            .map(|path| {
+                path.split('/')
+                    .filter(|segment| !(segment.is_empty() || *segment == "."))
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        [host, segments.join("_").to_lowercase()]
+            .into_iter()
+            .filter(|value| !value.is_empty())
+            .collect::<Vec<_>>()
+            .join("_")
+    }
+    /// Get the URI host.
+    pub fn host(&self) -> Option<String> {
+        self.uri().and_then(|value| {
+            Uri::parse(value.as_str())
+                .ok()
+                .and_then(|uri| uri.authority().map(|auth| auth.host().to_string()))
+        })
+    }
+    /// Return whether this location is an absolute POSIX or Windows path.
+    pub fn is_absolute(&self) -> bool {
+        let value = <&str>::from(self);
+        let bytes = value.as_bytes();
+        let windows_absolute = value.starts_with('\\')
+            || matches!(
+                (bytes.first(), bytes.get(1), bytes.get(2)),
+                (Some(first), Some(b':'), Some(b'\\' | b'/')) if first.is_ascii_alphabetic()
+            );
+        value.starts_with('/') || windows_absolute
+    }
     /// Return whether this location is a canonical repository-relative path.
     pub fn is_canonical_repository_path(&self) -> bool {
         let value: &str = self.into();
@@ -185,6 +222,12 @@ impl Location {
     pub fn is_http_or_https(&self) -> bool {
         matches!(self.scheme(), Scheme::HTTP | Scheme::HTTPS)
     }
+    /// Return whether this location represents a local path.
+    pub fn is_local(&self) -> bool {
+        let value = <&str>::from(self).trim();
+        let lexical = value.starts_with("file:") || value.starts_with("./") || value.starts_with("../");
+        matches!(self, Self::Detailed { scheme: Scheme::File, .. }) || lexical || self.is_absolute()
+    }
     /// Return whether this is an HTTP(S) location with a non-loopback host.
     pub fn is_non_loopback_http_or_https(&self) -> bool {
         self.is_http_or_https()
@@ -192,33 +235,6 @@ impl Location {
                 let host = host.trim_matches(['[', ']']);
                 !host.eq_ignore_ascii_case("localhost") && !host.parse::<core::net::IpAddr>().is_ok_and(|address| address.is_loopback())
             })
-    }
-    /// Return whether this location represents a local path.
-    pub fn is_local(&self) -> bool {
-        let value = <&str>::from(self).trim();
-        let lexical = value.starts_with("file:") || value.starts_with("./") || value.starts_with("../");
-        matches!(self, Self::Detailed { scheme: Scheme::File, .. }) || lexical || self.is_absolute()
-    }
-    /// Return whether this location is a local path, including an unprefixed relative path.
-    pub fn is_path(&self) -> bool {
-        let value: &str = self.into();
-        let has_uri_scheme = UriRef::parse(value).ok().and_then(|uri| uri.scheme()).is_some();
-        self.is_local() || !(has_uri_scheme || self.is_oci_reference())
-    }
-    /// Return whether this location is an absolute POSIX or Windows path.
-    pub fn is_absolute(&self) -> bool {
-        let value = <&str>::from(self);
-        let bytes = value.as_bytes();
-        let windows_absolute = value.starts_with('\\')
-            || matches!(
-                (bytes.first(), bytes.get(1), bytes.get(2)),
-                (Some(first), Some(b':'), Some(b'\\' | b'/')) if first.is_ascii_alphabetic()
-            );
-        value.starts_with('/') || windows_absolute
-    }
-    /// Return whether this location uses the S3 URI scheme.
-    pub fn is_s3(&self) -> bool {
-        has_named_uri_scheme(self.into(), "s3")
     }
     /// Return whether this location is a syntactically valid OCI artifact reference.
     pub fn is_oci_reference(&self) -> bool {
@@ -280,6 +296,16 @@ impl Location {
         };
         has_reference_marker && (digest(value).is_ok() || (valid_repository && valid_reference))
     }
+    /// Return whether this location is a local path, including an unprefixed relative path.
+    pub fn is_path(&self) -> bool {
+        let value: &str = self.into();
+        let has_uri_scheme = UriRef::parse(value).ok().and_then(|uri| uri.scheme()).is_some();
+        self.is_local() || !(has_uri_scheme || self.is_oci_reference())
+    }
+    /// Return whether this location uses the S3 URI scheme.
+    pub fn is_s3(&self) -> bool {
+        has_named_uri_scheme(self.into(), "s3")
+    }
     /// Normalize path separators and lexical `.` and `..` components.
     pub fn normalize(&self) -> String {
         let value: &str = self.into();
@@ -299,23 +325,61 @@ impl Location {
             | false => segments.join("/"),
         }
     }
-    /// Get a stable location hash suitable for path components.
-    pub fn hash(&self) -> String {
-        let host = self.host().unwrap_or_default().replace('.', "_");
-        let segments = self
-            .path()
-            .map(|path| {
-                path.split('/')
-                    .filter(|segment| !(segment.is_empty() || *segment == "."))
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>()
+    /// Canonical HTTP service origin, excluding credentials, paths, and default ports.
+    pub fn origin(&self) -> Option<String> {
+        self.uri().and_then(|value| {
+            Uri::parse(value.as_str()).ok().and_then(|uri| {
+                let scheme = Scheme::from(uri.scheme().as_str());
+                let default_port = match scheme {
+                    | Scheme::HTTP => Some(80),
+                    | Scheme::HTTPS => Some(443),
+                    | _ => None,
+                };
+                default_port.and_then(|default_port| {
+                    uri.authority().filter(|authority| !authority.host().is_empty()).and_then(|authority| {
+                        authority.port_to_u16().ok().map(|port| {
+                            let host = authority.host().to_ascii_lowercase();
+                            let port = port
+                                .filter(|port| *port != default_port)
+                                .map(|port| format!(":{port}"))
+                                .unwrap_or_default();
+                            format!("{scheme}://{host}{port}")
+                        })
+                    })
+                })
             })
-            .unwrap_or_default();
-        [host, segments.join("_").to_lowercase()]
-            .into_iter()
-            .filter(|value| !value.is_empty())
-            .collect::<Vec<_>>()
-            .join("_")
+        })
+    }
+    /// Get the URI path.
+    pub fn path(&self) -> Option<String> {
+        self.uri()
+            .and_then(|value| Uri::parse(value.as_str()).ok().map(|uri| uri.path().to_string()))
+    }
+    /// Get the URI port.
+    pub fn port(&self) -> Option<u16> {
+        self.uri().and_then(|value| {
+            Uri::parse(value.as_str())
+                .ok()
+                .and_then(|uri| uri.authority().and_then(|auth| auth.port_to_u16().ok()).flatten())
+        })
+    }
+    /// Get registry authority, preserving ports and IPv6 brackets.
+    pub fn registry(&self) -> Option<String> {
+        self.host().map(|host| match self.port() {
+            | Some(port) if host.starts_with('[') => format!("{host}:{port}"),
+            | Some(port) if host.contains(':') => format!("[{host}]:{port}"),
+            | Some(port) => format!("{host}:{port}"),
+            | None if host.starts_with('[') => host,
+            | None if host.contains(':') => format!("[{host}]"),
+            | None => host,
+        })
+    }
+    /// Get the optional revision selected by a structured location.
+    pub fn revision(&self) -> Option<&str> {
+        match self {
+            | Self::Detailed { revision, .. } => revision.as_deref(),
+            | Self::Simple(_) => None,
+        }
     }
     /// Get the location scheme.
     pub fn scheme(&self) -> Scheme {
@@ -345,45 +409,6 @@ impl Location {
             ),
         }
     }
-    /// Get the URI host.
-    pub fn host(&self) -> Option<String> {
-        self.uri().and_then(|value| {
-            Uri::parse(value.as_str())
-                .ok()
-                .and_then(|uri| uri.authority().map(|auth| auth.host().to_string()))
-        })
-    }
-    /// Get registry authority, preserving ports and IPv6 brackets.
-    pub fn registry(&self) -> Option<String> {
-        self.host().map(|host| match self.port() {
-            | Some(port) if host.starts_with('[') => format!("{host}:{port}"),
-            | Some(port) if host.contains(':') => format!("[{host}]:{port}"),
-            | Some(port) => format!("{host}:{port}"),
-            | None if host.starts_with('[') => host,
-            | None if host.contains(':') => format!("[{host}]"),
-            | None => host,
-        })
-    }
-    /// Get the optional revision selected by a structured location.
-    pub fn revision(&self) -> Option<&str> {
-        match self {
-            | Self::Detailed { revision, .. } => revision.as_deref(),
-            | Self::Simple(_) => None,
-        }
-    }
-    /// Get the URI path.
-    pub fn path(&self) -> Option<String> {
-        self.uri()
-            .and_then(|value| Uri::parse(value.as_str()).ok().map(|uri| uri.path().to_string()))
-    }
-    /// Get the URI port.
-    pub fn port(&self) -> Option<u16> {
-        self.uri().and_then(|value| {
-            Uri::parse(value.as_str())
-                .ok()
-                .and_then(|uri| uri.authority().and_then(|auth| auth.port_to_u16().ok()).flatten())
-        })
-    }
 }
 impl Default for Repository {
     fn default() -> Self {
@@ -394,6 +419,10 @@ impl Default for Repository {
 }
 #[bon]
 impl Repository {
+    /// Get repository domain.
+    pub fn domain(&self) -> Option<String> {
+        self.location().host()
+    }
     /// Classify a repository URL by provider domain.
     pub fn from_remote(value: &str, domain: &str) -> Option<Self> {
         let location = Location::from(value);
@@ -429,30 +458,6 @@ impl Repository {
             location: Box::new(location),
         }
     }
-    /// Get repository domain.
-    pub fn domain(&self) -> Option<String> {
-        self.location().host()
-    }
-    /// Return whether the repository is local.
-    pub fn is_local(&self) -> bool {
-        self.location().is_local()
-    }
-    /// Return whether this is a GitLab repository.
-    ///
-    /// This acronym-preserving alias is provided because `EnumIs` derives `is_git_lab` from the `GitLab` variant name.
-    pub const fn is_gitlab(&self) -> bool {
-        self.is_git_lab()
-    }
-    /// Get repository location.
-    pub fn location(&self) -> Location {
-        match self.clone() {
-            | Self::Git { location }
-            | Self::GitHub { location }
-            | Self::GitLab { location, .. }
-            | Self::HuggingFace { location }
-            | Self::OCI { location, .. } => *location,
-        }
-    }
     /// Get provider-native repository ID.
     pub fn id(&self) -> Option<String> {
         match self {
@@ -464,6 +469,26 @@ impl Repository {
                     .filter(|path| !path.is_empty())
                     .map(|path| encode(path).to_string())
             }),
+        }
+    }
+    /// Return whether this is a GitLab repository.
+    ///
+    /// This acronym-preserving alias is provided because `EnumIs` derives `is_git_lab` from the `GitLab` variant name.
+    pub const fn is_gitlab(&self) -> bool {
+        self.is_git_lab()
+    }
+    /// Return whether the repository is local.
+    pub fn is_local(&self) -> bool {
+        self.location().is_local()
+    }
+    /// Get repository location.
+    pub fn location(&self) -> Location {
+        match self.clone() {
+            | Self::Git { location }
+            | Self::GitHub { location }
+            | Self::GitLab { location, .. }
+            | Self::HuggingFace { location }
+            | Self::OCI { location, .. } => *location,
         }
     }
     /// Return the provider-native project path.
@@ -519,5 +544,6 @@ fn has_named_uri_scheme(value: &str, expected: &str) -> bool {
         .and_then(|uri| uri.scheme().map(|scheme| scheme.as_str().eq_ignore_ascii_case(expected)))
         .unwrap_or(false)
 }
+
 #[cfg(test)]
 mod tests;

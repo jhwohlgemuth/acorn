@@ -6,6 +6,7 @@
     clippy::unwrap_used
 )]
 use super::*;
+use crate::io::config::application;
 use crate::{
     io::{
         api::{Authenticator, Credential},
@@ -22,6 +23,7 @@ use crate::{
         GITLAB_CREDENTIAL_VARIABLE_PAIRS,
     },
 };
+use acorn_core::time::{Seconds, UnitOfTime};
 use acorn_core::{options::CommonRuntime, Location, OneOrMany, Repository};
 use acorn_host::fs::{FsError, SafePath};
 use acorn_schema::hardware::memory::Memory;
@@ -138,14 +140,14 @@ impl BucketSourceAdapter for FakeBucketSource {
     fn is_local(&self) -> bool {
         false
     }
-    fn source_identity(&self) -> BucketSourceIdentity {
-        BucketSourceIdentity::new(BucketSourceKind::Git, "https://user:secret@example.org/bucket?token=secret")
-    }
     async fn items(&self) -> ApiResult<Vec<BucketSourceItem>> {
         Ok(self.items.clone())
     }
     async fn retrieve(&self, item: &BucketSourceItem, destination: &Path) -> ApiResult<()> {
         write(destination, item.key()).map(|_| ()).map_err(Into::into)
+    }
+    fn source_identity(&self) -> BucketSourceIdentity {
+        BucketSourceIdentity::new(BucketSourceKind::Git, "https://user:secret@example.org/bucket?token=secret")
     }
 }
 fn fixtures_dir() -> PathBuf {
@@ -168,81 +170,7 @@ fn temp_resolve_dir(name: &str) -> PathBuf {
         .join("test_artifacts")
         .join(format!("{name}-{nanos}"))
 }
-#[cfg(feature = "analysis")]
-#[test]
-fn test_acre_implements_portable_decode_contract() {
-    let decoded = <ApplicationConfiguration as acorn_schema::codec::DocumentCodec>::decode("{}", &acorn_core::util::MimeType::Json);
-    assert!(decoded.is_ok());
-    let unsupported = <ApplicationConfiguration as acorn_schema::codec::DocumentCodec>::decode("{}", &acorn_core::util::MimeType::Markdown);
-    assert!(unsupported.is_err());
-}
-#[test]
-fn test_acre_rejects_unsupported_schema_versions_and_unknown_fields() {
-    [
-        r#"{"schemaVersion":"1.0.0"}"#,
-        r#"{"schemaVersion":"v2.0.0"}"#,
-        r#"{"schemaVersion":1}"#,
-        r#"{"unknown":true}"#,
-    ]
-    .into_iter()
-    .for_each(|content| assert!(ApplicationConfiguration::parse(content).is_err(), "accepted {content}"));
-    let message = ApplicationConfiguration::parse(r#"{"schemaVersion":"v2.0.0"}"#)
-        .expect_err("unknown ACRE version should fail")
-        .to_string();
-    assert!(message.contains("unknown variant `v2.0.0`"));
-    assert!(!message.contains("missing field"));
-}
-#[test]
-fn test_acre_schema_has_human_title_and_feature_independent_fields() {
-    let schema = serde_json::to_value(schemars::schema_for!(ApplicationConfiguration)).unwrap();
-    assert_eq!(schema["title"], "Application Configuration for Research Enablement");
-    let properties = schema["properties"].as_object().expect("schema properties");
-    ["folders", "mcp", "options", "schemaVersion", "scriptManifest", "variables", "workflow"]
-        .into_iter()
-        .for_each(|name| assert!(properties.contains_key(name), "missing {name}"));
-    let bucket_properties = schema["$defs"]["Bucket"]["properties"].as_object().expect("bucket schema properties");
-    assert!(bucket_properties.contains_key("source"));
-    assert!(!bucket_properties.contains_key("codeRepository"));
-    assert!(!bucket_properties.contains_key("repository"));
-}
-#[test]
-fn test_acre_schema_version_defaults_and_serializes() {
-    let configuration = ApplicationConfiguration::parse("{}").expect("parse minimal configuration");
-    assert_eq!(configuration.schema_version, AcreSchemaVersion::V2_0_0);
-    assert_eq!(serde_json::to_value(configuration).unwrap()["schemaVersion"], "2.0.0");
-}
-#[test]
-fn test_acre_supports_crosswalk_import_defaults() {
-    let configuration =
-        ApplicationConfiguration::parse(r#"{"options":{"crosswalk":{"contact":"contacts/default.yaml","localIdentifier":"imported-record"}}}"#)
-            .expect("parse crosswalk options");
-    let options = configuration.options.and_then(|options| options.crosswalk).expect("crosswalk options");
-    assert_eq!(options.contact.as_deref(), Some(Path::new("contacts/default.yaml")));
-    assert_eq!(options.local_identifier.as_deref(), Some("imported-record"));
-}
-#[test]
-fn test_acre_supports_power_automate_options_and_folders() {
-    let configuration = ApplicationConfiguration::parse(
-        r#"{"schemaVersion":"2.0.0","folders":{"id":"pilot","members":"scientist@example.org","path":"pilot/index.json"},"variables":{"custom":{"power_automate.inbound_secret":"POWER_AUTOMATE_INBOUND_SECRET"}},"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"42","package":"automated-artifacts"}}}"#,
-    )
-    .expect("parse PowerAutomate options");
-    let automation = configuration.power_automate().expect("PowerAutomate options");
-    assert_eq!(automation.gitlab_project, "42");
-    assert_eq!(
-        configuration.variable("power_automate.inbound_secret"),
-        Some("POWER_AUTOMATE_INBOUND_SECRET")
-    );
-    let registry = configuration.registry();
-    assert_eq!(registry.effective_members(Some("pilot"), &|_| None).len(), 1);
-    assert_eq!(
-        registry.resolve_folder("pilot").expect("resolved folder").destination,
-        Destination::GitLab {
-            project: "42".to_string(),
-            path: "pilot/index.json".to_string()
-        }
-    );
-    assert!(configuration.validate().is_ok());
-}
+
 #[test]
 fn test_acre_folder_defaults_and_precedence() {
     let configuration = ApplicationConfiguration::parse(
@@ -265,22 +193,6 @@ fn test_acre_folder_defaults_and_precedence() {
         ..Folder::default()
     }));
     assert!(unsafe_path.validate().is_err());
-}
-#[test]
-fn test_acre_resolves_bucket_references() {
-    let configuration = ApplicationConfiguration::parse(
-        r#"{"buckets":[{"name":"nssd","source":{"provider":"gitlab","uri":"https://code.ornl.gov/research-enablement/buckets/nssd"}}],"folders":[{"id":"pilot","bucket":0},{"id":"other","bucket":"nssd"}],"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"42","package":"automated-artifacts"}}}"#,
-    )
-    .expect("parse bucket references");
-    let folder = configuration.folder("pilot").expect("bucket index zero").clone();
-    assert_eq!(folder.bucket, Some(BucketReference::Index(0)));
-    assert_eq!(
-        configuration.folder("other").expect("bucket identifier").bucket,
-        Some(BucketReference::Identifier("nssd".to_string()))
-    );
-    assert!(configuration.validate().is_ok());
-    let missing = ApplicationConfiguration::parse(r#"{"folders":[{"id":"pilot","bucket":3}]}"#).expect("parse out-of-range bucket");
-    assert!(missing.validate().is_err());
 }
 #[test]
 fn test_acre_folder_fixtures_resolve_across_formats() {
@@ -338,90 +250,13 @@ fn test_acre_folder_fixtures_resolve_across_formats() {
         .expect("unlisted submitter"));
     assert_eq!(jsonc.registry().effective_members(Some("pilot"), &variables).len(), 2);
 }
+#[cfg(feature = "analysis")]
 #[test]
-fn test_acre_power_automate_intake_defaults_and_validation() {
-    let minimal = ApplicationConfiguration::parse(
-        r#"{"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"42","package":"artifacts"}}}"#,
-    )
-    .expect("parse PowerAutomate options without intake");
-    assert!(minimal.power_automate().expect("PowerAutomate options").intake.is_none());
-    assert!(minimal.validate().is_ok());
-    let partial = ApplicationConfiguration::parse(
-        r#"{"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"42","package":"artifacts","intake":{"branch":"pilot"}}}}"#,
-    )
-    .expect("parse partial intake");
-    let intake = partial
-        .power_automate()
-        .expect("PowerAutomate options")
-        .intake
-        .clone()
-        .expect("intake defaults");
-    assert_eq!(intake.branch, "pilot");
-    assert_eq!(intake.path, DEFAULT_INTAKE_PATH);
-    assert_eq!(intake.poll_interval_secs, DEFAULT_INTAKE_POLL_INTERVAL_SECS);
-    assert_eq!(intake.max_file, DEFAULT_INTAKE_MAX_FILE);
-    assert_eq!(intake.max_record, DEFAULT_INTAKE_MAX_RECORD);
-    assert!(partial.validate().is_ok());
-    [
-        r#"{"branch":"","path":".acorn/intake/logbook.jsonl","poll_interval_secs":30,"max_file":"10MB","max_record":"64KB"}"#,
-        r#"{"branch":"main","path":"","poll_interval_secs":30,"max_file":"10MB","max_record":"64KB"}"#,
-        r#"{"branch":"main","path":"file:///srv/research/logbook.jsonl","poll_interval_secs":30,"max_file":"10MB","max_record":"64KB"}"#,
-        r#"{"branch":"main","path":"/srv/research/logbook.jsonl","poll_interval_secs":30,"max_file":"10MB","max_record":"64KB"}"#,
-        r#"{"branch":"main","path":"C:/research/logbook.jsonl","poll_interval_secs":30,"max_file":"10MB","max_record":"64KB"}"#,
-        r#"{"branch":"main","path":"../escape.jsonl","poll_interval_secs":30,"max_file":"10MB","max_record":"64KB"}"#,
-        r#"{"branch":"main","path":"a/../../escape.jsonl","poll_interval_secs":30,"max_file":"10MB","max_record":"64KB"}"#,
-        r#"{"branch":"main","path":"a\\b.jsonl","poll_interval_secs":30,"max_file":"10MB","max_record":"64KB"}"#,
-        r#"{"branch":"main","path":".acorn/intake/logbook.jsonl","poll_interval_secs":0,"max_file":"10MB","max_record":"64KB"}"#,
-        r#"{"branch":"main","path":".acorn/intake/logbook.jsonl","poll_interval_secs":86401,"max_file":"10MB","max_record":"64KB"}"#,
-        r#"{"branch":"main","path":".acorn/intake/logbook.jsonl","poll_interval_secs":30,"max_file":"0MB","max_record":"64KB"}"#,
-        r#"{"branch":"main","path":".acorn/intake/logbook.jsonl","poll_interval_secs":30,"max_file":"1KB","max_record":"0MB"}"#,
-        r#"{"branch":"main","path":".acorn/intake/logbook.jsonl","poll_interval_secs":30,"max_file":"1KB","max_record":"1MB"}"#,
-    ]
-    .into_iter()
-    .for_each(|intake| {
-        let content = format!(
-            "{{\"options\":{{\"powerAutomate\":{{\"callback_destination\":\"pilot-flow\",\"gitlab_project\":\"42\",\"package\":\"artifacts\",\"intake\":{intake}}}}}}}"
-        );
-        let configuration = ApplicationConfiguration::parse(&content).expect("intake parses before validation");
-        assert!(configuration.validate().is_err(), "accepted invalid intake {intake}");
-    });
-    let unknown = ApplicationConfiguration::parse(
-        r#"{"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"42","package":"artifacts","intake":{"branch":"main","unknown":true}}}}"#,
-    );
-    assert!(unknown.is_err(), "accepted unknown intake attribute");
-}
-#[cfg(feature = "agentic")]
-#[test]
-fn test_power_automate_gitlab_project_id_parses_numeric_identifiers() {
-    let configuration = ApplicationConfiguration::parse(
-        r#"{"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"22464","package":"artifacts"}}}"#,
-    )
-    .expect("parse PowerAutomate options");
-    assert_eq!(
-        configuration
-            .power_automate()
-            .expect("PowerAutomate options")
-            .gitlab_project_id()
-            .expect("numeric project"),
-        22464
-    );
-    let padded = ApplicationConfiguration::parse(
-        r#"{"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"  42 ","package":"artifacts"}}}"#,
-    )
-    .expect("parse padded project");
-    assert_eq!(
-        padded
-            .power_automate()
-            .expect("PowerAutomate options")
-            .gitlab_project_id()
-            .expect("padded project"),
-        42
-    );
-    let named = ApplicationConfiguration::parse(
-        r#"{"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"pilot","package":"artifacts"}}}"#,
-    )
-    .expect("parse named project");
-    assert!(named.power_automate().expect("PowerAutomate options").gitlab_project_id().is_err());
+fn test_acre_implements_portable_decode_contract() {
+    let decoded = <ApplicationConfiguration as acorn_schema::codec::DocumentCodec>::decode("{}", &acorn_core::util::MimeType::Json);
+    assert!(decoded.is_ok());
+    let unsupported = <ApplicationConfiguration as acorn_schema::codec::DocumentCodec>::decode("{}", &acorn_core::util::MimeType::Markdown);
+    assert!(unsupported.is_err());
 }
 #[test]
 fn test_acre_intake_fixture_parses_validates_and_resolves() {
@@ -437,7 +272,7 @@ fn test_acre_intake_fixture_parses_validates_and_resolves() {
         .expect("intake source");
     assert_eq!(intake.branch, "acorn/powerautomate-pilot");
     assert_eq!(intake.path, ".acorn/intake/logbook.jsonl");
-    assert_eq!(intake.poll_interval_secs, 30);
+    assert_eq!(intake.poll_interval, Seconds::new(30));
     assert_eq!(intake.max_file, Memory::mb(10));
     assert_eq!(intake.max_record, Memory::kb(64));
     let registry = configuration.registry();
@@ -447,72 +282,6 @@ fn test_acre_intake_fixture_parses_validates_and_resolves() {
         registry.resolve_folder("research-data").expect("omitted path default").destination,
         Destination::Local(PathBuf::from("/srv/research/research-data/index.json"))
     );
-}
-#[test]
-fn test_load_dotenv_next_to_config_supplies_member_lookup() {
-    let directory = temp_resolve_dir("intake-dotenv");
-    create_dir_all(&directory).unwrap();
-    write(
-        directory.join(".acorn.json"),
-        r#"{"members":["office@example.org"],"variables":{"members":"ACORN_PA20_INTAKE_TEST_MEMBERS"},"folders":[{"id":"pilot","path":"file:///srv/research/pilot/index.json"}]}"#,
-    )
-    .unwrap();
-    write(directory.join(".env"), "ACORN_PA20_INTAKE_TEST_MEMBERS=scientist@example.org\n").unwrap();
-    temp_env::with_var("ACORN_PA20_INTAKE_TEST_MEMBERS", None::<&str>, || {
-        let configuration = ApplicationConfiguration::load(&Some(directory.join(".acorn.json"))).expect("load with dotenv");
-        assert!(configuration
-            .registry()
-            .authorizes("pilot", "scientist@example.org", &|name| std::env::var(name).ok())
-            .expect("dotenv-sourced member"));
-        assert!(!configuration
-            .registry()
-            .authorizes("pilot", "stranger@example.org", &|name| std::env::var(name).ok())
-            .expect("unlisted submitter"));
-    });
-    let _ = remove_dir_all(directory);
-}
-#[test]
-fn test_load_dotenv_never_overrides_process_variables() {
-    let directory = temp_resolve_dir("intake-dotenv-precedence");
-    create_dir_all(&directory).unwrap();
-    write(
-        directory.join(".acorn.json"),
-        r#"{"variables":{"members":"ACORN_PA20_INTAKE_TEST_MEMBERS"},"folders":[{"id":"pilot","path":"file:///srv/research/pilot/index.json"}]}"#,
-    )
-    .unwrap();
-    write(directory.join(".env"), "ACORN_PA20_INTAKE_TEST_MEMBERS=file@example.org\n").unwrap();
-    temp_env::with_var("ACORN_PA20_INTAKE_TEST_MEMBERS", Some("process@example.org"), || {
-        let configuration = ApplicationConfiguration::load(&Some(directory.join(".acorn.json"))).expect("load with dotenv");
-        assert!(configuration
-            .registry()
-            .authorizes("pilot", "process@example.org", &|name| std::env::var(name).ok())
-            .expect("process-sourced member"));
-        assert!(!configuration
-            .registry()
-            .authorizes("pilot", "file@example.org", &|name| std::env::var(name).ok())
-            .expect("file value must not override process"));
-    });
-    let _ = remove_dir_all(directory);
-}
-#[test]
-fn test_load_without_dotenv_succeeds_and_rejects_malformed_dotenv() {
-    let directory = temp_resolve_dir("intake-dotenv-missing");
-    create_dir_all(&directory).unwrap();
-    write(
-        directory.join(".acorn.json"),
-        r#"{"folders":[{"id":"pilot","path":"file:///srv/research/pilot/index.json"}]}"#,
-    )
-    .unwrap();
-    temp_env::with_var("ACORN_PA20_INTAKE_TEST_MEMBERS", None::<&str>, || {
-        assert!(ApplicationConfiguration::load(&Some(directory.join(".acorn.json"))).is_ok());
-    });
-    write(directory.join(".env"), "=missing-key\n").unwrap();
-    temp_env::with_var("ACORN_PA20_INTAKE_TEST_MEMBERS", None::<&str>, || {
-        let result = ApplicationConfiguration::load(&Some(directory.join(".acorn.json")));
-        assert!(result.is_err(), "accepted malformed dotenv");
-        assert!(result.expect_err("malformed dotenv").to_string().contains("deployment environment"));
-    });
-    let _ = remove_dir_all(directory);
 }
 #[test]
 fn test_acre_options_scripts_owns_both_root_attributes() {
@@ -555,6 +324,144 @@ fn test_acre_options_scripts_owns_both_root_attributes() {
         "an omitted enabled flag defaults to true"
     );
     assert!(serde_json::to_value(empty_object).expect("serialize options")["options"]["scripts"].is_object());
+}
+#[test]
+fn test_acre_power_automate_intake_defaults_and_validation() {
+    let minimal = ApplicationConfiguration::parse(
+        r#"{"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"42","package":"artifacts"}}}"#,
+    )
+    .expect("parse PowerAutomate options without intake");
+    assert!(minimal.power_automate().expect("PowerAutomate options").intake.is_none());
+    assert!(minimal.validate().is_ok());
+    let partial = ApplicationConfiguration::parse(
+        r#"{"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"42","package":"artifacts","intake":{"branch":"pilot"}}}}"#,
+    )
+    .expect("parse partial intake");
+    let intake = partial
+        .power_automate()
+        .expect("PowerAutomate options")
+        .intake
+        .clone()
+        .expect("intake defaults");
+    assert_eq!(intake.branch, "pilot");
+    assert_eq!(intake.path, DEFAULT_INTAKE_PATH);
+    assert_eq!(intake.poll_interval, Seconds::new(DEFAULT_INTAKE_POLL_INTERVAL_SECS));
+    assert!(serde_json::from_str::<application::PowerAutomateIntake>(r#"{"branch":"main","poll_interval_secs":30}"#).is_err());
+    assert!(serde_json::from_str::<application::PowerAutomateIntake>(r#"{"branch":"main","poll_interval":-1}"#).is_err());
+    assert!(serde_json::from_str::<application::PowerAutomateIntake>(r#"{"branch":"main","poll_interval":0.5}"#).is_err());
+    assert_eq!(intake.max_file, DEFAULT_INTAKE_MAX_FILE);
+    assert_eq!(intake.max_record, DEFAULT_INTAKE_MAX_RECORD);
+    assert!(partial.validate().is_ok());
+    [
+        r#"{"branch":"","path":".acorn/intake/logbook.jsonl","poll_interval":30,"max_file":"10MB","max_record":"64KB"}"#,
+        r#"{"branch":"main","path":"","poll_interval":30,"max_file":"10MB","max_record":"64KB"}"#,
+        r#"{"branch":"main","path":"file:///srv/research/logbook.jsonl","poll_interval":30,"max_file":"10MB","max_record":"64KB"}"#,
+        r#"{"branch":"main","path":"/srv/research/logbook.jsonl","poll_interval":30,"max_file":"10MB","max_record":"64KB"}"#,
+        r#"{"branch":"main","path":"C:/research/logbook.jsonl","poll_interval":30,"max_file":"10MB","max_record":"64KB"}"#,
+        r#"{"branch":"main","path":"../escape.jsonl","poll_interval":30,"max_file":"10MB","max_record":"64KB"}"#,
+        r#"{"branch":"main","path":"a/../../escape.jsonl","poll_interval":30,"max_file":"10MB","max_record":"64KB"}"#,
+        r#"{"branch":"main","path":"a\\b.jsonl","poll_interval":30,"max_file":"10MB","max_record":"64KB"}"#,
+        r#"{"branch":"main","path":".acorn/intake/logbook.jsonl","poll_interval":0,"max_file":"10MB","max_record":"64KB"}"#,
+        r#"{"branch":"main","path":".acorn/intake/logbook.jsonl","poll_interval":86401,"max_file":"10MB","max_record":"64KB"}"#,
+        r#"{"branch":"main","path":".acorn/intake/logbook.jsonl","poll_interval":30,"max_file":"0MB","max_record":"64KB"}"#,
+        r#"{"branch":"main","path":".acorn/intake/logbook.jsonl","poll_interval":30,"max_file":"1KB","max_record":"0MB"}"#,
+        r#"{"branch":"main","path":".acorn/intake/logbook.jsonl","poll_interval":30,"max_file":"1KB","max_record":"1MB"}"#,
+    ]
+    .into_iter()
+    .for_each(|intake| {
+        let content = format!(
+            "{{\"options\":{{\"powerAutomate\":{{\"callback_destination\":\"pilot-flow\",\"gitlab_project\":\"42\",\"package\":\"artifacts\",\"intake\":{intake}}}}}}}"
+        );
+        let configuration = ApplicationConfiguration::parse(&content).expect("intake parses before validation");
+        assert!(configuration.validate().is_err(), "accepted invalid intake {intake}");
+    });
+    let unknown = ApplicationConfiguration::parse(
+        r#"{"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"42","package":"artifacts","intake":{"branch":"main","unknown":true}}}}"#,
+    );
+    assert!(unknown.is_err(), "accepted unknown intake attribute");
+}
+#[test]
+fn test_acre_rejects_unsupported_schema_versions_and_unknown_fields() {
+    [
+        r#"{"schemaVersion":"1.0.0"}"#,
+        r#"{"schemaVersion":"v2.0.0"}"#,
+        r#"{"schemaVersion":1}"#,
+        r#"{"unknown":true}"#,
+    ]
+    .into_iter()
+    .for_each(|content| assert!(ApplicationConfiguration::parse(content).is_err(), "accepted {content}"));
+    let message = ApplicationConfiguration::parse(r#"{"schemaVersion":"v2.0.0"}"#)
+        .expect_err("unknown ACRE version should fail")
+        .to_string();
+    assert!(message.contains("unknown variant `v2.0.0`"));
+    assert!(!message.contains("missing field"));
+}
+#[test]
+fn test_acre_resolves_bucket_references() {
+    let configuration = ApplicationConfiguration::parse(
+        r#"{"buckets":[{"name":"nssd","source":{"provider":"gitlab","uri":"https://code.ornl.gov/research-enablement/buckets/nssd"}}],"folders":[{"id":"pilot","bucket":0},{"id":"other","bucket":"nssd"}],"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"42","package":"automated-artifacts"}}}"#,
+    )
+    .expect("parse bucket references");
+    let folder = configuration.folder("pilot").expect("bucket index zero").clone();
+    assert_eq!(folder.bucket, Some(BucketReference::Index(0)));
+    assert_eq!(
+        configuration.folder("other").expect("bucket identifier").bucket,
+        Some(BucketReference::Identifier("nssd".to_string()))
+    );
+    assert!(configuration.validate().is_ok());
+    let missing = ApplicationConfiguration::parse(r#"{"folders":[{"id":"pilot","bucket":3}]}"#).expect("parse out-of-range bucket");
+    assert!(missing.validate().is_err());
+}
+#[test]
+fn test_acre_schema_has_human_title_and_feature_independent_fields() {
+    let schema = serde_json::to_value(schemars::schema_for!(ApplicationConfiguration)).unwrap();
+    assert_eq!(schema["title"], "Application Configuration for Research Enablement");
+    let properties = schema["properties"].as_object().expect("schema properties");
+    ["folders", "mcp", "options", "schemaVersion", "scriptManifest", "variables", "workflow"]
+        .into_iter()
+        .for_each(|name| assert!(properties.contains_key(name), "missing {name}"));
+    let bucket_properties = schema["$defs"]["Bucket"]["properties"].as_object().expect("bucket schema properties");
+    assert!(bucket_properties.contains_key("source"));
+    assert!(!bucket_properties.contains_key("codeRepository"));
+    assert!(!bucket_properties.contains_key("repository"));
+}
+#[test]
+fn test_acre_schema_version_defaults_and_serializes() {
+    let configuration = ApplicationConfiguration::parse("{}").expect("parse minimal configuration");
+    assert_eq!(configuration.schema_version, AcreSchemaVersion::V2_0_0);
+    assert_eq!(serde_json::to_value(configuration).unwrap()["schemaVersion"], "2.0.0");
+}
+#[test]
+fn test_acre_supports_crosswalk_import_defaults() {
+    let configuration =
+        ApplicationConfiguration::parse(r#"{"options":{"crosswalk":{"contact":"contacts/default.yaml","localIdentifier":"imported-record"}}}"#)
+            .expect("parse crosswalk options");
+    let options = configuration.options.and_then(|options| options.crosswalk).expect("crosswalk options");
+    assert_eq!(options.contact.as_deref(), Some(Path::new("contacts/default.yaml")));
+    assert_eq!(options.local_identifier.as_deref(), Some("imported-record"));
+}
+#[test]
+fn test_acre_supports_power_automate_options_and_folders() {
+    let configuration = ApplicationConfiguration::parse(
+        r#"{"schemaVersion":"2.0.0","folders":{"id":"pilot","members":"scientist@example.org","path":"pilot/index.json"},"variables":{"custom":{"power_automate.inbound_secret":"POWER_AUTOMATE_INBOUND_SECRET"}},"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"42","package":"automated-artifacts"}}}"#,
+    )
+    .expect("parse PowerAutomate options");
+    let automation = configuration.power_automate().expect("PowerAutomate options");
+    assert_eq!(automation.gitlab_project, "42");
+    assert_eq!(
+        configuration.variable("power_automate.inbound_secret"),
+        Some("POWER_AUTOMATE_INBOUND_SECRET")
+    );
+    let registry = configuration.registry();
+    assert_eq!(registry.effective_members(Some("pilot"), &|_| None).len(), 1);
+    assert_eq!(
+        registry.resolve_folder("pilot").expect("resolved folder").destination,
+        Destination::GitLab {
+            project: "42".to_string(),
+            path: "pilot/index.json".to_string()
+        }
+    );
+    assert!(configuration.validate().is_ok());
 }
 #[test]
 fn test_bucket() {
@@ -1130,6 +1037,52 @@ fn test_jsonc_parse_with_trailing_commas() {
     assert!(ApplicationConfiguration::parse(content).unwrap().buckets.unwrap().is_empty());
 }
 #[test]
+fn test_load_dotenv_never_overrides_process_variables() {
+    let directory = temp_resolve_dir("intake-dotenv-precedence");
+    create_dir_all(&directory).unwrap();
+    write(
+        directory.join(".acorn.json"),
+        r#"{"variables":{"members":"ACORN_PA20_INTAKE_TEST_MEMBERS"},"folders":[{"id":"pilot","path":"file:///srv/research/pilot/index.json"}]}"#,
+    )
+    .unwrap();
+    write(directory.join(".env"), "ACORN_PA20_INTAKE_TEST_MEMBERS=file@example.org\n").unwrap();
+    temp_env::with_var("ACORN_PA20_INTAKE_TEST_MEMBERS", Some("process@example.org"), || {
+        let configuration = ApplicationConfiguration::load(&Some(directory.join(".acorn.json"))).expect("load with dotenv");
+        assert!(configuration
+            .registry()
+            .authorizes("pilot", "process@example.org", &|name| std::env::var(name).ok())
+            .expect("process-sourced member"));
+        assert!(!configuration
+            .registry()
+            .authorizes("pilot", "file@example.org", &|name| std::env::var(name).ok())
+            .expect("file value must not override process"));
+    });
+    let _ = remove_dir_all(directory);
+}
+#[test]
+fn test_load_dotenv_next_to_config_supplies_member_lookup() {
+    let directory = temp_resolve_dir("intake-dotenv");
+    create_dir_all(&directory).unwrap();
+    write(
+        directory.join(".acorn.json"),
+        r#"{"members":["office@example.org"],"variables":{"members":"ACORN_PA20_INTAKE_TEST_MEMBERS"},"folders":[{"id":"pilot","path":"file:///srv/research/pilot/index.json"}]}"#,
+    )
+    .unwrap();
+    write(directory.join(".env"), "ACORN_PA20_INTAKE_TEST_MEMBERS=scientist@example.org\n").unwrap();
+    temp_env::with_var("ACORN_PA20_INTAKE_TEST_MEMBERS", None::<&str>, || {
+        let configuration = ApplicationConfiguration::load(&Some(directory.join(".acorn.json"))).expect("load with dotenv");
+        assert!(configuration
+            .registry()
+            .authorizes("pilot", "scientist@example.org", &|name| std::env::var(name).ok())
+            .expect("dotenv-sourced member"));
+        assert!(!configuration
+            .registry()
+            .authorizes("pilot", "stranger@example.org", &|name| std::env::var(name).ok())
+            .expect("unlisted submitter"));
+    });
+    let _ = remove_dir_all(directory);
+}
+#[test]
 fn test_load_rejects_missing_explicit_path() {
     let missing = temp_resolve_dir("load-missing").join("missing.json");
     let result = ApplicationConfiguration::load(&Some(missing.clone()));
@@ -1138,6 +1091,26 @@ fn test_load_rejects_missing_explicit_path() {
         result.unwrap_err().to_string(),
         format!("Configuration file does not exist — {}", missing.display())
     );
+}
+#[test]
+fn test_load_without_dotenv_succeeds_and_rejects_malformed_dotenv() {
+    let directory = temp_resolve_dir("intake-dotenv-missing");
+    create_dir_all(&directory).unwrap();
+    write(
+        directory.join(".acorn.json"),
+        r#"{"folders":[{"id":"pilot","path":"file:///srv/research/pilot/index.json"}]}"#,
+    )
+    .unwrap();
+    temp_env::with_var("ACORN_PA20_INTAKE_TEST_MEMBERS", None::<&str>, || {
+        assert!(ApplicationConfiguration::load(&Some(directory.join(".acorn.json"))).is_ok());
+    });
+    write(directory.join(".env"), "=missing-key\n").unwrap();
+    temp_env::with_var("ACORN_PA20_INTAKE_TEST_MEMBERS", None::<&str>, || {
+        let result = ApplicationConfiguration::load(&Some(directory.join(".acorn.json")));
+        assert!(result.is_err(), "accepted malformed dotenv");
+        assert!(result.expect_err("malformed dotenv").to_string().contains("deployment environment"));
+    });
+    let _ = remove_dir_all(directory);
 }
 #[test]
 fn test_mcp_client_configuration_parses_and_validates_supported_formats() {
@@ -1266,6 +1239,39 @@ fn test_operations_complete_message_uses_url_placeholder_without_name() {
 #[test]
 fn test_parse_supports_yaml_flow_mapping_when_json_detection_fails() {
     assert!(ApplicationConfiguration::parse("{endpoints: []}").is_ok());
+}
+#[cfg(feature = "agentic")]
+#[test]
+fn test_power_automate_gitlab_project_id_parses_numeric_identifiers() {
+    let configuration = ApplicationConfiguration::parse(
+        r#"{"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"22464","package":"artifacts"}}}"#,
+    )
+    .expect("parse PowerAutomate options");
+    assert_eq!(
+        configuration
+            .power_automate()
+            .expect("PowerAutomate options")
+            .gitlab_project_id()
+            .expect("numeric project"),
+        22464
+    );
+    let padded = ApplicationConfiguration::parse(
+        r#"{"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"  42 ","package":"artifacts"}}}"#,
+    )
+    .expect("parse padded project");
+    assert_eq!(
+        padded
+            .power_automate()
+            .expect("PowerAutomate options")
+            .gitlab_project_id()
+            .expect("padded project"),
+        42
+    );
+    let named = ApplicationConfiguration::parse(
+        r#"{"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"pilot","package":"artifacts"}}}"#,
+    )
+    .expect("parse named project");
+    assert!(named.power_automate().expect("PowerAutomate options").gitlab_project_id().is_err());
 }
 #[cfg(unix)]
 #[test]

@@ -32,12 +32,19 @@ use core::fmt;
 use data_encoding::BASE64;
 use derive_more::Display;
 use futures::{future::BoxFuture, FutureExt};
+#[cfg(feature = "agentic")]
+pub use package::{Package, PackageLifecycle, PackageOptions, ReportManifest, ReportStatus};
+#[cfg(feature = "agentic")]
+pub use policy::{DeploymentConfig, WorkflowEffect, WorkflowOutputMode, WorkflowOutputs, WorkflowPolicy};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+pub use service::*;
 use std::env::var;
 use strum::EnumIs;
 use tracing::debug;
 use veil::Redact;
+#[cfg(feature = "agentic")]
+pub use webhook::{HookActor, HookPayload, MergeRequestAction, WebhookDelivery, WebhookOperation, WebhookOperationHandler};
 
 #[cfg(feature = "agentic")]
 pub mod automation;
@@ -58,15 +65,6 @@ pub mod review;
 pub mod service;
 #[cfg(feature = "agentic")]
 pub mod webhook;
-
-#[cfg(feature = "agentic")]
-pub use package::{Package, PackageLifecycle, PackageOptions, ReportManifest, ReportStatus};
-#[cfg(feature = "agentic")]
-pub use policy::{DeploymentConfig, WorkflowEffect, WorkflowOutputMode, WorkflowOutputs, WorkflowPolicy};
-pub use service::*;
-#[cfg(feature = "agentic")]
-pub use webhook::{HookActor, HookPayload, MergeRequestAction, WebhookDelivery, WebhookOperation, WebhookOperationHandler};
-
 /// Type for a GitLab commit status list response
 pub type CommitStatusesResponse = Vec<CommitStatus>;
 /// Type for GitLab events response
@@ -869,8 +867,12 @@ pub struct PushData {
     pub ref_count: Option<u64>,
 }
 /// Repository file metadata and Base64-encoded content
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, Validate)]
 pub struct RepositoryFile {
+    /// Last commit that modified this file; required for optimistic-concurrency updates.
+    #[validate(commit)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_commit_id: Option<String>,
     /// Full repository-relative path
     pub file_path: String,
     /// File size in bytes
@@ -1164,15 +1166,15 @@ impl From<bool> for CommitStatusState {
     }
 }
 impl ErrorResponse {
+    fn is_terminal_pagination_error(&self) -> bool {
+        Self::is_terminal_pagination_message(&self.message())
+    }
     fn is_terminal_pagination_message(message: &str) -> bool {
         let message = message.to_lowercase();
         let invalid_page =
             message.contains("page") && (message.contains("invalid") || message.contains("out of range") || message.contains("not found"));
         let forbidden_page = message.contains("403") && message.contains("forbidden");
         invalid_page || forbidden_page
-    }
-    fn is_terminal_pagination_error(&self) -> bool {
-        Self::is_terminal_pagination_message(&self.message())
     }
     fn message(&self) -> String {
         let message = self
@@ -1191,7 +1193,6 @@ impl ErrorResponse {
 }
 impl core::str::FromStr for EventAction {
     type Err = String;
-
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             | "approved" => Ok(EventAction::Approved),
@@ -1240,7 +1241,6 @@ impl fmt::Display for EventAction {
 }
 impl TryFrom<&str> for EventAction {
     type Error = String;
-
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         value.parse()
     }
@@ -1259,7 +1259,6 @@ impl fmt::Display for EventFilterKey {
 }
 impl TryFrom<&str> for EventFilterKey {
     type Error = String;
-
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             | "action" => Ok(EventFilterKey::Action),
@@ -1297,10 +1296,11 @@ impl InstanceVersion {
     }
 }
 impl Note {
-    /// Return the note's numeric identifier.
-    pub fn identifier(&self) -> u64 {
+    /// Return the note author's numeric identifier when available.
+    pub fn author_id(&self) -> Option<u64> {
         match self {
-            | Self::WorkItem { identifier, .. } | Self::MergeRequest { identifier, .. } => *identifier,
+            | Self::WorkItem { author, .. } => Some(author.identifier),
+            | Self::MergeRequest { author, .. } => author.as_ref().map(|author| author.identifier),
         }
     }
     /// Return the note body.
@@ -1309,15 +1309,18 @@ impl Note {
             | Self::WorkItem { body, .. } | Self::MergeRequest { body, .. } => body,
         }
     }
-    /// Return the note author's numeric identifier when available.
-    pub fn author_id(&self) -> Option<u64> {
+    /// Return the note's numeric identifier.
+    pub fn identifier(&self) -> u64 {
         match self {
-            | Self::WorkItem { author, .. } => Some(author.identifier),
-            | Self::MergeRequest { author, .. } => author.as_ref().map(|author| author.identifier),
+            | Self::WorkItem { identifier, .. } | Self::MergeRequest { identifier, .. } => *identifier,
         }
     }
 }
 impl Configuration for Options {
+    /// Return the GitLab domain
+    fn domain(&self) -> &str {
+        &self.domain
+    }
     /// Build options from common GitLab CI environment variables.
     /// - `GITLAB_TOKEN`, `PRIVATE_TOKEN`, or `CI_JOB_TOKEN` -> `token`
     /// - `CI_PROJECT_ID` -> `identifier`
@@ -1353,6 +1356,18 @@ impl Configuration for Options {
             custom_params: vec![],
         }
     }
+    /// Return the optional project or group identifier
+    fn identifier(&self) -> Option<&str> {
+        self.identifier.as_deref()
+    }
+    /// Return any custom API parameters
+    fn params(&self) -> &[Param] {
+        &self.custom_params
+    }
+    /// Return the authentication token
+    fn token(&self) -> &api::Secret {
+        &self.token
+    }
     /// Return a copy of options with request body payload set
     fn with_body(self, value: impl Into<String>) -> Self {
         Self {
@@ -1374,28 +1389,12 @@ impl Configuration for Options {
             ..self
         }
     }
-    /// Return the authentication token
-    fn token(&self) -> &api::Secret {
-        &self.token
-    }
-    /// Return the GitLab domain
-    fn domain(&self) -> &str {
-        &self.domain
-    }
-    /// Return the optional project or group identifier
-    fn identifier(&self) -> Option<&str> {
-        self.identifier.as_deref()
-    }
     /// Return a copy of options with custom API parameters set
     fn with_params(self, params: Vec<Param>) -> Self {
         Self {
             custom_params: params,
             ..self
         }
-    }
-    /// Return any custom API parameters
-    fn params(&self) -> &[Param] {
-        &self.custom_params
     }
 }
 impl Default for Options {
@@ -1466,24 +1465,10 @@ impl Options {
     pub fn token_header(&self) -> &str {
         self.token_header
     }
-    /// Return the configured repository workflow name.
-    pub fn workflow(&self) -> ApiResult<&str> {
-        self.workflow
-            .as_deref()
-            .filter(|value| !value.trim().is_empty())
-            .ok_or_else(|| eyre!("GitLab repository workflow is required"))
-    }
     /// Return a copy of options with a commit-status description set.
     pub fn with_description(self, value: impl Into<String>) -> Self {
         Self {
             description: Some(value.into()),
-            ..self
-        }
-    }
-    /// Return a copy of options with an internal resource identifier set.
-    pub fn with_internal_identifier(self, value: impl Into<String>) -> Self {
-        Self {
-            internal_identifier: Some(value.into()),
             ..self
         }
     }
@@ -1492,6 +1477,13 @@ impl Options {
     pub fn with_effects(self, value: OperationQueue) -> Self {
         Self {
             effects: Some(value),
+            ..self
+        }
+    }
+    /// Return a copy of options with an internal resource identifier set.
+    pub fn with_internal_identifier(self, value: impl Into<String>) -> Self {
+        Self {
+            internal_identifier: Some(value.into()),
             ..self
         }
     }
@@ -1527,10 +1519,16 @@ impl Options {
             ..self
         }
     }
+    /// Return the configured repository workflow name.
+    pub fn workflow(&self) -> ApiResult<&str> {
+        self.workflow
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| eyre!("GitLab repository workflow is required"))
+    }
 }
 impl TryFrom<&str> for OrderByValue {
     type Error = String;
-
     fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
         match value {
             | "created_at" => Ok(OrderByValue::CreatedAt),
@@ -1567,7 +1565,6 @@ impl fmt::Display for PaginationKey {
 }
 impl TryFrom<&str> for PaginationKey {
     type Error = String;
-
     fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
         match value {
             | "order_by" => Ok(PaginationKey::OrderBy),
@@ -1608,6 +1605,11 @@ impl From<ProgrammingLanguageMetadata> for ProgrammingLanguageRow {
             .build()
     }
 }
+impl<'de> serde::Deserialize<'de> for ProgrammingLanguagesResponse {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        HashMap::<String, ProgrammingLanguageDetails>::deserialize(deserializer).map(Self::parse)
+    }
+}
 #[async_trait]
 impl DatabasePersistence for ProgrammingLanguagesResponse {
     /// Persist GitLab programming language metadata to local database
@@ -1645,21 +1647,12 @@ impl ProgrammingLanguagesResponse {
         Self { languages }
     }
 }
-impl<'de> serde::Deserialize<'de> for ProgrammingLanguagesResponse {
+impl<'de> serde::Deserialize<'de> for ProgrammingLanguageUseResponse {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        HashMap::<String, ProgrammingLanguageDetails>::deserialize(deserializer).map(Self::parse)
+        HashMap::<String, f64>::deserialize(deserializer).map(Self::parse)
     }
 }
 impl ProgrammingLanguageUseResponse {
-    /// Parse a raw language-to-percentage map into normalized entries
-    pub fn parse(data: HashMap<String, f64>) -> Self {
-        let mut languages = data
-            .into_iter()
-            .map(|(name, percentage)| ProgrammingLanguageUseMetadata { name, percentage })
-            .collect::<ProgrammingLanguageUseEntries>();
-        languages.sort_by(|a, b| a.name.cmp(&b.name));
-        Self { languages }
-    }
     /// Get language data entry tuples, (name, percentage), sorted by percentage in descending order
     pub fn entries(&self) -> Vec<(String, f64)> {
         let mut entries = self
@@ -1674,10 +1667,14 @@ impl ProgrammingLanguageUseResponse {
     pub fn names(&self) -> Vec<String> {
         self.entries().into_iter().map(|(name, _)| name).collect()
     }
-}
-impl<'de> serde::Deserialize<'de> for ProgrammingLanguageUseResponse {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        HashMap::<String, f64>::deserialize(deserializer).map(Self::parse)
+    /// Parse a raw language-to-percentage map into normalized entries
+    pub fn parse(data: HashMap<String, f64>) -> Self {
+        let mut languages = data
+            .into_iter()
+            .map(|(name, percentage)| ProgrammingLanguageUseMetadata { name, percentage })
+            .collect::<ProgrammingLanguageUseEntries>();
+        languages.sort_by(|a, b| a.name.cmp(&b.name));
+        Self { languages }
     }
 }
 impl RepositoryFile {
@@ -1760,7 +1757,6 @@ impl RunnerMetadata {
 }
 impl TryFrom<&str> for SortValue {
     type Error = String;
-
     fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
         match value {
             | "asc" => Ok(SortValue::Ascending),
@@ -1771,7 +1767,6 @@ impl TryFrom<&str> for SortValue {
 }
 impl core::str::FromStr for TargetType {
     type Err = String;
-
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.to_lowercase().as_str() {
             | "epic" => Ok(TargetType::Epic),
@@ -1804,7 +1799,6 @@ impl fmt::Display for TargetType {
 }
 impl TryFrom<&str> for TargetType {
     type Error = String;
-
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         value.parse()
     }
@@ -1836,6 +1830,19 @@ impl<'de> serde::Deserialize<'de> for TreeResponse {
     }
 }
 impl WebhookOptions {
+    fn credentials(&self, supports_signing: bool) -> (Option<&api::Secret>, Option<&api::Secret>) {
+        let signing_token = supports_signing.then_some(self.signing_token.as_ref()).flatten();
+        let webhook_token = signing_token.is_none().then_some(self.webhook_token.as_ref()).flatten();
+        (webhook_token, signing_token)
+    }
+    fn for_registration(&self, supports_signing: bool) -> Self {
+        let (webhook_token, signing_token) = self.credentials(supports_signing);
+        Self {
+            public_url: self.url(),
+            webhook_token: webhook_token.cloned(),
+            signing_token: signing_token.cloned(),
+        }
+    }
     /// Read webhook credentials from the environment for an optional public URL
     pub fn from_env(public_url: Option<&str>) -> Self {
         Self {
@@ -1863,20 +1870,6 @@ impl WebhookOptions {
             .as_deref()
             .map(|public_url| format!("{}/webhooks/gitlab", public_url.trim_end_matches('/')))
     }
-    fn credentials(&self, supports_signing: bool) -> (Option<&api::Secret>, Option<&api::Secret>) {
-        let signing_token = supports_signing.then_some(self.signing_token.as_ref()).flatten();
-        let webhook_token = signing_token.is_none().then_some(self.webhook_token.as_ref()).flatten();
-        (webhook_token, signing_token)
-    }
-
-    fn for_registration(&self, supports_signing: bool) -> Self {
-        let (webhook_token, signing_token) = self.credentials(supports_signing);
-        Self {
-            public_url: self.url(),
-            webhook_token: webhook_token.cloned(),
-            signing_token: signing_token.cloned(),
-        }
-    }
 }
 impl WorkItemUser {
     /// Create work-item user metadata.
@@ -1888,5 +1881,6 @@ impl WorkItemUser {
         }
     }
 }
+
 #[cfg(all(test, feature = "agentic"))]
 mod tests;

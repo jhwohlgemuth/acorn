@@ -293,6 +293,16 @@ Deployment-owned PowerAutomate settings. Routing lives in root `folders`, not he
 | `package` | Yes | GitLab generic-package name for generated artifacts. |
 | `gitlab_project` | Yes | GitLab project containing bucket files and packages. |
 | `timezone` | No | Reporting timezone. Only `UTC` is supported. |
+| `intake` | No | Enable GitLab JSONL inbox polling using the settings below. Omission disables inbox polling. |
+
+`intake` accepts `branch` (default `main`), `path` (default `.acorn/intake/logbook.jsonl`), `poll_interval` (`Seconds`, default `30`), `max_file` (default `"10MB"`, 10 MiB), and `max_record` (default `"64KB"`, 64 KiB). Its source is the numeric `gitlab_project`. Inbox polling runs independently of the note-event source and interval selected for `acorn serve bot`.
+
+Each nonempty UTF-8 line contains the existing strict `FormSubmission` envelope and ends in LF. `projectId` accepts one exact canonical folder ID or alias. Admission resolves the canonical ID, checks membership and the latest reporting cutoff, and atomically retains the original bytes, source evidence, normalized entry, destination service/project/path, review branch, and queue operation. Associated buckets must identify the same GitLab repository on the same service; unverifiable collection locations and local destinations are rejected. Standalone local proposal/apply is not supported by this adapter.
+
+The canonical identity is `powerautomate:form:v1:{lowercase submission UUID}`. Retries must preserve the exact serialized line: changed bytes under an admitted UUID are a conflict, including formatting changes. Accepted entries and routes survive mapping changes and inbox removal. Legacy operations without verifiable JSONL byte evidence remain visible conflicts rather than being overwritten.
+
+Cleanup removes only exact matches backed by durable admission, using the observed file's `last_commit_id`. Conflicts and uncertain responses trigger a fresh snapshot and recomputation, with at most three attempts per poll. Draining keeps an empty file. Rejections, malformed records, blank lines, and unadmitted records retain their bytes; network/storage failures remain retryable. Evidence and queued operations remain available through `OperationQueue::intake_records`, `intake_admission`, and existing operation status/replay APIs. Project updates continue through review branches and human merge.
+
 
 ### `options.folders`
 

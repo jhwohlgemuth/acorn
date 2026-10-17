@@ -1,5 +1,5 @@
 //! Authenticated durable PowerAutomate form admission.
-use super::{FormReceipt, FormSubmission, PowerAutomateConfig};
+use super::{FormReceipt, PowerAutomateConfig, Submission};
 use crate::io::api;
 use crate::io::api::json_rpc::{MethodName, Notification};
 use crate::io::api::webhooks::store::OperationQueue;
@@ -36,6 +36,18 @@ struct RouterState {
     runtime: WebhookRuntime,
 }
 impl PowerAutomateProvider {
+    /// Return the deployment configuration used by this provider.
+    pub fn config(&self) -> &PowerAutomateConfig {
+        &self.config
+    }
+    /// Construct a provider by resolving the configured inbound secret environment variable.
+    pub fn from_config(config: PowerAutomateConfig, routing: FolderRegistry) -> ApiResult<Self> {
+        routing
+            .variable(POWER_AUTOMATE_INBOUND_SECRET)
+            .ok_or_else(|| color_eyre::eyre::eyre!("PowerAutomate inbound shared secret is not referenced by variables.custom"))
+            .and_then(|name| env::var(name).map_err(|_| color_eyre::eyre::eyre!("PowerAutomate inbound shared secret is unavailable")))
+            .and_then(|secret| Self::new(config, routing, secret))
+    }
     /// Construct a provider with an explicit inbound shared secret.
     pub fn new(config: PowerAutomateConfig, routing: FolderRegistry, inbound_secret: impl Into<api::Secret>) -> ApiResult<Self> {
         config
@@ -46,14 +58,6 @@ impl PowerAutomateProvider {
                     .map_err(Into::into)
                     .map(|verifier| Self { config, routing, verifier })
             })
-    }
-    /// Construct a provider by resolving the configured inbound secret environment variable.
-    pub fn from_config(config: PowerAutomateConfig, routing: FolderRegistry) -> ApiResult<Self> {
-        routing
-            .variable(POWER_AUTOMATE_INBOUND_SECRET)
-            .ok_or_else(|| color_eyre::eyre::eyre!("PowerAutomate inbound shared secret is not referenced by variables.custom"))
-            .and_then(|name| env::var(name).map_err(|_| color_eyre::eyre::eyre!("PowerAutomate inbound shared secret is unavailable")))
-            .and_then(|secret| Self::new(config, routing, secret))
     }
     /// Build the isolated form intake router.
     pub fn router(self, queue: OperationQueue, runtime: WebhookRuntime) -> Router {
@@ -66,33 +70,13 @@ impl PowerAutomateProvider {
                 runtime,
             })
     }
-    /// Return the deployment configuration used by this provider.
-    pub fn config(&self) -> &PowerAutomateConfig {
-        &self.config
-    }
     /// Return the ACRE routing snapshot supplying folders and variable references.
     pub fn routing(&self) -> &FolderRegistry {
         &self.routing
     }
 }
 impl WebhookProvider for PowerAutomateProvider {
-    type Event = FormSubmission;
-
-    fn receive(&self, request: InboundRequest<'_>, now: Timestamp) -> Result<Delivery<Self::Event>, WebhookError> {
-        self.verifier.verify(request, now).and_then(|verified| {
-            serde_json::from_slice::<FormSubmission>(verified.raw_body)
-                .map_err(|_| WebhookError::new(ErrorKind::BadRequest, "Invalid PowerAutomate form payload"))
-                .and_then(|event| {
-                    event
-                        .entry(&self.routing)
-                        .map_err(|_| WebhookError::new(ErrorKind::BadRequest, "Invalid or unauthorized PowerAutomate form payload"))
-                        .map(|_| Delivery {
-                            delivery_id: verified.delivery_id.to_string(),
-                            event,
-                        })
-                })
-        })
-    }
+    type Event = Submission;
     fn classify(&self, delivery: &Delivery<Self::Event>) -> Result<Vec<OperationSpec>, WebhookError> {
         serde_json::to_value(&delivery.event)
             .map_err(|_| WebhookError::new(ErrorKind::BadRequest, "Failed to encode PowerAutomate form operation"))
@@ -110,6 +94,21 @@ impl WebhookProvider for PowerAutomateProvider {
     }
     fn name(&self) -> &'static str {
         "powerautomate"
+    }
+    fn receive(&self, request: InboundRequest<'_>, now: Timestamp) -> Result<Delivery<Self::Event>, WebhookError> {
+        self.verifier.verify(request, now).and_then(|verified| {
+            serde_json::from_slice::<Submission>(verified.raw_body)
+                .map_err(|_| WebhookError::new(ErrorKind::BadRequest, "Invalid PowerAutomate form payload"))
+                .and_then(|event| {
+                    event
+                        .entry(&self.routing)
+                        .map_err(|_| WebhookError::new(ErrorKind::BadRequest, "Invalid or unauthorized PowerAutomate form payload"))
+                        .map(|_| Delivery {
+                            delivery_id: verified.delivery_id.to_string(),
+                            event,
+                        })
+                })
+        })
     }
 }
 async fn receive(

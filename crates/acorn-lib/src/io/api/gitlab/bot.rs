@@ -29,7 +29,7 @@
 //! ```ignore
 //! use acorn::io::api::Configuration;
 //! use acorn::io::api::gitlab::{self, bot};
-//! use alloc::sync::Arc;
+//! use alloc::{collections::BTreeSet, sync::Arc};
 //!
 //! async fn start_bot() -> color_eyre::Result<()> {
 //!     let handler: bot::MergeRequestNoteHandler = Arc::new(|event| {
@@ -46,7 +46,8 @@
 //! ```
 pub use super::webhook::{HookActor, HookPayload, MergeRequestAction, WebhookDelivery, WebhookOperation, WebhookOperationHandler};
 use super::{
-    events,
+    events, jsonl,
+    service::update_intake_file,
     webhook::{self, WebhookConfig},
     DeploymentConfig, EventDetails, EventsResponse, Options, Package, PackageLifecycle, PackageOptions, WebhookOptions,
 };
@@ -57,14 +58,14 @@ use crate::{
         api::{
             self,
             json_rpc::{InvocationContext, InvocationOrigin, JsonRpcOperationRegistry, MethodName, OperationDefinition, OperationEffects},
-            powerautomate::{FormSubmission, PowerAutomateCallbackResolver, PowerAutomateConfig, PowerAutomateProvider},
+            powerautomate::{self, PowerAutomateCallbackResolver, PowerAutomateConfig, PowerAutomateProvider, Submission},
             webhooks::{
                 store::{CallbackWorker, OperationQueue, OperationWorker},
                 ArtifactEvent, WebhookRuntime, WebhookRuntimeState,
             },
             Configuration,
         },
-        config::FolderRegistry,
+        config::{application::PowerAutomateIntake, FolderRegistry},
         http::ReqwestHttpService,
         ApiResult,
     },
@@ -72,7 +73,7 @@ use crate::{
     util::constants::app::WEBHOOK_STALE_CLAIM_AFTER,
 };
 use acorn_host::terminal::Label;
-use alloc::sync::Arc;
+use alloc::{collections::BTreeSet, sync::Arc};
 use axum::{
     extract::State as ServerState,
     http::StatusCode,
@@ -100,7 +101,7 @@ use tracing::{error, info};
 ///
 /// ```ignore
 /// use acorn::io::api::gitlab::bot::{MergeRequestNoteEvent, MergeRequestNoteHandler};
-/// use alloc::sync::Arc;
+/// use alloc::{collections::BTreeSet, sync::Arc};
 ///
 /// let handler: MergeRequestNoteHandler = Arc::new(|event: MergeRequestNoteEvent| {
 ///     println!("processing MR !{}", event.merge_request_iid);
@@ -162,6 +163,22 @@ pub struct Config {
     /// Options applied to merge request analysis
     #[cfg(feature = "analysis")]
     pub(super) analysis_options: AnalysisContext,
+}
+/// Outcome of one configured JSONL inbox poll.
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
+pub struct JsonlPollSummary {
+    /// Number of nonempty records observed before admission.
+    pub record_count: usize,
+    /// Number accepted or recognized as exact replays.
+    pub admitted_count: usize,
+    /// Number of durable, inspectable rejections.
+    pub rejected_count: usize,
+    /// Number removed by an acknowledged cleanup commit.
+    pub removed_count: usize,
+    /// Number of retryable per-record failures.
+    pub failed_count: usize,
+    /// First retryable failure, if any.
+    pub last_error: Option<String>,
 }
 /// Merge request note event extracted from a GitLab event.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -271,10 +288,6 @@ impl Config {
             ..DeploymentConfig::default().into()
         }
     }
-    /// Return a copy of the configuration with a bind address.
-    pub fn with_address(self, address: SocketAddr) -> Self {
-        Self { address, ..self }
-    }
     fn registry(&self) -> ApiResult<JsonRpcOperationRegistry> {
         let effects = OperationEffects {
             filesystem_read: true,
@@ -317,40 +330,63 @@ impl Config {
                             let provider = provider.clone();
                             let queue = queue.clone();
                             async move {
-                                match serde_json::from_value::<FormSubmission>(params) {
+                                match serde_json::from_value::<Submission>(params) {
                                     | Ok(submission) => {
-                                        let latest = match Package::new(
-                                            options.clone(),
-                                            PackageOptions::new(&provider.config().package, &submission.project_id),
-                                        ) {
-                                            | Ok(package) => package.download().await,
+                                        let admitted = queue
+                                            .intake_admission(&format!("powerautomate:form:v1:{}", submission.submission_id.to_ascii_lowercase()))
+                                            .and_then(|admission| {
+                                                admission
+                                                    .map(|admission| {
+                                                        serde_json::from_str::<powerautomate::jsonl::AdmittedSubmission>(&admission.payload)
+                                                            .map_err(Into::into)
+                                                    })
+                                                    .transpose()
+                                            });
+                                        let prepared = match admitted {
                                             | Err(why) => Err(why),
-                                        };
-                                        let prepared = match latest {
-                                            | Ok(latest) => {
-                                                let cutoff = latest.as_ref().map(|manifest| manifest.through.as_str());
-                                                let folder = provider.routing().resolve_folder(&submission.project_id);
-                                                let path = folder
-                                                    .as_ref()
-                                                    .ok()
-                                                    .and_then(|folder| folder.destination.repository_path().map(str::to_owned))
-                                                    .ok_or_else(|| {
-                                                        eyre!(
-                                                            "Folder '{}' does not resolve into the configured GitLab project",
-                                                            submission.project_id
-                                                        )
-                                                    });
-                                                let entry = submission.entry_after(provider.routing(), cutoff);
-                                                let branch = submission.intake_branch();
-                                                match (path, entry, branch) {
-                                                    | (Ok(path), Ok(entry), Ok(branch)) => Ok((path, entry, branch)),
-                                                    | (Err(why), _, _) | (_, Err(why), _) | (_, _, Err(why)) => Err(why),
-                                                }
+                                            | Ok(Some(admitted)) => Ok((
+                                                options.clone().with_domain(admitted.domain).with_identifier(admitted.project.to_string()),
+                                                admitted.path,
+                                                admitted.entry,
+                                                admitted.branch,
+                                            )),
+                                            | Ok(None) => {
+                                                let package = Package::new(
+                                                    options.clone(),
+                                                    PackageOptions::new(&provider.config().package, &submission.project_id),
+                                                );
+                                                let latest = match package {
+                                                    | Ok(value) => value.download().await,
+                                                    | Err(why) => Err(why),
+                                                };
+                                                let prepared = match latest {
+                                                    | Ok(latest) => {
+                                                        let cutoff = latest.as_ref().map(|manifest| manifest.through.as_str());
+                                                        let folder = provider.routing().resolve_folder(&submission.project_id);
+                                                        let path = folder
+                                                            .as_ref()
+                                                            .ok()
+                                                            .and_then(|folder| folder.destination.repository_path().map(str::to_owned))
+                                                            .ok_or_else(|| {
+                                                                eyre!(
+                                                                    "Folder '{}' does not resolve into the configured GitLab project",
+                                                                    submission.project_id
+                                                                )
+                                                            });
+                                                        let entry = submission.entry_after(provider.routing(), cutoff);
+                                                        let branch = submission.intake_branch();
+                                                        match (path, entry, branch) {
+                                                            | (Ok(path), Ok(entry), Ok(branch)) => Ok((path, entry, branch)),
+                                                            | (Err(why), _, _) | (_, Err(why), _) | (_, _, Err(why)) => Err(why),
+                                                        }
+                                                    }
+                                                    | Err(why) => Err(why),
+                                                };
+                                                prepared.map(|(path, entry, branch)| (options.clone(), path, entry, branch))
                                             }
-                                            | Err(why) => Err(why),
                                         };
                                         match prepared {
-                                            | Ok((path, entry, branch)) => options
+                                            | Ok((options, path, entry, branch)) => options
                                                 .clone()
                                                 .with_branch(branch)
                                                 .with_workflow("logbook-intake")
@@ -396,6 +432,10 @@ impl Config {
             | (Err(why), _) => Err(why),
         }
     }
+    /// Return a copy of the configuration with a bind address.
+    pub fn with_address(self, address: SocketAddr) -> Self {
+        Self { address, ..self }
+    }
     /// Return a copy of the configuration with an initial `after` timestamp.
     ///
     /// GitLab accepts an ISO date such as `2026-07-06` or an RFC3339 timestamp
@@ -414,6 +454,52 @@ impl Config {
     pub fn with_after(self, after: impl Into<String>) -> Self {
         Self { after: after.into(), ..self }
     }
+    /// Return a copy with explicit merge request analysis options
+    #[cfg(feature = "analysis")]
+    pub fn with_analysis_options(self, analysis_options: AnalysisContext) -> Self {
+        Self { analysis_options, ..self }
+    }
+    /// Return a copy with validated deployment-owned repository workflow policy.
+    pub fn with_deployment(self, deployment: DeploymentConfig) -> ApiResult<Self> {
+        deployment.validate().map(|()| Self { deployment, ..self })
+    }
+    /// Return a copy of the configuration with a custom merge request note handler.
+    ///
+    /// The handler receives a normalized [`MergeRequestNoteEvent`] for each
+    /// GitLab event whose target is a note on a merge request.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// # use acorn::io::api::gitlab::{self, bot};
+    /// use alloc::{collections::BTreeSet, sync::Arc};
+    ///
+    /// # let options = gitlab::Options::default();
+    /// let handler: bot::MergeRequestNoteHandler = Arc::new(|event| {
+    ///     println!("MR !{} note: {}", event.merge_request_iid, event.body);
+    ///     Ok(())
+    /// });
+    /// let config = bot::Config::new(options, "127.0.0.1:3000".parse()?).with_handler(handler);
+    /// # Ok::<(), color_eyre::Report>(())
+    /// ```
+    pub fn with_handler(self, handler: MergeRequestNoteHandler) -> Self {
+        Self { handler, ..self }
+    }
+    /// Return a copy of the configuration with a webhook operation handler
+    pub fn with_operation_handler(self, operation_handler: WebhookOperationHandler) -> Self {
+        Self {
+            operation_handler: Some(operation_handler),
+            ..self
+        }
+    }
+    /// Return a copy of the configuration with an explicit durable operation queue
+    pub fn with_operation_queue(self, operation_queue: OperationQueue) -> Self {
+        Self { operation_queue, ..self }
+    }
+    /// Return a copy of the configuration with GitLab API options.
+    pub fn with_options(self, options: Options) -> Self {
+        Self { options, ..self }
+    }
     /// Return a copy of the configuration with a polling interval.
     ///
     /// # Example
@@ -429,45 +515,23 @@ impl Config {
     pub fn with_poll_interval(self, poll_interval: Duration) -> Self {
         Self { poll_interval, ..self }
     }
-    /// Return a copy of the configuration with a bounded webhook shutdown grace period.
-    pub fn with_shutdown_grace(self, shutdown_grace: Duration) -> Self {
-        Self { shutdown_grace, ..self }
-    }
-    /// Return a copy of the configuration with a custom merge request note handler.
-    ///
-    /// The handler receives a normalized [`MergeRequestNoteEvent`] for each
-    /// GitLab event whose target is a note on a merge request.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// # use acorn::io::api::gitlab::{self, bot};
-    /// use alloc::sync::Arc;
-    ///
-    /// # let options = gitlab::Options::default();
-    /// let handler: bot::MergeRequestNoteHandler = Arc::new(|event| {
-    ///     println!("MR !{} note: {}", event.merge_request_iid, event.body);
-    ///     Ok(())
-    /// });
-    /// let config = bot::Config::new(options, "127.0.0.1:3000".parse()?).with_handler(handler);
-    /// # Ok::<(), color_eyre::Report>(())
-    /// ```
-    pub fn with_handler(self, handler: MergeRequestNoteHandler) -> Self {
-        Self { handler, ..self }
-    }
-    /// Return a copy with validated deployment-owned repository workflow policy.
-    pub fn with_deployment(self, deployment: DeploymentConfig) -> ApiResult<Self> {
-        deployment.validate().map(|()| Self { deployment, ..self })
-    }
     /// Return a copy of the configuration with polling enabled or disabled
     pub fn with_polling_enabled(self, polling_enabled: bool) -> Self {
         Self { polling_enabled, ..self }
     }
-    /// Return a copy of the configuration with a legacy `X-Gitlab-Token` webhook credential.
+    /// Return a copy configured for signed PowerAutomate form intake and callbacks.
+    pub fn with_powerautomate(self, config: PowerAutomateConfig, routing: FolderRegistry) -> ApiResult<Self> {
+        let source = config.intake.as_ref().map(|_| config.gitlab_project_id()).transpose();
+        source
+            .and_then(|_| PowerAutomateProvider::from_config(config, routing))
+            .map(|powerautomate| Self {
+                powerautomate: Some(powerautomate),
+                ..self
+            })
+    }
+    /// Return a copy of the configuration restricted to deliveries from a single GitLab project.
     ///
-    /// When set, every inbound delivery that does not carry a `webhook-signature` header must
-    /// present this exact value in `X-Gitlab-Token`; deliveries without it are rejected with
-    /// `401 Unauthorized`.
+    /// Deliveries whose `project.id` does not match are rejected with `403 Forbidden`.
     ///
     /// # Example
     ///
@@ -475,12 +539,25 @@ impl Config {
     /// # use acorn::io::api::gitlab::{self, bot};
     /// # let options = gitlab::Options::default();
     /// let config = bot::Config::new(options, "127.0.0.1:3000".parse()?)
-    ///     .with_webhook_token("my-secret-token");
+    ///     .with_project_id(16689);
     /// # Ok::<(), color_eyre::Report>(())
     /// ```
-    pub fn with_webhook_token(self, token: impl Into<String>) -> Self {
+    pub fn with_project_id(self, id: u64) -> Self {
         Self {
-            webhook_token: Some(api::Secret::from(token.into())),
+            project_id: Some(id),
+            ..self
+        }
+    }
+    /// Return a copy of the configuration with a bounded webhook shutdown grace period.
+    pub fn with_shutdown_grace(self, shutdown_grace: Duration) -> Self {
+        Self { shutdown_grace, ..self }
+    }
+    /// Return a copy configured for authenticated webhook ingress
+    pub fn with_webhook_options(self, options: &WebhookOptions, project_id: Option<u64>) -> Self {
+        Self {
+            webhook_token: options.webhook_token.clone(),
+            webhook_signing_token: options.signing_token.clone(),
+            project_id,
             ..self
         }
     }
@@ -505,9 +582,11 @@ impl Config {
             ..self
         }
     }
-    /// Return a copy of the configuration restricted to deliveries from a single GitLab project.
+    /// Return a copy of the configuration with a legacy `X-Gitlab-Token` webhook credential.
     ///
-    /// Deliveries whose `project.id` does not match are rejected with `403 Forbidden`.
+    /// When set, every inbound delivery that does not carry a `webhook-signature` header must
+    /// present this exact value in `X-Gitlab-Token`; deliveries without it are rejected with
+    /// `401 Unauthorized`.
     ///
     /// # Example
     ///
@@ -515,48 +594,12 @@ impl Config {
     /// # use acorn::io::api::gitlab::{self, bot};
     /// # let options = gitlab::Options::default();
     /// let config = bot::Config::new(options, "127.0.0.1:3000".parse()?)
-    ///     .with_project_id(16689);
+    ///     .with_webhook_token("my-secret-token");
     /// # Ok::<(), color_eyre::Report>(())
     /// ```
-    pub fn with_project_id(self, id: u64) -> Self {
+    pub fn with_webhook_token(self, token: impl Into<String>) -> Self {
         Self {
-            project_id: Some(id),
-            ..self
-        }
-    }
-    /// Return a copy of the configuration with an explicit durable operation queue
-    pub fn with_operation_queue(self, operation_queue: OperationQueue) -> Self {
-        Self { operation_queue, ..self }
-    }
-    /// Return a copy of the configuration with a webhook operation handler
-    pub fn with_operation_handler(self, operation_handler: WebhookOperationHandler) -> Self {
-        Self {
-            operation_handler: Some(operation_handler),
-            ..self
-        }
-    }
-    /// Return a copy configured for signed PowerAutomate form intake and callbacks.
-    pub fn with_powerautomate(self, config: PowerAutomateConfig, routing: FolderRegistry) -> ApiResult<Self> {
-        PowerAutomateProvider::from_config(config, routing).map(|powerautomate| Self {
-            powerautomate: Some(powerautomate),
-            ..self
-        })
-    }
-    /// Return a copy with explicit merge request analysis options
-    #[cfg(feature = "analysis")]
-    pub fn with_analysis_options(self, analysis_options: AnalysisContext) -> Self {
-        Self { analysis_options, ..self }
-    }
-    /// Return a copy of the configuration with GitLab API options.
-    pub fn with_options(self, options: Options) -> Self {
-        Self { options, ..self }
-    }
-    /// Return a copy configured for authenticated webhook ingress
-    pub fn with_webhook_options(self, options: &WebhookOptions, project_id: Option<u64>) -> Self {
-        Self {
-            webhook_token: options.webhook_token.clone(),
-            webhook_signing_token: options.signing_token.clone(),
-            project_id,
+            webhook_token: Some(api::Secret::from(token.into())),
             ..self
         }
     }
@@ -590,7 +633,6 @@ impl From<DeploymentConfig> for Config {
 }
 impl<'a> TryFrom<&'a EventDetails> for MergeRequestNoteEvent {
     type Error = &'static str;
-
     fn try_from(event: &'a EventDetails) -> Result<Self, Self::Error> {
         match (
             event.note.as_ref(),
@@ -617,9 +659,48 @@ impl<'a> TryFrom<&'a EventDetails> for MergeRequestNoteEvent {
     }
 }
 impl Server {
+    async fn cleanup_jsonl(&self, initial: jsonl::Snapshot, intake: &PowerAutomateIntake, options: &Options) -> ApiResult<usize> {
+        let mut snapshot = initial;
+        let mut attempt = 0_u8;
+        loop {
+            let removed = snapshot.lines.iter().try_fold(BTreeSet::new(), |mut removed, line| {
+                powerautomate::jsonl::is_admitted(line, &self.config.operation_queue).map(|accepted| {
+                    if accepted {
+                        removed.insert(line.line);
+                    }
+                    removed
+                })
+            });
+            match removed {
+                | Ok(removed) if removed.is_empty() => break Ok(0),
+                | Ok(removed) => {
+                    let content = snapshot.without_lines(&removed);
+                    match snapshot.last_commit_id() {
+                        | None => break Err(eyre!("Inbox cleanup requires the observed last_commit_id")),
+                        | Some(last_commit_id) => match update_intake_file(&intake.branch, &intake.path, &content, last_commit_id, options).await {
+                            | Ok(()) => break Ok(removed.len()),
+                            | Err(why) if attempt == 2 => break Err(eyre!("Inbox cleanup could not be reconciled after three attempts — {why}")),
+                            | Err(_) => match jsonl::read_snapshot(intake, options).await {
+                                | Ok(current) => {
+                                    snapshot = current;
+                                    attempt = attempt.saturating_add(1);
+                                }
+                                | Err(why) => break Err(why),
+                            },
+                        },
+                    }
+                }
+                | Err(why) => break Err(why),
+            }
+        }
+    }
     /// Stop accepting webhook work and wait for active claims up to the configured grace period.
     pub async fn drain(&self) -> ApiResult<WebhookRuntimeState> {
         self.runtime.drain(self.config.shutdown_grace).await
+    }
+    /// Health check handler.
+    async fn health() -> &'static str {
+        "ok"
     }
     /// Create a GitLab bot from configuration.
     ///
@@ -644,6 +725,269 @@ impl Server {
             .runtime(WebhookRuntime::default())
             .state(Arc::new(Mutex::new(state)))
             .build()
+    }
+    /// Poll GitLab forever at the configured interval
+    async fn poll_forever(&self) {
+        let Server { config, .. } = &self;
+        let mut interval = tokio::time::interval(config.poll_interval);
+        while self.runtime.is_accepting() {
+            interval.tick().await;
+            match self.poll_once().await {
+                | Ok(summary) => {
+                    // TODO: Process events
+                    println!("=> [WIP] GitLab bot poll summary: {summary:?}")
+                }
+                | Err(why) => {
+                    error!("GitLab bot polling failed: {why}");
+                    if let Err(lock_error) = self.record_error(why.to_string()) {
+                        error!("=> {} Failed to record GitLab bot error — {lock_error}", Label::fail());
+                    }
+                }
+            }
+        }
+    }
+    async fn poll_jsonl_forever(&self) {
+        let seconds = self
+            .config
+            .powerautomate
+            .as_ref()
+            .and_then(|provider| provider.config().intake.as_ref())
+            .map(|intake| intake.poll_interval);
+        if let Some(seconds) = seconds {
+            let mut interval = tokio::time::interval(Duration::from(seconds));
+            while self.runtime.is_accepting() {
+                interval.tick().await;
+                let result = self.poll_jsonl_once().await.and_then(|summary| match summary.last_error.as_ref() {
+                    | Some(why) => Err(eyre!("JSONL intake has {} retryable failures — {why}", summary.failed_count)),
+                    | None => {
+                        info!("{} JSONL intake: {summary:?}", Label::pass());
+                        Ok(())
+                    }
+                });
+                if let Err(why) = result {
+                    error!("{} JSONL intake polling failed: {why}", Label::fail());
+                    let _ = self.record_error(why.to_string());
+                }
+            }
+        }
+    }
+    async fn poll_jsonl_intake(&self, provider: &PowerAutomateProvider, intake: &PowerAutomateIntake) -> ApiResult<JsonlPollSummary> {
+        let claimed_runtime = self
+            .runtime
+            .initialize(&self.config.operation_queue, WEBHOOK_STALE_CLAIM_AFTER)
+            .and_then(|()| self.runtime.claim(|| Ok(Some(()))));
+        match claimed_runtime {
+            | Ok(Some(((), _active))) => match provider.config().gitlab_project_id() {
+                | Ok(project) => {
+                    let options = self.config.options.clone().with_identifier(project.to_string());
+                    match jsonl::read_snapshot(intake, &options).await {
+                        | Ok(_) if !self.runtime.is_accepting() => Ok(JsonlPollSummary::default()),
+                        | Ok(snapshot) => {
+                            let admit_snapshot = powerautomate::jsonl::admit_snapshot(
+                                &snapshot,
+                                provider.config(),
+                                provider.routing(),
+                                &self.config.operation_queue,
+                                &options,
+                            );
+                            match admit_snapshot.await {
+                                | Ok(outcomes) => {
+                                    let summary = outcomes.into_iter().fold(
+                                        JsonlPollSummary {
+                                            record_count: snapshot.len(),
+                                            ..JsonlPollSummary::default()
+                                        },
+                                        |summary, outcome| match outcome {
+                                            | Ok(record) if record.admission.is_some() => JsonlPollSummary {
+                                                admitted_count: summary.admitted_count.saturating_add(1),
+                                                ..summary
+                                            },
+                                            | Ok(record) => {
+                                                error!(
+                                                    "{} JSONL intake line {} rejected: {}",
+                                                    Label::fail(),
+                                                    record.line,
+                                                    record.rejection.as_deref().unwrap_or("Rejected record")
+                                                );
+                                                JsonlPollSummary {
+                                                    rejected_count: summary.rejected_count.saturating_add(1),
+                                                    ..summary
+                                                }
+                                            }
+                                            | Err(why) => JsonlPollSummary {
+                                                failed_count: summary.failed_count.saturating_add(1),
+                                                last_error: summary.last_error.or_else(|| Some(why.to_string())),
+                                                ..summary
+                                            },
+                                        },
+                                    );
+                                    self.cleanup_jsonl(snapshot, intake, &options)
+                                        .await
+                                        .map(|removed_count| JsonlPollSummary { removed_count, ..summary })
+                                }
+                                | Err(why) => Err(why),
+                            }
+                        }
+                        | Err(why) => Err(why),
+                    }
+                }
+                | Err(why) => Err(why),
+            },
+            | Ok(None) => Ok(JsonlPollSummary::default()),
+            | Err(why) => Err(why),
+        }
+    }
+    /// Admit one immutable JSONL snapshot and safely remove durably accepted records.
+    ///
+    /// Note-event polling is independent.
+    /// With no configured intake this is a no-op.
+    /// Rejections remain in the inbox and in durable source observations.
+    pub async fn poll_jsonl_once(&self) -> ApiResult<JsonlPollSummary> {
+        let provider_and_intake = self
+            .config
+            .powerautomate
+            .as_ref()
+            .and_then(|provider| provider.config().intake.as_ref().map(|intake| (provider, intake)));
+        match provider_and_intake {
+            | Some((provider, intake)) => self.poll_jsonl_intake(provider, intake).await,
+            | None => Ok(JsonlPollSummary::default()),
+        }
+    }
+    /// Poll GitLab once and process every merge request note event in the response.
+    ///
+    /// The request is sent with `target_type=note`. If state contains a non-empty
+    /// `after` value, the request also includes that timestamp. After the
+    /// response is processed, state is advanced to the latest event timestamp in
+    /// the response.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use acorn::io::api::Configuration;
+    /// use acorn::io::api::gitlab::{self, bot};
+    ///
+    /// async fn poll_once() -> color_eyre::Result<()> {
+    ///     let options = gitlab::Options::from_env().with_identifier("16689");
+    ///     let bot = bot::GitLabBot::new(bot::Config::new(options, "127.0.0.1:0".parse()?));
+    ///     let summary = bot.poll_once().await?;
+    ///     println!("processed {} notes", summary.processed_count);
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn poll_once(&self) -> ApiResult<PollSummary> {
+        let Server { config, .. } = self;
+        match self.snapshot() {
+            | Ok(snapshot) => {
+                let params = if snapshot.after.trim().is_empty() {
+                    vec![param!(KeyValuePair, "target_type", "note")]
+                } else {
+                    vec![
+                        param!(KeyValuePair, "target_type", "note"),
+                        param!(KeyValuePair, "after", snapshot.after.as_str()),
+                    ]
+                };
+                let options = config.options.clone().with_params(params);
+                match events(&options).await {
+                    | Ok(response) => self.process_events(response),
+                    | Err(why) => Err(why),
+                }
+            }
+            | Err(why) => Err(why),
+        }
+    }
+    async fn process_callback_next(&self) -> ApiResult<bool> {
+        let Server { config, .. } = self;
+        match &config.powerautomate {
+            | Some(provider) => {
+                CallbackWorker::new(
+                    config.operation_queue.clone(),
+                    ReqwestHttpService::default(),
+                    PowerAutomateCallbackResolver::new(provider.config().callback_destination.clone(), provider.routing()),
+                    WEBHOOK_STALE_CLAIM_AFTER,
+                )
+                .with_runtime(self.runtime.clone())
+                .run_once()
+                .await
+            }
+            | None => Ok(false),
+        }
+    }
+    /// Process a GitLab events response and update bot state.
+    pub(crate) fn process_events(&self, response: EventsResponse) -> ApiResult<PollSummary> {
+        let Server { config, .. } = self;
+        let latest_after = response.iter().map(|event| event.created_at.as_str()).max().map(str::to_string);
+        let events: Vec<_> = response.iter().filter_map(|e| MergeRequestNoteEvent::try_from(e).ok()).collect();
+        let summary = PollSummary {
+            event_count: response.len(),
+            processed_count: events.len(),
+            latest_after,
+        };
+        match events.iter().cloned().try_for_each(|event| (config.handler)(event)) {
+            | Ok(()) => match self.record_success(&summary) {
+                | Ok(()) => Ok(summary),
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    /// Claim and process one durable webhook operation
+    pub async fn process_next(&self) -> ApiResult<bool> {
+        let Server { config, .. } = self;
+        let context = InvocationContext {
+            allow_mutation: true,
+            origin: InvocationOrigin::Webhook,
+            principal: crate::io::api::json_rpc::Principal {
+                identifier: "gitlab-webhook".to_string(),
+            },
+            ..InvocationContext::default()
+        };
+        match config.registry() {
+            | Ok(registry) => {
+                OperationWorker::new(config.operation_queue.clone(), registry, context, WEBHOOK_STALE_CLAIM_AFTER)
+                    .with_runtime(self.runtime.clone())
+                    .run_once()
+                    .await
+            }
+            | Err(why) => Err(why),
+        }
+    }
+    /// Readiness handler backed by the shared webhook runtime.
+    async fn ready(ServerState(state): ServerState<RouterState>) -> StatusCode {
+        match state.webhook.is_ready() {
+            | true => StatusCode::OK,
+            | false => StatusCode::SERVICE_UNAVAILABLE,
+        }
+    }
+    /// Record a polling or processing error in shared state
+    fn record_error(&self, error: String) -> ApiResult<()> {
+        let Server { state, .. } = self;
+        match state.lock() {
+            | Ok(mut guard) => {
+                *guard = State {
+                    last_error: Some(error),
+                    ..guard.clone()
+                };
+                Ok(())
+            }
+            | Err(why) => Err(eyre!("GitLab bot state lock is poisoned: {why}")),
+        }
+    }
+    /// Record a successful polling cycle in shared state
+    fn record_success(&self, summary: &PollSummary) -> ApiResult<()> {
+        let Server { state, .. } = self;
+        match state.lock() {
+            | Ok(mut guard) => {
+                let after = summary.latest_after.clone().unwrap_or_else(|| guard.after.clone());
+                *guard = State {
+                    after,
+                    poll_count: guard.poll_count.saturating_add(1),
+                    processed_count: guard.processed_count.saturating_add(summary.processed_count as u64),
+                    last_error: None,
+                };
+                Ok(())
+            }
+            | Err(why) => Err(eyre!("GitLab bot state lock is poisoned: {why}")),
+        }
     }
     /// Build the HTTP router for the bot server.
     ///
@@ -693,8 +1037,7 @@ impl Server {
     /// calls [`Server::poll_once`] every configured interval, and then serves
     /// the bot router until the server is shut down by the runtime.
     ///
-    /// # Example
-    ///
+    /// ### Example
     /// ```ignore
     /// use acorn::io::api::Configuration;
     /// use acorn::io::api::gitlab::{self, bot};
@@ -710,17 +1053,12 @@ impl Server {
     ///     Ok(())
     /// }
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an error when the configured address cannot be bound or when the
-    /// HTTP server exits with an error.
     pub async fn run(self) -> ApiResult<()> {
         let Server { config, runtime, state } = self;
-        match TcpListener::bind(config.address)
+        let listen = TcpListener::bind(config.address)
             .await
-            .wrap_err_with(|| format!("Failed to bind GitLab bot server to {config}"))
-        {
+            .wrap_err_with(|| format!("Failed to bind GitLab bot server to {config}"));
+        match listen {
             | Ok(listener) => {
                 let server = Arc::new(Self::init().config(config).runtime(runtime).state(state).build());
                 if let Err(why) = server.runtime.initialize(&server.config.operation_queue, WEBHOOK_STALE_CLAIM_AFTER) {
@@ -730,6 +1068,15 @@ impl Server {
                 if server.config.polling_enabled {
                     let poller = Arc::clone(&server);
                     tasks.push(tokio::spawn(async move { poller.poll_forever().await }));
+                }
+                let provider_has_intake = server
+                    .config
+                    .powerautomate
+                    .as_ref()
+                    .is_some_and(|provider| provider.config().intake.is_some());
+                if provider_has_intake {
+                    let poller = Arc::clone(&server);
+                    tasks.push(tokio::spawn(async move { poller.poll_jsonl_forever().await }));
                 }
                 let worker = Arc::clone(&server);
                 tasks.push(tokio::spawn(async move { worker.work_forever().await }));
@@ -744,48 +1091,6 @@ impl Server {
                     .wrap_err("GitLab bot server failed");
                 tasks.into_iter().for_each(|task| task.abort());
                 result
-            }
-            | Err(why) => Err(why),
-        }
-    }
-    /// Poll GitLab once and process every merge request note event in the response.
-    ///
-    /// The request is sent with `target_type=note`. If state contains a non-empty
-    /// `after` value, the request also includes that timestamp. After the
-    /// response is processed, state is advanced to the latest event timestamp in
-    /// the response.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// use acorn::io::api::Configuration;
-    /// use acorn::io::api::gitlab::{self, bot};
-    ///
-    /// async fn poll_once() -> color_eyre::Result<()> {
-    ///     let options = gitlab::Options::from_env().with_identifier("16689");
-    ///     let bot = bot::GitLabBot::new(bot::Config::new(options, "127.0.0.1:0".parse()?));
-    ///     let summary = bot.poll_once().await?;
-    ///     println!("processed {} notes", summary.processed_count);
-    ///     Ok(())
-    /// }
-    /// ```
-    pub async fn poll_once(&self) -> ApiResult<PollSummary> {
-        let Server { config, .. } = self;
-        match self.snapshot() {
-            | Ok(snapshot) => {
-                let params = if snapshot.after.trim().is_empty() {
-                    vec![param!(KeyValuePair, "target_type", "note")]
-                } else {
-                    vec![
-                        param!(KeyValuePair, "target_type", "note"),
-                        param!(KeyValuePair, "after", snapshot.after.as_str()),
-                    ]
-                };
-                let options = config.options.clone().with_params(params);
-                match events(&options).await {
-                    | Ok(response) => self.process_events(response),
-                    | Err(why) => Err(why),
-                }
             }
             | Err(why) => Err(why),
         }
@@ -809,25 +1114,19 @@ impl Server {
             .map_err(|why| eyre!("GitLab bot state lock is poisoned: {why}"))
             .and_then(|state| runtime.state().map(|webhook| state.snapshot(webhook)))
     }
-    /// Poll GitLab forever at the configured interval
-    async fn poll_forever(&self) {
-        let Server { config, .. } = &self;
-        let mut interval = tokio::time::interval(config.poll_interval);
-        while self.runtime.is_accepting() {
-            interval.tick().await;
-            match self.poll_once().await {
-                | Ok(summary) => {
-                    // TODO: Process events
-                    println!("=> [WIP] GitLab bot poll summary: {summary:?}")
-                }
-                | Err(why) => {
-                    error!("GitLab bot polling failed: {why}");
-                    if let Err(lock_error) = self.record_error(why.to_string()) {
-                        error!("=> {} Failed to record GitLab bot error — {lock_error}", Label::fail());
-                    }
-                }
-            }
-        }
+    /// State endpoint handler.
+    async fn state_handler(ServerState(state): ServerState<RouterState>) -> Result<Json<StateSnapshot>, (StatusCode, String)> {
+        state
+            .bot
+            .lock()
+            .map_err(|why| (StatusCode::INTERNAL_SERVER_ERROR, format!("GitLab bot state lock is poisoned — {why}")))
+            .and_then(|bot| {
+                state
+                    .webhook
+                    .state()
+                    .map(|webhook| Json(bot.snapshot(webhook)))
+                    .map_err(|why| (StatusCode::INTERNAL_SERVER_ERROR, why.to_string()))
+            })
     }
     async fn work_forever(&self) {
         let mut interval = tokio::time::interval(Duration::from_secs(1));
@@ -846,118 +1145,6 @@ impl Server {
                 }
             }
         }
-    }
-    async fn process_callback_next(&self) -> ApiResult<bool> {
-        let Server { config, .. } = self;
-        match &config.powerautomate {
-            | Some(provider) => {
-                CallbackWorker::new(
-                    config.operation_queue.clone(),
-                    ReqwestHttpService::default(),
-                    PowerAutomateCallbackResolver::new(provider.config().callback_destination.clone(), provider.routing()),
-                    WEBHOOK_STALE_CLAIM_AFTER,
-                )
-                .with_runtime(self.runtime.clone())
-                .run_once()
-                .await
-            }
-            | None => Ok(false),
-        }
-    }
-    /// Claim and process one durable webhook operation
-    pub async fn process_next(&self) -> ApiResult<bool> {
-        let Server { config, .. } = self;
-        let context = InvocationContext {
-            allow_mutation: true,
-            origin: InvocationOrigin::Webhook,
-            principal: crate::io::api::json_rpc::Principal {
-                identifier: "gitlab-webhook".to_string(),
-            },
-            ..InvocationContext::default()
-        };
-        match config.registry() {
-            | Ok(registry) => {
-                OperationWorker::new(config.operation_queue.clone(), registry, context, WEBHOOK_STALE_CLAIM_AFTER)
-                    .with_runtime(self.runtime.clone())
-                    .run_once()
-                    .await
-            }
-            | Err(why) => Err(why),
-        }
-    }
-    /// Process a GitLab events response and update bot state.
-    pub(crate) fn process_events(&self, response: EventsResponse) -> ApiResult<PollSummary> {
-        let Server { config, .. } = self;
-        let latest_after = response.iter().map(|event| event.created_at.as_str()).max().map(str::to_string);
-        let events: Vec<_> = response.iter().filter_map(|e| MergeRequestNoteEvent::try_from(e).ok()).collect();
-        let summary = PollSummary {
-            event_count: response.len(),
-            processed_count: events.len(),
-            latest_after,
-        };
-        match events.iter().cloned().try_for_each(|event| (config.handler)(event)) {
-            | Ok(()) => match self.record_success(&summary) {
-                | Ok(()) => Ok(summary),
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        }
-    }
-    /// Record a successful polling cycle in shared state
-    fn record_success(&self, summary: &PollSummary) -> ApiResult<()> {
-        let Server { state, .. } = self;
-        match state.lock() {
-            | Ok(mut guard) => {
-                let after = summary.latest_after.clone().unwrap_or_else(|| guard.after.clone());
-                *guard = State {
-                    after,
-                    poll_count: guard.poll_count.saturating_add(1),
-                    processed_count: guard.processed_count.saturating_add(summary.processed_count as u64),
-                    last_error: None,
-                };
-                Ok(())
-            }
-            | Err(why) => Err(eyre!("GitLab bot state lock is poisoned: {why}")),
-        }
-    }
-    /// Record a polling or processing error in shared state
-    fn record_error(&self, error: String) -> ApiResult<()> {
-        let Server { state, .. } = self;
-        match state.lock() {
-            | Ok(mut guard) => {
-                *guard = State {
-                    last_error: Some(error),
-                    ..guard.clone()
-                };
-                Ok(())
-            }
-            | Err(why) => Err(eyre!("GitLab bot state lock is poisoned: {why}")),
-        }
-    }
-    /// Health check handler.
-    async fn health() -> &'static str {
-        "ok"
-    }
-    /// Readiness handler backed by the shared webhook runtime.
-    async fn ready(ServerState(state): ServerState<RouterState>) -> StatusCode {
-        match state.webhook.is_ready() {
-            | true => StatusCode::OK,
-            | false => StatusCode::SERVICE_UNAVAILABLE,
-        }
-    }
-    /// State endpoint handler.
-    async fn state_handler(ServerState(state): ServerState<RouterState>) -> Result<Json<StateSnapshot>, (StatusCode, String)> {
-        state
-            .bot
-            .lock()
-            .map_err(|why| (StatusCode::INTERNAL_SERVER_ERROR, format!("GitLab bot state lock is poisoned — {why}")))
-            .and_then(|bot| {
-                state
-                    .webhook
-                    .state()
-                    .map(|webhook| Json(bot.snapshot(webhook)))
-                    .map_err(|why| (StatusCode::INTERNAL_SERVER_ERROR, why.to_string()))
-            })
     }
 }
 impl State {
