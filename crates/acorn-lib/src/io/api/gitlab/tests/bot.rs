@@ -3,7 +3,7 @@ use crate::io::api::gitlab::jsonl::{split_snapshot, Snapshot};
 use crate::io::api::gitlab::{bot::*, NoteMetadata, UserMetadata};
 use crate::io::api::powerautomate::{jsonl::admit_snapshot, PowerAutomateProvider};
 use crate::io::api::webhooks::store::{OperationQueue, OperationState};
-use crate::test::server::TestServer;
+use crate::test::server::{gitlab_event_server, GitLabEventRepository, TestServer};
 use crate::test::utils;
 use acorn_schema::hardware::memory::Memory;
 use axum::{extract, http::StatusCode};
@@ -45,6 +45,13 @@ fn event(created_at: &str, noteable_type: &str) -> EventDetails {
         author_username: "tester".to_string(),
         note: Some(note(noteable_type, 42)),
     }
+}
+fn graduation_event(id: u64, created_at: &str) -> EventDetails {
+    let mut source = event(created_at, "MergeRequest");
+    source.identifier = id;
+    source.note.as_mut().unwrap().identifier = id;
+    source.note.as_mut().unwrap().body = "/acorn graduate".to_string();
+    source
 }
 async fn jsonl_bot(content: Option<String>, race: JsonlRace) -> (TestServer, Server, Arc<Mutex<JsonlRepository>>, Config) {
     let repository = Arc::new(Mutex::new(JsonlRepository {
@@ -765,6 +772,57 @@ fn test_note_poll_queues_authorized_graduation_shape_once() {
     source.note.as_mut().unwrap().author.is_bot = true;
     bot.process_events(vec![source]).unwrap();
     assert_eq!(queue.counts().unwrap().queued, 1);
+}
+#[tokio::test]
+async fn test_note_poll_page_failure_preserves_cursor_and_queue() {
+    let repository = Arc::new(Mutex::new(GitLabEventRepository {
+        events: (10..=110).map(|id| graduation_event(id, "2026-07-06T00:00:01Z")).collect(),
+        fail_page_two: true,
+        ..GitLabEventRepository::default()
+    }));
+    let server = gitlab_event_server(Arc::clone(&repository)).await;
+    let queue = operation_queue();
+    let options = Options::with_token("test").domain(&server.base_url).identifier("30").build();
+    let source = format!("{}:30", crate::io::api::gitlab::service_url(&options).unwrap());
+    let bot = Server::new(Config::new(options, "127.0.0.1:0".parse().unwrap()).with_operation_queue(queue.clone()));
+    assert!(bot.poll_once().await.is_err());
+    assert_eq!(queue.counts().unwrap().queued, 0);
+    assert!(queue.gitlab_event_cursor(&source).unwrap().is_none());
+    repository.lock().unwrap().fail_page_two = false;
+    assert_eq!(bot.poll_once().await.unwrap().processed_count, 101);
+    assert_eq!(queue.counts().unwrap().queued, 101);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_note_poll_paginates_and_resumes_from_durable_cursor() {
+    let repository = Arc::new(Mutex::new(GitLabEventRepository {
+        events: (10..=110).map(|id| graduation_event(id, "2026-07-06T00:00:01Z")).collect(),
+        ..GitLabEventRepository::default()
+    }));
+    let server = gitlab_event_server(Arc::clone(&repository)).await;
+    let queue = operation_queue();
+    let options = Options::with_token("test").domain(&server.base_url).identifier("30").build();
+    let bot = Server::new(Config::new(options.clone(), "127.0.0.1:0".parse().unwrap()).with_operation_queue(queue.clone()));
+    assert_eq!(bot.poll_once().await.unwrap().processed_count, 101);
+    assert_eq!(queue.counts().unwrap().queued, 101);
+    let restarted = Server::new(Config::new(options, "127.0.0.1:0".parse().unwrap()).with_operation_queue(queue.clone()));
+    assert_eq!(restarted.poll_once().await.unwrap().processed_count, 101);
+    assert_eq!(queue.counts().unwrap().queued, 101);
+    repository.lock().unwrap().events.push(graduation_event(9, "2026-07-06T00:00:01Z"));
+    assert_eq!(restarted.poll_once().await.unwrap().processed_count, 102);
+    assert_eq!(queue.counts().unwrap().queued, 102);
+    repository.lock().unwrap().events.push(graduation_event(111, "2026-07-06T00:00:02Z"));
+    assert_eq!(restarted.poll_once().await.unwrap().processed_count, 103);
+    assert_eq!(queue.counts().unwrap().queued, 103);
+    let repository = repository.lock().unwrap();
+    assert!(repository.queries.first().is_some_and(|query| !query.contains_key("after")));
+    assert!(repository
+        .queries
+        .iter()
+        .skip(2)
+        .all(|query| query.get("after").map(String::as_str) == Some("2026-07-05")));
+    drop(repository);
+    server.stop().await.unwrap();
 }
 #[tokio::test]
 async fn test_note_poll_worker_rejects_graduation_without_developer_access() {

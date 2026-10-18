@@ -20,6 +20,7 @@ use std::sync::{Mutex, OnceLock};
 
 static CONNECTION_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 const INTAKE_MIGRATION: &str = include_str!("../../../../assets/migrations/0014_create_powerautomate_jsonl.sql");
+const GITLAB_EVENT_CURSOR_MIGRATION: &str = include_str!("../../../../assets/migrations/0015_create_gitlab_event_cursors.sql");
 const WEBHOOK_EFFECT_MIGRATION: &str = include_str!("../../../../assets/migrations/0013_create_webhook_effects.sql");
 const WEBHOOK_MIGRATION: &str = include_str!("../../../../assets/migrations/0012_create_webhook_runtime.sql");
 /// Provider-neutral name for the durable webhook operation queue.
@@ -162,6 +163,12 @@ pub struct IntakeRecord {
     pub admission: Option<String>,
     /// Inspectable rejection reason.
     pub rejection: Option<String>,
+}
+/// Last fully queued GitLab project event for one source.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct GitLabEventCursor {
+    pub(crate) created_at: String,
+    pub(crate) event_id: u64,
 }
 /// Database-backed queue for authenticated, normalized webhook events.
 #[derive(Clone, Debug)]
@@ -583,6 +590,44 @@ impl From<PathBuf> for OperationQueue {
     }
 }
 impl OperationQueue {
+    /// Read the last fully queued event for one GitLab project.
+    pub(crate) fn gitlab_event_cursor(&self, source: &str) -> ApiResult<Option<GitLabEventCursor>> {
+        self.migrate().and_then(|_| {
+            self.with_connection(|connection| {
+                let result = connection.query_row(
+                    "SELECT created_at, event_id FROM gitlab_event_cursors WHERE source = ?",
+                    params![source],
+                    |row| {
+                        row.get::<_, String>(0)
+                            .and_then(|created_at| row.get::<_, String>(1).map(|event_id| (created_at, event_id)))
+                    },
+                );
+                match result {
+                    | Ok((created_at, event_id)) => event_id
+                        .parse::<u64>()
+                        .map(|event_id| Some(GitLabEventCursor { created_at, event_id }))
+                        .map_err(|why| eyre!("Invalid GitLab event cursor ID — {why}")),
+                    | Err(why) if is_no_rows(&why) => Ok(None),
+                    | Err(why) => Err(eyre!("Failed to read GitLab event cursor — {why}")),
+                }
+            })
+        })
+    }
+    /// Persist the last event only after the complete project event scan was queued.
+    pub(crate) fn set_gitlab_event_cursor(&self, source: &str, cursor: &GitLabEventCursor) -> ApiResult<()> {
+        self.migrate().and_then(|_| {
+            self.with_connection(|connection| {
+                connection
+                    .execute(
+                        "INSERT INTO gitlab_event_cursors (source, created_at, event_id) VALUES (?, ?, ?)
+                         ON CONFLICT(source) DO UPDATE SET created_at = excluded.created_at, event_id = excluded.event_id",
+                        params![source, cursor.created_at, cursor.event_id.to_string()],
+                    )
+                    .map(|_| ())
+                    .map_err(|why| eyre!("Failed to persist GitLab event cursor — {why}"))
+            })
+        })
+    }
     /// Count callback intents by durable delivery state.
     pub fn callback_counts(&self) -> ApiResult<CallbackCounts> {
         self.migrate().and_then(|_| {
@@ -985,7 +1030,9 @@ impl OperationQueue {
     pub fn migrate(&self) -> ApiResult<()> {
         self.with_connection(|connection| {
             connection
-                .execute_batch(&format!("{WEBHOOK_MIGRATION}\n{WEBHOOK_EFFECT_MIGRATION}\n{INTAKE_MIGRATION}"))
+                .execute_batch(&format!(
+                    "{WEBHOOK_MIGRATION}\n{WEBHOOK_EFFECT_MIGRATION}\n{INTAKE_MIGRATION}\n{GITLAB_EVENT_CURSOR_MIGRATION}"
+                ))
                 .map_err(|why| eyre!("Failed to migrate webhook operation queue — {why}"))
         })
     }

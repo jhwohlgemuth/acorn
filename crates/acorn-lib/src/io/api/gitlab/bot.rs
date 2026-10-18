@@ -47,7 +47,7 @@
 pub use super::webhook::{HookActor, HookPayload, MergeRequestAction, WebhookDelivery, WebhookOperation, WebhookOperationHandler};
 use super::{
     events, jsonl,
-    service::update_intake_file,
+    service::{service_url, update_intake_file},
     webhook::{self, WebhookConfig},
     DeploymentConfig, EventDetails, EventsResponse, Options, Package, PackageLifecycle, PackageOptions, WebhookOptions,
 };
@@ -60,7 +60,7 @@ use crate::{
             json_rpc::{InvocationContext, InvocationOrigin, JsonRpcOperationRegistry, MethodName, OperationDefinition, OperationEffects},
             powerautomate::{self, PowerAutomateCallbackResolver, PowerAutomateConfig, PowerAutomateProvider, Submission},
             webhooks::{
-                store::{CallbackWorker, OperationQueue, OperationWorker},
+                store::{CallbackWorker, GitLabEventCursor, OperationQueue, OperationWorker},
                 ArtifactEvent, WebhookRuntime, WebhookRuntimeState,
             },
             Configuration,
@@ -83,6 +83,7 @@ use axum::{
 use bon::Builder;
 use color_eyre::eyre::{eyre, WrapErr};
 use core::{fmt, net::SocketAddr, time::Duration};
+use jiff::{SignedDuration, Timestamp};
 use serde::Serialize;
 use serde_json::Value;
 #[cfg(test)]
@@ -134,7 +135,7 @@ type SharedState = Arc<Mutex<State>>;
 pub struct Config {
     /// Address where the HTTP server listens.
     address: SocketAddr,
-    /// Current `after` timestamp for the next GitLab events request.
+    /// Initial event cursor used when no durable cursor exists.
     after: String,
     /// GitLab API options used for each polling request.
     pub(super) options: Options,
@@ -436,16 +437,12 @@ impl Config {
     pub fn with_address(self, address: SocketAddr) -> Self {
         Self { address, ..self }
     }
-    /// Return a copy of the configuration with an initial `after` timestamp.
-    ///
-    /// GitLab accepts an ISO date such as `2026-07-06` or an RFC3339 timestamp
-    /// such as `2026-07-06T00:00:00Z`. After each successful poll, the bot
-    /// replaces this value with the latest event timestamp returned by GitLab.
-    ///
-    /// # Example
-    ///
+    /// Return a copy with an initial date or timestamp for local event filtering.
+    /// GitLab receives a date-only query; subsequent scans use the durable cursor.
+    /// ### Example
     /// ```ignore
     /// # use acorn::io::api::gitlab::{self, bot};
+    ///
     /// # let options = gitlab::Options::default();
     /// let config = bot::Config::new(options, "127.0.0.1:3000".parse()?)
     ///     .with_after("2026-07-06T00:00:00Z");
@@ -876,23 +873,44 @@ impl Server {
     /// ```
     pub async fn poll_once(&self) -> ApiResult<PollSummary> {
         let Server { config, .. } = self;
-        match self.snapshot() {
-            | Ok(snapshot) => {
-                let params = if snapshot.after.trim().is_empty() {
-                    vec![param!(KeyValuePair, "target_type", "note")]
-                } else {
-                    vec![
-                        param!(KeyValuePair, "target_type", "note"),
-                        param!(KeyValuePair, "after", snapshot.after.as_str()),
-                    ]
-                };
-                let options = config.options.clone().with_params(params);
-                match events(&options).await {
-                    | Ok(response) => self.process_events(response),
-                    | Err(why) => Err(why),
+        let source = service_url(&config.options).and_then(|service| {
+            config
+                .options
+                .identifier()
+                .map(|project| format!("{service}:{project}"))
+                .ok_or_else(|| eyre!("GitLab project identifier is required for event polling"))
+        });
+        let cursor = source
+            .as_ref()
+            .map_err(|why| eyre!("{why}"))
+            .and_then(|source| config.operation_queue.gitlab_event_cursor(source))
+            .and_then(|stored| match stored {
+                | Some(cursor) => Ok(Some(cursor)),
+                | None => GitLabEventCursor::initial(&config.after),
+            });
+        match (source, cursor) {
+            | (Ok(source), Ok(cursor)) => match cursor.as_ref().map(GitLabEventCursor::query_date).transpose() {
+                | Ok(after) => {
+                    let params = [param!(KeyValuePair, "target_type", "note"), param!(KeyValuePair, "sort", "asc")]
+                        .into_iter()
+                        .chain(after.as_deref().map(|value| param!(KeyValuePair, "after", value)))
+                        .collect();
+                    let options = config.options.clone().with_params(params);
+                    match events(&options).await {
+                        | Ok(response) => select_new_events(response, cursor.as_ref()).and_then(|(selected, newest)| {
+                            self.enqueue_events(selected).and_then(|summary| {
+                                newest
+                                    .as_ref()
+                                    .map_or(Ok(()), |next| config.operation_queue.set_gitlab_event_cursor(&source, next))
+                                    .and_then(|()| self.record_success(&summary).map(|()| summary))
+                            })
+                        }),
+                        | Err(why) => Err(why),
+                    }
                 }
-            }
-            | Err(why) => Err(why),
+                | Err(why) => Err(why),
+            },
+            | (Err(why), _) | (_, Err(why)) => Err(why),
         }
     }
     /// Claim and deliver one durable callback intent, if one is ready.
@@ -913,8 +931,13 @@ impl Server {
             | None => Ok(false),
         }
     }
-    /// Process a GitLab events response and update bot state.
+    /// Process a GitLab events response and update bot state in unit tests.
+    #[cfg(test)]
     pub(crate) fn process_events(&self, response: EventsResponse) -> ApiResult<PollSummary> {
+        self.enqueue_events(response)
+            .and_then(|summary| self.record_success(&summary).map(|()| summary))
+    }
+    fn enqueue_events(&self, response: EventsResponse) -> ApiResult<PollSummary> {
         let Server { config, .. } = self;
         let latest_after = response.iter().map(|event| event.created_at.as_str()).max().map(str::to_string);
         let events: Vec<_> = response.iter().filter_map(|e| MergeRequestNoteEvent::try_from(e).ok()).collect();
@@ -955,13 +978,7 @@ impl Server {
             }),
             | Err(_) => Ok(()),
         });
-        match enqueue_result {
-            | Ok(()) => match self.record_success(&summary) {
-                | Ok(()) => Ok(summary),
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        }
+        enqueue_result.map(|()| summary)
     }
     /// Claim and process one durable webhook operation
     pub async fn process_next(&self) -> ApiResult<bool> {
@@ -1180,6 +1197,46 @@ impl Server {
         }
     }
 }
+impl GitLabEventCursor {
+    fn initial(after: &str) -> ApiResult<Option<Self>> {
+        let after = after.trim();
+        match after.is_empty() {
+            | true => Ok(None),
+            | false => {
+                let timestamp = match after.len() == 10 {
+                    | true => format!("{after}T00:00:00Z"),
+                    | false => after.to_string(),
+                };
+                timestamp
+                    .parse::<Timestamp>()
+                    .map(|timestamp| {
+                        Some(Self {
+                            created_at: timestamp.to_string(),
+                            event_id: 0,
+                        })
+                    })
+                    .map_err(|why| eyre!("Invalid initial GitLab event cursor — {why}"))
+            }
+        }
+    }
+    fn query_date(&self) -> ApiResult<String> {
+        self.created_at
+            .parse::<Timestamp>()
+            .map_err(|why| eyre!("Invalid GitLab event cursor timestamp — {why}"))
+            .and_then(|timestamp| {
+                timestamp
+                    .checked_sub(SignedDuration::from_hours(24))
+                    .map_err(|why| eyre!("Failed to overlap GitLab event query date — {why}"))
+            })
+            .and_then(|overlap| {
+                let value = overlap.to_string();
+                value
+                    .get(..10)
+                    .map(str::to_string)
+                    .ok_or_else(|| eyre!("Failed to format GitLab event query date"))
+            })
+    }
+}
 impl State {
     /// Convert internal bot state into a serializable public snapshot
     fn snapshot(&self, webhook: WebhookRuntimeState) -> StateSnapshot {
@@ -1197,6 +1254,49 @@ impl State {
             webhook,
         }
     }
+}
+fn select_new_events(response: EventsResponse, cursor: Option<&GitLabEventCursor>) -> ApiResult<(EventsResponse, Option<GitLabEventCursor>)> {
+    let threshold = cursor
+        .map(|cursor| {
+            cursor
+                .created_at
+                .parse::<Timestamp>()
+                .map(|timestamp| (timestamp, cursor.event_id))
+                .map_err(|why| eyre!("Invalid GitLab event cursor timestamp — {why}"))
+        })
+        .transpose();
+    threshold.and_then(|threshold| {
+        response
+            .into_iter()
+            .try_fold(
+                (EventsResponse::new(), cursor.cloned(), threshold),
+                |(mut selected, newest, latest), event| {
+                    event
+                        .created_at
+                        .parse::<Timestamp>()
+                        .map_err(|why| eyre!("Invalid GitLab event timestamp — {why}"))
+                        .map(|timestamp| ((timestamp, event.identifier), event))
+                        .map(|(position, event)| match threshold.is_none_or(|threshold| position.0 >= threshold.0) {
+                            | false => (selected, newest, latest),
+                            | true => {
+                                let next = match latest.is_none_or(|latest| position > latest) {
+                                    | true => (
+                                        Some(GitLabEventCursor {
+                                            created_at: position.0.to_string(),
+                                            event_id: position.1,
+                                        }),
+                                        Some(position),
+                                    ),
+                                    | false => (newest, latest),
+                                };
+                                selected.push(event);
+                                (selected, next.0, next.1)
+                            }
+                        })
+                },
+            )
+            .map(|(selected, newest, _)| (selected, newest))
+    })
 }
 /// Default merge request note handler used when no custom handler is provided.
 fn default_merge_request_note_handler(event: MergeRequestNoteEvent) -> ApiResult<()> {

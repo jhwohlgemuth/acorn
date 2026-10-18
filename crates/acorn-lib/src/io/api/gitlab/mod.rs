@@ -206,6 +206,10 @@ pub enum EventFilterKey {
     After,
     /// If defined, returns events created before the specified date.
     Before,
+    /// One-based result page.
+    Page,
+    /// Number of events per page.
+    PerPage,
     /// Sort order
     Sort,
 }
@@ -1268,6 +1272,8 @@ impl fmt::Display for EventFilterKey {
             | EventFilterKey::TargetType => "target_type",
             | EventFilterKey::After => "after",
             | EventFilterKey::Before => "before",
+            | EventFilterKey::Page => "page",
+            | EventFilterKey::PerPage => "per_page",
             | EventFilterKey::Sort => "sort",
         };
         write!(f, "{}", s)
@@ -1281,6 +1287,8 @@ impl TryFrom<&str> for EventFilterKey {
             | "target_type" => Ok(EventFilterKey::TargetType),
             | "after" => Ok(EventFilterKey::After),
             | "before" => Ok(EventFilterKey::Before),
+            | "page" => Ok(EventFilterKey::Page),
+            | "per_page" => Ok(EventFilterKey::PerPage),
             | "sort" => Ok(EventFilterKey::Sort),
             | _ => Err(format!("Invalid EventFilterKey: {}", value)),
         }
@@ -1293,6 +1301,8 @@ impl ValueValidator for EventFilterKey {
             | EventFilterKey::Action => EventAction::try_from(value).is_ok(),
             | EventFilterKey::TargetType => TargetType::try_from(value).is_ok(),
             | EventFilterKey::After | EventFilterKey::Before => is_iso_date_or_rfc3339_timestamp(value),
+            | EventFilterKey::Page => value.parse::<u32>().is_ok_and(|page| page > 0),
+            | EventFilterKey::PerPage => value.parse::<u32>().is_ok_and(|size| (1..=100).contains(&size)),
             | EventFilterKey::Sort => SortValue::try_from(value).is_ok(),
         }
     }

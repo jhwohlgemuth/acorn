@@ -22,7 +22,7 @@ Implement the selected sequence: Power Apps form → Power Automate flow → app
 
 The intended end state permits each authorized member to submit one or more forms for an allowed project folder in the designated multi-folder GitLab project. Power Apps sharing and ACRE `members` authorization are separate gates; both must allow the contributor. Power Automate appends one JSONL line per submission. ACORN then supports either a bot-driven or an operator-driven path from that same inbox through routing, project-file updates, a reviewable exported diff artifact, merge requests, and artifact generation. GitLab merge requests carry human review; Teams and email deliveries are sent through the callback flow. The operator-driven path must use ACORN's public API/CLI operations for the processing steps and preserve the same validation, authorization, idempotency, and review rules as the bot path.
 
-**Manual path (implemented 2026-10-17):** `acorn intake stage/apply` handles standalone local indexes. `acorn intake run` polls one configured GitLab inbox snapshot and note page, then executes bounded durable review work. `acorn intake export` writes a UTF-8 unified diff of the selected project file at the open MR's computed base/head revisions, plus a JSON receipt with source digest, route, MR identity, revisions, and SHA-256 checksum. `acorn intake deliver` explicitly drains ready durable callback intents. `acorn report --dry-run` remains the separate PDF/manifest path. The full live sequence still needs PA-05 through PA-09 evidence.
+**Manual path (implemented 2026-10-17):** `acorn intake stage/apply` handles standalone local indexes. `acorn intake run` polls one configured GitLab inbox snapshot and every available review-note event page, then executes bounded durable review work. `acorn intake export` writes a UTF-8 unified diff of the selected project file at the open MR's computed base/head revisions, plus a JSON receipt with source digest, route, MR identity, revisions, and SHA-256 checksum. `acorn intake deliver` explicitly drains ready durable callback intents. `acorn report --dry-run` remains the separate PDF/manifest path. The full live sequence still needs PA-05 through PA-09 evidence.
 
 The native MVP executable is `target/debug/acorn`, built with `cargo build --package acorn-cli --bin acorn`. [ACRE operator documentation](../../docs/src/concepts/acre.md#run-one-intake-cycle-from-the-native-executable) gives the exact commands and protected environment. The local stage/apply fixture, mocked GitLab diff export/replay, JSONL cleanup/restart, note authorization, durable callbacks, and headless PDF rendering have focused test evidence. The local operator and Vergil bot must not independently consume the same inbox/branch with separate databases at the same time. The isolated live pilot still needs its GitLab credential, flow, and Vergil service before these commands can be exercised against real submissions.
 
@@ -30,6 +30,7 @@ This plan is the sole setup reference while work remains active. It records the 
 
 # Current evidence
 
+- **GitLab note polling repaired locally (2026-10-17):** project events are fetched across all pages before any enqueue, and a failed page leaves the queue and cursor unchanged. The bot persists its cursor in the operation database after successful enqueue; date-only GitLab queries overlap the cursor and local timestamp filtering rechecks equal-timestamp events so late notes remain eligible. The 133-test GitLab suite passes, including restart, pagination, late-note, and page-failure cases; scoped clippy and the CLI check pass. Live PA-07 graduation still needs an authorized comment and merge review.
 - **PA-01 verified (2026-10-17):** the published canvas in environment `221f44a6-1468-ea4e-b93d-cd52f1723079` has `SubmitEntryScreen` and the attached **ACORN Logbook Canvas Notifications** flow. Tester submission run `08584102031146888583116268486CU06` on 2026-10-07 at 16:09 followed the enriched template save at 15:39; its Power Apps trigger, Teams action, and Office 365 Outlook action succeeded. The run's requester was the approved tester `c5c@ornl.gov`. In the private Teams conversation, the tester shared a screenshot of the received message at 16:10 and confirmed at 16:11 that the Teams message matched the email. The screenshot shows the pilot project, requester, date, category, state, summary, and notification-only notice; it is retained in Teams, not copied into this repository. The tester reported that the in-app completion feedback was easy to miss and that optional items were absent from the notification-only message. Carry that feedback into the later queued-receipt and intake-flow review.
 - **PA-24 and PA-25 implemented locally (2026-10-17):** a two-folder JSONL fixture and mocked GitLab integration exercise one- and three-record streams, canonical IDs and aliases, immutable admitted routes, selected review index writes, rejection isolation, and replay. Standalone local intake is available through `acorn intake stage/apply`: exact-line proposals are stored under `.acorn/intake/proposals/`, canonical indexes stay unchanged until explicit apply, changed bases require restaging, and double apply and crash recovery are idempotent. Focused tests, scoped clippy, the 2,493-test workspace suite, and `acorn-lib` WASM feature check pass. The broader `make check-wasm` stops at an unchanged `acorn-schema` core-only `OneOrMany`/`alloc` feature error; it does not reach the local intake adapter, which is agentic/host-only. No external deployment was changed.
 - **PA-22 and PA-23 landed locally (2026-10-16):** exact-byte admission, source observations, atomic queue persistence, canonical alias routing, verified bucket association, and immutable worker routes are implemented. `Server::poll_jsonl_once` and the independent configured poll loop admit before cleanup; snapshots preserve original content and the file `last_commit_id`; cleanup rereads/recomputes after conflicts or uncertain responses, keeps the drained file, and preserves unadmitted bytes. Focused GitLab, Power Automate, webhook, and configuration suites pass 238/238, including restart, conflict, rollback, missing metadata, concurrent append/cleanup, and stored-route regressions. Formatting, scoped clippy with no new warnings, the `analysis` feature mirror, and the no-default-features check pass. The pre-existing analyzer test `ValeOutput` unused-import warning remains. Intake uses `poll_interval: Seconds` with a numeric wire value; file and record limits use `Memory`. Added code has no propagation operators or function early returns, and provider dependencies use module namespaces.
@@ -45,7 +46,7 @@ This plan is the sole setup reference while work remains active. It records the 
 - `crates/acorn-lib/src/io/api/powerautomate/` implements strict form decoding, project and submitter authorization, shared-header authentication, durable intake, and direct callback resolution.
 - `crates/acorn-lib/src/io/api/webhooks/` provides constant-time secret verification, durable idempotent operations, retryable callbacks, readiness, and graceful drain state.
 - `crates/acorn-lib/src/io/api/gitlab/` implements rolling merge-request automation, authorized graduation commands, and immutable report-package publication.
-- `crates/acorn-cli/src/commands/report/` composes bounded artifact creation and package publication; `templates/gitlab/reporting.gitlab-ci.yml` supplies the scheduled reporting job.
+- `crates/acorn-cli/src/commands/report/` composes bounded artifact creation and package publication. The scheduled job is supplied by `research-enablement/templates` at `/gitlab/powerautomate-report.gitlab-ci.yml`; the local ACORN template was removed.
 - `acorn create secret` supports explicit `--paste` clipboard delivery and newline-terminated output only when standard output is redirected or piped.
 - Fixture-backed tests validate the 22-entry Power Automate sample, project routing, proposal persistence, graduation, and duplicate-safe operation handling.
 - Generated help, focused tests, `make lint`, all 1,914 workspace tests, and `make book` passed on 2026-09-24 for the existing HTTP intake path. Those results do not validate the newly planned JSONL path.
@@ -83,7 +84,7 @@ This plan is the sole setup reference while work remains active. It records the 
 - Use an organization-only Power Apps canvas app as the primary intake interface and an instant flow with the Power Apps (V2) trigger as its adapter to ACORN. Microsoft Forms is not required by the ACORN interface.
 - Treat the current developer environment as a build-and-test workspace only. The obsolete generated `Logbooks screen` and unused `cr1d0_logbooks` dependency are removed for the notification-only pilot, but confirm the cleaned app's effective license designation with the shared tester. Before broader or production use, move or recreate the app and its environment-local flow in an ORNL-approved shared or production GCC environment with sufficient sharing capacity, then share the app and each dependent resource with the approved users or security group.
 - Run ACORN on Vergil as a persistent service with protected credentials and durable state. Keep health/readiness access local for the pilot. Self-signed server TLS on Vergil does not affect outbound requests; remote GitLab and callback certificates must still validate.
-- Retain `--event-source poll` for GitLab review events and use the explicitly configured repository-file intake poller. The existing flag alone does not enable JSONL intake. No GitLab webhook registration, public Vergil endpoint, gateway, or relay is required for this design.
+- Retain `--event-source poll` for GitLab review events and use the explicitly configured repository-file intake poller. Review-event polling must traverse every project-events page, use GitLab's date-only `after` filter with a timestamp overlap for late events, and resume from the durable operation database. The existing flag alone does not enable JSONL intake. No GitLab webhook registration, public Vergil endpoint, gateway, or relay is required for this design.
 - The intake flow uses authenticated GitLab repository-file API calls. Confirm cloud reachability to the actual GitLab instance; a successful browser or local CLI request does not establish Power Automate reachability.
 - Direct callbacks use the SAS credential embedded in a Power Automate HTTP trigger URL and require the trigger's legacy `Anyone` mode documented in [OAuth authentication for HTTP request triggers](https://learn.microsoft.com/en-us/power-automate/oauth-authentication). If tenant policy prohibits that mode, use an approved intermediary or open a separate implementation plan for Microsoft Entra service-principal support; do not weaken tenant policy.
 - Protect the flow's GitLab write credential and Vergil's GitLab credentials separately. The flow does not need ACORN's HTTP intake secret. Current runtime startup may still require `POWER_AUTOMATE_INBOUND_SECRET`; retain it locally until implementation makes transport-specific requirements explicit.
@@ -483,13 +484,13 @@ Submit one response from an allowlisted tester. Confirm the JSONL append, durabl
 
 ## 8. Enable scheduled artifact publication
 
-Because the data project is separate from ACORN, use GitLab's [cross-project include](https://docs.gitlab.com/ci/yaml/includes/#includeproject) and pin it to the reviewed ACORN tag or commit:
+Because the data project is separate from ACORN, use GitLab's [cross-project include](https://docs.gitlab.com/ci/yaml/includes/#includeproject) for the shared reporting template. Pin a reviewed immutable revision of `research-enablement/templates` and verify the expanded configuration against that revision:
 
 ```yaml
 include:
-  - project: research-enablement/acorn
-    ref: <pinned-acorn-tag-or-commit>
-    file: templates/gitlab/reporting.gitlab-ci.yml
+  - project: research-enablement/templates
+    ref: <reviewed-template-commit-sha>
+    file: /gitlab/powerautomate-report.gitlab-ci.yml
 ```
 
 Add protected, masked callback and GitLab credentials. Test report generation without publication or callbacks:
@@ -562,7 +563,7 @@ Submit authorized test entries for two different projects and one deliberately u
 - Unauthorized writes/records fail closed. The app distinguishes GitLab persistence from ACORN admission; one valid queued submission produces one expected monthly review entry and merge request.
 - Human graduation preserves the routed project identifier, and a person—not the bot—merges the reviewed entry.
 - The scheduled job publishes one immutable report package and Power Automate sends both Teams and email notifications for the accepted artifact. An operator can explicitly deliver queued callbacks through the ACORN CLI after the callback flow is ready.
-- An operator can use ACORN's public API/CLI operations to process the same GitLab JSONL submissions without a running bot: admit and route records, review and apply proposed changes under the same authorization and duplicate rules, produce the GitLab review update, and export a diff artifact for the changed project files. Artifact generation is independently invocable. Record the exact commands or API calls and compare their results with the bot path; this manual-parity gate is not yet implemented or validated.
+- An operator can use `acorn intake run` against the same GitLab JSONL source and durable database to admit, route, and publish review work under the bot's authorization and duplicate rules, then use `acorn intake export` for the reviewed project-file diff and `acorn intake deliver` for ready callbacks. These commands are implemented and locally validated. Record their exact live invocations and compare their outcomes with the bot path during the pilot; standalone local-file proposal review remains the separate `stage/apply` workflow. Artifact generation is independently invocable through `acorn report`.
 - Replaying the same submission UUID is idempotent and does not create a second entry, merge request operation, package, or notification event.
 - Before multi-project rollout, two authorized project selections route only to their configured `index.json` files and an unauthorized project/member combination creates no canonical project-data change.
 - No credential appears in source control, logs, artifacts, app controls, ordinary Compose actions, or visible Power Automate run history.
@@ -616,7 +617,7 @@ Submit authorized test entries for two different projects and one deliberately u
 - Exact write set: Vergil managed service definition, protected Vergil runtime environment, this plan
 - Primary integration lock: Vergil service
 - Outcome: Run the pinned native ARM64 ACORN service in polling mode with healthy readiness and redacted logs.
-- Focused validation: Check `/health`, `/ready`, process supervision, architecture, and absence of secret values.
+- Focused validation: Check `/health`, `/ready`, process supervision, architecture, one authenticated GitLab review-event read, and absence of secret values. Readiness alone does not establish GitLab or callback reachability.
 - Handoff: Remove PA-03 and record the verified service revision and outbound GitLab access. Healthy note polling does not establish JSONL intake readiness.
 
 ## PA-04 — Provision GitLab and callback secrets
@@ -661,7 +662,7 @@ Submit authorized test entries for two different projects and one deliberately u
 - Exact write set: isolated GitLab merge request, `acorn/index.json`
 - Primary integration lock: pilot merge request
 - Outcome: Complete human review, authorized graduation, approval, and human merge while preserving project identity.
-- Focused validation: Compare the merged entry with the accepted submission and reviewed diff.
+- Focused validation: Confirm the authorized graduation note is found through the paginated polling path, then compare the merged entry with the accepted submission and reviewed diff.
 - Handoff: Remove PA-07 and record the exact merged commit for reporting.
 
 ## PA-08 — Publish and replay the single-project pilot
@@ -672,7 +673,7 @@ Submit authorized test entries for two different projects and one deliberately u
 - Exact write set: project `22464` schedule, generic package `acorn-automated-artifacts`, callback flow
 - Primary integration lock: scheduled artifact publication
 - Outcome: Publish one immutable report package, deliver `artifact-ready`, and prove replay creates no duplicate effect.
-- Focused validation: Inspect manifest, PDF, checksum, cutoff, callback, replay disposition, and package count.
+- Focused validation: Validate the pinned shared CI include, then inspect manifest, PDF, checksum, cutoff, callback, replay disposition, and package count.
 - Handoff: Remove PA-08 and preserve the redacted single-project acceptance bundle.
 
 ## PA-09 — Validate routing and retire the deployment plan

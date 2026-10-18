@@ -125,7 +125,7 @@ Register the reporting worker independently with isolated configuration/build vo
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: RUN-04
-- Exact write set: `templates/gitlab/reporting.gitlab-ci.yml`, protected default-branch schedule
+- Exact write set: `research-enablement/templates` `/gitlab/powerautomate-report.gitlab-ci.yml`, protected default-branch schedule
 - Primary integration lock: reporting CI template
 - Outcome: Run one scheduled report on the isolated worker without leaking credentials or publishing undeclared files.
 - Focused validation: Inspect job rules, runner identity, package contents, retained diagnostics, and redacted logs.

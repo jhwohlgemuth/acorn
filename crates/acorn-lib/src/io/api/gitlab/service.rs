@@ -195,13 +195,33 @@ pub async fn events(options: &Options) -> ApiResult<EventsResponse> {
     match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
-                let params = Params::new()
-                    .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
-                    .with_template("identifier", options.identifier())
-                    .with_custom(options.params())
-                    .build();
-                let response = endpoint.invoke_with::<EventFilterKey, EmptyField>(action, Some(params)).await;
-                endpoint.handle::<EventsResponse>(response)
+                let mut page = options.page;
+                let mut all = EventsResponse::new();
+                loop {
+                    let page_value = page.to_string();
+                    let params = Params::new()
+                        .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
+                        .with_template("identifier", options.identifier())
+                        .with_keyvalue("page", Some(&page_value))
+                        .with_keyvalue("per_page", Some("100"))
+                        .with_custom(options.params())
+                        .build();
+                    let response = endpoint.invoke_with::<EventFilterKey, EmptyField>(action, Some(params)).await;
+                    match endpoint.handle::<EventsResponse>(response) {
+                        | Ok(events) => {
+                            let more = events.len() == 100;
+                            all.extend(events);
+                            match more {
+                                | false => break Ok(all),
+                                | true => match page.checked_add(1) {
+                                    | Some(next) => page = next,
+                                    | None => break Err(eyre!("GitLab event pagination exceeded the supported page range")),
+                                },
+                            }
+                        }
+                        | Err(why) => break Err(why),
+                    }
+                }
             }
             | Err(why) => Err(why),
         },
