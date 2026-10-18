@@ -63,7 +63,7 @@ Preserve the implemented [standards field matrix](../../assets/standards-field-m
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none
-- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, focused enrichment policy tests
+- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, `crates/acorn-lib/src/analyzer/host/discovery/tests/mod.rs`
 - Primary integration lock: discovery candidate merge
 - Outcome: Define deterministic identities, authored-value precedence, replay behavior, and conflict provenance.
 - Focused validation: Run table tests for identical, complementary, and conflicting evidence.
@@ -74,7 +74,7 @@ Preserve the implemented [standards field matrix](../../assets/standards-field-m
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: ENR-01
-- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, date enrichment tests
+- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, `crates/acorn-lib/src/analyzer/host/discovery/tests/mod.rs`
 - Primary integration lock: discovery candidate merge
 - Outcome: Map only explicit OSTI, CFF, RAiD, and supported logbook date assertions.
 - Focused validation: Test identities, conflicts, replay, and absence of inferred dates.
@@ -85,7 +85,7 @@ Preserve the implemented [standards field matrix](../../assets/standards-field-m
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: ENR-01
-- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, contributor enrichment tests
+- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, `crates/acorn-lib/src/analyzer/host/discovery/tests/mod.rs`
 - Primary integration lock: discovery candidate merge
 - Outcome: Project explicitly credited people, roles, and organizations without list-position inference.
 - Focused validation: Test stable identity, role conflicts, provider replay, and authored precedence.
@@ -96,7 +96,7 @@ Preserve the implemented [standards field matrix](../../assets/standards-field-m
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: ENR-01
-- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, rights enrichment tests
+- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, `crates/acorn-lib/src/analyzer/host/discovery/tests/mod.rs`
 - Primary integration lock: discovery candidate merge
 - Outcome: Project explicit licenses, rights statements, and access assertions with loss reporting.
 - Focused validation: Test URI/label identities, incompatible values, ambiguity, and replay.
@@ -107,7 +107,7 @@ Preserve the implemented [standards field matrix](../../assets/standards-field-m
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: ENR-01
-- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, funding enrichment tests
+- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, `crates/acorn-lib/src/analyzer/host/discovery/tests/mod.rs`
 - Primary integration lock: discovery candidate merge
 - Outcome: Project explicit sponsor and award evidence without manufacturing missing funders.
 - Focused validation: Test award identities, sponsor conflicts, missing fields, and replay.
@@ -118,7 +118,7 @@ Preserve the implemented [standards field matrix](../../assets/standards-field-m
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: ENR-02, ENR-03, ENR-04, ENR-05
-- Exact write set: `crates/acorn-lib/src/io/database/logbook.rs`, graduation tests
+- Exact write set: `crates/acorn-lib/src/io/database/logbook.rs`, `crates/acorn-lib/src/io/database/tests/mod.rs`
 - Primary integration lock: logbook graduation
 - Outcome: Add explicit category/event targets and archive only after selected candidates merge successfully.
 - Focused validation: Test accepted merges, conflicts, retry, and retained unarchived entries.
@@ -129,7 +129,7 @@ Preserve the implemented [standards field matrix](../../assets/standards-field-m
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: ENR-06
-- Exact write set: provider/discovery fixtures, enrichment documentation, wiki indexes, this plan
+- Exact write set: `tests/fixtures/enrichment/provider.json`, `docs/src/cli-reference/commands/gather.md`, `.wiki/index.md`, `.wiki/refactors/core/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/refactors/core/research-activity-enrichment-integration.md`
 - Primary integration lock: enrichment integration
 - Outcome: Prove end-to-end replay, conflicts, compatibility, and durable provenance before removing the plan.
 - Focused validation: Run focused provider/database tests, portable checks, `make lint`, `make test`, and wiki validation.

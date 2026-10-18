@@ -82,7 +82,7 @@ The first-class ZON feature is implemented, so this plan has no implementation p
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none
-- Exact write set: ZON golden/property tests, behavior matrix in this plan
+- Exact write set: `crates/acorn-schema/src/standard/zon/tests/mod.rs`, `.wiki/refactors/zon-codec-hardening.md`
 - Primary integration lock: ZON codec
 - Outcome: Characterize roots, groups, compounds, tables, strings, numbers, aliases, line endings, duplicates, limits, and every error code.
 - Focused validation: Run the focused `acorn-schema` ZON suite and confirm each matrix cell has an assertion.
@@ -93,7 +93,7 @@ The first-class ZON feature is implemented, so this plan has no implementation p
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: ZON-01
-- Exact write set: `crates/acorn-schema/src/zon/decode.rs`, ZON string tests
+- Exact write set: `crates/acorn-schema/src/standard/zon/decode.rs`, `crates/acorn-schema/src/standard/zon/tests/mod.rs`
 - Primary integration lock: ZON codec
 - Outcome: Share one quoted-string/escape routine while retaining distinct CSV doubling rules.
 - Focused validation: Run root, CSV, inline, Unicode, malformed escape, and exact-location tests.
@@ -104,7 +104,7 @@ The first-class ZON feature is implemented, so this plan has no implementation p
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: ZON-01
-- Exact write set: `crates/acorn-schema/src/zon/decode.rs`, root classification tests
+- Exact write set: `crates/acorn-schema/src/standard/zon/decode.rs`, `crates/acorn-schema/src/standard/zon/tests/mod.rs`
 - Primary integration lock: ZON codec
 - Outcome: Classify and parse root syntax once without constructing discarded parse errors.
 - Focused validation: Run scalar, grouped, table, alias, malformed header, and ambiguity cases.
@@ -115,7 +115,7 @@ The first-class ZON feature is implemented, so this plan has no implementation p
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: ZON-02, ZON-03
-- Exact write set: `crates/acorn-schema/src/zon/decode.rs`, `crates/acorn-schema/src/zon/encode.rs`, limit tests
+- Exact write set: `crates/acorn-schema/src/standard/zon/decode.rs`, `crates/acorn-schema/src/standard/zon/encode.rs`, `crates/acorn-schema/src/standard/zon/tests/mod.rs`
 - Primary integration lock: ZON codec
 - Outcome: Give each document, line, depth, array, and object bound one enforcement point and remove redundant traversal state.
 - Focused validation: Test encode/decode at, below, and above every limit with stable codes.
@@ -126,7 +126,7 @@ The first-class ZON feature is implemented, so this plan has no implementation p
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: ZON-02, ZON-03
-- Exact write set: `crates/acorn-schema/src/zon/decode.rs`, diagnostic tests
+- Exact write set: `crates/acorn-schema/src/standard/zon/decode.rs`, `crates/acorn-schema/src/standard/zon/tests/mod.rs`
 - Primary integration lock: ZON codec
 - Outcome: Preserve public errors while making one-based locations exact for escapes, numbers, duplicates, headers, and row widths.
 - Focused validation: Run exact code/message/location assertions with bounded context.
@@ -137,7 +137,7 @@ The first-class ZON feature is implemented, so this plan has no implementation p
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: ZON-04, ZON-05
-- Exact write set: ZON property tests, ZON regression fixtures
+- Exact write set: `crates/acorn-schema/src/standard/zon/tests/mod.rs`, `crates/acorn-schema/tests/proptest-regressions/zon/tests.txt`
 - Primary integration lock: ZON codec
 - Outcome: Cover wide numbers, exponents, nested quoted values, Unicode, CRLF, near limits, and deterministic round trips.
 - Focused validation: Run property tests and retain a seed for every discovered failure.
@@ -148,7 +148,7 @@ The first-class ZON feature is implemented, so this plan has no implementation p
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: ZON-06
-- Exact write set: ZON benchmark record, codec documentation, wiki indexes, this plan
+- Exact write set: `crates/acorn-schema/benches/zon.rs`, `docs/src/packages/acorn-schema.md`, `.wiki/index.md`, `.wiki/refactors/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/refactors/zon-codec-hardening.md`
 - Primary integration lock: ZON acceptance
 - Outcome: Measure flat/nested/tabular cases, optimize only proven hotspots, run full gates, and remove the plan.
 - Focused validation: Run focused benchmarks/tests, alloc/no-default/WASM, `make lint`, `make test`, docs, and wiki validation.

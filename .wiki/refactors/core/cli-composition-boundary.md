@@ -40,7 +40,7 @@ Command implementations receive immutable execution values rather than clap-only
 
 Schedule after any active CLI syntax owner releases `src/cli/` and generated help. Provider and service extraction may proceed independently, but this plan consumes their final request and error types rather than inventing interface-owned duplicates.
 
-The [Needle router and registry parity plan](../../features/slm-sidecars.md) owns capability descriptors, executor bindings, and CLI/service equivalence adapters. Its PAR-00 inventories reusable operation seams; coordinate each PAR command leaf with this plan before editing. Share normalized operation requests/results and keep parsing/presentation in the CLI. Neither plan owns a duplicate implementation or requires completion of the other entire plan; a missing service seam gets a separately bounded owner phase.
+The [native routing plan](../../features/needle-router-native-parity.md) owns capability descriptors and CLI/service equivalence adapters; the [generic adapter plan](../../features/ask-executor-adapters.md) owns external executor bindings. PAR-00 inventories reusable operation seams; coordinate each PAR command leaf with this plan before editing. Share normalized operation requests/results and keep parsing/presentation in the CLI. A missing service seam gets a separately bounded owner phase.
 
 # Decisions
 
@@ -83,7 +83,7 @@ The [Needle router and registry parity plan](../../features/slm-sidecars.md) own
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: no active CLI syntax owner
-- Exact write set: `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/cli/arguments/mod.rs`, CLI characterization tests
+- Exact write set: `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/cli/arguments/mod.rs`
 - Primary integration lock: CLI syntax and generated help
 - Outcome: Inventory parser types crossing command boundaries and define immutable normalized request conventions.
 - Focused validation: Run parser snapshots and generated-help comparison without syntax changes.
@@ -94,7 +94,7 @@ The [Needle router and registry parity plan](../../features/slm-sidecars.md) own
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CLI-01
-- Exact write set: `crates/acorn-cli/src/commands/check/mod.rs`, `crates/acorn-cli/src/commands/doctor/mod.rs`, focused tests
+- Exact write set: `crates/acorn-cli/src/commands/check/mod.rs`, `crates/acorn-cli/src/commands/doctor/mod.rs`, `crates/acorn-cli/src/commands/check/tests/mod.rs`, `crates/acorn-cli/src/commands/doctor/tests/mod.rs`
 - Primary integration lock: CLI command signatures
 - Outcome: Remove clap-only wrappers from check/doctor command execution values.
 - Focused validation: Run focused command, parser, offline, and output tests.
@@ -105,7 +105,7 @@ The [Needle router and registry parity plan](../../features/slm-sidecars.md) own
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CLI-01
-- Exact write set: `crates/acorn-cli/src/commands/diff/mod.rs`, `crates/acorn-cli/src/commands/format/mod.rs`, `crates/acorn-cli/src/commands/export/mod.rs`, `crates/acorn-cli/src/commands/link/mod.rs`
+- Exact write set: `crates/acorn-cli/src/commands/diff/mod.rs`, `crates/acorn-cli/src/commands/format/mod.rs`, `crates/acorn-cli/src/commands/export/mod.rs`, `crates/acorn-cli/src/commands/link/mod.rs`, `crates/acorn-cli/src/commands/diff/tests.rs`, `crates/acorn-cli/src/commands/format/tests/mod.rs`, `crates/acorn-cli/src/commands/export/tests/mod.rs`, `crates/acorn-cli/src/commands/link/tests.rs`
 - Primary integration lock: CLI command signatures
 - Outcome: Pass immutable normalized values to diff, format, export, and link leaves.
 - Focused validation: Run focused command tests and confirm generated help is unchanged.
@@ -116,7 +116,7 @@ The [Needle router and registry parity plan](../../features/slm-sidecars.md) own
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CLI-01
-- Exact write set: `crates/acorn-cli/src/commands/gather/mod.rs`, `crates/acorn-cli/src/commands/import/mod.rs`, focused tests
+- Exact write set: `crates/acorn-cli/src/commands/gather/mod.rs`, `crates/acorn-cli/src/commands/import/mod.rs`, `crates/acorn-cli/src/commands/gather/tests/mod.rs`, `crates/acorn-cli/src/commands/import/tests/mod.rs`
 - Primary integration lock: CLI command signatures
 - Outcome: Resolve mutually exclusive sources/defaults at the parse boundary for gather/import.
 - Focused validation: Run focused parser, command, offline, and collision tests.
@@ -127,7 +127,7 @@ The [Needle router and registry parity plan](../../features/slm-sidecars.md) own
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CLI-01
-- Exact write set: `crates/acorn-cli/src/commands/download/mod.rs`, `crates/acorn-cli/src/commands/sync/mod.rs`, focused tests
+- Exact write set: `crates/acorn-cli/src/commands/download/mod.rs`, `crates/acorn-cli/src/commands/sync/mod.rs`, `crates/acorn-cli/src/commands/download/tests/mod.rs`, `crates/acorn-cli/src/commands/sync/tests.rs`
 - Primary integration lock: CLI command signatures
 - Outcome: Resolve acquisition options and feature availability before command execution.
 - Focused validation: Run focused request, offline, missing-feature, and dry-run tests.
@@ -138,7 +138,7 @@ The [Needle router and registry parity plan](../../features/slm-sidecars.md) own
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CLI-01
-- Exact write set: `crates/acorn-cli/src/commands/create/mod.rs`, `crates/acorn-cli/src/commands/infer/mod.rs`, focused tests
+- Exact write set: `crates/acorn-cli/src/commands/create/mod.rs`, `crates/acorn-cli/src/commands/infer/mod.rs`, `crates/acorn-cli/src/commands/create/tests/mod.rs`, `crates/acorn-cli/src/commands/infer/tests/mod.rs`
 - Primary integration lock: CLI command signatures
 - Outcome: Move parser-specific defaults and conflicts out of create/inference leaves.
 - Focused validation: Run focused parser, command, feature, and failure tests.
@@ -149,7 +149,7 @@ The [Needle router and registry parity plan](../../features/slm-sidecars.md) own
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CLI-01, MCP-02
-- Exact write set: `crates/acorn-cli/src/commands/exec/mod.rs`, `crates/acorn-cli/src/commands/mcp.rs`, focused tests
+- Exact write set: `crates/acorn-cli/src/commands/exec/mod.rs`, `crates/acorn-cli/src/commands/mcp.rs`
 - Primary integration lock: CLI command signatures
 - Outcome: Separate configuration loading, request normalization, execution, and presentation.
 - Focused validation: Run exec and compiled-binary MCP interoperability tests.
@@ -160,7 +160,7 @@ The [Needle router and registry parity plan](../../features/slm-sidecars.md) own
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CLI-01
-- Exact write set: `crates/acorn-cli/src/commands/serve/mod.rs`, RPC/gRPC/MCP serve tests
+- Exact write set: `crates/acorn-cli/src/commands/serve/mod.rs`
 - Primary integration lock: serve composition
 - Outcome: Share target validation and SSH/subprocess diagnostics while retaining protocol-local startup.
 - Focused validation: Test local, SSH, context, detached, spawn, and nonzero-exit cases.
@@ -171,7 +171,7 @@ The [Needle router and registry parity plan](../../features/slm-sidecars.md) own
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CLI-02, CLI-03, CLI-04, CLI-05, CLI-06, CLI-07, CLI-08
-- Exact write set: `crates/acorn-cli/src/main.rs`, `crates/acorn-cli/src/startup.rs`, startup tests
+- Exact write set: `crates/acorn-cli/src/main.rs`, `crates/acorn-cli/src/startup.rs`
 - Primary integration lock: CLI composition root
 - Outcome: Isolate tracing, thread pool, database/cache, preflight, runtime, and dispatch units without exiting.
 - Focused validation: Test ordering, duplicate initialization, disabled database, and thread-pool failures.
@@ -182,7 +182,7 @@ The [Needle router and registry parity plan](../../features/slm-sidecars.md) own
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CLI-09
-- Exact write set: `crates/acorn-cli/src/main.rs`, binary integration tests, `CommandLineHelp.md`
+- Exact write set: `crates/acorn-cli/src/main.rs`, `CommandLineHelp.md`
 - Primary integration lock: CLI composition root
 - Outcome: Render one report and map parse/setup/command/silent/internal failures to explicit tested exits.
 - Focused validation: Run binary failure tests, feature combinations, help generation, `make lint`, and `make test`.

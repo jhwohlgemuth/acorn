@@ -105,7 +105,7 @@ Then perform a manual smoke test against a disposable SSH-accessible Docker host
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none
-- Exact write set: `crates/acorn-cli/src/commands/create/runner.rs`, runner ownership tests
+- Exact write set: `crates/acorn-cli/src/commands/create/runner/mod.rs`, `crates/acorn-cli/src/commands/create/runner/tests.rs`
 - Primary integration lock: create-runner workflow
 - Outcome: Track the runner ID, container, volume, and temporary template acquired by each attempt.
 - Focused validation: Test empty, partial, complete, and concurrent ownership records.
@@ -116,7 +116,7 @@ Then perform a manual smoke test against a disposable SSH-accessible Docker host
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: RCC-01
-- Exact write set: `crates/acorn-cli/src/commands/create/runner.rs`, preflight tests
+- Exact write set: `crates/acorn-cli/src/commands/create/runner/mod.rs`, `crates/acorn-cli/src/commands/create/runner/tests.rs`
 - Primary integration lock: create-runner workflow
 - Outcome: Check local client, SSH target, remote socket, and daemon before GitLab mutation.
 - Focused validation: Test missing client, unreachable host, invalid socket, and responsive daemon with no acquired resources.
@@ -127,7 +127,7 @@ Then perform a manual smoke test against a disposable SSH-accessible Docker host
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: RCC-02
-- Exact write set: `crates/acorn-cli/src/commands/create/runner.rs`, capability tests
+- Exact write set: `crates/acorn-cli/src/commands/create/runner/mod.rs`, `crates/acorn-cli/src/commands/create/runner/tests.rs`
 - Primary integration lock: create-runner workflow
 - Outcome: Reject missing GPU capability and conflicting bot/runner names before mutation.
 - Focused validation: Test CPU/GPU targets, name conflicts, and CLI-over-configuration precedence.
@@ -138,7 +138,7 @@ Then perform a manual smoke test against a disposable SSH-accessible Docker host
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: RCC-01, RCC-03
-- Exact write set: `crates/acorn-cli/src/commands/create/runner.rs`, acquisition tests
+- Exact write set: `crates/acorn-cli/src/commands/create/runner/mod.rs`, `crates/acorn-cli/src/commands/create/runner/tests.rs`
 - Primary integration lock: create-runner workflow
 - Outcome: Check derived container/volume conflicts and record each successfully acquired resource.
 - Focused validation: Inject failures after every acquisition boundary.
@@ -149,7 +149,7 @@ Then perform a manual smoke test against a disposable SSH-accessible Docker host
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: RCC-04
-- Exact write set: `crates/acorn-cli/src/commands/create/runner.rs`, rollback tests
+- Exact write set: `crates/acorn-cli/src/commands/create/runner/mod.rs`, `crates/acorn-cli/src/commands/create/runner/tests.rs`
 - Primary integration lock: create-runner workflow
 - Outcome: Remove only the current-attempt container and GitLab runner while preserving the original failure.
 - Focused validation: Test each failure point, rollback failures, and concurrent attempt isolation.
@@ -160,7 +160,7 @@ Then perform a manual smoke test against a disposable SSH-accessible Docker host
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: RCC-04
-- Exact write set: `crates/acorn-cli/src/commands/create/runner.rs`, cleanup tests
+- Exact write set: `crates/acorn-cli/src/commands/create/runner/mod.rs`, `crates/acorn-cli/src/commands/create/runner/tests.rs`
 - Primary integration lock: create-runner workflow
 - Outcome: Remove temporary templates and newly created volumes without deleting pre-existing or user-supplied state.
 - Focused validation: Test created/pre-existing/user-supplied resources and cleanup failure reporting.
@@ -171,7 +171,7 @@ Then perform a manual smoke test against a disposable SSH-accessible Docker host
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: RCC-05, RCC-06
-- Exact write set: create-runner command tests, remote target snapshots
+- Exact write set: `crates/acorn-cli/src/commands/create/runner/tests.rs`, `crates/acorn-cli/src/commands/create/tests/mod.rs`
 - Primary integration lock: create-runner workflow
 - Outcome: Cover preflight rejection, every acquisition failure, rollback aggregation, and batch isolation.
 - Focused validation: Run focused configuration, snapshot, target, runner, and failure tests.
@@ -182,7 +182,7 @@ Then perform a manual smoke test against a disposable SSH-accessible Docker host
 - Status: blocked
 - Budget: 5 active hours maximum
 - Prerequisites: RCC-07 and a disposable SSH Docker host
-- Exact write set: disposable remote Docker host, live validation record
+- Exact write set: disposable remote Docker host, `docs/src/cli-reference/remote-container-validation.md`
 - Primary integration lock: remote Docker validation
 - Outcome: Create a bot remotely and verify ports, restart policy, state volume, username, port, and host isolation.
 - Focused validation: Compare local and remote `docker ps` plus inspected remote resources.
@@ -193,7 +193,7 @@ Then perform a manual smoke test against a disposable SSH-accessible Docker host
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: RCC-08
-- Exact write set: disposable GitLab runner, disposable remote Docker host, live validation record
+- Exact write set: disposable GitLab runner and remote Docker host, `docs/src/cli-reference/remote-container-validation.md`
 - Primary integration lock: remote Docker validation
 - Outcome: Register a remote runner, exercise GPU/template behavior, forced rollback, and cleanup failures safely.
 - Focused validation: Inspect GitLab registration, mounts, retained resources, original errors, and manual cleanup instructions.
@@ -204,7 +204,7 @@ Then perform a manual smoke test against a disposable SSH-accessible Docker host
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: RCC-09
-- Exact write set: remote-container documentation, wiki indexes, this plan
+- Exact write set: `docs/src/cli-reference/commands/create.md`, `.wiki/index.md`, `.wiki/refactors/core/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/refactors/core/remote-create-container-targets.md`
 - Primary integration lock: container documentation
 - Outcome: Publish preflight/rollback/cleanup guarantees, run final gates, and remove the plan.
 - Focused validation: Run focused tests, clippy, `make test`, docs, and wiki validation.

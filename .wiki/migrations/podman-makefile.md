@@ -259,7 +259,7 @@ After the platform and registry acceptance matrix passes, delete this plan and r
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: POD-03, POD-04
-- Exact write set: rootless Linux AMD64 host, Podman validation record
+- Exact write set: rootless Linux AMD64 host, `docs/src/developer/podman-platform-matrix.md`
 - Primary integration lock: Podman platform matrix
 - Outcome: Prove native builds, build-in-image, disposable push, and cleanup without SELinux.
 - Focused validation: Execute the documented Linux AMD64 smoke matrix.
@@ -281,7 +281,7 @@ After the platform and registry acceptance matrix passes, delete this plan and r
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: POD-05
-- Exact write set: Linux ARM64 host, Podman validation record
+- Exact write set: Linux ARM64 host, `docs/src/developer/podman-platform-matrix.md`
 - Primary integration lock: Podman platform matrix
 - Outcome: Build, run, and publish the immutable ARM64 Rust image natively.
 - Focused validation: Execute the image and inspect architecture, metadata, and pushed tag.
@@ -303,7 +303,7 @@ After the platform and registry acceptance matrix passes, delete this plan and r
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: POD-04
-- Exact write set: Windows 11 Podman machine, Git Bash/MSYS2 workflow, `CONTRIBUTING.md`
+- Exact write set: Windows 11 Podman machine and Git Bash/MSYS2 workflow, `CONTRIBUTING.md`
 - Primary integration lock: Podman platform matrix
 - Outcome: Prove native-client AMD64 build and source/volume behavior without ARM emulation assumptions.
 - Focused validation: Run the WSL2 provider matrix and Hyper-V only when it is supported baseline.
@@ -314,7 +314,7 @@ After the platform and registry acceptance matrix passes, delete this plan and r
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: POD-06, POD-07, POD-09
-- Exact write set: staging Savannah, Docker Hub, and GHCR namespaces; manifest validation record
+- Exact write set: staging Savannah, Docker Hub, and GHCR namespaces, `docs/src/developer/podman-platform-matrix.md`
 - Primary integration lock: release manifest publication
 - Outcome: Publish, inspect, pull, and execute versioned/latest AMD64+ARM64 manifests without overwriting on partial failure.
 - Focused validation: Inspect remote manifests independently and run combined tags on both native architectures.
@@ -325,7 +325,7 @@ After the platform and registry acceptance matrix passes, delete this plan and r
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: POD-08, POD-10, POD-11, POD-12
-- Exact write set: `CONTRIBUTING.md`, `.gitlab-ci.yml`, wiki indexes, this plan
+- Exact write set: `CONTRIBUTING.md`, `.gitlab-ci.yml`, `.wiki/index.md`, `.wiki/migrations/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/migrations/podman-makefile.md`
 - Primary integration lock: CI build entry points
 - Outcome: Document the supported matrix, add only proven CI checks, and remove the migration plan.
 - Focused validation: Run all Make dry-runs, CI lint, link checks, and wiki validation.

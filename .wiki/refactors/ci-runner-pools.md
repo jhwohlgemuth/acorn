@@ -103,7 +103,7 @@ Register the reporting worker independently with isolated configuration/build vo
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: RUN-02
-- Exact write set: `.gitlab-ci.yml`, Rust worker build storage
+- Exact write set: `.gitlab-ci.yml`, isolated Rust worker build storage
 - Primary integration lock: CI pipeline
 - Outcome: Prove concurrent test/fuzz execution, checkout recovery, and reusable caches before removing the shared `tests` resource group.
 - Focused validation: Run concurrent, cancelled, and consecutive pipelines and inspect runner/build identities.
@@ -125,7 +125,7 @@ Register the reporting worker independently with isolated configuration/build vo
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: RUN-04
-- Exact write set: `research-enablement/templates` `/gitlab/powerautomate-report.gitlab-ci.yml`, protected default-branch schedule
+- Exact write set: GitLab project `research-enablement/templates` file `gitlab/powerautomate-report.gitlab-ci.yml`, protected default-branch schedule in project `16689`
 - Primary integration lock: reporting CI template
 - Outcome: Run one scheduled report on the isolated worker without leaking credentials or publishing undeclared files.
 - Focused validation: Inspect job rules, runner identity, package contents, retained diagnostics, and redacted logs.
@@ -136,7 +136,7 @@ Register the reporting worker independently with isolated configuration/build vo
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: RUN-03, RUN-05
-- Exact write set: CI operations documentation, wiki indexes, this plan
+- Exact write set: `CONTRIBUTING.md`, `.wiki/index.md`, `.wiki/refactors/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/refactors/ci-runner-pools.md`
 - Primary integration lock: CI operations documentation
 - Outcome: Publish pool scaling/recovery guidance and remove the completed plan.
 - Focused validation: Re-run CI lint, check internal links, and run wiki validation.

@@ -79,7 +79,7 @@ Serialize PID roots with dPID or other schema PID changes. Miri and Creusot wiri
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none
-- Exact write set: Handle/RRID/SWHID parser tests, this plan
+- Exact write set: `crates/acorn-schema/src/pid/handle/tests.rs`, `crates/acorn-schema/src/pid/rrid/tests.rs`, `crates/acorn-schema/src/pid/swhid/tests.rs`, `.wiki/testing/pid-verification.md`
 - Primary integration lock: portable PID helpers
 - Outcome: Freeze format/from-string/validity, discovery, punctuation, and percent behavior before consolidation.
 - Focused validation: Run all existing and added Handle, RRID, and SWHID vectors.
@@ -90,7 +90,7 @@ Serialize PID roots with dPID or other schema PID changes. Miri and Creusot wiri
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: PID-01
-- Exact write set: `crates/acorn-schema/src/pid/mod.rs`, Handle/RRID/SWHID modules and tests
+- Exact write set: `crates/acorn-schema/src/pid/mod.rs`
 - Primary integration lock: portable PID helpers
 - Outcome: Use bounded default parse methods while leaving identifier-specific discovery and validity local.
 - Focused validation: Run focused PID plus alloc/no-default/WASM checks.
@@ -101,7 +101,7 @@ Serialize PID roots with dPID or other schema PID changes. Miri and Creusot wiri
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: PID-01
-- Exact write set: Handle/SWHID modules, percent helper tests
+- Exact write set: `crates/acorn-schema/src/pid/handle/mod.rs`, `crates/acorn-schema/src/pid/swhid/mod.rs`, `crates/acorn-schema/src/pid/tests.rs`
 - Primary integration lock: portable PID helpers
 - Outcome: Reuse one crate-private syntax helper without merging identifier-specific rules.
 - Focused validation: Run valid/invalid/truncated/case/Unicode percent vectors for both identifiers.
@@ -112,7 +112,7 @@ Serialize PID roots with dPID or other schema PID changes. Miri and Creusot wiri
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: PID-02, PID-03
-- Exact write set: Miri integration test target, Miri fixture module
+- Exact write set: `crates/acorn-schema/tests/miri.rs`, `tests/fixtures/pid/miri.json`
 - Primary integration lock: verification test target
 - Outcome: Exercise public Location, Repository, ResearchActivity, codec, and checksum PID boundaries in memory.
 - Focused validation: Run the curated target under Miri with default strict checks.
@@ -123,7 +123,7 @@ Serialize PID roots with dPID or other schema PID changes. Miri and Creusot wiri
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: PID-04
-- Exact write set: `Makefile`, `.gitlab-ci.yml`, Miri toolchain pin
+- Exact write set: `rust-toolchain.toml`, `.wiki/testing/pid-verification.md`
 - Primary integration lock: CI build entry points
 - Outcome: Add documented path-filtered informational Miri execution without weakening checks.
 - Focused validation: Dry-run Make, lint CI, and run the job once on relevant and irrelevant changes.
@@ -134,7 +134,7 @@ Serialize PID roots with dPID or other schema PID changes. Miri and Creusot wiri
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: PID-01
-- Exact write set: Creusot/Why3/solver toolchain pins, proof feasibility record
+- Exact write set: `docs/src/developer/pid-verification.md`, `scripts/pid/creusot-toolchain.toml`
 - Primary integration lock: proof toolchain
 - Outcome: Demonstrate compatible pinned tools and private-core contracts without stable runtime dependencies.
 - Focused validation: Prove one representative arithmetic helper or record the stop decision.
@@ -145,7 +145,7 @@ Serialize PID roots with dPID or other schema PID changes. Miri and Creusot wiri
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: PID-06
-- Exact write set: private ISBN proof core, ISBN proof examples
+- Exact write set: `crates/acorn-schema/src/pid/proof/isbn.rs`, `crates/acorn-schema/src/pid/isbn/tests.rs`
 - Primary integration lock: checksum proof core
 - Outcome: Prove MOD 10/11 bounds, overflow freedom, and functional correctness.
 - Focused validation: Run native vectors and the pinned proof obligations.
@@ -156,7 +156,7 @@ Serialize PID roots with dPID or other schema PID changes. Miri and Creusot wiri
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: PID-06
-- Exact write set: private MOD 11-2 proof core, ISNI/ORCID proof examples
+- Exact write set: `crates/acorn-schema/src/pid/proof/mod11_2.rs`, `crates/acorn-schema/src/pid/isni/tests.rs`, `crates/acorn-schema/src/pid/orcid/tests.rs`
 - Primary integration lock: checksum proof core
 - Outcome: Prove shared arithmetic and both wrapper preconditions without public API expansion.
 - Focused validation: Run native vectors and pinned proof obligations.
@@ -167,7 +167,7 @@ Serialize PID roots with dPID or other schema PID changes. Miri and Creusot wiri
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: PID-06
-- Exact write set: private MOD 97-10 proof core, ROR proof examples
+- Exact write set: `crates/acorn-schema/src/pid/proof/mod97_10.rs`, `crates/acorn-schema/src/pid/ror/tests.rs`
 - Primary integration lock: checksum proof core
 - Outcome: Prove bounds, lookup behavior, overflow freedom, and functional correctness.
 - Focused validation: Run native vectors and pinned proof obligations.
@@ -178,7 +178,7 @@ Serialize PID roots with dPID or other schema PID changes. Miri and Creusot wiri
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: PID-06
-- Exact write set: private radix-29 proof core, ARK/NOID proof examples
+- Exact write set: `crates/acorn-schema/src/pid/proof/radix29.rs`, `crates/acorn-schema/src/pid/ark/tests.rs`
 - Primary integration lock: checksum proof core
 - Outcome: Prove Crockford/beta-numeric lookup reversibility, bounds, and checksum equations.
 - Focused validation: Run native vectors and pinned proof obligations.
@@ -189,7 +189,7 @@ Serialize PID roots with dPID or other schema PID changes. Miri and Creusot wiri
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: PID-07, PID-08, PID-09, PID-10
-- Exact write set: `Makefile`, `.gitlab-ci.yml`, proof runner documentation
+- Exact write set: `Makefile`, `.gitlab-ci.yml`, `docs/src/learn/developer.md`
 - Primary integration lock: CI build entry points
 - Outcome: Add documented `creusot` and `creusot-prove` targets plus path-filtered informational CI.
 - Focused validation: Run all proof targets and confirm unrelated changes skip the job.
@@ -200,7 +200,7 @@ Serialize PID roots with dPID or other schema PID changes. Miri and Creusot wiri
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: PID-05, PID-11
-- Exact write set: verification documentation, wiki indexes, this plan
+- Exact write set: `docs/src/learn/developer.md`, `.wiki/index.md`, `.wiki/testing/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/testing/pid-verification.md`
 - Primary integration lock: verification documentation
 - Outcome: Document supported targets/toolchains, run native/portable/full gates, and remove the plan.
 - Focused validation: Run PID tests, Miri, proofs, portability, `make lint`, `make test`, docs, and wiki validation.

@@ -115,7 +115,7 @@ Translate the aligned edit script with one current target index: equal elements 
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none
-- Exact write set: `crates/acorn-diff/benches/diff.rs`, diff characterization tests
+- Exact write set: `crates/acorn-diff/benches/diff.rs`
 - Primary integration lock: acorn-diff public API
 - Outcome: Freeze compatibility output and baseline representative resource cases.
 - Focused validation: Run current default/alloc/preserve-order tests and benchmark seeds.
@@ -126,7 +126,7 @@ Translate the aligned edit script with one current target index: equal elements 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DIF-01
-- Exact write set: `crates/acorn-diff/src/lib.rs`, options/error tests
+- Exact write set: `crates/acorn-diff/src/lib.rs`
 - Primary integration lock: acorn-diff public API
 - Outcome: Add `DiffError`, JSON options, unified options, limits, context, and positional default.
 - Focused validation: Test defaults, zero limits, builders, display, and alloc-only compilation.
@@ -137,7 +137,7 @@ Translate the aligned edit script with one current target index: equal elements 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DIF-02
-- Exact write set: `crates/acorn-diff/src/json_patch/mod.rs`, JSON limit tests
+- Exact write set: `crates/acorn-diff/src/json_patch/mod.rs`, `crates/acorn-diff/src/json_patch/tests.rs`
 - Primary integration lock: acorn-diff public API
 - Outcome: Reject excessive programmatic values before recursive equality or traversal.
 - Focused validation: Test at/below/above depth and node bounds without panic or stack exhaustion.
@@ -148,7 +148,7 @@ Translate the aligned edit script with one current target index: equal elements 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DIF-03
-- Exact write set: `crates/acorn-diff/src/json_patch/mod.rs`, JSON bounded tests
+- Exact write set: `crates/acorn-diff/src/json_patch/mod.rs`, `crates/acorn-diff/src/json_patch/tests.rs`
 - Primary integration lock: acorn-diff public API
 - Outcome: Enforce deterministic visited-node, operation, output, and alignment-work ceilings with no partial patch.
 - Focused validation: Run every limit boundary and independent patch-application oracle.
@@ -159,7 +159,7 @@ Translate the aligned edit script with one current target index: equal elements 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DIF-02
-- Exact write set: `crates/acorn-diff/src/unified/mod.rs`, unified bounded tests
+- Exact write set: `crates/acorn-diff/src/unified/mod.rs`, `crates/acorn-diff/src/unified/tests.rs`
 - Primary integration lock: acorn-diff public API
 - Outcome: Render through `core::fmt::Write` with input, line, context, and output limits.
 - Focused validation: Test byte/line/output boundaries and prove writers never exceed the ceiling.
@@ -170,7 +170,7 @@ Translate the aligned edit script with one current target index: equal elements 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DIF-04, DIF-05
-- Exact write set: `crates/acorn-lib/src/analyzer/diff/mod.rs`, `crates/acorn-lib/src/analyzer/fix/preview.rs`, focused tests
+- Exact write set: `crates/acorn-lib/src/analyzer/diff/mod.rs`, `crates/acorn-lib/src/analyzer/fix/preview.rs`, `crates/acorn-lib/src/analyzer/diff/tests.rs`, `crates/acorn-lib/src/analyzer/fix/tests.rs`
 - Primary integration lock: analyzer diff integration
 - Outcome: Use explicit bounded entry points for semantic adapters and fix previews.
 - Focused validation: Run analyzer semantic/fix tests for accepted and rejected limits.
@@ -181,7 +181,7 @@ Translate the aligned edit script with one current target index: equal elements 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DIF-06
-- Exact write set: `crates/acorn-cli/src/commands/diff/mod.rs`, CLI diff tests
+- Exact write set: `crates/acorn-cli/src/commands/diff/mod.rs`, `crates/acorn-cli/src/commands/diff/tests.rs`
 - Primary integration lock: CLI diff command
 - Outcome: Enforce byte limits before allocation and sanitize only human terminal presentation.
 - Focused validation: Test files, redirects, terminals, oversize input, raw patch applicability, and exits.
@@ -192,7 +192,7 @@ Translate the aligned edit script with one current target index: equal elements 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DIF-05
-- Exact write set: `crates/acorn-diff/src/unified/mod.rs`, header tests
+- Exact write set: `crates/acorn-diff/src/unified/mod.rs`, `crates/acorn-diff/src/unified/tests.rs`
 - Primary integration lock: acorn-diff public API
 - Outcome: Keep labels on one physical line while preserving ordinary Unicode.
 - Focused validation: Test backslash, tab, CR, LF, escape, NUL, DEL, Unicode, and literal escaped forms.
@@ -203,7 +203,7 @@ Translate the aligned edit script with one current target index: equal elements 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DIF-02
-- Exact write set: `crates/acorn-diff/src/json_patch/mod.rs`, patch API tests
+- Exact write set: `crates/acorn-diff/src/json_patch/mod.rs`, `crates/acorn-diff/src/json_patch/tests.rs`
 - Primary integration lock: acorn-diff public API
 - Outcome: Add operation constructors/accessors plus patch construction, length, and owned/borrowed iteration.
 - Focused validation: Test all six RFC 6902 operation shapes and compatibility-trait parity.
@@ -214,7 +214,7 @@ Translate the aligned edit script with one current target index: equal elements 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DIF-04
-- Exact write set: `crates/acorn-diff/src/json_patch/mod.rs`, sequence tests
+- Exact write set: `crates/acorn-diff/src/json_patch/mod.rs`, `crates/acorn-diff/src/json_patch/tests.rs`
 - Primary integration lock: acorn-diff public API
 - Outcome: Add opt-in deterministic sequence alignment with positional fallback at the work ceiling.
 - Focused validation: Apply generated patches for insert/remove/replace, repeats, nesting, and fallback boundaries.
@@ -225,7 +225,7 @@ Translate the aligned edit script with one current target index: equal elements 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DIF-07, DIF-08, DIF-09, DIF-10
-- Exact write set: `crates/acorn-diff/benches/diff.rs`, diff fuzz targets, benchmark record
+- Exact write set: `crates/acorn-diff/benches/diff.rs`, `fuzz/fuzz_targets/diff.rs`, `docs/src/packages/acorn-diff.md`
 - Primary integration lock: diff validation
 - Outcome: Measure limits/sequence behavior and prove normal, alloc-only, preserve-order, and WASM compatibility.
 - Focused validation: Run bounded fuzz seeds, benchmarks, crate tests, clippy, rustdoc, and WASM checks.
@@ -236,7 +236,7 @@ Translate the aligned edit script with one current target index: equal elements 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DIF-11
-- Exact write set: `docs/src/packages/acorn-diff.md`, wiki indexes, this plan
+- Exact write set: `docs/src/packages/acorn-diff.md`, `.wiki/index.md`, `.wiki/refactors/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/refactors/acorn-diff-resource-and-api-hardening.md`
 - Primary integration lock: diff documentation
 - Outcome: Document limits, raw output, patch API, array strategies, and remove the completed plan.
 - Focused validation: Run package docs, focused consumers, `make lint`, `make test`, and wiki validation.

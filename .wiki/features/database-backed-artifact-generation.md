@@ -61,7 +61,7 @@ The implemented canonical database contract supplies typed lookup, revision iden
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none
-- Exact write set: `crates/acorn-lib/src/io/database/artifact.rs`, `crates/acorn-lib/src/io/database/mod.rs`, focused selector tests
+- Exact write set: `crates/acorn-lib/src/io/database/artifact.rs`, `crates/acorn-lib/src/io/database/mod.rs`, `crates/acorn-lib/src/io/database/tests/mod.rs`
 - Primary integration lock: database artifact API
 - Outcome: Represent file, current activity, and immutable revision sources with unambiguous validation.
 - Focused validation: Run focused selector construction and invalid-identity tests.
@@ -72,7 +72,7 @@ The implemented canonical database contract supplies typed lookup, revision iden
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DBA-01
-- Exact write set: `crates/acorn-lib/src/io/database/artifact.rs`, SQLite artifact tests
+- Exact write set: `crates/acorn-lib/src/io/database/artifact.rs`
 - Primary integration lock: database artifact API
 - Outcome: Resolve a portable activity ID or revision ID to typed activity data and exact provenance.
 - Focused validation: Seed SQLite and compare current and historical resolutions.
@@ -83,7 +83,7 @@ The implemented canonical database contract supplies typed lookup, revision iden
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DBA-02
-- Exact write set: DuckDB artifact tests, `tests/fixtures/database/export/manifest.json`
+- Exact write set: `crates/acorn-lib/src/io/database/artifact.rs`, `tests/fixtures/database/export/manifest.json`
 - Primary integration lock: database fixtures
 - Outcome: Produce the same typed selection and provenance through DuckDB.
 - Focused validation: Run equivalent SQLite and DuckDB selector cases.
@@ -94,7 +94,7 @@ The implemented canonical database contract supplies typed lookup, revision iden
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DBA-02
-- Exact write set: `crates/acorn-schema/src/report.rs`, adjacent manifest tests
+- Exact write set: `crates/acorn-schema/src/report.rs`
 - Primary integration lock: artifact manifest schema
 - Outcome: Add database activity/revision identity, options, version, window, and stable input digest to the existing manifest contract.
 - Focused validation: Run serde, schema, digest, and backward-compatibility tests.
@@ -105,7 +105,7 @@ The implemented canonical database contract supplies typed lookup, revision iden
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DBA-03, DBA-04
-- Exact write set: `crates/acorn-cli/src/commands/export/mod.rs`, export service tests
+- Exact write set: `crates/acorn-cli/src/commands/export/mod.rs`
 - Primary integration lock: export command
 - Outcome: Feed file and database sources through one RAD JSON/YAML/Markdown rendering pipeline.
 - Focused validation: Compare byte-stable file/current/revision outputs.
@@ -116,7 +116,7 @@ The implemented canonical database contract supplies typed lookup, revision iden
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DBA-04
-- Exact write set: `crates/acorn-lib/src/io/database/artifact.rs`, logbook artifact tests
+- Exact write set: `crates/acorn-lib/src/io/database/artifact.rs`
 - Primary integration lock: database artifact API
 - Outcome: Generate bounded-window update artifacts using the shared reporting manifest semantics.
 - Focused validation: Test empty, current, historical, and later-enrichment windows.
@@ -127,7 +127,7 @@ The implemented canonical database contract supplies typed lookup, revision iden
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DBA-05, DBA-06
-- Exact write set: `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/commands/export/mod.rs`, `CommandLineHelp.md`
+- Exact write set: `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/commands/export/mod.rs`, `CommandLineHelp.md`, `crates/acorn-cli/src/commands/export/tests/mod.rs`
 - Primary integration lock: CLI syntax and generated help
 - Outcome: Add mutually exclusive file/activity/revision inputs and explicit overwrite behavior.
 - Focused validation: Run parser, command, collision, missing-ID, and generated-help tests.
@@ -138,7 +138,7 @@ The implemented canonical database contract supplies typed lookup, revision iden
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DBA-05, DBA-06
-- Exact write set: `crates/acorn-lib/src/io/mcp/server.rs`, inbound MCP artifact tests
+- Exact write set: `crates/acorn-lib/src/io/mcp/server.rs`, `crates/acorn-lib/src/io/mcp/tests/mod.rs`
 - Primary integration lock: inbound MCP catalog
 - Outcome: Expose typed database source selection without proxying through the outbound client.
 - Focused validation: Test effects, limits, missing/ambiguous identities, overwrite policy, and deterministic results.
@@ -149,7 +149,7 @@ The implemented canonical database contract supplies typed lookup, revision iden
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DBA-07, DBA-08, EXP-10
-- Exact write set: database export fixtures, renderer documentation, wiki indexes, this plan
+- Exact write set: `tests/fixtures/database/export/manifest.json`, `docs/src/cli-reference/commands/export.md`, `.wiki/index.md`, `.wiki/features/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/features/database-backed-artifact-generation.md`
 - Primary integration lock: renderer validation
 - Outcome: Cover standards and binary renderers, run full gates, and remove the plan.
 - Focused validation: Run both backends, renderer visual checks, `make lint`, `make test`, and wiki validation.

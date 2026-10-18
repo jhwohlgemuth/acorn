@@ -106,7 +106,7 @@ Extend the existing bounded GGUF reader to capture `general.architecture` and `{
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none
-- Exact write set: Hugging Face request tests, this plan
+- Exact write set: `crates/acorn-lib/src/io/api/tests/huggingface.rs`, `.wiki/features/model-acquisition-hardening.md`
 - Primary integration lock: model acquisition API
 - Outcome: Freeze current callers, invalid states, URL identity, selection, and download behavior before replacement.
 - Focused validation: Run focused Hugging Face library, CLI, and TUI tests.
@@ -117,7 +117,7 @@ Extend the existing bounded GGUF reader to capture `general.architecture` and `{
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: MOD-01
-- Exact write set: `crates/acorn-lib/src/io/api/huggingface.rs`, identifier tests
+- Exact write set: `crates/acorn-lib/src/io/api/huggingface.rs`, `crates/acorn-lib/src/io/api/tests/mod.rs`
 - Primary integration lock: model acquisition API
 - Outcome: Enforce one owner/name separator, safe components, canonical display, and pre-network rejection.
 - Focused validation: Run valid/invalid/path/Unicode/URL construction tests.
@@ -128,7 +128,7 @@ Extend the existing bounded GGUF reader to capture `general.architecture` and `{
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: MOD-02
-- Exact write set: `crates/acorn-lib/src/io/api/huggingface.rs`, request tests
+- Exact write set: `crates/acorn-lib/src/io/api/huggingface.rs`, `crates/acorn-lib/src/io/api/tests/mod.rs`
 - Primary integration lock: model acquisition API
 - Outcome: Replace broad options with required `RepositoryRequest`, `SelectionContext`, and `DownloadOptions` values.
 - Focused validation: Test construction, serde where applicable, defaults, and invalid combinations.
@@ -139,7 +139,7 @@ Extend the existing bounded GGUF reader to capture `general.architecture` and `{
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: MOD-03
-- Exact write set: `crates/acorn-lib/src/io/api/huggingface.rs`, resolved-file tests
+- Exact write set: `crates/acorn-lib/src/io/api/huggingface.rs`, `crates/acorn-lib/src/io/api/tests/mod.rs`
 - Primary integration lock: model acquisition API
 - Outcome: Make file sets opaque and preserve repository/revision through filtering and shard selection.
 - Focused validation: Test identity retention, shard selection, filtering, and URL generation.
@@ -150,7 +150,7 @@ Extend the existing bounded GGUF reader to capture `general.architecture` and `{
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: MOD-04
-- Exact write set: model download command, model planning service, TUI model workflow, focused caller tests
+- Exact write set: `crates/acorn-cli/src/commands/download/model/mod.rs`, `crates/acorn-cli/src/commands/download/model/plan/mod.rs`, `crates/acorn-tui/src/screens/gguf_picker.rs`, `crates/acorn-cli/src/commands/download/model/plan/tests.rs`, `crates/acorn-tui/src/screens/gguf_picker/tests.rs`
 - Primary integration lock: model acquisition integration
 - Outcome: Remove repeated identity inputs and compile every public caller against the new boundary.
 - Focused validation: Run library, CLI, TUI, offline, dry-run, and compatibility tests.
@@ -161,7 +161,7 @@ Extend the existing bounded GGUF reader to capture `general.architecture` and `{
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: MOD-05
-- Exact write set: ModelPack planning module, annotation fixtures and tests
+- Exact write set: `crates/acorn-cli/src/commands/download/model/plan/mod.rs`, `crates/acorn-cli/src/commands/download/model/plan/tests.rs`, `tests/fixtures/oci/modelpack-config.json`
 - Primary integration lock: model artifact planning
 - Outcome: Reconcile standard annotations with validated descriptors and stable provenance.
 - Focused validation: Test missing, matching, conflicting, unknown, and redacted annotations.
@@ -172,7 +172,7 @@ Extend the existing bounded GGUF reader to capture `general.architecture` and `{
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: MOD-06
-- Exact write set: ModelPack planning module, split/projector fixtures
+- Exact write set: `crates/acorn-cli/src/commands/download/model/plan/mod.rs`, `crates/acorn-cli/src/commands/download/model/plan/tests.rs`, `tests/fixtures/oci/manifest-modelpack.json`
 - Primary integration lock: model artifact planning
 - Outcome: Select primary shards, required configuration, and projector assets without unsafe collisions.
 - Focused validation: Test raw/archive encodings, split order, missing parts, projectors, and dry-run inventory confidence.
@@ -183,7 +183,7 @@ Extend the existing bounded GGUF reader to capture `general.architecture` and `{
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: MOD-07
-- Exact write set: model acquisition error types, diagnostic tests
+- Exact write set: `crates/acorn-lib/src/io/model/mod.rs`, `crates/acorn-cli/src/commands/download/model/plan/tests.rs`
 - Primary integration lock: model acquisition API
 - Outcome: Give callers stable categories without exposing credentials, repository contents, or registry responses.
 - Focused validation: Test malformed, unsupported, collision, checksum, auth, transport, and oversize failures.
@@ -194,7 +194,7 @@ Extend the existing bounded GGUF reader to capture `general.architecture` and `{
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: MOD-07
-- Exact write set: `tests/fixtures/model/modctl/`, fixture attribution record
+- Exact write set: `tests/fixtures/model/modctl/README.md`, `tests/fixtures/model/modctl/manifest.json`
 - Primary integration lock: model interoperability fixtures
 - Outcome: Pin independently produced ModelKit/ModelPack artifacts and expected normalized results.
 - Focused validation: Decode, verify, plan, and materialize each fixture offline.
@@ -205,7 +205,7 @@ Extend the existing bounded GGUF reader to capture `general.architecture` and `{
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: MOD-08, MOD-09
-- Exact write set: Linux Distribution/Harbor test environment, interoperability evidence
+- Exact write set: Linux Distribution/Harbor test environment, `docs/src/cli-reference/model-workflows.md`
 - Primary integration lock: model registry matrix
 - Outcome: Prove tag/digest and public/authenticated flows on Linux.
 - Focused validation: Run the frozen ModelKit/raw/archive/annotated/index/corrupt matrix.
@@ -216,7 +216,7 @@ Extend the existing bounded GGUF reader to capture `general.architecture` and `{
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: MOD-08, MOD-09
-- Exact write set: Windows Distribution/Harbor test environment, interoperability evidence
+- Exact write set: Windows Distribution/Harbor test environment, `docs/src/cli-reference/model-workflows.md`
 - Primary integration lock: model registry matrix
 - Outcome: Prove the same tag/digest and public/authenticated flows on Windows.
 - Focused validation: Run the frozen interoperability matrix and path/collision cases.
@@ -227,7 +227,7 @@ Extend the existing bounded GGUF reader to capture `general.architecture` and `{
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: MOD-10, MOD-11
-- Exact write set: model support documentation, wiki indexes, this plan
+- Exact write set: `docs/src/cli-reference/model-workflows.md`, `.wiki/index.md`, `.wiki/features/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/features/model-acquisition-hardening.md`
 - Primary integration lock: model documentation
 - Outcome: Publish the supported matrix and release evidence, run full gates, and remove the plan.
 - Focused validation: Run focused suites, portability, `make lint`, `make test`, `make doc`, and wiki validation.

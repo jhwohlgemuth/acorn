@@ -65,7 +65,7 @@ Leaf command tests may proceed while avoiding shared CLI parser/help files. Test
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none
-- Exact write set: `crates/acorn-cli/src/test.rs`, download/import/format test modules
+- Exact write set: `crates/acorn-cli/src/test.rs`
 - Primary integration lock: CLI test support
 - Outcome: Add one result-preserving tracing capture helper and remove only duplicated writers.
 - Focused validation: Run the migrated focused tests and verify errors/results survive capture.
@@ -76,7 +76,7 @@ Leaf command tests may proceed while avoiding shared CLI parser/help files. Test
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: COV-01
-- Exact write set: `crates/acorn-cli/src/commands/link/tests.rs`, link fixtures
+- Exact write set: `crates/acorn-cli/src/commands/link/tests.rs`, `tests/fixtures/cli/link/valid.json`
 - Primary integration lock: link command tests
 - Outcome: Cover JSON/YAML success, dry run, output naming, and configured-gate behavior.
 - Focused validation: Run focused link command tests with network disabled.
@@ -87,7 +87,7 @@ Leaf command tests may proceed while avoiding shared CLI parser/help files. Test
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: COV-02
-- Exact write set: `crates/acorn-cli/src/commands/link/tests.rs`, link fixtures
+- Exact write set: `crates/acorn-cli/src/commands/link/tests.rs`, `tests/fixtures/cli/link/invalid.json`
 - Primary integration lock: link command tests
 - Outcome: Cover missing/invalid input, ignores, multi-file order, collisions, and actionable errors.
 - Focused validation: Run focused link tests and assert stable status/diagnostic content.
@@ -98,7 +98,7 @@ Leaf command tests may proceed while avoiding shared CLI parser/help files. Test
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: COV-01
-- Exact write set: serve command test modules, fake command fixtures
+- Exact write set: `crates/acorn-cli/src/commands/serve/mod.rs`, `crates/acorn-cli/src/commands/serve/rpc.rs`, `crates/acorn-cli/src/commands/serve/grpc/mod.rs`
 - Primary integration lock: serve command tests
 - Outcome: Cover local, SSH/context validation, detach, spawn, and nonzero-exit seams.
 - Focused validation: Run focused RPC, gRPC, and MCP serve tests without external hosts.
@@ -109,7 +109,7 @@ Leaf command tests may proceed while avoiding shared CLI parser/help files. Test
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: COV-01
-- Exact write set: SWHID command tests, SWHID fixtures
+- Exact write set: `crates/acorn-cli/src/commands/swhid/mod.rs`, `tests/fixtures/swhid/valid-repository.json`
 - Primary integration lock: SWHID command tests
 - Outcome: Cover supported success, missing input, invalid repositories, and stable error paths.
 - Focused validation: Run focused SWHID command tests offline.
@@ -120,7 +120,7 @@ Leaf command tests may proceed while avoiding shared CLI parser/help files. Test
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: COV-03, COV-04, COV-05
-- Exact write set: `crates/acorn-cli/tests/errors.rs`, binary test fixtures
+- Exact write set: `crates/acorn-cli/tests/errors.rs`, `tests/fixtures/cli/errors/invalid.json`
 - Primary integration lock: CLI binary tests
 - Outcome: Assert status and stable diagnostics for check, export, format, link, serve, and SWHID failures.
 - Focused validation: Run the compiled-binary test target on supported platforms without color/path coupling.
@@ -131,7 +131,7 @@ Leaf command tests may proceed while avoiding shared CLI parser/help files. Test
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: COV-06
-- Exact write set: this plan, wiki indexes
+- Exact write set: `.wiki/testing/cli-coverage.md`, `.wiki/index.md`, `.wiki/testing/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
 - Primary integration lock: CLI test integration
 - Outcome: Run CI/full suites, confirm no unjustified ignored tests, and remove the plan.
 - Focused validation: Run focused command tests, `make test-ci`, `make test`, and wiki validation.

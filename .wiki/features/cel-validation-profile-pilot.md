@@ -162,7 +162,7 @@ When completed, remove this plan and its index/network/lane entries; retain impl
 - Status: blocked
 - Budget: 5 active hours maximum
 - Prerequisites: named validation-profile owner
-- Exact write set: `tests/fixtures/cel/pilot.json`, this plan
+- Exact write set: `tests/fixtures/cel/pilot.json`, `.wiki/features/cel-validation-profile-pilot.md`
 - Primary integration lock: CEL pilot contract
 - Outcome: Freeze three useful rules with positive, negative, missing, null, and type-mismatch cases.
 - Focused validation: Review each expected finding and compare it with current Rust/Rhai behavior.
@@ -173,7 +173,7 @@ When completed, remove this plan and its index/network/lane entries; retain impl
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CEL-01
-- Exact write set: `Cargo.toml`, `Cargo.lock`, `deny.toml`, this plan
+- Exact write set: `Cargo.toml`, `Cargo.lock`, `deny.toml`, `.wiki/features/cel-validation-profile-pilot.md`
 - Primary integration lock: workspace manifests
 - Outcome: Select a pinned CEL crate only if license, MSRV, dependency graph, and portability are acceptable.
 - Focused validation: Run dependency/license checks and minimal native/portable builds.
@@ -184,7 +184,7 @@ When completed, remove this plan and its index/network/lane entries; retain impl
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CEL-02
-- Exact write set: `tests/fixtures/cel/conformance.json`, this plan
+- Exact write set: `tests/fixtures/cel/conformance.json`, `.wiki/features/cel-validation-profile-pilot.md`
 - Primary integration lock: CEL pilot contract
 - Outcome: Freeze the supported syntax, checking behavior, macros, numbers, nulls, errors, and reference differences.
 - Focused validation: Run the fixture corpus through the selected crate and reference implementation.
@@ -195,7 +195,7 @@ When completed, remove this plan and its index/network/lane entries; retain impl
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CEL-02
-- Exact write set: CEL resource harness, `tests/fixtures/cel/resources.json`, this plan
+- Exact write set: `crates/acorn-lib/benches/cel_resources.rs`, `tests/fixtures/cel/resources.json`, `.wiki/features/cel-validation-profile-pilot.md`
 - Primary integration lock: CEL runtime feasibility
 - Outcome: Demonstrate bounded CPU, memory, recursion, input, output, and thread isolation or stop adoption.
 - Focused validation: Exercise adversarial expressions at every proposed boundary.
@@ -206,7 +206,7 @@ When completed, remove this plan and its index/network/lane entries; retain impl
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CEL-03, CEL-04
-- Exact write set: `crates/acorn-lib/src/analyzer/cel/manifest.rs`, manifest tests
+- Exact write set: `crates/acorn-lib/src/analyzer/cel/manifest.rs`
 - Primary integration lock: analyzer profile schema
 - Outcome: Decode strict rule IDs, messages, paths, severities, and boolean expressions with collected errors.
 - Focused validation: Run valid, multi-error, unknown-field, and duplicate-ID tests.
@@ -217,7 +217,7 @@ When completed, remove this plan and its index/network/lane entries; retain impl
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CEL-05
-- Exact write set: `crates/acorn-lib/src/analyzer/cel/runtime.rs`, runtime tests
+- Exact write set: `crates/acorn-lib/src/analyzer/cel/runtime.rs`
 - Primary integration lock: CEL analyzer module
 - Outcome: Compile profiles once and evaluate fresh allowlisted bindings within the proven limits.
 - Focused validation: Test deterministic reuse, isolation, timeout/resource failure, and offline operation.
@@ -228,7 +228,7 @@ When completed, remove this plan and its index/network/lane entries; retain impl
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CEL-06
-- Exact write set: `crates/acorn-lib/src/analyzer/cel/mod.rs`, finding tests
+- Exact write set: `crates/acorn-lib/src/analyzer/cel/mod.rs`
 - Primary integration lock: analyzer result model
 - Outcome: Emit ordered findings, skipped/error states, profile identity, and bounded provenance.
 - Focused validation: Compare results with the frozen expected fixture cases.
@@ -239,7 +239,7 @@ When completed, remove this plan and its index/network/lane entries; retain impl
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CEL-07
-- Exact write set: `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/commands/check/mod.rs`, `CommandLineHelp.md`
+- Exact write set: `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/commands/check/mod.rs`, `CommandLineHelp.md`, `crates/acorn-cli/src/commands/check/tests/mod.rs`
 - Primary integration lock: CLI syntax and generated help
 - Outcome: Add explicit local profile selection with distinct advisory and enforcement behavior.
 - Focused validation: Run parser, absent-profile, advisory, enforcement, offline, and generated-help tests.
@@ -250,7 +250,7 @@ When completed, remove this plan and its index/network/lane entries; retain impl
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CEL-08
-- Exact write set: `crates/acorn-analysis/src/check.rs`, analyzer summary tests
+- Exact write set: `crates/acorn-analysis/src/check.rs`, `crates/acorn-analysis/src/tests/mod.rs`
 - Primary integration lock: check analyzer pipeline
 - Outcome: Include CEL findings and skipped/error states without changing existing check ordering.
 - Focused validation: Run mixed native/CEL batch and summary tests.
@@ -261,7 +261,7 @@ When completed, remove this plan and its index/network/lane entries; retain impl
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CEL-09
-- Exact write set: CEL benchmark harness, this plan
+- Exact write set: `crates/acorn-lib/benches/cel_resources.rs`, `.wiki/features/cel-validation-profile-pilot.md`
 - Primary integration lock: CEL acceptance evidence
 - Outcome: Record cold/warm performance, binary size, memory, and conformance against frozen budgets.
 - Focused validation: Run the predeclared benchmark and resource corpus on the supported profile.
@@ -272,7 +272,7 @@ When completed, remove this plan and its index/network/lane entries; retain impl
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CEL-10
-- Exact write set: representative CEL profiles, CEL user documentation
+- Exact write set: `tests/fixtures/cel/profiles/owner.yaml`, `docs/src/concepts/cel.md`
 - Primary integration lock: CEL profile documentation
 - Outcome: Have the named owner change a requirement and tests without Rust changes.
 - Focused validation: Run the edited profile and review its resulting findings.
@@ -283,7 +283,7 @@ When completed, remove this plan and its index/network/lane entries; retain impl
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: CEL-11
-- Exact write set: CEL user documentation, wiki indexes, this plan
+- Exact write set: `docs/src/concepts/cel.md`, `.wiki/index.md`, `.wiki/features/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/features/cel-validation-profile-pilot.md`
 - Primary integration lock: CEL release decision
 - Outcome: Keep the capability opt-in or remove it according to the frozen gates, then retire the plan.
 - Focused validation: Run focused tests, portability, `make lint`, `make test`, docs/help checks, and wiki validation.

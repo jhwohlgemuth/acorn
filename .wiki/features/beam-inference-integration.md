@@ -16,7 +16,7 @@ phase_budget_hours: 5
 
 Enable an explicitly selected Beam endpoint for advisory research-text assistance in ACORN. Start with one bounded request over user-supplied text through the existing inference command. Prefer configuration and interoperability tests over a new provider implementation when the released service matches an existing protocol.
 
-This plan is separate from [SLM sidecars](slm-sidecars.md): Beam is a proposed externally managed inference service, while Julia provides local finite-choice decisions. No automatic fallback from Julia to Beam, tool execution, canonical RAD mutation, or background inference belongs to this scope.
+This plan is separate from the [Julia decision sidecar](julia-decision-sidecar.md): Beam is a proposed externally managed inference service, while Julia provides local finite-choice decisions. No automatic fallback from Julia to Beam, tool execution, canonical RAD mutation, or background inference belongs to this scope.
 
 # Evidence and release gates
 
@@ -73,7 +73,7 @@ Local evidence: `crates/acorn-lib/src/io/api/openai/mod.rs` exposes Chat Complet
 - Status: blocked
 - Budget: 5 active hours maximum
 - Prerequisites: published Beam release and serving contract
-- Exact write set: this plan, dated Beam evidence record
+- Exact write set: `.wiki/features/beam-inference-integration.md`
 - Primary integration lock: Beam adoption decision
 - Outcome: Record immutable identity, license, API, limits, retention, cost, and supported hosting from primary sources.
 - Focused validation: Cross-check every release gate and stop promotion if any required evidence is absent.
@@ -84,7 +84,7 @@ Local evidence: `crates/acorn-lib/src/io/api/openai/mod.rs` exposes Chat Complet
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: BEAM-01 and an authorized deployment
-- Exact write set: `tests/fixtures/inference/beam/`, fixture attribution record
+- Exact write set: `tests/fixtures/inference/beam/README.md`, `tests/fixtures/inference/beam/interop.json`
 - Primary integration lock: Beam interoperability fixtures
 - Outcome: Capture sanitized success, refusal, incomplete, malformed, auth, rate, timeout, oversize, and offline cases.
 - Focused validation: Verify credentials/source content are absent and expected semantics are explicit.
@@ -95,7 +95,7 @@ Local evidence: `crates/acorn-lib/src/io/api/openai/mod.rs` exposes Chat Complet
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: BEAM-02
-- Exact write set: `crates/acorn-lib/tests/openai_interoperability.rs`, Beam fixtures
+- Exact write set: `crates/acorn-lib/tests/openai_interoperability.rs`, `tests/fixtures/inference/beam/interop.json`
 - Primary integration lock: inference interoperability
 - Outcome: Exercise explicit endpoint/model selection through the current interface before adding code.
 - Focused validation: Run all sanitized fixtures, unsupported-capability rejection, redaction, and offline behavior.
@@ -106,7 +106,7 @@ Local evidence: `crates/acorn-lib/src/io/api/openai/mod.rs` exposes Chat Complet
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: BEAM-03 reports an incompatibility
-- Exact write set: `crates/acorn-lib/src/io/api/openai/inference.rs`, Beam adapter tests
+- Exact write set: `crates/acorn-lib/src/io/api/openai/inference.rs`
 - Primary integration lock: inference API
 - Outcome: Implement the smallest reusable protocol difference without a registry or automatic fallback.
 - Focused validation: Run existing OpenAI and Beam fixtures to prove no regression or silent capability stripping.
@@ -117,7 +117,7 @@ Local evidence: `crates/acorn-lib/src/io/api/openai/mod.rs` exposes Chat Complet
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: BEAM-03 and named evaluation owner
-- Exact write set: frozen 100-example corpus, reviewer rubric, prompt/model/budget policy
+- Exact write set: `tests/fixtures/inference/beam/evaluation.jsonl`, `docs/src/inference/beam.md`
 - Primary integration lock: Beam evaluation
 - Outcome: Predeclare baseline, 90% acceptance, zero material unsupported claims, cost, latency, and failure accounting.
 - Focused validation: Review held-out separation, denominator rules, and owner approval.
@@ -128,7 +128,7 @@ Local evidence: `crates/acorn-lib/src/io/api/openai/mod.rs` exposes Chat Complet
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: BEAM-03
-- Exact write set: Beam interoperability tests, Beam fixtures
+- Exact write set: `crates/acorn-lib/tests/openai_interoperability.rs`, `tests/fixtures/inference/beam/interop.json`
 - Primary integration lock: inference interoperability
 - Outcome: Cover the supported profile entirely offline, including refusals, truncation, schema failures, redaction, and limits.
 - Focused validation: Run focused interoperability/configuration tests with network disabled.
@@ -139,7 +139,7 @@ Local evidence: `crates/acorn-lib/src/io/api/openai/mod.rs` exposes Chat Complet
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: BEAM-04 or configuration-only result from BEAM-03
-- Exact write set: `docs/src/inference/beam.md`, `docs/src/SUMMARY.md`, conditional CLI configuration docs
+- Exact write set: `docs/src/inference/beam.md`
 - Primary integration lock: book documentation
 - Outcome: Document explicit endpoint/model selection, capabilities, limitations, data handling, and deployment responsibility.
 - Focused validation: Run docs/help generation, internal links, and offline example configuration.
@@ -150,7 +150,7 @@ Local evidence: `crates/acorn-lib/src/io/api/openai/mod.rs` exposes Chat Complet
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: BEAM-05, BEAM-06, BEAM-07
-- Exact write set: authorized Beam deployment, frozen evaluation results
+- Exact write set: Beam deployment identified in BEAM-01, `tests/fixtures/inference/beam/results.json`
 - Primary integration lock: Beam evaluation
 - Outcome: Measure the explicit profile against quality, refusal, completeness, latency, and cost gates.
 - Focused validation: Run one bounded live smoke and the frozen held-out evaluation without dropping failures.
@@ -161,7 +161,7 @@ Local evidence: `crates/acorn-lib/src/io/api/openai/mod.rs` exposes Chat Complet
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: BEAM-08
-- Exact write set: Beam support documentation, wiki indexes, this plan
+- Exact write set: `docs/src/inference/beam.md`, `.wiki/index.md`, `.wiki/features/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/features/beam-inference-integration.md`
 - Primary integration lock: Beam adoption decision
 - Outcome: Release only the passing profile or prune implementation artifacts, then remove the plan.
 - Focused validation: Run focused tests, portability/help as applicable, `make lint`, `make test`, docs, and wiki validation.

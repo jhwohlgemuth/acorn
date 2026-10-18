@@ -4,31 +4,21 @@ okf_version: "0.1"
 
 # Plan dependency network
 
-This map records implementation dependencies among the active consolidated plans. Portfolio rank is maintained in the [planning index](index.md); dependency order can override rank when a prerequisite contract is not ready.
+This map records implementation dependencies among the active plans. Portfolio rank is maintained in the [planning index](index.md); dependency order can override rank when a prerequisite contract is not ready.
 
 Executable detail lives in each plan's `# Execution phases` section. Cross-plan edges name stable phase IDs; completed phases are pruned without renumbering unfinished phases. A plan-level edge is not permission to start every phase in that plan.
 
-## Boundary critical path
+## Boundary coordination
 
-```text
- analysis + service   shared API client   outbound MCP client   export and OOXML
-       |                 |                    |                    |
-       v                 v                    v                    v
- dual-protocol server  acorn-api boundary  Xylem integration   acorn-export boundary
-       |
-       v
- CLI composition boundary
-```
-
-The [crate boundary architecture](refactors/crate-boundary-architecture.md) coordinates this path. It is not a schedulable implementation job.
+The [crate boundary architecture](refactors/crate-boundary-architecture.md) coordinates remaining package ownership. The shared API and export plans establish contracts before separate package-extraction plans can be scheduled. CLI composition consumes the landed service/server contracts. The architecture record is not an implementation job.
 
 ## Direct edges
 
 ### Portable and extraction boundaries
 
-- [Outbound MCP client embedder interface](refactors/api/outbound-mcp-client-interface.md) builds on the landed narrow `mcp-client` graph. It owns direct server-map construction and bounded caller-driven cancellation while preserving the landed MCP configuration, policy, transport, and result contracts.
+- [Outbound MCP client embedder interface](refactors/api/outbound-mcp-client-interface.md) has landed direct server-map construction and bounded caller-driven cancellation. Its remaining phases document the public interface and record portable/WASM validation.
 
-- [Shared API client contract](refactors/api/shared-client-contract.md) prepares `acorn-api`; endpoint, request, resolved configuration, invocation, response, error, and provider policy move together only after its acceptance gates pass.
+- [Shared API client contract](refactors/api/shared-client-contract.md) prepares `acorn-api`; endpoint, request, resolved configuration, invocation, error, and provider policy move together only after its acceptance gates pass. API-14 migrates provider environment discovery after API-06 freezes the resolved configuration contract.
 - [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) prepares `acorn-export` by producing one pure projection and fallible in-memory transformations.
 - [CLI composition boundary](refactors/core/cli-composition-boundary.md) follows the stable service/server request and error contracts. Command leaves may normalize earlier only when they avoid shared CLI roots.
 - [Portable diff hardening](refactors/acorn-diff-resource-and-api-hardening.md) and [ZON codec hardening](refactors/zon-codec-hardening.md) are independent portable leaves.
@@ -46,10 +36,11 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 ### Gather, inference, and agent tools
 
 - [Deterministic and assisted gather extraction](features/gather-extraction.md) lands deterministic selector and transport policy before its optional inference adapter. Its TUI cutover follows the shared source contract.
-- [Needle router and capability registry parity](features/slm-sidecars.md) starts with SLM-00 caller-owned registry injection, then PAR-00 and RTR-01/02/03 contracts. PAR-01 through PAR-16 deliver measured native parity before ADP-01 through ADP-07 add generic executor configuration, MCP, ACP, endpoints, and sidecars. SLM-17 and JUL-11 consume ADP-05. Native parity and the generic release do not depend on model licensing or macOS hosts.
+- [Needle routing and native capability parity](features/needle-router-native-parity.md) starts with SLM-00 caller-owned registry injection, then PAR-00 inventory, PAR-17 routing cases, and RTR-01/02/03 contracts. PAR-01 through PAR-16 deliver measured native parity.
+- [Generic ask executor adapters](features/ask-executor-adapters.md) follows PAR-16. ADP-01 configuration precedes ADP-08 optional feature wiring and ADP-09 CLI composition; ADP-02 through ADP-07 add and validate explicit MCP, ACP, endpoint, and local-sidecar bindings. This release does not depend on model licensing or macOS hosts.
 - Router native adapters consume existing operation services and coordinate command seams with CLI composition; export/gather/model-acquisition plans retain their domain behavior ownership. MCP and ACP adapters reuse landed client/inference contracts; outbound MCP documentation closeout is not a code prerequisite. No automatic inbound MCP re-export is implied.
-- The [Julia-1 decision slice](features/slm-sidecars.md#julia-1-decision-sidecar-planned-follow-on) follows PAR-16 and consumes ADP-05 for registration, plus landed acquisition contracts. JUL-15 depends on Julia quality/resource gates, not SLM-22; Swift and Julia releases are independent.
-- [Needle 3 host validation](migrations/needle-3-upgrade.md) and the router plan serialize Needle roots, tool-index/artifact, and CI/build changes. Router implementation uses existing contracts; PAR-15 still needs an installed pinned runner on a supported host for real routing evaluation.
+- The [Swift SLM profile](features/swift-slm-profile.md) and [Julia decision profile](features/julia-decision-sidecar.md) consume ADP-05 for registration. SLM-17 and JUL-11 register library handlers; SLM-23 and JUL-16 own their separate CLI syntax. Each retains its own external, artifact, quality, and release gates; JUL-15 does not depend on SLM-22.
+- [Needle 3 host validation](migrations/needle-3-upgrade.md) and the router plan serialize Needle roots, tool-index/artifact, and CI/build changes. Linux x86_64 and ARM64 validation can run directly on Oklahoma and Dante, independent of Windows job preparation; Windows validation uses its prepared CI jobs. Router implementation uses existing contracts; PAR-15 still needs an installed pinned runner on a supported host for real routing evaluation. The [coordination record](features/slm-sidecars.md) does not own implementation.
 
 ### Optional policy validation
 
@@ -59,7 +50,7 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 
 ### Reliability and operations
 
-- [Power Automate GitLab JSONL intake](features/powerapps-gitlab-logbook-reporting.md) requires a conflict-safe flow appending Logbook envelopes and a Vergil poller that durably ingests/removes items, then multiplexes records by project ID or configured folder alias to augment the associated `index.json`. The ACRE 2.0.0 contract, source snapshots, durable admission, conflict-safe cleanup, independent poller, mixed-project review publication, one-shot manual intake, diff export, native executable, and explicit callback command are landed and locally validated. The standalone local proposal/apply path now also produces a verified updated PDF and manifest. PA-01 tester notifications passed; PA-02 waits on ownership and access decisions before PA-03 and PA-04, which gate PA-05. Final PA-09 acceptance requires PA-08. No gateway is required for the selected GitLab-mediated path.
+- [Power Automate GitLab JSONL intake](features/powerapps-gitlab-logbook-reporting.md) has locally validated repository admission, review publication, manual intake, callback delivery, and local PDF/manifest generation. PA-02 waits on owner and access decisions; PA-03 and PA-04 then gate the external flow in PA-05. PA-06 through PA-09 prove human review, live publication, callbacks, and multi-project routing. The selected GitLab-mediated path needs no gateway.
 - [Runner-pool isolation](refactors/ci-runner-pools.md) precedes claims that Rust/fuzz/reporting jobs are concurrently isolated. Its reporting pool supports the scheduled reporting workflow.
 - [Remote container creation](refactors/core/remote-create-container-targets.md) consumes normalized CLI requests when that boundary lands; leaf rollback/preflight work can proceed first.
 - [Podman Makefile migration](migrations/podman-makefile.md) changes development/release tooling only and must preserve product-level Docker and Podman support.
@@ -71,18 +62,17 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 
 | Surface | Plans that serialize |
 |---|---|
-| Workspace manifests and lockfile | analysis/service extraction, model acquisition, Cosmos, gather extraction, CEL, SLM, Miri/Creusot wiring |
-| Analyzer results, check orchestration, and module indexes | analysis/service extraction, CEL, gather inference, structured enrichment, diff, CLI coverage |
-| JSON-RPC registry, protobuf, and server lifecycle | analysis/service extraction; CLI composition consumes the finished server contract |
+| Workspace manifests and lockfile | model acquisition, Cosmos, gather extraction, CEL, ask adapters, SLM, Miri/Creusot wiring |
+| Analyzer results, check orchestration, and module indexes | CEL, gather inference, structured enrichment, diff, CLI coverage |
 | `io/api/mod.rs`, configuration roots, endpoint snapshots | shared API contract, dPID, Cosmos, model acquisition |
 | `io/mcp/client.rs`, outbound client tests and documentation | outbound MCP client interface; the landed feature graph and manifest boundary remain fixed |
-| Research-activity/PID schema roots | Dublin Core, dPID, structured enrichment, PID verification |
+| Research-activity/PID schema roots | dPID, structured enrichment, PID verification |
 | `io/{archive,oci}.rs`, `io/model/gguf/`, and model planner | model acquisition, SLM/Needle artifact work |
 | Tool registry, Needle startup/catalog, inference dispatch | router/parity, Needle validation, CLI composition; adapter leaves consume the frozen binding contract |
-| CLI parser, `main.rs`, generated help | analysis/service serve cutover, CLI composition, dPID, gather, CEL, remote create, SLM |
+| CLI parser, `main.rs`, generated help | CLI composition, dPID, gather, CEL, remote create, ask adapters, SLM |
 | Export dispatch/templates/PowerPoint | export pipeline, database-backed artifacts |
 | `Makefile` and `.gitlab-ci.yml` | runner pools, Podman, SLM, Needle, PID verification, export fuzzing, coverage throughput |
-| Developer test and coverage workflow (`Makefile` test targets, `.config/nextest.toml`, `[profile.coverage]`) | coverage throughput, CLI coverage | Slow-test gating and coverage scoping must not silently drop tests that another plan's acceptance criteria depend on. |
+| Developer test and coverage workflow (`Makefile` test targets, `.config/nextest.toml`, `[profile.coverage]`) | Coverage throughput and CLI coverage serialize; slow-test gating and coverage scoping must preserve other plans' acceptance tests. |
 
 Exact ownership and safe concurrent slices are maintained in the [parallel execution guide](parallel-execution.md).
 

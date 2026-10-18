@@ -16,7 +16,7 @@ Replace the current all-purpose `acorn-lib` package with a directed set of crate
 
 # Current priority
 
-This plan is coordination-only. `acorn-schema`, `acorn-cmd`, the initial `acorn-host` capabilities, `acorn-analysis`, `acorn-service`, and the `acorn-server` composition root are extracted with direct first-party imports. The analyzer and service kernels compile independently under portable feature configurations and have direct, WASM, JSON-RPC, and gRPC consumers. The current boundary-consistency pass established schema-owned string/byte codecs, one portable operation/effect model and JSON-RPC registry, portable RAD Markdown decoding, real repository action semantics, and an unconditional gRPC server implementation; the ranked slices below capture the remaining parity work.
+This plan is coordination-only. `acorn-schema`, `acorn-cmd`, the initial `acorn-host` capabilities, `acorn-analysis`, `acorn-service`, and the `acorn-server` composition root are extracted with direct first-party imports. The analyzer and service kernels compile independently under portable feature configurations and have direct, WASM, JSON-RPC, and gRPC consumers. The current boundary-consistency pass established schema-owned string/byte codecs, a portable operation/effect model, and working service/server consumers. Remaining package extraction is owned by the linked executable plans below.
 
 # Current evidence
 
@@ -78,14 +78,14 @@ crates/
 ├── acorn-tui
 ├── acorn-core
 ├── acorn-schema
-├── acorn-analysis   (planned)
+├── acorn-analysis
 ├── acorn-api        (planned)
 ├── acorn-store      (planned)
 ├── acorn-export     (planned)
 ├── acorn-host
 ├── acorn-wasm
-├── acorn-service    (planned)
-├── acorn-server     (planned)
+├── acorn-service
+├── acorn-server
 └── acorn-cmd
 ```
 
@@ -108,11 +108,9 @@ Workspace-wide support projects that are not published ACORN product crates, inc
 
 Individual schemas, providers, commands, doctor checks, and generic utility collections do not become separate crates. They remain modules within the package that owns their policy.
 
-# Project code boundaries
+# Coordination boundaries
 
-- **Update:** workspace `Cargo.toml`, `Makefile`, `.gitlab-ci.yml`; all current manifests; `crates/acorn-lib/src/{lib,error}.rs`, `analyzer/`, `io/`, `doctor/`, and `util/`; `crates/acorn-core/src/prelude.rs`; first-party crate imports; package/release documentation and `xtask` workspace assumptions.
-- **Create:** the remaining planned packages under `crates/` in dependency order, including the `acorn-server` interface/composition package, with focused unit and boundary tests and explicit feature contracts.
-- **Delete:** implementation from `acorn-lib` after consumers migrate directly to the owning crate; do not retain ownership-masking re-exports.
+This record owns package direction and phase ordering, not implementation files. The [shared API client plan](api/shared-client-contract.md) prepares `acorn-api`; the [export pipeline plan](core/export-pipeline-hardening.md) prepares `acorn-export`; the [CLI composition plan](core/cli-composition-boundary.md) owns interface cutover. Package extraction requires an atomic child plan with an exact write set, lock, and five-hour phases before any code assignment.
 
 # Plan dependencies
 
@@ -123,7 +121,7 @@ Individual schemas, providers, commands, doctor checks, and generic utility coll
 
 # Parallel execution
 
-This architecture plan is coordination-only except when a named migration phase is scheduled. Before assigning work, divide the phase into contract, leaf migration, and integration slices. One integration owner holds workspace manifests, `acorn-lib` roots, module indexes, ownership-cutover deletions, and feature-matrix validation; leaf agents may move disjoint modules only after the target contract is frozen. See the [parallel execution guide](../parallel-execution.md).
+This architecture record is coordination-only. Before assigning extraction work, create an atomic executable child plan with contract, leaf migration, and integration slices. One integration owner holds workspace manifests, `acorn-lib` roots, module indexes, ownership-cutover deletions, and feature-matrix validation; leaf agents may move disjoint modules only after the target contract is frozen. See the [parallel execution guide](../parallel-execution.md).
 
 # Boundary rules
 
@@ -140,45 +138,15 @@ This architecture plan is coordination-only except when a named migration phase 
 11. New ACORN packages are created as `crates/<package-name>`; product crates must not return to the workspace root.
 12. Reusable operations own capability-specific typed errors, using the existing workspace `thiserror` dependency when it reduces handwritten boilerplate. Host and application composition retain `color-eyre`; error conversion is performed within the owning slice rather than a workspace-wide migration.
 
-# Current migration sequence
+# Active child plans
 
-## 1. Extract the portable analysis and supplied-content service slice
+- [Shared API client contract](api/shared-client-contract.md) stabilizes endpoint, request, response, error, and provider mechanics before `acorn-api` extraction.
+- [Shared export and OOXML pipeline](core/export-pipeline-hardening.md) establishes pure in-memory transformations before `acorn-export` extraction.
+- [CLI composition boundary](core/cli-composition-boundary.md) keeps parsing and presentation at the interface root.
+- [Structured research-activity enrichment](core/research-activity-enrichment-integration.md) owns its schema/service seam.
+- [Portable diff hardening](acorn-diff-resource-and-api-hardening.md) and [ZON codec hardening](zon-codec-hardening.md) remain independent portable leaves.
 
-Move the proven analyzer kernel into `acorn-analysis` and build the initial `acorn-service` catalog over supplied content in the same phase. Host those shared operations through retained JSON-RPC semantics and explicit typed gRPC methods in `acorn-server`. Keep native path discovery, persistence implementation, and other adapters outside the portable crates.
-
-## 2. Stabilize provider and export boundaries
-
-Keep endpoint, authentication, request, response, and provider protocol mechanics in the API boundary. Move GitLab bot decisions, persistence coordination, analysis invocation, and report publication into a service boundary. Make export transformations return in-memory artifacts before extracting provider, store, and export packages.
-
-## 3. Extract adapters
-
-Extract provider protocol logic into `acorn-api`, persistence into `acorn-store`, and renderers into `acorn-export`. Move remaining native operations and concrete native port implementations into the existing feature-gated `acorn-host`. Extend the minimal `acorn-wasm` bindings with target-specific browser adapters only as service ports stabilize. Split one capability at a time and keep every intermediate workspace state buildable.
-
-## 4. Expand application services
-
-Move artifact discovery, GitLab bot workflows, and agentic/server coordination into `acorn-service` expressed over injected port traits. Keep CLI parsing, terminal presentation, process exit behavior, and concrete adapter selection in interface composition roots.
-
-## 5. Finish direct consumer migration and the release path
-
-Migrate first-party interfaces to direct dependencies, then remove extracted implementation and obsolete features from `acorn-lib`. Publish dependency crates in topological order before their consumers; Cargo requires published path dependencies to include a registry version and be available to downstream resolution ([Cargo dependency documentation](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#specifying-path-dependencies)). Reserve and recheck package names immediately before creating the first public release.
-
-# Ranked remaining consistency slices
-
-These are independently schedulable child slices, ordered by impact and then lower implementation difficulty. Before implementation, each slice must receive an exact write set and an integration owner under the parallel-execution rules.
-
-| Rank | Slice | Impact | Difficulty | Project boundary and current evidence | Acceptance gate |
-|---:|---|---|---|---|---|
-| 1 | Differential portability parity harness | High | Medium | Exercise identical schema codec and service requests through alloc/native service, JSON-RPC, gRPC, and WASM adapters; current tests are per-surface and can miss semantic drift. | Shared fixtures assert identical values, diagnostics, ordering, file changes, and policy errors across every supported surface in the feature matrix. |
-| 2 | Canonical diagnostics and readability contracts | High | Medium | Move remaining analyzer/host diagnostic and readability translations behind the `acorn-analysis` and `acorn-service` DTOs; current transport-specific projections can still diverge. | Direct, JSON-RPC, gRPC, CLI, and WASM consumers serialize one owned model with snapshot coverage and no duplicate public DTO. |
-| 3 | Explicit validation context | High | Medium | Replace ambient time and other environment-sensitive validation inputs with a portable `ValidationContext` supplied by callers. | Temporal checks are deterministic under a fixed context, browser/native results match, and schema validation does not read the system clock or process environment. |
-| 4 | Transport catalog parity | High | Medium | Generate or verify JSON-RPC and gRPC exposure from the service catalog, including `ValidateStandard`; current listeners still register methods separately. | A catalog test fails on missing, extra, renamed, or schema-incompatible operations, and every intended typed service operation is reachable through both transports. |
-| 5 | Canonical exact and host-fuzzy algorithms | High | Medium | Keep deterministic exact matching in portable owners and isolate optional fuzzy/search dependencies in host adapters; similar matching logic remains split across layers. | Portable builds have dependency-free deterministic results, host fuzzy behavior is explicitly selected, and shared fixtures document intentional result differences. |
-| 6 | Narrow schema standard-library features | High | High | Split the broad `acorn-schema/std` switch into capability-scoped features so codecs and standards do not enable unrelated host-adjacent dependency stacks. | Each supported schema capability compiles in isolation, the resolved tree matches its documented needs, and the default feature set preserves behavior. |
-| 7 | End-to-end offline propagation | Medium | Low | Carry the offline decision through service context and every host network adapter instead of relying on command-local checks. | Offline integration tests prove that CLI, service, JSON-RPC, and gRPC entry points perform no network-capable operation and return the same typed denial. |
-| 8 | Endpoint security policy consolidation | Medium | Low | Centralize bind-address, TLS, authentication, request-size, and exposure defaults in `acorn-server`; current listener composition retains protocol-specific decisions. | JSON-RPC and gRPC consume one reviewed policy, insecure non-loopback exposure requires explicit configuration, and tests cover default and rejected configurations. |
-| 9 | Boundary residue cleanup | Low | Low | Remove unused `ServiceClient` and durable marker abstractions, no-op aliases, stale feature/docs references, and compatibility names after direct consumers are confirmed. | Reference scans find no consumers, public docs name current owners and features, and workspace/package checks pass after deletion without replacement shells. |
-
-The differential harness precedes model and catalog convergence because it supplies the evidence needed to distinguish intentional adapter behavior from drift. Schema feature splitting follows the portable contract work so dependency changes do not obscure semantic changes. Residue cleanup runs last, after the parity gates prove that no compatibility shell remains necessary.
+Further parity or package-extraction work is not scheduled by this record. Create a separate atomic plan with current code evidence, one outcome, exact ownership, and focused validation before promoting it to the portfolio.
 
 # Compatibility
 

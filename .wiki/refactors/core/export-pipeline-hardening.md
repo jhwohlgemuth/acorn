@@ -79,7 +79,7 @@ The replacement contract lands before renderer integration. The complete context
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none
-- Exact write set: `crates/acorn-core/src/util/interpolation.rs`, adjacent interpolation tests
+- Exact write set: `crates/acorn-core/src/util/interpolation.rs`
 - Primary integration lock: portable export primitives
 - Outcome: Freeze scalar, list, absence, escaping, repetition, and split-placeholder behavior.
 - Focused validation: Run the focused `acorn-core` interpolation tests.
@@ -101,7 +101,7 @@ The replacement contract lands before renderer integration. The complete context
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: EXP-02
-- Exact write set: `crates/acorn-lib/src/io/export.rs`, `crates/acorn-lib/src/io/mod.rs`, focused export tests
+- Exact write set: `crates/acorn-lib/src/io/export.rs`, `crates/acorn-lib/src/io/mod.rs`, `crates/acorn-lib/src/io/tests/mod.rs`
 - Primary integration lock: export projection
 - Outcome: Project typed scalar, list, and image values once with draft and required-section validation.
 - Focused validation: Run focused export projection tests.
@@ -112,7 +112,7 @@ The replacement contract lands before renderer integration. The complete context
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: EXP-03
-- Exact write set: `crates/acorn-cli/src/template/mod.rs`, template tests
+- Exact write set: `crates/acorn-cli/src/template/mod.rs`, `crates/acorn-cli/src/template/tests/mod.rs`
 - Primary integration lock: HTML export adapter
 - Outcome: Render HTML exclusively from the shared context without changing authored/fallback image behavior.
 - Focused validation: Run focused template and PDF export tests.
@@ -123,7 +123,7 @@ The replacement contract lands before renderer integration. The complete context
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: EXP-03
-- Exact write set: `crates/acorn-lib/src/powerpoint/mod.rs`, PowerPoint projection tests
+- Exact write set: `crates/acorn-lib/src/powerpoint/mod.rs`
 - Primary integration lock: PowerPoint export adapter
 - Outcome: Consume the shared context and match HTML missing-value and image semantics.
 - Focused validation: Run focused PowerPoint tests against parity fixtures.
@@ -134,7 +134,7 @@ The replacement contract lands before renderer integration. The complete context
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: EXP-05
-- Exact write set: `crates/acorn-lib/src/powerpoint/interpolation.rs`, interpolation tests
+- Exact write set: `crates/acorn-lib/src/powerpoint/interpolation.rs`
 - Primary integration lock: OOXML interpolation
 - Outcome: Transform scalar and list placeholders split across runs and return part-qualified errors.
 - Focused validation: Run interpolation tests for namespaces, properties, malformed XML, and I/O failure.
@@ -145,7 +145,7 @@ The replacement contract lands before renderer integration. The complete context
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: EXP-06
-- Exact write set: `crates/acorn-lib/src/powerpoint/mod.rs`, atomic-mutation tests
+- Exact write set: `crates/acorn-lib/src/powerpoint/mod.rs`
 - Primary integration lock: OOXML archive mutation
 - Outcome: Validate slide, relationship, media, content-type, and ASPECT changes before publication.
 - Focused validation: Run failure-injection tests proving no usable partial export.
@@ -156,7 +156,7 @@ The replacement contract lands before renderer integration. The complete context
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: EXP-06, EXP-07
-- Exact write set: `crates/acorn-fuzz/fuzz_targets/powerpoint.rs`, `crates/acorn-fuzz/Cargo.toml`
+- Exact write set: `fuzz/fuzz_targets/powerpoint.rs`, `fuzz/Cargo.toml`
 - Primary integration lock: fuzz manifest
 - Outcome: Cover interpolation, slide lists, relationships, content types, and ASPECT mutations with bounded invariants.
 - Focused validation: Run bounded seed fuzzing and retain every regression input.
@@ -167,7 +167,7 @@ The replacement contract lands before renderer integration. The complete context
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: EXP-04, EXP-07
-- Exact write set: deterministic export fixtures, visual validation record in this plan
+- Exact write set: `tests/fixtures/export/reproducible.json`, `.wiki/refactors/core/export-pipeline-hardening.md`
 - Primary integration lock: renderer validation
 - Outcome: Prove representative generated presentations open without repair and preserve expected layout.
 - Focused validation: Inspect outputs in PowerPoint or LibreOffice and compare HTML/PDF/PPTX semantics.
@@ -178,7 +178,7 @@ The replacement contract lands before renderer integration. The complete context
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: EXP-08, EXP-09
-- Exact write set: `docs/src/packages/acorn-export.md`, wiki indexes, this plan
+- Exact write set: `docs/src/packages/acorn-export.md`, `.wiki/index.md`, `.wiki/refactors/core/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/refactors/core/export-pipeline-hardening.md`
 - Primary integration lock: export documentation
 - Outcome: Document the shared contract, run final gates, and remove this completed plan.
 - Focused validation: Run focused suites, portability checks, `make lint`, `make test`, `make doc`, and wiki validation.

@@ -2,7 +2,7 @@
 
 ## Waiting on validation
 
-- [Needle 2 to Needle 3 upgrade](needle-3-upgrade.md) - Validate the shipped Needle 3 workflow on the remaining Windows and Linux release hosts.
+- [Needle 2 to Needle 3 upgrade](needle-3-upgrade.md) - Validate Linux directly on Oklahoma and Dante while Windows host jobs remain pending.
 
 ## Planned
 

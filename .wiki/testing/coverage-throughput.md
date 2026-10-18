@@ -72,7 +72,7 @@ Splitting `acorn-lib` would reduce rebuild cost further, but it is a package-own
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none
-- Exact write set: `Makefile`, `AGENTS.md`, this plan
+- Exact write set: `Makefile`, `AGENTS.md`, `.wiki/testing/coverage-throughput.md`
 - Primary integration lock: CI/build (`Makefile`)
 - Outcome: Default coverage targets build incrementally, a clean-stage target remains available, and cold versus warm wall clock is recorded in this plan's evidence.
 - Focused validation: Two back-to-back `make cover-lib` runs; confirm the second reuses artifacts and emits an equivalent lcov file list.
@@ -83,7 +83,7 @@ Splitting `acorn-lib` would reduce rebuild cost further, but it is a package-own
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: COVT-01
-- Exact write set: `Makefile`, this plan
+- Exact write set: `Makefile`, `.wiki/testing/coverage-throughput.md`
 - Primary integration lock: CI/build (`Makefile`)
 - Outcome: The default local coverage target excludes `tests/downstream-host` and `xtask`, an unscoped full-workspace run stays available, and the lcov delta is recorded.
 - Focused validation: `make cover-lib` and the full-scope target; compare lcov line and file totals and record the difference.
@@ -94,7 +94,7 @@ Splitting `acorn-lib` would reduce rebuild cost further, but it is a package-own
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: COVT-01
-- Exact write set: `.config/nextest.toml`, `Makefile`, `crates/acorn-cmd/tests/execution.rs`, `crates/acorn-lib/src/io/mcp/tests/client.rs`, `crates/acorn-cli/src/commands/download/tests/mod.rs`, this plan
+- Exact write set: `.config/nextest.toml`, `Makefile`, `crates/acorn-cmd/tests/execution.rs`, `crates/acorn-lib/src/io/mcp/tests/client.rs`, `crates/acorn-cli/src/commands/download/tests/mod.rs`, `.wiki/testing/coverage-throughput.md`
 - Primary integration lock: CLI test support
 - Outcome: Per-test timeouts apply to the default run, wall-clock-bound tests have a named slow gate that still runs them, and no test is dropped from default coverage.
 - Focused validation: `make test`, `make test-all`, and one scoped coverage run; assert the slow gate actually executes the gated tests.
@@ -105,16 +105,8 @@ Splitting `acorn-lib` would reduce rebuild cost further, but it is a package-own
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: COVT-01, COVT-02
-- Exact write set: `Cargo.toml`, this plan
+- Exact write set: `Cargo.toml`, `.wiki/testing/coverage-throughput.md`
 - Primary integration lock: workspace graph (root manifest)
 - Outcome: The coverage profile stops paying optimized codegen for dependencies while preserving coverage line mapping.
 - Focused validation: Scoped coverage run before and after; compare lcov totals and run `make check-dependencies`.
 - Handoff: Remove COVT-04, then run the full local loop and delete this plan with every index, network, and lane entry.
-
-# Handoff
-
-- Verified baseline: commit `4e8165f2`; `make cover` passes `--force-clean`; tarpaulin 0.34.1 reports `--jobs` defaults to CPU count and excludes doctests by default.
-- Changed files: `Cargo.toml`, `Dockerfile`, `Dockerfile.rust` for the toolchain pin only.
-- Validation run: `make rust-version` prints `1.98.0`; `cargo check --workspace --all-targets` passes on rustc 1.99.0.
-- Remaining defect: No coverage-loop measurement has been recorded yet; COVT-01 produces the first one.
-- Next action: Start COVT-01 and record cold versus warm coverage wall clock before changing any other target.

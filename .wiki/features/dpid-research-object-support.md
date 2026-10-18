@@ -271,7 +271,7 @@ No required test contacts a public dPID resolver, IPFS gateway, Ceramic/Codex no
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none
-- Exact write set: `tests/fixtures/dpid/legacy-history.json`, `tests/fixtures/dpid/legacy-v1.jsonld`, fixture attribution
+- Exact write set: `tests/fixtures/dpid/legacy-history.json`, `tests/fixtures/dpid/legacy-v1.jsonld`, `tests/fixtures/dpid/README.md`
 - Primary integration lock: dPID fixtures
 - Outcome: Pin a redacted legacy history and exact-version RO-Crate relationship.
 - Focused validation: Verify source metadata, media types, root/version/manifest identity, and credential absence.
@@ -282,7 +282,7 @@ No required test contacts a public dPID resolver, IPFS gateway, Ceramic/Codex no
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DPID-01
-- Exact write set: `tests/fixtures/dpid/stream-history.json`, `tests/fixtures/dpid/stream-v1.jsonld`, dPID failure fixtures, fixture contract
+- Exact write set: `tests/fixtures/dpid/stream-history.json`, `tests/fixtures/dpid/stream-v1.jsonld`, `tests/fixtures/dpid/failures.json`, `tests/fixtures/dpid/README.md`
 - Primary integration lock: dPID fixtures
 - Outcome: Decide leading zeros, lengths, aliases, version syntax, scalar/array forms, and malformed invariants from pinned evidence.
 - Focused validation: Review every later acceptance case against a named offline fixture.
@@ -315,7 +315,7 @@ No required test contacts a public dPID resolver, IPFS gateway, Ceramic/Codex no
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DPID-03
-- Exact write set: `crates/acorn-schema/src/research_activity/mod.rs`, `crates/acorn-schema/src/research_activity/common.rs`, adjacent tests
+- Exact write set: `crates/acorn-schema/src/research_activity/mod.rs`, `crates/acorn-schema/src/research_activity/common.rs`
 - Primary integration lock: research-activity schema
 - Outcome: Add optional typed identifiers with deterministic scheme/value coherence, ordering, and compatibility.
 - Focused validation: Run serde, schema, duplicate, unknown-scheme, and old-document round trips.
@@ -326,7 +326,7 @@ No required test contacts a public dPID resolver, IPFS gateway, Ceramic/Codex no
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DPID-05
-- Exact write set: `crates/acorn-lib/src/io/config/transfer.rs`, transfer identity tests
+- Exact write set: `crates/acorn-lib/src/io/config/transfer.rs`, `crates/acorn-lib/src/io/config/tests/mod.rs`
 - Primary integration lock: database transfer identity
 - Outcome: Derive one `dpid:<root>` project key while retaining exact version identifiers as provenance.
 - Focused validation: Test root/version/path collapse, coexistence, and compatibility with existing keys.
@@ -337,7 +337,7 @@ No required test contacts a public dPID resolver, IPFS gateway, Ceramic/Codex no
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DPID-02
-- Exact write set: `crates/acorn-schema/src/standard/rocrate/mod.rs`, RO-Crate decoding tests
+- Exact write set: `crates/acorn-schema/src/standard/rocrate/mod.rs`
 - Primary integration lock: portable standards schema
 - Outcome: Index deterministic local graph IDs, required root types, references, and retained unknowns without network access.
 - Focused validation: Test scalar/array forms, duplicate IDs, missing roots, unresolved references, and stable order.
@@ -348,7 +348,7 @@ No required test contacts a public dPID resolver, IPFS gateway, Ceramic/Codex no
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DPID-05, DPID-07
-- Exact write set: `crates/acorn-schema/src/standard/rocrate/mod.rs`, root crosswalk tests
+- Exact write set: `crates/acorn-schema/src/standard/rocrate/mod.rs`
 - Primary integration lock: portable standards schema
 - Outcome: Map exact dPID, title, description, keywords, and retained source warnings.
 - Focused validation: Run legacy/stream snapshots, omissions, conflicts, and idempotent re-import cases.
@@ -359,7 +359,7 @@ No required test contacts a public dPID resolver, IPFS gateway, Ceramic/Codex no
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DPID-08
-- Exact write set: `crates/acorn-schema/src/standard/rocrate/mod.rs`, output crosswalk tests
+- Exact write set: `crates/acorn-schema/src/standard/rocrate/mod.rs`
 - Primary integration lock: portable standards schema
 - Outcome: Resolve local creators, organizations, licenses, `hasPart` outputs, and alternate locators with structured loss warnings.
 - Focused validation: Test owner non-inference, output order, unknown entities, incompatible values, and no date inference.
@@ -370,7 +370,7 @@ No required test contacts a public dPID resolver, IPFS gateway, Ceramic/Codex no
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DPID-02, DPID-04
-- Exact write set: `crates/acorn-lib/src/io/api/dpid.rs`, dPID history tests
+- Exact write set: `crates/acorn-lib/src/io/api/dpid.rs`
 - Primary integration lock: dPID provider
 - Outcome: Decode history, select latest/requested versions deterministically, and retain opaque owner/registry data.
 - Focused validation: Run legacy/stream, missing, duplicate, conflicting, timeout, HTTP, and size cases offline.
@@ -381,7 +381,7 @@ No required test contacts a public dPID resolver, IPFS gateway, Ceramic/Codex no
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DPID-09, DPID-10
-- Exact write set: `crates/acorn-lib/src/io/api/dpid.rs`, exact-resolution tests
+- Exact write set: `crates/acorn-lib/src/io/api/dpid.rs`
 - Primary integration lock: dPID provider
 - Outcome: Fetch the selected exact version and reject content inconsistent with history/manifest identity.
 - Focused validation: Test content type, oversize, malformed JSON-LD, mismatch, no-network invalid input, and no CID-verification claim.
@@ -392,7 +392,7 @@ No required test contacts a public dPID resolver, IPFS gateway, Ceramic/Codex no
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DPID-11
-- Exact write set: `crates/acorn-lib/assets/constants/application.json`, endpoint snapshot tests
+- Exact write set: `crates/acorn-lib/assets/constants/application.json`, `crates/acorn-lib/src/io/api/tests/mod.rs`
 - Primary integration lock: endpoint catalog
 - Outcome: Add a configurable pinned-v2 endpoint and update catalog assertions once.
 - Focused validation: Run endpoint snapshots, override, HTTPS, offline, and invalid-configuration tests.
@@ -403,7 +403,7 @@ No required test contacts a public dPID resolver, IPFS gateway, Ceramic/Codex no
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DPID-06, DPID-12
-- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, dPID discovery tests
+- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, `crates/acorn-lib/src/analyzer/host/discovery/tests/mod.rs`
 - Primary integration lock: discovery pipeline
 - Outcome: Resolve each root/version once, retain component evidence, and preserve explicit failed lifecycle outcomes.
 - Focused validation: Test root/version/path grouping, offline/no-resolve behavior, failures, and latest pinning.
@@ -414,7 +414,7 @@ No required test contacts a public dPID resolver, IPFS gateway, Ceramic/Codex no
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DPID-09, DPID-13
-- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, candidate/provenance tests
+- Exact write set: `crates/acorn-lib/src/analyzer/host/discovery/mod.rs`, `crates/acorn-lib/src/analyzer/host/discovery/tests/mod.rs`
 - Primary integration lock: discovery pipeline
 - Outcome: Build one root candidate with exact version/manifest provenance and component outputs.
 - Focused validation: Test merge identity, local identifiers, owner/date non-inference, warnings, and serialization.
@@ -425,7 +425,7 @@ No required test contacts a public dPID resolver, IPFS gateway, Ceramic/Codex no
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DPID-11
-- Exact write set: `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/commands/import/mod.rs`
+- Exact write set: `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/commands/import/mod.rs`, `crates/acorn-cli/src/cli/tests/mod.rs`, `crates/acorn-cli/src/commands/import/tests/mod.rs`
 - Primary integration lock: CLI syntax and generated help
 - Outcome: Parse `import dpid` root/version inputs and reject component paths before transport.
 - Focused validation: Run parser, invalid-ID, component, offline, and generated-help tests.
@@ -436,7 +436,7 @@ No required test contacts a public dPID resolver, IPFS gateway, Ceramic/Codex no
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DPID-09, DPID-15
-- Exact write set: `crates/acorn-cli/src/commands/import/dpid.rs`, import tests
+- Exact write set: `crates/acorn-cli/src/commands/import/dpid.rs`
 - Primary integration lock: import command
 - Outcome: Compose provider/crosswalk, render warnings, honor output safety, and publish no partial result on failure.
 - Focused validation: Test root/latest, exact version, collisions, warnings, resolver errors, and metadata-only behavior.
@@ -447,7 +447,7 @@ No required test contacts a public dPID resolver, IPFS gateway, Ceramic/Codex no
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DPID-14, DPID-16
-- Exact write set: `docs/src/concepts/persistent-identifiers.md`, gather/import CLI docs, `CommandLineHelp.md`
+- Exact write set: `docs/src/cli-reference/commands/gather.md`, `docs/src/cli-reference/commands/import.md`
 - Primary integration lock: PID documentation
 - Outcome: Explain root/version identity, mutable latest, resolver trust, offline scope, and distinctions from DID/nanopublication/CID verification.
 - Focused validation: Run docs/help generation, internal links, and focused parser examples.
@@ -458,7 +458,7 @@ No required test contacts a public dPID resolver, IPFS gateway, Ceramic/Codex no
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DPID-17
-- Exact write set: this plan, wiki indexes
+- Exact write set: `.wiki/features/dpid-research-object-support.md`, `.wiki/index.md`, `.wiki/features/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
 - Primary integration lock: dPID acceptance
 - Outcome: Complete portable/full validation and remove the plan without requiring live public network access.
 - Focused validation: Run focused schema/provider/gather/import tests, WASM, `make lint`, `make test`, `make doc`, and wiki validation.

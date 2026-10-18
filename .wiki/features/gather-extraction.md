@@ -96,7 +96,7 @@ Each step must pass before the next begins. The inference slice cannot weaken a 
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none
-- Exact write set: `crates/acorn-lib/src/io/gather/extraction.rs`, selector tests
+- Exact write set: `crates/acorn-lib/src/io/gather/extraction.rs`
 - Primary integration lock: gather extraction service
 - Outcome: Parse first-`=` field/CSS mappings and freeze field, text/attribute, cardinality, order, whitespace, duplicate, and required rules.
 - Focused validation: Run valid/invalid selector and normalization table tests.
@@ -107,7 +107,7 @@ Each step must pass before the next begins. The inference slice cannot weaken a 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: GAT-01
-- Exact write set: `crates/acorn-lib/src/io/gather/extraction.rs`, HTML extraction fixtures and tests
+- Exact write set: `crates/acorn-lib/src/io/gather/extraction.rs`, `tests/fixtures/gather/extraction.html`
 - Primary integration lock: gather extraction service
 - Outcome: Extract ordered values and per-value provenance from supplied HTML without transport or inference.
 - Focused validation: Run zero/one/many, attribute, Unicode, malformed markup, duplicate, and required-field tests.
@@ -118,7 +118,7 @@ Each step must pass before the next begins. The inference slice cannot weaken a 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: GAT-02
-- Exact write set: `crates/acorn-lib/src/io/gather/fetch.rs`, transport policy tests
+- Exact write set: `crates/acorn-lib/src/io/gather/fetch.rs`
 - Primary integration lock: gather transport
 - Outcome: Enforce dedicated concurrency, bytes, decompression, media, redirects, destinations, retries, timeouts, and cache provenance.
 - Focused validation: Run local-server tests for every limit, redirect, private address, encoding, and offline rejection.
@@ -129,7 +129,7 @@ Each step must pass before the next begins. The inference slice cannot weaken a 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: GAT-03
-- Exact write set: `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/commands/gather/mod.rs`, `CommandLineHelp.md`
+- Exact write set: `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/commands/gather/mod.rs`, `CommandLineHelp.md`, `crates/acorn-cli/src/commands/gather/tests/mod.rs`
 - Primary integration lock: CLI syntax and generated help
 - Outcome: Add explicit scrape/selectors and compose fetching, extraction, discovery, validation, and persistence.
 - Focused validation: Run parser, command, offline, transport-failure, deterministic-output, and help tests.
@@ -140,7 +140,7 @@ Each step must pass before the next begins. The inference slice cannot weaken a 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: GAT-04
-- Exact write set: `crates/acorn-tui/src/screens/gather.rs`, TUI gather tests
+- Exact write set: `crates/acorn-tui/src/screens/gather.rs`, `crates/acorn-tui/src/screens/gather/tests.rs`
 - Primary integration lock: TUI gather screen
 - Outcome: Reuse shared source/extraction/discovery/persistence off the event loop and remove direct HTTP ownership.
 - Focused validation: Test responsiveness, cancellation, offline behavior, persistence, and CLI/TUI parity.
@@ -151,7 +151,7 @@ Each step must pass before the next begins. The inference slice cannot weaken a 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: GAT-02
-- Exact write set: `crates/acorn-lib/src/io/gather/inference.rs`, inference contract tests
+- Exact write set: `crates/acorn-lib/src/io/gather/inference.rs`
 - Primary integration lock: gather inference contract
 - Outcome: Define versioned requests/responses with source, schema, provider/model, prompt, limits, cancellation, and provenance.
 - Focused validation: Run strict serde, identity, limit, unknown-field, and fingerprint tests.
@@ -162,7 +162,7 @@ Each step must pass before the next begins. The inference slice cannot weaken a 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: GAT-06
-- Exact write set: `crates/acorn-lib/src/io/gather/inference.rs`, fake provider tests
+- Exact write set: `crates/acorn-lib/src/io/gather/inference.rs`
 - Primary integration lock: gather inference contract
 - Outcome: Prove request, response, error, cancellation, and capability behavior without a registry.
 - Focused validation: Test success, refusal, malformed, timeout, cancellation, oversize, and redacted diagnostics.
@@ -173,7 +173,7 @@ Each step must pass before the next begins. The inference slice cannot weaken a 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: GAT-04, GAT-07
-- Exact write set: `crates/acorn-lib/src/io/gather/mod.rs`, ordering tests
+- Exact write set: `crates/acorn-lib/src/io/gather/mod.rs`
 - Primary integration lock: gather extraction service
 - Outcome: Invoke explicit inference only for unresolved required fields and never on deterministic transport/validation failure.
 - Focused validation: Run complete, missing, failed-fetch, failed-validation, unavailable-provider, and offline cases.
@@ -184,7 +184,7 @@ Each step must pass before the next begins. The inference slice cannot weaken a 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: GAT-08
-- Exact write set: `crates/acorn-lib/src/io/gather/mod.rs`, proposal/cache tests
+- Exact write set: `crates/acorn-lib/src/io/gather/mod.rs`
 - Primary integration lock: gather extraction service
 - Outcome: Keep proposals separate until schema/domain validation and key cache entries by every behavior-affecting input.
 - Focused validation: Test rejected proposals, deterministic precedence, credential exclusion, stale fingerprints, and cache replay.
@@ -195,7 +195,7 @@ Each step must pass before the next begins. The inference slice cannot weaken a 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: GAT-05, GAT-09
-- Exact write set: gather CLI documentation, TUI documentation, `CommandLineHelp.md`
+- Exact write set: `docs/src/cli-reference/commands/gather.md`, `docs/src/cli-reference/commands/tui.md`, `CommandLineHelp.md`
 - Primary integration lock: gather documentation
 - Outcome: Document selector rules, transport limits, provenance, explicit inference, precedence, cache, and failure behavior.
 - Focused validation: Run docs/help generation and example commands offline.
@@ -206,7 +206,7 @@ Each step must pass before the next begins. The inference slice cannot weaken a 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: GAT-10
-- Exact write set: this plan, wiki indexes
+- Exact write set: `.wiki/features/gather-extraction.md`, `.wiki/index.md`, `.wiki/features/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
 - Primary integration lock: gather acceptance
 - Outcome: Complete feature/portable/full validation and remove the plan.
 - Focused validation: Run focused CLI/TUI/library tests, portability, `make lint`, `make test`, `make doc`, and wiki validation.
