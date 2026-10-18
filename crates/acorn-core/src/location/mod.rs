@@ -365,14 +365,35 @@ impl Location {
     }
     /// Get registry authority, preserving ports and IPv6 brackets.
     pub fn registry(&self) -> Option<String> {
-        self.host().map(|host| match self.port() {
-            | Some(port) if host.starts_with('[') => format!("{host}:{port}"),
-            | Some(port) if host.contains(':') => format!("[{host}]:{port}"),
-            | Some(port) => format!("{host}:{port}"),
-            | None if host.starts_with('[') => host,
-            | None if host.contains(':') => format!("[{host}]"),
-            | None => host,
-        })
+        self.host()
+            .map(|host| match self.port() {
+                | Some(port) if host.starts_with('[') => format!("{host}:{port}"),
+                | Some(port) if host.contains(':') => format!("[{host}]:{port}"),
+                | Some(port) => format!("{host}:{port}"),
+                | None if host.starts_with('[') => host,
+                | None if host.contains(':') => format!("[{host}]"),
+                | None => host,
+            })
+            .or_else(|| {
+                let value: &str = self.into();
+                value
+                    .split_once('/')
+                    .filter(|(candidate, repository)| {
+                        let is_registry_candidate = !(repository.is_empty() || value.contains("://") || self.is_local());
+                        let looks_like_registry_host = *candidate == "localhost" || candidate.contains(['.', ':']);
+                        is_registry_candidate && looks_like_registry_host && self.is_oci_reference()
+                    })
+                    .and_then(|(candidate, _)| {
+                        let candidate_uri = format!("https://{candidate}/");
+                        Uri::parse(candidate_uri.as_str()).ok().and_then(|uri| {
+                            uri.authority()
+                                .filter(|authority| {
+                                    authority.as_str() == candidate && !authority.host().is_empty() && authority.port_to_u16().is_ok()
+                                })
+                                .map(|_| candidate.to_string())
+                        })
+                    })
+            })
     }
     /// Get the optional revision selected by a structured location.
     pub fn revision(&self) -> Option<&str> {

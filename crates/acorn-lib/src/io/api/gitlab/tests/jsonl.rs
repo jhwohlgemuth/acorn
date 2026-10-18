@@ -129,13 +129,14 @@ async fn test_manual_review_worker_graduates_an_authorized_note_once() {
         .unwrap();
     assert!(worker.process_next().await.unwrap());
     assert!(!worker.process_next().await.unwrap());
-    let snapshot = state.lock().unwrap();
-    let content = snapshot.content.get(&(branch, "acorn/index.json".to_string())).unwrap();
-    let activity: acorn_schema::research_activity::ResearchActivity = serde_json::from_str(content).unwrap();
-    assert!(activity.logbook.unwrap().entries[0].archived);
-    assert_eq!(snapshot.merge_requests.len(), 1);
-    assert_eq!(snapshot.review_writes.len(), 2);
-    drop(snapshot);
+    {
+        let snapshot = state.lock().unwrap();
+        let content = snapshot.content.get(&(branch, "acorn/index.json".to_string())).unwrap();
+        let activity: acorn_schema::research_activity::ResearchActivity = serde_json::from_str(content).unwrap();
+        assert!(activity.logbook.unwrap().entries[0].archived);
+        assert_eq!(snapshot.merge_requests.len(), 1);
+        assert_eq!(snapshot.review_writes.len(), 2);
+    }
     server.stop().await.unwrap();
 }
 #[tokio::test]

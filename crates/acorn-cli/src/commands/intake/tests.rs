@@ -3,6 +3,7 @@ use crate::cli::{Arguments, Commands, IntakeCommands};
 use acorn::io::api::gitlab::{self, Options};
 use acorn::io::api::powerautomate::{jsonl::AdmittedSubmission, Submission};
 use acorn_schema::research_activity::LogbookEntry;
+use alloc::sync::Arc;
 use axum::{
     extract::{Path as AxumPath, Query},
     http::StatusCode,
@@ -10,12 +11,9 @@ use axum::{
     Json, Router,
 };
 use clap::Parser;
+use core::sync::atomic::{AtomicBool, Ordering};
 use data_encoding::BASE64;
 use std::collections::HashMap;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
 
 #[tokio::test]
 async fn test_export_admission_uses_exact_gitlab_revisions_and_replays_identically() {
@@ -99,7 +97,7 @@ async fn test_export_admission_uses_exact_gitlab_revisions_and_replays_identical
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
-    let options = Options::with_token("test").domain(&format!("http://{address}")).identifier("42").build();
+    let options = Options::with_token("test").domain(format!("http://{address}")).identifier("42").build();
     let submission: Submission = serde_json::from_str(
         include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -124,13 +122,14 @@ async fn test_export_admission_uses_exact_gitlab_revisions_and_replays_identical
     export_admission(&options, &admitted, "sha256:source", &output).await.unwrap();
     let original = std::fs::read(&output).unwrap();
     let receipt: serde_json::Value = serde_json::from_slice(&std::fs::read(receipt_path(&output)).unwrap()).unwrap();
-    assert_eq!(receipt["baseRevision"], "base123");
-    assert_eq!(receipt["headRevision"], "head456");
-    assert_eq!(receipt["mergeRequestIid"], 7);
-    assert_eq!(receipt["targetBranch"], "main");
-    assert_eq!(receipt["sourceDigest"], "sha256:source");
-    assert_eq!(receipt["path"], "pilot/index.json");
-    assert_eq!(receipt["diffSha256"], super::file_checksum(&output, None).unwrap().checksum_value);
+    assert_eq!(receipt.get("baseRevision").and_then(serde_json::Value::as_str), Some("base123"));
+    assert_eq!(receipt.get("headRevision").and_then(serde_json::Value::as_str), Some("head456"));
+    assert_eq!(receipt.get("mergeRequestIid").and_then(serde_json::Value::as_u64), Some(7));
+    assert_eq!(receipt.get("targetBranch").and_then(serde_json::Value::as_str), Some("main"));
+    assert_eq!(receipt.get("sourceDigest").and_then(serde_json::Value::as_str), Some("sha256:source"));
+    assert_eq!(receipt.get("path").and_then(serde_json::Value::as_str), Some("pilot/index.json"));
+    let checksum = super::file_checksum(&output, None).unwrap().checksum_value;
+    assert_eq!(receipt.get("diffSha256").and_then(serde_json::Value::as_str), Some(checksum.as_str()));
     export_admission(&options, &admitted, "sha256:source", &output).await.unwrap();
     assert_eq!(std::fs::read(&output).unwrap(), original);
     stale_head.store(true, Ordering::SeqCst);

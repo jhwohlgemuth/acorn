@@ -84,6 +84,15 @@ fn test_location_identifies_canonical_repository_paths() {
 #[test]
 fn test_location_preserves_registry_ports_and_ipv6() {
     assert_eq!(
+        Location::from("registry.example.org/org/model:latest").registry().as_deref(),
+        Some("registry.example.org")
+    );
+    assert_eq!(Location::from("localhost:5000/org/model").registry().as_deref(), Some("localhost:5000"));
+    assert_eq!(
+        Location::from("[2001:db8::1]:5000/org/model:latest").registry().as_deref(),
+        Some("[2001:db8::1]:5000")
+    );
+    assert_eq!(
         Location::from("https://registry.example.org:5000").registry().as_deref(),
         Some("registry.example.org:5000")
     );
@@ -91,6 +100,13 @@ fn test_location_preserves_registry_ports_and_ipv6() {
         Location::from("https://[2001:db8::1]:5000").registry().as_deref(),
         Some("[2001:db8::1]:5000")
     );
+    assert_eq!(
+        Location::from("oci://registry.example.org/org/model:latest").registry().as_deref(),
+        Some("registry.example.org")
+    );
+    assert_eq!(Location::from("org/model:latest").registry(), None);
+    assert_eq!(Location::from("docs/model.gguf").registry(), None);
+    assert_eq!(Location::from("file:///tmp/registry.example.org/model:latest").registry(), None);
 }
 #[test]
 fn test_location_preserves_ssh_uri_components_and_serialization() {
