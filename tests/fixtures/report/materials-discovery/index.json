@@ -1,0 +1,349 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "identifier": "materials-discovery",
+    "keywords": [
+      "Materials",
+      "Modeling",
+      "Data science"
+    ],
+    "contributors": [
+      {
+        "name": "Priya Shah",
+        "identifiers": [],
+        "affiliations": [],
+        "roles": [
+          {
+            "agent": {
+              "value": "sample-priya-shah",
+              "scheme": "LOCAL"
+            },
+            "leader": true
+          }
+        ]
+      }
+    ],
+    "funders": [
+      "Sample Sponsor A",
+      "Sample Sponsor B"
+    ],
+    "media": []
+  },
+  "title": "Materials Discovery Pilot",
+  "subtitle": "Partners, publications, and team development",
+  "sections": {
+    "mission": "Demonstrate materials discovery pilot with synthetic report content.",
+    "challenge": "Keep the sample realistic without using production records.",
+    "approach": [
+      "Use deliberately fictional developments."
+    ],
+    "impact": [
+      "Provide a representative design preview."
+    ],
+    "achievement": [
+      "Prepared logbook examples for layout review."
+    ],
+    "research": {
+      "focus": "Report design review",
+      "areas": [
+        "sample data"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Sample project lead",
+    "givenName": "Alex",
+    "familyName": "Morgan",
+    "email": "alex.morgan@example.org",
+    "telephone": "+1 202-555-0123",
+    "url": "https://example.org/project",
+    "organization": "Example Research Group"
+  },
+  "logbook": {
+    "summary": "Synthetic logbook for Materials Discovery Pilot.",
+    "entries": [
+      {
+        "identifier": "materials-partner-meeting",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-04T14:30:00Z",
+        "category": "collaboration",
+        "eventType": "meeting",
+        "state": "completed",
+        "summary": "Met with university partners to agree on the next comparison experiment. The agreed comparison keeps preparation and evaluation conditions consistent across both teams.",
+        "items": [
+          "Partners will share reference specimens in November."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-conference-session",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-15T14:30:00Z",
+        "category": "engagement",
+        "eventType": "conference",
+        "state": "completed",
+        "summary": "Presented the pilot at the regional research conference. Attendees asked how the pilot results could be reproduced from the sample files.",
+        "items": [
+          "The session included a short live demonstration.",
+          "Questions focused on reproducibility and data access."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-proposal-submitted",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-09T14:30:00Z",
+        "category": "funding",
+        "state": "completed",
+        "summary": "Submitted a follow-on proposal for instrument time and analyst support. The submission includes a range for instrument use and the analyst time needed to review each run.",
+        "items": [
+          "The proposal requests two experimental campaigns."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-safety-training",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-12T14:30:00Z",
+        "category": "personnel",
+        "eventType": "training",
+        "state": "in-progress",
+        "summary": "New team members are completing instrument safety training. The supervisor will confirm each person can complete the preparation checklist.",
+        "items": [
+          "Two people completed the online module.",
+          "The supervised laboratory session is scheduled next week."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-preprint-indexed",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-16T14:30:00Z",
+        "category": "publication",
+        "state": "completed",
+        "origin": "discovered",
+        "discovery": {
+          "provider": "openalex",
+          "source": "W9876543210",
+          "discoveredAt": "2026-10-16T16:10:00Z"
+        },
+        "summary": "A methods preprint was indexed for the pilot study. The team checked the title and version against the published record.",
+        "items": [
+          "The record points to the openly available manuscript."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-retrospective",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-07T14:30:00Z",
+        "category": "other",
+        "eventType": "other",
+        "state": "completed",
+        "summary": "Archived the first-cycle retrospective after actions were transferred to the project plan. Its decision log links each open question to an owner and the evidence expected at the next review.",
+        "items": [
+          "A replacement data review step is now tracked by the project lead."
+        ],
+        "archived": true
+      },
+      {
+        "identifier": "materials-discovery-additional-01",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-02T14:30:00Z",
+        "category": "research",
+        "state": "completed",
+        "summary": "Screened a small synthetic materials library for stable candidate compositions.\n\nThe screen uses the same input assumptions for every candidate and records why a composition was excluded. The resulting list is a starting point for discussion, not a claim that any material has been validated.",
+        "items": [
+          "The initial screen narrowed the list to twelve candidates.",
+          "No experimental claim is made from this fixture data."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-discovery-additional-02",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-03T14:30:00Z",
+        "category": "method",
+        "state": "in-progress",
+        "summary": "Refining the sample preparation sequence to reduce variation between batches. Operators reported that two preparation steps were described in different places. The revised sequence brings them together and adds a pause to confirm the instrument state before measurement begins.",
+        "items": [
+          "The draft sequence specifies timing and temperature checks."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-discovery-additional-03",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-05T14:30:00Z",
+        "category": "data",
+        "state": "completed",
+        "summary": "Reconciled specimen labels between the microscopy and spectroscopy tables. The mismatches came from abbreviated labels in one export format. A crosswalk is now kept with the tables so later analyses do not silently combine different specimens.",
+        "items": [
+          "Three label mismatches were corrected in the test copy."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-discovery-additional-04",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-06T14:30:00Z",
+        "category": "software",
+        "state": "completed",
+        "summary": "Released a preview notebook that plots composition against measured response.\n\nThe notebook keeps data loading, calculations, and chart construction in separate cells. A reviewer can rerun the example and see how a changed threshold affects the plotted comparison.",
+        "items": [
+          "The notebook includes a reproducible environment file.",
+          "The review run starts from a clean environment, loads a small synthetic specimen table, applies the documented preprocessing rule, and regenerates every figure in the notebook. A second analyst compares the table values with the plotted points and checks that the legend still identifies the correct sample group after changing a threshold. The exported image, table, environment information, and run date are kept together under one example identifier. If a result differs, the analyst records the exact cell and input that changed rather than treating the notebook as a single opaque output. The team also checks the output at larger text scaling and in a grayscale printout so the example remains interpretable in the PDF appendix."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-discovery-additional-05",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-08T14:30:00Z",
+        "category": "collaboration",
+        "state": "in-progress",
+        "summary": "Coordinating a shared measurement plan with an external instrument team. The plan identifies measurements needed for the pilot decision and those that would only be useful in a larger study. That distinction should keep the first transfer small enough to inspect manually.",
+        "items": [
+          "The teams are aligning sample identifiers and file naming before transfer."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-discovery-additional-06",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-10T14:30:00Z",
+        "category": "publication",
+        "state": "upcoming",
+        "summary": "Prepare the methods appendix for an open review draft. The appendix will describe instrument settings, normalization, and the reason particular records were set aside. It will also identify which numbers are synthetic examples in the review draft.\n\nA short worked example will follow one specimen from raw observation through normalization to the reported value. The example is small enough to audit by hand and identifies each choice that could change the comparison. Reviewers will be able to distinguish a measurement result from a value included only to illustrate the calculation.",
+        "items": [
+          "The appendix will describe quality controls and excluded measurements."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-discovery-additional-07",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-11T14:30:00Z",
+        "category": "infrastructure",
+        "state": "completed",
+        "summary": "Verified the calibration state of the pilot characterization instrument.\n\nThe calibration review found no issue that would block the fixture demonstration. Its record includes the check date and reference condition so the screenshots have credible context.\n\nThe instrument log and image capture settings are linked to the same demonstration identifier. This allows the team to update a screenshot later without losing the calibration context that was present when the example was first assembled.",
+        "items": [
+          "The check used a synthetic control sample for this layout fixture."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-discovery-additional-08",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-13T14:30:00Z",
+        "category": "personnel",
+        "state": "completed",
+        "summary": "Onboarded a new analyst to the pilot data review process. The onboarding exercise exposed an instruction that assumed prior knowledge of the specimen codes. The team is rewriting that step before the next analyst repeats the exercise.\n\nThe revised onboarding exercise asks the analyst to resolve two deliberately similar specimen codes and explain the decision. The exercise result will show whether the instructions work for someone who did not participate in the original pilot.",
+        "items": [
+          "The analyst completed the example notebook and flagged two ambiguous labels."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-discovery-additional-09",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-14T14:30:00Z",
+        "category": "funding",
+        "state": "in-progress",
+        "summary": "Assembling a revised equipment budget for the next phase of the pilot. Several support costs depend on the number of measurement cycles rather than the initial equipment choice. The budget notes those assumptions and preserves a range instead of a single precise estimate.\n\nThe estimate separates one-time setup from recurring measurements, maintenance, and data review. It includes a low and high case for the number of cycles, with the assumptions written beside each total. Reviewers can therefore change the workload without rebuilding the budget from memory.",
+        "items": [
+          "The draft separates one-time purchases from recurring service costs."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-discovery-additional-10",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-17T14:30:00Z",
+        "category": "engagement",
+        "state": "completed",
+        "summary": "Demonstrated the comparison dashboard during an internal review meeting.\n\nThe rehearsal showed that reviewers interpreted two colors as different confidence levels, although they represented separate sample groups. The design team is revising the legend and will test the change with another reader.\n\nThe next review will ask participants to describe what each color means before reading the legend. Their responses will be compared with the intended interpretation, and the design will be revised if the same confusion remains. The team will keep the original and revised screenshots so the decision is visible in the review record.",
+        "items": [
+          "Reviewers asked for clearer legends and an explanation of uncertainty."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-discovery-additional-11",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-19T14:30:00Z",
+        "category": "data",
+        "state": "in-progress",
+        "summary": "Checking whether instrument exports preserve the original sample order. Older instrument files appear to sort rows by acquisition time, while newer exports preserve submission order. The crosswalk will make that difference explicit before any merged table is released.\n\nThe acquisition order check will be repeated on files from two instrument versions. A small audit table will show the source row, normalized row, specimen label, and timestamp. If the ordering differs, the ingestion note will state which field controls the sort and why. The team will test the resulting comparison with a deliberately shuffled sample before approving the export.",
+        "items": [
+          "A crosswalk table is being prepared for older files."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-discovery-additional-12",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-21T14:30:00Z",
+        "category": "research",
+        "state": "completed",
+        "summary": "Compared two baseline models on the same held-out synthetic observations. The comparison held preprocessing and evaluation splits constant so only the model choice changed. The result favors a baseline that can be explained and rerun without an additional tuning stage.\n\nThe models were also compared on error by specimen group rather than a single aggregate score. Reviewers can see whether the preferred baseline performs consistently or hides a weak subset. The team retained the evaluation split and notebook version so the comparison can be rerun after the pilot data are updated.",
+        "items": [
+          "The simpler model performed comparably and is easier to explain."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-discovery-additional-13",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-24T14:30:00Z",
+        "category": "method",
+        "state": "upcoming",
+        "summary": "Repeat the preparation trial with a second operator and a blind checklist.\n\nThe second operator will use the same materials and record timing independently. Differences will be reviewed against the checklist before the team changes any procedure.\n\nThe next trial will use the same checklist for each operator and record any deviation at the point it occurs. Those notes will help separate variation caused by the written procedure from variation introduced by instrument readiness or sample handling.",
+        "items": [
+          "The trial will focus on steps that produced the largest variation."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-discovery-additional-14",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-26T14:30:00Z",
+        "category": "software",
+        "state": "in-progress",
+        "summary": "Adding provenance fields to generated plots and exported tables. Provenance is being added where a chart is created, not as a manual annotation afterward. That approach should keep screenshots and exported tables aligned when the notebook is rerun.\n\nEach generated file will include the input table version, notebook revision, and date of the run. A reviewer can trace a figure back to its source without relying on a manually maintained filename. The team will compare two runs with changed thresholds to confirm the provenance fields update automatically.",
+        "items": [
+          "Each export will include the source run and processing version."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "materials-discovery-additional-15",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-28T14:30:00Z",
+        "category": "other",
+        "state": "upcoming",
+        "summary": "Collect reviewer comments into a single decision log before the next planning meeting. Review comments currently arrive in several files and meeting notes. The decision log will link each request to the evidence considered and the person responsible for a follow-up.\n\nEach comment will be marked as accepted, deferred, or awaiting evidence. For deferred comments, the log records the reason and the date for another look. The planning lead will review the longest chains of decisions with the team so earlier context is still available when an issue returns.\n\nFor each decision, the log will retain the source comment, the response discussed at the meeting, and the evidence that supports it. Reviewers will be able to see when two comments refer to the same issue and when an apparently similar request needs a separate answer. Before the next draft is circulated, the team will verify that accepted changes appear in the figures, captions, and companion data table.",
+        "items": [
+          "The log will distinguish accepted changes from items needing evidence."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "general-review-cadence",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-14T14:30:00Z",
+        "category": "collaboration",
+        "eventType": "meeting",
+        "state": "completed",
+        "summary": "Established a monthly cross-project review to surface shared dependencies and upcoming demonstrations. The review will focus on dependencies that cross project boundaries and on decisions that need a common owner. Routine project details will remain in their individual sections.",
+        "items": [
+          "Project teams will provide short written updates before each review."
+        ],
+        "archived": false,
+        "global": true
+      }
+    ]
+  }
+}

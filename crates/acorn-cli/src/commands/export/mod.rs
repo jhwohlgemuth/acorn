@@ -56,6 +56,8 @@ use std::{
 };
 use tracing::{debug, info};
 #[cfg(feature = "pdf")]
+pub(crate) mod html;
+#[cfg(feature = "pdf")]
 pub(crate) mod pdf;
 mod powerpoint;
 pub(crate) mod updates;
@@ -100,6 +102,9 @@ struct ExportRequest {
     combine: bool,
     #[builder(default)]
     dry_run: bool,
+    #[builder(default)]
+    #[cfg_attr(not(feature = "pdf"), allow(dead_code))]
+    full_timestamp: bool,
     #[builder(default)]
     strict: bool,
     #[builder(default)]
@@ -561,7 +566,7 @@ async fn export_as_format_crosswalk(
                     let collected_checks: Arc<Mutex<Vec<Check>>> = Arc::new(Mutex::new(Vec::new()));
                     let output_dir = output.clone();
                     let skip_crosswalk = skip.contains(&CheckCategory::Crosswalk);
-                    if strict && !skip_crosswalk {
+                    let preflight = if strict && !skip_crosswalk {
                         let preflight = items.iter().try_fold(Vec::new(), |mut checks, item| {
                             crosswalk_item(item, from, target, format, false, &import).map(|conversion| {
                                 let (_, warnings) = conversion.into_parts();
@@ -570,7 +575,7 @@ async fn export_as_format_crosswalk(
                             })
                         });
                         match preflight {
-                            | Ok(checks) if checks.is_empty() => {}
+                            | Ok(checks) if checks.is_empty() => Ok(()),
                             | Ok(checks) => {
                                 let warning_count = checks.len();
                                 if !progress_type.is_silent() {
@@ -581,97 +586,104 @@ async fn export_as_format_crosswalk(
                                     print_values_as_table::<String>(vec!["", "Count"], CheckSummary::from(checks.as_slice()).rows(), None);
                                 }
                                 fail!("Strict mode — {warning_count} crosswalk warning(s) found");
-                                return Err(eyre!("Strict mode — {warning_count} crosswalk warning(s) found"));
+                                Err(eyre!("Strict mode — {warning_count} crosswalk warning(s) found"))
                             }
-                            | Err(why) => return Err(eyre!("Crosswalk failed — {why}")),
+                            | Err(why) => Err(eyre!("Crosswalk failed — {why}")),
                         }
-                    }
-                    let progress = with_progress(
-                        items,
-                        |item| format!("Generating {format} for {}", item.display()),
-                        |item| {
-                            let ext = ext.clone();
-                            let checks = Arc::clone(&collected_checks);
-                            let output_dir = output_dir.clone();
-                            let import = import.clone();
-                            async move {
-                                let output = match &output_dir {
-                                    | Some(dir) => {
-                                        let name = item.file_name().unwrap_or(item.as_os_str());
-                                        dir.join(Path::new(name)).with_extension(&ext)
-                                    }
-                                    | None => output_path(&item, &ext),
-                                };
-                                match crosswalk_item(&item, from, target, format, skip_crosswalk, &import) {
-                                    | Ok(conversion) => {
-                                        let (content, warnings) = conversion.into_parts();
-                                        let uri = item.to_string_lossy().to_string();
-                                        if let Ok(mut guard) = checks.lock() {
-                                            guard.extend(warnings.to_checks(Some(uri)));
+                    } else {
+                        Ok(())
+                    };
+                    match preflight {
+                        | Err(why) => Err(why),
+                        | Ok(()) => {
+                            let progress = with_progress(
+                                items,
+                                |item| format!("Generating {format} for {}", item.display()),
+                                |item| {
+                                    let ext = ext.clone();
+                                    let checks = Arc::clone(&collected_checks);
+                                    let output_dir = output_dir.clone();
+                                    let import = import.clone();
+                                    async move {
+                                        let output = match &output_dir {
+                                            | Some(dir) => {
+                                                let name = item.file_name().unwrap_or(item.as_os_str());
+                                                dir.join(Path::new(name)).with_extension(&ext)
+                                            }
+                                            | None => output_path(&item, &ext),
+                                        };
+                                        match crosswalk_item(&item, from, target, format, skip_crosswalk, &import) {
+                                            | Ok(conversion) => {
+                                                let (content, warnings) = conversion.into_parts();
+                                                let uri = item.to_string_lossy().to_string();
+                                                if let Ok(mut guard) = checks.lock() {
+                                                    guard.extend(warnings.to_checks(Some(uri)));
+                                                }
+                                                if strict && !warnings.is_empty() {
+                                                    Err(eyre!(
+                                                        "Strict mode — {} crosswalk warning(s) found for {}",
+                                                        warnings.len(),
+                                                        item.display()
+                                                    ))
+                                                } else if dry_run {
+                                                    info!(
+                                                        "  {} would write {} ({} warnings)",
+                                                        Label::fmt_skip("DRYRUN"),
+                                                        output.display(),
+                                                        warnings.len()
+                                                    );
+                                                    Ok(())
+                                                } else {
+                                                    write_file(output, content)
+                                                }
+                                            }
+                                            | Err(why) => Err(eyre!("Crosswalk failed — {why}")),
                                         }
-                                        if strict && !warnings.is_empty() {
-                                            Err(eyre!(
-                                                "Strict mode — {} crosswalk warning(s) found for {}",
-                                                warnings.len(),
-                                                item.display()
-                                            ))
-                                        } else if dry_run {
-                                            info!(
-                                                "  {} would write {} ({} warnings)",
-                                                Label::fmt_skip("DRYRUN"),
-                                                output.display(),
-                                                warnings.len()
-                                            );
-                                            Ok(())
-                                        } else {
-                                            write_file(output, content)
-                                        }
                                     }
-                                    | Err(why) => Err(eyre!("Crosswalk failed — {why}")),
+                                },
+                                |count| {
+                                    if dry_run {
+                                        format!("{}{} file{} would be generated", Label::CHECKMARK, count.green(), suffix(count))
+                                    } else {
+                                        format!("{}Done! Generated {} {format} file{}", Label::CHECKMARK, count.green(), suffix(count))
+                                    }
+                                },
+                                Some(threads),
+                                progress_type,
+                            );
+                            match progress.await {
+                                | Ok(_) => {
+                                    let all_warnings = collected_checks.lock().map(|g| g.clone()).unwrap_or_default();
+                                    if !(all_warnings.is_empty() || progress_type.is_silent()) {
+                                        info!("=> Crosswalk warnings ({} total):", all_warnings.len().cyan().bold());
+                                        for check in &all_warnings {
+                                            info!("  {}: {}", check.category, check.message);
+                                        }
+                                        print_values_as_table::<String>(vec!["", "Count"], CheckSummary::from(all_warnings.as_slice()).rows(), None);
+                                    }
+                                    if dry_run {
+                                        info!(
+                                            "=> {} Dry-run complete for {} {format} crosswalk file{}",
+                                            Label::pass(),
+                                            count.green(),
+                                            suffix(count)
+                                        );
+                                    } else {
+                                        info!("=> {} Exported {} {format} crosswalk file{}", Label::pass(), count.green(), suffix(count));
+                                    }
+                                    if strict && !all_warnings.is_empty() {
+                                        let count = all_warnings.len();
+                                        fail!("Strict mode — {count} crosswalk warning(s) found");
+                                        Err(eyre!("Strict mode — {count} crosswalk warning(s) found"))
+                                    } else {
+                                        Ok(())
+                                    }
+                                }
+                                | Err(why) => {
+                                    fail!("Generate {format} crosswalk — {why}");
+                                    Err(eyre!("Generate {format} crosswalk — {why}"))
                                 }
                             }
-                        },
-                        |count| {
-                            if dry_run {
-                                format!("{}{} file{} would be generated", Label::CHECKMARK, count.green(), suffix(count))
-                            } else {
-                                format!("{}Done! Generated {} {format} file{}", Label::CHECKMARK, count.green(), suffix(count))
-                            }
-                        },
-                        Some(threads),
-                        progress_type,
-                    );
-                    match progress.await {
-                        | Ok(_) => {
-                            let all_warnings = collected_checks.lock().map(|g| g.clone()).unwrap_or_default();
-                            if !(all_warnings.is_empty() || progress_type.is_silent()) {
-                                info!("=> Crosswalk warnings ({} total):", all_warnings.len().cyan().bold());
-                                for check in &all_warnings {
-                                    info!("  {}: {}", check.category, check.message);
-                                }
-                                print_values_as_table::<String>(vec!["", "Count"], CheckSummary::from(all_warnings.as_slice()).rows(), None);
-                            }
-                            if dry_run {
-                                info!(
-                                    "=> {} Dry-run complete for {} {format} crosswalk file{}",
-                                    Label::pass(),
-                                    count.green(),
-                                    suffix(count)
-                                );
-                            } else {
-                                info!("=> {} Exported {} {format} crosswalk file{}", Label::pass(), count.green(), suffix(count));
-                            }
-                            if strict && !all_warnings.is_empty() {
-                                let count = all_warnings.len();
-                                fail!("Strict mode — {count} crosswalk warning(s) found");
-                                Err(eyre!("Strict mode — {count} crosswalk warning(s) found"))
-                            } else {
-                                Ok(())
-                            }
-                        }
-                        | Err(why) => {
-                            fail!("Generate {format} crosswalk — {why}");
-                            Err(eyre!("Generate {format} crosswalk — {why}"))
                         }
                     }
                 }
@@ -764,6 +776,7 @@ pub async fn run(
         strict,
         target,
         since,
+        false,
         threads,
         verbose,
         offline,
@@ -797,61 +810,65 @@ pub async fn run_with_import_context(
     strict: bool,
     target: Target,
     since: Option<&str>,
+    full_timestamp: bool,
     threads: usize,
     verbose: &Verbosity,
     offline: bool,
 ) -> ApiResult<()> {
-    let crosswalk_import = CrosswalkImportOptions::load(config, crosswalk_contact, local_identifier)?;
-    match archive_format.is_some() && !format.is_bag() {
-        | true => Err(eyre!("--archive-format is only supported for BagIt exports")),
-        | false => {
-            let is_silent = verbose.is_silent();
-            let progress_type = match is_silent || *raw {
-                | true => ProgressType::Silent,
-                | false => ProgressType::Bar,
-            };
-            let options = CommandOptions::init()
-                .maybe_branch(branch.clone())
-                .maybe_commit(commit.clone())
-                .maybe_filter(regex_join(filter))
-                .maybe_ignore(regex_join(ignore))
-                .merge_request(*merge_request)
-                .offline(offline)
-                .quiet(is_silent)
-                .supported(true)
-                .threads(threads)
-                .build();
-            preflight!(&options);
-            match offline && *merge_request {
-                | true => Err(eyre!("Export cannot resolve a remote merge request in offline mode")),
-                | false => {
-                    let request = ExportRequest::init()
-                        .maybe_output(output.clone())
-                        .maybe_path(path.clone())
-                        .maybe_chrome_path(chrome_path.clone())
-                        .format(format.clone())
-                        .maybe_archive_format(archive_format)
-                        .show_aspect_labels(show_aspect_labels)
-                        .show_aspect_scores(show_aspect_scores)
-                        .maybe_reference(reference.clone())
-                        .combine(*combine)
-                        .dry_run(dry_run)
-                        .strict(strict)
-                        .crosswalk_import(crosswalk_import)
-                        .target(target)
-                        .maybe_since(since.map(str::to_string))
-                        .skip(skip.to_vec())
-                        .progress_type(progress_type)
-                        .options(options)
-                        .build();
-                    let exporter = request.exporter();
-                    match (from.is_some() || to.is_some()) && format.is_structured() {
-                        | true => exporter.crosswalk(request, *from, *to).await,
-                        | false => exporter.export(request).await,
+    match CrosswalkImportOptions::load(config, crosswalk_contact, local_identifier) {
+        | Ok(crosswalk_import) => match archive_format.is_some() && !format.is_bag() {
+            | false => {
+                let is_silent = verbose.is_silent();
+                let progress_type = match is_silent || *raw {
+                    | true => ProgressType::Silent,
+                    | false => ProgressType::Bar,
+                };
+                let options = CommandOptions::init()
+                    .maybe_branch(branch.clone())
+                    .maybe_commit(commit.clone())
+                    .maybe_filter(regex_join(filter))
+                    .maybe_ignore(regex_join(ignore))
+                    .merge_request(*merge_request)
+                    .offline(offline)
+                    .quiet(is_silent)
+                    .supported(true)
+                    .threads(threads)
+                    .build();
+                preflight!(&options);
+                match offline && *merge_request {
+                    | true => Err(eyre!("Export cannot resolve a remote merge request in offline mode")),
+                    | false => {
+                        let request = ExportRequest::init()
+                            .maybe_output(output.clone())
+                            .maybe_path(path.clone())
+                            .maybe_chrome_path(chrome_path.clone())
+                            .format(format.clone())
+                            .maybe_archive_format(archive_format)
+                            .show_aspect_labels(show_aspect_labels)
+                            .show_aspect_scores(show_aspect_scores)
+                            .maybe_reference(reference.clone())
+                            .combine(*combine)
+                            .dry_run(dry_run)
+                            .full_timestamp(full_timestamp)
+                            .strict(strict)
+                            .crosswalk_import(crosswalk_import)
+                            .target(target)
+                            .maybe_since(since.map(str::to_string))
+                            .skip(skip.to_vec())
+                            .progress_type(progress_type)
+                            .options(options)
+                            .build();
+                        let exporter = request.exporter();
+                        match (from.is_some() || to.is_some()) && format.is_structured() {
+                            | true => exporter.crosswalk(request, *from, *to).await,
+                            | false => exporter.export(request).await,
+                        }
                     }
                 }
             }
-        }
+            | true => Err(eyre!("--archive-format is only supported for BagIt exports")),
+        },
+        | Err(why) => Err(why),
     }
 }
 /// Export the canonical Needle-native catalog to `tools.json` atomically.

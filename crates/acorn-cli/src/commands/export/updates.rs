@@ -1,5 +1,7 @@
 //! Since-filtered logbook updates artifacts.
 #[cfg(feature = "pdf")]
+use super::html::LogbookUpdatesHtml;
+#[cfg(feature = "pdf")]
 use super::pdf;
 use super::ExportRequest;
 use crate::cli::{
@@ -17,11 +19,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
-trait LogbookUpdatesExport {
+pub(crate) trait LogbookUpdatesExport {
     fn artifact_path(&self, output: &Path, extension: &str) -> ApiResult<PathBuf>;
-    #[cfg(feature = "pdf")]
-    fn to_html(&self) -> String;
     fn write_docx(&self, path: &Path) -> ApiResult<()>;
+    async fn write_pdf(&self, output_path: &Path, offline: bool, chrome_path: Option<&Path>, full_timestamp: bool) -> ApiResult<()>;
+    async fn write_title_pdf(&self, output_path: &Path, offline: bool, chrome_path: Option<&Path>, full_timestamp: bool) -> ApiResult<()>;
 }
 impl LogbookUpdatesExport for LogbookUpdates {
     fn artifact_path(&self, output: &Path, extension: &str) -> ApiResult<PathBuf> {
@@ -29,47 +31,6 @@ impl LogbookUpdatesExport for LogbookUpdates {
         SafePath::new(format!("{}-updates-{since}.{extension}", self.identifier))
             .map_err(Into::<color_eyre::Report>::into)
             .and_then(|path| path.materialize_under(output).map_err(Into::into))
-    }
-    #[cfg(feature = "pdf")]
-    fn to_html(&self) -> String {
-        let entries = self
-            .entries
-            .iter()
-            .map(|entry| {
-                let items = entry
-                    .items
-                    .as_ref()
-                    .map(|items| {
-                        format!(
-                            "<ul>{}</ul>",
-                            items.iter().map(|item| format!("<li>{}</li>", escape(item.as_str()))).collect::<String>()
-                        )
-                    })
-                    .unwrap_or_default();
-                format!(
-                    "<article><h2>{}</h2><p><strong>{:?} · {:?}</strong></p><p>{}</p>{items}</article>",
-                    escape(entry.timestamp.as_str()),
-                    entry.category,
-                    entry.state,
-                    escape(entry.summary.as_str())
-                )
-            })
-            .collect::<String>();
-        let period = self.through.as_ref().map_or_else(
-            || format!("Since {}", escape(self.since.as_str())),
-            |through| match self.since.as_str() {
-                | "full-history" => format!("Through {} (exclusive)", escape(through.as_str())),
-                | since => format!("From {} through {} (exclusive)", escape(since), escape(through.as_str())),
-            },
-        );
-        format!(
-            "<!doctype html><html><head><meta charset=\"utf-8\"><style>@page{{size:letter;margin:0.75in}}body{{font-family:Arial,sans-serif}}article{{break-inside:avoid}}h1,h2{{color:#1f4e79}}</style></head><body><h1>{} updates</h1><p>{period}</p>{}</body></html>",
-            escape(self.title.as_str()),
-            match entries.is_empty() {
-                | true => "<p><em>No updates in this period.</em></p>".to_string(),
-                | false => entries,
-            }
-        )
     }
     fn write_docx(&self, path: &Path) -> ApiResult<()> {
         let paragraphs = self
@@ -88,6 +49,22 @@ impl LogbookUpdatesExport for LogbookUpdates {
             ("word/document.xml", document.as_bytes()),
         ])
         .and_then(|bytes| write(path, bytes).map_err(|why| eyre!("Failed to write DOCX updates {} — {why}", path.display())))
+    }
+    #[cfg(feature = "pdf")]
+    async fn write_pdf(&self, output_path: &Path, offline: bool, chrome_path: Option<&Path>, full_timestamp: bool) -> ApiResult<()> {
+        write_html_pdf(self.to_html(full_timestamp), output_path, offline, chrome_path).await
+    }
+    #[cfg(not(feature = "pdf"))]
+    async fn write_pdf(&self, _output_path: &Path, _offline: bool, _chrome_path: Option<&Path>, _full_timestamp: bool) -> ApiResult<()> {
+        Err(eyre!("PDF export requires the 'pdf' feature. Rebuild with --features pdf"))
+    }
+    #[cfg(feature = "pdf")]
+    async fn write_title_pdf(&self, output_path: &Path, offline: bool, chrome_path: Option<&Path>, full_timestamp: bool) -> ApiResult<()> {
+        write_html_pdf(self.to_title_html(full_timestamp), output_path, offline, chrome_path).await
+    }
+    #[cfg(not(feature = "pdf"))]
+    async fn write_title_pdf(&self, _output_path: &Path, _offline: bool, _chrome_path: Option<&Path>, _full_timestamp: bool) -> ApiResult<()> {
+        Err(eyre!("PDF export requires the 'pdf' feature. Rebuild with --features pdf"))
     }
 }
 pub(super) async fn export(request: ExportRequest) -> ApiResult<()> {
@@ -144,7 +121,10 @@ async fn export_pdf(paths: Vec<PathBuf>, output: &Path, since: &str, request: &E
                     for update in updates {
                         if result.is_ok() {
                             result = match update.artifact_path(output, "pdf") {
-                                | Ok(path) => pdf::render_html_to_pdf(page, &update.to_html(), &path).await,
+                                | Ok(path) => match update.to_html(request.full_timestamp) {
+                                    | Ok(content) => pdf::render_html_to_pdf(page, &content, &path, pdf::PdfMargins::Stylesheet).await,
+                                    | Err(why) => Err(why),
+                                },
                                 | Err(why) => Err(why),
                             };
                         }
@@ -169,17 +149,16 @@ fn render(path: &Path, since: &str) -> ApiResult<LogbookUpdates> {
         .and_then(|activity| activity.updates_since(since).map_err(|why| eyre!(why)))
 }
 #[cfg(feature = "pdf")]
-pub(crate) async fn write_pdf(updates: &LogbookUpdates, output_path: &Path, offline: bool, chrome_path: Option<&Path>) -> ApiResult<()> {
+async fn write_html_pdf(content: ApiResult<String>, output_path: &Path, offline: bool, chrome_path: Option<&Path>) -> ApiResult<()> {
     match pdf::initialize_page(offline, chrome_path).await {
         | Ok(session) => {
-            let result = pdf::render_html_to_pdf(session.page(), &updates.to_html(), output_path).await;
+            let result = match content {
+                | Ok(content) => pdf::render_html_to_pdf(session.page(), &content, output_path, pdf::PdfMargins::Stylesheet).await,
+                | Err(why) => Err(why),
+            };
             session.close().await;
             result
         }
         | Err(why) => Err(why),
     }
-}
-#[cfg(not(feature = "pdf"))]
-pub(crate) async fn write_pdf(_updates: &LogbookUpdates, _output_path: &Path, _offline: bool, _chrome_path: Option<&Path>) -> ApiResult<()> {
-    Err(eyre!("PDF export requires the 'pdf' feature. Rebuild with --features pdf"))
 }

@@ -10,6 +10,7 @@
 - [🌾 Gather](./gather.md)
 - [📥 Import](./import.md)
 - [🧠 Infer](./infer.md)
+- [📥 Intake](./intake.md)
 - [🕸️ Link](./link.md)
 - [🔌 MCP](./mcp.md)
 - [📡 Serve](./serve.md)

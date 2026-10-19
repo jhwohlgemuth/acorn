@@ -50,6 +50,8 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 
 ### Reliability and operations
 
+- [Sponsor highlights clarity](features/sponsor-highlights-clarity.md) starts with an editorial template, then validated monthly input, project and portfolio rendering, and PDF accessibility evidence. In parallel, HIL-08 defines event-evidence rules; HIL-09 makes graduation target-specific; HIL-10 through HIL-14 add reviewed ASPECT targets; HIL-15 and HIL-16 prove database/MCP and GitLab review paths; HIL-17 surfaces accepted changes in the report after HIL-04. Its NGA distribution pilot waits for report-owner, classification, audience, and editorial approvals. HIL-02 and HIL-09 through HIL-14 serialize on research-activity schema roots; HIL-03 through HIL-05 and HIL-17 serialize with grouped separators and shared export work on their exact CLI and renderer files. HIL-16 serializes with Power Automate GitLab intake automation files, without waiting for that plan's live pilot.
+- [Grouped report separators](features/grouped-report-separators.md) starts with explicit group order in report configuration, then composes a single PDF, then wires an opt-in local output. It is independent of live Power Automate deployment and serializes with the shared export plan on PDF template files.
 - [Power Automate GitLab JSONL intake](features/powerapps-gitlab-logbook-reporting.md) has locally validated repository admission, review publication, manual intake, callback delivery, and local PDF/manifest generation. PA-02 waits on owner and access decisions; PA-03 and PA-04 then gate the external flow in PA-05. PA-06 through PA-09 prove human review, live publication, callbacks, and multi-project routing. The selected GitLab-mediated path needs no gateway.
 - [Runner-pool isolation](refactors/ci-runner-pools.md) precedes claims that Rust/fuzz/reporting jobs are concurrently isolated. Its reporting pool supports the scheduled reporting workflow.
 - [Remote container creation](refactors/core/remote-create-container-targets.md) consumes normalized CLI requests when that boundary lands; leaf rollback/preflight work can proceed first.
@@ -66,11 +68,12 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 | Analyzer results, check orchestration, and module indexes | CEL, gather inference, structured enrichment, diff, CLI coverage |
 | `io/api/mod.rs`, configuration roots, endpoint snapshots | shared API contract, dPID, Cosmos, model acquisition |
 | `io/mcp/client.rs`, outbound client tests and documentation | outbound MCP client interface; the landed feature graph and manifest boundary remain fixed |
-| Research-activity/PID schema roots | dPID, structured enrichment, PID verification |
+| Research-activity/PID schema roots | dPID, structured enrichment, PID verification, sponsor highlights clarity |
+| Logbook graduation persistence, MCP apply/list, and GitLab automation | sponsor highlights clarity, Power Automate GitLab JSONL intake; serialize shared adapter and review files |
 | `io/{archive,oci}.rs`, `io/model/gguf/`, and model planner | model acquisition, SLM/Needle artifact work |
 | Tool registry, Needle startup/catalog, inference dispatch | router/parity, Needle validation, CLI composition; adapter leaves consume the frozen binding contract |
-| CLI parser, `main.rs`, generated help | CLI composition, dPID, gather, CEL, remote create, ask adapters, SLM |
-| Export dispatch/templates/PowerPoint | export pipeline, database-backed artifacts |
+| CLI parser, `main.rs`, generated help | CLI composition, dPID, gather, CEL, remote create, ask adapters, SLM, sponsor highlights clarity |
+| Export dispatch/templates/PowerPoint | export pipeline, database-backed artifacts, grouped report separators, sponsor highlights clarity |
 | `Makefile` and `.gitlab-ci.yml` | runner pools, Podman, SLM, Needle, PID verification, export fuzzing, coverage throughput |
 | Developer test and coverage workflow (`Makefile` test targets, `.config/nextest.toml`, `[profile.coverage]`) | Coverage throughput and CLI coverage serialize; slow-test gating and coverage scoping must preserve other plans' acceptance tests. |
 

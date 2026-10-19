@@ -899,6 +899,9 @@ pub(crate) struct Export {
     /// Only files matching at least one pattern will be processed
     #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) filter: Vec<String>,
+    /// Show the full date and time in updates PDFs instead of month and day.
+    #[arg(long, help_heading = "FLAGS", requires = "since")]
+    pub(crate) full_timestamp: bool,
     /// Regular expression pattern(s) applied to absolute paths of files to exclude from export process
     ///
     /// Only applies to `--path` values that point to a directory
@@ -1380,9 +1383,15 @@ pub(crate) struct Report {
     /// Exact merged default-branch commit used as report input.
     #[arg(long, env = "CI_COMMIT_SHA", value_name = "SHA", help_heading = "OPTIONS")]
     pub(crate) commit: Option<String>,
+    /// Write one local PDF containing the title, selected projects, and final legend.
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) combine: bool,
     /// Explicit inclusive lower bound for local or recovery runs.
     #[arg(long, value_name = "TIMESTAMP", help_heading = "OPTIONS")]
     pub(crate) from: Option<String>,
+    /// Show the full date and time in report PDFs instead of month and day.
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) full_timestamp: bool,
     /// Fixed exclusive reporting upper bound shared by every project.
     #[arg(long, env = "ACORN_REPORT_THROUGH", value_name = "TIMESTAMP", help_heading = "OPTIONS")]
     pub(crate) through: String,

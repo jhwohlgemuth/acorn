@@ -1,0 +1,373 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "identifier": "grid-resilience",
+    "keywords": [
+      "Grid",
+      "Energy",
+      "Critical infrastructure"
+    ],
+    "contributors": [
+      {
+        "name": "Taylor Reed",
+        "identifiers": [],
+        "affiliations": [],
+        "roles": [
+          {
+            "agent": {
+              "value": "sample-taylor-reed",
+              "scheme": "LOCAL"
+            },
+            "leader": true
+          }
+        ]
+      }
+    ],
+    "funders": [
+      "Sample Sponsor A"
+    ],
+    "media": []
+  },
+  "title": "Grid Resilience Studio",
+  "subtitle": "Demonstrations, research, and software delivery",
+  "sections": {
+    "mission": "Demonstrate grid resilience studio with synthetic report content.",
+    "challenge": "Keep the sample realistic without using production records.",
+    "approach": [
+      "Use deliberately fictional developments."
+    ],
+    "impact": [
+      "Provide a representative design preview."
+    ],
+    "achievement": [
+      "Prepared logbook examples for layout review."
+    ],
+    "research": {
+      "focus": "Report design review",
+      "areas": [
+        "sample data"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Sample project lead",
+    "givenName": "Alex",
+    "familyName": "Morgan",
+    "email": "alex.morgan@example.org",
+    "telephone": "+1 202-555-0123",
+    "url": "https://example.org/project",
+    "organization": "Example Research Group"
+  },
+  "logbook": {
+    "summary": "Synthetic logbook for Grid Resilience Studio.",
+    "entries": [
+      {
+        "identifier": "grid-exhibition-demo",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-05T14:30:00Z",
+        "category": "engagement",
+        "eventType": "exhibition",
+        "state": "completed",
+        "summary": "Ran an interactive exhibition showing regional load scenarios. Visitors used a printed key to follow the scenario changes without a presenter.",
+        "items": [
+          "Visitors compared three demand curves on the display.",
+          "A large-print guide was available beside the exhibit."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-facility-tour",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-14T14:30:00Z",
+        "category": "engagement",
+        "eventType": "tour",
+        "state": "upcoming",
+        "summary": "Host a tour of the visualization space for visiting collaborators. The visit will include a short explanation of the synthetic input data.",
+        "items": [
+          "Confirm accessibility needs and visitor names."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-analysis-presentation",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-10T14:30:00Z",
+        "category": "research",
+        "eventType": "presentation",
+        "state": "completed",
+        "summary": "Presented the first simulation results and the uncertainty bounds. The group recorded which assumptions needed a clearer caption before sharing the figures.",
+        "items": [
+          "The baseline case stayed within the expected range.",
+          "A sensitivity run showed the largest change under delayed restoration."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-planning-session",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-08T14:30:00Z",
+        "category": "collaboration",
+        "eventType": "workshop",
+        "state": "in-progress",
+        "summary": "Coordinating a working session with utility analysts and researchers. The group is collecting questions to resolve before the next simulation review.",
+        "items": [
+          "The team is drafting shared assumptions.",
+          "The agenda includes a review of data provenance."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-model-training",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-12T14:30:00Z",
+        "category": "personnel",
+        "eventType": "training",
+        "state": "upcoming",
+        "summary": "Run hands-on training for new model reviewers. Each reviewer will record the steps needed to reproduce the figure.",
+        "items": [
+          "Participants will reproduce a short synthetic scenario."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-visualization-release",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-16T14:30:00Z",
+        "category": "software",
+        "state": "completed",
+        "summary": "Released the scenario viewer with clearer legends and keyboard navigation. Reviewers can compare scenarios without relying on color alone to identify the selected region.",
+        "items": [
+          "The release includes a compact layout for print review.",
+          "The 24-hour chart labels were checked at 100% scale.",
+          "A CSV export supports follow-up analysis."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-input-review",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-07T14:30:00Z",
+        "category": "data",
+        "state": "in-progress",
+        "summary": "Reviewing input tables for missing values and inconsistent time zones. Analysts are keeping a list of fields that need a documented correction.",
+        "items": [
+          "The synthetic load table uses hourly UTC timestamps.",
+          "A sample report explains how blank readings are treated.",
+          "Reviewers will sign off on the revised dictionary."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-capacity-check",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-06T14:30:00Z",
+        "category": "infrastructure",
+        "state": "completed",
+        "summary": "Checked the demonstration workstation and display capacity before the next review. The team also rehearsed switching between scenarios while the secondary display was connected.",
+        "items": [
+          "The workstation completed the sample scenario without interruption.",
+          "The shared display remained readable from the back of the review room.",
+          "Keyboard and pointer controls were available for the same workflow."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-resilience-additional-01",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-02T14:30:00Z",
+        "category": "data",
+        "state": "completed",
+        "summary": "Assembled a synthetic set of hourly demand traces for the demonstration.\n\nThe traces include predictable daily variation and a few controlled disruptions to exercise the charts. They are labeled synthetic throughout the report so readers do not infer real operating conditions.",
+        "items": [
+          "The traces cover weekday and weekend patterns.",
+          "All values are fictional and intended for layout testing."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-resilience-additional-02",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-03T14:30:00Z",
+        "category": "method",
+        "state": "completed",
+        "summary": "Documented the assumptions used by the baseline restoration scenario. The note explains which loads may be restored together and where the model applies a simplifying limit. It gives reviewers a way to challenge assumptions without first reading the simulation code.",
+        "items": [
+          "The method note names the decision points that users can vary."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-resilience-additional-03",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-04T14:30:00Z",
+        "category": "software",
+        "state": "in-progress",
+        "summary": "Improving keyboard navigation in the scenario comparison panel. The team is testing the panel with only a keyboard and at higher text scaling. Findings are recorded by task so a visual fix does not obscure a navigation problem.",
+        "items": [
+          "The next review will test focus order and visible focus indicators."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-resilience-additional-04",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-07T14:30:00Z",
+        "category": "research",
+        "state": "completed",
+        "summary": "Compared restoration outcomes under two alternate crew availability assumptions.\n\nBoth assumptions were applied to the same scenario set. The comparison highlights where staffing changes the timing of recovery and where network constraints remain the dominant factor.",
+        "items": [
+          "The direction of the main result remained unchanged."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-resilience-additional-05",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-09T14:30:00Z",
+        "category": "infrastructure",
+        "state": "upcoming",
+        "summary": "Prepare a second display station for the group demonstration. The second station will mirror the primary display but use a simplified control surface. This allows visitors to follow the comparison while a presenter changes the main scenario.",
+        "items": [
+          "The station will use a larger monitor for side-by-side review."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-resilience-additional-06",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-11T14:30:00Z",
+        "category": "engagement",
+        "state": "completed",
+        "summary": "Collected structured feedback from a rehearsal with internal reviewers. Feedback was captured against the exact chart and scenario shown during rehearsal. The team can now distinguish requests about the data story from requests about font size or controls.\n\nThe feedback sheet preserves the reviewer's words beside the team's interpretation and proposed change. This keeps a request for a clearer scenario explanation from being reduced to a cosmetic chart edit during triage.",
+        "items": [
+          "Reviewers requested a shorter legend and clearer unit labels."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-resilience-additional-07",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-13T14:30:00Z",
+        "category": "collaboration",
+        "state": "in-progress",
+        "summary": "Coordinating review questions with a regional planning partner.\n\nThe partner asked for a short description of the decision a reader should make from each figure. Those prompts are being used to review whether the current annotations explain the uncertainty clearly.\n\nThe partner will review a short set of captions without a presenter in the room. Their notes should reveal which assumptions are clear in the written report and which still depend on verbal explanation during the demonstration.",
+        "items": [
+          "The partner will assess whether the scenario narrative is understandable."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-resilience-additional-08",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-15T14:30:00Z",
+        "category": "administration",
+        "state": "completed",
+        "summary": "Updated the demonstration checklist and assigned owners for open issues. Each open issue has a named owner and a check that can be completed before the room is set up. The list is intentionally short enough to use during the final rehearsal.\n\nA final rehearsal will walk through the checklist in the room where the demonstration is planned. The team will mark each item only after its visible result is confirmed, including display contrast, exported tables, and the path back to the opening scenario.",
+        "items": [
+          "The checklist includes accessibility, data provenance, and room setup."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-resilience-additional-09",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-17T14:30:00Z",
+        "category": "software",
+        "state": "completed",
+        "summary": "Added an export that preserves scenario names in the downloaded table. Earlier exports omitted the comparison label and were difficult to interpret away from the interface. The revised table includes enough context for a reviewer to reproduce the displayed selection.\n\nThe exported file also records the run date, selected regions, and units used on the chart. A reviewer can compare two exports without relying on a filename chosen by the browser or a memory of the controls selected during the demonstration.",
+        "items": [
+          "The export also records the selected comparison period."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-resilience-additional-10",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-18T14:30:00Z",
+        "category": "data",
+        "state": "in-progress",
+        "summary": "Auditing scenario inputs for duplicated region identifiers.\n\nSeveral older input files reused a regional code after a boundary change. The audit records which interpretation was applied and flags files that cannot be resolved automatically.\n\nThe audit retains the source code and proposed normalized code in separate columns. Any unresolved case will remain outside the demonstration input set until a domain reviewer confirms the mapping, preventing an apparently clean chart from hiding a changed boundary.",
+        "items": [
+          "The team is testing how the parser handles older naming conventions."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-resilience-additional-11",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-20T14:30:00Z",
+        "category": "publication",
+        "state": "upcoming",
+        "summary": "Draft a concise methods note for the simulation example. The note will show a small worked example before listing the model choices. Reviewers should be able to see which elements are illustrative without reading the full technical appendix.\n\nThe worked example will trace one synthetic disruption from initial load loss through the modeled restoration steps. A small table will list the inputs next to the generated outputs, with a note identifying assumptions chosen only to make the example readable.",
+        "items": [
+          "The note will separate illustrative assumptions from measured inputs."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-resilience-additional-12",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-22T14:30:00Z",
+        "category": "funding",
+        "state": "in-progress",
+        "summary": "Estimating the compute and support effort for a broader pilot. Compute demand changes with the number of scenarios and the length of each run. The estimate also includes time for reviewing results and responding to issues found during a pilot.\n\nThe pilot estimate separates simulation runtime, result review, accessibility checks, and support for the partner's questions. It includes a range for the number of scenarios and explains which costs scale with that range. This gives the planning group a way to resize the pilot without changing its review goals.",
+        "items": [
+          "The estimate includes a range for review and maintenance time."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-resilience-additional-13",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-24T14:30:00Z",
+        "category": "personnel",
+        "state": "completed",
+        "summary": "Trained a second reviewer to run the accessibility checklist.\n\nThe second reviewer found a label that sounded clear in the checklist but was difficult to locate on the chart. The item has been rewritten to point to the visible control and its expected behavior.\n\nThe training record includes the reviewer's independent findings and the final disposition for each issue. It will be used to refine the checklist where two reviewers interpret a control differently, especially when the difference affects a keyboard user.",
+        "items": [
+          "Both reviewers used the same synthetic scenarios for comparison."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-resilience-additional-14",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-26T14:30:00Z",
+        "category": "method",
+        "state": "upcoming",
+        "summary": "Run an observation session to test how readers interpret uncertainty bands. Participants will explain what they think each band means before seeing the legend. The team will use those observations to revise labels rather than assuming more explanatory text is sufficient.\n\nThe observation guide avoids explaining the intended answer before participants respond. Facilitators will record the participant's reading of the bands, the legend terms they consult, and any question asked after the scenario changes. The team will compare observations across readers before rewriting the figure caption, then repeat the test with the revised wording.",
+        "items": [
+          "The session will capture points of confusion before the design is finalized."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "grid-resilience-additional-15",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-29T14:30:00Z",
+        "category": "research",
+        "state": "completed",
+        "summary": "Finished a stress test with delayed restoration in multiple regions. The stress test used the same synthetic demand traces as the baseline and changed only the restoration timing. The ambiguous label is being revised before the result is reused in a presentation.\n\nThe team retained the baseline and delayed-restoration outputs with identical plot scales and region order. Reviewers can therefore focus on the timing change without mentally normalizing two different charts. A separate note lists which conclusions hold across both runs and which depend on the stress-test assumption. Before release, another analyst will reproduce the figures from the stored inputs and check that every caption names the correct scenario.\n\nThe example also includes a deliberately dense explanation of the most uncertain case. It describes the input perturbation, the constraints applied to restoration, and the checks used to separate a model response from a plotting error. The final review will decide which uncertainty caveats must accompany the chart when it is shared outside the project team.",
+        "items": [
+          "The test exposed a chart label that becomes ambiguous at long durations."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "general-compute-refresh",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-05T14:30:00Z",
+        "category": "infrastructure",
+        "state": "in-progress",
+        "summary": "Ordered replacement compute hardware and confirmed a datacenter location for the shared test environment. The shared environment supports the synthetic demonstrations used throughout this report. The team is documenting dependencies before equipment arrives so installation decisions can be reviewed together.",
+        "items": [
+          "A kickoff with the vendor is planned for the next reporting period.",
+          "The installation plan includes a network and power review."
+        ],
+        "archived": false,
+        "global": true
+      }
+    ]
+  }
+}

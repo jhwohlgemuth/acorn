@@ -186,6 +186,15 @@ where
         .map_err(|_| ZonError::from(E103))
         .and_then(|value| encode_value_with_limits(&value, LIMITS))
 }
+/// Encode a value with one root attribute placed after the canonical sorted attributes.
+pub(crate) fn encode_with_last_key<T>(value: &T, last_key: &str) -> Result<String, ZonError>
+where
+    T: Serialize + ?Sized,
+{
+    serde_json::to_value(value)
+        .map_err(|_| ZonError::from(E103))
+        .and_then(|value| encode::encode_value_with_last_key(&value, last_key, LIMITS))
+}
 fn validate_encoded(source: &str, limits: Limits) -> Result<(), ZonError> {
     match source.len() > limits.document_bytes {
         | true => Err(ZonError::from(E301)),

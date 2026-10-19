@@ -46,7 +46,10 @@ pub enum TargetLabel {
     #[display("Solving Big Problems")]
     Ornl,
 }
-struct DataUri {}
+pub(crate) struct DataUri {}
+pub(crate) const ORNL_COLOR_LOGO: &str = "logo_ornl_color.svg";
+pub(crate) const ORNL_LEAF_LOGO: &str = "logo_leaf.svg";
+pub(crate) const ORNL_WHITE_LOGO: &str = "logo_ornl_white.svg";
 #[derive(Embed)]
 #[folder = "assets/fonts/"]
 struct Font;
@@ -58,12 +61,12 @@ struct HtmlHead<'a> {
 }
 #[derive(Embed)]
 #[folder = "assets/styles/"]
-struct Style;
+pub(crate) struct Style;
 impl DataUri {
     fn from_bytes(data: &[u8], mime: MimeType) -> String {
         format!("data:{};base64,{}", mime, BASE64.encode(data))
     }
-    fn from_asset(value: &str) -> ApiResult<String> {
+    pub(crate) fn from_asset(value: &str) -> ApiResult<String> {
         let mime = MimeType::from(value);
         match mime {
             | MimeType::Otf | MimeType::Ttf => match Font::get(value) {
@@ -88,7 +91,7 @@ impl HtmlFooter {
     fn render(&self) -> ApiResult<VirtualNode> {
         let path = format!("fact-sheet/{}/footer.jpg", self.label.folder());
         DataUri::from_asset(&path)
-            .and_then(|footer| DataUri::from_asset("logo_ornl_white.svg").map(|ornl| (footer, ornl)))
+            .and_then(|footer| DataUri::from_asset(ORNL_WHITE_LOGO).map(|ornl| (footer, ornl)))
             .and_then(|(footer, ornl)| DataUri::from_asset("logo_doe_white.png").map(|doe| (footer, ornl, doe)))
             .map(|(footer, ornl, doe)| {
                 let style = format!("background-image: url({footer});");
@@ -186,7 +189,7 @@ impl Convert for ResearchActivity {
             .and_then(|head| graphic.map(|graphic| (head, graphic)))
             .and_then(|(head, graphic)| footer.render().map(|footer| (head, graphic, footer)))
             .and_then(|(head, graphic, footer)| DataUri::from_asset(&path).map(|header| (head, graphic, footer, header)))
-            .and_then(|(head, graphic, footer, header)| DataUri::from_asset("logo_leaf.svg").map(|logo| (head, graphic, footer, header, logo)))
+            .and_then(|(head, graphic, footer, header)| DataUri::from_asset(ORNL_LEAF_LOGO).map(|logo| (head, graphic, footer, header, logo)))
             .map(|(head, graphic, footer, header, logo)| {
                 let header_style = format!("background-image: url({header});");
                 html! {
@@ -280,7 +283,7 @@ impl TargetLabel {
         }
     }
 }
-fn generate_font_faces() -> ApiResult<String> {
+pub(crate) fn generate_font_faces() -> ApiResult<String> {
     DataUri::from_asset("aptos.ttf")
         .and_then(|regular| DataUri::from_asset("aptos_bold.ttf").map(|bold| (regular, bold)))
         .and_then(|(regular, bold)| DataUri::from_asset("aptos_italic.ttf").map(|italic| (regular, bold, italic)))

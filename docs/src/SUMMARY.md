@@ -40,6 +40,7 @@
     - [gather](./cli-reference/commands/gather.md)
     - [import](./cli-reference/commands/import.md)
     - [infer](./cli-reference/commands/infer.md)
+    - [intake](./cli-reference/commands/intake.md)
     - [link](./cli-reference/commands/link.md)
     - [mcp](./cli-reference/commands/mcp.md)
     - [serve](./cli-reference/commands/serve.md)

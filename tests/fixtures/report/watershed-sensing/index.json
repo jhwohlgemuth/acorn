@@ -1,0 +1,361 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "identifier": "watershed-sensing",
+    "keywords": [
+      "Earth science",
+      "Data science",
+      "Geospatial"
+    ],
+    "contributors": [
+      {
+        "name": "Alex Morgan",
+        "identifiers": [],
+        "affiliations": [],
+        "roles": [
+          {
+            "agent": {
+              "value": "sample-alex-morgan",
+              "scheme": "LOCAL"
+            },
+            "leader": true
+          }
+        ]
+      },
+      {
+        "name": "Jordan Lee",
+        "identifiers": [],
+        "affiliations": [],
+        "roles": [
+          {
+            "agent": {
+              "value": "sample-jordan-lee",
+              "scheme": "LOCAL"
+            },
+            "leader": true
+          }
+        ]
+      }
+    ],
+    "funders": [
+      "Sample Sponsor A"
+    ],
+    "media": []
+  },
+  "title": "Watershed Sensing Network",
+  "subtitle": "Field methods and shared environmental data",
+  "sections": {
+    "mission": "Demonstrate watershed sensing network with synthetic report content.",
+    "challenge": "Keep the sample realistic without using production records.",
+    "approach": [
+      "Use deliberately fictional developments."
+    ],
+    "impact": [
+      "Provide a representative design preview."
+    ],
+    "achievement": [
+      "Prepared logbook examples for layout review."
+    ],
+    "research": {
+      "focus": "Report design review",
+      "areas": [
+        "sample data"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Sample project lead",
+    "givenName": "Alex",
+    "familyName": "Morgan",
+    "email": "alex.morgan@example.org",
+    "telephone": "+1 202-555-0123",
+    "url": "https://example.org/project",
+    "organization": "Example Research Group"
+  },
+  "logbook": {
+    "summary": "Synthetic logbook for Watershed Sensing Network.",
+    "entries": [
+      {
+        "identifier": "watershed-sensor-calibration",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-03T14:30:00Z",
+        "category": "research",
+        "state": "completed",
+        "summary": "Completed a riverbank sensor calibration and compared the readings with laboratory controls. The team retained the control readings and calibration date for comparison with the next field visit.",
+        "items": [
+          "Three stations passed the target drift threshold.",
+          "The fourth station needs a replacement probe before release."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-sampling-protocol",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-08T14:30:00Z",
+        "category": "method",
+        "eventType": "workshop",
+        "state": "in-progress",
+        "summary": "Revising the sampling protocol after the pilot workshop. A second crew will try the draft sequence during a practice collection.",
+        "items": [
+          "A cross-team review identified two ambiguous collection steps.",
+          "The revised procedure is being checked by field and data staff."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-dataset-release",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-13T14:30:00Z",
+        "category": "data",
+        "state": "completed",
+        "origin": "discovered",
+        "discovery": {
+          "provider": "openalex",
+          "source": "W1234567890",
+          "discoveredAt": "2026-10-13T12:00:00Z"
+        },
+        "summary": "Published a curated test dataset with a versioned data dictionary. The release includes units, missing-value codes, and a note identifying all sample values as synthetic.",
+        "items": [
+          "The release contains 240 synthetic observations.",
+          "Checksums and a reuse note accompany the files."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-gateway-upgrade",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-17T14:30:00Z",
+        "category": "infrastructure",
+        "state": "upcoming",
+        "summary": "Install the replacement gateway at the western monitoring station. The installer will check the first packet and record the restart sequence.",
+        "archived": false
+      },
+      {
+        "identifier": "watershed-parser-release",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-11T14:30:00Z",
+        "category": "software",
+        "state": "completed",
+        "summary": "Released parser v2.1 for the telemetry stream, including a retry path for partial uploads. The team checked that a partial transfer can be retried without introducing duplicate measurements.",
+        "items": [
+          "Automated checks cover missing and duplicated packets."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-data-review",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-06T14:30:00Z",
+        "category": "administration",
+        "classification": "unclassified",
+        "eventType": "other",
+        "state": "completed",
+        "summary": "Confirmed the data handling designation for this synthetic demonstration. The decision is recorded with the release notes for future reviewers.",
+        "items": [
+          "The sample has no sensitive source records."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-sensing-additional-01",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-02T14:30:00Z",
+        "category": "data",
+        "state": "completed",
+        "summary": "Validated the October sensor inventory against the deployment register.\n\nThe inventory now separates active devices from equipment retained for comparison runs. Reviewers can trace every plotted series back to a station without relying on informal naming conventions.",
+        "items": [
+          "The review identified two retired station identifiers.",
+          "A corrected mapping is included in the synthetic data package."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-sensing-additional-02",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-04T14:30:00Z",
+        "category": "infrastructure",
+        "state": "completed",
+        "summary": "Replaced the enclosure gasket at the north-bank monitoring station. The repair was completed before the next scheduled collection window. The team recorded the seal material and inspection date so later moisture readings can be interpreted with the maintenance history in view.",
+        "items": [
+          "The enclosure passed a controlled spray test."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-sensing-additional-03",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-05T14:30:00Z",
+        "category": "method",
+        "state": "in-progress",
+        "summary": "Drafted a common checklist for field crews collecting calibration samples. Field staff asked for a shorter sequence that can be followed while wearing gloves. The revision keeps the measurements in a fixed order and reserves a place for observations that do not fit a predefined code.",
+        "items": [
+          "The checklist records instrument firmware and reference conditions.",
+          "A trial run will test whether the instructions are clear in poor weather."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-sensing-additional-04",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-07T14:30:00Z",
+        "category": "software",
+        "state": "completed",
+        "summary": "Added a visible warning when telemetry packets arrive outside the expected time window.\n\nDelayed packets previously appeared as current observations in the overview. The new warning makes the delay visible without discarding the original timestamp or changing the stored measurement.",
+        "items": [
+          "The warning includes the station identifier and the observed delay.",
+          "The release check followed a delayed packet from the device archive through ingestion, storage, dashboard display, and CSV export. Reviewers compared the packet timestamp with the receipt timestamp at each step and confirmed that the warning stayed attached to the observation when filters changed. They then repeated the check with a current packet to verify that ordinary readings were unaffected. The test record includes the station name, expected label, actual label, and a screenshot of the warning at high text scaling. The checklist will be reused after the next parser release to confirm that the same behavior persists."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-sensing-additional-05",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-09T14:30:00Z",
+        "category": "collaboration",
+        "state": "completed",
+        "summary": "Held a joint review of collection priorities with the university field team. The discussion also identified a mismatch in how the two teams describe sampling locations. A shared location table is being prepared before the next coordinated visit.",
+        "items": [
+          "The teams agreed to sample the same three tributaries during the next visit."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-sensing-additional-06",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-10T14:30:00Z",
+        "category": "research",
+        "state": "in-progress",
+        "summary": "Comparing bank-side and midstream readings to estimate local mixing effects. The comparison uses matching time windows and excludes samples taken during equipment maintenance. Results will remain labeled provisional until the team can repeat the analysis under higher flows.\n\nFor the next pass, analysts will align the readings by station and flag intervals with incomplete coverage. The comparison table retains the excluded records and the reason for each exclusion, so a reviewer can distinguish a data quality decision from an environmental effect.",
+        "items": [
+          "Early plots show that the difference varies with flow rate.",
+          "The analysis remains provisional until the next sampling round."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-sensing-additional-07",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-12T14:30:00Z",
+        "category": "administration",
+        "state": "completed",
+        "summary": "Updated the demonstration schedule after the field vehicle became unavailable.\n\nThis change affects transport and staffing but not the planned review criteria. The schedule records who will collect replacement observations if another visit is lost.\n\nThe revised calendar preserves the original collection targets alongside the new visit dates. This lets the field lead see where a missed visit changes seasonal coverage and where an existing sample can still support the planned comparison.",
+        "items": [
+          "The revised plan keeps the data quality review on its original date."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-sensing-additional-08",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-14T14:30:00Z",
+        "category": "data",
+        "state": "completed",
+        "summary": "Published a sample metadata table with units and missing-value codes. The table is intended to travel with exported data rather than remain in a separate note. Reviewers can use it to distinguish a true zero from an unavailable observation.\n\nThe release notes define each field in the table and include a small worked example of an absent value. A downstream analyst can use the example to verify that their import script has not converted missing observations into measured zeroes.",
+        "items": [
+          "Each variable has a plain-language definition for reviewers."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-sensing-additional-09",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-15T14:30:00Z",
+        "category": "method",
+        "state": "upcoming",
+        "summary": "Run a paired-sample exercise to check how crews apply the new protocol. The exercise will use a deliberately ambiguous sample record to see whether the checklist resolves it consistently. Staff will compare decisions afterward and update the wording where interpretations differ.\n\nCrew members will also record how long each step takes and where a second person is needed. Those observations should show whether the checklist is practical during a normal visit, rather than only understandable during a desk review.",
+        "items": [
+          "Observers will record deviations without interrupting the collection."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-sensing-additional-10",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-18T14:30:00Z",
+        "category": "infrastructure",
+        "state": "in-progress",
+        "summary": "Testing a low-power relay for the remote station before outdoor installation.\n\nBench observations so far show stable transmission under normal load. The remaining checks focus on recovery after a power interruption and the clarity of the device status indicators.\n\nThe relay test includes a repeatable sequence of normal shutdown, abrupt power loss, and reconnection. Each run records the first valid packet after restart, battery state, and any intervention needed at the station.",
+        "items": [
+          "The bench test includes intermittent connectivity and a simulated battery drop."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-sensing-additional-11",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-19T14:30:00Z",
+        "category": "software",
+        "state": "completed",
+        "summary": "Improved the dashboard filter for stations that have not reported recently. Previously, a station under planned service could look identical to a station with an unknown failure. The revised filter makes that distinction visible in both the summary view and the export.\n\nThe change was checked with stations in three conditions: reporting normally, temporarily out of service, and missing without a known cause. The interface and downloaded table use the same labels, so a reviewer can trace what was shown on screen to the exported evidence.",
+        "items": [
+          "The filter now distinguishes maintenance periods from unexplained outages."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-sensing-additional-12",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-21T14:30:00Z",
+        "category": "research",
+        "state": "completed",
+        "summary": "Finished a sensitivity check on the daily aggregation method. The comparison tested alternate minimum-coverage rules and one different treatment of short gaps. The overall pattern was consistent, while several individual peaks moved enough to merit a note in the release.\n\nAnalysts retained the alternate aggregates in a comparison file rather than replacing the original series. That record makes it possible to inspect the handful of affected peaks and decide whether a caveat or a revised rule is appropriate for the next release.",
+        "items": [
+          "The main trend remained stable across the three tested thresholds.",
+          "Short-lived peaks still require manual review."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-sensing-additional-13",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-23T14:30:00Z",
+        "category": "engagement",
+        "state": "upcoming",
+        "summary": "Prepare a short walkthrough of the demonstration data for visiting collaborators.\n\nThe demonstration will begin with a simple station history before showing cross-site comparisons. Presenters are preparing a short explanation of synthetic values so viewers do not mistake them for operational measurements.\n\nThe walkthrough includes a small printed data key and a pause for questions after each figure. The team will capture which terms viewers ask about most often, then use that feedback to simplify the report captions before the next review.",
+        "items": [
+          "The walkthrough uses synthetic observations and includes an accessibility check."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-sensing-additional-14",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-25T14:30:00Z",
+        "category": "data",
+        "state": "in-progress",
+        "summary": "Reviewing duplicate measurements produced during network reconnection. Two reconnection episodes produced packets with the same device time but different arrival times. The review will retain a trace of each decision so the curated series can be reproduced.\n\nThe review distinguishes identical retransmissions from packets with a changed payload. A decision table records device time, receipt time, and retained value for each case. The team will rerun the curated export after the rule is approved and compare row counts with the raw archive.",
+        "items": [
+          "The team is comparing device logs with ingestion timestamps before removing records."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "watershed-sensing-additional-15",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-28T14:30:00Z",
+        "category": "administration",
+        "state": "upcoming",
+        "summary": "Document the handoff steps for the next monthly reporting window. The handoff note will identify open data checks, equipment work, and decisions awaiting collaborators. Each item will carry a next action and date rather than only a status label.\n\nThe handoff also names the source file, last review date, and reviewer for every open item. A new reporting lead should be able to identify the next action without reconstructing it from email. The team will rehearse the handoff using an intentionally incomplete sample record and revise any step that relies on unwritten local knowledge.",
+        "items": [
+          "The handoff will identify an owner for each data and equipment issue."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "general-accessibility-check",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-22T14:30:00Z",
+        "category": "method",
+        "state": "upcoming",
+        "summary": "Prepare a common accessibility checklist for report figures and presentation materials. The first draft will be tested on a figure, a table, and a short presentation. Reviewers will note where a requirement is hard to apply so the guidance stays practical.",
+        "items": [
+          "The checklist will cover contrast, text alternatives, and readable labels."
+        ],
+        "archived": false,
+        "global": true
+      }
+    ]
+  }
+}

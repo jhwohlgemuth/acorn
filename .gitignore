@@ -8,6 +8,8 @@
 /docs/book
 /export
 /extract
+/output
 target/
+/tmp
 ~$reference.pptx
 data.zip

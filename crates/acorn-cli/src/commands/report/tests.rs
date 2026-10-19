@@ -20,10 +20,12 @@ fn arguments(projects: Vec<String>) -> Report {
     .expect("report configuration");
     Report {
         chrome_path: None,
+        combine: false,
         commit: Some("0123456789abcdef".to_string()),
         config: Some(config),
         dry_run: true,
         from: None,
+        full_timestamp: false,
         job_id: Some("200".to_string()),
         output: directory.join("reports"),
         pipeline_id: Some("100".to_string()),
@@ -33,7 +35,54 @@ fn arguments(projects: Vec<String>) -> Report {
         verbose: Verbosity::default(),
     }
 }
+fn report_fixture_arguments() -> Report {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/report");
+    let mut arguments = arguments(Vec::new());
+    arguments.config = Some(root.join("config.json"));
+    arguments.from = Some("2026-10-01T00:00:00Z".to_string());
+    arguments.root = root;
+    arguments.through = "2026-11-01T00:00:00Z".to_string();
+    arguments
+}
 
+#[tokio::test]
+async fn test_general_title_page_writes_pdf_when_chrome_is_configured() {
+    let Some(chrome_path) = std::env::var_os("ACORN_TEST_CHROME_PATH").map(std::path::PathBuf::from) else {
+        return;
+    };
+    let directory = tempfile::tempdir().expect("scratch directory");
+    let mut arguments = report_fixture_arguments();
+    arguments.chrome_path = Some(chrome_path);
+    arguments.output = directory.path().join("reports");
+    let (_, _, _, selected) = prepare(&arguments, true).expect("report fixture configuration");
+    arguments.write_title_page(&selected, true).await.expect("title page");
+    let pdf = arguments.output.join("title-page.pdf");
+    assert!(read(&pdf).expect("title PDF").starts_with(b"%PDF"));
+    let extracted = Command::new("pdftotext").arg(&pdf).arg("-").output().expect("extract title text");
+    assert!(extracted.status.success());
+    let text = String::from_utf8_lossy(&extracted.stdout);
+    assert!(text.contains("Project Activity Highlights"));
+    assert!(text.contains("General updates"));
+    assert!(text.contains("Ordered replacement compute hardware"));
+}
+#[test]
+fn test_global_entries_are_selected_from_project_fixtures() {
+    let arguments = report_fixture_arguments();
+    let (_, _, _, selected) = prepare(&arguments, true).expect("report fixture configuration");
+    let updates = arguments.global_updates(&selected).expect("global updates");
+    assert_eq!(updates.entries.len(), 3);
+    assert!(updates.entries.iter().all(|entry| entry.global));
+    assert_eq!(
+        updates.entries.iter().map(|entry| entry.project_id.as_str()).collect::<Vec<_>>(),
+        ["watershed-sensing", "materials-discovery", "grid-resilience"]
+    );
+    selected.iter().for_each(|folder| {
+        let path = folder.path.as_deref().expect("project fixture path");
+        let (_, project_updates, _) =
+            prepare_project(&arguments, "000000000000", &folder.id, path, arguments.from.as_deref()).expect("project updates");
+        assert!(project_updates.entries.iter().all(|entry| !entry.global));
+    });
+}
 #[tokio::test]
 async fn test_local_jsonl_apply_updates_report_source_and_renders_when_configured() {
     let chrome_path = std::env::var_os("ACORN_TEST_CHROME_PATH").map(std::path::PathBuf::from);
@@ -88,10 +137,12 @@ async fn test_local_jsonl_apply_updates_report_source_and_renders_when_configure
     .expect("report configuration file");
     let mut arguments = Report {
         chrome_path,
+        combine: false,
         commit: Some("0000000000000000".to_string()),
         config: Some(report_config),
         dry_run: true,
         from: Some("2026-10-01T00:00:00Z".to_string()),
+        full_timestamp: false,
         job_id: None,
         output: root.join("reports"),
         pipeline_id: None,
@@ -116,7 +167,7 @@ async fn test_local_jsonl_apply_updates_report_source_and_renders_when_configure
     assert_eq!(staged.staged, vec!["11111111-1111-4111-8111-111111111111"]);
     assert!(staged.rejected.is_empty());
     assert_eq!(read(&index).expect("unchanged staged index"), original);
-    let submission_id = &staged.staged[0];
+    let submission_id = staged.staged.first().expect("staged submission");
     assert_eq!(local::apply(&local_config, submission_id).expect("apply proposal"), ApplyStatus::Applied);
     assert_eq!(
         local::apply(&local_config, submission_id).expect("repeat apply"),
@@ -125,13 +176,14 @@ async fn test_local_jsonl_apply_updates_report_source_and_renders_when_configure
     let updated = ResearchActivity::read(&index).expect("updated activity");
     let entries = &updated.logbook.expect("updated logbook").entries;
     assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].project_id, "acorn");
-    assert_eq!(entries[0].summary, "Ran pilot calibration with \"quoted\" notes");
-    let entry_id = entries[0].identifier.clone();
+    let entry = entries.first().expect("applied entry");
+    assert_eq!(entry.project_id, "acorn");
+    assert_eq!(entry.summary, "Ran pilot calibration with \"quoted\" notes");
+    let entry_id = entry.identifier.clone();
     let (_, selected_updates, _) =
         prepare_project(&arguments, "1111111111111111", "acorn", "acorn/index.json", arguments.from.as_deref()).expect("updated report selection");
     assert_eq!(selected_updates.entries.len(), 1);
-    assert_eq!(selected_updates.entries[0].identifier, entry_id);
+    assert_eq!(selected_updates.entries.first().expect("selected entry").identifier, entry_id);
     let Some(_) = arguments.chrome_path.as_ref() else {
         return;
     };

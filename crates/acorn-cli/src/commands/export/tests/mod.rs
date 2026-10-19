@@ -533,6 +533,7 @@ async fn test_export_crosswalk_dublin_core_to_rad_requires_explicit_context() ->
         false,
         Target::FactSheet,
         None,
+        false,
         TEST_THREADS,
         &silent(),
         OFFLINE,
@@ -1326,3 +1327,6 @@ fn test_schema_export_rejects_unmodeled_and_artifact_formats() {
     assert!(oci.to_string().contains("OCI checking has no single generated schema"));
     assert!(export_schema(Standard::ResearchActivityData, &FileFormat::Pdf).is_err());
 }
+
+#[cfg(feature = "pdf")]
+mod updates;

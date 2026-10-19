@@ -71,14 +71,20 @@ fn encode_key(value: &str) -> Result<String, ZonError> {
             | true => format!("\"{}\"", escape_string(value)),
         })
 }
-fn encode_root(value: &Value) -> Result<String, ZonError> {
+fn encode_root(value: &Value, last_key: Option<&str>) -> Result<String, ZonError> {
     match value {
         | Value::Object(fields) if fields.is_empty() => Ok(String::new()),
-        | Value::Object(fields) => sorted_fields(fields)
-            .into_iter()
-            .map(|(key, value)| encode_root_field(key, value))
-            .collect::<Result<Vec<_>, _>>()
-            .map(|lines| lines.join("\n")),
+        | Value::Object(fields) => {
+            let fields = sorted_fields(fields);
+            fields
+                .iter()
+                .copied()
+                .filter(|(key, _)| Some(key.as_str()) != last_key)
+                .chain(fields.iter().copied().filter(|(key, _)| Some(key.as_str()) == last_key))
+                .map(|(key, value)| encode_root_field(key, value))
+                .collect::<Result<Vec<_>, _>>()
+                .map(|lines| lines.join("\n"))
+        }
         | Value::Array(values) if table_shape(values).is_some() => encode_table(None, values),
         | _ => encode_inline_value(value, 0),
     }
@@ -144,9 +150,15 @@ fn encode_table_key(value: &str) -> Result<String, ZonError> {
         | false => Ok(value.to_string()),
     }
 }
+pub(super) fn encode_value_with_last_key(value: &Value, last_key: &str, limits: Limits) -> Result<String, ZonError> {
+    encode_value_with_limits_and_last_key(value, Some(last_key), limits)
+}
 pub(super) fn encode_value_with_limits(value: &Value, limits: Limits) -> Result<String, ZonError> {
+    encode_value_with_limits_and_last_key(value, None, limits)
+}
+fn encode_value_with_limits_and_last_key(value: &Value, last_key: Option<&str>, limits: Limits) -> Result<String, ZonError> {
     validate_value(value, 0, limits)
-        .and_then(|()| encode_root(value))
+        .and_then(|()| encode_root(value, last_key))
         .and_then(|encoded| validate_encoded(&encoded, limits).map(|()| encoded))
 }
 fn escape_csv_string(value: &str) -> String {

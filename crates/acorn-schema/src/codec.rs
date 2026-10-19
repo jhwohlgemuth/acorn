@@ -161,10 +161,8 @@ impl DocumentCodec for ResearchActivity {
         match format {
             | MimeType::Json | MimeType::Jsonc => serde_json::to_string_pretty(self).map_err(|error| CodecDiagnostic::serialize(error.to_string())),
             | MimeType::Markdown => Ok(self.to_markdown()),
-            | MimeType::Yaml => serde_json::to_value(self)
-                .map_err(|error| CodecDiagnostic::serialize(error.to_string()))
-                .and_then(|value| serde_norway::to_string(&value).map_err(|error| CodecDiagnostic::serialize(error.to_string()))),
-            | MimeType::Zon => zon::encode(self).map_err(|error| CodecDiagnostic::serialize(error.to_string())),
+            | MimeType::Yaml => serde_norway::to_string(self).map_err(|error| CodecDiagnostic::serialize(error.to_string())),
+            | MimeType::Zon => zon::encode_with_last_key(self, "logbook").map_err(|error| CodecDiagnostic::serialize(error.to_string())),
             | _ => Err(CodecDiagnostic::unsupported(format, Self::NAME)),
         }
     }

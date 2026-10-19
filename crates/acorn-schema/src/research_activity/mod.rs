@@ -152,12 +152,6 @@ pub struct ResearchActivity {
     #[validate(nested)]
     #[eserde(compat)]
     pub sections: Option<Sections>,
-    /// Time-coded developments augmenting canonical metadata and contact data.
-    ///
-    /// Entry timestamps are distinct from activity dates, record update timestamps, and lifecycle status.
-    #[validate(nested)]
-    #[eserde(compat)]
-    pub logbook: Option<Logbook>,
     /// Contact point (i.e. point of contact) for research activity
     #[validate(nested)]
     #[builder(default)]
@@ -166,6 +160,12 @@ pub struct ResearchActivity {
     /// Other information related to the associated research activity not easily captured in structured areas of the schema
     #[eserde(compat)]
     pub notes: Option<Other>,
+    /// Time-coded developments augmenting canonical metadata and contact data.
+    ///
+    /// Entry timestamps are distinct from activity dates, record update timestamps, and lifecycle status.
+    #[validate(nested)]
+    #[eserde(compat)]
+    pub logbook: Option<Logbook>,
 }
 /// Linked data (e.g., JSON-LD) context for research activity
 ///
@@ -182,13 +182,13 @@ pub struct ResearchActivityContext {
     pub subtitle: String,
     /// Research activity sections of prose
     pub sections: String,
-    /// Time-coded research developments represented as an ActivityStreams ordered collection.
-    #[serde(default = "default_logbook_context")]
-    pub logbook: String,
     /// Research activity contact point
     pub contact: String,
     /// Research activity notes
     pub notes: String,
+    /// Time-coded research developments represented as an ActivityStreams ordered collection.
+    #[serde(default = "default_logbook_context")]
+    pub logbook: String,
 }
 /// ## Research Activity Metadata
 #[skip_serializing_none]

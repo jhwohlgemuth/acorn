@@ -792,6 +792,7 @@ Export research activity data to a specific target
 * `--filter <LIST>` — Regular expression pattern(s) applied to absolute paths of files to include during export
 
    Only files matching at least one pattern will be processed
+* `--full-timestamp` — Show the full date and time in updates PDFs instead of month and day
 * `-i`, `--ignore <LIST>` — Regular expression pattern(s) applied to absolute paths of files to exclude from export process
 
    Only applies to `--path` values that point to a directory
@@ -1482,7 +1483,9 @@ Generate bounded artifacts and publish immutable GitLab packages
 
 * `-c`, `--config <PATH>` — Application configuration containing PowerAutomate project mappings
 * `--commit <SHA>` — Exact merged default-branch commit used as report input
+* `--combine` — Write one local PDF containing the title, selected projects, and final legend
 * `--from <TIMESTAMP>` — Explicit inclusive lower bound for local or recovery runs
+* `--full-timestamp` — Show the full date and time in report PDFs instead of month and day
 * `--through <TIMESTAMP>` — Fixed exclusive reporting upper bound shared by every project
 * `--root <PATH>` — Repository checkout root containing configured project paths
 

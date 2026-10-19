@@ -172,6 +172,10 @@ pub struct LogbookEntry {
     #[validate(nonempty, kebabcase, length(max = 100))]
     #[serde(deserialize_with = "string_trim")]
     pub project_id: String,
+    /// Display this entry among general updates on the report title page.
+    #[builder(default)]
+    #[serde(default)]
+    pub global: bool,
     /// Temporal anchor interpreted according to [`LogbookState`].
     #[validate(timestamp)]
     #[serde(deserialize_with = "string_trim")]
@@ -191,8 +195,8 @@ pub struct LogbookEntry {
     /// Provenance required for discovered entries and omitted for manual entries.
     #[validate(nested)]
     pub discovery: Option<LogbookDiscovery>,
-    /// Concise description of the development.
-    #[validate(nonempty, length(max = 500))]
+    /// Description of the development. Aim for a few hundred characters; allow longer context when needed.
+    #[validate(nonempty, length(max = 1200))]
     #[serde(deserialize_with = "string_trim")]
     pub summary: String,
     /// Supporting statements.
@@ -213,6 +217,15 @@ pub struct LogbookUpdates {
     pub title: String,
     /// Optional activity subtitle.
     pub subtitle: Option<String>,
+    /// Project topics shown in report headers.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub keywords: Vec<String>,
+    /// Names of contributors designated as project leaders or PIs.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub principal_investigators: Vec<String>,
+    /// Names of activity-level funders shown as sponsors in reports.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sponsors: Vec<String>,
     /// Inclusive RFC 3339 lower bound used for selection.
     pub since: String,
     /// Exclusive RFC 3339 upper bound used for selection, when bounded.
@@ -583,6 +596,36 @@ impl ReportingWindow {
     }
 }
 impl ResearchActivity {
+    fn logbook_updates(&self, entries: Vec<LogbookEntry>, since: String, through: Option<String>) -> LogbookUpdates {
+        let principal_investigators = self
+            .meta
+            .contributors
+            .as_ref()
+            .into_iter()
+            .flat_map(|contributors| contributors.iter())
+            .filter(|contributor| contributor.roles.iter().any(|role| role.leader == Some(true)))
+            .map(|contributor| contributor.name.clone())
+            .collect();
+        let sponsors = self
+            .meta
+            .funders
+            .as_ref()
+            .into_iter()
+            .flat_map(|funders| funders.iter())
+            .map(|funder| funder.name.clone())
+            .collect();
+        LogbookUpdates {
+            identifier: self.meta.identifier.clone(),
+            title: self.title.clone(),
+            subtitle: self.subtitle.clone(),
+            keywords: self.meta.keywords.clone(),
+            principal_investigators,
+            sponsors,
+            since,
+            through,
+            entries,
+        }
+    }
     /// Apply accepted graduation candidates, retaining and archiving their source entries.
     pub fn graduate(self, accepted_ids: &[String]) -> Result<Self, LogbookError> {
         let candidates = GraduationCandidates::from(&self).0;
@@ -660,14 +703,7 @@ impl ResearchActivity {
         self.logbook
             .as_ref()
             .map_or(Ok(Vec::new()), |logbook| logbook.entries(since))
-            .map(|entries| LogbookUpdates {
-                identifier: self.meta.identifier.clone(),
-                title: self.title.clone(),
-                subtitle: self.subtitle.clone(),
-                since: since.to_string(),
-                through: None,
-                entries,
-            })
+            .map(|entries| self.logbook_updates(entries, since.to_string(), None))
     }
     /// Select entries in a half-open reporting interval and order them newest first.
     pub fn updates_within(&self, window: &ReportingWindow) -> Result<LogbookUpdates, LogbookError> {
@@ -678,13 +714,12 @@ impl ResearchActivity {
                 self.logbook
                     .as_ref()
                     .map_or(Ok(Vec::new()), |logbook| logbook.entries_within(window))
-                    .map(|entries| LogbookUpdates {
-                        identifier: self.meta.identifier.clone(),
-                        title: self.title.clone(),
-                        subtitle: self.subtitle.clone(),
-                        since: window.left.clone().unwrap_or_else(|| "full-history".to_string()),
-                        through: Some(window.right.clone()),
-                        entries,
+                    .map(|entries| {
+                        self.logbook_updates(
+                            entries,
+                            window.left.clone().unwrap_or_else(|| "full-history".to_string()),
+                            Some(window.right.clone()),
+                        )
                     })
             })
     }

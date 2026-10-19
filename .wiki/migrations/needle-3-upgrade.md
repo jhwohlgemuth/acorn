@@ -115,7 +115,7 @@ Delete this plan after all four host validations pass, then remove its migration
 - Primary integration lock: Needle host matrix
 - Outcome: Run the real-engine smoke directly on Oklahoma and record the verified Linux x86_64 contract. This evidence satisfies the platform gate without a later GitLab CI rerun.
 - Focused validation: Run the documented real-engine inference path on Oklahoma's Linux x86_64 Docker context.
-- Handoff: Oklahoma reports `linux/x86_64`; the CLI image built successfully from the committed source. Online inference, cached offline inference, the version-tool round trip, unsupported-weather abstention, low-confidence tool withholding, and offline URL rejection passed; one inference reported 78.0 MB peak RAM. The cancellation attempt raced with inference completion and found the container already exited with code 0, so cancellation remains unverified. The `acorn:needle-smoke` image and `acorn-needle-smoke-cache` volume remain on Oklahoma for continuation; the volume needed UID 0 for writes. Finish cancellation and process-tree cleanup checks, capture stable latency evidence, then record the platform result before removing NDL-04.
+- Handoff: Oklahoma reports `linux/x86_64`; the CLI image built successfully from committed source (`sha256:23390858c8e67f2ef55191f251a62eac000b9d0d558d3315e0bcb6a0496031e9`). Online inference, cached offline inference, version-tool round trip, unsupported-weather abstention, low-confidence tool withholding, and offline URL rejection passed. Three additional online runs took 4.0, 3.9, and 3.8 seconds wall time, reporting 77.8–78.0 MB peak RAM. Cancellation/process-tree cleanup remain unverified: inference completed before the container could be inspected, and the image is distroless, preventing an in-container process probe. A detached CLI invocation also completed before inspection; a model-only invocation exited 2 before inspection. The configured Oklahoma SSH alias and Docker context both respond as `linux/x86_64`. NDL-04 remains active for a controlled cancellation/process-tree check and durable documentation.
 
 ## NDL-05 — Validate Linux ARM64
 
@@ -126,7 +126,7 @@ Delete this plan after all four host validations pass, then remove its migration
 - Primary integration lock: Needle host matrix
 - Outcome: Run the real-engine smoke directly on Dante and record the verified Linux ARM64 contract. This evidence satisfies the platform gate without a later GitLab CI rerun.
 - Focused validation: Run the documented real-engine inference path on Dante's Linux ARM64 Docker context.
-- Handoff: Dante reports `linux/aarch64`, but two native image-build attempts disconnected from the Docker context during toolchain/package setup. No ARM64 inference ran. Resume with a stable Dante Docker session, complete the same real-engine checks, then record the platform evidence before removing NDL-05.
+- Handoff: Dante reports `linux/aarch64` through both its configured SSH alias and Docker context. Three additional native image-build attempts successfully installed ARM64 system dependencies but each Docker-over-SSH stream disconnected as Rust toolchain installation began. No completed ARM64 image was retained and no ARM64 inference ran. Vergil remains unavailable because SSH host-key verification fails and `ssh-askpass` is absent. NDL-05 remains active pending a stable Docker connection or corrected Vergil host-key access; then complete the real-engine checks and record platform evidence.
 
 ## NDL-06 — Publish the verified matrix and retire
 

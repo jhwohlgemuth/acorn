@@ -32,6 +32,12 @@ pub(crate) struct PdfSession {
     page: Page,
     profile: PathBuf,
 }
+/// The fact sheet fills its page, while updates use the margins in their stylesheet.
+#[derive(strum::EnumIs)]
+pub(crate) enum PdfMargins {
+    FullBleed,
+    Stylesheet,
+}
 impl PdfSession {
     pub(crate) fn page(&self) -> &Page {
         &self.page
@@ -109,48 +115,28 @@ pub async fn create(page: &Page, options: CommandOptions, chart_options: ChartOp
                     let _goto = page.goto(format!("file://{}", index.display())).await;
                 }
             }
-            match page.set_content(&content).await {
-                | Ok(_) => match output {
-                    | Some(output_dir) => match create_dir_all(output_dir.clone()) {
-                        | Ok(_) => {
-                            let id = data.meta.identifier;
-                            let output_path = SafePath::new(format!("{id}.pdf"))
-                                .map_err(Into::<color_eyre::Report>::into)
-                                .and_then(|path| path.materialize_under(&output_dir).map_err(Into::into))
-                                .and_then(|path| absolute(path).map_err(Into::into));
-                            match output_path {
-                                | Ok(output_path) => {
-                                    debug!(path = output_path.to_absolute_path(), "=> {} Output", Label::using());
-                                    page.save_pdf(
-                                        PrintToPdfParams {
-                                            margin_bottom: Some(0.0),
-                                            margin_left: Some(0.0),
-                                            margin_right: Some(0.0),
-                                            margin_top: Some(0.0),
-                                            prefer_css_page_size: Some(true),
-                                            print_background: Some(true),
-                                            ..PrintToPdfParams::default()
-                                        },
-                                        &output_path,
-                                    )
-                                    .await
-                                    .map_err(|why| eyre!("Failed to render PDF at {} — {why}", output_path.to_absolute_path()))
-                                    .and_then(|_| match output_path.is_file() {
-                                        | true => Ok(()),
-                                        | false => Err(eyre!("Chromium did not create PDF at {}", output_path.to_absolute_path())),
-                                    })
-                                }
-                                | Err(why) => Err(eyre!("Failed to resolve PDF output path — {why}")),
+            match output {
+                | Some(output_dir) => match create_dir_all(output_dir.clone()) {
+                    | Ok(_) => {
+                        let id = data.meta.identifier;
+                        let output_path = SafePath::new(format!("{id}.pdf"))
+                            .map_err(Into::<color_eyre::Report>::into)
+                            .and_then(|path| path.materialize_under(&output_dir).map_err(Into::into))
+                            .and_then(|path| absolute(path).map_err(Into::into));
+                        match output_path {
+                            | Ok(output_path) => {
+                                debug!(path = output_path.to_absolute_path(), "=> {} Output", Label::using());
+                                render_html_to_pdf(page, &content, &output_path, PdfMargins::FullBleed).await
                             }
+                            | Err(why) => Err(eyre!("Failed to resolve PDF output path — {why}")),
                         }
-                        | Err(err) => {
-                            error!("=> {} Create directory — {err}", Label::fail());
-                            Err(eyre!("Failed to create output directory for PDF — {err}"))
-                        }
-                    },
-                    | None => Err(eyre!("Missing output directory for PDF export")),
+                    }
+                    | Err(err) => {
+                        error!("=> {} Create directory — {err}", Label::fail());
+                        Err(eyre!("Failed to create output directory for PDF — {err}"))
+                    }
                 },
-                | Err(why) => Err(eyre!("Failed to render PDF HTML — {why}")),
+                | None => Err(eyre!("Missing output directory for PDF export")),
             }
             .inspect(|_| {
                 if let Some(index) = &index_path {
@@ -161,11 +147,16 @@ pub async fn create(page: &Page, options: CommandOptions, chart_options: ChartOp
         | Err(e) => Err(e),
     }
 }
-pub(crate) async fn render_html_to_pdf(page: &Page, content: &str, output_path: &Path) -> ApiResult<()> {
+pub(crate) async fn render_html_to_pdf(page: &Page, content: &str, output_path: &Path, margins: PdfMargins) -> ApiResult<()> {
+    let margin = margins.is_full_bleed().then_some(0.0);
     match page.set_content(content).await {
         | Ok(_) => page
             .save_pdf(
                 PrintToPdfParams {
+                    margin_bottom: margin,
+                    margin_left: margin,
+                    margin_right: margin,
+                    margin_top: margin,
                     prefer_css_page_size: Some(true),
                     print_background: Some(true),
                     ..PrintToPdfParams::default()
@@ -173,9 +164,12 @@ pub(crate) async fn render_html_to_pdf(page: &Page, content: &str, output_path: 
                 output_path,
             )
             .await
-            .map_err(|why| eyre!("Failed to render updates PDF at {} — {why}", output_path.display()))
-            .map(|_| ()),
-        | Err(why) => Err(eyre!("Failed to render updates PDF HTML — {why}")),
+            .map_err(|why| eyre!("Failed to render PDF at {} — {why}", output_path.display()))
+            .and_then(|_| match output_path.is_file() {
+                | true => Ok(()),
+                | false => Err(eyre!("Chromium did not create PDF at {}", output_path.display())),
+            }),
+        | Err(why) => Err(eyre!("Failed to render PDF HTML — {why}")),
     }
 }
 pub(crate) async fn initialize_page(offline: bool, chrome_path: Option<&Path>) -> ApiResult<PdfSession> {

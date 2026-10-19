@@ -8,6 +8,7 @@
 mod laws;
 
 use crate::agent::{CostDetails, LimitDetails, Model, ModelDetails, Weight, Weights};
+use crate::codec::DocumentCodec;
 use crate::enrichment::Provider;
 use crate::hardware::{CpuArchitecture, GpuArchitecture, Resource, Vendor};
 use crate::research_activity::aspect::{Autonomy, Availability, Data, DataDescription, Modality, Motivity, Quality, SoftwarePortability};
@@ -16,7 +17,7 @@ use crate::research_activity::*;
 use crate::standard::cff::{Agent, Cff, IdentifierType};
 use crate::validation::Validate;
 use crate::*;
-use acorn_core::util::{LinkedData, MarkdownSupport, SemanticVersion};
+use acorn_core::util::{LinkedData, MarkdownSupport, MimeType, SemanticVersion};
 use pretty_assertions::assert_eq;
 use std::path::PathBuf;
 
@@ -877,6 +878,16 @@ fn test_logbook_entry_project_id_requires_kebab_case() {
     assert!(issues.contains("project_id: Provide ID in kebab-case format"), "{issues}");
 }
 #[test]
+fn test_logbook_global_entry_defaults_and_roundtrips() {
+    let entry = logbook_entry("global-example", "2026-10-05T14:30:00Z");
+    assert!(!entry.global);
+    let mut value = serde_json::to_value(entry).expect("serialize logbook entry");
+    value["global"] = serde_json::json!(true);
+    let global: LogbookEntry = serde_json::from_value(value).expect("parse global logbook entry");
+    assert!(global.global);
+    assert!(global.validate().is_ok());
+}
+#[test]
 fn test_logbook_graduation_archives_without_deleting_or_duplicating() {
     let activity = ResearchActivity {
         logbook: Some(
@@ -914,6 +925,35 @@ fn test_logbook_json_markdown_and_yaml_preserve_entry_order_and_defaults() {
     assert_eq!(parsed.entries[1].identifier, "second");
 }
 #[test]
+fn test_logbook_serializes_as_last_rad_attribute() {
+    let activity = ResearchActivity {
+        notes: Some(Other::Unformatted("Fixture note".to_string())),
+        logbook: Some(Logbook::init().entries(vec![logbook_entry("entry", "2026-09-01T12:00:00Z")]).build()),
+        ..ResearchActivity::default()
+    };
+    for format in [MimeType::Json, MimeType::Jsonc] {
+        let encoded = activity.encode(&format).expect("serialize RAD JSON");
+        let keys = encoded
+            .lines()
+            .filter_map(|line| line.strip_prefix("  \"").and_then(|line| line.split_once("\":").map(|(key, _)| key)))
+            .collect::<Vec<_>>();
+        assert_eq!(keys.last(), Some(&"logbook"));
+        assert!(keys.contains(&"notes"));
+    }
+    let yaml = activity.encode(&MimeType::Yaml).expect("serialize RAD YAML");
+    let keys = yaml
+        .lines()
+        .filter(|line| line.starts_with(char::is_alphabetic))
+        .filter_map(|line| line.split_once(':').map(|(key, _)| key))
+        .collect::<Vec<_>>();
+    assert_eq!(keys.last(), Some(&"logbook"));
+    assert!(keys.contains(&"notes"));
+    assert!(ResearchActivity::decode(&yaml, &MimeType::Yaml).is_ok());
+    let zon = activity.encode(&MimeType::Zon).expect("serialize RAD ZON");
+    assert!(zon.lines().last().is_some_and(|line| line.starts_with("logbook{")), "{zon}");
+    assert!(ResearchActivity::decode(&zon, &MimeType::Zon).is_ok());
+}
+#[test]
 fn test_logbook_string_conversions_are_case_insensitive_with_safe_defaults() {
     assert_eq!(LogbookCategory::from("Administration"), LogbookCategory::Administration);
     assert_eq!(LogbookCategory::from("Code"), LogbookCategory::Software);
@@ -945,6 +985,24 @@ fn test_logbook_string_conversions_are_case_insensitive_with_safe_defaults() {
     assert_eq!(LogbookEventType::from(String::from("unknown")), LogbookEventType::Other);
     assert_eq!(LogbookState::from("COMPLETED"), LogbookState::Completed);
     assert_eq!(LogbookState::from(String::from("unknown")), LogbookState::InProgress);
+}
+#[test]
+fn test_logbook_summary_length_allows_extended_reporting() {
+    let entry = LogbookEntry::init()
+        .identifier("extended-reporting")
+        .project_id("example-project")
+        .timestamp("2026-09-05T12:00:00Z")
+        .category("research")
+        .state("completed")
+        .summary("x".repeat(1200))
+        .build();
+    assert!(entry.validate().is_ok());
+    assert!(LogbookEntry {
+        summary: "x".repeat(1201),
+        ..entry
+    }
+    .validate()
+    .is_err());
 }
 #[test]
 fn test_logbook_taxonomies_map_every_variant_to_published_ontology_classes() {
@@ -1003,6 +1061,18 @@ fn test_logbook_updates_filter_by_instant_and_sort_newest_first() {
     assert_eq!(updates.entries[0].identifier, "newer");
     assert_eq!(updates.entries[1].identifier, "same-instant");
     assert!(activity.updates_since("2026-09-01").is_err());
+}
+#[test]
+fn test_logbook_updates_include_project_credits() {
+    let path = fixtures_dir().join("report/watershed-sensing/index.json");
+    let content = std::fs::read_to_string(path).expect("report fixture");
+    let activity: ResearchActivity = eserde::json::from_str(&content).expect("valid report fixture");
+    let validation = activity.validate();
+    assert!(validation.is_ok(), "{validation:?}");
+    let updates = activity.updates_since("2026-10-01T00:00:00Z").expect("valid reporting window");
+    assert_eq!(updates.principal_investigators, ["Alex Morgan", "Jordan Lee"]);
+    assert_eq!(updates.sponsors, ["Sample Sponsor A"]);
+    assert_eq!(updates.keywords, ["Earth science", "Data science", "Geospatial"]);
 }
 #[test]
 fn test_logbook_updates_use_half_open_reporting_window() {

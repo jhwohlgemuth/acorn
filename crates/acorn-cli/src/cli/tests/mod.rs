@@ -854,6 +854,24 @@ fn test_export_parses_crosswalk_import_context() {
     }
 }
 #[test]
+fn test_export_updates_accepts_full_timestamp_flag() {
+    let parsed = Arguments::try_parse_from([
+        "acorn",
+        "export",
+        "tests/fixtures/report/watershed-sensing/index.json",
+        "--target",
+        "updates",
+        "--since",
+        "2026-10-01T00:00:00Z",
+        "--full-timestamp",
+    ])
+    .expect("updates export arguments");
+    match parsed.command {
+        | Some(Commands::Export(arguments)) => assert!(arguments.full_timestamp),
+        | _ => panic!("expected export command"),
+    }
+}
+#[test]
 fn test_filter_paths_by_pattern_applies_ignore_pattern_to_relative_paths() {
     let root = fixture_content_root();
     let paths = vec![
@@ -1378,6 +1396,7 @@ fn test_report_command_requires_fixed_bounds_and_accepts_project_selection() {
         "--project",
         "pilot,other",
         "--dry-run",
+        "--full-timestamp",
     ])
     .expect("report arguments");
     match parsed.command {
@@ -1386,10 +1405,12 @@ fn test_report_command_requires_fixed_bounds_and_accepts_project_selection() {
             assert_eq!(arguments.projects, ["pilot", "other"]);
             assert_eq!(arguments.through, "2026-10-01T00:00:00Z");
             assert!(arguments.dry_run);
+            assert!(arguments.full_timestamp);
         }
         | _ => panic!("expected report command"),
     }
 }
+#[test]
 #[test]
 fn test_resolve_export_paths_discovers_json_lines_without_broadening_defaults() {
     let root = temp_test_dir("resolve-json-lines");

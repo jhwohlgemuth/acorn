@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "2.0.0",
+  "members": [
+    "reviewer@example.org"
+  ],
+  "folders": [
+    {
+      "id": "watershed-sensing",
+      "path": "watershed-sensing/index.json"
+    },
+    {
+      "id": "materials-discovery",
+      "path": "materials-discovery/index.json"
+    },
+    {
+      "id": "grid-resilience",
+      "path": "grid-resilience/index.json"
+    }
+  ],
+  "options": {
+    "powerAutomate": {
+      "callback_destination": "local-preview",
+      "gitlab_project": "42",
+      "package": "sample-report-artifacts"
+    }
+  }
+}
