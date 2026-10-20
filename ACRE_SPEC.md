@@ -82,6 +82,9 @@ This configuration demonstrates a folder belonging to a local bucket and a stand
 }
 ```
 
+Folders that specify only an ID may use a string instead of `{ "id": "..." }`.
+Their index path resolves beneath `options.folders.root` when set. For local folders, Acorn selects the first existing `index.json`, `index.jsonc`, `index.yaml`, `index.yml`, `index.md`, `index.markdown`, or `index.zonf`, in that order. If none exists, and for GitLab destinations, the default remains `<id>/index.json`.
+
 This JSON is also valid JSONC. Equivalent YAML:
 
 ```yaml
@@ -259,11 +262,11 @@ Each model is either a selector string (model ID, local path, or URL) or a detai
 
 | Attribute | Required | Description |
 | --- | --- | --- |
-| `id` | Yes | Stable identifier. Aliases and the default `<id>/index.json` path derive from it. |
+| `id` | Yes | Stable identifier. Aliases and the default index folder derive from it. |
 | `aliases` | No | One or more routing selectors, including folder names, that resolve to this folder. Selectors must be unique across the document. |
 | `bucket` | No | Owning bucket, referenced by unique name or zero-based `buckets` index. Association never alters path precedence or grants access. |
 | `members` | No | One or more submitter emails for intake authorization. |
-| `path` | No | Destination index path. Relative unless it is an absolute URI. Omitted resolves to `<id>/index.json` when a root or GitLab project is configured. |
+| `path` | No | Destination index file or local folder. Relative unless it is an absolute URI. Omitted selects an existing local index in format order, or `<id>/index.json` for GitLab. |
 | `variables` | No | Folder-scoped environment-variable references. |
 
 Path resolution, in order: an explicit absolute URI identifies its own destination; otherwise a relative path resolves against `options.folders.root`; otherwise it resolves inside `options.powerAutomate.gitlab_project`. With neither configured, a relative or omitted path is rejected.
@@ -308,6 +311,8 @@ Cleanup removes only exact matches backed by durable admission, using the observ
 Use `acorn intake stage --config .acorn.json --inbox logbook.jsonl` for a local regular-file inbox. The command accepts a bounded UTF-8, LF-terminated file (10 MiB total, 64 KiB per record), validates each nonempty line with the same strict form and member rules, and writes accepted proposals under `<config-directory>/.acorn/intake/proposals/<lowercase-UUID>.json`. Rejected lines are reported by physical line number; the command returns an error if any line is rejected. The source inbox and canonical indexes remain unchanged during staging. Review each proposal's exact `raw` submission, SHA-256 source digest, normalized `entry`, canonical destination, base index digest, and complete `proposed_content` before applying it.
 
 Run `acorn intake apply --config .acorn.json --submission-id UUID` to replace the selected local index. Apply rechecks the current configuration route and authorization, then compares the index with the staged base digest and proposal content. If the index changed, stage again before applying; a repeated apply is idempotent. A crash after index replacement can be recovered by repeating apply. Staging the same UUID with changed serialized bytes is rejected. The local adapter supports standalone `file:` destinations only: bucket-associated folders and HTTP(S) or GitLab destinations require their own verified review workflows. It does not copy bucket data, open a merge request, drain the inbox, or run concurrently with another index writer.
+
+For a multi-project snapshot, use `intake stage --batch --config .acorn.json --inbox logbook.jsonl`, then `intake inspect --config .acorn.json --batch-id ID`, `intake apply --config .acorn.json --batch-id ID`, and inspect again. The batch ID is derived from the exact source and configuration bytes. Its owner-readable manifest under `<config-directory>/.acorn/intake/batches/` records every line, canonical route, and per-project base and proposed content. Repeated project lines fold in source order. Identical UUID/raw-byte replays contribute no second entry; changed bytes under one UUID or any rejected line prevent applying the entire batch. The summary exposes this as `canApply`. Apply preflights all destinations before the first index write, then records each project separately. An interrupted apply may leave a partial batch; repeating the same command resumes indexes still at their staged base and recognizes indexes already at their staged final digest. An unrelated change fails closed. Stage and inspect never edit the source inbox or canonical indexes.
 
 
 ### `options.folders`

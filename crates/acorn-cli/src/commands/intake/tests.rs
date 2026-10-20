@@ -15,6 +15,43 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use data_encoding::BASE64;
 use std::collections::HashMap;
 
+#[test]
+fn test_batch_stage_inspect_and_apply_selectors() {
+    let stage = Arguments::try_parse_from(["acorn", "intake", "stage", "--batch", "--config", "config.json", "--inbox", "inbox.jsonl"]).unwrap();
+    assert!(matches!(
+        stage.command,
+        Some(Commands::Intake {
+            command: IntakeCommands::Stage { batch: true, .. }
+        })
+    ));
+    let inspect = Arguments::try_parse_from(["acorn", "intake", "inspect", "--config", "config.json", "--batch-id", "abc"]);
+    assert!(matches!(
+        inspect.unwrap().command,
+        Some(Commands::Intake {
+            command: IntakeCommands::Inspect { .. }
+        })
+    ));
+    let apply = Arguments::try_parse_from(["acorn", "intake", "apply", "--config", "config.json", "--batch-id", "abc"]);
+    assert!(matches!(
+        apply.unwrap().command,
+        Some(Commands::Intake {
+            command: IntakeCommands::Apply { batch_id: Some(_), .. }
+        })
+    ));
+    assert!(Arguments::try_parse_from(["acorn", "intake", "apply", "--config", "config.json"]).is_err());
+    assert!(Arguments::try_parse_from([
+        "acorn",
+        "intake",
+        "apply",
+        "--config",
+        "config.json",
+        "--batch-id",
+        "abc",
+        "--submission-id",
+        "uuid"
+    ])
+    .is_err());
+}
 #[tokio::test]
 async fn test_export_admission_uses_exact_gitlab_revisions_and_replays_identically() {
     let entry: LogbookEntry = serde_json::from_value(serde_json::json!({

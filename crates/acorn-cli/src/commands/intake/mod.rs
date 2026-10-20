@@ -3,28 +3,53 @@ use acorn::analyzer::diff::{DiffFormat, DiffInput, SemanticDiff};
 use acorn::io::api::gitlab::automation::ReviewRevisions;
 use acorn::io::api::gitlab::{self, bot, DeploymentConfig};
 use acorn::io::api::powerautomate::jsonl::AdmittedSubmission;
-use acorn::io::api::powerautomate::local::{self, ApplyStatus, StageSummary};
+use acorn::io::api::powerautomate::local::{ApplyStatus, BatchInspection, BatchSummary};
 use acorn::io::api::webhooks::store::OperationQueue;
 use acorn::io::api::Configuration;
 use acorn::io::config::ApplicationConfiguration;
 use acorn_core::util::MimeType;
+use acorn_diff::unified_diff;
 use acorn_host::fs::file_checksum;
+use acorn_host::terminal::Label;
 use acorn_schema::validation::Validate;
+use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Result};
 use serde_json::json;
+use std::env;
 use std::fs::write;
 use std::path::{Path, PathBuf};
 
 const MAX_MANUAL_WORK: usize = 256;
 /// Apply one proposal after a human reviews its stored source and proposed index.
-pub fn apply(config: &Path, submission_id: &str) -> Result<()> {
-    local::apply(config, submission_id).map(|status| match status {
-        | ApplyStatus::Applied => println!("Applied {submission_id}"),
-        | ApplyStatus::AlreadyApplied => println!("Already applied {submission_id}"),
-    })
+pub fn apply(config: &Path, submission_id: &str, verbose: &Verbosity) -> Result<()> {
+    ApplicationConfiguration::load_local_intake(config)
+        .and_then(|(configuration, path)| configuration.apply(&path, submission_id))
+        .map(|status| match (verbose.is_silent(), status) {
+            | (true, _) => {}
+            | (false, ApplyStatus::Applied) => println!("=> {} Applied {submission_id}", Label::pass()),
+            | (false, ApplyStatus::AlreadyApplied) => println!("=> {} Already applied {submission_id}", Label::skip()),
+        })
+}
+/// Apply every project in a reviewed local batch.
+pub fn apply_batch(config: &Path, batch_id: &str, verbose: &Verbosity) -> Result<()> {
+    ApplicationConfiguration::load_local_intake(config)
+        .and_then(|(configuration, path)| configuration.apply_batch(&path, batch_id))
+        .and_then(|summary| {
+            serde_json::to_string_pretty(&summary)
+                .map_err(Into::into)
+                .map(|output| {
+                    if !verbose.is_silent() {
+                        println!("{output}");
+                    }
+                })
+                .and_then(|()| match summary.error {
+                    | Some(why) => Err(eyre!("Batch apply is partial: {why}")),
+                    | None => Ok(()),
+                })
+        })
 }
 fn configured(config: &Path, require_intake: bool) -> Result<(ApplicationConfiguration, gitlab::Options, OperationQueue)> {
-    match std::env::var("ACORN_DATABASE_PATH").ok().filter(|value| !value.trim().is_empty()) {
+    match env::var("ACORN_DATABASE_PATH").ok().filter(|value| !value.trim().is_empty()) {
         | Some(_) => ApplicationConfiguration::load(&Some(config.to_path_buf())).and_then(|document| {
             document
                 .validate()
@@ -158,6 +183,42 @@ async fn export_admission(options: &gitlab::Options, admitted: &AdmittedSubmissi
         | Err(why) => Err(why),
     }
 }
+/// Inspect the source lines and per-project diffs of one local batch.
+pub fn inspect(config: &Path, batch_id: &str, verbose: &Verbosity) -> Result<()> {
+    BatchInspection::inspect(config, batch_id).map(|inspection| {
+        if !verbose.is_silent() {
+            println!("=> {} Batch {}", Label::using(), inspection.batch_id);
+            println!("Source {} ({})", inspection.source_path.display(), inspection.source_digest);
+            println!("Can apply: {}", inspection.can_apply);
+            println!("Status: {}", inspection.status);
+            inspection.lines.iter().for_each(|line| {
+                println!(
+                    "Line {}: {} {} {}",
+                    line.line,
+                    line.status,
+                    line.submission_id.as_deref().unwrap_or("unknown UUID"),
+                    line.project_id.as_deref().unwrap_or("unknown project")
+                );
+                if let Some(reason) = &line.reason {
+                    println!("  {reason}");
+                }
+            });
+            inspection.projects.iter().for_each(|project| {
+                println!("Project {} -> {} ({})", project.project_id, project.destination.display(), project.state);
+                println!("Base: {}  Final: {}", project.base_digest, project.final_digest);
+                print!(
+                    "{}",
+                    unified_diff(
+                        &project.base_content,
+                        &project.proposed_content,
+                        &format!("a/{}", project.destination.display()),
+                        &format!("b/{}", project.destination.display())
+                    )
+                );
+            });
+        }
+    })
+}
 fn receipt_path(output: &Path) -> PathBuf {
     let mut name = output.as_os_str().to_os_string();
     name.push(".receipt.json");
@@ -280,20 +341,41 @@ pub async fn run(config: &Path) -> Result<()> {
     }
 }
 /// Stage valid local submissions as durable proposal files.
-pub fn stage(config: &Path, inbox: &Path) -> Result<()> {
-    StageSummary::stage(config, inbox).and_then(|summary| {
-        summary.staged.iter().for_each(|id| println!("Staged {id}"));
-        summary.existing.iter().for_each(|id| println!("Already staged {id}"));
-        summary
-            .rejected
-            .iter()
-            .for_each(|rejected| eprintln!("Line {} rejected: {}", rejected.line, rejected.reason));
-        println!("{summary}");
-        match summary.rejected.len() {
-            | 0 => Ok(()),
-            | count => Err(eyre!("{count} local intake line(s) rejected")),
-        }
-    })
+pub fn stage(config: &Path, inbox: &Path, batch: bool, verbose: &Verbosity) -> Result<()> {
+    match batch {
+        | true => BatchSummary::stage(config, inbox).and_then(|summary| {
+            serde_json::to_string_pretty(&summary)
+                .map_err(Into::into)
+                .map(|output| {
+                    if !verbose.is_silent() {
+                        println!("{output}");
+                    }
+                })
+                .and_then(|()| match summary.can_apply {
+                    | true => Ok(()),
+                    | false => Err(eyre!("Batch contains {} rejected line(s)", summary.rejected)),
+                })
+        }),
+        | false => ApplicationConfiguration::load_local_intake(config)
+            .and_then(|(configuration, path)| configuration.stage(&path, inbox))
+            .and_then(|summary| {
+                if !verbose.is_silent() {
+                    summary.staged.iter().for_each(|id| println!("=> {} Staged {id}", Label::pass()));
+                    summary
+                        .existing
+                        .iter()
+                        .for_each(|id| println!("=> {} Already staged {id}", Label::skip()));
+                    summary.rejected.iter().for_each(|rejected| {
+                        eprintln!("=> {} Line {} rejected: {}", Label::fail(), rejected.line, rejected.reason);
+                    });
+                    println!("=> {} {summary}", Label::using());
+                }
+                match summary.rejected.len() {
+                    | 0 => Ok(()),
+                    | count => Err(eyre!("{count} local intake line(s) rejected")),
+                }
+            }),
+    }
 }
 fn write_review_artifact(admitted: &AdmittedSubmission, source_digest: &str, output: &Path, review: &ReviewRevisions, diff: &str) -> Result<()> {
     write(output, diff.as_bytes())
@@ -320,6 +402,5 @@ fn write_review_artifact(admitted: &AdmittedSubmission, source_digest: &str, out
                 .map(|()| println!("{receipt}"))
         })
 }
-
 #[cfg(test)]
 mod tests;

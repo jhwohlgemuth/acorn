@@ -39,6 +39,130 @@ pub(crate) struct ProjectReportResult {
     through: String,
     version: Option<String>,
 }
+impl Report {
+    fn selected_updates(&self, selected: &[Folder]) -> ApiResult<(ReportingWindow, Vec<LogbookUpdates>)> {
+        ReportingWindow::new(self.from.as_deref(), &self.through)
+            .map_err(|why| eyre!(why))
+            .and_then(|window| {
+                selected
+                    .iter()
+                    .map(|folder| {
+                        folder
+                            .source_path(&self.root)
+                            .map(|(_, path)| path)
+                            .and_then(|path| {
+                                ResearchActivity::read(path).map_err(|why| eyre!("Read report source for project '{}' — {why}", folder.id))
+                            })
+                            .and_then(|activity| activity.updates_within(&window).map_err(|why| eyre!(why)))
+                    })
+                    .collect::<ApiResult<Vec<_>>>()
+                    .map(|updates| (window, updates))
+            })
+    }
+    fn title_updates(window: &ReportingWindow, projects: &[LogbookUpdates]) -> LogbookUpdates {
+        let mut entries = projects
+            .iter()
+            .flat_map(|project| project.entries.iter().filter(|entry| entry.global).cloned())
+            .collect::<Vec<_>>();
+        entries.sort_by_cached_key(|entry| Reverse(entry.timestamp.parse::<Timestamp>().ok()));
+        LogbookUpdates {
+            identifier: "report".to_string(),
+            title: "General updates".to_string(),
+            subtitle: None,
+            keywords: Vec::new(),
+            principal_investigators: Vec::new(),
+            sponsors: Vec::new(),
+            since: window.left.clone().unwrap_or_else(|| "full-history".to_string()),
+            through: Some(window.right.clone()),
+            entries,
+        }
+    }
+    fn global_updates(&self, selected: &[Folder]) -> ApiResult<LogbookUpdates> {
+        self.selected_updates(selected)
+            .map(|(window, projects)| Self::title_updates(&window, &projects))
+    }
+    #[cfg(feature = "pdf")]
+    async fn write_combined_pdf(&self, selected: &[Folder], offline: bool) -> ApiResult<()> {
+        let content = self.selected_updates(selected).and_then(|(window, projects)| {
+            let title = Self::title_updates(&window, &projects);
+            let projects = projects
+                .into_iter()
+                .map(|updates| LogbookUpdates {
+                    entries: updates.entries.into_iter().filter(|entry| !entry.global).collect(),
+                    ..updates
+                })
+                .filter(|updates| !updates.entries.is_empty())
+                .collect::<Vec<_>>();
+            html::combined_html(&title, &projects, self.full_timestamp)
+        });
+        let content = content.and_then(|content| {
+            create_dir_all(&self.output)
+                .map_err(|why| eyre!("Create report output directory — {why}"))
+                .map(|()| content)
+        });
+        match content {
+            | Ok(content) => match pdf::initialize_page(offline, self.chrome_path.as_deref()).await {
+                | Ok(session) => {
+                    let result =
+                        pdf::render_html_to_pdf(session.page(), &content, &self.output.join("report.pdf"), pdf::PdfMargins::Stylesheet).await;
+                    session.close().await;
+                    result
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    #[cfg(not(feature = "pdf"))]
+    async fn write_combined_pdf(&self, _selected: &[Folder], _offline: bool) -> ApiResult<()> {
+        Err(eyre!("Combined report export requires the 'pdf' feature. Rebuild with --features pdf"))
+    }
+    async fn write_title_page(&self, selected: &[Folder], offline: bool) -> ApiResult<()> {
+        let updates = self.global_updates(selected).and_then(|updates| match updates.entries.is_empty() {
+            | true => Ok(None),
+            | false => create_dir_all(&self.output)
+                .map_err(|why| eyre!("Create report output directory — {why}"))
+                .map(|()| Some(updates)),
+        });
+        match updates {
+            | Ok(Some(updates)) => {
+                updates
+                    .write_title_pdf(
+                        &self.output.join("title-page.pdf"),
+                        offline,
+                        self.chrome_path.as_deref(),
+                        self.full_timestamp,
+                    )
+                    .await
+            }
+            | Ok(None) => Ok(()),
+            | Err(why) => Err(why),
+        }
+    }
+    #[cfg(feature = "pdf")]
+    async fn write_legend_page(&self, offline: bool) -> ApiResult<()> {
+        let content = create_dir_all(&self.output)
+            .map_err(|why| eyre!("Create report output directory — {why}"))
+            .and_then(|()| html::legend_html());
+        match content {
+            | Ok(content) => match pdf::initialize_page(offline, self.chrome_path.as_deref()).await {
+                | Ok(session) => {
+                    let result = pdf::render_html_to_pdf(
+                        session.page(),
+                        &content,
+                        &self.output.join("legend-page.pdf"),
+                        pdf::PdfMargins::Stylesheet,
+                    )
+                    .await;
+                    session.close().await;
+                    result
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+}
 async fn deliver_callbacks(queue: &OperationQueue, config: &PowerAutomateConfig, routing: &FolderRegistry) -> ApiResult<()> {
     let callback_worker = CallbackWorker::new(
         queue.clone(),
@@ -267,131 +391,6 @@ async fn report_project(
         | Err(why) => Err(why),
     }
 }
-impl Report {
-    fn selected_updates(&self, selected: &[Folder]) -> ApiResult<(ReportingWindow, Vec<LogbookUpdates>)> {
-        ReportingWindow::new(self.from.as_deref(), &self.through)
-            .map_err(|why| eyre!(why))
-            .and_then(|window| {
-                selected
-                    .iter()
-                    .map(|folder| {
-                        let relative_path = folder.path.clone().unwrap_or_else(|| format!("{}/index.json", folder.id));
-                        SafePath::new(relative_path)
-                            .map_err(|why| eyre!(why))
-                            .and_then(|path| path.materialize_under(&self.root).map_err(Into::into))
-                            .and_then(|path| {
-                                ResearchActivity::read(path).map_err(|why| eyre!("Read report source for project '{}' — {why}", folder.id))
-                            })
-                            .and_then(|activity| activity.updates_within(&window).map_err(|why| eyre!(why)))
-                    })
-                    .collect::<ApiResult<Vec<_>>>()
-                    .map(|updates| (window, updates))
-            })
-    }
-    fn title_updates(window: &ReportingWindow, projects: &[LogbookUpdates]) -> LogbookUpdates {
-        let mut entries = projects
-            .iter()
-            .flat_map(|project| project.entries.iter().filter(|entry| entry.global).cloned())
-            .collect::<Vec<_>>();
-        entries.sort_by_cached_key(|entry| Reverse(entry.timestamp.parse::<Timestamp>().ok()));
-        LogbookUpdates {
-            identifier: "report".to_string(),
-            title: "General updates".to_string(),
-            subtitle: None,
-            keywords: Vec::new(),
-            principal_investigators: Vec::new(),
-            sponsors: Vec::new(),
-            since: window.left.clone().unwrap_or_else(|| "full-history".to_string()),
-            through: Some(window.right.clone()),
-            entries,
-        }
-    }
-    fn global_updates(&self, selected: &[Folder]) -> ApiResult<LogbookUpdates> {
-        self.selected_updates(selected)
-            .map(|(window, projects)| Self::title_updates(&window, &projects))
-    }
-    #[cfg(feature = "pdf")]
-    async fn write_combined_pdf(&self, selected: &[Folder], offline: bool) -> ApiResult<()> {
-        let content = self.selected_updates(selected).and_then(|(window, projects)| {
-            let title = Self::title_updates(&window, &projects);
-            let projects = projects
-                .into_iter()
-                .map(|updates| LogbookUpdates {
-                    entries: updates.entries.into_iter().filter(|entry| !entry.global).collect(),
-                    ..updates
-                })
-                .filter(|updates| !updates.entries.is_empty())
-                .collect::<Vec<_>>();
-            html::combined_html(&title, &projects, self.full_timestamp)
-        });
-        let content = content.and_then(|content| {
-            create_dir_all(&self.output)
-                .map_err(|why| eyre!("Create report output directory — {why}"))
-                .map(|()| content)
-        });
-        match content {
-            | Ok(content) => match pdf::initialize_page(offline, self.chrome_path.as_deref()).await {
-                | Ok(session) => {
-                    let result =
-                        pdf::render_html_to_pdf(session.page(), &content, &self.output.join("report.pdf"), pdf::PdfMargins::Stylesheet).await;
-                    session.close().await;
-                    result
-                }
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        }
-    }
-    #[cfg(not(feature = "pdf"))]
-    async fn write_combined_pdf(&self, _selected: &[Folder], _offline: bool) -> ApiResult<()> {
-        Err(eyre!("Combined report export requires the 'pdf' feature. Rebuild with --features pdf"))
-    }
-    async fn write_title_page(&self, selected: &[Folder], offline: bool) -> ApiResult<()> {
-        let updates = self.global_updates(selected).and_then(|updates| match updates.entries.is_empty() {
-            | true => Ok(None),
-            | false => create_dir_all(&self.output)
-                .map_err(|why| eyre!("Create report output directory — {why}"))
-                .map(|()| Some(updates)),
-        });
-        match updates {
-            | Ok(Some(updates)) => {
-                updates
-                    .write_title_pdf(
-                        &self.output.join("title-page.pdf"),
-                        offline,
-                        self.chrome_path.as_deref(),
-                        self.full_timestamp,
-                    )
-                    .await
-            }
-            | Ok(None) => Ok(()),
-            | Err(why) => Err(why),
-        }
-    }
-    #[cfg(feature = "pdf")]
-    async fn write_legend_page(&self, offline: bool) -> ApiResult<()> {
-        let content = create_dir_all(&self.output)
-            .map_err(|why| eyre!("Create report output directory — {why}"))
-            .and_then(|()| html::legend_html());
-        match content {
-            | Ok(content) => match pdf::initialize_page(offline, self.chrome_path.as_deref()).await {
-                | Ok(session) => {
-                    let result = pdf::render_html_to_pdf(
-                        session.page(),
-                        &content,
-                        &self.output.join("legend-page.pdf"),
-                        pdf::PdfMargins::Stylesheet,
-                    )
-                    .await;
-                    session.close().await;
-                    result
-                }
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        }
-    }
-}
 /// Run bounded reporting for every selected project and fail after independent projects finish.
 pub(crate) async fn run(arguments: &Report, offline: bool) -> ApiResult<()> {
     match arguments.combine {
@@ -429,9 +428,13 @@ async fn run_selected(
     let queue = OperationQueue::configured();
     let mut results = Vec::new();
     for folder in selected {
-        let path = folder.path.clone().unwrap_or_else(|| format!("{}/index.json", folder.id));
-        let project_options = options.clone().with_path(path).with_project_id(folder.id.clone());
-        let result = report_project(arguments, automation, &project_options, &queue, commit, offline).await;
+        let result = match folder.source_path(&arguments.root) {
+            | Ok((path, _)) => {
+                let project_options = options.clone().with_path(path).with_project_id(folder.id.clone());
+                report_project(arguments, automation, &project_options, &queue, commit, offline).await
+            }
+            | Err(why) => Err(why),
+        };
         match result {
             | Ok(manifest) => results.push(
                 ProjectReportResult::init()

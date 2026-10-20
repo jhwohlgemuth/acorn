@@ -468,15 +468,30 @@ pub enum IntakeCommands {
         /// LF-terminated JSONL inbox file.
         #[arg(long, value_hint = ValueHint::FilePath)]
         inbox: PathBuf,
+        /// Stage all lines as one reviewable multi-project batch.
+        #[arg(long)]
+        batch: bool,
     },
-    /// Apply one staged proposal after reviewing its JSON file.
+    /// Inspect a staged batch, including project routes and proposed diffs.
+    Inspect {
+        /// Explicit ACRE configuration used for staging.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        config: PathBuf,
+        /// Stable ID returned by `intake stage --batch`.
+        #[arg(long)]
+        batch_id: String,
+    },
+    /// Apply one staged proposal or reviewed batch.
     Apply {
         /// Explicit ACRE configuration used for staging.
         #[arg(long, value_hint = ValueHint::FilePath)]
         config: PathBuf,
         /// Stable UUID from the submission envelope.
-        #[arg(long)]
-        submission_id: String,
+        #[arg(long, required_unless_present = "batch_id", conflicts_with = "batch_id")]
+        submission_id: Option<String>,
+        /// Stable ID returned by `intake stage --batch`.
+        #[arg(long, required_unless_present = "submission_id", conflicts_with = "submission_id")]
+        batch_id: Option<String>,
     },
 }
 #[derive(Clone, Debug, Subcommand)]

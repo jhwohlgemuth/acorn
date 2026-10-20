@@ -547,8 +547,10 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 import::spec::run(source, name, domain, root, auth_token, output, *dry_run, verbose, offline).await
             }),
             | None => with_runtime(async {
-                initialize_database(config).await?;
-                import::run(arguments, &config.database_path, threads, offline, config.no_local_database).await
+                match initialize_database(config).await {
+                    | Ok(()) => import::run(arguments, &config.database_path, threads, offline, config.no_local_database).await,
+                    | Err(why) => Err(why),
+                }
             }),
         },
         | Some(Commands::Intake { command }) => match command {
@@ -559,8 +561,19 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 output,
             } => with_runtime(intake::export(config, submission_id, output)),
             | IntakeCommands::Deliver { config } => with_runtime(intake::deliver(config)),
-            | IntakeCommands::Stage { config, inbox } => intake::stage(config, inbox),
-            | IntakeCommands::Apply { config, submission_id } => intake::apply(config, submission_id),
+            | IntakeCommands::Stage { config, inbox, batch } => intake::stage(config, inbox, *batch, &args.verbose),
+            | IntakeCommands::Inspect { config, batch_id } => intake::inspect(config, batch_id, &args.verbose),
+            | IntakeCommands::Apply {
+                config,
+                submission_id: Some(submission_id),
+                ..
+            } => intake::apply(config, submission_id, &args.verbose),
+            | IntakeCommands::Apply {
+                config,
+                batch_id: Some(batch_id),
+                ..
+            } => intake::apply_batch(config, batch_id, &args.verbose),
+            | IntakeCommands::Apply { .. } => Err(color_eyre::eyre::eyre!("Choose one intake apply selector")),
         },
         | Some(Commands::Report(arguments)) => with_runtime(async {
             match initialize_database(config).await {

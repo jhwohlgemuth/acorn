@@ -122,3 +122,14 @@ acorn intake apply --config .acorn.json --submission-id <submission-UUID>
 ```
 
 Staging checks the same form and member rules and writes a proposal containing the exact source line, normalized entry, destination, base index digest, and proposed index content. It does not edit the inbox or index. Rejected lines are reported separately, so valid lines can still be staged. Applying one reviewed UUID rechecks the route and index digest; if the index changed, stage again. Repeated application is safe. Use one writer per index. The local adapter does not create GitLab merge requests or import bucket data; bucket association alone never registers a folder or starts a copy. GitLab and remote URI destinations use their own workflows.
+
+For one reviewable batch spanning several existing local projects, run:
+
+```sh
+acorn intake stage --batch --config .acorn.json --inbox logbook.jsonl
+acorn intake inspect --config .acorn.json --batch-id <batch-ID>
+acorn intake apply --config .acorn.json --batch-id <batch-ID>
+acorn intake inspect --config .acorn.json --batch-id <batch-ID>
+```
+
+The stage response contains the stable batch ID. `inspect` shows every line outcome, canonical route, proposed diff, and current project state. A rejected or conflicting line prevents the entire batch from being applied. Apply checks the original snapshot, configuration, routes, authorization, and all index bases before writing. Each project is replaced and receipted separately, so repeating apply resumes a partial result without duplicating entries. Keep the source bytes and receipt. If the source came from a GitLab inbox, stop its worker before local intake, reconcile the reviewed changes into the approved repository, and handle only the exact completed inbox lines before the worker resumes.

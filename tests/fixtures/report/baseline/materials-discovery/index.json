@@ -1,0 +1,82 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "identifier": "materials-discovery",
+    "keywords": [
+      "Materials",
+      "Modeling",
+      "Data science"
+    ],
+    "contributors": [
+      {
+        "name": "Priya Shah",
+        "identifiers": [],
+        "affiliations": [],
+        "roles": [
+          {
+            "agent": {
+              "value": "sample-priya-shah",
+              "scheme": "LOCAL"
+            },
+            "leader": true
+          }
+        ]
+      }
+    ],
+    "funders": [
+      "Sample Sponsor A",
+      "Sample Sponsor B"
+    ],
+    "media": []
+  },
+  "title": "Materials Discovery Pilot",
+  "subtitle": "Partners, publications, and team development",
+  "sections": {
+    "mission": "Demonstrate materials discovery pilot with synthetic report content.",
+    "challenge": "Keep the sample realistic without using production records.",
+    "approach": [
+      "Use deliberately fictional developments."
+    ],
+    "impact": [
+      "Provide a representative design preview."
+    ],
+    "achievement": [
+      "Prepared logbook examples for layout review."
+    ],
+    "research": {
+      "focus": "Report design review",
+      "areas": [
+        "sample data"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Sample project lead",
+    "givenName": "Alex",
+    "familyName": "Morgan",
+    "email": "alex.morgan@example.org",
+    "telephone": "+1 202-555-0123",
+    "url": "https://example.org/project",
+    "organization": "Example Research Group"
+  },
+  "logbook": {
+    "summary": "Synthetic logbook for Materials Discovery Pilot.",
+    "entries": [
+      {
+        "identifier": "materials-partner-meeting",
+        "projectId": "materials-discovery",
+        "timestamp": "2026-10-04T14:30:00Z",
+        "category": "collaboration",
+        "eventType": "meeting",
+        "state": "completed",
+        "summary": "Met with university partners to agree on the next comparison experiment. The agreed comparison keeps preparation and evaluation conditions consistent across both teams.",
+        "items": [
+          "Partners will share reference specimens in November."
+        ],
+        "archived": false
+      }
+    ]
+  }
+}

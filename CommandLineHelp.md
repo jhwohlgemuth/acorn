@@ -29,6 +29,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli intake export`↴](#acorn-cli-intake-export)
 * [`acorn-cli intake deliver`↴](#acorn-cli-intake-deliver)
 * [`acorn-cli intake stage`↴](#acorn-cli-intake-stage)
+* [`acorn-cli intake inspect`↴](#acorn-cli-intake-inspect)
 * [`acorn-cli intake apply`↴](#acorn-cli-intake-apply)
 * [`acorn-cli link`↴](#acorn-cli-link)
 * [`acorn-cli mcp`↴](#acorn-cli-mcp)
@@ -1312,7 +1313,8 @@ Process Power Automate JSONL intake and reviewed project changes
 * `export` — Export a reviewed project change as a unified diff and JSON receipt
 * `deliver` — Deliver ready durable callback intents once, without running a bot
 * `stage` — Write reviewable proposals for valid lines in a local JSONL inbox
-* `apply` — Apply one staged proposal after reviewing its JSON file
+* `inspect` — Inspect a staged batch, including project routes and proposed diffs
+* `apply` — Apply one staged proposal or reviewed batch
 
 
 
@@ -1358,25 +1360,40 @@ Deliver ready durable callback intents once, without running a bot
 
 Write reviewable proposals for valid lines in a local JSONL inbox
 
-**Usage:** `acorn-cli intake stage --config <CONFIG> --inbox <INBOX>`
+**Usage:** `acorn-cli intake stage [OPTIONS] --config <CONFIG> --inbox <INBOX>`
 
 ###### **Options:**
 
 * `--config <CONFIG>` — Explicit ACRE configuration with local folder destinations
 * `--inbox <INBOX>` — LF-terminated JSONL inbox file
+* `--batch` — Stage all lines as one reviewable multi-project batch
+
+
+
+## `acorn-cli intake inspect`
+
+Inspect a staged batch, including project routes and proposed diffs
+
+**Usage:** `acorn-cli intake inspect --config <CONFIG> --batch-id <BATCH_ID>`
+
+###### **Options:**
+
+* `--config <CONFIG>` — Explicit ACRE configuration used for staging
+* `--batch-id <BATCH_ID>` — Stable ID returned by `intake stage --batch`
 
 
 
 ## `acorn-cli intake apply`
 
-Apply one staged proposal after reviewing its JSON file
+Apply one staged proposal or reviewed batch
 
-**Usage:** `acorn-cli intake apply --config <CONFIG> --submission-id <SUBMISSION_ID>`
+**Usage:** `acorn-cli intake apply [OPTIONS] --config <CONFIG>`
 
 ###### **Options:**
 
 * `--config <CONFIG>` — Explicit ACRE configuration used for staging
 * `--submission-id <SUBMISSION_ID>` — Stable UUID from the submission envelope
+* `--batch-id <BATCH_ID>` — Stable ID returned by `intake stage --batch`
 
 
 

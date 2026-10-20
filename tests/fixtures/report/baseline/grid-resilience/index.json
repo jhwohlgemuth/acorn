@@ -1,0 +1,82 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "identifier": "grid-resilience",
+    "keywords": [
+      "Grid",
+      "Energy",
+      "Critical infrastructure"
+    ],
+    "contributors": [
+      {
+        "name": "Taylor Reed",
+        "identifiers": [],
+        "affiliations": [],
+        "roles": [
+          {
+            "agent": {
+              "value": "sample-taylor-reed",
+              "scheme": "LOCAL"
+            },
+            "leader": true
+          }
+        ]
+      }
+    ],
+    "funders": [
+      "Sample Sponsor A"
+    ],
+    "media": []
+  },
+  "title": "Grid Resilience Studio",
+  "subtitle": "Demonstrations, research, and software delivery",
+  "sections": {
+    "mission": "Demonstrate grid resilience studio with synthetic report content.",
+    "challenge": "Keep the sample realistic without using production records.",
+    "approach": [
+      "Use deliberately fictional developments."
+    ],
+    "impact": [
+      "Provide a representative design preview."
+    ],
+    "achievement": [
+      "Prepared logbook examples for layout review."
+    ],
+    "research": {
+      "focus": "Report design review",
+      "areas": [
+        "sample data"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Sample project lead",
+    "givenName": "Alex",
+    "familyName": "Morgan",
+    "email": "alex.morgan@example.org",
+    "telephone": "+1 202-555-0123",
+    "url": "https://example.org/project",
+    "organization": "Example Research Group"
+  },
+  "logbook": {
+    "summary": "Synthetic logbook for Grid Resilience Studio.",
+    "entries": [
+      {
+        "identifier": "grid-exhibition-demo",
+        "projectId": "grid-resilience",
+        "timestamp": "2026-10-05T14:30:00Z",
+        "category": "engagement",
+        "eventType": "exhibition",
+        "state": "completed",
+        "summary": "Ran an interactive exhibition showing regional load scenarios. Visitors used a printed key to follow the scenario changes without a presenter.",
+        "items": [
+          "Visitors compared three demand curves on the display.",
+          "A large-print guide was available beside the exhibit."
+        ],
+        "archived": false
+      }
+    ]
+  }
+}

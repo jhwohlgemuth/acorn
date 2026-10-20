@@ -28,3 +28,17 @@ Use `--combine` to write one local `report.pdf` with the title page, selected pr
 target/debug/acorn report --combine --config tests/fixtures/report/config.json --root tests/fixtures/report --from 2026-10-01T00:00:00Z --through 2026-11-01T00:00:00Z --output tmp/pdfs/report/combined --chrome-path "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 ```
 
+Rebuild the same report content through the standalone local JSONL workflow with:
+
+```sh
+ACORN_REPORT_REPO="$PWD"
+ACORN_REPORT_WORK="$(mktemp -d)"
+cp -R "$ACORN_REPORT_REPO/tests/fixtures/report/baseline/." "$ACORN_REPORT_WORK/"
+cd "$ACORN_REPORT_WORK"
+"$ACORN_REPORT_REPO/target/debug/acorn" intake stage --batch --config .acorn.jsonc --inbox "$ACORN_REPORT_REPO/tests/fixtures/report/submissions.jsonl"
+"$ACORN_REPORT_REPO/target/debug/acorn" intake apply --config .acorn.jsonc --batch-id BATCH_ID_FROM_STAGE
+"$ACORN_REPORT_REPO/target/debug/acorn" report --combine --config .acorn.jsonc --root . --from 2026-10-01T00:00:00Z --through 2026-11-01T00:00:00Z --output pdf --chrome-path "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+```
+
+Copy the `batchId` printed by `intake stage` into the `intake apply` command. The combined PDF appears at `pdf/report.pdf` in the temporary directory. The `baseline/` folder preserves each project's metadata and first logbook entry; a RAD logbook with zero entries would fail validation. Its `file:.` root resolves project paths from the copied directory. The 65 interleaved records in `submissions.jsonl` supply the remaining entries, including discovered, archived, and title-page updates. Acorn expands omitted defaults and funder shorthand when it writes the project indexes, so the generated JSON differs from the original fixtures while preserving their report content. The original report fixtures stay untouched. The rebuilt and original combined PDFs produce identical text with `pdftotext -layout`.
+

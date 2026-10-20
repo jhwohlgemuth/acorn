@@ -1,0 +1,24 @@
+{
+  // Project-local configuration copied with the baseline RAD files.
+  "schemaVersion": "2.0.0",
+  "members": [
+    "reviewer@example.org"
+  ],
+  "folders": [
+    // Each ID selects its folder's first supported index file; submissions.jsonl adds the remaining entries.
+    "watershed-sensing",
+    "materials-discovery",
+    "grid-resilience"
+  ],
+  "options": {
+    "folders": {
+      // Resolve all folder paths relative to this copied baseline directory.
+      "root": "file:."
+    },
+    "powerAutomate": {
+      "callback_destination": "local-preview",
+      "gitlab_project": "42",
+      "package": "sample-report-artifacts"
+    }
+  }
+}

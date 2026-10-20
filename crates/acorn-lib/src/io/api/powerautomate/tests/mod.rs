@@ -174,6 +174,32 @@ fn test_flow_is_authenticated_durable_duplicate_safe_and_reportable() {
     assert_eq!(manifest.status, ReportStatus::Published);
 }
 #[test]
+fn test_form_admission_canonicalizes_alias_with_caller_lookup() {
+    let configuration = serde_json::from_value::<ApplicationConfiguration>(serde_json::json!({
+        "folders": [{"id": "pilot", "aliases": ["Pilot Project"], "variables": {"members": "PILOT_MEMBERS"}}]
+    }))
+    .expect("alias configuration");
+    let registry = configuration.registry();
+    let canonical = submission();
+    let mut alias = canonical.clone();
+    alias.project_id = "Pilot Project".to_string();
+    let lookup = |name: &str| (name == "PILOT_MEMBERS").then(|| "scientist@example.org".to_string());
+    let admitted = alias.admit(&registry, &lookup, Some("2026-09-18T12:00:00Z")).expect("alias admission");
+    let direct = canonical.admit(&registry, &lookup, None).expect("canonical admission");
+    assert_eq!(admitted.folder_id, "pilot");
+    assert_eq!(admitted.entry.project_id, "pilot");
+    assert_eq!(
+        serde_json::to_value(&admitted.entry).unwrap(),
+        serde_json::to_value(&direct.entry).unwrap()
+    );
+    assert_eq!(admitted.operation_key, "powerautomate:form:v1:123e4567-e89b-12d3-a456-426614174000");
+    assert!(alias.admit(&registry, &|_| None, None).is_err());
+    assert!(alias.admit(&registry, &lookup, Some("2026-09-18T12:00:01Z")).is_err());
+    assert!(alias.admit(&registry, &lookup, Some("invalid")).is_err());
+    alias.entry.summary = " ".to_string();
+    assert!(alias.admit(&registry, &lookup, None).is_err());
+}
+#[test]
 fn test_form_conversion_forces_effect_fields_and_rejects_late_entries() {
     let submission = submission();
     let entry = submission.entry(&FolderRegistry::fixture()).expect("authorized form");
@@ -187,7 +213,7 @@ fn test_form_conversion_forces_effect_fields_and_rejects_late_entries() {
 #[test]
 fn test_form_payload_is_strict_and_authorized() {
     assert!(submission().submitter.validate().is_ok());
-    let extra = serde_json::json!({
+    let mut extra = serde_json::json!({
         "submissionId": "123e4567-e89b-12d3-a456-426614174000",
         "projectId": "pilot",
         "submittedAt": "2026-09-18T12:01:00Z",
@@ -200,6 +226,13 @@ fn test_form_payload_is_strict_and_authorized() {
             "archived": true
         }
     });
+    assert!(
+        serde_json::from_value::<Submission>(extra.clone())
+            .expect("supported report field")
+            .entry
+            .archived
+    );
+    extra["entry"]["unknownField"] = serde_json::json!(true);
     assert!(serde_json::from_value::<Submission>(extra).is_err());
     let mut unauthorized = submission();
     unauthorized.submitter.email = serde_json::from_value(serde_json::json!("other@example.org")).expect("email");
@@ -374,6 +407,5 @@ async fn test_router_accepts_authenticated_form_and_returns_canonical_receipt() 
     );
     assert_eq!(queue.counts().expect("queue counts").queued, 1);
 }
-
 mod jsonl;
 mod local;

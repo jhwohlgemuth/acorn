@@ -1,0 +1,95 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "identifier": "watershed-sensing",
+    "keywords": [
+      "Earth science",
+      "Data science",
+      "Geospatial"
+    ],
+    "contributors": [
+      {
+        "name": "Alex Morgan",
+        "identifiers": [],
+        "affiliations": [],
+        "roles": [
+          {
+            "agent": {
+              "value": "sample-alex-morgan",
+              "scheme": "LOCAL"
+            },
+            "leader": true
+          }
+        ]
+      },
+      {
+        "name": "Jordan Lee",
+        "identifiers": [],
+        "affiliations": [],
+        "roles": [
+          {
+            "agent": {
+              "value": "sample-jordan-lee",
+              "scheme": "LOCAL"
+            },
+            "leader": true
+          }
+        ]
+      }
+    ],
+    "funders": [
+      "Sample Sponsor A"
+    ],
+    "media": []
+  },
+  "title": "Watershed Sensing Network",
+  "subtitle": "Field methods and shared environmental data",
+  "sections": {
+    "mission": "Demonstrate watershed sensing network with synthetic report content.",
+    "challenge": "Keep the sample realistic without using production records.",
+    "approach": [
+      "Use deliberately fictional developments."
+    ],
+    "impact": [
+      "Provide a representative design preview."
+    ],
+    "achievement": [
+      "Prepared logbook examples for layout review."
+    ],
+    "research": {
+      "focus": "Report design review",
+      "areas": [
+        "sample data"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Sample project lead",
+    "givenName": "Alex",
+    "familyName": "Morgan",
+    "email": "alex.morgan@example.org",
+    "telephone": "+1 202-555-0123",
+    "url": "https://example.org/project",
+    "organization": "Example Research Group"
+  },
+  "logbook": {
+    "summary": "Synthetic logbook for Watershed Sensing Network.",
+    "entries": [
+      {
+        "identifier": "watershed-sensor-calibration",
+        "projectId": "watershed-sensing",
+        "timestamp": "2026-10-03T14:30:00Z",
+        "category": "research",
+        "state": "completed",
+        "summary": "Completed a riverbank sensor calibration and compared the readings with laboratory controls. The team retained the control readings and calibration date for comparison with the next field visit.",
+        "items": [
+          "Three stations passed the target drift threshold.",
+          "The fourth station needs a replacement probe before release."
+        ],
+        "archived": false
+      }
+    ]
+  }
+}

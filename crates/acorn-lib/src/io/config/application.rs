@@ -19,7 +19,7 @@ use crate::{
     util::{
         constants::app::{
             APPLICATION, DEFAULT_CONFIG_FILENAMES, DEFAULT_INTAKE_BRANCH, DEFAULT_INTAKE_MAX_FILE, DEFAULT_INTAKE_MAX_RECORD, DEFAULT_INTAKE_PATH,
-            DEFAULT_INTAKE_POLL_INTERVAL_SECS, MAX_INTAKE_POLL_INTERVAL_SECS,
+            DEFAULT_INTAKE_POLL_INTERVAL_SECS, MAX_INTAKE_POLL_INTERVAL_SECS, RAD_INDEX_FILENAMES,
         },
         text_diff_changes_with_color,
     },
@@ -29,9 +29,9 @@ use acorn_core::{
     time::{Seconds, UnitOfTime},
     util::{detect_json, split_list, MimeType},
     validation::ValidationError,
-    Location, Scheme,
+    Location, Scheme, SimpleOrDetailed,
 };
-use acorn_host::{config::resolve_config_path, terminal::Label};
+use acorn_host::{config::resolve_config_path, fs::SafePath, terminal::Label};
 use acorn_schema::{
     codec::{CodecDiagnostic, DocumentCodec},
     hardware::memory::Memory,
@@ -73,8 +73,7 @@ pub mod feature_configuration {
     pub enum ScriptManifestSource {
         /// Inline executable-hook manifest.
         ///
-        /// Boxed because `OneOrMany` adds a discriminant that pushes this enum past clippy's
-        /// `large_enum_variant` threshold.
+        /// Boxed because `OneOrMany` adds a discriminant that pushes this enum past clippy's `large_enum_variant` threshold.
         Inline(Box<ScriptManifest>),
         /// Safe relative deployment manifest name.
         Path(String),
@@ -462,7 +461,10 @@ pub struct Entry {
     pub absolute: bool,
 }
 /// One registered destination folder shared by intake and reporting.
+///
+/// A string entry is shorthand for an object with only `id`.
 #[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(from = "SimpleOrDetailed<String, FolderDetailsInput>")]
 pub struct Folder {
     /// Stable identifier. Aliases and the default path derive from this value.
     pub id: String,
@@ -481,6 +483,15 @@ pub struct Folder {
     /// Environment-variable references scoped to this folder.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub variables: Option<VariableReferences>,
+}
+#[derive(Deserialize, JsonSchema)]
+struct FolderDetailsInput {
+    id: String,
+    aliases: Option<OneOrMany<String>>,
+    bucket: Option<BucketReference>,
+    members: Option<OneOrMany<String>>,
+    path: Option<String>,
+    variables: Option<VariableReferences>,
 }
 /// Shared destination resolution settings.
 #[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -1207,15 +1218,19 @@ impl Destination {
     }
     /// Return the destination for one folder path against its configured root and project.
     ///
-    /// An absolute URI names its own destination. A relative path resolves against
-    /// `options.folders.root`, then inside `options.powerAutomate.gitlab_project`.
+    /// An absolute URI names its own destination.
+    /// A relative path resolves against `options.folders.root`, then inside `options.powerAutomate.gitlab_project`.
     pub fn new(path: &str, root: Option<&str>, project: Option<&str>) -> ApiResult<Self> {
         let location = Location::from(path);
-        match location.scheme() {
+        let destination = match location.scheme() {
             | Scheme::File | Scheme::HTTP | Scheme::HTTPS => location.try_into(),
             | Scheme::Unsupported if location.is_path() => Self::from_relative(path, root, project),
             | scheme => Err(eyre!("Unsupported folder URI scheme '{scheme}' — '{path}'")),
-        }
+        };
+        destination.map(|destination| match destination {
+            | Self::Local(path) => Self::Local(resolve_index_path(&path)),
+            | other => other,
+        })
     }
     /// Return the repository-relative path when this destination lives in the configured GitLab project.
     pub fn repository_path(&self) -> Option<&str> {
@@ -1336,6 +1351,43 @@ impl Folder {
     /// Return whether this folder answers to a canonical identifier or one configured alias.
     pub fn selects(&self, selector: &str) -> bool {
         self.id == selector || self.aliases.as_ref().is_some_and(|aliases| aliases.iter().any(|alias| alias == selector))
+    }
+    /// Resolve the selected index beneath one local root and retain its repository-relative path.
+    pub fn source_path(&self, root: &Path) -> ApiResult<(String, PathBuf)> {
+        let relative = self.path.clone().unwrap_or_else(|| format!("{}/index.json", self.id));
+        SafePath::new(relative)
+            .map_err(|why| eyre!(why))
+            .and_then(|path| path.materialize_under(root).map_err(Into::into))
+            .and_then(|path| {
+                let selected = resolve_index_path(&path);
+                let relative = selected
+                    .strip_prefix(root)
+                    .map_err(|why| eyre!("Folder source is outside the selected root — {why}"))
+                    .map(|relative| relative.to_string_lossy().to_string());
+                relative.map(|relative| (relative, selected))
+            })
+    }
+}
+impl From<SimpleOrDetailed<String, FolderDetailsInput>> for Folder {
+    fn from(value: SimpleOrDetailed<String, FolderDetailsInput>) -> Self {
+        match value {
+            | SimpleOrDetailed::Simple(id) => Self { id, ..Self::default() },
+            | SimpleOrDetailed::Detailed(FolderDetailsInput {
+                id,
+                aliases,
+                bucket,
+                members,
+                path,
+                variables,
+            }) => Self {
+                id,
+                aliases,
+                bucket,
+                members,
+                path,
+                variables,
+            },
+        }
     }
 }
 impl FolderRegistry {
@@ -1532,6 +1584,28 @@ fn file_path(uri: &Location) -> PathBuf {
         | true => PathBuf::from(path),
         | false => PathBuf::from(format!(r"\\{host}{path}")),
     }
+}
+/// Select the first supported RAD index in a local folder using the documented priority order.
+///
+/// An explicit existing file keeps its path.
+/// A missing `index.json` or a folder selects the first available index; an empty folder retains `index.json`.
+pub fn resolve_index_path(path: &Path) -> PathBuf {
+    let folder = match (path.is_dir(), path.file_name()) {
+        | (true, _) => Some(path),
+        | (false, Some(name)) if name == "index.json" && !path.exists() => path.parent(),
+        | _ => None,
+    };
+    folder
+        .and_then(|folder| {
+            RAD_INDEX_FILENAMES
+                .iter()
+                .map(|name| folder.join(name))
+                .find(|candidate| candidate.is_file())
+        })
+        .unwrap_or_else(|| match path.is_dir() {
+            | true => path.join("index.json"),
+            | false => path.to_path_buf(),
+        })
 }
 /// Return one folder path as a canonical repository-relative path.
 fn safe_relative(path: &str) -> ApiResult<&str> {

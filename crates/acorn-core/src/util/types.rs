@@ -1,5 +1,4 @@
-//! Shared portable value types.
-
+//! Shared portable value types
 #[cfg(feature = "alloc")]
 use crate::prelude::alloc::{vec, Vec};
 use core::{

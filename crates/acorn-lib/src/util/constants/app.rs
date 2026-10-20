@@ -253,6 +253,16 @@ pub const ORNL_COLOR_PULSAR: [u8; 3] = [0x4E, 0x00, 0x8E];
 pub const ORNL_COLOR_SPARK: [u8; 3] = [0xFE, 0x50, 0x00];
 /// Organization qualifier.
 pub const QUALIFIER: &str = "org";
+/// Preferred filenames for a folder's research activity index.
+pub const RAD_INDEX_FILENAMES: [&str; 7] = [
+    "index.json",
+    "index.jsonc",
+    "index.yaml",
+    "index.yml",
+    "index.md",
+    "index.markdown",
+    "index.zonf",
+];
 /// Date and UTC time format used in full timestamp report output.
 pub const REPORT_FULL_TIMESTAMP_FORMAT: &str = "%B %-d, %Y at %H:%M UTC";
 /// Prompt text copied to clipboard by `acorn skill` for agent use.

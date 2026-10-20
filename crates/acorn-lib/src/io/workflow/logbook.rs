@@ -1,23 +1,26 @@
 //! Pure repository proposals for normalized logbook form entries.
 use super::{FileChange, FileChangeKind, ProcessRepositoryResponse, WorkflowFileReport};
-use crate::io::ApiResult;
+use crate::io::{ApiResult, FromPath};
 use acorn_core::{
     prelude::{String, Vec},
     util::MimeType,
 };
 use acorn_host::fs::SafePath;
 use acorn_schema::{
+    codec::DocumentCodec,
     research_activity::{Logbook, LogbookEntry, ResearchActivity},
     validation::Validate,
 };
+use bon::Builder;
 use color_eyre::eyre::eyre;
 
 /// Immutable input for one logbook repository proposal.
-#[derive(Clone, Debug)]
+#[derive(Builder, Clone, Debug)]
+#[builder(on(String, into))]
 pub struct LogbookProposal {
     /// Exact source revision read by the caller.
     pub base_revision: String,
-    /// Normalized research activity JSON read at `base_revision`.
+    /// Research activity content read at `base_revision`.
     pub content: String,
     /// Validated entry proposed for the activity logbook.
     pub entry: LogbookEntry,
@@ -42,7 +45,13 @@ impl TryFrom<LogbookProposal> for ProcessRepositoryResponse {
                 .validate()
                 .map_err(|why| eyre!("Invalid logbook entry — {why}"))
                 .and_then(|()| {
-                    eserde::json::from_str::<ResearchActivity>(&content).map_err(|why| eyre!("Failed to parse research activity JSON — {why}"))
+                    let format = MimeType::from_path(safe_path.as_path());
+                    ResearchActivity::decode(&content, &format).map_err(|diagnostics| {
+                        eyre!(
+                            "Failed to parse research activity {format} — {}",
+                            diagnostics.into_iter().map(|item| item.message).collect::<Vec<_>>().join("; ")
+                        )
+                    })
                 })
                 .and_then(|activity| {
                     activity
@@ -85,30 +94,28 @@ impl TryFrom<LogbookProposal> for ProcessRepositoryResponse {
                 })
                 .and_then(|(activity, changed)| {
                     let path = safe_path.as_path().to_string_lossy().to_string();
+                    let format = MimeType::from_path(safe_path.as_path());
                     match changed {
                         | false => Ok(ProcessRepositoryResponse {
                             base_revision,
                             files: Vec::new(),
                             reports: vec![WorkflowFileReport {
                                 changed: false,
-                                format: MimeType::Json,
+                                format,
                                 path,
                             }],
                         }),
-                        | true => serde_json::to_string_pretty(&activity)
-                            .map_err(|why| eyre!("Failed to serialize research activity JSON — {why}"))
+                        | true => activity
+                            .encode(&format)
+                            .map_err(|why| eyre!("Failed to serialize research activity {format} — {}", why.message))
                             .map(|content| ProcessRepositoryResponse {
                                 base_revision,
                                 files: vec![FileChange {
-                                    content: format!("{content}\n"),
+                                    content: format!("{}\n", content.trim_end_matches('\n')),
                                     kind: FileChangeKind::Update,
                                     path: path.clone(),
                                 }],
-                                reports: vec![WorkflowFileReport {
-                                    changed: true,
-                                    format: MimeType::Json,
-                                    path,
-                                }],
+                                reports: vec![WorkflowFileReport { changed: true, format, path }],
                             }),
                     }
                 }),

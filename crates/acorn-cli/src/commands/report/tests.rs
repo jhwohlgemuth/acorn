@@ -1,5 +1,6 @@
 use super::*;
-use acorn::io::api::powerautomate::local::{self, ApplyStatus, StageSummary};
+use acorn::io::api::powerautomate::local::ApplyStatus;
+use acorn::io::config::ApplicationConfiguration;
 use acorn_host::fs::file_checksum;
 use acorn_schema::research_activity::{Logbook, LogbookEntry};
 use clap_verbosity_flag::Verbosity;
@@ -163,14 +164,18 @@ async fn test_local_jsonl_apply_updates_report_source_and_renders_when_configure
         .expect("baseline report");
     assert_eq!(baseline.status, ReportStatus::NoChanges);
     assert!(baseline.entry_identifiers.is_empty());
-    let staged = StageSummary::stage(&local_config, &inbox).expect("stage submission");
+    let (local_configuration, local_config_path) = ApplicationConfiguration::load_local_intake(&local_config).expect("local intake configuration");
+    let staged = local_configuration.stage(&local_config_path, &inbox).expect("stage submission");
     assert_eq!(staged.staged, vec!["11111111-1111-4111-8111-111111111111"]);
     assert!(staged.rejected.is_empty());
     assert_eq!(read(&index).expect("unchanged staged index"), original);
     let submission_id = staged.staged.first().expect("staged submission");
-    assert_eq!(local::apply(&local_config, submission_id).expect("apply proposal"), ApplyStatus::Applied);
     assert_eq!(
-        local::apply(&local_config, submission_id).expect("repeat apply"),
+        local_configuration.apply(&local_config_path, submission_id).expect("apply proposal"),
+        ApplyStatus::Applied
+    );
+    assert_eq!(
+        local_configuration.apply(&local_config_path, submission_id).expect("repeat apply"),
         ApplyStatus::AlreadyApplied
     );
     let updated = ResearchActivity::read(&index).expect("updated activity");
