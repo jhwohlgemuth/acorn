@@ -10,6 +10,7 @@
 
 - [Sponsor highlights clarity](sponsor-highlights-clarity.md) - Add evidence-backed mission value, a consistent project synopsis, reviewed ASPECT graduation from logbook events, accessibility checks, and an approved distribution pilot.
 - [Grouped report separators](grouped-report-separators.md) - Add an optional combined PDF with ordered project groups and full-page office dividers; keep individual report publication unchanged.
+- [Interactive metadata chat and terminal prompts](interactive-metadata-chat.md) - Add inline multi-turn `ask`, durable transcripts, reusable Choose/Confirm/Spin controls, and interactive enrichment feedback for `format`.
 - [Generic ask executor adapters](ask-executor-adapters.md) - Add configured MCP, ACP, endpoint, and local-sidecar bindings after router contracts land; release follows native parity.
 - [Swift SLM capability profile](swift-slm-profile.md) - Release Tongue, Redact, and Title after licensing, host, artifact, and quality gates.
 - [Julia decision sidecar profile](julia-decision-sidecar.md) - Release advisory Choice and Noul decisions after independent parity and quality gates.

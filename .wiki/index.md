@@ -17,7 +17,7 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Portfolio review
 
-Reviewed against the current tree on 2026-10-19. The portfolio contains 28 executable plans and two coordination records. Remaining work is tracked in the plans below; completed outcomes live in code, tests, and durable documentation.
+Reviewed against the current tree on 2026-10-20. The portfolio contains 29 executable plans and two coordination records. Remaining work is tracked in the plans below; completed outcomes live in code, tests, and durable documentation.
 
 Ranking uses impact first, then remaining difficulty, with user/architecture value and readiness as tie-breakers. “Quality” rates the plan rather than the proposed feature:
 
@@ -46,16 +46,17 @@ Ranking uses impact first, then remaining difficulty, with user/architecture val
 | 16 | [dPID research-object support](features/dpid-research-object-support.md) | Planned | High | High | A | Medium | Exceptionally complete trust and provenance design, but upstream volatility and uncertain demand reduce near-term value. |
 | 17 | [Deterministic and assisted gather extraction](features/gather-extraction.md) | Planned | High | High | A− | High | One ordered plan now preserves the deterministic-first security and provenance boundary across CLI and TUI. |
 | 18 | [Azure Cosmos DB bucket downloads](features/azure-cosmos-buckets.md) | Planned | High | High | B+ | Medium | Fits the landed source abstraction, but a preview SDK and no recorded deployment demand warrant validation before build-out. |
-| 19 | [Needle routing and native capability parity](features/needle-router-native-parity.md) | In progress | High | High | A− | High | Establish caller-owned Needle routing and measured native registry parity. |
-| 20 | [Generic ask executor adapters](features/ask-executor-adapters.md) | Planned | High | High | A− | High | Build configured MCP, ACP, endpoint, and local sidecar bindings after router contracts land; release waits for native parity. |
-| 21 | [Swift SLM capability profile](features/swift-slm-profile.md) | Planned | High | High | B | Medium | Licensing, host, artifact, and quality gates precede a three-capability release. |
-| 22 | [Julia decision sidecar profile](features/julia-decision-sidecar.md) | Planned | High | High | B | Medium | Independent parity, quality, and resource gates precede an advisory decision release. |
-| 23 | [Grouped report separators](features/grouped-report-separators.md) | Planned | Medium | Medium | A | High | Directly requested multi-project report design with explicit group order and bounded local output phases. |
-| 24 | [ZON codec hardening](refactors/zon-codec-hardening.md) | Planned | Medium | Medium | A | Medium | A contained correctness/maintainability leaf with strong tests and low integration risk. |
-| 25 | [CLI coverage](testing/cli-coverage.md) | Planned | Medium | Medium | A− | Medium | Targets known command and binary failure gaps without reviving obsolete test layout or chasing raw line coverage. |
-| 26 | [Portable PID verification](testing/pid-verification.md) | Planned | Medium | High | B+ | Medium | Consolidation and Miri are practical; full Creusot/solver maintenance should proceed only after toolchain feasibility is proven. |
-| 27 | [Beam inference integration](features/beam-inference-integration.md) | Planned | Medium | High | B | Medium | Release and serving evidence gate an explicit endpoint integration and ACORN evaluation. |
-| 28 | [Coverage throughput](testing/coverage-throughput.md) | Planned | Medium | Medium | A− | Medium | Developer-workflow only; the forced clean stage is the confirmed cost, but every speed claim still needs a measured baseline. |
+| 19 | [Interactive metadata chat and terminal prompts](features/interactive-metadata-chat.md) | Planned | High | High | A− | High | Directly requested inline metadata chat and reusable feedback controls; viewport, state, and enrichment-contract work are ready while routed operations wait for ask contracts. |
+| 20 | [Needle routing and native capability parity](features/needle-router-native-parity.md) | In progress | High | High | A− | High | Establish caller-owned Needle routing and measured native registry parity. |
+| 21 | [Generic ask executor adapters](features/ask-executor-adapters.md) | Planned | High | High | A− | High | Build configured MCP, ACP, endpoint, and local sidecar bindings after router contracts land; release waits for native parity. |
+| 22 | [Swift SLM capability profile](features/swift-slm-profile.md) | Planned | High | High | B | Medium | Licensing, host, artifact, and quality gates precede a three-capability release. |
+| 23 | [Julia decision sidecar profile](features/julia-decision-sidecar.md) | Planned | High | High | B | Medium | Independent parity, quality, and resource gates precede an advisory decision release. |
+| 24 | [Grouped report separators](features/grouped-report-separators.md) | Planned | Medium | Medium | A | High | Directly requested multi-project report design with explicit group order and bounded local output phases. |
+| 25 | [ZON codec hardening](refactors/zon-codec-hardening.md) | Planned | Medium | Medium | A | Medium | A contained correctness/maintainability leaf with strong tests and low integration risk. |
+| 26 | [CLI coverage](testing/cli-coverage.md) | Planned | Medium | Medium | A− | Medium | Targets known command and binary failure gaps without reviving obsolete test layout or chasing raw line coverage. |
+| 27 | [Portable PID verification](testing/pid-verification.md) | Planned | Medium | High | B+ | Medium | Consolidation and Miri are practical; full Creusot/solver maintenance should proceed only after toolchain feasibility is proven. |
+| 28 | [Beam inference integration](features/beam-inference-integration.md) | Planned | Medium | High | B | Medium | Release and serving evidence gate an explicit endpoint integration and ACORN evaluation. |
+| 29 | [Coverage throughput](testing/coverage-throughput.md) | Planned | Medium | Medium | A− | Medium | Developer-workflow only; the forced clean stage is the confirmed cost, but every speed claim still needs a measured baseline. |
 
 ### Coordination record
 
