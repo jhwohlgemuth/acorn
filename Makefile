@@ -36,7 +36,7 @@ audit: ## Run dependency and security audits for the project.
 
 bench: lint ## Benchmark the library and related crates.
 	@cargo bench --package acorn-analysis --benches $(BENCH_ARGS)
-	@cargo bench --package acorn-lib --benches $(BENCH_ARGS)
+	@cargo bench --package acorn-lib --features analysis --benches $(BENCH_ARGS)
 
 bench-baseline: ## Save a benchmark baseline for future comparisons.
 	@$(MAKE) bench BENCH_ARGS="-- --save-baseline $(BENCH_BASELINE)"

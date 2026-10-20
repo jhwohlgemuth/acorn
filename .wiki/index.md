@@ -28,7 +28,7 @@ Ranking uses impact first, then remaining difficulty, with user/architecture val
 
 | Rank | Plan | Status | Impact | Difficulty | Quality | Value | Assessment |
 |---:|---|---|---|---|---|---|---|
-| 1 | [GitLab JSONL logbook reporting](features/powerapps-gitlab-logbook-reporting.md) | In progress | Critical | High | A | Highest | The offline manual batch and GitLab JSONL now share canonical form admission. PA-02/04/03 gate the live intake and callback flows on Vergil. |
+| 1 | [GitLab JSONL logbook reporting](features/powerapps-gitlab-logbook-reporting.md) | In progress | Critical | High | A | Highest | Shared form admission is implemented. PA-12 is ready to expose callback IDs for receiver deduplication; PA-02/04/03 gate live intake, callbacks, and Vergil deployment. |
 | 2 | [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) | In progress | Critical | High | A | Highest | Removes silent/stale template output and partial PPTX mutation while unlocking `acorn-export`. |
 | 3 | [Outbound MCP client embedder interface](refactors/api/outbound-mcp-client-interface.md) | In progress | High | Medium | A | High | Client code and focused tests are complete; separately owned book integration remains before plan retirement. |
 | 4 | [Needle 3 release-host validation](migrations/needle-3-upgrade.md) | Waiting on validation | High | Medium | A | High | Linux x86_64 and ARM64 can validate directly on available Docker contexts; Windows jobs still await schedulable hosts. |
