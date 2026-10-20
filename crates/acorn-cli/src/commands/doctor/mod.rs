@@ -8,6 +8,7 @@ use acorn::analyzer::{
     host::discovery::{FindingStatus, Record, Records},
 };
 use acorn_host::terminal::Label;
+#[cfg(feature = "tui")]
 use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use color_eyre::eyre::{eyre, Report, Result};
 use core::time::Duration;

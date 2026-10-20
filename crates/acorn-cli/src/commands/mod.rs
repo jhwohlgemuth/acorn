@@ -14,6 +14,7 @@ use acorn_core::options::CommonRuntime;
 use acorn_host::terminal::Label;
 use acorn_schema::discovery::RemoteOrganizationRole;
 use acorn_schema::standard::Standard;
+#[cfg(feature = "tui")]
 use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use clap_verbosity_flag::VerbosityFilter;
 use color_eyre::{eyre, eyre::eyre};

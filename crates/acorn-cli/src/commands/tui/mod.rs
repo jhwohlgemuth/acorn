@@ -1,4 +1,5 @@
 use crate::cli::Void;
+#[cfg(feature = "tui")]
 use acorn_schema::vocabulary::VocabularyFuzzyMode;
 #[cfg(not(feature = "tui"))]
 use color_eyre::eyre;
