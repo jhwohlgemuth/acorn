@@ -814,14 +814,15 @@ async fn test_note_poll_paginates_and_resumes_from_durable_cursor() {
     repository.lock().unwrap().events.push(graduation_event(111, "2026-07-06T00:00:02Z"));
     assert_eq!(restarted.poll_once().await.unwrap().processed_count, 103);
     assert_eq!(queue.counts().unwrap().queued, 103);
-    let repository = repository.lock().unwrap();
-    assert!(repository.queries.first().is_some_and(|query| !query.contains_key("after")));
-    assert!(repository
-        .queries
-        .iter()
-        .skip(2)
-        .all(|query| query.get("after").map(String::as_str) == Some("2026-07-05")));
-    drop(repository);
+    {
+        let repository = repository.lock().unwrap();
+        assert!(repository.queries.first().is_some_and(|query| !query.contains_key("after")));
+        assert!(repository
+            .queries
+            .iter()
+            .skip(2)
+            .all(|query| query.get("after").map(String::as_str) == Some("2026-07-05")));
+    }
     server.stop().await.unwrap();
 }
 #[tokio::test]

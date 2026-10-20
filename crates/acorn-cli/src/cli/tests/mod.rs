@@ -1411,7 +1411,6 @@ fn test_report_command_requires_fixed_bounds_and_accepts_project_selection() {
     }
 }
 #[test]
-#[test]
 fn test_resolve_export_paths_discovers_json_lines_without_broadening_defaults() {
     let root = temp_test_dir("resolve-json-lines");
     let _cleanup = TestCleanup::new(root.clone());

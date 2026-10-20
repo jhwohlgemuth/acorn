@@ -8,6 +8,7 @@
 //! Shared async HTTP server helpers for `acorn-lib` integration-style tests.
 use crate::io::api::gitlab::EventDetails;
 use crate::io::ApiResult;
+use alloc::sync::Arc;
 use axum::{
     extract::{RawQuery, State},
     http::StatusCode,
@@ -15,10 +16,7 @@ use axum::{
     Json, Router,
 };
 use color_eyre::eyre::eyre;
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, sync::Mutex};
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
