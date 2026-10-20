@@ -126,7 +126,7 @@ test:
     - make test-ci
     - make check-host
     - bash scripts/publish-crates.sh --check
-    - cargo package --workspace --exclude acorn-downstream-host-fixture --exclude xtask --no-verify --allow-dirty
+    - cargo package --workspace --exclude acorn-downstream-host-fixture --exclude xtask --no-verify --allow-dirty --locked --offline
 
 test-docs:
   extends: .rust-test
