@@ -136,6 +136,8 @@ pub trait StringConversion {
     fn normalized(&self) -> String;
     /// Percent-encode the string for use in a URL component.
     fn percent_encode(&self) -> String;
+    /// Convert non-alphanumeric runs to hyphens and lowercase ASCII letters.
+    fn sluggify(&self) -> String;
     /// Return an absolute path string.
     #[cfg(feature = "std")]
     fn to_absolute_path(&self) -> String;
@@ -915,6 +917,9 @@ impl StringConversion for &Path {
     fn percent_encode(&self) -> String {
         <Path as StringConversion>::percent_encode(self)
     }
+    fn sluggify(&self) -> String {
+        <Path as StringConversion>::sluggify(self)
+    }
     fn to_absolute_path(&self) -> String {
         <Path as StringConversion>::to_absolute_path(self)
     }
@@ -939,6 +944,9 @@ impl StringConversion for Path {
     fn percent_encode(&self) -> String {
         self.as_os_str().to_string_lossy().as_ref().percent_encode()
     }
+    fn sluggify(&self) -> String {
+        self.as_os_str().to_string_lossy().as_ref().sluggify()
+    }
     fn to_absolute_path(&self) -> String {
         to_absolute_path(self)
     }
@@ -962,6 +970,9 @@ impl StringConversion for PathBuf {
     }
     fn percent_encode(&self) -> String {
         self.to_string_lossy().as_ref().percent_encode()
+    }
+    fn sluggify(&self) -> String {
+        <Path as StringConversion>::sluggify(self)
     }
     fn to_absolute_path(&self) -> String {
         to_absolute_path(self)
@@ -1091,6 +1102,9 @@ impl StringConversion for &str {
     fn percent_encode(&self) -> String {
         <str as StringConversion>::percent_encode(self)
     }
+    fn sluggify(&self) -> String {
+        <str as StringConversion>::sluggify(self)
+    }
     #[cfg(feature = "std")]
     fn to_absolute_path(&self) -> String {
         <str as StringConversion>::to_absolute_path(self)
@@ -1119,6 +1133,24 @@ impl StringConversion for str {
     }
     fn percent_encode(&self) -> String {
         encode(self).into_owned()
+    }
+    fn sluggify(&self) -> String {
+        let (slug, _) = self
+            .trim()
+            .to_ascii_lowercase()
+            .chars()
+            .fold((String::new(), false), |(mut value, separator), character| {
+                if character.is_ascii_alphanumeric() {
+                    value.push(character);
+                    (value, false)
+                } else if !value.is_empty() && !separator {
+                    value.push('-');
+                    (value, true)
+                } else {
+                    (value, separator)
+                }
+            });
+        slug.trim_matches('-').to_string()
     }
     #[cfg(feature = "std")]
     fn to_absolute_path(&self) -> String {
@@ -1168,6 +1200,9 @@ impl StringConversion for String {
     }
     fn percent_encode(&self) -> String {
         <str as StringConversion>::percent_encode(self.as_str())
+    }
+    fn sluggify(&self) -> String {
+        <str as StringConversion>::sluggify(self.as_str())
     }
     #[cfg(feature = "std")]
     fn to_absolute_path(&self) -> String {

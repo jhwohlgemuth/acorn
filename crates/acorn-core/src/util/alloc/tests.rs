@@ -136,6 +136,14 @@ fn test_string_conversion_complete_date() {
     assert_eq!("2024-02-29T00:00:00Z".to_complete_date(), None);
 }
 #[test]
+fn test_string_conversion_sluggifies_strings_and_paths() {
+    assert_eq!("  Alice.Example  ".sluggify(), "alice-example");
+    assert_eq!("---".sluggify(), "");
+    assert_eq!(String::from("Hello,   World!").sluggify(), "hello-world");
+    #[cfg(feature = "std")]
+    assert_eq!(std::path::Path::new("Hello World").sluggify(), "hello-world");
+}
+#[test]
 fn test_string_conversion_truncates_at_utf8_boundary() {
     assert_eq!("aéz".truncate_utf8(3), "aé");
     assert_eq!("aéz".truncate_utf8(2), "a");
