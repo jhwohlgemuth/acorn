@@ -39,10 +39,10 @@ bench: lint ## Benchmark the library and related crates.
 	@cargo bench --package acorn-lib --benches $(BENCH_ARGS)
 
 bench-baseline: ## Save a benchmark baseline for future comparisons.
-	@$(MAKE) bench BENCH_ARGS="-- --save-baseline $(BENCH_BASELINE)"
+	@$(MAKE) bench BENCH_ARGS="--save-baseline $(BENCH_BASELINE)"
 
 bench-compare: ## Compare current benchmarks against the saved baseline.
-	@$(MAKE) bench BENCH_ARGS="-- --baseline $(BENCH_BASELINE)"
+	@$(MAKE) bench BENCH_ARGS="--baseline $(BENCH_BASELINE)"
 
 bench-report: ## Build a benchmark summary report from stored results.
 	@cargo xtask benchmark-history build "$(ARTIFACT_TARGET_DIR)/criterion" "$(BENCH_OUTPUT)" $(if $(BENCH_HISTORY),"$(BENCH_HISTORY)")
