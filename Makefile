@@ -59,6 +59,7 @@ ifeq ($(OS),Windows_NT)
 	@$(CLEAN_BIN_CMD)
 	@pwsh -Command New-Item -ItemType Directory -Path ".\bin" -Force
 	@cargo build --release --package acorn-cli --target $(DEFAULT_WINDOWS_TARGET)
+	@pwsh -NoProfile -File scripts/check-windows-runtime.ps1 -Binary "$(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe"
 	@pwsh -Command Move-Item -Path "$(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe" -Destination "./bin/acorn-v${VERSION}.exe" -Force
 else
 	@$(CLEAN_BIN_CMD)
@@ -66,6 +67,7 @@ else
 	@$(MUSL_BUILD) --release --package acorn-cli --target $(DEFAULT_TARGET)
 	@cp $(ARTIFACT_TARGET_DIR)/$(DEFAULT_TARGET)/release/acorn ./bin/acorn-v$(VERSION)
 	@cargo build --release --package acorn-cli --target $(DEFAULT_WINDOWS_TARGET)
+	@pwsh -NoProfile -File scripts/check-windows-runtime.ps1 -Binary "$(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe" -Objdump x86_64-w64-mingw32-objdump
 	@cp $(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe ./bin/acorn-v$(VERSION).exe
 endif
 

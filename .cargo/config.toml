@@ -4,9 +4,15 @@
 [alias]
 xtask = "run --package xtask --"
 
+[env]
+# Ask cc-rs to link the GNU C++ runtime statically, without bundling it into Rust rlibs.
+CXXSTDLIB_x86_64_pc_windows_gnu = "static:-bundle=stdc++"
+
 [target.x86_64-unknown-linux-musl]
 linker = "x86_64-linux-musl-gcc"
 
 [target.x86_64-pc-windows-gnu]
 linker = "x86_64-w64-mingw32-gcc"
+# Scoop distributes only acorn.exe, so native C++ dependencies must not need MinGW DLLs.
+rustflags = ["-C", "link-arg=-static"]
 

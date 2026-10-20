@@ -52,6 +52,7 @@ prepare-environment:
     - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
+        - .cargo/config.toml
         - .gitlab-ci.yml
         - Cargo.lock
         - Cargo.toml
@@ -71,6 +72,7 @@ prepare-environment:
         - crates/acorn-tui/Cargo.toml
         - crates/acorn-wasm/Cargo.toml
         - packaging/linux/**/*
+        - scripts/check-windows-runtime.ps1
         - scripts/install-appimage-tools.sh
         - scripts/install-zigbuild.sh
         - scripts/package-linux.sh
@@ -285,6 +287,7 @@ build-release:
       when: never
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
+        - .cargo/config.toml
         - .gitlab-ci.yml
         - Cargo.lock
         - Cargo.toml
@@ -293,6 +296,7 @@ build-release:
         - crates/acorn-cli/Cargo.toml
         - crates/acorn-lib/Cargo.toml
         - packaging/linux/**/*
+        - scripts/check-windows-runtime.ps1
         - scripts/install-appimage-tools.sh
         - scripts/install-zigbuild.sh
         - scripts/package-linux.sh
@@ -359,6 +363,7 @@ validate-mcpb:
     - job: build-release
       artifacts: true
   script:
+    - pwsh -NoProfile -File scripts/check-windows-runtime.ps1 -Binary "bin/acorn-v${PKG_VERSION}.exe" -Objdump x86_64-w64-mingw32-objdump
     - make release-checksums
     - make mcpb
     - npx --yes @anthropic-ai/mcpb@2.1.2 unpack "bin/acorn-v${PKG_VERSION}-${DEFAULT_TARGET}.mcpb" target/mcpb-linux
@@ -370,6 +375,7 @@ validate-mcpb:
       when: never
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
+        - .cargo/config.toml
         - .gitlab-ci.yml
         - Cargo.lock
         - Cargo.toml
@@ -377,6 +383,7 @@ validate-mcpb:
         - Makefile
         - crates/acorn-cli/Cargo.toml
         - crates/acorn-lib/Cargo.toml
+        - scripts/check-windows-runtime.ps1
         - scripts/install-zigbuild.sh
   artifacts:
     paths:
