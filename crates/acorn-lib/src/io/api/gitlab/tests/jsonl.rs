@@ -1,7 +1,7 @@
 use super::*;
 use crate::io::api::gitlab::bot::{Config, HookActor, HookPayload, Server, WebhookDelivery};
 use crate::io::api::gitlab::jsonl::{read_snapshot, split_snapshot, JsonlLine, Snapshot};
-use crate::io::api::powerautomate::PowerAutomateProvider;
+use crate::io::api::powerautomate::{PowerAutomateProvider, Submission};
 use crate::io::api::webhooks::store::OperationQueue;
 use crate::io::config::application::PowerAutomateIntake;
 use crate::io::config::ApplicationConfiguration;
@@ -262,6 +262,18 @@ async fn test_single_and_mixed_inbox_publish_only_selected_review_indexes() {
         );
         assert_eq!(entries("main", "acorn/index.json"), 0);
         assert_eq!(entries("main", "research-data/index.json"), 0);
+        for raw in inbox.lines() {
+            let submission: Submission = serde_json::from_str(raw).unwrap();
+            let shared = submission.admit(&document.registry(), &|_| None, None).unwrap();
+            let branch = format!("acorn/powerautomate/{}/2026-10", shared.folder_id);
+            let path = format!("{}/index.json", shared.folder_id);
+            let content = state_before_replay.content.get(&(branch, path)).unwrap();
+            let activity: acorn_schema::research_activity::ResearchActivity = serde_json::from_str(content).unwrap();
+            let logbook = activity.logbook.unwrap();
+            let published = logbook.entries.iter().find(|entry| entry.identifier == shared.entry.identifier).unwrap();
+            assert_eq!(serde_json::to_value(published).unwrap(), serde_json::to_value(&shared.entry).unwrap());
+            assert!(queue.intake_admission(&shared.operation_key).unwrap().is_some());
+        }
         state.lock().unwrap().inbox = inbox;
         bot.poll_jsonl_once().await.unwrap();
         assert!(!worker.process_next().await.unwrap());

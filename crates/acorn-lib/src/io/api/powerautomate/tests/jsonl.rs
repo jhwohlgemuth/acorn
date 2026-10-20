@@ -4,12 +4,15 @@ use crate::io::api::gitlab::{
     Options,
 };
 use crate::io::api::powerautomate::jsonl::{admit_snapshot, is_admitted, source_identity, AdmittedSubmission};
-use crate::io::api::{webhooks::store, Configuration};
+use crate::io::api::{json_rpc, webhooks::store, Configuration};
 use crate::io::config::application;
 use crate::io::ApiResult;
 use crate::test::server::TestServer;
 use acorn_schema::hardware::memory::Memory;
-use axum::{routing::get, Json, Router};
+use alloc::sync::Arc;
+use axum::{extract::State, http::StatusCode, routing::get, Json, Router};
+use core::sync::atomic::{AtomicUsize, Ordering};
+use jiff::SignedDuration;
 
 async fn admit(
     content: &str,
@@ -83,6 +86,7 @@ async fn test_admission_canonicalizes_alias_and_retains_exact_evidence() {
     assert_eq!(outcome.raw, content.trim_end_matches('\n'));
     let admitted: AdmittedSubmission = serde_json::from_str(outcome.admission.as_ref().unwrap()).unwrap();
     assert_eq!(admitted.entry.project_id, "pilot");
+    assert_eq!(admitted.entry.identifier, "form-123-e-4567-e-89-b-12-d-3-a-456-426614174000");
     assert_eq!(admitted.path, "pilot/index.json");
     assert!(admitted.branch.starts_with("acorn/powerautomate/pilot/"));
     assert_eq!(queue.counts().unwrap().queued, 1);
@@ -105,6 +109,62 @@ async fn test_admission_failure_rolls_back_queue_and_evidence() {
         .intake_admission("powerautomate:form:v1:123e4567-e89b-12d3-a456-426614174000")
         .unwrap()
         .is_none());
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_admission_preserves_shared_entry_fields_and_notification() {
+    let server = server().await;
+    let options = Options::with_token("test").domain(&server.base_url).identifier("42").build();
+    let queue = queue();
+    let configuration = configuration();
+    let mut value = serde_json::to_value(submission()).unwrap();
+    value["projectId"] = serde_json::json!("folder-name");
+    value["submissionId"] = serde_json::json!("123E4567-E89B-12D3-A456-426614174000");
+    value["entry"] = serde_json::json!({
+        "identifier": "reviewed-classification",
+        "timestamp": "2026-09-18T12:00:00Z",
+        "category": "administration",
+        "classification": "unclassified",
+        "eventType": "other",
+        "state": "completed",
+        "origin": "discovered",
+        "discovery": {"provider":"openalex", "source":"W123456789", "discoveredAt":"2026-09-18T11:00:00Z"},
+        "summary": " Reviewed classification ✓ ",
+        "items": [" Tagged v1 ", " Accepted provenance "],
+        "global": true,
+        "archived": true
+    });
+    let submission: Submission = serde_json::from_value(value).unwrap();
+    let shared = submission.admit(&configuration.registry(), &|_| None, None).unwrap();
+    let content = format!("{}\n", serde_json::to_string(&submission).unwrap());
+    let outcomes = admit(&content, "first", &configuration, &queue, &options).await;
+    let outcome = outcomes[0].as_ref().unwrap();
+    assert!(outcome.rejection.is_none(), "{:?}", outcome.rejection);
+    let admitted: AdmittedSubmission = serde_json::from_str(outcome.admission.as_ref().unwrap()).unwrap();
+    assert_eq!(admitted.submission.project_id, shared.folder_id);
+    assert_eq!(
+        serde_json::to_value(&admitted.entry).unwrap(),
+        serde_json::to_value(&shared.entry).unwrap()
+    );
+    assert_eq!(outcome.operation_key.as_deref(), Some(shared.operation_key.as_str()));
+    assert_eq!(shared.operation_key, "powerautomate:form:v1:123e4567-e89b-12d3-a456-426614174000");
+    assert_eq!(admitted.entry.identifier, "reviewed-classification");
+    assert_eq!(admitted.entry.summary, "Reviewed classification ✓");
+    assert_eq!(admitted.entry.timestamp, "2026-09-18T12:00:00Z");
+    assert_eq!(
+        admitted.entry.items,
+        Some(vec!["Tagged v1".to_string(), "Accepted provenance".to_string()])
+    );
+    assert!(admitted.entry.archived && admitted.entry.global);
+    assert_eq!(outcome.raw, content.trim_end_matches('\n'));
+    let operation = queue.claim_next(SignedDuration::from_secs(60)).unwrap().unwrap();
+    assert_eq!(operation.operation_key(), shared.operation_key);
+    let notification = operation.notification().unwrap();
+    assert_eq!(notification.method, json_rpc::MethodName::from(["webhooks", "powerautomate", "form"]));
+    let event: serde_json::Value = serde_json::from_str(operation.event_json()).unwrap();
+    assert_eq!(event["params"], serde_json::to_value(&admitted.submission).unwrap());
+    assert_eq!(admitted.branch, "acorn/powerautomate/pilot/2026-09");
+    assert_eq!(admitted.path, "pilot/index.json");
     server.stop().await.unwrap();
 }
 #[tokio::test]
@@ -174,10 +234,15 @@ async fn test_cutoff_rejection_is_inspectable_and_not_queued() {
     .unwrap();
     let options = Options::with_token("test").domain(&server.base_url).identifier("42").build();
     let queue = queue();
-    let content = format!("{}\n", raw("pilot", "123e4567-e89b-12d3-a456-426614174000"));
+    let before_cutoff = raw("folder-name", "123e4567-e89b-12d3-a456-426614174000");
+    let at_cutoff = raw("folder-name", "123e4567-e89b-12d3-a456-426614174001").replace("2026-09-18T12:00:00Z", "2026-10-01T00:00:00Z");
+    let content = format!("{before_cutoff}\n{at_cutoff}\n");
     let result = admit(&content, "first", &configuration(), &queue, &options).await;
     assert!(result[0].as_ref().unwrap().rejection.as_ref().unwrap().contains("predates"));
-    assert_eq!(queue.counts().unwrap().queued, 0);
+    let admitted: AdmittedSubmission = serde_json::from_str(result[1].as_ref().unwrap().admission.as_ref().unwrap()).unwrap();
+    assert_eq!(admitted.entry.project_id, "pilot");
+    assert_eq!(admitted.entry.timestamp, "2026-10-01T00:00:00Z");
+    assert_eq!(queue.counts().unwrap().queued, 1);
     server.stop().await.unwrap();
 }
 #[tokio::test]
@@ -314,25 +379,38 @@ async fn test_rejected_records_do_not_block_valid_projects_or_reserve_ids() {
 }
 #[tokio::test]
 async fn test_restart_replay_uses_original_route_and_rejects_changed_bytes() {
-    let server = server().await;
+    let reads = Arc::new(AtomicUsize::new(0));
+    let server = TestServer::start(
+        Router::new()
+            .fallback(|State(reads): State<Arc<AtomicUsize>>| async move {
+                reads.fetch_add(1, Ordering::SeqCst);
+                Json(serde_json::json!([]))
+            })
+            .with_state(reads.clone()),
+    )
+    .await
+    .unwrap();
     let options = Options::with_token("test").domain(&server.base_url).identifier("42").build();
     let database = temp_dir().join(format!("acorn-jsonl-restart-{}.db", nanoid::nanoid!()));
     let queue = OperationQueue::from(database.clone());
     let content = format!("{}\n", raw("folder-name", "123e4567-e89b-12d3-a456-426614174000"));
-    assert!(admit(&content, "first", &configuration(), &queue, &options).await[0]
-        .as_ref()
-        .unwrap()
-        .admission
-        .is_some());
+    let first = admit(&content, "first", &configuration(), &queue, &options).await;
+    let original = first[0].as_ref().unwrap().admission.as_ref().unwrap();
+    assert_eq!(reads.load(Ordering::SeqCst), 1);
     let restarted = OperationQueue::from(database);
     let mut changed = configuration();
     changed.folders.as_mut().unwrap().iter_mut().for_each(|folder| {
         folder.path = Some("moved/index.json".to_string());
         folder.aliases = None;
+        folder.members = None;
     });
     let outcomes = admit(&content, "second", &changed, &restarted, &options).await;
     let payload: AdmittedSubmission = serde_json::from_str(outcomes[0].as_ref().unwrap().admission.as_ref().unwrap()).unwrap();
+    assert_eq!(outcomes[0].as_ref().unwrap().admission.as_ref().unwrap(), original);
     assert_eq!(payload.path, "pilot/index.json");
+    assert_eq!(payload.branch, "acorn/powerautomate/pilot/2026-09");
+    assert_eq!(payload.project, 42);
+    assert_eq!(payload.domain, server.base_url);
     let formatted = format!(" {}", content);
     assert!(admit(&formatted, "third", &changed, &restarted, &options).await[0]
         .as_ref()
@@ -341,6 +419,7 @@ async fn test_restart_replay_uses_original_route_and_rejects_changed_bytes() {
         .is_some());
     assert!(!is_admitted(&snapshot(&formatted, "third").lines[0], &restarted).unwrap());
     assert_eq!(restarted.counts().unwrap().queued, 1);
+    assert_eq!(reads.load(Ordering::SeqCst), 1);
     server.stop().await.unwrap();
 }
 #[test]
@@ -357,4 +436,36 @@ fn test_source_identity_uses_existing_endpoint_scheme_and_removes_credentials() 
         ..intake.clone()
     };
     assert_ne!(source, source_identity(&other_branch, &options).unwrap());
+}
+#[tokio::test]
+async fn test_unauthorized_submission_is_rejected_before_external_reads() {
+    let reads = Arc::new(AtomicUsize::new(0));
+    let server = TestServer::start(
+        Router::new()
+            .fallback(|State(reads): State<Arc<AtomicUsize>>| async move {
+                reads.fetch_add(1, Ordering::SeqCst);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })
+            .with_state(reads.clone()),
+    )
+    .await
+    .unwrap();
+    let options = Options::with_token("test").domain(&server.base_url).identifier("42").build();
+    let queue = queue();
+    let mut value = serde_json::to_value(configuration()).unwrap();
+    value["buckets"] = serde_json::json!([
+        {"name":"collection", "source":{"provider":"gitlab", "id":42, "uri":format!("{}/example/collection", server.base_url)}}
+    ]);
+    value["folders"][0]["bucket"] = serde_json::json!("collection");
+    value["folders"][0]["members"] = serde_json::json!(["someone-else@example.org"]);
+    let configuration: ApplicationConfiguration = serde_json::from_value(value).unwrap();
+    let content = format!("{}\n", raw("folder-name", "123e4567-e89b-12d3-a456-426614174000"));
+    let outcomes = admit(&content, "first", &configuration, &queue, &options).await;
+    let outcome = outcomes[0].as_ref().unwrap();
+    assert!(outcome.rejection.as_ref().unwrap().contains("not authorized"));
+    assert!(outcome.admission.is_none());
+    assert!(!is_admitted(&snapshot(&content, "first").lines[0], &queue).unwrap());
+    assert_eq!(queue.counts().unwrap().queued, 0);
+    assert_eq!(reads.load(Ordering::SeqCst), 0);
+    server.stop().await.unwrap();
 }

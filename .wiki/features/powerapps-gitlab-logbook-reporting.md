@@ -1,7 +1,7 @@
 ---
 type: Plan
 title: "Complete GitLab JSONL logbook reporting"
-description: "Reuse the completed local admission contract in the GitLab bot and validate live Power Automate reporting."
+description: "Deploy the protected Power Automate flows and validate live GitLab logbook reporting on Vergil."
 difficulty: high
 impact: critical
 package: [workspace, acorn-lib, acorn-cli, acorn-schema]
@@ -14,14 +14,14 @@ phase_budget_hours: 5
 
 # Goal
 
-Reuse the completed offline form admission contract in the GitLab bot, then validate the Power Apps to GitLab to human review to report and callback path on Vergil.
+Complete the protected Power Automate intake and callback flows, then validate the Power Apps to GitLab to human review to report and callback path on Vergil.
 
 # Current evidence
 
 - The ACRE 2.0.0 configuration and strict form envelope are the accepted contract in `ACRE_SPEC.md` and `docs/src/concepts/acre.md`. Project routing uses a configured canonical folder ID or alias; destination and digest are fixed at admission.
 - The GitLab bot now snapshots and durably admits JSONL before conflict-safe cleanup, routes mixed-project records to their selected indexes, and persists review-event cursors across pagination and restarts. Local tests cover replays, concurrent inbox edits, rejection isolation, and routed review publication.
 - The offline manual MVP now stages, inspects, applies, and resumes a mixed-project JSONL batch. `make lint`, `make test` (2,525 passed), focused batch tests, and a disposable CLI run verified four lines across three local indexes, including two entries for one project, exact routes, replay, no-write failures, and receipt recovery. The local operator contract is documented in `ACRE_SPEC.md` and the intake CLI guide.
-- `Submission::admit` now provides canonical folder identity, authorization, normalized entry, and stable operation identity. The local batch consumes this result directly. GitLab JSONL calls it indirectly through `entry()` and `entry_after()`, but still canonicalizes its own submission and discards the rest of the shared result; PA-11 removes that adapter duplication.
+- The local batch and GitLab JSONL adapter now consume `Submission::admit` directly for canonical folder identity, authorization, normalized entry, and stable operation identity. The 39 focused admission, GitLab review, and bot cleanup tests pass, including preserved form fields and notifications, canonical alias cutoff checks, rejection before external reads, immutable replay after access/routing changes, and cleanup concurrency. Focused package Clippy passes with warnings denied. The GitLab destination and review branch remain fixed at admission.
 - The published tester canvas sent Teams and email notifications through its attached notification-only flow. The separate GitLab JSONL intake draft is off and unattached. No tested submission was persisted to CSV or JSONL by Power Automate. The pilot flow and service still require PA-02 through PA-09.
 - A read-only gate audit on 2026-10-17 found project `22464` suitable for an isolated pilot branch, but did not establish service credentials, cloud-to-GitLab reachability, callback policy, or an approved shared GCC environment. The PA-02 handoff below records the remaining decisions.
 
@@ -35,7 +35,7 @@ Reuse the completed offline form admission contract in the GitLab bot, then vali
 
 # Dependencies and acceptance
 
-PA-11 reuses shared canonical admission in GitLab JSONL and is ready without external approval. PA-02 resolves owners and access; PA-04 provisions protected credentials; PA-03 proves authenticated Vergil polling. PA-05 waits for PA-11 and those external gates before connecting the live flow. PA-06 through PA-09 prove review, publication, callbacks, and routing. The completed offline manual MVP is available as an operator fallback, with an explicit repository and inbox handoff before a GitLab bot resumes. The [runner-pool plan](../refactors/ci-runner-pools.md) owns reporting worker isolation, and the [database artifact plan](database-backed-artifact-generation.md) owns general database-backed rendering.
+PA-02 resolves owners and access; PA-04 provisions protected credentials; PA-03 proves authenticated Vergil polling. PA-05 waits for those external gates before connecting the live flow to the implemented shared admission path. PA-06 through PA-09 prove review, publication, callbacks, and routing. The completed offline manual MVP is available as an operator fallback, with an explicit repository and inbox handoff before a GitLab bot resumes. The [runner-pool plan](../refactors/ci-runner-pools.md) owns reporting worker isolation, and the [database artifact plan](database-backed-artifact-generation.md) owns general database-backed rendering.
 
 GitLab acceptance requires one authorized submission to produce one correctly routed review operation and human-merged entry, one immutable report package, one delivered notification event, and no duplicate effects after replay or restart. Two authorized project selections must affect only their configured indexes; an unauthorized selection must affect none. The redacted evidence bundle must identify exact flow, service, commit, merge request, package, callback, and replay outcomes. On completion, move the durable runbook to `.wiki/assets/powerautomate-logbook-reporting.md` or user documentation and retire this plan from every portfolio surface.
 
@@ -89,37 +89,6 @@ Run `intake export` after PA-06 creates the draft merge request, `intake deliver
 
 # Execution phases
 
-## PA-11 — Reuse shared admission in GitLab JSONL
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: none
-- Exact write set: `crates/acorn-lib/src/io/api/powerautomate/jsonl.rs`, `crates/acorn-lib/src/io/api/powerautomate/tests/jsonl.rs`, `crates/acorn-lib/src/io/api/gitlab/tests/jsonl.rs`, `.wiki/features/powerapps-gitlab-logbook-reporting.md`, `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
-- Primary integration lock: GitLab JSONL admission
-- Outcome: Consume `Submission::admit` directly for canonical folder identity and normalized entry while retaining exact-byte replay, fixed GitLab destination/branch, stable operation identity, and durable queue behavior.
-- Focused validation: Run the admission, GitLab JSONL review, and existing bot cleanup tests specified below; add focused parity assertions in the two owned test files where coverage is missing.
-- Handoff: Remove PA-11 after preserving parity evidence in tests and current evidence; remove its prerequisite from PA-05 and reconcile the five owned wiki surfaces. PA-05 remains blocked on PA-03/04; PA-02 remains independent.
-
-### PA-11 implementation preparation, 2026-10-20
-
-Baseline: clean worktree at `7fa17dab`. This preparation inspected source and existing tests; it did not rerun product tests. Recheck the worktree and revision before implementation. Claim the admission lock and serialize any overlap with sponsor-highlights GitLab adapter work.
-
-1. Preserve the initial operation-key lookup and exact raw/digest comparison before resolving current configuration or reading GitLab. An admitted replay must deserialize and reuse its stored payload even after aliases, members, paths, buckets, or reporting cutoffs change. Changed bytes under the same UUID remain a visible rejection.
-2. Retain GitLab-only destination checks and consume shared admission with the environment lookup used by `entry_after()`. Derive the normalized submission's project ID from `FormAdmission.folder_id`. Validate authorization before bucket or package reads, then obtain the authoritative entry through shared admission with the downloaded cutoff. Canonical project identity must drive package selection and the review branch. Do not introduce a second entry builder or an adapter-specific authorization rule.
-3. Retain bucket verification, service/project/path/branch capture, `AdmittedSubmission` serialization, and the existing atomic queue/evidence transaction. Validation failures remain durable per-line rejections; package, network, and storage failures remain retryable errors. Preserve `powerautomate:form:v1:<lowercase UUID>` and the existing notification payload. No public type, schema, CLI, or dependency change is required.
-4. Extend admission parity assertions in `powerautomate/tests/jsonl.rs`: compare canonical folder, normalized entry, and operation identity with shared admission; cover explicit and generated identifiers and preserved form fields. Strengthen replay coverage for configuration/access changes and verify unauthorized submissions cause no external reads. Reuse the existing mixed-project review assertions in `gitlab/tests/jsonl.rs` for destinations, branches, entry counts, and duplicate suppression.
-
-The admission tests already cover aliases and exact evidence, cutoff rejection, infrastructure failure, transaction rollback, bucket reordering, unsafe destinations, mixed selectors, rejected-line isolation, operation collisions, and restart replay. The GitLab tests cover routed publication and authorized graduation; bot tests cover concurrent append/cleanup and uncertain write responses. Existing bot tests are validation-only files outside this phase's write set.
-
-Run this focused suite before and after implementation, with `agentic` explicitly enabled so these modules are compiled:
-
-```sh
-cargo nextest run -p acorn-lib --lib --features agentic \
-  -E 'test(io::api::powerautomate::tests::jsonl::) | test(io::api::gitlab::tests::jsonl::) | test(io::api::gitlab::tests::bot::test_jsonl_)'
-```
-
-Format the changed Rust files and run focused package linting before handoff. Run `python3 .agents/skills/planning/scripts/validate_wiki.py` and inspect the diff after pruning PA-11. An unrelated baseline failure or required edit outside the declared files needs a separate bounded repair assignment.
-
 ## PA-02 — Resolve production owners and access gates
 
 - Status: blocked
@@ -133,7 +102,7 @@ Format the changed Rust files and run focused package linting before handoff. Ru
 
 ### PA-02 implementation preparation, 2026-10-20
 
-PA-02 is the second remaining phase in plan order. It is independent of PA-11 and remains blocked: this repository review found no decision record superseding the 2026-10-17 audit. The audit is historical evidence, not a current approval or live connectivity check. Waiting for decision makers is a prerequisite outside the five-hour active budget.
+PA-02 is the next remaining phase in plan order and remains blocked: the repository review found no decision record superseding the 2026-10-17 audit. The audit is historical evidence, not a current approval or live connectivity check. Waiting for decision makers is a prerequisite outside the five-hour active budget.
 
 For each row below, record the accountable owner, approving authority, decision, UTC date, and a reference to the approval or policy record. Record identifiers and protected-store references only; secret values belong in PA-04's approved stores.
 
@@ -145,7 +114,7 @@ For each row below, record the accountable owner, approving authority, decision,
 | Protected stores and Vergil operations | Named credential stores and custodians, Vergil service owner and deployment authority, and ownership of callback URL and startup inbound-secret references. Provisioning and service boot belong to PA-04 and PA-03. |
 | Review and notifications | Named human review/merge authority and accountable Teams/email destination owners. |
 
-Release PA-02 only when every row has dated approval evidence and no unresolved access decision. Policy questions require authorized decision makers; do not infer approval from the developer environment, a notification-only run, or the signed-in user's project role. Preserve the resulting approved target and secret references as the PA-04 handoff; PA-03 follows PA-04, and PA-05 follows PA-03/04 plus PA-11. No external system is changed during preparation.
+Release PA-02 only when every row has dated approval evidence and no unresolved access decision. Policy questions require authorized decision makers; do not infer approval from the developer environment, a notification-only run, or the signed-in user's project role. Preserve the resulting approved target and secret references as the PA-04 handoff; PA-03 follows PA-04, and PA-05 follows PA-03/04. No external system is changed during preparation.
 
 ### PA-02 gate audit, 2026-10-17
 
@@ -191,7 +160,7 @@ Release PA-02 only when every row has dated approval evidence and no unresolved 
 
 - Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: PA-03, PA-04, PA-11 (source configuration schema, snapshot reader, durable admission, cleanup, poller, and mixed-project publication code are landed)
+- Prerequisites: PA-03, PA-04 (shared form admission, source configuration schema, snapshot reader, durable admission, cleanup, poller, and mixed-project publication code are landed)
 - Exact write set: selected Power Apps intake flow, canvas submit action, isolated project `22464` inbox `.acorn/intake/logbook.jsonl`, Vergil JSONL source configuration
 - Primary integration lock: intake route
 - Outcome: Append the strict version-1 envelope with conflict-safe GitLab retries, configure the implemented repository-file poller, and return a confirmed queued receipt with submission ID and commit SHA.

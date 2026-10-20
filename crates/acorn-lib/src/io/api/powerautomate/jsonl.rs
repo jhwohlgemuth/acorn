@@ -16,6 +16,7 @@ use acorn_schema::{research_activity, validation::Validate};
 use color_eyre::eyre::eyre;
 use futures::{stream, StreamExt};
 use serde::{Deserialize, Serialize};
+use std::env;
 
 /// Entry and route fixed at the first successful admission.
 #[derive(Clone, Debug, Deserialize, Serialize, Validate)]
@@ -78,12 +79,14 @@ impl IntakeRecord {
                     | Ok(None) => match routing.resolve_folder(&submission.project_id) {
                         | Ok(folder) => match folder.destination {
                             | application::Destination::GitLab { project, path } if project.parse::<u64>().ok() == config.gitlab_project_id().ok() => {
-                                let normalized = form::Submission {
-                                    project_id: folder.folder.id,
-                                    ..submission
-                                };
-                                match normalized.entry(routing) {
-                                    | Ok(_) => match validate_bucket(routing, &normalized.project_id, config, options).await {
+                                let normalized = submission
+                                    .admit(routing, &|name| env::var(name).ok(), None)
+                                    .map(|admission| form::Submission {
+                                        project_id: admission.folder_id,
+                                        ..submission
+                                    });
+                                match normalized {
+                                    | Ok(normalized) => match validate_bucket(routing, &normalized.project_id, config, options).await {
                                         | Ok(Err(reason)) => queue.reject(record, reason),
                                         | Ok(Ok(bucket)) => {
                                             let package = gitlab::Package::new(
@@ -97,16 +100,19 @@ impl IntakeRecord {
                                             match latest {
                                                 | Ok(latest) => {
                                                     let cutoff = latest.as_ref().map(|manifest| manifest.through.as_str());
-                                                    let entry = normalized.entry_after(routing, cutoff);
+                                                    let admission = normalized.admit(routing, &|name| env::var(name).ok(), cutoff);
                                                     let branch = normalized.intake_branch();
                                                     let project_id = config.gitlab_project_id();
                                                     let url = gitlab::service_url(options);
-                                                    match (entry, branch, project_id, url) {
-                                                        | (Ok(entry), Ok(branch), Ok(project), Ok(domain)) => queue.persist(
-                                                            record,
+                                                    match (admission, branch, project_id, url) {
+                                                        | (Ok(admission), Ok(branch), Ok(project), Ok(domain)) => queue.persist(
+                                                            Self {
+                                                                operation_key: Some(admission.operation_key),
+                                                                ..record
+                                                            },
                                                             AdmittedSubmission {
                                                                 submission: normalized,
-                                                                entry,
+                                                                entry: admission.entry,
                                                                 project,
                                                                 domain,
                                                                 path,
