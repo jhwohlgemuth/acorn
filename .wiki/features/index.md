@@ -4,13 +4,13 @@
 
 - [Model acquisition and metadata hardening](model-acquisition-hardening.md) - Complete identity-safe Hugging Face requests, exact GGUF metadata, and ModelKit/ModelPack interoperability evidence.
 - [Needle routing and native capability parity](needle-router-native-parity.md) - Bring bounded native ACORN workflows behind `acorn ask` with measured parity.
-- [Power Automate GitLab JSONL intake and reporting](powerapps-gitlab-logbook-reporting.md) - The local JSONL-to-index-to-PDF/manifest path is verified alongside manual GitLab intake, diff export, and callback commands. External flow, Vergil boot, and live publication/callback acceptance remain.
+- [Local and GitLab JSONL logbook routing](powerapps-gitlab-logbook-reporting.md) - Build the manual multi-project batch MVP on shared admission code, then validate the authenticated Vergil flow, reviewed GitLab publication, and callbacks.
 
 ## Planned
 
 - [Sponsor highlights clarity](sponsor-highlights-clarity.md) - Add evidence-backed mission value, a consistent project synopsis, reviewed ASPECT graduation from logbook events, accessibility checks, and an approved distribution pilot.
 - [Grouped report separators](grouped-report-separators.md) - Add an optional combined PDF with ordered project groups and full-page office dividers; keep individual report publication unchanged.
-- [Generic ask executor adapters](ask-executor-adapters.md) - Add configured MCP, ACP, endpoint, and local-sidecar bindings after native parity.
+- [Generic ask executor adapters](ask-executor-adapters.md) - Add configured MCP, ACP, endpoint, and local-sidecar bindings after router contracts land; release follows native parity.
 - [Swift SLM capability profile](swift-slm-profile.md) - Release Tongue, Redact, and Title after licensing, host, artifact, and quality gates.
 - [Julia decision sidecar profile](julia-decision-sidecar.md) - Release advisory Choice and Noul decisions after independent parity and quality gates.
 - [Release-gated Beam inference integration](beam-inference-integration.md) - Verify released serving contracts, then evaluate an explicitly configured hosted or operator-owned endpoint independently of local SLM sidecars.

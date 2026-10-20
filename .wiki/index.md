@@ -17,7 +17,7 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Portfolio review
 
-Reviewed against the current tree on 2026-10-18. The portfolio contains 28 executable plans and two coordination records. Remaining work is tracked in the plans below; completed outcomes live in code, tests, and durable documentation.
+Reviewed against the current tree on 2026-10-19. The portfolio contains 28 executable plans and two coordination records. Remaining work is tracked in the plans below; completed outcomes live in code, tests, and durable documentation.
 
 Ranking uses impact first, then remaining difficulty, with user/architecture value and readiness as tie-breakers. “Quality” rates the plan rather than the proposed feature:
 
@@ -28,7 +28,7 @@ Ranking uses impact first, then remaining difficulty, with user/architecture val
 
 | Rank | Plan | Status | Impact | Difficulty | Quality | Value | Assessment |
 |---:|---|---|---|---|---|---|---|
-| 1 | [Power Automate GitLab JSONL intake](features/powerapps-gitlab-logbook-reporting.md) | In progress | Critical | Medium | A | Highest | Local JSONL stage/apply through updated PDF and manifest is verified. PA-02 waits on owner and access decisions; PA-03 through PA-09 retain live deployment and acceptance gates. |
+| 1 | [Local and GitLab JSONL logbook routing](features/powerapps-gitlab-logbook-reporting.md) | In progress | Critical | High | A | Highest | PA-10 through PA-18 deliver the manual multi-project MVP and shared bot admission contract without external approval; PA-16 closes that path. PA-02/04/03 gate the live Vergil flow. |
 | 2 | [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) | In progress | Critical | High | A | Highest | Removes silent/stale template output and partial PPTX mutation while unlocking `acorn-export`. |
 | 3 | [Outbound MCP client embedder interface](refactors/api/outbound-mcp-client-interface.md) | In progress | High | Medium | A | High | Client code and focused tests are complete; separately owned book integration remains before plan retirement. |
 | 4 | [Needle 3 release-host validation](migrations/needle-3-upgrade.md) | Waiting on validation | High | Medium | A | High | Linux x86_64 and ARM64 can validate directly on available Docker contexts; Windows jobs still await schedulable hosts. |
@@ -47,7 +47,7 @@ Ranking uses impact first, then remaining difficulty, with user/architecture val
 | 17 | [Deterministic and assisted gather extraction](features/gather-extraction.md) | Planned | High | High | A− | High | One ordered plan now preserves the deterministic-first security and provenance boundary across CLI and TUI. |
 | 18 | [Azure Cosmos DB bucket downloads](features/azure-cosmos-buckets.md) | Planned | High | High | B+ | Medium | Fits the landed source abstraction, but a preview SDK and no recorded deployment demand warrant validation before build-out. |
 | 19 | [Needle routing and native capability parity](features/needle-router-native-parity.md) | In progress | High | High | A− | High | Establish caller-owned Needle routing and measured native registry parity. |
-| 20 | [Generic ask executor adapters](features/ask-executor-adapters.md) | Planned | High | High | A− | High | Add configured MCP, ACP, endpoint, and local sidecar bindings after native parity. |
+| 20 | [Generic ask executor adapters](features/ask-executor-adapters.md) | Planned | High | High | A− | High | Build configured MCP, ACP, endpoint, and local sidecar bindings after router contracts land; release waits for native parity. |
 | 21 | [Swift SLM capability profile](features/swift-slm-profile.md) | Planned | High | High | B | Medium | Licensing, host, artifact, and quality gates precede a three-capability release. |
 | 22 | [Julia decision sidecar profile](features/julia-decision-sidecar.md) | Planned | High | High | B | Medium | Independent parity, quality, and resource gates precede an advisory decision release. |
 | 23 | [Grouped report separators](features/grouped-report-separators.md) | Planned | Medium | Medium | A | High | Directly requested multi-project report design with explicit group order and bounded local output phases. |
@@ -61,7 +61,7 @@ Ranking uses impact first, then remaining difficulty, with user/architecture val
 
 | Record | Quality | Impact | Value | Assessment |
 |---|---|---|---|---|
-| [Crate boundary architecture](refactors/crate-boundary-architecture.md) | A | Critical | Highest | The single package-ownership roadmap; schedule its ranked child plans or a named extraction slice, never the document as a whole. |
+| [Crate boundary architecture](refactors/crate-boundary-architecture.md) | A | Critical | Highest | Coordinates the remaining package map; existing child plans prepare API, export, and CLI contracts, while each future extraction needs its own atomic plan. |
 | [Ask routing and sidecar coordination](features/slm-sidecars.md) | A− | High | High | Orders native routing, generic adapters, and independently gated Swift and Julia releases. |
 
 ## Planning rules

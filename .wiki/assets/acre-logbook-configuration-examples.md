@@ -1,6 +1,6 @@
-# Proposed ACRE configuration examples
+# ACRE configuration examples
 
-These complete configuration documents demonstrate the ACRE 2.0.0 contract in [the owning plan](../features/powerapps-gitlab-logbook-reporting.md). Root `folders`/`members`/`variables` and `options` ownership match the implemented schema; the `options.powerAutomate.intake` source settings follow the settled contract implemented in PA-20. A deployment lists only the variable references it needs, as shown here.
+These complete configuration documents demonstrate the ACRE 2.0.0 contract in [the owning plan](../features/powerapps-gitlab-logbook-reporting.md). Root `folders`/`members`/`variables` and `options` ownership match the implemented schema, including the `options.powerAutomate.intake` source settings. A deployment lists only the variable references it needs, as shown here.
 
 ## JSON — `.acorn.json`
 
@@ -62,7 +62,7 @@ These complete configuration documents demonstrate the ACRE 2.0.0 contract in [t
 
 ```jsonc
 {
-  // Proposed schema version; not supported by the current implementation.
+  // ACRE 2.0.0 is implemented; deployment values below are placeholders.
   "schemaVersion": "2.0.0",
   // Global inline members combine with the environment-supplied list.
   "members": ["administrator@example.org"],

@@ -13,7 +13,7 @@ phase_budget_hours: 5
 
 # Goal
 
-Provide one `acorn ask` interface that selects an eligible native capability and executes it through the existing bounded ACORN services. Establish measured registry parity before the [generic adapter plan](ask-executor-adapters.md) adds external bindings. Preserve unfinished phase IDs while phases move between the atomic plans.
+Provide one `acorn ask` interface that selects an eligible native capability and executes it through the existing bounded ACORN services. Establish measured registry parity before the [generic adapter plan](ask-executor-adapters.md) releases heterogeneous routing. Adapter leaves may consume the frozen registry and execution contracts earlier. Preserve unfinished phase IDs while phases move between the atomic plans.
 
 ```text
 question/command + explicit inputs + application policy
@@ -66,7 +66,7 @@ Distinguish completed, needs-input/withheld, unavailable, permission-required, i
 
 PAR-00 freezes a machine-readable scenario matrix against the current CLI. Each row records code owner, input forms/options, outputs/artifacts, effects, feature/platform requirements, registry binding, phase, and equivalence test or explicit exclusion. PAR-17 then freezes routing cases. Count behavior, not aliases or duplicate handlers. Report covered/total bounded scenarios and covered/total CLI scenarios including exclusions; do not claim a percentage without a frozen denominator.
 
-All mandatory bounded scenarios must pass before new external-adapter/model work. This milestone covers existing behavior, not every shell convenience or planned ACORN feature.
+All mandatory bounded scenarios must pass before heterogeneous router release. Adapter and model-profile leaves may use the frozen contracts earlier under the shared integration locks. This milestone covers existing behavior, not every shell convenience or planned ACORN feature.
 
 | Capability family | Mandatory behavior | Phase |
 |---|---|---|
@@ -84,7 +84,7 @@ All mandatory bounded scenarios must pass before new external-adapter/model work
 | Sync | Current target configuration preview/apply | PAR-12 |
 | Report | Existing artifact generation and explicit publication | PAR-13 |
 | Script checks | Existing check/check-safe; no unrestricted automation | PAR-14 |
-| Prompt/MCP commands | Preserve direct commands; routed integration follows native parity | ADP-02 through ADP-04 |
+| Prompt/MCP commands | Preserve direct commands; heterogeneous release follows native parity | ADP-02 through ADP-04 |
 
 Exclude interactive TUI/clipboard UX, persistent servers, infrastructure/secret creation, automatic repair, and unrestricted automation from the bounded milestone. Keep them visible in the total CLI inventory. Unsupported flags/scenarios need explicit entries rather than disappearing from the denominator. Native-handler equivalence tests require no model weights; real Needle routing is a separate gate.
 
@@ -96,9 +96,9 @@ Registry/adapter leaves initially live under `crates/acorn-lib/src/io/mcp/tools/
 
 Scheduling order:
 
-1. SLM-00 caller-owned registry; PAR-00 parity inventory; PAR-17 routing corpus; RTR-01 through RTR-03 shared binding/context/CLI.
+1. SLM-00 caller-owned registry and PAR-00 parity inventory may proceed independently; PAR-18 through PAR-21 build the routing corpus in bounded batches, then PAR-17 freezes it. RTR-01 consumes both SLM-00 and PAR-17, then RTR-02 and RTR-03 establish execution and CLI contracts.
 2. PAR-01 through PAR-14 native capability coverage; PAR-15 real Needle routing; PAR-16 native parity release.
-3. The [generic adapter plan](ask-executor-adapters.md) follows native parity; Swift and Julia profiles consume its registration contract independently.
+3. The [generic adapter plan](ask-executor-adapters.md) begins after RTR-02. Its CLI composition also waits for RTR-03, and its heterogeneous release waits for PAR-16. Swift and Julia profiles consume its registration contract independently.
 
 Each phase has at most five active hours and an exact product write set. Reconcile this plan and its four index/network/lane files after each phase. PAR-00 must split missing reusable service seams into bounded extraction phases before an adapter begins; a cross-crate rewrite cannot hide inside a registration phase.
 
@@ -117,7 +117,7 @@ All registered native operations should support the same typed execution contrac
 
 # Dependencies and coordination
 
-The generic adapter plan follows native parity. The Swift and Julia profiles use its reusable sidecar registration contract. Serialize shared registry, Needle, CLI, and documentation roots with the [parallel guide](../parallel-execution.md).
+Generic adapter implementation consumes the frozen registry and execution contracts; generic release follows native parity. The Swift and Julia profiles use its reusable sidecar registration contract. Serialize shared registry, Needle, CLI, and documentation roots with the [parallel guide](../parallel-execution.md).
 
 # Execution phases
 
@@ -134,23 +134,67 @@ The generic adapter plan follows native parity. The Swift and Julia profiles use
 
 ## PAR-00 — Inventory native capability parity
 
-- Status: planned
+- Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: SLM-00
-- Exact write set: `tests/fixtures/routing/parity.json`, `docs/src/inference/capability-parity.md`
+- Prerequisites: none
+- Exact write set: `tests/fixtures/routing/parity.json`, `docs/src/inference/capability-parity.md`, `.wiki/features/needle-router-native-parity.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
 - Primary integration lock: Capability parity contract
 - Outcome: Inventory current CLI scenarios, mandatory bounded scope, exclusions, code owners, and operation-extraction needs; freeze bounded and total-CLI denominators.
 - Focused validation: Check unique scenario IDs, command coverage, phase ownership, and no duplicate-handler coverage inflation.
-- Handoff: Remove PAR-00 after preserving the inventory; PAR-17 owns routing cases.
+- Handoff: Remove PAR-00 after preserving the inventory. If a native family lacks a reusable operation seam or one listed leaf exceeds five active hours, add a bounded extraction or narrower parity phase with an exact write set and update its dependencies before starting that family; PAR-18 owns the first routing-case batch.
 
-## PAR-17 — Freeze the routing case corpus
+## PAR-18 — Draft safety and abstention routing cases
 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: PAR-00
 - Exact write set: `tests/fixtures/routing/cases.json`, `docs/src/inference/capability-parity.md`
 - Primary integration lock: Capability parity contract
-- Outcome: Freeze at least 200 labeled routing and equivalence cases with disjoint calibration and held-out splits against the PAR-00 inventory.
+- Outcome: Add at least 50 labeled forbidden, negated, ungrounded, missing-input, and ambiguous cases with expected nonexecution outcomes.
+- Focused validation: Check stable unique IDs, inventory references, split labels, and explicit no-effect expectations.
+- Handoff: Remove PAR-18 after preserving the cases; PAR-19 continues the same corpus.
+
+## PAR-19 — Draft read-only native routing cases
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-18
+- Exact write set: `tests/fixtures/routing/cases.json`, `docs/src/inference/capability-parity.md`
+- Primary integration lock: Capability parity contract
+- Outcome: Add at least 50 labeled check, diff, gather, doctor, SWHID, and other read-only native cases from the frozen inventory.
+- Focused validation: Check unique IDs, supported input forms, expected capability IDs, and calibration versus held-out labels.
+- Handoff: Remove PAR-19 after preserving the cases; PAR-20 covers effects and artifacts.
+
+## PAR-20 — Draft effect and artifact routing cases
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-19
+- Exact write set: `tests/fixtures/routing/cases.json`, `docs/src/inference/capability-parity.md`
+- Primary integration lock: Capability parity contract
+- Outcome: Add at least 50 labeled format, link, export, import, download, sync, report, and script-check cases, including preview and denied-apply outcomes.
+- Focused validation: Check unique IDs, exact authority and destination expectations, artifact references, and no execution when apply policy is absent.
+- Handoff: Remove PAR-20 after preserving the cases; PAR-21 covers remaining inventory and selection boundaries.
+
+## PAR-21 — Complete native selection boundary cases
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-20
+- Exact write set: `tests/fixtures/routing/cases.json`, `docs/src/inference/capability-parity.md`
+- Primary integration lock: Capability parity contract
+- Outcome: Add at least 50 labeled explicit-selection, availability, offline, equivalent-binding, and remaining mandatory-family cases without changing earlier held-out answers.
+- Focused validation: Check unique IDs, no implicit fallback, every mandatory family represented, and at least 200 total cases.
+- Handoff: Remove PAR-21 after preserving the cases; PAR-17 audits and freezes the complete corpus.
+
+## PAR-17 — Freeze the routing case corpus
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: PAR-21
+- Exact write set: `tests/fixtures/routing/cases.json`, `docs/src/inference/capability-parity.md`
+- Primary integration lock: Capability parity contract
+- Outcome: Audit and freeze the at-least-200-case routing and equivalence corpus with disjoint calibration and held-out splits against the PAR-00 inventory; do not author another case family in this gate.
 - Focused validation: Validate unique case IDs, complete mandatory scenario references, split separation, forbidden/negated/ungrounded cases, and no post-hoc gate changes.
 - Handoff: Remove PAR-17 after preserving the corpus and its denominator.
 
@@ -158,7 +202,7 @@ The generic adapter plan follows native parity. The Swift and Julia profiles use
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: PAR-17
+- Prerequisites: SLM-00, PAR-17
 - Exact write set: `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/capability.rs`, `crates/acorn-lib/src/io/mcp/tools/capability_tests.rs`
 - Primary integration lock: Ask capability routing
 - Outcome: Add capability identity/schema versions, typed binding registration, availability reasons, and deterministic selection in one registry. Preserve the catalog byte cap immediately, including deterministic explicit-scope filtering and clear narrowing errors; later parity additions must not silently break startup.
@@ -359,6 +403,6 @@ The generic adapter plan follows native parity. The Swift and Julia profiles use
 - Prerequisites: PAR-15
 - Exact write set: `tests/fixtures/routing/parity.json`, `docs/src/inference/capability-parity.md`, `docs/src/inference/router.md`, `docs/src/SUMMARY.md`, `CommandLineHelp.md`, `.wiki/features/needle-router-native-parity.md`, `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
 - Primary integration lock: Router release gate
-- Outcome: Publish measured coverage, exclusions, compatibility, and examples before external adapters. Failed scenarios remain remaining work.
+- Outcome: Publish measured coverage, exclusions, compatibility, and examples before heterogeneous router release. Failed scenarios remain remaining work.
 - Focused validation: Serialize make lint, make test, applicable feature/WASM checks, help/book checks, and matrix/equivalence audit.
-- Handoff: Retire this plan and its index, network, and lane entries after native parity acceptance; unblock ADP-01.
+- Handoff: Retire this plan and its index, network, and lane entries after native parity acceptance; unblock ADP-06's heterogeneous release gate.

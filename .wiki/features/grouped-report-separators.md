@@ -70,4 +70,15 @@ Run focused config and report tests, render all fixture PDF pages to images, ins
 - Primary integration lock: CLI contract
 - Outcome: Add an explicit `--collection-output PATH` option that writes the combined PDF locally while retaining existing per-project packages, manifests, and callbacks.
 - Focused validation: CLI parsing, dry-run fixture output, selected-subset behavior, and regression checks for individual project manifests.
-- Handoff: Document the local output contract and retire this plan once all acceptance checks pass.
+- Handoff: Document the local output contract and pass renderer and CLI evidence to SEP-04; remove this phase after its focused checks pass.
+
+## SEP-04 — Verify the combined report and retire
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: SEP-03
+- Exact write set: `docs/src/cli-reference/commands/report.md`, `.wiki/features/grouped-report-separators.md`, `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
+- Primary integration lock: report acceptance
+- Outcome: Publish the opt-in local output contract, confirm rendered-page and individual-report acceptance evidence, and retire this plan.
+- Focused validation: Recheck the multi-group visual fixture, selected-subset output, individual PDF/manifest regression, links, and wiki validation.
+- Handoff: Delete this plan and its index, network, and lane entries after the evidence is durable.

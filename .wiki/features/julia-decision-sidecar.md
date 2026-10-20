@@ -88,7 +88,7 @@ Measure cold/warm latency, p50/p95, peak process-tree RSS, installed/download by
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: PAR-16, named Julia pilot owner
+- Prerequisites: named Julia pilot owner
 - Exact write set: `scripts/slm/julia/README.md`, `.wiki/features/julia-decision-sidecar.md`
 - Primary integration lock: Julia adoption decision
 - Outcome: Pin code, weights, tokenizer, APIs, licenses, build, and offline packaging for Linux x86_64.
@@ -99,11 +99,11 @@ Measure cold/warm latency, p50/p95, peak process-tree RSS, installed/download by
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: JUL-01
+- Prerequisites: JUL-01; named evaluation owner supplies and reviews the Choice and Noul corpora, each with at least 200 labeled cases and disjoint development/test splits
 - Exact write set: `tests/fixtures/slm/decision/contract.json`, `tests/fixtures/slm/decision/choice-evaluation.jsonl`, `tests/fixtures/slm/decision/noul-evaluation.jsonl`, `docs/src/inference/julia-evaluation.md`
 - Primary integration lock: Julia pilot contract
-- Outcome: Approve schemas, abstention, limits, baseline, at least 200 cases, quality, parity, and resource gates.
-- Focused validation: Review development/test separation and every expected outcome with the named owner.
+- Outcome: Validate and freeze the owner-supplied corpora, schemas, abstention, limits, baseline, quality, parity, and resource gates without authoring the full evaluation set inside this phase.
+- Focused validation: Check schema, count, duplicate IDs, development/test separation, and an independent label sample against the owner's reviewed source.
 - Handoff: Remove JUL-02 and prohibit post-hoc gate changes.
 
 ## JUL-03 — Implement the pinned Python reference runner
@@ -253,7 +253,7 @@ Measure cold/warm latency, p50/p95, peak process-tree RSS, installed/download by
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: JUL-13, JUL-14
+- Prerequisites: ADP-07, JUL-13, JUL-14
 - Exact write set: `docs/src/inference/slm.md`, `docs/src/SUMMARY.md`, `.wiki/index.md`, `.wiki/features/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/features/julia-decision-sidecar.md`
 - Primary integration lock: SLM release gate
 - Outcome: Publish the advisory decision profile after its own gates pass; do not wait for Swift release.

@@ -35,7 +35,7 @@ The following retained upstream evidence was checked on 2026-09-22; it is model-
 - **Runtime ownership:** ACORN maintains one pinned Swift package with a separate executable for each capability. Do not depend on an unversioned upstream command-line interface.
 - **Platforms:** Tongue and Redact target Linux x86_64, Linux ARM64, and macOS ARM64. Title targets macOS ARM64 only. Windows model runners are unsupported in this Swift profile; the generic framework retains existing host support.
 - **Stability:** all three capabilities remain unreleased until their functional, quality, licensing, packaging, and platform gates pass. Do not label only a subset experimental to work around a missing gate.
-- **Routing:** The shared SLM-00/RTR/PAR framework comes first. Register concrete sidecars as executor bindings after ADP-05; Needle selects the capability and its bound sidecar returns the terminal result.
+- **Routing:** The SLM-00/RTR registry and execution contracts come before concrete sidecar registration at ADP-05. Native parity and generic adapter release gate the Swift profile release; Needle selects the capability and its bound sidecar returns the terminal result.
 - **Invocation:** `acorn ask` is the single user-facing question/command interface; download remains explicit. There is no automatic model download, background inference, remote fallback, model-driven record mutation, or default integration with check, gather, export, or validation.
 - **Licensing:** legal/redistribution approval for the pinned SDK and weights is a hard release gate, not a documentation follow-up.
 
@@ -72,7 +72,7 @@ Set `DAL_USAGE_DISABLED=1` for every managed process and verify offline executio
 
 # SLM implementation sequence
 
-After native parity and the shared adapter contract, execute SLM-01 through SLM-22 for Swift. Publish immutable assets before pinning hashes in Rust. Register each model as a capability executor behind `acorn ask`; retain explicit `acorn download slm <language|redact|title> [--status]` and custom locations. Licensing and host prerequisites apply to this profile. The [Julia profile](julia-decision-sidecar.md) has independent phases and gates.
+Legal, host, and artifact feasibility work may proceed independently of native parity. Register each model as a capability executor after ADP-05, but release the profile only after ADP-07. Publish immutable assets before pinning hashes in Rust; retain explicit `acorn download slm <language|redact|title> [--status]` and custom locations. The [Julia profile](julia-decision-sidecar.md) has independent phases and gates.
 
 # Swift quality and release gates
 
@@ -315,7 +315,7 @@ After native parity and the shared adapter contract, execute SLM-01 through SLM-
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SLM-14
+- Prerequisites: SLM-14; evaluation owner supplies and reviews the labeled prose corpus and ambiguous-case expectations before scoring
 - Exact write set: `tests/fixtures/slm/language/evaluation.jsonl`, `docs/src/inference/slm-evaluation.md`
 - Primary integration lock: SLM evaluation
 - Outcome: Measure at least 95% top-1 accuracy and required abstention on predeclared ambiguous cases.
@@ -326,7 +326,7 @@ After native parity and the shared adapter contract, execute SLM-01 through SLM-
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SLM-15
+- Prerequisites: SLM-15; evaluation owner supplies and reviews the labeled sensitive-span corpus before scoring
 - Exact write set: `tests/fixtures/slm/redact/evaluation.jsonl`, `docs/src/inference/slm-evaluation.md`
 - Primary integration lock: SLM evaluation
 - Outcome: Measure at least 85% macro recall and 95% precision across the frozen labels.
@@ -337,7 +337,7 @@ After native parity and the shared adapter contract, execute SLM-01 through SLM-
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SLM-16
+- Prerequisites: SLM-16; evaluation owner freezes the title corpus and blinded reviewers are available for the scoring window
 - Exact write set: `tests/fixtures/slm/title/evaluation.jsonl`, `docs/src/inference/slm-evaluation.md`
 - Primary integration lock: SLM evaluation
 - Outcome: Measure 90% reviewer acceptance, zero unsupported claims, and 95% canonical validation compliance.
@@ -348,7 +348,7 @@ After native parity and the shared adapter contract, execute SLM-01 through SLM-
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SLM-18, SLM-19, SLM-20, SLM-21
+- Prerequisites: ADP-07, SLM-18, SLM-19, SLM-20, SLM-21
 - Exact write set: `docs/src/inference/slm.md`, `docs/src/cli-reference/configuration.md`, `.wiki/features/swift-slm-profile.md`, `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
 - Primary integration lock: SLM release gate
 - Outcome: Run all platform/lifecycle/license/quality gates and mark only the tested three-capability profile stable.

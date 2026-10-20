@@ -2,7 +2,7 @@
 
 ## Coordination
 
-- [Crate boundary architecture](crate-boundary-architecture.md) - Split `acorn-lib` into explicitly owned portable domains, adapters, and services.
+- [Crate boundary architecture](crate-boundary-architecture.md) - Coordinate remaining package owners and add atomic extraction plans after their prerequisite contracts land.
 
 ## In progress
 

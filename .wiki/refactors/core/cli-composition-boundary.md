@@ -186,4 +186,15 @@ The [native routing plan](../../features/needle-router-native-parity.md) owns ca
 - Primary integration lock: CLI composition root
 - Outcome: Render one report and map parse/setup/command/silent/internal failures to explicit tested exits.
 - Focused validation: Run binary failure tests, feature combinations, help generation, `make lint`, and `make test`.
-- Handoff: Remove this completed plan and all index, network, and lane entries.
+- Handoff: Remove CLI-10 after the error and exit contract passes; pass the final evidence to CLI-11.
+
+## CLI-11 — Reconcile the CLI boundary and retire
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CLI-10
+- Exact write set: `.wiki/refactors/core/cli-composition-boundary.md`, `.wiki/refactors/core/index.md`, `.wiki/refactors/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
+- Primary integration lock: CLI acceptance
+- Outcome: Verify the normalized command and startup contracts against the accepted command tests and retire this plan.
+- Focused validation: Recheck focused binary and command results, generated help, internal links, and wiki validation.
+- Handoff: Delete this plan and its index, network, and lane entries after the contract evidence is durable.

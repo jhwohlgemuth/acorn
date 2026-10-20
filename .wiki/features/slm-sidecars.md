@@ -17,8 +17,8 @@ Coordinate four atomic outcomes without assigning this record as implementation 
 # Child plans and order
 
 1. [Needle routing and native capability parity](needle-router-native-parity.md) establishes the catalog, caller-owned registry, bounded terminal execution, and measured native parity.
-2. [Generic ask executor adapters](ask-executor-adapters.md) adds configured MCP, ACP, endpoint, and local-sidecar bindings after native parity.
-3. [Swift SLM capability profile](swift-slm-profile.md) releases Tongue, Redact, and Title after generic registration, legal approval, build hosts, and quality gates.
-4. [Julia decision sidecar profile](julia-decision-sidecar.md) releases advisory Choice and Noul decisions independently of the Swift profile after generic registration and its own parity, quality, and resource gates.
+2. [Generic ask executor adapters](ask-executor-adapters.md) implements configured MCP, ACP, endpoint, and local-sidecar bindings after the registry and execution contracts land; heterogeneous release waits for native parity.
+3. [Swift SLM capability profile](swift-slm-profile.md) builds on generic sidecar registration and releases Tongue, Redact, and Title after generic router release, legal approval, build hosts, and quality gates.
+4. [Julia decision sidecar profile](julia-decision-sidecar.md) builds on generic sidecar registration and releases advisory Choice and Noul decisions independently of the Swift profile after generic router release and its own parity, quality, and resource gates.
 
 The [dependency network](../plan-network.md) and [parallel guide](../parallel-execution.md) own cross-plan sequencing and shared locks. Unfinished phase IDs remain stable in the child plans.

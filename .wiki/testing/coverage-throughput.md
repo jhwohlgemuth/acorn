@@ -59,7 +59,7 @@ Independent of every feature and refactor plan; it owns only developer-workflow 
 - No test is skipped by default without a named gate that runs it.
 - Coverage line mapping is unchanged by profile tuning.
 - The recommended inner loop is documented where developers already look.
-- The measured before/after wall clock is recorded in this plan before the plan is retired.
+- The measured before/after wall clock and recommended inner loop are recorded in durable developer documentation before this plan is retired.
 
 # Out of scope
 
@@ -109,4 +109,15 @@ Splitting `acorn-lib` would reduce rebuild cost further, but it is a package-own
 - Primary integration lock: workspace graph (root manifest)
 - Outcome: The coverage profile stops paying optimized codegen for dependencies while preserving coverage line mapping.
 - Focused validation: Scoped coverage run before and after; compare lcov totals and run `make check-dependencies`.
-- Handoff: Remove COVT-04, then run the full local loop and delete this plan with every index, network, and lane entry.
+- Handoff: Remove COVT-04 and pass the profile and line-mapping evidence to COVT-05.
+
+## COVT-05 — Publish the measured loop and retire
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: COVT-03, COVT-04
+- Exact write set: `docs/src/learn/developer.md`, `.wiki/testing/coverage-throughput.md`, `.wiki/testing/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
+- Primary integration lock: developer verification guidance
+- Outcome: Publish cold/warm measurements, coverage scope and line-mapping evidence, the named slow gate, and the recommended inner loop; retire this plan.
+- Focused validation: Run the full local loop once, verify the documented targets and links, and validate the wiki.
+- Handoff: Delete this plan and its index, network, and lane entries after measurements survive in developer documentation.

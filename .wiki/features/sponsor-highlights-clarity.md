@@ -242,4 +242,15 @@ Use focused schema and report-command tests, a dry-run over `tests/fixtures/repo
 - Primary integration lock: export dispatch and PDF template
 - Outcome: Add a concise capability-transition line to the relevant project synopsis when an accepted ASPECT graduation has evidence in the reporting window. Name the target and prior/new value with a source-entry reference; do not present a pending proposal as achieved impact.
 - Focused validation: Focused renderer tests and visual review for accepted maturity, another accepted ASPECT target, pending/rejected evidence, and a project with no capability transition.
-- Handoff: Record rendered-page evidence and release the renderer lock; remove this phase after checks pass.
+- Handoff: Record rendered-page evidence and release the renderer lock; pass acceptance evidence to HIL-18 and remove this phase after checks pass.
+
+## HIL-18 — Reconcile sponsor evidence and retire
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: HIL-06, HIL-07, HIL-17
+- Exact write set: `docs/src/cli-reference/commands/report.md`, `.wiki/features/sponsor-highlights-clarity.md`, `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
+- Primary integration lock: sponsor report acceptance
+- Outcome: Preserve editorial, ASPECT graduation, accessibility, and approved publication or deferral evidence in durable guidance; retire this plan.
+- Focused validation: Review the synthetic monthly report, accepted target-specific graduation evidence, PDF accessibility result, publication decision, links, and wiki validation.
+- Handoff: Delete this plan and its index, network, and lane entries after acceptance evidence is durable.

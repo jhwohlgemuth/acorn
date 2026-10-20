@@ -1,10 +1,10 @@
 ---
 type: Plan
 title: "Split ACORN along layered crate boundaries"
-description: "Decompose acorn-lib into portable domain crates, capability adapters, and application services with explicit ownership."
+description: "Coordinate the remaining package ownership boundaries and their prerequisite plans."
 difficulty: high
 impact: critical
-package: [workspace, acorn-lib, acorn-core, acorn-schema, acorn-analysis, acorn-api, acorn-store, acorn-export, acorn-host, acorn-wasm, acorn-service, acorn-server, acorn-cmd]
+package: [workspace, acorn-lib, acorn-core, acorn-schema, acorn-analysis, acorn-host, acorn-wasm, acorn-service, acorn-server, acorn-cmd]
 tags: [refactor, architecture, crate-extraction, portability, dependencies]
 status: in-progress
 execution: coordination
@@ -12,36 +12,14 @@ execution: coordination
 
 # Goal
 
-Replace the current all-purpose `acorn-lib` package with a directed set of crates whose dependencies follow domain, adapter, service, and interface layers. Ownership transfers are explicit semver changes: consumers import the owning crate directly, and `acorn-lib` does not mask moves with compatibility re-exports.
-
-# Current priority
-
-This plan is coordination-only. `acorn-schema`, `acorn-cmd`, the initial `acorn-host` capabilities, `acorn-analysis`, `acorn-service`, and the `acorn-server` composition root are extracted with direct first-party imports. The analyzer and service kernels compile independently under portable feature configurations and have direct, WASM, JSON-RPC, and gRPC consumers. The current boundary-consistency pass established schema-owned string/byte codecs, a portable operation/effect model, and working service/server consumers. Remaining package extraction is owned by the linked executable plans below.
+Coordinate the remaining extraction from `acorn-lib` into portable domains, adapters, services, and interfaces. This record defines package direction and ownership; an atomic executable plan owns each future extraction. Ownership transfers are explicit semver changes: consumers import the owning crate directly, and `acorn-lib` does not mask moves with compatibility re-exports.
 
 # Current evidence
 
-- `acorn-lib` now exposes analyzer, I/O, host utility, and doctor modules; schema implementation has moved to `acorn-schema`, command construction/execution to `acorn-cmd`, and initial filesystem, configuration, HTTP, download, source, and terminal capabilities to `acorn-host`.
-- `acorn-schema` now owns the portable `DocumentCodec` contract and RAD Markdown decoder. Service validation, repository normalization, configuration parsing, and host path adapters call those codecs instead of maintaining format-specific serde branches.
-- `acorn-core` now owns invocation context, principal, capability effects, and authorization. `acorn-service` owns the sole JSON-RPC framing, method catalog, schema definition, dispatch, and policy implementation; `acorn-lib` retains only host handler and durable-operation adapters.
-- Repository `validate`, `check`, `format`, and `link` actions now have distinct behavior, invalid RAD Markdown cannot silently downgrade to generic Markdown, and duplicate or empty action requests fail explicitly. Enrichment remains an explicit denied host capability until its port exists.
-- The gRPC command always compiles its real server path; the former empty `grpc` feature and success-returning shell have been removed.
-- `crates/acorn-core` now owns portable errors, location/repository values, MIME/checksum/version values, and core/alloc utility implementations. First-party consumers import them directly from `acorn-core`; `acorn-lib` retains only host extensions and host utilities.
-- Remaining coupling is concentrated inside `acorn-lib`: analyzer host execution, provider APIs, persistence, export, and workflows still share I/O and utility boundaries.
-- The outbound MCP client now combines configuration and operation policy with concrete child-process and HTTP transports in `io::mcp`; extraction must separate service orchestration from native transport without changing the landed MCP contract.
-- Schema string/byte codecs remain with schema types, while their path/file `InputOutput` implementations and migration machinery live in the std-only `io::adapter` module.
-- The portable foundation is extracted: `AcornError` and `AcornResult` are independent of host reporting, and core/alloc utilities are imported from their owning crate without legacy facade paths.
-- Minimal and alloc builds no longer resolve `color-eyre`, `console`, `owo-colors`, `rust-embed`, or `similar`; immutable validation reference data is compiled directly without the generic embedded-asset runtime.
-- Default, minimal, alloc, and `wasm32-unknown-unknown` checks pass. The dependency tree excludes the earlier presentation/generic-asset leakage.
-- Existing ACORN product crates now live under `crates/`; repository-only tooling such as `xtask` and `fuzz` remains at the workspace root. New packages in this plan have a stable nested destination before extraction begins.
-- Utility implementations now have explicit core, alloc, and std ownership; `acorn-lib` no longer exposes `util::core`, `util::portable`, or flat core-utility re-exports.
-- ACORN owns one alloc-compatible validation engine and derive; schema validation no longer resolves `validator` or `validator_derive`, generated validation uses core/alloc paths, and deterministic flat reports preserve nested and indexed paths.
-- OpenCode path I/O, model-weight persistence, RAD Markdown document indexing, and contextual RAD formatting now live in host adapter modules. Schema license and programming-language validation no longer reads process environment or databases.
-- Remaining schema-boundary cleanup is concentrated in agent prompt asset hydration and other feature-dependent transformations; path/file adapters and OpenCode CST preservation already remain outside `acorn-schema`.
-- Analyzer Vale output DTOs are separated from Vale runtime configuration, but path analysis, rendering, discovery, and `analysis -> std` remain host-coupled.
-- `analyzer` combines check models and readability transformations with HTTP, filesystem, database, document conversion, and process execution.
-- `io` combines provider APIs, databases, document rendering, downloads, configuration, source handling, synchronization, and application workflows.
-- The `std` feature enables unrelated host capabilities, so consumers cannot select a narrow dependency graph.
-- Existing portability, analyzer, API, export, and command-extraction plans already define prerequisite boundaries but do not provide one target package graph.
+- `acorn-core`, `acorn-schema`, `acorn-analysis`, `acorn-cmd`, `acorn-host`, `acorn-service`, and `acorn-server` exist under `crates/`. Portable values, schema codecs, analysis data, command execution, initial native capabilities, application policy, and protocol listeners have distinct owners.
+- `acorn-lib` still combines analyzer host execution, provider clients, persistence, export, and workflows. Its broad `std` feature enables unrelated native capabilities.
+- The outbound MCP client still combines service policy with native child-process and HTTP transports; extraction must preserve its landed contract.
+- The [shared API client](api/shared-client-contract.md) and [export pipeline](core/export-pipeline-hardening.md) plans prepare contracts for `acorn-api` and `acorn-export`. Neither creates those target packages; `acorn-store` has no executable extraction plan yet.
 
 # Target package graph
 
@@ -110,12 +88,12 @@ Individual schemas, providers, commands, doctor checks, and generic utility coll
 
 # Coordination boundaries
 
-This record owns package direction and phase ordering, not implementation files. The [shared API client plan](api/shared-client-contract.md) prepares `acorn-api`; the [export pipeline plan](core/export-pipeline-hardening.md) prepares `acorn-export`; the [CLI composition plan](core/cli-composition-boundary.md) owns interface cutover. Package extraction requires an atomic child plan with an exact write set, lock, and five-hour phases before any code assignment.
+This record owns package direction, not implementation files or phases. The [shared API client plan](api/shared-client-contract.md) prepares `acorn-api`; the [export pipeline plan](core/export-pipeline-hardening.md) prepares `acorn-export`; the [CLI composition plan](core/cli-composition-boundary.md) owns interface cutover. Create an atomic extraction plan with current evidence, exact write sets, one primary lock per phase, and five-hour outcomes when a prerequisite contract lands. Do not treat a preparation plan as the extraction assignment.
 
 # Plan dependencies
 
 - **Satisfied prerequisite:** the implemented portability matrix proves the analyzer boundary in-tree; that result does not itself authorize package extraction.
-- **Boundary inputs:** the analyzer/service/server extraction, `acorn-cmd`, and initial `acorn-host` boundaries are implemented; the [shared API client contract](api/shared-client-contract.md) prepares `acorn-api`; the [shared export and OOXML pipeline](core/export-pipeline-hardening.md) prepares `acorn-export`.
+- **Boundary inputs:** the analyzer/service/server extraction, `acorn-cmd`, and initial `acorn-host` boundaries are implemented; the [shared API client contract](api/shared-client-contract.md) prepares `acorn-api`; the [shared export and OOXML pipeline](core/export-pipeline-hardening.md) prepares `acorn-export`. No active plan owns package creation or `acorn-store` extraction.
 - **Downstream:** the implemented portability matrix expands with each accepted extraction. Browser adapters or consumer-owned host ports require a concrete alternate implementation and a new atomic plan.
 - The complete ordering and shared-file collision map is maintained in the [plan dependency network](../plan-network.md).
 
@@ -140,13 +118,13 @@ This architecture record is coordination-only. Before assigning extraction work,
 
 # Active child plans
 
-- [Shared API client contract](api/shared-client-contract.md) stabilizes endpoint, request, response, error, and provider mechanics before `acorn-api` extraction.
-- [Shared export and OOXML pipeline](core/export-pipeline-hardening.md) establishes pure in-memory transformations before `acorn-export` extraction.
+- [Shared API client contract](api/shared-client-contract.md) stabilizes endpoint, request, response, error, and provider mechanics before a separate `acorn-api` extraction plan.
+- [Shared export and OOXML pipeline](core/export-pipeline-hardening.md) establishes pure in-memory transformations before a separate `acorn-export` extraction plan.
 - [CLI composition boundary](core/cli-composition-boundary.md) keeps parsing and presentation at the interface root.
 - [Structured research-activity enrichment](core/research-activity-enrichment-integration.md) owns its schema/service seam.
 - [Portable diff hardening](acorn-diff-resource-and-api-hardening.md) and [ZON codec hardening](zon-codec-hardening.md) remain independent portable leaves.
 
-Further parity or package-extraction work is not scheduled by this record. Create a separate atomic plan with current code evidence, one outcome, exact ownership, and focused validation before promoting it to the portfolio.
+No package-extraction work is scheduled by this record. Create a separate atomic plan with current code evidence, one outcome, exact ownership, and focused validation before promoting it to the portfolio.
 
 # Compatibility
 
@@ -156,29 +134,9 @@ Further parity or package-extraction work is not scheduled by this record. Creat
 - Do not add schema, core, or future extracted-package facades that obscure ownership; use direct dependencies and semver changes.
 - Use aligned workspace versions for the initial package set so dependency and release ordering remain explicit.
 
-# Validation
+# Extraction-plan requirements
 
-1. Run focused tests after each boundary change and extraction, followed by `make lint` and `make test`.
-2. Compile the in-tree portable boundaries and `acorn-schema` without default features and with supported alloc combinations; compile browser composition separately through `acorn-wasm` for `wasm32-unknown-unknown`.
-3. Inspect resolved feature trees and confirm foundational crates do not contain HTTP, database, process, terminal, embedded-asset, or async-runtime dependencies.
-4. Test direct owning-crate imports plus host I/O extension traits, and scan for ownership-masking re-exports.
-5. Build and smoke-test the CLI, TUI, and JS/WASM bindings against their direct dependencies and composition roots.
-6. Run `cargo package` or `cargo publish --dry-run` for each publishable crate in dependency order.
-7. Measure binary and compile-time changes under their existing plans; crate extraction alone is not evidence of a size improvement.
-
-# Acceptance criteria
-
-- Cargo resolves an acyclic package graph matching the documented dependency direction.
-- Every ACORN product crate is a direct child of `crates/`, and workspace tooling resolves fixtures and manifests without relying on the former top-level crate paths.
-- `acorn-core` and `acorn-schema` compile without host-only services.
-- `acorn-wasm` is the only crate that owns browser bindings and concrete browser adapters.
-- Schemas do not directly read paths or URLs, and analysis logic does not instantiate concrete host services.
-- Provider clients, stores, exporters, host adapters, and workflows have distinct ownership boundaries.
-- `acorn-lib` contains no schema implementation or schema re-export facade.
-- CLI behavior, file formats, offline behavior, and diagnostics remain compatible; import and feature paths may change at explicit semver boundaries.
-- First-party interfaces can select their required capabilities without enabling unrelated dependency stacks.
-- Service use cases can be composed with either native or browser-supported adapters without depending on `acorn-host` directly.
-- Full workspace lint, test, packaging, and supported feature-matrix checks pass.
+Each future package extraction must name the exact current modules and their target owner, move one independently useful boundary, preserve direct first-party imports, and pass focused portability and behavior checks. Its final integration phase owns manifests, feature matrices, package checks, CLI/TUI/WASM consumers, and retirement of that executable plan. This coordination record remains until the target ownership map has no remaining extraction work.
 
 # Related plans
 
