@@ -4,7 +4,7 @@
 
 - [Model acquisition and metadata hardening](model-acquisition-hardening.md) - Complete identity-safe Hugging Face requests, exact GGUF metadata, and ModelKit/ModelPack interoperability evidence.
 - [Needle routing and native capability parity](needle-router-native-parity.md) - Bring bounded native ACORN workflows behind `acorn ask` with measured parity.
-- [GitLab JSONL logbook reporting](powerapps-gitlab-logbook-reporting.md) - Expose durable callback identity in PA-12, deploy protected intake and callback flows, then validate Vergil polling, reviewed publication, and routing.
+- [GitLab JSONL logbook reporting](powerapps-gitlab-logbook-reporting.md) - Deploy protected intake and callback flows using the implemented admission and callback-ID contracts, then validate Vergil polling, reviewed publication, and routing.
 
 ## Planned
 

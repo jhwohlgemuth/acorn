@@ -1,6 +1,6 @@
 //! Durable provider-neutral webhook delivery and operation queue.
 use crate::io::api::json_rpc::{InvocationContext, JsonRpcOperationRegistry, Notification};
-use crate::io::api::webhooks::{self, CallbackResolver, OperationSpec, PreparedDelivery, WebhookRuntime};
+use crate::io::api::webhooks::{self, CallbackHeader, CallbackResolver, OperationSpec, PreparedDelivery, WebhookRuntime};
 #[cfg(not(feature = "duckdb"))]
 use crate::io::database::backend::Error::QueryReturnedNoRows;
 use crate::io::database::backend::{params, Connection};
@@ -11,7 +11,7 @@ use crate::util::constants::app::{MAX_WEBHOOK_OPERATION_ATTEMPTS, MAX_WEBHOOK_OP
 use acorn_core::util::to_rfc3339;
 use acorn_schema::validation::Validate;
 use color_eyre::eyre::eyre;
-use core::fmt;
+use core::{fmt, iter::once};
 use jiff::{SignedDuration, Timestamp};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -241,12 +241,23 @@ impl<S: HttpService, R: CallbackResolver> CallbackWorker<S, R> {
                                     );
                                     dispatch.await.map(|result| result.status_code).map_err(|why| why.to_string())
                                 }
-                                | None => match serde_json::from_str::<serde_json::Value>(&callback.payload_json) {
-                                    | Ok(payload) => webhooks::dispatch(&self.service, target, &payload, headers)
-                                        .await
-                                        .map(|result| result.status_code)
-                                        .map_err(|why| why.to_string()),
-                                    | Err(why) => Err(format!("Failed to decode durable callback payload — {why}")),
+                                | None => match CallbackHeader::public("webhook-id", &callback.callback_key) {
+                                    | Ok(identity) => {
+                                        let headers = headers
+                                            .iter()
+                                            .filter(|header| header.name.as_str() != "webhook-id")
+                                            .cloned()
+                                            .chain(once(identity))
+                                            .collect::<Vec<_>>();
+                                        match serde_json::from_str::<serde_json::Value>(&callback.payload_json) {
+                                            | Ok(payload) => webhooks::dispatch(&self.service, target, &payload, &headers)
+                                                .await
+                                                .map(|result| result.status_code)
+                                                .map_err(|why| why.to_string()),
+                                            | Err(why) => Err(format!("Failed to decode durable callback payload — {why}")),
+                                        }
+                                    }
+                                    | Err(why) => Err(why.to_string()),
                                 },
                             }
                         }

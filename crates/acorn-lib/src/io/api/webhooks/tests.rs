@@ -1,6 +1,9 @@
 #![allow(clippy::indexing_slicing)]
 
 use super::*;
+use crate::io::database::backend::params;
+use crate::io::http::HttpResponse;
+use alloc::collections::BTreeMap;
 use alloc::sync::Arc as StdArc;
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
@@ -18,10 +21,15 @@ struct FakeEvent {
 struct FakeProvider {
     verifier: HeaderSecretVerifier,
 }
-#[derive(Default)]
+#[derive(Clone, Default)]
+struct LostResponseReceiver {
+    effects: StdArc<Mutex<BTreeMap<String, serde_json::Value>>>,
+    requests: StdArc<Mutex<Vec<HttpRequest>>>,
+}
+#[derive(Clone, Default)]
 struct RecordingService {
-    calls: AtomicUsize,
-    request: Mutex<Option<HttpRequest>>,
+    calls: StdArc<AtomicUsize>,
+    request: StdArc<Mutex<Option<HttpRequest>>>,
     error: bool,
 }
 impl CallbackResolver for FakeCallbackResolver {
@@ -29,6 +37,20 @@ impl CallbackResolver for FakeCallbackResolver {
         match name {
             | "audit" => CallbackTarget::new("https://example.test/callback?credential=secret")
                 .and_then(|target| CallbackHeader::bearer("resolved-attempt-secret").map(|header| CallbackDestination::new(target, vec![header]))),
+            | "audit-id-override" => self.resolve("audit").map(|destination| CallbackDestination {
+                headers: destination
+                    .headers
+                    .into_iter()
+                    .chain([
+                        CallbackHeader::public("WebHook-ID", "first-override").unwrap(),
+                        CallbackHeader::public("webhook-id", "second-override").unwrap(),
+                    ])
+                    .collect(),
+                ..destination
+            }),
+            | "signed-audit" => self
+                .resolve("audit")
+                .map(|destination| destination.with_signer(StandardWebhooksSigner::new(format!("whsec_{}", BASE64.encode(b"signing-key"))).unwrap())),
             | _ => Err(WebhookError::new(ErrorKind::InvalidTarget, "Unknown callback destination")),
         }
     }
@@ -61,6 +83,24 @@ impl WebhookProvider for FakeProvider {
     }
     fn name(&self) -> &'static str {
         "fake"
+    }
+}
+#[async_trait]
+impl HttpService for LostResponseReceiver {
+    async fn execute(&self, request: HttpRequest) -> crate::io::ApiResult<HttpResponse> {
+        let id = request.headers.get("webhook-id").unwrap().to_str().unwrap().to_string();
+        let payload = request.json_body.as_ref().unwrap();
+        assert_eq!(self.effects.lock().unwrap().entry(id).or_insert_with(|| payload.clone()), payload);
+        let mut requests = self.requests.lock().unwrap();
+        requests.push(request);
+        match requests.len() {
+            | 1 => Err(eyre!("Receiver accepted the event but its HTTP response was lost")),
+            | _ => Ok(HttpResponse {
+                body: Vec::new(),
+                headers: HeaderMap::new(),
+                status_code: 202,
+            }),
+        }
     }
 }
 #[async_trait]
@@ -185,6 +225,113 @@ async fn test_outbound_callback_failures_are_recorded_for_retry() {
     assert!(queue.runtime_timestamps().unwrap().last_error_at.is_some());
 }
 #[tokio::test]
+async fn test_outbound_callback_id_is_authoritative() {
+    let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-callback-id-override-{}.db", nanoid::nanoid!())));
+    let payload = serde_json::json!({"event":"complete"});
+    queue.enqueue_callback("stored-callback-id", "audit-id-override", &payload).unwrap();
+    let service = RecordingService::default();
+    let worker = store::CallbackWorker::new(queue, service.clone(), FakeCallbackResolver, SignedDuration::from_mins(5));
+    assert!(worker.run_once().await.unwrap());
+    let request = service.request.lock().unwrap();
+    let request = request.as_ref().unwrap();
+    assert_eq!(request.headers.get_all("webhook-id").iter().count(), 1);
+    assert_eq!(request.headers["webhook-id"], "stored-callback-id");
+    assert_eq!(request.json_body.as_ref(), Some(&payload));
+    assert!(request.headers.get(AUTHORIZATION).is_some_and(HeaderValue::is_sensitive));
+    assert!(!format!("{request:?}").contains("resolved-attempt-secret"));
+    assert!(!request.headers.contains_key("webhook-signature"));
+    assert!(!request.allow_anonymous_fallback);
+    assert!(!request.follow_redirects);
+    assert!(request.sensitive_url);
+    assert_eq!(request.max_response_bytes, Some(MAX_CALLBACK_RESPONSE_BYTES));
+}
+#[tokio::test]
+async fn test_outbound_callback_id_survives_retry_and_restart() {
+    let database = temp_dir().join(format!("acorn-callback-id-restart-{}.db", nanoid::nanoid!()));
+    let receiver = LostResponseReceiver::default();
+    let payload = serde_json::json!({"event":"artifact-ready", "projectId":"pilot", "items":["✓", "release"]});
+    {
+        let queue = store::OperationQueue::from(database.clone());
+        queue.enqueue_callback("callback-restart", "audit", &payload).unwrap();
+        let worker = store::CallbackWorker::new(queue.clone(), receiver.clone(), FakeCallbackResolver, SignedDuration::from_mins(5));
+        assert!(worker
+            .run_once()
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("Webhook callback transport failed"));
+        assert_eq!(
+            queue.callback_state("callback-restart").unwrap(),
+            Some(store::OperationState::RetryableFailure)
+        );
+        assert_eq!(queue.callback_attempts("callback-restart").unwrap(), 1);
+        assert_eq!(receiver.effects.lock().unwrap().len(), 1);
+        queue
+            .with_connection(|connection| {
+                connection
+                    .execute(
+                        "UPDATE webhook_callbacks SET available_at = ? WHERE callback_key = ?",
+                        params!["1970-01-01T00:00:00Z", "callback-restart"],
+                    )
+                    .map_err(|why| eyre!(why))
+            })
+            .unwrap();
+    }
+    let restarted = store::OperationQueue::from(database);
+    let worker = store::CallbackWorker::new(restarted.clone(), receiver.clone(), FakeCallbackResolver, SignedDuration::from_mins(5));
+    assert!(worker.run_once().await.unwrap());
+    assert!(!worker.run_once().await.unwrap());
+    assert_eq!(
+        restarted.callback_state("callback-restart").unwrap(),
+        Some(store::OperationState::Succeeded)
+    );
+    assert_eq!(restarted.callback_attempts("callback-restart").unwrap(), 2);
+    let requests = receiver.requests.lock().unwrap();
+    assert_eq!(requests.len(), 2);
+    for request in requests.iter() {
+        assert_eq!(request.headers.get_all("webhook-id").iter().count(), 1);
+        assert_eq!(request.headers["webhook-id"], "callback-restart");
+        assert_eq!(request.json_body.as_ref(), Some(&payload));
+    }
+    let effects = receiver.effects.lock().unwrap();
+    assert_eq!(effects.len(), 1);
+    assert_eq!(effects.get("callback-restart"), Some(&payload));
+}
+#[tokio::test]
+async fn test_outbound_callback_ids_distinguish_identical_payloads() {
+    let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-callback-distinct-ids-{}.db", nanoid::nanoid!())));
+    let service = RecordingService::default();
+    let payload = serde_json::json!({"event":"complete"});
+    let worker = store::CallbackWorker::new(queue.clone(), service.clone(), FakeCallbackResolver, SignedDuration::from_mins(5));
+    for id in ["callback-a", "callback-b"] {
+        queue.enqueue_callback(id, "audit", &payload).unwrap();
+        assert!(worker.run_once().await.unwrap());
+        let request = service.request.lock().unwrap();
+        let request = request.as_ref().unwrap();
+        assert_eq!(request.headers["webhook-id"], id);
+        assert_eq!(request.json_body.as_ref(), Some(&payload));
+        assert_eq!(queue.callback_state(id).unwrap(), Some(store::OperationState::Succeeded));
+    }
+    assert!(!worker.run_once().await.unwrap());
+    assert_eq!(service.calls.load(Ordering::SeqCst), 2);
+    assert_eq!(queue.callback_counts().unwrap().succeeded, 2);
+}
+#[tokio::test]
+async fn test_outbound_callback_invalid_ids_fail_before_dispatch() {
+    for id in ["callback\r\nInjected: value", "callback\0", "callback\n"] {
+        let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-callback-invalid-id-{}.db", nanoid::nanoid!())));
+        queue.enqueue_callback(id, "audit", &serde_json::json!({})).unwrap();
+        let service = RecordingService::default();
+        let worker = store::CallbackWorker::new(queue.clone(), service.clone(), FakeCallbackResolver, SignedDuration::from_mins(5));
+        let message = worker.run_once().await.unwrap_err().to_string();
+        assert!(message.contains("Invalid callback header"));
+        assert!(!message.contains(id));
+        assert_eq!(service.calls.load(Ordering::SeqCst), 0);
+        assert_eq!(queue.callback_attempts(id).unwrap(), 1);
+        assert_eq!(queue.callback_state(id).unwrap(), Some(store::OperationState::RetryableFailure));
+    }
+}
+#[tokio::test]
 async fn test_outbound_callbacks_are_persisted_deduplicated_and_attempted_durably() {
     let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhook-callbacks-{}.db", nanoid::nanoid!())));
     assert!(queue
@@ -226,6 +373,34 @@ async fn test_outbound_callbacks_are_persisted_deduplicated_and_attempted_durabl
                 })
         })
         .unwrap();
+}
+#[tokio::test]
+async fn test_outbound_signed_callback_preserves_signature_and_stored_body() {
+    let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-callback-signed-id-{}.db", nanoid::nanoid!())));
+    let payload = serde_json::json!({"event":"complete", "order":[2, 1]});
+    queue.enqueue_callback("signed-callback-id", "signed-audit", &payload).unwrap();
+    let service = RecordingService::default();
+    let worker = store::CallbackWorker::new(queue, service.clone(), FakeCallbackResolver, SignedDuration::from_mins(5));
+    assert!(worker.run_once().await.unwrap());
+    let request = service.request.lock().unwrap();
+    let request = request.as_ref().unwrap();
+    let body = serde_json::to_vec(&payload).unwrap();
+    assert_eq!(request.body.as_deref(), Some(body.as_slice()));
+    assert!(request.json_body.is_none());
+    assert_eq!(request.headers.get_all("webhook-id").iter().count(), 1);
+    let verifier = StandardWebhooksVerifier::new(format!("whsec_{}", BASE64.encode(b"signing-key")), 300).unwrap();
+    let verified = verifier
+        .verify(
+            InboundRequest {
+                headers: &request.headers,
+                raw_body: &body,
+            },
+            Timestamp::now(),
+        )
+        .unwrap();
+    assert_eq!(verified.delivery_id, "signed-callback-id");
+    assert_eq!(verified.raw_body, body);
+    assert!(request.headers["webhook-signature"].is_sensitive());
 }
 #[tokio::test]
 async fn test_provider_pipeline_is_durable_sorted_and_dispatchable() {

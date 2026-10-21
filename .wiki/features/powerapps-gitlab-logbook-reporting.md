@@ -1,7 +1,7 @@
 ---
 type: Plan
 title: "Complete GitLab JSONL logbook reporting"
-description: "Expose durable callback identity, deploy protected Power Automate flows, and validate live GitLab logbook reporting on Vergil."
+description: "Deploy protected Power Automate flows and validate live GitLab logbook reporting on Vergil."
 difficulty: high
 impact: critical
 package: [workspace, acorn-lib, acorn-cli, acorn-schema]
@@ -22,7 +22,7 @@ Complete the protected Power Automate intake and callback flows, then validate t
 - The GitLab bot now snapshots and durably admits JSONL before conflict-safe cleanup, routes mixed-project records to their selected indexes, and persists review-event cursors across pagination and restarts. Local tests cover replays, concurrent inbox edits, rejection isolation, and routed review publication.
 - The offline manual MVP now stages, inspects, applies, and resumes a mixed-project JSONL batch. `make lint`, `make test` (2,525 passed), focused batch tests, and a disposable CLI run verified four lines across three local indexes, including two entries for one project, exact routes, replay, no-write failures, and receipt recovery. The local operator contract is documented in `ACRE_SPEC.md` and the intake CLI guide.
 - The local batch and GitLab JSONL adapter now consume `Submission::admit` directly for canonical folder identity, authorization, normalized entry, and stable operation identity. The 39 focused admission, GitLab review, and bot cleanup tests pass, including preserved form fields and notifications, canonical alias cutoff checks, rejection before external reads, immutable replay after access/routing changes, and cleanup concurrency. Focused package Clippy passes with warnings denied. The GitLab destination and review branch remain fixed at admission.
-- A source review at `1ff52b2a` found a remaining callback identity gap: `PowerAutomateCallbackResolver` returns a URL-authenticated destination without a signer or additional headers. `CallbackWorker::run_once` sends `callback_key` as `webhook-id` only through `dispatch_signed`; the unsigned path sends neither that ID nor an equivalent body field. Existing queue deduplication tests do not prove receiver deduplication when delivery succeeds but its response is lost. PA-12 owns this bounded repair; PA-04 owns receiver persistence and notification recovery.
+- Durable unsigned callbacks now carry one authoritative `webhook-id` from their persisted callback key, replacing resolver-supplied IDs. The 25 focused callback tests pass, including lost-response retry after worker restart with one deduplicating receiver effect, distinct IDs for identical payloads, malformed-ID rejection before dispatch, credential redaction, and signed-body verification. Focused package Clippy passes with warnings denied. The ACRE guide documents identity and receiver recovery responsibilities; PA-04 owns the live receiver ledger and notification recovery.
 - Remaining external implementation is the callback flow and its delivery ledger (PA-04), the JSONL append/reconciliation flow and canvas action (PA-05), the Vergil service/configuration (PA-03), and the pilot's pinned reporting include and schedule (PA-08). No exported Power Platform solution or canvas source was found in this checkout. The root reporting include currently tracks `main`; that does not establish the pilot's required pinned include. External flow, template, and host state were not inspected during this review.
 - The published tester canvas sent Teams and email notifications through its attached notification-only flow. The separate GitLab JSONL intake draft is off and unattached. No tested submission was persisted to CSV or JSONL by Power Automate. The pilot flow and service still require PA-02 through PA-09.
 - A read-only gate audit on 2026-10-17 found project `22464` suitable for an isolated pilot branch, but did not establish service credentials, cloud-to-GitLab reachability, callback policy, or an approved shared GCC environment. The PA-02 handoff below records the remaining decisions.
@@ -37,7 +37,7 @@ Complete the protected Power Automate intake and callback flows, then validate t
 
 # Dependencies and acceptance
 
-PA-12 can expose durable callback identity without external approval. PA-02 resolves owners, access, callback authentication, and the receiver ledger; PA-04 consumes PA-12 and those decisions to provision protected credentials and duplicate-safe notifications; PA-03 proves authenticated Vergil polling. PA-05 waits for those external gates before connecting the live flow to the implemented shared admission path. PA-06 through PA-09 prove review, publication, callbacks, and routing. The completed offline manual MVP is available as an operator fallback, with an explicit repository and inbox handoff before a GitLab bot resumes. The [runner-pool plan](../refactors/ci-runner-pools.md) owns reporting worker isolation, and the [database artifact plan](database-backed-artifact-generation.md) owns general database-backed rendering.
+PA-02 resolves owners, access, callback authentication, and the receiver ledger; PA-04 consumes those decisions and the implemented callback-ID contract to provision protected credentials and duplicate-safe notifications; PA-03 proves authenticated Vergil polling. PA-05 waits for those external gates before connecting the live flow to the implemented shared admission path. PA-06 through PA-09 prove review, publication, callbacks, and routing. The completed offline manual MVP is available as an operator fallback, with an explicit repository and inbox handoff before a GitLab bot resumes. The [runner-pool plan](../refactors/ci-runner-pools.md) owns reporting worker isolation, and the [database artifact plan](database-backed-artifact-generation.md) owns general database-backed rendering.
 
 GitLab acceptance requires one authorized submission to produce one correctly routed review operation and human-merged entry, one immutable report package, one delivered notification event, and no duplicate effects after replay or restart. Two authorized project selections must affect only their configured indexes; an unauthorized selection must affect none. The redacted evidence bundle must identify exact flow, service, commit, merge request, package, callback, and replay outcomes. On completion, move the durable runbook to `.wiki/assets/powerautomate-logbook-reporting.md` or user documentation and retire this plan from every portfolio surface.
 
@@ -91,17 +91,6 @@ Run `intake export` after PA-06 creates the draft merge request, `intake deliver
 
 # Execution phases
 
-## PA-12 — Expose durable callback identity on unsigned delivery
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: none; source review baseline is the clean worktree at `1ff52b2a`
-- Exact write set: `crates/acorn-lib/src/io/api/webhooks/store.rs`, `crates/acorn-lib/src/io/api/webhooks/tests.rs`, `docs/src/concepts/acre.md`, `.wiki/features/powerapps-gitlab-logbook-reporting.md`, `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
-- Primary integration lock: durable callback dispatch
-- Outcome: Every durable unsigned callback carries one authoritative `webhook-id` derived from its stored callback key. The ID and payload remain identical across retries and process restarts. Signed delivery retains its existing Standard Webhooks contract. This header supplies identity, not authentication.
-- Focused validation: Extend `RecordingService` or a dedicated fake receiver to accept a notification and lose the HTTP response, then restart the worker against the same database and make the retry due without sleeping. Assert identical ID/payload on both attempts and one receiver effect when keyed by that ID. Assert distinct callback keys with identical payloads remain distinct; a resolver cannot substitute a different ID; malformed header values fail without dispatch; existing signed verification, attempt accounting, URL/header redaction, and one-shot HTTP safety still pass. Use `cargo nextest run -p acorn-lib --lib --features agentic -E 'test(io::api::webhooks::tests::) | test(io::api::powerautomate::tests::test_callback_)'` and focused package Clippy with warnings denied.
-- Handoff: Document `webhook-id`, its durability, and receiver responsibilities in the ACRE guide, then remove PA-12 and its PA-04 prerequisite and reconcile the owned wiki surfaces. No database migration, event-body change, CLI syntax, or OAuth acquisition is required. Real notification delivery still requires PA-04.
-
 ## PA-02 — Resolve production owners and access gates
 
 - Status: blocked
@@ -115,7 +104,7 @@ Run `intake export` after PA-06 creates the draft merge request, `intake deliver
 
 ### PA-02 implementation preparation, 2026-10-20
 
-PA-02 is the next external phase and remains blocked: the repository review found no decision record superseding the 2026-10-17 audit. PA-12 can proceed independently. The audit is historical evidence, not a current approval or live connectivity check. Waiting for decision makers is a prerequisite outside the five-hour active budget.
+PA-02 is the next remaining phase and remains blocked: the repository review found no decision record superseding the 2026-10-17 audit. The audit is historical evidence, not a current approval or live connectivity check. Waiting for decision makers is a prerequisite outside the five-hour active budget.
 
 For each row below, record the accountable owner, approving authority, decision, UTC date, and a reference to the approval or policy record. Record identifiers and protected-store references only; secret values belong in PA-04's approved stores.
 
@@ -127,7 +116,7 @@ For each row below, record the accountable owner, approving authority, decision,
 | Protected stores and Vergil operations | Named credential stores and custodians, Vergil service owner and deployment authority, and ownership of callback URL and startup inbound-secret references. Provisioning and service boot belong to PA-04 and PA-03. |
 | Review and notifications | Named human review/merge authority and accountable Teams/email destination owners. |
 
-Release PA-02 only when every row has dated approval evidence and no unresolved access decision. Policy questions require authorized decision makers; do not infer approval from the developer environment, a notification-only run, or the signed-in user's project role. The current callback resolver sends no Entra bearer token: an OAuth-only trigger needs the approved intermediary unless a separate bounded authentication phase is scoped. Microsoft documents the tenant-restricted trigger modes and cloud-specific token audiences in its [HTTP trigger authentication guide](https://learn.microsoft.com/en-us/power-automate/oauth-authentication). Preserve the approved target and secret references as the PA-04 handoff; PA-04 also needs PA-12, PA-03 follows PA-04, and PA-05 follows PA-03/04. No external system is changed during preparation.
+Release PA-02 only when every row has dated approval evidence and no unresolved access decision. Policy questions require authorized decision makers; do not infer approval from the developer environment, a notification-only run, or the signed-in user's project role. The current callback resolver sends no Entra bearer token: an OAuth-only trigger needs the approved intermediary unless a separate bounded authentication phase is scoped. Microsoft documents the tenant-restricted trigger modes and cloud-specific token audiences in its [HTTP trigger authentication guide](https://learn.microsoft.com/en-us/power-automate/oauth-authentication). Preserve the approved target and secret references as the PA-04 handoff; PA-03 follows PA-04, and PA-05 follows PA-03/04. No external system is changed during preparation.
 
 ### PA-02 gate audit, 2026-10-17
 
@@ -162,7 +151,7 @@ Release PA-02 only when every row has dated approval evidence and no unresolved 
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: PA-02, PA-12; approved receiver-ledger system and actual resource identifiers are recorded before this phase starts
+- Prerequisites: PA-02; approved receiver-ledger system and actual resource identifiers are recorded before this phase starts
 - Exact write set: selected intake flow's protected GitLab credential, Vergil's protected GitLab credential and runtime environment, protected `POWER_AUTOMATE_CALLBACK_URL`, approved callback flow and its callback delivery ledger
 - Primary integration lock: Power Automate credentials
 - Outcome: Establish separate protected GitLab credentials for the flow and bot, plus one schema-valid callback flow that persists incoming IDs and suppresses repeated notification effects. Keep any startup-required `POWER_AUTOMATE_INBOUND_SECRET` local to Vergil; the JSONL flow does not use it.
@@ -171,7 +160,7 @@ Release PA-02 only when every row has dated approval evidence and no unresolved 
 
 ### PA-04 implementation preparation
 
-- Build the trigger schema from `ArtifactEvent` in `crates/acorn-lib/src/io/api/webhooks/event.rs`: `mr-created` and `review-needed` carry `projectId`/`mergeRequestUrl`; `artifact-ready` carries `projectId`/`packageUrl`/`checksum`/`through`; `report-no-changes` carries `projectId`/`through`; `failed` carries `projectId`/`message`. Do not require a submission UUID or operation ID in these bodies; they are not supplied. Read the delivery identity from PA-12's `webhook-id` header.
+- Build the trigger schema from `ArtifactEvent` in `crates/acorn-lib/src/io/api/webhooks/event.rs`: `mr-created` and `review-needed` carry `projectId`/`mergeRequestUrl`; `artifact-ready` carries `projectId`/`packageUrl`/`checksum`/`through`; `report-no-changes` carries `projectId`/`through`; `failed` carries `projectId`/`message`. Do not require a submission UUID or operation ID in these bodies; they are not supplied. Read the delivery identity from the implemented `webhook-id` header described in the [ACRE guide](../../docs/src/concepts/acre.md#run-one-intake-cycle-from-the-native-executable).
 - Atomically claim each callback ID in the approved durable ledger before channel work. Store enough payload evidence to reject a reused ID with changed content. A duplicate returns the existing disposition and resumes only channel work whose outcome is known to be pending. Concurrent duplicates must not both send.
 - Record Teams and email outcomes separately. A crash during send, or a connector timeout after possible delivery, requires reconciliation; do not blindly resend an uncertain channel. A ledger write alone cannot make a non-idempotent notification connector exactly once. Return success after durable acceptance only when the flow has an owned retry/recovery path; otherwise keep the sender's retry meaningful.
 - Resolve protected credentials through approved connections/stores and apply [Microsoft's secure input/output settings](https://learn.microsoft.com/en-us/power-automate/guidance/coding-guidelines/use-secure-inputs-outputs-triggers) to the relevant trigger/actions. `POWER_AUTOMATE_INBOUND_SECRET` authenticates ACORN's inbound HTTP route; it is not an outbound callback signature or bearer token.

@@ -100,7 +100,13 @@ export POWER_AUTOMATE_CALLBACK_URL='https://REPLACE_WITH_PROTECTED_CALLBACK_URL'
 target/debug/acorn intake deliver --config .acorn.json
 ```
 
-The callback command attempts up to 256 ready intents. Its JSON summary contains counts only, including pending retries and terminal failures; retryable intents remain durable for later attempts. Keep the URL and shared secret in protected environment variables. For a local PDF and manifest from a reviewed checkout, use an exact merged commit and an explicit cutoff; dry-run performs no package publication or callback:
+The callback command attempts up to 256 ready intents. Its JSON summary contains counts only, including pending retries and terminal failures; retryable intents remain durable for later attempts. Keep the URL and shared secret in protected environment variables.
+
+Every durable callback carries a `webhook-id` header containing its persisted callback key. Retrying an intent after a timeout or restarting ACORN with the same operation database preserves that ID and its payload. Different intents retain different IDs even when their JSON bodies match. The worker supplies the authoritative ID, replacing any resolver-provided `webhook-id` on unsigned delivery. Signed destinations continue to use that ID with Standard Webhooks signatures over the exact stored body. The ID identifies a delivery; it does not authenticate it.
+
+The receiving flow must authenticate the request and atomically retain its ID and payload evidence before notification work. A repeated ID with the same payload resumes known pending work or returns the completed disposition; a reused ID with changed content is a conflict. Track Teams and email outcomes separately so a retry does not repeat a completed notification. If a send may have succeeded before a timeout or crash, reconcile that channel before sending again. Return 2xx after durable acceptance only when the receiver owns recovery of any remaining work. Sender retries and a delivery ledger alone cannot guarantee exactly one effect from a notification connector.
+
+For a local PDF and manifest from a reviewed checkout, use an exact merged commit and an explicit cutoff; dry-run performs no package publication or callback:
 
 ```sh
 export MERGED_SHA='REPLACE_WITH_MERGED_COMMIT_SHA'
