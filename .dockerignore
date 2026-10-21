@@ -10,3 +10,6 @@
 /export
 /extract
 **/target
+**/*.profraw
+/output
+/tmp

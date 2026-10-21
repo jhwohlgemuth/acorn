@@ -1,4 +1,6 @@
 ARG DOCKER_HUB_REGISTRY=docker.io/library
+ARG ACORN_IMAGE=acorn:latest
+FROM ${ACORN_IMAGE} AS acorn-binary
 FROM ${DOCKER_HUB_REGISTRY}/ubuntu:noble
 #
 # %labels
@@ -7,14 +9,18 @@ LABEL author="Jason Wohlgemuth"
 #
 # %arguments
 #
-ARG ACORN_VERSION=0.1.50
 ARG DEBIAN_FRONTEND=noninteractive
-ARG DEFAULT_TARGET=x86_64-unknown-linux-musl
+ARG TARGETARCH
 ARG VALE_VERSION=3.13.0
 #
 # %post
 #
-RUN apt-get update && apt-get install --no-install-recommends --yes \
+RUN case "${TARGETARCH}" in \
+        amd64) vale_arch=64-bit ;; \
+        arm64) vale_arch=arm64 ;; \
+        *) echo "Unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && apt-get update && apt-get install --no-install-recommends --yes \
         ca-certificates \
         curl \
         git-lfs \
@@ -27,13 +33,12 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
     && apt-get update && apt-get install --no-install-recommends --yes \
         nodejs \
     && npx playwright install-deps \
-    && curl -L "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" -o /root/vale.tar.gz \
+    && curl -fL "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_${vale_arch}.tar.gz" -o /root/vale.tar.gz \
     && tar -xvzf /root/vale.tar.gz -C /bin \
-    && curl -L "http://code.ornl.gov/api/v4/projects/16689/packages/generic/${DEFAULT_TARGET}/v${ACORN_VERSION}/acorn" -o /usr/local/bin/acorn \
-    && chmod +x /usr/local/bin/acorn \
     && apt-get clean \
     && rm -rf /tmp/* /var/lib/apt/lists/* /var/tmp/* \
     && rm -rf /usr/share/man/?? \
     && rm -rf /usr/share/man/??_*
+COPY --from=acorn-binary /acorn /usr/local/bin/acorn
 HEALTHCHECK NONE
 CMD ["/bin/bash"]
