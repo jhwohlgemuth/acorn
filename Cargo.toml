@@ -3,7 +3,7 @@ members = ["crates/acorn-analysis", "crates/acorn-cli", "crates/acorn-cmd", "cra
 resolver = "2"
 
 [workspace.package]
-version = "0.5.0"
+version = "0.5.1"
 rust-version = "1.98.0"
 license = "MIT"
 authors = ["Jason Wohlgemuth <wohlgemuthjh@ornl.gov>"]

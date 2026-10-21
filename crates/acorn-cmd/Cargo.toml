@@ -13,7 +13,7 @@ rust-version.workspace = true
 ignored-paths = ["tests/fixtures/process_helper.rs"]
 
 [dependencies]
-acorn-macros = { version = "0.5.0", path = "../acorn-macros" }
+acorn-macros = { version = "0.5.1", path = "../acorn-macros" }
 command-group = { workspace = true }
 shell-words = { workspace = true }
 shuck-linter = { version = "0.0.41", optional = true }

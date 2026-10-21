@@ -26,12 +26,12 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 acorn-analysis = { workspace = true, optional = true }
-acorn-cmd = { version = "0.5.0", path = "../acorn-cmd", default-features = false, optional = true }
-acorn-core = { version = "0.5.0", path = "../acorn-core", default-features = false }
-acorn-diff = { version = "0.5.0", path = "../acorn-diff", default-features = false, optional = true }
-acorn-host = { version = "0.5.0", path = "../acorn-host", default-features = false }
-acorn-macros = { version = "0.5.0", path = "../acorn-macros" }
-acorn-schema = { version = "0.5.0", path = "../acorn-schema", default-features = false }
+acorn-cmd = { version = "0.5.1", path = "../acorn-cmd", default-features = false, optional = true }
+acorn-core = { version = "0.5.1", path = "../acorn-core", default-features = false }
+acorn-diff = { version = "0.5.1", path = "../acorn-diff", default-features = false, optional = true }
+acorn-host = { version = "0.5.1", path = "../acorn-host", default-features = false }
+acorn-macros = { version = "0.5.1", path = "../acorn-macros" }
+acorn-schema = { version = "0.5.1", path = "../acorn-schema", default-features = false }
 acorn-service = { workspace = true, features = ["alloc"], optional = true }
 agent-client-protocol = { workspace = true, optional = true }
 anydoc = { workspace = true, optional = true }
