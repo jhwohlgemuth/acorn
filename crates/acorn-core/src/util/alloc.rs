@@ -28,7 +28,7 @@ use core::iter::{once, successors};
 use core::str::from_utf8;
 use core::str::FromStr;
 use derive_more::Display;
-use fancy_regex::Regex;
+use fancy_regex::{Captures, Regex};
 use fluent_uri::UriRef;
 use jiff::{fmt::temporal::DateTimeParser, tz::Offset, Timestamp};
 use jsonc_parser::parse_to_serde_value;
@@ -1656,6 +1656,43 @@ pub fn merge_unique_by<T>(left: impl IntoIterator<Item = T>, right: impl IntoIte
             | false => values.into_iter().chain(once(value)).collect(),
         }
     })
+}
+/// Mask bearer tokens, credential assignments, and URL user info, queries, and fragments in free-form text.
+///
+/// This uses only allocation-backed utilities, so callers can redact diagnostics without host services.
+pub fn redact_sensitive_text(value: &str) -> String {
+    let masked = [
+        (r"(?i)\b(Bearer\s+)\S+", "${1}[REDACTED]"),
+        (
+            r"(?i)\b((?:api[_-]?key|access[_-]?token|password|secret|token)\s*[:=]\s*)[^\s&,;]+",
+            "${1}[REDACTED]",
+        ),
+    ]
+    .into_iter()
+    .fold(value.to_string(), |text, (pattern, replacement)| match Regex::new(pattern) {
+        | Ok(pattern) => pattern.replace_all(&text, replacement).into_owned(),
+        | Err(_) => "[REDACTED]".to_string(),
+    });
+    match Regex::new(r#"(?i)https?://[^\s<>"']+"#) {
+        | Ok(pattern) => pattern
+            .replace_all(&masked, |captures: &Captures<'_>| {
+                captures.get(0).map_or(String::new(), |matched| redact_url_fragment(matched.as_str()))
+            })
+            .into_owned(),
+        | Err(_) => "[REDACTED]".to_string(),
+    }
+}
+fn redact_url_fragment(value: &str) -> String {
+    let bounded = value.split(['?', '#']).next().unwrap_or_default();
+    match bounded.split_once("://") {
+        | Some((scheme, rest)) => {
+            let boundary = rest.find('/').unwrap_or(rest.len());
+            let (authority, path) = rest.split_at(boundary);
+            let authority = authority.rsplit_once('@').map_or(authority, |(_, safe)| safe);
+            format!("{scheme}://{authority}{path}")
+        }
+        | None => bounded.to_string(),
+    }
 }
 /// Helper function to create a lookup dictionary for regex captures
 /// ### Note

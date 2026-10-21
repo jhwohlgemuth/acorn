@@ -13,11 +13,14 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 mod chat;
-pub use chat::{AttachedTarget, ChatAction, ChatContext, ChatEvent, ChatRole, ChatState, ChatTransition, ChatTurn};
 #[cfg(feature = "template")]
 mod prompt;
+pub mod slash;
+pub use chat::{AttachedTarget, ChatAction, ChatContext, ChatEvent, ChatRole, ChatState, ChatTransition, ChatTurn};
 #[cfg(feature = "template")]
 pub use prompt::PromptHydrator;
+/// Maximum tool-result text retained in a durable conversation event.
+pub(crate) const MAX_TOOL_RESULT_BYTES: usize = 4096;
 /// Future returned by an inference backend.
 pub type InferenceFuture<'a> = Pin<Box<dyn Future<Output = ApiResult<InferenceResult>> + Send + 'a>>;
 /// Consumer-owned interface implemented by inference transports.

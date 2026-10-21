@@ -162,6 +162,7 @@ async fn test_restricted_request_rejects_oversized_response_without_leaking_url(
         .url(format!("{}/callback?sig=secret", server.base_url))
         .build();
     let diagnostic = format!("{request:?}");
+    assert_eq!(request.diagnostic_url(), "[REDACTED WEBHOOK URL]");
     assert!(!diagnostic.contains("sig=secret"));
     let error = ReqwestHttpService::default().execute(request).await.unwrap_err();
     assert!(error.to_string().contains("configured 16-byte limit"));
@@ -169,7 +170,6 @@ async fn test_restricted_request_rejects_oversized_response_without_leaking_url(
     server.stop().await.unwrap();
     drop(guard);
     let logs = String::from_utf8(captured.lock().unwrap().clone()).unwrap();
-    assert!(logs.contains("REDACTED WEBHOOK URL"));
     assert!(!logs.contains("sig=secret"));
 }
 #[test]

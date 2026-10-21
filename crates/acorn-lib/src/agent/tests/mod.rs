@@ -8,6 +8,9 @@ use acorn_schema::agent::PromptTemplateConfiguration;
 use acorn_schema::agent::{FrontMatter, PromptFileAsset};
 use acorn_schema::standard::zon;
 use serde_json::json;
+
+mod slash;
+
 #[cfg(feature = "template")]
 fn context(data: serde_json::Value) -> PromptContext<serde_json::Value> {
     PromptContext {

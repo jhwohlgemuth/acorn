@@ -1,10 +1,12 @@
 //! Terminal independent state for a metadata conversation.
+use super::MAX_TOOL_RESULT_BYTES;
 use crate::util::constants::app::{MAX_CHAT_CONTEXT_BYTES, MAX_CHAT_CONTEXT_TURNS};
 use acorn_core::{
-    prelude::{String, Vec},
+    prelude::{format, String, Vec},
     Location,
 };
 use acorn_schema::standard::Standard;
+use core::fmt;
 use serde::{Deserialize, Serialize};
 
 /// An input to the pure chat state transition.
@@ -88,6 +90,49 @@ pub struct ChatTurn {
     pub role: ChatRole,
     /// Complete turn text.
     pub text: String,
+}
+impl ChatEvent {
+    /// Return a redacted copy with oversized tool output truncated for persistence.
+    pub(crate) fn sanitized(&self, redact: impl Fn(&str) -> String) -> Self {
+        match self {
+            | Self::Turn(turn) => {
+                let text = if turn.role == ChatRole::Tool && turn.text.len() > MAX_TOOL_RESULT_BYTES {
+                    let boundary = turn
+                        .text
+                        .char_indices()
+                        .map(|(index, character)| index.saturating_add(character.len_utf8()))
+                        .take_while(|end| *end <= MAX_TOOL_RESULT_BYTES)
+                        .last()
+                        .unwrap_or(0);
+                    format!("{}… [tool result omitted]", &turn.text[..boundary])
+                } else {
+                    turn.text.clone()
+                };
+                Self::Turn(ChatTurn {
+                    role: turn.role,
+                    text: redact(&text),
+                })
+            }
+            | Self::Failed(message) => Self::Failed(redact(message)),
+            | other => other.clone(),
+        }
+    }
+}
+impl fmt::Display for ChatEvent {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let kind = match self {
+            | Self::Attached(_) => "attached",
+            | Self::Cancelled => "cancelled",
+            | Self::Cleared => "cleared",
+            | Self::Failed(_) => "failed",
+            | Self::Turn(turn) => match turn.role {
+                | ChatRole::Assistant => "assistant",
+                | ChatRole::Tool => "tool",
+                | ChatRole::User => "user",
+            },
+        };
+        formatter.write_str(kind)
+    }
 }
 impl ChatState {
     /// Apply an action without mutating the preceding state.

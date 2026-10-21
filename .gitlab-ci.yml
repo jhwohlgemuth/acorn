@@ -60,11 +60,13 @@ prepare-environment:
         - Makefile
         - crates/acorn-analysis/Cargo.toml
         - crates/acorn-cli/Cargo.toml
+        - crates/acorn-cli/src/commands/infer/**/*
         - crates/acorn-cmd/Cargo.toml
         - crates/acorn-core/Cargo.toml
         - crates/acorn-diff/Cargo.toml
         - crates/acorn-host/Cargo.toml
         - crates/acorn-lib/Cargo.toml
+        - crates/acorn-lib/src/io/sidecar/needle/**/*
         - crates/acorn-macros/Cargo.toml
         - crates/acorn-schema/Cargo.toml
         - crates/acorn-server/Cargo.toml
@@ -75,6 +77,7 @@ prepare-environment:
         - scripts/check-windows-runtime.ps1
         - scripts/install-appimage-tools.sh
         - scripts/install-zigbuild.sh
+        - scripts/needle/validate-windows-x86_64.ps1
         - scripts/package-linux.sh
         - scripts/publish-crates.sh
         - scripts/upload-binaries.sh
@@ -294,15 +297,58 @@ build-release:
         - Dockerfile.rust
         - Makefile
         - crates/acorn-cli/Cargo.toml
+        - crates/acorn-cli/src/commands/infer/**/*
         - crates/acorn-lib/Cargo.toml
+        - crates/acorn-lib/src/io/sidecar/needle/**/*
         - packaging/linux/**/*
         - scripts/check-windows-runtime.ps1
         - scripts/install-appimage-tools.sh
         - scripts/install-zigbuild.sh
+        - scripts/needle/validate-windows-x86_64.ps1
         - scripts/package-linux.sh
   artifacts:
     paths:
       - bin/
+
+validate-needle-windows-amd64:
+  stage: build
+  tags:
+    - windows-x86_64
+  timeout: 30 minutes
+  needs:
+    - job: prepare-environment
+      artifacts: true
+    - job: build-release
+      artifacts: true
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - .gitlab-ci.yml
+        - Cargo.lock
+        - Cargo.toml
+        - Dockerfile.rust
+        - Makefile
+        - crates/acorn-cli/Cargo.toml
+        - crates/acorn-cli/src/commands/infer/**/*
+        - crates/acorn-lib/Cargo.toml
+        - crates/acorn-lib/src/io/sidecar/needle/**/*
+        - packaging/linux/**/*
+        - scripts/check-windows-runtime.ps1
+        - scripts/install-appimage-tools.sh
+        - scripts/install-zigbuild.sh
+        - scripts/needle/validate-windows-x86_64.ps1
+        - scripts/package-linux.sh
+      when: manual
+      allow_failure: true
+  script:
+    - powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/needle/validate-windows-x86_64.ps1 -Binary "bin/acorn-v${env:PKG_VERSION}.exe"
+  artifacts:
+    when: always
+    paths:
+      - target/needle-windows-x86_64.json
+    expire_in: 30 days
 
 validate-linux-amd64:
   extends: .validate-linux

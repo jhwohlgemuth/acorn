@@ -100,6 +100,7 @@ mod bytes;
 pub mod cache;
 #[cfg(feature = "chart")]
 pub mod chart;
+pub mod chat_history;
 pub mod config;
 pub mod database;
 pub mod document;

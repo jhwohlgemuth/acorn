@@ -157,6 +157,12 @@ where
 }
 /// Run one bounded Needle inference request and print its native result as JSON.
 pub async fn run(prompt: Option<&str>, custom_location: Option<&str>, threshold: Noul, max_rounds: usize, offline: bool) -> ApiResult<()> {
+    tokio::select! {
+        result = run_inference(prompt, custom_location, threshold, max_rounds, offline) => result,
+        signal = shutdown_signal() => signal.and(Err(eyre!("Needle inference cancelled"))),
+    }
+}
+async fn run_inference(prompt: Option<&str>, custom_location: Option<&str>, threshold: Noul, max_rounds: usize, offline: bool) -> ApiResult<()> {
     match resolve_prompt(prompt, read_stdin) {
         | Err(why) => Err(why),
         | Ok(prompt) => {
@@ -177,5 +183,21 @@ pub async fn run(prompt: Option<&str>, custom_location: Option<&str>, threshold:
     }
 }
 
+async fn shutdown_signal() -> ApiResult<()> {
+    #[cfg(unix)]
+    {
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            | Ok(mut terminate) => tokio::select! {
+                signal = tokio::signal::ctrl_c() => signal.map_err(Into::into),
+                _ = terminate.recv() => Ok(()),
+            },
+            | Err(why) => Err(why.into()),
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        tokio::signal::ctrl_c().await.map_err(Into::into)
+    }
+}
 #[cfg(test)]
 mod tests;

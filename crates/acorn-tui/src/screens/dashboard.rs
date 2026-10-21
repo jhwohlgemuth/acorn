@@ -1,5 +1,6 @@
 use crate::app::App;
 use crate::Screen;
+use acorn::agent::slash::{self, SlashCommandId, SlashContext, SlashSuggestion};
 use acorn::util::constants::app::COMPACT_LOGO;
 use crossterm::event::{Event, KeyCode, KeyEventKind};
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
@@ -8,45 +9,6 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState, Padding, Paragraph};
 use ratatui::Frame;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum Command {
-    Check,
-    Doctor,
-    Gather,
-    Harvest,
-    Quit,
-    Theme,
-}
-impl Command {
-    const ALL: [Self; 6] = [Self::Check, Self::Doctor, Self::Gather, Self::Harvest, Self::Quit, Self::Theme];
-    fn name(self) -> &'static str {
-        match self {
-            | Self::Check => "/check",
-            | Self::Doctor => "/doctor",
-            | Self::Gather => "/gather",
-            | Self::Harvest => "/harvest",
-            | Self::Quit => "/quit",
-            | Self::Theme => "/theme",
-        }
-    }
-    fn description(self) -> &'static str {
-        match self {
-            | Self::Check => "Browse research activity checks",
-            | Self::Doctor => "Inspect system diagnostics",
-            | Self::Gather => "Discover persistent identifiers",
-            | Self::Harvest => "Discover persistent identifiers",
-            | Self::Quit => "Exit ACORN",
-            | Self::Theme => "Choose an accessible terminal palette",
-        }
-    }
-}
-fn filtered_commands(input: &str) -> Vec<Command> {
-    let query = input.strip_prefix('/').unwrap_or(input).trim().to_ascii_lowercase();
-    Command::ALL
-        .into_iter()
-        .filter(|command| command.name().trim_start_matches('/').starts_with(&query))
-        .collect()
-}
 fn centered(area: Rect, width: u16, height: u16) -> Rect {
     let vertical = Layout::default()
         .direction(Direction::Vertical)
@@ -57,6 +19,58 @@ fn centered(area: Rect, width: u16, height: u16) -> Rect {
         .constraints([Constraint::Fill(1), Constraint::Length(width.min(area.width)), Constraint::Fill(1)])
         .split(vertical[1])[1]
 }
+fn execute(app: &mut App, command: SlashCommandId) {
+    match command {
+        | SlashCommandId::Check => app.navigate_to(Screen::Check),
+        | SlashCommandId::Doctor => app.navigate_to(Screen::Doctor),
+        | SlashCommandId::Gather => app.navigate_to(Screen::Gather),
+        | SlashCommandId::Exit => app.should_quit = true,
+        | SlashCommandId::Theme => app.navigate_to(Screen::ThemePicker),
+        | _ => {}
+    }
+    app.dashboard.data.input.clear();
+    app.dashboard.selected = 0;
+}
+fn filtered_commands(input: &str) -> Vec<SlashSuggestion> {
+    let query = if input.starts_with('/') { input } else { "" };
+    slash::suggest(SlashContext::Dashboard, query)
+}
+pub fn handle_event(app: &mut App, event: Event) {
+    let Event::Key(key) = event else { return };
+    if key.kind != KeyEventKind::Press && key.kind != KeyEventKind::Repeat {
+        return;
+    }
+    match key.code {
+        | KeyCode::Char('c') if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => app.should_quit = true,
+        | KeyCode::Char(character) => {
+            app.dashboard.data.input.push(character);
+            app.dashboard.selected = 0;
+        }
+        | KeyCode::Backspace => {
+            app.dashboard.data.input.pop();
+            app.dashboard.selected = 0;
+        }
+        | KeyCode::Esc => {
+            app.dashboard.data.input.clear();
+            app.dashboard.selected = 0;
+        }
+        | KeyCode::Up if app.dashboard.data.input.starts_with('/') => {
+            let len = filtered_commands(&app.dashboard.data.input).len();
+            app.dashboard.selected = app.dashboard.selected.checked_sub(1).unwrap_or_else(|| len.saturating_sub(1));
+        }
+        | KeyCode::Down if app.dashboard.data.input.starts_with('/') => {
+            let len = filtered_commands(&app.dashboard.data.input).len();
+            app.dashboard.selected = if len == 0 { 0 } else { (app.dashboard.selected + 1) % len };
+        }
+        | KeyCode::Enter if app.dashboard.data.input.starts_with('/') => {
+            if let Some(command) = filtered_commands(&app.dashboard.data.input).get(app.dashboard.selected).copied() {
+                execute(app, command.id);
+            }
+        }
+        | _ => {}
+    }
+}
+
 pub fn render(f: &mut Frame, app: &App) {
     let area = f.area();
     f.render_widget(Block::default().style(Style::default().bg(app.theme.bg)), area);
@@ -136,8 +150,8 @@ fn render_dropdown(f: &mut Frame, composer: Rect, app: &App) {
             .iter()
             .map(|command| {
                 ListItem::new(Line::from(vec![
-                    Span::styled(format!("{:<18}", command.name()), Style::default().fg(app.theme.accent)),
-                    Span::styled(command.description(), Style::default().fg(app.theme.text_muted)),
+                    Span::styled(format!("{:<18}", command.name), Style::default().fg(app.theme.accent)),
+                    Span::styled(command.description, Style::default().fg(app.theme.text_muted)),
                 ]))
             })
             .collect()
@@ -159,52 +173,5 @@ fn render_dropdown(f: &mut Frame, composer: Rect, app: &App) {
         &mut state,
     );
 }
-fn execute(app: &mut App, command: Command) {
-    match command {
-        | Command::Check => app.navigate_to(Screen::Check),
-        | Command::Doctor => app.navigate_to(Screen::Doctor),
-        | Command::Gather | Command::Harvest => app.navigate_to(Screen::Gather),
-        | Command::Quit => app.should_quit = true,
-        | Command::Theme => app.navigate_to(Screen::ThemePicker),
-    }
-    app.dashboard.data.input.clear();
-    app.dashboard.selected = 0;
-}
-pub fn handle_event(app: &mut App, event: Event) {
-    let Event::Key(key) = event else { return };
-    if key.kind != KeyEventKind::Press && key.kind != KeyEventKind::Repeat {
-        return;
-    }
-    match key.code {
-        | KeyCode::Char('c') if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => app.should_quit = true,
-        | KeyCode::Char(character) => {
-            app.dashboard.data.input.push(character);
-            app.dashboard.selected = 0;
-        }
-        | KeyCode::Backspace => {
-            app.dashboard.data.input.pop();
-            app.dashboard.selected = 0;
-        }
-        | KeyCode::Esc => {
-            app.dashboard.data.input.clear();
-            app.dashboard.selected = 0;
-        }
-        | KeyCode::Up if app.dashboard.data.input.starts_with('/') => {
-            let len = filtered_commands(&app.dashboard.data.input).len();
-            app.dashboard.selected = app.dashboard.selected.checked_sub(1).unwrap_or_else(|| len.saturating_sub(1));
-        }
-        | KeyCode::Down if app.dashboard.data.input.starts_with('/') => {
-            let len = filtered_commands(&app.dashboard.data.input).len();
-            app.dashboard.selected = if len == 0 { 0 } else { (app.dashboard.selected + 1) % len };
-        }
-        | KeyCode::Enter if app.dashboard.data.input.starts_with('/') => {
-            if let Some(command) = filtered_commands(&app.dashboard.data.input).get(app.dashboard.selected).copied() {
-                execute(app, command);
-            }
-        }
-        | _ => {}
-    }
-}
-
 #[cfg(test)]
 mod tests;

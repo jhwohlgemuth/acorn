@@ -4,12 +4,12 @@ use super::bot::Config;
 use super::intake::{complete_citation_merge, Report as IntakeReport};
 #[cfg(feature = "analysis")]
 use super::review;
+use crate::agent::slash::{SlashCommand, SlashContext};
 use crate::io::api;
 use crate::io::api::json_rpc;
 use crate::io::api::webhooks::store::OperationQueue;
 use crate::io::api::webhooks::{self, Verifier, WebhookRuntime};
 use crate::io::ApiResult;
-use crate::util::constants::app::APPLICATION;
 use alloc::sync::Arc;
 use axum::body::to_bytes;
 use axum::extract::Request;
@@ -616,22 +616,14 @@ impl webhooks::Delivery<HookPayload> {
     }
 }
 pub(super) fn check_requested(content: &str) -> bool {
-    let command = format!("/{APPLICATION} check");
-    content.lines().any(|line| line.trim() == command)
+    content
+        .lines()
+        .any(|line| line.trim() == "/acorn check" && matches!(SlashCommand::parse(line, SlashContext::GitLab), Ok(SlashCommand::Check)))
 }
 fn graduation_requested(content: &str) -> Option<Vec<String>> {
-    let command = format!("/{APPLICATION}");
-    content.lines().find_map(|line| {
-        let mut words = line.split_whitespace();
-        match (words.next(), words.next()) {
-            | (Some(application), Some("graduate")) if application == command => {
-                let mut identifiers = words.map(str::to_string).collect::<Vec<_>>();
-                identifiers.sort();
-                identifiers.dedup();
-                Some(identifiers)
-            }
-            | _ => None,
-        }
+    content.lines().find_map(|line| match SlashCommand::parse(line, SlashContext::GitLab) {
+        | Ok(SlashCommand::Graduate(identifiers)) => Some(identifiers),
+        | _ => None,
     })
 }
 /// Authenticate and normalize an inbound GitLab webhook request into an HTTP status
@@ -639,13 +631,8 @@ pub(super) async fn receive(Extension(config): Extension<Arc<WebhookConfig>>, re
     Webhook::receive(config, request).await
 }
 fn workflow_requested(content: &str) -> Option<String> {
-    let command = format!("/{APPLICATION}");
-    content.lines().find_map(|line| {
-        let mut words = line.split_whitespace();
-        match (words.next(), words.next(), words.next(), words.next()) {
-            | (Some(application), Some("process"), None, None) if application == command => Some("repository-quality".to_string()),
-            | (Some(application), Some("process"), Some(workflow), None) if application == command => Some(workflow.to_string()),
-            | _ => None,
-        }
+    content.lines().find_map(|line| match SlashCommand::parse(line, SlashContext::GitLab) {
+        | Ok(SlashCommand::Process(workflow)) => Some(workflow),
+        | _ => None,
     })
 }
