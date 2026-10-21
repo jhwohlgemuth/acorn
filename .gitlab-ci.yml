@@ -362,6 +362,12 @@ validate-mcpb:
       artifacts: true
     - job: build-release
       artifacts: true
+    - job: validate-linux-amd64
+      artifacts: false
+      optional: true
+    - job: validate-linux-arm64
+      artifacts: false
+      optional: true
   script:
     - pwsh -NoProfile -File scripts/check-windows-runtime.ps1 -Binary "bin/acorn-v${PKG_VERSION}.exe" -Objdump x86_64-w64-mingw32-objdump
     - make release-checksums
@@ -370,9 +376,15 @@ validate-mcpb:
     - npx --yes @anthropic-ai/mcpb@2.1.2 validate target/mcpb-linux/manifest.json
     - npx --yes @anthropic-ai/mcpb@2.1.2 unpack "bin/acorn-v${PKG_VERSION}-${DEFAULT_WINDOWS_TARGET}.mcpb" target/mcpb-windows
     - npx --yes @anthropic-ai/mcpb@2.1.2 validate target/mcpb-windows/manifest.json
+    - if [ "${PUBLISH_BINARIES:-false}" = "true" ]; then sh scripts/upload-binaries.sh; fi
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - Cargo.toml
+      variables:
+        PUBLISH_BINARIES: "true"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         - .cargo/config.toml
@@ -385,9 +397,6 @@ validate-mcpb:
         - crates/acorn-lib/Cargo.toml
         - scripts/check-windows-runtime.ps1
         - scripts/install-zigbuild.sh
-  artifacts:
-    paths:
-      - bin/
 
 # ---------------------------------------------------------------- release ----
 
@@ -447,6 +456,12 @@ publish-release:
     - job: validate-linux-amd64
     - job: validate-linux-arm64
     - job: validate-mcpb
+      artifacts: false
+  retry:
+    max: 2
+    when:
+      - api_failure
+      - script_failure
   script:
     - echo "Publishing ${BINARY_NAME} v${PKG_VERSION}"
   rules:
@@ -489,29 +504,6 @@ publish-release:
           url: "${PKG_REGISTRY_URL}/${DEFAULT_WINDOWS_TARGET}/v${PKG_VERSION}/${BINARY_NAME}.mcpb"
         - name: "${BINARY_NAME} MCPB v${PKG_VERSION} (Windows SHA-256)"
           url: "${PKG_REGISTRY_URL}/${DEFAULT_WINDOWS_TARGET}/v${PKG_VERSION}/${BINARY_NAME}.mcpb.sha256"
-
-upload-binaries:
-  extends: .publish
-  stage: release
-  image: curlimages/curl@sha256:b375ea94488a70540f48df7a7029bcce50e650915816e6497774db9451b4f877
-  tags:
-    - amd64
-  resource_group: gitlab-package-uploads
-  needs:
-    - job: prepare-environment
-      artifacts: true
-    - job: validate-mcpb
-      artifacts: true
-    - job: publish-release
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      changes:
-        - Cargo.toml
-  script:
-    - ls -la bin/
-    - sh scripts/upload-binaries.sh
 
 # ------------------------------------------------------------------ docs ----
 

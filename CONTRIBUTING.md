@@ -65,7 +65,7 @@ Releases use semantic versioning and are published by GitLab CI. A change to `Ca
    ```shell
    make check-release-crates check-version
    ```
-4. Commit the version and changelog updates, then merge or push them to the default branch. GitLab CI builds and validates the release, creates the version tag, and publishes the crates and binary packages. Monitor the pipeline and verify the GitLab release and Homebrew formula update when it completes.
+4. Commit the version and changelog updates, then merge or push them to the default branch. GitLab CI builds and validates the release, uploads the binary packages, then creates the version tag and publishes the crates. Monitor the pipeline and verify the GitLab release and Homebrew formula update when it completes.
 
 Do not create the version tag manually; the default-branch release pipeline creates it from the workspace version.
 
