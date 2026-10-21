@@ -48,6 +48,27 @@ If you would like to generously provide a pull request to correct a verified iss
 | Regenerate command-line help              | `make help`        |
 | Generate CHANGELOG<sup>[[1]](#1)</sup>   | `make changelog`   |
 
+### Preparing and publishing a release
+
+Releases use semantic versioning and are published by GitLab CI. A change to `Cargo.toml` on the default branch triggers the release pipeline, which creates the `vX.Y.Z` tag, publishes the crates and release assets, and updates the Homebrew formula.
+
+1. Choose the next semantic version and update the workspace version and internal dependency pins:
+   ```shell
+   make release-version VERSION=x.y.z
+   ```
+2. Generate the release changelog entry and review it:
+   ```shell
+   make changelog-release
+   ```
+   This requires `GITLAB_TOKEN` in `.env` and `git-cliff` to be installed. Check `CHANGELOG.md` for accuracy and include it in the release commit.
+3. Run the project checks (`make lint test`) and confirm the release metadata is consistent:
+   ```shell
+   make check-release-crates check-version
+   ```
+4. Commit the version and changelog updates, then merge or push them to the default branch. GitLab CI builds and validates the release, creates the version tag, and publishes the crates and binary packages. Monitor the pipeline and verify the GitLab release and Homebrew formula update when it completes.
+
+Do not create the version tag manually; the default-branch release pipeline creates it from the workspace version.
+
 Container image builds use `docker.io/library` for Docker Official Images by default. ORNL developers can avoid Docker Hub throttling by using the institutional proxy cache:
 
 ```shell

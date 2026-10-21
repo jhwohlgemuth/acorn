@@ -10,8 +10,8 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-acorn-cmd = { version = "0.4.0", path = "../acorn-cmd", default-features = false, optional = true }
-acorn-core = { version = "0.4.0", path = "../acorn-core", default-features = false, features = ["alloc"] }
+acorn-cmd = { version = "0.5.0", path = "../acorn-cmd", default-features = false, optional = true }
+acorn-core = { version = "0.5.0", path = "../acorn-core", default-features = false, features = ["alloc"] }
 data-encoding = { workspace = true, optional = true }
 directories = { workspace = true, optional = true }
 futures = { workspace = true, features = ["std"], optional = true }

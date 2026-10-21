@@ -3,7 +3,7 @@ members = ["crates/acorn-analysis", "crates/acorn-cli", "crates/acorn-cmd", "cra
 resolver = "2"
 
 [workspace.package]
-version = "0.4.0"
+version = "0.5.0"
 rust-version = "1.98.0"
 license = "MIT"
 authors = ["Jason Wohlgemuth <wohlgemuthjh@ornl.gov>"]
@@ -51,11 +51,11 @@ unsafe_code = "forbid"
 broken_intra_doc_links = "forbid"
 
 [workspace.dependencies]
-acorn-analysis = { version = "0.4.0", path = "crates/acorn-analysis", default-features = false }
-acorn-core = { version = "0.4.0", path = "crates/acorn-core", default-features = false }
-acorn-schema = { version = "0.4.0", path = "crates/acorn-schema", default-features = false }
-acorn-server = { version = "0.4.0", path = "crates/acorn-server" }
-acorn-service = { version = "0.4.0", path = "crates/acorn-service", default-features = false }
+acorn-analysis = { version = "0.5.0", path = "crates/acorn-analysis", default-features = false }
+acorn-core = { version = "0.5.0", path = "crates/acorn-core", default-features = false }
+acorn-schema = { version = "0.5.0", path = "crates/acorn-schema", default-features = false }
+acorn-server = { version = "0.5.0", path = "crates/acorn-server" }
+acorn-service = { version = "0.5.0", path = "crates/acorn-service", default-features = false }
 agent-client-protocol = { version = "=2.2.0", default-features = false }
 anydoc = { version = "0.1.6", default-features = false }
 infer = { version = "0.22.0", default-features = false }
