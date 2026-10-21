@@ -12,6 +12,8 @@ use core::pin::Pin;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+mod chat;
+pub use chat::{AttachedTarget, ChatAction, ChatContext, ChatEvent, ChatRole, ChatState, ChatTransition, ChatTurn};
 #[cfg(feature = "template")]
 mod prompt;
 #[cfg(feature = "template")]

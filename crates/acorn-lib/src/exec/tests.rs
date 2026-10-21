@@ -213,6 +213,7 @@ fn test_configured_scripts_compile_completely_before_evaluation() {
     let changes = vec![Change::Document {
         changed: false,
         conflicts: Vec::new(),
+        decisions: Vec::new(),
         content: String::new(),
         data: Box::new(ResearchActivity::default()),
         failures: Vec::new(),

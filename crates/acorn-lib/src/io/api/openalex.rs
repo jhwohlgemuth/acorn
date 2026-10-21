@@ -199,6 +199,7 @@ where
                 workflow::EnrichmentResult {
                     data: data.research_outputs(),
                     conflicts: Vec::new(),
+                    decisions: Vec::new(),
                     failures: Vec::new(),
                 },
                 |result, identifier| async move {
@@ -216,6 +217,7 @@ where
         Ok(workflow::EnrichmentResult {
             data: data.with_research_outputs(result.data),
             conflicts: result.conflicts,
+            decisions: result.decisions,
             failures: result.failures,
         })
     }

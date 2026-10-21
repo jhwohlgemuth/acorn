@@ -195,12 +195,22 @@ pub const MAX_ARCHIVE_ENTRIES: usize = 100_000;
 pub const MAX_ARCHIVE_EXPANDED_BYTES: u64 = 100 * 1024 * 1024 * 1024;
 /// Maximum callback response body retained by the shared webhook dispatcher.
 pub const MAX_CALLBACK_RESPONSE_BYTES: usize = 64 * 1024;
+/// Maximum total text bytes sent as recent metadata chat context.
+pub const MAX_CHAT_CONTEXT_BYTES: usize = 32 * 1024;
+/// Maximum number of recent metadata chat turns sent as context.
+pub const MAX_CHAT_CONTEXT_TURNS: usize = 16;
 /// Maximum supported document size in bytes.
 pub const MAX_DOCUMENT_BYTES: usize = 100 * 1024 * 1024;
+/// Maximum choices allowed for one interactive enrichment decision.
+pub const MAX_ENRICHMENT_CANDIDATES: usize = 5;
 /// Maximum PowerAutomate JSONL inbox poll interval in seconds (one day).
 pub const MAX_INTAKE_POLL_INTERVAL_SECS: u64 = 86400;
 /// Maximum supported PDF page count.
 pub const MAX_PDF_PAGES: u32 = 1_000;
+/// Maximum completed messages retained in the inline terminal viewport.
+pub const MAX_VIEWPORT_HISTORY_LINES: usize = 1024;
+/// Maximum number of terminal rows claimed by the inline viewport.
+pub const MAX_VIEWPORT_HEIGHT: u16 = 12;
 /// Maximum number of durable webhook operation attempts.
 pub const MAX_WEBHOOK_OPERATION_ATTEMPTS: u32 = 5;
 /// Maximum durable webhook operation retry delay.

@@ -65,6 +65,7 @@ dependencies = [
  "itertools 0.14.0",
  "jiff",
  "nanoid",
+ "nix 0.31.3",
  "notify",
  "notify-debouncer-mini",
  "openssl-sys",
@@ -88,6 +89,7 @@ dependencies = [
  "tracing-indicatif",
  "tracing-log",
  "tracing-subscriber",
+ "unicode-width",
  "which",
 ]
 

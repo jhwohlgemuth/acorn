@@ -19,21 +19,23 @@ The first usable interface is separate from `acorn tui`. The later chat-controll
 
 # Current evidence
 
-Checked on 2026-10-20 at `4e6aa104`:
+Checked on 2026-10-21 against the current implementation:
 
 - `ask` is a visible alias of `infer`. The current positional or piped prompt runs a one-shot Needle sidecar and prints JSON; `infer run` hydrates an embedded prompt and uses ACP or an OpenAI-compatible endpoint. Neither mode keeps chat state.
 - The [native routing plan](needle-router-native-parity.md) owns the future caller-owned `ask` registry and CLI contract. RTR-03 freezes `ask` syntax; PAR-02 exposes full analysis checks. The [generic adapter plan](ask-executor-adapters.md) owns configured external executor bindings. This plan consumes those contracts and does not create another general tool registry.
 - `analyzer/host/service::analyze_paths` dispatches local analysis across ACRE, CFF, CKAN, DataCite, DCAT, Document, Dublin Core, HuWise, Invenio, Kitfile, ModelKit, RAiD, RAD, and Text. OCI artifact checking follows a separate `check` path. `check --suggest-fixes` already produces bounded proposals and previews; it does not apply them.
 - `acorn-host::fs::project_data_directory` resolves the platform data root. `standard_project_folder` creates random paths under the cache root, so it is unsuitable for durable chat transcripts. `acorn-cli` already depends on `crossterm`; the TUI uses an alternate screen, which this interface must avoid.
-- Plain and ACRE formatting can write in place. Enriched formatting builds a `Workflow::Plan` before application, including companion artifacts and configured hook output. Ambiguous ORCID/ROR enrichment currently becomes text conflicts with no candidate selection contract. Vocabulary reports already retain bounded candidates.
+- Plain and ACRE formatting can write in place. Enriched formatting builds a `Workflow::Plan` before application, including companion artifacts and configured hook output. Ambiguous ORCID/ROR enrichment currently becomes text conflicts. Vocabulary reports already retain bounded candidates.
+- The CLI has a command-owned inline viewport with bounded scrolling, text input, resize handling, TTY rejection, and terminal cleanup. `acorn-lib::agent` exposes a terminal-independent chat reducer with confirmed target identity and bounded context selection.
+- Enrichment results and workflow document changes carry typed unresolved decisions alongside conflicts and failures. Candidate identity, a five-choice bound, explicit skip, and stale-source validation are defined; providers do not yet populate selectable choices.
 - The requested visual and key behavior is modeled on [Gum Choose, Confirm, and Spin](https://github.com/charmbracelet/gum#commands), especially its two-button confirmation. This is an ACORN-native Rust implementation, not a Gum process dependency.
 
 # Boundaries and dependencies
 
 - **Owned here:** inline terminal controls, chat state and transcript storage, metadata attachment and analysis presentation, grounded conversational replies, reviewable fix application, typed uncertain-enrichment feedback, and interactive formatting.
 - **Consumed, not replaced:** existing analysis, fix, workflow transaction, inference backend, and routed capability contracts. `infer` without `--interactive`, `infer run`, and the separate TUI remain available.
-- IMC-00, IMC-01, and IMC-08 may start against the present tree. IMC-02 follows IMC-01 and IMC-03 follows IMC-00. IMC-04 consumes PAR-02; IMC-05/06 also consume RTR-03. If those contracts change, recheck the exact write set before starting. No phase depends on generic external adapter release or model-profile availability.
-- Serialize IMC-04 through IMC-07 with RTR-03, ADP-09, and other inference-command work on shared files. Serialize IMC-06 and IMC-10 with the CLI parser/help lock. Serialize IMC-08 through IMC-11 with structured enrichment or format work on their exact library and command files. The TUI screen itself remains a later separate outcome.
+- IMC-02, IMC-03, and IMC-09 may start against the present tree. IMC-04 consumes PAR-02; IMC-05/06 also consume RTR-03. If those contracts change, recheck the exact write set before starting. No phase depends on generic external adapter release or model-profile availability.
+- Serialize IMC-04 through IMC-07 with RTR-03, ADP-09, and other inference-command work on shared files. Serialize IMC-06 and IMC-10 with the CLI parser/help lock. Serialize IMC-09 through IMC-11 with structured enrichment or format work on their exact library and command files. The TUI screen itself remains a later separate outcome.
 
 # Experience and contracts
 
@@ -69,33 +71,11 @@ Checked on 2026-10-20 at `4e6aa104`:
 
 # Execution phases
 
-## IMC-00 — Establish a stable inline viewport
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: none
-- Exact write set: `crates/acorn-cli/src/io/interactive/mod.rs`, `crates/acorn-cli/src/io/interactive/tests.rs`, `crates/acorn-cli/src/io/mod.rs`
-- Primary integration lock: CLI terminal presentation
-- Outcome: Reserve and redraw an inline region from the starting cursor row, accept text input, scroll bounded history, and restore terminal state through a guard.
-- Focused validation: PTY tests for cursor anchoring, resize, narrow widths, long text, non-TTY rejection, and interruption cleanup.
-- Handoff: Freeze the viewport and input API for Choose, Confirm, and Spin; remove IMC-00.
-
-## IMC-01 — Define the UI-neutral chat state
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: none
-- Exact write set: `crates/acorn-lib/src/agent/chat.rs`, `crates/acorn-lib/src/agent/chat/tests.rs`, `crates/acorn-lib/src/agent/mod.rs`
-- Primary integration lock: agent chat contract
-- Outcome: Define immutable turn/action/event values, bounded context selection, attached-target identity, clear/cancel semantics, and a controller interface independent of terminal rendering.
-- Focused validation: Unit tests for event ordering, 16-turn/32-KiB trimming, retained full history, clear, and cancelled operations.
-- Handoff: Record the frozen event/action shape for history and render adapters; remove IMC-01 after it is usable by a fake consumer.
-
 ## IMC-02 — Persist durable chat sessions
 
-- Status: planned
+- Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: IMC-01
+- Prerequisites: none
 - Exact write set: `crates/acorn-lib/src/io/chat_history.rs`, `crates/acorn-lib/src/io/mod.rs`, `crates/acorn-lib/src/io/tests/chat_history.rs`, `crates/acorn-lib/src/io/tests/mod.rs`
 - Primary integration lock: chat history storage
 - Outcome: Create append-only, versioned JSONL sessions in the platform data directory; archive on clear and return the actual path to callers.
@@ -104,9 +84,9 @@ Checked on 2026-10-20 at `4e6aa104`:
 
 ## IMC-03 — Build reusable inline terminal controls
 
-- Status: planned
+- Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: IMC-00
+- Prerequisites: none
 - Exact write set: `crates/acorn-cli/src/io/interactive/mod.rs`, `crates/acorn-cli/src/io/interactive/tests.rs`, `crates/acorn-cli/src/io/mod.rs`
 - Primary integration lock: CLI terminal presentation
 - Outcome: Add Choose, two-button Confirm, and asynchronous Spin over the landed viewport with typed cancellation; use existing `crossterm`.
@@ -117,7 +97,7 @@ Checked on 2026-10-20 at `4e6aa104`:
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: IMC-01, PAR-02 from the native routing plan
+- Prerequisites: PAR-02 from the native routing plan
 - Exact write set: `crates/acorn-cli/src/commands/infer/metadata.rs`, `crates/acorn-cli/src/commands/infer/tests/metadata.rs`, `crates/acorn-cli/src/commands/infer/tests/mod.rs`, `crates/acorn-cli/src/commands/infer/mod.rs`
 - Primary integration lock: metadata analysis adapter
 - Outcome: Resolve confirmed files/folders to typed standard-aware analysis inputs and present bounded structured findings through the landed check capability; no CLI subprocess or duplicate validator.
@@ -128,7 +108,7 @@ Checked on 2026-10-20 at `4e6aa104`:
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: IMC-01, IMC-02, IMC-04, RTR-03 from the native routing plan
+- Prerequisites: IMC-02, IMC-04, RTR-03 from the native routing plan
 - Exact write set: `crates/acorn-schema/assets/prompts/metadata-chat.prompt`, `crates/acorn-schema/src/agent/mod.rs`, `crates/acorn-schema/src/agent/tests/mod.rs`, `crates/acorn-schema/src/agent/tests/snapshots/acorn_schema__agent__tests__prompt_asset_file_names.snap`, `crates/acorn-schema/src/agent/tests/snapshots/acorn_schema__agent__tests__prompt_asset_template_headers.snap`, `crates/acorn-cli/src/commands/infer/chat.rs`, `crates/acorn-cli/src/commands/infer/tests/chat.rs`, `crates/acorn-cli/src/commands/infer/tests/mod.rs`
 - Primary integration lock: ask conversation composition
 - Outcome: Drive bounded routed metadata actions and grounded ACP/endpoint prose over the chat controller; keep session failures and cancellations explicit.
@@ -157,22 +137,11 @@ Checked on 2026-10-20 at `4e6aa104`:
 - Focused validation: Proposed/accepted/declined/stale/invalid/failed-write fixtures, including no write on Escape or backend instruction alone.
 - Handoff: Preserve the consent and stale-source behavior in tests; remove IMC-07.
 
-## IMC-08 — Keep uncertain enrichment as typed decisions
+## IMC-09 — Populate selectable enrichment candidates
 
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none; coordinate exact overlap with structured-enrichment work
-- Exact write set: `crates/acorn-lib/src/io/enrichment.rs`, `crates/acorn-lib/src/io/workflow/mod.rs`, `crates/acorn-lib/src/io/tests/enrichment.rs`, `crates/acorn-lib/src/io/workflow/tests/mod.rs`
-- Primary integration lock: enrichment decision contract
-- Outcome: Carry bounded, source-attributed ambiguous candidates and a skip outcome alongside existing conflicts, without changing non-interactive automatic selection.
-- Focused validation: Structured candidate round trips, no auto-choice on ambiguity, stable provider order, and existing enrichment regression tests.
-- Handoff: Freeze candidate identity and validation rules for provider and format phases; remove IMC-08.
-
-## IMC-09 — Populate selectable enrichment candidates
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: IMC-08
 - Exact write set: `crates/acorn-lib/src/io/enrichment.rs`, `crates/acorn-lib/src/io/tests/enrichment.rs`, `crates/acorn-lib/src/io/workflow/mod.rs`, `crates/acorn-lib/src/io/workflow/tests/mod.rs`
 - Primary integration lock: enrichment providers
 - Outcome: Supply bounded choices for ambiguous ORCID/ROR lookups and vocabulary findings where candidate evidence exists; retain unresolved diagnostics when it does not.

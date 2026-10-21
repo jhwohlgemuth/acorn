@@ -7,6 +7,9 @@ use is_terminal::IsTerminal;
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
 
+#[allow(dead_code)]
+pub(crate) mod interactive;
+
 /// Enum for representing input/output stream state (e.g., "piped" or "not piped")
 /// ### Notes
 /// - "piped"

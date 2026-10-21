@@ -66,6 +66,7 @@ fn test_work_failure_preserves_previous_success() {
         EnrichmentResult {
             data: Vec::new(),
             conflicts: Vec::new(),
+            decisions: Vec::new(),
             failures: Vec::new(),
         },
         "10.1038/nature12373".to_string(),
@@ -96,6 +97,7 @@ fn test_work_merges_missing_fields_into_existing_output() {
         EnrichmentResult {
             data: vec![existing],
             conflicts: Vec::new(),
+            decisions: Vec::new(),
             failures: Vec::new(),
         },
         "10.1038/nature12373".to_string(),

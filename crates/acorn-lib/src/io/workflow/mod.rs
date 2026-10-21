@@ -17,7 +17,7 @@ use crate::io::config::application::ApplicationConfiguration;
 use crate::{
     fail,
     io::{enrichment::Enrich, read_file, ApiResult, FromPath, InputOutput},
-    util::{print_changes_with_color, StringConversion},
+    util::{constants::app::MAX_ENRICHMENT_CANDIDATES, print_changes_with_color, StringConversion},
     LocationExt, With,
 };
 use acorn_core::{
@@ -28,6 +28,7 @@ use acorn_core::{
 };
 use acorn_host::terminal::Label;
 use acorn_schema::{
+    enrichment::Provider,
     validation::Validate,
     vocabulary::{VocabularyFormat, VocabularyReport},
 };
@@ -70,6 +71,8 @@ pub enum Change<T> {
         changed: bool,
         /// Non-fatal enrichment conflicts encountered while producing this change.
         conflicts: Vec<String>,
+        /// Unresolved enrichment choices retained for interactive review.
+        decisions: Vec<EnrichmentDecision>,
         /// Serialized content in the source file's format.
         content: String,
         /// Parsed and transformed standard data.
@@ -89,6 +92,15 @@ pub enum Change<T> {
     #[cfg(feature = "analysis")]
     Check(Check),
 }
+/// Explicit outcome of reviewing one enrichment decision.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum EnrichmentSelection {
+    /// Use the candidate identified by the caller.
+    Choose(EnrichmentCandidateKey),
+    /// Leave the field unchanged.
+    Skip,
+}
 /// A generated workflow artifact.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Artifact {
@@ -97,14 +109,61 @@ pub struct Artifact {
     /// Serialized artifact content.
     pub content: String,
 }
+/// One selectable value backed by provider evidence.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct EnrichmentCandidate {
+    /// Stable candidate identity.
+    pub key: EnrichmentCandidateKey,
+    /// Human-readable candidate label.
+    pub label: String,
+    /// Provider record or lookup that supplied the candidate.
+    pub evidence_source: String,
+}
+/// Stable identity for one proposed enrichment value.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct EnrichmentCandidateKey {
+    /// Field to replace when this value is selected.
+    pub field: String,
+    /// Enrichment provider that proposed the value.
+    pub provider: Provider,
+    /// Exact source document being enriched.
+    pub source: Location,
+    /// Proposed replacement value.
+    pub value: String,
+}
+/// An unresolved field and its bounded, source-attributed choices.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct EnrichmentDecision {
+    /// Values available for interactive review, in provider order.
+    pub candidates: Vec<EnrichmentCandidate>,
+    /// Exact field to update.
+    pub field: String,
+    /// Original field value retained for stale-source checks.
+    pub original: String,
+    /// Provider that reported ambiguity.
+    pub provider: Provider,
+    /// Why this field needs a decision.
+    pub reason: String,
+    /// Exact source document being enriched.
+    pub source: Location,
+}
 /// Result of applying one or more enrichment providers.
-#[derive(Clone, Debug, Default)]
+#[derive(bon::Builder, Clone, Debug, Default)]
+#[builder(on(String, into))]
 pub struct EnrichmentResult<T> {
     /// Enriched metadata.
     pub data: T,
     /// Existing-value or ambiguous-match conflicts that were left unchanged.
+    #[builder(default)]
     pub conflicts: Vec<String>,
+    /// Unresolved choices in deterministic provider order.
+    #[builder(default)]
+    pub decisions: Vec<EnrichmentDecision>,
     /// Non-fatal provider failures encountered after other providers continued.
+    #[builder(default)]
     pub failures: Vec<String>,
 }
 /// A complete, validated set of changes prepared before any writes occur.
@@ -291,6 +350,14 @@ where
             | Self::Check(_) => &[],
         }
     }
+    /// Return unresolved enrichment decisions for this change.
+    pub fn decisions(&self) -> &[EnrichmentDecision] {
+        match self {
+            | Self::Document { decisions, .. } => decisions,
+            #[cfg(feature = "analysis")]
+            | Self::Check(_) => &[],
+        }
+    }
     fn has_linked_artifact(&self) -> bool {
         match self {
             | Self::Document { linked, .. } => linked.is_some(),
@@ -303,6 +370,49 @@ where
 impl<T> From<Check> for Change<T> {
     fn from(value: Check) -> Self {
         Self::Check(value)
+    }
+}
+impl EnrichmentDecision {
+    /// Validate a bounded decision and its candidate identities.
+    pub fn new(
+        provider: Provider,
+        source: Location,
+        field: String,
+        original: String,
+        reason: String,
+        candidates: Vec<EnrichmentCandidate>,
+    ) -> ApiResult<Self> {
+        let valid_keys = candidates
+            .iter()
+            .all(|candidate| candidate.key.provider == provider && candidate.key.source == source && candidate.key.field == field);
+        let unique = candidates
+            .iter()
+            .enumerate()
+            .all(|(index, candidate)| candidates.iter().skip(index.saturating_add(1)).all(|other| other.key != candidate.key));
+        match (field.is_empty(), candidates.len() > MAX_ENRICHMENT_CANDIDATES, valid_keys, unique) {
+            | (false, false, true, true) => Ok(Self {
+                candidates,
+                field,
+                original,
+                provider,
+                reason,
+                source,
+            }),
+            | _ => Err(eyre!("Invalid enrichment decision or candidate identities")),
+        }
+    }
+    /// Check that a choice belongs to this decision and its source value is unchanged.
+    pub fn validate_selection(&self, selection: &EnrichmentSelection, current: &str) -> ApiResult<Option<&EnrichmentCandidate>> {
+        match selection {
+            | EnrichmentSelection::Skip => Ok(None),
+            | EnrichmentSelection::Choose(_) if current != self.original => Err(eyre!("Enrichment source value changed before selection")),
+            | EnrichmentSelection::Choose(key) => self
+                .candidates
+                .iter()
+                .find(|candidate| &candidate.key == key)
+                .map(Some)
+                .ok_or_else(|| eyre!("Selected enrichment candidate is not in this decision")),
+        }
     }
 }
 impl<T> Plan<T> {
@@ -653,15 +763,16 @@ where
             | Ok((path, original, data, mut vocabulary_reports)) => {
                 let enriched = match (*enrich, enrichment) {
                     | (true, Some(capability)) => capability.enrich((source.clone(), data)).await,
-                    | _ => Ok(EnrichmentResult {
-                        data,
-                        conflicts: Vec::new(),
-                        failures: Vec::new(),
-                    }),
+                    | _ => Ok(EnrichmentResult::builder().data(data).build()),
                 };
                 enriched
                     .map(|result| {
-                        let EnrichmentResult { data, conflicts, failures } = result;
+                        let EnrichmentResult {
+                            data,
+                            conflicts,
+                            decisions,
+                            failures,
+                        } = result;
                         let formatted = match format {
                             | true => InputOutput::format_with_vocabulary_report(data, *fuzzy, Some(path.clone())),
                             | false => VocabularyFormat {
@@ -671,11 +782,12 @@ where
                         };
                         vocabulary_reports.extend(formatted.reports);
                         (
-                            EnrichmentResult {
-                                data: formatted.value,
-                                conflicts,
-                                failures,
-                            },
+                            EnrichmentResult::builder()
+                                .data(formatted.value)
+                                .conflicts(conflicts)
+                                .decisions(decisions)
+                                .failures(failures)
+                                .build(),
                             vocabulary_reports,
                         )
                     })
@@ -688,7 +800,12 @@ where
                         | false => Ok((result, vocabulary_reports)),
                     })
                     .and_then(|(result, vocabulary_reports)| {
-                        let EnrichmentResult { data, conflicts, failures } = result;
+                        let EnrichmentResult {
+                            data,
+                            conflicts,
+                            decisions,
+                            failures,
+                        } = result;
                         InputOutput::serialize_as(&data, &MimeType::from_path(&path)).and_then(|content| {
                             let linked = match link {
                                 | true => data.linked_content().map(|content| {
@@ -702,6 +819,7 @@ where
                             linked.map(|linked| Change::Document {
                                 changed: original != content,
                                 conflicts,
+                                decisions,
                                 content,
                                 data: Box::new(data),
                                 failures,

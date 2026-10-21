@@ -3,6 +3,7 @@ use super::*;
 #[cfg(feature = "analysis")]
 use crate::analyzer::{Check, CheckCategory};
 use acorn_core::options::CommonRuntime;
+use acorn_schema::enrichment::Provider;
 use acorn_schema::research_activity::{ResearchActivity, ResearchActivityMetadata, ResearchOutput};
 use acorn_schema::standard::cff::Cff;
 use acorn_schema::OneOrMany;
@@ -12,9 +13,8 @@ use core::time::Duration;
 use std::fs;
 use tempfile::tempdir;
 
-mod logbook;
-
 struct CffEnrichment;
+struct DecisionEnrichment;
 struct OutputEnrichment;
 #[derive(Default)]
 struct TrackingEnrichment {
@@ -31,6 +31,38 @@ impl Enrich<(Location, Cff)> for CffEnrichment {
                 ..data
             },
             conflicts: Vec::new(),
+            decisions: Vec::new(),
+            failures: Vec::new(),
+        })
+    }
+}
+#[async_trait]
+impl Enrich<(Location, ResearchActivity)> for DecisionEnrichment {
+    type Output = ApiResult<EnrichmentResult<ResearchActivity>>;
+    async fn enrich(&self, (source, data): (Location, ResearchActivity)) -> Self::Output {
+        let field = "title".to_string();
+        let candidate = EnrichmentCandidate {
+            key: EnrichmentCandidateKey {
+                field: field.clone(),
+                provider: Provider::OpenAlex,
+                source: source.clone(),
+                value: "Suggested title".to_string(),
+            },
+            label: "Suggested title".to_string(),
+            evidence_source: "https://openalex.org/W1".to_string(),
+        };
+        let decision = EnrichmentDecision::new(
+            Provider::OpenAlex,
+            source,
+            field,
+            data.title.clone(),
+            "multiple matches".to_string(),
+            vec![candidate],
+        )?;
+        Ok(EnrichmentResult {
+            data,
+            conflicts: vec!["ambiguous title".to_string()],
+            decisions: vec![decision],
             failures: Vec::new(),
         })
     }
@@ -54,6 +86,7 @@ impl Enrich<(Location, ResearchActivity)> for OutputEnrichment {
                 ..data
             },
             conflicts: Vec::new(),
+            decisions: Vec::new(),
             failures: Vec::new(),
         })
     }
@@ -77,6 +110,7 @@ impl Enrich<(Location, ResearchActivity)> for TrackingEnrichment {
         Ok(EnrichmentResult {
             data,
             conflicts: Vec::new(),
+            decisions: Vec::new(),
             failures: Vec::new(),
         })
     }
@@ -111,6 +145,80 @@ fn test_change_preserves_check_for_future_fix_resolution() {
     assert!(matches!(change, Change::Check(_)));
     assert!(!change.is_changed());
     assert!(change.data().is_none());
+}
+#[test]
+fn test_decision_rejects_duplicate_or_foreign_candidates() {
+    let source = Location::from("activity.json");
+    let candidate = EnrichmentCandidate {
+        key: EnrichmentCandidateKey {
+            field: "title".to_string(),
+            provider: Provider::OpenAlex,
+            source: source.clone(),
+            value: "Suggested".to_string(),
+        },
+        label: "Suggested".to_string(),
+        evidence_source: "work".to_string(),
+    };
+    let create = |candidates| {
+        EnrichmentDecision::new(
+            Provider::OpenAlex,
+            source.clone(),
+            "title".to_string(),
+            "Original".to_string(),
+            "ambiguous".to_string(),
+            candidates,
+        )
+    };
+    assert!(create(vec![candidate.clone(), candidate.clone()]).is_err());
+    assert!(create(vec![candidate.clone(); 6]).is_err());
+    let foreign = EnrichmentCandidate {
+        key: EnrichmentCandidateKey {
+            field: "subtitle".to_string(),
+            ..candidate.key.clone()
+        },
+        ..candidate.clone()
+    };
+    assert!(create(vec![foreign]).is_err());
+    let decision = create(vec![candidate]).unwrap();
+    let missing = EnrichmentCandidateKey {
+        value: "Missing".to_string(),
+        ..decision.candidates.first().expect("decision should contain one candidate").key.clone()
+    };
+    assert!(decision.validate_selection(&EnrichmentSelection::Choose(missing), "Original").is_err());
+}
+#[test]
+fn test_decision_round_trip_and_selection_validation() {
+    let source = Location::from("activity.json");
+    let key = EnrichmentCandidateKey {
+        field: "meta.ror".to_string(),
+        provider: Provider::Ror,
+        source: source.clone(),
+        value: "https://ror.org/01abc".to_string(),
+    };
+    let candidate = EnrichmentCandidate {
+        key: key.clone(),
+        label: "Oak Ridge".to_string(),
+        evidence_source: "https://ror.org/01abc".to_string(),
+    };
+    let decision = EnrichmentDecision::new(
+        Provider::Ror,
+        source,
+        key.field.clone(),
+        String::new(),
+        "ambiguous exact match".to_string(),
+        vec![candidate.clone()],
+    )
+    .unwrap();
+    let encoded = serde_json::to_string(&decision).unwrap();
+    let decoded: EnrichmentDecision = serde_json::from_str(&encoded).unwrap();
+    assert_eq!(decoded, decision);
+    assert_eq!(serde_json::to_string(&EnrichmentSelection::Skip).unwrap(), "\"skip\"");
+    assert_eq!(decision.validate_selection(&EnrichmentSelection::Skip, "changed").unwrap(), None);
+    assert_eq!(
+        decision.validate_selection(&EnrichmentSelection::Choose(key.clone()), "").unwrap(),
+        Some(&candidate)
+    );
+    assert!(decision.validate_selection(&EnrichmentSelection::Choose(key), "stale").is_err());
 }
 #[test]
 fn test_default_options_only_check() {
@@ -277,6 +385,27 @@ async fn test_plan_enriches_without_writing_source() {
     let change = plan.changes.first().expect("plan should contain one change");
     assert!(change.is_changed());
     assert_eq!(change.data().and_then(|data| data.meta.outputs.as_ref().map(OneOrMany::len)), Some(1));
+}
+#[tokio::test]
+async fn test_plan_retains_unresolved_decision_without_auto_choice() {
+    let (_temporary, source) = source_file();
+    let path = source.local_path().unwrap();
+    let before = fs::read_to_string(&path).unwrap();
+    let options = options(
+        CommonRuntime::default(),
+        WorkflowExtension {
+            enrich: true,
+            ..WorkflowExtension::default()
+        },
+    );
+    let plan = Workflow::<ResearchActivity>::plan(&[source], options, Some(&DecisionEnrichment))
+        .await
+        .unwrap();
+    assert_eq!(plan.changes.len(), 1);
+    let change = plan.changes.first().expect("plan should contain one change");
+    assert_eq!(change.decisions().len(), 1);
+    assert_eq!(change.conflicts(), &["ambiguous title".to_string()]);
+    assert_eq!(fs::read_to_string(path).unwrap(), before);
 }
 #[test]
 fn test_repository_accepts_every_registered_flat_file_format() {
@@ -499,3 +628,5 @@ async fn test_workflow_processes_and_enriches_non_rad_standard() {
     assert_eq!(report.written, 1);
     assert_eq!(report.linked, 0);
 }
+
+mod logbook;

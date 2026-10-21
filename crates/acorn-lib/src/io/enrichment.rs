@@ -83,12 +83,18 @@ pub trait Enrich<Input: Send = ()>: Send + Sync {
 /// the pipeline's planning and change types to [`ResearchActivity`].
 #[async_trait]
 pub trait EnrichmentMetadata: InputOutput + Clone + Serialize + Send + Sync {
+    /// Return the fields changed by a provider.
+    fn enrichment_fields(before: &serde_json::Value, after: &serde_json::Value) -> Vec<String>;
     /// Return the lookup source associated with a provider.
     fn enrichment_source(&self, provider: Provider) -> Option<String>;
     /// Apply one provider and return updated data, conflicts, and non-fatal failures.
     async fn enrich_provider(&self, provider: Provider, source: &Location) -> ApiResult<(Self, Vec<String>, Vec<String>)>;
-    /// Return the fields changed by a provider.
-    fn enrichment_fields(before: &serde_json::Value, after: &serde_json::Value) -> Vec<String>;
+    /// Apply one provider while retaining any typed choices it reports.
+    async fn enrich_provider_with_decisions(&self, provider: Provider, source: &Location) -> ApiResult<EnrichmentResult<Self>> {
+        self.enrich_provider(provider, source)
+            .await
+            .map(|(data, conflicts, failures)| EnrichmentResult::builder().data(data).conflicts(conflicts).failures(failures).build())
+    }
     /// Record provenance for fields changed by a provider.
     fn with_enrichment_provenance(self, provider: Provider, source: Option<String>, fields: Vec<String>) -> Self;
 }
@@ -1204,50 +1210,54 @@ where
     type Output = ApiResult<EnrichmentResult<T>>;
     async fn enrich(&self, (source, data): (Location, T)) -> Self::Output {
         Ok(stream::iter(self.providers.iter().copied())
-            .fold(
-                EnrichmentResult {
-                    data,
-                    conflicts: Vec::new(),
-                    failures: Vec::new(),
-                },
-                |result, provider| {
-                    let source = source.clone();
-                    async move {
-                        let lookup = result.data.enrichment_source(provider);
-                        let original = result.data.clone();
-                        let before = serde_json::to_value(&result.data).unwrap_or_default();
-                        let enriched = result.data.enrich_provider(provider, &source).await;
-                        match enriched {
-                            | Ok((data, conflicts, failures)) => {
-                                let after = serde_json::to_value(&data).unwrap_or_default();
-                                let fields = T::enrichment_fields(&before, &after);
-                                let data = match fields.is_empty() {
-                                    | true => data,
-                                    | false => data.with_enrichment_provenance(provider, lookup, fields),
-                                };
-                                EnrichmentResult {
-                                    data,
-                                    conflicts: result
+            .fold(EnrichmentResult::builder().data(data).build(), |result, provider| {
+                let source = source.clone();
+                async move {
+                    let lookup = result.data.enrichment_source(provider);
+                    let original = result.data.clone();
+                    let before = serde_json::to_value(&result.data).unwrap_or_default();
+                    let enriched = result.data.enrich_provider_with_decisions(provider, &source).await;
+                    match enriched {
+                        | Ok(EnrichmentResult {
+                            data,
+                            conflicts,
+                            decisions,
+                            failures,
+                        }) => {
+                            let after = serde_json::to_value(&data).unwrap_or_default();
+                            let fields = T::enrichment_fields(&before, &after);
+                            let data = match fields.is_empty() {
+                                | true => data,
+                                | false => data.with_enrichment_provenance(provider, lookup, fields),
+                            };
+                            EnrichmentResult::builder()
+                                .data(data)
+                                .conflicts(
+                                    result
                                         .conflicts
                                         .into_iter()
                                         .chain(conflicts.into_iter().map(|value| format!("{provider}: {value}")))
                                         .collect(),
-                                    failures: result
+                                )
+                                .decisions(result.decisions.into_iter().chain(decisions).collect())
+                                .failures(
+                                    result
                                         .failures
                                         .into_iter()
                                         .chain(failures.into_iter().map(|value| format!("{provider}: {value}")))
                                         .collect(),
-                                }
-                            }
-                            | Err(why) => EnrichmentResult {
-                                data: original,
-                                conflicts: result.conflicts,
-                                failures: result.failures.into_iter().chain([format!("{provider}: {why}")]).collect(),
-                            },
+                                )
+                                .build()
                         }
+                        | Err(why) => EnrichmentResult::builder()
+                            .data(original)
+                            .conflicts(result.conflicts)
+                            .decisions(result.decisions)
+                            .failures(result.failures.into_iter().chain([format!("{provider}: {why}")]).collect())
+                            .build(),
                     }
-                },
-            )
+                }
+            })
             .await)
     }
 }
