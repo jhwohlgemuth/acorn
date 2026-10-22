@@ -42,6 +42,8 @@ The workflow remains a GGUF consumer. Supporting ModelPack packaging does not im
 
 Use the landed safe archive, atomic publication, GGUF, ModelKit, and registry materialization boundaries. Shared endpoint/authentication helpers come from the API contract plan, but model acquisition owns repository identity, package discrimination, layer planning, and model metadata. Changes to `io/model/gguf/`, database schema code, the model planner, manifests, or CI/build files require their integration locks.
 
+MOD-11 depends on [GitLab shell runner readiness](../testing/gitlab-shell-runner-readiness.md) GSR-02 for its native Windows test environment; Linux registry validation may proceed independently.
+
 # Decisions
 
 ## Validated Hugging Face requests
@@ -215,7 +217,7 @@ Extend the existing bounded GGUF reader to capture `general.architecture` and `{
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: MOD-08, MOD-09
+- Prerequisites: MOD-08, MOD-09, GSR-02
 - Exact write set: Windows Distribution/Harbor test environment, `docs/src/cli-reference/model-workflows.md`
 - Primary integration lock: model registry matrix
 - Outcome: Prove the same tag/digest and public/authenticated flows on Windows.

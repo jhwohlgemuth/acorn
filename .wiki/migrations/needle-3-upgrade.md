@@ -35,6 +35,7 @@ Run the shipped Needle 3 workflow on Windows x86_64, Linux x86_64, and Linux ARM
 # Dependencies and coordination
 
 - Lane: Agent tools and sidecars in the [parallel execution guide](../parallel-execution.md).
+- NDL-02 depends on [GitLab shell runner readiness](../testing/gitlab-shell-runner-readiness.md) GSR-02; Linux ARM64 validation remains independent.
 - Serialize edits to shared sidecar roots, manifests, OCI materialization, CLI roots, generated help, `.gitlab-ci.yml`, and `Makefile`.
 - [SLM sidecars](../features/slm-sidecars.md) may proceed independently because the shared ModelKit contract is already available; only shared CI/build locks require coordination.
 - [Deterministic and assisted gather extraction](../features/gather-extraction.md) owns any user-facing extraction adapter. Embedding, search, and fine-tuning remain outside this migration.
@@ -78,12 +79,12 @@ Delete this plan after all three host validations pass, then remove its migratio
 
 - Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: a native Windows x86_64 GitLab shell runner tagged `windows-x86_64`, with PowerShell and access to the build artifact
+- Prerequisites: GSR-02; PowerShell and access to the build artifact on the native Windows x86_64 GitLab shell runner tagged `windows-x86_64`
 - Exact write set: Windows x86_64 release host, `docs/src/inference/needle.md`
 - Primary integration lock: Needle host matrix
 - Outcome: Run the manual Windows job, verify native Ctrl+C cancellation and child/session cleanup, and record the pinned acquisition, inference, policy, offline, and process evidence.
 - Focused validation: Run `validate-needle-windows-amd64` on the native host and retain its JSON report plus the cancellation observation.
-- Handoff: Runner 55601 is currently `linux/amd64`, so it cannot supply the required native Windows evidence. Install or reconfigure a Windows x86_64 shell runner with the job tag, run the job, complete the Ctrl+C cleanup check, record results in the Needle guide, then remove NDL-02.
+- Handoff: Runner 55601 is currently `linux/amd64`, so it cannot supply the required native Windows evidence. After GSR-02 verifies a native runner with the job tag, run the job, complete the Ctrl+C cleanup check, record results in the Needle guide, then remove NDL-02.
 
 ## NDL-05 — Validate Linux ARM64
 

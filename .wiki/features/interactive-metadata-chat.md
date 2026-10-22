@@ -25,19 +25,19 @@ Checked on 2026-10-21 against the current implementation:
 - The [native routing plan](needle-router-native-parity.md) owns the future caller-owned `ask` registry and CLI contract. RTR-03 freezes `ask` syntax; PAR-02 exposes full analysis checks. The [generic adapter plan](ask-executor-adapters.md) owns configured external executor bindings. This plan consumes those contracts and does not create another general tool registry.
 - `analyzer/host/service::analyze_paths` dispatches local analysis across ACRE, CFF, CKAN, DataCite, DCAT, Document, Dublin Core, HuWise, Invenio, Kitfile, ModelKit, RAiD, RAD, and Text. OCI artifact checking follows a separate `check` path. `check --suggest-fixes` already produces bounded proposals and previews; it does not apply them.
 - `acorn-lib::io::chat_history::ChatSession` creates private, versioned JSONL files under `ask/sessions`, flushes complete records, redacts recognized credentials, and starts a new file on clear. The first chat command still needs to wire this storage into its event flow.
-- Plain and ACRE formatting can write in place. Enriched formatting builds a `Workflow::Plan` before application, including companion artifacts and configured hook output. Ambiguous ORCID/ROR enrichment currently becomes text conflicts. Vocabulary reports already retain bounded candidates.
+- Plain and ACRE formatting can write in place. Enriched formatting builds a `Workflow::Plan` before application, including companion artifacts and configured hook output. Ambiguous enrichment now retains bounded typed decisions alongside its existing text diagnostics.
 - The CLI has a command-owned inline viewport with bounded scrolling, text input, Choose, two-button Confirm, asynchronous Spin, resize handling, TTY rejection, and terminal cleanup. `acorn-lib::agent` exposes a terminal-independent chat reducer with confirmed target identity and bounded context selection.
-- The existing Confirm renderer shows arrow-marked `[Yes]` and `[No]` labels in green and red. Its PTY test checks that both labels appear, but the buttons do not yet have the filled, adjacent active/inactive treatment shown in the [user-supplied Gum Confirm animation](../assets/gum-confirm-reference.gif).
+- Confirm renders adjacent filled buttons with magenta focus, a muted inactive state, visible text markers without color, and No focused initially. Focused renderer and PTY tests cover its visual and keyboard behavior against the [user-supplied Gum Confirm animation](../assets/gum-confirm-reference.gif).
 - `acorn-lib::agent::slash` defines typed command names, aliases, argument parsing, and context-specific suggestions shared by the TUI dashboard and GitLab webhook. Chat will consume the same contract in IMC-06. GitLab still requires `/acorn` and retains its existing note authorization and operation paths.
-- Enrichment results and workflow document changes carry typed unresolved decisions alongside conflicts and failures. Candidate identity, a five-choice bound, explicit skip, and stale-source validation are defined; providers do not yet populate selectable choices.
+- Enrichment results and workflow document changes carry typed decisions with a five-choice bound, explicit skip, stale-source validation, and distinct external-provider or embedded-vocabulary origins. Ambiguous ORCID matches can provide choices for CFF, DataCite, Invenio, and RAD; ambiguous ROR and complete ambiguous or unmatched vocabulary reports can provide choices for RAD. Missing or incomplete evidence retains diagnostics without a choice. Passive formatting still writes only deterministic results.
 - The requested visual and key behavior is modeled on [Gum Choose, Confirm, and Spin](https://github.com/charmbracelet/gum#commands), especially its two-button confirmation. This is an ACORN-native Rust implementation, not a Gum process dependency.
 
 # Boundaries and dependencies
 
 - **Owned here:** inline terminal controls, chat state and transcript storage, metadata attachment and analysis presentation, grounded conversational replies, reviewable fix application, typed uncertain-enrichment feedback, and interactive formatting.
 - **Consumed, not replaced:** existing analysis, fix, workflow transaction, inference backend, and routed capability contracts. `infer` without `--interactive`, `infer run`, and the separate TUI remain available.
-- IMC-09 may start against the present tree. IMC-04 consumes PAR-02; IMC-05/06 also consume RTR-03. If those contracts change, recheck the exact write set before starting. No phase depends on generic external adapter release or model-profile availability.
-- Serialize IMC-04 through IMC-07 with RTR-03, ADP-09, and other inference-command work on shared files. Serialize IMC-06 and IMC-10 with the CLI parser/help lock. Serialize IMC-09 through IMC-11 with structured enrichment or format work on their exact library and command files. The TUI screen itself remains a later separate outcome.
+- IMC-04 consumes PAR-02; IMC-05/06 also consume RTR-03. If those contracts change, recheck the exact write set before starting. No phase depends on generic external adapter release or model-profile availability.
+- Serialize IMC-04 through IMC-07 with RTR-03, ADP-09, and other inference-command work on shared files. Serialize IMC-06 and IMC-10 with the CLI parser/help lock. Serialize IMC-10/11 with structured enrichment or format work on their exact library and command files. The TUI screen itself remains a later separate outcome.
 
 # Experience and contracts
 
@@ -61,7 +61,7 @@ Checked on 2026-10-21 against the current implementation:
 - Store transcripts under `project_data_directory("org", "ornl", "acorn", "ask/sessions")`, one newly created JSONL file per session. Records have a version, session ID, timestamp, event type, user/assistant text, selected standard/path references, concise tool result or decision, and secret-free backend provenance. Flush complete records so an interrupted session remains readable; treat a trailing partial record as recoverable. Protect files with user-only permissions where the platform supports them. Redact recognized bearer tokens, credential fields, and URL user info before persistence; do not persist entire attached documents or unbounded tool payloads.
 - `/clear` archives the current file and opens a new one. New command invocations do not automatically resume old sessions. The terminal shows the saved path on clear and exit. Failure to create or append the transcript is visible and ends the affected session before another model/tool action; a user must not think history was saved when it was not.
 - For chat fixes, use existing bounded fix proposals and previews. Show target, source finding, proposed diff, and effects; require Confirm before each selected write. Recheck source content and target authorization immediately before applying through the existing fix plan. Decline, stale source, failed validation, and rollback each produce explicit outcomes in UI and history.
-- For `format --interactive`, deterministic formatting and accepted high-confidence vocabulary normalization proceed automatically under existing command rules. Ambiguous enrichment presents typed candidates with provider, field, source, and reason plus **Skip**. A choice is validated against the original source and standard before it enters the plan; a provider without candidates leaves the field unchanged and reports why. Keep non-interactive enrichment behavior unchanged. Evaluate configured hooks before the final reviewed plan is applied; source and companion artifacts use the existing transaction and rollback path. `--dry-run --interactive` may show decisions but performs no writes. For batches, review uncertain values per affected file; deterministic files need no confirmation.
+- For `format --interactive`, deterministic formatting and accepted high-confidence vocabulary normalization proceed automatically under existing command rules. Uncertain enrichment presents typed candidates with origin, field, source, and reason plus **Skip**. A choice is validated against the original source and standard before it enters the plan; a source without candidates leaves the field unchanged and reports why. Keep non-interactive enrichment behavior unchanged. Evaluate configured hooks before the final reviewed plan is applied; source and companion artifacts use the existing transaction and rollback path. `--dry-run --interactive` may show decisions but performs no writes. For batches, review uncertain values per affected file; deterministic files need no confirmation.
 
 # Validation and acceptance
 
@@ -110,40 +110,18 @@ Checked on 2026-10-21 against the current implementation:
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: IMC-04, IMC-06, IMC-14
+- Prerequisites: IMC-04, IMC-06
 - Exact write set: `crates/acorn-cli/src/commands/infer/chat.rs`, `crates/acorn-cli/src/commands/infer/tests/chat.rs`
 - Primary integration lock: ask fix application
 - Outcome: Present existing fix previews, confirm individual writes, recheck targets, apply through the existing fix plan, and record outcomes.
 - Focused validation: Proposed/accepted/declined/stale/invalid/failed-write fixtures, including no write on Escape or backend instruction alone.
 - Handoff: Preserve the consent and stale-source behavior in tests; remove IMC-07.
 
-## IMC-14 — Match Gum confirmation buttons
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: none
-- Exact write set: `crates/acorn-cli/src/io/interactive/mod.rs`, `crates/acorn-cli/src/io/interactive/tests.rs`
-- Primary integration lock: inline terminal control renderer
-- Outcome: Render Confirm as an inline question with adjacent filled buttons, a bright active button and muted inactive button, and a visible no-color focus state while preserving No as the safe initial selection and distinct yes/no/cancel outcomes.
-- Focused validation: Renderer and PTY tests for initial No, focus movement, direct `y`/`n`, Enter, Escape, no-color and limited-color output, narrow/resize redraw, and terminal cleanup.
-- Handoff: Record the Gum-like visual and keyboard contract in tests; remove IMC-14 before IMC-07 consumes Confirm.
-
-## IMC-09 — Populate selectable enrichment candidates
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: none; coordinate exact overlap with structured-enrichment work
-- Exact write set: `crates/acorn-lib/src/io/enrichment.rs`, `crates/acorn-lib/src/io/tests/enrichment.rs`, `crates/acorn-lib/src/io/workflow/mod.rs`, `crates/acorn-lib/src/io/workflow/tests/mod.rs`
-- Primary integration lock: enrichment providers
-- Outcome: Supply bounded choices for ambiguous ORCID/ROR lookups and vocabulary findings where candidate evidence exists; retain unresolved diagnostics when it does not.
-- Focused validation: Ambiguous/missing/provider-failed fixtures, duplicate candidates, provenance, and unchanged passive-mode output.
-- Handoff: Record which providers and standards can present a choice; remove IMC-09.
-
 ## IMC-10 — Add interactive formatting for deterministic paths
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: IMC-09; claim the CLI contract lock after IMC-06
+- Prerequisites: claim the CLI contract lock after IMC-06
 - Exact write set: `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/cli/tests/mod.rs`, `crates/acorn-cli/src/commands/mod.rs`, `crates/acorn-cli/src/commands/format/mod.rs`, `crates/acorn-cli/src/commands/format/acre.rs`, `crates/acorn-cli/src/commands/format/tests/mod.rs`, `CommandLineHelp.md`
 - Primary integration lock: CLI format contract
 - Outcome: Add `format --interactive`, TTY validation, and the reusable renderer to plain/ACRE formatting; deterministic changes continue through existing writes. Keep enriched/hook runs explicitly unavailable in this intermediate phase.
@@ -154,7 +132,7 @@ Checked on 2026-10-21 against the current implementation:
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: IMC-09, IMC-10
+- Prerequisites: IMC-10
 - Exact write set: `crates/acorn-cli/src/commands/format/mod.rs`, `crates/acorn-cli/src/commands/format/tests/mod.rs`, `crates/acorn-lib/src/io/workflow/mod.rs`, `crates/acorn-lib/src/io/workflow/tests/mod.rs`
 - Primary integration lock: format workflow application
 - Outcome: Resolve candidate choices per file before applying one validated plan; preserve configured hooks, companion artifacts, deterministic writes, and transaction rollback.
