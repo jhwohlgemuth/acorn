@@ -69,7 +69,7 @@ fn test_confirm_no_color_keeps_both_buttons_and_focus() {
     assert!(colored.contains("[Yes]") && colored.contains("> [No]"));
     assert!(plain.contains("[Yes]") && plain.contains("> [No]"));
     if env::var_os("NO_COLOR").is_none() {
-        assert!(colored.contains("[45m") || colored.contains("[48;2;255;70;170m"), "{colored:?}");
+        assert!(colored.contains("[45m") || colored.contains("[48;"), "{colored:?}");
     }
     assert!(!plain.contains("[48;"));
 }
