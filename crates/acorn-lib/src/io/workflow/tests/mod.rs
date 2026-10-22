@@ -6,6 +6,7 @@ use acorn_core::options::CommonRuntime;
 use acorn_schema::enrichment::Provider;
 use acorn_schema::research_activity::{ResearchActivity, ResearchActivityMetadata, ResearchOutput};
 use acorn_schema::standard::cff::Cff;
+use acorn_schema::vocabulary::{VocabularyKind, VocabularyOptions, VocabularyOutcome, VocabularyResolver};
 use acorn_schema::OneOrMany;
 use async_trait::async_trait;
 use core::sync::atomic::{AtomicUsize, Ordering};
@@ -44,7 +45,7 @@ impl Enrich<(Location, ResearchActivity)> for DecisionEnrichment {
         let candidate = EnrichmentCandidate {
             key: EnrichmentCandidateKey {
                 field: field.clone(),
-                provider: Provider::OpenAlex,
+                origin: EnrichmentOrigin::Provider(Provider::OpenAlex),
                 source: source.clone(),
                 value: "Suggested title".to_string(),
             },
@@ -52,7 +53,7 @@ impl Enrich<(Location, ResearchActivity)> for DecisionEnrichment {
             evidence_source: "https://openalex.org/W1".to_string(),
         };
         let decision = EnrichmentDecision::new(
-            Provider::OpenAlex,
+            EnrichmentOrigin::Provider(Provider::OpenAlex),
             source,
             field,
             data.title.clone(),
@@ -152,7 +153,7 @@ fn test_decision_rejects_duplicate_or_foreign_candidates() {
     let candidate = EnrichmentCandidate {
         key: EnrichmentCandidateKey {
             field: "title".to_string(),
-            provider: Provider::OpenAlex,
+            origin: EnrichmentOrigin::Provider(Provider::OpenAlex),
             source: source.clone(),
             value: "Suggested".to_string(),
         },
@@ -161,7 +162,7 @@ fn test_decision_rejects_duplicate_or_foreign_candidates() {
     };
     let create = |candidates| {
         EnrichmentDecision::new(
-            Provider::OpenAlex,
+            EnrichmentOrigin::Provider(Provider::OpenAlex),
             source.clone(),
             "title".to_string(),
             "Original".to_string(),
@@ -191,7 +192,7 @@ fn test_decision_round_trip_and_selection_validation() {
     let source = Location::from("activity.json");
     let key = EnrichmentCandidateKey {
         field: "meta.ror".to_string(),
-        provider: Provider::Ror,
+        origin: EnrichmentOrigin::Provider(Provider::Ror),
         source: source.clone(),
         value: "https://ror.org/01abc".to_string(),
     };
@@ -201,7 +202,7 @@ fn test_decision_round_trip_and_selection_validation() {
         evidence_source: "https://ror.org/01abc".to_string(),
     };
     let decision = EnrichmentDecision::new(
-        Provider::Ror,
+        EnrichmentOrigin::Provider(Provider::Ror),
         source,
         key.field.clone(),
         String::new(),
@@ -598,6 +599,76 @@ fn test_transaction_rolls_back_a_committed_replacement() {
     assert_eq!(fs::read_to_string(first).expect("rolled back file"), "old");
     assert!(!first_backup.exists());
     assert!(!second.exists());
+}
+#[test]
+fn test_vocabulary_decisions_keep_complete_source_backed_suggestions() {
+    let source = Location::from("activity.json");
+    let resolver = VocabularyResolver::embedded(VocabularyKind::Partners).expect("partners vocabulary");
+    let mut report = resolver
+        .resolve_located([("meta.partners[0]", "OSU")], VocabularyOptions::default())
+        .expect("ambiguous report");
+    assert_eq!(
+        report.resolutions.first().expect("resolved partner").outcome,
+        VocabularyOutcome::Ambiguous
+    );
+    let decisions = vocabulary_decisions(&source, &[report.clone(), report.clone()]).expect("decisions");
+    assert_eq!(decisions.len(), 1);
+    let decision = decisions.first().expect("partner decision");
+    assert_eq!(decision.origin, EnrichmentOrigin::Vocabulary(VocabularyKind::Partners));
+    assert_eq!(decision.field, "meta.partners[0]");
+    assert_eq!(decision.original, "OSU");
+    assert!(!decision.candidates.is_empty());
+    assert!(decision
+        .candidates
+        .iter()
+        .all(|candidate| candidate.evidence_source.contains(&report.vocabulary_revision)));
+    report.resolutions.first_mut().expect("resolved partner").outcome = VocabularyOutcome::Unmatched;
+    assert_eq!(vocabulary_decisions(&source, &[report.clone()]).expect("unmatched").len(), 1);
+    report.resolutions.first_mut().expect("resolved partner").complete = false;
+    assert!(vocabulary_decisions(&source, &[report]).expect("incomplete").is_empty());
+}
+#[tokio::test]
+async fn test_workflow_plans_vocabulary_choices_without_applying_them() {
+    let (_temporary, source) = source_file();
+    let activity = ResearchActivity {
+        meta: ResearchActivityMetadata {
+            partners: Some(vec!["OSU".to_string()].into()),
+            ..ResearchActivityMetadata::default()
+        },
+        ..ResearchActivity::default()
+    };
+    activity.write_json(source.local_path().expect("local path")).expect("write activity");
+    let plan = Workflow::<ResearchActivity>::plan(
+        core::slice::from_ref(&source),
+        options(
+            CommonRuntime::default(),
+            WorkflowExtension {
+                check: false,
+                enrich: false,
+                format: true,
+                ..WorkflowExtension::default()
+            },
+        ),
+        None,
+    )
+    .await
+    .expect("plan workflow");
+    let change = plan.changes.first().expect("planned change");
+    let decision = change
+        .decisions()
+        .iter()
+        .find(|decision| decision.field == "meta.partners[0]")
+        .expect("partner choice");
+    assert_eq!(decision.original, "OSU");
+    assert_eq!(
+        ResearchActivity::read(source.local_path().expect("source path"))
+            .expect("source after plan")
+            .meta
+            .partners
+            .unwrap()
+            .into_vec(),
+        vec!["OSU".to_string()]
+    );
 }
 #[tokio::test]
 async fn test_workflow_processes_and_enriches_non_rad_standard() {

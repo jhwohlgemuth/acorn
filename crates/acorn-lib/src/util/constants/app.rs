@@ -122,6 +122,18 @@ pub const DISPLAY_PATH_CHARACTER_COUNT: usize = 20;
 pub const DOCKER_SOCKET: &str = "/var/run/docker.sock";
 /// Maximum number of converted documents retained in the process-local cache.
 pub const DOCUMENT_CACHE_LIMIT: usize = 64;
+/// Research activity fields tracked for enrichment provenance.
+pub const ENRICHMENT_FIELDS: [&str; 9] = [
+    "title",
+    "subtitle",
+    "contact.familyName",
+    "contact.givenName",
+    "contact.identifier",
+    "meta.contributors",
+    "meta.doi",
+    "meta.outputs",
+    "meta.ror",
+];
 /// GitLab token environment variables paired with their authentication headers in resolution order.
 pub const GITLAB_CREDENTIAL_VARIABLE_PAIRS: [(&str, &str); 3] = [
     ("GITLAB_TOKEN", GITLAB_PRIVATE_TOKEN_HEADER),
@@ -207,10 +219,10 @@ pub const MAX_ENRICHMENT_CANDIDATES: usize = 5;
 pub const MAX_INTAKE_POLL_INTERVAL_SECS: u64 = 86400;
 /// Maximum supported PDF page count.
 pub const MAX_PDF_PAGES: u32 = 1_000;
-/// Maximum completed messages retained in the inline terminal viewport.
-pub const MAX_VIEWPORT_HISTORY_LINES: usize = 1024;
 /// Maximum number of terminal rows claimed by the inline viewport.
 pub const MAX_VIEWPORT_HEIGHT: u16 = 12;
+/// Maximum completed messages retained in the inline terminal viewport.
+pub const MAX_VIEWPORT_HISTORY_LINES: usize = 1024;
 /// Maximum number of durable webhook operation attempts.
 pub const MAX_WEBHOOK_OPERATION_ATTEMPTS: u32 = 5;
 /// Maximum durable webhook operation retry delay.

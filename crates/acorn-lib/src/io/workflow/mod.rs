@@ -16,7 +16,10 @@ use crate::exec::hooks::{HookAuditRecord, HookOptions};
 use crate::io::config::application::ApplicationConfiguration;
 use crate::{
     fail,
-    io::{enrichment::Enrich, read_file, ApiResult, FromPath, InputOutput},
+    io::{
+        enrichment::{vocabulary_decisions, Enrich},
+        read_file, ApiResult, FromPath, InputOutput,
+    },
     util::{constants::app::MAX_ENRICHMENT_CANDIDATES, print_changes_with_color, StringConversion},
     LocationExt, With,
 };
@@ -30,7 +33,7 @@ use acorn_host::terminal::Label;
 use acorn_schema::{
     enrichment::Provider,
     validation::Validate,
-    vocabulary::{VocabularyFormat, VocabularyReport},
+    vocabulary::{VocabularyFormat, VocabularyKind, VocabularyReport},
 };
 use color_eyre::eyre::eyre;
 use core::marker::PhantomData;
@@ -92,6 +95,15 @@ pub enum Change<T> {
     #[cfg(feature = "analysis")]
     Check(Check),
 }
+/// Origin of a proposed enrichment value.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum EnrichmentOrigin {
+    /// A configured external enrichment provider.
+    Provider(Provider),
+    /// An embedded controlled vocabulary.
+    Vocabulary(VocabularyKind),
+}
 /// Explicit outcome of reviewing one enrichment decision.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -126,8 +138,8 @@ pub struct EnrichmentCandidate {
 pub struct EnrichmentCandidateKey {
     /// Field to replace when this value is selected.
     pub field: String,
-    /// Enrichment provider that proposed the value.
-    pub provider: Provider,
+    /// Provider or embedded vocabulary that proposed the value.
+    pub origin: EnrichmentOrigin,
     /// Exact source document being enriched.
     pub source: Location,
     /// Proposed replacement value.
@@ -143,8 +155,8 @@ pub struct EnrichmentDecision {
     pub field: String,
     /// Original field value retained for stale-source checks.
     pub original: String,
-    /// Provider that reported ambiguity.
-    pub provider: Provider,
+    /// Provider or vocabulary that reported uncertainty.
+    pub origin: EnrichmentOrigin,
     /// Why this field needs a decision.
     pub reason: String,
     /// Exact source document being enriched.
@@ -375,7 +387,7 @@ impl<T> From<Check> for Change<T> {
 impl EnrichmentDecision {
     /// Validate a bounded decision and its candidate identities.
     pub fn new(
-        provider: Provider,
+        origin: EnrichmentOrigin,
         source: Location,
         field: String,
         original: String,
@@ -384,7 +396,7 @@ impl EnrichmentDecision {
     ) -> ApiResult<Self> {
         let valid_keys = candidates
             .iter()
-            .all(|candidate| candidate.key.provider == provider && candidate.key.source == source && candidate.key.field == field);
+            .all(|candidate| candidate.key.origin == origin && candidate.key.source == source && candidate.key.field == field);
         let unique = candidates
             .iter()
             .enumerate()
@@ -394,7 +406,7 @@ impl EnrichmentDecision {
                 candidates,
                 field,
                 original,
-                provider,
+                origin,
                 reason,
                 source,
             }),
@@ -766,30 +778,30 @@ where
                     | _ => Ok(EnrichmentResult::builder().data(data).build()),
                 };
                 enriched
-                    .map(|result| {
-                        let EnrichmentResult {
-                            data,
-                            conflicts,
-                            decisions,
-                            failures,
-                        } = result;
-                        let formatted = match format {
-                            | true => InputOutput::format_with_vocabulary_report(data, *fuzzy, Some(path.clone())),
-                            | false => VocabularyFormat {
-                                reports: Vec::new(),
-                                value: data,
-                            },
-                        };
-                        vocabulary_reports.extend(formatted.reports);
-                        (
-                            EnrichmentResult::builder()
+                    .and_then(|result| {
+                        vocabulary_decisions(source, &vocabulary_reports).map(|vocabulary_decisions| {
+                            let EnrichmentResult {
+                                data,
+                                conflicts,
+                                decisions,
+                                failures,
+                            } = result;
+                            let formatted = match format {
+                                | true => InputOutput::format_with_vocabulary_report(data, *fuzzy, Some(path.clone())),
+                                | false => VocabularyFormat {
+                                    reports: Vec::new(),
+                                    value: data,
+                                },
+                            };
+                            let enrichment_results = EnrichmentResult::builder()
                                 .data(formatted.value)
                                 .conflicts(conflicts)
-                                .decisions(decisions)
+                                .decisions(decisions.into_iter().chain(vocabulary_decisions).collect())
                                 .failures(failures)
-                                .build(),
-                            vocabulary_reports,
-                        )
+                                .build();
+                            vocabulary_reports.extend(formatted.reports);
+                            (enrichment_results, vocabulary_reports)
+                        })
                     })
                     .and_then(|(result, vocabulary_reports)| match check {
                         | true => result
@@ -847,6 +859,5 @@ impl Default for WorkflowExtension {
         }
     }
 }
-
 #[cfg(test)]
 mod tests;

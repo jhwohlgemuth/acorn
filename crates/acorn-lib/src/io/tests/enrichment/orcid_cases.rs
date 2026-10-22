@@ -1,44 +1,5 @@
-use crate::io::api::orcid;
-use crate::io::enrichment::{Enrich, OrcidBatch, OrcidBatchResult, OrcidExt, OrcidResolution};
-use acorn_schema::research_activity::output::{Contributor as OutputContributor, ResearchOutput};
-use acorn_schema::research_activity::{ActivityContributor, ResearchActivity, ResearchActivityMetadata};
-use acorn_schema::standard::cff::{Agent as CffAgent, Cff, Person as CffPerson, Reference as CffReference};
-use acorn_schema::standard::{datacite, invenio};
-use acorn_schema::ContactPoint;
+use super::*;
 
-fn contact(given_name: &str, family_name: &str, identifier: Option<&str>) -> ContactPoint {
-    ContactPoint {
-        given_name: given_name.to_string(),
-        family_name: family_name.to_string(),
-        identifier: identifier.map(ToString::to_string),
-        ..ContactPoint::default()
-    }
-}
-fn profile(identifier: &str, given_name: Option<&str>, family_name: Option<&str>) -> orcid::SearchResult {
-    orcid::SearchResult {
-        orcid_id: Some(identifier.to_string()),
-        given_names: given_name.map(ToString::to_string),
-        family_names: family_name.map(ToString::to_string),
-        credit_name: None,
-        emails: None,
-        institution_names: None,
-        other_name: None,
-    }
-}
-fn resolved(path: &str, profile: orcid::SearchResult) -> OrcidBatchResult {
-    OrcidBatchResult {
-        profiles: vec![(path.to_string(), profile)],
-        ..OrcidBatchResult::default()
-    }
-}
-fn response(results: impl IntoIterator<Item = orcid::SearchResult>) -> orcid::SearchResponse {
-    let results = results.into_iter().collect::<Vec<_>>();
-    orcid::SearchResponse {
-        num_found: results.len(),
-        namespace: String::new(),
-        results,
-    }
-}
 #[test]
 fn test_orcid_batch_deduplicates_display_name_requests() {
     let activity = ResearchActivity {
@@ -122,6 +83,38 @@ fn test_orcid_contact_email_queries_refine_resolution_and_identity_key() {
         "q=given-names:Jane+AND+family-name:Doe"
     );
     assert_ne!(identity.key(), other.orcid_identity().expect("other contact identity").key());
+}
+#[test]
+fn test_orcid_decision_bounds_deduplicates_and_attributes_candidates() {
+    let source = Location::from("activity.json");
+    let profiles = (0..7)
+        .map(|index| profile(&format!("0000-0000-0000-000{index}"), Some("Jane"), Some("Doe")))
+        .chain([profile("0000-0000-0000-0000", Some("Jane"), Some("Doe"))])
+        .collect::<Vec<_>>();
+    let decision = orcid_decision(&source, "contact.identifier".to_string(), &profiles)
+        .expect("decision")
+        .expect("candidates");
+    assert_eq!(decision.origin, EnrichmentOrigin::Provider(Provider::Orcid));
+    assert_eq!(decision.candidates.len(), 5);
+    assert_eq!(decision.candidates[0].key.value, "https://orcid.org/0000-0000-0000-0000");
+    assert_eq!(decision.candidates[0].key.field, "contact.identifier");
+    assert_eq!(decision.candidates[0].key.source, source);
+    assert!(decision.candidates[0].evidence_source.contains("orcid.org"));
+    let output = orcid_decision(&source, "meta.outputs[0].creators[0].orcid".to_string(), &profiles)
+        .expect("output decision")
+        .expect("output candidates");
+    assert_eq!(output.candidates[0].key.value, "0000-0000-0000-0000");
+    assert_eq!(output.candidates[0].evidence_source, "https://orcid.org/0000-0000-0000-0000");
+    assert!(orcid_decision(
+        &source,
+        "contact.identifier".to_string(),
+        &[orcid::SearchResult {
+            orcid_id: None,
+            ..profile("", None, None)
+        }]
+    )
+    .expect("empty decision")
+    .is_none());
 }
 #[tokio::test]
 async fn test_orcid_enrichment_skips_complete_or_incomplete_contacts() {
@@ -251,7 +244,7 @@ fn test_orcid_resolution_distinguishes_missing_and_ambiguous() {
             profile("0000-0001-6229-6300", Some("Marie"), Some("Urban")),
             profile("0000-0001-9571-832X", Some("Marie"), Some("Urban")),
         ])),
-        OrcidResolution::Ambiguous
+        OrcidResolution::Ambiguous(_)
     ));
 }
 #[test]
@@ -284,6 +277,9 @@ fn test_orcid_updates_activity_and_output_people() {
         },
         ..ResearchActivity::default()
     };
+    assert_eq!(activity.orcid_field("contact"), "contact.identifier");
+    assert_eq!(activity.orcid_field("meta.contributors[0]"), "meta.contributors[0].identifiers");
+    assert_eq!(activity.orcid_field("meta.outputs[0].creators[0]"), "meta.outputs[0].creators[0].orcid");
     let profile = profile("0000-0002-2057-9115", Some("Jane"), Some("Doe"));
     let result = OrcidBatchResult {
         profiles: vec![
@@ -331,6 +327,8 @@ fn test_orcid_updates_cff_person_and_skips_entity() {
         authors: vec![CffAgent::Person(person), CffAgent::Entity(entity)],
         ..Cff::default()
     };
+    assert_eq!(cff.orcid_field("authors[0]"), "authors[0].orcid");
+    assert_eq!(cff.orcid_field("preferredCitation.authors[0]"), "preferred-citation.authors[0].orcid");
     let actual = cff.with_orcid_profiles(&resolved("authors[0]", profile("0000-0002-2057-9115", Some("Jane"), Some("Doe"))), None);
     assert!(
         matches!(actual.authors.first(), Some(CffAgent::Person(person)) if person.orcid.as_deref() == Some("https://orcid.org/0000-0002-2057-9115"))
@@ -415,6 +413,7 @@ fn test_orcid_updates_datacite_and_invenio_people() {
         }
     }))
     .expect("DataCite record");
+    assert_eq!(datacite.orcid_field("attributes.creators[0]"), "attributes.creators[0].nameIdentifiers");
     let actual = datacite.with_orcid_profiles(
         &resolved("attributes.creators[0]", profile("0000-0002-2057-9115", Some("Jane"), Some("Doe"))),
         None,
@@ -439,6 +438,10 @@ fn test_orcid_updates_datacite_and_invenio_people() {
         }
     }))
     .expect("Invenio record");
+    assert_eq!(
+        invenio.orcid_field("metadata.creators[0]"),
+        "metadata.creators[0].person_or_org.identifiers"
+    );
     let actual = invenio.with_orcid_profiles(
         &resolved("metadata.creators[0]", profile("0000-0002-2057-9115", Some("Jane"), Some("Doe"))),
         None,

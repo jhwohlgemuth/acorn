@@ -7,7 +7,7 @@ use crossterm::{
     cursor::{self, MoveTo, Show},
     event::{self, Event, EventStream, KeyCode, KeyEventKind, KeyModifiers},
     queue,
-    style::{Attribute, Color, Print, ResetColor, SetAttribute, SetForegroundColor},
+    style::{Attribute, Color, Print, ResetColor, SetAttribute, SetBackgroundColor, SetForegroundColor},
     terminal::{self, Clear, ClearType},
 };
 use futures::StreamExt;
@@ -45,6 +45,15 @@ pub(crate) enum Overlay {
 pub(crate) enum PromptOutcome<T> {
     Cancelled,
     Selected(T),
+}
+#[derive(Clone, Copy)]
+struct ConfirmButtonOptions<'a> {
+    column: u16,
+    focused: bool,
+    no_color: bool,
+    row: u16,
+    text: &'a str,
+    true_color: bool,
 }
 /// Terminal region owned by one interactive command.
 #[derive(bon::Builder)]
@@ -394,20 +403,40 @@ impl Viewport {
                             let yes_button = if *yes { "> [Yes]" } else { "  [Yes]" };
                             let no_button = if *yes { "  [No]" } else { "> [No]" };
                             let button_row = self.anchor.saturating_add(1);
+                            let true_color = env::var("COLORTERM")
+                                .ok()
+                                .is_some_and(|value| value.eq_ignore_ascii_case("truecolor") || value.eq_ignore_ascii_case("24bit"));
+                            let button = ConfirmButtonOptions {
+                                column: 0,
+                                focused: *yes,
+                                no_color: *no_color,
+                                row: button_row,
+                                text: yes_button,
+                                true_color,
+                            };
                             if width >= 16 {
-                                print_overlay(output, 0, button_row, yes_button, (!*no_color).then_some(Color::Green)).and_then(|()| {
+                                print_confirm_button(output, button).and_then(|()| {
                                     let column = u16::try_from(yes_button.len().saturating_add(2)).unwrap_or(u16::MAX);
-                                    let color = (!*no_color).then_some(Color::Red);
-                                    print_overlay(output, column, button_row, no_button, color)
+                                    let options = ConfirmButtonOptions {
+                                        column,
+                                        focused: !*yes,
+                                        text: no_button,
+                                        ..button
+                                    };
+                                    print_confirm_button(output, options)
                                 })
                             } else if self.height > 2 {
                                 let text = clip_to_width(yes_button, width);
-                                let color = (!*no_color).then_some(Color::Green);
-                                print_overlay(output, 0, button_row, &text, color).and_then(|()| {
+                                print_confirm_button(output, ConfirmButtonOptions { text: &text, ..button }).and_then(|()| {
                                     let row = self.anchor.saturating_add(2);
                                     let text = clip_to_width(no_button, width);
-                                    let color = (!*no_color).then_some(Color::Red);
-                                    print_overlay(output, 0, row, &text, color)
+                                    let options = ConfirmButtonOptions {
+                                        focused: !*yes,
+                                        row,
+                                        text: &text,
+                                        ..button
+                                    };
+                                    print_confirm_button(output, options)
                                 })
                             } else {
                                 let compact = if *yes { ">Y  N" } else { " Y >N" };
@@ -436,8 +465,32 @@ fn clip_to_width(text: &str, width: usize) -> String {
         })
         .collect()
 }
+fn confirm_palette(options: ConfirmButtonOptions<'_>) -> (Color, Color) {
+    match (options.focused, options.true_color) {
+        | (true, true) => (Color::Rgb { r: 255, g: 70, b: 170 }, Color::Black),
+        | (false, true) => (Color::Rgb { r: 58, g: 54, b: 70 }, Color::White),
+        | (true, false) => (Color::Magenta, Color::White),
+        | (false, false) => (Color::DarkGrey, Color::White),
+    }
+}
 fn display_width(text: &str) -> usize {
     text.chars().map(|character| UnicodeWidthChar::width(character).unwrap_or(0)).sum()
+}
+fn print_confirm_button(output: &mut impl Write, options: ConfirmButtonOptions<'_>) -> io::Result<()> {
+    match options.no_color {
+        | true => queue!(output, MoveTo(options.column, options.row), Print(options.text)),
+        | false => {
+            let (background, foreground) = confirm_palette(options);
+            queue!(
+                output,
+                MoveTo(options.column, options.row),
+                SetBackgroundColor(background),
+                SetForegroundColor(foreground),
+                Print(options.text),
+                ResetColor
+            )
+        }
+    }
 }
 fn print_overlay(output: &mut impl Write, column: u16, row: u16, text: &str, color: Option<Color>) -> io::Result<()> {
     queue!(output, MoveTo(column, row)).and_then(|()| match color {
@@ -466,6 +519,5 @@ fn wrap_lines(text: &str, width: usize) -> Vec<String> {
         })
         .collect()
 }
-
 #[cfg(test)]
 mod tests;

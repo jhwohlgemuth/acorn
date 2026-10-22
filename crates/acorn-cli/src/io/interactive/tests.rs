@@ -18,6 +18,33 @@ fn test_clip_preserves_complete_wide_characters() {
     assert_eq!(clip_to_width("ab界cd", 3), "ab");
 }
 #[test]
+fn test_confirm_button_palettes() {
+    let options = |focused, no_color, true_color| ConfirmButtonOptions {
+        column: 0,
+        focused,
+        no_color,
+        row: 0,
+        text: "> [Yes]",
+        true_color,
+    };
+    let render = |focused, no_color, true_color| {
+        let mut output = Vec::new();
+        print_confirm_button(&mut output, options(focused, no_color, true_color)).expect("render button");
+        String::from_utf8(output).expect("terminal bytes")
+    };
+    assert_eq!(
+        confirm_palette(options(true, false, true)),
+        (Color::Rgb { r: 255, g: 70, b: 170 }, Color::Black)
+    );
+    assert_eq!(
+        confirm_palette(options(false, false, true)),
+        (Color::Rgb { r: 58, g: 54, b: 70 }, Color::White)
+    );
+    assert_eq!(confirm_palette(options(true, false, false)), (Color::Magenta, Color::White));
+    assert_eq!(confirm_palette(options(false, false, false)), (Color::DarkGrey, Color::White));
+    assert!(!render(true, true, true).contains("[48;"));
+}
+#[test]
 fn test_confirm_no_color_keeps_both_buttons_and_focus() {
     let render = |no_color| {
         let viewport = core::mem::ManuallyDrop::new(
@@ -41,8 +68,10 @@ fn test_confirm_no_color_keeps_both_buttons_and_focus() {
     let plain = render(true);
     assert!(colored.contains("[Yes]") && colored.contains("> [No]"));
     assert!(plain.contains("[Yes]") && plain.contains("> [No]"));
-    assert!(colored.contains('m'));
-    assert!(!plain.contains('m'));
+    if env::var_os("NO_COLOR").is_none() {
+        assert!(colored.contains("[45m") || colored.contains("[48;2;255;70;170m"), "{colored:?}");
+    }
+    assert!(!plain.contains("[48;"));
 }
 #[test]
 fn test_non_tty_is_rejected_before_raw_mode() {

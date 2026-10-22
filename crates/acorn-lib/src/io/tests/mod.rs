@@ -84,6 +84,7 @@ use std::{
 };
 use strum::IntoEnumIterator;
 use zip::ZipArchive;
+
 mod enrichment;
 #[cfg(feature = "swhid-compute")]
 mod swhid;
@@ -796,7 +797,7 @@ fn test_directory_roots_reduces_files_to_unique_parents() {
 #[test]
 fn test_enrichment_fields_and_provider_order_are_deterministic() {
     assert_eq!(
-        crate::io::enrichment::ENRICHMENT_FIELDS,
+        crate::util::constants::app::ENRICHMENT_FIELDS,
         [
             "title",
             "subtitle",
@@ -821,7 +822,7 @@ fn test_enrichment_fields_and_provider_order_are_deterministic() {
         "title": "Existing",
         "meta": {"ror": ["https://ror.org/01qz5mb56"]}
     });
-    let fields = crate::io::enrichment::ENRICHMENT_FIELDS
+    let fields = crate::util::constants::app::ENRICHMENT_FIELDS
         .into_iter()
         .filter(|path| {
             path.split('.').try_fold(&before, |value, component| value.get(component))

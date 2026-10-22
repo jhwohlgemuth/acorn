@@ -313,15 +313,20 @@ pub struct RelationshipField {
 ///     ]
 /// }
 /// ```
-#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init)]
 pub struct SearchMetadata {
     /// Listing and count of organization types contained within search results
+    #[builder(default)]
     pub types: Vec<MetadataItem>,
     /// Listing and count of countries contained within search results
+    #[builder(default)]
     pub countries: Vec<MetadataItem>,
     /// Listing and count of continents contained within search results
+    #[builder(default)]
     pub continents: Vec<MetadataItem>,
     /// Listing and count of organization statuses contained within search results
+    #[builder(default)]
     pub statuses: Vec<MetadataItem>,
 }
 /// ROR API search response
@@ -379,6 +384,16 @@ impl ApiExtension for Extension {
     }
     fn env_domain_var() -> &'static str {
         ROR_SERVER_HOST
+    }
+}
+impl From<Vec<SingleRecord>> for SearchResponse {
+    fn from(records: Vec<SingleRecord>) -> Self {
+        Self::builder()
+            .number_of_results(records.len())
+            .time_taken(0)
+            .items(records)
+            .meta(SearchMetadata::init().build())
+            .build()
     }
 }
 /// Check if API is healthy
