@@ -54,8 +54,8 @@ Do not change the shared protocol, loosen confidence or policy gates, replace im
 # Validation
 
 - The two remaining platform validations use the repository’s documented real-engine inference path and pinned artifacts rather than synthetic protocol fixtures alone. Linux ARM64 may run directly on Dante; that run counts as final platform evidence without a CI rerun. Windows x86_64 uses the prepared GitLab job.
-- Each run proves verified acquisition, startup, one bounded inference, policy enforcement, offline behavior, cancellation, and child cleanup.
-- Any code or job-definition change passes focused Needle tests, `make lint`, `make test`, applicable shell/PowerShell validation, and the affected platform job.
+- Combined host evidence proves verified acquisition, startup, bounded inference, policy enforcement, offline behavior, cancellation, and child cleanup. The Windows job produces the repeatable smoke report; NDL-02 adds the native Ctrl+C observation.
+- The prepared job passed GitLab CI lint and focused Needle tests. NDL-02 still requires native PowerShell execution and the affected platform job; NDL-06 runs `make lint` and `make test` after host evidence is complete.
 - Documentation names platforms that actually ran the real-engine inference and does not infer runtime support from artifact availability.
 
 # Acceptance criteria

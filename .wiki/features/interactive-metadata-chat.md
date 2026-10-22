@@ -27,6 +27,7 @@ Checked on 2026-10-21 against the current implementation:
 - `acorn-lib::io::chat_history::ChatSession` creates private, versioned JSONL files under `ask/sessions`, flushes complete records, redacts recognized credentials, and starts a new file on clear. The first chat command still needs to wire this storage into its event flow.
 - Plain and ACRE formatting can write in place. Enriched formatting builds a `Workflow::Plan` before application, including companion artifacts and configured hook output. Ambiguous ORCID/ROR enrichment currently becomes text conflicts. Vocabulary reports already retain bounded candidates.
 - The CLI has a command-owned inline viewport with bounded scrolling, text input, Choose, two-button Confirm, asynchronous Spin, resize handling, TTY rejection, and terminal cleanup. `acorn-lib::agent` exposes a terminal-independent chat reducer with confirmed target identity and bounded context selection.
+- The existing Confirm renderer shows arrow-marked `[Yes]` and `[No]` labels in green and red. Its PTY test checks that both labels appear, but the buttons do not yet have the filled, adjacent active/inactive treatment shown in the [user-supplied Gum Confirm animation](../assets/gum-confirm-reference.gif).
 - `acorn-lib::agent::slash` defines typed command names, aliases, argument parsing, and context-specific suggestions shared by the TUI dashboard and GitLab webhook. Chat will consume the same contract in IMC-06. GitLab still requires `/acorn` and retains its existing note authorization and operation paths.
 - Enrichment results and workflow document changes carry typed unresolved decisions alongside conflicts and failures. Candidate identity, a five-choice bound, explicit skip, and stale-source validation are defined; providers do not yet populate selectable choices.
 - The requested visual and key behavior is modeled on [Gum Choose, Confirm, and Spin](https://github.com/charmbracelet/gum#commands), especially its two-button confirmation. This is an ACORN-native Rust implementation, not a Gum process dependency.
@@ -52,8 +53,8 @@ Checked on 2026-10-21 against the current implementation:
 ## Inline terminal controls
 
 - Own a bounded viewport starting at the command's cursor row. Reserve space once, redraw only that region, keep chat history scrollable inside it, and restore the cursor, raw mode, and colors on normal exit, error, or interruption. Handle terminal resize and narrow widths without leaving fragments. Do not enter the alternate screen or let spinner/log output move the interaction downward.
-- The reusable controls are CLI presentation functions with typed outcomes: Choose returns one selected item or cancellation, Confirm returns yes/no/cancellation, and Spin runs while a supplied asynchronous operation is pending. Choose supports arrow keys, `j`/`k`, Enter, and Escape, with scrolling. Confirm shows separate green **Yes** and red **No** buttons, defaults to No, and accepts arrows/Tab, `y`/`n`, Enter, and Escape. Spin stops on completion, failure, or cancellation.
-- Use shape/text as well as color to identify focus and outcome. Honor the existing no-color setting and terminals without true color. A cancelled prompt never implies consent. The renderer owns terminal output while active; operations return structured events instead of printing over the viewport.
+- The reusable controls are CLI presentation functions with typed outcomes: Choose returns one selected item or cancellation, Confirm returns yes/no/cancellation, and Spin runs while a supplied asynchronous operation is pending. Choose supports arrow keys, `j`/`k`, Enter, and Escape, with scrolling. Confirm presents the question above two adjacent, filled **Yes** and **No** buttons when width allows, like the supplied Gum animation: the focused button has a bright magenta/pink background and high-contrast text; the other has a muted dark background. Narrow terminals stack or compact both choices without hiding either. Moving focus updates both buttons in place. Write approval starts with No focused, so Enter cannot approve by default; arrows/Tab change focus, `y`/`n` select directly, Enter selects the focused button, and Escape cancels. Spin stops on completion, failure, or cancellation.
+- Use shape/text as well as color to identify focus and outcome; in no-color mode, retain two distinct button shapes and a visible focus marker. Honor the existing no-color setting and terminals without true color. A cancelled prompt never implies consent. The renderer owns terminal output while active; operations return structured events instead of printing over the viewport.
 
 ## History and changes
 
@@ -64,7 +65,7 @@ Checked on 2026-10-21 against the current implementation:
 
 # Validation and acceptance
 
-- PTY validation proves the chat remains in its original inline region through multiple turns, long responses, spinner updates, resize, cancellation, and failures. Confirm visibly distinguishes Yes and No in color and no-color modes; Escape and default Enter never approve a write. Terminal state is restored after interruption.
+- PTY validation proves the chat remains in its original inline region through multiple turns, long responses, spinner updates, resize, cancellation, and failures. Confirm renders the adjacent filled buttons and visible focus change in color, limited-color, and no-color modes, including narrow terminals; Escape and default Enter never approve a write. Terminal state is restored after interruption.
 - Fixtures cover each local check-supported metadata standard, mixed-standard folders, ambiguous detection, unsupported inputs, offline operation, and a model response that mentions an unconfirmed path. Check findings and explanations retain source/field references. No model or provider call occurs for a deterministic command that does not need it.
 - Fake ACP/endpoint tests cover bounded multi-turn context, refusal, timeout, transport failure, offline rejection, invalid action requests, and transcript write failures. Full history remains readable after context trimming and `/clear`; each invocation starts a new session.
 - Fix tests cover accepted and declined diffs, stale files, invalid replacement, per-target authorization, and failed write/rollback. Format tests cover deterministic auto-apply, ambiguous candidate choice/skip, absent candidates, mixed batches, enrichment, configured hooks, companion artifacts, dry run, and non-interactive regression.
@@ -109,12 +110,23 @@ Checked on 2026-10-21 against the current implementation:
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: IMC-04, IMC-06
+- Prerequisites: IMC-04, IMC-06, IMC-14
 - Exact write set: `crates/acorn-cli/src/commands/infer/chat.rs`, `crates/acorn-cli/src/commands/infer/tests/chat.rs`
 - Primary integration lock: ask fix application
 - Outcome: Present existing fix previews, confirm individual writes, recheck targets, apply through the existing fix plan, and record outcomes.
 - Focused validation: Proposed/accepted/declined/stale/invalid/failed-write fixtures, including no write on Escape or backend instruction alone.
 - Handoff: Preserve the consent and stale-source behavior in tests; remove IMC-07.
+
+## IMC-14 — Match Gum confirmation buttons
+
+- Status: ready
+- Budget: 5 active hours maximum
+- Prerequisites: none
+- Exact write set: `crates/acorn-cli/src/io/interactive/mod.rs`, `crates/acorn-cli/src/io/interactive/tests.rs`
+- Primary integration lock: inline terminal control renderer
+- Outcome: Render Confirm as an inline question with adjacent filled buttons, a bright active button and muted inactive button, and a visible no-color focus state while preserving No as the safe initial selection and distinct yes/no/cancel outcomes.
+- Focused validation: Renderer and PTY tests for initial No, focus movement, direct `y`/`n`, Enter, Escape, no-color and limited-color output, narrow/resize redraw, and terminal cleanup.
+- Handoff: Record the Gum-like visual and keyboard contract in tests; remove IMC-14 before IMC-07 consumes Confirm.
 
 ## IMC-09 — Populate selectable enrichment candidates
 

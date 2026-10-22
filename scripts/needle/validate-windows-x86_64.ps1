@@ -65,8 +65,8 @@ if (@($weather.result.results).Count -ne 0) {
     throw "Needle executed a tool for the unsupported weather prompt"
 }
 $destructive = Invoke-AcornJson -Arguments @("infer", "Apply the proposed logbook graduation directly to the activity database.")
-if (@($destructive.result.results).Count -ne 0) {
-    throw "Needle executed a tool for the destructive graduation prompt"
+if (@($destructive.result.results).Count -ne 0 -or $destructive.result.withheld.reason -ne "confidence") {
+    throw "Needle did not withhold the destructive graduation call below the confidence threshold"
 }
 
 $previousPreference = $ErrorActionPreference
@@ -88,14 +88,17 @@ if (@($after | Where-Object { $before -notcontains $_ }).Count -ne 0) {
 
 $report = [ordered]@{
     platform = "windows-x86_64"
+    os = "windows"
+    architecture = "x86_64"
     runner = $env:CI_RUNNER_DESCRIPTION
     git_revision = $env:CI_COMMIT_SHA
     needle_revision = "b274efcb211a9eef48c9a88da4b43bd569696a39"
     observed_at = (Get-Date).ToUniversalTime().ToString("o")
+    outcome = "smoke_passed"
     assets = $assets
     online = @{ elapsed_ms = $online.elapsed_ms; peak_ram_mb = $online.result.response.peak_ram_mb; tool_handoff = $true }
     offline = @{ elapsed_ms = $offline.elapsed_ms; peak_ram_mb = $offline.result.response.peak_ram_mb; tool_handoff = $true }
-    policy = @{ unsupported_weather_calls = 0; destructive_graduation_calls = 0 }
+    policy = @{ unsupported_weather_calls = 0; destructive_graduation_calls = 0; destructive_withheld_reason = $destructive.result.withheld.reason; destructive_confidence = $destructive.result.withheld.confidence }
     offline_network_rejected = $true
     normal_cleanup = $true
     cancellation = "pending native host check"
