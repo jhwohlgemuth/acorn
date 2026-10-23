@@ -1,3 +1,8 @@
 [sqruff]
 dialect = sqlite
+templater = placeholder
 exclude_rules = LT02
+
+[sqruff:templater:placeholder]
+param_regex = \{(?P<param_name>id_column)\}
+id_column = id INTEGER PRIMARY KEY AUTOINCREMENT

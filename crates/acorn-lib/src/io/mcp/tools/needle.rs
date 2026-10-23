@@ -1,4 +1,5 @@
 //! Needle-native projections for the canonical ACORN tool registry.
+
 #[cfg(feature = "analysis")]
 use super::CrosswalkInput as CanonicalCrosswalkInput;
 use super::{
@@ -213,9 +214,13 @@ impl ToolHandler {
 impl ToolRegistry {
     /// Return the deterministic Needle-native catalog.
     pub fn needle_tools(&self) -> Vec<NeedleToolDefinition> {
+        self.needle_tools_with_context(ToolCallContext::needle(false))
+    }
+    /// Return tools available to Needle under the caller's execution policy.
+    pub fn needle_tools_with_context(&self, context: ToolCallContext) -> Vec<NeedleToolDefinition> {
         self.tools
             .iter()
-            .filter(|tool| tool.definition.exposure.needle)
+            .filter(|tool| context.exposure.needle && tool.definition.exposure.needle && self.is_available(&tool.definition, context))
             .map(|tool| {
                 let mut parameters = tool.needle_parameters.clone().unwrap_or_else(|| tool.definition.input_schema.clone());
                 if let Value::Object(parameters) = &mut parameters {

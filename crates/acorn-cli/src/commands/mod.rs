@@ -25,6 +25,7 @@ use export::export_schema;
 use jiff::SignedDuration;
 use tokio::runtime::Runtime;
 use tracing::info;
+
 pub mod check;
 pub mod create;
 pub mod db;
@@ -357,16 +358,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
         },
         | Some(Commands::Infer(arguments)) => match &arguments.command {
             | Some(InferCommands::Run(arguments)) => with_runtime(infer::prompt::run(arguments, offline)),
-            | None => with_runtime(async {
-                infer::run(
-                    arguments.prompt.as_deref(),
-                    arguments.custom_location.as_deref(),
-                    arguments.threshold,
-                    arguments.max_rounds,
-                    offline,
-                )
-                .await
-            }),
+            | None => with_runtime(infer::run(arguments, offline)),
         },
         | Some(Commands::Format(arguments)) => with_runtime(async {
             let arguments::Format {

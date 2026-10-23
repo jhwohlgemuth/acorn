@@ -1,11 +1,13 @@
-use super::{resolve_prompt, Backend, ConfiguredInference, InferenceArgs, InferenceBackendKind, Milliseconds};
+use super::{
+    resolve_prompt, routing_registry, run_routed, structured_input, Backend, ConfiguredInference, InferenceArgs, InferenceBackendKind, Milliseconds,
+};
 use crate::cli::arguments::AcpAgentKind;
+use crate::cli::{Arguments, Commands};
 use acorn_core::time::UnitOfTime;
 use acorn_schema::software::Software;
+use clap::Parser;
 use core::cell::Cell;
 use std::path::PathBuf;
-
-mod prompt;
 
 fn arguments(backend: InferenceBackendKind) -> InferenceArgs {
     InferenceArgs::init().backend(backend).working_directory(PathBuf::from(".")).build()
@@ -63,3 +65,44 @@ fn test_resolve_prompt_rejects_missing_input() {
     assert!(resolve_prompt(None, || None).is_err());
     assert!(resolve_prompt(None, || Some(" \n".to_string())).is_err());
 }
+#[test]
+fn test_routed_input_and_default_registry_contract() {
+    assert_eq!(structured_input(Some("{}")).expect("object"), Some(serde_json::json!({})));
+    assert!(structured_input(Some("[]")).is_err());
+    assert!(structured_input(Some("{")).is_err());
+    let registry = routing_registry(true).expect("route registry");
+    let catalog = registry
+        .capability_catalog(None, acorn::io::mcp::CapabilitySelectionContext::default())
+        .expect("catalog");
+    assert!(catalog.contains("acorn.version"));
+    assert!(catalog.contains("acorn.check"));
+}
+#[tokio::test]
+async fn test_routed_request_rejects_legacy_round_limit() {
+    let parsed = Arguments::try_parse_from(["acorn", "ask", "version", "--route", "--max-rounds", "2"]).expect("parse route");
+    let arguments = parsed
+        .command
+        .and_then(|command| match command {
+            | Commands::Infer(arguments) => Some(arguments),
+            | _ => None,
+        })
+        .expect("infer command");
+    let error = run_routed(&arguments, true).await.expect_err("round limit belongs to legacy mode");
+    assert!(error.to_string().contains("legacy Needle loop"));
+}
+#[tokio::test]
+async fn test_routed_request_rejects_unknown_scope_before_starting_needle() {
+    let parsed = Arguments::try_parse_from(["acorn", "ask", "check this", "--route", "--capability", "acorn.unknown"]).expect("parse route");
+    let arguments = parsed
+        .command
+        .and_then(|command| match command {
+            | Commands::Infer(arguments) => Some(arguments),
+            | _ => None,
+        })
+        .expect("infer command");
+    let error = run_routed(&arguments, true).await.expect_err("unknown capability");
+    assert!(error.to_string().contains("Unknown capability scope"));
+}
+mod chat;
+mod metadata;
+mod prompt;

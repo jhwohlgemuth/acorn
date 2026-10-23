@@ -5,7 +5,6 @@
     clippy::indexing_slicing,
     clippy::arithmetic_side_effects
 )]
-mod model_list;
 
 use crate::agent::{
     Benchmark, CostDetails, CostTier, FrontMatter, Harness, LimitDetails, Metric, Modalities, ModelDetails, ModelList, ModelResolutionReason,
@@ -15,11 +14,12 @@ use crate::research_activity::aspect::data::Modality;
 use crate::OneOrMany;
 use acorn_core::{util::MarkdownSupport, Noul};
 
-fn all_known_assets() -> [PromptFileAsset; 7] {
+fn all_known_assets() -> [PromptFileAsset; 8] {
     [
         PromptFileAsset::Eli5,
         PromptFileAsset::ExtractClaim,
         PromptFileAsset::FindGaps,
+        PromptFileAsset::MetadataChat,
         PromptFileAsset::SuggestFixes,
         PromptFileAsset::Summarize,
         PromptFileAsset::Teach,
@@ -399,3 +399,4 @@ fn test_weights_infer_quantization_from_enum_variants() {
         assert_eq!(weights.0.first().and_then(|weight| weight.quantization.as_ref()), Some(&expected));
     });
 }
+mod model_list;

@@ -44,4 +44,4 @@ CREATE TABLE IF NOT EXISTS webhook_runtime_state (
 );
 INSERT INTO webhook_runtime_state (singleton, last_error_at, last_success_at)
 VALUES (1, NULL, NULL)
-ON CONFLICT(singleton) DO NOTHING;
+ON CONFLICT (singleton) DO NOTHING;

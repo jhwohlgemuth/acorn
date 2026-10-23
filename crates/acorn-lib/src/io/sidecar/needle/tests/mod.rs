@@ -1,17 +1,31 @@
 use super::{assets, write_tools, InferenceResult, Needle, WithheldExecution};
 use crate::io::api::needle::CompleteResponse;
 use crate::io::file_checksum;
-use crate::io::mcp::{ToolCallContext, ToolRegistry};
+use crate::io::mcp::{
+    BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, ExecutionContext, ExecutionOutcome, ToolCallContext, ToolRegistry,
+};
 use crate::io::sidecar::{
     modelkit_download_items, ModelKitAsset, ModelKitFile, ModelKitManifest, ModelKitSidecar, ResolvedAssets, Sidecar, SidecarAssets,
     SidecarDistribution, ToolIndex,
 };
 use acorn_core::Noul;
-use acorn_schema::agent::tools::NeedleToolDefinition;
+use acorn_schema::agent::tools::{NeedleToolDefinition, ToolDefinition, ToolEffects};
 use acorn_schema::modelkit::kitfile::MANIFEST_VERSION;
 use alloc::collections::BTreeMap;
+use alloc::sync::Arc;
+use core::sync::atomic::{AtomicUsize, Ordering};
+use serde_json::Value;
 use std::path::Path;
 
+#[derive(schemars::JsonSchema, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TerminalInput {
+    value: Option<u64>,
+}
+#[derive(schemars::JsonSchema, serde::Serialize)]
+struct TerminalOutput {
+    value: u64,
+}
 fn asset(name: &str, file: ModelKitFile) -> ModelKitAsset {
     ModelKitAsset {
         name: name.to_string(),
@@ -44,6 +58,59 @@ fn write_file(root: &Path, path: &str, content: &str) -> ModelKitFile {
     }
 }
 
+#[test]
+fn test_caller_owned_catalog_filters_unavailable_tools() {
+    let local = ToolDefinition::new::<TerminalInput, Value>("acorn.local", "Local", "Local read-only operation");
+    let mut remote = ToolDefinition::new::<TerminalInput, Value>("acorn.remote", "Remote", "Remote read-only operation");
+    remote.effects.open_world = true;
+    let registry = ToolRegistry::default()
+        .register_needle(local, |input: TerminalInput| async move { Ok(serde_json::json!({"value": input.value})) })
+        .and_then(|registry| {
+            registry.register_needle(
+                remote,
+                |input: TerminalInput| async move { Ok(serde_json::json!({"value": input.value})) },
+            )
+        })
+        .expect("caller registry");
+    let online = registry.needle_tools_with_context(ToolCallContext::needle(false));
+    let offline = registry.needle_tools_with_context(ToolCallContext::needle(true));
+    assert_eq!(
+        online.iter().map(|tool| tool.name.as_str()).collect::<Vec<_>>(),
+        ["acorn.local", "acorn.remote"]
+    );
+    assert_eq!(offline.iter().map(|tool| tool.name.as_str()).collect::<Vec<_>>(), ["acorn.local"]);
+    assert!(registry
+        .serialize_catalog(ToolCallContext::needle(true))
+        .expect("offline catalog")
+        .contains("acorn.local"));
+    assert!(!registry
+        .serialize_catalog(ToolCallContext::needle(true))
+        .expect("offline catalog")
+        .contains("acorn.remote"));
+}
+#[tokio::test]
+async fn test_caller_owned_terminal_handler_executes_once() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counter = Arc::clone(&calls);
+    let registry = ToolRegistry::default()
+        .register_needle(
+            ToolDefinition::new::<TerminalInput, Value>("acorn.terminal", "Terminal", "One typed terminal operation"),
+            move |input: TerminalInput| {
+                let counter = Arc::clone(&counter);
+                async move {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                    Ok(serde_json::json!({"value": input.value}))
+                }
+            },
+        )
+        .expect("caller registry");
+    let result = registry
+        .call_with_context("acorn.terminal", serde_json::json!({"value": 7}), ToolCallContext::needle(true))
+        .await
+        .expect("terminal call");
+    assert_eq!(result.structured_content, serde_json::json!({"value": 7}));
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
 #[test]
 fn test_custom_catalog_must_match_exactly() {
     let fixture = tempfile::tempdir().expect("fixture");
@@ -116,24 +183,6 @@ fn test_execution_gate_abstains_instead_of_failing() {
         Ok(Err(WithheldExecution::Negation))
     );
     assert!(gate(Some(0.9), "respond", safe).is_err());
-}
-#[test]
-fn test_withheld_execution_round_trips_as_json() {
-    let result = InferenceResult {
-        response: serde_json::from_str(include_str!("../../../../../../../tests/fixtures/needle/complete-call-v3.json")).expect("Needle response"),
-        results: Vec::new(),
-        withheld: Some(WithheldExecution::Confidence {
-            confidence: Noul::new(0.114).expect("valid unit value"),
-            threshold: Noul::new(0.8).expect("valid unit value"),
-        }),
-    };
-    let json = serde_json::to_string(&result).expect("serialize result");
-    let round_trip = serde_json::to_string(&serde_json::from_str::<InferenceResult>(&json).expect("parse result")).expect("re-serialize result");
-    assert_eq!(round_trip, json);
-    assert_eq!(
-        serde_json::from_str::<serde_json::Value>(&json).expect("result JSON").get("withheld"),
-        Some(&serde_json::json!({ "reason": "confidence", "confidence": 0.114, "threshold": 0.8 }))
-    );
 }
 #[test]
 fn test_modelkit_download_items_are_deterministic() {
@@ -526,6 +575,95 @@ fn test_official_assets_cover_every_supported_platform() {
     assert!(Needle::for_target("macos", "x86_64").is_err());
 }
 #[tokio::test]
+async fn test_routed_response_executes_one_terminal_binding() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counter = calls.clone();
+    let effects = ToolEffects {
+        read_only: true,
+        destructive: false,
+        idempotent: true,
+        open_world: false,
+    };
+    let registry = ToolRegistry::default()
+        .register_capability(CapabilityDefinition::new::<TerminalInput, TerminalOutput>(
+            "acorn.terminal",
+            acorn_core::util::SemanticVersion::from((1, 0, 0)),
+            "Terminal check",
+            effects,
+        ))
+        .expect("capability")
+        .register_capability_binding::<TerminalInput, TerminalOutput, _, _>(
+            BindingDefinition::new::<TerminalInput, TerminalOutput>(
+                "native:terminal",
+                "acorn.terminal",
+                acorn_core::util::SemanticVersion::from((1, 0, 0)),
+                BindingKind::Native,
+                effects,
+                BindingAvailability::Ready,
+            ),
+            move |input| {
+                let counter = counter.clone();
+                async move {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                    Ok(TerminalOutput {
+                        value: input.value.unwrap_or_default(),
+                    })
+                }
+            },
+        )
+        .expect("binding");
+    let catalog = registry.active_catalog(ToolCallContext::needle(false), None).expect("catalog");
+    assert!(catalog.contains("acorn.terminal"));
+    assert!(!catalog.contains("acorn.version"));
+    let response = |calls: serde_json::Value, negation: bool| -> CompleteResponse {
+        serde_json::from_value(serde_json::json!({
+            "type":"call", "success":true, "error":null, "error_code":null,
+            "function_calls":calls, "reason":null, "reasoning":null,
+            "confidence":0.9, "suppressed_calls":[], "prefill_tps":null,
+            "decode_tps":null, "peak_ram_mb":null,
+            "validation":{"ungrounded":[],"negation":negation}
+        }))
+        .expect("response")
+    };
+    let one = serde_json::json!([{"name":"acorn.terminal","arguments":{"value":7}}]);
+    let threshold = Noul::new(0.8).expect("threshold");
+    let routed = Needle::execute_route_response(&registry, response(one.clone(), false), threshold, ExecutionContext::default())
+        .await
+        .expect("route");
+    assert_eq!(routed.outcome, ExecutionOutcome::Completed);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    let preview = Needle::execute_route_response(
+        &registry,
+        response(one.clone(), false),
+        threshold,
+        ExecutionContext {
+            preview: true,
+            ..ExecutionContext::default()
+        },
+    )
+    .await
+    .expect("preview");
+    assert_eq!(preview.outcome, ExecutionOutcome::Proposed);
+    assert_eq!(
+        preview.selected.as_ref().map(|selected| selected.binding_id.as_str()),
+        Some("native:terminal")
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    let multiple = serde_json::json!([
+        {"name":"acorn.terminal","arguments":{"value":7}},
+        {"name":"acorn.terminal","arguments":{"value":8}}
+    ]);
+    let ambiguous = Needle::execute_route_response(&registry, response(multiple, false), threshold, ExecutionContext::default())
+        .await
+        .expect("route");
+    assert_eq!(ambiguous.outcome, ExecutionOutcome::NeedsInput);
+    let withheld = Needle::execute_route_response(&registry, response(one, true), threshold, ExecutionContext::default())
+        .await
+        .expect("route");
+    assert_eq!(withheld.outcome, ExecutionOutcome::Withheld);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+#[tokio::test]
 async fn test_sidecar_asset_resolution_applies_shared_offline_policy() {
     let remote = Needle::resolve_assets(Some("https://example.com/modelkit.json"), true, true)
         .await
@@ -578,4 +716,22 @@ fn test_tools_export_is_deterministic_and_native() {
             .iter()
             .all(|tool| tool.get("parameters").is_some() && tool.get("input_schema").is_none())
     }));
+}
+#[test]
+fn test_withheld_execution_round_trips_as_json() {
+    let result = InferenceResult {
+        response: serde_json::from_str(include_str!("../../../../../../../tests/fixtures/needle/complete-call-v3.json")).expect("Needle response"),
+        results: Vec::new(),
+        withheld: Some(WithheldExecution::Confidence {
+            confidence: Noul::new(0.114).expect("valid unit value"),
+            threshold: Noul::new(0.8).expect("valid unit value"),
+        }),
+    };
+    let json = serde_json::to_string(&result).expect("serialize result");
+    let round_trip = serde_json::to_string(&serde_json::from_str::<InferenceResult>(&json).expect("parse result")).expect("re-serialize result");
+    assert_eq!(round_trip, json);
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&json).expect("result JSON").get("withheld"),
+        Some(&serde_json::json!({ "reason": "confidence", "confidence": 0.114, "threshold": 0.8 }))
+    );
 }

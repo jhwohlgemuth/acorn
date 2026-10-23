@@ -889,6 +889,13 @@ Run bounded inference through Needle or a configured prompt backend
 
 ###### **Options:**
 
+* `--route` — Select one terminal native capability instead of the legacy tool loop
+* `--route-preview` — Show a grounded route and validated arguments without invoking its handler
+* `--capability <ID>` — Narrow the router catalog to one namespaced capability ID
+* `--input-json <JSON>` — Exact caller-supplied JSON object for the selected operation
+* `--binding <ID>` — Explicit configured executor binding ID
+* `--apply` — Grant one exact mutating operation using the supplied capability, binding, arguments, and destination
+* `--destination <PATH>` — Exact output destination for an authorized apply operation
 * `--custom-location <LOCATION>` — ModelKit directory, file:// URI, HTTP(S) manifest URI, or digest-pinned oci:// reference
 * `--threshold <0..1>` — Minimum calibrated confidence required before executing a tool
 

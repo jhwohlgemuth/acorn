@@ -1,5 +1,4 @@
 //! Runtime registration and execution for ACORN agent MCP tools
-mod needle;
 
 use crate::error::ApiResult;
 use crate::io::database::schema::Table;
@@ -16,15 +15,26 @@ use acorn_schema::research_activity::{GraduationCandidates, ResearchActivity};
 use acorn_schema::standard::{crosswalk::CrosswalkStandard, Standard};
 use acorn_schema::validation::Validate;
 use alloc::sync::Arc;
+pub use capability::{
+    BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, CapabilityError, CapabilitySelectionContext, SelectedBinding,
+};
 use color_eyre::eyre::{eyre, Report};
 use core::fmt;
 use core::future::Future;
 use core::pin::Pin;
+pub use execution::{ArtifactReference, ExecutionContext, ExecutionOutcome, ExecutionProvenance, MutationAuthority, RoutedExecution};
+pub use input::{ArtifactPolicy, InputFailure, InputLimits, InputReference, ResolvedInput, ResolvedInputFile, RoutedInputPolicy};
+pub use native::{AnalysisBatchOutput, AnalysisCategoryOutput, AnalysisCategoryStatus, AnalysisFinding, AnalysisInput, AnalysisOutput};
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+mod capability;
+mod execution;
+mod input;
+mod native;
+mod needle;
 type ToolFuture = Pin<Box<dyn Future<Output = ApiResult<Value>> + Send>>;
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -122,6 +132,7 @@ struct ToolHandler(Arc<dyn Fn(Value) -> ToolFuture + Send + Sync>);
 pub struct ToolRegistry {
     tools: Vec<Tool<Registered>>,
     mutation_available: bool,
+    capabilities: Vec<capability::CapabilityEntry>,
 }
 #[derive(Clone)]
 struct Unregistered;
@@ -441,6 +452,17 @@ impl ToolRegistry {
         let typed_handler = ToolHandler::new::<I, O, F, Fut>(definition.name.clone(), Arc::new(handler));
         self.insert(definition, typed_handler, None, None)
     }
+    /// Register one typed, Needle-only terminal handler.
+    pub fn register_needle<I, O, F, Fut>(self, mut definition: ToolDefinition, handler: F) -> ApiResult<Self>
+    where
+        I: DeserializeOwned + Send + 'static,
+        O: Serialize + 'static,
+        F: Fn(I) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = ApiResult<O>> + Send + 'static,
+    {
+        definition.exposure = ToolExposure { needle: true, mcp: false };
+        self.register(definition, handler)
+    }
     fn insert(
         self,
         definition: ToolDefinition,
@@ -458,7 +480,11 @@ impl ToolRegistry {
                     let mut tools = self.tools;
                     tools.push(Tool::new(definition).register(handler, needle_handler, needle_parameters));
                     tools.sort_by(|left, right| left.definition.name.cmp(&right.definition.name));
-                    Ok(Self { tools, mutation_available })
+                    Ok(Self {
+                        tools,
+                        mutation_available,
+                        capabilities: self.capabilities,
+                    })
                 }
             })
     }
@@ -468,12 +494,7 @@ impl ToolRegistry {
     }
     /// Return definitions callable under the supplied runtime policy.
     pub fn available_definitions(&self, context: ToolCallContext) -> Vec<ToolDefinition> {
-        let predicate = |definition: &ToolDefinition| {
-            let exposed = (context.exposure.needle && definition.exposure.needle) || (context.exposure.mcp && definition.exposure.mcp);
-            let mutation_allowed = definition.effects.read_only || (context.allow_mutation && self.mutation_available);
-            exposed && mutation_allowed && !(context.offline && definition.effects.open_world)
-        };
-        self.filtered_definitions(predicate)
+        self.filtered_definitions(|definition| self.is_available(definition, context))
     }
     /// Invoke one registered tool through the requested exposure boundary.
     pub async fn call(&self, name: &str, arguments: Value, exposure: ToolExposure) -> ApiResult<ToolResult> {
@@ -523,6 +544,11 @@ impl ToolRegistry {
             .cloned()
             .collect()
     }
+    fn is_available(&self, definition: &ToolDefinition, context: ToolCallContext) -> bool {
+        let exposed = (context.exposure.needle && definition.exposure.needle) || (context.exposure.mcp && definition.exposure.mcp);
+        let mutation_allowed = definition.effects.read_only || (context.allow_mutation && self.mutation_available);
+        exposed && mutation_allowed && !(context.offline && definition.effects.open_world)
+    }
 }
 impl UpdatesExportInput {
     async fn export(self) -> ApiResult<UpdatesExportOutput> {
@@ -568,3 +594,5 @@ fn standard_from(standard: CrosswalkStandard) -> Standard {
         | CrosswalkStandard::Invenio => Standard::Invenio,
     }
 }
+#[cfg(test)]
+mod tests;

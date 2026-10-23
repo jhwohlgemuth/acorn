@@ -3,23 +3,26 @@
 //! Needle 3 is a compact local model specialized for selecting and calling tools.
 //! ACORN runs the pinned standalone engine from the [upstream project](https://github.com/cactus-compute/needle);
 //! see the [ACORN Needle guide](https://acorn.ornl.gov/inference/needle.html) for usage details.
-pub mod assets;
-mod process;
-
 use crate::io::api::needle::{Client, CompleteResponse};
-use crate::io::mcp::{ToolCallContext, ToolRegistry};
+use crate::io::mcp::{
+    CapabilityError, CapabilitySelectionContext, ExecutionContext, ExecutionOutcome, ExecutionProvenance, RoutedExecution, ToolCallContext,
+    ToolRegistry,
+};
 use crate::io::sidecar::{ResolvedAssets, Sidecar, SidecarAssets};
 use crate::io::{standard_project_folder, write_file, ApiResult};
 use crate::util::constants::app::{DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, DEFAULT_NEEDLE_MAX_ROUNDS};
 use acorn_core::prelude::{create_dir, PathBuf, String, Vec};
 use acorn_core::Noul;
-use acorn_schema::agent::tools::ToolResult;
+use acorn_schema::agent::tools::{NeedleToolDefinition, ToolResult};
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use futures::stream::{self, StreamExt};
 use process::Runner;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+
+pub mod assets;
+mod process;
 
 const MAX_CATALOG_BYTES: usize = 32 * 1024;
 /// Reason to withhold automatic execution of a proposed Needle call.
@@ -68,6 +71,22 @@ pub struct Needle {
     max_rounds: usize,
     offline: bool,
 }
+/// One Needle decision and at most one terminal capability execution.
+#[skip_serializing_none]
+#[derive(bon::Builder, Clone, Debug, Serialize)]
+#[builder(start_fn = init)]
+pub struct RoutedInference {
+    /// Original Needle decision for audit and route preview.
+    pub response: Option<CompleteResponse>,
+    /// Terminal route outcome.
+    pub outcome: ExecutionOutcome,
+    /// Selected route when one was grounded and eligible.
+    pub selected: Option<ExecutionProvenance>,
+    /// Validated execution envelope when a binding was selected.
+    pub execution: Option<RoutedExecution>,
+    /// Reason the Needle execution gate withheld a proposed call.
+    pub withheld: Option<WithheldExecution>,
+}
 impl CompleteResponse {
     fn execution_gate(&self, threshold: Noul) -> ApiResult<Result<(), WithheldExecution>> {
         let valid_type = self.response_type.is_call();
@@ -97,35 +116,34 @@ impl CompleteResponse {
     }
 }
 impl Needle {
-    /// Override the confidence threshold, constrained to the inclusive unit interval
-    pub fn with_confidence_threshold(self, threshold: Noul) -> Self {
-        Self {
-            confidence_threshold: threshold,
-            ..self
+    /// Resolve verified assets and start Needle with a caller-owned tool registry.
+    pub async fn start_with_registry(custom_location: Option<&str>, offline: bool, registry: ToolRegistry) -> ApiResult<Self> {
+        Self::start_with_scoped_registry(custom_location, offline, registry, None).await
+    }
+    /// Start Needle with a caller-owned registry and an optional explicit capability scope.
+    pub async fn start_with_scoped_registry(
+        custom_location: Option<&str>,
+        offline: bool,
+        registry: ToolRegistry,
+        scope: Option<Vec<String>>,
+    ) -> ApiResult<Self> {
+        match Self::resolve_assets(custom_location, offline, true).await {
+            | Ok(assets) => Self::start_with_assets_and_registry(assets, offline, registry, scope).await,
+            | Err(why) => Err(why),
         }
     }
-    /// Override the positive maximum inference rounds
-    pub fn with_max_rounds(self, max_rounds: usize) -> ApiResult<Self> {
-        match max_rounds {
-            | 0 => Err(eyre!("Needle maximum rounds must be greater than zero")),
-            | _ => Ok(Self { max_rounds, ..self }),
-        }
-    }
-    /// Return the private loopback endpoint of the managed Needle process.
-    pub fn endpoint(&self) -> &str {
-        self.runner.endpoint()
-    }
-}
-#[async_trait]
-impl Sidecar for Needle {
-    type Input = String;
-    type Output = InferenceResult;
-    type ToolIndex = assets::NeedleToolIndex;
-
-    async fn start_with_assets(resolved: ResolvedAssets, offline: bool) -> ApiResult<Self> {
-        let catalog = ToolRegistry::acorn().and_then(|registry| registry.serialize_catalog().map(|catalog| (registry, catalog)));
+    async fn start_with_assets_and_registry(
+        resolved: ResolvedAssets,
+        offline: bool,
+        registry: ToolRegistry,
+        scope: Option<Vec<String>>,
+    ) -> ApiResult<Self> {
+        let context = ToolCallContext::needle(offline);
+        let catalog = registry.active_catalog(context, scope.as_deref());
         let start = match catalog {
-            | Ok((registry, catalog)) => assets::validate_tools::<Self, _>(resolved, &registry.needle_tools())
+            | Ok(catalog) => serde_json::from_str::<Vec<NeedleToolDefinition>>(&catalog)
+                .map_err(|why| eyre!("Invalid active Needle catalog — {why}"))
+                .and_then(|definitions| assets::validate_tools::<Self, _>(resolved, &definitions))
                 .and_then(|resolved| {
                     let session_root = standard_project_folder(&format!("{}/sessions", Self::KIND), None);
                     let tools = session_root.join("tools.json");
@@ -159,6 +177,108 @@ impl Sidecar for Needle {
         };
         match start {
             | Ok(future) => future.await,
+            | Err(why) => Err(why),
+        }
+    }
+    /// Override the confidence threshold, constrained to the inclusive unit interval
+    pub fn with_confidence_threshold(self, threshold: Noul) -> Self {
+        Self {
+            confidence_threshold: threshold,
+            ..self
+        }
+    }
+    /// Override the positive maximum inference rounds
+    pub fn with_max_rounds(self, max_rounds: usize) -> ApiResult<Self> {
+        match max_rounds {
+            | 0 => Err(eyre!("Needle maximum rounds must be greater than zero")),
+            | _ => Ok(Self { max_rounds, ..self }),
+        }
+    }
+    /// Return the private loopback endpoint of the managed Needle process.
+    pub fn endpoint(&self) -> &str {
+        self.runner.endpoint()
+    }
+    /// Ask Needle once, then execute at most one grounded capability call.
+    pub async fn route_once(self, prompt: String, mut context: ExecutionContext) -> ApiResult<RoutedInference> {
+        context.selection.offline |= self.offline;
+        match self.client.complete(prompt).await {
+            | Ok(response) => Self::execute_route_response(&self.registry, response, self.confidence_threshold, context).await,
+            | Err(_) => Ok(RoutedInference::init().outcome(ExecutionOutcome::TransportFailed).build()),
+        }
+    }
+    async fn execute_route_response(
+        registry: &ToolRegistry,
+        response: CompleteResponse,
+        threshold: Noul,
+        mut context: ExecutionContext,
+    ) -> ApiResult<RoutedInference> {
+        let base = |outcome, withheld| {
+            RoutedInference::init()
+                .response(response.clone())
+                .outcome(outcome)
+                .maybe_withheld(withheld)
+                .build()
+        };
+        if !response.success || response.error.is_some() {
+            Ok(base(ExecutionOutcome::ToolFailed, None))
+        } else if let [call] = response.function_calls.as_slice() {
+            if context.caller_arguments.as_ref().is_some_and(|arguments| arguments != &call.arguments) {
+                Ok(base(ExecutionOutcome::Withheld, None))
+            } else {
+                match response.execution_gate(threshold) {
+                    | Err(_) => Ok(base(ExecutionOutcome::InvalidInput, None)),
+                    | Ok(Err(withheld)) => Ok(base(ExecutionOutcome::Withheld, Some(withheld))),
+                    | Ok(Ok(())) => {
+                        let selection = registry.select_capability_binding(
+                            &call.name,
+                            context.binding_override.as_deref(),
+                            context.binding_preference.as_deref(),
+                            context.selection,
+                        );
+                        match selection {
+                            | Err(why) => Ok(base(
+                                if matches!(why.downcast_ref::<CapabilityError>(), Some(CapabilityError::AmbiguousBindings(_))) {
+                                    ExecutionOutcome::NeedsInput
+                                } else {
+                                    ExecutionOutcome::Unavailable
+                                },
+                                None,
+                            )),
+                            | Ok(selected) => {
+                                context.grounded = true;
+                                let execution = registry.execute_selected(&selected, call.arguments.clone(), context).await;
+                                Ok(RoutedInference::init()
+                                    .response(response)
+                                    .outcome(execution.outcome)
+                                    .selected(execution.provenance.clone())
+                                    .execution(execution)
+                                    .build())
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            Ok(base(
+                if response.response_type.is_refuse() {
+                    ExecutionOutcome::Withheld
+                } else {
+                    ExecutionOutcome::NeedsInput
+                },
+                None,
+            ))
+        }
+    }
+}
+#[async_trait]
+impl Sidecar for Needle {
+    type Input = String;
+    type Output = InferenceResult;
+    type ToolIndex = assets::NeedleToolIndex;
+
+    async fn start_with_assets(resolved: ResolvedAssets, offline: bool) -> ApiResult<Self> {
+        match ToolRegistry::acorn() {
+            | Ok(registry) => Self::start_with_assets_and_registry(resolved, offline, registry, None).await,
             | Err(why) => Err(why),
         }
     }
@@ -226,8 +346,20 @@ impl Sidecar for Needle {
     }
 }
 impl ToolRegistry {
-    fn serialize_catalog(&self) -> ApiResult<String> {
-        serde_json::to_string_pretty(&self.needle_tools())
+    fn active_catalog(&self, context: ToolCallContext, scope: Option<&[String]>) -> ApiResult<String> {
+        match self.has_capabilities() {
+            | true => self.capability_catalog(
+                scope,
+                CapabilitySelectionContext {
+                    offline: context.offline,
+                    allow_remote: false,
+                },
+            ),
+            | false => self.serialize_catalog(context),
+        }
+    }
+    fn serialize_catalog(&self, context: ToolCallContext) -> ApiResult<String> {
+        serde_json::to_string_pretty(&self.needle_tools_with_context(context))
             .map_err(|why| eyre!("Failed to serialize Needle tools — {why}"))
             .and_then(|catalog| match catalog.len() <= MAX_CATALOG_BYTES {
                 | true => Ok(catalog),
@@ -238,9 +370,8 @@ impl ToolRegistry {
 /// Write the canonical Needle catalog to a file.
 pub fn write_tools(path: PathBuf) -> ApiResult<()> {
     ToolRegistry::acorn()
-        .and_then(|registry| registry.serialize_catalog())
+        .and_then(|registry| registry.serialize_catalog(ToolCallContext::needle(false)))
         .and_then(|content| write_file(path, content))
 }
-
 #[cfg(test)]
 mod tests;

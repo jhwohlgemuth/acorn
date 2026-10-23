@@ -17,11 +17,11 @@ Extend the [native capability router](needle-router-native-parity.md) with expli
 
 # Current evidence
 
-The outbound MCP client already provides configured discovery and calls with cancellation. ACP and OpenAI-compatible inference backends exist. Shared sidecar asset and runtime traits exist. RTR-02 must freeze registry and execution contracts before configured adapter work starts; native parity remains a release prerequisite.
+The outbound MCP client already provides configured discovery and calls with cancellation. ACP and OpenAI-compatible inference backends exist. Shared sidecar asset and runtime traits exist. The native router now has versioned registry, binding selection, and one-terminal-execution contracts; native parity remains a release prerequisite.
 
 # Dependencies and boundaries
 
-ADP-01 follows RTR-02; ADP-09 also follows RTR-03. The four adapter leaves may proceed after ADP-08 while native capability phases continue, but ADP-06 waits for PAR-16 before evaluating heterogeneous selection. MCP, ACP, endpoint, and local sidecar adapters use their existing service contracts and do not change those providers' policy. The [parallel guide](../parallel-execution.md) serializes shared registry, CLI, manifest, and documentation roots.
+ADP-01 may consume the landed execution contract; ADP-09 may consume the landed CLI route syntax after ADP-08. The four adapter leaves may proceed after ADP-08 while native capability phases continue, but ADP-06 waits for PAR-16 before evaluating heterogeneous selection. MCP, ACP, endpoint, and local sidecar adapters use their existing service contracts and do not change those providers' policy. The [parallel guide](../parallel-execution.md) serializes shared registry, CLI, manifest, and documentation roots.
 
 # Validation and acceptance criteria
 
@@ -31,9 +31,9 @@ Validate each adapter with a fake configured provider, unavailable and denied ro
 
 ## ADP-01 — Define executor configuration
 
-- Status: planned
+- Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: RTR-02
+- Prerequisites: the landed native registry and terminal execution contract
 - Exact write set: `crates/acorn-lib/src/io/config/application.rs`, `crates/acorn-lib/src/io/config/tests/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/configuration.rs`, `crates/acorn-lib/src/io/mcp/tools/configuration_tests.rs`
 - Primary integration lock: API/config roots
 - Outcome: Validate explicit capability bindings to configured MCP aliases, trusted ACP profiles, endpoints, and sidecars without discovery or secrets during parsing.
@@ -55,7 +55,7 @@ Validate each adapter with a fake configured provider, unavailable and denied ro
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ADP-08, RTR-03
+- Prerequisites: ADP-08 and the landed CLI route syntax
 - Exact write set: `crates/acorn-cli/src/commands/infer/mod.rs`, `crates/acorn-cli/src/commands/infer/tests/mod.rs`
 - Primary integration lock: CLI contract
 - Outcome: Build the caller-owned registry from validated configuration without changing CLI syntax or provider transports.

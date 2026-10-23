@@ -90,6 +90,7 @@ serde_json = { workspace = true }
 eserde = { workspace = true }
 serde_with = { version = "3.15.1", features = ["macros"], default-features = false }
 serde_norway = { workspace = true }
+tempfile = { version = "3", optional = true }
 sevenz-rust2 = { workspace = true, optional = true }
 similar = { workspace = true, optional = true }
 swhid = { workspace = true, features = ["git"], optional = true }
@@ -212,7 +213,7 @@ mcp-client = [
   "tokio/rt-multi-thread",
   "tokio/time",
 ]
-needle = ["agentic", "dep:acorn-cmd"]
+needle = ["agentic", "dep:acorn-cmd", "dep:tempfile"]
 exec = ["analysis", "acorn-analysis/exec", "dep:cap-std", "dep:rhai"]
 shell-lint = ["analysis", "acorn-cmd/shell-lint"]
 swhid-compute = ["analysis", "dep:acorn-cmd", "dep:swhid"]

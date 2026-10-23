@@ -5,5 +5,5 @@ CREATE TABLE IF NOT EXISTS catalog (
     identifier TEXT NOT NULL,
     title TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    UNIQUE(bucket_name, identifier)
+    UNIQUE (bucket_name, identifier)
 )

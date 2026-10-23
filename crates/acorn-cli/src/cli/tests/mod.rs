@@ -42,6 +42,7 @@ fn fixture_content_root() -> PathBuf {
 fn has_suffix(path: &Path, suffix: &str) -> bool {
     path.to_string_lossy().replace('\\', "/").ends_with(suffix)
 }
+
 #[test]
 fn test_bot_identifier_from_ci_project_id_env() {
     let _guard = ENV_LOCK.lock().unwrap_or_else(|why| why.into_inner());
@@ -1513,6 +1514,69 @@ fn test_resolve_paths_including_discovers_named_files() {
     assert!(!resolved.contains(&text));
 }
 #[test]
+fn test_routed_infer_contract_and_authority_flags() {
+    let parsed = Arguments::try_parse_from([
+        "acorn",
+        "ask",
+        "What version is this?",
+        "--route",
+        "--route-preview",
+        "--capability",
+        "acorn.version",
+        "--input-json",
+        "{}",
+        "--binding",
+        "native:acorn.version",
+    ])
+    .expect("parse routed ask");
+    match parsed.command {
+        | Some(Commands::Infer(arguments)) => {
+            assert!(arguments.route);
+            assert!(arguments.route_preview);
+            assert_eq!(arguments.capability.as_deref(), Some("acorn.version"));
+            assert_eq!(arguments.input_json.as_deref(), Some("{}"));
+            assert_eq!(arguments.binding.as_deref(), Some("native:acorn.version"));
+        }
+        | other => panic!("unexpected command: {other:?}"),
+    }
+    assert!(Arguments::try_parse_from(["acorn", "ask", "version", "--route-preview"]).is_err());
+    assert!(Arguments::try_parse_from(["acorn", "ask", "version", "--input-json", "{}"]).is_err());
+    assert!(Arguments::try_parse_from(["acorn", "ask", "version", "--route", "--apply"]).is_err());
+    assert!(Arguments::try_parse_from([
+        "acorn",
+        "ask",
+        "format this",
+        "--route",
+        "--route-preview",
+        "--apply",
+        "--capability",
+        "acorn.format",
+        "--binding",
+        "native:format",
+        "--input-json",
+        "{\"destination\":\"out.json\"}",
+        "--destination",
+        "out.json",
+    ])
+    .is_err());
+    assert!(Arguments::try_parse_from([
+        "acorn",
+        "ask",
+        "format this",
+        "--route",
+        "--apply",
+        "--capability",
+        "acorn.format",
+        "--binding",
+        "native:format",
+        "--input-json",
+        "{\"destination\":\"out.json\"}",
+        "--destination",
+        "out.json",
+    ])
+    .is_ok());
+}
+#[test]
 fn test_rpc_server_arguments() {
     let arguments = Arguments::try_parse_from(["acorn", "serve", "rpc", "--bind", "127.0.0.1:9123"]).expect("parse RPC server");
     assert!(matches!(
@@ -1713,7 +1777,6 @@ fn test_what_if_aliases_dry_run_flags() {
     assert!(Arguments::try_parse_from(["acorn", "import", "spec", "--what-if"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "sync", "--what-if"]).is_ok());
 }
-
 mod relocated_arguments_bot_tests {
     use super::super::arguments::bot::{Common, EventSource};
 

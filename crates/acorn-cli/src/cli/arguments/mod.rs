@@ -1200,6 +1200,27 @@ pub(crate) struct Infer {
     /// Prompt used to select and invoke ACORN tools
     #[arg(required = false, value_name = "PROMPT")]
     pub(crate) prompt: Option<String>,
+    /// Select one terminal native capability instead of the legacy tool loop
+    #[arg(long, help_heading = "ROUTING")]
+    pub(crate) route: bool,
+    /// Show a grounded route and validated arguments without invoking its handler
+    #[arg(long, requires = "route", conflicts_with = "apply", help_heading = "ROUTING")]
+    pub(crate) route_preview: bool,
+    /// Narrow the router catalog to one namespaced capability ID
+    #[arg(long, requires = "route", value_name = "ID", help_heading = "ROUTING")]
+    pub(crate) capability: Option<String>,
+    /// Exact caller-supplied JSON object for the selected operation
+    #[arg(long, requires = "route", value_name = "JSON", help_heading = "ROUTING")]
+    pub(crate) input_json: Option<String>,
+    /// Explicit configured executor binding ID
+    #[arg(long, requires = "route", value_name = "ID", help_heading = "ROUTING")]
+    pub(crate) binding: Option<String>,
+    /// Grant one exact mutating operation using the supplied capability, binding, arguments, and destination
+    #[arg(long, requires_all = ["route", "capability", "binding", "input_json", "destination"], help_heading = "ROUTING")]
+    pub(crate) apply: bool,
+    /// Exact output destination for an authorized apply operation
+    #[arg(long, requires = "apply", value_name = "PATH", help_heading = "ROUTING")]
+    pub(crate) destination: Option<String>,
     /// ModelKit directory, file:// URI, HTTP(S) manifest URI, or digest-pinned oci:// reference
     #[arg(long, value_name = "LOCATION", help_heading = "OPTIONS")]
     pub(crate) custom_location: Option<String>,

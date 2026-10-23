@@ -1,10 +1,11 @@
 #![allow(clippy::indexing_slicing)]
+
 use crate::io::database::schema::Table;
 use crate::io::database::Database;
 use crate::io::mcp::bundle::{BundleOptions, BundlePlan, BundleReport, Manifest};
 use crate::io::mcp::{Server, ToolCallContext, ToolRegistry};
 use crate::io::{DeterministicZipEntry, Platform};
-use acorn_schema::agent::tools::ToolExposure;
+use acorn_schema::agent::tools::{ToolDefinition, ToolExposure};
 use acorn_schema::research_activity::ResearchActivity;
 use rmcp::model::JsonObject;
 use serde_json::{json, Value};
@@ -13,6 +14,11 @@ use std::path::Path;
 use tempfile::tempdir;
 use zip::ZipArchive;
 
+#[derive(schemars::JsonSchema, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TerminalInput {
+    value: Option<u64>,
+}
 fn bundle_options(root: &Path, output: &str) -> BundleOptions {
     let binary = root.join("acorn");
     write(&binary, b"test executable").expect("write binary");
@@ -105,6 +111,21 @@ fn test_bundle_rejects_existing_output_and_windows_suffix_mismatch() {
         &registry
     )
     .is_err());
+}
+#[tokio::test]
+async fn test_caller_owned_needle_handler_is_not_mcp_exposed() {
+    let registry = ToolRegistry::default()
+        .register_needle(
+            ToolDefinition::new::<TerminalInput, Value>("acorn.terminal", "Terminal", "Caller-owned terminal handler"),
+            |input: TerminalInput| async move { Ok(json!({"value": input.value})) },
+        )
+        .expect("caller registry");
+    assert!(registry.needle_tools().iter().any(|tool| tool.name == "acorn.terminal"));
+    assert!(registry.available_definitions(ToolCallContext::mcp(false)).is_empty());
+    assert!(registry
+        .call_with_context("acorn.terminal", json!({}), ToolCallContext::mcp(false))
+        .await
+        .is_err());
 }
 #[test]
 fn test_catalog_is_deterministic_and_shared() {

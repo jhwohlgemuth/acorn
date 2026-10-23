@@ -1,4 +1,4 @@
-//! Embedded prompt hydration and inference command.
+//! Embedded prompt hydration and inference command
 use super::ConfiguredInference;
 use crate::{
     cli::{
@@ -164,7 +164,7 @@ pub(super) fn apply_sets(data: &mut Map<String, Value>, sets: &[String]) -> Resu
 fn asset(value: &str) -> Result<PromptFileAsset> {
     match PromptFileAsset::from(value) {
         | PromptFileAsset::Unknown(_) => Err(eyre!(
-            "Unknown prompt asset '{value}'; expected eli5, extract-claim, find-gaps, suggest-fixes, summarize, teach, or translate"
+            "Unknown prompt asset '{value}'; expected eli5, extract-claim, find-gaps, metadata-chat, suggest-fixes, summarize, teach, or translate"
         )),
         | known => Ok(known),
     }

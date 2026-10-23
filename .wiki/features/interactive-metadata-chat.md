@@ -22,11 +22,12 @@ The first usable interface is separate from `acorn tui`. The later chat-controll
 Checked on 2026-10-21 against the current implementation:
 
 - `ask` is a visible alias of `infer`. The current positional or piped prompt runs a one-shot Needle sidecar and prints JSON; `infer run` hydrates an embedded prompt and uses ACP or an OpenAI-compatible endpoint. Neither mode keeps chat state.
-- The [native routing plan](needle-router-native-parity.md) owns the future caller-owned `ask` registry and CLI contract. RTR-03 freezes `ask` syntax; PAR-02 exposes full analysis checks. The [generic adapter plan](ask-executor-adapters.md) owns configured external executor bindings. This plan consumes those contracts and does not create another general tool registry.
+- The [native routing plan](needle-router-native-parity.md) now has the caller-owned `ask` registry, opt-in route syntax, and a local `acorn.check` binding over `analyze_paths`. PAR-02 retains nonlocal and fix-preview parity work. The [generic adapter plan](ask-executor-adapters.md) owns configured external executor bindings. This plan consumes those contracts and does not create another general tool registry.
 - `analyzer/host/service::analyze_paths` dispatches local analysis across ACRE, CFF, CKAN, DataCite, DCAT, Document, Dublin Core, HuWise, Invenio, Kitfile, ModelKit, RAiD, RAD, and Text. OCI artifact checking follows a separate `check` path. `check --suggest-fixes` already produces bounded proposals and previews; it does not apply them.
 - `acorn-lib::io::chat_history::ChatSession` creates private, versioned JSONL files under `ask/sessions`, flushes complete records, redacts recognized credentials, and starts a new file on clear. The first chat command still needs to wire this storage into its event flow.
 - Plain and ACRE formatting can write in place. Enriched formatting builds a `Workflow::Plan` before application, including companion artifacts and configured hook output. Ambiguous enrichment now retains bounded typed decisions alongside its existing text diagnostics.
 - The CLI has a command-owned inline viewport with bounded scrolling, text input, Choose, two-button Confirm, asynchronous Spin, resize handling, TTY rejection, and terminal cleanup. `acorn-lib::agent` exposes a terminal-independent chat reducer with confirmed target identity and bounded context selection.
+- The confirmed metadata adapter now resolves local files and folders under a bounded root, skips unsupported formats, calls the typed native check binding, and returns ordered structured results plus an 8 KiB context summary. Mixed standards require an explicit choice before attachment. The backend-neutral chat driver records attach, tool, user, assistant, failure, clear, and cancellation events; it hydrates an embedded grounded prompt and denies mutation in every inference request. Focused fake-backend, offline, folder, prompt-asset, and route tests pass. The driver is not yet exposed as `ask --interactive`.
 - Confirm renders adjacent filled buttons with magenta focus, a muted inactive state, visible text markers without color, and No focused initially. Focused renderer and PTY tests cover its visual and keyboard behavior against the [user-supplied Gum Confirm animation](../assets/gum-confirm-reference.gif).
 - `acorn-lib::agent::slash` defines typed command names, aliases, argument parsing, and context-specific suggestions shared by the TUI dashboard and GitLab webhook. Chat will consume the same contract in IMC-06. GitLab still requires `/acorn` and retains its existing note authorization and operation paths.
 - Enrichment results and workflow document changes carry typed decisions with a five-choice bound, explicit skip, stale-source validation, and distinct external-provider or embedded-vocabulary origins. Ambiguous ORCID matches can provide choices for CFF, DataCite, Invenio, and RAD; ambiguous ROR and complete ambiguous or unmatched vocabulary reports can provide choices for RAD. Missing or incomplete evidence retains diagnostics without a choice. Passive formatting still writes only deterministic results.
@@ -36,8 +37,8 @@ Checked on 2026-10-21 against the current implementation:
 
 - **Owned here:** inline terminal controls, chat state and transcript storage, metadata attachment and analysis presentation, grounded conversational replies, reviewable fix application, typed uncertain-enrichment feedback, and interactive formatting.
 - **Consumed, not replaced:** existing analysis, fix, workflow transaction, inference backend, and routed capability contracts. `infer` without `--interactive`, `infer run`, and the separate TUI remain available.
-- IMC-04 consumes PAR-02; IMC-05/06 also consume RTR-03. If those contracts change, recheck the exact write set before starting. No phase depends on generic external adapter release or model-profile availability.
-- Serialize IMC-04 through IMC-07 with RTR-03, ADP-09, and other inference-command work on shared files. Serialize IMC-06 and IMC-10 with the CLI parser/help lock. Serialize IMC-10/11 with structured enrichment or format work on their exact library and command files. The TUI screen itself remains a later separate outcome.
+- IMC-06 consumes the landed local check binding, metadata adapter, chat driver, and route syntax. If those contracts change, recheck the exact write set before starting. No phase depends on generic external adapter release or model-profile availability.
+- Serialize IMC-06/07 with ADP-09 and other inference-command work on shared files. Serialize IMC-06 and IMC-10 with the CLI parser/help lock. Serialize IMC-10/11 with structured enrichment or format work on their exact library and command files. The TUI screen itself remains a later separate outcome.
 
 # Experience and contracts
 
@@ -73,33 +74,11 @@ Checked on 2026-10-21 against the current implementation:
 
 # Execution phases
 
-## IMC-04 — Attach and analyze metadata targets
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: PAR-02 from the native routing plan
-- Exact write set: `crates/acorn-cli/src/commands/infer/metadata.rs`, `crates/acorn-cli/src/commands/infer/tests/metadata.rs`, `crates/acorn-cli/src/commands/infer/tests/mod.rs`, `crates/acorn-cli/src/commands/infer/mod.rs`
-- Primary integration lock: metadata analysis adapter
-- Outcome: Resolve confirmed files/folders to typed standard-aware analysis inputs and present bounded structured findings through the landed check capability; no CLI subprocess or duplicate validator.
-- Focused validation: Standard matrix, mixed folders, stable ordering, missing/ambiguous paths, unsupported formats, and offline fixtures.
-- Handoff: Record the metadata operation contract for the chat driver; remove IMC-04.
-
-## IMC-05 — Add grounded conversational replies
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: IMC-04, RTR-03 from the native routing plan
-- Exact write set: `crates/acorn-schema/assets/prompts/metadata-chat.prompt`, `crates/acorn-schema/src/agent/mod.rs`, `crates/acorn-schema/src/agent/tests/mod.rs`, `crates/acorn-schema/src/agent/tests/snapshots/acorn_schema__agent__tests__prompt_asset_file_names.snap`, `crates/acorn-schema/src/agent/tests/snapshots/acorn_schema__agent__tests__prompt_asset_template_headers.snap`, `crates/acorn-cli/src/commands/infer/chat.rs`, `crates/acorn-cli/src/commands/infer/tests/chat.rs`, `crates/acorn-cli/src/commands/infer/tests/mod.rs`
-- Primary integration lock: ask conversation composition
-- Outcome: Drive bounded routed metadata actions and grounded ACP/endpoint prose over the chat controller; keep session failures and cancellations explicit.
-- Focused validation: Fake backends for multi-turn context, typed findings, refusal, invalid route, timeout, backend failure, and no unauthorized action.
-- Handoff: Freeze the chat-driver entry point for CLI syntax; remove IMC-05.
-
 ## IMC-06 — Expose `ask --interactive`
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: IMC-05; coordinate RTR-03 and ADP-09 ownership before editing shared roots
+- Prerequisites: the landed metadata adapter and chat driver; coordinate ADP-09 ownership before editing shared roots
 - Exact write set: `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/cli/tests/mod.rs`, `crates/acorn-cli/src/commands/mod.rs`, `crates/acorn-cli/src/commands/infer/mod.rs`, `CommandLineHelp.md`
 - Primary integration lock: CLI contract
 - Outcome: Add the flag, interactive backend selectors, TTY guard, first-turn handling, and the shared slash-command parser for `/open`, `/clear`, `/history`, `/help`, and `/exit` while preserving one-shot `ask`/`infer` and `infer run`.
@@ -110,7 +89,7 @@ Checked on 2026-10-21 against the current implementation:
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: IMC-04, IMC-06
+- Prerequisites: the landed metadata adapter and IMC-06
 - Exact write set: `crates/acorn-cli/src/commands/infer/chat.rs`, `crates/acorn-cli/src/commands/infer/tests/chat.rs`
 - Primary integration lock: ask fix application
 - Outcome: Present existing fix previews, confirm individual writes, recheck targets, apply through the existing fix plan, and record outcomes.
