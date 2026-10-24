@@ -7,11 +7,14 @@ use crate::{
     },
     io::{is_stdin_piped, read_stdin},
 };
-use acorn::agent::{HydratedPrompt, InferencePermissionPolicy, InferenceRequest, InferenceResult, PromptContext, PromptDataFormat, PromptHydrator};
+use acorn::agent::{
+    HydratedPrompt, InferencePermissionPolicy, InferenceRequest, InferenceResult, PromptContext, PromptDataFormat, PromptHydrator,
+    PromptScriptHydrator,
+};
 use acorn::io::{read_clipboard, resolve_glob};
 use acorn_core::{
     time::{Milliseconds, UnitOfTime},
-    util::MimeType,
+    util::{constants::app::MAX_EXEC_BYTES, MimeType},
 };
 use acorn_schema::agent::PromptFileAsset;
 use acorn_schema::validation::Validate;
@@ -21,11 +24,16 @@ use color_eyre::eyre::{eyre, Result};
 use serde::Serialize;
 use serde_json::{Map, Value};
 use std::{
-    fs::read_to_string,
+    fs::{read_to_string, File},
+    io::Read,
     path::{Path, PathBuf},
 };
 
 const RESERVED_KEYS: [&str; 2] = ["config", "data"];
+pub(super) enum PromptSource {
+    Embedded(PromptFileAsset),
+    Script(PathBuf),
+}
 trait Preview {
     fn preview(&self, output: InferenceOutputFormat) -> Void;
 }
@@ -84,6 +92,9 @@ impl From<PromptDataFormatArg> for PromptDataFormat {
 }
 impl PromptRun {
     pub(super) fn load(&self, options: Option<Options>) -> Result<Value> {
+        self.load_with_empty(options, false)
+    }
+    fn load_with_empty(&self, options: Option<Options>, allow_empty: bool) -> Result<Value> {
         let Options {
             read_clipboard,
             read_stdin,
@@ -110,10 +121,12 @@ impl PromptRun {
             data.and_then(|data| {
                 let values = match paths.as_slice() {
                     | [] if data.is_some() => Ok(Vec::new()),
-                    | [] if stdin_piped => read_stdin()
-                        .ok_or_else(|| eyre!("Failed to read prompt data from standard input"))
-                        .and_then(|content| decode(&content, None))
-                        .map(|value| vec![value]),
+                    | [] if stdin_piped => match read_stdin().filter(|content| !content.trim().is_empty()) {
+                        | Some(content) => decode(&content, None).map(|value| vec![value]),
+                        | None if allow_empty => Ok(Vec::new()),
+                        | None => Err(eyre!("Failed to read prompt data from standard input")),
+                    },
+                    | [] if allow_empty => Ok(Vec::new()),
                     | [] => Err(eyre!(
                         "Prompt data is required; provide one or more paths, --data, use -, or pipe standard input"
                     )),
@@ -161,13 +174,30 @@ pub(super) fn apply_sets(data: &mut Map<String, Value>, sets: &[String]) -> Resu
             })
     })
 }
-fn asset(value: &str) -> Result<PromptFileAsset> {
+pub(super) fn source(value: &str) -> Result<PromptSource> {
     match PromptFileAsset::from(value) {
+        | PromptFileAsset::Unknown(_) if Path::new(value).extension().is_some_and(|extension| extension == "rhai") => {
+            Ok(PromptSource::Script(PathBuf::from(value)))
+        }
         | PromptFileAsset::Unknown(_) => Err(eyre!(
-            "Unknown prompt asset '{value}'; expected eli5, extract-claim, find-gaps, metadata-chat, suggest-fixes, summarize, teach, or translate"
+            "Unknown prompt asset '{value}'; expected an embedded prompt name or a local .rhai script path"
         )),
-        | known => Ok(known),
+        | known => Ok(PromptSource::Embedded(known)),
     }
+}
+fn read_script(path: &Path) -> Result<String> {
+    File::open(path)
+        .map_err(|why| eyre!("Failed to open prompt script {} — {why}", path.display()))
+        .and_then(|file| {
+            let mut bytes = Vec::new();
+            file.take((MAX_EXEC_BYTES as u64).saturating_add(1))
+                .read_to_end(&mut bytes)
+                .map_err(|why| eyre!("Failed to read prompt script {} — {why}", path.display()))
+                .and_then(|_| match bytes.len() > MAX_EXEC_BYTES {
+                    | true => Err(eyre!("Prompt script {} exceeds {MAX_EXEC_BYTES} bytes", path.display())),
+                    | false => String::from_utf8(bytes).map_err(|why| eyre!("Prompt script {} is not UTF-8 — {why}", path.display())),
+                })
+        })
 }
 async fn async_result(pending: Option<(HydratedPrompt, ConfiguredInference)>, output: InferenceOutputFormat) -> Void {
     match pending {
@@ -275,20 +305,31 @@ fn render_json(output: &Output<'_>) -> Void {
         .map_err(color_eyre::Report::new)
         .map(|value| println!("{value}"))
 }
-/// Hydrate and optionally run one embedded prompt.
+/// Hydrate and optionally run one embedded or scripted prompt.
 pub(crate) async fn run(arguments: &PromptRun, offline: bool) -> Void {
     let prepared = arguments
         .inference
         .validate()
         .map_err(|why| eyre!(why))
-        .and_then(|()| arguments.load(None))
-        .and_then(|data| asset(&arguments.asset).map(|asset| (asset, data)))
-        .and_then(|(asset, data)| {
+        .and_then(|()| source(&arguments.asset))
+        .and_then(|source| {
+            let data = match &source {
+                | PromptSource::Embedded(_) => arguments.load(None),
+                | PromptSource::Script(_) => arguments.load_with_empty(None, true),
+            };
+            data.map(|data| (source, data))
+        })
+        .and_then(|(source, data)| {
             let context = PromptContext {
                 config: PromptTemplateConfiguration::default(),
                 data,
             };
-            PromptHydrator::hydrate_with_format(asset, &context, arguments.format.into())
+            match source {
+                | PromptSource::Embedded(asset) => PromptHydrator::hydrate_with_format(asset, &context, arguments.format.into()),
+                | PromptSource::Script(path) => read_script(&path).and_then(|script| {
+                    PromptScriptHydrator::hydrate_with_format(path.to_string_lossy().as_ref(), &script, &context, arguments.format.into())
+                }),
+            }
         })
         .and_then(|prompt| match arguments.dry_run {
             | true => prompt.preview(arguments.output).map(|()| None),

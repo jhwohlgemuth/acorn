@@ -167,7 +167,7 @@ pub enum ModelResolutionReason {
     #[display("model has no identifier or name")]
     MissingIdentifier,
 }
-/// Prompt file assets embedded in this crate
+/// Embedded prompt assets and explicit local script sources.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 pub enum PromptFileAsset {
     /// "Explain like I'm five" prompt template for generating simple explanations of complex topics
@@ -178,6 +178,8 @@ pub enum PromptFileAsset {
     FindGaps,
     /// Prompt template for grounded metadata conversations
     MetadataChat,
+    /// Local Rhai script used to hydrate a prompt.
+    Script(String),
     /// Prompt template for proposing bounded fixes for analyzer findings
     SuggestFixes,
     /// Prompt template for generating concise summaries of text
@@ -1213,11 +1215,11 @@ impl fmt::Display for PromptFileAsset {
             | Self::ExtractClaim => "extract-claim.prompt",
             | Self::FindGaps => "find-gaps.prompt",
             | Self::MetadataChat => "metadata-chat.prompt",
+            | Self::Script(value) | Self::Unknown(value) => value,
             | Self::SuggestFixes => "suggest-fixes.prompt",
             | Self::Summarize => "summarize.prompt",
             | Self::Teach => "teach.prompt",
             | Self::Translate => "translate.prompt",
-            | Self::Unknown(value) => value,
         };
 
         write!(f, "{value}")
@@ -1247,8 +1249,13 @@ impl From<String> for PromptFileAsset {
 impl PromptFileAsset {
     /// Load the embedded prompt asset as a UTF-8 string.
     pub fn load(&self) -> AcornResult<String> {
-        let name = self.to_string();
-        PromptTemplate::from_asset(&name).ok_or_else(|| schema_error!("Prompt template not found — {name}"))
+        match self {
+            | Self::Script(path) => Err(schema_error!("Rhai prompt script is not an embedded asset — {path}")),
+            | _ => {
+                let name = self.to_string();
+                PromptTemplate::from_asset(&name).ok_or_else(|| schema_error!("Prompt template not found — {name}"))
+            }
+        }
     }
 }
 #[cfg(feature = "std")]

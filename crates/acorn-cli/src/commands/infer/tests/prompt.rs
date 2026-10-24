@@ -1,4 +1,4 @@
-use super::super::prompt::{apply_sets, decode, run, Options};
+use super::super::prompt::{apply_sets, decode, run, source, Options, PromptSource};
 use crate::cli::arguments::{
     AcpAgentKind, InferenceArgs, InferenceBackendKind, InferenceEndpointMode, InferenceOutputFormat, PromptDataFormatArg, PromptRun,
 };
@@ -164,6 +164,26 @@ fn test_dry_run_still_rejects_incompatible_backend_flags() {
         .endpoint_mode(InferenceEndpointMode::Responses)
         .build();
     assert!(arguments.validate().is_err());
+}
+#[tokio::test]
+async fn test_script_dry_run_works_without_agent_or_data() {
+    let directory = tempfile::tempdir().expect("script directory");
+    let script = directory.path().join("static.rhai");
+    std::fs::write(&script, "// @acorn-exec-v0.2.0\nfn evaluate(context) { \"Return one sentence.\" }").expect("script");
+    let arguments = PromptRun {
+        asset: script.to_string_lossy().to_string(),
+        inference: InferenceArgs::init()
+            .agent_executable(PathBuf::from("/definitely/missing/opencode"))
+            .build(),
+        ..prompt_run(None, false)
+    };
+    assert!(run(&arguments, false).await.is_ok());
+}
+#[test]
+fn test_script_source_requires_rhai_path() {
+    assert!(matches!(source("./prompt.rhai"), Ok(PromptSource::Script(_))));
+    assert!(matches!(source("summarize"), Ok(PromptSource::Embedded(_))));
+    assert!(source("unknown").is_err());
 }
 #[test]
 fn test_globbed_inputs_are_sorted_and_merged() {

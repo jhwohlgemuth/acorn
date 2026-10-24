@@ -6,21 +6,27 @@
     clippy::arithmetic_side_effects
 )]
 //! Shared async HTTP server helpers for `acorn-lib` integration-style tests.
+#[cfg(feature = "agentic")]
 use crate::io::api::gitlab::EventDetails;
 use crate::io::ApiResult;
+#[cfg(feature = "agentic")]
 use alloc::sync::Arc;
+use axum::Router;
+#[cfg(feature = "agentic")]
 use axum::{
     extract::{RawQuery, State},
     http::StatusCode,
     routing::get,
-    Json, Router,
+    Json,
 };
 use color_eyre::eyre::eyre;
+#[cfg(feature = "agentic")]
 use std::{collections::HashMap, sync::Mutex};
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
+#[cfg(feature = "agentic")]
 #[derive(Default)]
 pub(crate) struct GitLabEventRepository {
     pub(crate) events: Vec<EventDetails>,
@@ -70,6 +76,7 @@ impl TestServer {
         self.task.await.map_err(|why| eyre!("test server join failed: {why}")).map(|_| ())
     }
 }
+#[cfg(feature = "agentic")]
 pub(crate) async fn gitlab_event_server(repository: Arc<Mutex<GitLabEventRepository>>) -> TestServer {
     let router = Router::new()
         .route(

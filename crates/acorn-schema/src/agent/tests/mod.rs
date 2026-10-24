@@ -51,6 +51,17 @@ fn test_from_asset_returns_some_for_all_known_assets() {
     });
 }
 #[test]
+fn test_script_asset_keeps_embedded_assets_separate() {
+    let script = PromptFileAsset::Script("./review.rhai".to_string());
+    assert_eq!(script.to_string(), "./review.rhai");
+    assert!(script.load().is_err());
+    assert!(PromptFileAsset::Script("summarize.prompt".to_string()).load().is_err());
+    assert_eq!(
+        serde_json::to_value(script).expect("serialize script"),
+        serde_json::json!({"Script": "./review.rhai"})
+    );
+}
+#[test]
 fn test_front_matter_to_markdown_includes_delimiters() {
     let frontmatter = FrontMatter::init()
         .name("summarize".to_string())

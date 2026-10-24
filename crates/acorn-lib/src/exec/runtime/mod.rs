@@ -5,25 +5,26 @@ use super::parse_version_header;
 use crate::analyzer::{Check, CheckCategory};
 use acorn_analysis::{check_err, check_ok};
 use acorn_core::prelude::{String, Vec};
-use acorn_core::util::constants::app::{
-    MAX_EXEC_ARRAY_SIZE, MAX_EXEC_BYTES, MAX_EXEC_EXPR_DEPTH, MAX_EXEC_FUNCTIONS, MAX_EXEC_FUNCTION_DEPTH, MAX_EXEC_INTERNED_STRINGS,
-    MAX_EXEC_MAP_SIZE, MAX_EXEC_MODULES, MAX_EXEC_OPERATIONS, MAX_EXEC_STRING_SIZE, MAX_EXEC_VARIABLES,
-};
+use acorn_core::util::constants::app::MAX_EXEC_BYTES;
 use color_eyre::eyre::{eyre, Report, Result};
 use jiff::{SignedDuration, Timestamp};
 use std::path::Path;
 
+use self::rhai::restricted_engine;
+
+pub(crate) mod rhai;
+
 /// Runtime contract for compiling and evaluating extension source.
 pub trait Runtime {
     /// Compile source using the runtime's constrained profile.
-    fn compile(&self, source: &str) -> Result<rhai::AST, Report>;
+    fn compile(&self, source: &str) -> Result<::rhai::AST, Report>;
     /// Check source by evaluating it with a fresh scope and supplied context.
-    fn check(&self, source: &str, context: rhai::Map) -> Result<rhai::Dynamic, Report>;
+    fn check(&self, source: &str, context: ::rhai::Map) -> Result<::rhai::Dynamic, Report>;
     /// Evaluate a previously validated AST with a fresh scope.
-    fn check_ast(&self, ast: &rhai::AST, context: rhai::Map) -> Result<rhai::Dynamic, Report>;
+    fn check_ast(&self, ast: &::rhai::AST, context: ::rhai::Map) -> Result<::rhai::Dynamic, Report>;
 }
 /// Restricted Rhai runtime with no registered host capabilities.
-pub struct RhaiRuntime(rhai::Engine);
+pub struct RhaiRuntime(::rhai::Engine);
 impl Default for RhaiRuntime {
     fn default() -> Self {
         Self::new()
@@ -62,7 +63,7 @@ impl RhaiRuntime {
         Self::compile_source(path, content).map(|_| ())
     }
     /// Compile source against the static ABI and restricted engine profile.
-    pub fn compile_source(path: &Path, content: &str) -> Result<rhai::AST, Report> {
+    pub fn compile_source(path: &Path, content: &str) -> Result<::rhai::AST, Report> {
         match content.len() > MAX_EXEC_BYTES {
             | true => Err(eyre!("script `{}` exceeds {} bytes", path.display(), MAX_EXEC_BYTES)),
             | false => parse_version_header(content)
@@ -93,22 +94,10 @@ impl RhaiRuntime {
     }
     /// Create the restricted engine profile used for compilation and evaluation.
     pub fn new() -> Self {
-        let mut engine = rhai::Engine::new_raw();
-        engine.disable_symbol("eval");
-        engine.set_max_array_size(MAX_EXEC_ARRAY_SIZE);
-        engine.set_max_call_levels(MAX_EXEC_FUNCTION_DEPTH);
-        engine.set_max_expr_depths(MAX_EXEC_EXPR_DEPTH, MAX_EXEC_FUNCTION_DEPTH);
-        engine.set_max_functions(MAX_EXEC_FUNCTIONS);
-        engine.set_max_map_size(MAX_EXEC_MAP_SIZE);
-        engine.set_max_modules(MAX_EXEC_MODULES);
-        engine.set_max_operations(MAX_EXEC_OPERATIONS);
-        engine.set_max_string_size(MAX_EXEC_STRING_SIZE);
-        engine.set_max_strings_interned(MAX_EXEC_INTERNED_STRINGS);
-        engine.set_max_variables(MAX_EXEC_VARIABLES);
-        Self(engine)
+        Self(restricted_engine())
     }
     /// Return mutable access to the restricted Rhai engine.
-    pub fn engine_mut(&mut self) -> &mut rhai::Engine {
+    pub fn engine_mut(&mut self) -> &mut ::rhai::Engine {
         &mut self.0
     }
     /// Set the Rhai operation ceiling and return the updated runtime.
@@ -118,22 +107,22 @@ impl RhaiRuntime {
     }
 }
 impl Runtime for RhaiRuntime {
-    fn compile(&self, source: &str) -> Result<rhai::AST, Report> {
+    fn compile(&self, source: &str) -> Result<::rhai::AST, Report> {
         self.0.compile(source).map_err(|why| eyre!("{why}"))
     }
-    fn check(&self, source: &str, context: rhai::Map) -> Result<rhai::Dynamic, Report> {
+    fn check(&self, source: &str, context: ::rhai::Map) -> Result<::rhai::Dynamic, Report> {
         self.compile(source)
             .and_then(|ast| verify_evaluate_entry_point(&ast).map(|()| ast))
             .and_then(|ast| self.check_ast(&ast, context))
     }
-    fn check_ast(&self, ast: &rhai::AST, context: rhai::Map) -> Result<rhai::Dynamic, Report> {
+    fn check_ast(&self, ast: &::rhai::AST, context: ::rhai::Map) -> Result<::rhai::Dynamic, Report> {
         self.0
-            .call_fn::<rhai::Dynamic>(&mut rhai::Scope::new(), ast, "evaluate", (context,))
+            .call_fn::<::rhai::Dynamic>(&mut ::rhai::Scope::new(), ast, "evaluate", (context,))
             .map_err(|why| eyre!("{why}"))
     }
 }
 /// Check that the AST declares exactly one `evaluate` function with arity 1.
-pub fn verify_evaluate_entry_point(ast: &rhai::AST) -> Result<(), Report> {
+pub fn verify_evaluate_entry_point(ast: &::rhai::AST) -> Result<(), Report> {
     let functions: Vec<(String, usize)> = ast.iter_functions().map(|f| (f.name.to_string(), f.params.len())).collect();
     let matches: Vec<_> = functions.iter().filter(|(name, _)| name == "evaluate").collect();
     match matches.as_slice() {

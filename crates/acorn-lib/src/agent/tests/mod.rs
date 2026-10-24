@@ -9,6 +9,8 @@ use acorn_schema::agent::{FrontMatter, PromptFileAsset};
 use acorn_schema::standard::zon;
 use serde_json::json;
 
+#[cfg(feature = "exec")]
+mod prompt_script;
 mod slash;
 
 #[cfg(feature = "template")]
@@ -45,6 +47,7 @@ fn request() -> InferenceRequest {
         timeout: 1_000.into(),
     }
 }
+#[cfg(any(feature = "acp", feature = "analysis"))]
 fn result() -> InferenceResult {
     InferenceResult {
         finish_reason: InferenceFinishReason::Stop,
@@ -231,6 +234,7 @@ fn test_hydrate_supports_pretty_json_for_troubleshooting() {
         PromptHydrator::hydrate_with_format(PromptFileAsset::Summarize, &context(json!({"text": "source"})), PromptDataFormat::Json).unwrap();
     assert!(prompt.body.ends_with("# Input Data (JSON)\n\n```json\n{\n  \"text\": \"source\"\n}\n```"));
 }
+#[cfg(any(feature = "acp", feature = "analysis"))]
 #[tokio::test]
 async fn test_in_memory_backend_returns_deterministic_result() {
     let expected = result();
@@ -247,6 +251,7 @@ fn test_inference_contract_round_trips_without_transport_or_secret_fields() {
     assert!(!text.contains("http_status"));
     assert!(!text.contains("permission_request_id"));
 }
+#[cfg(any(feature = "acp", feature = "analysis"))]
 #[tokio::test]
 async fn test_inference_service_rejects_empty_prompts_and_zero_timeouts() {
     let backend = InMemoryBackend::new(result());
@@ -268,6 +273,7 @@ async fn test_inference_service_rejects_empty_prompts_and_zero_timeouts() {
         .to_string()
         .contains("greater than zero"));
 }
+#[cfg(any(feature = "acp", feature = "analysis"))]
 #[tokio::test]
 async fn test_readiness_returns_secret_free_backend_summary() {
     let expected = result();

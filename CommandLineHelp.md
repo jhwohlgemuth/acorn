@@ -881,7 +881,7 @@ Run bounded inference through Needle or a configured prompt backend
 
 ###### **Subcommands:**
 
-* `run` — Hydrate and run one known embedded prompt asset
+* `run` — Hydrate and run an embedded prompt or local Rhai script
 
 ###### **Arguments:**
 
@@ -910,13 +910,13 @@ Run bounded inference through Needle or a configured prompt backend
 
 ## `acorn-cli infer run`
 
-Hydrate and run one known embedded prompt asset
+Hydrate and run an embedded prompt or local Rhai script
 
-**Usage:** `acorn-cli infer run [OPTIONS] <ASSET> [PATH]...`
+**Usage:** `acorn-cli infer run [OPTIONS] <ASSET|SCRIPT.rhai> [PATH]...`
 
 ###### **Arguments:**
 
-* `<ASSET>` — Known embedded prompt asset name
+* `<ASSET|SCRIPT.rhai>` — Embedded prompt name or local .rhai prompt script
 * `<PATH>` — JSON, YAML, or ZON input files, directories, or glob patterns; use `-` for standard input
 
 ###### **Options:**
@@ -933,7 +933,7 @@ Hydrate and run one known embedded prompt asset
   - `zon`:
     Canonical ZON
 
-* `--dry-run` [alias: `what-if`] — Preview the fully hydrated prompt without backend checks or I/O
+* `--dry-run` [alias: `what-if`] — Preview the fully hydrated prompt without starting an inference backend
 * `--paste` — Read bare `--data` from the system clipboard
 * `--output <FORMAT>` — Command output format
 

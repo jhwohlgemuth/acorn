@@ -108,7 +108,7 @@ impl<State> Prompt<State> {
     }
 }
 impl PromptDataFormat {
-    fn data_block(self, data: &Value) -> Result<String, String> {
+    pub(super) fn data_block(self, data: &Value) -> Result<String, String> {
         match self {
             | Self::Json => serde_json::to_string_pretty(data)
                 .map(|encoded| ("JSON", "json", encoded))

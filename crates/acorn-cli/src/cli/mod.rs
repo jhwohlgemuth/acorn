@@ -429,7 +429,7 @@ pub enum ImportCommands {
 #[derive(Clone, Debug, Subcommand)]
 #[command(long_about = None)]
 pub enum InferCommands {
-    /// Hydrate and run one known embedded prompt asset
+    /// Hydrate and run an embedded prompt or local Rhai script
     Run(Box<arguments::PromptRun>),
 }
 /// Explicit local Power Automate intake operations.

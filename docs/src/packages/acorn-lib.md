@@ -14,9 +14,23 @@ The library also provides building blocks for optional AI-enabled applications:
 - `acorn_schema::agent` models language models, providers, benchmark harnesses, prompt files, and agent-oriented OpenCode configuration.
 - Embedded prompt templates support summarization, translation, teaching, claim extraction, and gap finding.
 - `PromptHydrator` appends complete prompt data as canonical ZON by default; `PromptDataFormat::Json` provides a deterministic troubleshooting view. The inference adapters forward the hydrated Markdown body without changing their JSON wire protocols.
+- With the `exec` feature, `PromptScriptHydrator` evaluates a capability-free Rhai script against caller data and returns the complete prompt body. The CLI enables this library feature in its standard build; see the [custom prompt examples](../cli-reference/commands/infer.md#custom-rhai-prompts).
 - `acorn::io::api::openai` provides a client for completions, chat completions, responses, embeddings, model discovery, and related operations using supported OpenAI-style HTTP endpoints and JSON formats. It can call OpenAI's service or another compatible server, including a local one such as llama-swap; "OpenAI-compatible" describes the connection format, not the model provider.
 
 These APIs complement ACORN's deterministic schema and artifact workflows; applications decide when and how a model is invoked.
+
+## Runnable examples
+
+From the workspace root, run these offline examples without an agent or API credentials:
+
+```sh
+cargo run --example confirm
+cargo run --example resolve_vocabulary
+cargo run --example semantic_diff
+cargo run --example validate_activity
+```
+
+`confirm` needs an interactive terminal and lets you select Yes or No without changing any files. The other examples validate a bundled RAD record and show a field error, resolve research keywords against an embedded controlled vocabulary, and compare two RAD versions after canonicalization. The Rust examples and sample Rhai scripts are all in `crates/acorn-cli/examples/`.
 
 ## Installation
 

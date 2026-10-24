@@ -21,7 +21,7 @@ The first usable interface is separate from `acorn tui`. The later chat-controll
 
 Checked on 2026-10-21 against the current implementation:
 
-- `ask` is a visible alias of `infer`. The current positional or piped prompt runs a one-shot Needle sidecar and prints JSON; `infer run` hydrates an embedded prompt and uses ACP or an OpenAI-compatible endpoint. Neither mode keeps chat state.
+- `ask` is a visible alias of `infer`. The current positional or piped prompt runs a one-shot Needle sidecar and prints JSON; `infer run` hydrates an embedded prompt or local Rhai script and uses ACP or an OpenAI-compatible endpoint. Neither mode keeps chat state.
 - The [native routing plan](needle-router-native-parity.md) now has the caller-owned `ask` registry, opt-in route syntax, and a local `acorn.check` binding over `analyze_paths`. PAR-02 retains nonlocal and fix-preview parity work. The [generic adapter plan](ask-executor-adapters.md) owns configured external executor bindings. This plan consumes those contracts and does not create another general tool registry.
 - `analyzer/host/service::analyze_paths` dispatches local analysis across ACRE, CFF, CKAN, DataCite, DCAT, Document, Dublin Core, HuWise, Invenio, Kitfile, ModelKit, RAiD, RAD, and Text. OCI artifact checking follows a separate `check` path. `check --suggest-fixes` already produces bounded proposals and previews; it does not apply them.
 - `acorn-lib::io::chat_history::ChatSession` creates private, versioned JSONL files under `ask/sessions`, flushes complete records, redacts recognized credentials, and starts a new file on clear. The first chat command still needs to wire this storage into its event flow.

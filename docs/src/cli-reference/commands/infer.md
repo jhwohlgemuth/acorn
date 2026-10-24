@@ -1,6 +1,6 @@
 # 🧠 Infer
 
-`acorn infer` provides two bounded inference modes. A prompt argument or piped text uses the managed [Needle sidecar](../../inference/needle.md) to select and invoke ACORN tools. The `run` subcommand hydrates one of ACORN's embedded prompt assets and optionally sends it to ACP or an OpenAI-compatible endpoint. `ask` is an alias for `infer`.
+`acorn infer` provides two bounded inference modes. A prompt argument or piped text uses the managed [Needle sidecar](../../inference/needle.md) to select and invoke ACORN tools. The `run` subcommand hydrates an embedded prompt asset or local Rhai script and optionally sends it to ACP or an OpenAI-compatible endpoint. `ask` is an alias for `infer`.
 
 ```sh
 acorn infer "Validate this research activity"
@@ -15,6 +15,8 @@ acorn infer run summarize --data --paste --dry-run
 acorn infer run translate input.yaml --set language=French
 cat input.zon | acorn infer run teach -
 acorn infer run summarize input.json --agent codex
+acorn infer run ./crates/acorn-cli/examples/prompts/summary.rhai --data '{"text":"Research notes"}' --dry-run
+acorn infer run ./crates/acorn-cli/examples/prompts/title.rhai --data '{"description":"A study of local water quality"}' --agent codex
 acorn infer run summarize --backend openai --model qwen3 --base-url http://localhost:8080
 ```
 
@@ -79,3 +81,40 @@ acorn infer run summarize input.json --agent codex --agent-executable /path/to/c
 ```
 
 If `codex-acp` is missing, install it with `npm install -g @agentclientprotocol/codex-acp`. That global installation does not require `npx`. If npm and npx are unavailable, install Node.js/npm or place a standalone binary from the [`codex-acp` releases](https://github.com/agentclientprotocol/codex-acp/releases) on `PATH`.
+
+## Custom Rhai prompts
+
+Pass a local `.rhai` path where `infer run` normally accepts an embedded prompt name. The standard ACORN binary enables the library's `exec` feature for this. The script uses the workflow Rhai header `// @acorn-exec-v0.2.0` and defines one `fn evaluate(context)` that returns nonempty text. That text is the complete prompt sent to the selected backend. ACORN does not append data after it.
+
+For a prompt that includes every supplied input field, save this as `summary.rhai`. A copy is in `crates/acorn-cli/examples/prompts/summary.rhai`:
+
+```rhai
+// @acorn-exec-v0.2.0
+fn evaluate(context) {
+    "Summarize the following research material in three concise points. State uncertainty explicitly.\n\n" + context.data_block
+}
+```
+
+Run it with the same file, directory, stdin, `--data`, and `--set` inputs used by embedded prompts:
+
+```sh
+acorn infer run ./summary.rhai --data '{"text":"Research notes"}' --dry-run
+acorn infer run ./summary.rhai notes.json --agent codex
+acorn infer run ./summary.rhai notes.json --format json --output json --dry-run
+```
+
+`context.data` is the merged input object, `context.config` contains the current prompt configuration defaults, and `context.data_block` is the complete fenced input block. `--format` selects ZON (the default) or JSON for that block. Scripts can use individual values instead; `crates/acorn-cli/examples/prompts/title.rhai` reads `context.data.description`. A script that needs no input receives an empty data object.
+
+Prompt scripts have bounded size, runtime, and output. They receive no filesystem, network, process, environment, import, or dynamic evaluation functions. ACORN reads the script file, and `--dry-run` evaluates it and prints the result without starting an agent. Script errors stop the command before an inference request.
+
+### Cargo examples
+
+The Rust examples in `crates/acorn-cli/examples/` show the same library API used by `infer run`. Each has a built-in demonstration script and can also read a `.rhai` path. The preview runs without an agent; the ACP example starts the selected installed agent:
+
+```sh
+cargo run --example rhai_preview
+cargo run --example rhai_preview -- ./crates/acorn-cli/examples/prompts/summary.rhai
+cargo run --example rhai_preview -- ./crates/acorn-cli/examples/prompts/title.rhai
+cargo run --example rhai_acp -- opencode
+cargo run --example rhai_acp -- codex ./crates/acorn-cli/examples/prompts/title.rhai
+```

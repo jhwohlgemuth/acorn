@@ -1,8 +1,12 @@
 use super::{AcpSessionEvent, AgentProcessConfig, AgentProfile, Client, Codex, Error, OpenCode, SessionObserver};
 use crate::agent::{HydratedPrompt, InferencePermissionPolicy, InferenceRequest};
+#[cfg(feature = "exec")]
+use crate::agent::{PromptContext, PromptScriptHydrator};
 use crate::analyzer::fix::{CheckReference, CheckReferences, FixOptions, IntoFixes};
 use acorn_cmd::{find_executable, CommandSpec};
 use acorn_core::Noul;
+#[cfg(feature = "exec")]
+use acorn_schema::agent::PromptTemplateConfiguration;
 use acorn_schema::{
     agent::{FrontMatter, PromptFileAsset},
     software::Software,
@@ -98,6 +102,27 @@ fn test_acp_inference_forwards_hydrated_zon_prompt_body() {
         .block_on(client.infer_checked(&request(body)))
         .expect("forward hydrated ZON prompt");
     assert_eq!(result.text, "zon prompt received");
+}
+#[cfg(feature = "exec")]
+#[test]
+fn test_acp_inference_forwards_script_prompt_to_both_agent_ids() {
+    let fake = FakeAgent::compile();
+    let context = PromptContext {
+        config: PromptTemplateConfiguration::default(),
+        data: json!({"message": "plain"}),
+    };
+    let script = "// @acorn-exec-v0.2.0\nfn evaluate(context) { context.data.message }";
+    let prompt = PromptScriptHydrator::hydrate("reply.rhai", script, &context).expect("hydrate Rhai prompt");
+    for agent_id in ["opencode", "codex"] {
+        let mut request = request("unused");
+        request.agent = Some(agent_id.to_string());
+        request.prompt = prompt.clone();
+        let result = runtime()
+            .block_on(Client::new(fake.config(agent_id)).infer_checked(&request))
+            .expect("forward Rhai prompt through ACP");
+        assert_eq!(result.text, "fake response");
+        assert_eq!(result.provenance.agent.as_deref(), Some(agent_id));
+    }
 }
 #[test]
 fn test_acp_inference_rejects_offline_and_wrong_agent_without_starting() {

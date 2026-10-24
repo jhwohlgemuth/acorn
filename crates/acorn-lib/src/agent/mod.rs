@@ -12,14 +12,21 @@ use core::pin::Pin;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+#[cfg(any(feature = "acp", feature = "analysis"))]
 mod chat;
 #[cfg(feature = "template")]
 mod prompt;
+#[cfg(feature = "exec")]
+mod prompt_script;
 pub mod slash;
+#[cfg(any(feature = "acp", feature = "analysis"))]
 pub use chat::{AttachedTarget, ChatAction, ChatContext, ChatEvent, ChatRole, ChatState, ChatTransition, ChatTurn};
 #[cfg(feature = "template")]
 pub use prompt::PromptHydrator;
+#[cfg(feature = "exec")]
+pub use prompt_script::PromptScriptHydrator;
 /// Maximum tool-result text retained in a durable conversation event.
+#[cfg(any(feature = "acp", feature = "analysis"))]
 pub(crate) const MAX_TOOL_RESULT_BYTES: usize = 4096;
 /// Future returned by an inference backend.
 pub type InferenceFuture<'a> = Pin<Box<dyn Future<Output = ApiResult<InferenceResult>> + Send + 'a>>;
@@ -64,11 +71,11 @@ pub enum PromptDataFormat {
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct HydratedPrompt {
-    /// Embedded asset that produced this prompt.
+    /// Embedded asset or local script that produced this prompt.
     pub asset: PromptFileAsset,
     /// Rendered prompt body without frontmatter.
     pub body: String,
-    /// Validated metadata extracted from rendered frontmatter.
+    /// Validated metadata extracted from frontmatter or generated for a script.
     pub metadata: FrontMatter,
 }
 /// Stable inference capabilities shared across transports.

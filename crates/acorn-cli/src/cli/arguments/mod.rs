@@ -1353,8 +1353,8 @@ pub(crate) struct ModelSyncArgs {
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub(crate) struct PromptRun {
-    /// Known embedded prompt asset name
-    #[arg(value_name = "ASSET")]
+    /// Embedded prompt name or local .rhai prompt script
+    #[arg(value_name = "ASSET|SCRIPT.rhai")]
     pub(crate) asset: String,
     /// JSON, YAML, or ZON input files, directories, or glob patterns; use `-` for standard input
     #[arg(value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "ARGS")]
@@ -1368,7 +1368,7 @@ pub(crate) struct PromptRun {
     /// Serialization format for the prompt input-data block
     #[arg(long, default_value = "zon", value_enum, value_name = "FORMAT", help_heading = "OPTIONS")]
     pub(crate) format: PromptDataFormatArg,
-    /// Preview the fully hydrated prompt without backend checks or I/O
+    /// Preview the fully hydrated prompt without starting an inference backend
     #[arg(long, visible_alias = "what-if", help_heading = "FLAGS")]
     pub(crate) dry_run: bool,
     /// Read bare `--data` from the system clipboard
