@@ -30,7 +30,13 @@ cargo run --example semantic_diff
 cargo run --example validate_activity
 ```
 
-`confirm` needs an interactive terminal and lets you select Yes or No without changing any files. The other examples validate a bundled RAD record and show a field error, resolve research keywords against an embedded controlled vocabulary, and compare two RAD versions after canonicalization. The Rust examples and sample Rhai scripts are all in `crates/acorn-cli/examples/`.
+`confirm` needs an interactive terminal and lets you select Yes or No without changing any files.
+
+![Confirmation prompt with No selected above and Yes selected below](../_assets/interactive-confirm.png)
+
+No is selected by default (top). Use Left, Right, or Tab to switch buttons, Enter to confirm, or Escape to cancel.
+
+The other examples validate a bundled RAD record and show a field error, resolve research keywords against an embedded controlled vocabulary, and compare two RAD versions after canonicalization. The Rust examples and sample Rhai scripts are all in `crates/acorn-cli/examples/`.
 
 ## Installation
 

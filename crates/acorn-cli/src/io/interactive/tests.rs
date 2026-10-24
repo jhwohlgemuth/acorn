@@ -24,7 +24,7 @@ fn test_confirm_button_palettes() {
         focused,
         no_color,
         row: 0,
-        text: "> [Yes]",
+        text: "   Yes   ",
         true_color,
     };
     let render = |focused, no_color, true_color| {
@@ -34,28 +34,34 @@ fn test_confirm_button_palettes() {
     };
     assert_eq!(
         confirm_palette(options(true, false, true)),
-        (Color::Rgb { r: 255, g: 70, b: 170 }, Color::Black)
+        (Color::Rgb { r: 255, g: 135, b: 215 }, Color::Rgb { r: 255, g: 255, b: 215 })
     );
     assert_eq!(
         confirm_palette(options(false, false, true)),
-        (Color::Rgb { r: 58, g: 54, b: 70 }, Color::White)
+        (Color::Rgb { r: 38, g: 38, b: 38 }, Color::Rgb { r: 228, g: 228, b: 228 })
     );
-    assert_eq!(confirm_palette(options(true, false, false)), (Color::Magenta, Color::White));
-    assert_eq!(confirm_palette(options(false, false, false)), (Color::DarkGrey, Color::White));
+    assert_eq!(
+        confirm_palette(options(true, false, false)),
+        (Color::AnsiValue(212), Color::AnsiValue(230))
+    );
+    assert_eq!(
+        confirm_palette(options(false, false, false)),
+        (Color::AnsiValue(235), Color::AnsiValue(254))
+    );
     assert!(!render(true, true, true).contains("[48;"));
 }
 #[test]
-fn test_confirm_no_color_keeps_both_buttons_and_focus() {
-    let render = |no_color| {
+fn test_confirm_layout_keeps_both_buttons_and_focus() {
+    let render = |height, width, no_color, yes| {
         let viewport = core::mem::ManuallyDrop::new(
             Viewport::builder()
                 .anchor(0)
-                .height(3)
+                .height(height)
                 .origin(0)
-                .width(24)
+                .width(width)
                 .overlay(Overlay::Confirm {
                     prompt: "Apply?".into(),
-                    yes: false,
+                    yes,
                     no_color,
                 })
                 .build(),
@@ -64,14 +70,31 @@ fn test_confirm_no_color_keeps_both_buttons_and_focus() {
         viewport.render_overlay(&mut output).expect("render buttons");
         String::from_utf8(output).expect("terminal bytes")
     };
-    let colored = render(false);
-    let plain = render(true);
-    assert!(colored.contains("[Yes]") && colored.contains("> [No]"));
-    assert!(plain.contains("[Yes]") && plain.contains("> [No]"));
-    if env::var_os("NO_COLOR").is_none() {
-        assert!(colored.contains("[45m") || colored.contains("[48;"), "{colored:?}");
+    for yes in [false, true] {
+        for (height, width, yes_position, no_position) in [
+            (3, 20, "\x1b[3;1H", "\x1b[3;12H"),
+            (2, 20, "\x1b[2;1H", "\x1b[2;12H"),
+            (4, 19, "\x1b[3;1H", "\x1b[4;1H"),
+            (3, 10, "\x1b[2;1H", "\x1b[3;1H"),
+        ] {
+            let colored = render(height, width, false, yes);
+            let plain = render(height, width, true, yes);
+            assert!(colored.contains("   Yes   ") && colored.contains("   No   "), "{colored:?}");
+            assert!(!colored.contains('>') && !colored.contains("[Yes]") && !colored.contains("[No]"));
+            assert!(colored.contains(yes_position) && colored.contains(no_position), "{colored:?}");
+            assert!(colored.contains("\x1b[?25l"), "cursor must be hidden: {colored:?}");
+            assert!(plain.contains("[Yes]") && plain.contains("[No]"));
+            assert!(plain.contains(if yes { "> [Yes]" } else { "> [No]" }), "{plain:?}");
+            if env::var_os("NO_COLOR").is_none() {
+                assert!(colored.contains("[48;"), "{colored:?}");
+            }
+            assert!(!plain.contains("[38;") && !plain.contains("[48;"));
+        }
+        for (height, width) in [(3, 9), (2, 19)] {
+            let compact = render(height, width, false, yes);
+            assert!(compact.contains(if yes { ">Y  N" } else { " Y >N" }), "{compact:?}");
+        }
     }
-    assert!(!plain.contains("[48;"));
 }
 #[test]
 fn test_non_tty_is_rejected_before_raw_mode() {

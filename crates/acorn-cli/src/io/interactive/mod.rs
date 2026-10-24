@@ -395,14 +395,26 @@ impl Viewport {
                         })
                     })
                 }
-                | Some(Overlay::Confirm { prompt, yes, no_color }) => print_overlay(output, 0, self.anchor, &clip_to_width(prompt, width), None)
+                | Some(Overlay::Confirm { prompt, yes, no_color }) => queue!(output, cursor::Hide)
+                    .and_then(|()| print_overlay(output, 0, self.anchor, &clip_to_width(prompt, width), None))
                     .and_then(|()| {
                         if self.height <= 1 {
                             Ok(())
                         } else {
-                            let yes_button = if *yes { "> [Yes]" } else { "  [Yes]" };
-                            let no_button = if *yes { "  [No]" } else { "> [No]" };
-                            let button_row = self.anchor.saturating_add(1);
+                            let yes_button = match (*no_color, *yes) {
+                                | (true, true) => "> [Yes]  ",
+                                | (true, false) => "  [Yes]  ",
+                                | (false, _) => "   Yes   ",
+                            };
+                            let no_button = match (*no_color, *yes) {
+                                | (true, true) => "  [No]  ",
+                                | (true, false) => "> [No]  ",
+                                | (false, _) => "   No   ",
+                            };
+                            let side_by_side = width >= yes_button.len().saturating_add(2).saturating_add(no_button.len());
+                            let minimum_height = if side_by_side { 2 } else { 3 };
+                            let button_offset = if self.height > minimum_height { 2 } else { 1 };
+                            let button_row = self.anchor.saturating_add(button_offset);
                             let true_color = env::var("COLORTERM")
                                 .ok()
                                 .is_some_and(|value| value.eq_ignore_ascii_case("truecolor") || value.eq_ignore_ascii_case("24bit"));
@@ -414,7 +426,7 @@ impl Viewport {
                                 text: yes_button,
                                 true_color,
                             };
-                            if width >= 16 {
+                            if side_by_side {
                                 print_confirm_button(output, button).and_then(|()| {
                                     let column = u16::try_from(yes_button.len().saturating_add(2)).unwrap_or(u16::MAX);
                                     let options = ConfirmButtonOptions {
@@ -425,15 +437,13 @@ impl Viewport {
                                     };
                                     print_confirm_button(output, options)
                                 })
-                            } else if self.height > 2 {
-                                let text = clip_to_width(yes_button, width);
-                                print_confirm_button(output, ConfirmButtonOptions { text: &text, ..button }).and_then(|()| {
-                                    let row = self.anchor.saturating_add(2);
-                                    let text = clip_to_width(no_button, width);
+                            } else if width >= yes_button.len() && self.height > 2 {
+                                print_confirm_button(output, button).and_then(|()| {
+                                    let row = button_row.saturating_add(1);
                                     let options = ConfirmButtonOptions {
                                         focused: !*yes,
                                         row,
-                                        text: &text,
+                                        text: no_button,
                                         ..button
                                     };
                                     print_confirm_button(output, options)
@@ -467,10 +477,10 @@ fn clip_to_width(text: &str, width: usize) -> String {
 }
 fn confirm_palette(options: ConfirmButtonOptions<'_>) -> (Color, Color) {
     match (options.focused, options.true_color) {
-        | (true, true) => (Color::Rgb { r: 255, g: 70, b: 170 }, Color::Black),
-        | (false, true) => (Color::Rgb { r: 58, g: 54, b: 70 }, Color::White),
-        | (true, false) => (Color::Magenta, Color::White),
-        | (false, false) => (Color::DarkGrey, Color::White),
+        | (true, true) => (Color::Rgb { r: 255, g: 135, b: 215 }, Color::Rgb { r: 255, g: 255, b: 215 }),
+        | (false, true) => (Color::Rgb { r: 38, g: 38, b: 38 }, Color::Rgb { r: 228, g: 228, b: 228 }),
+        | (true, false) => (Color::AnsiValue(212), Color::AnsiValue(230)),
+        | (false, false) => (Color::AnsiValue(235), Color::AnsiValue(254)),
     }
 }
 fn display_width(text: &str) -> usize {
