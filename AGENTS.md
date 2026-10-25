@@ -4,6 +4,10 @@
 
 **USE [planning SKILL](./.agents/skills/planning/SKILL.md) WHENEVER `.wiki` PLANS ARE CREATED, REVIEWED, UPDATED, EXECUTED, PRUNED, OR RETIRED**
 
+For Rust work, use [rust-best-practices](./.agents/skills/rust-best-practices/SKILL.md) as supplemental guidance and [rust-review](./.agents/skills/rust-review/SKILL.md) for requested code reviews. These are copied from [BeautifulRust](https://github.com/morganlinton/BeautifulRust/tree/main/skills) under its [MIT license](./.agents/skills/BeautifulRust-LICENSE).
+
+When BeautifulRust guidance conflicts with other instructions, follow the user's request, this file, the required `guidelines` skill, and the repository's existing lint and build configuration. Keep edits within the requested scope. Do not apply BeautifulRust's suggested lint configuration or run workspace-wide formatting or fixes solely because a skill recommends them. ACORN's `unsafe` prohibition and existing prelude take precedence.
+
 This file provides guidance to agents (including WARP) when working with code in this repository.
 
 ACORN (Accessible Content Optimization for Research Needs) is a Rust-based CLI tool and library for maintaining and validating research activity data (RAD).
