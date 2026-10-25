@@ -1,0 +1,446 @@
+- banner:
+  - button "Skip to main content"
+  - banner:
+    - button "App launcher": 
+    - generic: Power Automate
+    - button "Wohlgemuth, Jason":
+      - generic: Environments
+      - generic: Wohlgemuth, Jason
+    - button "Settings":
+      - generic: 
+    - button "Help":
+      - generic: 
+    - button "Account manager for Wohlgemuth, Jason":
+      - generic: JW
+      - img "JW"
+    - generic: 
+- main:
+  - button "Go back to previous page":
+    - generic: 
+  - heading "The flow name is PA17 TEST ONLY Native Intake." [level=1]:
+    - generic "The flow name is PA17 TEST ONLY Native Intake.":
+      - generic: PA17 TEST ONLY Native Intake
+  - toolbar:
+    - separator
+    - button "Resubmit":
+      - generic: 
+      - generic: Resubmit
+    - button "Cancel" [disabled]:
+      - generic: 
+      - generic: Cancel
+    - button "Copilot":
+      - generic: Copilot
+    - button "Edit":
+      - generic: 
+      - generic: Edit
+    - separator
+    - switch "New view" [checked]
+    - generic: New view
+  - group "Your flow ran successfully.":
+    - generic: Your flow ran successfully.
+    - button "Dismiss":
+  - application "Workflow canvas":
+    - group "When Power Apps calls a flow (V2)":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "When Power Apps calls a flow (V2) operation, Power Apps connector":
+        - generic: When Power Apps calls a flow (V2)
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "Submission ID":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Submission ID operation, Data Operation connector":
+        - generic: Submission ID
+    - group "Submitted At":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Submitted At operation, Data Operation connector":
+        - generic: Submitted At
+    - group "Verify access to main":
+      - status "0.3 seconds. Succeeded":
+        - generic: 0.3s
+      - button "Verify access to main operation, ACORN PA17 GitLab TEST ONLY connector":
+        - generic: Verify access to main
+      - generic "PA18 TEST ONLY GitLab Reference":
+        - 'img "Connection name: PA18 TEST ONLY GitLab Reference"': 
+    - generic "Persist submission v3 PA17v2":
+      - status "1.1 seconds. Succeeded":
+        - generic: 1s
+      - button "Persist submission v3 PA17v2 operation":
+        - generic: Persist submission v3 PA17v2
+      - button "Collapse Persist submission v3 PA17v2" [expanded]:
+    - group "Raw submission PA17v2":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Raw submission PA17v2 operation, Data Operation connector":
+        - generic: Raw submission PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "Parse submission PA17v2":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Parse submission PA17v2 operation, Data Operations connector":
+        - generic: Parse submission PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "Check timestamps PA17v2":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Check timestamps PA17v2 operation, Data Operation connector":
+        - generic: Check timestamps PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "Blank details PA17v2":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Blank details PA17v2 operation, Data Operations connector":
+        - generic: Blank details PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "Caller email PA17v2":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Caller email PA17v2 operation, Data Operation connector":
+        - generic: Caller email PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - generic "Envelope allowed PA17v2":
+      - status "1 second. Succeeded":
+        - generic: 1s
+      - button "Envelope allowed PA17v2 operation":
+        - generic: Envelope allowed PA17v2
+      - button "Collapse Envelope allowed PA17v2" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - group "Commit marker PA17v2":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Commit marker PA17v2 operation, Data Operation connector":
+        - generic: Commit marker PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "List submission history PA17v2":
+      - status "0.1 seconds. Succeeded":
+        - generic: 0.1s
+      - button "List submission history PA17v2 operation, ACORN PA17 GitLab TEST ONLY connector":
+        - generic: List submission history PA17v2
+      - generic "PA18 TEST ONLY GitLab Reference":
+        - 'img "Connection name: PA18 TEST ONLY GitLab Reference"': 
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "Matching commits PA17v2":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Matching commits PA17v2 operation, Data Operations connector":
+        - generic: Matching commits PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - generic "Prior submission exists PA17v2":
+      - status "0.8 seconds. Succeeded":
+        - generic: 0.8s
+      - button "Prior submission exists PA17v2 operation":
+        - generic: Prior submission exists PA17v2
+      - button "Collapse Prior submission exists PA17v2" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - group "Prior commit PA17v2":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Prior commit PA17v2 operation, Data Operation connector":
+        - generic: Prior commit PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "Prior snapshot PA17v2":
+      - status "0.1 seconds. Succeeded":
+        - generic: 0.1s
+      - button "Prior snapshot PA17v2 operation, ACORN PA17 GitLab TEST ONLY connector":
+        - generic: Prior snapshot PA17v2
+      - generic "PA18 TEST ONLY GitLab Reference":
+        - 'img "Connection name: PA18 TEST ONLY GitLab Reference"': 
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "Parent snapshot PA17v2":
+      - status "0.1 seconds. Failed":
+        - generic: 0.1s
+      - button "Parent snapshot PA17v2 operation, ACORN PA17 GitLab TEST ONLY connector":
+        - generic: Parent snapshot PA17v2
+        - alert:
+          - generic: NotFound
+      - generic "PA18 TEST ONLY GitLab Reference":
+        - 'img "Connection name: PA18 TEST ONLY GitLab Reference"': 
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - generic "Parent readable PA17v2":
+      - status "0.1 seconds. Succeeded":
+        - generic: 0.1s
+      - button "Parent readable PA17v2 operation":
+        - generic: Parent readable PA17v2
+      - button "Collapse Parent readable PA17v2" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - group "Expected prior bytes PA17v2":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Expected prior bytes PA17v2 operation, Data Operation connector":
+        - generic: Expected prior bytes PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - generic "Exact prior append PA17v2":
+      - status "0.1 seconds. Succeeded":
+        - generic: 0.1s
+      - button "Exact prior append PA17v2 operation":
+        - generic: Exact prior append PA17v2
+      - button "Collapse Exact prior append PA17v2" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - group "Queued replay PA17v2":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Queued replay PA17v2 operation, Power Apps connector":
+        - generic: Queued replay PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - group "Identity conflict PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Identity conflict PA17v2 operation, Power Apps connector":
+        - generic: Identity conflict PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - group "Unresolved parent PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Unresolved parent PA17v2 operation, Power Apps connector":
+        - generic: Unresolved parent PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - generic "History exhausted PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "History exhausted PA17v2 operation":
+        - generic: History exhausted PA17v2
+      - button "Collapse History exhausted PA17v2" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - group "Load project catalog PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Load project catalog PA17v2 operation, ACORN PA17 GitLab TEST ONLY connector":
+        - generic: Load project catalog PA17v2
+      - generic "PA18 TEST ONLY GitLab Reference":
+        - 'img "Connection name: PA18 TEST ONLY GitLab Reference"': 
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "Selected catalog project PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Selected catalog project PA17v2 operation, Data Operations connector":
+        - generic: Selected catalog project PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "Read current PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Read current PA17v2 operation, ACORN PA17 GitLab TEST ONLY connector":
+        - generic: Read current PA17v2
+      - generic "PA18 TEST ONLY GitLab Reference":
+        - 'img "Connection name: PA18 TEST ONLY GitLab Reference"': 
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - generic "Readable inbox PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Readable inbox PA17v2 operation":
+        - generic: Readable inbox PA17v2
+      - button "Collapse Readable inbox PA17v2" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - group "Existing bytes PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Existing bytes PA17v2 operation, Data Operation connector":
+        - generic: Existing bytes PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - generic "Safe tail PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Safe tail PA17v2 operation":
+        - generic: Safe tail PA17v2
+      - button "Collapse Safe tail PA17v2" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - group "New bytes PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "New bytes PA17v2 operation, Data Operation connector":
+        - generic: New bytes PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - generic "Inbox size limit PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Inbox size limit PA17v2 operation":
+        - generic: Inbox size limit PA17v2
+      - button "Collapse Inbox size limit PA17v2" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - group "Write action PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Write action PA17v2 operation, Data Operation connector":
+        - generic: Write action PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "Commit append PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Commit append PA17v2 operation, ACORN PA17 GitLab TEST ONLY connector":
+        - generic: Commit append PA17v2
+      - generic "PA18 TEST ONLY GitLab Reference":
+        - 'img "Connection name: PA18 TEST ONLY GitLab Reference"': 
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "Verify written snapshot PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Verify written snapshot PA17v2 operation, ACORN PA17 GitLab TEST ONLY connector":
+        - generic: Verify written snapshot PA17v2
+      - generic "PA18 TEST ONLY GitLab Reference":
+        - 'img "Connection name: PA18 TEST ONLY GitLab Reference"': 
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - generic "Confirm written bytes PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Confirm written bytes PA17v2 operation":
+        - generic: Confirm written bytes PA17v2
+      - button "Collapse Confirm written bytes PA17v2" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - group "Queued new PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Queued new PA17v2 operation, Power Apps connector":
+        - generic: Queued new PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - group "Unresolved readback PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Unresolved readback PA17v2 operation, Power Apps connector":
+        - generic: Unresolved readback PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - group "Inbox full PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Inbox full PA17v2 operation, Power Apps connector":
+        - generic: Inbox full PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - group "Unsafe inbox PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Unsafe inbox PA17v2 operation, Power Apps connector":
+        - generic: Unsafe inbox PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - group "Read failed PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Read failed PA17v2 operation, Power Apps connector":
+        - generic: Read failed PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - group "History limit PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "History limit PA17v2 operation, Power Apps connector":
+        - generic: History limit PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - group "Rejected envelope PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Rejected envelope PA17v2 operation, Power Apps connector":
+        - generic: Rejected envelope PA17v2
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "Unresolved failure":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Unresolved failure operation, Power Apps connector":
+        - generic: Unresolved failure
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - generic "Notify confirmed new submission PA17v2":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Notify confirmed new submission PA17v2 operation":
+        - generic: Notify confirmed new submission PA17v2
+      - button "Collapse Notify confirmed new submission PA17v2" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - group "Post intake update to Teams PA17v2":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Post intake update to Teams PA17v2 operation, Microsoft Teams connector":
+        - generic: Post intake update to Teams PA17v2
+      - generic "PA17 TEST ONLY Teams Reference":
+        - 'img "Connection name: PA17 TEST ONLY Teams Reference"': 
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - paragraph: No Actions
+    - generic "Control Panel":
+      - button "Collapse all action groups":
+      - button "Zoom in":
+      - button "Zoom out":
+      - button "Zoom view to fit" [active]:
+      - button "Toggle minimap":
+      - button "Search workflow actions":
+    - status:
+      - generic: "Zoom level: 100 percent"
+  - dialog "Operation details panel":
+    - button "Collapse":

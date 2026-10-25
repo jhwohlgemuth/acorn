@@ -1,0 +1,70 @@
+{
+  "statusCode": 200,
+  "headers": {
+    "Transfer-Encoding": "chunked",
+    "Vary": "Accept-Encoding",
+    "Request-Context": "appId=cid-v1:41ea0e2d-1d3d-453c-b47b-2e1c4a4dfede",
+    "x-ms-function-status": "OK",
+    "Date": "Sun, 25 Oct 2026 17:19:28 GMT",
+    "Content-Type": "application/json; charset=utf-8",
+    "Content-Length": "685"
+  },
+  "body": {
+    "projects": [
+      {
+        "id": "acorn",
+        "label": "acorn"
+      },
+      {
+        "id": "building-damage-indicators",
+        "label": "building-damage-indicators"
+      },
+      {
+        "id": "global-terrain",
+        "label": "global-terrain"
+      },
+      {
+        "id": "gravity",
+        "label": "gravity"
+      },
+      {
+        "id": "hifld",
+        "label": "hifld"
+      },
+      {
+        "id": "landscan",
+        "label": "landscan"
+      },
+      {
+        "id": "landscan-global",
+        "label": "landscan-global"
+      },
+      {
+        "id": "landscan-mosaic",
+        "label": "landscan-mosaic"
+      },
+      {
+        "id": "myriad",
+        "label": "myriad"
+      },
+      {
+        "id": "nautical-charts",
+        "label": "nautical-charts"
+      },
+      {
+        "id": "planetsense",
+        "label": "planetsense"
+      },
+      {
+        "id": "planetsense-segraph",
+        "label": "planetsense-segraph"
+      },
+      {
+        "id": "precision-imagery",
+        "label": "precision-imagery"
+      }
+    ],
+    "revision": "03ff5836289447034f40f2a4898c155441e6cb66",
+    "source": "config"
+  }
+}

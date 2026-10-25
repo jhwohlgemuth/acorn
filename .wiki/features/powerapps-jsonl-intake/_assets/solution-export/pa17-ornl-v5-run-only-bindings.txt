@@ -1,0 +1,27 @@
+
+    - text: 
+    - button "Close": 
+    - heading "Manage run-only permissions" [level=1]
+    - heading "Invite system users or teams" [level=1]
+    - paragraph: Let others run this flow and see the results, but not edit in any way.
+    - textbox "Enter names or email addresses"
+    - heading "Currently shared with" [level=1]
+    - paragraph: This flow has not been shared with any users. Add a person and see their name here.
+    - heading "Connections Used" [level=1]
+    - paragraph: These connections will provide the users listed here to have run-only access to this flow. Unless providing their own connection, run-only users will not have access to these connections outside this flow.
+    - generic "ACORN PA17 GitLab TEST ONLY":
+      - generic "ACORN PA17 GitLab TEST ONLY"
+      - generic "Run-only users will be asked to provide their own connection to this connector."
+    - combobox "Select a connection for ACORN PA17 GitLab TEST ONLY.":
+      - option "Provided by run-only user" [selected]
+    - generic "Microsoft Teams":
+      - generic "Microsoft Teams"
+      - generic "Run-only users will be asked to provide their own connection to this connector."
+    - combobox "Select a connection for Microsoft Teams.":
+      - option "Provided by run-only user" [selected]
+      - option "Use this connection (o9w@ornl.gov)"
+    - button "Save" [disabled]
+    - button "Cancel"
+  - generic "Connections Used Users with run-only access will not control or have access to these connections outside of this flow."
+- alert
+- alert

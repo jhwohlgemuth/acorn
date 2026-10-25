@@ -1,0 +1,254 @@
+swagger: '2.0'
+info:
+  description: >-
+    TEST ONLY connector for project 22464 isolated PA17 acceptance file.
+    Contains no token. Bind an API-key connection before use. Canvas must never
+    receive this connection or its credential.
+  title: ACORN PA17 GitLab TEST ONLY
+  version: 1.0.0
+host: code.ornl.gov
+basePath: /api/v4
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /projects/22464/repository/branches/main:
+    get:
+      operationId: VerifyMainBranch
+      responses:
+        '200':
+          description: Branch exists and is readable
+          schema:
+            properties:
+              can_push:
+                type: boolean
+              commit:
+                properties:
+                  id:
+                    type: string
+                  message:
+                    type: string
+                  parent_ids:
+                    items:
+                      type: string
+                    type: array
+                  title:
+                    type: string
+                  web_url:
+                    type: string
+                type: object
+              name:
+                type: string
+              protected:
+                type: boolean
+            type: object
+      summary: Verify access to main
+  /projects/22464/repository/commits:
+    post:
+      description: >-
+        Disable automatic write retries. Reconcile uncertain responses and
+        reread last_commit_id before retrying. This operation alone does not
+        implement safe append.
+      operationId: CommitLogbook
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            properties:
+              actions:
+                items:
+                  properties:
+                    action:
+                      enum:
+                        - create
+                        - update
+                      type: string
+                    content:
+                      type: string
+                    encoding:
+                      enum:
+                        - base64
+                      type: string
+                    file_path:
+                      enum:
+                        - .acorn/intake/acceptance/pa17-logbook.jsonl
+                      type: string
+                    last_commit_id:
+                      description: >-
+                        Required by the flow on update: exact file revision
+                        returned by ReadLogbook.
+                      type: string
+                  required:
+                    - action
+                    - file_path
+                    - content
+                    - encoding
+                  type: object
+                maxItems: 1
+                minItems: 1
+                type: array
+              branch:
+                enum:
+                  - main
+                type: string
+              commit_message:
+                description: >-
+                  Include acorn-submission:<lowercase UUID> for immutable
+                  reconciliation.
+                type: string
+            required:
+              - actions
+              - branch
+              - commit_message
+            type: object
+      responses:
+        '201':
+          description: Confirmed commit
+          schema:
+            properties:
+              id:
+                type: string
+              message:
+                type: string
+              parent_ids:
+                items:
+                  type: string
+                type: array
+              title:
+                type: string
+              web_url:
+                type: string
+            type: object
+      summary: Commit one conditional logbook append
+    get:
+      operationId: ListLogbookCommits
+      parameters:
+        - enum:
+            - main
+          in: query
+          name: ref_name
+          required: true
+          type: string
+        - enum:
+            - .acorn/intake/acceptance/pa17-logbook.jsonl
+          in: query
+          name: path
+          required: true
+          type: string
+        - default: 1
+          in: query
+          minimum: 1
+          name: page
+          type: integer
+        - default: 100
+          in: query
+          maximum: 100
+          minimum: 1
+          name: per_page
+          type: integer
+      responses:
+        '200':
+          description: Commit page; continue pagination before concluding absence.
+          schema:
+            items:
+              properties:
+                id:
+                  type: string
+                message:
+                  type: string
+                parent_ids:
+                  items:
+                    type: string
+                  type: array
+                title:
+                  type: string
+                web_url:
+                  type: string
+              type: object
+            type: array
+      summary: Find prior submission commits
+  /projects/22464/repository/files/.acorn%2Fintake%2Facceptance%2Fpa17-logbook.jsonl:
+    get:
+      operationId: ReadLogbook
+      parameters:
+        - description: >-
+            Branch main or immutable commit SHA; use a SHA when reconciling
+            persistence.
+          in: query
+          name: ref
+          required: true
+          type: string
+      responses:
+        '200':
+          description: Base64 file content and revision evidence
+          schema:
+            properties:
+              blob_id:
+                type: string
+              commit_id:
+                type: string
+              content:
+                type: string
+              content_sha256:
+                type: string
+              encoding:
+                type: string
+              file_path:
+                type: string
+              last_commit_id:
+                type: string
+              ref:
+                type: string
+              size:
+                type: integer
+            type: object
+        '404':
+          description: >-
+            File or ref missing; establish branch access before treating as an
+            empty inbox.
+      summary: Read the pilot logbook snapshot
+  /projects/22464/repository/tree:
+    get:
+      operationId: GetProjectCatalog
+      summary: Load ACRE project choices
+      description: >-
+        Read-only project catalog from .acorn.jsonc folders, or discover
+        index.json/index.yaml folders when absent. Requires the associated
+        connector script.
+      responses:
+        '200':
+          description: Complete project catalog at one immutable revision
+          schema:
+            type: object
+            properties:
+              projects:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    label:
+                      type: string
+                  required:
+                    - id
+                    - label
+              revision:
+                type: string
+              source:
+                type: string
+definitions: {}
+parameters: {}
+responses: {}
+security:
+  - api_key: []
+tags: []
+securityDefinitions:
+  api_key:
+    type: apiKey
+    in: header
+    name: PRIVATE-TOKEN

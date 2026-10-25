@@ -27,7 +27,7 @@ Keep `.wiki` aligned with the current repository and useful as a queue of remain
 ## Invariants
 
 - Executable plans use `execution: phased` and `phase_budget_hours: 5`. Non-executable portfolio or coordination records use `execution: coordination` and contain no executable phases.
-- Phase statuses are `planned`, `ready`, `blocked`, or `in-progress`. A completed phase is removed, not marked `done`.
+- Phase statuses are `planned`, `ready`, `blocked`, `in-progress`, or `waiting-on-validation`. Use `waiting-on-validation` when implementation exists and only acceptance evidence remains; retain unmet prerequisites and external blockers explicitly. It does not imply readiness to execute. A completed phase is removed, not marked `done`.
 - External waiting is a prerequisite, not active phase time.
 - A validation defect becomes a new bounded repair phase; it does not silently expand the active phase.
 - A finished plan is deleted with every index, network, and lane entry. Durable information must survive somewhere outside the active plan.

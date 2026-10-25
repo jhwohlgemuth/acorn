@@ -1,0 +1,653 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "$authentication": {
+      "defaultValue": {},
+      "type": "SecureObject"
+    },
+    "$connections": {
+      "defaultValue": {},
+      "type": "Object"
+    }
+  },
+  "triggers": {
+    "manual": {
+      "metadata": {
+        "operationMetadataId": "8438a5bc-574e-4549-91a3-4803f0b508b5"
+      },
+      "type": "Request",
+      "kind": "Button",
+      "inputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "title": "Webhook ID",
+              "type": "string",
+              "x-ms-dynamically-added": true,
+              "description": "Please enter your input",
+              "x-ms-content-hint": "TEXT"
+            },
+            "text_1": {
+              "title": "Event JSON",
+              "type": "string",
+              "x-ms-dynamically-added": true,
+              "description": "Please enter your input",
+              "x-ms-content-hint": "TEXT"
+            }
+          },
+          "required": [
+            "text",
+            "text_1"
+          ]
+        }
+      },
+      "runtimeConfiguration": {
+        "concurrency": {
+          "runs": 1
+        },
+        "secureData": {
+          "properties": [
+            "inputs",
+            "outputs"
+          ]
+        }
+      }
+    }
+  },
+  "actions": {
+    "Process_notification_PA17": {
+      "actions": {
+        "Validate_and_claim_receipt_PA17": {
+          "actions": {
+            "Validate_delivery_PA17": {
+              "metadata": {
+                "operationMetadataId": "a0609bcd-e83b-4675-984a-8e03d38c4b4f"
+              },
+              "type": "ParseJson",
+              "inputs": {
+                "content": "@string(createArray(triggerBody()?['text']))",
+                "schema": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 400
+                  }
+                }
+              }
+            },
+            "Validate_event_PA17": {
+              "runAfter": {
+                "Validate_delivery_PA17": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "e1cfdbaf-4d1f-4bd5-85ef-d3230abd48c9"
+              },
+              "type": "ParseJson",
+              "inputs": {
+                "content": "@triggerBody()?['text_1']",
+                "schema": {
+                  "$schema": "http://json-schema.org/draft-04/schema#",
+                  "description": "Current ArtifactEvent wire shape. webhook-id is a request header, not a body field.",
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "event": {
+                          "enum": [
+                            "artifact-ready"
+                          ],
+                          "type": "string"
+                        },
+                        "checksum": {
+                          "type": "string"
+                        },
+                        "package_url": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "through": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "event",
+                        "checksum",
+                        "package_url",
+                        "project_id",
+                        "through"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "event": {
+                          "enum": [
+                            "failed"
+                          ],
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "event",
+                        "message",
+                        "project_id"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "event": {
+                          "enum": [
+                            "mr-created"
+                          ],
+                          "type": "string"
+                        },
+                        "merge_request_url": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "event",
+                        "merge_request_url",
+                        "project_id"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "event": {
+                          "enum": [
+                            "report-no-changes"
+                          ],
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "through": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "event",
+                        "project_id",
+                        "through"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "event": {
+                          "enum": [
+                            "review-needed"
+                          ],
+                          "type": "string"
+                        },
+                        "merge_request_url": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "event",
+                        "merge_request_url",
+                        "project_id"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "Claim_receipt_PA17": {
+              "runAfter": {
+                "Validate_event_PA17": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "8e76c20d-9444-4433-9fcf-ca1630f7649f"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "entityName": "new_pa17callbackreceipts",
+                  "item/new_webhookid": "@triggerBody()?['text']",
+                  "item/new_emailrecipient": "@if(or(equals(body('Validate_event_PA17')?['event'], 'mr-created'), equals(body('Validate_event_PA17')?['event'], 'report-no-changes')), 'teams-self:o9w@ornl.gov', 'o9w@ornl.gov')",
+                  "item/new_emailstate": "Pending",
+                  "item/new_payloadjson": "@triggerBody()?['text_1']"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+                  "operationId": "CreateRecord",
+                  "connectionName": "shared_commondataserviceforapps-1"
+                },
+                "retryPolicy": {
+                  "type": "none"
+                }
+              }
+            }
+          },
+          "metadata": {
+            "operationMetadataId": "7bf9ee01-4be6-4865-93e2-862ad9ec6821"
+          },
+          "type": "Scope"
+        },
+        "Deliver_receipt_once_PA17": {
+          "actions": {
+            "Valid_event_only_PA17": {
+              "actions": {
+                "Find_receipt_PA17": {
+                  "metadata": {
+                    "operationMetadataId": "b05129de-d80b-4e1d-9cfe-ea9b690b4219"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "entityName": "new_pa17callbackreceipts",
+                      "$filter": "@concat('new_webhookid eq ', decodeUriComponent('%27'), replace(triggerBody()?['text'], decodeUriComponent('%27'), decodeUriComponent('%27%27')), decodeUriComponent('%27'))",
+                      "$top": 2
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+                      "operationId": "ListRecords",
+                      "connectionName": "shared_commondataserviceforapps-1"
+                    },
+                    "retryPolicy": {
+                      "type": "none"
+                    }
+                  },
+                  "runtimeConfiguration": {
+                    "secureData": {
+                      "properties": [
+                        "inputs",
+                        "outputs"
+                      ]
+                    }
+                  }
+                },
+                "One_receipt_PA17": {
+                  "actions": {
+                    "Same_payload_PA17": {
+                      "actions": {
+                        "Pending_email_PA17": {
+                          "actions": {
+                            "Mark_sending_PA17": {
+                              "metadata": {
+                                "operationMetadataId": "a2ab7610-c475-4c16-afad-d271b4c3f61b"
+                              },
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "parameters": {
+                                  "entityName": "new_pa17callbackreceipts",
+                                  "recordId": "@first(body('Find_receipt_PA17')?['value'])?['new_pa17callbackreceiptid']",
+                                  "item/new_emailattemptrun": "@workflow()?['run']?['name']",
+                                  "item/new_emailstate": "Sending"
+                                },
+                                "host": {
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+                                  "operationId": "UpdateOnlyRecord",
+                                  "connectionName": "shared_commondataserviceforapps-1"
+                                },
+                                "retryPolicy": {
+                                  "type": "none"
+                                }
+                              },
+                              "runtimeConfiguration": {
+                                "secureData": {
+                                  "properties": [
+                                    "inputs",
+                                    "outputs"
+                                  ]
+                                }
+                              }
+                            },
+                            "Mark_sent_PA17": {
+                              "runAfter": {
+                                "Deliver_by_frozen_destination_PA17": [
+                                  "Succeeded"
+                                ]
+                              },
+                              "metadata": {
+                                "operationMetadataId": "dc91580f-696f-4561-b6c4-dd0614b3d8fd"
+                              },
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "parameters": {
+                                  "entityName": "new_pa17callbackreceipts",
+                                  "recordId": "@first(body('Find_receipt_PA17')?['value'])?['new_pa17callbackreceiptid']",
+                                  "item/new_emailstate": "Sent"
+                                },
+                                "host": {
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+                                  "operationId": "UpdateOnlyRecord",
+                                  "connectionName": "shared_commondataserviceforapps-1"
+                                },
+                                "retryPolicy": {
+                                  "type": "none"
+                                }
+                              },
+                              "runtimeConfiguration": {
+                                "secureData": {
+                                  "properties": [
+                                    "inputs",
+                                    "outputs"
+                                  ]
+                                }
+                              }
+                            },
+                            "Deliver_by_frozen_destination_PA17": {
+                              "actions": {
+                                "Send_Teams_once_PA17": {
+                                  "metadata": {
+                                    "operationMetadataId": "f526910e-d61f-4caf-ac70-af3126181f7c"
+                                  },
+                                  "type": "OpenApiConnection",
+                                  "inputs": {
+                                    "parameters": {
+                                      "body/body/content": "@concat(if(startsWith(triggerBody()?['text'], 'acorn-test-'), 'TEST ONLY \u2014 no review or report action is requested.', 'ACORN Sponsor Highlights'), decodeUriComponent('%0A%0A'), 'Project: ', body('Validate_event_PA17')?['project_id'], decodeUriComponent('%0A'), if(equals(body('Validate_event_PA17')?['event'], 'mr-created'), 'Review workspace created. A separate email will request review when it is ready.', 'No report changes for the requested period. No action is needed.'), decodeUriComponent('%0A'), coalesce(body('Validate_event_PA17')?['merge_request_url'], concat('Through: ', string(body('Validate_event_PA17')?['through']))), decodeUriComponent('%0A%0A'), 'Receipt: ', triggerBody()?['text'])",
+                                      "body/body/contentType": "text"
+                                    },
+                                    "host": {
+                                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                                      "operationId": "PostMessageToSelf",
+                                      "connectionName": "shared_teams-1"
+                                    },
+                                    "retryPolicy": {
+                                      "type": "none"
+                                    }
+                                  },
+                                  "runtimeConfiguration": {
+                                    "secureData": {
+                                      "properties": [
+                                        "inputs",
+                                        "outputs"
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "runAfter": {
+                                "Mark_sending_PA17": [
+                                  "Succeeded"
+                                ]
+                              },
+                              "else": {
+                                "actions": {
+                                  "Send_email_once_PA17": {
+                                    "metadata": {
+                                      "operationMetadataId": "074b1901-82bf-40bf-8239-b8c40ec53076"
+                                    },
+                                    "type": "OpenApiConnection",
+                                    "inputs": {
+                                      "parameters": {
+                                        "emailMessage/To": "@first(body('Find_receipt_PA17')?['value'])?['new_emailrecipient']",
+                                        "emailMessage/Subject": "ACORN Sponsor Highlights milestone",
+                                        "emailMessage/Body": "@concat('<div style=\"font-family:Arial,sans-serif;border-top:6px solid #007833;padding:20px\"><h2>ACORN \u00b7 Sponsor Highlights</h2><p>', if(startsWith(triggerBody()?['text'], 'acorn-test-'), 'TEST ONLY \u2014 callback delivery acceptance. No report or review action is requested.', 'A research activity update is ready.'), '</p><p><b>Project:</b> ', replace(replace(replace(string(body('Validate_event_PA17')?['project_id']), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'), '</p><p><b>Update:</b> ', replace(replace(replace(string(body('Validate_event_PA17')?['event']), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'), '</p><p>', replace(replace(replace(string(coalesce(body('Validate_event_PA17')?['message'], body('Validate_event_PA17')?['merge_request_url'], body('Validate_event_PA17')?['package_url'], 'No new report entries for the requested period.')), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'), '</p><p><b>Through:</b> ', replace(replace(replace(string(coalesce(body('Validate_event_PA17')?['through'], 'Not applicable')), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'), '</p><p style=\"color:#555;font-size:12px\">Delivery ID: ', replace(replace(replace(string(triggerBody()?['text']), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'), '</p></div>')",
+                                        "emailMessage/Importance": "Normal"
+                                      },
+                                      "host": {
+                                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                                        "operationId": "SendEmailV2",
+                                        "connectionName": "shared_office365-1"
+                                      },
+                                      "retryPolicy": {
+                                        "type": "none"
+                                      }
+                                    },
+                                    "runtimeConfiguration": {
+                                      "secureData": {
+                                        "properties": [
+                                          "inputs",
+                                          "outputs"
+                                        ]
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "expression": {
+                                "and": [
+                                  {
+                                    "equals": [
+                                      "@first(body('Find_receipt_PA17')?['value'])?['new_emailrecipient']",
+                                      "teams-self:o9w@ornl.gov"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "metadata": {
+                                "operationMetadataId": "96508c71-2bf0-4927-a4ee-d6cb7485413d"
+                              },
+                              "type": "If"
+                            }
+                          },
+                          "else": {
+                            "actions": {
+                              "Already_sent_PA17": {
+                                "actions": {
+                                  "Duplicate_no_send_PA17": {
+                                    "metadata": {
+                                      "operationMetadataId": "f7201874-9ecf-41cd-903c-0fb4f3f10c9d"
+                                    },
+                                    "type": "Compose",
+                                    "inputs": "TEST ONLY: receipt confirmed; Teams and email delivery disabled."
+                                  }
+                                },
+                                "else": {
+                                  "actions": {
+                                    "Reconcile_email_PA17": {
+                                      "metadata": {
+                                        "operationMetadataId": "2450d13d-2b11-4465-a3c3-175f9ba48233"
+                                      },
+                                      "type": "Terminate",
+                                      "inputs": {
+                                        "runStatus": "Failed",
+                                        "runError": {
+                                          "code": "DeliveryNeedsReview",
+                                          "message": "Sending or unresolved state: inspect the recorded attempt and Teams Notes chat or Sent Items before any resend."
+                                        }
+                                      }
+                                    }
+                                  }
+                                },
+                                "expression": {
+                                  "or": [
+                                    {
+                                      "equals": [
+                                        "@first(body('Find_receipt_PA17')?['value'])?['new_emailstate']",
+                                        "Sent"
+                                      ]
+                                    },
+                                    {
+                                      "equals": [
+                                        "@first(body('Find_receipt_PA17')?['value'])?['new_emailstate']",
+                                        "Pending"
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "metadata": {
+                                  "operationMetadataId": "11c54ad6-38c8-4012-84d1-83d2523ef366"
+                                },
+                                "type": "If"
+                              }
+                            }
+                          },
+                          "expression": {
+                            "and": [
+                              {
+                                "equals": [
+                                  false,
+                                  true
+                                ]
+                              },
+                              {
+                                "equals": [
+                                  "@first(body('Find_receipt_PA17')?['value'])?['new_emailstate']",
+                                  "Pending"
+                                ]
+                              }
+                            ]
+                          },
+                          "metadata": {
+                            "operationMetadataId": "7d784b37-b1a2-48cd-98c7-6d189db88617"
+                          },
+                          "type": "If"
+                        }
+                      },
+                      "else": {
+                        "actions": {
+                          "Payload_conflict_PA17": {
+                            "metadata": {
+                              "operationMetadataId": "7d8522a3-4737-47c0-8df2-81d89ff10556"
+                            },
+                            "type": "Terminate",
+                            "inputs": {
+                              "runStatus": "Failed",
+                              "runError": {
+                                "code": "PayloadConflict",
+                                "message": "Delivery ID is already bound to different content; no notification sent."
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              "@first(body('Find_receipt_PA17')?['value'])?['new_payloadjson']",
+                              "@triggerBody()?['text_1']"
+                            ]
+                          }
+                        ]
+                      },
+                      "metadata": {
+                        "operationMetadataId": "ba450023-504b-434e-b04a-aa61af21c339"
+                      },
+                      "type": "If"
+                    }
+                  },
+                  "runAfter": {
+                    "Find_receipt_PA17": [
+                      "Succeeded"
+                    ]
+                  },
+                  "else": {
+                    "actions": {
+                      "Receipt_unresolved_PA17": {
+                        "metadata": {
+                          "operationMetadataId": "93a88012-c83e-4db9-8f8b-65757b4d70df"
+                        },
+                        "type": "Terminate",
+                        "inputs": {
+                          "runStatus": "Failed",
+                          "runError": {
+                            "code": "ReceiptUnresolved",
+                            "message": "A unique durable receipt could not be confirmed; no notification sent."
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@length(body('Find_receipt_PA17')?['value'])",
+                          1
+                        ]
+                      }
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "a5323848-68d2-4522-825c-7716c7221c35"
+                  },
+                  "type": "If"
+                }
+              },
+              "else": {
+                "actions": {
+                  "Reject_invalid_PA17": {
+                    "metadata": {
+                      "operationMetadataId": "04040480-84fe-4d31-96b2-e58eb8f15105"
+                    },
+                    "type": "Terminate",
+                    "inputs": {
+                      "runStatus": "Failed",
+                      "runError": {
+                        "code": "InvalidCallback",
+                        "message": "Callback validation failed; no notification sent."
+                      }
+                    }
+                  }
+                }
+              },
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@actions('Validate_delivery_PA17')?['status']",
+                      "Succeeded"
+                    ]
+                  },
+                  {
+                    "equals": [
+                      "@actions('Validate_event_PA17')?['status']",
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "56e3d375-4fc2-43a7-9352-12eb96bda97e"
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Validate_and_claim_receipt_PA17": [
+              "Succeeded",
+              "Failed",
+              "TimedOut"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "c6494c3d-607c-4bf1-8104-b5272faa7e1f"
+          },
+          "type": "Scope"
+        }
+      },
+      "runAfter": {},
+      "metadata": {
+        "operationMetadataId": "bcf94580-98d5-44ec-8eb2-93d194b797a2"
+      },
+      "type": "Scope"
+    }
+  }
+}

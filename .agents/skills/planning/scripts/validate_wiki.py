@@ -12,7 +12,7 @@ from pathlib import Path
 ALLOWED_DIFFICULTIES = {"high", "low", "medium", "mixed", "not-assessed"}
 ALLOWED_EXECUTION = {"coordination", "phased"}
 ALLOWED_IMPACTS = {"critical", "high", "low", "medium", "mixed", "not-assessed"}
-ALLOWED_PHASE_STATUSES = {"blocked", "in-progress", "planned", "ready"}
+ALLOWED_PHASE_STATUSES = {"blocked", "in-progress", "planned", "ready", "waiting-on-validation"}
 ALLOWED_PLAN_STATUSES = {"in-progress", "planned", "waiting-on-validation"}
 FIELD_PATTERN = re.compile(r"^- ([A-Za-z ]+):\s*(.*)$", re.MULTILINE)
 LINK_PATTERN = re.compile(r"\[[^\]]*\]\(([^)]+)\)")

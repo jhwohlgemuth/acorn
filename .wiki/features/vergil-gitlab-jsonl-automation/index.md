@@ -29,11 +29,11 @@ Supporting material: [ACRE configuration examples](configuration-examples.md), [
 
 # Boundaries and dependencies
 
-The [form plan](../powerapps-jsonl-intake/index.md) owns producer behavior and Power Platform packaging; the [manual plan](../manual-jsonl-ingestion-graduation/index.md) owns local commands and the early demo. This plan consumes the same frozen envelope, canonical folder authorization and graduation contract. It does not block local stage/inspect/apply, CLI graduation or dry-run PDF generation.
+The [form plan](../powerapps-jsonl-intake/index.md) owns producer behavior and Power Platform packaging; the [manual walkthrough](../manual-jsonl-ingestion-graduation/walkthrough.md) documents the implemented local commands and early demo. This plan consumes the same frozen envelope, canonical folder authorization and graduation contract. It does not block local stage/inspect/apply, CLI graduation or dry-run PDF generation.
 
 BOT-01 resolves bot/review ownership and callback authentication decisions formerly bundled into PA-02. It supplies the protected GitLab runtime binding for PA-03; **service boot can be tested before callbacks** when callback configuration is omitted. PA-04 separately connects the authenticated external receiver. PA-05 waits for service acceptance and explicit source ownership/handoff, not shared-environment migration. Enable only approved callback settings and preserve durable queue semantics while delivery is unavailable. PA-05 may already create the draft MR and queue callbacks; PA-06/07 accept duplicate-safe review/delivery and human graduation/merge; PA-08 then publishes an artifact, BOT-03 accepts schedule/replay, and PA-09 accepts routed end-to-end behavior.
 
-Manual receipts are not bot admission rows. Before touching a manually processed inbox, require MAN-06's reconciled handoff, or use a verified fresh isolated fixture with no manual processing. Never run one-shot intake and the service against the same inbox concurrently. No bot self-merges; human review/merge is explicit. No gateway or public Vergil endpoint is required for GitLab polling.
+Manual receipts are not bot admission rows. The [handback procedure and offline rehearsal](../manual-jsonl-ingestion-graduation/handback.md) are accepted. Before touching a manually processed inbox, PA-05 must approve its actual reconciled source/index baseline using that procedure, or certify a fresh isolated fixture with no manual processing. The rehearsal does not authorize production cleanup or seed the bot database. Never run one-shot intake and the service against the same inbox concurrently. No bot self-merges; human review/merge is explicit. No gateway or public Vergil endpoint is required for GitLab polling.
 
 The current `PowerAutomateCallbackResolver` in `crates/acorn-lib/src/io/api/powerautomate/callback.rs` resolves a protected URL into a destination with no extra headers or signer. It supplies neither an Entra bearer token nor an outbound signature, despite the generic webhook library supporting those mechanisms. Approve a sender-compatible authenticated endpoint or intermediary before PA-04; do not make a trigger public to make the demo easier. Keep the startup inbound secret local to Vergil; it is not an outbound callback signature. Preserve one durable delivery ID, durable acceptance before 2xx, safe uncertain-email reconciliation and per-channel state. An ambiguous non-idempotent email send cannot promise exactly-once delivery.
 
@@ -41,7 +41,7 @@ The current `PowerAutomateCallbackResolver` in `crates/acorn-lib/src/io/api/powe
 
 One authorized envelope must yield one routed draft MR and reviewed canonical entry, exact-byte inbox cleanup, one immutable report package, and the correct durable callback outcome after replay/restart. Two authorized routes affect only their indexes; an unauthorized record affects none. Preserve rejected/unadmitted and concurrently appended bytes. Record actual flow, service, commit, merge request, package and receipt identities with secret values redacted. Reporting worker isolation remains owned by [runner-pool isolation](../../refactors/ci-runner-pools.md); target-specific ASPECT graduation remains in [sponsor highlights clarity](../sponsor-highlights-clarity.md).
 
-Each phase is a bounded external acceptance outcome. If a code or shared template defect is discovered, add a dedicated repair phase with exact files rather than extending an operational phase. Retire only this plan after its acceptance; do not delete the independent form/manual plans.
+Each phase is a bounded external acceptance outcome. If a code or shared template defect is discovered, add a dedicated repair phase with exact files rather than extending an operational phase. Retire only this plan after its acceptance; preserve the independent form plan and durable manual guides.
 
 # Vergil operator commands
 
@@ -89,6 +89,8 @@ Run `intake export` against the draft merge request created during PA-05 and acc
 
 # Execution phases
 
+`waiting-on-validation` (“Waiting on validation”) means the implementation exists and the phase awaits acceptance evidence. Prerequisites and external blockers still apply; this status does not mean ready to execute or accepted. Phases that still need deployment, integration or policy setup retain their existing status.
+
 ## BOT-01 — Establish bot authority, credentials and callback contract
 
 - Status: blocked
@@ -124,18 +126,20 @@ Run `intake export` against the draft merge request created during PA-05 and acc
 
 ## PA-05 — Accept one-shot JSONL admission on Vergil
 
-- Status: blocked
+- Status: waiting-on-validation
+- Validation readiness: Admission and cleanup are implemented. Live acceptance requires PA-03 and approval of the actual reconciled baseline or fresh isolated fixture.
 - Budget: 5 active hours maximum
-- Prerequisites: PA-03; MAN-06 handback or certified fresh isolated inbox; approved canonical folder/member registry
+- Prerequisites: PA-03; owner-approved source/index baseline using the [verified handback procedure](../manual-jsonl-ingestion-graduation/handback.md), or certified fresh isolated inbox; approved canonical folder/member registry
 - Exact write set: Vergil JSONL source config and persistent database; pilot project `22464` isolated inbox/index baseline and resulting review branch/draft MR; `.wiki/features/vergil-gitlab-jsonl-automation/vergil-intake.md`
 - Primary integration lock: intake route
-- Outcome: Stop the service and run one authorized `acorn intake run --config` against the owned snapshot, prove durable admission and exact cleanup, and inspect any resulting draft MR before resuming that service/database. This command also executes bounded review work; it is not an admission-only switch.
+- Outcome: Record the actual source/index/config commits and digests, reconciliation approval or fresh-fixture certificate, and worker/database owner. Stop the service and run one authorized `acorn intake run --config` against the owned snapshot, prove durable admission and exact cleanup, and inspect any resulting draft MR before resuming that service/database. This command also executes bounded review work; it is not an admission-only switch.
 - Focused validation: Preserve UUID/digest/routing, validate authorization independently of catalog membership, inspect exact admitted bytes and queued review operation, confirm nonadmitted lines remain. Do not configure unaccepted callback delivery.
 - Handoff: Freeze source/config/service revisions and any review branch/MR plus queued callback IDs for recovery and PA-06. The one-shot command does not run the callback worker; do not resume callback delivery until PA-04 is accepted. Producer boundary cases stay in the form plan.
 
 ## BOT-02 — Accept append-cleanup races and restart recovery
 
-- Status: planned
+- Status: waiting-on-validation
+- Validation readiness: Recovery behavior is implemented and locally tested; the remaining work is the live isolated recovery matrix after PA-05.
 - Budget: 5 active hours maximum
 - Prerequisites: PA-05; approved isolated fault fixtures
 - Exact write set: pilot project `22464` isolated inbox concurrency fixtures; Vergil service/database test state; `.wiki/features/vergil-gitlab-jsonl-automation/bot-recovery.md`
@@ -146,7 +150,8 @@ Run `intake export` against the draft merge request created during PA-05 and acc
 
 ## PA-06 — Accept duplicate-safe review and callback delivery
 
-- Status: planned
+- Status: waiting-on-validation
+- Validation readiness: Review operations and durable callback intents are implemented; end-to-end acceptance waits for PA-05 and the external callback integration in PA-04.
 - Budget: 5 active hours maximum
 - Prerequisites: PA-05, PA-04; authorized isolated submission and review authority
 - Exact write set: pilot project `22464` bot review branch and draft merge request; Vergil operation/callback database; `.wiki/features/vergil-gitlab-jsonl-automation/bot-review.md`
@@ -157,7 +162,8 @@ Run `intake export` against the draft merge request created during PA-05 and acc
 
 ## PA-07 — Graduate and merge the reviewed entry
 
-- Status: planned
+- Status: waiting-on-validation
+- Validation readiness: The supported graduation path is implemented; live review-note acceptance and human-approved merge wait for PA-06 and the named reviewer.
 - Budget: 5 active hours maximum
 - Prerequisites: PA-06; named human reviewer and merge authority available
 - Exact write set: pilot project `22464` reviewed merge request and `acorn/index.json`; `.wiki/features/vergil-gitlab-jsonl-automation/bot-graduation.md`
@@ -190,7 +196,8 @@ Run `intake export` against the draft merge request created during PA-05 and acc
 
 ## PA-09 — Validate routed automation and retire the bot plan
 
-- Status: planned
+- Status: waiting-on-validation
+- Validation readiness: Routing behavior is implemented; final live end-to-end acceptance and its operator record wait for BOT-02 and BOT-03.
 - Budget: 5 active hours maximum
 - Prerequisites: BOT-02, BOT-03; two authorized routes and one unauthorized fixture
 - Exact write set: project `22464` isolated ACRE registry and routed indexes; `.wiki/features/vergil-gitlab-jsonl-automation/bot-operations.md`; this plan and portfolio index/network/lane entries

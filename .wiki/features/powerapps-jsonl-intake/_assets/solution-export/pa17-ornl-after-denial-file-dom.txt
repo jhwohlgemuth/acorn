@@ -1,0 +1,398 @@
+- banner [active]:
+  - link "Skip to main content":
+    - /url: "#content-body"
+    - generic: Skip to main content
+  - link "Homepage":
+    - /url: /
+    - generic: Homepage
+  - button "Search or go to… /":
+    - generic: Search or go to…
+    - generic: /
+  - button "Create new…":
+    - generic: Create new…
+  - link "50 Assigned work items":
+    - /url: /dashboard/issues?assignee_username=o9w
+    - generic: "50"
+  - link "1 Merge requests":
+    - /url: /dashboard/merge_requests
+    - generic: "1"
+  - link "21 To-do items":
+    - /url: /dashboard/todos
+    - generic: "21"
+  - link "Wohlgemuth, Jason user’s menu":
+    - /url: /o9w
+    - generic: Wohlgemuth, Jason user’s menu
+- navigation "Primary navigation":
+  - heading "Primary navigation" [level=2]
+  - generic: Project
+  - list:
+    - link "Power Automate":
+      - /url: /research-enablement/experiments/power-automate
+      - generic: P
+      - generic: Power Automate
+  - button "Pinned" [expanded]:
+    - generic: Pinned
+  - list "Pinned":
+    - link "Wiki":
+      - /url: /research-enablement/experiments/power-automate/-/wikis
+      - generic: Wiki
+    - button "Unpin Wiki":
+    - link "Work items":
+      - /url: /research-enablement/experiments/power-automate/-/work_items
+      - generic: Work items
+      - generic: "0"
+    - button "Unpin Work items":
+    - link "Jobs":
+      - /url: /research-enablement/experiments/power-automate/-/jobs
+      - generic: Jobs
+    - button "Unpin Jobs":
+    - link "Pipelines":
+      - /url: /research-enablement/experiments/power-automate/-/pipelines
+      - generic: Pipelines
+    - button "Unpin Pipelines":
+    - link "Members":
+      - /url: /research-enablement/experiments/power-automate/-/project_members
+      - generic: Members
+    - button "Unpin Members":
+    - link "Releases":
+      - /url: /research-enablement/experiments/power-automate/-/releases
+      - generic: Releases
+    - button "Unpin Releases":
+    - link "Merge requests":
+      - /url: /research-enablement/experiments/power-automate/-/merge_requests
+      - generic: Merge requests
+      - generic: "0"
+    - button "Unpin Merge requests":
+  - button "Feature catalog":
+    - generic: Feature catalog
+  - separator
+  - list "Project":
+    - button "Manage":
+      - generic: Manage
+    - button "Plan":
+      - generic: Plan
+    - button "AI":
+      - generic: AI
+    - button "Code" [expanded]:
+      - generic: Code
+    - list "Code":
+      - link "Merge requests":
+        - /url: /research-enablement/experiments/power-automate/-/merge_requests
+        - generic: Merge requests
+        - generic: "0"
+      - button "Unpin Merge requests":
+      - link "Repository":
+        - /url: /research-enablement/experiments/power-automate/-/tree/main
+        - generic: Repository
+      - button "Pin Repository":
+      - link "Branches":
+        - /url: /research-enablement/experiments/power-automate/-/branches
+        - generic: Branches
+      - button "Pin Branches":
+      - link "Commits":
+        - /url: /research-enablement/experiments/power-automate/-/commits/main?ref_type=heads
+        - generic: Commits
+      - button "Pin Commits":
+      - link "Tags":
+        - /url: /research-enablement/experiments/power-automate/-/tags
+        - generic: Tags
+      - button "Pin Tags":
+      - link "Repository graph":
+        - /url: /research-enablement/experiments/power-automate/-/network/main?ref_type=heads
+        - generic: Repository graph
+      - button "Pin Repository graph":
+      - link "Compare revisions":
+        - /url: /research-enablement/experiments/power-automate/-/compare?from=main&to=main
+        - generic: Compare revisions
+      - button "Pin Compare revisions":
+      - link "Snippets":
+        - /url: /research-enablement/experiments/power-automate/-/snippets
+        - generic: Snippets
+      - button "Pin Snippets":
+      - link "Locked files":
+        - /url: /research-enablement/experiments/power-automate/path_locks
+        - generic: Locked files
+      - button "Pin Locked files":
+    - button "Build":
+      - generic: Build
+    - button "Secure":
+      - generic: Secure
+    - button "Deploy":
+      - generic: Deploy
+    - button "Operate":
+      - generic: Operate
+    - button "Monitor":
+      - generic: Monitor
+    - button "Analyze":
+      - generic: Analyze
+    - button "Settings":
+      - generic: Settings
+  - button "Help":
+    - generic: Help
+  - button "Collapse sidebar":
+    - generic: Collapse sidebar
+- navigation "Breadcrumb":
+  - list:
+    - link "Research Enablement":
+      - /url: /research-enablement
+    - text: /
+    - link "Experiments":
+      - /url: /research-enablement/experiments
+    - text: /
+    - link "Power Automate":
+      - /url: /research-enablement/experiments/power-automate
+    - text: /
+    - link "Repository":
+      - /url: /research-enablement/experiments/power-automate/-/blob/main/.acorn/intake/acceptance/pa17-logbook.jsonl?ref_type=heads
+- main:
+  - region "Files":
+    - button "Hide file tree browser":
+    - heading "Files" [level=3]
+    - combobox "Search files (*.vue, *.rb...)"
+    - generic: f
+    - navigation "File tree":
+      - tree:
+        - treeitem ".acorn" [expanded] [level=1]:
+          - button "Collapse .acorn directory":
+          - link ".acorn" [expanded]:
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/tree/main/.acorn?ref_type=heads
+            - generic ".acorn":
+              - generic ".acorn":
+                - generic: .ac
+                - generic: ‎orn‎
+        - treeitem "intake" [expanded] [level=2]:
+          - button "Collapse intake directory":
+          - link "intake" [expanded]:
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/tree/main/.acorn/intake?ref_type=heads
+            - generic "intake":
+              - generic "intake":
+                - generic: int
+                - generic: ‎ake‎
+        - treeitem "acceptance" [expanded] [level=3]:
+          - button "Collapse acceptance directory":
+          - link "acceptance" [expanded]:
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/tree/main/.acorn/intake/acceptance?ref_type=heads
+            - generic "acceptance":
+              - generic "acceptance":
+                - generic: accep
+                - generic: ‎tance‎
+        - treeitem "pa17-logbook.jsonl" [level=4] [selected]:
+          - link "pa17-logbook.jsonl":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/blob/main/.acorn/intake/acceptance/pa17-logbook.jsonl?ref_type=heads
+            - generic "pa17-logbook.jsonl":
+              - generic "pa17-logbook.jsonl":
+                - generic: pa17-logb
+                - generic: ‎ook.jsonl‎
+        - treeitem "logbook.jsonl" [level=3]:
+          - link "logbook.jsonl":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/blob/main/.acorn/intake/logbook.jsonl?ref_type=heads
+            - generic "logbook.jsonl":
+              - generic "logbook.jsonl":
+                - generic: logboo
+                - generic: ‎k.jsonl‎
+        - treeitem "building-damage-indicators" [level=1]:
+          - button "Expand building-damage-indicators directory":
+          - link "building-damage-indicators":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/tree/main/building-damage-indicators?ref_type=heads
+            - generic "building-damage-indicators":
+              - generic "building-damage-indicators":
+                - generic: building-dama
+                - generic: ‎ge-indicators‎
+        - treeitem "global-terrain" [level=1]:
+          - button "Expand global-terrain directory":
+          - link "global-terrain":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/tree/main/global-terrain?ref_type=heads
+            - generic "global-terrain":
+              - generic "global-terrain":
+                - generic: global-
+                - generic: ‎terrain‎
+        - treeitem "gravity" [level=1]:
+          - button "Expand gravity directory":
+          - link "gravity":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/tree/main/gravity?ref_type=heads
+            - generic "gravity":
+              - generic "gravity":
+                - generic: gra
+                - generic: ‎vity‎
+        - treeitem "hifld" [level=1]:
+          - button "Expand hifld directory":
+          - link "hifld":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/tree/main/hifld?ref_type=heads
+            - generic "hifld":
+              - generic "hifld":
+                - generic: hi
+                - generic: ‎fld‎
+        - treeitem "landscan" [level=1]:
+          - button "Expand landscan directory":
+          - link "landscan":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/tree/main/landscan?ref_type=heads
+            - generic "landscan":
+              - generic "landscan":
+                - generic: land
+                - generic: ‎scan‎
+        - treeitem "landscan-global" [level=1]:
+          - button "Expand landscan-global directory":
+          - link "landscan-global":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/tree/main/landscan-global?ref_type=heads
+            - generic "landscan-global":
+              - generic "landscan-global":
+                - generic: landsca
+                - generic: ‎n-global‎
+        - treeitem "landscan-mosaic" [level=1]:
+          - button "Expand landscan-mosaic directory":
+          - link "landscan-mosaic":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/tree/main/landscan-mosaic?ref_type=heads
+            - generic "landscan-mosaic":
+              - generic "landscan-mosaic":
+                - generic: landsca
+                - generic: ‎n-mosaic‎
+        - treeitem "myriad" [level=1]:
+          - button "Expand myriad directory":
+          - link "myriad":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/tree/main/myriad?ref_type=heads
+            - generic "myriad":
+              - generic "myriad":
+                - generic: myr
+                - generic: ‎iad‎
+        - treeitem "nautical-charts" [level=1]:
+          - button "Expand nautical-charts directory":
+          - link "nautical-charts":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/tree/main/nautical-charts?ref_type=heads
+            - generic "nautical-charts":
+              - generic "nautical-charts":
+                - generic: nautica
+                - generic: ‎l-charts‎
+        - treeitem "planetsense" [level=1]:
+          - button "Expand planetsense directory":
+          - link "planetsense":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/tree/main/planetsense?ref_type=heads
+            - generic "planetsense":
+              - generic "planetsense":
+                - generic: plane
+                - generic: ‎tsense‎
+        - treeitem "planetsense-segraph" [level=1]:
+          - button "Expand planetsense-segraph directory":
+          - link "planetsense-segraph":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/tree/main/planetsense-segraph?ref_type=heads
+            - generic "planetsense-segraph":
+              - generic "planetsense-segraph":
+                - generic: planetsen
+                - generic: ‎se-segraph‎
+        - treeitem "precision-imagery" [level=1]:
+          - button "Expand precision-imagery directory":
+          - link "precision-imagery":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/tree/main/precision-imagery?ref_type=heads
+            - generic "precision-imagery":
+              - generic "precision-imagery":
+                - generic: precisio
+                - generic: ‎n-imagery‎
+        - treeitem ".acorn.jsonc" [level=1]:
+          - link ".acorn.jsonc":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/blob/main/.acorn.jsonc?ref_type=heads
+            - generic ".acorn.jsonc":
+              - generic ".acorn.jsonc":
+                - generic: .acorn
+                - generic: ‎.jsonc‎
+        - treeitem "NGA-PROJECTS.md" [level=1]:
+          - link "NGA-PROJECTS.md":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/blob/main/NGA-PROJECTS.md?ref_type=heads
+            - generic "NGA-PROJECTS.md":
+              - generic "NGA-PROJECTS.md":
+                - generic: NGA-PRO
+                - generic: ‎JECTS.md‎
+        - treeitem "README.md" [level=1]:
+          - link "README.md":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/blob/main/README.md?ref_type=heads
+            - generic "README.md":
+              - generic "README.md":
+                - generic: READ
+                - generic: ‎ME.md‎
+        - treeitem "responses.csv" [level=1]:
+          - link "responses.csv":
+            - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/blob/main/responses.csv?ref_type=heads
+            - generic "responses.csv":
+              - generic "responses.csv":
+                - generic: respon
+                - generic: ‎ses.csv‎
+  - button "main":
+    - generic: main
+  - navigation "Files breadcrumb":
+    - list:
+      - link "power-automate":
+        - /url: /research-enablement/experiments/power-automate/-/tree/main?ref_type=heads
+      - text: /
+      - link ".acorn":
+        - /url: /research-enablement/experiments/power-automate/-/tree/main/.acorn?ref_type=heads
+      - text: /
+      - link "intake":
+        - /url: /research-enablement/experiments/power-automate/-/tree/main/.acorn/intake?ref_type=heads
+      - text: /
+      - link "acceptance":
+        - /url: /research-enablement/experiments/power-automate/-/tree/main/.acorn/intake/acceptance?ref_type=heads
+      - text: /
+      - link "pa17-logbook.jsonl":
+        - /url: /research-enablement/experiments/power-automate/-/blob/main/.acorn/intake/acceptance/pa17-logbook.jsonl?ref_type=heads
+      - button "Copy file path":
+  - heading "pa17-logbook.jsonl" [level=1]:
+    - text: pa17-logbook.jsonl
+  - button "Lock":
+    - generic: Lock
+  - button "Find file":
+    - generic: Find file
+  - button "Edit":
+    - generic: Edit
+  - button "File actions":
+    - generic: File actions
+  - link "acorn-powerautomate-intake's avatar":
+    - /url: /project_22464_bot_ea9aa654bd7da2ca1dcf32ae96c99aea
+    - img "acorn-powerautomate-intake's avatar"
+  - link "acorn-submission:983545be-9d86-4d9c-8e67-3cd667a74a7d":
+    - /url: /research-enablement/experiments/power-automate/-/commit/bd5888fa7a1f4b555414384819173bc6409ab70d
+  - paragraph: Most recent commit.
+  - link "acorn-powerautomate-intake":
+    - /url: /project_22464_bot_ea9aa654bd7da2ca1dcf32ae96c99aea
+  - text: authored
+  - time: 35 minutes ago
+  - generic: bd5888fa
+  - button "Copy commit SHA":
+  - link "History":
+    - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/commits/main/.acorn/intake/acceptance/pa17-logbook.jsonl?ref_type=heads
+    - generic: History
+  - text: Code owners
+  - text: Assign users and groups as approvers for specific file changes.
+  - link "Learn more.":
+    - /url: /help/user/project/codeowners/_index.md
+  - link "Manage branch rules":
+    - /url: /research-enablement/experiments/power-automate/-/settings/repository#branch-rules
+    - generic: Manage branch rules
+  - strong: pa17-logbook.jsonl
+  - generic: 457 B
+  - button "Blame":
+    - generic: Blame
+  - button "Copy file contents":
+  - link "Open raw":
+    - /url: /research-enablement/experiments/power-automate/-/raw/main/.acorn/intake/acceptance/pa17-logbook.jsonl?ref_type=heads
+  - link "Download":
+    - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/raw/main/.acorn/intake/acceptance/pa17-logbook.jsonl?ref_type=heads&inline=false
+  - region "File contents":
+    - link "View blame for line 1":
+      - /url: /research-enablement/experiments/power-automate/-/blame/main/.acorn/intake/acceptance/pa17-logbook.jsonl?ref_type=heads#L1
+    - link "1":
+      - /url: "#L1"
+    - link "View blame for line 2":
+      - /url: /research-enablement/experiments/power-automate/-/blame/main/.acorn/intake/acceptance/pa17-logbook.jsonl?ref_type=heads#L2
+    - link "2":
+      - /url: "#L2"
+    - code: "{\"entry\":{\"archived\":false,\"category\":\"software\",\"eventType\":null,\"global\":false,\"items\":[\"Synthetic PA17 restoration acceptance; exclude from sponsor reports.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"TEST ONLY — PA17 native intake restore acceptance\",\"timestamp\":\"2026-10-25T18:06:52.310Z\"},\"projectId\":\"acorn\",\"submissionId\":\"983545be-9d86-4d9c-8e67-3cd667a74a7d\",\"submittedAt\":\"2026-10-25T18:06:52.317Z\",\"submitter\":{\"email\":\"o9w@ornl.gov\"}}"
+    - code:
+      - generic: "{\"entry\":{\"archived\":false,\"category\":\"software\",\"eventType\":null,\"global\":false,\"items\":[\"Synthetic PA17 restoration acceptance; exclude from sponsor reports.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"TEST ONLY — PA17 native intake restore acceptance\",\"timestamp\":\"2026-10-25T18:06:52.310Z\"},\"projectId\":\"acorn\",\"submissionId\":\"983545be-9d86-4d9c-8e67-3cd667a74a7d\",\"submittedAt\":\"2026-10-25T18:06:52.317Z\",\"submitter\":{\"email\":\"o9w@ornl.gov\"}}"
+- navigation "Duo controls":
+  - generic "Add new chat":
+    - button "Add new chat":
+      - generic: Add new chat
+  - tablist:
+    - tab "Active GitLab Duo Chat":
+    - tab "GitLab Duo Chat history":
+    - tab "GitLab Duo sessions":
+  - link "GitLab Duo AI Catalog":
+    - /url: /explore/ai-catalog

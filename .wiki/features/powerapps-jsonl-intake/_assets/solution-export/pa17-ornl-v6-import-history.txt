@@ -1,0 +1,161 @@
+- banner:
+  - button "Skip to main content"
+  - banner:
+    - button "App launcher": 
+    - link "Power Apps":
+      - /url: https://make.gov.powerapps.us
+      - generic: Power Apps
+    - 'button "Environment: ORNL Personal Productivity(default)"':
+      - generic: Environment
+      - generic: ORNL Personal Productivity(default)
+    - button "Notifications":
+    - button "Settings":
+      - generic: 
+    - button "Help"
+    - button "Account manager for Wohlgemuth, Jason":
+      - generic: JW
+      - img "JW"
+    - generic: 
+- button "Solutions left navigation panel":
+  - generic: 
+- link "Back to solutions":
+  - /url: /environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/solutions/
+  - button "Back to solutions":
+    - generic: 
+- generic "ACORN PA17 Restore Readiness Test": ...
+- navigation:
+  - menu:
+    - menuitem "Overview":
+      - generic: 
+    - menuitem "Objects":
+      - generic: 
+    - menuitem "History" [active]:
+      - generic: 
+    - menuitem "Pipelines":
+      - generic: 
+    - menuitem "Source control":
+- main:
+  - navigation "Solutions history":
+    - list:
+      - heading "History" [level=2]
+  - menubar:
+    - menuitem "All":
+      - generic: 
+      - generic: All
+      - generic: 
+  - generic: 
+  - searchbox "Search"
+  - grid:
+    - row "Start time End time Version Publisher Operation Suboperation Result Error code":
+      - columnheader
+      - columnheader "Start time":
+        - button "Start time":
+          - generic: Start time
+          - generic: 
+          - generic: 
+      - button
+      - columnheader "End time":
+        - button "End time":
+          - generic: End time
+          - generic: 
+      - button
+      - columnheader "Version":
+        - generic: Version
+      - button
+      - columnheader "Publisher":
+        - button "Publisher":
+          - generic: Publisher
+          - generic: 
+      - button
+      - columnheader "Operation":
+        - button "Operation":
+          - generic: Operation
+          - generic: 
+      - button
+      - columnheader "Suboperation":
+        - button "Suboperation":
+          - generic: Suboperation
+          - generic: 
+      - button
+      - columnheader "Result":
+        - button "Result":
+          - generic: Result
+          - generic: 
+      - button
+      - columnheader "Error code":
+        - button "Error code":
+          - generic: Error code
+          - generic: 
+      - button
+    - row "Row selection 10/25/2026, 03:18 PM 10/25/2026, 03:19 PM 1.0.0.6 DefaultPublisherorg26ae3851 Import Update Success -":
+      - gridcell "Row selection":
+        - radio "Row selection":
+          - generic: 
+          - generic: 
+      - gridcell "10/25/2026, 03:18 PM"
+      - gridcell "10/25/2026, 03:19 PM"
+      - gridcell "1.0.0.6":
+        - generic: 1.0.0.6
+      - gridcell "DefaultPublisherorg26ae3851":
+        - generic: DefaultPublisherorg26ae3851
+      - gridcell "Import"
+      - gridcell "Update"
+      - gridcell "Success":
+        - generic: 
+        - text: Success
+      - gridcell "-":
+        - generic: "-"
+    - row "Row selection 10/25/2026, 02:32 PM 10/25/2026, 02:33 PM 1.0.0.5 DefaultPublisherorg26ae3851 Import Update Success -":
+      - gridcell "Row selection":
+        - radio "Row selection":
+          - generic: 
+          - generic: 
+      - gridcell "10/25/2026, 02:32 PM"
+      - gridcell "10/25/2026, 02:33 PM"
+      - gridcell "1.0.0.5":
+        - generic: 1.0.0.5
+      - gridcell "DefaultPublisherorg26ae3851":
+        - generic: DefaultPublisherorg26ae3851
+      - gridcell "Import"
+      - gridcell "Update"
+      - gridcell "Success":
+        - generic: 
+        - text: Success
+      - gridcell "-":
+        - generic: "-"
+    - row "Row selection 10/25/2026, 01:16 PM 10/25/2026, 01:18 PM 1.0.0.4 DefaultPublisherorg26ae3851 Import Update Success -":
+      - gridcell "Row selection":
+        - radio "Row selection":
+          - generic: 
+          - generic: 
+      - gridcell "10/25/2026, 01:16 PM"
+      - gridcell "10/25/2026, 01:18 PM"
+      - gridcell "1.0.0.4":
+        - generic: 1.0.0.4
+      - gridcell "DefaultPublisherorg26ae3851":
+        - generic: DefaultPublisherorg26ae3851
+      - gridcell "Import"
+      - gridcell "Update"
+      - gridcell "Success":
+        - generic: 
+        - text: Success
+      - gridcell "-":
+        - generic: "-"
+    - row "Row selection 10/24/2026, 10:08 PM 10/24/2026, 10:08 PM 1.0.0.1 DefaultPublisherorg26ae3851 Export None Success -":
+      - gridcell "Row selection":
+        - radio "Row selection":
+          - generic: 
+          - generic: 
+      - gridcell "10/24/2026, 10:08 PM"
+      - gridcell "10/24/2026, 10:08 PM"
+      - gridcell "1.0.0.1":
+        - generic: 1.0.0.1
+      - gridcell "DefaultPublisherorg26ae3851":
+        - generic: DefaultPublisherorg26ae3851
+      - gridcell "Export"
+      - gridcell "None"
+      - gridcell "Success":
+        - generic: 
+        - text: Success
+      - gridcell "-":
+        - generic: "-"

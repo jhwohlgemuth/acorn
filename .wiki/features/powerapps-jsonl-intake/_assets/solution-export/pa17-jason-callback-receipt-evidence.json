@@ -1,0 +1,15 @@
+{
+  "observedAt": "2026-10-25T18:00:35Z",
+  "runId": "08584086556506027360035317154CU18",
+  "table": "new_pa17callbackreceipts",
+  "rows": [
+    {
+      "id": "46cbf9f9-9dd0-f111-a05c-001dd8062052",
+      "webhookId": "acorn-test-pa17-restore-jason-20261025-1800",
+      "state": "Pending",
+      "payload": "{\"event\":\"report-no-changes\",\"project_id\":\"acorn\",\"through\":\"2026-10-25\"}",
+      "attempt": null
+    }
+  ],
+  "notificationActions": "Teams and Outlook both Skipped"
+}

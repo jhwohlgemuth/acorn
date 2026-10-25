@@ -1,0 +1,356 @@
+- banner:
+  - button "Skip to main content"
+  - banner:
+    - button "App launcher": 
+    - link "Power Apps":
+      - /url: https://make.gov.powerapps.us
+      - generic: Power Apps
+    - 'button "Environment: ORNL Personal Productivity(default)"':
+      - generic: Environment
+      - generic: ORNL Personal Productivity(default)
+    - button "Notifications":
+    - button "Settings":
+      - generic: 
+    - button "Help"
+    - button "Account manager for Wohlgemuth, Jason":
+      - generic: JW
+      - img "JW"
+    - generic: 
+- button "Solutions left navigation panel":
+  - generic: 
+- link "Back to solutions":
+  - /url: /environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/solutions/
+  - button "Back to solutions":
+    - generic: 
+- generic "ACORN PA17 Restore Readiness Test": ...
+- navigation:
+  - menu:
+    - menuitem "Overview":
+      - generic: 
+    - menuitem "Objects" [active]:
+      - generic: 
+    - menuitem "History":
+      - generic: 
+    - menuitem "Pipelines":
+      - generic: 
+    - menuitem "Source control":
+- button "Objects" [expanded]:
+  - generic: 
+- generic "Objects"
+- generic: 
+- searchbox "Search"
+- tree "Object types list":
+  - treeitem "All" [level=1] [selected]:
+    - generic "All":
+      - generic: 
+    - generic "All"
+    - generic: (6)
+  - treeitem "Agents" [level=1]:
+    - generic "Agents":
+      - generic: 
+    - generic "Agents"
+    - generic: (0)
+  - treeitem "Apps" [level=1]:
+    - generic "Apps":
+      - generic: 
+    - generic "Apps"
+    - generic: (1)
+  - treeitem "Cards" [level=1]:
+    - generic "Cards":
+    - generic "Cards"
+    - generic: (0)
+  - treeitem "Cloud flows" [level=1]:
+    - generic "Cloud flows":
+      - generic: 
+    - generic "Cloud flows"
+    - generic: (2)
+  - treeitem "Connection references" [level=1]:
+    - generic "Connection references":
+      - generic: 
+    - generic "Connection references"
+    - generic: (2)
+  - treeitem "Custom connectors" [level=1]:
+    - generic "Custom connectors":
+      - generic: 
+    - generic "Custom connectors"
+    - generic: (1)
+  - treeitem "Data workspaces" [level=1]:
+    - generic "Data workspaces":
+      - generic: 
+    - generic "Data workspaces"
+    - generic: (0)
+  - treeitem "Tables" [level=1]:
+    - generic "Tables":
+      - generic: 
+    - generic "Tables"
+    - generic: (0)
+- separator "Resize panel"
+- menubar:
+  - menuitem "New":
+    - generic: 
+    - generic: New
+    - generic: 
+  - menuitem "Add existing":
+    - generic: 
+    - generic: Add existing
+    - generic: 
+  - menuitem "Publish all customizations":
+    - generic: 
+    - generic: Publish all customizations
+  - menuitem "More commands":
+    - generic: 
+  - generic: 
+  - searchbox "Objects search box. Objects will be filtered from the list as you type."
+- region:
+  - generic: 
+  - status:
+    - text: One or more commands are unavailable due to your current privileges for this environment.
+    - link "Learn more":
+      - /url: https://go.microsoft.com/fwlink/?linkid=2098112
+  - button "Dismiss":
+    - generic: 
+- region:
+  - generic: 
+  - status:
+    - generic: Solution "ACORN PA17 Restore Readiness Test 1.0.0.1" exported successfully.
+    - button "Download":
+      - generic: Download
+  - button:
+    - generic: 
+- region:
+  - generic: 
+  - status:
+    - generic: Solution "ACORN PA17 Restore Readiness Test" imported successfully.
+  - button:
+    - generic: 
+- region:
+  - generic: 
+  - alert:
+    - generic: "Solution \"ACORN PA17 Callback Restore Test\" failed to import: SecLib::CheckPrivilege failed. User: 8a18be4c-ed8d-ed11-81ad-001dd80715ac, PrivilegeName: prvCreateEntity, PrivilegeId: 341e3ebf-74b8-4335-84f3-7f617bb7d081, Required Depth: Basic, BusinessUnitId: bdd904ac-4db8-ea11-a812-001dd8309200, MetadataCache Privileges Count: 6990, User Privileges Count: 1932"
+    - button "Download log":
+      - generic: Download log
+  - button:
+    - generic: 
+- region:
+  - generic: 
+  - status:
+    - generic: Solution "ACORN PA17 Restore Readiness Test" imported successfully.
+  - button:
+    - generic: 
+- region:
+  - generic: 
+  - status:
+    - generic: Solution "ACORN PA17 Restore Readiness Test" imported successfully.
+  - button:
+    - generic: 
+- navigation:
+  - list:
+    - generic "ACORN PA17 Restore Readiness Test"
+    - generic: 
+    - heading "All" [level=1]
+- grid "Items list":
+  - row "Toggle selection for all items Icon Display name Resize Icon column More actions Name Resize Display name column Type Resize More actions column Managed Resize Name column Customized Resize Type column Last Modified Resize Managed column Owner Resize Customized column Status Resize Last Modified column":
+    - columnheader "Toggle selection for all items":
+      - checkbox "Toggle selection for all items":
+        - generic: 
+        - generic: 
+    - generic: Toggle selection for all items
+    - columnheader "Icon":
+      - generic: 
+      - generic: Icon
+    - columnheader "Display name":
+      - button "Display name":
+        - generic: Display name
+        - generic: 
+        - generic: 
+    - separator "Resize Icon column"
+    - columnheader "More actions":
+      - generic: More actions
+    - columnheader "Name":
+      - button "Name":
+        - generic: Name
+        - generic: 
+    - separator "Resize Display name column"
+    - columnheader "Type":
+      - button "Type":
+        - generic: Type
+        - generic: 
+    - separator "Resize More actions column"
+    - columnheader "Managed":
+      - button "Managed":
+        - generic: Managed
+        - generic: 
+    - separator "Resize Name column"
+    - columnheader "Customized":
+      - button "Customized":
+        - generic: Customized
+        - generic: 
+    - separator "Resize Type column"
+    - columnheader "Last Modified":
+      - button "Last Modified":
+        - generic: Last Modified
+        - generic: 
+    - separator "Resize Managed column"
+    - columnheader "Owner":
+      - button "Owner":
+        - generic: Owner
+        - generic: 
+    - separator "Resize Customized column"
+    - columnheader "Status":
+      - generic: Status
+    - separator "Resize Last Modified column"
+  - row "Select row ACORN PA17 GitLab TEST ONLY More commands new_5Facorn-20pa17-20gitlab-20test-20only Custom Connector No Yes 2 minutes ago Jason Wohlgemuth Off":
+    - gridcell "Select row":
+      - checkbox "Select row":
+        - generic: 
+        - generic: 
+    - gridcell:
+      - generic: 
+    - gridcell "ACORN PA17 GitLab TEST ONLY":
+      - link "ACORN PA17 GitLab TEST ONLY":
+        - /url: "#"
+    - gridcell "More commands":
+      - button "More commands":
+        - generic: 
+    - gridcell "new_5Facorn-20pa17-20gitlab-20test-20only":
+      - generic "new_5Facorn-20pa17-20gitlab-20test-20only"
+    - gridcell "Custom Connector":
+      - generic "Custom Connector"
+    - gridcell "No":
+      - generic "No"
+    - gridcell "Yes":
+      - generic "Yes"
+    - gridcell "2 minutes ago"
+    - gridcell "Jason Wohlgemuth":
+      - generic "Jason Wohlgemuth"
+    - gridcell "Off":
+      - generic "Off"
+  - row "Select row PA17 TEST ONLY Native Catalog More commands PA17 TEST ONLY Native Catalog Cloud Flow No Yes 1 minute ago Jason Wohlgemuth On":
+    - gridcell "Select row":
+      - checkbox "Select row":
+        - generic: 
+        - generic: 
+    - gridcell:
+      - generic: 
+    - gridcell "PA17 TEST ONLY Native Catalog":
+      - link "PA17 TEST ONLY Native Catalog":
+        - /url: "#"
+    - gridcell "More commands":
+      - button "More commands":
+        - generic: 
+    - gridcell "PA17 TEST ONLY Native Catalog":
+      - generic "PA17 TEST ONLY Native Catalog"
+    - gridcell "Cloud Flow":
+      - generic "Cloud Flow"
+    - gridcell "No":
+      - generic "No"
+    - gridcell "Yes":
+      - generic "Yes"
+    - gridcell "1 minute ago"
+    - gridcell "Jason Wohlgemuth":
+      - generic "Jason Wohlgemuth"
+    - gridcell "On":
+      - generic "On"
+  - row "Select row PA17 TEST ONLY Native Intake More commands PA17 TEST ONLY Native Intake Cloud Flow No Yes 2 minutes ago Jason Wohlgemuth Off":
+    - gridcell "Select row":
+      - checkbox "Select row":
+        - generic: 
+        - generic: 
+    - gridcell:
+      - generic: 
+    - gridcell "PA17 TEST ONLY Native Intake":
+      - link "PA17 TEST ONLY Native Intake":
+        - /url: "#"
+    - gridcell "More commands":
+      - button "More commands":
+        - generic: 
+    - gridcell "PA17 TEST ONLY Native Intake":
+      - generic "PA17 TEST ONLY Native Intake"
+    - gridcell "Cloud Flow":
+      - generic "Cloud Flow"
+    - gridcell "No":
+      - generic "No"
+    - gridcell "Yes":
+      - generic "Yes"
+    - gridcell "2 minutes ago"
+    - gridcell "Jason Wohlgemuth":
+      - generic "Jason Wohlgemuth"
+    - gridcell "Off":
+      - generic "Off"
+  - row "Select row PA17 TEST ONLY Sponsor Highlights More commands new_pa17testonlysponsorhighlights_e01a0 Canvas App No Yes 2 minutes ago Jason Wohlgemuth":
+    - gridcell "Select row":
+      - checkbox "Select row":
+        - generic: 
+        - generic: 
+    - gridcell:
+      - generic: 
+    - gridcell "PA17 TEST ONLY Sponsor Highlights":
+      - link "PA17 TEST ONLY Sponsor Highlights":
+        - /url: "#"
+    - gridcell "More commands":
+      - button "More commands":
+        - generic: 
+    - gridcell "new_pa17testonlysponsorhighlights_e01a0":
+      - generic "new_pa17testonlysponsorhighlights_e01a0"
+    - gridcell "Canvas App":
+      - generic "Canvas App"
+    - gridcell "No":
+      - generic "No"
+    - gridcell "Yes":
+      - generic "Yes"
+    - gridcell "2 minutes ago"
+    - gridcell "Jason Wohlgemuth":
+      - generic "Jason Wohlgemuth"
+    - gridcell
+  - row "Select row PA17 TEST ONLY Teams Reference More commands new_PA17TESTONLYTeamsReference Connection Reference No Yes 2 minutes ago Jason Wohlgemuth Off":
+    - gridcell "Select row":
+      - checkbox "Select row":
+        - generic: 
+        - generic: 
+    - gridcell:
+      - generic: 
+    - gridcell "PA17 TEST ONLY Teams Reference":
+      - link "PA17 TEST ONLY Teams Reference":
+        - /url: "#"
+    - gridcell "More commands":
+      - button "More commands":
+        - generic: 
+    - gridcell "new_PA17TESTONLYTeamsReference":
+      - generic "new_PA17TESTONLYTeamsReference"
+    - gridcell "Connection Reference":
+      - generic "Connection Reference"
+    - gridcell "No":
+      - generic "No"
+    - gridcell "Yes":
+      - generic "Yes"
+    - gridcell "2 minutes ago"
+    - gridcell "Jason Wohlgemuth":
+      - generic "Jason Wohlgemuth"
+    - gridcell "Off":
+      - generic "Off"
+  - row "Select row PA18 TEST ONLY GitLab Reference More commands new_PA18TESTONLYGitLabReference Connection Reference No Yes 2 minutes ago Jason Wohlgemuth Off":
+    - gridcell "Select row":
+      - checkbox "Select row":
+        - generic: 
+        - generic: 
+    - gridcell:
+      - generic: 
+    - gridcell "PA18 TEST ONLY GitLab Reference":
+      - link "PA18 TEST ONLY GitLab Reference":
+        - /url: "#"
+    - gridcell "More commands":
+      - button "More commands":
+        - generic: 
+    - gridcell "new_PA18TESTONLYGitLabReference":
+      - generic "new_PA18TESTONLYGitLabReference"
+    - gridcell "Connection Reference":
+      - generic "Connection Reference"
+    - gridcell "No":
+      - generic "No"
+    - gridcell "Yes":
+      - generic "Yes"
+    - gridcell "2 minutes ago"
+    - gridcell "Jason Wohlgemuth":
+      - generic "Jason Wohlgemuth"
+    - gridcell "Off":
+      - generic "Off"

@@ -1,0 +1,214 @@
+- banner:
+  - button "Skip to main content"
+  - banner:
+    - button "App launcher": 
+    - link "Power Apps":
+      - /url: https://make.gov.powerapps.us
+      - generic: Power Apps
+    - 'button "Environment: ORNL Personal Productivity(default)"':
+      - generic: Environment
+      - generic: ORNL Personal Productivity(default)
+    - button "Notifications":
+    - button "Settings":
+      - generic: 
+    - button "Account manager for Wohlgemuth, Jason":
+      - generic: JW
+      - img "JW"
+    - generic: 
+- navigation "Main":
+  - button "Left navigation panel" [expanded]:
+    - img "Left navigation panel"
+  - menu:
+    - generic "Home":
+      - menuitem "Home":
+        - generic: Home
+    - generic "Create":
+      - menuitem "Create":
+        - generic: Create
+    - generic "Learn":
+      - menuitem "Learn":
+        - generic: Learn
+    - generic "Apps":
+      - menuitem "Apps, press right arrow to navigate more options":
+        - generic: Apps
+    - generic "AI hub":
+      - menuitem "AI hub, press right arrow to navigate more options":
+        - generic: AI hub
+    - separator
+    - generic "Tables":
+      - menuitem "Tables, press right arrow to navigate more options":
+        - generic: Tables
+    - generic "Flows":
+      - menuitem "Flows, press right arrow to navigate more options":
+        - generic: Flows
+    - generic "Solutions":
+      - menuitem "Solutions, press right arrow to navigate more options":
+        - generic: Solutions
+    - generic "Connections":
+      - menuitem "Connections":
+        - generic: Connections
+        - button "Unpin Connections":
+    - generic "More":
+      - menuitem "More":
+        - generic: More
+    - separator
+    - generic "Power Platform":
+      - menuitem "Power Platform":
+        - generic: Power Platform
+- main:
+  - toolbar:
+    - button "New connection":
+      - text: New connection
+    - switch "New connections experience (preview)" [checked]
+    - generic: New connections experience (preview)
+    - searchbox "Search"
+    - button "clear":
+  - toolbar:
+    - navigation "breadcrumb":
+      - list:
+        - button "Connections" [disabled]
+    - button "Refresh":
+      - text: Refresh
+  - grid "Connections":
+    - rowgroup:
+      - row "Name Last modified Status":
+        - columnheader "Name":
+          - button "Name"
+          - separator
+        - columnheader "Last modified":
+          - button "Last modified"
+          - separator
+        - columnheader "Status":
+          - button "Status"
+    - rowgroup:
+      - row "o9w@ornl.gov o9w@ornl.gov 10/25/2026, 2:14:48 PM Connected":
+        - gridcell "o9w@ornl.gov o9w@ornl.gov":
+          - img "o9w@ornl.gov"
+          - generic "o9w@ornl.gov":
+            - button "o9w@ornl.gov"
+            - text: Microsoft Dataverse
+            - button "Connection context menu":
+        - gridcell "10/25/2026, 2:14:48 PM":
+          - generic: 12 minutes ago
+        - gridcell "Connected":
+          - generic: Connected
+      - row "ACORN PA18 ORNL TEST ONLY ACORN PA18 ORNL TEST ONLY 10/25/2026, 1:15:58 PM Connected":
+        - gridcell "ACORN PA18 ORNL TEST ONLY ACORN PA18 ORNL TEST ONLY":
+          - img "ACORN PA18 ORNL TEST ONLY"
+          - generic "ACORN PA18 ORNL TEST ONLY":
+            - generic: ACORN PA18 ORNL TEST ONLY
+            - button "Connection context menu":
+        - gridcell "10/25/2026, 1:15:58 PM":
+          - generic: 1 hour ago
+        - gridcell "Connected":
+          - generic: Connected
+      - row "o9w@ornl.gov o9w@ornl.gov 10/18/2026, 5:49:14 AM Connected":
+        - gridcell "o9w@ornl.gov o9w@ornl.gov":
+          - img "o9w@ornl.gov"
+          - generic "o9w@ornl.gov":
+            - button "o9w@ornl.gov"
+            - text: Microsoft To-Do (Business)
+            - button "Connection context menu":
+        - gridcell "10/18/2026, 5:49:14 AM":
+          - generic: 7 days ago
+        - gridcell "Connected":
+          - generic: Connected
+      - row "o9w@ornl.gov o9w@ornl.gov 10/18/2026, 5:49:14 AM Connected":
+        - gridcell "o9w@ornl.gov o9w@ornl.gov":
+          - img "o9w@ornl.gov"
+          - generic "o9w@ornl.gov":
+            - button "o9w@ornl.gov"
+            - text: Planner
+            - button "Connection context menu":
+        - gridcell "10/18/2026, 5:49:14 AM":
+          - generic: 7 days ago
+        - gridcell "Connected":
+          - generic: Connected
+      - row "o9w@ornl.gov o9w@ornl.gov 10/18/2026, 5:49:13 AM Connected":
+        - gridcell "o9w@ornl.gov o9w@ornl.gov":
+          - img "o9w@ornl.gov"
+          - generic "o9w@ornl.gov":
+            - button "o9w@ornl.gov"
+            - text: Microsoft Forms
+            - button "Connection context menu":
+        - gridcell "10/18/2026, 5:49:13 AM":
+          - generic: 7 days ago
+        - gridcell "Connected":
+          - generic: Connected
+      - row "o9w@ornl.gov o9w@ornl.gov 10/18/2026, 5:24:30 AM Connected":
+        - gridcell "o9w@ornl.gov o9w@ornl.gov":
+          - img "o9w@ornl.gov"
+          - generic "o9w@ornl.gov":
+            - button "o9w@ornl.gov"
+            - text: OneDrive for Business
+            - button "Connection context menu":
+        - gridcell "10/18/2026, 5:24:30 AM":
+          - generic: 7 days ago
+        - gridcell "Connected":
+          - generic: Connected
+      - row "o9w@ornl.gov o9w@ornl.gov 10/18/2026, 5:24:30 AM Connected":
+        - gridcell "o9w@ornl.gov o9w@ornl.gov":
+          - img "o9w@ornl.gov"
+          - generic "o9w@ornl.gov":
+            - button "o9w@ornl.gov"
+            - text: Office 365 Outlook
+            - button "Connection context menu":
+        - gridcell "10/18/2026, 5:24:30 AM":
+          - generic: 7 days ago
+        - gridcell "Connected":
+          - generic: Connected
+      - row "o9w@ornl.gov o9w@ornl.gov 10/18/2026, 5:24:29 AM Connected":
+        - gridcell "o9w@ornl.gov o9w@ornl.gov":
+          - img "o9w@ornl.gov"
+          - generic "o9w@ornl.gov":
+            - button "o9w@ornl.gov"
+            - text: Microsoft Teams
+            - button "Connection context menu":
+        - gridcell "10/18/2026, 5:24:29 AM":
+          - generic: 7 days ago
+        - gridcell "Connected":
+          - generic: Connected
+      - row "o9w@ornl.gov o9w@ornl.gov 10/17/2026, 5:42:20 PM Connected":
+        - gridcell "o9w@ornl.gov o9w@ornl.gov":
+          - img "o9w@ornl.gov"
+          - generic "o9w@ornl.gov":
+            - button "o9w@ornl.gov"
+            - text: SharePoint
+            - button "Connection context menu":
+        - gridcell "10/17/2026, 5:42:20 PM":
+          - generic: 7 days ago
+        - gridcell "Connected":
+          - generic: Connected
+      - row "o9w@ornl.gov o9w@ornl.gov 10/17/2026, 6:19:24 AM Connected":
+        - gridcell "o9w@ornl.gov o9w@ornl.gov":
+          - img "o9w@ornl.gov"
+          - generic "o9w@ornl.gov":
+            - button "o9w@ornl.gov"
+            - text: Office 365 Outlook
+            - button "Connection context menu":
+        - gridcell "10/17/2026, 6:19:24 AM":
+          - generic: 8 days ago
+        - gridcell "Connected":
+          - generic: Connected
+      - row "Notifications Notifications 9/2/2026, 9:41:55 AM Connected":
+        - gridcell "Notifications Notifications":
+          - img "Notifications"
+          - generic "Notifications":
+            - button "Notifications"
+            - text: Notifications
+            - button "Connection context menu":
+        - gridcell "9/2/2026, 9:41:55 AM":
+          - generic: 1 month ago
+        - gridcell "Connected":
+          - generic: Connected
+      - row "Notifications Notifications 9/2/2026, 9:41:45 AM Connected":
+        - gridcell "Notifications Notifications":
+          - img "Notifications"
+          - generic "Notifications":
+            - button "Notifications"
+            - text: Notifications
+            - button "Connection context menu":
+        - gridcell "9/2/2026, 9:41:45 AM":
+          - generic: 1 month ago
+        - gridcell "Connected":
+          - generic: Connected

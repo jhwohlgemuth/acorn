@@ -1,0 +1,27 @@
+{
+  "type": "Response",
+  "kind": "PowerApp",
+  "inputs": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "catalog": {
+          "title": "catalog",
+          "type": "string",
+          "x-ms-content-hint": "TEXT",
+          "x-ms-dynamically-added": true
+        }
+      },
+      "additionalProperties": {}
+    },
+    "statusCode": 200,
+    "body": {
+      "catalog": "@{string(body('Load_ACRE_project_choices'))}"
+    }
+  },
+  "runAfter": {
+    "Load_ACRE_project_choices": [
+      "Succeeded"
+    ]
+  }
+}

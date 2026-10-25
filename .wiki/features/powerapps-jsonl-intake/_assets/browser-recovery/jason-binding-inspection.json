@@ -1,0 +1,40 @@
+{
+  "checkedAtLocal": "2026-10-24T22:17:46-04:00",
+  "environment": "221f44a6-1468-ea4e-b93d-cd52f1723079",
+  "appId": "62ef8e08-4253-4fd8-91e1-a7c0a13d7fd3",
+  "sourceExportFile": "PA14RestoredVerification_20261025021555.zip",
+  "sourceExportSha256": "97830c8818c74a4285065063643f0d9b5294d1f49954eaf495f9517936dbaeac",
+  "outerBindings": [
+    {
+      "connectionReference": "48789059-76ea-4b35-b6b1-c0f0cfd44c10",
+      "flowId": "8fdddd79-52e5-4576-bd95-19c3ffb40be7",
+      "flowName": "PA14 TEST ONLY ACORN Project Catalog"
+    },
+    {
+      "connectionReference": "69a9b6d1-fd4a-41ea-84e2-9d63e99074b5",
+      "flowId": "7364dc72-5b4b-45aa-9dea-c95dc91614be",
+      "flowName": "PA14 TEST ONLY ACORN Logbook GitLab JSONL Intake (Draft)"
+    }
+  ],
+  "embeddedSources": [
+    {
+      "name": "ACORNLogbookGitLabJSONLIntake(Draft)",
+      "flowNameId": "ff4a134b-5fd3-4465-ab19-0325c2f2bf1b",
+      "workflowEntityId": "b1109888-5aca-f111-a05c-001dd8062052"
+    },
+    {
+      "name": "ACORNProjectCatalog",
+      "flowNameId": "8b79d6c0-c308-46dc-8cca-ba343aa912bd",
+      "workflowEntityId": "e66abd69-d9cf-f111-a05c-001dd8062052"
+    }
+  ],
+  "conclusion": "Pre-repair export: outer dependencies were new but embedded IDs were old. Studio subsequently opened the operational intake through its Edit link, so the test app was rebound before submission.",
+  "studioRepair": {
+    "appId": "62ef8e08-4253-4fd8-91e1-a7c0a13d7fd3",
+    "formulaErrors": 0,
+    "intakeFlowId": "7364dc72-5b4b-45aa-9dea-c95dc91614be",
+    "catalogFlowId": "8fdddd79-52e5-4576-bd95-19c3ffb40be7",
+    "verifiedBy": "Studio Edit iframe destinations after explicit remove/add; published mock catalog and response panels",
+    "operationalComponentsChanged": false
+  }
+}

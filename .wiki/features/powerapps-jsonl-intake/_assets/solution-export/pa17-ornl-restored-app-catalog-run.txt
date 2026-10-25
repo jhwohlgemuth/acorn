@@ -1,0 +1,72 @@
+- banner:
+  - button "Skip to main content"
+  - banner:
+    - button "App launcher": 
+    - generic: Power Automate
+    - button "ORNL Personal Productivity(default)":
+      - generic: Environments
+      - generic: ORNL Personal Productivity(default)
+    - button "Settings":
+      - generic: 
+    - button "Help":
+      - generic: 
+    - button "Account manager for Wohlgemuth, Jason":
+      - generic: JW
+      - img "JW"
+    - generic: 
+- main:
+  - button "Go back to previous page":
+    - generic: 
+  - heading "The flow name is PA17 TEST ONLY Native Catalog." [level=1]:
+    - generic "The flow name is PA17 TEST ONLY Native Catalog.":
+      - generic: PA17 TEST ONLY Native Catalog
+  - toolbar:
+    - separator
+    - button "Resubmit":
+      - generic: 
+      - generic: Resubmit
+    - button "Cancel" [disabled]:
+      - generic: 
+      - generic: Cancel
+    - button "Copilot":
+      - generic: Copilot
+    - button "Edit":
+      - generic: 
+      - generic: Edit
+    - separator
+    - switch "New view" [checked]
+    - generic: New view
+  - group "Your flow ran successfully.":
+    - generic: Your flow ran successfully.
+    - button "Dismiss":
+  - application "Workflow canvas":
+    - group "When Power Apps calls a flow (V2)":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "When Power Apps calls a flow (V2) operation, Power Apps connector":
+        - generic: When Power Apps calls a flow (V2)
+    - group "Load ACRE project choices":
+      - status "0.5 seconds. Succeeded":
+        - generic: 0.5s
+      - button "Load ACRE project choices operation, ACORN PA17 GitLab TEST ONLY connector":
+        - generic: Load ACRE project choices
+      - generic "PA18 TEST ONLY GitLab Reference":
+        - 'img "Connection name: PA18 TEST ONLY GitLab Reference"': 
+    - group "Respond to a Power App or flow":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Respond to a Power App or flow operation, Power Apps connector":
+        - generic: Respond to a Power App or flow
+    - generic "Control Panel":
+      - button "Expand all action groups":
+      - button "Zoom in":
+      - button "Zoom out":
+      - button "Zoom view to fit":
+      - button "Toggle minimap":
+      - button "Search workflow actions":
+  - dialog "Operation details panel":
+    - button "Collapse":
+- alert
+- alert
+- complementary
+- complementary

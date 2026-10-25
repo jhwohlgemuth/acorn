@@ -1,0 +1,126 @@
+{
+  "scope": "offline TEST ONLY rehearsal; not production handback approval",
+  "codeCommit": "d4799a11f1eab167a218d6d738cd44f4a61eb5c5",
+  "rehearsalScriptSha256": "sha256:51c54fccfcc84fbd8e7b16918d1ce7b58f70113059fe6e2f29b6e16951420251",
+  "completedAt": "2026-10-25T20:07:18.385121+00:00",
+  "acornSha256": "sha256:9fb58542b4e935c9ea9faf87ff9a618f92f2adfea9dcaf78e8c7c5f5bee269a7",
+  "capturedSource": {
+    "repository": "https://code.ornl.gov/research-enablement/experiments/power-automate",
+    "projectId": 22464,
+    "branch": "main",
+    "path": ".acorn/intake/logbook.jsonl",
+    "commit": "3090aa5714b4c6ff59c5dd0b6ecba999f918caa2",
+    "parent": "7dd33b6d6094ab4d0b2ce13d8c58296a210064d5",
+    "flowRun": "08584087230445394451842398555CU19",
+    "submissionId": "4313fcfc-0201-441e-8bda-c77718a31dcf",
+    "snapshotSha256": "76f0e36f637b5611cca8aa6c69ce5db13be00a0b5e17b2dbfe71c20a38177384",
+    "selectedSha256": "c8496e27ce6379296d19c194305b2f17f028f2e3314230de9ce8adc7b28a2c58",
+    "selectedLines": [
+      6
+    ],
+    "recordCount": 6,
+    "transfer": "GitLab immutable-file Download; original bytes retained",
+    "scope": "TEST ONLY; isolated local demo; remote inbox never drained"
+  },
+  "sourceCommits": {
+    "original": "282436fa6cca1fdc21215ea12d5020cec8fdd9f8",
+    "current": "8bd9a8c0dd7aff61e439ee1d444f76541daf2b9e",
+    "reconciled": "0f74ba9d78c051fc6d7f83bd56ed6fdd686cd157"
+  },
+  "canonicalCommit": "755389497904817ef3413692b2e468eddb59cbf4",
+  "sourceDigests": {
+    "original": "sha256:76f0e36f637b5611cca8aa6c69ce5db13be00a0b5e17b2dbfe71c20a38177384",
+    "current": "sha256:a94daa8ea22aa276766c9e688cc9da7d32b35dc5de8358ad651b0750d632d45d",
+    "reconciled": "sha256:596978c2114ba66761a185a54274b9b6c98a3ddfa27f58abaf56554e613d4a21"
+  },
+  "canonicalDigest": "sha256:d37586393e6b8f93beea5d2aef3302000e094a2ef52af91084db3588d2cbd66c",
+  "acceptedLineWithLfDigest": "sha256:c8496e27ce6379296d19c194305b2f17f028f2e3314230de9ce8adc7b28a2c58",
+  "acceptedEntry": "form-4313-fcfc-0201-441-e-8-bda-c-77718-a-31-dcf",
+  "checks": [
+    "only exact reviewed line removed",
+    "new/rejected/unknown/malformed/blank/CRLF/Unicode bytes preserved",
+    "canonical contributor and archived provenance verified",
+    "local apply leaves inbox unchanged",
+    "concurrent append invalidates review",
+    "canonical change invalidates review",
+    "missing accepted line refuses cleanup",
+    "duplicate exact line refuses cleanup",
+    "changed accepted bytes refuse cleanup",
+    "conflicting identity refuses cleanup",
+    "nonterminated tail refuses cleanup"
+  ],
+  "commands": [
+    {
+      "command": [
+        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "--offline",
+        "intake",
+        "stage",
+        "--batch",
+        "--config",
+        "/private/tmp/acorn-man06-20261025-final/intake.json",
+        "--source",
+        "/private/tmp/acorn-man06-20261025-final/selected.jsonl"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "--offline",
+        "intake",
+        "inspect",
+        "--config",
+        "/private/tmp/acorn-man06-20261025-final/intake.json",
+        "--batch-id",
+        "cc77ba87089ceb0d9930c0577ef390c931ca9e0377b8673bc59784323f66b8cc"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "--offline",
+        "intake",
+        "apply",
+        "--config",
+        "/private/tmp/acorn-man06-20261025-final/intake.json",
+        "--batch-id",
+        "cc77ba87089ceb0d9930c0577ef390c931ca9e0377b8673bc59784323f66b8cc",
+        "--yes"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "--offline",
+        "intake",
+        "run",
+        "--index",
+        "/private/tmp/acorn-man06-20261025-final/acorn/index.json",
+        "--dry-run"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "--offline",
+        "intake",
+        "run",
+        "--index",
+        "/private/tmp/acorn-man06-20261025-final/acorn/index.json",
+        "--accept",
+        "form-4313-fcfc-0201-441-e-8-bda-c-77718-a-31-dcf",
+        "--expected-digest",
+        "sha256:75d3f85f9de5a1c84a61d2e36d42d823f98c21f23c5bc99bb4f0350bdcef8936"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "remoteWrites": false,
+  "botStarted": false,
+  "productionMergeAuthorized": false,
+  "botDatabaseSeeded": false
+}

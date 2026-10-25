@@ -1,6 +1,6 @@
 # Sponsor Highlights: demo without Vergil
 
-Plan assets now live in local `_assets/` folders. Historical PDFs, screenshots and execution records retain their original paths; the links and commands in this walkthrough use the current layout.
+Plan assets now live in local `_assets/` folders. The demo walkthrough PDF was refreshed October 25, 2026 with the current commands and confirmation controls. Historical screenshots and execution records retain their original paths; the links and commands in this walkthrough use the current layout.
 
 This packet follows **one actual PowerApp submission** through GitLab JSONL, local review, ingestion, contributor graduation and a local PDF. The contributor, baseline project and report are **TEST ONLY**. Nothing in the local rehearsal publishes a report, sends a callback, drains the remote inbox or starts Vergil.
 
@@ -51,7 +51,7 @@ acorn intake run --index project/index.json --interactive
 acorn intake run --index project/index.json --force
 ```
 
-`--force` preserves validation, stale-digest checks and exact backups. Combining it with `--dry-run` writes nothing. The older `candidates` and `graduate` commands shown in the captured PDFs still work as hidden compatibility commands. See the [current command reference](../../../docs/src/cli-reference/commands/intake.md#local-graduation) for reviewed-ID selection and all mode combinations.
+`--force` preserves validation, stale-digest checks and exact backups. Combining it with `--dry-run` writes nothing. The older `candidates` and `graduate` commands visible in historical manuals and transcripts still work as hidden compatibility commands; the refreshed demo PDF uses `run`. See the [current command reference](../../../docs/src/cli-reference/commands/intake.md#local-graduation) for reviewed-ID selection and all mode combinations.
 
 The script verifies the immutable source hashes and exact line selection before writing, creates a disposable index, records all command results, creates a local Git commit using the explicitly synthetic `ACORN Synthetic Demo` identity, and renders the PDF twice. It asserts that retries, rejected apply and both report runs preserve the correct index. `evidence.json` is the local report manifest; `remotePublication` is false.
 
@@ -61,7 +61,7 @@ The earlier October 24 confirmation update passed [20 terminal checks and three 
 
 The consolidated `run` API passed [ten native terminal checks](_assets/run-confirmation-checks.json): per-entry selection, default No, final rejection, Escape/Ctrl+C, interactive dry-run, exact backups, and rejection of concurrent index changes. Both the [unattended rehearsal](_assets/run-rehearsal-evidence.json) and [interactive rehearsal](_assets/run-interactive-rehearsal-evidence.json) passed all eleven steps with the current commands. The interactive rehearsal used three native prompts. These checks used synthetic local data and sent no messages or repository updates. Final validation for the consolidated API passed: warning-free `make lint`, `make test` (2,694 passed; 17 skipped), the documentation book build, and the planning wiki validator.
 
-The earlier presentation PDFs and original rehearsal manifest remain the captured demonstration record. Use this README for the current button controls and unattended invocation contract.
+The original rehearsal manifest and screenshots remain the captured demonstration record. This walkthrough and its refreshed PDF describe the current button controls and unattended invocation contract. The PDF adds captured screens and the workflow notification map.
 
 ## Exact trace
 
@@ -88,6 +88,6 @@ The replay run reached **Queued replay** after reading the prior immutable commi
 
 Try the approved cloud route once. If access is denied, stop that segment and show the captured form receipt, commit and replay screenshots; continue the local script with the exact frozen source. Say **“recorded cloud capture, live local review and reporting.”** Do not claim that a new cloud submission succeeded.
 
-Use one browser tab and non-sensitive examples. A network denial is not a reason to rotate credentials or weaken access controls. Reliable egress/licensing approval and wider browser/concurrency acceptance remain in the intake plan. The remote TEST ONLY records remain in place. Before enabling a bot against any manually processed production data, complete the separate manual-to-bot handback phase; local receipts alone do not prevent a fresh bot database from admitting those lines again.
+Use one browser tab and non-sensitive examples. A network denial is not a reason to rotate credentials or weaken access controls. Reliable egress/licensing approval and wider browser/concurrency acceptance remain in the intake plan. The remote TEST ONLY records remain in place. Before enabling a bot against any manually processed production data, approve the actual baseline using the [verified handback procedure](handback.md); local receipts alone do not prevent a fresh bot database from admitting those lines again.
 
 The demonstration uses `report --dry-run --combine` and an explicit local-only evidence manifest. This avoids presenting publication-shaped previews as evidence of remote publication.

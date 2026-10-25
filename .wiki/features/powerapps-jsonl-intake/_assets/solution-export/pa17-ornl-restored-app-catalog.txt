@@ -1,0 +1,73 @@
+- button "Skip to main content.":
+  - generic: Skip to main content.
+- banner:
+  - button "App launcher": 
+  - generic: Power Apps | PA17 TEST ONLY Sponsor Highlights
+  - button "Share":
+    - generic: 
+    - generic: Share
+    - generic: 
+  - button "Fit to screen":
+    - generic: 
+  - button "Settings":
+    - generic: 
+  - button "Help":
+    - generic: 
+  - button "Account manager for Wohlgemuth, Jason":
+    - generic: JW
+    - img "JW"
+  - generic: 
+- main:
+  - iframe [active] [id="fullscreen-app-host"] [name="fullscreen-app-host"]:
+    - generic: SubmitEntryScreen
+    - heading [level=1]: Sponsor Highlights
+    - generic: Document progress. Connect research to impact.
+    - generic: 01 // HIGHLIGHT DETAILS
+    - generic: Submitted by Jason Wohlgemuth • o9w@ornl.gov
+    - generic: Project *
+    - button [expanded]: Select a project
+    - generic: Choose the project this highlight belongs to.
+    - button:
+      - generic: Refresh Project List
+    - generic: Date *
+    - textbox: Oct 25, 2026
+    - button:
+    - generic: Category *
+    - button: Select a category
+    - generic: Status *
+    - button: Select a status
+    - generic: Event type · optional
+    - button: Not specified
+    - generic: 02 // THE DEVELOPMENT
+    - generic: Summary *
+    - textbox:
+      - /placeholder: What changed, and why does it matter?
+    - generic: 0 / 1,200 characters. Lead with the outcome; explain its relevance.
+    - generic: Supporting details · optional
+    - textbox:
+      - /placeholder: One detail per line. Include evidence, a measure, a milestone, or a next step.
+    - generic: 0 / 20 details · up to 1,000 characters each
+    - generic: Report placement
+    - button: Project highlight
+    - generic: For non-sensitive highlights. Pending submissions are stored in this browser until confirmed. Saving to the logbook does not publish a report.
+    - generic: Complete the required fields, then submit your highlight.
+    - button [disabled]:
+      - generic: Submit highlight
+    - generic: "ACORN · Oak Ridge National Laboratory App owner: Jason Wohlgemuth"
+    - generic "You can drag-and-drop this tab anywhere on the 4 edges of the screen":
+      - generic "You can drag-and-drop this tab anywhere on the 4 edges of the screen": Site Help
+    - listbox "Project, required items":
+      - option "Select a project" [active] [selected]
+      - option "acorn"
+      - option "building-damage-indicators"
+      - option "global-terrain"
+      - option "gravity"
+      - option "hifld"
+      - option "landscan"
+      - option "landscan-global"
+      - option "landscan-mosaic"
+      - option "myriad"
+      - option "nautical-charts"
+      - option "planetsense"
+      - option "planetsense-segraph"
+      - option "precision-imagery"

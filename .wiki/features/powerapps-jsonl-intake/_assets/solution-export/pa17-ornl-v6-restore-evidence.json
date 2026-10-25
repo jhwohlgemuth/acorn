@@ -1,0 +1,31 @@
+{
+  "observed_date": "2026-10-25",
+  "environment": "Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e",
+  "solution": "ACORNPA17RestoreReadinessTest",
+  "version": "1.0.0.6",
+  "import_result": "Success",
+  "import_start_local": "2026-10-25 15:18 America/New_York",
+  "import_end_local": "2026-10-25 15:19 America/New_York",
+  "activity_id": "f8525c54-972a-46a7-a164-d751d8994483",
+  "overwrite_customizations": false,
+  "activation_checkbox_observed": false,
+  "activation_note": "Owner had already started import. Checkbox state not observed; post-import intake Off and catalog On verified.",
+  "app_id": "abd4b93f-3abc-43f1-82ae-1cc33e1f3527",
+  "catalog_run": "08584086507609818994513589261CU31",
+  "catalog_result": "Succeeded; all three actions succeeded; 13 projects visible in app",
+  "protected_connection": "ACORN PA18 ORNL TEST ONLY",
+  "intake_status": "Off",
+  "fresh_intake_submitted": false,
+  "remaining": [
+    "App-driven intake acceptance after authorized network access works",
+    "Callback/table restoration after prvCreateEntity is available"
+  ],
+  "archive_comparison": "All workflow and connector files byte-identical between native v5 and v6.",
+  "intake_checker": {
+    "errors": 0,
+    "warnings": [
+      "This flow is off"
+    ]
+  },
+  "intake_run_history_latest": "08584086531530438165830898752CU14"
+}

@@ -1,0 +1,223 @@
+- banner:
+  - button "Skip to main content"
+  - banner:
+    - button "App launcher": 
+    - generic: Power Automate
+    - button "ORNL Personal Productivity(default)":
+      - generic: Environments
+      - generic: ORNL Personal Productivity(default)
+    - button "Settings":
+      - generic: 
+    - button "Help":
+      - generic: 
+    - button "Account manager for Wohlgemuth, Jason":
+      - generic: JW
+      - img "JW"
+    - generic: 
+- navigation "Main":
+  - button "Left navigation panel" [expanded]:
+    - img "Left navigation panel"
+  - menu:
+    - generic "Home":
+      - menuitem "Home":
+        - generic: Home
+    - generic "Create":
+      - menuitem "Create":
+        - generic: Create
+    - generic "Templates":
+      - menuitem "Templates":
+        - generic: Templates
+    - generic "Learn":
+      - menuitem "Learn":
+        - generic: Learn
+    - generic "My flows":
+      - menuitem "My flows":
+        - generic: My flows
+    - separator
+    - generic "Approvals":
+      - menuitem "Approvals, press right arrow to navigate more options":
+        - generic: Approvals
+    - generic "Solutions":
+      - menuitem "Solutions, press right arrow to navigate more options":
+        - generic: Solutions
+    - generic "Automation center":
+      - menuitem "Automation center, press right arrow to navigate more options":
+        - generic: Automation center
+    - generic "Process mining":
+      - menuitem "Process mining, press right arrow to navigate more options":
+        - generic: Process mining
+    - generic "AI hub":
+      - menuitem "AI hub, press right arrow to navigate more options":
+        - generic: AI hub
+    - generic "Connections":
+      - menuitem "Connections, press right arrow to navigate more options":
+        - generic: Connections
+    - generic "More":
+      - menuitem "More":
+        - generic: More
+    - separator
+    - generic "Power Platform":
+      - menuitem "Power Platform":
+        - generic: Power Platform
+- main:
+  - menubar:
+    - menuitem "Edit":
+      - generic: 
+      - generic: Edit
+    - menuitem "Share":
+      - generic: 
+      - generic: Share
+    - menuitem "Save As":
+      - generic: 
+      - generic: Save As
+    - menuitem "PA17 TEST ONLY Native Intake Delete":
+      - generic: 
+      - generic: Delete
+    - menuitem "Run" [disabled]:
+      - generic: 
+      - generic: Run
+    - menuitem "Send a copy":
+      - generic: 
+      - generic: Send a copy
+    - menuitem "Export":
+      - generic: 
+      - generic: Export
+      - generic: 
+    - menuitem "Analytics":
+      - generic: 
+      - generic: Analytics
+    - menuitem "Turn on":
+      - generic: 
+      - generic: Turn on
+    - menuitem "Repair tips on":
+      - generic: 
+      - generic: Repair tips on
+    - menuitem "Flow checker":
+      - generic: 
+      - generic: Flow checker
+  - region:
+    - generic: 
+    - alert:
+      - generic "Warning":
+        - text: There's a potential problem with this flow. To see more details, open
+        - generic: Flow checker
+        - text: .
+    - button "Close":
+      - generic: 
+  - navigation:
+    - list:
+      - link "Flows":
+        - /url: /environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows
+      - generic: 
+      - heading "PA17 TEST ONLY Native Intake" [level=2]
+      - generic: 
+  - heading "Details" [level=3]
+  - button "Edit description": Edit
+  - group "Flow":
+    - text: Flow
+    - generic: PA17 TEST ONLY Native Intake
+  - group "Primary owner":
+    - text: Primary owner
+    - generic: Jason Wohlgemuth
+  - group "Status":
+    - text: Status
+    - generic: "Off"
+  - group "Created":
+    - text: Created
+    - generic: Oct 25, 2026, 02:33 PM
+  - group "Modified":
+    - text: Modified
+    - generic: Oct 25, 2026, 02:33 PM
+  - group "Type":
+    - text: Type
+    - generic: Instant
+  - group "Plan":
+    - text: Plan
+    - generic: The user who runs the flow
+  - heading "28-day run history General Data Protection Regulation (GDPR) requires us to keep run logs for no longer than 28 days. To maintain a longer history you'll need to manually capture run histories before they are deleted." [level=3]:
+    - text: 28-day run history
+    - tooltip "General Data Protection Regulation (GDPR) requires us to keep run logs for no longer than 28 days. To maintain a longer history you'll need to manually capture run histories before they are deleted.":
+      - img: 
+  - button "Edit columns" [disabled]
+  - button "Refresh Flow runs":
+    - generic: 
+  - link "All runs":
+    - /url: /environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/9be4b2b3-98d0-f111-a05c-001dd8062052/runs
+  - text: Your flow hasn't been run yet. Select
+  - generic: Run
+  - text: to see it work.
+  - heading "Connection references" [level=3]
+  - button "See all"
+  - grid:
+    - row "ACORN PA18 ORNL TEST ONLY ACORN PA17 GitLab TEST ONLY ACORN PA18 ORNL TEST ONLY":
+      - gridcell "ACORN PA18 ORNL TEST ONLY":
+        - img "ACORN PA18 ORNL TEST ONLY"
+      - gridcell "ACORN PA17 GitLab TEST ONLY":
+        - 'generic "Display Name: PA18 TEST ONLY GitLab Reference. Name: new_PA18TESTONLYGitLabReference"': ACORN PA17 GitLab TEST ONLY
+      - gridcell "ACORN PA18 ORNL TEST ONLY":
+        - generic: ACORN PA18 ORNL TEST ONLY
+      - gridcell:
+        - generic: 
+    - row "o9w@ornl.gov Microsoft Teams o9w@ornl.gov":
+      - gridcell "o9w@ornl.gov":
+        - img "o9w@ornl.gov"
+      - gridcell "Microsoft Teams":
+        - 'generic "Display Name: PA17 TEST ONLY Teams Reference. Name: new_PA17TESTONLYTeamsReference"': Microsoft Teams
+      - gridcell "o9w@ornl.gov":
+        - generic: o9w@ornl.gov
+      - gridcell:
+        - generic: 
+  - heading "Co-owner" [level=3]
+  - button "Set primary owner"
+  - link "Share, Add another co-owner":
+    - /url: /environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/9be4b2b3-98d0-f111-a05c-001dd8062052/owners
+    - text: Share
+  - list "Flow owners":
+    - generic "Wohlgemuth, Jason":
+      - generic: WJ
+      - generic: Wohlgemuth, Jason
+  - heading "Flow runs error trends (last 7 days)" [level=3]
+  - link "Go to Automation center":
+    - /url: /environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/monitor/automations/overview?filterDateFrom=2026-10-18T18%3A38%3A00.000Z
+  - paragraph: No data available for the last 7 days.
+  - link "Learn more about flow run history in Dataverse":
+    - /url: https://go.microsoft.com/fwlink/?linkid=2281117
+    - generic: Learn more
+  - heading "Solutions This flow is referenced in the following solutions" [level=3]:
+    - text: Solutions
+    - generic "This flow is referenced in the following solutions":
+      - img: 
+  - grid:
+    - row "Solution Name Managed":
+      - columnheader "Solution Name":
+        - generic: Solution Name
+      - columnheader "Managed":
+        - generic: Managed
+    - row "ACORN PA17 Restore Readiness Test No":
+      - rowheader "ACORN PA17 Restore Readiness Test":
+        - link "ACORN PA17 Restore Readiness Test":
+          - /url: /environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/solutions/ffb8de5b-17d0-f111-a05c-001dd806277c
+      - gridcell "No":
+        - generic: "No"
+  - heading "Process mining (preview) Find out what actions in your flow are executing the most and what actions are taking the most time to gain insights to improve your flow. The insights are generated based on your flow runs in the last 28 days." [level=3]:
+    - text: Process mining (preview)
+    - tooltip "Find out what actions in your flow are executing the most and what actions are taking the most time to gain insights to improve your flow. The insights are generated based on your flow runs in the last 28 days.":
+      - img: 
+  - button "Improve your flow" [disabled]:
+    - generic: 
+    - generic: Improve your flow
+  - img "Improve your flow with process mining"
+  - heading "Improve your flow with process mining" [level=2]
+  - heading "Import your flow's run history to create a process map, then learn how to make your flow even better with automated suggestions." [level=3]
+  - heading "Run-only user" [level=3]
+  - button "Edit, Add another user": Edit
+  - generic: Your flow hasn't been shared with anyone.
+  - heading "Associated apps and flows Adding apps or flows here helps you see which apps and flows are using this flow." [level=3]:
+    - text: Associated apps and flows
+    - button "Adding apps or flows here helps you see which apps and flows are using this flow.":
+      - generic: 
+  - link "Edit":
+    - /url: /environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/9be4b2b3-98d0-f111-a05c-001dd8062052/associatedApps
+  - text: You don’t have any apps associated with this flow.
+  - link "Learn more":
+    - /url: https://go.microsoft.com/fwlink/?linkid=2247633

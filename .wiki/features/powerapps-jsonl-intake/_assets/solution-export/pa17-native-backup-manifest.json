@@ -1,0 +1,89 @@
+{
+  "observed_date": "2026-10-25",
+  "complete_restore_accepted": false,
+  "limitations": [
+    "Native isolated canvas app v1.0.0.6 imported successfully in ORNL. Published Jason and restored ORNL apps both list 13 projects. App-driven intake acceptance remains pending.",
+    "ORNL callback/table import failed: account lacks prvCreateEntity. Schema validation passed; components and activation were Unprocessed; runtime remains untested.",
+    "Jason manual intake write/replay and ORNL restored manual replay/conflict passed. Fresh ORNL commit was denied by network-range HTTP 403; both test intakes remain Off. App-driven write acceptance remains pending.",
+    "Credentials and table rows are not included in solution exports.",
+    "Original callback backup retains operational identities; never import it over the operational environment for isolation testing."
+  ],
+  "native_packages": [
+    {
+      "file": "ACORNPA17CallbackBackup_1_0_0_1.zip",
+      "sha256": "118c9984b423e80db61e43c0cb151aa0e553493f221bde7756417a3a42665a06",
+      "bytes": 13743,
+      "unique_name": "ACORNPA17CallbackBackup",
+      "version": "1.0.0.1",
+      "missing_dependencies": 0,
+      "workflows": [
+        "Workflows/ACORNCallbackReceiptValidation-E0616B3F-F5CF-F111-A05C-001DD8062052.json"
+      ]
+    },
+    {
+      "file": "ACORNPA17CallbackRestoreTest_1_0_0_1.zip",
+      "sha256": "93c75c2fce0cdc100da6927c775bb5606e2689aedaaf09ec1204a2fd57d1b489",
+      "bytes": 13630,
+      "unique_name": "ACORNPA17CallbackRestoreTest",
+      "version": "1.0.0.1",
+      "missing_dependencies": 0,
+      "workflows": [
+        "Workflows/PA17TESTONLYNativeCallback-3AB08CA2-9CD0-F111-A05C-001DD8062052.json"
+      ]
+    },
+    {
+      "file": "ACORNPA17RestoreReadinessTest_1_0_0_6.zip",
+      "sha256": "8c318a1f537ed3250932fa77b897dc80aff0a96ff49e4e64bc4997119d079063",
+      "bytes": 121925,
+      "unique_name": "ACORNPA17RestoreReadinessTest",
+      "version": "1.0.0.6",
+      "missing_dependencies": 0,
+      "workflows": [
+        "Workflows/PA17TESTONLYNativeCatalog-3CB20A10-95D0-F111-A05C-001DD8062052.json",
+        "Workflows/PA17TESTONLYNativeIntake-9BE4B2B3-98D0-F111-A05C-001DD8062052.json"
+      ],
+      "canvas_apps": [
+        "CanvasApps/new_pa17testonlysponsorhighlights_e01a0_DocumentUri.msapp"
+      ]
+    }
+  ],
+  "native_operational_app_backup": {
+    "file": "SponsorHighlightsNativeBackup20261025_20261025185256.zip",
+    "sha256": "656cf0b614527875cecad5aa436ba5c4ac28e9eed5e9e31a70571b7667c7930c",
+    "bytes": 112188,
+    "scope": "Native legacy canvas package with both dependent operational flow definitions/references. Not a full solution; not an isolated test input.",
+    "warning": "Retains operational routes, aliases, storage key and notification behavior. Never import over operational components for acceptance testing."
+  },
+  "target_v6_restore": {
+    "observed_date": "2026-10-25",
+    "environment": "Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e",
+    "solution": "ACORNPA17RestoreReadinessTest",
+    "version": "1.0.0.6",
+    "import_result": "Success",
+    "import_start_local": "2026-10-25 15:18 America/New_York",
+    "import_end_local": "2026-10-25 15:19 America/New_York",
+    "activity_id": "f8525c54-972a-46a7-a164-d751d8994483",
+    "overwrite_customizations": false,
+    "activation_checkbox_observed": false,
+    "activation_note": "Owner had already started import. Checkbox state not observed; post-import intake Off and catalog On verified.",
+    "app_id": "abd4b93f-3abc-43f1-82ae-1cc33e1f3527",
+    "catalog_run": "08584086507609818994513589261CU31",
+    "catalog_result": "Succeeded; all three actions succeeded; 13 projects visible in app",
+    "protected_connection": "ACORN PA18 ORNL TEST ONLY",
+    "intake_status": "Off",
+    "fresh_intake_submitted": false,
+    "remaining": [
+      "App-driven intake acceptance after authorized network access works",
+      "Callback/table restoration after prvCreateEntity is available"
+    ],
+    "archive_comparison": "All workflow and connector files byte-identical between native v5 and v6.",
+    "intake_checker": {
+      "errors": 0,
+      "warnings": [
+        "This flow is off"
+      ]
+    },
+    "intake_run_history_latest": "08584086531530438165830898752CU14"
+  },
+  "inventory_note": "Current retained packages only. Superseded exports and unsupported derivative packages were removed during October 25 asset cleanup; historical outcomes remain in restore-target-readiness.md."
+}

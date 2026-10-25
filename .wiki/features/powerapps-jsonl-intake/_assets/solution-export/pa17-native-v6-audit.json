@@ -1,0 +1,58 @@
+{
+  "observed_date": "2026-10-25",
+  "package": {
+    "file": "ACORNPA17RestoreReadinessTest_1_0_0_6.zip",
+    "sha256": "8c318a1f537ed3250932fa77b897dc80aff0a96ff49e4e64bc4997119d079063",
+    "bytes": 121925,
+    "unique_name": "ACORNPA17RestoreReadinessTest",
+    "version": "1.0.0.6",
+    "missing_dependencies": 0,
+    "workflows": [
+      "Workflows/PA17TESTONLYNativeCatalog-3CB20A10-95D0-F111-A05C-001DD8062052.json",
+      "Workflows/PA17TESTONLYNativeIntake-9BE4B2B3-98D0-F111-A05C-001DD8062052.json"
+    ],
+    "canvas_apps": [
+      "CanvasApps/new_pa17testonlysponsorhighlights_e01a0_DocumentUri.msapp"
+    ]
+  },
+  "checks": {
+    "zip_integrity": true,
+    "embedded_app_integrity": true,
+    "missing_dependencies": 0,
+    "pending_slot_occurrences_in_source": 4,
+    "original_storage_key_in_source": false,
+    "operational_ids_or_inbox_in_text": [],
+    "credential_pattern_matches": [],
+    "notification_guard": {
+      "and": [
+        {
+          "equals": [
+            false,
+            true
+          ]
+        },
+        {
+          "equals": [
+            "@actions('Queued_new_PA17v2')?['status']",
+            "Succeeded"
+          ]
+        }
+      ]
+    },
+    "app_flow_references": [
+      {
+        "alias": "PA17TESTONLYNativeIntake",
+        "workflow_entity_id": "9be4b2b3-98d0-f111-a05c-001dd8062052"
+      },
+      {
+        "alias": "PA17TESTONLYNativeCatalog",
+        "workflow_entity_id": "3cb20a10-95d0-f111-a05c-001dd8062052"
+      }
+    ]
+  },
+  "scan_limit": "Pattern-based inspection of exported text; not proof against every possible secret encoding. Native ZIP bytes unchanged.",
+  "jason_app_id": "b4336414-edfb-4aae-b4e3-d8b994c19b65",
+  "source_app_catalog_projects": 13,
+  "source_intake_final_status": "Off",
+  "ornl_v6_import": "awaiting owner upload"
+}

@@ -1,0 +1,40 @@
+{
+  "environment": "221f44a6-1468-ea4e-b93d-cd52f1723079",
+  "flow_workflow_id": "9be4b2b3-98d0-f111-a05c-001dd8062052",
+  "flow_runtime_alias": "a679a492-e3fd-119c-0734-44c5b8fc61b4",
+  "submission_id": "983545be-9d86-4d9c-8e67-3cd667a74a7d",
+  "first_run": "08584086552539263000712925851CU18",
+  "commit": "bd5888fa7a1f4b555414384819173bc6409ab70d",
+  "parent": "03ff5836289447034f40f2a4898c155441e6cb66",
+  "file": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+  "files_changed": 1,
+  "lines_added": 1,
+  "lines_removed": 0,
+  "bytes": 457,
+  "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+  "exact_frozen_submission_plus_lf": true,
+  "queued_new": "Succeeded",
+  "commit_append": "Succeeded",
+  "teams_notice": "Skipped",
+  "app_driven": false,
+  "replay": {
+    "runId": "08584086551895520151909856703CU06",
+    "queuedReplay": "Succeeded",
+    "commitAppend": "Skipped",
+    "teamsNotice": "Skipped",
+    "sameFileBytes": true,
+    "unchangedCommit": "bd5888fa7a1f4b555414384819173bc6409ab70d"
+  },
+  "deniedConflictAttempt": {
+    "runId": "08584086551396206729261127404CU24",
+    "date": "2026-10-25T18:09:05Z",
+    "httpStatus": 403,
+    "message": "Access from your IP address is currently restricted due to security controls applied to your network range.",
+    "actionTrackingId": "f7c38202-f69f-4e5c-b625-1eb9c38260fd",
+    "persistence": "Skipped",
+    "unresolvedResponse": "Succeeded",
+    "teamsNotice": "Skipped",
+    "sameFileBytes": true,
+    "identityConflictTestAccepted": false
+  }
+}

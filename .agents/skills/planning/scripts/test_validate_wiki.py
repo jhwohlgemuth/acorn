@@ -156,6 +156,10 @@ class ValidatorTests(unittest.TestCase):
     def test_valid_repository_passes(self) -> None:
         self.assertEqual(validate_repository(self._repository()), [])
 
+    def test_waiting_on_validation_phase_passes(self) -> None:
+        root = self._repository(PLAN.replace("Status: ready", "Status: waiting-on-validation"))
+        self.assertEqual(validate_repository(root), [])
+
     def test_zero_budget_is_rejected(self) -> None:
         root = self._repository(PLAN.replace("5 active hours maximum", "0 active hours maximum"))
         self.assertTrue(any("budget must be positive" in error for error in validate_repository(root)))

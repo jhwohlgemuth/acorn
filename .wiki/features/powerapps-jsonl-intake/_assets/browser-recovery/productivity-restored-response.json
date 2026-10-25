@@ -1,0 +1,47 @@
+{
+  "type": "Response",
+  "kind": "PowerApp",
+  "inputs": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "commitsha": {
+          "title": "commitSha",
+          "x-ms-dynamically-added": true,
+          "type": "string"
+        },
+        "disposition": {
+          "title": "disposition",
+          "x-ms-dynamically-added": true,
+          "type": "string"
+        },
+        "message": {
+          "title": "message",
+          "x-ms-dynamically-added": true,
+          "type": "string"
+        },
+        "submissionid": {
+          "title": "submissionId",
+          "x-ms-dynamically-added": true,
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "statusCode": 200,
+    "body": {
+      "submissionid": "@json(triggerBody()?['text'])?['submissionId']",
+      "commitsha": "0000000000000000000000000000000000000000",
+      "disposition": "@if(contains(triggerBody()?['text'], '[conflict]'), 'conflict', if(contains(triggerBody()?['text'], '[rejected]'), 'rejected', if(contains(triggerBody()?['text'], '[unresolved]'), 'unresolved', 'queued')))",
+      "message": "TEST ONLY simulated response. No GitLab write or notification occurred."
+    }
+  },
+  "runAfter": {},
+  "runtimeConfiguration": {
+    "secureData": {
+      "properties": [
+        "inputs"
+      ]
+    }
+  }
+}

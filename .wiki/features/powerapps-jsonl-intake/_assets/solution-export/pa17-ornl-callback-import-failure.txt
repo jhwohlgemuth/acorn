@@ -1,0 +1,8 @@
+- region:
+  - generic: 
+  - alert:
+    - generic: "Solution \"ACORN PA17 Callback Restore Test\" failed to import: SecLib::CheckPrivilege failed. User: 8a18be4c-ed8d-ed11-81ad-001dd80715ac, PrivilegeName: prvCreateEntity, PrivilegeId: 341e3ebf-74b8-4335-84f3-7f617bb7d081, Required Depth: Basic, BusinessUnitId: bdd904ac-4db8-ea11-a812-001dd8309200, MetadataCache Privileges Count: 6990, User Privileges Count: 1932"
+    - button "Download log":
+      - generic: Download log
+  - button:
+    - generic: 

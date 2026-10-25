@@ -1,0 +1,250 @@
+- banner:
+  - button "Skip to main content"
+  - banner:
+    - button "App launcher": 
+    - generic: Power Automate
+    - button "Wohlgemuth, Jason":
+      - generic: Environments
+      - generic: Wohlgemuth, Jason
+    - button "Settings":
+      - generic: 
+    - button "Help":
+      - generic: 
+    - button "Account manager for Wohlgemuth, Jason":
+      - generic: JW
+      - img "JW"
+    - generic: 
+- main:
+  - button "Go back to previous page":
+    - generic: 
+  - heading "The flow name is PA17 TEST ONLY Native Callback." [level=1]:
+    - generic "The flow name is PA17 TEST ONLY Native Callback.":
+      - generic: PA17 TEST ONLY Native Callback
+  - toolbar:
+    - separator
+    - button "Resubmit":
+      - generic: 
+      - generic: Resubmit
+    - button "Cancel" [disabled]:
+      - generic: 
+      - generic: Cancel
+    - button "Copilot":
+      - generic: Copilot
+    - button "Edit":
+      - generic: 
+      - generic: Edit
+    - separator
+    - switch "New view" [checked]
+    - generic: New view
+  - generic: "Flow run failed. Action 'Claim_receipt_PA17' failed: Entity Key Unique Webhook ID violated. A record with the same value for Webhook ID already exists. A duplicate record cannot be created. Select one or more unique values and try again."
+  - button "Dismiss":
+  - application "Workflow canvas":
+    - group "Manually trigger a flow":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Manually trigger a flow operation, Manually trigger a flow connector":
+        - generic: Manually trigger a flow
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - generic "Process notification PA17":
+      - status "0.6 seconds. Cancelled":
+        - generic: 0.6s
+      - button "Process notification PA17 operation":
+        - generic: Process notification PA17
+        - alert:
+          - generic: Terminated
+      - button "Collapse Process notification PA17" [expanded]:
+    - generic "Validate and claim receipt PA17":
+      - status "0.2 seconds. Failed":
+        - generic: 0.2s
+      - button "Validate and claim receipt PA17 operation":
+        - generic: Validate and claim receipt PA17
+        - alert:
+          - generic: ActionFailed. An action failed. No dependent actions succeeded.
+      - button "Collapse Validate and claim receipt PA17" [expanded]:
+    - group "Validate delivery PA17":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Validate delivery PA17 operation, Data Operations connector":
+        - generic: Validate delivery PA17
+    - group "Validate event PA17":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Validate event PA17 operation, Data Operations connector":
+        - generic: Validate event PA17
+    - group "Claim receipt PA17":
+      - status "0.2 seconds. Failed":
+        - generic: 0.2s
+      - button "Claim receipt PA17 operation, Microsoft Dataverse connector":
+        - generic: Claim receipt PA17
+        - alert:
+          - generic: PreconditionFailed
+      - generic "new_PA17TESTONLYDataverseReference":
+        - 'img "Connection name: new_PA17TESTONLYDataverseReference"': 
+    - generic "Deliver receipt once PA17":
+      - status "0.4 seconds. Cancelled":
+        - generic: 0.4s
+      - button "Deliver receipt once PA17 operation":
+        - generic: Deliver receipt once PA17
+        - alert:
+          - generic: Terminated
+      - button "Collapse Deliver receipt once PA17" [expanded]:
+    - generic "Valid event only PA17":
+      - status "0.3 seconds. Cancelled":
+        - generic: 0.3s
+      - button "Valid event only PA17 operation":
+        - generic: Valid event only PA17
+        - alert:
+          - generic: Terminated
+      - button "Collapse Valid event only PA17" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - group "Find receipt PA17":
+      - status "0.1 seconds. Succeeded":
+        - generic: 0.1s
+      - button "Find receipt PA17 operation, Microsoft Dataverse connector":
+        - generic: Find receipt PA17
+      - generic "new_PA17TESTONLYDataverseReference":
+        - 'img "Connection name: new_PA17TESTONLYDataverseReference"': 
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - generic "One receipt PA17":
+      - status "0.2 seconds. Cancelled":
+        - generic: 0.2s
+      - button "One receipt PA17 operation":
+        - generic: One receipt PA17
+        - alert:
+          - generic: Terminated
+      - button "Collapse One receipt PA17" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - generic "Same payload PA17":
+      - status "0.1 seconds. Cancelled":
+        - generic: 0.1s
+      - button "Same payload PA17 operation":
+        - generic: Same payload PA17
+        - alert:
+          - generic: Terminated
+      - button "Collapse Same payload PA17" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - generic "Pending email PA17":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Pending email PA17 operation":
+        - generic: Pending email PA17
+      - button "Collapse Pending email PA17" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - group "Mark sending PA17":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Mark sending PA17 operation, Microsoft Dataverse connector":
+        - generic: Mark sending PA17
+      - generic "new_PA17TESTONLYDataverseReference":
+        - 'img "Connection name: new_PA17TESTONLYDataverseReference"': 
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - generic "Deliver by frozen destination PA17":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Deliver by frozen destination PA17 operation":
+        - generic: Deliver by frozen destination PA17
+      - button "Collapse Deliver by frozen destination PA17" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - group "Send Teams once PA17":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Send Teams once PA17 operation, Microsoft Teams connector":
+        - generic: Send Teams once PA17
+      - generic "PA17 TEST ONLY Teams Reference":
+        - 'img "Connection name: PA17 TEST ONLY Teams Reference"': 
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - group "Send email once PA17":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Send email once PA17 operation, Office 365 Outlook connector":
+        - generic: Send email once PA17
+      - generic "new_PA17TESTONLYOutlookReference":
+        - 'img "Connection name: new_PA17TESTONLYOutlookReference"': 
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "Mark sent PA17":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Mark sent PA17 operation, Microsoft Dataverse connector":
+        - generic: Mark sent PA17
+      - generic "new_PA17TESTONLYDataverseReference":
+        - 'img "Connection name: new_PA17TESTONLYDataverseReference"': 
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - generic "Already sent PA17":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Already sent PA17 operation":
+        - generic: Already sent PA17
+      - button "Collapse Already sent PA17" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - group "Duplicate no send PA17":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Duplicate no send PA17 operation, Data Operation connector":
+        - generic: Duplicate no send PA17
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - group "Reconcile email PA17":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Reconcile email PA17 operation, Control connector":
+        - generic: Reconcile email PA17
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - group "Payload conflict PA17":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Payload conflict PA17 operation, Control connector":
+        - generic: Payload conflict PA17
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - group "Receipt unresolved PA17":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Receipt unresolved PA17 operation, Control connector":
+        - generic: Receipt unresolved PA17
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - group "Reject invalid PA17":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Reject invalid PA17 operation, Control connector":
+        - generic: Reject invalid PA17
+    - generic "Control Panel":
+      - button "Collapse all action groups":
+      - button "Zoom in":
+      - button "Zoom out":
+      - button "Zoom view to fit" [active]:
+      - button "Toggle minimap":
+      - button "Search workflow actions":
+    - status:
+      - generic: "Zoom level: 100 percent"
+  - dialog "Operation details panel":
+    - button "Collapse":

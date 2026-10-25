@@ -1,0 +1,37 @@
+MAN-06 validation — 2026-10-25
+Source review: d4799a11. No Rust/product code changed.
+Offline handback rehearsal: 11 checks passed.
+Final fixture Git bundle restored in a second checkout; all original/current/reconciled source and canonical hashes verified.
+Wiki validator and git diff --check passed.
+
+Focused command:
+cargo nextest run --package acorn-lib --features agentic --lib -E 'test(io::api::powerautomate::tests::jsonl) | test(test_jsonl_cleanup_)'
+
+The sandbox initially denied local mock-server binds. The same tests passed outside the sandbox; no ORNL/GitLab/Power Platform endpoint was used.
+The initial analysis-only configuration selected zero tests and is not counted as validation.
+A broader agentic-only package build exposed an existing optional-dependency problem: unresolved tempfile in io/mcp/tools/native/analysis.rs, with cascading PathBuf sizing diagnostics. This unrelated product issue was not changed; the focused --lib test target compiled and passed.
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.34s
+────────────
+ Nextest run ID 8652a991-39ee-4561-8831-a3a9bdbb8782 with nextest profile: default
+    Starting 18 tests across 1 binary (1140 tests skipped)
+        PASS [   0.058s] ( 1/18) acorn-lib io::api::powerautomate::tests::jsonl::test_local_and_unsafe_destinations_are_rejected_without_package_reads
+        PASS [   0.020s] ( 2/18) acorn-lib io::api::powerautomate::tests::jsonl::test_source_identity_uses_existing_endpoint_scheme_and_removes_credentials
+        PASS [   0.030s] ( 3/18) acorn-lib io::api::powerautomate::tests::jsonl::test_unauthorized_submission_is_rejected_before_external_reads
+        PASS [   0.277s] ( 4/18) acorn-lib io::api::powerautomate::tests::jsonl::test_infrastructure_failure_does_not_become_a_permanent_rejection
+        PASS [   0.278s] ( 5/18) acorn-lib io::api::gitlab::tests::bot::test_jsonl_cleanup_reconciles_ambiguous_success_without_duplicate_work
+        PASS [   0.279s] ( 6/18) acorn-lib io::api::gitlab::tests::bot::test_jsonl_cleanup_reconciles_another_bots_removal
+        PASS [   0.280s] ( 7/18) acorn-lib io::api::gitlab::tests::bot::test_jsonl_cleanup_preserves_append_racing_with_removal
+        PASS [   0.282s] ( 8/18) acorn-lib io::api::powerautomate::tests::jsonl::test_rejected_records_do_not_block_valid_projects_or_reserve_ids
+        PASS [   0.285s] ( 9/18) acorn-lib io::api::powerautomate::tests::jsonl::test_admission_preserves_shared_entry_fields_and_notification
+        PASS [   0.288s] (10/18) acorn-lib io::api::powerautomate::tests::jsonl::test_cutoff_rejection_is_inspectable_and_not_queued
+        PASS [   0.290s] (11/18) acorn-lib io::api::powerautomate::tests::jsonl::test_legacy_operation_collision_stays_visible_without_overwrite
+        PASS [   0.291s] (12/18) acorn-lib io::api::powerautomate::tests::jsonl::test_restart_replay_uses_original_route_and_rejects_changed_bytes
+        PASS [   0.292s] (13/18) acorn-lib io::api::powerautomate::tests::jsonl::test_mixed_selector_rejections_leave_valid_project_queued
+        PASS [   0.293s] (14/18) acorn-lib io::api::powerautomate::tests::jsonl::test_mixed_fixture_admits_only_its_canonical_routes
+        PASS [   0.292s] (15/18) acorn-lib io::api::powerautomate::tests::jsonl::test_bucket_identity_survives_reordering_and_rejects_wrong_collection
+        PASS [   0.293s] (16/18) acorn-lib io::api::powerautomate::tests::jsonl::test_admission_failure_rolls_back_queue_and_evidence
+        PASS [   0.293s] (17/18) acorn-lib io::api::powerautomate::tests::jsonl::test_admission_canonicalizes_alias_and_retains_exact_evidence
+        PASS [   0.295s] (18/18) acorn-lib io::api::gitlab::tests::bot::test_jsonl_cleanup_preserves_rejections_blank_lines_and_unicode_bytes
+────────────
+     Summary [   0.295s] 18 tests run: 18 passed, 1140 skipped

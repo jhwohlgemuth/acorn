@@ -1,0 +1,39 @@
+{
+  "observed_date": "2026-10-25",
+  "environment": "Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e",
+  "flow": "9be4b2b3-98d0-f111-a05c-001dd8062052",
+  "package_version": "1.0.0.5",
+  "import_result": "Success",
+  "final_flow_status": "Off",
+  "tests": [
+    {
+      "case": "exact replay of Jason fixture",
+      "run": "08584086532554165170447843195CU19",
+      "result": "queued replay; commit and Teams skipped"
+    },
+    {
+      "case": "same ID changed summary",
+      "run": "08584086532144607697385592776CU20",
+      "result": "identity conflict; commit and Teams skipped"
+    },
+    {
+      "case": "fresh ORNL submission",
+      "submission_id": "56b9eacc-9854-4a19-9d6c-8beb8c157077",
+      "run": "08584086531530438165830898752CU14",
+      "result": "commit denied with explicit network-range 403; unresolved response; Teams skipped",
+      "response_date_utc": "2026-10-25T18:42:13Z",
+      "action_tracking_id": "d38bf387-a801-4cf6-823d-fdc4763103f1"
+    }
+  ],
+  "file": {
+    "path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    "commit": "bd5888fa7a1f4b555414384819173bc6409ab70d",
+    "bytes": 457,
+    "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+    "after_denial_unchanged": true,
+    "observation": "Browser code-element text, including trailing LF; file page reloaded after denial."
+  },
+  "calling_app_accepted": false,
+  "operational_components_changed": false,
+  "notifications_sent": false
+}

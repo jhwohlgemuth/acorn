@@ -1,0 +1,29 @@
+{
+  "file": "SponsorHighlightsNativeBackup20261025_20261025185256.zip",
+  "bytes": 112188,
+  "sha256": "656cf0b614527875cecad5aa436ba5c4ac28e9eed5e9e31a70571b7667c7930c",
+  "format": "native Power Apps export package",
+  "canvas_files": [
+    "Microsoft.PowerApps/apps/15135369805652798408/N2661efef-f6d1-47cc-9042-7d72f588d6db-document.msapp"
+  ],
+  "flow_files": [
+    "Microsoft.Flow/flows/b5ed1337-d5f6-4f21-b285-707d98b8a7a0/definition.json",
+    "Microsoft.Flow/flows/de625d00-3fac-48a9-84af-e92fa0f9ab02/definition.json"
+  ],
+  "native_create_new_defaults": [
+    "Sponsor Highlights",
+    "ACORN Project Catalog",
+    "ACORN Logbook GitLab JSONL Intake (Draft)"
+  ],
+  "operational_source_markers_preserved": [
+    "SponsorHighlightPending",
+    "ACORNProjectCatalog.Run",
+    "'ACORNLogbookGitLabJSONLIntake(Draft)'.Run"
+  ],
+  "credential_pattern_scan": {
+    "gitlab_token_value": 0,
+    "bearer_value": 0
+  },
+  "isolated_test_input": false,
+  "restore_accepted": false
+}

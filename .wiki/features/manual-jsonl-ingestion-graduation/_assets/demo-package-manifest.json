@@ -63,6 +63,11 @@
       "bytes": 1361
     },
     {
+      "path": "manual-jsonl-ingestion-graduation/_assets/build-demo-pdf.py",
+      "sha256": "4e276e5c324f73dead49433b0bf724509633d002fc11d916a531f730577822cd",
+      "bytes": 9133
+    },
+    {
       "path": "manual-jsonl-ingestion-graduation/_assets/candidates.json",
       "sha256": "a8bb21ee4469086a980f367f3a544088eb95ef524747bb0f9bb5da114ad849e7",
       "bytes": 1050
@@ -94,8 +99,8 @@
     },
     {
       "path": "manual-jsonl-ingestion-graduation/_assets/demo-walkthrough.pdf",
-      "sha256": "09978acb567fb22733c3147153955918175aaf8d4fb212075c0d99eda2f526bc",
-      "bytes": 711667
+      "sha256": "e0a32deaa16d647dd6b42c5a03b77be17e10fbea28239c9931874d1ec7f433eb",
+      "bytes": 866814
     },
     {
       "path": "manual-jsonl-ingestion-graduation/_assets/form-prepared.png",
@@ -143,6 +148,21 @@
       "bytes": 710
     },
     {
+      "path": "manual-jsonl-ingestion-graduation/_assets/handback-evidence.json",
+      "sha256": "91252dc795ab290a1b2f2ba4b7946aa12998f6a2f21fd9fd0709c3f9deb5e277",
+      "bytes": 4531
+    },
+    {
+      "path": "manual-jsonl-ingestion-graduation/_assets/handback-rehearsal.zip",
+      "sha256": "24b7a23853a5e58771592676e2ef8ee1f4fe666bf906e87793f7012c5d3fdd42",
+      "bytes": 15325
+    },
+    {
+      "path": "manual-jsonl-ingestion-graduation/_assets/handback-validation.txt",
+      "sha256": "144a64456f75267d25307f4302059e63df940cb91c634e59a242d450b58ec1d0",
+      "bytes": 3885
+    },
+    {
       "path": "manual-jsonl-ingestion-graduation/_assets/inbox-snapshot.jsonl",
       "sha256": "76f0e36f637b5611cca8aa6c69ce5db13be00a0b5e17b2dbfe71c20a38177384",
       "bytes": 3378
@@ -171,6 +191,11 @@
       "path": "manual-jsonl-ingestion-graduation/_assets/rehearsal-transcript.txt",
       "sha256": "523074da37aa7fc822e1232160b5d7e39e393a07fa27f02daa702938aa661d8c",
       "bytes": 3916
+    },
+    {
+      "path": "manual-jsonl-ingestion-graduation/_assets/rehearse-handback.py",
+      "sha256": "51c54fccfcc84fbd8e7b16918d1ce7b58f70113059fe6e2f29b6e16951420251",
+      "bytes": 10436
     },
     {
       "path": "manual-jsonl-ingestion-graduation/_assets/rehearse.py",
@@ -229,13 +254,18 @@
     },
     {
       "path": "manual-jsonl-ingestion-graduation/demo-bundle-readme.md",
-      "sha256": "48bd9710c98b23e262c56e8820b0d9abf0507768b2f386cb4e76e54851239b16",
-      "bytes": 920
+      "sha256": "a37b525f7feb1a3b9ba72431d16b7f03fafbed7ecea74153915b0b8e605c2e01",
+      "bytes": 1073
+    },
+    {
+      "path": "manual-jsonl-ingestion-graduation/handback.md",
+      "sha256": "1a537e26debd7c107cb0ffa89cdcd611977d0822c4f5c9aa5c84538dcb661c57",
+      "bytes": 9993
     },
     {
       "path": "manual-jsonl-ingestion-graduation/walkthrough.md",
-      "sha256": "221b8ea55dda6ddb2d5eb0e7b897e1bd0afcdec5c50abf288843ab3700edf78f",
-      "bytes": 10484
+      "sha256": "3dd4da01fbc2f3577789befecad7d3610ebabaad92e3cb59252320159ffab74c",
+      "bytes": 10750
     },
     {
       "path": "powerapps-jsonl-intake/_assets/failure-tests/failure-commit-and-skips.png",
@@ -444,5 +474,6 @@
     }
   ],
   "pathBase": "../..",
-  "layout": "Plan folders; archive paths are relative to .wiki/features/"
+  "layout": "Plan folders; archive paths are relative to .wiki/features/",
+  "updatedDate": "2026-10-25"
 }

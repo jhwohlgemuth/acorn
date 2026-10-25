@@ -1,0 +1,21 @@
+{
+  "entry": {
+    "archived": false,
+    "category": "software",
+    "eventType": null,
+    "global": false,
+    "items": [
+      "Synthetic PA17 restoration acceptance; exclude from sponsor reports."
+    ],
+    "origin": "manual",
+    "state": "completed",
+    "summary": "TEST ONLY — PA17 ORNL restored intake acceptance",
+    "timestamp": "2026-10-25T18:41:21.534Z"
+  },
+  "projectId": "acorn",
+  "submissionId": "56b9eacc-9854-4a19-9d6c-8beb8c157077",
+  "submittedAt": "2026-10-25T18:41:21.537Z",
+  "submitter": {
+    "email": "o9w@ornl.gov"
+  }
+}

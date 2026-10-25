@@ -1,0 +1,537 @@
+- banner:
+  - button: Skip to main content
+  - banner:
+    - button: 
+    - generic: Power Automate
+    - button:
+      - generic: Environments
+      - generic: ORNL Personal Productivity(default)
+    - button:
+      - generic: 
+    - button:
+      - generic: 
+    - button:
+      - generic: JW
+    - text: 
+- main:
+  - button:
+    - generic: 
+  - heading [level=1]:
+    - generic: PA17 TEST ONLY Native Intake
+  - toolbar:
+    - button:
+      - generic: 
+      - generic: Resubmit
+    - button [disabled]:
+      - generic: 
+      - generic: Cancel
+    - button:
+      - generic: Copilot
+    - button:
+      - generic: 
+      - generic: Edit
+    - switch [checked]
+    - generic: New view
+  - generic: Your flow ran successfully.
+  - button:
+  - application:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: When Power Apps calls a flow (V2)
+    - img: 
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Submission ID
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Submitted At
+    - status:
+      - generic: 0.2s
+    - button:
+      - generic: Verify access to main
+    - img: 
+    - status:
+      - generic: 1s
+    - button:
+      - generic: Persist submission v3 PA17v2
+      - alert:
+        - generic: ActionFailed. An action failed. No dependent actions succeeded.
+    - button [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Raw submission PA17v2
+    - img: 
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Parse submission PA17v2
+    - img: 
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Check timestamps PA17v2
+    - img: 
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Blank details PA17v2
+    - img: 
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Caller email PA17v2
+    - img: 
+    - status:
+      - generic: 1s
+    - button:
+      - generic: Envelope allowed PA17v2
+      - alert:
+        - generic: ActionFailed. An action failed. No dependent actions succeeded.
+    - button [expanded]:
+    - button [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Commit marker PA17v2
+    - img: 
+    - status:
+      - generic: 0.2s
+    - button:
+      - generic: List submission history PA17v2
+    - img: 
+    - img: 
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Matching commits PA17v2
+    - img: 
+    - status:
+      - generic: 1s
+    - button:
+      - generic: Prior submission exists PA17v2
+      - alert:
+        - generic: ActionFailed. An action failed. No dependent actions succeeded.
+    - button [expanded]:
+    - button [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Prior commit PA17v2
+    - img: 
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Prior snapshot PA17v2
+    - img: 
+    - img: 
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Parent snapshot PA17v2
+    - img: 
+    - img: 
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Parent readable PA17v2
+    - button [expanded]:
+    - button [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Expected prior bytes PA17v2
+    - img: 
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Exact prior append PA17v2
+    - button [expanded]:
+    - button [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Queued replay PA17v2
+    - img: 
+    - button [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Identity conflict PA17v2
+    - img: 
+    - button [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Unresolved parent PA17v2
+    - img: 
+    - button [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0.9s
+    - button:
+      - generic: History exhausted PA17v2
+      - alert:
+        - generic: ActionFailed. An action failed. No dependent actions succeeded.
+    - button [expanded]:
+    - button [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0.4s
+    - button:
+      - generic: Load project catalog PA17v2
+    - img: 
+    - img: 
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Selected catalog project PA17v2
+    - img: 
+    - status:
+      - generic: 0.1s
+    - button:
+      - generic: Read current PA17v2
+    - img: 
+    - img: 
+    - status:
+      - generic: 0.3s
+    - button:
+      - generic: Readable inbox PA17v2
+      - alert:
+        - generic: ActionFailed. An action failed. No dependent actions succeeded.
+    - button [expanded]:
+    - button [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Existing bytes PA17v2
+    - img: 
+    - status:
+      - generic: 0.2s
+    - button:
+      - generic: Safe tail PA17v2
+      - alert:
+        - generic: ActionFailed. An action failed. No dependent actions succeeded.
+    - button [expanded]:
+    - button [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: New bytes PA17v2
+    - img: 
+    - status:
+      - generic: 0.1s
+    - button:
+      - generic: Inbox size limit PA17v2
+      - alert:
+        - generic: ActionFailed. An action failed. No dependent actions succeeded.
+    - button [expanded]:
+    - button [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Write action PA17v2
+    - img: 
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Commit append PA17v2
+      - alert:
+        - generic: Forbidden
+    - img: 
+    - img: 
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Verify written snapshot PA17v2
+    - img: 
+    - img: 
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Confirm written bytes PA17v2
+    - button [expanded]:
+    - button [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Queued new PA17v2
+    - img: 
+    - button [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Unresolved readback PA17v2
+    - img: 
+    - button [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Inbox full PA17v2
+    - img: 
+    - button [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Unsafe inbox PA17v2
+    - img: 
+    - button [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Read failed PA17v2
+    - img: 
+    - button [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: History limit PA17v2
+    - img: 
+    - button [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Rejected envelope PA17v2
+    - img: 
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Unresolved failure
+    - img: 
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Notify confirmed new submission PA17v2
+    - button [expanded]:
+    - button [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - status:
+      - generic: 0s
+    - button:
+      - generic: Post intake update to Teams PA17v2
+    - img: 
+    - img: 
+    - button [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - paragraph: No Actions
+    - button:
+    - button:
+    - button:
+    - button:
+    - button:
+    - button:
+    - generic: "Zoom level: 100 percent"
+  - dialog "Commit_append_PA17v2":
+    - heading "Commit_append_PA17v2" [level=1]
+    - button "Close" [active]:
+      - generic: 
+    - text: Commit_append_PA17v2
+    - code:
+      - generic: "{"
+      - generic: "\"statusCode\": 403,"
+      - generic: "\"headers\": {"
+      - generic: "\"x-ms-environment-id\": \"default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e\","
+      - generic: "\"x-ms-tenant-id\": \"db3dbd43-4c4b-4544-9f8a-0553f9f5f25e\","
+      - generic: "\"x-ms-subscription-id\": \"Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e\","
+      - generic: "\"x-ms-dlp-re\": \"-|-\","
+      - generic: "\"x-ms-dlp-gu\": \"-|-\","
+      - generic: "\"x-ms-dlp-ef\": \"-|-/-|-|-|-\","
+      - generic: "\"x-ms-mip-sl\": \"-|-|-|-\","
+      - generic: "\"x-ms-au-creator-id\": \"ea4ab5d4-f4e4-4978-87e2-7aee39b6c1b8\","
+      - generic: "\"x-ms-apihub-cached-response\": \"true\","
+      - generic: "\"x-ms-apihub-obo\": \"false\","
+      - generic: "\"Date\": \"Sun, 25 Oct 2026 18:42:13 GMT\","
+      - generic: "\"Content-Length\": \"266\","
+      - generic: "\"Content-Type\": \"text/html\""
+      - generic: "},"
+      - generic: "\"body\": \"Access from your IP address is currently restricted due to security controls applied to your network range.\\nIf you have a legitimate need to access this GitLab service, please contact your ORNL collaboration partner, who can request an exception for your IP address.\""
+      - generic: "}"
+      - textbox "Editor content;Press Alt+F1 for Accessibility Options.": "{ \"statusCode\": 403, \"headers\": { \"x-ms-environment-id\": \"default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e\", \"x-ms-tenant-id\": \"db3dbd43-4c4b-4544-9f8a-0553f9f5f25e\", \"x-ms-subscription-id\": \"Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e\", \"x-ms-dlp-re\": \"-|-\", \"x-ms-dlp-gu\": \"-|-\", \"x-ms-dlp-ef\": \"-|-/-|-|-|-\", \"x-ms-mip-sl\": \"-|-|-|-\","
+  - dialog:
+    - button:
+    - textbox: Commit append PA17v2
+    - button:
+    - tablist:
+      - tab [selected]:
+        - generic: Run results
+      - tab:
+        - generic: Settings
+      - tab:
+        - generic: Code view
+      - tab:
+        - generic: About
+    - generic: 
+    - alert:
+      - strong: Forbidden
+    - generic: Inputs
+    - generic: Content not shown due to security configuration.
+    - heading [level=3]: Outputs
+    - button:
+      - generic: 
+      - generic: Show raw outputs
+    - generic: statusCode
+    - textbox:
+      - button:
+      - generic: "403"
+    - generic: headers
+    - button:
+    - grid:
+      - rowgroup:
+        - row:
+          - columnheader:
+            - generic: Field
+            - separator
+          - separator
+          - columnheader:
+            - text: Value
+            - separator
+      - rowgroup:
+        - row:
+          - gridcell:
+            - generic: x-ms-environment-id
+          - separator
+          - gridcell:
+            - generic: default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e
+        - row:
+          - gridcell:
+            - generic: x-ms-tenant-id
+          - separator
+          - gridcell:
+            - generic: db3dbd43-4c4b-4544-9f8a-0553f9f5f25e
+        - row:
+          - gridcell:
+            - generic: x-ms-subscription-id
+          - separator
+          - gridcell:
+            - generic: Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e
+        - row:
+          - gridcell:
+            - generic: x-ms-dlp-re
+          - separator
+          - gridcell:
+            - generic: "-|-"
+        - row:
+          - gridcell:
+            - generic: x-ms-dlp-gu
+          - separator
+          - gridcell:
+            - generic: "-|-"
+        - row:
+          - gridcell:
+            - generic: x-ms-dlp-ef
+          - separator
+          - gridcell:
+            - generic: "-|-/-|-|-|-"
+        - row:
+          - gridcell:
+            - generic: x-ms-mip-sl
+          - separator
+          - gridcell:
+            - generic: "-|-|-|-"
+        - row:
+          - gridcell:
+            - generic: x-ms-au-creator-id
+          - separator
+          - gridcell:
+            - generic: ea4ab5d4-f4e4-4978-87e2-7aee39b6c1b8
+        - row:
+          - gridcell:
+            - generic: x-ms-apihub-cached-response
+          - separator
+          - gridcell:
+            - generic: "true"
+        - row:
+          - gridcell:
+            - generic: x-ms-apihub-obo
+          - separator
+          - gridcell:
+            - generic: "false"
+        - row:
+          - gridcell:
+            - generic: Date
+          - separator
+          - gridcell:
+            - generic: Sun, 25 Oct 2026 18:42:13 GMT
+        - row:
+          - gridcell:
+            - generic: Content-Length
+          - separator
+          - gridcell:
+            - generic: "266"
+        - row:
+          - gridcell:
+            - generic: Content-Type
+          - separator
+          - gridcell:
+            - generic: text/html
+    - generic: body
+    - textbox:
+      - button:
+      - generic: Access from your IP address is currently restricted due to security controls applied to your network range.
+      - generic: If you have a legitimate need to access this GitLab service, please contact your ORNL collaboration partner, who can request an exception for your IP address.
+    - heading [level=3]: Properties
+    - generic: Start time
+    - textbox:
+      - button:
+      - button:
+      - generic: 10/25/2026, 2:42:14 PM (Local time)
+    - generic: End time
+    - textbox:
+      - button:
+      - button:
+      - generic: 10/25/2026, 2:42:14 PM (Local time)
+    - generic: Status
+    - textbox:
+      - button:
+      - generic: Failed
+    - generic: Client tracking ID
+    - textbox:
+      - button:
+      - generic: 08584086531530438165830898752CU14
+    - generic: Action tracking ID
+    - textbox:
+      - button:
+      - generic: d38bf387-a801-4cf6-823d-fdc4763103f1
+- alert
+- alert
+- complementary
+- complementary
