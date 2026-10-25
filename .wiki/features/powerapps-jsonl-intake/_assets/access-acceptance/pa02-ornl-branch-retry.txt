@@ -1,0 +1,167 @@
+Browser tab: 1329059264, Title: "Manage your flows | Power Automate", URL: "https://make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/9be4b2b3-98d0-f111-a05c-001dd8062052/runs/08584086400397308169855834201CU13".
+0 AXWebArea Manage your flows | Power Automate, URL: make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/9be4b2b3-98d0-f111-a05c-001dd8062052/runs/08584086400397308169855834201CU13
+	1 container
+		2 container root
+			3 container
+				4 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				5 container o365header
+					6 container O365_NavHeader
+						7 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							120 text 
+						9 container ppuxOfficeHeaderTopLevelRegion
+							10 container ppuxOfficeHeaderLeftRegion
+								11 text Power Automate
+							12 container ppuxOfficeHeaderRightRegion
+								13 button ORNL Personal Productivity(default)
+									14 container
+										15 text Environments ORNL Personal Productivity(default)
+								16 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								17 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						18 container O365_HeaderRightRegion
+							19 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								20 image JW
+				21 container
+					22 button Go back to previous page
+					23 heading The flow name is PA17 TEST ONLY Native Intake., Value: 1
+						24 container The flow name is PA17 TEST ONLY Native Intake.
+							25 text PA17 TEST ONLY Native Intake
+					26 toolbar
+						27 button (disabled) Description: Resubmit, ID: resubmitFlowRun
+							28 text Resubmit
+						29 button Description: Cancel, ID: cancelFlowRun
+							30 text Cancel
+						31 button Description: Copilot, ID: chat
+							32 text Copilot
+						33 button Description: Edit, ID: editFlow
+							34 text Edit
+						35 container
+							36 switch Description: New view, Value: 1, ID: switchDesignerFlowRunDetails
+							37 text New view
+					135 container
+						136 text Your flow is running…
+						137 button Dismiss
+					41 container
+						42 container Workflow canvas
+							43 container
+								44 image
+									45 container Edge from When_Power_Apps_calls_a_flow_(V2) to Submission_ID
+								46 image
+									47 container Edge from Submission_ID to Submitted_At
+								48 image
+									49 container Edge from Submitted_At to Verify_access_to_main
+								50 image
+									51 container Edge from Verify_access_to_main to Persist_submission_v3_PA17v2
+								52 image
+									53 container Edge from Persist_submission_v3_PA17v2 to Unresolved_failure
+								54 image
+									55 container Edge from Unresolved_failure to Notify_confirmed_new_submission_PA17v2
+								56 container
+									57 container When Power Apps calls a flow (V2)
+										58 container msla-node-When_Power_Apps_calls_a_flow_(V2)
+											59 container Description: 0 seconds. Succeeded, ID: When Power Apps calls a flow (V2)-status
+											60 button When Power Apps calls a flow (V2) operation, Power Apps connector
+												61 text When Power Apps calls a flow (V2)
+											62 container This operation has secure inputs or outputs enabled.
+												63 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								64 container
+									65 container Submission ID
+										66 container msla-node-Submission_ID
+											67 container Description: 0 seconds. Succeeded, ID: Submission ID-status
+											68 button Submission ID operation, Data Operation connector
+												69 text Submission ID
+								70 container
+									71 container Submitted At
+										72 container msla-node-Submitted_At
+											73 container Description: 0 seconds. Succeeded, ID: Submitted At-status
+											74 button Submitted At operation, Data Operation connector
+												75 text Submitted At
+								76 container
+									77 container Verify access to main
+										78 container msla-node-Verify_access_to_main
+											79 container Description: 26.5 seconds. Succeeded, ID: Verify access to main-status
+											80 button Verify access to main operation, ACORN PA17 GitLab TEST ONLY connector
+												81 text Verify access to main
+											82 container PA18 TEST ONLY GitLab Reference
+												83 container Connection name: PA18 TEST ONLY GitLab Reference
+								84 container
+									85 container Persist submission v3 PA17v2
+										86 container
+											87 container Description: Not specified, ID: Persist submission v3 PA17v2-status
+											89 button Description: Persist submission v3 PA17v2 operation, ID: msla-node-Persist_submission_v3_PA17v2
+												90 text Persist submission v3 PA17v2
+											91 button (collapsed) Description: Expand Persist submission v3 PA17v2, Secondary Actions: Expand
+									92 text 6 Actions
+								93 container
+									94 container Unresolved failure
+										95 container msla-node-Unresolved_failure
+											96 container Description: Waiting, ID: Unresolved failure-status
+												97 progress indicator Run information loading
+											98 button Unresolved failure operation, Power Apps connector
+												99 text Unresolved failure
+											100 container This operation has secure inputs or outputs enabled.
+												101 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								102 container
+									103 container Notify confirmed new submission PA17v2
+										104 container
+											105 container Description: Waiting, ID: Notify confirmed new submission PA17v2-status
+												106 progress indicator Run information loading
+											107 button Description: Notify confirmed new submission PA17v2 operation, ID: msla-node-Notify_confirmed_new_submission_PA17v2
+												108 text Notify confirmed new submission PA17v2
+											109 button (collapsed) Description: Expand Notify confirmed new submission PA17v2, Secondary Actions: Expand
+									110 text 2 Cases
+							111 image
+							112 container Control Panel
+								113 button Description: Expand all action groups, ID: control-expand-collapse-button
+								114 button Description: Zoom in, ID: control-zoom-in-button
+								115 button Description: Zoom out, ID: control-zoom-out-button
+								116 button Description: Zoom view to fit, ID: control-zoom-fit-button
+								117 button Description: Toggle minimap, ID: control-minimap-button
+								118 button Description: Search workflow actions, ID: control-search-button
+						119 container Operation details panel
+							124 container Verify access to main
+								125 button Description: Collapse, ID: msla-panel-header-collapse-nav
+								126 text field Description: Card title, Value: Verify access to main, ID: Verify_access_to_main-title
+								127 pop up button Description: More commands, ID: menu116
+							128 container flow-node-details-panel-Verify_access_to_main
+								129 tab group
+									130 tab (selectable, settable, boolean) Run results, Value: 0
+									131 tab (selected, settable, boolean) Retry history, Value: 1
+									132 tab (selectable, settable, boolean) Settings, Value: 0
+									133 tab (selectable, settable, boolean) Code view, Value: 0
+									134 tab (selectable, settable, boolean) About, Value: 0
+								138 container
+									139 button (disabled) Previous
+									140 text 1 of 1
+									141 button (disabled) Next
+								142 text RETRY
+								143 container
+									144 text Duration
+									145 text field Description: Duration, Value: 20.1 seconds
+										146 button Copy the value of 'Duration' to the clipboard
+										147 text 20.1 seconds
+								148 container
+									149 text Start time
+									150 text field Description: Start time, Value: 10/25/2026, 6:20:45 PM (Local time)
+										151 container
+											152 checkbox Description: Switch 'Start time' to the UTC time format, Value: 0
+											153 button Copy the value of 'Start time' to the clipboard
+										154 text 10/25/2026, 6:20:45 PM (Local time)
+								155 container
+									156 text End time
+									157 text field Description: End time, Value: 10/25/2026, 6:21:06 PM (Local time)
+										158 container
+											159 checkbox Description: Switch 'End time' to the UTC time format, Value: 0
+											160 button Copy the value of 'End time' to the clipboard
+										161 text 10/25/2026, 6:21:06 PM (Local time)
+								162 container
+									163 text Status
+									164 text field Description: Status, Value: GatewayTimeout
+										165 button Copy the value of 'Status' to the clipboard
+										166 text GatewayTimeout
+								167 container
+									168 text Client request ID
+									169 text field Description: Client request ID, Value: 751549d6-4130-4074-b8c7-67d05ba0c40a
+										170 button Copy the value of 'Client request ID' to the clipboard
+										171 text 751549d6-4130-4074-b8c7-67d05ba0c40a
+
+The focused UI element is 131 tab (selected, settable, boolean) Retry history, Value: 1

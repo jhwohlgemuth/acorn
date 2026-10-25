@@ -1,0 +1,15 @@
+{
+  "observedAt": "2026-10-25T22:21:52.606Z",
+  "environment": "221f44a6-1468-ea4e-b93d-cd52f1723079",
+  "flow": "9be4b2b3-98d0-f111-a05c-001dd8062052",
+  "scopeSha256": "5fedc478f620b6f5f54169f49a81ef9a695841ed06f195c1b482b514e20fdf77",
+  "paths": [
+    ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    ".acorn/intake/acceptance/pa17-logbook.jsonl"
+  ],
+  "notificationGuard": "AND false equals true",
+  "connection": "ACORN PA17 GitLab TEST ONLY",
+  "initialState": "Off",
+  "licenseContext": "The user who runs the flow"
+}

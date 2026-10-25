@@ -1,0 +1,353 @@
+Browser tab: 1329059267, Title: "Manage your flows | Power Automate", URL: "https://make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/3cb20a10-95d0-f111-a05c-001dd8062052/runs/08584086401052457796638331029CU19".
+0 AXWebArea Manage your flows | Power Automate, URL: make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/3cb20a10-95d0-f111-a05c-001dd8062052/runs/08584086401052457796638331029CU19
+	1 container
+		2 container root
+			3 container
+				4 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				5 container o365header
+					6 container O365_NavHeader
+						7 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							77 text 
+						9 container ppuxOfficeHeaderTopLevelRegion
+							10 container ppuxOfficeHeaderLeftRegion
+								11 text Power Automate
+							12 container ppuxOfficeHeaderRightRegion
+								13 button ORNL Personal Productivity(default)
+									14 container
+										15 text Environments ORNL Personal Productivity(default)
+								16 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								17 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						18 container O365_HeaderRightRegion
+							19 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								20 image JW
+				21 container
+					22 button Go back to previous page
+					23 heading The flow name is PA17 TEST ONLY Native Catalog., Value: 1
+						24 container The flow name is PA17 TEST ONLY Native Catalog.
+							25 text PA17 TEST ONLY Native Catalog
+					26 toolbar
+						27 button Description: Resubmit, ID: resubmitFlowRun
+							28 text Resubmit
+						29 button (disabled) Description: Cancel, ID: cancelFlowRun
+							30 text Cancel
+						31 button Description: Copilot, ID: chat
+							32 text Copilot
+						33 button Description: Edit, ID: editFlow
+							34 text Edit
+						35 container
+							36 switch Description: New view, Value: 1, ID: switchDesignerFlowRunDetails
+							37 text New view
+					38 container Your flow ran successfully.
+						39 text Your flow ran successfully.
+						40 button Dismiss
+					41 container
+						42 container Workflow canvas
+							43 container
+								44 image
+									45 container Edge from When_Power_Apps_calls_a_flow_(V2) to Load_ACRE_project_choices
+								46 image
+									47 container Edge from Load_ACRE_project_choices to Respond_to_a_Power_App_or_flow
+								48 container
+									49 container When Power Apps calls a flow (V2)
+										50 container msla-node-When_Power_Apps_calls_a_flow_(V2)
+											51 container Description: 0 seconds. Succeeded, ID: When Power Apps calls a flow (V2)-status
+											52 button When Power Apps calls a flow (V2) operation, Power Apps connector
+												53 text When Power Apps calls a flow (V2)
+								54 container
+									55 container Load ACRE project choices
+										56 container msla-node-Load_ACRE_project_choices
+											57 container Description: 27.4 seconds. Succeeded, ID: Load ACRE project choices-status
+											58 button Load ACRE project choices operation, ACORN PA17 GitLab TEST ONLY connector
+												59 text Load ACRE project choices
+											60 container PA18 TEST ONLY GitLab Reference
+												61 container Connection name: PA18 TEST ONLY GitLab Reference
+								62 container
+									63 container Respond to a Power App or flow
+										64 container msla-node-Respond_to_a_Power_App_or_flow
+											65 container Description: 0 seconds. Succeeded, ID: Respond to a Power App or flow-status
+											66 button Respond to a Power App or flow operation, Power Apps connector
+												67 text Respond to a Power App or flow
+							68 image
+							69 container Control Panel
+								70 button Description: Expand all action groups, ID: control-expand-collapse-button
+								71 button Description: Zoom in, ID: control-zoom-in-button
+								72 button Description: Zoom out, ID: control-zoom-out-button
+								73 button Description: Zoom view to fit, ID: control-zoom-fit-button
+								74 button Description: Toggle minimap, ID: control-minimap-button
+								75 button Description: Search workflow actions, ID: control-search-button
+						76 container Operation details panel
+							78 container Load ACRE project choices
+								79 button Description: Collapse, ID: msla-panel-header-collapse-nav
+								80 text field Description: Card title, Value: Load ACRE project choices, ID: Load_ACRE_project_choices-title
+								81 pop up button Description: More commands, ID: menu23
+							82 container flow-node-details-panel-Load_ACRE_project_choices
+								83 tab group
+									84 tab (selected, settable, boolean) Run results, Value: 1
+									85 tab (selectable, settable, boolean) Settings, Value: 0
+									86 tab (selectable, settable, boolean) Code view, Value: 0
+									87 tab (selectable, settable, boolean) About, Value: 0
+								88 container
+									89 heading INPUTS, Value: 3
+										90 text INPUTS
+									91 button Show raw inputs
+										92 text Show raw inputs
+									93 container INPUTS
+										94 container
+											95 text host
+											96 button Copy the value of 'host' to the clipboard
+											97 table host
+												98 row Field Value
+													99 cell
+														100 text Field
+													101 cell
+														102 text Value
+												103 container
+													104 row apiId subscriptions/default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/providers/Microsoft.Web/locations/usgovtexas/runtimes/power-apis-usgov001-public/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/apis/new-5facorn-20pa17-20gitlab-20test-20only-5f976d672c6fd8d650
+														105 cell
+															106 text apiId
+														107 cell
+															108 text subscriptions/default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/providers/Microsoft.Web/locations/usgovtexas/runtimes/power-apis-usgov001-public/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/apis/new-5facorn-20pa17-20gitlab-20test-20only-5f976d672c6fd8d650
+													109 row connectionReferenceName shared_new-5facorn-20pa17-20gitlab-20test-20only-5f06923fc38f4e1ce0-1
+														110 cell
+															111 text connectionReferenceName
+														112 cell
+															113 text shared_new-5facorn-20pa17-20gitlab-20test-20only-5f06923fc38f4e1ce0-1
+													114 row operationId GetProjectCatalog
+														115 cell
+															116 text operationId
+														117 cell
+															118 text GetProjectCatalog
+									119 heading OUTPUTS, Value: 3
+										120 text OUTPUTS
+									121 button Show raw outputs
+										122 text Show raw outputs
+									123 container OUTPUTS
+										124 container
+											125 text statusCode
+											126 text field Description: statusCode, Value: 200
+												127 button Copy the value of 'statusCode' to the clipboard
+												128 text 200
+										129 container
+											130 text headers
+											131 button Copy the value of 'headers' to the clipboard
+											132 table headers
+												133 row Field Value
+													134 cell
+														135 text Field
+													136 cell
+														137 text Value
+												138 container
+													139 row Transfer-Encoding chunked
+														140 cell
+															141 text Transfer-Encoding
+														142 cell
+															143 text chunked
+													144 row Vary Accept-Encoding
+														145 cell
+															146 text Vary
+														147 cell
+															148 text Accept-Encoding
+													149 row x-ms-function-status OK
+														150 cell
+															151 text x-ms-function-status
+														152 cell
+															153 text OK
+													154 row Date Sun, 25 Oct 2026 22:20:07 GMT
+														155 cell
+															156 text Date
+														157 cell
+															158 text Sun, 25 Oct 2026 22:20:07 GMT
+													159 row Content-Type application/json; charset=utf-8
+														160 cell
+															161 text Content-Type
+														162 cell
+															163 text application/json; charset=utf-8
+													164 row Content-Length 685
+														165 cell
+															166 text Content-Length
+														167 cell
+															168 text 685
+										169 container
+											170 text body
+											171 button Copy the value of 'body' to the clipboard
+											172 table body
+												173 row Field Value
+													174 cell
+														175 text Field
+													176 cell
+														177 text Value
+												178 container
+													179 row projects.0.id acorn
+														180 cell
+															181 text projects.0.id
+														182 cell
+															183 text acorn
+													184 row projects.0.label acorn
+														185 cell
+															186 text projects.0.label
+														187 cell
+															188 text acorn
+													189 row projects.1.id building-damage-indicators
+														190 cell
+															191 text projects.1.id
+														192 cell
+															193 text building-damage-indicators
+													194 row projects.1.label building-damage-indicators
+														195 cell
+															196 text projects.1.label
+														197 cell
+															198 text building-damage-indicators
+													199 row projects.2.id global-terrain
+														200 cell
+															201 text projects.2.id
+														202 cell
+															203 text global-terrain
+													204 row projects.2.label global-terrain
+														205 cell
+															206 text projects.2.label
+														207 cell
+															208 text global-terrain
+													209 row projects.3.id gravity
+														210 cell
+															211 text projects.3.id
+														212 cell
+															213 text gravity
+													214 row projects.3.label gravity
+														215 cell
+															216 text projects.3.label
+														217 cell
+															218 text gravity
+													219 row projects.4.id hifld
+														220 cell
+															221 text projects.4.id
+														222 cell
+															223 text hifld
+													224 row projects.4.label hifld
+														225 cell
+															226 text projects.4.label
+														227 cell
+															228 text hifld
+													229 row projects.5.id landscan
+														230 cell
+															231 text projects.5.id
+														232 cell
+															233 text landscan
+													234 row projects.5.label landscan
+														235 cell
+															236 text projects.5.label
+														237 cell
+															238 text landscan
+													239 row projects.6.id landscan-global
+														240 cell
+															241 text projects.6.id
+														242 cell
+															243 text landscan-global
+													244 row projects.6.label landscan-global
+														245 cell
+															246 text projects.6.label
+														247 cell
+															248 text landscan-global
+													249 row projects.7.id landscan-mosaic
+														250 cell
+															251 text projects.7.id
+														252 cell
+															253 text landscan-mosaic
+													254 row projects.7.label landscan-mosaic
+														255 cell
+															256 text projects.7.label
+														257 cell
+															258 text landscan-mosaic
+													259 row projects.8.id myriad
+														260 cell
+															261 text projects.8.id
+														262 cell
+															263 text myriad
+													264 row projects.8.label myriad
+														265 cell
+															266 text projects.8.label
+														267 cell
+															268 text myriad
+													269 row projects.9.id nautical-charts
+														270 cell
+															271 text projects.9.id
+														272 cell
+															273 text nautical-charts
+													274 row projects.9.label nautical-charts
+														275 cell
+															276 text projects.9.label
+														277 cell
+															278 text nautical-charts
+													279 row projects.10.id planetsense
+														280 cell
+															281 text projects.10.id
+														282 cell
+															283 text planetsense
+													284 row projects.10.label planetsense
+														285 cell
+															286 text projects.10.label
+														287 cell
+															288 text planetsense
+													289 row projects.11.id planetsense-segraph
+														290 cell
+															291 text projects.11.id
+														292 cell
+															293 text planetsense-segraph
+													294 row projects.11.label planetsense-segraph
+														295 cell
+															296 text projects.11.label
+														297 cell
+															298 text planetsense-segraph
+													299 row projects.12.id precision-imagery
+														300 cell
+															301 text projects.12.id
+														302 cell
+															303 text precision-imagery
+													304 row projects.12.label precision-imagery
+														305 cell
+															306 text projects.12.label
+														307 cell
+															308 text precision-imagery
+													309 row revision bd5888fa7a1f4b555414384819173bc6409ab70d
+														310 cell
+															311 text revision
+														312 cell
+															313 text bd5888fa7a1f4b555414384819173bc6409ab70d
+													314 row source config
+														315 cell
+															316 text source
+														317 cell
+															318 text config
+									319 heading PROPERTIES, Value: 3
+										320 text PROPERTIES
+									321 container PROPERTIES
+										322 container
+											323 text Start time
+											324 text field Description: Start time, Value: 10/25/2026, 6:19:40 PM (Local time)
+												325 container
+													326 checkbox Description: Switch 'Start time' to the UTC time format, Value: 0
+													327 button Copy the value of 'Start time' to the clipboard
+												328 text 10/25/2026, 6:19:40 PM (Local time)
+										329 container
+											330 text End time
+											331 text field Description: End time, Value: 10/25/2026, 6:20:07 PM (Local time)
+												332 container
+													333 checkbox Description: Switch 'End time' to the UTC time format, Value: 0
+													334 button Copy the value of 'End time' to the clipboard
+												335 text 10/25/2026, 6:20:07 PM (Local time)
+										336 container
+											337 text Status
+											338 text field Description: Status, Value: Succeeded
+												339 button Copy the value of 'Status' to the clipboard
+												340 text Succeeded
+										341 container
+											342 text Client tracking ID
+											343 text field Description: Client tracking ID, Value: 08584086401052457796638331029CU19
+												344 button Copy the value of 'Client tracking ID' to the clipboard
+												345 text 08584086401052457796638331029CU19
+										346 container
+											347 text Action tracking ID
+											348 text field Description: Action tracking ID, Value: 92b5c9ec-87b5-417e-9984-3f4eeeb97ed6
+												349 button Copy the value of 'Action tracking ID' to the clipboard
+												350 text 92b5c9ec-87b5-417e-9984-3f4eeeb97ed6
+
+The focused UI element is 56 container msla-node-Load_ACRE_project_choices

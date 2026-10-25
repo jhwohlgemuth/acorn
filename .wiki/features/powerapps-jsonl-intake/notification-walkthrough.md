@@ -31,7 +31,9 @@ The user guide now includes a workflow map on **page 2**, styled like the ACORN 
 
 These notices go to the pilot owner, not to every contributor. The callback flow is still owner-only and manually triggered. Local CLI ingestion, graduation, and reporting do not invoke it automatically. The Vergil integration and authenticated external callback endpoint remain future work. A later approved group/channel migration belongs to PA-12.
 
-![Routine updates received in Jason's Teams self-chat](_assets/notifications/intake-teams-received.png)
+![Generic Teams-style illustration with fictional chats and notification messages](_assets/notifications/teams-example.png)
+
+The illustration replaces the personal Teams screenshot in the shared guide. It explains the message format; it is not a captured test result.
 
 ## What Power Automate now does
 

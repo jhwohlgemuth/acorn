@@ -23,6 +23,10 @@ The [test solution](https://make.gov.powerapps.us/environments/Default-db3dbd43-
 
 ![Connector solution export succeeded](_assets/solution-export/connector-solution-export-success.png)
 
+## October 25 evening app invocation checkpoint
+
+PA-02 subsequently exercised the restored ORNL app against its native intake flow. The app reached the correct flow and received an unresolved response after `Read current PA17v2` returned the same network-range HTTP 403 at `2026-10-25T22:21:18Z`. The write branch was skipped; the test flow returned Off. Catalog calls passed in both environments. This establishes app invocation and failure feedback, **not successful intake restoration or repeatable access**. The full current record is in [PA-02 acceptance](intake-access-decisions.md#october-25-evening-pa-02-acceptance). Earlier checkpoints below remain dated evidence.
+
 ## Current backup artifacts and limits
 
 Use the [native backup manifest](_assets/solution-export/pa17-native-backup-manifest.json), [restore instructions](_assets/solution-export/pa17-native-restore-instructions.md), and [consolidated handoff](_assets/solution-export/PA17-RESTORE-HANDOFF.md). Current import inputs are the native v6 app/intake/catalog solution and the separate callback test solution. Operational app and callback backups are retained separately and must never be imported over operational components for testing.

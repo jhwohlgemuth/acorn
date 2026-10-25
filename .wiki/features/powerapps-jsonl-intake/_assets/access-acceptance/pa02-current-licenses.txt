@@ -1,0 +1,17 @@
+Browser tab: 1329059195, Title: "Power Apps | Apps", URL: "https://make.gov.powerapps.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/apps".
+0 AXWebArea Power Apps | Apps, URL: make.gov.powerapps.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/apps
+	1 container Plan(s)
+		2 container
+			3 heading Plan(s), Value: 1, ID: Panel3123-headerText
+				4 text Plan(s)
+			5 button Close
+			6 heading My licenses, Value: 5
+				7 text My licenses
+			8 container Power Apps for Office 365 for Government
+			9 text Power Apps for Office 365 for Government
+			10 container Power Apps Per User Plan for Government
+			11 text Power Apps Per User Plan for Government
+			12 container Power Apps Community
+			13 text Power Apps Community Expires 4/23/2027
+
+The focused UI element is 5 button Close

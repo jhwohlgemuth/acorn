@@ -128,29 +128,29 @@
       "bytes": 6979
     },
     {
-      "path": "powerapps-jsonl-intake/_assets/notifications/intake-teams-received.png",
-      "sha256": "e3fce9dfc4619798f70d4d0f5b21eab88f6955f9b4ffb7769407f581ee9f8f9d",
-      "bytes": 549008
-    },
-    {
       "path": "powerapps-jsonl-intake/_assets/notifications/intake-teams.clipboard.json",
       "sha256": "9ba6822fec21e5ee2c0abe15d34cd1b442bf46d1283e0d364b1f60dcda928cc8",
       "bytes": 1931
     },
     {
+      "path": "powerapps-jsonl-intake/_assets/notifications/teams-example.png",
+      "sha256": "c931c1a01e7b5efe81cfe6a277f5c80dcee6efcde3e389f02ad343a4b5bd266a",
+      "bytes": 154802
+    },
+    {
       "path": "powerapps-jsonl-intake/_assets/notifications/workflow.html",
-      "sha256": "33ed3ababbbff9a2eed8353f484260199088d3d3d1229bff707ed99dd297307b",
-      "bytes": 12971
+      "sha256": "71f2333c7578dc861554c6983ed50ee51f665e1962c6764209512667ae8949f8",
+      "bytes": 14472
     },
     {
       "path": "powerapps-jsonl-intake/_assets/notifications/workflow.pikchr",
-      "sha256": "51ac0d845e377cf666bcada23cf103770249a6a63d8c0375af71bd46268657e5",
-      "bytes": 2103
+      "sha256": "832018383c531e2bce2d6119f177519faacb207e4ad48d6010593c1b01e13080",
+      "bytes": 2150
     },
     {
       "path": "powerapps-jsonl-intake/_assets/notifications/workflow.svg",
-      "sha256": "cf1f3ef58e04a6f99698fc434afaaddba603a9a1d3ec45bf138c2b2fb70e1dfc",
-      "bytes": 9802
+      "sha256": "c4371958b4973964c05e4c9a063bcd5cb0f096fd223ade4ec08a1e63caaea38b",
+      "bytes": 11303
     },
     {
       "path": "powerapps-jsonl-intake/_assets/project-catalog.cs",
@@ -174,8 +174,8 @@
     },
     {
       "path": "powerapps-jsonl-intake/notification-walkthrough.md",
-      "sha256": "6175708b607ad0ccd76f5a9047b2e35b5d051a53a7d5f8765483de05f569edfd",
-      "bytes": 9997
+      "sha256": "47bf024d916bdf2beeccfb1424b68f5c5b80bdce43d7b3a5b67dade220d426d8",
+      "bytes": 10161
     },
     {
       "path": "powerapps-jsonl-intake/pilot-runbook.md",
@@ -308,11 +308,6 @@
       "bytes": 23519
     },
     {
-      "path": "vergil-gitlab-jsonl-automation/_assets/notifications/teams-received.png",
-      "sha256": "ae9152ab6180f70709623214f27019e6b23f10907e30ab1b5ba347cc57b27961",
-      "bytes": 393926
-    },
-    {
       "path": "vergil-gitlab-jsonl-automation/_assets/notifications/teams-replay.png",
       "sha256": "a8abb70a0de4b8e6c081d94750aa008da091487f44279409d731b78a744709b0",
       "bytes": 91415
@@ -343,5 +338,6 @@
   "pilotOwner": "Jason Wohlgemuth",
   "notificationRouting": "Confirmed new intake and new mr-created/report-no-changes callback receipts use Jason Teams self-chat; review-needed/artifact-ready/failed use milestone email. Older receipts retain destinations.",
   "pathBase": "../..",
-  "layout": "Plan folders; archive paths are relative to .wiki/features/"
+  "layout": "Plan folders; archive paths are relative to .wiki/features/",
+  "privacyNote": "Personal Teams chat screenshots are excluded; teams-example.png is a fictional illustration."
 }

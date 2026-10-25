@@ -1,0 +1,15 @@
+{
+  "observedAt": "2026-10-25T22:20:56.636Z",
+  "environment": "Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e",
+  "flow": "9be4b2b3-98d0-f111-a05c-001dd8062052",
+  "scopeSha256": "1009be5729eb34529df001742f55b0dd01815d281bb8214d0f53a3409412aa9f",
+  "paths": [
+    ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    ".acorn/intake/acceptance/pa17-logbook.jsonl"
+  ],
+  "notificationGuard": "AND false equals true",
+  "connection": "ACORN PA18 ORNL TEST ONLY",
+  "initialState": "Off",
+  "licenseContext": "The user who runs the flow"
+}

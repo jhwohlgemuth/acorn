@@ -4,7 +4,7 @@
 
 - [Model acquisition and metadata hardening](model-acquisition-hardening.md) - Complete identity-safe Hugging Face requests, exact GGUF metadata, and ModelKit/ModelPack interoperability evidence.
 - [Needle routing and native capability parity](needle-router-native-parity.md) - Bring bounded native ACORN workflows behind `acorn ask` with measured parity.
-- [PowerApp and Power Automate JSONL intake](powerapps-jsonl-intake/index.md) - PA-02/15/16/17 are Waiting on validation; PA-12 still needs shared deployment. Demo/replay, failure evidence and PA-14 panels/recovery/storage-denial accepted in both environments; pilot license captured, connector-only solution restored, Jason native catalog calls passed, and callback/table backup exported. PA-18 accepted; PA-17 intake/catalog import and ORNL replay/conflict passed, but fresh writes hit a network-range denial and callback-table import lacks privileges; native app/flow solution 1.0.0.6 restored in ORNL and app catalog passed in both environments; app-driven intake and callback/table restoration remain blocked; boundary/concurrency and reliable access remain; protect operational components in both environments.
+- [PowerApp and Power Automate JSONL intake](powerapps-jsonl-intake/index.md) - PA-02 closed by owner decision with intermittent GitLab connectivity recorded as a known limitation; Jason-only pilot licensing is documented. PA-15/16/17 remain Waiting on validation for boundaries, concurrency and full restoration. Native v6 app/catalog restoration passed in both environments; fresh-save acceptance and ORNL callback-table creation remain unaccepted. PA-12 is later shared deployment. Preserve operational components and use isolated test copies.
 
 ## Planned
 

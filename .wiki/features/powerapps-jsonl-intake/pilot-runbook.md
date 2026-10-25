@@ -93,6 +93,8 @@ The two writer invocations were launched at `2026-10-24T20:23:12Z`. Frozen paylo
 
 ## Network access handoff
 
+The owner closed PA-02 on October 25, 2026 with intermittent GitLab connectivity accepted as a known pilot limitation. The [decision and current evidence](intake-access-decisions.md#known-limitation-and-pa-02-closure) supersede the earlier phase gate. This handoff is retained for future remediation; closure does not mean connectivity was repaired. Unconfirmed submissions retain their UUID/content, and recorded intake evidence remains the demo fallback.
+
 The explicit upstream error is: “Access from your IP address is currently restricted due to security controls applied to your network range.” This occurred on both reads and the commit endpoint. Successful intervening calls used the same connection and route; they do not establish reliable access. Earlier catalog-only failures hid their upstream body, so their precise cause remains unproven.
 
 The ORNL GitLab/network administrator needs to correlate successful and denied requests in server/access logs and establish an approved connector egress route. The agent has not sent this handoff to anyone or changed credentials, routing, permissions, or network controls.

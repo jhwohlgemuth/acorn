@@ -2,7 +2,25 @@
 
 Updated October 25, 2026 (America/New_York) in Jason Wohlgemuth's existing signed-in session. The owner reports no administrator ticket and requests using existing access. An administrator ticket is not a prerequisite for isolated testing. No network policy or operational component, credential or connection binding was changed. The owner subsequently created a separate test connection using the existing authorized credential.
 
+## Known limitation and PA-02 closure
+
+**Owner decision, October 25, 2026:** “Record GitLab connectivity as a known limitation and finish PA-02.” PA-02 is complete under this revised acceptance scope: the Jason-only pilot licensing assessment and observed access behavior are documented; dependable GitLab connectivity is no longer a condition for closing this phase. Its completed execution section has been removed from the active plan.
+
+**Known limitation:** Power Automate-to-GitLab requests intermittently return network-range HTTP 403 responses, despite successful intervening reads and earlier writes. The exact cause of the inconsistent filtering remains unverified. Connectivity has not been repaired or certified reliable. The latest isolated denial and earlier successes remain recorded below.
+
+**Operational effect:** project loading or submission may fail. An unresolved receipt is not proof of persistence; retain its frozen payload and UUID. Preserve conditional writes, immutable receipt verification and disabled automatic write retries. Do not bypass network controls or repeatedly retry an explicit policy denial. For a demo without live access, use the captured fixture and label that intake segment as recorded evidence.
+
+**Follow-up and scope:** the existing network-access handoff in the [pilot runbook](pilot-runbook.md#network-access-handoff) remains available if connectivity remediation is pursued. No ticket, network change or credential change is required by this closure decision. PA-15 boundaries, PA-16 concurrency, PA-17 restoration and PA-12 shared deployment remain independent acceptance work; a connectivity failure can prevent a particular live test from completing, but does not reopen PA-02. The current decision accepts the limitation for this pilot and does not establish licensing or deployment approval for additional users or unattended automation.
+
+The checkpoints below describe the evidence and acceptance position at the time of each test; this decision supersedes their earlier open-phase disposition.
+
 ## Licenses observed
+
+Rechecked October 25 at approximately 18:20 America/New_York: the signed-in account still lists **Power Apps Per User Plan for Government**. The Community plan now displays April 23, 2027; that trial is not the basis for the pilot assessment. [Current license capture](_assets/access-acceptance/pa02-current-licenses.png).
+
+The current [Microsoft licensing FAQ](https://learn.microsoft.com/en-us/power-platform/admin/power-automate-licensing/faqs) was checked again on October 25. It distinguishes app-context instant flows, which use the invoking user's Power Apps entitlement, from standalone automation. Both isolated intake details pages identify an Instant flow, Jason as owner, and plan **The user who runs the flow**. Their native definitions use the Power Apps V2 trigger and the published test apps reference them. The optional Associated apps and flows list is empty; that list is not evidence of a missing Power Apps trigger. No association, entitlement, sharing or operational definition was changed.
+
+This supports the existing Jason-only app-triggered intake/catalog use in both environments. It does not establish licensing for additional users, standalone manual runs, callbacks or Vergil. Live app invocation and access results are recorded separately below; license evidence does not prove GitLab write reliability.
 
 Power Apps Settings → Plan(s) lists:
 
@@ -24,7 +42,7 @@ The retained pilot evidence includes both successful app-triggered append/replay
 
 Continue using existing authorized routes and protected connections where compatible. Test each environment's isolated connector against isolated files, recording timestamps, run IDs, HTTP outcomes, receipt identity and immutable readback. Do not rotate credentials to work around network policy. Do not write the operational inbox to demonstrate test access.
 
-PA-02 remains open for repeatable access and final flow-context verification. PA-15 and PA-16 may proceed once their isolated route can be exercised safely; they need no new administrative ticket. Their acceptance cannot be inferred from the older single-user demo or from simulated responses.
+At this checkpoint, repeatable access and final flow-context verification were still unaccepted; the owner subsequently closed PA-02 with connectivity recorded as a known limitation. PA-15 and PA-16 may proceed once their isolated route can be exercised safely; they need no new administrative ticket. Their acceptance cannot be inferred from the older single-user demo or from simulated responses.
 
 ## October 25 native intake write, replay and renewed denial
 
@@ -32,10 +50,36 @@ Jason's isolated native intake completed manual append `085840865525392630007129
 
 The next attempt, `08584086551396206729261127404CU24`, returned HTTP 403 from VerifyMainBranch at `2026-10-25T18:09:05Z`. The body explicitly identifies an IP network-range security restriction; action tracking ID `f7c38202-f69f-4e5c-b625-1eb9c38260fd`. Persistence was skipped, the outer unresolved response succeeded, and the isolated file's exact bytes remained unchanged. The flow's overall Succeeded badge reflects handled failure, not persistence. No source IP was included in the captured response, and none is inferred. No retry or network/credential workaround followed the explicit denial.
 
-[Detailed outcomes, run evidence and screenshots](restore-target-readiness.md#jason-native-intake-write-and-replay) establish that intermittent denial persists even after native reference repair and successful writes. PA-02 remains open; no administrator ticket was created or made a prerequisite. Current access still cannot be represented as reliable.
+[Detailed outcomes, run evidence and screenshots](restore-target-readiness.md#jason-native-intake-write-and-replay) establish that intermittent denial persists even after native reference repair and successful writes. PA-02 was open at this checkpoint; no administrator ticket was created or made a prerequisite. Current access still cannot be represented as reliable.
 
 ## ORNL restored intake: reads pass, commit denied
 
 Native intake/catalog version 1.0.0.5 imported successfully in ORNL Personal Productivity on October 25. Manual replay `08584086532554165170447843195CU19` and changed-summary conflict `08584086532144607697385592776CU20` both reached their intended responses without writes or delivery. Fresh submission `08584086531530438165830898752CU14` then passed branch, history, catalog and current-file reads but received HTTP 403 at Commit append. The response dated `2026-10-25T18:42:13Z` explicitly identifies a network-range security restriction; action tracking ID `d38bf387-a801-4cf6-823d-fdc4763103f1`. No source IP is inferred.
 
-The unresolved response succeeded, confirmation/queued-new and Teams were skipped, and the isolated file stayed byte-identical at 457 bytes. No retry or network/credential workaround followed. The test intake was returned Off. This proves that successful reads in ORNL do not establish write access or resolve the intermittent restriction. PA-02 remains open. [Restoration and run evidence](restore-target-readiness.md#ornl-version-1005-import-and-restored-intake-acceptance).
+The unresolved response succeeded, confirmation/queued-new and Teams were skipped, and the isolated file stayed byte-identical at 457 bytes. No retry or network/credential workaround followed. The test intake was returned Off. This proves that successful reads in ORNL do not establish write access or resolve the intermittent restriction. PA-02 was open at this checkpoint. [Restoration and run evidence](restore-target-readiness.md#ornl-version-1005-import-and-restored-intake-acceptance).
+
+## October 25 evening PA-02 acceptance
+
+The current test components were inspected through Chrome before execution. Both native intake scopes target only project `22464`, branch `main`, `.acorn/intake/acceptance/pa17-logbook.jsonl`; their notification conditions include the constant-false guard. ORNL persistence connector actions retain retry policy `none`. Separate protected test connections remain bound. No definition, credential, association, permission or operational component was edited. [ORNL preflight](_assets/access-acceptance/pa02-ornl-preflight.json), [Jason preflight](_assets/access-acceptance/pa02-jason-preflight.json).
+
+| Environment and check | Result |
+| --- | --- |
+| ORNL restored-app catalog | All three actions passed; HTTP 200, 13 projects, revision `bd5888fa7a1f4b555414384819173bc6409ab70d`. Response `2026-10-25T22:20:07Z`; run `08584086401052457796638331029CU19`; action `92b5c9ec-87b5-417e-9984-3f4eeeb97ed6`. |
+| Jason test-app catalog | App opening and explicit refresh produced successful runs `08584086400708530166700686724CU18` and `08584086400108555213692603699CU07`. The latter returned HTTP 200, all 13 projects and the same revision at `2026-10-25T22:21:17Z`; all three actions passed; action `a28f0d61-b8dd-434a-854d-33c835b21e89`. |
+| ORNL restored-app intake | Run `08584086400397308169855834201CU13`, started `2026-10-25T22:20:45Z`, received submission `89deb952-7c6e-4cbf-b395-83189451e83a`. Branch verification recovered after one existing automatic read retry following GatewayTimeout; envelope, history and catalog checks passed. Current-file read failed with HTTP 403 at `2026-10-25T22:21:18Z`. |
+| Failure behavior | Read-failed response succeeded; Existing bytes and Safe tail were Skipped, so their descendant commit path did not execute. The app displayed “Your highlight needs attention” and retained the same pending receipt. The flow's overall Succeeded badge represents handled failure, not a saved record. |
+| End state | ORNL test intake was returned Off and verified. Jason test intake remained Off throughout. No replay, second fresh submission or further write test was attempted after observing the policy denial. Catalog flows remain in their original On state. |
+
+The failed read returned:
+
+> Access from your IP address is currently restricted due to security controls applied to your network range.
+
+No source IP was exposed by this response; the caller's browser IP is not assumed to be the cloud connector's source IP. The response also includes `x-ms-apihub-cached-response: true`; this alone does not establish the cache's role in the denial or authorize a cache/network workaround. Browser navigation to the GitLab file separately timed out; it did not establish an independent current-file snapshot. No byte-for-byte post-run repository comparison is claimed. The no-write finding rests on the observed skipped branch and inspected definition.
+
+Evidence: [ORNL catalog](_assets/access-acceptance/pa02-ornl-app-catalog.txt), [Jason catalog](_assets/access-acceptance/pa02-jason-app-catalog.txt), [Jason run history](_assets/access-acceptance/pa02-jason-catalog-history.txt), [read retry](_assets/access-acceptance/pa02-ornl-branch-retry.txt), [403 details](_assets/access-acceptance/pa02-ornl-read-denial.txt), [skipped write branch](_assets/access-acceptance/pa02-ornl-no-write.txt), [unresolved app receipt](_assets/access-acceptance/pa02-ornl-app-unresolved.png), [ORNL Off](_assets/access-acceptance/pa02-ornl-intake-off.png), [Jason Off](_assets/access-acceptance/pa02-jason-intake-off.txt).
+
+### Acceptance disposition
+
+The **Jason-only app-context licensing assessment is complete** for the observed entitlement and intake/catalog configuration. This is not tenant-wide approval or unattended automation licensing. The actual restored-app invocation is now observed; a confirmed save and exact replay remain unaccepted.
+
+The owner subsequently accepted intermittent connectivity as a known limitation and closed PA-02; see the [closure decision](#known-limitation-and-pa-02-closure). The denied read and absent fresh-save/replay acceptance remain factual limits of this test. They do not count as passed PA-15/16/17 cases. No exception or policy change was requested or performed.

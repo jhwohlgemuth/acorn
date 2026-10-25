@@ -20,20 +20,24 @@ Supporting material: [pilot runbook](pilot-runbook.md), [notification walkthroug
 
 # Current evidence
 
+- PA-02 is closed by owner decision on October 25, 2026: the Jason-only pilot licensing assessment and access characterization are accepted, with intermittent GitLab connectivity recorded as a [known limitation](intake-access-decisions.md#known-limitation-and-pa-02-closure). Reliable connectivity has not been proven or repaired. PA-15/16/17 retain their own unpassed acceptance tests.
+
+- PA-02 October 25 evening acceptance: Jason's assigned Power Apps Per User Plan for Government and both test flows' invoking-user context were rechecked. App-driven catalog calls passed in both environments. ORNL restored-app intake reached the correct isolated flow, passed branch/history/catalog checks, then received a network-range HTTP 403 at `Read current PA17v2` (`2026-10-25T22:21:18Z`). The app retained an unresolved receipt; the write branch was skipped and test intake returned Off. The scoped pilot licensing assessment is complete; repeatable read/write/replay access is not accepted. [Dated test evidence](intake-access-decisions.md#october-25-evening-pa-02-acceptance).
+
 - PA-17 handoff: native archive hashes and ZIP integrity reverified October 25. [Consolidated restore handoff](_assets/solution-export/PA17-RESTORE-HANDOFF.md) separates operational backups from isolated import inputs and lists only the remaining acceptance. PA-17 is waiting on validation, with execution blocked by the observed GitLab network-range write denial and missing ORNL `prvCreateEntity`; it has not been marked complete or reduced in scope.
 
 - October 25 native canvas recovery progressed: a fresh unchanged operational app package was downloaded read-only. Native Save As created **PA17 TEST ONLY Sponsor Highlights** (`b4336414-edfb-4aae-b4e3-d8b994c19b65`), bound only to test flows with separate `PA17SponsorHighlightPending` storage. The saved/published copy lists all 13 projects. Native solution `1.0.0.6` includes this app, both flows, connector and two references; archive checks found zero missing dependencies and the solution checker reported zero issues. ORNL v6 import succeeded at 3:18–3:19 PM; the restored app also lists all 13 projects through a successful app-driven catalog run. Fresh app-driven writes and callback/table restoration remain unaccepted. Test intake remains Off. See [native canvas checkpoint](restore-target-readiness.md#native-canvas-and-solution-1006-checkpoint).
 
 - October 24–25 isolated work restored a connector-only solution with byte-identical catalog code, exported a native callback/table backup, and exported isolated connector routes. Jason’s protected test connection passed branch/catalog reads; the missing isolated file returned HTTP 404. Both edited app-package revisions failed import and are retired from deployment attempts. A natively authored catalog flow passed, then its connector call passed again after solution conversion. PA-18 repaired the reference through native solution authoring: all three catalog steps passed, and native export `1.0.0.4` succeeded with verified dependencies, isolated routes and unchanged custom code. Native 1.0.0.4 then imported into ORNL, bound its protected test connection and returned HTTP 200 with all 13 projects; all three steps passed. PA-18 is accepted and pruned; PA-17 remains blocked on app-driven intake and callback/table restore acceptance. ORNL callback/table import subsequently confirmed the privilege limit: `prvCreateEntity` is missing; package schema validation passed but the components and activation remained Unprocessed. See [target readiness, exact run outcomes and archive hashes](restore-target-readiness.md). Operational components were unchanged.
 - October 25 PA-17 native intake/catalog export `1.0.0.5` and a separate native callback/table test export `1.0.0.1` succeeded with zero missing dependencies and isolated destinations. Jason callback first receipt, exact replay and payload-conflict tests passed with one unchanged receipt row and all Teams/email actions skipped. Jason native manual intake also created one isolated JSONL line and replayed without a second commit or Teams notice. A subsequent intake conflict attempt hit an explicit network-range 403 before persistence; the unresolved response passed, but conflict acceptance remains open. Both tested write-capable flows were returned to Off. The later v6 checkpoint supplies the app copy/export and source catalog acceptance; app-driven submission and ORNL full restoration remain pending; ORNL callback/table import is blocked by missing `prvCreateEntity`, and the table-free intake/catalog version 1.0.0.5 import succeeded in ORNL (2:32–2:33 PM local display). Restored ORNL manual replay and identity-conflict rejection passed; a fresh commit was denied by the same explicit network-range restriction after successful reads. The test intake returned Off with the 457-byte logbook unchanged. Fresh ORNL write and calling-app acceptance remain pending. PA-17 stays open. See [native package inventory and acceptance](restore-target-readiness.md#native-package-inventory-and-restore-order).
-- Jason's Power Apps Per User Plan for Government is directly observed. The owner has no administrator ticket and requests using existing access. [License/access evidence](intake-access-decisions.md) supports the Jason-only app-triggered pilot; repeatable egress remains unverified. PA-02 no longer waits for a ticket before isolated testing.
+- Jason's Power Apps Per User Plan for Government is directly observed. The owner has no administrator ticket and requests using existing access. [License/access evidence](intake-access-decisions.md) supports the Jason-only app-triggered pilot; repeatable egress remains unverified. No administrator ticket was required for isolated testing; connectivity is now an accepted pilot limitation.
 - PA-14's simulated-response package imported as a new app and two new flows in both requested environments. Studio exposed stale intake references despite remapped outer dependencies; both test-app bindings and their formula aliases were repaired before submission. Both published test copies passed queued, rejected, unresolved and conflict panels, plus tab-reload recovery and same-ID retry. The original simulation rules were restored after conflict testing. On October 25 the owner confirmed browser-restart recovery in both environments, with fields locked and retry retaining each original receipt ID. The owner subsequently accepted denied-storage testing in both environments; PA-14 is closed on the combined agent-observed and owner-reported evidence. See [browser recovery checkpoint](browser-recovery-acceptance.md). Operational components were unchanged.
 
-- October 24 notification walkthrough passed: a fresh published LandScan submission added one JSONL line at `03ff5836289447034f40f2a4898c155441e6cb66` and sent the confirmed-save Teams notice to Jason. The app flow binding was refreshed and republished. Routine callback replay skipped delivery; a milestone email test passed. [Current routing, screenshots, run IDs, and limits](notification-walkthrough.md) are durable evidence. Intake notices are best effort after confirmation; this does not close PA-02 or wider release gates.
+- October 24 notification walkthrough passed: a fresh published LandScan submission added one JSONL line at `03ff5836289447034f40f2a4898c155441e6cb66` and sent the confirmed-save Teams notice to Jason. The app flow binding was refreshed and republished. Routine callback replay skipped delivery; a milestone email test passed. [Current routing, screenshots, run IDs, and limits](notification-walkthrough.md) are durable evidence. Intake notices are best effort after confirmation; this does not establish reliable connectivity or close wider release gates.
 
 - The isolated saved-flow copy passed simulated failed-commit acceptance in run `08584087221220248940052484856CU15`: commit Failed, readback/confirmation/success response Skipped, one outer unresolved response Succeeded. The live flow was unchanged; timeout/skipped dependencies were checked against preserved source. See [failure acceptance](write-failure-acceptance.md).
 
-- October 24 demo acceptance captured UUID `4313fcfc-0201-441e-8bda-c77718a31dcf` at commit `3090aa5714b4c6ff59c5dd0b6ecba999f918caa2` (+1/-0), preserved all six exact JSONL lines, and replayed through Queued replay in run `08584087227067729212084836766CU19`. The same record completed local ingestion, reviewed graduation and PDF rehearsal; see the [demo packet](../manual-jsonl-ingestion-graduation/walkthrough.md). This dated success does not close PA-02.
+- October 24 demo acceptance captured UUID `4313fcfc-0201-441e-8bda-c77718a31dcf` at commit `3090aa5714b4c6ff59c5dd0b6ecba999f918caa2` (+1/-0), preserved all six exact JSONL lines, and replayed through Queued replay in run `08584087227067729212084836766CU19`. The same record completed local ingestion, reviewed graduation and PDF rehearsal; see the [demo packet](../manual-jsonl-ingestion-graduation/walkthrough.md). This dated success does not establish reliable connectivity.
 
 - Code and saved Power Platform sources reviewed on October 24, 2026 against `49b4700d` plus the current uncommitted intake changes. Cloud statements below describe retained acceptance evidence, not a new live inspection. The [pilot runbook](pilot-runbook.md) and [notification walkthrough](notification-walkthrough.md) preserve the deployed-revision evidence.
 - The ORNL-branded app, project catalog, result panel, and browser-local pending slot are published in **Wohlgemuth, Jason**, environment `221f44a6-1468-ea4e-b93d-cd52f1723079`. Jason Wohlgemuth is the operational owner. The button displays Load Project List before loading and Refresh Project List after a successful load.
@@ -54,9 +58,9 @@ The demo uses one browser tab, one contributor and sequential submissions in the
 
 # Dependencies and acceptance
 
-**Demo gate:** The fresh personnel capture, exact replay and immutable snapshot handoff are preserved in the [demo packet](../manual-jsonl-ingestion-graduation/walkthrough.md). The repaired single unresolved response passed isolated cloud fault injection; [evidence](write-failure-acceptance.md) records the runtime and limits. A live demo also needs successful approved access at rehearsal. If denied, use the exact previously captured record in the manual demonstration and label the intake segment as recorded evidence; do not claim a fresh live save. PA-02 remains open until reliable access and final-flow licensing have dated owner evidence.
+**Demo gate:** The fresh personnel capture, exact replay and immutable snapshot handoff are preserved in the [demo packet](../manual-jsonl-ingestion-graduation/walkthrough.md). The repaired single unresolved response passed isolated cloud fault injection; [evidence](write-failure-acceptance.md) records the runtime and limits. A live demo also needs successful approved access at rehearsal. If denied, use the exact previously captured record in the manual demonstration and label the intake segment as recorded evidence; do not claim a fresh live save. PA-02 is closed under the owner-approved known-limitation decision; this does not guarantee that a live save will be available during the demo.
 
-**Wider release gate:** PA-02, PA-15 through PA-17, and PA-12 cover remaining acceptance, complete backup restoration, and shared deployment. None is silently declared complete by a successful single-user demo. PA-12 is a future shared release and does not gate the current pilot. Preserve original PA phase IDs; the completed demo capture is recorded in durable evidence; independent remaining matrices retain their bounded phase IDs.
+**Wider release gate:** PA-15 through PA-17 and PA-12 cover remaining acceptance, complete backup restoration, and shared deployment. None is silently declared complete by a successful single-user demo. PA-12 is a future shared release and does not gate the current pilot. Preserve original PA phase IDs; the completed demo capture is recorded in durable evidence; independent remaining matrices retain their bounded phase IDs.
 
 # Validation
 
@@ -66,24 +70,12 @@ Inspect actual action outcomes, line deltas, receipt UUID/commit, immutable snap
 
 `waiting-on-validation` (“Waiting on validation”) means the implementation exists and the phase awaits acceptance evidence. Prerequisites and external blockers still apply; this status does not mean ready to execute or accepted. Phases that still need deployment, integration or policy setup retain their existing status.
 
-## PA-02 — Resolve intake access and pilot licensing
-
-- Status: waiting-on-validation
-- Validation readiness: The protected connector and intake implementation are in place. Repeatable authorized read/write/replay access remains unverified; network-range denials are still an external blocker.
-- Budget: 5 active hours maximum
-- Prerequisites: existing signed-in account and assigned licenses; isolated connector/flow copies with usable protected connections; no administrator ticket required to test
-- Exact write set: isolated access-test components in Wohlgemuth, Jason and ORNL Personal Productivity; isolated project `22464` test files; `.wiki/features/powerapps-jsonl-intake/intake-access-decisions.md`; `.wiki/features/powerapps-jsonl-intake/_assets/access-acceptance/`
-- Primary integration lock: intake route
-- Outcome: Establish repeatable access through the existing authorized route and document the current user's app-context license evidence. Correlate any recurring denial without changing network policy or operational credentials. Callback/Vergil decisions belong to BOT-01.
-- Focused validation: Correlate successful and denied run timestamps/IPs; verify isolated read, conditional append and exact replay. Record each environment separately and preserve unresolved policy limits. Never expose credentials.
-- Handoff: Release access-dependent intake acceptance. Future shared-environment approval stays in PA-12.
-
 ## PA-15 — Accept bounded inbox and field limits
 
 - Status: waiting-on-validation
-- Validation readiness: Boundary controls are implemented; the remaining work is the isolated acceptance matrix after PA-02 establishes a usable route.
+- Validation readiness: Boundary controls are implemented; the remaining work is the isolated acceptance matrix when authorized connector calls can complete. PA-02 is closed; the known connectivity limitation can still interrupt individual cases.
 - Budget: 5 active hours maximum
-- Prerequisites: PA-02; safe isolated fixtures and restored baseline
+- Prerequisites: safe isolated fixtures and restored baseline; authorized connector access sufficient to execute each case
 - Exact write set: pilot project `22464` isolated intake test files; validation actions in isolated intake flow copies in both test environments; `.wiki/features/powerapps-jsonl-intake/boundary-acceptance.md`
 - Primary integration lock: intake route
 - Outcome: Complete exact field limits, blank/rejected-line preservation, malformed tail and file-size boundary acceptance.
@@ -93,9 +85,9 @@ Inspect actual action outcomes, line deltas, receipt UUID/commit, immutable snap
 ## PA-16 — Accept concurrent inbox creation and append
 
 - Status: waiting-on-validation
-- Validation readiness: Conditional writes and reconciliation are implemented; live concurrent-creation/append acceptance waits for PA-02 and PA-15.
+- Validation readiness: Conditional writes and reconciliation are implemented; live concurrent-creation/append acceptance waits for PA-15 and usable authorized connectivity during the test. PA-02 closure does not accept concurrency behavior.
 - Budget: 5 active hours maximum
-- Prerequisites: PA-02, PA-15; approved isolated source files
+- Prerequisites: PA-15; approved isolated source files and usable authorized connectivity during the test
 - Exact write set: pilot project `22464` isolated concurrency test files; conditional-write actions in isolated intake flow copies in both test environments; `.wiki/features/powerapps-jsonl-intake/concurrency-acceptance.md`
 - Primary integration lock: intake route
 - Outcome: Prove simultaneous creators/writers do not overwrite lines or duplicate the same submission.
@@ -118,7 +110,7 @@ Inspect actual action outcomes, line deltas, receipt UUID/commit, immutable snap
 
 - Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: PA-02, PA-15, PA-16 and PA-17 accepted; named approved GCC environment, maker/sharing rights, licensing, owner and recipient group/channel
+- Prerequisites: PA-15, PA-16 and PA-17 accepted; named approved GCC environment, maker/sharing rights, licensing, owner and recipient group/channel
 - Exact write set: target Power Platform solution import, protected connections, app/flow sharing and notification destination; `.wiki/features/powerapps-jsonl-intake/shared-deployment.md`
 - Primary integration lock: Power Platform deployment
 - Outcome: Deploy the accepted app/flows and switch future notifications from Jason to the approved shared destination.
