@@ -1,0 +1,44 @@
+[
+  {
+    "webhook-id": "acorn-test-artifact-ready-20261024",
+    "body": {
+      "event": "artifact-ready",
+      "checksum": "0000000000000000000000000000000000000000000000000000000000000000",
+      "package_url": "https://code.ornl.gov/research-enablement/experiments/power-automate/-/packages",
+      "project_id": "acorn",
+      "through": "2026-10-24T00:00:00Z"
+    }
+  },
+  {
+    "webhook-id": "acorn-test-failed-20261024",
+    "body": {
+      "event": "failed",
+      "message": "TEST ONLY \u2014 callback failure notification.",
+      "project_id": "acorn"
+    }
+  },
+  {
+    "webhook-id": "acorn-test-mr-created-20261024",
+    "body": {
+      "event": "mr-created",
+      "merge_request_url": "https://code.ornl.gov/research-enablement/experiments/power-automate/-/merge_requests/1",
+      "project_id": "acorn"
+    }
+  },
+  {
+    "webhook-id": "acorn-test-report-no-changes-20261024",
+    "body": {
+      "event": "report-no-changes",
+      "project_id": "acorn",
+      "through": "2026-10-24T00:00:00Z"
+    }
+  },
+  {
+    "webhook-id": "acorn-test-review-needed-20261024",
+    "body": {
+      "event": "review-needed",
+      "merge_request_url": "https://code.ornl.gov/research-enablement/experiments/power-automate/-/merge_requests/1",
+      "project_id": "acorn"
+    }
+  }
+]

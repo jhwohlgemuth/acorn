@@ -1,0 +1,227 @@
+- banner:
+  - button "Skip to main content"
+  - banner:
+    - button "App launcher": 
+    - generic: Power Automate
+    - button "Wohlgemuth, Jason":
+      - generic: Environments
+      - generic: Wohlgemuth, Jason
+    - button "Settings":
+      - generic: 
+    - button "Help":
+      - generic: 
+    - button "Account manager for Wohlgemuth, Jason":
+      - generic: JW
+      - img "JW"
+    - generic: 
+- navigation "Main":
+  - button "Left navigation panel" [expanded]:
+    - img "Left navigation panel"
+  - menu:
+    - generic "Home":
+      - menuitem "Home":
+        - generic: Home
+    - generic "Create":
+      - menuitem "Create":
+        - generic: Create
+    - generic "Templates":
+      - menuitem "Templates":
+        - generic: Templates
+    - generic "Learn":
+      - menuitem "Learn":
+        - generic: Learn
+    - generic "My flows":
+      - menuitem "My flows":
+        - generic: My flows
+    - separator
+    - generic "Approvals":
+      - menuitem "Approvals, press right arrow to navigate more options":
+        - generic: Approvals
+    - generic "Solutions":
+      - menuitem "Solutions, press right arrow to navigate more options":
+        - generic: Solutions
+    - generic "Automation center":
+      - menuitem "Automation center, press right arrow to navigate more options":
+        - generic: Automation center
+    - generic "Process mining":
+      - menuitem "Process mining, press right arrow to navigate more options":
+        - generic: Process mining
+    - generic "AI hub":
+      - menuitem "AI hub, press right arrow to navigate more options":
+        - generic: AI hub
+    - generic "Connections":
+      - menuitem "Connections, press right arrow to navigate more options":
+        - generic: Connections
+    - generic "More":
+      - menuitem "More":
+        - generic: More
+    - separator
+    - generic "Power Platform":
+      - menuitem "Power Platform":
+        - generic: Power Platform
+- main:
+  - main:
+    - button "Go back to previous page":
+      - generic: 
+    - generic "The flow name is ACORN Callback Receipt Validation.":
+      - generic: ACORN Callback Receipt Validation
+      - alert "Ran at 10/24/2026 6:07:26 PM": •Ran at 10/24/2026 6:07:26 PM
+    - toolbar:
+      - button "Resubmit":
+        - generic: 
+        - generic: Resubmit
+      - button "Cancel" [disabled]:
+        - generic: 
+        - generic: Cancel
+      - button "Edit":
+        - generic: 
+        - generic: Edit
+      - switch "New view"
+      - generic: New view
+    - region:
+      - generic: 
+      - alert:
+        - generic "Your flow ran successfully.":
+          - generic: Your flow ran successfully.
+      - button "Your flow ran successfully. Dismiss message.":
+        - generic: 
+    - button "Manually trigger a flow":
+      - button "Manually trigger a flow":
+        - generic: Manually trigger a flow
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Validate and claim receipt":
+      - button "Validate and claim receipt":
+        - generic: Validate and claim receipt
+    - generic: 0 seconds. Failed
+    - region "0 seconds": 0s
+    - img "Failed"
+    - button "View when \"Deliver receipt once\" will run under \"Configure run after\"":
+      - generic: 
+    - button "Deliver receipt once" [expanded]:
+      - button "Deliver receipt once" [expanded]:
+        - generic: Deliver receipt once
+    - generic: 1 seconds. Succeeded
+    - region "1 seconds": 1s
+    - img "Succeeded"
+    - button "Valid event only" [expanded]:
+      - button "Valid event only" [expanded]:
+        - generic: Valid event only
+    - generic: 1 seconds. Succeeded
+    - region "1 seconds": 1s
+    - img "Succeeded"
+    - generic: Inputs
+    - button "Show raw inputs":
+      - generic: 
+      - generic: Show raw inputs
+    - generic "Inputs":
+      - generic: Expression result
+      - code:
+        - generic: "true"
+        - generic: 
+        - generic: 
+        - generic: 
+        - generic: 
+        - textbox "Expression result": "true"
+    - button "If yes" [expanded]:
+      - button "If yes" [expanded]:
+        - generic: If yes
+    - button "Find receipt":
+      - button "Find receipt":
+        - generic: Find receipt
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "One receipt" [expanded]:
+      - button "One receipt" [expanded]:
+        - generic: One receipt
+    - generic: 1 seconds. Succeeded
+    - region "1 seconds": 1s
+    - img "Succeeded"
+    - generic: Inputs
+    - generic: Content not shown due to security configuration.
+    - button "If yes" [expanded]:
+      - button "If yes" [expanded]:
+        - generic: If yes
+    - button "Same payload" [expanded]:
+      - button "Same payload" [expanded]:
+        - generic: Same payload
+    - generic: 1 seconds. Succeeded
+    - region "1 seconds": 1s
+    - img "Succeeded"
+    - generic: Inputs
+    - generic: Content not shown due to security configuration.
+    - button "If yes" [expanded]:
+      - button "If yes" [expanded]:
+        - generic: If yes
+    - button "Pending email" [expanded] [active]:
+      - button "Pending email" [expanded]:
+        - generic: Pending email
+    - generic: 1 seconds. Succeeded
+    - region "1 seconds": 1s
+    - img "Succeeded"
+    - generic: Inputs
+    - generic: Content not shown due to security configuration.
+    - button "If yes" [expanded]:
+      - button "If yes" [expanded]:
+        - generic: If yes
+    - button "Mark sending":
+      - button "Mark sending":
+        - generic: Mark sending
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Send email once":
+      - button "Send email once":
+        - generic: Send email once
+    - generic: 1 seconds. Succeeded
+    - region "1 seconds": 1s
+    - img "Succeeded"
+    - button "Mark sent":
+      - button "Mark sent":
+        - generic: Mark sent
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "If no" [expanded]:
+      - button "If no" [expanded]:
+        - generic: If no
+    - button "Already sent":
+      - button "Already sent":
+        - generic: Already sent
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "If no" [expanded]:
+      - button "If no" [expanded]:
+        - generic: If no
+    - button "Payload conflict":
+      - button "Payload conflict":
+        - generic: Payload conflict
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "If no" [expanded]:
+      - button "If no" [expanded]:
+        - generic: If no
+    - button "Receipt unresolved":
+      - button "Receipt unresolved":
+        - generic: Receipt unresolved
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "If no" [expanded]:
+      - button "If no" [expanded]:
+        - generic: If no
+    - button "Reject invalid":
+      - button "Reject invalid":
+        - generic: Reject invalid
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - generic "flowCtrl.contextualHelpPanel.title"
+- alert
+- alert
+- complementary
+- complementary

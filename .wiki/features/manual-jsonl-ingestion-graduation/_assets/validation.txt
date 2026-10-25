@@ -1,0 +1,8 @@
+Validation on 2026-10-24
+
+make lint: passed, no new lint warnings in final run.
+make test: Summary [  31.852s] 2670 tests run: 2670 passed, 17 skipped
+
+CLI help regenerated from current binary.
+11-step local rehearsal: passed, 2.01 seconds excluding human checkpoints.
+PDF visual inspection: 11-page walkthrough and 3-page report; no clipping found.

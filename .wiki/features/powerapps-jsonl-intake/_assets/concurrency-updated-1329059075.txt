@@ -1,0 +1,335 @@
+- banner:
+  - button "Skip to main content"
+  - banner:
+    - button "App launcher": 
+    - generic: Power Automate
+    - button "Wohlgemuth, Jason":
+      - generic: Environments
+      - generic: Wohlgemuth, Jason
+    - button "Settings":
+      - generic: 
+    - button "Help":
+      - generic: 
+    - button "Account manager for Wohlgemuth, Jason":
+      - generic: JW
+      - img "JW"
+    - generic: 
+- navigation "Main":
+  - button "Left navigation panel" [expanded]:
+    - img "Left navigation panel"
+  - menu:
+    - generic "Home":
+      - menuitem "Home":
+        - generic: Home
+    - generic "Create":
+      - menuitem "Create":
+        - generic: Create
+    - generic "Templates":
+      - menuitem "Templates":
+        - generic: Templates
+    - generic "Learn":
+      - menuitem "Learn":
+        - generic: Learn
+    - generic "My flows":
+      - menuitem "My flows":
+        - generic: My flows
+    - separator
+    - generic "Approvals":
+      - menuitem "Approvals, press right arrow to navigate more options":
+        - generic: Approvals
+    - generic "Solutions":
+      - menuitem "Solutions, press right arrow to navigate more options":
+        - generic: Solutions
+    - generic "Automation center":
+      - menuitem "Automation center, press right arrow to navigate more options":
+        - generic: Automation center
+    - generic "Process mining":
+      - menuitem "Process mining, press right arrow to navigate more options":
+        - generic: Process mining
+    - generic "AI hub":
+      - menuitem "AI hub, press right arrow to navigate more options":
+        - generic: AI hub
+    - generic "Connections":
+      - menuitem "Connections, press right arrow to navigate more options":
+        - generic: Connections
+    - generic "More":
+      - menuitem "More":
+        - generic: More
+    - separator
+    - generic "Power Platform":
+      - menuitem "Power Platform":
+        - generic: Power Platform
+- main:
+  - main:
+    - button "Go back to previous page":
+      - generic: 
+    - generic "The flow name is ACORN Logbook GitLab JSONL Intake (Draft).":
+      - generic: ACORN Logbook GitLab JSONL Intake (Draft)
+      - alert "Ran at 10/24/2026 5:35:59 PM": •Ran at 10/24/2026 5:35:59 PM
+    - toolbar:
+      - button "Resubmit":
+        - generic: 
+        - generic: Resubmit
+      - button "Cancel" [disabled]:
+        - generic: 
+        - generic: Cancel
+      - button "Edit":
+        - generic: 
+        - generic: Edit
+      - switch "New view"
+      - generic: New view
+    - region:
+      - generic: 
+      - alert:
+        - generic "Your flow ran successfully.":
+          - generic: Your flow ran successfully.
+      - button "Your flow ran successfully. Dismiss message.":
+        - generic: 
+    - button "Power Apps (V2)":
+      - button "Power Apps (V2)":
+        - generic: Power Apps (V2)
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Submission ID":
+      - button "Submission ID":
+        - generic: Submission ID
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Submitted At":
+      - button "Submitted At":
+        - generic: Submitted At
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Verify access to main":
+      - button "Verify access to main":
+        - generic: Verify access to main
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Persist submission v3" [expanded]:
+      - button "Persist submission v3" [expanded]:
+        - generic: Persist submission v3
+    - generic: 1 seconds. Failed
+    - region "1 seconds": 1s
+    - img "Failed"
+    - generic: 
+    - status:
+      - strong: ActionFailed
+      - generic: . An action failed. No dependent actions succeeded.
+    - button "Raw submission":
+      - button "Raw submission":
+        - generic: Raw submission
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Parse submission":
+      - button "Parse submission":
+        - generic: Parse submission
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Check timestamps":
+      - button "Check timestamps":
+        - generic: Check timestamps
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Blank details":
+      - button "Blank details":
+        - generic: Blank details
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Caller email":
+      - button "Caller email":
+        - generic: Caller email
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Envelope allowed" [expanded]:
+      - button "Envelope allowed" [expanded]:
+        - generic: Envelope allowed
+    - generic: 1 seconds. Failed
+    - region "1 seconds": 1s
+    - img "Failed"
+    - generic: Inputs
+    - generic: Content not shown due to security configuration.
+    - button "If yes" [expanded]:
+      - button "If yes" [expanded]:
+        - generic: If yes
+    - button "Commit marker":
+      - button "Commit marker":
+        - generic: Commit marker
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "List submission history":
+      - button "List submission history":
+        - generic: List submission history
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Matching commits":
+      - button "Matching commits":
+        - generic: Matching commits
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Prior submission exists" [expanded]:
+      - button "Prior submission exists" [expanded]:
+        - generic: Prior submission exists
+    - generic: 1 seconds. Failed
+    - region "1 seconds": 1s
+    - img "Failed"
+    - generic: Inputs
+    - generic: Content not shown due to security configuration.
+    - button "If yes" [expanded]:
+      - button "If yes" [expanded]:
+        - generic: If yes
+    - button "Prior commit":
+      - button "Prior commit":
+        - generic: Prior commit
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "Prior snapshot":
+      - button "Prior snapshot":
+        - generic: Prior snapshot
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "Parent snapshot":
+      - button "Parent snapshot":
+        - generic: Parent snapshot
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "View when \"Parent readable\" will run under \"Configure run after\"":
+      - generic: 
+    - button "Parent readable":
+      - button "Parent readable":
+        - generic: Parent readable
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "If no" [expanded]:
+      - button "If no" [expanded]:
+        - generic: If no
+    - button "History exhausted" [expanded]:
+      - button "History exhausted" [expanded]:
+        - generic: History exhausted
+    - generic: 0 seconds. Failed
+    - region "0 seconds": 0s
+    - img "Failed"
+    - generic: Inputs
+    - generic: Content not shown due to security configuration.
+    - button "If yes" [expanded]:
+      - button "If yes" [expanded]:
+        - generic: If yes
+    - button "Load project catalog" [expanded] [active]:
+      - button "Load project catalog" [expanded]:
+        - generic: Load project catalog
+    - generic: 0 seconds. Failed
+    - region "0 seconds": 0s
+    - img "Failed"
+    - generic: 
+    - status:
+      - strong: Forbidden
+      - generic: .
+    - generic: Inputs
+    - generic: Content not shown due to security configuration.
+    - generic: Outputs
+    - button "Show raw outputs":
+      - generic: 
+      - generic: Show raw outputs
+    - generic "Outputs":
+      - generic: Body
+      - code:
+        - generic: "{"
+        - generic: "\"message\": \"Could not read the project repository.\""
+        - generic: "}"
+        - generic: 
+        - generic: 
+        - generic: 
+        - generic: 
+        - textbox "Body": "{ \"message\": \"Could not read the project repository.\" }"
+      - generic: Headers
+      - code:
+        - generic: "{"
+        - generic: "\"Request-Context\": \"appId=cid-v1:41ea0e2d-1d3d-453c-b47b-2e1c4a4dfede\","
+        - generic: "\"x-ms-function-status\": \"OK\","
+        - generic: "\"Date\": \"Sat, 24 Oct 2026 21:36:00 GMT\","
+        - generic: "\"Content-Length\": \"52\","
+        - generic: "\"Content-Type\": \"application/json; charset=utf-8\""
+        - generic: "}"
+        - generic: 
+        - generic: 
+        - generic: 
+        - generic: 
+        - textbox "Headers": "{ \"Request-Context\": \"appId=cid-v1:41ea0e2d-1d3d-453c-b47b-2e1c4a4dfede\", \"x-ms-function-status\": \"OK\", \"Date\": \"Sat, 24 Oct 2026 21:36:00 GMT\", \"Content-Length\": \"52\", \"Content-Type\": \"application/json; charset=utf-8\" }"
+      - generic: Status Code
+      - code:
+        - generic: "403"
+        - generic: 
+        - generic: 
+        - generic: 
+        - generic: 
+        - textbox "Status Code": "403"
+    - generic: "Connection:"
+    - link "acorn-powerautomate-intake":
+      - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/connections?apiName=shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46&connectionName=shared-acorn-20gitla-aef5b2c7-15ae-44da-afa0-00f8aecefdf0
+    - generic: 
+    - button "Selected catalog project":
+      - button "Selected catalog project":
+        - generic: Selected catalog project
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "Read current":
+      - button "Read current":
+        - generic: Read current
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "View when \"Readable inbox\" will run under \"Configure run after\"":
+      - generic: 
+    - button "Readable inbox":
+      - button "Readable inbox":
+        - generic: Readable inbox
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "If no" [expanded]:
+      - button "If no" [expanded]:
+        - generic: If no
+    - button "History limit":
+      - button "History limit":
+        - generic: History limit
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "If no" [expanded]:
+      - button "If no" [expanded]:
+        - generic: If no
+    - button "Rejected envelope":
+      - button "Rejected envelope":
+        - generic: Rejected envelope
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "View when \"Unresolved failure\" will run under \"Configure run after\"":
+      - generic: 
+    - button "Unresolved failure":
+      - button "Unresolved failure":
+        - generic: Unresolved failure
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - generic "flowCtrl.contextualHelpPanel.title"
+- alert
+- alert
+- complementary
+- complementary

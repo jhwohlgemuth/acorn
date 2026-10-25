@@ -1,0 +1,352 @@
+- banner:
+  - button "Skip to main content"
+  - banner:
+    - button "App launcher": 
+    - generic: Power Automate
+    - button "Wohlgemuth, Jason":
+      - generic: Environments
+      - generic: Wohlgemuth, Jason
+    - button "Settings":
+      - generic: 
+    - button "Help":
+      - generic: 
+    - button "Account manager for Wohlgemuth, Jason":
+      - generic: JW
+      - img "JW"
+    - generic: 
+- navigation "Main":
+  - button "Left navigation panel" [expanded]:
+    - img "Left navigation panel"
+  - menu:
+    - generic "Home":
+      - menuitem "Home":
+        - generic: Home
+    - generic "Create":
+      - menuitem "Create":
+        - generic: Create
+    - generic "Templates":
+      - menuitem "Templates":
+        - generic: Templates
+    - generic "Learn":
+      - menuitem "Learn":
+        - generic: Learn
+    - generic "My flows":
+      - menuitem "My flows":
+        - generic: My flows
+    - separator
+    - generic "Approvals":
+      - menuitem "Approvals, press right arrow to navigate more options":
+        - generic: Approvals
+    - generic "Solutions":
+      - menuitem "Solutions, press right arrow to navigate more options":
+        - generic: Solutions
+    - generic "Automation center":
+      - menuitem "Automation center, press right arrow to navigate more options":
+        - generic: Automation center
+    - generic "Process mining":
+      - menuitem "Process mining, press right arrow to navigate more options":
+        - generic: Process mining
+    - generic "AI hub":
+      - menuitem "AI hub, press right arrow to navigate more options":
+        - generic: AI hub
+    - generic "Connections":
+      - menuitem "Connections, press right arrow to navigate more options":
+        - generic: Connections
+    - generic "More":
+      - menuitem "More":
+        - generic: More
+    - separator
+    - generic "Power Platform":
+      - menuitem "Power Platform":
+        - generic: Power Platform
+- main:
+  - main:
+    - button "Go back to previous page":
+      - generic: 
+    - textbox "The flow name is ACORN Callback Receipt Validation. Press enter to edit.":
+      - generic: ACORN Callback Receipt Validation
+      - alert "Saving…": •Saving…
+    - toolbar:
+      - button "Undo":
+        - generic: 
+        - generic: Undo
+      - button "Redo" [disabled]:
+        - generic: 
+        - generic: Redo
+      - button "Comments":
+        - generic: 
+        - generic: Comments
+      - button "Save":
+        - generic: 
+        - generic: Save
+      - button "Flow checker":
+        - generic: 
+        - generic: Flow checker
+      - button "Test":
+        - generic: 
+        - generic: Test
+      - switch "New designer"
+      - generic: New designer
+    - region:
+      - generic: 
+      - alert:
+        - generic: "Request to XRM API failed with server error: 'Message: Timeout occurred when calling the XRM api' Code: InnerError: Type: System.Threading.Tasks.TaskCanceledException Message: A task was canceled. StackTrace: at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task) at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task) at Microsoft.WindowsAzure.ResourceStack.Common.EventSources.IHttpEventSourceExtensions.<TraceHttpOutgoingRequest>d__5.MoveNext() --- End of stack trace from previous location where exception was thrown --- at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw() at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task) at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task) at System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1.ConfiguredTaskAwaiter.GetResult() at Microsoft.Azure.ProcessSimple.Data.DataProviders.XrmDataProvider.<>c__DisplayClass142_0`1.<<CallXrmApiHelper>b__0>d.MoveNext() in C:\\__w\\1\\s\\src\\processsimple\\Roles\\ProcessSimple.Data\\DataProviders\\Services\\XrmDataProvider.cs:line 3222 --- End of stack trace from previous location where exception was thrown --- at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw() at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task) at Microsoft.WindowsAzure.ResourceStack.Common.Algorithms.AsyncRetry.<Retry>d__3`1.MoveNext() --- End of stack trace from previous location where exception was thrown --- at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw() at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task) at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task) at System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1.ConfiguredTaskAwaiter.GetResult() at Microsoft.Azure.ProcessSimple.Data.DataProviders.XrmDataProvider.<CallXrmApiHelper>d__142`1.MoveNext() in C:\\__w\\1\\s\\src\\processsimple\\Roles\\ProcessSimple.Data\\DataProviders\\Services\\XrmDataProvider.cs:line 3156 InternalException.Message: InternalException.StackTrace: '. The tracking Id is 'c054b8ec-25aa-497a-865f-6cce5e476b17'."
+      - button "Close":
+        - generic: 
+    - region:
+      - generic: 
+      - alert:
+        - generic "Your browser has stored a copy of this flow that you can recover the next time you open the designer.":
+          - text: Your browser has stored a copy of this flow that you can recover the next time you open the designer.
+          - link "Learn more":
+            - /url: https://go.microsoft.com/fwlink/?linkid=2310743
+      - button "Close":
+        - generic: 
+    - region:
+      - generic: 
+      - alert:
+        - generic "Your browser has stored a copy of this flow that you can recover the next time you open the designer.":
+          - text: Your browser has stored a copy of this flow that you can recover the next time you open the designer.
+          - link "Learn more":
+            - /url: https://go.microsoft.com/fwlink/?linkid=2310743
+      - button "Close":
+        - generic: 
+    - region:
+      - generic: 
+      - alert:
+        - generic "Your browser has stored a copy of this flow that you can recover the next time you open the designer.":
+          - text: Your browser has stored a copy of this flow that you can recover the next time you open the designer.
+          - link "Learn more":
+            - /url: https://go.microsoft.com/fwlink/?linkid=2310743
+      - button "Close":
+        - generic: 
+    - button "Manually trigger a flow":
+      - button "Manually trigger a flow":
+        - generic: Manually trigger a flow
+    - button "Help for Manually trigger a flow":
+      - generic: 
+    - button "This operation has secure inputs or outputs enabled.":
+      - generic: 
+    - button "Menu for Manually trigger a flow":
+      - generic: 
+    - button "Validate and claim receipt":
+      - button "Validate and claim receipt":
+        - generic: Validate and claim receipt
+    - button "Menu for Validate and claim receipt":
+      - generic: 
+    - button "View when \"Deliver receipt once\" will run under \"Configure run after\"":
+      - generic: 
+    - button "Deliver receipt once" [expanded]:
+      - button "Deliver receipt once" [expanded]:
+        - generic: Deliver receipt once
+    - button "Menu for Deliver receipt once":
+      - generic: 
+    - button "Valid event only" [expanded]:
+      - button "Valid event only" [expanded]:
+        - generic: Valid event only
+    - button "Menu for Valid event only":
+      - generic: 
+    - listbox "Group type selector":
+      - option "And" [selected]
+      - generic: 
+    - checkbox "Select row"
+    - generic: 
+    - generic "Choose a value":
+      - textbox "Object Name":
+        - generic "actions('Validate_delivery')?['status']":
+          - generic: actions(...)
+          - button "Delete actions(...)": ×
+    - listbox "Relationship":
+      - option "is equal to" [selected]
+      - generic: 
+    - generic "Choose a value":
+      - textbox "Value":
+        - generic: Succeeded
+    - button "Condition actions":
+      - generic: 
+    - checkbox "Select row"
+    - generic: 
+    - generic "Choose a value":
+      - textbox "Object Name":
+        - generic "actions('Validate_event')?['status']":
+          - generic: actions(...)
+          - button "Delete actions(...)": ×
+    - listbox "Relationship":
+      - option "is equal to" [selected]
+      - generic: 
+    - generic "Choose a value":
+      - textbox "Value":
+        - generic: Succeeded
+    - button "Condition actions":
+      - generic: 
+    - button "Add":
+      - generic: 
+      - generic: Add
+      - generic: 
+    - button "If yes" [expanded]:
+      - button "If yes" [expanded]:
+        - generic: If yes
+    - button "Find receipt":
+      - button "Find receipt":
+        - generic: Find receipt
+    - button "Help for Find receipt":
+      - generic: 
+    - button "This operation has secure inputs or outputs enabled.":
+      - generic: 
+    - button "Menu for Find receipt":
+      - generic: 
+    - button "One receipt" [expanded]:
+      - button "One receipt" [expanded]:
+        - generic: One receipt
+    - button "Menu for One receipt":
+      - generic: 
+    - generic "Choose a value":
+      - textbox "Object Name":
+        - generic "length(body('Find_receipt')?['value'])":
+          - generic: length(...)
+          - button "Delete length(...)": ×
+    - listbox "Relationship":
+      - option "is equal to" [selected]
+      - generic: 
+    - generic "Choose a value":
+      - textbox "Value":
+        - generic: "1"
+    - button "Add":
+      - generic: 
+      - generic: Add
+      - generic: 
+    - button "If yes" [expanded]:
+      - button "If yes" [expanded]:
+        - generic: If yes
+    - button "Same payload" [expanded]:
+      - button "Same payload" [expanded]:
+        - generic: Same payload
+    - button "Menu for Same payload":
+      - generic: 
+    - generic "Choose a value":
+      - textbox "Object Name":
+        - generic "first(body('Find_receipt')?['value'])?['cr1d0_payloadjson']":
+          - generic: first(...)
+          - button "Delete first(...)": ×
+    - listbox "Relationship":
+      - option "is equal to" [selected]
+      - generic: 
+    - generic "Choose a value":
+      - textbox "Value":
+        - generic "triggerBody()?['text_1']":
+          - generic: text_1
+          - button "Delete text_1": ×
+          - generic: 
+    - button "Add":
+      - generic: 
+      - generic: Add
+      - generic: 
+    - button "If yes" [expanded]:
+      - button "If yes" [expanded]:
+        - generic: If yes
+    - button "Pending email" [expanded]:
+      - button "Pending email" [expanded]:
+        - generic: Pending email
+    - button "Menu for Pending email":
+      - generic: 
+    - generic "Choose a value":
+      - textbox "Object Name":
+        - generic "first(body('Find_receipt')?['value'])?['cr1d0_emailstate']":
+          - generic: first(...)
+          - button "Delete first(...)": ×
+    - listbox "Relationship":
+      - option "is equal to" [selected]
+      - generic: 
+    - generic "Choose a value":
+      - textbox "Value":
+        - generic: Pending
+    - button "Add":
+      - generic: 
+      - generic: Add
+      - generic: 
+    - button "If yes" [expanded]:
+      - button "If yes" [expanded]:
+        - generic: If yes
+    - button "Mark sending":
+      - button "Mark sending":
+        - generic: Mark sending
+    - button "Help for Mark sending":
+      - generic: 
+    - button "This operation has secure inputs or outputs enabled.":
+      - generic: 
+    - button "Menu for Mark sending":
+      - generic: 
+    - button "Insert a new step":
+      - generic: 
+    - button "Send email once" [expanded]:
+      - button "Send email once" [expanded]:
+        - generic: Send email once
+    - button "Help for Send email once":
+      - generic: 
+    - button "This operation has secure inputs or outputs enabled.":
+      - generic: 
+    - button "Menu for Send email once":
+      - generic: 
+    - generic "To": "*To"
+    - generic "Specify email addresses separated by semicolons like someone@contoso.com":
+      - textbox "To":
+        - generic: ⁠
+        - generic "first(body('Find_receipt')?['value'])?['cr1d0_emailrecipient']":
+          - generic: first(...)
+          - button "Delete first(...)": ×
+        - generic: ⁠
+    - generic "Subject": "*Subject"
+    - generic "Specify the subject of the mail":
+      - textbox "Subject":
+        - generic: ACORN Sponsor Highlights update
+    - generic "Body": "*Body"
+    - generic "Toolbar":
+      - generic "Html View":
+    - generic "Specify the body of the mail":
+      - textbox "Body":
+        - generic: ⁠
+        - text: concat(...)
+        - button "Delete concat(...)": ×
+        - generic: ⁠
+    - generic "Sensitivity"
+    - combobox "Sensitivity":
+      - generic "Sensitivity":
+        - generic: Sensitivity
+        - textbox "Sensitivity"
+      - button "Show options":
+        - generic: 
+    - button "Show advanced options":
+      - generic: 
+      - generic: Show advanced options
+    - alert
+    - button "Insert a new step":
+      - generic: 
+    - button "Mark sent":
+      - button "Mark sent":
+        - generic: Mark sent
+    - button "Help for Mark sent":
+      - generic: 
+    - button "This operation has secure inputs or outputs enabled.":
+      - generic: 
+    - button "Menu for Mark sent":
+      - generic: 
+    - button "Add an action for Pending email's If yes branch":
+      - generic: Add an action
+    - button "If no" [expanded]:
+      - button "If no" [expanded]:
+        - generic: If no
+    - button "Already sent":
+      - button "Already sent":
+        - generic: Already sent
+    - button "Menu for Already sent":
+      - generic: 
+    - button "Add an action for Pending email's If no branch":
+      - generic: Add an action
+    - button "Add an action for Same payload's If yes branch":
+      - generic: Add an action
+    - button "If no" [expanded]:
+      - button "If no" [expanded]:
+        - generic: If no
+    - button "Payload conflict":
+      - button "Payload conflict":
+       

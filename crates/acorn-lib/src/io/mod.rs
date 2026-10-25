@@ -1833,7 +1833,7 @@ pub fn symlink(source: &Path, target: &Path) -> ApiResult<()> {
     }
 }
 /// Synchronize the parent directory after creating or renaming a durable file where supported.
-pub(crate) fn sync_parent_directory(path: &Path) -> ApiResult<()> {
+pub fn sync_parent_directory(path: &Path) -> ApiResult<()> {
     #[cfg(unix)]
     {
         path.parent()

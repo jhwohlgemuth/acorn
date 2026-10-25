@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-24",
+  "scope": "Published form validation only; Submit was never clicked.",
+  "checks": [
+    {
+      "test": "1201-character summary",
+      "state": "\t\t\t\t\t\t\t90 text 1201 / 1,200 characters. Lead with the outcome; explain its relevance.\n\t\t\t\t\t\t\t82 text 0 / 20 details · up to 1,000 characters each\n\t\t\t\t\t\t\t68 button (disabled) Submit highlight"
+    },
+    {
+      "test": "1200-character summary and no details",
+      "state": "\t\t\t\t\t\t\t90 text 1200 / 1,200 characters. Lead with the outcome; explain its relevance.\n\t\t\t\t\t\t\t82 text 0 / 20 details · up to 1,000 characters each\n\t\t\t\t\t\t\t68 button Submit highlight"
+    },
+    {
+      "test": "21 nonempty detail lines",
+      "state": "\t\t\t\t\t\t\t59 text Supporting details · optional\n\t\t\t\t\t\t\t91 text 21 / 20 details · up to 1,000 characters each\n\t\t\t\t\t\t\t68 button (disabled) Submit highlight"
+    },
+    {
+      "test": "20 nonempty detail lines",
+      "state": "\t\t\t\t\t\t\t59 text Supporting details · optional\n\t\t\t\t\t\t\t91 text 20 / 20 details · up to 1,000 characters each\n\t\t\t\t\t\t\t68 button Submit highlight"
+    },
+    {
+      "test": "1001-character detail",
+      "state": "\t\t\t\t\t\t\t59 text Supporting details · optional\n\t\t\t\t\t\t\t91 text 1 / 20 details · up to 1,000 characters each\n\t\t\t\t\t\t\t68 button (disabled) Submit highlight"
+    },
+    {
+      "test": "1000-character detail",
+      "state": "\t\t\t\t\t\t\t59 text Supporting details · optional\n\t\t\t\t\t\t\t91 text 1 / 20 details · up to 1,000 characters each\n\t\t\t\t\t\t\t68 button Submit highlight"
+    },
+    {
+      "test": "Blank detail lines ignored",
+      "state": "\t\t\t\t\t\t\t59 text Supporting details · optional\n\t\t\t\t\t\t\t91 text 1 / 20 details · up to 1,000 characters each\n\t\t\t\t\t\t\t68 button Submit highlight"
+    },
+    {
+      "test": "Whitespace-only summary",
+      "state": "\t\t\t\t\t\t\t92 text 3 / 1,200 characters. Lead with the outcome; explain its relevance.\n\t\t\t\t\t\t\t91 text 1 / 20 details · up to 1,000 characters each\n\t\t\t\t\t\t\t68 button (disabled) Submit highlight"
+    }
+  ]
+}

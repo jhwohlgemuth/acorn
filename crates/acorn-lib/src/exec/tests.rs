@@ -20,7 +20,11 @@ use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::validation::Validate as SchemaValidate;
 use alloc::collections::BTreeMap;
 use core::str::FromStr;
-use std::fs::{create_dir, write};
+use std::fs::{create_dir, read, write};
+#[cfg(unix)]
+use std::fs::{set_permissions, Permissions};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 use validator::Validate;
@@ -55,7 +59,11 @@ fn fixture(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/exec").join(name)
 }
 fn fixture_execution(name: &str, hook: WorkflowAction, data: &serde_json::Value, capabilities: ScriptCapabilities) -> HookExecution {
-    let path = fixture(name);
+    let temporary = tempdir().expect("temporary script root");
+    let path = temporary.path().join(name);
+    write(&path, read(fixture(name)).expect("read fixture script")).expect("stage fixture script");
+    #[cfg(unix)]
+    set_permissions(&path, Permissions::from_mode(0o600)).expect("secure fixture script");
     let mut resolved = Resolved::direct(&path).expect("resolve fixture script");
     resolved.entry.id = Some(name.to_string());
     let authorization = authorization(capabilities);
@@ -78,6 +86,16 @@ fn manifest(capabilities: ScriptCapabilities) -> ScriptManifest {
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn test_absolute_script_rejects_group_writable_file() {
+    let temporary = tempdir().expect("temporary script root");
+    let path = temporary.path().join("writable.rhai");
+    write(&path, VALID_SOURCE).expect("script");
+    set_permissions(&path, Permissions::from_mode(0o666)).expect("writable script permissions");
+    let error = Resolved::direct(&path).expect_err("writable absolute script must be denied");
+    assert!(error.to_string().contains("group/world-writable"));
+}
 #[test]
 fn test_application_configuration_has_hook() {
     let configuration = ApplicationConfiguration {

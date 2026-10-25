@@ -1,0 +1,1202 @@
+{
+  "brandColor": "#8C6CFF",
+  "connectionReferences": {},
+  "connectorDisplayName": "Control",
+  "id": "84f2d91c-c670-4ba1-83ce-2670584d2851",
+  "isTrigger": false,
+  "operationDefinition": {
+    "actions": {
+      "Blank_details": {
+        "inputs": {
+          "from": "@coalesce(body('Parse_submission')?['entry']?['items'],json('[]'))",
+          "where": "@empty(trim(item()))"
+        },
+        "runAfter": {
+          "Check_timestamps": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        },
+        "type": "Query"
+      },
+      "Caller_email": {
+        "inputs": "@toLower(if(not(empty(triggerOutputs()?['headers']?['x-ms-user-email-encoded'])),base64ToString(triggerOutputs()?['headers']?['x-ms-user-email-encoded']),coalesce(triggerOutputs()?['headers']?['x-ms-user-email'],string(null))))",
+        "runAfter": {
+          "Blank_details": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs"
+            ]
+          }
+        },
+        "type": "Compose"
+      },
+      "Check_timestamps": {
+        "inputs": "@createArray(ticks(body('Parse_submission')?['submittedAt']),ticks(body('Parse_submission')?['entry']?['timestamp']))",
+        "runAfter": {
+          "Parse_submission": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs"
+            ]
+          }
+        },
+        "type": "Compose"
+      },
+      "Envelope_allowed": {
+        "actions": {
+          "Commit_marker": {
+            "inputs": "@concat('acorn-submission:',body('Parse_submission')?['submissionId'])",
+            "runAfter": {},
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs"
+                ]
+              }
+            },
+            "type": "Compose"
+          },
+          "List_submission_history": {
+            "inputs": {
+              "authentication": "@parameters('$authentication')",
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
+                "connectionName": "shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
+                "operationId": "ListLogbookCommits"
+              },
+              "parameters": {
+                "page": 1,
+                "path": ".acorn/intake/logbook.jsonl",
+                "per_page": 100,
+                "ref_name": "main"
+              },
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runAfter": {
+              "Commit_marker": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            },
+            "type": "OpenApiConnection"
+          },
+          "Matching_commits": {
+            "inputs": {
+              "from": "@body('List_submission_history')",
+              "where": "@equals(trim(item()?['message']),outputs('Commit_marker'))"
+            },
+            "runAfter": {
+              "List_submission_history": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            },
+            "type": "Query"
+          },
+          "Prior_submission_exists": {
+            "actions": {
+              "Parent_readable": {
+                "actions": {
+                  "Exact_prior_append": {
+                    "actions": {
+                      "Queued_replay": {
+                        "inputs": {
+                          "body": {
+                            "commitSha": "@outputs('Prior_commit')?['id']",
+                            "disposition": "queued",
+                            "message": "Previously saved to logbook; awaiting ACORN review.",
+                            "submissionId": "@body('Parse_submission')?['submissionId']"
+                          },
+                          "schema": {
+                            "properties": {
+                              "commitSha": {
+                                "title": "commitSha",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "disposition": {
+                                "title": "disposition",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "message": {
+                                "title": "message",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "submissionId": {
+                                "title": "submissionId",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "statusCode": 200
+                        },
+                        "kind": "PowerApp",
+                        "runAfter": {},
+                        "runtimeConfiguration": {
+                          "secureData": {
+                            "properties": [
+                              "inputs"
+                            ]
+                          }
+                        },
+                        "type": "Response"
+                      }
+                    },
+                    "else": {
+                      "actions": {
+                        "Identity_conflict": {
+                          "inputs": {
+                            "body": {
+                              "commitSha": "",
+                              "disposition": "conflict",
+                              "message": "This submission ID already has different or unverifiable bytes. Operator review is required.",
+                              "submissionId": "@body('Parse_submission')?['submissionId']"
+                            },
+                            "schema": {
+                              "properties": {
+                                "commitSha": {
+                                  "title": "commitSha",
+                                  "type": "string",
+                                  "x-ms-content-hint": "TEXT",
+                                  "x-ms-dynamically-added": true
+                                },
+                                "disposition": {
+                                  "title": "disposition",
+                                  "type": "string",
+                                  "x-ms-content-hint": "TEXT",
+                                  "x-ms-dynamically-added": true
+                                },
+                                "message": {
+                                  "title": "message",
+                                  "type": "string",
+                                  "x-ms-content-hint": "TEXT",
+                                  "x-ms-dynamically-added": true
+                                },
+                                "submissionId": {
+                                  "title": "submissionId",
+                                  "type": "string",
+                                  "x-ms-content-hint": "TEXT",
+                                  "x-ms-dynamically-added": true
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "statusCode": 200
+                          },
+                          "kind": "PowerApp",
+                          "runAfter": {},
+                          "runtimeConfiguration": {
+                            "secureData": {
+                              "properties": [
+                                "inputs"
+                              ]
+                            }
+                          },
+                          "type": "Response"
+                        }
+                      }
+                    },
+                    "expression": "@equals(base64(outputs('Expected_prior_bytes')),replace(replace(body('Prior_snapshot')?['content'],decodeUriComponent('%0A'),string(null)),decodeUriComponent('%0D'),string(null)))",
+                    "runAfter": {
+                      "Expected_prior_bytes": [
+                        "Succeeded"
+                      ]
+                    },
+                    "type": "If"
+                  },
+                  "Expected_prior_bytes": {
+                    "inputs": "@concat(if(equals(outputs('Parent_snapshot')?['statusCode'],404),string(null),base64ToString(body('Parent_snapshot')?['content'])),outputs('Raw_submission'),decodeUriComponent('%0A'))",
+                    "runAfter": {},
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs"
+                        ]
+                      }
+                    },
+                    "type": "Compose"
+                  }
+                },
+                "else": {
+                  "actions": {
+                    "Unresolved_parent": {
+                      "inputs": {
+                        "body": {
+                          "commitSha": "",
+                          "disposition": "unresolved",
+                          "message": "Prior submission evidence is unavailable. Keep this submission.",
+                          "submissionId": "@body('Parse_submission')?['submissionId']"
+                        },
+                        "schema": {
+                          "properties": {
+                            "commitSha": {
+                              "title": "commitSha",
+                              "type": "string",
+                              "x-ms-content-hint": "TEXT",
+                              "x-ms-dynamically-added": true
+                            },
+                            "disposition": {
+                              "title": "disposition",
+                              "type": "string",
+                              "x-ms-content-hint": "TEXT",
+                              "x-ms-dynamically-added": true
+                            },
+                            "message": {
+                              "title": "message",
+                              "type": "string",
+                              "x-ms-content-hint": "TEXT",
+                              "x-ms-dynamically-added": true
+                            },
+                            "submissionId": {
+                              "title": "submissionId",
+                              "type": "string",
+                              "x-ms-content-hint": "TEXT",
+                              "x-ms-dynamically-added": true
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "statusCode": 200
+                      },
+                      "kind": "PowerApp",
+                      "runAfter": {},
+                      "runtimeConfiguration": {
+                        "secureData": {
+                          "properties": [
+                            "inputs"
+                          ]
+                        }
+                      },
+                      "type": "Response"
+                    }
+                  }
+                },
+                "expression": "@or(equals(outputs('Parent_snapshot')?['statusCode'],200),equals(outputs('Parent_snapshot')?['statusCode'],404))",
+                "runAfter": {
+                  "Parent_snapshot": [
+                    "Succeeded",
+                    "Failed",
+                    "TimedOut"
+                  ]
+                },
+                "type": "If"
+              },
+              "Parent_snapshot": {
+                "inputs": {
+                  "authentication": "@parameters('$authentication')",
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
+                    "connectionName": "shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
+                    "operationId": "ReadLogbook"
+                  },
+                  "parameters": {
+                    "ref": "@first(outputs('Prior_commit')?['parent_ids'])"
+                  },
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {
+                  "Prior_snapshot": [
+                    "Succeeded"
+                  ]
+                },
+                "runtimeConfiguration": {
+                  "secureData": {
+                    "properties": [
+                      "inputs",
+                      "outputs"
+                    ]
+                  }
+                },
+                "type": "OpenApiConnection"
+              },
+              "Prior_commit": {
+                "inputs": "@first(body('Matching_commits'))",
+                "runAfter": {},
+                "runtimeConfiguration": {
+                  "secureData": {
+                    "properties": [
+                      "inputs"
+                    ]
+                  }
+                },
+                "type": "Compose"
+              },
+              "Prior_snapshot": {
+                "inputs": {
+                  "authentication": "@parameters('$authentication')",
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
+                    "connectionName": "shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
+                    "operationId": "ReadLogbook"
+                  },
+                  "parameters": {
+                    "ref": "@outputs('Prior_commit')?['id']"
+                  },
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {
+                  "Prior_commit": [
+                    "Succeeded"
+                  ]
+                },
+                "runtimeConfiguration": {
+                  "secureData": {
+                    "properties": [
+                      "inputs",
+                      "outputs"
+                    ]
+                  }
+                },
+                "type": "OpenApiConnection"
+              }
+            },
+            "else": {
+              "actions": {
+                "History_exhausted": {
+                  "actions": {
+                    "Read_current": {
+                      "inputs": {
+                        "authentication": "@parameters('$authentication')",
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
+                          "connectionName": "shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
+                          "operationId": "ReadLogbook"
+                        },
+                        "parameters": {
+                          "ref": "main"
+                        },
+                        "retryPolicy": {
+                          "type": "none"
+                        }
+                      },
+                      "runAfter": {},
+                      "runtimeConfiguration": {
+                        "secureData": {
+                          "properties": [
+                            "inputs",
+                            "outputs"
+                          ]
+                        }
+                      },
+                      "type": "OpenApiConnection"
+                    },
+                    "Readable_inbox": {
+                      "actions": {
+                        "Existing_bytes": {
+                          "inputs": "@if(equals(outputs('Read_current')?['statusCode'],404),string(null),base64ToString(body('Read_current')?['content']))",
+                          "runAfter": {},
+                          "runtimeConfiguration": {
+                            "secureData": {
+                              "properties": [
+                                "inputs"
+                              ]
+                            }
+                          },
+                          "type": "Compose"
+                        },
+                        "Safe_tail": {
+                          "actions": {
+                            "Inbox_size_limit": {
+                              "actions": {
+                                "Commit_append": {
+                                  "inputs": {
+                                    "authentication": "@parameters('$authentication')",
+                                    "host": {
+                                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
+                                      "connectionName": "shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
+                                      "operationId": "CommitLogbook"
+                                    },
+                                    "parameters": {
+                                      "body/actions": "@createArray(outputs('Write_action'))",
+                                      "body/branch": "main",
+                                      "body/commit_message": "@outputs('Commit_marker')"
+                                    },
+                                    "retryPolicy": {
+                                      "type": "none"
+                                    }
+                                  },
+                                  "runAfter": {
+                                    "Write_action": [
+                                      "Succeeded"
+                                    ]
+                                  },
+                                  "runtimeConfiguration": {
+                                    "secureData": {
+                                      "properties": [
+                                        "inputs",
+                                        "outputs"
+                                      ]
+                                    }
+                                  },
+                                  "type": "OpenApiConnection"
+                                },
+                                "Confirm_written_bytes": {
+                                  "actions": {
+                                    "Queued_new": {
+                                      "inputs": {
+                                        "body": {
+                                          "commitSha": "@body('Commit_append')?['id']",
+                                          "disposition": "queued",
+                                          "message": "Saved to logbook; awaiting ACORN review.",
+                                          "submissionId": "@body('Parse_submission')?['submissionId']"
+                                        },
+                                        "schema": {
+                                          "properties": {
+                                            "commitSha": {
+                                              "title": "commitSha",
+                                              "type": "string",
+                                              "x-ms-content-hint": "TEXT",
+                                              "x-ms-dynamically-added": true
+                                            },
+                                            "disposition": {
+                                              "title": "disposition",
+                                              "type": "string",
+                                              "x-ms-content-hint": "TEXT",
+                                              "x-ms-dynamically-added": true
+                                            },
+                                            "message": {
+                                              "title": "message",
+                                              "type": "string",
+                                              "x-ms-content-hint": "TEXT",
+                                              "x-ms-dynamically-added": true
+                                            },
+                                            "submissionId": {
+                                              "title": "submissionId",
+                                              "type": "string",
+                                              "x-ms-content-hint": "TEXT",
+                                              "x-ms-dynamically-added": true
+                                            }
+                                          },
+                                          "type": "object"
+                                        },
+                                        "statusCode": 200
+                                      },
+                                      "kind": "PowerApp",
+                                      "runAfter": {},
+                                      "runtimeConfiguration": {
+                                        "secureData": {
+                                          "properties": [
+                                            "inputs"
+                                          ]
+                                        }
+                                      },
+                                      "type": "Response"
+                                    }
+                                  },
+                                  "else": {
+                                    "actions": {
+                                      "Unresolved_readback": {
+                                        "inputs": {
+                                          "body": {
+                                            "commitSha": "",
+                                            "disposition": "unresolved",
+                                            "message": "The commit could not be verified. Keep this submission and retry.",
+                                            "submissionId": "@body('Parse_submission')?['submissionId']"
+                                          },
+                                          "schema": {
+                                            "properties": {
+                                              "commitSha": {
+                                                "title": "commitSha",
+                                                "type": "string",
+                                                "x-ms-content-hint": "TEXT",
+                                                "x-ms-dynamically-added": true
+                                              },
+                                              "disposition": {
+                                                "title": "disposition",
+                                                "type": "string",
+                                                "x-ms-content-hint": "TEXT",
+                                                "x-ms-dynamically-added": true
+                                              },
+                                              "message": {
+                                                "title": "message",
+                                                "type": "string",
+                                                "x-ms-content-hint": "TEXT",
+                                                "x-ms-dynamically-added": true
+                                              },
+                                              "submissionId": {
+                                                "title": "submissionId",
+                                                "type": "string",
+                                                "x-ms-content-hint": "TEXT",
+                                                "x-ms-dynamically-added": true
+                                              }
+                                            },
+                                            "type": "object"
+                                          },
+                                          "statusCode": 200
+                                        },
+                                        "kind": "PowerApp",
+                                        "runAfter": {},
+                                        "runtimeConfiguration": {
+                                          "secureData": {
+                                            "properties": [
+                                              "inputs"
+                                            ]
+                                          }
+                                        },
+                                        "type": "Response"
+                                      }
+                                    }
+                                  },
+                                  "expression": "@and(not(empty(body('Commit_append')?['id'])),equals(base64(outputs('New_bytes')),replace(replace(body('Verify_written_snapshot')?['content'],decodeUriComponent('%0A'),string(null)),decodeUriComponent('%0D'),string(null))))",
+                                  "runAfter": {
+                                    "Verify_written_snapshot": [
+                                      "Succeeded"
+                                    ]
+                                  },
+                                  "type": "If"
+                                },
+                                "Unresolved_write": {
+                                  "inputs": {
+                                    "body": {
+                                      "commitSha": "",
+                                      "disposition": "unresolved",
+                                      "message": "Write result is uncertain. Retry this same submission; do not create a new one.",
+                                      "submissionId": "@body('Parse_submission')?['submissionId']"
+                                    },
+                                    "schema": {
+                                      "properties": {
+                                        "commitSha": {
+                                          "title": "commitSha",
+                                          "type": "string",
+                                          "x-ms-content-hint": "TEXT",
+                                          "x-ms-dynamically-added": true
+                                        },
+                                        "disposition": {
+                                          "title": "disposition",
+                                          "type": "string",
+                                          "x-ms-content-hint": "TEXT",
+                                          "x-ms-dynamically-added": true
+                                        },
+                                        "message": {
+                                          "title": "message",
+                                          "type": "string",
+                                          "x-ms-content-hint": "TEXT",
+                                          "x-ms-dynamically-added": true
+                                        },
+                                        "submissionId": {
+                                          "title": "submissionId",
+                                          "type": "string",
+                                          "x-ms-content-hint": "TEXT",
+                                          "x-ms-dynamically-added": true
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
+                                    "statusCode": 200
+                                  },
+                                  "kind": "PowerApp",
+                                  "runAfter": {
+                                    "Commit_append": [
+                                      "Failed",
+                                      "TimedOut"
+                                    ]
+                                  },
+                                  "runtimeConfiguration": {
+                                    "secureData": {
+                                      "properties": [
+                                        "inputs"
+                                      ]
+                                    }
+                                  },
+                                  "type": "Response"
+                                },
+                                "Verify_written_snapshot": {
+                                  "inputs": {
+                                    "authentication": "@parameters('$authentication')",
+                                    "host": {
+                                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
+                                      "connectionName": "shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
+                                      "operationId": "ReadLogbook"
+                                    },
+                                    "parameters": {
+                                      "ref": "@body('Commit_append')?['id']"
+                                    },
+                                    "retryPolicy": {
+                                      "type": "none"
+                                    }
+                                  },
+                                  "runAfter": {
+                                    "Commit_append": [
+                                      "Succeeded"
+                                    ]
+                                  },
+                                  "runtimeConfiguration": {
+                                    "secureData": {
+                                      "properties": [
+                                        "inputs",
+                                        "outputs"
+                                      ]
+                                    }
+                                  },
+                                  "type": "OpenApiConnection"
+                                },
+                                "Write_action": {
+                                  "inputs": "@if(equals(outputs('Read_current')?['statusCode'],404),setProperty(json('{\"action\":\"create\",\"file_path\":\".acorn/intake/logbook.jsonl\",\"encoding\":\"base64\"}'),'content',base64(outputs('New_bytes'))),setProperty(setProperty(json('{\"action\":\"update\",\"file_path\":\".acorn/intake/logbook.jsonl\",\"encoding\":\"base64\"}'),'content',base64(outputs('New_bytes'))),'last_commit_id',body('Read_current')?['last_commit_id']))",
+                                  "runAfter": {},
+                                  "runtimeConfiguration": {
+                                    "secureData": {
+                                      "properties": [
+                                        "inputs"
+                                      ]
+                                    }
+                                  },
+                                  "type": "Compose"
+                                }
+                              },
+                              "else": {
+                                "actions": {
+                                  "Inbox_full": {
+                                    "inputs": {
+                                      "body": {
+                                        "commitSha": "",
+                                        "disposition": "unresolved",
+                                        "message": "The logbook is at its configured size limit.",
+                                        "submissionId": "@body('Parse_submission')?['submissionId']"
+                                      },
+                                      "schema": {
+                                        "properties": {
+                                          "commitSha": {
+                                            "title": "commitSha",
+                                            "type": "string",
+                                            "x-ms-content-hint": "TEXT",
+                                            "x-ms-dynamically-added": true
+                                          },
+                                          "disposition": {
+                                            "title": "disposition",
+                                            "type": "string",
+                                            "x-ms-content-hint": "TEXT",
+                                            "x-ms-dynamically-added": true
+                                          },
+                                          "message": {
+                                            "title": "message",
+                                            "type": "string",
+                                            "x-ms-content-hint": "TEXT",
+                                            "x-ms-dynamically-added": true
+                                          },
+                                          "submissionId": {
+                                            "title": "submissionId",
+                                            "type": "string",
+                                            "x-ms-content-hint": "TEXT",
+                                            "x-ms-dynamically-added": true
+                                          }
+                                        },
+                                        "type": "object"
+                                      },
+                                      "statusCode": 200
+                                    },
+                                    "kind": "PowerApp",
+                                    "runAfter": {},
+                                    "runtimeConfiguration": {
+                                      "secureData": {
+                                        "properties": [
+                                          "inputs"
+                                        ]
+                                      }
+                                    },
+                                    "type": "Response"
+                                  }
+                                }
+                              },
+                              "expression": "@lessOrEquals(length(base64(outputs('New_bytes'))),13981012)",
+                              "runAfter": {
+                                "New_bytes": [
+                                  "Succeeded"
+                                ]
+                              },
+                              "type": "If"
+                            },
+                            "New_bytes": {
+                              "inputs": "@concat(outputs('Existing_bytes'),outputs('Raw_submission'),decodeUriComponent('%0A'))",
+                              "runAfter": {},
+                              "runtimeConfiguration": {
+                                "secureData": {
+                                  "properties": [
+                                    "inputs"
+                                  ]
+                                }
+                              },
+                              "type": "Compose"
+                            }
+                          },
+                          "else": {
+                            "actions": {
+                              "Unsafe_inbox": {
+                                "inputs": {
+                                  "body": {
+                                    "commitSha": "",
+                                    "disposition": "unresolved",
+                                    "message": "Existing logbook bytes or submission evidence need operator review.",
+                                    "submissionId": "@body('Parse_submission')?['submissionId']"
+                                  },
+                                  "schema": {
+                                    "properties": {
+                                      "commitSha": {
+                                        "title": "commitSha",
+                                        "type": "string",
+                                        "x-ms-content-hint": "TEXT",
+                                        "x-ms-dynamically-added": true
+                                      },
+                                      "disposition": {
+                                        "title": "disposition",
+                                        "type": "string",
+                                        "x-ms-content-hint": "TEXT",
+                                        "x-ms-dynamically-added": true
+                                      },
+                                      "message": {
+                                        "title": "message",
+                                        "type": "string",
+                                        "x-ms-content-hint": "TEXT",
+                                        "x-ms-dynamically-added": true
+                                      },
+                                      "submissionId": {
+                                        "title": "submissionId",
+                                        "type": "string",
+                                        "x-ms-content-hint": "TEXT",
+                                        "x-ms-dynamically-added": true
+                                      }
+                                    },
+                                    "type": "object"
+                                  },
+                                  "statusCode": 200
+                                },
+                                "kind": "PowerApp",
+                                "runAfter": {},
+                                "runtimeConfiguration": {
+                                  "secureData": {
+                                    "properties": [
+                                      "inputs"
+                                    ]
+                                  }
+                                },
+                                "type": "Response"
+                              }
+                            }
+                          },
+                          "expression": "@and(lessOrEquals(coalesce(body('Read_current')?['size'],0),10485760),or(empty(outputs('Existing_bytes')),endsWith(outputs('Existing_bytes'),decodeUriComponent('%0A'))),not(contains(outputs('Existing_bytes'),body('Parse_submission')?['submissionId'])),or(equals(outputs('Read_current')?['statusCode'],404),and(equals(body('Read_current')?['encoding'],'base64'),equals(base64(outputs('Existing_bytes')),replace(replace(body('Read_current')?['content'],decodeUriComponent('%0A'),string(null)),decodeUriComponent('%0D'),string(null))))))",
+                          "runAfter": {
+                            "Existing_bytes": [
+                              "Succeeded"
+                            ]
+                          },
+                          "type": "If"
+                        }
+                      },
+                      "else": {
+                        "actions": {
+                          "Read_failed": {
+                            "inputs": {
+                              "body": {
+                                "commitSha": "",
+                                "disposition": "unresolved",
+                                "message": "Unable to read the logbook. No new write was attempted.",
+                                "submissionId": "@body('Parse_submission')?['submissionId']"
+                              },
+                              "schema": {
+                                "properties": {
+                                  "commitSha": {
+                                    "title": "commitSha",
+                                    "type": "string",
+                                    "x-ms-content-hint": "TEXT",
+                                    "x-ms-dynamically-added": true
+                                  },
+                                  "disposition": {
+                                    "title": "disposition",
+                                    "type": "string",
+                                    "x-ms-content-hint": "TEXT",
+                                    "x-ms-dynamically-added": true
+                                  },
+                                  "message": {
+                                    "title": "message",
+                                    "type": "string",
+                                    "x-ms-content-hint": "TEXT",
+                                    "x-ms-dynamically-added": true
+                                  },
+                                  "submissionId": {
+                                    "title": "submissionId",
+                                    "type": "string",
+                                    "x-ms-content-hint": "TEXT",
+                                    "x-ms-dynamically-added": true
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "statusCode": 200
+                            },
+                            "kind": "PowerApp",
+                            "runAfter": {},
+                            "runtimeConfiguration": {
+                              "secureData": {
+                                "properties": [
+                                  "inputs"
+                                ]
+                              }
+                            },
+                            "type": "Response"
+                          }
+                        }
+                      },
+                      "expression": "@or(equals(outputs('Read_current')?['statusCode'],200),equals(outputs('Read_current')?['statusCode'],404))",
+                      "runAfter": {
+                        "Read_current": [
+                          "Succeeded",
+                          "Failed",
+                          "TimedOut"
+                        ]
+                      },
+                      "type": "If"
+                    }
+                  },
+                  "else": {
+                    "actions": {
+                      "History_limit": {
+                        "inputs": {
+                          "body": {
+                            "commitSha": "",
+                            "disposition": "unresolved",
+                            "message": "History exceeds the reconciliation bound. Operator review is required before appending.",
+                            "submissionId": "@body('Parse_submission')?['submissionId']"
+                          },
+                          "schema": {
+                            "properties": {
+                              "commitSha": {
+                                "title": "commitSha",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "disposition": {
+                                "title": "disposition",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "message": {
+                                "title": "message",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "submissionId": {
+                                "title": "submissionId",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "statusCode": 200
+                        },
+                        "kind": "PowerApp",
+                        "runAfter": {},
+                        "runtimeConfiguration": {
+                          "secureData": {
+                            "properties": [
+                              "inputs"
+                            ]
+                          }
+                        },
+                        "type": "Response"
+                      }
+                    }
+                  },
+                  "expression": "@less(length(body('List_submission_history')),100)",
+                  "runAfter": {},
+                  "type": "If"
+                }
+              }
+            },
+            "expression": "@greater(length(body('Matching_commits')),0)",
+            "runAfter": {
+              "Matching_commits": [
+                "Succeeded"
+              ]
+            },
+            "type": "If"
+          }
+        },
+        "else": {
+          "actions": {
+            "Rejected_envelope": {
+              "inputs": {
+                "body": {
+                  "commitSha": "",
+                  "disposition": "rejected",
+                  "message": "The submitted identity or record format is invalid. No write was attempted.",
+                  "submissionId": "@body('Parse_submission')?['submissionId']"
+                },
+                "schema": {
+                  "properties": {
+                    "commitSha": {
+                      "title": "commitSha",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    },
+                    "disposition": {
+                      "title": "disposition",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    },
+                    "message": {
+                      "title": "message",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    },
+                    "submissionId": {
+                      "title": "submissionId",
+                      "type": "string",
+                      "x-ms-content-hint": "TEXT",
+                      "x-ms-dynamically-added": true
+                    }
+                  },
+                  "type": "object"
+                },
+                "statusCode": 200
+              },
+              "kind": "PowerApp",
+              "runAfter": {},
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs"
+                  ]
+                }
+              },
+              "type": "Response"
+            }
+          }
+        },
+        "expression": "@and(and(not(empty(outputs('Caller_email'))),equals(outputs('Caller_email'),toLower(body('Parse_submission')?['submitter']?['email'])),lessOrEquals(length(base64(outputs('Raw_submission'))),87380),not(contains(outputs('Raw_submission'),decodeUriComponent('%0A'))),not(contains(outputs('Raw_submission'),decodeUriComponent('%0D')))),empty(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(body('Parse_submission')?['submissionId'],'0',string(null)),'1',string(null)),'2',string(null)),'3',string(null)),'4',string(null)),'5',string(null)),'6',string(null)),'7',string(null)),'8',string(null)),'9',string(null)),'a',string(null)),'b',string(null)),'c',string(null)),'d',string(null)),'e',string(null)),'f',string(null)),'-',string(null))),equals(length(split(body('Parse_submission')?['submissionId'],'-')),5),equals(substring(body('Parse_submission')?['submissionId'],8,1),'-'),equals(substring(body('Parse_submission')?['submissionId'],13,1),'-'),equals(substring(body('Parse_submission')?['submissionId'],18,1),'-'),equals(substring(body('Parse_submission')?['submissionId'],23,1),'-'),not(empty(trim(body('Parse_submission')?['entry']?['summary']))),empty(body('Blank_details')))",
+        "runAfter": {
+          "Caller_email": [
+            "Succeeded"
+          ]
+        },
+        "type": "If"
+      },
+      "Parse_submission": {
+        "inputs": {
+          "content": "@outputs('Raw_submission')",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "entry": {
+                "additionalProperties": false,
+                "properties": {
+                  "archived": {
+                    "enum": [
+                      false
+                    ],
+                    "type": "boolean"
+                  },
+                  "category": {
+                    "enum": [
+                      "administration",
+                      "collaboration",
+                      "data",
+                      "engagement",
+                      "funding",
+                      "infrastructure",
+                      "method",
+                      "other",
+                      "personnel",
+                      "publication",
+                      "research",
+                      "software"
+                    ],
+                    "type": "string"
+                  },
+                  "eventType": {
+                    "enum": [
+                      null,
+                      "conference",
+                      "exhibition",
+                      "meeting",
+                      "other",
+                      "presentation",
+                      "tour",
+                      "training",
+                      "workshop"
+                    ],
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "global": {
+                    "type": "boolean"
+                  },
+                  "items": {
+                    "items": {
+                      "maxLength": 1000,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "maxItems": 20,
+                    "minItems": 1,
+                    "type": [
+                      "array",
+                      "null"
+                    ]
+                  },
+                  "origin": {
+                    "enum": [
+                      "manual"
+                    ],
+                    "type": "string"
+                  },
+                  "state": {
+                    "enum": [
+                      "completed",
+                      "in-progress",
+                      "upcoming"
+                    ],
+                    "type": "string"
+                  },
+                  "summary": {
+                    "maxLength": 1200,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "timestamp": {
+                    "format": "date-time",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "archived",
+                  "category",
+                  "eventType",
+                  "global",
+                  "items",
+                  "origin",
+                  "state",
+                  "summary",
+                  "timestamp"
+                ],
+                "type": "object"
+              },
+              "projectId": {
+                "enum": [
+                  "acorn"
+                ],
+                "type": "string"
+              },
+              "submissionId": {
+                "maxLength": 36,
+                "minLength": 36,
+                "type": "string"
+              },
+              "submittedAt": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "submitter": {
+                "additionalProperties": false,
+                "properties": {
+                  "email": {
+                    "format": "email",
+                    "maxLength": 254,
+                    "minLength": 3,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "entry",
+              "projectId",
+              "submissionId",
+              "submittedAt",
+              "submitter"
+            ],
+            "type": "object"
+          }
+        },
+        "runAfter": {
+          "Raw_submission": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs"
+            ]
+          }
+        },
+        "type": "ParseJson"
+      },
+      "Raw_submission": {
+        "inputs": "@triggerBody()?['text']",
+        "runAfter": {},
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs"
+            ]
+          }
+        },
+        "type": "Compose"
+      }
+    },
+    "runAfter": {
+      "Verify_access_to_main": [
+        "Succeeded"
+      ]
+    },
+    "type": "Scope"
+  },
+  "operationName": "Persist_submission"
+}

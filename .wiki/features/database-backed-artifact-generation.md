@@ -19,23 +19,23 @@ Let users create the same supported artifacts from ACORN's maintained research a
 
 - `crates/acorn-lib/src/io/database/logbook.rs` provides typed retrieval of current `ResearchActivity` data, linked logbook entries, and immutable revisions.
 - Existing `InputOutput`, crosswalk, logbook-update, PDF, PowerPoint, and template paths already transform supplied typed data; most renderers do not need database awareness.
-- Export entry points currently begin with a source file or in-memory activity. There is no shared selector for canonical activity ID versus revision ID, no artifact manifest, and no end-to-end database export test.
+- Export entry points currently begin with a source file or in-memory activity. There is no shared selector for canonical activity ID versus revision ID, no database-source artifact manifest, and no end-to-end database export test. The existing GitLab `ReportManifest` lives in `crates/acorn-lib/src/io/api/gitlab/package.rs`; it already records source commit, project, window, entry IDs, package version, checksum and CI provenance, but not database revision identity, ACORN version or rendering options.
 
 # Project code boundaries
 
-- **Update:** focused export service and command files in `crates/acorn-lib/src/io/` and `crates/acorn-cli/src/commands/export/`, CLI arguments/help during a single integration window, inbound ACORN MCP operation inputs, and dedicated export tests.
+- **Update:** focused export service and command files in `crates/acorn-lib/src/io/` and `crates/acorn-cli/src/commands/export/`, CLI arguments/help during a single integration window, inbound ACORN MCP operation inputs, the existing GitLab report manifest and package tests, and dedicated export tests.
 - **Create:** a database artifact-source selector and reproducibility manifest leaf in `crates/acorn-lib/src/io/`; database-export fixtures under `tests/fixtures/database/export/`.
 - **Delete:** duplicate file/database renderer dispatch only after both sources feed one typed rendering pipeline.
 
 # Dependencies
 
-The implemented canonical database contract supplies typed lookup, revision identity, restore semantics, and migration compatibility. This plan reuses the bounded reporting-window and artifact-manifest contracts from the implemented [Power Automate reporting workflow](powerapps-gitlab-logbook-reporting.md). Standards-specific artifacts also follow the implemented [standards field matrix](../assets/standards-field-matrix.md) and crosswalk loss contract. Renderer hardening remains owned by the existing export/OOXML plans.
+The implemented canonical database contract supplies typed lookup, revision identity, restore semantics, and migration compatibility. This plan reuses the implemented `ReportingWindow` and `gitlab::ReportManifest` contracts tracked by [Vergil automation](vergil-gitlab-jsonl-automation/index.md). It does not depend on live Vergil boot, callback integration or scheduled pilot acceptance. Standards-specific artifacts also follow the implemented [standards field matrix](../_assets/standards-field-matrix.md) and crosswalk loss contract. Renderer hardening remains owned by the existing export/OOXML plans.
 
 # Recommendation
 
 1. Add an artifact source enum that selects a canonical activity by portable database ID or an immutable revision ID and resolves to a typed `ResearchActivity` before renderer dispatch.
 2. Reuse existing serializers, crosswalks, update reports, PDF, and PowerPoint transforms unchanged after source resolution. Database code must not absorb rendering policy.
-3. Reuse the reporting workflow's machine-readable manifest identity, source, time-bound, ACORN-version, option, and digest fields; extend it with database activity and revision IDs rather than introducing a parallel artifact manifest.
+3. Reuse the reporting workflow's existing source, window, package identity and checksum semantics. Add database activity/revision provenance, ACORN version and rendering options explicitly; those fields do not exist in the current GitLab manifest. Preserve deserialization and replay of existing package manifests.
 4. Add CLI and inbound ACORN MCP operation selection with mutually exclusive file/activity/revision sources, explicit overwrite policy, and clear errors for missing or ambiguous identities. The outbound MCP client does not proxy or automatically expose this operation.
 5. Support current RAD JSON/YAML/Markdown and logbook-update artifacts first; add standards profiles and binary documents only after deterministic source-to-render tests are green.
 
@@ -94,9 +94,9 @@ The implemented canonical database contract supplies typed lookup, revision iden
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DBA-02
-- Exact write set: `crates/acorn-schema/src/report.rs`
+- Exact write set: `crates/acorn-lib/src/io/api/gitlab/package.rs`, `crates/acorn-lib/src/io/api/gitlab/tests/package.rs`
 - Primary integration lock: artifact manifest schema
-- Outcome: Add database activity/revision identity, options, version, window, and stable input digest to the existing manifest contract.
+- Outcome: Extend the existing report manifest with backward-compatible database activity/revision identity, rendering options, ACORN version and stable input digest while reusing its window and checksum semantics. Define how database artifacts represent currently required GitLab-specific provenance without fabricating a commit or CI identity.
 - Focused validation: Run serde, schema, digest, and backward-compatibility tests.
 - Handoff: Remove DBA-04 and provide the manifest type to renderer phases.
 

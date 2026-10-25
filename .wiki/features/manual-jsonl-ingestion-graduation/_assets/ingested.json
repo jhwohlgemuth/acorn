@@ -1,0 +1,73 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "identifier": "acorn",
+    "media": [],
+    "keywords": [
+      "Materials",
+      "Modeling",
+      "Data science"
+    ],
+    "contributors": [],
+    "funders": [
+      {
+        "name": "Sample Sponsor A",
+        "awards": []
+      },
+      {
+        "name": "Sample Sponsor B",
+        "awards": []
+      }
+    ]
+  },
+  "title": "ACORN Intake and Graduation Demo",
+  "subtitle": "TEST ONLY — fictitious personnel and local reporting",
+  "sections": {
+    "mission": "Demonstrate a traceable highlight from Power Apps through JSONL ingestion and reviewed metadata graduation.",
+    "challenge": "Keep the MVP usable before unattended GitLab automation is deployed.",
+    "approach": [
+      "Preserve the original submission and immutable GitLab receipt.",
+      "Review local proposals before applying and promoting a contributor."
+    ],
+    "impact": [
+      "Produce an auditable local report without running Vergil."
+    ],
+    "research": {
+      "focus": "Auditable research reporting",
+      "areas": [
+        "Research metadata",
+        "Workflow automation"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Sample project lead",
+    "givenName": "Alex",
+    "familyName": "Morgan",
+    "email": "alex.morgan@example.org",
+    "telephone": "+1 202-555-0123",
+    "url": "https://example.org/project",
+    "organization": "Example Research Group"
+  },
+  "logbook": {
+    "entries": [
+      {
+        "identifier": "form-4313-fcfc-0201-441-e-8-bda-c-77718-a-31-dcf",
+        "projectId": "acorn",
+        "global": false,
+        "timestamp": "2026-10-24T04:00:00.000Z",
+        "category": "personnel",
+        "state": "completed",
+        "origin": "manual",
+        "summary": "Example, Avery (TEST ONLY)",
+        "items": [
+          "TEST ONLY: Fictitious contributor for the October 2026 ACORN MVP demonstration.",
+          "Trace this receipt through local ingestion, reviewed contributor graduation, and a local PDF; exclude from sponsor reporting."
+        ],
+        "archived": false
+      }
+    ]
+  }
+}

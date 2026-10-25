@@ -1,0 +1,1 @@
+Set(varPendingJson, Blank()); Set(varPendingId, Blank()); Set(varSubmissionStatus, Blank())

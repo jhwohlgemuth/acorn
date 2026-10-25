@@ -1,7 +1,7 @@
 //! Shared metadata primitives for research activity alignment
 //!
 //! Portable, validated types reused across `ResearchActivity`, `ResearchOutput`, RAiD, DataCite, DCAT and discovery adapters.
-//! All types are `alloc`-compatible and perform no I/O. Matrix: `.wiki/assets/standards-field-matrix.md`.
+//! All types are `alloc`-compatible and perform no I/O. Matrix: `.wiki/_assets/standards-field-matrix.md`.
 use crate::pid::PID;
 use crate::validation::{is_license, rules, validate_agent_identifier, IntoValidationReport, Validate, ValidationReport};
 use acorn_core::prelude::alloc::{String, Vec};
@@ -255,7 +255,7 @@ pub struct TypedActivityDate {
 }
 /// Typed identifier with value, scheme and scheme URI
 ///
-/// Covers DOI, Handle, RAiD, SWHID, ROR, ORCID, ISNI, ARK etc. without network resolution. See `.wiki/assets/standards-field-matrix.md` identifiers.
+/// Covers DOI, Handle, RAiD, SWHID, ROR, ORCID, ISNI, ARK etc. without network resolution. See `.wiki/_assets/standards-field-matrix.md` identifiers.
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]

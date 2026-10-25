@@ -1,0 +1,64 @@
+{
+  "brandColor": "#742774",
+  "connectionReferences": {},
+  "connectorDisplayName": "Power Apps",
+  "id": "38f6308a-9388-4ac8-9175-777b49ab3f32",
+  "isTrigger": false,
+  "operationDefinition": {
+    "inputs": {
+      "body": {
+        "commitSha": "",
+        "disposition": "unresolved",
+        "message": "No confirmed receipt is available. Keep the same submission and contact the owner if retry does not resolve it.",
+        "submissionId": ""
+      },
+      "schema": {
+        "properties": {
+          "commitSha": {
+            "title": "commitSha",
+            "type": "string",
+            "x-ms-content-hint": "TEXT",
+            "x-ms-dynamically-added": true
+          },
+          "disposition": {
+            "title": "disposition",
+            "type": "string",
+            "x-ms-content-hint": "TEXT",
+            "x-ms-dynamically-added": true
+          },
+          "message": {
+            "title": "message",
+            "type": "string",
+            "x-ms-content-hint": "TEXT",
+            "x-ms-dynamically-added": true
+          },
+          "submissionId": {
+            "title": "submissionId",
+            "type": "string",
+            "x-ms-content-hint": "TEXT",
+            "x-ms-dynamically-added": true
+          }
+        },
+        "type": "object"
+      },
+      "statusCode": 200
+    },
+    "kind": "PowerApp",
+    "runAfter": {
+      "Persist_submission_v3": [
+        "Failed",
+        "TimedOut",
+        "Skipped"
+      ]
+    },
+    "runtimeConfiguration": {
+      "secureData": {
+        "properties": [
+          "inputs"
+        ]
+      }
+    },
+    "type": "Response"
+  },
+  "operationName": "Unresolved_failure"
+}

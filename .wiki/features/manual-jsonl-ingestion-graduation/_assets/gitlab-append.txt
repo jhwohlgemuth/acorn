@@ -1,0 +1,315 @@
+- banner [active]:
+  - link "Skip to main content":
+    - /url: "#content-body"
+    - generic: Skip to main content
+  - link "Homepage":
+    - /url: /
+    - generic: Homepage
+  - button "Search or go to… /":
+    - generic: Search or go to…
+    - generic: /
+  - button "Create new…":
+    - generic: Create new…
+  - link "50 Assigned work items":
+    - /url: /dashboard/issues?assignee_username=o9w
+    - generic: "50"
+  - link "1 Merge requests":
+    - /url: /dashboard/merge_requests
+    - generic: "1"
+  - link "21 To-do items":
+    - /url: /dashboard/todos
+    - generic: "21"
+  - link "Wohlgemuth, Jason user’s menu":
+    - /url: /o9w
+    - generic: Wohlgemuth, Jason user’s menu
+- navigation "Primary navigation":
+  - heading "Primary navigation" [level=2]
+  - generic: Project
+  - list:
+    - link "Power Automate":
+      - /url: /research-enablement/experiments/power-automate
+      - generic: P
+      - generic: Power Automate
+  - button "Pinned" [expanded]:
+    - generic: Pinned
+  - list "Pinned":
+    - link "Wiki":
+      - /url: /research-enablement/experiments/power-automate/-/wikis
+      - generic: Wiki
+    - button "Unpin Wiki":
+    - link "Work items":
+      - /url: /research-enablement/experiments/power-automate/-/work_items
+      - generic: Work items
+      - generic: "0"
+    - button "Unpin Work items":
+    - link "Jobs":
+      - /url: /research-enablement/experiments/power-automate/-/jobs
+      - generic: Jobs
+    - button "Unpin Jobs":
+    - link "Pipelines":
+      - /url: /research-enablement/experiments/power-automate/-/pipelines
+      - generic: Pipelines
+    - button "Unpin Pipelines":
+    - link "Members":
+      - /url: /research-enablement/experiments/power-automate/-/project_members
+      - generic: Members
+    - button "Unpin Members":
+    - link "Releases":
+      - /url: /research-enablement/experiments/power-automate/-/releases
+      - generic: Releases
+    - button "Unpin Releases":
+    - link "Merge requests":
+      - /url: /research-enablement/experiments/power-automate/-/merge_requests
+      - generic: Merge requests
+      - generic: "0"
+    - button "Unpin Merge requests":
+  - button "More features":
+    - generic: More features
+  - separator
+  - list "Project":
+    - button "Manage":
+      - generic: Manage
+    - button "Plan":
+      - generic: Plan
+    - button "AI":
+      - generic: AI
+    - button "Code" [expanded]:
+      - generic: Code
+    - list "Code":
+      - link "Merge requests":
+        - /url: /research-enablement/experiments/power-automate/-/merge_requests
+        - generic: Merge requests
+        - generic: "0"
+      - button "Unpin Merge requests":
+      - link "Repository":
+        - /url: /research-enablement/experiments/power-automate/-/tree/main
+        - generic: Repository
+      - button "Pin Repository":
+      - link "Branches":
+        - /url: /research-enablement/experiments/power-automate/-/branches
+        - generic: Branches
+      - button "Pin Branches":
+      - link "Commits":
+        - /url: /research-enablement/experiments/power-automate/-/commits/main?ref_type=heads
+        - generic: Commits
+      - button "Pin Commits":
+      - link "Tags":
+        - /url: /research-enablement/experiments/power-automate/-/tags
+        - generic: Tags
+      - button "Pin Tags":
+      - link "Repository graph":
+        - /url: /research-enablement/experiments/power-automate/-/network/main?ref_type=heads
+        - generic: Repository graph
+      - button "Pin Repository graph":
+      - link "Compare revisions":
+        - /url: /research-enablement/experiments/power-automate/-/compare?from=main&to=main
+        - generic: Compare revisions
+      - button "Pin Compare revisions":
+      - link "Snippets":
+        - /url: /research-enablement/experiments/power-automate/-/snippets
+        - generic: Snippets
+      - button "Pin Snippets":
+      - link "Locked files":
+        - /url: /research-enablement/experiments/power-automate/path_locks
+        - generic: Locked files
+      - button "Pin Locked files":
+    - button "Build":
+      - generic: Build
+    - button "Secure":
+      - generic: Secure
+    - button "Deploy":
+      - generic: Deploy
+    - button "Operate":
+      - generic: Operate
+    - button "Monitor":
+      - generic: Monitor
+    - button "Analyze":
+      - generic: Analyze
+    - button "Settings":
+      - generic: Settings
+  - button "Help":
+    - generic: Help
+  - button "Collapse sidebar":
+    - generic: Collapse sidebar
+- alert:
+  - heading "Admin message" [level=2]
+  - paragraph: Admins will be upgrading ORNL GitLab Servers on Sunday, Oct 25 2026, from 8AM until 11AM EST. Repositories will experience intermittent outages during this time.
+- navigation "Breadcrumb":
+  - list:
+    - link "Research Enablement":
+      - /url: /research-enablement
+    - text: /
+    - link "Experiments":
+      - /url: /research-enablement/experiments
+    - text: /
+    - link "Power Automate":
+      - /url: /research-enablement/experiments/power-automate
+    - text: /
+    - link "Commits":
+      - /url: /research-enablement/experiments/power-automate/-/commits/main
+    - text: /
+    - link "3090aa57":
+      - /url: /research-enablement/experiments/power-automate/-/commit/3090aa5714b4
+- main:
+  - strong: Commit 3090aa57
+  - button "Copy commit SHA":
+  - text: authored
+  - time: 29 seconds ago
+  - text: by
+  - strong:
+    - link "acorn-powerautomate-intake's avatar":
+      - /url: /project_22464_bot_ea9aa654bd7da2ca1dcf32ae96c99aea
+      - img "acorn-powerautomate-intake's avatar"
+    - link "acorn-powerautomate-intake":
+      - /url: /project_22464_bot_ea9aa654bd7da2ca1dcf32ae96c99aea
+  - link "Browse files":
+    - /url: /research-enablement/experiments/power-automate/-/tree/3090aa5714b4c6ff59c5dd0b6ecba999f918caa2
+    - generic: Browse files
+  - button "Options":
+    - generic: Options
+  - heading "acorn-submission:4313fcfc-0201-441e-8bda-c77718a31dcf" [level=1]
+  - text: parent
+  - link "7dd33b6d":
+    - /url: /research-enablement/experiments/power-automate/-/commit/7dd33b6d6094ab4d0b2ce13d8c58296a210064d5
+  - text: Branches
+  - link "main":
+    - /url: /research-enablement/experiments/power-automate/-/commits/main?ref_type=heads
+    - generic: main
+  - text: No related tags found
+  - generic: No related merge requests found
+  - article "Changes view":
+    - generic "View controls":
+      - button "Hide file browser":
+      - text: 1 file
+      - generic "Added 1 line.":
+        - generic: +
+        - generic: "1"
+        - generic: −
+        - generic: "0"
+      - button "Expand all files":
+      - button "Collapse all files":
+      - generic "Preferences":
+        - combobox "Inline":
+          - generic: Inline
+    - region "File browser":
+      - heading "File browser" [level=2]: Files
+      - generic: "1"
+      - button "List view":
+      - button "Tree view":
+      - searchbox "Search (e.g. *.vue) (F)"
+      - navigation "File tree":
+        - button ".acorn/intake" [expanded]:
+          - generic ".acorn/intake":
+            - generic ".acorn/intake":
+              - generic: .acorn
+              - generic: ‎/intake‎
+        - link "logbook.jsonl":
+          - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/commit/3090aa5714b4?file_path=.acorn%2Fintake%2Flogbook.jsonl#7fd09c6f70c1e14af23ffeab2ce10960a6a88a32
+          - generic "logbook.jsonl":
+            - generic "logbook.jsonl":
+              - generic: logboo
+              - generic: ‎k.jsonl‎
+          - generic: +1 -0
+          - generic "Modified":
+      - status
+    - region "Diff files":
+      - article ".acorn/ intake/ logbook.jsonl":
+        - generic "Diff file controls":
+          - button "Hide file contents" [expanded]:
+          - heading ".acorn/ intake/ logbook.jsonl" [level=2]:
+            - link ".acorn/ intake/ logbook.jsonl":
+              - /url: /research-enablement/experiments/power-automate/-/blob/3090aa5714b4c6ff59c5dd0b6ecba999f918caa2/.acorn/intake/logbook.jsonl
+              - text: .acorn/
+              - text: intake/
+              - text: logbook.jsonl
+          - button "Copy file path":
+          - generic "Added 1 line.":
+            - generic: "+1"
+            - generic: −0
+          - button "Show options":
+        - 'table "Changes for .acorn/intake/logbook.jsonl: 1 added line, 0 removed lines."':
+          - caption: "Changes for .acorn/intake/logbook.jsonl: 1 added line, 0 removed lines."
+          - rowgroup:
+            - row "Original line number Diff line number Diff line":
+              - columnheader "Original line number"
+              - columnheader "Diff line number"
+              - columnheader "Diff line"
+          - rowgroup:
+            - row "Show lines before @@ -3,3 +3,4 @@":
+              - cell "Show lines before":
+                - button "Show lines before":
+              - cell "@@ -3,3 +3,4 @@"
+            - 'row "3 3 {\"entry\":{\"archived\":false,\"category\":\"software\",\"eventType\":null,\"global\":false,\"items\":[\"TEST ONLY: verify exact JSONL append and matching receipt.\",\"TEST ONLY: preserve the same submission ID after browser reload.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"TEST ONLY — Published canvas intake and browser recovery validation. Exclude this synthetic highlight from sponsor reporting.\",\"timestamp\":\"2026-10-24T04:00:00.000Z\"},\"projectId\":\"acorn\",\"submissionId\":\"ed6303e5-f09e-4953-bae8-39af1263b4b8\",\"submittedAt\":\"2026-10-24T19:57:55.237Z\",\"submitter\":{\"email\":\"o9w@ornl.gov\"}}"':
+              - cell "3":
+                - link "3":
+                  - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/commit/3090aa5714b4?file_path=.acorn%2Fintake%2Flogbook.jsonl#line_7fd09c6f7_3
+              - cell "3":
+                - link "3":
+                  - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/commit/3090aa5714b4?file_path=.acorn%2Fintake%2Flogbook.jsonl#line_7fd09c6f7_3
+              - 'cell "{\"entry\":{\"archived\":false,\"category\":\"software\",\"eventType\":null,\"global\":false,\"items\":[\"TEST ONLY: verify exact JSONL append and matching receipt.\",\"TEST ONLY: preserve the same submission ID after browser reload.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"TEST ONLY — Published canvas intake and browser recovery validation. Exclude this synthetic highlight from sponsor reporting.\",\"timestamp\":\"2026-10-24T04:00:00.000Z\"},\"projectId\":\"acorn\",\"submissionId\":\"ed6303e5-f09e-4953-bae8-39af1263b4b8\",\"submittedAt\":\"2026-10-24T19:57:55.237Z\",\"submitter\":{\"email\":\"o9w@ornl.gov\"}}"':
+                - generic: "{\"entry\":{\"archived\":false,\"category\":\"software\",\"eventType\":null,\"global\":false,\"items\":[\"TEST ONLY: verify exact JSONL append and matching receipt.\",\"TEST ONLY: preserve the same submission ID after browser reload.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"TEST ONLY — Published canvas intake and browser recovery validation. Exclude this synthetic highlight from sponsor reporting.\",\"timestamp\":\"2026-10-24T04:00:00.000Z\"},\"projectId\":\"acorn\",\"submissionId\":\"ed6303e5-f09e-4953-bae8-39af1263b4b8\",\"submittedAt\":\"2026-10-24T19:57:55.237Z\",\"submitter\":{\"email\":\"o9w@ornl.gov\"}}"
+            - 'row "4 4 {\"entry\":{\"archived\":false,\"category\":\"software\",\"eventType\":null,\"global\":false,\"items\":[\"Verify the original submission ID survives an interrupted response.\",\"Confirm retry creates exactly one logbook entry.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"TEST ONLY — Interrupted canvas submission recovery. Exclude this synthetic highlight from sponsor reporting.\",\"timestamp\":\"2026-10-24T04:00:00.000Z\"},\"projectId\":\"acorn\",\"submissionId\":\"d899a9c1-b512-498f-a3bf-4a4e11383050\",\"submittedAt\":\"2026-10-24T20:12:23.285Z\",\"submitter\":{\"email\":\"o9w@ornl.gov\"}}"':
+              - cell "4":
+                - link "4":
+                  - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/commit/3090aa5714b4?file_path=.acorn%2Fintake%2Flogbook.jsonl#line_7fd09c6f7_4
+              - cell "4":
+                - link "4":
+                  - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/commit/3090aa5714b4?file_path=.acorn%2Fintake%2Flogbook.jsonl#line_7fd09c6f7_4
+              - 'cell "{\"entry\":{\"archived\":false,\"category\":\"software\",\"eventType\":null,\"global\":false,\"items\":[\"Verify the original submission ID survives an interrupted response.\",\"Confirm retry creates exactly one logbook entry.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"TEST ONLY — Interrupted canvas submission recovery. Exclude this synthetic highlight from sponsor reporting.\",\"timestamp\":\"2026-10-24T04:00:00.000Z\"},\"projectId\":\"acorn\",\"submissionId\":\"d899a9c1-b512-498f-a3bf-4a4e11383050\",\"submittedAt\":\"2026-10-24T20:12:23.285Z\",\"submitter\":{\"email\":\"o9w@ornl.gov\"}}"':
+                - generic: "{\"entry\":{\"archived\":false,\"category\":\"software\",\"eventType\":null,\"global\":false,\"items\":[\"Verify the original submission ID survives an interrupted response.\",\"Confirm retry creates exactly one logbook entry.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"TEST ONLY — Interrupted canvas submission recovery. Exclude this synthetic highlight from sponsor reporting.\",\"timestamp\":\"2026-10-24T04:00:00.000Z\"},\"projectId\":\"acorn\",\"submissionId\":\"d899a9c1-b512-498f-a3bf-4a4e11383050\",\"submittedAt\":\"2026-10-24T20:12:23.285Z\",\"submitter\":{\"email\":\"o9w@ornl.gov\"}}"
+            - 'row "5 5 {\"entry\":{\"archived\":false,\"category\":\"software\",\"eventType\":null,\"global\":false,\"items\":[\"Verify confirmed persistence through the protected intake connection.\",\"Replay must preserve the same submission ID and commit.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"TEST ONLY — replacement credential fresh append acceptance, 2026-10-24. Exclude from sponsor reporting.\",\"timestamp\":\"2026-10-24T04:00:00.000Z\"},\"projectId\":\"acorn\",\"submissionId\":\"3b2cf21e-73b3-45fa-90aa-5309176aab3b\",\"submittedAt\":\"2026-10-24T21:33:15.498Z\",\"submitter\":{\"email\":\"o9w@ornl.gov\"}}"':
+              - cell "5":
+                - link "5":
+                  - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/commit/3090aa5714b4?file_path=.acorn%2Fintake%2Flogbook.jsonl#line_7fd09c6f7_5
+              - cell "5":
+                - link "5":
+                  - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/commit/3090aa5714b4?file_path=.acorn%2Fintake%2Flogbook.jsonl#line_7fd09c6f7_5
+              - 'cell "{\"entry\":{\"archived\":false,\"category\":\"software\",\"eventType\":null,\"global\":false,\"items\":[\"Verify confirmed persistence through the protected intake connection.\",\"Replay must preserve the same submission ID and commit.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"TEST ONLY — replacement credential fresh append acceptance, 2026-10-24. Exclude from sponsor reporting.\",\"timestamp\":\"2026-10-24T04:00:00.000Z\"},\"projectId\":\"acorn\",\"submissionId\":\"3b2cf21e-73b3-45fa-90aa-5309176aab3b\",\"submittedAt\":\"2026-10-24T21:33:15.498Z\",\"submitter\":{\"email\":\"o9w@ornl.gov\"}}"':
+                - generic: "{\"entry\":{\"archived\":false,\"category\":\"software\",\"eventType\":null,\"global\":false,\"items\":[\"Verify confirmed persistence through the protected intake connection.\",\"Replay must preserve the same submission ID and commit.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"TEST ONLY — replacement credential fresh append acceptance, 2026-10-24. Exclude from sponsor reporting.\",\"timestamp\":\"2026-10-24T04:00:00.000Z\"},\"projectId\":\"acorn\",\"submissionId\":\"3b2cf21e-73b3-45fa-90aa-5309176aab3b\",\"submittedAt\":\"2026-10-24T21:33:15.498Z\",\"submitter\":{\"email\":\"o9w@ornl.gov\"}}"
+            - 'row "6 + {\"entry\":{\"archived\":false,\"category\":\"personnel\",\"eventType\":null,\"global\":false,\"items\":[\"TEST ONLY: Fictitious contributor for the October 2026 ACORN MVP demonstration.\",\"Trace this receipt through local ingestion, reviewed contributor graduation, and a local PDF; exclude from sponsor reporting.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"Example, Avery (TEST ONLY)\",\"timestamp\":\"2026-10-24T04:00:00.000Z\"},\"projectId\":\"acorn\",\"submissionId\":\"4313fcfc-0201-441e-8bda-c77718a31dcf\",\"submittedAt\":\"2026-10-24T23:17:20.168Z\",\"submitter\":{\"email\":\"o9w@ornl.gov\"}}"':
+              - cell
+              - cell "6":
+                - link "6":
+                  - /url: https://code.ornl.gov/research-enablement/experiments/power-automate/-/commit/3090aa5714b4?file_path=.acorn%2Fintake%2Flogbook.jsonl#line_7fd09c6f7_A6
+              - 'cell "+ {\"entry\":{\"archived\":false,\"category\":\"personnel\",\"eventType\":null,\"global\":false,\"items\":[\"TEST ONLY: Fictitious contributor for the October 2026 ACORN MVP demonstration.\",\"Trace this receipt through local ingestion, reviewed contributor graduation, and a local PDF; exclude from sponsor reporting.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"Example, Avery (TEST ONLY)\",\"timestamp\":\"2026-10-24T04:00:00.000Z\"},\"projectId\":\"acorn\",\"submissionId\":\"4313fcfc-0201-441e-8bda-c77718a31dcf\",\"submittedAt\":\"2026-10-24T23:17:20.168Z\",\"submitter\":{\"email\":\"o9w@ornl.gov\"}}"':
+                - text: +
+                - generic: "{\"entry\":{\"archived\":false,\"category\":\"personnel\",\"eventType\":null,\"global\":false,\"items\":[\"TEST ONLY: Fictitious contributor for the October 2026 ACORN MVP demonstration.\",\"Trace this receipt through local ingestion, reviewed contributor graduation, and a local PDF; exclude from sponsor reporting.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"Example, Avery (TEST ONLY)\",\"timestamp\":\"2026-10-24T04:00:00.000Z\"},\"projectId\":\"acorn\",\"submissionId\":\"4313fcfc-0201-441e-8bda-c77718a31dcf\",\"submittedAt\":\"2026-10-24T23:17:20.168Z\",\"submitter\":{\"email\":\"o9w@ornl.gov\"}}"
+      - list
+      - button "Skip to input":
+        - generic: Skip to input
+      - toolbar "Editor toolbar":
+        - button "Preview":
+          - generic: Preview
+        - button "Add bold text (⌘B)":
+        - button "Add italic text (⌘I)":
+        - button "Add strikethrough text (⌘⇧X)":
+        - button "Insert a quote":
+        - button "Insert code":
+        - button "Add a link (⌘K)":
+        - button "Add a bullet list":
+        - button "Add a numbered list":
+        - button "Add a checklist":
+        - generic "Insert table":
+          - button "Insert table":
+            - generic: Insert table
+        - button "Attach a file or image":
+        - button "Add a quick action":
+        - button "More options":
+          - generic: More options
+      - button "Go full screen":
+      - textbox "Reply to comment":
+        - /placeholder: Write a comment or drag your files here…
+      - button "Switch to rich text editing":
+        - generic: Switch to rich text editing
+      - button "Comment" [disabled]:
+        - generic: Comment
+- navigation "Duo controls":
+  - generic "Add new chat":
+    - button "Add new chat":
+      - generic: Add new chat
+  - tablist:
+    - tab "Active GitLab Duo Chat":
+    - tab "GitLab Duo Chat history":
+    - tab "GitLab Duo sessions":
+  - link "GitLab Duo AI Catalog":
+    - /url: /explore/ai-catalog

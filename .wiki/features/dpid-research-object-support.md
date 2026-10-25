@@ -19,7 +19,7 @@ phase_budget_hours: 5
 
 # Dependencies
 
-The portable identifier and RO-Crate slices build on `PersistentIdentifier`, `PersistentIdentifierParse`, `PID`, `Identifier`, `TypedIdentifier`, `ResearchActivity`, `ResearchOutput`, and the existing crosswalk loss-reporting contract. Adding a general activity `identifiers` collection must preserve the broader RAD field and standards-adapter contract in the [standards field matrix](../assets/standards-field-matrix.md). dPID must reuse that extensible field instead of adding another scheme-specific `meta.dpid` field.
+The portable identifier and RO-Crate slices build on `PersistentIdentifier`, `PersistentIdentifierParse`, `PID`, `Identifier`, `TypedIdentifier`, `ResearchActivity`, `ResearchOutput`, and the existing crosswalk loss-reporting contract. Adding a general activity `identifiers` collection must preserve the broader RAD field and standards-adapter contract in the [standards field matrix](../_assets/standards-field-matrix.md). dPID must reuse that extensible field instead of adding another scheme-specific `meta.dpid` field.
 
 The resolver slice uses ACORN's bounded HTTP transport, configurable endpoints, `ResolutionOutcome`, discovery provenance, and the implemented shared link-evidence contract. It must coordinate `io/api/mod.rs` and `application.json` with the API shared-contract lane, `analyzer/host/discovery/mod.rs` with the analyzer integration owner, `transfer.rs` with the research-activity store lane, and CLI roots/generated help with the CLI composition lane. The portable parser and RO-Crate codec remain usable without network access and must preserve the supported no-default-features/WASM boundary.
 

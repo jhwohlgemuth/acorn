@@ -1,0 +1,22 @@
+{
+  "entry": {
+    "archived": false,
+    "category": "other",
+    "eventType": null,
+    "global": false,
+    "items": [
+      "Non-sensitive demonstration data only.",
+      "Verify one receipt, one JSONL entry, and one Teams update."
+    ],
+    "origin": "manual",
+    "state": "completed",
+    "summary": "TEST ONLY: PowerApp Teams notification walkthrough. This synthetic LandScan highlight verifies confirmed logbook capture and owner updates; exclude it from sponsor reports.",
+    "timestamp": "2026-10-24T04:00:00.000Z"
+  },
+  "projectId": "landscan",
+  "submissionId": "82a8dd58-8c60-4ec5-abf5-cb251ab9e033",
+  "submittedAt": "2026-10-24T23:58:58.160Z",
+  "submitter": {
+    "email": "o9w@ornl.gov"
+  }
+}

@@ -60,10 +60,11 @@ pub(crate) async fn commit_sha(options: &Options, revision: &str) -> ApiResult<S
     let identifier = options.identifier();
     match (endpoint, identifier, revision.trim().is_empty()) {
         | (Ok(endpoint), Some(project_identifier), false) => {
+            let encoded_identifier = urlencoding::encode(project_identifier);
             let encoded_revision = urlencoding::encode(revision);
             let token = (!ExposeSecret::expose_secret(&options.token).trim().is_empty()).then_some(ExposeSecret::expose_secret(&options.token));
             let params = Params::new()
-                .with_template("identifier", Some(project_identifier))
+                .with_template("identifier", Some(encoded_identifier.as_ref()))
                 .with_template("sha", Some(encoded_revision.as_ref()))
                 .with_auth_maybe(token, Some(options.token_header()))
                 .build();

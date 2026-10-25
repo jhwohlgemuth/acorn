@@ -1,0 +1,66 @@
+=> [36mUSING[0m Batch e3ab151172e9ce536473c33926bb17ec759d8573d79aaf8844a9a21a4f597b45
+Source /Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/selected.jsonl (sha256:c8496e27ce6379296d19c194305b2f17f028f2e3314230de9ce8adc7b28a2c58)
+Can apply: true
+Status: staged
+Line 1: accepted 4313fcfc-0201-441e-8bda-c77718a31dcf acorn
+Project acorn -> /Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/acorn/index.json (base)
+Base: sha256:6522951c0af4e76c9665059d388d583d03fc475ef567bbeba428756d01d873e0  Final: sha256:75d3f85f9de5a1c84a61d2e36d42d823f98c21f23c5bc99bb4f0350bdcef8936
+--- a//Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/acorn/index.json
++++ b//Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/acorn/index.json
+@@ -4,6 +4,7 @@
+     "draft": false,
+     "status": "active",
+     "identifier": "acorn",
++    "media": [],
+     "keywords": [
+       "Materials",
+       "Modeling",
+@@ -11,13 +12,18 @@
+     ],
+     "contributors": [],
+     "funders": [
+-      "Sample Sponsor A",
+-      "Sample Sponsor B"
+-    ],
+-    "media": []
++      {
++        "name": "Sample Sponsor A",
++        "awards": []
++      },
++      {
++        "name": "Sample Sponsor B",
++        "awards": []
++      }
++    ]
+   },
+   "title": "ACORN Intake and Graduation Demo",
+-  "subtitle": "TEST ONLY \u2014 fictitious personnel and local reporting",
++  "subtitle": "TEST ONLY — fictitious personnel and local reporting",
+   "sections": {
+     "mission": "Demonstrate a traceable highlight from Power Apps through JSONL ingestion and reviewed metadata graduation.",
+     "challenge": "Keep the MVP usable before unattended GitLab automation is deployed.",
+@@ -44,5 +50,24 @@
+     "telephone": "+1 202-555-0123",
+     "url": "https://example.org/project",
+     "organization": "Example Research Group"
++  },
++  "logbook": {
++    "entries": [
++      {
++        "identifier": "form-4313-fcfc-0201-441-e-8-bda-c-77718-a-31-dcf",
++        "projectId": "acorn",
++        "global": false,
++        "timestamp": "2026-10-24T04:00:00.000Z",
++        "category": "personnel",
++        "state": "completed",
++        "origin": "manual",
++        "summary": "Example, Avery (TEST ONLY)",
++        "items": [
++          "TEST ONLY: Fictitious contributor for the October 2026 ACORN MVP demonstration.",
++          "Trace this receipt through local ingestion, reviewed contributor graduation, and a local PDF; exclude from sponsor reporting."
++        ],
++        "archived": false
++      }
++    ]
+   }
+ }

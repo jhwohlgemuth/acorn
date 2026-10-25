@@ -17,7 +17,17 @@ use std::collections::HashMap;
 
 #[test]
 fn test_batch_stage_inspect_and_apply_selectors() {
-    let stage = Arguments::try_parse_from(["acorn", "intake", "stage", "--batch", "--config", "config.json", "--inbox", "inbox.jsonl"]).unwrap();
+    let stage = Arguments::try_parse_from([
+        "acorn",
+        "intake",
+        "stage",
+        "--batch",
+        "--config",
+        "config.json",
+        "--source",
+        "inbox.jsonl",
+    ])
+    .unwrap();
     assert!(matches!(
         stage.command,
         Some(Commands::Intake {
@@ -193,6 +203,24 @@ async fn test_export_admission_uses_exact_gitlab_revisions_and_replays_identical
     server.abort();
 }
 #[test]
+fn test_local_graduation_parser_requires_review_digest_and_selection() {
+    assert!(Arguments::try_parse_from(["acorn", "intake", "candidates", "--index", "index.json"]).is_err());
+    assert!(Arguments::try_parse_from(["acorn", "intake", "graduate", "--index", "index.json"]).is_err());
+    assert!(Arguments::try_parse_from(["acorn", "intake", "run", "--index", "index.json", "--accept", "entry"]).is_err());
+    assert!(Arguments::try_parse_from([
+        "acorn",
+        "intake",
+        "run",
+        "--index",
+        "index.json",
+        "--accept",
+        "entry",
+        "--expected-digest",
+        "sha256:review"
+    ])
+    .is_ok());
+}
+#[test]
 fn test_manual_gitlab_commands_parse_with_explicit_paths() {
     for command in ["run", "deliver"] {
         let parsed = Arguments::try_parse_from(["acorn", "intake", command, "--config", "config.json"]).unwrap();
@@ -238,8 +266,66 @@ fn test_review_diff_requires_admitted_entry_and_exact_revision_labels() {
     );
 }
 #[test]
+fn test_run_local_modes_are_explicit_and_cannot_affect_gitlab_polling() {
+    let parse = |arguments: &[&str]| Arguments::try_parse_from([&["acorn", "intake", "run"][..], arguments].concat());
+    for arguments in [
+        vec!["--index", "index.json"],
+        vec!["--index", "index.json", "--dry-run"],
+        vec!["--index", "index.json", "--interactive"],
+        vec!["--index", "index.json", "--dry-run", "--interactive"],
+        vec!["--index", "index.json", "--force"],
+        vec!["--index", "index.json", "--force", "--dry-run"],
+        vec!["--index", "index.json", "--force", "--expected-digest", "sha256:review"],
+        vec![
+            "--index",
+            "index.json",
+            "--accept",
+            "one",
+            "--accept",
+            "two",
+            "--expected-digest",
+            "sha256:review",
+        ],
+        vec![
+            "--index",
+            "index.json",
+            "--accept",
+            "one",
+            "--expected-digest",
+            "sha256:review",
+            "--interactive",
+        ],
+        vec!["--config", "config.json"],
+    ] {
+        assert!(parse(&arguments).is_ok(), "{arguments:?}");
+    }
+    for arguments in [
+        vec![],
+        vec!["--config", "config.json", "--index", "index.json"],
+        vec!["--index", "index.json", "--force", "--interactive"],
+        vec![
+            "--index",
+            "index.json",
+            "--force",
+            "--accept",
+            "one",
+            "--expected-digest",
+            "sha256:review",
+        ],
+        vec!["--index", "index.json", "--accept", "one"],
+        vec!["--config", "config.json", "--force"],
+        vec!["--config", "config.json", "--dry-run"],
+        vec!["--config", "config.json", "--expected-digest", "sha256:review"],
+        vec!["--config", "config.json", "--interactive"],
+        vec!["--config", "config.json", "--accept", "one", "--expected-digest", "sha256:review"],
+    ] {
+        assert!(parse(&arguments).is_err(), "{arguments:?}");
+    }
+}
+#[test]
 fn test_stage_and_apply_parse_with_explicit_paths() {
-    let stage = Arguments::try_parse_from(["acorn", "intake", "stage", "--config", "config.json", "--inbox", "inbox.jsonl"]).unwrap();
+    let stage = Arguments::try_parse_from(["acorn", "intake", "stage", "--config", "config.json", "--source", "inbox.jsonl"]).unwrap();
+    assert!(Arguments::try_parse_from(["acorn", "intake", "stage", "--config", "config.json", "--inbox", "inbox.jsonl"]).is_err());
     assert!(matches!(
         stage.command,
         Some(Commands::Intake {

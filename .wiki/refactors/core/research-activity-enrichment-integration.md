@@ -31,7 +31,7 @@ Use the structured activity metadata already owned by `acorn-schema` as the dest
 
 # Dependencies
 
-Preserve the implemented [standards field matrix](../../assets/standards-field-matrix.md), crosswalk loss reporting, and Power Automate reviewer-controlled graduation flow. This plan consumes the existing schema; it does not add another parallel metadata model.
+Preserve the implemented [standards field matrix](../../_assets/standards-field-matrix.md), crosswalk loss reporting, and Power Automate reviewer-controlled graduation flow. This plan consumes the existing schema; it does not add another parallel metadata model.
 
 # Recommendation
 

@@ -18,9 +18,9 @@ Help a sponsor reader answer what changed, why it matters to the mission, what c
 # Current evidence
 
 - Stakeholder feedback on the monthly sponsor highlights, supplied on 2026-10-18, values operational transitions, new data and tools, engagement, infrastructure planning, and evidence of partnership health. It requests quantified mission value, a consistent five-part project update, and broader approved access.
-- The current report PDF has a general-updates title page, project title/subtitle and Principal Investigator/sponsor credits, then logbook entries grouped by completed, in-progress, and upcoming status. Each entry has a `summary` and optional supporting `items`; the report has no dedicated project-level mission-value, challenge, or cross-project-opportunity fields. See `crates/acorn-schema/src/research_activity/logbook.rs` and `crates/acorn-cli/src/commands/export/updates.rs`.
+- The current report PDF has a general-updates title page, project title/subtitle and Principal Investigator/sponsor credits, then logbook entries grouped by completed, in-progress, and upcoming status. Each entry has a `summary` and optional supporting `items`; the report has no dedicated project-level mission-value, challenge, or cross-project-opportunity fields. See `crates/acorn-schema/src/research_activity/logbook.rs`, `crates/acorn-cli/src/commands/export/html.rs` and `crates/acorn-cli/src/commands/export/updates.rs`. The existing `report --combine` output already supplies a general-updates title page and final legend; it does not implement the proposed five-part editorial input.
 - The fictional `tests/fixtures/report/` projects exercise layout and logbook diversity, but do not test a repeatable sponsor-facing editorial structure. The existing [grouped separator plan](grouped-report-separators.md) owns office divider pages and is independent of this content change.
-- `GraduationCandidates` currently proposes only classification and contributors. `ResearchActivity::graduate` accepts entry IDs, applies every candidate attached to each accepted entry, and archives the source. Database, MCP, and GitLab paths consume that contract. See `crates/acorn-schema/src/research_activity/logbook.rs`, `crates/acorn-lib/src/io/database/logbook.rs`, and `crates/acorn-lib/src/io/api/gitlab/automation.rs`.
+- `GraduationCandidates` currently proposes only classification and contributors. `ResearchActivity::graduate` accepts entry IDs, applies every candidate attached to each accepted entry, and archives the source. Database, MCP, GitLab and the implemented local `intake run --index` path consume that contract. The local CLI supports preview, interactive review and force-all approval, rejects ambiguous entry IDs, validates both documents and preserves backups. It has no entry-and-target selector or ASPECT proposals; those remain work here. See `crates/acorn-schema/src/research_activity/logbook.rs`, `crates/acorn-lib/src/io/database/logbook.rs`, and `crates/acorn-lib/src/io/api/gitlab/automation.rs`.
 - Canonical `aspect.maturity` is a `TechnologyReadinessLevel` (0–9); the six-level ASPECT `Maturity` label is derived for display. `aspect` also contains portability, motivity, autonomy, and data. An event category or completed state alone does not establish any of those values. See `crates/acorn-schema/src/research_activity/aspect/mod.rs`, `crates/acorn-schema/src/types.rs`, and `docs/src/concepts/aspect/maturity.md`.
 
 # Recommendations, ordered by difficulty then impact
@@ -47,13 +47,13 @@ Help a sponsor reader answer what changed, why it matters to the mission, what c
 
 # Dependencies and acceptance
 
-HIL-01 establishes the authoring contract. HIL-02 defines the optional editorial data contract; HIL-03 wires it into report generation. HIL-04 and HIL-05 render project and portfolio views from the same data. HIL-06 audits the resulting PDF. HIL-07 requires a named publication owner and approved route, but does not block local authoring or rendering. HIL-08 establishes the ASPECT evidence contract; HIL-09 makes graduation target-specific; HIL-10 adds reviewed maturity transitions. HIL-11 through HIL-14 add portability, motivity, autonomy, and data targets one at a time after their field-specific evidence rules are approved. HIL-15 verifies database and MCP persistence; HIL-16 verifies the GitLab review path; HIL-17 surfaces only accepted capability changes in sponsor output. HIL-08 through HIL-16 can proceed independently of editorial-input work, but HIL-17 follows HIL-04 and HIL-16. HIL-03 through HIL-06 and HIL-17 serialize with [grouped report separators](grouped-report-separators.md) and the shared export pipeline on report renderer files. HIL-02 and HIL-09 through HIL-14 claim the research-activity schema lock; HIL-03 claims the CLI contract lock. HIL-16 serializes with GitLab intake work on shared automation files, without waiting for its live publication pilot.
+HIL-01 establishes the authoring contract. HIL-02 defines the optional editorial data contract; HIL-03 wires it into report generation. HIL-04 and HIL-05 render project and portfolio views from the same data. HIL-06 audits the resulting PDF. HIL-07 requires a named publication owner and approved route, but does not block local authoring or rendering. HIL-08 establishes the ASPECT evidence contract; HIL-09 makes graduation target-specific; HIL-10 adds reviewed maturity transitions. HIL-11 through HIL-14 add portability, motivity, autonomy, and data targets one at a time after their field-specific evidence rules are approved. HIL-19 carries target-specific selection into the existing local CLI after HIL-09/10; HIL-15 verifies database and MCP persistence; HIL-16 verifies the GitLab review path; HIL-17 surfaces only accepted capability changes in sponsor output. HIL-08 through HIL-16 can proceed independently of editorial-input work, but HIL-17 follows HIL-04 and HIL-16. HIL-03 through HIL-06 and HIL-17 serialize with [grouped report separators](grouped-report-separators.md) and the shared export pipeline on report renderer files. HIL-02 and HIL-09 through HIL-14 claim the research-activity schema lock; HIL-03 claims the CLI contract lock. HIL-16 serializes with GitLab intake work on shared automation files, without waiting for its live publication pilot. HIL-19 claims the CLI contract and local graduation adapter; it does not reopen the completed manual MVP. HIL-18 also waits for HIL-19.
 
 Acceptance requires a complete synthetic monthly report whose project pages present the five parts in a stable order, identify mission relevance without inventing impact, show supported measures with context, and retain the underlying logbook entries and their statuses. Its first page must surface at least one concrete cross-project opportunity with a proposed next action. Missing or stale editorial input must fail clearly when explicitly supplied; absent optional input must preserve current output. A qualifying completed event must produce a reviewable ASPECT maturity candidate, and accepting only that target must update the canonical TRL once while retaining the event and prior revision. Nonqualifying, unsupported, stale, duplicate, and conflicting proposals must not change ASPECT; accepting one target must not implicitly accept another. The other ASPECT attributes require tested, field-specific evidence and update rules before they can graduate. Sponsor output must distinguish accepted capability changes from proposed changes. The PDF accessibility audit must pass or produce bounded repair phases before this plan retires. Wider distribution is complete only after approved audience and publication checks on the named sponsor systems; a denied route must be recorded as an explicit decision, not silently bypassed.
 
 # Validation
 
-Use focused schema and report-command tests, a dry-run over `tests/fixtures/report/`, rendered-page inspection, a comparison of existing per-project package/manifest behavior, and PDF structure checks. Include qualifying and nonqualifying event fixtures, mixed-target selection, current/proposed TRL conflicts, replay, and a successful mission-use case before allowing TRL 9. Confirm accepted ASPECT values survive database persistence and GitLab review, and that source entries remain available as evidence. Have a sponsor editor review one real monthly draft for scanability and defensible claims before treating the editorial template as accepted. Record publication approvals and access-test evidence separately from local PDF tests.
+Use focused schema and report-command tests, a dry-run over `tests/fixtures/report/`, rendered-page inspection, a comparison of existing per-project package/manifest behavior, and PDF structure checks. Include qualifying and nonqualifying event fixtures, mixed-target selection, current/proposed TRL conflicts, replay, and a successful mission-use case before allowing TRL 9. Confirm target-specific local CLI selection preserves dry-run, force, confirmation and backup semantics, and accepted ASPECT values survive database persistence and GitLab review, and that source entries remain available as evidence. Have a sponsor editor review one real monthly draft for scanability and defensible claims before treating the editorial template as accepted. Record publication approvals and access-test evidence separately from local PDF tests.
 
 # Execution phases
 
@@ -95,7 +95,7 @@ Use focused schema and report-command tests, a dry-run over `tests/fixtures/repo
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: HIL-03
-- Exact write set: `crates/acorn-cli/src/commands/export/updates.rs`, `crates/acorn-cli/assets/styles/updates.css`, `crates/acorn-cli/src/commands/export/tests/mod.rs`, `tests/fixtures/report/highlights.json`
+- Exact write set: `crates/acorn-cli/src/commands/export/html.rs`, `crates/acorn-cli/src/commands/export/updates.rs`, `crates/acorn-cli/assets/styles/updates.css`, `crates/acorn-cli/src/commands/export/tests/mod.rs`, `tests/fixtures/report/highlights.json`
 - Primary integration lock: export dispatch and PDF template
 - Outcome: Show the five project parts and “Why it matters” above status-grouped logbook detail, including contextual measures and explicit challenge state.
 - Focused validation: Focused renderer tests and visual review of short, long, missing-optional, and multipage project cases.
@@ -106,7 +106,7 @@ Use focused schema and report-command tests, a dry-run over `tests/fixtures/repo
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: HIL-04
-- Exact write set: `crates/acorn-cli/src/commands/export/updates.rs`, `crates/acorn-cli/assets/styles/updates.css`, `crates/acorn-cli/src/commands/export/tests/mod.rs`, `tests/fixtures/report/highlights.json`
+- Exact write set: `crates/acorn-cli/src/commands/export/html.rs`, `crates/acorn-cli/src/commands/export/updates.rs`, `crates/acorn-cli/assets/styles/updates.css`, `crates/acorn-cli/src/commands/export/tests/mod.rs`, `tests/fixtures/report/highlights.json`
 - Primary integration lock: export dispatch and PDF template
 - Outcome: Add a scannable first-page synopsis and named cross-project opportunities with shared asset, contact, and next action; retain general updates below it.
 - Focused validation: Focused title-page tests plus visual review with zero, one, and several opportunities and a long synopsis.
@@ -238,19 +238,30 @@ Use focused schema and report-command tests, a dry-run over `tests/fixtures/repo
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: HIL-04 and HIL-16
-- Exact write set: `crates/acorn-cli/src/commands/export/updates.rs`, `crates/acorn-cli/assets/styles/updates.css`, `crates/acorn-cli/src/commands/export/tests/mod.rs`, `tests/fixtures/report/aspect-graduation.json`
+- Exact write set: `crates/acorn-cli/src/commands/export/html.rs`, `crates/acorn-cli/src/commands/export/updates.rs`, `crates/acorn-cli/assets/styles/updates.css`, `crates/acorn-cli/src/commands/export/tests/mod.rs`, `tests/fixtures/report/aspect-graduation.json`
 - Primary integration lock: export dispatch and PDF template
 - Outcome: Add a concise capability-transition line to the relevant project synopsis when an accepted ASPECT graduation has evidence in the reporting window. Name the target and prior/new value with a source-entry reference; do not present a pending proposal as achieved impact.
 - Focused validation: Focused renderer tests and visual review for accepted maturity, another accepted ASPECT target, pending/rejected evidence, and a project with no capability transition.
 - Handoff: Record rendered-page evidence and release the renderer lock; pass acceptance evidence to HIL-18 and remove this phase after checks pass.
 
+## HIL-19 — Carry target-specific graduation into local intake run
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: HIL-09, HIL-10
+- Exact write set: `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/commands/intake/graduation.rs`, `crates/acorn-cli/src/commands/intake/graduation/tests.rs`, `crates/acorn-cli/src/commands/intake/tests.rs`, `crates/acorn-cli/tests/intake.rs`, `docs/src/cli-reference/commands/intake.md`, `CommandLineHelp.md`
+- Primary integration lock: CLI contract
+- Outcome: Carry the HIL-09 entry-and-target selection contract through local preview, interactive selection and explicit acceptance. Keep single-candidate entry-ID compatibility, dry-run precedence, force-all eligibility checks, stale-digest validation and byte-exact backups; retain unaccepted targets on partially graduated entries.
+- Focused validation: Select one of several targets without applying another; preserve pending targets and source evidence; reject stale/invalid target proposals; test force-all, cancellation, replay and existing command compatibility.
+- Handoff: Preserve local command and terminal evidence for HIL-18. Subsequent field-specific targets reuse this selector; their evidence rules remain in HIL-11 through HIL-14.
+
 ## HIL-18 — Reconcile sponsor evidence and retire
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: HIL-06, HIL-07, HIL-17
+- Prerequisites: HIL-06, HIL-07, HIL-17, HIL-19
 - Exact write set: `docs/src/cli-reference/commands/report.md`, `.wiki/features/sponsor-highlights-clarity.md`, `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
 - Primary integration lock: sponsor report acceptance
 - Outcome: Preserve editorial, ASPECT graduation, accessibility, and approved publication or deferral evidence in durable guidance; retire this plan.
-- Focused validation: Review the synthetic monthly report, accepted target-specific graduation evidence, PDF accessibility result, publication decision, links, and wiki validation.
+- Focused validation: Review the synthetic monthly report, accepted target-specific graduation evidence including HIL-19 local CLI checks, PDF accessibility result, publication decision, links, and wiki validation.
 - Handoff: Delete this plan and its index, network, and lane entries after acceptance evidence is durable.

@@ -1,0 +1,14 @@
+{
+  "date": "2026-10-24",
+  "checks": {
+    "singleOuterFailureResponse": true,
+    "failureTimeoutSkippedCovered": true,
+    "immutableReadbackRequiresSuccessfulCommit": true,
+    "confirmationRequiresSuccessfulReadback": true,
+    "automaticCommitRetriesDisabled": true
+  },
+  "sourceSha256": {
+    "final-intake-scope.clipboard.json": "19d4e79e22bfd9080293886f35f6430b573466d42d2d2e512f09cd52fa4a61d6",
+    "final-intake-fallback.clipboard.json": "e3f80a57e4e01151d46c9564c9ebc0b818d38c339687ae80298df6814593616e"
+  }
+}

@@ -75,6 +75,7 @@ dependencies = [
  "quick-xml",
  "rayon",
  "rhai",
+ "ring",
  "rust-embed",
  "schemars 1.2.1",
  "secrecy",

@@ -1,0 +1,83 @@
+- SubmissionResultPanel:
+    Control: GroupContainer@1.5.0
+    Variant: AutoLayout
+    Properties:
+      Fill: =ColorValue("#EDF3EF")
+      Height: =Parent.Height
+      LayoutAlignItems: =LayoutAlignItems.Center
+      LayoutDirection: =LayoutDirection.Vertical
+      LayoutGap: =20
+      LayoutOverflowY: =LayoutOverflow.Scroll
+      PaddingBottom: =32
+      PaddingLeft: =24
+      PaddingRight: =24
+      PaddingTop: =Max(40, Parent.Height * 0.12)
+      Visible: =Coalesce(varShowSubmissionResult, false)
+      Width: =Parent.Width
+    Children:
+    - SubmissionResultTitle:
+        Control: Label@2.5.1
+        Properties:
+          AutoHeight: =true
+          Color: =ColorValue("#123B31")
+          FillPortions: =0
+          Font: =Font.'Segoe UI'
+          FontWeight: =FontWeight.Semibold
+          Height: =64
+          LayoutMinHeight: =64
+          LayoutMinWidth: =0
+          OnSelect: =
+          Size: =If(Parent.Width < 600, 24, 32)
+          TabIndex: =-1
+          Text: =If(varDisposition = "queued", "Highlight saved", varDisposition = "rejected", "Highlight needs a correction", varDisposition = "conflict", "Receipt needs review", "Your highlight needs attention")
+          Width: =Min(640, Parent.Width - 48)
+    - SubmissionResultMessage:
+        Control: Label@2.5.1
+        Properties:
+          AutoHeight: =true
+          Color: =If(varDisposition = "queued", ColorValue("#007833"), ColorValue("#8A3D12"))
+          FillPortions: =0
+          Font: =Font.'Segoe UI'
+          Height: =100
+          LayoutMinHeight: =100
+          LayoutMinWidth: =0
+          Live: =Live.Assertive
+          OnSelect: =
+          Size: =16
+          TabIndex: =-1
+          Text: =varSubmissionStatus
+          Width: =Min(640, Parent.Width - 48)
+    - SubmissionResultReceipt:
+        Control: Label@2.5.1
+        Properties:
+          AutoHeight: =true
+          Color: =ColorValue("#52685F")
+          FillPortions: =0
+          Font: =Font.'Segoe UI'
+          Height: =72
+          LayoutMinHeight: =72
+          LayoutMinWidth: =0
+          OnSelect: =
+          Size: =12
+          TabIndex: =-1
+          Text: ="Receipt ID" & Char(10) & varPendingId & If(!IsBlank(varCommitSha), Char(10) & "GitLab commit " & Left(varCommitSha, 12), "")
+          Visible: =!IsBlank(varPendingId)
+          Width: =Min(640, Parent.Width - 48)
+    - SubmissionResultBack:
+        Control: Classic/Button@2.2.0
+        Properties:
+          AlignInContainer: =AlignInContainer.Center
+          BorderThickness: =0
+          Color: =Color.White
+          Fill: =ColorValue("#007833")
+          FillPortions: =0
+          FocusedBorderColor: =ColorValue("#123B31")
+          FocusedBorderThickness: =3
+          Font: =Font.'Segoe UI'
+          Height: =52
+          LayoutMinHeight: =52
+          LayoutMinWidth: =0
+          OnSelect: =Set(varShowSubmissionResult, false)
+          Size: =15
+          Text: ="Back to highlight"
+          Width: =Min(640, Parent.Width - 48)

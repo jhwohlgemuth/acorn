@@ -1,0 +1,40 @@
+Browser tab: 1329059091, Title: "Sponsor Highlights - Power Apps", URL: "https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/15ae605b-585b-49f5-a413-2b091f919a35#".
+0 AXWebArea Sponsor Highlights - Power Apps, URL: apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/15ae605b-585b-49f5-a413-2b091f919a35#
+	1 container
+		2 container playerShell
+			3 button Skip to main content.
+				4 text Skip to main content.
+			5 container shellHeaderContainer
+				6 container O365_NavHeader
+					7 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+						8 text 
+					9 container shellHeaderTopLevelRegion
+						10 container shellHeaderLeftRegion
+							11 text Power Apps  |  Sponsor Highlights
+						12 container shellHeaderRightRegion
+							13 pop up button (collapsed) Share, ID: shareBtn_id, Secondary Actions: Expand
+								14 text Share
+							15 button Description: Fit to screen, ID: FitToScreenButton
+							16 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+							17 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+					18 container O365_HeaderRightRegion
+						19 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+							20 image JW
+		21 container Description: application, ID: fullscreen-app-host
+			22 AXWebArea Sponsor Highlights, URL: runtime-app.gov.powerplatform.microsoft.us/publishedapp/e/221f44a6-1468-ea4e-b93d-cd52f1723079/preloadindex/V1?preloadIndexPath=https%3A%2F%2Fgov.content.powerapps.us%2Fresource%2Fapp%2F55rc9pqvgis28%2Fpreloadindex.web.html&&PowerAppsLanguage=en-US&loader=inline&lv=pb4u0u866gdlc&piv=1437890726#%7B%22platform%22%3A%22notwindows%22%2C%22hideNavBar%22%3A%22true%22%2C%22cdnUrl%22%3A%22https%3A%2F%2Fgov.content.powerapps.us%2Fresource%2Fapp%22%2C%22paramsQuery%22%3A%22%22%2C%22iframeMode%22%3A%22player%22%2C%22appId%22%3A%2215ae605b-585b-49f5-a413-2b091f919a35%22%2C%22appIdWithVersion%22%3A%2215ae605b-585b-49f5-a413-2b091f919a35%22%2C%22appName%22%3A%2215ae605b-585b-49f5-a413-2b091f919a35%22%2C%22staticContentProxy%22%3A%22%2F%22%2C%22hostOrigin%22%3A%22https%3A%2F%2Fapps.gov.powerapps.us%22%2C%22launchFunctionUrlFormat%22%3A%22https%3A%2F%2Fapps.gov.powerapps.us%2Fplay%2F0%22%2C%22region%22%3A%22gccmoderate%22%2C%22staticContentUrl%22%3A%22https%3A%2F%2Fgov.static.powerapps.us%22%7D
+				23 container
+					24 container SubmitEntryScreen
+						25 text SubmitEntryScreen
+					75 container
+						76 text Highlight saved
+						77 text Saved to the logbook. Your highlight is awaiting ACORN review.
+						78 container
+							79 text Receipt ID
+							80 text 82a8dd58-8c60-4ec5-abf5-cb251ab9e033
+							81 text GitLab commit 03ff58362894
+						82 button Back to highlight
+							83 text Back to highlight
+				73 container Description: You can drag-and-drop this tab anywhere on the 4 edges of the screen, ID: visualsp-handle
+					74 text Site Help
+
+The focused UI element is 22 AXWebArea Sponsor Highlights, URL: runtime-app.gov.powerplatform.microsoft.us/publishedapp/e/221f44a6-1468-ea4e-b93d-cd52f1723079/preloadindex/V1?preloadIndexPath=https%3A%2F%2Fgov.content.powerapps.us%2Fresource%2Fapp%2F55rc9pqvgis28%2Fpreloadindex.web.html&&PowerAppsLanguage=en-US&loader=inline&lv=pb4u0u866gdlc&piv=1437890726#%7B%22platform%22%3A%22notwindows%22%2C%22hideNavBar%22%3A%22true%22%2C%22cdnUrl%22%3A%22https%3A%2F%2Fgov.content.powerapps.us%2Fresource%2Fapp%22%2C%22paramsQuery%22%3A%22%22%2C%22iframeMode%22%3A%22player%22%2C%22appId%22%3A%2215ae605b-585b-49f5-a413-2b091f919a35%22%2C%22appIdWithVersion%22%3A%2215ae605b-585b-49f5-a413-2b091f919a35%22%2C%22appName%22%3A%2215ae605b-585b-49f5-a413-2b091f919a35%22%2C%22staticContentProxy%22%3A%22%2F%22%2C%22hostOrigin%22%3A%22https%3A%2F%2Fapps.gov.powerapps.us%22%2C%22launchFunctionUrlFormat%22%3A%22https%3A%2F%2Fapps.gov.powerapps.us%2Fplay%2F0%22%2C%22region%22%3A%22gccmoderate%22%2C%22staticContentUrl%22%3A%22https%3A%2F%2Fgov.static.powerapps.us%22%7D

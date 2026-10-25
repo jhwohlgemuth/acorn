@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="font-size:initial;" viewBox="0 0 1631.52 468">
+<path d="M13.68,123.12L213.84,123.12A11.52 11.52 0 0 0 225.36 111.6L225.36,13.68A11.52 11.52 0 0 0 213.84 2.16L13.68,2.16A11.52 11.52 0 0 0 2.16 13.68L2.16,111.6A11.52 11.52 0 0 0 13.68 123.12Z" style="fill:rgb(232,241,251);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="113.76" y="49.536" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">1. Submit highlight</text>
+<text x="113.76" y="75.744" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">PowerApp</text>
+<path d="M280.08,123.12L480.24,123.12A11.52 11.52 0 0 0 491.76 111.6L491.76,13.68A11.52 11.52 0 0 0 480.24 2.16L280.08,2.16A11.52 11.52 0 0 0 268.56 13.68L268.56,111.6A11.52 11.52 0 0 0 280.08 123.12Z" style="fill:rgb(243,240,255);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="380.16" y="36.432" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">2. Save + receipt</text>
+<text x="380.16" y="62.64" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Power Automate</text>
+<text x="380.16" y="88.848" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">GitLab JSONL</text>
+<path d="M546.48,123.12L746.64,123.12A11.52 11.52 0 0 0 758.16 111.6L758.16,13.68A11.52 11.52 0 0 0 746.64 2.16L546.48,2.16A11.52 11.52 0 0 0 534.96 13.68L534.96,111.6A11.52 11.52 0 0 0 546.48 123.12Z" style="fill:rgb(255,244,214);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="646.56" y="49.536" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">3. Review</text>
+<text x="646.56" y="75.744" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Stage + inspect</text>
+<path d="M812.88,123.12L1013.04,123.12A11.52 11.52 0 0 0 1024.56 111.6L1024.56,13.68A11.52 11.52 0 0 0 1013.04 2.16L812.88,2.16A11.52 11.52 0 0 0 801.36 13.68L801.36,111.6A11.52 11.52 0 0 0 812.88 123.12Z" style="fill:rgb(231,243,233);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="912.96" y="49.536" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">4. Confirm apply</text>
+<text x="912.96" y="75.744" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Add logbook entry</text>
+<path d="M1079.28,123.12L1279.44,123.12A11.52 11.52 0 0 0 1290.96 111.6L1290.96,13.68A11.52 11.52 0 0 0 1279.44 2.16L1079.28,2.16A11.52 11.52 0 0 0 1067.76 13.68L1067.76,111.6A11.52 11.52 0 0 0 1079.28 123.12Z" style="fill:rgb(231,243,233);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="1179.36" y="49.536" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">5. Graduate</text>
+<text x="1179.36" y="75.744" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Confirm promotion</text>
+<path d="M1345.68,123.12L1545.84,123.12A11.52 11.52 0 0 0 1557.36 111.6L1557.36,13.68A11.52 11.52 0 0 0 1545.84 2.16L1345.68,2.16A11.52 11.52 0 0 0 1334.16 13.68L1334.16,111.6A11.52 11.52 0 0 0 1345.68 123.12Z" style="fill:rgb(242,242,242);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="1445.76" y="49.536" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">6. Build report</text>
+<text x="1445.76" y="75.744" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Local PDF</text>
+<polygon points="268.56,62.64 251.28,69.12 251.28,56.16" style="fill:rgb(0,102,44)" />
+<path d="M225.36,62.64L259.92,62.64" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<polygon points="534.96,62.64 517.68,69.12 517.68,56.16" style="fill:rgb(0,102,44)" />
+<path d="M491.76,62.64L526.32,62.64" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<polygon points="801.36,62.64 784.08,69.12 784.08,56.16" style="fill:rgb(0,102,44)" />
+<path d="M758.16,62.64L792.72,62.64" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<polygon points="1067.76,62.64 1050.48,69.12 1050.48,56.16" style="fill:rgb(0,102,44)" />
+<path d="M1024.56,62.64L1059.12,62.64" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<polygon points="1334.16,62.64 1316.88,69.12 1316.88,56.16" style="fill:rgb(0,102,44)" />
+<path d="M1290.96,62.64L1325.52,62.64" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<path d="M236.88,356.4L465.84,356.4A11.52 11.52 0 0 0 477.36 344.88L477.36,241.2A11.52 11.52 0 0 0 465.84 229.68L236.88,229.68A11.52 11.52 0 0 0 225.36 241.2L225.36,344.88A11.52 11.52 0 0 0 236.88 356.4Z" style="fill:rgb(238,234,248);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="351.36" y="266.832" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">TEAMS</text>
+<text x="351.36" y="293.04" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Highlight saved</text>
+<text x="351.36" y="319.248" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Automatic</text>
+<path d="M510.48,356.4L739.44,356.4A11.52 11.52 0 0 0 750.96 344.88L750.96,241.2A11.52 11.52 0 0 0 739.44 229.68L510.48,229.68A11.52 11.52 0 0 0 498.96 241.2L498.96,344.88A11.52 11.52 0 0 0 510.48 356.4Z" style="fill:rgb(238,234,248);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="624.96" y="266.832" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">TEAMS</text>
+<text x="624.96" y="293.04" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Workspace created*</text>
+<text x="624.96" y="319.248" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Owner sends</text>
+<path d="M812.88,356.4L1041.84,356.4A11.52 11.52 0 0 0 1053.36 344.88L1053.36,241.2A11.52 11.52 0 0 0 1041.84 229.68L812.88,229.68A11.52 11.52 0 0 0 801.36 241.2L801.36,344.88A11.52 11.52 0 0 0 812.88 356.4Z" style="fill:rgb(255,244,214);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="927.36" y="266.832" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">EMAIL</text>
+<text x="927.36" y="293.04" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Review requested</text>
+<text x="927.36" y="319.248" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Owner sends</text>
+<path d="M1093.68,356.4L1322.64,356.4A11.52 11.52 0 0 0 1334.16 344.88L1334.16,241.2A11.52 11.52 0 0 0 1322.64 229.68L1093.68,229.68A11.52 11.52 0 0 0 1082.16 241.2L1082.16,344.88A11.52 11.52 0 0 0 1093.68 356.4Z" style="fill:rgb(238,234,248);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="1208.16" y="266.832" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">TEAMS</text>
+<text x="1208.16" y="293.04" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">No report changes</text>
+<text x="1208.16" y="319.248" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Owner sends</text>
+<path d="M1388.88,356.4L1617.84,356.4A11.52 11.52 0 0 0 1629.36 344.88L1629.36,241.2A11.52 11.52 0 0 0 1617.84 229.68L1388.88,229.68A11.52 11.52 0 0 0 1377.36 241.2L1377.36,344.88A11.52 11.52 0 0 0 1388.88 356.4Z" style="fill:rgb(255,244,214);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="1503.36" y="266.832" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">EMAIL</text>
+<text x="1503.36" y="293.04" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Published report ready</text>
+<text x="1503.36" y="319.248" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Owner sends</text>
+<polygon points="351.36,229.68 344.88,212.4 357.84,212.4" style="fill:rgb(0,102,44)" />
+<path d="M380.16,123.12L380.16,180.72L351.36,180.72L351.36,221.04" style="fill:none;stroke-width:3.24;stroke-linejoin:round;stroke:rgb(0,102,44);" />
+<polygon points="624.96,229.68 627.402,217.621 634.729,222.201" style="fill:rgb(80,106,112)" />
+<path d="M646.56,123.12L646.56,195.12L628.013,224.796" style="fill:none;stroke-width:2.16;stroke-linejoin:round;stroke:rgb(80,106,112);stroke-dasharray:7.2,7.2;" />
+<polygon points="927.36,229.68 923.04,218.16 931.68,218.16" style="fill:rgb(80,106,112)" />
+<path d="M646.56,123.12L646.56,195.12L927.36,195.12L927.36,223.92" style="fill:none;stroke-width:2.16;stroke-linejoin:round;stroke:rgb(80,106,112);stroke-dasharray:7.2,7.2;" />
+<polygon points="1208.16,229.68 1203.84,218.16 1212.48,218.16" style="fill:rgb(80,106,112)" />
+<path d="M1445.76,123.12L1445.76,195.12L1208.16,195.12L1208.16,223.92" style="fill:none;stroke-width:2.16;stroke-linejoin:round;stroke:rgb(80,106,112);stroke-dasharray:7.2,7.2;" />
+<polygon points="1503.36,229.68 1499.04,218.16 1507.68,218.16" style="fill:rgb(80,106,112)" />
+<path d="M1445.76,123.12L1445.76,195.12L1503.36,195.12L1503.36,223.92" style="fill:none;stroke-width:2.16;stroke-linejoin:round;stroke:rgb(80,106,112);stroke-dasharray:7.2,7.2;" />
+<path d="M370.08,465.84L1455.84,465.84A11.52 11.52 0 0 0 1467.36 454.32L1467.36,405.36A11.52 11.52 0 0 0 1455.84 393.84L370.08,393.84A11.52 11.52 0 0 0 358.56 405.36L358.56,454.32A11.52 11.52 0 0 0 370.08 465.84Z" style="fill:rgb(251,236,232);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="912.96" y="429.84" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">EMAIL / Actionable failure at any stage / Owner sends</text>
+</svg>

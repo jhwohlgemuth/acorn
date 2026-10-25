@@ -1,0 +1,196 @@
+- banner:
+  - button "Skip to main content"
+  - banner:
+    - button "App launcher": 
+    - generic: Power Automate
+    - button "Wohlgemuth, Jason":
+      - generic: Environments
+      - generic: Wohlgemuth, Jason
+    - button "Settings":
+      - generic: 
+    - button "Help":
+      - generic: 
+    - button "Account manager for Wohlgemuth, Jason":
+      - generic: JW
+      - img "JW"
+    - generic: 
+- navigation "Main":
+  - button "Left navigation panel" [expanded]:
+    - img "Left navigation panel"
+  - menu:
+    - generic "Home":
+      - menuitem "Home":
+        - generic: Home
+    - generic "Create":
+      - menuitem "Create":
+        - generic: Create
+    - generic "Templates":
+      - menuitem "Templates":
+        - generic: Templates
+    - generic "Learn":
+      - menuitem "Learn":
+        - generic: Learn
+    - generic "My flows":
+      - menuitem "My flows":
+        - generic: My flows
+    - separator
+    - generic "Approvals":
+      - menuitem "Approvals, press right arrow to navigate more options":
+        - generic: Approvals
+    - generic "Solutions":
+      - menuitem "Solutions, press right arrow to navigate more options":
+        - generic: Solutions
+    - generic "Automation center":
+      - menuitem "Automation center, press right arrow to navigate more options":
+        - generic: Automation center
+    - generic "Process mining":
+      - menuitem "Process mining, press right arrow to navigate more options":
+        - generic: Process mining
+    - generic "AI hub":
+      - menuitem "AI hub, press right arrow to navigate more options":
+        - generic: AI hub
+    - generic "Connections":
+      - menuitem "Connections, press right arrow to navigate more options":
+        - generic: Connections
+    - generic "More":
+      - menuitem "More":
+        - generic: More
+    - separator
+    - generic "Power Platform":
+      - menuitem "Power Platform":
+        - generic: Power Platform
+- main:
+  - main:
+    - button "Go back to previous page":
+      - generic: 
+    - generic "The flow name is ACORN Logbook GitLab JSONL Intake (Draft).":
+      - generic: ACORN Logbook GitLab JSONL Intake (Draft)
+      - alert "Ran at 10/24/2026 5:44:38 PM": •Ran at 10/24/2026 5:44:38 PM
+    - toolbar:
+      - button "Resubmit":
+        - generic: 
+        - generic: Resubmit
+      - button "Cancel" [disabled]:
+        - generic: 
+        - generic: Cancel
+      - button "Edit":
+        - generic: 
+        - generic: Edit
+      - switch "New view"
+      - generic: New view
+    - region:
+      - generic: 
+      - alert:
+        - generic "Your flow ran successfully.":
+          - generic: Your flow ran successfully.
+      - button "Your flow ran successfully. Dismiss message.":
+        - generic: 
+    - button "Power Apps (V2)":
+      - button "Power Apps (V2)":
+        - generic: Power Apps (V2)
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Submission ID":
+      - button "Submission ID":
+        - generic: Submission ID
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Submitted At":
+      - button "Submitted At":
+        - generic: Submitted At
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Verify access to main":
+      - button "Verify access to main":
+        - generic: Verify access to main
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Persist submission v3" [expanded]:
+      - button "Persist submission v3" [expanded]:
+        - generic: Persist submission v3
+    - generic: 1 seconds. Failed
+    - region "1 seconds": 1s
+    - img "Failed"
+    - generic: 
+    - status:
+      - strong: ActionFailed
+      - generic: . An action failed. No dependent actions succeeded.
+    - button "Raw submission":
+      - button "Raw submission":
+        - generic: Raw submission
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Parse submission" [expanded] [active]:
+      - button "Parse submission" [expanded]:
+        - generic: Parse submission
+    - generic: 0 seconds. Failed
+    - region "0 seconds": 0s
+    - img "Failed"
+    - generic: 
+    - status:
+      - strong: ValidationFailed
+      - generic: . The schema validation failed.
+    - generic: Inputs
+    - generic: Content not shown due to security configuration.
+    - generic: Outputs
+    - button "Show raw outputs":
+      - generic: 
+      - generic: Show raw outputs
+    - generic "Outputs":
+      - generic: Errors
+      - code:
+        - generic: "["
+        - generic: "{"
+        - generic: "\"message\": \"String 'TEST ONLY xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' exceeds maximum length of 1000.\","
+        - generic: "\"lineNumber\": 0,"
+        - generic: "\"linePosition\": 0,"
+        - generic: "\"path\": \"entry.items[0]\","
+        - generic: "\"value\": \"TEST ONLY xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\","
+        - generic: "\"schemaId\": \"#/properties/entry/properties/items/items\","
+        - generic: 
+        - generic: 
+        - generic: 
+        - generic: 
+        - textbox "Errors": "[ { \"message\": \"String 'TEST ONLY xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' exceeds maximum length of 1000.\", \"lineNumber\": 0, \"linePosition\": 0, \"path\": \"entry.items[0]\", \"value\": \"TEST ONLY xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\", \"schemaId\": \"#/properties/entry/properties/items/items\", \"errorType\": \"maxLength\", \"childErrors\": [] } ]"
+    - button "Check timestamps":
+      - button "Check timestamps":
+        - generic: Check timestamps
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "Blank details":
+      - button "Blank details":
+        - generic: Blank details
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "Caller email":
+      - button "Caller email":
+        - generic: Caller email
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "Envelope allowed":
+      - button "Envelope allowed":
+        - generic: Envelope allowed
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "View when \"Unresolved failure\" will run under \"Configure run after\"":
+      - generic: 
+    - button "Unresolved failure":
+      - button "Unresolved failure":
+        - generic: Unresolved failure
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - generic "flowCtrl.contextualHelpPanel.title"
+- alert
+- alert
+- complementary
+- complementary

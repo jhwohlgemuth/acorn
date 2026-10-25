@@ -1,0 +1,129 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "description": "Current ArtifactEvent wire shape. webhook-id is a request header, not a body field.",
+  "oneOf": [
+    {
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "enum": [
+            "artifact-ready"
+          ],
+          "type": "string"
+        },
+        "checksum": {
+          "type": "string"
+        },
+        "package_url": {
+          "type": "string"
+        },
+        "project_id": {
+          "type": "string"
+        },
+        "through": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "event",
+        "checksum",
+        "package_url",
+        "project_id",
+        "through"
+      ],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "enum": [
+            "failed"
+          ],
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "project_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "event",
+        "message",
+        "project_id"
+      ],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "enum": [
+            "mr-created"
+          ],
+          "type": "string"
+        },
+        "merge_request_url": {
+          "type": "string"
+        },
+        "project_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "event",
+        "merge_request_url",
+        "project_id"
+      ],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "enum": [
+            "report-no-changes"
+          ],
+          "type": "string"
+        },
+        "project_id": {
+          "type": "string"
+        },
+        "through": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "event",
+        "project_id",
+        "through"
+      ],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "enum": [
+            "review-needed"
+          ],
+          "type": "string"
+        },
+        "merge_request_url": {
+          "type": "string"
+        },
+        "project_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "event",
+        "merge_request_url",
+        "project_id"
+      ],
+      "type": "object"
+    }
+  ]
+}

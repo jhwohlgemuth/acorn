@@ -1,0 +1,373 @@
+Browser tab: 1329059112, Title: "Run History | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/ff4a134b-5fd3-4465-ab19-0325c2f2bf1b/runs/08584087203368929940105688293CU25?v3=false".
+1 AXWebArea Run History | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/ff4a134b-5fd3-4465-ab19-0325c2f2bf1b/runs/08584087203368929940105688293CU25?v3=false
+	2 container
+		3 container root
+			4 container
+				5 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				26 container o365header
+					27 container O365_NavHeader
+						28 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							145 text 
+						30 container ppuxOfficeHeaderTopLevelRegion
+							31 container ppuxOfficeHeaderLeftRegion
+								32 text Power Automate
+							33 container ppuxOfficeHeaderRightRegion
+								34 button Wohlgemuth, Jason
+									35 container
+										36 text Environments Wohlgemuth, Jason
+								37 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								38 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						39 container O365_HeaderRightRegion
+							40 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								41 image JW
+				6 container Main
+					7 button (expanded) Left navigation panel, Secondary Actions: Collapse
+						8 image Left navigation panel
+					42 menu
+						43 container
+							44 container aboveCustomizableItemsId0
+								45 Home
+								46 Create
+								47 Templates
+								48 Learn
+								49 My flows
+							50 Approvals, press right arrow to navigate more options
+							51 Solutions, press right arrow to navigate more options
+							52 Automation center, press right arrow to navigate more options
+							53 Process mining, press right arrow to navigate more options
+								54 image
+								55 text Process mining
+							56 AI hub, press right arrow to navigate more options
+							57 Connections, press right arrow to navigate more options
+							58 More
+							59 Power Platform
+				61 container
+					62 container
+						63 button Go back to previous page
+						64 container The flow name is ACORN Logbook GitLab JSONL Intake (Draft).
+							65 text ACORN Logbook GitLab JSONL Intake (Draft)
+							66 container
+								146 text • Ran at 10/24/2026 8:02:28 PM
+						68 toolbar
+							69 button Description: Resubmit, ID: resubmitFlowRun
+								70 text Resubmit
+							71 button (disabled) Description: Cancel, ID: cancelFlowRun
+								72 text Cancel
+							73 button Description: Edit, ID: editFlow
+								74 text Edit
+							75 container
+								76 switch Description: New view, Value: 0, ID: switchDesignerFlowRunDetails
+								77 text New view
+						78 container Your flow ran successfully.
+							79 text Your flow ran successfully.
+						80 button Your flow ran successfully. Dismiss message.
+					81 container
+						82 container
+							83 button (collapsed) Power Apps (V2), Secondary Actions: Expand
+								84 button (collapsed) Power Apps (V2), Secondary Actions: Expand
+									85 text Power Apps (V2)
+							86 text 0 seconds. Succeeded
+							87 container 0 seconds
+								88 text 0s
+							89 image Succeeded
+						90 container
+							91 button (collapsed) Submission ID, Secondary Actions: Expand
+								92 button (collapsed) Submission ID, Secondary Actions: Expand
+									93 text Submission ID
+							94 text 0 seconds. Succeeded
+							95 container 0 seconds
+								96 text 0s
+							97 image Succeeded
+						98 container
+							99 container
+								100 button (collapsed) Submitted At, Secondary Actions: Expand
+									101 button (collapsed) Submitted At, Secondary Actions: Expand
+										102 text Submitted At
+								103 text 0 seconds. Succeeded
+								104 container 0 seconds
+									105 text 0s
+								106 image Succeeded
+							107 container
+								108 button (collapsed) Verify access to main, Secondary Actions: Expand
+									109 button (collapsed) Verify access to main, Secondary Actions: Expand
+										110 text Verify access to main
+								111 text 0 seconds. Succeeded
+								112 container 0 seconds
+									113 text 0s
+								114 image Succeeded
+							115 container
+								116 container
+									117 button (expanded) Persist submission v3, Secondary Actions: Collapse
+										118 button (expanded) Persist submission v3, Secondary Actions: Collapse
+											119 text Persist submission v3
+									120 text 1 seconds. Succeeded
+									121 container 1 seconds
+										122 text 1s
+									123 image Succeeded
+								174 container
+									175 container
+										176 button (collapsed) Raw submission, Secondary Actions: Expand
+											195 button (collapsed) Raw submission, Secondary Actions: Expand
+												196 text Raw submission
+										197 text 0 seconds. Succeeded
+										198 container 0 seconds
+											199 text 0s
+										177 image Succeeded
+									178 container
+										179 button (collapsed) Parse submission, Secondary Actions: Expand
+											200 button (collapsed) Parse submission, Secondary Actions: Expand
+												201 text Parse submission
+										202 text 0 seconds. Succeeded
+										203 container 0 seconds
+											204 text 0s
+										180 image Succeeded
+									181 container
+										182 container
+											183 button (collapsed) Check timestamps, Secondary Actions: Expand
+												205 button (collapsed) Check timestamps, Secondary Actions: Expand
+													206 text Check timestamps
+											207 text 0 seconds. Succeeded
+											208 container 0 seconds
+												209 text 0s
+											184 image Succeeded
+										185 container
+											186 button (collapsed) Blank details, Secondary Actions: Expand
+												210 button (collapsed) Blank details, Secondary Actions: Expand
+													211 text Blank details
+											212 text 0 seconds. Succeeded
+											213 container 0 seconds
+												214 text 0s
+											187 image Succeeded
+										188 container
+											189 container
+												190 button (collapsed) Caller email, Secondary Actions: Expand
+													215 button (collapsed) Caller email, Secondary Actions: Expand
+														216 text Caller email
+												217 text 0 seconds. Succeeded
+												218 container 0 seconds
+													219 text 0s
+												191 image Succeeded
+											220 container Envelope allowed 1 seconds. Succeeded 1s Succeeded Content not shown due to security configuration. If yes Commit marker 0 seconds. Succeeded 0s Succeeded List submission history 0 seconds. Succeeded 0s Succeeded Matching commits 0 seconds. Succeeded 0s Succeeded
+												221 container
+													222 button (expanded) Envelope allowed, Secondary Actions: Collapse
+														223 button (expanded) Envelope allowed, Secondary Actions: Collapse
+															224 text Envelope allowed
+													225 container
+														226 text 1 seconds. Succeeded
+														227 container 1 seconds
+															228 text 1s
+														229 image Succeeded
+													251 container
+														252 text INPUTS Content not shown due to security configuration.
+													230 container
+														231 button (expanded) Description: If yes, Secondary Actions: Collapse
+															253 button (expanded) If yes, Secondary Actions: Collapse
+																254 text If yes
+														232 container
+															233 button (collapsed) Commit marker, Secondary Actions: Expand
+																255 button (collapsed) Commit marker, Secondary Actions: Expand
+																	256 text Commit marker
+															257 text 0 seconds. Succeeded
+															258 container 0 seconds
+																259 text 0s
+															234 image Succeeded
+														235 container
+															236 container
+																237 button (collapsed) List submission history, Secondary Actions: Expand
+																	260 button (collapsed) List submission history, Secondary Actions: Expand
+																		261 text List submission history
+																262 text 0 seconds. Succeeded
+																263 container 0 seconds
+																	264 text 0s
+																238 image Succeeded
+															239 container
+																240 button (collapsed) Matching commits, Secondary Actions: Expand
+																	265 button (collapsed) Matching commits, Secondary Actions: Expand
+																		266 text Matching commits
+																267 text 0 seconds. Succeeded
+																268 container 0 seconds
+																	269 text 0s
+																241 image Succeeded
+															242 container
+																282 container Prior submission exists 1 seconds. Succeeded 1s Succeeded Content not shown due to security configuration. If yes Prior commit 0 seconds. Succeeded 0s Succeeded Prior snapshot 0 seconds. Succeeded 0s Succeeded Parent snapshot 0 seconds. Succeeded 0s Succeeded
+																	283 container
+																		284 button (expanded) Prior submission exists, Secondary Actions: Collapse
+																			285 button (expanded) Prior submission exists, Secondary Actions: Collapse
+																				286 text Prior submission exists
+																		287 container
+																			288 text 1 seconds. Succeeded
+																			289 container 1 seconds
+																				290 text 1s
+																			291 image Succeeded
+																		314 container
+																			315 text INPUTS Content not shown due to security configuration.
+																		292 container
+																			293 button (expanded) Description: If yes, Secondary Actions: Collapse
+																				316 button (expanded) If yes, Secondary Actions: Collapse
+																					317 text If yes
+																			294 container
+																				295 button (collapsed) Prior commit, Secondary Actions: Expand
+																					318 button (collapsed) Prior commit, Secondary Actions: Expand
+																						319 text Prior commit
+																				320 text 0 seconds. Succeeded
+																				321 container 0 seconds
+																					322 text 0s
+																				296 image Succeeded
+																			297 container
+																				298 container
+																					299 button (collapsed) Prior snapshot, Secondary Actions: Expand
+																						323 button (collapsed) Prior snapshot, Secondary Actions: Expand
+																							324 text Prior snapshot
+																					325 text 0 seconds. Succeeded
+																					326 container 0 seconds
+																						327 text 0s
+																					300 image Succeeded
+																				301 container
+																					302 button (collapsed) Parent snapshot, Secondary Actions: Expand
+																						328 button (collapsed) Parent snapshot, Secondary Actions: Expand
+																							329 text Parent snapshot
+																					330 text 0 seconds. Succeeded
+																					331 container 0 seconds
+																						332 text 0s
+																					303 image Succeeded
+																				304 container
+																					305 button View when "Parent readable" will run under "Configure run after"
+																					345 container Parent readable 0 seconds. Succeeded 0s Succeeded Content not shown due to security configuration. If yes Expected prior bytes 0 seconds. Succeeded 0s Succeeded Exact prior append 0 seconds. Succeeded 0s Succeeded Content not shown due to security configuration. If yes
+																						346 container
+																							347 button (expanded) Parent readable, Secondary Actions: Collapse
+																								348 button (expanded) Parent readable, Secondary Actions: Collapse
+																									349 text Parent readable
+																							350 container
+																								351 text 0 seconds. Succeeded
+																								352 container 0 seconds
+																									353 text 0s
+																								354 image Succeeded
+																							369 container
+																								370 text INPUTS Content not shown due to security configuration.
+																							355 container
+																								356 button (expanded) Description: If yes, Secondary Actions: Collapse
+																									371 button (expanded) If yes, Secondary Actions: Collapse
+																										372 text If yes
+																								357 container
+																									358 button (collapsed) Expected prior bytes, Secondary Actions: Expand
+																										373 button (collapsed) Expected prior bytes, Secondary Actions: Expand
+																											374 text Expected prior bytes
+																									375 text 0 seconds. Succeeded
+																									376 container 0 seconds
+																										377 text 0s
+																									359 image Succeeded
+																								360 container
+																									390 container Exact prior append 0 seconds. Succeeded 0s Succeeded Content not shown due to security configuration. If yes Queued replay 0 seconds. Succeeded 0s Succeeded If no Identity conflict 0 seconds. Skipped 0s Skipped
+																										391 container
+																											392 button (expanded) Exact prior append, Secondary Actions: Collapse
+																												393 button (expanded) Exact prior append, Secondary Actions: Collapse
+																													394 text Exact prior append
+																											395 container
+																												396 text 0 seconds. Succeeded
+																												397 container 0 seconds
+																													398 text 0s
+																												399 image Succeeded
+																											410 container
+																												411 text INPUTS Content not shown due to security configuration.
+																											400 container
+																												401 button (expanded) Description: If yes, Secondary Actions: Collapse
+																													412 button (expanded) If yes, Secondary Actions: Collapse
+																														413 text If yes
+																												402 container
+																													403 button (collapsed) Queued replay, Secondary Actions: Expand
+																														414 button (collapsed) Queued replay, Secondary Actions: Expand
+																															415 text Queued replay
+																													416 text 0 seconds. Succeeded
+																													417 container 0 seconds
+																														418 text 0s
+																													404 image Succeeded
+																											405 container
+																												406 button (expanded) Description: If no, Secondary Actions: Collapse
+																													419 button (expanded) If no, Secondary Actions: Collapse
+																														420 text If no
+																												407 container
+																													408 button (collapsed) Identity conflict, Secondary Actions: Expand
+																														421 button (collapsed) Identity conflict, Secondary Actions: Expand
+																															422 text Identity conflict
+																													423 text 0 seconds. Skipped
+																													424 container 0 seconds
+																														425 text 0s
+																													409 image Skipped
+																							364 container
+																								365 button (expanded) Description: If no, Secondary Actions: Collapse
+																									383 button (expanded) If no, Secondary Actions: Collapse
+																										384 text If no
+																								366 container
+																									367 button (collapsed) Unresolved parent, Secondary Actions: Expand
+																										385 button (collapsed) Unresolved parent, Secondary Actions: Expand
+																											386 text Unresolved parent
+																									387 text 0 seconds. Skipped
+																									388 container 0 seconds
+																										389 text 0s
+																									368 image Skipped
+																		309 container
+																			310 button (expanded) Description: If no, Secondary Actions: Collapse
+																				338 button (expanded) If no, Secondary Actions: Collapse
+																					339 text If no
+																			311 container
+																				312 button (collapsed) History exhausted, Secondary Actions: Expand
+																					340 button (collapsed) History exhausted, Secondary Actions: Expand
+																						341 text History exhausted
+																				342 text 0 seconds. Skipped
+																				343 container 0 seconds
+																					344 text 0s
+																				313 image Skipped
+													246 container
+														247 button (expanded) Description: If no, Secondary Actions: Collapse
+															275 button (expanded) If no, Secondary Actions: Collapse
+																276 text If no
+														248 container
+															249 button (collapsed) Rejected envelope, Secondary Actions: Expand
+																277 button (collapsed) Rejected envelope, Secondary Actions: Expand
+																	278 text Rejected envelope
+															279 text 0 seconds. Skipped
+															280 container 0 seconds
+																281 text 0s
+															250 image Skipped
+								124 container
+									125 button View when "Unresolved failure" will run under "Configure run after"
+								126 container
+									127 button (collapsed) Unresolved failure, Secondary Actions: Expand
+										128 button (collapsed) Unresolved failure, Secondary Actions: Expand
+											129 text Unresolved failure
+									130 text 0 seconds. Skipped
+									131 container 0 seconds
+										132 text 0s
+									133 image Skipped
+								134 container
+									135 button View when "Notify confirmed new submission" will run under "Configure run after"
+									147 container Notify confirmed new submission 0 seconds. Succeeded 0s Succeeded Content not shown due to security configuration. If yes Post intake update to Teams 0 seconds. Skipped 0s Skipped If no
+										148 container
+											149 button (expanded) Notify confirmed new submission, Secondary Actions: Collapse
+												150 button (expanded) Notify confirmed new submission, Secondary Actions: Collapse
+													151 text Notify confirmed new submission
+											152 container
+												153 text 0 seconds. Succeeded
+												154 container 0 seconds
+													155 text 0s
+												156 image Succeeded
+											163 container
+												164 text INPUTS Content not shown due to security configuration.
+											157 container
+												158 button (expanded) Description: If yes, Secondary Actions: Collapse
+													165 button (expanded) If yes, Secondary Actions: Collapse
+														166 text If yes
+												159 container
+													160 button (collapsed) Post intake update to Teams, Secondary Actions: Expand
+														167 button (collapsed) Post intake update to Teams, Secondary Actions: Expand
+															168 text Post intake update to Teams
+													169 text 0 seconds. Skipped
+													170 container 0 seconds
+														171 text 0s
+													161 image Skipped
+											162 button (expanded) Description: If no, Secondary Actions: Collapse
+												172 button (expanded) If no, Secondary Actions: Collapse
+													173 text If no
+					144 container flowCtrl.contextualHelpPanel.title
+
+The focused UI element is 392 button (expanded) Exact prior append, Secondary Actions: Collapse

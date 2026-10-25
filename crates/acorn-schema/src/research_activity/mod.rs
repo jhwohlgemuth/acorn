@@ -351,7 +351,7 @@ pub struct ResearchActivityMetadata {
     pub infrastructure: Option<OneOrMany<ComputeEnvironment>>,
     /// Structured activity dates (e.g. StartDate, EndDate, Created, Updated) with explicit date types.
     ///
-    /// Distinct from `Changelog` entry timestamps and RAiD registry `metadata` timestamps; see `.wiki/assets/standards-field-matrix.md` Validity Levels.
+    /// Distinct from `Changelog` entry timestamps and RAiD registry `metadata` timestamps; see `.wiki/_assets/standards-field-matrix.md` Validity Levels.
     ///
     /// ### Example
     /// `"dates": [{"dateType": "StartDate", "date": "2024-01-15T10:00:00Z"}]`
@@ -410,7 +410,7 @@ pub struct ResearchActivityMetadata {
     pub related_resources: Option<OneOrMany<TypedRelatedResource>>,
     /// Languages using RAiD `Language` (`id` 3-letter `eng`, `schemaUri` URL).
     ///
-    /// Direct reuse of `crate::pid::raid::Language`; see `.wiki/assets/standards-field-matrix.md` Language row.
+    /// Direct reuse of `crate::pid::raid::Language`; see `.wiki/_assets/standards-field-matrix.md` Language row.
     ///
     /// ### Examples
     /// - Simple: `"languages": ["eng"]`

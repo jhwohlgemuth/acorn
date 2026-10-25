@@ -1,0 +1,237 @@
+{
+  "mode": "local-only-recorded-source",
+  "remotePublication": false,
+  "capturedSource": {
+    "repository": "https://code.ornl.gov/research-enablement/experiments/power-automate",
+    "projectId": 22464,
+    "branch": "main",
+    "path": ".acorn/intake/logbook.jsonl",
+    "commit": "3090aa5714b4c6ff59c5dd0b6ecba999f918caa2",
+    "parent": "7dd33b6d6094ab4d0b2ce13d8c58296a210064d5",
+    "flowRun": "08584087230445394451842398555CU19",
+    "submissionId": "4313fcfc-0201-441e-8bda-c77718a31dcf",
+    "snapshotSha256": "76f0e36f637b5611cca8aa6c69ce5db13be00a0b5e17b2dbfe71c20a38177384",
+    "selectedSha256": "c8496e27ce6379296d19c194305b2f17f028f2e3314230de9ce8adc7b28a2c58",
+    "selectedLines": [
+      6
+    ],
+    "recordCount": 6,
+    "transfer": "GitLab immutable-file Download; original bytes retained",
+    "scope": "TEST ONLY; isolated local demo; remote inbox never drained"
+  },
+  "localCommit": "64c9b8ce2aeeb93111c01f03555c1cef5dce3e1a",
+  "entryIdentifier": "form-4313-fcfc-0201-441-e-8-bda-c-77718-a-31-dcf",
+  "approvedBy": "interactive ACORN Yes/No confirmations",
+  "configSha256": "31553b7484f80dfdc5c7cad78f10ddfafe56ac1b64abd2c6de6e016f8abb2714",
+  "baselineSha256": "6522951c0af4e76c9665059d388d583d03fc475ef567bbeba428756d01d873e0",
+  "ingestedSha256": "75d3f85f9de5a1c84a61d2e36d42d823f98c21f23c5bc99bb4f0350bdcef8936",
+  "graduatedSha256": "d37586393e6b8f93beea5d2aef3302000e094a2ef52af91084db3588d2cbd66c",
+  "pdfSha256": "dd49b431b97db56b128d33b9bf52ac35114fc4e57c9a9d15a5b48e09d92dab79",
+  "window": {
+    "from": "2026-10-24T00:00:00Z",
+    "through": "2026-10-25T00:00:00Z"
+  },
+  "completedAt": "2026-10-25T00:42:02.390556+00:00",
+  "elapsedSeconds": 2.11,
+  "steps": [
+    {
+      "step": "01-stage",
+      "command": [
+        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "--offline",
+        "intake",
+        "stage",
+        "--batch",
+        "--config",
+        "/private/tmp/acorn-run-demo-interactive-20261024/intake.json",
+        "--source",
+        "/private/tmp/acorn-run-demo-interactive-20261024/selected.jsonl"
+      ],
+      "exitCode": 0,
+      "confirmation": "none"
+    },
+    {
+      "step": "02-inspect",
+      "command": [
+        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "--offline",
+        "intake",
+        "inspect",
+        "--config",
+        "/private/tmp/acorn-run-demo-interactive-20261024/intake.json",
+        "--batch-id",
+        "220e1590006a18f664aab5b68c1c28929b83e197dfb8c611745febd9e49a4587"
+      ],
+      "exitCode": 0,
+      "confirmation": "none"
+    },
+    {
+      "step": "03-apply",
+      "command": [
+        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "--offline",
+        "intake",
+        "apply",
+        "--config",
+        "/private/tmp/acorn-run-demo-interactive-20261024/intake.json",
+        "--batch-id",
+        "220e1590006a18f664aab5b68c1c28929b83e197dfb8c611745febd9e49a4587"
+      ],
+      "exitCode": 0,
+      "confirmation": "terminal buttons"
+    },
+    {
+      "step": "04-apply-replay",
+      "command": [
+        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "--offline",
+        "intake",
+        "apply",
+        "--config",
+        "/private/tmp/acorn-run-demo-interactive-20261024/intake.json",
+        "--batch-id",
+        "220e1590006a18f664aab5b68c1c28929b83e197dfb8c611745febd9e49a4587",
+        "--yes"
+      ],
+      "exitCode": 0,
+      "confirmation": "--yes"
+    },
+    {
+      "step": "05-candidates",
+      "command": [
+        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "--offline",
+        "intake",
+        "run",
+        "--index",
+        "/private/tmp/acorn-run-demo-interactive-20261024/acorn/index.json",
+        "--dry-run"
+      ],
+      "exitCode": 0,
+      "confirmation": "none"
+    },
+    {
+      "step": "06-graduate",
+      "command": [
+        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "--offline",
+        "intake",
+        "run",
+        "--index",
+        "/private/tmp/acorn-run-demo-interactive-20261024/acorn/index.json",
+        "--accept",
+        "form-4313-fcfc-0201-441-e-8-bda-c-77718-a-31-dcf",
+        "--expected-digest",
+        "sha256:75d3f85f9de5a1c84a61d2e36d42d823f98c21f23c5bc99bb4f0350bdcef8936",
+        "--interactive"
+      ],
+      "exitCode": 0,
+      "confirmation": "terminal buttons"
+    },
+    {
+      "step": "07-graduate-replay",
+      "command": [
+        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "--offline",
+        "intake",
+        "run",
+        "--index",
+        "/private/tmp/acorn-run-demo-interactive-20261024/acorn/index.json",
+        "--accept",
+        "form-4313-fcfc-0201-441-e-8-bda-c-77718-a-31-dcf",
+        "--expected-digest",
+        "sha256:75d3f85f9de5a1c84a61d2e36d42d823f98c21f23c5bc99bb4f0350bdcef8936"
+      ],
+      "exitCode": 70,
+      "confirmation": "none"
+    },
+    {
+      "step": "08-rejected-stage",
+      "command": [
+        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "--offline",
+        "intake",
+        "stage",
+        "--batch",
+        "--config",
+        "/private/tmp/acorn-run-demo-interactive-20261024/intake.json",
+        "--source",
+        "/private/tmp/acorn-run-demo-interactive-20261024/rejected.jsonl"
+      ],
+      "exitCode": 70,
+      "confirmation": "none"
+    },
+    {
+      "step": "09-rejected-apply",
+      "command": [
+        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "--offline",
+        "intake",
+        "apply",
+        "--config",
+        "/private/tmp/acorn-run-demo-interactive-20261024/intake.json",
+        "--batch-id",
+        "e9753a099c51c7c7cfa1e6f508c3edb9465d480efe825a301862dd0befe78f16",
+        "--yes"
+      ],
+      "exitCode": 70,
+      "confirmation": "--yes"
+    },
+    {
+      "step": "10-report",
+      "command": [
+        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "--offline",
+        "report",
+        "--config",
+        "/private/tmp/acorn-run-demo-interactive-20261024/report.json",
+        "--root",
+        "/private/tmp/acorn-run-demo-interactive-20261024",
+        "--project",
+        "acorn",
+        "--commit",
+        "64c9b8ce2aeeb93111c01f03555c1cef5dce3e1a",
+        "--from",
+        "2026-10-24T00:00:00Z",
+        "--through",
+        "2026-10-25T00:00:00Z",
+        "--chrome-path",
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "--dry-run",
+        "--combine",
+        "--output",
+        "/private/tmp/acorn-run-demo-interactive-20261024/report"
+      ],
+      "exitCode": 0,
+      "confirmation": "none"
+    },
+    {
+      "step": "11-report-repeat",
+      "command": [
+        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "--offline",
+        "report",
+        "--config",
+        "/private/tmp/acorn-run-demo-interactive-20261024/report.json",
+        "--root",
+        "/private/tmp/acorn-run-demo-interactive-20261024",
+        "--project",
+        "acorn",
+        "--commit",
+        "64c9b8ce2aeeb93111c01f03555c1cef5dce3e1a",
+        "--from",
+        "2026-10-24T00:00:00Z",
+        "--through",
+        "2026-10-25T00:00:00Z",
+        "--chrome-path",
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "--dry-run",
+        "--combine",
+        "--output",
+        "/private/tmp/acorn-run-demo-interactive-20261024/report-repeat"
+      ],
+      "exitCode": 0,
+      "confirmation": "none"
+    }
+  ]
+}

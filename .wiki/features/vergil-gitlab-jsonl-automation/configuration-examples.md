@@ -1,6 +1,6 @@
 # ACRE configuration examples
 
-These complete configuration documents demonstrate the ACRE 2.0.0 contract in [the owning plan](../features/powerapps-gitlab-logbook-reporting.md). Root `folders`/`members`/`variables` and `options` ownership match the implemented schema, including the `options.powerAutomate.intake` source settings. A deployment lists only the variable references it needs, as shown here.
+These complete configuration documents demonstrate the ACRE 2.0.0 contract in [the ACRE specification](../../../ACRE_SPEC.md). Root `folders`/`members`/`variables` and `options` ownership match the implemented schema, including the `options.powerAutomate.intake` source settings. A deployment lists only the variable references it needs, as shown here. These are remote/bucket examples for [Vergil automation](index.md); the [manual demo](../manual-jsonl-ingestion-graduation/index.md) needs a separate explicit registry with standalone local `file:` destinations.
 
 ## JSON — `.acorn.json`
 

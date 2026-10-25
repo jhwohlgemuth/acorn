@@ -1,0 +1,148 @@
+Browser tab: 1329059112, Title: "Run History | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/ff4a134b-5fd3-4465-ab19-0325c2f2bf1b/runs/08584087205468981614810029297CU09?v3=false".
+0 AXWebArea Run History | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/ff4a134b-5fd3-4465-ab19-0325c2f2bf1b/runs/08584087205468981614810029297CU09?v3=false
+	1 container
+		2 container root
+			3 container
+				4 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				5 container o365header
+					6 container O365_NavHeader
+						7 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							128 text 
+						9 container ppuxOfficeHeaderTopLevelRegion
+							10 container ppuxOfficeHeaderLeftRegion
+								11 text Power Automate
+							12 container ppuxOfficeHeaderRightRegion
+								13 button Wohlgemuth, Jason
+									14 container
+										15 text Environments Wohlgemuth, Jason
+								16 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								17 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						18 container O365_HeaderRightRegion
+							19 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								20 image JW
+				21 container Main
+					22 button (expanded) Left navigation panel, Secondary Actions: Collapse
+						23 image Left navigation panel
+					24 menu
+						25 container
+							26 container aboveCustomizableItemsId0
+								27 Home
+								28 Create
+								29 Templates
+								30 Learn
+								31 My flows
+							32 Approvals, press right arrow to navigate more options
+							33 Solutions, press right arrow to navigate more options
+							34 Automation center, press right arrow to navigate more options
+							35 Process mining, press right arrow to navigate more options
+								36 image
+								37 text Process mining
+							38 AI hub, press right arrow to navigate more options
+							39 Connections, press right arrow to navigate more options
+							40 More
+							41 Power Platform
+				43 container
+					45 container
+						46 button Go back to previous page
+						47 container The flow name is ACORN Logbook GitLab JSONL Intake (Draft).
+							48 text ACORN Logbook GitLab JSONL Intake (Draft)
+							49 container
+								129 text • Ran at 10/24/2026 7:58:58 PM
+						51 toolbar
+							52 button Description: Resubmit, ID: resubmitFlowRun
+								53 text Resubmit
+							54 button (disabled) Description: Cancel, ID: cancelFlowRun
+								55 text Cancel
+							56 button Description: Edit, ID: editFlow
+								57 text Edit
+							58 container
+								59 switch Description: New view, Value: 0, ID: switchDesignerFlowRunDetails
+								60 text New view
+						61 container Your flow ran successfully.
+							62 text Your flow ran successfully.
+						63 button Your flow ran successfully. Dismiss message.
+					64 container
+						65 container
+							66 button (collapsed) Power Apps (V2), Secondary Actions: Expand
+								67 button (collapsed) Power Apps (V2), Secondary Actions: Expand
+									68 text Power Apps (V2)
+							69 text 0 seconds. Succeeded
+							70 container 0 seconds
+								71 text 0s
+							72 image Succeeded
+						73 container
+							74 button (collapsed) Submission ID, Secondary Actions: Expand
+								75 button (collapsed) Submission ID, Secondary Actions: Expand
+									76 text Submission ID
+							77 text 0 seconds. Succeeded
+							78 container 0 seconds
+								79 text 0s
+							80 image Succeeded
+						81 container
+							82 container
+								83 button (collapsed) Submitted At, Secondary Actions: Expand
+									84 button (collapsed) Submitted At, Secondary Actions: Expand
+										85 text Submitted At
+								86 text 0 seconds. Succeeded
+								87 container 0 seconds
+									88 text 0s
+								89 image Succeeded
+							90 container
+								91 button (collapsed) Verify access to main, Secondary Actions: Expand
+									92 button (collapsed) Verify access to main, Secondary Actions: Expand
+										93 text Verify access to main
+								94 text 0 seconds. Succeeded
+								95 container 0 seconds
+									96 text 0s
+								97 image Succeeded
+							98 container
+								99 container
+									100 button (collapsed) Persist submission v3, Secondary Actions: Expand
+										101 button (collapsed) Persist submission v3, Secondary Actions: Expand
+											102 text Persist submission v3
+									103 text 3 seconds. Succeeded
+									104 container 3 seconds
+										105 text 3s
+									106 image Succeeded
+								107 container
+									108 button View when "Unresolved failure" will run under "Configure run after"
+								109 container
+									110 button (collapsed) Unresolved failure, Secondary Actions: Expand
+										111 button (collapsed) Unresolved failure, Secondary Actions: Expand
+											112 text Unresolved failure
+									113 text 0 seconds. Skipped
+									114 container 0 seconds
+										115 text 0s
+									116 image Skipped
+								117 container
+									118 button View when "Notify confirmed new submission" will run under "Configure run after"
+									130 container Notify confirmed new submission 0 seconds. Succeeded 0s Succeeded Content not shown due to security configuration. If yes Post intake update to Teams 0 seconds. Succeeded 0s Succeeded If no
+										131 container
+											132 button (expanded) Notify confirmed new submission, Secondary Actions: Collapse
+												133 button (expanded) Notify confirmed new submission, Secondary Actions: Collapse
+													134 text Notify confirmed new submission
+											135 container
+												136 text 0 seconds. Succeeded
+												137 container 0 seconds
+													138 text 0s
+												139 image Succeeded
+											140 container
+												141 text INPUTS Content not shown due to security configuration.
+											142 container
+												143 button (expanded) Description: If yes, Secondary Actions: Collapse
+													144 button (expanded) If yes, Secondary Actions: Collapse
+														145 text If yes
+												146 container
+													147 button (collapsed) Post intake update to Teams, Secondary Actions: Expand
+														148 button (collapsed) Post intake update to Teams, Secondary Actions: Expand
+															149 text Post intake update to Teams
+													150 text 0 seconds. Succeeded
+													151 container 0 seconds
+														152 text 0s
+													153 image Succeeded
+											154 button (expanded) Description: If no, Secondary Actions: Collapse
+												155 button (expanded) If no, Secondary Actions: Collapse
+													156 text If no
+					127 container flowCtrl.contextualHelpPanel.title
+
+The focused UI element is 132 button (expanded) Notify confirmed new submission, Secondary Actions: Collapse

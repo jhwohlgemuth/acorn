@@ -4,12 +4,15 @@
 
 - [Model acquisition and metadata hardening](model-acquisition-hardening.md) - Complete identity-safe Hugging Face requests, exact GGUF metadata, and ModelKit/ModelPack interoperability evidence.
 - [Needle routing and native capability parity](needle-router-native-parity.md) - Bring bounded native ACORN workflows behind `acorn ask` with measured parity.
-- [GitLab JSONL logbook reporting](powerapps-gitlab-logbook-reporting.md) - Deploy protected intake and callback flows using the implemented admission and callback-ID contracts, then validate Vergil polling, reviewed publication, and routing.
+- [PowerApp and Power Automate JSONL intake](powerapps-jsonl-intake/index.md) - Independent form-to-GitLab producer acceptance; recorded demo capture/replay, Teams notice and isolated failure acceptance passed; remaining access, hardening and shared deployment stay separate from Vergil.
 
 ## Planned
 
-- [Sponsor highlights clarity](sponsor-highlights-clarity.md) - Add evidence-backed mission value, a consistent project synopsis, reviewed ASPECT graduation from logbook events, accessibility checks, and an approved distribution pilot.
-- [Grouped report separators](grouped-report-separators.md) - Add an optional combined PDF with ordered project groups and full-page office dividers; keep individual report publication unchanged.
+- [Manual JSONL ingestion and graduation handback](manual-jsonl-ingestion-graduation/index.md) - URI staging and local run preview/interactive/force modes are implemented; captured-source CLI/PDF rehearsals passed. MAN-06 remains for safe handback before automated ingestion resumes.
+- [Automated JSONL management with the Vergil GitLab bot](vergil-gitlab-jsonl-automation/index.md) - Implemented runtime contracts await live deployment and end-to-end acceptance: protected runtime, callbacks, durable admission/cleanup, human review/merge and scheduled reporting.
+
+- [Sponsor highlights clarity](sponsor-highlights-clarity.md) - Add evidence-backed mission value, a consistent project synopsis, reviewed ASPECT graduation across schema, local CLI and other adapters, accessibility checks, and an approved distribution pilot.
+- [Grouped report separators](grouped-report-separators.md) - Extend the existing local --combine PDF with ordered project groups and full-page office dividers; keep individual report publication unchanged.
 - [Interactive metadata chat and terminal prompts](interactive-metadata-chat.md) - Add inline multi-turn `ask`, durable transcripts, Gum-like Confirm buttons within reusable terminal controls, and interactive enrichment feedback for `format`.
 - [Generic ask executor adapters](ask-executor-adapters.md) - Add configured MCP, ACP, endpoint, and local-sidecar bindings after router contracts land; release follows native parity.
 - [Swift SLM capability profile](swift-slm-profile.md) - Release Tongue, Redact, and Title after licensing, host, artifact, and quality gates.
@@ -17,7 +20,7 @@
 - [Release-gated Beam inference integration](beam-inference-integration.md) - Verify released serving contracts, then evaluate an explicitly configured hosted or operator-owned endpoint independently of local SLM sidecars.
 
 - [Database-backed artifact generation](database-backed-artifact-generation.md) - Generate reproducible current or historical artifacts from canonical database state through existing typed renderers.
-- [CEL metadata validation-profile pilot](cel-validation-profile-pilot.md) - Evaluate bounded, optional institutional rules against existing Rust/Rhai behavior before adopting a CEL runtime; see the [OPA/CEL review](../assets/opa-cel-review.md).
+- [CEL metadata validation-profile pilot](cel-validation-profile-pilot.md) - Evaluate bounded, optional institutional rules against existing Rust/Rhai behavior before adopting a CEL runtime; see the [OPA/CEL review](../_assets/opa-cel-review.md).
 - [dPID research-object support](dpid-research-object-support.md) - Recognize and resolve versioned dPIDs, import resolver RO-Crate metadata into RAD, and preserve manifest provenance through a read-only first release.
 - [Deterministic and assisted gather extraction](gather-extraction.md) - Add bounded CSS extraction first, then an explicitly selected typed inference fallback for unresolved required fields.
 - [Azure Cosmos DB bucket downloads](azure-cosmos-buckets.md) - After the provider-neutral source prerequisite, add a Cosmos DB for NoSQL container or logical partition as a read-only bucket source.

@@ -1,0 +1,177 @@
+- banner:
+  - button "Skip to main content"
+  - banner:
+    - button "App launcher": 
+    - generic: Power Automate
+    - button "Wohlgemuth, Jason":
+      - generic: Environments
+      - generic: Wohlgemuth, Jason
+    - button "Settings":
+      - generic: 
+    - button "Help":
+      - generic: 
+    - button "Account manager for Wohlgemuth, Jason":
+      - generic: JW
+    - generic: 
+- main:
+  - button "Go back to previous page":
+    - generic: 
+  - heading "The flow name is ACORN Intake Failure Acceptance TEST ONLY 2026-10-24." [level=1]:
+    - generic "The flow name is ACORN Intake Failure Acceptance TEST ONLY 2026-10-24.":
+      - generic: ACORN Intake Failure Acceptance TEST ONLY 2026-10-24
+  - toolbar:
+    - separator
+    - button "Resubmit":
+      - generic: 
+      - generic: Resubmit
+    - button "Cancel" [disabled]:
+      - generic: 
+      - generic: Cancel
+    - button "Copilot":
+      - generic: Copilot
+    - button "Edit":
+      - generic: 
+      - generic: Edit
+    - separator
+    - switch "New view" [checked]
+    - generic: New view
+  - group "Your flow ran successfully.":
+    - generic: Your flow ran successfully.
+    - button "Dismiss":
+  - application "Workflow canvas":
+    - generic "Inbox size limit":
+      - status "0.1 seconds. Failed":
+        - generic: 0.1s
+      - button "Inbox size limit operation":
+        - generic: Inbox size limit
+        - alert:
+          - generic: ActionFailed. An action failed. No dependent actions succeeded.
+      - button "Collapse Inbox size limit" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - group "Write action":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Write action operation, Data Operation connector":
+        - generic: Write action
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "Commit append":
+      - status "0 seconds. Failed":
+        - generic: 0s
+      - button "Commit append operation, ACORN GitLab Logbook connector":
+        - generic: Commit append
+        - alert:
+          - generic: "InternalServerError. TEST ONLY: simulated failed commit; connector write is not executed."
+      - generic "This action has testing configured.":
+        - 'img "Testing: This action has testing configured."': 
+      - generic "ACORN GitLab Logbook":
+        - 'img "Connection name: ACORN GitLab Logbook"': 
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "Verify written snapshot":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Verify written snapshot operation, ACORN GitLab Logbook connector":
+        - generic: Verify written snapshot
+      - generic "ACORN GitLab Logbook":
+        - 'img "Connection name: ACORN GitLab Logbook"': 
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - generic "Confirm written bytes":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Confirm written bytes operation":
+        - generic: Confirm written bytes
+      - button "Collapse Confirm written bytes" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - group "Queued new":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Queued new operation, Power Apps connector":
+        - generic: Queued new
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - group "Unresolved readback":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Unresolved readback operation, Power Apps connector":
+        - generic: Unresolved readback
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "False condition" [expanded]:
+      - generic: "False"
+      - button [disabled] [expanded]:
+    - group "Inbox full":
+      - status "0 seconds. Skipped":
+        - generic: 0s
+      - button "Inbox full operation, Power Apps connector":
+        - generic: Inbox full
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - generic "Control Panel":
+      - button "Collapse all action groups":
+      - button "Zoom in":
+      - button "Zoom out":
+      - button "Zoom view to fit":
+      - button "Toggle minimap":
+      - button "Search workflow actions" [active]:
+  - dialog "Operation details panel":
+    - button "Collapse":
+    - textbox "Card title": Commit append
+    - button "More commands":
+    - tablist:
+      - tab "Run results" [selected]:
+        - generic: Run results
+      - tab "Settings":
+        - generic: Settings
+      - tab "Code view":
+        - generic: Code view
+      - tab "About":
+        - generic: About
+    - generic: 
+    - alert:
+      - strong: InternalServerError
+      - generic: "TEST ONLY: simulated failed commit; connector write is not executed."
+    - generic: Inputs
+    - generic: Content not shown due to security configuration.
+    - heading "Properties" [level=3]
+    - generic "Properties":
+      - text: Start time
+      - textbox "Start time":
+        - button "Switch 'Start time' to the UTC time format":
+        - button "Copy the value of 'Start time' to the clipboard":
+        - generic: 10/24/2026, 7:32:45 PM (Local time)
+      - text: End time
+      - textbox "End time":
+        - button "Switch 'End time' to the UTC time format":
+        - button "Copy the value of 'End time' to the clipboard":
+        - generic: 10/24/2026, 7:32:45 PM (Local time)
+      - text: Status
+      - textbox "Status":
+        - button "Copy the value of 'Status' to the clipboard":
+        - generic: Failed
+      - text: Client tracking ID
+      - textbox "Client tracking ID":
+        - button "Copy the value of 'Client tracking ID' to the clipboard":
+        - generic: 08584087221220248940052484856CU15
+      - text: Action tracking ID
+      - textbox "Action tracking ID":
+        - button "Copy the value of 'Action tracking ID' to the clipboard":
+        - generic: 3afccd33-39e7-4d20-b4ae-ef70a6fe9edf
+  - generic: Copilot
+  - button "Close":
+  - group "Copilot"
+  - button "Test this flow":
+    - generic: Test this flow
+  - textbox "Ask a question or describe how you want to change this flow"
+  - generic: 0/2000
+  - button "Actions":
+  - button "Submit" [disabled]:
+  - generic "Make sure AI-generated content is accurate and appropriate before using."

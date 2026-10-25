@@ -1,0 +1,196 @@
+- banner:
+  - button "Skip to main content"
+  - banner:
+    - button "App launcher": 
+    - generic: Power Automate
+    - button "Wohlgemuth, Jason":
+      - generic: Environments
+      - generic: Wohlgemuth, Jason
+    - button "Settings":
+      - generic: 
+    - button "Help":
+      - generic: 
+    - button "Account manager for Wohlgemuth, Jason":
+      - generic: JW
+      - img "JW"
+    - generic: 
+- main:
+  - button "Go back to previous page":
+    - generic: 
+    - generic: Back
+  - separator
+  - heading "ACORN Intake Failure Acceptance TEST ONLY 2026-10-24ACORN Intake Failure Acceptance TEST ONLY 2026-10-24" [level=1]:
+    - textbox "The flow name is ACORN Intake Failure Acceptance TEST ONLY 2026-10-24. Press enter to edit.":
+      - generic: ACORN Intake Failure Acceptance TEST ONLY 2026-10-24
+  - toolbar:
+    - button "Undo":
+      - generic: 
+    - button "Redo" [disabled]:
+      - generic: 
+    - separator
+    - button "Send feedback":
+      - generic: 
+    - button "Version history":
+      - generic: 
+    - button "Flow checker":
+      - generic: 
+    - separator
+    - button "Save":
+      - generic: 
+      - generic: Save
+    - button "Test":
+      - generic: 
+      - generic: Test
+    - button "Copilot":
+      - generic: Copilot
+    - separator
+    - switch "New designer" [checked]
+    - generic: New designer
+  - generic: Your flow is ready to go. We recommend you test it.
+  - button "Dismiss":
+  - application "Workflow canvas":
+    - button "Insert a new action after Envelope allowed or right click for more options.":
+    - button "Insert a new action after Prior submission exists or right click for more options.":
+    - button "Insert a new action after History exhausted or right click for more options.":
+    - button "Insert a new action after Readable inbox or right click for more options.":
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - button "Insert a new action between Readable inbox-actions and Existing bytes or right click for more options.":
+    - group "Existing bytes":
+      - button "Existing bytes operation, Data Operation connector":
+        - generic: Existing bytes
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "Insert a new action between Existing bytes and Safe tail or right click for more options.":
+    - generic "Safe tail":
+      - button "Safe tail operation":
+        - generic: Safe tail
+      - button "Collapse Safe tail" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - button "Insert a new action between Safe tail-actions and New bytes or right click for more options.":
+    - group "New bytes":
+      - button "New bytes operation, Data Operation connector":
+        - generic: New bytes
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "Insert a new action between New bytes and Inbox size limit or right click for more options.":
+    - generic "Inbox size limit":
+      - button "Inbox size limit operation":
+        - generic: Inbox size limit
+      - button "Collapse Inbox size limit" [expanded]:
+    - button "True condition" [expanded]:
+      - generic: "True"
+      - button [disabled] [expanded]:
+    - button "Insert a new action between Inbox size limit-actions and Write action or right click for more options.":
+    - group "Write action":
+      - button "Write action operation, Data Operation connector":
+        - generic: Write action
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "Insert a new action between Write action and Commit append or right click for more options.":
+    - group "Commit append":
+      - button "Commit append operation, ACORN GitLab Logbook connector":
+        - generic: Commit append
+      - generic "This action has testing configured.":
+        - 'img "Testing: This action has testing configured."': 
+      - generic "ACORN GitLab Logbook":
+        - 'img "Connection name: ACORN GitLab Logbook"': 
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - button "False condition":
+      - generic: "False"
+      - button [disabled]:
+    - paragraph: 1 Action
+    - button "Insert a new action after Inbox size limit or right click for more options.":
+    - button "False condition":
+      - generic: "False"
+      - button [disabled]:
+    - paragraph: 1 Action
+    - button "Insert a new action after Safe tail or right click for more options.":
+    - generic "Control Panel":
+      - button "Expand all action groups":
+      - button "Zoom in":
+      - button "Zoom out":
+      - button "Zoom view to fit":
+      - button "Toggle minimap":
+      - button "Search workflow actions":
+  - dialog "Operation details panel":
+    - button "Collapse":
+    - textbox "Card title": Commit append
+    - button "More commands":
+    - tablist:
+      - tab "Parameters":
+        - generic: Parameters
+      - tab "Settings":
+        - generic: Settings
+      - tab "Code view":
+        - generic: Code view
+      - tab "Testing" [active] [selected]:
+        - generic: Testing
+      - tab "About":
+        - generic: About
+    - switch "Static result on" [checked]
+    - generic: Static result on
+    - separator
+    - generic: Testing
+    - button "Testing information":
+    - generic "Select fields"
+    - combobox:
+      - generic: Status, Code, Error
+      - generic: 
+    - separator
+    - generic: Status *
+    - combobox "Status * Failed":
+      - generic: Failed
+      - generic: 
+    - generic "Code"
+    - textbox "Enter a value": DemoCommitFailure
+    - button "Error Expand static result":
+      - generic: Error
+      - img "Expand static result": 
+    - generic "Select fields"
+    - combobox:
+      - generic: Message, Code
+      - generic: 
+    - separator
+    - generic "Error message": "*Error message"
+    - textbox "Enter a value": "TEST ONLY: simulated failed commit; connector write is not executed."
+    - generic: Error code
+    - combobox "Error code InternalServerError":
+      - generic: InternalServerError
+      - generic: 
+    - separator
+    - button "Save" [disabled]
+    - button "Delete"
+    - button "Cancel"
+  - generic: Copilot
+  - button "Close":
+  - group "Copilot":
+    - group "Copilot message":
+      - generic: 
+      - generic: Connected to
+      - generic: ACORN GitLab Logbook
+    - group "Copilot message":
+      - generic: "Welcome back! If you want me to change your flow, just say what you want. For example:"
+      - list:
+        - listitem: Add an action that sends an email
+        - listitem: Explain what an action does
+        - listitem: Add a condition
+      - generic: Check the flow’s actions to see if any parameters need to be set. Don’t forget to save when you’re done!
+      - generic: AI-generated content may be incorrect
+    - img "Welcome to Copilot in Power Automate"
+    - generic: Welcome to Copilot in Power Automate
+    - generic: Be more efficient than ever with AI assistance. Simply tell Copilot what you want to do and it will help you get started.
+    - generic: 1 of 3
+    - button "Next":
+      - generic: Next
+  - textbox "Ask a question or describe how you want to change this flow"
+  - generic: 0/2000
+  - button "Actions":
+  - button "Submit" [disabled]:
+  - generic "Make sure AI-generated content is accurate and appropriate before using."
+- alert
+- alert

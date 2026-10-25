@@ -12,7 +12,7 @@ use clap::builder::{
     styling::{Ansi256Color, AnsiColor},
     Styles,
 };
-use clap::{Parser, Subcommand, ValueEnum, ValueHint};
+use clap::{Args, Parser, Subcommand, ValueEnum, ValueHint};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre;
 use jiff::SignedDuration;
@@ -238,8 +238,11 @@ pub enum Commands {
     Import(Box<arguments::Import>),
     /// Process Power Automate JSONL intake and reviewed project changes
     ///
-    ///     $> acorn intake stage --config .acorn.json --inbox logbook.jsonl
+    ///     $> acorn intake stage --config .acorn.json --source logbook.jsonl
     ///     $> acorn intake apply --config .acorn.json --submission-id UUID
+    ///     $> acorn intake run --index project/index.json --dry-run
+    ///     $> acorn intake run --index project/index.json --interactive
+    ///     $> acorn intake run --index project/index.json --force
     ///     $> acorn intake run --config .acorn.json
     ///     $> acorn intake export --config .acorn.json --submission-id UUID --output change.diff
     #[clap(verbatim_doc_comment)]
@@ -436,12 +439,8 @@ pub enum InferCommands {
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
 pub enum IntakeCommands {
-    /// Poll the configured GitLab inbox and notes once, then process bounded review work.
-    Run {
-        /// Explicit ACRE configuration with a GitLab JSONL source.
-        #[arg(long, value_hint = ValueHint::FilePath)]
-        config: PathBuf,
-    },
+    /// Graduate a local index, or poll the configured GitLab intake worker.
+    Run(IntakeRunArguments),
     /// Export a reviewed project change as a unified diff and JSON receipt.
     Export {
         /// Explicit ACRE configuration used for admission.
@@ -460,14 +459,14 @@ pub enum IntakeCommands {
         #[arg(long, value_hint = ValueHint::FilePath)]
         config: PathBuf,
     },
-    /// Write reviewable proposals for valid lines in a local JSONL inbox.
+    /// Stage JSONL from a local path, file URI, or GitLab file URL for local review.
     Stage {
         /// Explicit ACRE configuration with local folder destinations.
         #[arg(long, value_hint = ValueHint::FilePath)]
         config: PathBuf,
-        /// LF-terminated JSONL inbox file.
-        #[arg(long, value_hint = ValueHint::FilePath)]
-        inbox: PathBuf,
+        /// LF-terminated JSONL source: local path, file:///path, or https://host/project/-/raw/ref/path.
+        #[arg(long, value_name = "URI_OR_PATH")]
+        source: String,
         /// Stage all lines as one reviewable multi-project batch.
         #[arg(long)]
         batch: bool,
@@ -492,7 +491,36 @@ pub enum IntakeCommands {
         /// Stable ID returned by `intake stage --batch`.
         #[arg(long, required_unless_present = "submission_id", conflicts_with = "submission_id")]
         batch_id: Option<String>,
+        /// Confirm the reviewed proposal or batch without prompting (required when input or output is redirected).
+        #[arg(long)]
+        yes: bool,
     },
+}
+/// Select local graduation or the existing GitLab worker and its execution mode.
+#[derive(Args, Debug, Default)]
+#[group(skip)]
+pub struct IntakeRunArguments {
+    /// Accept a reviewed entry; repeat for multiple entries. Requires the preview digest.
+    #[arg(long, requires_all = ["index", "expected_digest"], conflicts_with = "force")]
+    pub accept: Vec<String>,
+    /// Explicit ACRE configuration for the GitLab worker; mutually exclusive with --index.
+    #[arg(long, required_unless_present = "index", conflicts_with_all = ["accept", "dry_run", "expected_digest", "force", "index", "interactive"], value_hint = ValueHint::FilePath)]
+    pub config: Option<PathBuf>,
+    /// Preview local graduation without writing, even when combined with --force or --interactive.
+    #[arg(long, requires = "index")]
+    pub dry_run: bool,
+    /// Require the exact SHA-256 digest from a previous preview, including when using --force.
+    #[arg(long, requires = "index")]
+    pub expected_digest: Option<String>,
+    /// Accept every eligible local graduation without prompting; preserves validation and backups.
+    #[arg(long, requires = "index", conflicts_with_all = ["accept", "interactive"])]
+    pub force: bool,
+    /// Local JSON, JSONC, YAML, or ZONF index to graduate; mutually exclusive with --config.
+    #[arg(long, required_unless_present = "config", conflicts_with = "config", value_hint = ValueHint::FilePath)]
+    pub index: Option<PathBuf>,
+    /// Select local promotions with Yes / No buttons and confirm the final write.
+    #[arg(long, requires = "index", conflicts_with = "force")]
+    pub interactive: bool,
 }
 #[derive(Clone, Debug, Subcommand)]
 #[command(long_about = None)]

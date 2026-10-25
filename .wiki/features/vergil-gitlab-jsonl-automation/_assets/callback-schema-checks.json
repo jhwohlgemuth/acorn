@@ -1,0 +1,146 @@
+[
+  {
+    "case": "artifact-ready",
+    "passed": true
+  },
+  {
+    "case": "artifact-ready: unknown field",
+    "passed": true
+  },
+  {
+    "case": "artifact-ready: wrong project type",
+    "passed": true
+  },
+  {
+    "case": "artifact-ready: missing event",
+    "passed": true
+  },
+  {
+    "case": "artifact-ready: missing checksum",
+    "passed": true
+  },
+  {
+    "case": "artifact-ready: missing package_url",
+    "passed": true
+  },
+  {
+    "case": "artifact-ready: missing project_id",
+    "passed": true
+  },
+  {
+    "case": "artifact-ready: missing through",
+    "passed": true
+  },
+  {
+    "case": "failed",
+    "passed": true
+  },
+  {
+    "case": "failed: unknown field",
+    "passed": true
+  },
+  {
+    "case": "failed: wrong project type",
+    "passed": true
+  },
+  {
+    "case": "failed: missing event",
+    "passed": true
+  },
+  {
+    "case": "failed: missing message",
+    "passed": true
+  },
+  {
+    "case": "failed: missing project_id",
+    "passed": true
+  },
+  {
+    "case": "mr-created",
+    "passed": true
+  },
+  {
+    "case": "mr-created: unknown field",
+    "passed": true
+  },
+  {
+    "case": "mr-created: wrong project type",
+    "passed": true
+  },
+  {
+    "case": "mr-created: missing event",
+    "passed": true
+  },
+  {
+    "case": "mr-created: missing merge_request_url",
+    "passed": true
+  },
+  {
+    "case": "mr-created: missing project_id",
+    "passed": true
+  },
+  {
+    "case": "report-no-changes",
+    "passed": true
+  },
+  {
+    "case": "report-no-changes: unknown field",
+    "passed": true
+  },
+  {
+    "case": "report-no-changes: wrong project type",
+    "passed": true
+  },
+  {
+    "case": "report-no-changes: missing event",
+    "passed": true
+  },
+  {
+    "case": "report-no-changes: missing project_id",
+    "passed": true
+  },
+  {
+    "case": "report-no-changes: missing through",
+    "passed": true
+  },
+  {
+    "case": "review-needed",
+    "passed": true
+  },
+  {
+    "case": "review-needed: unknown field",
+    "passed": true
+  },
+  {
+    "case": "review-needed: wrong project type",
+    "passed": true
+  },
+  {
+    "case": "review-needed: missing event",
+    "passed": true
+  },
+  {
+    "case": "review-needed: missing merge_request_url",
+    "passed": true
+  },
+  {
+    "case": "review-needed: missing project_id",
+    "passed": true
+  },
+  {
+    "case": "unknown event",
+    "passed": true
+  },
+  {
+    "case": "camelCase fields",
+    "passed": true
+  },
+  {
+    "case": "null body",
+    "passed": true
+  },
+  {
+    "case": "array body",
+    "passed": true
+  }
+]

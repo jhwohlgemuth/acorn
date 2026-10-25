@@ -1,0 +1,57 @@
+{
+  "brandColor": "#8C6CFF",
+  "connectionReferences": {},
+  "connectorDisplayName": "Control",
+  "id": "8b7c282a-53aa-4591-87f4-6163bbf600e1",
+  "isTrigger": false,
+  "operationName": "Notify_confirmed_new_submission",
+  "operationDefinition": {
+    "type": "If",
+    "expression": {
+      "equals": [
+        "@actions('Queued_new')?['status']",
+        "Succeeded"
+      ]
+    },
+    "runAfter": {
+      "Unresolved_failure": [
+        "Succeeded",
+        "Failed",
+        "Skipped",
+        "TimedOut"
+      ]
+    },
+    "actions": {
+      "Post_intake_update_to_Teams": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_teams",
+            "operationId": "PostMessageToSelf",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams"
+          },
+          "parameters": {
+            "body/body/content": "@concat(if(contains(toUpper(body('Parse_submission')?['entry']?['summary']),'TEST ONLY'),'TEST ONLY | ','') ,'ACORN | Highlight saved',decodeUriComponent('%0A%0A'),'Project: ',body('Parse_submission')?['projectId'],decodeUriComponent('%0A'),'A new highlight is in the GitLab logbook and awaits ACORN review. This is not an approval or a published report.',decodeUriComponent('%0A'),'Receipt: ',body('Parse_submission')?['submissionId'],decodeUriComponent('%0A'),'Commit: https://code.ornl.gov/research-enablement/experiments/power-automate/-/commit/',body('Commit_append')?['id'])",
+            "body/body/contentType": "text"
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {},
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      }
+    },
+    "else": {
+      "actions": {}
+    }
+  }
+}

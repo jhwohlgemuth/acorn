@@ -1307,8 +1307,11 @@ Import endpoint resources from an API specification
 
 Process Power Automate JSONL intake and reviewed project changes
 
-    $> acorn intake stage --config .acorn.json --inbox logbook.jsonl
+    $> acorn intake stage --config .acorn.json --source logbook.jsonl
     $> acorn intake apply --config .acorn.json --submission-id UUID
+    $> acorn intake run --index project/index.json --dry-run
+    $> acorn intake run --index project/index.json --interactive
+    $> acorn intake run --index project/index.json --force
     $> acorn intake run --config .acorn.json
     $> acorn intake export --config .acorn.json --submission-id UUID --output change.diff
 
@@ -1316,10 +1319,10 @@ Process Power Automate JSONL intake and reviewed project changes
 
 ###### **Subcommands:**
 
-* `run` — Poll the configured GitLab inbox and notes once, then process bounded review work
+* `run` — Graduate a local index, or poll the configured GitLab intake worker
 * `export` — Export a reviewed project change as a unified diff and JSON receipt
 * `deliver` — Deliver ready durable callback intents once, without running a bot
-* `stage` — Write reviewable proposals for valid lines in a local JSONL inbox
+* `stage` — Stage JSONL from a local path, file URI, or GitLab file URL for local review
 * `inspect` — Inspect a staged batch, including project routes and proposed diffs
 * `apply` — Apply one staged proposal or reviewed batch
 
@@ -1327,13 +1330,19 @@ Process Power Automate JSONL intake and reviewed project changes
 
 ## `acorn-cli intake run`
 
-Poll the configured GitLab inbox and notes once, then process bounded review work
+Graduate a local index, or poll the configured GitLab intake worker
 
-**Usage:** `acorn-cli intake run --config <CONFIG>`
+**Usage:** `acorn-cli intake run [OPTIONS]`
 
 ###### **Options:**
 
-* `--config <CONFIG>` — Explicit ACRE configuration with a GitLab JSONL source
+* `--accept <ACCEPT>` — Accept a reviewed entry; repeat for multiple entries. Requires the preview digest
+* `--config <CONFIG>` — Explicit ACRE configuration for the GitLab worker; mutually exclusive with --index
+* `--dry-run` — Preview local graduation without writing, even when combined with --force or --interactive
+* `--expected-digest <EXPECTED_DIGEST>` — Require the exact SHA-256 digest from a previous preview, including when using --force
+* `--force` — Accept every eligible local graduation without prompting; preserves validation and backups
+* `--index <INDEX>` — Local JSON, JSONC, YAML, or ZONF index to graduate; mutually exclusive with --config
+* `--interactive` — Select local promotions with Yes / No buttons and confirm the final write
 
 
 
@@ -1365,14 +1374,14 @@ Deliver ready durable callback intents once, without running a bot
 
 ## `acorn-cli intake stage`
 
-Write reviewable proposals for valid lines in a local JSONL inbox
+Stage JSONL from a local path, file URI, or GitLab file URL for local review
 
-**Usage:** `acorn-cli intake stage [OPTIONS] --config <CONFIG> --inbox <INBOX>`
+**Usage:** `acorn-cli intake stage [OPTIONS] --config <CONFIG> --source <URI_OR_PATH>`
 
 ###### **Options:**
 
 * `--config <CONFIG>` — Explicit ACRE configuration with local folder destinations
-* `--inbox <INBOX>` — LF-terminated JSONL inbox file
+* `--source <URI_OR_PATH>` — LF-terminated JSONL source: local path, file:///path, or https://host/project/-/raw/ref/path
 * `--batch` — Stage all lines as one reviewable multi-project batch
 
 
@@ -1401,6 +1410,7 @@ Apply one staged proposal or reviewed batch
 * `--config <CONFIG>` — Explicit ACRE configuration used for staging
 * `--submission-id <SUBMISSION_ID>` — Stable UUID from the submission envelope
 * `--batch-id <BATCH_ID>` — Stable ID returned by `intake stage --batch`
+* `--yes` — Confirm the reviewed proposal or batch without prompting (required when input or output is redirected)
 
 
 

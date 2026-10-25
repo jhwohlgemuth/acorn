@@ -1,0 +1,42 @@
+{
+  "kind": "Button",
+  "inputs": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "title": "Webhook ID",
+          "type": "string",
+          "x-ms-dynamically-added": true,
+          "description": "Please enter your input",
+          "x-ms-content-hint": "TEXT"
+        },
+        "text_1": {
+          "title": "Event JSON",
+          "type": "string",
+          "x-ms-dynamically-added": true,
+          "description": "Please enter your input",
+          "x-ms-content-hint": "TEXT"
+        }
+      },
+      "required": [
+        "text",
+        "text_1"
+      ]
+    }
+  },
+  "runtimeConfiguration": {
+    "concurrency": {
+      "runs": 1
+    },
+    "secureData": {
+      "properties": [
+        "inputs",
+        "outputs"
+      ]
+    }
+  },
+  "metadata": {
+    "operationMetadataId": "8438a5bc-574e-4549-91a3-4803f0b508b5"
+  }
+}

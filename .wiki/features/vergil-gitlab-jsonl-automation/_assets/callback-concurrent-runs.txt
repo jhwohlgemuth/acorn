@@ -1,0 +1,345 @@
+- banner:
+  - button "Skip to main content"
+  - banner:
+    - button "App launcher": 
+    - generic: Power Automate
+    - button "Wohlgemuth, Jason":
+      - generic: Environments
+      - generic: Wohlgemuth, Jason
+    - button "Settings":
+      - generic: 
+    - button "Help":
+      - generic: 
+    - button "Account manager for Wohlgemuth, Jason":
+      - generic: JW
+      - img "JW"
+    - generic: 
+- navigation "Main":
+  - button "Left navigation panel" [expanded]:
+    - img "Left navigation panel"
+  - menu:
+    - generic "Home":
+      - menuitem "Home":
+        - generic: Home
+    - generic "Create":
+      - menuitem "Create":
+        - generic: Create
+    - generic "Templates":
+      - menuitem "Templates":
+        - generic: Templates
+    - generic "Learn":
+      - menuitem "Learn":
+        - generic: Learn
+    - generic "My flows":
+      - menuitem "My flows":
+        - generic: My flows
+    - separator
+    - generic "Approvals":
+      - menuitem "Approvals, press right arrow to navigate more options":
+        - generic: Approvals
+    - generic "Solutions":
+      - menuitem "Solutions, press right arrow to navigate more options":
+        - generic: Solutions
+    - generic "Automation center":
+      - menuitem "Automation center, press right arrow to navigate more options":
+        - generic: Automation center
+    - generic "Process mining":
+      - menuitem "Process mining, press right arrow to navigate more options":
+        - generic: Process mining
+    - generic "AI hub":
+      - menuitem "AI hub, press right arrow to navigate more options":
+        - generic: AI hub
+    - generic "Connections":
+      - menuitem "Connections, press right arrow to navigate more options":
+        - generic: Connections
+    - generic "More":
+      - menuitem "More":
+        - generic: More
+    - separator
+    - generic "Power Platform":
+      - menuitem "Power Platform":
+        - generic: Power Platform
+- main:
+  - menubar:
+    - menuitem "Edit":
+      - generic: 
+      - generic: Edit
+    - menuitem "Share":
+      - generic: 
+      - generic: Share
+    - menuitem "Save As":
+      - generic: 
+      - generic: Save As
+    - menuitem "ACORN Callback Receipt Validation Delete":
+      - generic: 
+      - generic: Delete
+    - menuitem "Run":
+      - generic: 
+      - generic: Run
+    - menuitem "Send a copy":
+      - generic: 
+      - generic: Send a copy
+    - menuitem "Export":
+      - generic: 
+      - generic: Export
+      - generic: 
+    - menuitem "Process mining (preview)":
+      - generic: 
+      - generic: Process mining (preview)
+    - menuitem "Analytics":
+      - generic: 
+      - generic: Analytics
+    - menuitem "Turn off":
+      - generic: 
+      - generic: Turn off
+    - menuitem "Repair tips off":
+      - generic: 
+      - generic: Repair tips off
+    - menuitem "Flow checker":
+      - generic: 
+      - generic: Flow checker
+  - navigation:
+    - list:
+      - link "Flows":
+        - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows
+      - generic: 
+      - heading "ACORN Callback Receipt Validation" [level=2]
+      - generic: 
+  - heading "Details" [level=3]
+  - button "Edit description": Edit
+  - group "Flow":
+    - text: Flow
+    - generic: ACORN Callback Receipt Validation
+  - group "Primary owner":
+    - text: Primary owner
+    - generic: Jason Wohlgemuth
+  - group "Status":
+    - text: Status
+    - generic: "On"
+  - group "Created":
+    - text: Created
+    - generic: Oct 24, 2026, 05:52 PM
+  - group "Modified":
+    - text: Modified
+    - generic: Oct 24, 2026, 06:05 PM
+  - group "Type":
+    - text: Type
+    - generic: Instant
+  - group "Plan":
+    - text: Plan
+    - generic: The user who runs the flow
+  - heading "28-day run history General Data Protection Regulation (GDPR) requires us to keep run logs for no longer than 28 days. To maintain a longer history you'll need to manually capture run histories before they are deleted." [level=3]:
+    - text: 28-day run history
+    - tooltip "General Data Protection Regulation (GDPR) requires us to keep run logs for no longer than 28 days. To maintain a longer history you'll need to manually capture run histories before they are deleted.":
+      - img: 
+  - button "Edit columns"
+  - button "Refresh Flow runs" [active]:
+    - generic: 
+  - link "All runs":
+    - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/dd1d8f67-116c-f55d-7752-7c7d322691c5/runs?v3=false
+  - grid:
+    - row "Start Duration Status":
+      - columnheader "Start":
+        - generic: Start
+      - columnheader "Duration":
+        - generic: Duration
+      - columnheader "Status":
+        - generic: Status
+    - row "Oct 24, 06:12 PM ( 3 seconds ago ) 00:00:01 Succeeded":
+      - rowheader "Oct 24, 06:12 PM ( 3 seconds ago )":
+        - link "Oct 24, 06:12 PM ( 3 seconds ago )":
+          - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/dd1d8f67-116c-f55d-7752-7c7d322691c5/runs/08584087269515367688075901384CU25?v3=false
+          - text: Oct 24, 06:12 PM (
+          - generic: 3 seconds ago
+          - text: 3 sec ago
+          - text: )
+      - gridcell "00:00:01"
+      - gridcell "Succeeded":
+        - generic "Succeeded":
+          - text: Succeeded
+    - row "Oct 24, 06:12 PM ( 3 seconds ago ) 00:00:01 Succeeded":
+      - rowheader "Oct 24, 06:12 PM ( 3 seconds ago )":
+        - link "Oct 24, 06:12 PM ( 3 seconds ago )":
+          - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/dd1d8f67-116c-f55d-7752-7c7d322691c5/runs/08584087269518872627330047333CU28?v3=false
+          - text: Oct 24, 06:12 PM (
+          - generic: 3 seconds ago
+          - text: 3 sec ago
+          - text: )
+      - gridcell "00:00:01"
+      - gridcell "Succeeded":
+        - generic "Succeeded":
+          - text: Succeeded
+    - row "Oct 24, 06:10 PM ( 1 minute ago ) 897 ms Succeeded":
+      - rowheader "Oct 24, 06:10 PM ( 1 minute ago )":
+        - link "Oct 24, 06:10 PM ( 1 minute ago )":
+          - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/dd1d8f67-116c-f55d-7752-7c7d322691c5/runs/08584087270599311451259340633CU06?v3=false
+          - text: Oct 24, 06:10 PM (
+          - generic: 1 minute ago
+          - text: 1 min ago
+          - text: )
+      - gridcell "897 ms"
+      - gridcell "Succeeded":
+        - generic "Succeeded":
+          - text: Succeeded
+    - row "Oct 24, 06:10 PM ( 2 minutes ago ) 331 ms Failed":
+      - rowheader "Oct 24, 06:10 PM ( 2 minutes ago )":
+        - link "Oct 24, 06:10 PM ( 2 minutes ago )":
+          - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/dd1d8f67-116c-f55d-7752-7c7d322691c5/runs/08584087270736137078963332238CU15?v3=false
+          - text: Oct 24, 06:10 PM (
+          - generic: 2 minutes ago
+          - text: 2 min ago
+          - text: )
+      - gridcell "331 ms"
+      - gridcell "Failed":
+        - generic "Failed":
+          - text: Failed
+    - row "Oct 24, 06:10 PM ( 2 minutes ago ) 580 ms Failed":
+      - rowheader "Oct 24, 06:10 PM ( 2 minutes ago )":
+        - link "Oct 24, 06:10 PM ( 2 minutes ago )":
+          - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/dd1d8f67-116c-f55d-7752-7c7d322691c5/runs/08584087270820424131919890428CU22?v3=false
+          - text: Oct 24, 06:10 PM (
+          - generic: 2 minutes ago
+          - text: 2 min ago
+          - text: )
+      - gridcell "580 ms"
+      - gridcell "Failed":
+        - generic "Failed":
+          - text: Failed
+    - row "Oct 24, 06:09 PM ( 2 minutes ago ) 870 ms Failed":
+      - rowheader "Oct 24, 06:09 PM ( 2 minutes ago )":
+        - link "Oct 24, 06:09 PM ( 2 minutes ago )":
+          - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/dd1d8f67-116c-f55d-7752-7c7d322691c5/runs/08584087270954123269969813787CU10?v3=false
+          - text: Oct 24, 06:09 PM (
+          - generic: 2 minutes ago
+          - text: 2 min ago
+          - text: )
+      - gridcell "870 ms"
+      - gridcell "Failed":
+        - generic "Failed":
+          - text: Failed
+    - row "Oct 24, 06:08 PM ( 4 minutes ago ) 464 ms Succeeded":
+      - rowheader "Oct 24, 06:08 PM ( 4 minutes ago )":
+        - link "Oct 24, 06:08 PM ( 4 minutes ago )":
+          - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/dd1d8f67-116c-f55d-7752-7c7d322691c5/runs/08584087272014395411131905854CU21?v3=false
+          - text: Oct 24, 06:08 PM (
+          - generic: 4 minutes ago
+          - text: 4 min ago
+          - text: )
+      - gridcell "464 ms"
+      - gridcell "Succeeded":
+        - generic "Succeeded":
+          - text: Succeeded
+    - row "Oct 24, 06:07 PM ( 4 minutes ago ) 00:00:02 Succeeded":
+      - rowheader "Oct 24, 06:07 PM ( 4 minutes ago )":
+        - link "Oct 24, 06:07 PM ( 4 minutes ago )":
+          - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/dd1d8f67-116c-f55d-7752-7c7d322691c5/runs/08584087272391353126142508200CU12?v3=false
+          - text: Oct 24, 06:07 PM (
+          - generic: 4 minutes ago
+          - text: 4 min ago
+          - text: )
+      - gridcell "00:00:02"
+      - gridcell "Succeeded":
+        - generic "Succeeded":
+          - text: Succeeded
+    - row "Oct 24, 05:55 PM ( 16 minutes ago ) 00:00:02 Failed":
+      - rowheader "Oct 24, 05:55 PM ( 16 minutes ago )":
+        - link "Oct 24, 05:55 PM ( 16 minutes ago )":
+          - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/dd1d8f67-116c-f55d-7752-7c7d322691c5/runs/08584087279494021723442845390CU05?v3=false
+          - text: Oct 24, 05:55 PM (
+          - generic: 16 minutes ago
+          - text: 16 min ago
+          - text: )
+      - gridcell "00:00:02"
+      - gridcell "Failed":
+        - generic "Failed":
+          - text: Failed
+    - row "Oct 24, 05:54 PM ( 17 minutes ago ) 367 ms Succeeded":
+      - rowheader "Oct 24, 05:54 PM ( 17 minutes ago )":
+        - link "Oct 24, 05:54 PM ( 17 minutes ago )":
+          - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/dd1d8f67-116c-f55d-7752-7c7d322691c5/runs/08584087279934435300149713384CU01?v3=false
+          - text: Oct 24, 05:54 PM (
+          - generic: 17 minutes ago
+          - text: 17 min ago
+          - text: )
+      - gridcell "367 ms"
+      - gridcell "Succeeded":
+        - generic "Succeeded":
+          - text: Succeeded
+  - heading "Connection references" [level=3]
+  - button "See all"
+  - grid:
+    - row "o9w@ornl.gov Microsoft Dataverse o9w@ornl.gov":
+      - gridcell "o9w@ornl.gov":
+        - img "o9w@ornl.gov"
+      - gridcell "Microsoft Dataverse":
+        - 'generic "Display Name: Microsoft Dataverse ACORNSponsorHighlightsIntake-5298a. Name: cr1d0_sharedcommondataserviceforapps_5298a"': Microsoft Dataverse
+      - gridcell "o9w@ornl.gov":
+        - generic: o9w@ornl.gov
+      - gridcell:
+        - generic: 
+    - row "o9w@ornl.gov Office 365 Outlook Permissions o9w@ornl.gov":
+      - gridcell "o9w@ornl.gov":
+        - img "o9w@ornl.gov"
+      - gridcell "Office 365 Outlook Permissions":
+        - 'generic "Display Name: Office 365 Outlook Default-29833. Name: new_sharedoffice365_29833"': Office 365 Outlook
+        - button "Permissions":
+          - generic: Permissions
+      - gridcell "o9w@ornl.gov":
+        - generic: o9w@ornl.gov
+      - gridcell:
+        - generic: 
+  - heading "Co-owner" [level=3]
+  - button "Set primary owner"
+  - link "Share, Add another co-owner":
+    - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/dd1d8f67-116c-f55d-7752-7c7d322691c5/owners?v3=false
+    - text: Share
+  - list "Flow owners":
+    - generic "Wohlgemuth, Jason":
+      - generic: WJ
+      - generic: Wohlgemuth, Jason
+  - heading "Flow runs error trends (last 7 days)" [level=3]
+  - link "Go to Automation center":
+    - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/monitor/automations/overview?filterDateFrom=2026-10-17T22%3A11%3A00.000Z
+  - paragraph: No data available for the last 7 days.
+  - link "Learn more about flow run history in Dataverse":
+    - /url: https://go.microsoft.com/fwlink/?linkid=2281117
+    - generic: Learn more
+  - heading "Solutions This flow is referenced in the following solutions" [level=3]:
+    - text: Solutions
+    - generic "This flow is referenced in the following solutions":
+      - img: 
+  - grid:
+    - row "Solution Name Managed":
+      - columnheader "Solution Name":
+        - generic: Solution Name
+      - columnheader "Managed":
+        - generic: Managed
+    - row "ACORN Sponsor Highlights Intake No":
+      - rowheader "ACORN Sponsor Highlights Intake":
+        - link "ACORN Sponsor Highlights Intake":
+          - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/solutions/b2f22320-f3cf-f111-a05c-001dd8062052
+      - gridcell "No":
+        - generic: "No"
+  - heading "Process mining (preview) Find out what actions in your flow are executing the most and what actions are taking the most time to gain insights to improve your flow. The insights are generated based on your flow runs in the last 28 days." [level=3]:
+    - text: Process mining (preview)
+    - tooltip "Find out what actions in your flow are executing the most and what actions are taking the most time to gain insights to improve your flow. The insights are generated based on your flow runs in the last 28 days.":
+      - img: 
+  - button "Improve your flow":
+    - generic: 
+    - generic: Improve your flow
+  - img "Improve your flow with process mining"
+  - generic: Average run duration
+  - generic: 767 ms
+  - heading "Run-only user" [level=3]
+  - button "Edit, Add another user": Edit
+  - generic: Your flow hasn't been shared with anyone.
+  - heading "Associated apps and flows Adding apps or flows here helps you see which apps and flows are using this flow." [level=3]:
+    - text: Associated apps and flows
+    - button "Adding apps or flows here helps you see which apps and flows are using this flow.":
+      - generic: 
+  - link "Edit":
+    - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/dd1d8f67-116c-f55d-7752-7c7d322691c5/associatedApps?v3=false
+  - text: You don’t have any apps associated with this flow.
+  - link "Learn more":
+    - /url: https://go.microsoft.com/fwlink/?linkid=2247633
+- paragraph: Refresh Flow runs

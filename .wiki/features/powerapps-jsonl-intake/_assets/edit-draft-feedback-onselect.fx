@@ -1,0 +1,1 @@
+Set(varPendingJson, Blank()); Set(varPendingId, Blank()); Set(varSubmissionStatus, Blank()); Notify("Draft unlocked. Make your changes, then select Prepare highlight.", NotificationType.Information, 8000)

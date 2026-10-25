@@ -13,7 +13,7 @@ phase_budget_hours: 5
 
 # Goal and recommendation
 
-Allow a team to express three concrete institutional metadata requirements without altering the RAD schema or writing a Rhai workflow. Ship an optional local CEL profile only if the runtime and authoring gates pass. See the [OPA/CEL assessment](../assets/opa-cel-review.md) for technology comparisons, sources, alternatives, and estimates. OPA authorization, remote distribution, browser bindings, and cross-record policy are outside this atomic plan.
+Allow a team to express three concrete institutional metadata requirements without altering the RAD schema or writing a Rhai workflow. Ship an optional local CEL profile only if the runtime and authoring gates pass. See the [OPA/CEL assessment](../_assets/opa-cel-review.md) for technology comparisons, sources, alternatives, and estimates. OPA authorization, remote distribution, browser bindings, and cross-record policy are outside this atomic plan.
 
 # Current evidence
 
@@ -40,7 +40,7 @@ Verified 2026-10-01: ACORN has ordered `ValidationReport` and `CheckBatch` resul
 
 # Concrete implementation examples
 
-Use the [overview's three-rule manifest and projected input](../assets/opa-cel-review.md#concrete-cel-profile-example) as the initial design fixture. These examples specify proposed behavior; neither the manifest nor the CLI flags below exist yet. Confirm that the three requirements match the pilot owner's needs before implementing them.
+Use the [overview's three-rule manifest and projected input](../_assets/opa-cel-review.md#concrete-cel-profile-example) as the initial design fixture. These examples specify proposed behavior; neither the manifest nor the CLI flags below exist yet. Confirm that the three requirements match the pilot owner's needs before implementing them.
 
 ## Rust evaluator boundary
 

@@ -1,0 +1,282 @@
+Browser tab: 1329059110, Title: "Run History | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/dd1d8f67-116c-f55d-7752-7c7d322691c5/runs/08584087211445944033254400953CU14?v3=false".
+0 AXWebArea Run History | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/dd1d8f67-116c-f55d-7752-7c7d322691c5/runs/08584087211445944033254400953CU14?v3=false
+	1 container
+		2 container root
+			3 container
+				4 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				8 container o365header
+					9 container O365_NavHeader
+						10 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							111 text 
+						12 container ppuxOfficeHeaderTopLevelRegion
+							13 container ppuxOfficeHeaderLeftRegion
+								14 text Power Automate
+							15 container ppuxOfficeHeaderRightRegion
+								16 button Wohlgemuth, Jason
+									17 container
+										18 text Environments Wohlgemuth, Jason
+								19 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								20 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						21 container O365_HeaderRightRegion
+							22 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								23 image JW
+				5 container Main
+					6 button (expanded) Left navigation panel, Secondary Actions: Collapse
+						7 image Left navigation panel
+					24 menu
+						25 container
+							26 container aboveCustomizableItemsId0
+								27 Home
+								28 Create
+								29 Templates
+								30 Learn
+								31 My flows
+							32 Approvals, press right arrow to navigate more options
+							33 Solutions, press right arrow to navigate more options
+							34 Automation center, press right arrow to navigate more options
+							35 Process mining, press right arrow to navigate more options
+								36 image
+								37 text Process mining
+							38 AI hub, press right arrow to navigate more options
+							39 Connections, press right arrow to navigate more options
+							40 More
+							41 Power Platform
+				43 container
+					45 container
+						46 button Go back to previous page
+						47 container The flow name is ACORN Callback Receipt Validation.
+							48 text ACORN Callback Receipt Validation
+							49 container
+								138 text • Ran at 10/24/2026 7:49:00 PM
+						51 toolbar
+							52 button Description: Resubmit, ID: resubmitFlowRun
+								53 text Resubmit
+							54 button (disabled) Description: Cancel, ID: cancelFlowRun
+								55 text Cancel
+							56 button Description: Edit, ID: editFlow
+								57 text Edit
+							58 container
+								59 switch Description: New view, Value: 0, ID: switchDesignerFlowRunDetails
+								60 text New view
+						61 container Your flow ran successfully.
+							62 text Your flow ran successfully.
+						63 button Your flow ran successfully. Dismiss message.
+					64 container
+						65 container
+							66 button (collapsed) Manually trigger a flow, Secondary Actions: Expand
+								67 button (collapsed) Manually trigger a flow, Secondary Actions: Expand
+									68 text Manually trigger a flow
+							69 text 0 seconds. Succeeded
+							70 container 0 seconds
+								71 text 0s
+							72 image Succeeded
+						84 container
+							85 button (expanded) Process notification, Secondary Actions: Collapse
+								86 button (expanded) Process notification, Secondary Actions: Collapse
+									87 text Process notification
+							88 container
+								89 text 2 seconds. Succeeded
+								90 container 2 seconds
+									91 text 2s
+								92 image Succeeded
+							93 container
+								94 button (collapsed) Validate and claim receipt, Secondary Actions: Expand
+									101 button (collapsed) Validate and claim receipt, Secondary Actions: Expand
+										102 text Validate and claim receipt
+								103 text 1 seconds. Succeeded
+								104 container 1 seconds
+									105 text 1s
+								95 image Succeeded
+							96 container
+								97 button View when "Deliver receipt once" will run under "Configure run after"
+								98 container
+									99 button (expanded) Deliver receipt once, Secondary Actions: Collapse
+										106 button (expanded) Deliver receipt once, Secondary Actions: Collapse
+											107 text Deliver receipt once
+									108 text 1 seconds. Succeeded
+									109 container 1 seconds
+										110 text 1s
+									100 image Succeeded
+								113 container Valid event only 1 seconds. Succeeded 1s Succeeded Show raw inputs INPUTS If yes Find receipt 0 seconds. Succeeded 0s Succeeded One receipt 1 seconds. Succeeded 1s Succeeded Content not shown due to security configuration. If yes
+									114 container
+										115 button (expanded) Valid event only, Secondary Actions: Collapse
+											116 button (expanded) Valid event only, Secondary Actions: Collapse
+												117 text Valid event only
+										118 container
+											119 text 1 seconds. Succeeded
+											120 container 1 seconds
+												121 text 1s
+											122 image Succeeded
+										139 text INPUTS
+										123 button Show raw inputs
+											140 text Show raw inputs
+										141 container INPUTS
+											142 container
+												143 text Expression result
+												144 container
+													145 editor (settable) Description: Expression result, Value: true
+										124 container
+											125 button (expanded) Description: If yes, Secondary Actions: Collapse
+												146 button (expanded) If yes, Secondary Actions: Collapse
+													147 text If yes
+											126 container
+												127 button (collapsed) Find receipt, Secondary Actions: Expand
+													148 button (collapsed) Find receipt, Secondary Actions: Expand
+														149 text Find receipt
+												150 text 0 seconds. Succeeded
+												151 container 0 seconds
+													152 text 0s
+												128 image Succeeded
+											129 container
+												165 container One receipt 1 seconds. Succeeded 1s Succeeded Content not shown due to security configuration. If yes Same payload 1 seconds. Succeeded 1s Succeeded Content not shown due to security configuration. If yes Pending email 1 seconds. Succeeded 1s Succeeded
+													166 container
+														167 button (expanded) One receipt, Secondary Actions: Collapse
+															168 button (expanded) One receipt, Secondary Actions: Collapse
+																169 text One receipt
+														170 container
+															171 text 1 seconds. Succeeded
+															172 container 1 seconds
+																173 text 1s
+															174 image Succeeded
+														175 container
+															176 text INPUTS Content not shown due to security configuration.
+														177 container
+															178 button (expanded) Description: If yes, Secondary Actions: Collapse
+																179 button (expanded) If yes, Secondary Actions: Collapse
+																	180 text If yes
+															181 container Same payload 1 seconds. Succeeded 1s Succeeded Content not shown due to security configuration. If yes Pending email 1 seconds. Succeeded 1s Succeeded Content not shown due to security configuration. If yes Mark sending 0 seconds. Succeeded 0s Succeeded
+																182 container
+																	183 button (expanded) Same payload, Secondary Actions: Collapse
+																		184 button (expanded) Same payload, Secondary Actions: Collapse
+																			185 text Same payload
+																	186 container
+																		187 text 1 seconds. Succeeded
+																		188 container 1 seconds
+																			189 text 1s
+																		190 image Succeeded
+																	213 container
+																		214 text INPUTS Content not shown due to security configuration.
+																	191 container
+																		192 button (expanded) Description: If yes, Secondary Actions: Collapse
+																			215 button (expanded) If yes, Secondary Actions: Collapse
+																				216 text If yes
+																		217 container Pending email 1 seconds. Succeeded 1s Succeeded Content not shown due to security configuration. If yes Mark sending 0 seconds. Succeeded 0s Succeeded Deliver by frozen destination 1 seconds. Succeeded 1s Succeeded Content not shown due to security configuration. If yes
+																			218 container
+																				219 button (expanded) Pending email, Secondary Actions: Collapse
+																					220 button (expanded) Pending email, Secondary Actions: Collapse
+																						221 text Pending email
+																				222 container
+																					223 text 1 seconds. Succeeded
+																					224 container 1 seconds
+																						225 text 1s
+																					226 image Succeeded
+																				251 container
+																					252 text INPUTS Content not shown due to security configuration.
+																				227 container
+																					228 button (expanded) Description: If yes, Secondary Actions: Collapse
+																						253 button (expanded) If yes, Secondary Actions: Collapse
+																							254 text If yes
+																					229 container
+																						230 button (collapsed) Mark sending, Secondary Actions: Expand
+																							255 button (collapsed) Mark sending, Secondary Actions: Expand
+																								256 text Mark sending
+																						257 text 0 seconds. Succeeded
+																						258 container 0 seconds
+																							259 text 0s
+																						231 image Succeeded
+																					232 container
+																						260 container Deliver by frozen destination 1 seconds. Succeeded 1s Succeeded Content not shown due to security configuration. If yes Send Teams once 1 seconds. Succeeded 1s Succeeded If no Send email once 0 seconds. Skipped 0s Skipped
+																							261 container
+																								262 button (expanded) Deliver by frozen destination, Secondary Actions: Collapse
+																									263 button (expanded) Deliver by frozen destination, Secondary Actions: Collapse
+																										264 text Deliver by frozen destination
+																								265 container
+																									266 text 1 seconds. Succeeded
+																									267 container 1 seconds
+																										268 text 1s
+																									269 image Succeeded
+																								292 container
+																									293 text INPUTS Content not shown due to security configuration.
+																								270 container
+																									271 button (expanded) Description: If yes, Secondary Actions: Collapse
+																										294 button (expanded) If yes, Secondary Actions: Collapse
+																											295 text If yes
+																									272 container
+																										273 button (collapsed) Send Teams once, Secondary Actions: Expand
+																											296 button (collapsed) Send Teams once, Secondary Actions: Expand
+																												297 text Send Teams once
+																										298 text 1 seconds. Succeeded
+																										299 container 1 seconds
+																											300 text 1s
+																										274 image Succeeded
+																								275 container
+																									276 button (expanded) Description: If no, Secondary Actions: Collapse
+																										301 button (expanded) If no, Secondary Actions: Collapse
+																											302 text If no
+																									277 container
+																										278 button (collapsed) Send email once, Secondary Actions: Expand
+																											303 button (collapsed) Send email once, Secondary Actions: Expand
+																												304 text Send email once
+																										305 text 0 seconds. Skipped
+																										306 container 0 seconds
+																											307 text 0s
+																										279 image Skipped
+																						236 container
+																							237 button (collapsed) Mark sent, Secondary Actions: Expand
+																								280 button (collapsed) Mark sent, Secondary Actions: Expand
+																									281 text Mark sent
+																							282 text 0 seconds. Succeeded
+																							283 container 0 seconds
+																								284 text 0s
+																							238 image Succeeded
+																				239 container
+																					240 button (expanded) Description: If no, Secondary Actions: Collapse
+																						285 button (expanded) If no, Secondary Actions: Collapse
+																							286 text If no
+																					241 container
+																						242 button (collapsed) Already sent, Secondary Actions: Expand
+																							287 button (collapsed) Already sent, Secondary Actions: Expand
+																								288 text Already sent
+																						289 text 0 seconds. Skipped
+																						290 container 0 seconds
+																							291 text 0s
+																						243 image Skipped
+																	196 container
+																		197 button (expanded) Description: If no, Secondary Actions: Collapse
+																			244 button (expanded) If no, Secondary Actions: Collapse
+																				245 text If no
+																		198 container
+																			199 button (collapsed) Payload conflict, Secondary Actions: Expand
+																				246 button (collapsed) Payload conflict, Secondary Actions: Expand
+																					247 text Payload conflict
+																			248 text 0 seconds. Skipped
+																			249 container 0 seconds
+																				250 text 0s
+																			200 image Skipped
+														201 container
+															202 button (expanded) Description: If no, Secondary Actions: Collapse
+																203 button (expanded) If no, Secondary Actions: Collapse
+																	204 text If no
+															205 container
+																206 button (collapsed) Receipt unresolved, Secondary Actions: Expand
+																	207 button (collapsed) Receipt unresolved, Secondary Actions: Expand
+																		208 text Receipt unresolved
+																209 text 0 seconds. Skipped
+																210 container 0 seconds
+																	211 text 0s
+																212 image Skipped
+										133 container
+											134 button (expanded) Description: If no, Secondary Actions: Collapse
+												158 button (expanded) If no, Secondary Actions: Collapse
+													159 text If no
+											135 container
+												136 button (collapsed) Reject invalid, Secondary Actions: Expand
+													160 button (collapsed) Reject invalid, Secondary Actions: Expand
+														161 text Reject invalid
+												162 text 0 seconds. Skipped
+												163 container 0 seconds
+													164 text 0s
+												137 image Skipped
+					81 container flowCtrl.contextualHelpPanel.title
+
+The focused UI element is 262 button (expanded) Deliver by frozen destination, Secondary Actions: Collapse

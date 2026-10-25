@@ -1,0 +1,184 @@
+- banner:
+  - button "Skip to main content"
+  - banner:
+    - button "App launcher": 
+    - generic: Power Automate
+    - button "Wohlgemuth, Jason":
+      - generic: Environments
+      - generic: Wohlgemuth, Jason
+    - button "Settings":
+      - generic: 
+    - button "Help":
+      - generic: 
+    - button "Account manager for Wohlgemuth, Jason":
+      - generic: JW
+      - img "JW"
+    - generic: 
+- navigation "Main":
+  - button "Left navigation panel" [expanded]:
+    - img "Left navigation panel"
+  - menu:
+    - generic "Home":
+      - menuitem "Home":
+        - generic: Home
+    - generic "Create":
+      - menuitem "Create":
+        - generic: Create
+    - generic "Templates":
+      - menuitem "Templates":
+        - generic: Templates
+    - generic "Learn":
+      - menuitem "Learn":
+        - generic: Learn
+    - generic "My flows":
+      - menuitem "My flows":
+        - generic: My flows
+    - separator
+    - generic "Approvals":
+      - menuitem "Approvals, press right arrow to navigate more options":
+        - generic: Approvals
+    - generic "Solutions":
+      - menuitem "Solutions, press right arrow to navigate more options":
+        - generic: Solutions
+    - generic "Automation center":
+      - menuitem "Automation center, press right arrow to navigate more options":
+        - generic: Automation center
+    - generic "Process mining":
+      - menuitem "Process mining, press right arrow to navigate more options":
+        - generic: Process mining
+    - generic "AI hub":
+      - menuitem "AI hub, press right arrow to navigate more options":
+        - generic: AI hub
+    - generic "Connections":
+      - menuitem "Connections, press right arrow to navigate more options":
+        - generic: Connections
+    - generic "More":
+      - menuitem "More":
+        - generic: More
+    - separator
+    - generic "Power Platform":
+      - menuitem "Power Platform":
+        - generic: Power Platform
+- main:
+  - main:
+    - button "Go back to previous page":
+      - generic: 
+    - generic "The flow name is ACORN Callback Receipt Validation.":
+      - generic: ACORN Callback Receipt Validation
+      - alert "Ran at 10/24/2026 5:55:36 PM": •Ran at 10/24/2026 5:55:36 PM
+    - toolbar:
+      - button "Resubmit":
+        - generic: 
+        - generic: Resubmit
+      - button "Cancel" [disabled]:
+        - generic: 
+        - generic: Cancel
+      - button "Edit":
+        - generic: 
+        - generic: Edit
+      - switch "New view"
+      - generic: New view
+      - button "Help":
+        - generic: 
+        - generic: Help
+    - region:
+      - generic: 
+      - alert:
+        - generic "Flow run failed.":
+          - generic: Flow run failed.
+      - button "Close":
+        - generic: 
+    - button "Manually trigger a flow":
+      - button "Manually trigger a flow":
+        - generic: Manually trigger a flow
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Validate and claim receipt" [expanded]:
+      - button "Validate and claim receipt" [expanded]:
+        - generic: Validate and claim receipt
+    - generic: 1 seconds. Failed
+    - region "1 seconds": 1s
+    - img "Failed"
+    - generic: 
+    - status:
+      - strong: ActionFailed
+      - generic: . An action failed. No dependent actions succeeded.
+    - button "Validate delivery":
+      - button "Validate delivery":
+        - generic: Validate delivery
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Validate event":
+      - button "Validate event":
+        - generic: Validate event
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Claim receipt" [expanded] [active]:
+      - button "Claim receipt" [expanded]:
+        - generic: Claim receipt
+    - generic: 1 seconds. Failed
+    - region "1 seconds": 1s
+    - img "Failed"
+    - generic: 
+    - status:
+      - strong: PreconditionFailed
+      - generic: .
+    - generic: Inputs
+    - button "Show raw inputs":
+      - generic: 
+      - generic: Show raw inputs
+    - generic "Inputs":
+      - generic: Table name
+      - code:
+        - generic: ACORN Callback Receipts
+        - generic: 
+        - generic: 
+        - generic: 
+        - generic: 
+        - textbox "Table name": ACORN Callback Receipts
+      - generic: Webhook ID
+      - code:
+        - generic: acorn-test-artifact-ready-20261024
+        - generic: 
+        - generic: 
+        - generic: 
+        - generic: 
+        - textbox "Webhook ID": acorn-test-artifact-ready-20261024
+      - button "Show more":
+        - generic: 
+        - generic: Show more
+    - generic: Outputs
+    - button "Show raw outputs":
+      - generic: 
+      - generic: Show raw outputs
+    - generic "Outputs":
+      - generic: body
+      - code:
+        - generic: "{"
+        - generic: "\"error\": {"
+        - generic: "\"code\": \"0x80060892\","
+        - generic: "\"message\": \"Entity Key Unique Webhook ID violated. A record with the same value for Webhook ID already exists. A duplicate record cannot be created. Select one or more unique values and try again.\","
+        - generic: "\"@Microsoft.PowerApps.CDS.ErrorDetails.ApiExceptionSourceKey\": \"Plugin/Microsoft.Crm.ObjectModel.CustomBusinessEntityService\","
+        - generic: "\"@Microsoft.PowerApps.CDS.ErrorDetails.ApiStepKey\": \"7877fa39-f4cf-f111-a05c-001dd8062052\","
+        - generic: "\"@Microsoft.PowerApps.CDS.ErrorDetails.ApiDepthKey\": \"1\","
+        - generic: "\"@Microsoft.PowerApps.CDS.ErrorDetails.ApiActivityIdKey\": \"1482ad4f-4d7a-4d88-a845-f1cd3dd283c4\","
+        - generic: 
+        - generic: 
+        - generic: 
+        - generic: 
+        - textbox "body": "{ \"error\": { \"code\": \"0x80060892\", \"message\": \"Entity Key Unique Webhook ID violated. A record with the same value for Webhook ID already exists. A duplicate record cannot be created. Select one or more unique values and try again.\", \"@Microsoft.PowerApps.CDS.ErrorDetails.ApiExceptionSourceKey\": \"Plugin/Microsoft.Crm.ObjectModel.CustomBusinessEntityService\", \"@Microsoft.PowerApps.CDS.ErrorDetails.ApiStepKey\": \"7877fa39-f4cf-f111-a05c-001dd8062052\", \"@Microsoft.PowerApps.CDS.ErrorDetails.ApiDepthKey\": \"1\", \"@Microsoft.PowerApps.CDS.ErrorDetails.ApiActivityIdKey\": \"1482ad4f-4d7a-4d88-a845-f1cd3dd283c4\", \"@Microsoft.PowerApps.CDS.ErrorDetails.ApiPluginSolutionNameKey\": \"System\", \"@Microsoft.PowerApps.CDS.ErrorDetails.ApiStepSolutionNameKey\": \"System\", \"@Microsoft.PowerApps.CDS.ErrorDetails.ApiExceptionCategory\": \"ClientError\", \"@Microsoft.PowerApps.CDS.ErrorDetails.ApiExceptionMessageName\": \"DuplicateRecordEntityKey\", \"@Microsoft.PowerApps.CDS.ErrorDetails.ApiExceptionHttpStatusCode\": \"412\", \"@Microsoft.PowerApps.CDS.ErrorDetails.0\": \"Unique Webhook ID\", \"@Microsoft.PowerApps.CDS.ErrorDetails.1\": \"Webhook ID\", \"@Microsoft.PowerApps.CDS.ErrorDetails.DuplicateEntity\": \"<?xml version=\\\"1.0\\\" encoding=\\\"utf-16\\\"?><Entity xmlns:i=\\\"http://www.w3.org/2001/XMLSchema-instance\\\" xmlns=\\\"http://schemas.microsoft.com/xrm/2011/Contracts\\\"><Attributes xmlns:d2p1=\\\"http://schemas.datacontract.org/2004/07/System.Collections.Generic\\\"><KeyValuePairOfstringanyType><d2p1:key>cr1d0_emailstate</d2p1:key><d2p1:value xmlns:d4p1=\\\"http://www.w3.org/2001/XMLSchema\\\" i:type=\\\"d4p1:string\\\">Pending</d2p1:value></KeyValuePairOfstringanyType><KeyValuePairOfstringanyType><d2p1:key>statecode</d2p1:key><d2p1:value i:type=\\\"OptionSetValue\\\"><Value>0</Value></d2p1:value></KeyValuePairOfstringanyType><KeyValuePairOfstringanyType><d2p1:key>owninguser</d2p1:key><d2p1:value i:type=\\\"EntityReference\\\"><Id>11652530-4f91-f111-ab0e-001dd806fbcb</Id><KeyAttributes xmlns:d5p1=\\\"http://schemas.microsoft.com/xrm/7.1/Contracts\\\" /><LogicalName>systemuser</LogicalName><Name i:nil=\\\"true\\\" /><RowVersion i:nil=\\\"true\\\" /></d2p1:value></KeyValuePairOfstringanyType><KeyValuePairOfstringanyType><d2p1:key>createdon</d2p1:key><d2p1:value xmlns:d4p1=\\\"http://www.w3.org/2001/XMLSchema\\\" i:type=\\\"d4p1:dateTime\\\">2026-10-24T21:55:36Z</d2p1:value></KeyValuePairOfstringanyType><KeyValuePairOfstringanyType><d2p1:key>cr1d0_webhookid</d2p1:key><d2p1:value xmlns:d4p1=\\\"http://www.w3.org/2001/XMLSchema\\\" i:type=\\\"d4p1:string\\\">acorn-test-artifact-ready-20261024</d2p1:value></KeyValuePairOfstringanyType><KeyValuePairOfstringanyType><d2p1:key>modifiedonbehalfby</d2p1:key><d2p1:value i:nil=\\\"true\\\" /></KeyValuePairOfstringanyType><KeyValuePairOfstringanyType><d2p1:key>owningbusinessunit</d2p1:key><d2p1:value i:type=\\\"EntityReference\\\"><Id>1f5e2530-4f91-f111-ab0e-001dd806fbcb</Id><KeyAttributes xmlns:d5p1=\\\"http://schemas.microsoft.com/xrm/7.1/Contracts\\\" /><LogicalName>businessunit</LogicalName><Name i:nil=\\\"true\\\" /><RowVersion i:nil=\\\"true\\\" /></d2p1:value></KeyValuePairOfstringanyType><KeyValuePairOfstringanyType><d2p1:key>modifiedby</d2p1:key><d2p1:value i:type=\\\"EntityReference\\\"><Id>11652530-4f91-f111-ab0e-001dd806fbcb</Id><KeyAttributes xmlns:d5p1=\\\"http://schemas.microsoft.com/xrm/7.1/Contracts\\\" /><LogicalName>systemuser</LogicalName><Name i:nil=\\\"true\\\" /><RowVersion i:nil=\\\"true\\\" /></d2p1:value></KeyValuePairOfstringanyType><KeyValuePairOfstringanyType><d2p1:key>cr1d0_acorncallbackreceiptid</d2p1:key><d2p1:value xmlns:d4p1=\\\"http://schemas.microsoft.com/2003/10/Serialization/\\\" i:type=\\\"d4p1:guid\\\">fe044ea4-f5cf-f111-a05c-001dd8062052</d2p1:value></KeyValuePairOfstringanyType><KeyValuePairOfstringanyType><d2p1:key>statuscode</d2p1:key><d2p1:value i:type=\\\"OptionSetValue\\\"><Value>1</Value></d2p1:value></KeyValuePairOfstringanyType><KeyValuePairOfstringanyType><d2p1:key>cr1d0_emailrecipient</d2p1:key><d2p1:value xmlns:d4p1=\\\"http://www.w3.org/2001/XMLSchema\\\" i:type=\\\"d4p1:string\\\">o9w@ornl.gov</d2p1:value></KeyValuePairOfstringanyType><KeyValuePairOfstringanyType><d2p1:key>modifiedon</d2p1:key><d2p1:value xmlns:d4p1=\\\"http://www.w3.org/2001/XMLSchema\\\" i:type=\\\"d4p1:dateTime\\\">2026-10-24T21:55:36Z</d2p1:value></KeyValuePairOfstringanyType><KeyValuePairOfstringanyType><d2p1:key>cr1d0_payloadjson</d2p1:key><d2p1:value xmlns:d4p1=\\\"http://www.w3.org/2001/XMLSchema\\\" i:type=\\\"d4p1:string\\\">{\\\"event\\\":\\\"artifact-ready\\\",\\\"checksum\\\":\\\"0000000000000000000000000000000000000000000000000000000000000000\\\",\\\"package_url\\\":\\\"https://code.ornl.gov/research-enablement/experiments/power-automate/-/packages\\\",\\\"project_id\\\":\\\"acorn\\\",\\\"through\\\":\\\"2026-10-24T00:00:00Z\\\"}</d2p1:value></KeyValuePairOfstringanyType><KeyValuePairOfstringanyType><d2p1:key>ownerid</d2p1:key><d2p1:value i:type=\\\"EntityReference\\\"><Id>11652530-4f91-f111-ab0e-001dd806fbcb</Id><KeyAttributes xmlns:d5p1=\\\"http://schemas.microsoft.com/xrm/7.1/Contracts\\\" /><LogicalName>systemuser</LogicalName><Name i:nil=\\\"true\\\" /><RowVersion i:nil=\\\"true\\\" /></d2p1:value></KeyValuePairOfstringanyType><KeyValuePairOfstringanyType><d2p1:key>createdby</d2p1:key><d2p1:value i:type=\\\"EntityReference\\\"><Id>11652530-4f91-f111-ab0e-001dd806fbcb</Id><KeyAttributes xmlns:d5p1=\\\"http://schemas.microsoft.com/xrm/7.1/Contracts\\\" /><LogicalName>systemuser</LogicalName><Name i:nil=\\\"true\\\" /><RowVersion i:nil=\\\"true\\\" /></d2p1:value></KeyValuePairOfstringanyType></Attributes><EntityState i:nil=\\\"true\\\" /><FormattedValues xmlns:d2p1=\\\"http://schemas.datacontract.org/2004/07/System.Collections.Generic\\\"><KeyValuePairOfstringstring><d2p1:key>statecode</d2p1:key><d2p1:value>Active</d2p1:value></KeyValuePairOfstringstring><KeyValuePairOfstringstring><d2p1:key>createdon</d2p1:key><d2p1:value>2026-10-24T21:55:36+00:00</d2p1:value></KeyValuePairOfstringstring><KeyValuePairOfstringstring><d2p1:key>statuscode</d2p1:key><d2p1:value>Active</d2p1:value></KeyValuePairOfstringstring><KeyValuePairOfstringstring><d2p1:key>modifiedon</d2p1:key><d2p1:value>2026-10-24T21:55:36+00:00</d2p1:value></KeyValuePairOfstringstring></FormattedValues><Id>fe044ea4-f5cf-f111-a05c-001dd8062052</Id><KeyAttributes xmlns:d2p1=\\\"http://schemas.microsoft.com/xrm/7.1/Contracts\\\" xmlns:d2p2=\\\"http://schemas.datacontract.org/2004/07/System.Collections.Generic\\\" /><LogicalName>cr1d0_acorncallbackreceipt</LogicalName><RelatedEntities xmlns:d2p1=\\\"http://schemas.datacontract.org/2004/07/System.Collections.Generic\\\" /><RowVersion i:nil=\\\"true\\\" /></Entity>\", \"@Microsoft.PowerApps.CDS.ErrorDetails.DuplicateAttributes\": \"<DuplicateAttributes><cr1d0_webhookid>acorn-test-artifact-ready-20261024</cr1d0_webhookid></DuplicateAttributes>\", \"@Microsoft.PowerApps.CDS.HelpLink\": \"http://go.microsoft.com/fwlink/?LinkID=398563&error=Microsoft.Crm.CrmException%3a80060892&client=platform\", \"@Microsoft.PowerApps.CDS.InnerError.Message\": \"Entity Key Unique Webhook ID violated. A record with the same value for Webhook ID already exists. A duplicate record cannot be created. Select one or more unique values and try again.\" } }"
+    - generic: "Connection:"
+    - link "o9w@ornl.gov":
+      - /url: /environments/221f44a6-1468-ea4e-b93d-cd52f1723079/connections?apiName=shared_commondataserviceforapps&connectionName=shared-commondataser-400dc39e-1acf-4b65-93d5-e4f08a9d5da3
+    - generic: 
+    - heading "Run Details" [level=2]
+    - button "Close":
+      - generic: 
+    - generic "flowCtrl.contextualHelpPanel.title"
+- alert
+- alert
+- complementary
+- complementary

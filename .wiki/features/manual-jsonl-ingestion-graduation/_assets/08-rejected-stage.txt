@@ -1,0 +1,12 @@
+{
+  "batchId": "5d48fd39a6ab694edd3ccd3e7b417598d8cfd057357f101ec26677cde419ff26",
+  "canApply": false,
+  "accepted": 0,
+  "replayed": 0,
+  "rejected": 1
+}
+Error: 
+   0: [91mBatch contains 1 rejected line(s)[0m
+
+Backtrace omitted. Run with RUST_BACKTRACE=1 environment variable to display it.
+Run with RUST_BACKTRACE=full to include source snippets.

@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-24",
+  "scope": "Synthetic local files only; no remote mutation or notifications",
+  "terminalChecks": [
+    "single apply default-no: cancelled without index change",
+    "single apply no: cancelled without index change",
+    "single apply escape: cancelled without index change",
+    "single apply ctrl-c: cancelled without index change",
+    "single apply permissions revoked at prompt: refused without index change",
+    "single apply Tab+Enter: applied",
+    "single graduate default-no: cancelled without backup or index change",
+    "single graduate escape: cancelled without backup or index change",
+    "single graduate ctrl-c: cancelled without backup or index change",
+    "single graduate y: promoted with exact backup",
+    "batch apply default-no: cancelled without index change",
+    "batch apply no: cancelled without index change",
+    "batch apply escape: cancelled without index change",
+    "batch apply ctrl-c: cancelled without index change",
+    "batch apply permissions revoked at prompt: refused without index change",
+    "batch apply Tab+Enter: applied",
+    "batch graduate default-no: cancelled without backup or index change",
+    "batch graduate escape: cancelled without backup or index change",
+    "batch graduate ctrl-c: cancelled without backup or index change",
+    "batch graduate y: promoted with exact backup"
+  ],
+  "interactiveRehearsals": [
+    {
+      "case": "approve",
+      "buttons": 2,
+      "exitCode": 0,
+      "passed": true
+    },
+    {
+      "case": "decline-intake",
+      "buttons": 1,
+      "exitCode": 1,
+      "passed": true
+    },
+    {
+      "case": "decline-graduation",
+      "buttons": 2,
+      "exitCode": 1,
+      "passed": true
+    }
+  ]
+}

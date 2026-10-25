@@ -1,0 +1,34 @@
+{
+  "brandColor": "#742774",
+  "connectionReferences": {},
+  "connectorDisplayName": "Power Apps",
+  "id": "38f6308a-9388-4ac8-9175-777b49ab3f32",
+  "isTrigger": false,
+  "operationDefinition": {
+    "type": "Response",
+    "kind": "PowerApp",
+    "runAfter": {
+      "Load_ACRE_project_choices": [
+        "Succeeded"
+      ]
+    },
+    "inputs": {
+      "statusCode": 200,
+      "body": {
+        "catalog": "@string(body('Load_ACRE_project_choices'))"
+      },
+      "schema": {
+        "type": "object",
+        "properties": {
+          "catalog": {
+            "title": "catalog",
+            "type": "string",
+            "x-ms-content-hint": "TEXT",
+            "x-ms-dynamically-added": true
+          }
+        }
+      }
+    }
+  },
+  "operationName": "Return_catalog"
+}

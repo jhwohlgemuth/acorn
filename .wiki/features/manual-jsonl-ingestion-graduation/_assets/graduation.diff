@@ -1,0 +1,29 @@
+--- ingested.json
++++ graduated.json
+@@ -10,7 +10,14 @@
+       "Modeling",
+       "Data science"
+     ],
+-    "contributors": [],
++    "contributors": [
++      {
++        "name": "Example, Avery (TEST ONLY)",
++        "identifiers": [],
++        "affiliations": [],
++        "roles": []
++      }
++    ],
+     "funders": [
+       {
+         "name": "Sample Sponsor A",
+@@ -66,8 +73,8 @@
+           "TEST ONLY: Fictitious contributor for the October 2026 ACORN MVP demonstration.",
+           "Trace this receipt through local ingestion, reviewed contributor graduation, and a local PDF; exclude from sponsor reporting."
+         ],
+-        "archived": false
++        "archived": true
+       }
+     ]
+   }
+-}
++}

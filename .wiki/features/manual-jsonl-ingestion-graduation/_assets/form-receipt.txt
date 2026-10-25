@@ -1,0 +1,31 @@
+- button "Skip to main content.":
+  - generic: Skip to main content.
+- banner:
+  - button "App launcher": 
+  - generic: Power Apps | Sponsor Highlights
+  - button "Share":
+    - generic: 
+    - generic: Share
+    - generic: 
+  - button "Fit to screen":
+    - generic: 
+  - button "Settings":
+    - generic: 
+  - button "Help":
+    - generic: 
+  - button "Account manager for Wohlgemuth, Jason":
+    - generic: JW
+    - img "JW"
+  - generic: 
+- main:
+  - iframe [active] [id="fullscreen-app-host"] [name="fullscreen-app-host"]:
+    - generic "SubmitEntryScreen"
+    - generic: Highlight saved
+    - generic: Saved to the logbook. Your highlight is awaiting ACORN review.
+    - text: Receipt ID
+    - text: 4313fcfc-0201-441e-8bda-c77718a31dcf
+    - text: GitLab commit 3090aa5714b4
+    - button "Back to highlight":
+      - generic: Back to highlight
+    - generic "You can drag-and-drop this tab anywhere on the 4 edges of the screen":
+      - generic "You can drag-and-drop this tab anywhere on the 4 edges of the screen": Site Help

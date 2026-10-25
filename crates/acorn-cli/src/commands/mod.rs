@@ -547,25 +547,34 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             }),
         },
         | Some(Commands::Intake { command }) => match command {
-            | IntakeCommands::Run { config } => with_runtime(intake::run(config)),
+            | IntakeCommands::Run(options) => match (&options.index, &options.config) {
+                | (Some(index), None) => intake::graduation::execute(index, options, intake::graduation::ask)
+                    .and_then(|value| serde_json::to_string_pretty(&value).map_err(Into::into))
+                    .map(|output| println!("{output}")),
+                | (None, Some(_)) if offline => Err(eyre!("GitLab intake polling is unavailable with --offline")),
+                | (None, Some(config)) => with_runtime(intake::run(config)),
+                | _ => Err(eyre!("Choose --index for local graduation or --config for the GitLab worker")),
+            },
             | IntakeCommands::Export {
                 config,
                 submission_id,
                 output,
             } => with_runtime(intake::export(config, submission_id, output)),
             | IntakeCommands::Deliver { config } => with_runtime(intake::deliver(config)),
-            | IntakeCommands::Stage { config, inbox, batch } => intake::stage(config, inbox, *batch, &args.verbose),
+            | IntakeCommands::Stage { config, source, batch } => with_runtime(intake::stage(config, source, *batch, offline, &args.verbose)),
             | IntakeCommands::Inspect { config, batch_id } => intake::inspect(config, batch_id, &args.verbose),
             | IntakeCommands::Apply {
                 config,
                 submission_id: Some(submission_id),
+                yes,
                 ..
-            } => intake::apply(config, submission_id, &args.verbose),
+            } => intake::apply(config, submission_id, *yes, &args.verbose),
             | IntakeCommands::Apply {
                 config,
                 batch_id: Some(batch_id),
+                yes,
                 ..
-            } => intake::apply_batch(config, batch_id, &args.verbose),
+            } => intake::apply_batch(config, batch_id, *yes, &args.verbose),
             | IntakeCommands::Apply { .. } => Err(color_eyre::eyre::eyre!("Choose one intake apply selector")),
         },
         | Some(Commands::Report(arguments)) => with_runtime(async {

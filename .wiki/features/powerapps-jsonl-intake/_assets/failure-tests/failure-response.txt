@@ -1,0 +1,101 @@
+- banner:
+  - button "Skip to main content"
+  - banner:
+    - button "App launcher": 
+    - generic: Power Automate
+    - button "Wohlgemuth, Jason":
+      - generic: Environments
+      - generic: Wohlgemuth, Jason
+    - button "Settings":
+      - generic: 
+    - button "Help":
+      - generic: 
+    - button "Account manager for Wohlgemuth, Jason":
+      - generic: JW
+    - generic: 
+- main:
+  - button "Go back to previous page":
+    - generic: 
+  - heading "The flow name is ACORN Intake Failure Acceptance TEST ONLY 2026-10-24." [level=1]:
+    - generic "The flow name is ACORN Intake Failure Acceptance TEST ONLY 2026-10-24.":
+      - generic: ACORN Intake Failure Acceptance TEST ONLY 2026-10-24
+  - toolbar:
+    - separator
+    - button "Resubmit":
+      - generic: 
+      - generic: Resubmit
+    - button "Cancel" [disabled]:
+      - generic: 
+      - generic: Cancel
+    - button "Copilot":
+      - generic: Copilot
+    - button "Edit":
+      - generic: 
+      - generic: Edit
+    - separator
+    - switch "New view" [checked]
+    - generic: New view
+  - group "Your flow ran successfully.":
+    - generic: Your flow ran successfully.
+    - button "Dismiss":
+  - application "Workflow canvas":
+    - group "When Power Apps calls a flow (V2)":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "When Power Apps calls a flow (V2) operation, Power Apps connector":
+        - generic: When Power Apps calls a flow (V2)
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - group "Submission ID":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Submission ID operation, Data Operation connector":
+        - generic: Submission ID
+    - group "Submitted At":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Submitted At operation, Data Operation connector":
+        - generic: Submitted At
+    - group "Verify access to main":
+      - status "0.3 seconds. Succeeded":
+        - generic: 0.3s
+      - button "Verify access to main operation, ACORN GitLab Logbook connector":
+        - generic: Verify access to main
+      - generic "ACORN GitLab Logbook":
+        - 'img "Connection name: ACORN GitLab Logbook"': 
+    - generic "Persist submission v3":
+      - status "1.3 seconds. Failed":
+        - generic: 1s
+      - button "Persist submission v3 operation":
+        - generic: Persist submission v3
+        - alert:
+          - generic: ActionFailed. An action failed. No dependent actions succeeded.
+      - button "Expand Persist submission v3":
+    - paragraph: 6 Actions
+    - group "Unresolved failure":
+      - status "0 seconds. Succeeded":
+        - generic: 0s
+      - button "Unresolved failure operation, Power Apps connector":
+        - generic: Unresolved failure
+      - generic "This operation has secure inputs or outputs enabled.":
+        - 'img "Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled."': 
+    - generic "Control Panel":
+      - button "Expand all action groups":
+      - button "Zoom in":
+      - button "Zoom out":
+      - button "Zoom view to fit":
+      - button "Toggle minimap":
+      - button "Search workflow actions":
+  - paragraph: Close
+  - dialog "Operation details panel":
+    - button "Collapse":
+  - generic: Copilot
+  - button "Close" [active]:
+  - group "Copilot"
+  - button "Test this flow":
+    - generic: Test this flow
+  - textbox "Ask a question or describe how you want to change this flow"
+  - generic: 0/2000
+  - button "Actions":
+  - button "Submit" [disabled]:
+  - generic "Make sure AI-generated content is accurate and appropriate before using."

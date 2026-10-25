@@ -1,4 +1,5 @@
 //! Explicit local and GitLab Power Automate JSONL intake commands.
+use crate::io::interactive::{PromptOutcome, Viewport};
 use acorn::analyzer::diff::{DiffFormat, DiffInput, SemanticDiff};
 use acorn::io::api::gitlab::automation::ReviewRevisions;
 use acorn::io::api::gitlab::{self, bot, DeploymentConfig};
@@ -17,12 +18,16 @@ use color_eyre::eyre::{eyre, Result};
 use serde_json::json;
 use std::env;
 use std::fs::write;
+use std::io::{stdin, stdout, IsTerminal};
 use std::path::{Path, PathBuf};
 
 const MAX_MANUAL_WORK: usize = 256;
+pub mod graduation;
+mod source;
 /// Apply one proposal after a human reviews its stored source and proposed index.
-pub fn apply(config: &Path, submission_id: &str, verbose: &Verbosity) -> Result<()> {
-    ApplicationConfiguration::load_local_intake(config)
+pub fn apply(config: &Path, submission_id: &str, yes: bool, verbose: &Verbosity) -> Result<()> {
+    confirm(yes, &format!("Apply reviewed submission {submission_id} using {}?", config.display()))
+        .and_then(|()| ApplicationConfiguration::load_local_intake(config))
         .and_then(|(configuration, path)| configuration.apply(&path, submission_id))
         .map(|status| match (verbose.is_silent(), status) {
             | (true, _) => {}
@@ -31,8 +36,9 @@ pub fn apply(config: &Path, submission_id: &str, verbose: &Verbosity) -> Result<
         })
 }
 /// Apply every project in a reviewed local batch.
-pub fn apply_batch(config: &Path, batch_id: &str, verbose: &Verbosity) -> Result<()> {
-    ApplicationConfiguration::load_local_intake(config)
+pub fn apply_batch(config: &Path, batch_id: &str, yes: bool, verbose: &Verbosity) -> Result<()> {
+    confirm(yes, &format!("Apply reviewed batch {batch_id} using {}?", config.display()))
+        .and_then(|()| ApplicationConfiguration::load_local_intake(config))
         .and_then(|(configuration, path)| configuration.apply_batch(&path, batch_id))
         .and_then(|summary| {
             serde_json::to_string_pretty(&summary)
@@ -47,6 +53,22 @@ pub fn apply_batch(config: &Path, batch_id: &str, verbose: &Verbosity) -> Result
                     | None => Ok(()),
                 })
         })
+}
+fn confirm(yes: bool, prompt: &str) -> Result<()> {
+    if yes {
+        Ok(())
+    } else if !stdin().is_terminal() || !stdout().is_terminal() {
+        Err(eyre!(
+            "Intake confirmation requires a terminal; review the change, then use --yes for redirected or unattended execution"
+        ))
+    } else {
+        Viewport::open()
+            .and_then(|mut viewport| viewport.confirm(prompt, false))
+            .and_then(|outcome| match outcome {
+                | PromptOutcome::Selected(true) => Ok(()),
+                | PromptOutcome::Selected(false) | PromptOutcome::Cancelled => Err(eyre!("Intake cancelled; no changes applied")),
+            })
+    }
 }
 fn configured(config: &Path, require_intake: bool) -> Result<(ApplicationConfiguration, gitlab::Options, OperationQueue)> {
     match env::var("ACORN_DATABASE_PATH").ok().filter(|value| !value.trim().is_empty()) {
@@ -340,8 +362,13 @@ pub async fn run(config: &Path) -> Result<()> {
         | Err(why) => Err(why),
     }
 }
-/// Stage valid local submissions as durable proposal files.
-pub fn stage(config: &Path, inbox: &Path, batch: bool, verbose: &Verbosity) -> Result<()> {
+/// Stage a local or GitLab JSONL source as durable local review proposals.
+pub async fn stage(config: &Path, source: &str, batch: bool, offline: bool, verbose: &Verbosity) -> Result<()> {
+    source::prepare(config, source, offline)
+        .await
+        .and_then(|inbox| stage_file(config, &inbox, batch, verbose))
+}
+fn stage_file(config: &Path, inbox: &Path, batch: bool, verbose: &Verbosity) -> Result<()> {
     match batch {
         | true => BatchSummary::stage(config, inbox).and_then(|summary| {
             serde_json::to_string_pretty(&summary)

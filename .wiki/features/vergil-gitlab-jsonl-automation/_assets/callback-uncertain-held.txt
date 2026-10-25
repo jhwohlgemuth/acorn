@@ -1,0 +1,319 @@
+- banner:
+  - button "Skip to main content"
+  - banner:
+    - button "App launcher": 
+    - generic: Power Automate
+    - button "Wohlgemuth, Jason":
+      - generic: Environments
+      - generic: Wohlgemuth, Jason
+    - button "Settings":
+      - generic: 
+    - button "Help":
+      - generic: 
+    - button "Account manager for Wohlgemuth, Jason":
+      - generic: JW
+      - img "JW"
+    - generic: 
+- navigation "Main":
+  - button "Left navigation panel" [expanded]:
+    - img "Left navigation panel"
+  - menu:
+    - generic "Home":
+      - menuitem "Home":
+        - generic: Home
+    - generic "Create":
+      - menuitem "Create":
+        - generic: Create
+    - generic "Templates":
+      - menuitem "Templates":
+        - generic: Templates
+    - generic "Learn":
+      - menuitem "Learn":
+        - generic: Learn
+    - generic "My flows":
+      - menuitem "My flows":
+        - generic: My flows
+    - separator
+    - generic "Approvals":
+      - menuitem "Approvals, press right arrow to navigate more options":
+        - generic: Approvals
+    - generic "Solutions":
+      - menuitem "Solutions, press right arrow to navigate more options":
+        - generic: Solutions
+    - generic "Automation center":
+      - menuitem "Automation center, press right arrow to navigate more options":
+        - generic: Automation center
+    - generic "Process mining":
+      - menuitem "Process mining, press right arrow to navigate more options":
+        - generic: Process mining
+    - generic "AI hub":
+      - menuitem "AI hub, press right arrow to navigate more options":
+        - generic: AI hub
+    - generic "Connections":
+      - menuitem "Connections, press right arrow to navigate more options":
+        - generic: Connections
+    - generic "More":
+      - menuitem "More":
+        - generic: More
+    - separator
+    - generic "Power Platform":
+      - menuitem "Power Platform":
+        - generic: Power Platform
+- main:
+  - main:
+    - button "Go back to previous page":
+      - generic: 
+    - generic "The flow name is ACORN Callback Receipt Validation.":
+      - generic: ACORN Callback Receipt Validation
+      - alert "Ran at 10/24/2026 6:10:03 PM": •Ran at 10/24/2026 6:10:03 PM
+    - toolbar:
+      - button "Resubmit":
+        - generic: 
+        - generic: Resubmit
+      - button "Cancel" [disabled]:
+        - generic: 
+        - generic: Cancel
+      - button "Edit":
+        - generic: 
+        - generic: Edit
+      - switch "New view"
+      - generic: New view
+      - button "Help":
+        - generic: 
+        - generic: Help
+    - region:
+      - generic: 
+      - alert:
+        - generic "The request has SAS authentication scheme, 'MSAuth1.0' authorization scheme or internal token scheme. Only one scheme should be used.":
+          - generic: The request has SAS authentication scheme, 'MSAuth1.0' authorization scheme or internal token scheme. Only one scheme should be used.
+      - button "Close":
+        - generic: 
+    - button "Manually trigger a flow":
+      - button "Manually trigger a flow":
+        - generic: Manually trigger a flow
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Validate and claim receipt" [expanded]:
+      - button "Validate and claim receipt" [expanded]:
+        - generic: Validate and claim receipt
+    - generic: 0 seconds. Failed
+    - region "0 seconds": 0s
+    - img "Failed"
+    - generic: 
+    - status:
+      - strong: ActionFailed
+      - generic: . An action failed. No dependent actions succeeded.
+    - button "Validate delivery" [expanded]:
+      - button "Validate delivery" [expanded]:
+        - generic: Validate delivery
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - generic: Inputs
+    - generic: Content not shown due to security configuration.
+    - generic: Outputs
+    - generic: Content not shown due to security configuration.
+    - button "Validate event":
+      - button "Validate event":
+        - generic: Validate event
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "Claim receipt":
+      - button "Claim receipt":
+        - generic: Claim receipt
+    - generic: 0 seconds. Failed
+    - region "0 seconds": 0s
+    - img "Failed"
+    - button "View when \"Deliver receipt once\" will run under \"Configure run after\"":
+      - generic: 
+    - button "Deliver receipt once" [expanded]:
+      - button "Deliver receipt once" [expanded]:
+        - generic: Deliver receipt once
+    - generic: 0 seconds. Cancelled
+    - region "0 seconds": 0s
+    - img "Cancelled"
+    - button "Valid event only" [expanded]:
+      - button "Valid event only" [expanded]:
+        - generic: Valid event only
+    - generic: 0 seconds. Cancelled
+    - region "0 seconds": 0s
+    - img "Cancelled"
+    - generic: 
+    - status:
+      - strong: Cancelled
+      - generic: .
+    - generic: Inputs
+    - generic "Inputs":
+      - generic: No inputs
+    - button "If yes" [expanded]:
+      - button "If yes" [expanded]:
+        - generic: If yes
+    - button "Find receipt":
+      - button "Find receipt":
+        - generic: Find receipt
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - button "One receipt" [expanded]:
+      - button "One receipt" [expanded]:
+        - generic: One receipt
+    - generic: 0 seconds. Cancelled
+    - region "0 seconds": 0s
+    - img "Cancelled"
+    - generic: 
+    - status:
+      - strong: Cancelled
+      - generic: .
+    - generic: Inputs
+    - generic "Inputs":
+      - generic: No inputs
+    - button "If yes" [expanded]:
+      - button "If yes" [expanded]:
+        - generic: If yes
+    - button "Same payload" [expanded]:
+      - button "Same payload" [expanded]:
+        - generic: Same payload
+    - generic: 0 seconds. Cancelled
+    - region "0 seconds": 0s
+    - img "Cancelled"
+    - generic: 
+    - status:
+      - strong: Cancelled
+      - generic: .
+    - generic: Inputs
+    - generic "Inputs":
+      - generic: No inputs
+    - button "If yes" [expanded]:
+      - button "If yes" [expanded]:
+        - generic: If yes
+    - button "Pending email" [expanded]:
+      - button "Pending email" [expanded]:
+        - generic: Pending email
+    - generic: 0 seconds. Cancelled
+    - region "0 seconds": 0s
+    - img "Cancelled"
+    - generic: 
+    - status:
+      - strong: Cancelled
+      - generic: .
+    - generic: Inputs
+    - generic "Inputs":
+      - generic: No inputs
+    - button "If yes" [expanded]:
+      - button "If yes" [expanded]:
+        - generic: If yes
+    - button "Mark sending":
+      - button "Mark sending":
+        - generic: Mark sending
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "Send email once":
+      - button "Send email once":
+        - generic: Send email once
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "Mark sent":
+      - button "Mark sent":
+        - generic: Mark sent
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "If no" [expanded]:
+      - button "If no" [expanded]:
+        - generic: If no
+    - button "Already sent" [expanded]:
+      - button "Already sent" [expanded]:
+        - generic: Already sent
+    - generic: 0 seconds. Cancelled
+    - region "0 seconds": 0s
+    - img "Cancelled"
+    - generic: 
+    - status:
+      - strong: Cancelled
+      - generic: .
+    - generic: Inputs
+    - generic "Inputs":
+      - generic: No inputs
+    - button "If yes" [expanded]:
+      - button "If yes" [expanded]:
+        - generic: If yes
+    - button "Duplicate no send":
+      - button "Duplicate no send":
+        - generic: Duplicate no send
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "If no" [expanded]:
+      - button "If no" [expanded]:
+        - generic: If no
+    - button "Reconcile email" [expanded] [active]:
+      - button "Reconcile email" [expanded]:
+        - generic: Reconcile email
+    - generic: 0 seconds. Succeeded
+    - region "0 seconds": 0s
+    - img "Succeeded"
+    - generic: Inputs
+    - button "Show raw inputs":
+      - generic: 
+      - generic: Show raw inputs
+    - generic "Inputs":
+      - generic: Status
+      - code:
+        - generic: Failed
+        - generic: 
+        - generic: 
+        - generic: 
+        - generic: 
+        - textbox "Status": Failed
+      - generic: Code
+      - code:
+        - generic: DeliveryNeedsReview
+        - generic: 
+        - generic: 
+        - generic: 
+        - generic: 
+        - textbox "Code": DeliveryNeedsReview
+      - generic: Message
+      - code:
+        - generic: "Sending or unresolved state: inspect the recorded attempt and Sent Items before any resend."
+        - generic: 
+        - generic: 
+        - generic: 
+        - generic: 
+        - textbox "Message": "Sending or unresolved state: inspect the recorded attempt and Sent Items before any resend."
+    - button "If no" [expanded]:
+      - button "If no" [expanded]:
+        - generic: If no
+    - button "Payload conflict":
+      - button "Payload conflict":
+        - generic: Payload conflict
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "If no" [expanded]:
+      - button "If no" [expanded]:
+        - generic: If no
+    - button "Receipt unresolved":
+      - button "Receipt unresolved":
+        - generic: Receipt unresolved
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - button "If no" [expanded]:
+      - button "If no" [expanded]:
+        - generic: If no
+    - button "Reject invalid":
+      - button "Reject invalid":
+        - generic: Reject invalid
+    - generic: 0 seconds. Skipped
+    - region "0 seconds": 0s
+    - img "Skipped"
+    - generic "flowCtrl.contextualHelpPanel.title"
+- alert
+- alert
+- complementary
+- complementary

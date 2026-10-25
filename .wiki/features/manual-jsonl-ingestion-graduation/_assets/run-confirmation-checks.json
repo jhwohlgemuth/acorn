@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-24",
+  "mode": "local synthetic native terminal",
+  "directory": "/var/folders/j8/zdr2cnr934x80qdkddy48nshjhbsm8/T/acorn-run-buttons-31qg8mzx",
+  "binarySha256": "3983b01be48eed3f857d94e4521a0345c15862c40bd306e58faafc406053311a",
+  "checks": [
+    {
+      "case": "all-default-no",
+      "passed": true,
+      "prompts": 2,
+      "promotions": 0,
+      "exitCode": 0
+    },
+    {
+      "case": "select-second",
+      "passed": true,
+      "prompts": 3,
+      "promotions": 1,
+      "exitCode": 0
+    },
+    {
+      "case": "select-all",
+      "passed": true,
+      "prompts": 3,
+      "promotions": 2,
+      "exitCode": 0
+    },
+    {
+      "case": "final-no",
+      "passed": true,
+      "prompts": 3,
+      "promotions": 0,
+      "exitCode": 70
+    },
+    {
+      "case": "final-default-no",
+      "passed": true,
+      "prompts": 3,
+      "promotions": 0,
+      "exitCode": 70
+    },
+    {
+      "case": "escape-first",
+      "passed": true,
+      "prompts": 1,
+      "promotions": 0,
+      "exitCode": 70
+    },
+    {
+      "case": "cancel-after-selection",
+      "passed": true,
+      "prompts": 2,
+      "promotions": 0,
+      "exitCode": 70
+    },
+    {
+      "case": "escape-final",
+      "passed": true,
+      "prompts": 3,
+      "promotions": 0,
+      "exitCode": 70
+    },
+    {
+      "case": "interactive-preview",
+      "passed": true,
+      "prompts": 2,
+      "promotions": 0,
+      "exitCode": 0
+    },
+    {
+      "case": "concurrent-change",
+      "passed": true,
+      "prompts": 3,
+      "promotions": 0,
+      "exitCode": 70
+    }
+  ],
+  "passed": 10,
+  "remotePublication": false
+}

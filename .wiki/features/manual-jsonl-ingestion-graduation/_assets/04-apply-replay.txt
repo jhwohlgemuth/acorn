@@ -1,0 +1,12 @@
+{
+  "batchId": "e3ab151172e9ce536473c33926bb17ec759d8573d79aaf8844a9a21a4f597b45",
+  "status": "complete",
+  "projects": [
+    {
+      "projectId": "acorn",
+      "destination": "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/acorn/index.json",
+      "status": "already-applied"
+    }
+  ],
+  "error": null
+}

@@ -1,0 +1,343 @@
+{
+  "brandColor": "#8C6CFF",
+  "connectionReferences": {},
+  "connectorDisplayName": "Control",
+  "id": "c09b6605-4cf0-4a32-a61c-87feffb61959",
+  "isTrigger": false,
+  "operationName": "Deliver_receipt_once",
+  "operationDefinition": {
+    "type": "Scope",
+    "runAfter": {
+      "Validate_and_claim_receipt": [
+        "Succeeded",
+        "Failed",
+        "TimedOut"
+      ]
+    },
+    "actions": {
+      "Valid_event_only": {
+        "type": "If",
+        "expression": {
+          "and": [
+            {
+              "equals": [
+                "@actions('Validate_delivery')?['status']",
+                "Succeeded"
+              ]
+            },
+            {
+              "equals": [
+                "@actions('Validate_event')?['status']",
+                "Succeeded"
+              ]
+            }
+          ]
+        },
+        "runAfter": {},
+        "else": {
+          "actions": {
+            "Reject_invalid": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "InvalidCallback",
+                  "message": "Callback validation failed; no notification sent."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "actions": {
+          "Find_receipt": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_commondataserviceforapps",
+                "operationId": "ListRecords",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+              },
+              "parameters": {
+                "entityName": "cr1d0_acorncallbackreceipts",
+                "$filter": "@concat('cr1d0_webhookid eq ',decodeUriComponent('%27'),replace(triggerBody()?['text'],decodeUriComponent('%27'),decodeUriComponent('%27%27')),decodeUriComponent('%27'))",
+                "$top": 2
+              },
+              "authentication": {
+                "type": "Raw",
+                "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']"
+              },
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runAfter": {},
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            }
+          },
+          "One_receipt": {
+            "type": "If",
+            "runAfter": {
+              "Find_receipt": [
+                "Succeeded"
+              ]
+            },
+            "expression": {
+              "equals": [
+                "@length(body('Find_receipt')?['value'])",
+                1
+              ]
+            },
+            "else": {
+              "actions": {
+                "Receipt_unresolved": {
+                  "type": "Terminate",
+                  "inputs": {
+                    "runStatus": "Failed",
+                    "runError": {
+                      "code": "ReceiptUnresolved",
+                      "message": "A unique durable receipt could not be confirmed; no notification sent."
+                    }
+                  },
+                  "runAfter": {}
+                }
+              }
+            },
+            "actions": {
+              "Same_payload": {
+                "type": "If",
+                "runAfter": {},
+                "expression": {
+                  "equals": [
+                    "@first(body('Find_receipt')?['value'])?['cr1d0_payloadjson']",
+                    "@triggerBody()?['text_1']"
+                  ]
+                },
+                "else": {
+                  "actions": {
+                    "Payload_conflict": {
+                      "type": "Terminate",
+                      "inputs": {
+                        "runStatus": "Failed",
+                        "runError": {
+                          "code": "PayloadConflict",
+                          "message": "Delivery ID is already bound to different content; no notification sent."
+                        }
+                      },
+                      "runAfter": {}
+                    }
+                  }
+                },
+                "actions": {
+                  "Pending_email": {
+                    "type": "If",
+                    "runAfter": {},
+                    "expression": {
+                      "equals": [
+                        "@first(body('Find_receipt')?['value'])?['cr1d0_emailstate']",
+                        "Pending"
+                      ]
+                    },
+                    "actions": {
+                      "Mark_sending": {
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "host": {
+                            "connectionName": "shared_commondataserviceforapps",
+                            "operationId": "UpdateOnlyRecord",
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                          },
+                          "parameters": {
+                            "entityName": "cr1d0_acorncallbackreceipts",
+                            "recordId": "@first(body('Find_receipt')?['value'])?['cr1d0_acorncallbackreceiptid']",
+                            "item/cr1d0_emailstate": "Sending",
+                            "item/cr1d0_emailattemptrun": "@workflow()?['run']?['name']"
+                          },
+                          "authentication": {
+                            "type": "Raw",
+                            "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']"
+                          },
+                          "retryPolicy": {
+                            "type": "none"
+                          }
+                        },
+                        "runAfter": {},
+                        "runtimeConfiguration": {
+                          "secureData": {
+                            "properties": [
+                              "inputs",
+                              "outputs"
+                            ]
+                          }
+                        }
+                      },
+                      "Mark_sent": {
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "host": {
+                            "connectionName": "shared_commondataserviceforapps",
+                            "operationId": "UpdateOnlyRecord",
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                          },
+                          "parameters": {
+                            "entityName": "cr1d0_acorncallbackreceipts",
+                            "recordId": "@first(body('Find_receipt')?['value'])?['cr1d0_acorncallbackreceiptid']",
+                            "item/cr1d0_emailstate": "Sent"
+                          },
+                          "authentication": {
+                            "type": "Raw",
+                            "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']"
+                          },
+                          "retryPolicy": {
+                            "type": "none"
+                          }
+                        },
+                        "runAfter": {
+                          "Deliver_by_frozen_destination": [
+                            "Succeeded"
+                          ]
+                        },
+                        "runtimeConfiguration": {
+                          "secureData": {
+                            "properties": [
+                              "inputs",
+                              "outputs"
+                            ]
+                          }
+                        }
+                      },
+                      "Deliver_by_frozen_destination": {
+                        "type": "If",
+                        "expression": {
+                          "equals": [
+                            "@first(body('Find_receipt')?['value'])?['cr1d0_emailrecipient']",
+                            "teams-self:o9w@ornl.gov"
+                          ]
+                        },
+                        "actions": {
+                          "Send_Teams_once": {
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "host": {
+                                "connectionName": "shared_teams",
+                                "operationId": "PostMessageToSelf",
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams"
+                              },
+                              "parameters": {
+                                "body/body/content": "@concat(if(startsWith(triggerBody()?['text'],'acorn-test-'),'TEST ONLY \u2014 no review or report action is requested.','ACORN Sponsor Highlights'),decodeUriComponent('%0A%0A'),'Project: ',body('Validate_event')?['project_id'],decodeUriComponent('%0A'),if(equals(body('Validate_event')?['event'],'mr-created'),'Review workspace created. A separate email will request review when it is ready.','No report changes for the requested period. No action is needed.'),decodeUriComponent('%0A'),coalesce(body('Validate_event')?['merge_request_url'],concat('Through: ',string(body('Validate_event')?['through']))),decodeUriComponent('%0A%0A'),'Receipt: ',triggerBody()?['text'])",
+                                "body/body/contentType": "text"
+                              },
+                              "authentication": {
+                                "type": "Raw",
+                                "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']"
+                              },
+                              "retryPolicy": {
+                                "type": "none"
+                              }
+                            },
+                            "runAfter": {},
+                            "runtimeConfiguration": {
+                              "secureData": {
+                                "properties": [
+                                  "inputs",
+                                  "outputs"
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "else": {
+                          "actions": {
+                            "Send_email_once": {
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "host": {
+                                  "connectionName": "shared_office365",
+                                  "operationId": "SendEmailV2",
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+                                },
+                                "parameters": {
+                                  "emailMessage/To": "@first(body('Find_receipt')?['value'])?['cr1d0_emailrecipient']",
+                                  "emailMessage/Subject": "ACORN Sponsor Highlights milestone",
+                                  "emailMessage/Body": "@concat('<div style=\"font-family:Arial,sans-serif;border-top:6px solid #007833;padding:20px\"><h2>ACORN \u00b7 Sponsor Highlights</h2><p>',if(startsWith(triggerBody()?['text'],'acorn-test-'),'TEST ONLY \u2014 callback delivery acceptance. No report or review action is requested.','A research activity update is ready.'),'</p><p><b>Project:</b> ',replace(replace(replace(string(body('Validate_event')?['project_id']), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'),'</p><p><b>Update:</b> ',replace(replace(replace(string(body('Validate_event')?['event']), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'),'</p><p>',replace(replace(replace(string(coalesce(body('Validate_event')?['message'],body('Validate_event')?['merge_request_url'],body('Validate_event')?['package_url'],'No new report entries for the requested period.')), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'),'</p><p><b>Through:</b> ',replace(replace(replace(string(coalesce(body('Validate_event')?['through'],'Not applicable')), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'),'</p><p style=\"color:#555;font-size:12px\">Delivery ID: ',replace(replace(replace(string(triggerBody()?['text']), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'),'</p></div>')",
+                                  "emailMessage/Importance": "Normal"
+                                },
+                                "authentication": {
+                                  "type": "Raw",
+                                  "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']"
+                                },
+                                "retryPolicy": {
+                                  "type": "none"
+                                }
+                              },
+                              "runAfter": {},
+                              "runtimeConfiguration": {
+                                "secureData": {
+                                  "properties": [
+                                    "inputs",
+                                    "outputs"
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "runAfter": {
+                          "Mark_sending": [
+                            "Succeeded"
+                          ]
+                        }
+                      }
+                    },
+                    "else": {
+                      "actions": {
+                        "Already_sent": {
+                          "type": "If",
+                          "runAfter": {},
+                          "expression": {
+                            "equals": [
+                              "@first(body('Find_receipt')?['value'])?['cr1d0_emailstate']",
+                              "Sent"
+                            ]
+                          },
+                          "actions": {
+                            "Duplicate_no_send": {
+                              "type": "Compose",
+                              "inputs": "Already sent; duplicate suppressed.",
+                              "runAfter": {}
+                            }
+                          },
+                          "else": {
+                            "actions": {
+                              "Reconcile_email": {
+                                "type": "Terminate",
+                                "inputs": {
+                                  "runStatus": "Failed",
+                                  "runError": {
+                                    "code": "DeliveryNeedsReview",
+                                    "message": "Sending or unresolved state: inspect the recorded attempt and Teams Notes chat or Sent Items before any resend."
+                                  }
+                                },
+                                "runAfter": {}
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

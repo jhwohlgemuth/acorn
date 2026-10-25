@@ -1,0 +1,44 @@
+[
+  {
+    "entry": {
+      "archived": false,
+      "category": "software",
+      "eventType": null,
+      "global": false,
+      "items": [
+        "Two overlapping intake runs must preserve both records without lost updates."
+      ],
+      "origin": "manual",
+      "state": "completed",
+      "summary": "TEST ONLY — concurrent writer A. Exclude from sponsor reporting.",
+      "timestamp": "2026-10-24T04:00:00.000Z"
+    },
+    "projectId": "acorn",
+    "submissionId": "146b840c-52b2-4d3c-a257-df6e507f808a",
+    "submittedAt": "2026-10-24T20:23:06.494Z",
+    "submitter": {
+      "email": "o9w@ornl.gov"
+    }
+  },
+  {
+    "entry": {
+      "archived": false,
+      "category": "software",
+      "eventType": null,
+      "global": false,
+      "items": [
+        "Two overlapping intake runs must preserve both records without lost updates."
+      ],
+      "origin": "manual",
+      "state": "completed",
+      "summary": "TEST ONLY — concurrent writer B. Exclude from sponsor reporting.",
+      "timestamp": "2026-10-24T04:00:00.000Z"
+    },
+    "projectId": "acorn",
+    "submissionId": "7a899477-da02-47bb-a02b-798a9c97fe7d",
+    "submittedAt": "2026-10-24T20:23:06.494Z",
+    "submitter": {
+      "email": "o9w@ornl.gov"
+    }
+  }
+]

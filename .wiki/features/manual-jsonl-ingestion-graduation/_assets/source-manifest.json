@@ -1,0 +1,18 @@
+{
+  "repository": "https://code.ornl.gov/research-enablement/experiments/power-automate",
+  "projectId": 22464,
+  "branch": "main",
+  "path": ".acorn/intake/logbook.jsonl",
+  "commit": "3090aa5714b4c6ff59c5dd0b6ecba999f918caa2",
+  "parent": "7dd33b6d6094ab4d0b2ce13d8c58296a210064d5",
+  "flowRun": "08584087230445394451842398555CU19",
+  "submissionId": "4313fcfc-0201-441e-8bda-c77718a31dcf",
+  "snapshotSha256": "76f0e36f637b5611cca8aa6c69ce5db13be00a0b5e17b2dbfe71c20a38177384",
+  "selectedSha256": "c8496e27ce6379296d19c194305b2f17f028f2e3314230de9ce8adc7b28a2c58",
+  "selectedLines": [
+    6
+  ],
+  "recordCount": 6,
+  "transfer": "GitLab immutable-file Download; original bytes retained",
+  "scope": "TEST ONLY; isolated local demo; remote inbox never drained"
+}

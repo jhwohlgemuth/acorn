@@ -13,13 +13,13 @@ phase_budget_hours: 5
 
 # Project code boundaries
 
-- **Update:** `.gitlab-ci.yml`, the reusable artifact-creation template described in the [Power Automate reporting plan](../features/powerapps-gitlab-logbook-reporting.md), runner registration/configuration outside the repository, and CI operations documentation.
+- **Update:** `.gitlab-ci.yml`, the external `research-enablement/templates` file `gitlab/powerautomate-report.gitlab-ci.yml` used by the [Vergil automated reporting plan](../features/vergil-gitlab-jsonl-automation/index.md), runner registration/configuration outside the repository, and CI operations documentation.
 - **Create:** dedicated runner registrations and isolated build/cache storage for Rust/fuzz jobs, plus a separately tagged scheduled-reporting pool with protected package and callback credentials; no new product code.
 - **Delete:** the shared `tests` resource group only after tag routing and storage isolation are verified; do not remove recovery cleanup prematurely.
 
 # Dependencies
 
-The implemented portability job uses the Rust pool once available. The reporting pool follows the implemented PowerAutomate runner contract.
+The implemented portability job uses the Rust pool once available. The reporting pool follows the reporting contract consumed by the root CI include. The checked-in include still tracks `main`; an immutable pilot include and actual project `22464` publication are owned by Vergil PA-08/BOT-03. Runner-pool acceptance here is project `16689` evidence and does not itself establish a pilot deployment.
 
 # Goal
 
@@ -31,7 +31,7 @@ Run Rust and fuzz tests concurrently where their dependencies allow without lett
 - Runner configuration now records explicit tags and `run_untagged` policy, and the create-runner path sends those values to GitLab. The checked-in ACORN configuration identifies independent `arm64` and `amd64` workers.
 - CI test, documentation, portability, and fuzz jobs currently select `arm64`, but they still share the `tests` resource group and therefore cannot demonstrate the intended Rust/fuzz concurrency.
 - The repository sets `GIT_CLONE_PATH` with both `CI_CONCURRENT_ID` and `CI_JOB_ID`, and the affected jobs remove stale checkout locks in `pre_get_sources_script`.
-- No checked-in job uses the planned `rust-tests` or `artifact-creation` tag, and repository evidence cannot prove that runner-manager tokens, configuration volumes, or build volumes are isolated.
+- No locally defined job uses the planned `rust-tests` or `artifact-creation` tag; the externally included reporting template was not fetched in this code review, and repository evidence cannot prove that runner-manager tokens, configuration volumes, or build volumes are isolated.
 - GitLab documents that shared build directories with concurrency greater than one can cause multiple jobs to use the same directory, and places responsibility for isolation on runner administrators.[^1]
 - GitLab warns that cloned runner authentication tokens let cloned runner managers pick up the same jobs.[^2]
 

@@ -1,0 +1,30 @@
+{
+  "baseDigest": "sha256:75d3f85f9de5a1c84a61d2e36d42d823f98c21f23c5bc99bb4f0350bdcef8936",
+  "candidates": [
+    {
+      "entryIdentifier": "form-4313-fcfc-0201-441-e-8-bda-c-77718-a-31-dcf",
+      "target": "contributors",
+      "value": "Example, Avery (TEST ONLY)"
+    }
+  ],
+  "index": "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/work/acorn/index.json",
+  "logbook": {
+    "entries": [
+      {
+        "identifier": "form-4313-fcfc-0201-441-e-8-bda-c-77718-a-31-dcf",
+        "projectId": "acorn",
+        "global": false,
+        "timestamp": "2026-10-24T04:00:00.000Z",
+        "category": "personnel",
+        "state": "completed",
+        "origin": "manual",
+        "summary": "Example, Avery (TEST ONLY)",
+        "items": [
+          "TEST ONLY: Fictitious contributor for the October 2026 ACORN MVP demonstration.",
+          "Trace this receipt through local ingestion, reviewed contributor graduation, and a local PDF; exclude from sponsor reporting."
+        ],
+        "archived": false
+      }
+    ]
+  }
+}

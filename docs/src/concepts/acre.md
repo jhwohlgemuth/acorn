@@ -119,10 +119,12 @@ For an offline local proposal/apply smoke, copy `tests/fixtures/automation/power
 
 ## Standalone local logbook review
 
-For a registered folder with a `file:` destination and no bucket association, use a local JSONL inbox:
+For a registered folder with a `file:` destination and no bucket association, use a JSONL source:
+
+The source can be a filesystem path, an absolute `file:` URI, or a GitLab `/-/raw/<ref>/<path>` or `/-/blob/<ref>/<path>` URL. GitLab files are captured at an immutable commit with a provenance receipt for subsequent offline review. See [source syntax and credentials](../cli-reference/commands/intake.md#jsonl-sources-for-local-review). Source selection does not change the folder destination or authorize remote writes.
 
 ```sh
-acorn intake stage --config .acorn.json --inbox logbook.jsonl
+acorn intake stage --config .acorn.json --source logbook.jsonl
 # Review .acorn/intake/proposals/<submission-UUID>.json, then:
 acorn intake apply --config .acorn.json --submission-id <submission-UUID>
 ```
@@ -132,7 +134,7 @@ Staging checks the same form and member rules and writes a proposal containing t
 For one reviewable batch spanning several existing local projects, run:
 
 ```sh
-acorn intake stage --batch --config .acorn.json --inbox logbook.jsonl
+acorn intake stage --batch --config .acorn.json --source logbook.jsonl
 acorn intake inspect --config .acorn.json --batch-id <batch-ID>
 acorn intake apply --config .acorn.json --batch-id <batch-ID>
 acorn intake inspect --config .acorn.json --batch-id <batch-ID>
