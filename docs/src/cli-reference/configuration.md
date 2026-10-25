@@ -69,6 +69,30 @@ acorn create runner
 
 Runner containers always start detached. Command-line `--host` or `--context` overrides `target.host` for every runner in that invocation.
 
+For a shell runner, set `"executor": "shell"` and omit the container target:
+
+```json
+{
+    "schemaVersion": "2.0.0",
+    "runners": [
+        {
+            "description": "Windows shell runner",
+            "repository": {
+                "provider": "gitlab",
+                "id": 12345,
+                "uri": "https://code.ornl.gov/research-enablement"
+            },
+            "type": "group",
+            "executor": "shell",
+            "tags": ["windows-x86_64"],
+            "host": "code.ornl.gov"
+        }
+    ]
+}
+```
+
+Run `acorn create runner` on the intended shell host with GitLab Runner installed and a running service. The registration process must write the same `config.toml` that the service reads. GitLab Runner supports `CONFIG_FILE` to select that path; ACORN's `--config` selects the ACRE file instead. Shell jobs run locally on the host under the runner service account. See [GitLab Runner commands](https://docs.gitlab.com/runner/commands/) and the [shell executor](https://docs.gitlab.com/runner/executors/shell/).
+
 `.acorn.jsonc` file
 ```jsonc
 {

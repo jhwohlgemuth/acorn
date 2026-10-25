@@ -20,7 +20,7 @@ use crate::cli::{
     ImportCommands, InferCommands, McpCommands, ServeCommands,
 };
 use crate::test::util::{temp_test_dir, TestCleanup};
-use acorn::io::filter_ignored_with_root;
+use acorn::io::{filter_ignored_with_root, Executor};
 use acorn::util::constants::env::CHROME_PATH;
 use acorn_core::{
     util::{MarkdownSupport, MimeType},
@@ -380,6 +380,12 @@ fn test_create_runner_no_config_arguments() {
         "42",
         "--description",
         "local-runner",
+        "--runtime",
+        "shell",
+        "--tags",
+        "windows-x86_64",
+        "--repo",
+        "code.ornl.gov",
     ])
     .expect("parse runner without configuration discovery");
     assert!(matches!(
@@ -387,6 +393,9 @@ fn test_create_runner_no_config_arguments() {
         Some(Commands::Create {
             command: Some(CreateCommands::Runner(arguments)),
         }) if arguments.no_config
+            && arguments.runtime == Some(Executor::Shell)
+            && arguments.tags == ["windows-x86_64"]
+            && arguments.repo.as_deref() == Some("code.ornl.gov")
     ));
     assert!(Arguments::try_parse_from(["acorn", "create", "runner", "--no-config", "--config", "runner.json",]).is_err());
 }

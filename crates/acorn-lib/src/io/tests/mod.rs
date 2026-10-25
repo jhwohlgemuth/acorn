@@ -912,6 +912,27 @@ fn test_executor_roundtrip() {
     assert_eq!(executor, restored);
 }
 #[test]
+fn test_executor_serde_roundtrip() {
+    for executor in [
+        Executor::Apptainer,
+        Executor::Docker,
+        Executor::Kubernetes,
+        Executor::Other("CustomRuntime".to_string()),
+        Executor::Podman,
+        Executor::Sandbox,
+        Executor::Shell,
+        Executor::Ssh,
+        Executor::VirtualMachine,
+    ] {
+        let value = serde_json::to_value(&executor).unwrap();
+        assert_eq!(value, serde_json::Value::String(executor.as_ref().to_string()));
+        assert_eq!(serde_json::from_value::<Executor>(value).unwrap(), executor);
+    }
+    assert_eq!(serde_json::from_str::<Executor>("\"pwsh\"").unwrap(), Executor::Shell);
+    let schema = serde_json::to_value(schemars::schema_for!(Executor)).unwrap();
+    assert_eq!(schema.get("type").and_then(serde_json::Value::as_str), Some("string"));
+}
+#[test]
 fn test_files_all() {
     let extensions = Some(vec!["json"]);
     let files = files_all(fixtures_dir().join("glob"), extensions);

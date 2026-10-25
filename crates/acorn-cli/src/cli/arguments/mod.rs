@@ -1461,7 +1461,7 @@ pub(crate) struct Runner {
     /// GitLab project ID to create a runner for (alternative to providing a configuration file)
     #[arg(short, long, conflicts_with = "group", value_name = "ID", help_heading = "OPTIONS")]
     pub(crate) project: Option<u64>,
-    /// Runner name (used as Docker container name)
+    /// Runner container name for container executors; shell runners use --description
     #[arg(short = 'n', long, value_name = "NAME", help_heading = "OPTIONS")]
     pub(crate) name: Option<String>,
     /// Hosting server location (for use during registration)
@@ -1480,7 +1480,7 @@ pub(crate) struct Runner {
     /// Whether this runner can pick up jobs without matching tags (alternative to providing a configuration file)
     #[arg(short, long, conflicts_with = "tags", help_heading = "FLAGS")]
     pub(crate) untagged: bool,
-    /// Container runtime override (docker, podman, apptainer). Defaults to the executor's runtime.
+    /// Runner runtime override (docker, podman, apptainer, shell, and others). Defaults to the configured executor or Docker.
     #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
     pub(crate) runtime: Option<Executor>,
     #[command(flatten)]

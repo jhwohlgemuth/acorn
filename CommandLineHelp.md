@@ -351,11 +351,11 @@ GitLab runner
 * `-g`, `--group <ID>` — GitLab group ID to create a runner for (alternative to providing a configuration file)
 * `-r`, `--repo <REPO>` — GitLab repository domain override for runner creation (e.g., code.ornl.gov)
 * `-p`, `--project <ID>` — GitLab project ID to create a runner for (alternative to providing a configuration file)
-* `-n`, `--name <NAME>` — Runner name (used as Docker container name)
+* `-n`, `--name <NAME>` — Runner container name for container executors; shell runners use --description
 * `-s`, `--server <SERVER>` — Hosting server location (for use during registration)
 * `-t`, `--tags <LIST>` — Tags to register the runner with (alternative to providing a configuration file)
 * `-u`, `--untagged` — Whether this runner can pick up jobs without matching tags (alternative to providing a configuration file)
-* `-R`, `--runtime <RUNTIME>` — Container runtime override (docker, podman, apptainer). Defaults to the executor's runtime
+* `-R`, `--runtime <RUNTIME>` — Runner runtime override (docker, podman, apptainer, shell, and others). Defaults to the configured executor or Docker
 * `--host <URI|ALIAS>` — SSH URI or alias of the remote host (e.g. ssh://user@host, my-alias).
 
    The local client and SSH configuration are used. Published ports and volumes belong to the remote host.

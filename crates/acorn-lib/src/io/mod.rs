@@ -38,6 +38,7 @@ use acorn_schema::{
     standard::zon,
     vocabulary::{VocabularyFormat, VocabularyFuzzyMode},
 };
+use alloc::borrow::Cow;
 pub use archive::{
     archive, extract, zip_entries, ArchiveCandidate, ArchiveCreation, ArchiveExtraction, ArchiveFormat, DeterministicZipEntry, ZipEntrySource,
 };
@@ -69,7 +70,7 @@ use rsa::{
     RsaPrivateKey, RsaPublicKey,
 };
 use same_file::Handle;
-use schemars::JsonSchema;
+use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 pub use source::{read_clipboard, select_source, InputSource, Source, SourceAction, TextOrigin};
@@ -305,13 +306,11 @@ pub enum ContainerTarget {
 /// The "engine" or "execution method" that determines where and how to run (e.g., "execute") code.
 /// ### Note
 /// At a minimum, choosing an executor also determines level of isolation and security for code execution.
-#[derive(Clone, Debug, Deserialize, EnumIs, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(untagged, rename_all = "snake_case")]
+#[derive(Clone, Debug, EnumIs, Eq, PartialEq)]
 pub enum Executor {
     /// Simplifies the creation and execution of containers, ensuring software components are encapsulated for portability and reproducibility
     /// ### Note
     /// Formerly Singularity
-    #[serde(alias = "Singularity", alias = "singularity")]
     Apptainer,
     /// Container engine and ecosystem for building, running, and managing containers
     ///
@@ -326,22 +325,18 @@ pub enum Executor {
     /// Secure execution environment that leverages technology other than containerization to achieve isolation
     Sandbox,
     /// Local command-line interface that interprets and runs commands for the operating system directly
-    #[serde(alias = "zsh", alias = "pwsh", alias = "cmd", alias = "local")]
     Shell,
     /// Secure Shell (SSH) protocol for remote command execution
-    #[serde(alias = "remote")]
     Ssh,
     /// Portable, extensible, open source platform for managing containerized workloads and services that facilitate both declarative configuration and automation
     ///
     /// See <https://kubernetes.io/> for more information
-    #[serde(alias = "k8s")]
     Kubernetes,
     /// Software-based computers that run an operating system inside another host system, with stronger isolation than containers
     /// ### Examples
     /// - [Oracle VirtualBox](https://www.oracle.com/virtualization/virtualbox/)
     /// - [Vagrant](https://www.vagrantup.com/)
     /// - [Amazon Firecracker](https://firecracker-microvm.github.io/)
-    #[serde(alias = "vm")]
     VirtualMachine,
     /// Custom or unspecified execution method
     Other(String),
@@ -687,12 +682,42 @@ impl From<&str> for Executor {
             | "docker" => Executor::Docker,
             | "podman" => Executor::Podman,
             | "sandbox" => Executor::Sandbox,
-            | "shell" => Executor::Shell,
-            | "ssh" => Executor::Ssh,
+            | "shell" | "zsh" | "pwsh" | "cmd" | "local" => Executor::Shell,
+            | "ssh" | "remote" => Executor::Ssh,
             | "kubernetes" | "k8s" => Executor::Kubernetes,
             | "virtual machine" | "virtual_machine" | "vm" => Executor::VirtualMachine,
-            | other => Executor::Other(other.to_string()),
+            | _ => Executor::Other(value.to_string()),
         }
+    }
+}
+impl<'de> Deserialize<'de> for Executor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).map(|value| Self::from(value.as_str()))
+    }
+}
+impl JsonSchema for Executor {
+    fn inline_schema() -> bool {
+        true
+    }
+    fn schema_name() -> Cow<'static, str> {
+        "Executor".into()
+    }
+    fn schema_id() -> Cow<'static, str> {
+        concat!(module_path!(), "::Executor").into()
+    }
+    fn json_schema(generator: &mut SchemaGenerator) -> Schema {
+        <String as JsonSchema>::json_schema(generator)
+    }
+}
+impl Serialize for Executor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_ref())
     }
 }
 impl FileExtension for MimeType {

@@ -22,6 +22,19 @@ fn test_cli_runtime_is_selected_without_config() {
     assert!(target.is_none());
 }
 #[test]
+fn test_configured_shell_runner_is_local() {
+    let runner: RunnerDetails =
+        serde_json::from_str(r#"{"repository":{"provider":"gitlab","id":42,"uri":"https://gitlab.com/group"},"type":"group","executor":"shell"}"#)
+            .unwrap();
+    assert_eq!(
+        serde_json::to_value(&runner).unwrap().get("executor").and_then(serde_json::Value::as_str),
+        Some("shell")
+    );
+    let (runtime, target) = resolve_operation(Some(&runner), &None, None).unwrap();
+    assert_eq!(runtime, Executor::Shell);
+    assert!(target.is_none());
+}
+#[test]
 fn test_configured_target_is_overridden_by_cli_target() {
     let runner = RunnerDetails::at(Repository::GitLab {
         id: Some(42),
