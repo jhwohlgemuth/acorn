@@ -179,8 +179,8 @@
     },
     {
       "path": "powerapps-jsonl-intake/pilot-runbook.md",
-      "sha256": "b58bb3b09cc4e489088ecebefa94ed0a7c384f2ac8cdce80650722ae3b5234ab",
-      "bytes": 53824
+      "sha256": "4cf48240b92c02c9a3135ffa677f1d4df115432689d014b9e35a8cf81d717ab9",
+      "bytes": 54420
     },
     {
       "path": "powerapps-jsonl-intake/source-bundle-readme.md",
@@ -189,13 +189,8 @@
     },
     {
       "path": "powerapps-jsonl-intake/write-failure-acceptance.md",
-      "sha256": "07132180f45087387388e6f96d6ab2e5ab2e85a4ab13e6e4b9171c7bcc2627c0",
-      "bytes": 3329
-    },
-    {
-      "path": "vergil-gitlab-jsonl-automation/_assets/callback-claim-scope.clipboard.json",
-      "sha256": "890a9060bec3fd9abd3eb948bb5fa65dd1c8e11e9fae9837eabfbc3de9c8034a",
-      "bytes": 5972
+      "sha256": "96e1b1ca18f397aa438fde51edeabe4caf04a183f484bed4ec7de95cbf2ef19b",
+      "bytes": 3378
     },
     {
       "path": "vergil-gitlab-jsonl-automation/_assets/callback-concurrent-ledger.txt",
@@ -216,11 +211,6 @@
       "path": "vergil-gitlab-jsonl-automation/_assets/callback-concurrent-send.txt",
       "sha256": "67052470b58e5de3b933f353cc720512d9f44ea969d187167a04b12283264579",
       "bytes": 7254
-    },
-    {
-      "path": "vergil-gitlab-jsonl-automation/_assets/callback-delivery-scope.clipboard.json",
-      "sha256": "4f8bac88c0e60c25fdb1e61431f773843ea48c24f55af68ff1dc9686792bf66d",
-      "bytes": 15552
     },
     {
       "path": "vergil-gitlab-jsonl-automation/_assets/callback-email-replay.txt",
@@ -330,14 +320,15 @@
   ],
   "limitations": [
     "Source backup only; not an importable Power Platform solution.",
-    "Manual callback receipt and notification flow is saved and On; independent acceptance is recorded in README.md.",
+    "Manual callback receipt and notification flow is saved and On; independent acceptance is recorded in the notification walkthrough.",
     "Bind existing protected connections through the designer; never embed credential values.",
     "External callback trigger authentication and sender lost-response/restart acceptance remain outstanding.",
-    "Custom connector must become solution-aware before a complete solution export can succeed."
+    "Native v6 intake/catalog/app restore package exists separately; full app-driven intake and ORNL callback/table restore acceptance remain open."
   ],
   "pilotOwner": "Jason Wohlgemuth",
   "notificationRouting": "Confirmed new intake and new mr-created/report-no-changes callback receipts use Jason Teams self-chat; review-needed/artifact-ready/failed use milestone email. Older receipts retain destinations.",
   "pathBase": "../..",
   "layout": "Plan folders; archive paths are relative to .wiki/features/",
-  "privacyNote": "Personal Teams chat screenshots are excluded; teams-example.png is a fictional illustration."
+  "privacyNote": "Personal Teams chat screenshots are excluded; teams-example.png is a fictional illustration.",
+  "updatedDate": "2026-10-25"
 }

@@ -1,0 +1,1322 @@
+{
+  "type": "Scope",
+  "actions": {
+    "Blank_details_PA17v2": {
+      "type": "Query",
+      "inputs": {
+        "from": "@coalesce(body('Parse_submission_PA17v2')?['entry']?['items'], json('[]'))",
+        "where": "@empty(trim(item()))"
+      },
+      "runAfter": {
+        "Check_timestamps_PA17v2": [
+          "Succeeded"
+        ]
+      },
+      "runtimeConfiguration": {
+        "secureData": {
+          "properties": [
+            "inputs",
+            "outputs"
+          ]
+        }
+      },
+      "metadata": {
+        "operationMetadataId": "6a78d5c2-da81-4e2a-a752-e1663cce8bab"
+      }
+    },
+    "Caller_email_PA17v2": {
+      "type": "Compose",
+      "inputs": "@toLower(if(not(empty(triggerOutputs()?['headers']?['x-ms-user-email-encoded'])), base64ToString(triggerOutputs()?['headers']?['x-ms-user-email-encoded']), coalesce(triggerOutputs()?['headers']?['x-ms-user-email'], string(null))))",
+      "runAfter": {
+        "Blank_details_PA17v2": [
+          "Succeeded"
+        ]
+      },
+      "runtimeConfiguration": {
+        "secureData": {
+          "properties": [
+            "inputs"
+          ]
+        }
+      },
+      "metadata": {
+        "operationMetadataId": "e349a420-4086-48d7-ae39-e4d8a0a6ec6f"
+      }
+    },
+    "Check_timestamps_PA17v2": {
+      "type": "Compose",
+      "inputs": "@createArray(ticks(body('Parse_submission_PA17v2')?['submittedAt']), ticks(body('Parse_submission_PA17v2')?['entry']?['timestamp']))",
+      "runAfter": {
+        "Parse_submission_PA17v2": [
+          "Succeeded"
+        ]
+      },
+      "runtimeConfiguration": {
+        "secureData": {
+          "properties": [
+            "inputs"
+          ]
+        }
+      },
+      "metadata": {
+        "operationMetadataId": "1e2cf081-004f-4fba-8537-02cbddcf415d"
+      }
+    },
+    "Envelope_allowed_PA17v2": {
+      "type": "If",
+      "expression": {
+        "and": [
+          {
+            "equals": [
+              "@and(and(not(empty(outputs('Caller_email_PA17v2'))), equals(outputs('Caller_email_PA17v2'), toLower(body('Parse_submission_PA17v2')?['submitter']?['email'])), lessOrEquals(length(base64(outputs('Raw_submission_PA17v2'))), 87380), not(contains(outputs('Raw_submission_PA17v2'), decodeUriComponent('%0A'))), not(contains(outputs('Raw_submission_PA17v2'), decodeUriComponent('%0D')))), empty(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(body('Parse_submission_PA17v2')?['submissionId'], '0', string(null)), '1', string(null)), '2', string(null)), '3', string(null)), '4', string(null)), '5', string(null)), '6', string(null)), '7', string(null)), '8', string(null)), '9', string(null)), 'a', string(null)), 'b', string(null)), 'c', string(null)), 'd', string(null)), 'e', string(null)), 'f', string(null)), '-', string(null))), equals(length(split(body('Parse_submission_PA17v2')?['submissionId'], '-')), 5), equals(substring(body('Parse_submission_PA17v2')?['submissionId'], 8, 1), '-'), equals(substring(body('Parse_submission_PA17v2')?['submissionId'], 13, 1), '-'), equals(substring(body('Parse_submission_PA17v2')?['submissionId'], 18, 1), '-'), equals(substring(body('Parse_submission_PA17v2')?['submissionId'], 23, 1), '-'), not(empty(trim(body('Parse_submission_PA17v2')?['entry']?['summary']))), empty(body('Blank_details_PA17v2')))",
+              true
+            ]
+          }
+        ]
+      },
+      "actions": {
+        "Commit_marker_PA17v2": {
+          "type": "Compose",
+          "inputs": "@concat('acorn-submission:', body('Parse_submission_PA17v2')?['submissionId'])",
+          "runtimeConfiguration": {
+            "secureData": {
+              "properties": [
+                "inputs"
+              ]
+            }
+          },
+          "metadata": {
+            "operationMetadataId": "95ce8d6a-8f3d-4fb1-90be-0de966d8b894"
+          }
+        },
+        "Matching_commits_PA17v2": {
+          "type": "Query",
+          "inputs": {
+            "from": "@body('List_submission_history_PA17v2')",
+            "where": "@equals(trim(item()?['message']),outputs('Commit_marker_PA17v2'))"
+          },
+          "runAfter": {
+            "List_submission_history_PA17v2": [
+              "Succeeded"
+            ]
+          },
+          "runtimeConfiguration": {
+            "secureData": {
+              "properties": [
+                "inputs",
+                "outputs"
+              ]
+            }
+          },
+          "metadata": {
+            "operationMetadataId": "bbc2e093-c88c-4c41-ac24-b6490796be28"
+          }
+        },
+        "Prior_submission_exists_PA17v2": {
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@greater(length(body('Matching_commits_PA17v2')), 0)",
+                  true
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Parent_readable_PA17v2": {
+              "type": "If",
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@or(equals(outputs('Parent_snapshot_PA17v2')?['statusCode'], 200), equals(outputs('Parent_snapshot_PA17v2')?['statusCode'], 404))",
+                      true
+                    ]
+                  }
+                ]
+              },
+              "actions": {
+                "Exact_prior_append_PA17v2": {
+                  "type": "If",
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@equals(base64(outputs('Expected_prior_bytes_PA17v2')), replace(replace(body('Prior_snapshot_PA17v2')?['content'], decodeUriComponent('%0A'), string(null)), decodeUriComponent('%0D'), string(null)))",
+                          true
+                        ]
+                      }
+                    ]
+                  },
+                  "actions": {
+                    "Queued_replay_PA17v2": {
+                      "type": "Response",
+                      "kind": "PowerApp",
+                      "inputs": {
+                        "schema": {
+                          "type": "object",
+                          "properties": {
+                            "commitsha": {
+                              "title": "commitSha",
+                              "x-ms-dynamically-added": true,
+                              "type": "string"
+                            },
+                            "disposition": {
+                              "title": "disposition",
+                              "x-ms-dynamically-added": true,
+                              "type": "string"
+                            },
+                            "message": {
+                              "title": "message",
+                              "x-ms-dynamically-added": true,
+                              "type": "string"
+                            },
+                            "submissionid": {
+                              "title": "submissionId",
+                              "x-ms-dynamically-added": true,
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": {}
+                        },
+                        "statusCode": 200,
+                        "body": {
+                          "commitsha": "@{outputs('Prior_commit_PA17v2')?['id']}",
+                          "disposition": "queued",
+                          "message": "Previously saved to logbook; awaiting ACORN review.",
+                          "submissionid": "@{body('Parse_submission_PA17v2')?['submissionId']}"
+                        }
+                      },
+                      "runtimeConfiguration": {
+                        "secureData": {
+                          "properties": [
+                            "inputs"
+                          ]
+                        }
+                      },
+                      "metadata": {
+                        "operationMetadataId": "c9c059f8-5ef5-4ca9-ae23-407859406180"
+                      }
+                    }
+                  },
+                  "else": {
+                    "actions": {
+                      "Identity_conflict_PA17v2": {
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "commitsha": {
+                                "title": "commitSha",
+                                "x-ms-dynamically-added": true,
+                                "type": "string"
+                              },
+                              "disposition": {
+                                "title": "disposition",
+                                "x-ms-dynamically-added": true,
+                                "type": "string"
+                              },
+                              "message": {
+                                "title": "message",
+                                "x-ms-dynamically-added": true,
+                                "type": "string"
+                              },
+                              "submissionid": {
+                                "title": "submissionId",
+                                "x-ms-dynamically-added": true,
+                                "type": "string"
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "disposition": "conflict",
+                            "message": "This submission ID already has different or unverifiable bytes. Operator review is required.",
+                            "submissionid": "@{body('Parse_submission_PA17v2')?['submissionId']}"
+                          }
+                        },
+                        "runtimeConfiguration": {
+                          "secureData": {
+                            "properties": [
+                              "inputs"
+                            ]
+                          }
+                        },
+                        "metadata": {
+                          "operationMetadataId": "372e4d70-6c8b-494d-ab1e-f3cb0b86e9ae"
+                        }
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Expected_prior_bytes_PA17v2": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "e9b0e044-4907-4448-8218-0469b08bcf9b"
+                  }
+                },
+                "Expected_prior_bytes_PA17v2": {
+                  "type": "Compose",
+                  "inputs": "@concat(if(equals(outputs('Parent_snapshot_PA17v2')?['statusCode'], 404), string(null), base64ToString(body('Parent_snapshot_PA17v2')?['content'])), outputs('Raw_submission_PA17v2'), decodeUriComponent('%0A'))",
+                  "runtimeConfiguration": {
+                    "secureData": {
+                      "properties": [
+                        "inputs"
+                      ]
+                    }
+                  },
+                  "metadata": {
+                    "operationMetadataId": "d0eb87b9-e176-4c18-a5fb-732f031f762d"
+                  }
+                }
+              },
+              "else": {
+                "actions": {
+                  "Unresolved_parent_PA17v2": {
+                    "type": "Response",
+                    "kind": "PowerApp",
+                    "inputs": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "commitsha": {
+                            "title": "commitSha",
+                            "x-ms-dynamically-added": true,
+                            "type": "string"
+                          },
+                          "disposition": {
+                            "title": "disposition",
+                            "x-ms-dynamically-added": true,
+                            "type": "string"
+                          },
+                          "message": {
+                            "title": "message",
+                            "x-ms-dynamically-added": true,
+                            "type": "string"
+                          },
+                          "submissionid": {
+                            "title": "submissionId",
+                            "x-ms-dynamically-added": true,
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": {}
+                      },
+                      "statusCode": 200,
+                      "body": {
+                        "disposition": "unresolved",
+                        "message": "Prior submission evidence is unavailable. Keep this submission.",
+                        "submissionid": "@{body('Parse_submission_PA17v2')?['submissionId']}"
+                      }
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs"
+                        ]
+                      }
+                    },
+                    "metadata": {
+                      "operationMetadataId": "efa7e2d4-e12e-4caa-898b-40c4c7f3294b"
+                    }
+                  }
+                }
+              },
+              "runAfter": {
+                "Parent_snapshot_PA17v2": [
+                  "Succeeded",
+                  "Failed",
+                  "TimedOut"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "b8761275-7550-437b-bba5-97b686350463"
+              }
+            },
+            "Parent_snapshot_PA17v2": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "ref": "@first(outputs('Prior_commit_PA17v2')?['parent_ids'])"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_new-5facorn-20pa17-20gitlab-20test-20only-5f06923fc38f4e1ce0",
+                  "connection": "shared_new-5facorn-20pa17-20gitlab-20test-20only-5f06923fc38f4e1ce0-1",
+                  "operationId": "ReadLogbook"
+                },
+                "retryPolicy": {
+                  "type": "none"
+                }
+              },
+              "runAfter": {
+                "Prior_snapshot_PA17v2": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs",
+                    "outputs"
+                  ]
+                }
+              },
+              "metadata": {
+                "operationMetadataId": "5cc09e29-b188-4e26-96c5-da453847b9eb"
+              }
+            },
+            "Prior_commit_PA17v2": {
+              "type": "Compose",
+              "inputs": "@first(body('Matching_commits_PA17v2'))",
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs"
+                  ]
+                }
+              },
+              "metadata": {
+                "operationMetadataId": "b8c49d21-e45f-4615-9e51-abebbc351899"
+              }
+            },
+            "Prior_snapshot_PA17v2": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "ref": "@outputs('Prior_commit_PA17v2')?['id']"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_new-5facorn-20pa17-20gitlab-20test-20only-5f06923fc38f4e1ce0",
+                  "connection": "shared_new-5facorn-20pa17-20gitlab-20test-20only-5f06923fc38f4e1ce0-1",
+                  "operationId": "ReadLogbook"
+                },
+                "retryPolicy": {
+                  "type": "none"
+                }
+              },
+              "runAfter": {
+                "Prior_commit_PA17v2": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs",
+                    "outputs"
+                  ]
+                }
+              },
+              "metadata": {
+                "operationMetadataId": "e8ddc9b9-cba0-4540-a709-01a09579f539"
+              }
+            }
+          },
+          "else": {
+            "actions": {
+              "History_exhausted_PA17v2": {
+                "type": "If",
+                "expression": {
+                  "and": [
+                    {
+                      "equals": [
+                        "@less(length(body('List_submission_history_PA17v2')), 100)",
+                        true
+                      ]
+                    }
+                  ]
+                },
+                "actions": {
+                  "Load_project_catalog_PA17v2": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_new-5facorn-20pa17-20gitlab-20test-20only-5f06923fc38f4e1ce0",
+                        "connection": "shared_new-5facorn-20pa17-20gitlab-20test-20only-5f06923fc38f4e1ce0-1",
+                        "operationId": "GetProjectCatalog"
+                      },
+                      "retryPolicy": {
+                        "type": "none"
+                      }
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    },
+                    "metadata": {
+                      "operationMetadataId": "b0b49d42-ba54-488a-a819-c7d0beb851df"
+                    }
+                  },
+                  "Selected_catalog_project_PA17v2": {
+                    "type": "Query",
+                    "inputs": {
+                      "from": "@body('Load_project_catalog_PA17v2')?['projects']",
+                      "where": "@equals(item()?['id'],body('Parse_submission_PA17v2')?['projectId'])"
+                    },
+                    "runAfter": {
+                      "Load_project_catalog_PA17v2": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    },
+                    "metadata": {
+                      "operationMetadataId": "d3286809-9cf2-4f17-bead-d6852c733c74"
+                    }
+                  },
+                  "Read_current_PA17v2": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "ref": "main"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_new-5facorn-20pa17-20gitlab-20test-20only-5f06923fc38f4e1ce0",
+                        "connection": "shared_new-5facorn-20pa17-20gitlab-20test-20only-5f06923fc38f4e1ce0-1",
+                        "operationId": "ReadLogbook"
+                      },
+                      "retryPolicy": {
+                        "type": "none"
+                      }
+                    },
+                    "runAfter": {
+                      "Selected_catalog_project_PA17v2": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    },
+                    "metadata": {
+                      "operationMetadataId": "07c0c0f9-25be-4cf2-8615-0bab10f3f2d9"
+                    }
+                  },
+                  "Readable_inbox_PA17v2": {
+                    "type": "If",
+                    "expression": {
+                      "and": [
+                        {
+                          "equals": [
+                            "@and(equals(length(body('Selected_catalog_project_PA17v2')), 1), or(equals(outputs('Read_current_PA17v2')?['statusCode'], 200), equals(outputs('Read_current_PA17v2')?['statusCode'], 404)))",
+                            true
+                          ]
+                        }
+                      ]
+                    },
+                    "actions": {
+                      "Existing_bytes_PA17v2": {
+                        "type": "Compose",
+                        "inputs": "@if(equals(outputs('Read_current_PA17v2')?['statusCode'], 404), string(null), base64ToString(body('Read_current_PA17v2')?['content']))",
+                        "runtimeConfiguration": {
+                          "secureData": {
+                            "properties": [
+                              "inputs"
+                            ]
+                          }
+                        },
+                        "metadata": {
+                          "operationMetadataId": "964f28fe-b1fb-40a5-a7b1-c6303ddfb240"
+                        }
+                      },
+                      "Safe_tail_PA17v2": {
+                        "type": "If",
+                        "expression": {
+                          "and": [
+                            {
+                              "equals": [
+                                "@and(lessOrEquals(coalesce(body('Read_current_PA17v2')?['size'], 0), 10485760), or(empty(outputs('Existing_bytes_PA17v2')), endsWith(outputs('Existing_bytes_PA17v2'), decodeUriComponent('%0A'))), not(contains(outputs('Existing_bytes_PA17v2'), body('Parse_submission_PA17v2')?['submissionId'])), or(equals(outputs('Read_current_PA17v2')?['statusCode'], 404), and(equals(body('Read_current_PA17v2')?['encoding'], 'base64'), equals(base64(outputs('Existing_bytes_PA17v2')), replace(replace(body('Read_current_PA17v2')?['content'], decodeUriComponent('%0A'), string(null)), decodeUriComponent('%0D'), string(null))))))",
+                                true
+                              ]
+                            }
+                          ]
+                        },
+                        "actions": {
+                          "Inbox_size_limit_PA17v2": {
+                            "type": "If",
+                            "expression": {
+                              "and": [
+                                {
+                                  "equals": [
+                                    "@lessOrEquals(length(base64(outputs('New_bytes_PA17v2'))), 13981012)",
+                                    true
+                                  ]
+                                }
+                              ]
+                            },
+                            "actions": {
+                              "Commit_append_PA17v2": {
+                                "type": "OpenApiConnection",
+                                "inputs": {
+                                  "parameters": {
+                                    "body/actions": "@createArray(outputs('Write_action_PA17v2'))",
+                                    "body/branch": "main",
+                                    "body/commit_message": "@outputs('Commit_marker_PA17v2')"
+                                  },
+                                  "host": {
+                                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_new-5facorn-20pa17-20gitlab-20test-20only-5f06923fc38f4e1ce0",
+                                    "connection": "shared_new-5facorn-20pa17-20gitlab-20test-20only-5f06923fc38f4e1ce0-1",
+                                    "operationId": "CommitLogbook"
+                                  },
+                                  "retryPolicy": {
+                                    "type": "none"
+                                  }
+                                },
+                                "runAfter": {
+                                  "Write_action_PA17v2": [
+                                    "Succeeded"
+                                  ]
+                                },
+                                "runtimeConfiguration": {
+                                  "secureData": {
+                                    "properties": [
+                                      "inputs",
+                                      "outputs"
+                                    ]
+                                  }
+                                },
+                                "metadata": {
+                                  "operationMetadataId": "82e2a6bb-0de2-4483-93bd-f48583d38306"
+                                }
+                              },
+                              "Confirm_written_bytes_PA17v2": {
+                                "type": "If",
+                                "expression": {
+                                  "and": [
+                                    {
+                                      "equals": [
+                                        "@and(not(empty(body('Commit_append_PA17v2')?['id'])), equals(base64(outputs('New_bytes_PA17v2')), replace(replace(body('Verify_written_snapshot_PA17v2')?['content'], decodeUriComponent('%0A'), string(null)), decodeUriComponent('%0D'), string(null))))",
+                                        true
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "actions": {
+                                  "Queued_new_PA17v2": {
+                                    "type": "Response",
+                                    "kind": "PowerApp",
+                                    "inputs": {
+                                      "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                          "commitsha": {
+                                            "title": "commitSha",
+                                            "x-ms-dynamically-added": true,
+                                            "type": "string"
+                                          },
+                                          "disposition": {
+                                            "title": "disposition",
+                                            "x-ms-dynamically-added": true,
+                                            "type": "string"
+                                          },
+                                          "message": {
+                                            "title": "message",
+                                            "x-ms-dynamically-added": true,
+                                            "type": "string"
+                                          },
+                                          "submissionid": {
+                                            "title": "submissionId",
+                                            "x-ms-dynamically-added": true,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "additionalProperties": {}
+                                      },
+                                      "statusCode": 200,
+                                      "body": {
+                                        "commitsha": "@{body('Commit_append_PA17v2')?['id']}",
+                                        "disposition": "queued",
+                                        "message": "Saved to logbook; awaiting ACORN review.",
+                                        "submissionid": "@{body('Parse_submission_PA17v2')?['submissionId']}"
+                                      }
+                                    },
+                                    "runtimeConfiguration": {
+                                      "secureData": {
+                                        "properties": [
+                                          "inputs"
+                                        ]
+                                      }
+                                    },
+                                    "metadata": {
+                                      "operationMetadataId": "bbf83b1c-6ea9-433f-a0ad-2e0e8efd3781"
+                                    }
+                                  }
+                                },
+                                "else": {
+                                  "actions": {
+                                    "Unresolved_readback_PA17v2": {
+                                      "type": "Response",
+                                      "kind": "PowerApp",
+                                      "inputs": {
+                                        "schema": {
+                                          "type": "object",
+                                          "properties": {
+                                            "commitsha": {
+                                              "title": "commitSha",
+                                              "x-ms-dynamically-added": true,
+                                              "type": "string"
+                                            },
+                                            "disposition": {
+                                              "title": "disposition",
+                                              "x-ms-dynamically-added": true,
+                                              "type": "string"
+                                            },
+                                            "message": {
+                                              "title": "message",
+                                              "x-ms-dynamically-added": true,
+                                              "type": "string"
+                                            },
+                                            "submissionid": {
+                                              "title": "submissionId",
+                                              "x-ms-dynamically-added": true,
+                                              "type": "string"
+                                            }
+                                          },
+                                          "additionalProperties": {}
+                                        },
+                                        "statusCode": 200,
+                                        "body": {
+                                          "disposition": "unresolved",
+                                          "message": "The commit could not be verified. Keep this submission and retry.",
+                                          "submissionid": "@{body('Parse_submission_PA17v2')?['submissionId']}"
+                                        }
+                                      },
+                                      "runtimeConfiguration": {
+                                        "secureData": {
+                                          "properties": [
+                                            "inputs"
+                                          ]
+                                        }
+                                      },
+                                      "metadata": {
+                                        "operationMetadataId": "c8a88753-d0d8-4ee0-8439-c9769b2d13cc"
+                                      }
+                                    }
+                                  }
+                                },
+                                "runAfter": {
+                                  "Verify_written_snapshot_PA17v2": [
+                                    "Succeeded"
+                                  ]
+                                },
+                                "metadata": {
+                                  "operationMetadataId": "b327386f-82ae-48fd-93b6-8c22c7340e79"
+                                }
+                              },
+                              "Verify_written_snapshot_PA17v2": {
+                                "type": "OpenApiConnection",
+                                "inputs": {
+                                  "parameters": {
+                                    "ref": "@body('Commit_append_PA17v2')?['id']"
+                                  },
+                                  "host": {
+                                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_new-5facorn-20pa17-20gitlab-20test-20only-5f06923fc38f4e1ce0",
+                                    "connection": "shared_new-5facorn-20pa17-20gitlab-20test-20only-5f06923fc38f4e1ce0-1",
+                                    "operationId": "ReadLogbook"
+                                  },
+                                  "retryPolicy": {
+                                    "type": "none"
+                                  }
+                                },
+                                "runAfter": {
+                                  "Commit_append_PA17v2": [
+                                    "Succeeded"
+                                  ]
+                                },
+                                "runtimeConfiguration": {
+                                  "secureData": {
+                                    "properties": [
+                                      "inputs",
+                                      "outputs"
+                                    ]
+                                  }
+                                },
+                                "metadata": {
+                                  "operationMetadataId": "ca11ebb5-9fd1-44f6-8764-86897ae3df66"
+                                }
+                              },
+                              "Write_action_PA17v2": {
+                                "type": "Compose",
+                                "inputs": "@if(equals(outputs('Read_current_PA17v2')?['statusCode'], 404), setProperty(json('{\"action\":\"create\",\"file_path\":\".acorn/intake/acceptance/pa17-logbook.jsonl\",\"encoding\":\"base64\"}'), 'content', base64(outputs('New_bytes_PA17v2'))), setProperty(setProperty(json('{\"action\":\"update\",\"file_path\":\".acorn/intake/acceptance/pa17-logbook.jsonl\",\"encoding\":\"base64\"}'), 'content', base64(outputs('New_bytes_PA17v2'))), 'last_commit_id', body('Read_current_PA17v2')?['last_commit_id']))",
+                                "runtimeConfiguration": {
+                                  "secureData": {
+                                    "properties": [
+                                      "inputs"
+                                    ]
+                                  }
+                                },
+                                "metadata": {
+                                  "operationMetadataId": "1d3c6b1f-5c35-4169-baf5-df5135f7622a"
+                                }
+                              }
+                            },
+                            "else": {
+                              "actions": {
+                                "Inbox_full_PA17v2": {
+                                  "type": "Response",
+                                  "kind": "PowerApp",
+                                  "inputs": {
+                                    "schema": {
+                                      "type": "object",
+                                      "properties": {
+                                        "commitsha": {
+                                          "title": "commitSha",
+                                          "x-ms-dynamically-added": true,
+                                          "type": "string"
+                                        },
+                                        "disposition": {
+                                          "title": "disposition",
+                                          "x-ms-dynamically-added": true,
+                                          "type": "string"
+                                        },
+                                        "message": {
+                                          "title": "message",
+                                          "x-ms-dynamically-added": true,
+                                          "type": "string"
+                                        },
+                                        "submissionid": {
+                                          "title": "submissionId",
+                                          "x-ms-dynamically-added": true,
+                                          "type": "string"
+                                        }
+                                      },
+                                      "additionalProperties": {}
+                                    },
+                                    "statusCode": 200,
+                                    "body": {
+                                      "disposition": "unresolved",
+                                      "message": "The logbook is at its configured size limit.",
+                                      "submissionid": "@{body('Parse_submission_PA17v2')?['submissionId']}"
+                                    }
+                                  },
+                                  "runtimeConfiguration": {
+                                    "secureData": {
+                                      "properties": [
+                                        "inputs"
+                                      ]
+                                    }
+                                  },
+                                  "metadata": {
+                                    "operationMetadataId": "6a8c7fed-5414-424c-9a84-87a52b511257"
+                                  }
+                                }
+                              }
+                            },
+                            "runAfter": {
+                              "New_bytes_PA17v2": [
+                                "Succeeded"
+                              ]
+                            },
+                            "metadata": {
+                              "operationMetadataId": "3580dc80-ba1d-49ce-9bde-9c0ce2e2974b"
+                            }
+                          },
+                          "New_bytes_PA17v2": {
+                            "type": "Compose",
+                            "inputs": "@concat(outputs('Existing_bytes_PA17v2'), outputs('Raw_submission_PA17v2'), decodeUriComponent('%0A'))",
+                            "runtimeConfiguration": {
+                              "secureData": {
+                                "properties": [
+                                  "inputs"
+                                ]
+                              }
+                            },
+                            "metadata": {
+                              "operationMetadataId": "56b3f934-0d8c-4b5d-8b78-f45cd0ae7dcd"
+                            }
+                          }
+                        },
+                        "else": {
+                          "actions": {
+                            "Unsafe_inbox_PA17v2": {
+                              "type": "Response",
+                              "kind": "PowerApp",
+                              "inputs": {
+                                "schema": {
+                                  "type": "object",
+                                  "properties": {
+                                    "commitsha": {
+                                      "title": "commitSha",
+                                      "x-ms-dynamically-added": true,
+                                      "type": "string"
+                                    },
+                                    "disposition": {
+                                      "title": "disposition",
+                                      "x-ms-dynamically-added": true,
+                                      "type": "string"
+                                    },
+                                    "message": {
+                                      "title": "message",
+                                      "x-ms-dynamically-added": true,
+                                      "type": "string"
+                                    },
+                                    "submissionid": {
+                                      "title": "submissionId",
+                                      "x-ms-dynamically-added": true,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "additionalProperties": {}
+                                },
+                                "statusCode": 200,
+                                "body": {
+                                  "disposition": "unresolved",
+                                  "message": "Existing logbook bytes or submission evidence need operator review.",
+                                  "submissionid": "@{body('Parse_submission_PA17v2')?['submissionId']}"
+                                }
+                              },
+                              "runtimeConfiguration": {
+                                "secureData": {
+                                  "properties": [
+                                    "inputs"
+                                  ]
+                                }
+                              },
+                              "metadata": {
+                                "operationMetadataId": "ebb9a3e5-6824-4bcd-9170-83ff5506be6e"
+                              }
+                            }
+                          }
+                        },
+                        "runAfter": {
+                          "Existing_bytes_PA17v2": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "cc34ac0a-1eb4-46ee-b1ab-f46d473edb71"
+                        }
+                      }
+                    },
+                    "else": {
+                      "actions": {
+                        "Read_failed_PA17v2": {
+                          "type": "Response",
+                          "kind": "PowerApp",
+                          "inputs": {
+                            "schema": {
+                              "type": "object",
+                              "properties": {
+                                "commitsha": {
+                                  "title": "commitSha",
+                                  "x-ms-dynamically-added": true,
+                                  "type": "string"
+                                },
+                                "disposition": {
+                                  "title": "disposition",
+                                  "x-ms-dynamically-added": true,
+                                  "type": "string"
+                                },
+                                "message": {
+                                  "title": "message",
+                                  "x-ms-dynamically-added": true,
+                                  "type": "string"
+                                },
+                                "submissionid": {
+                                  "title": "submissionId",
+                                  "x-ms-dynamically-added": true,
+                                  "type": "string"
+                                }
+                              },
+                              "additionalProperties": {}
+                            },
+                            "statusCode": 200,
+                            "body": {
+                              "disposition": "@{if(equals(length(body('Selected_catalog_project_PA17v2')), 1), 'unresolved', 'rejected')}",
+                              "message": "@{if(equals(length(body('Selected_catalog_project_PA17v2')), 1), 'The logbook could not be read. Keep the same submission and retry.', 'This project is no longer available. Refresh the project list and select an available project. Nothing was written.')}",
+                              "submissionid": "@{body('Parse_submission_PA17v2')?['submissionId']}"
+                            }
+                          },
+                          "runtimeConfiguration": {
+                            "secureData": {
+                              "properties": [
+                                "inputs"
+                              ]
+                            }
+                          },
+                          "metadata": {
+                            "operationMetadataId": "f9cf3cd1-6f90-42a4-911b-0cb14c07fe81"
+                          }
+                        }
+                      }
+                    },
+                    "runAfter": {
+                      "Read_current_PA17v2": [
+                        "Succeeded",
+                        "Failed",
+                        "TimedOut"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "cf55a69a-da3e-4a07-8359-d81384959647"
+                    }
+                  }
+                },
+                "else": {
+                  "actions": {
+                    "History_limit_PA17v2": {
+                      "type": "Response",
+                      "kind": "PowerApp",
+                      "inputs": {
+                        "schema": {
+                          "type": "object",
+                          "properties": {
+                            "commitsha": {
+                              "title": "commitSha",
+                              "x-ms-dynamically-added": true,
+                              "type": "string"
+                            },
+                            "disposition": {
+                              "title": "disposition",
+                              "x-ms-dynamically-added": true,
+                              "type": "string"
+                            },
+                            "message": {
+                              "title": "message",
+                              "x-ms-dynamically-added": true,
+                              "type": "string"
+                            },
+                            "submissionid": {
+                              "title": "submissionId",
+                              "x-ms-dynamically-added": true,
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": {}
+                        },
+                        "statusCode": 200,
+                        "body": {
+                          "disposition": "unresolved",
+                          "message": "History exceeds the reconciliation bound. Operator review is required before appending.",
+                          "submissionid": "@{body('Parse_submission_PA17v2')?['submissionId']}"
+                        }
+                      },
+                      "runtimeConfiguration": {
+                        "secureData": {
+                          "properties": [
+                            "inputs"
+                          ]
+                        }
+                      },
+                      "metadata": {
+                        "operationMetadataId": "bd52f822-db14-4c08-88fc-4440a3348f6c"
+                      }
+                    }
+                  }
+                },
+                "metadata": {
+                  "operationMetadataId": "cccd7c15-fef5-43b5-a896-91b2bf10c7f5"
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "Matching_commits_PA17v2": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "cd9b735b-2f36-43d6-aa44-c4091d532558"
+          }
+        },
+        "List_submission_history_PA17v2": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "ref_name": "main",
+              "path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+              "page": 1,
+              "per_page": 100
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_new-5facorn-20pa17-20gitlab-20test-20only-5f06923fc38f4e1ce0",
+              "connection": "shared_new-5facorn-20pa17-20gitlab-20test-20only-5f06923fc38f4e1ce0-1",
+              "operationId": "ListLogbookCommits"
+            },
+            "retryPolicy": {
+              "type": "none"
+            }
+          },
+          "runAfter": {
+            "Commit_marker_PA17v2": [
+              "Succeeded"
+            ]
+          },
+          "runtimeConfiguration": {
+            "secureData": {
+              "properties": [
+                "inputs",
+                "outputs"
+              ]
+            }
+          },
+          "metadata": {
+            "operationMetadataId": "b4c57844-f96e-4feb-af66-1b4ab67676ab"
+          }
+        }
+      },
+      "else": {
+        "actions": {
+          "Rejected_envelope_PA17v2": {
+            "type": "Response",
+            "kind": "PowerApp",
+            "inputs": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "commitsha": {
+                    "title": "commitSha",
+                    "x-ms-dynamically-added": true,
+                    "type": "string"
+                  },
+                  "disposition": {
+                    "title": "disposition",
+                    "x-ms-dynamically-added": true,
+                    "type": "string"
+                  },
+                  "message": {
+                    "title": "message",
+                    "x-ms-dynamically-added": true,
+                    "type": "string"
+                  },
+                  "submissionid": {
+                    "title": "submissionId",
+                    "x-ms-dynamically-added": true,
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": {}
+              },
+              "statusCode": 200,
+              "body": {
+                "disposition": "rejected",
+                "message": "The submitted identity or record format is invalid. No write was attempted.",
+                "submissionid": "@{body('Parse_submission_PA17v2')?['submissionId']}"
+              }
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs"
+                ]
+              }
+            },
+            "metadata": {
+              "operationMetadataId": "bfb0359a-f455-4d11-9e6a-eb7505d4373a"
+            }
+          }
+        }
+      },
+      "runAfter": {
+        "Caller_email_PA17v2": [
+          "Succeeded"
+        ]
+      },
+      "metadata": {
+        "operationMetadataId": "f8b78842-4e1b-40eb-9f27-1389034ebe2c"
+      }
+    },
+    "Parse_submission_PA17v2": {
+      "type": "ParseJson",
+      "inputs": {
+        "content": "@outputs('Raw_submission_PA17v2')",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "entry": {
+              "additionalProperties": false,
+              "properties": {
+                "archived": {
+                  "enum": [
+                    false
+                  ],
+                  "type": "boolean"
+                },
+                "category": {
+                  "enum": [
+                    "administration",
+                    "collaboration",
+                    "data",
+                    "engagement",
+                    "funding",
+                    "infrastructure",
+                    "method",
+                    "other",
+                    "personnel",
+                    "publication",
+                    "research",
+                    "software"
+                  ],
+                  "type": "string"
+                },
+                "eventType": {
+                  "enum": [
+                    null,
+                    "conference",
+                    "exhibition",
+                    "meeting",
+                    "other",
+                    "presentation",
+                    "tour",
+                    "training",
+                    "workshop"
+                  ],
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "global": {
+                  "type": "boolean"
+                },
+                "items": {
+                  "items": {
+                    "maxLength": 1000,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "maxItems": 20,
+                  "minItems": 1,
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                },
+                "origin": {
+                  "enum": [
+                    "manual"
+                  ],
+                  "type": "string"
+                },
+                "state": {
+                  "enum": [
+                    "completed",
+                    "in-progress",
+                    "upcoming"
+                  ],
+                  "type": "string"
+                },
+                "summary": {
+                  "maxLength": 1200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "timestamp": {
+                  "format": "date-time",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "archived",
+                "category",
+                "eventType",
+                "global",
+                "items",
+                "origin",
+                "state",
+                "summary",
+                "timestamp"
+              ],
+              "type": "object"
+            },
+            "projectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "submissionId": {
+              "maxLength": 36,
+              "minLength": 36,
+              "type": "string"
+            },
+            "submittedAt": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "submitter": {
+              "additionalProperties": false,
+              "properties": {
+                "email": {
+                  "format": "email",
+                  "maxLength": 254,
+                  "minLength": 3,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "email"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "entry",
+            "projectId",
+            "submissionId",
+            "submittedAt",
+            "submitter"
+          ],
+          "type": "object"
+        }
+      },
+      "runAfter": {
+        "Raw_submission_PA17v2": [
+          "Succeeded"
+        ]
+      },
+      "runtimeConfiguration": {
+        "secureData": {
+          "properties": [
+            "inputs"
+          ]
+        }
+      },
+      "metadata": {
+        "operationMetadataId": "4922e488-f1bc-4534-810d-126b0e15737d"
+      }
+    },
+    "Raw_submission_PA17v2": {
+      "type": "Compose",
+      "inputs": "@triggerBody()?['text']",
+      "runtimeConfiguration": {
+        "secureData": {
+          "properties": [
+            "inputs"
+          ]
+        }
+      },
+      "metadata": {
+        "operationMetadataId": "16146d94-de3d-4182-8bdc-3abe318d27b2"
+      }
+    }
+  },
+  "runAfter": {
+    "Verify_access_to_main": [
+      "Succeeded"
+    ]
+  },
+  "metadata": {
+    "operationMetadataId": "cca6fb56-00b3-4e88-b018-f746349879b8"
+  }
+}

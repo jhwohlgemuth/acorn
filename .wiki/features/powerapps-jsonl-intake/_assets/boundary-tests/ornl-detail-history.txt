@@ -1,0 +1,193 @@
+Browser tab: 1329059280, Title: "Manage your flows | Power Automate", URL: "https://make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/7a1f9c5b-ced0-f111-a05c-001dd806277c/details".
+1 AXWebArea Manage your flows | Power Automate, URL: make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/7a1f9c5b-ced0-f111-a05c-001dd806277c/details
+	2 container
+		3 container root
+			4 container
+				5 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				6 container o365header
+					7 container O365_NavHeader
+						8 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							9 text 
+						10 container ppuxOfficeHeaderTopLevelRegion
+							11 container ppuxOfficeHeaderLeftRegion
+								12 text Power Automate
+							13 container ppuxOfficeHeaderRightRegion
+								14 button ORNL Personal Productivity(default)
+									15 container
+										16 text Environments ORNL Personal Productivity(default)
+								17 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								18 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						19 container O365_HeaderRightRegion
+							20 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								21 image JW
+				22 container Main
+					23 button (expanded) Left navigation panel, Secondary Actions: Collapse
+						24 image Left navigation panel
+					25 menu
+						26 container
+							27 container aboveCustomizableItemsId0
+								28 Home
+								29 Create
+								30 Templates
+								31 Learn
+								32 My flows
+							33 Approvals, press right arrow to navigate more options
+							34 Solutions, press right arrow to navigate more options
+							35 Automation center, press right arrow to navigate more options
+							36 Process mining, press right arrow to navigate more options
+								37 image
+								38 text Process mining
+							39 AI hub, press right arrow to navigate more options
+							40 Connections, press right arrow to navigate more options
+							41 More
+							42 Power Platform
+				43 container
+					44 menu bar
+						45 container
+							46 Edit
+								47 text Edit
+							48 Share
+								49 text Share
+							50 Save As
+								51 text Save As
+							52 PA15 TEST ONLY Boundary Acceptance Delete
+								53 text Delete
+							54 Run
+								55 text Run
+							56 Send a copy
+								57 text Send a copy
+							58 (collapsed) Export, Secondary Actions: Expand
+								59 text Export
+							60 Analytics
+								61 text Analytics
+							62 Turn off
+								63 text Turn off
+							64 Repair tips off
+								65 text Repair tips off
+						66 Flow checker
+							67 text Flow checker
+					68 container
+						69 content list
+							70 link Description: Flows, Value: make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows
+							71 heading PA15 TEST ONLY Boundary Acceptance, Value: 2
+								72 text PA15 TEST ONLY Boundary Acceptance
+						73 container
+							74 heading Details, Value: 3
+								75 text Details
+							76 button Edit description
+							77 container
+								78 container Flow
+									79 text Flow
+									80 text PA15 TEST ONLY Boundary Acceptance
+								81 container Primary owner
+									82 text Primary owner
+									83 text Jason Wohlgemuth
+							84 container
+								85 container Status
+									86 text Status
+									87 text On
+								88 container Created
+									89 text Created
+									90 text Oct 25, 2026, 07:48 PM
+								91 container Modified
+									92 text Modified
+									93 text Oct 25, 2026, 07:48 PM
+								94 container Type
+									95 text Type
+									96 text Instant
+								97 container Plan
+									98 text Plan
+									99 text The user who runs the flow
+						100 container
+							101 heading Value: 3, 28-day run history General Data Protection Regulation (GDPR) requires us to keep run logs for no longer than 28 days. To maintain a longer history you'll need to manually capture run histories before they are deleted.
+								102 text 28-day run history
+								103 container General Data Protection Regulation (GDPR) requires us to keep run logs for no longer than 28 days. To maintain a longer history you'll need to manually capture run histories before they are deleted.
+							104 button Edit columns
+							105 button Refresh Flow runs
+							106 link Description: All runs, Value: make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/7a1f9c5b-ced0-f111-a05c-001dd806277c/runs
+							107 table
+								108 row Start Duration Status
+									109 cell Start
+										110 text Start
+									111 cell Duration
+										112 text Duration
+									113 cell Status
+										114 text Status
+								115 row Oct 25, 07:50 PM ( 4 seconds ago ) 00:00:04 Succeeded, ID: row281-0
+									116 cell row281-0-header
+										117 link Description: Oct 25, 07:50 PM ( 4 seconds ago ), Value: make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/7a1f9c5b-ced0-f111-a05c-001dd806277c/runs/08584086346787841230598875135CU07
+									118 cell
+										119 text 00:00:04
+									120 cell
+										121 text Succeeded
+								122 row Oct 25, 07:49 PM ( 52 seconds ago ) 00:00:04 Succeeded, ID: row281-1
+									123 cell row281-1-header
+										124 link Description: Oct 25, 07:49 PM ( 52 seconds ago ), Value: make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/7a1f9c5b-ced0-f111-a05c-001dd806277c/runs/08584086347270902567817077681CU03
+									125 cell
+										126 text 00:00:04
+									127 cell
+										128 text Succeeded
+						129 container
+							130 heading Connection references, Value: 3
+								131 text Connection references
+							132 button See all
+							133 table
+								134 row ACORN PA18 ORNL TEST ONLY ACORN PA17 GitLab TEST ONLY ACORN PA18 ORNL TEST ONLY, ID: row161-0
+									135 cell
+										136 image ACORN PA18 ORNL TEST ONLY
+									137 cell
+										138 text ACORN PA17 GitLab TEST ONLY
+									139 cell
+										140 text ACORN PA18 ORNL TEST ONLY
+								141 row o9w@ornl.gov Microsoft Teams o9w@ornl.gov, ID: row161-1
+									142 cell
+										143 image o9w@ornl.gov
+									144 cell
+										145 text Microsoft Teams
+									146 cell
+										147 text o9w@ornl.gov
+						148 container
+							149 heading Co-owner, Value: 3
+								150 text Co-owner
+							151 button Set primary owner
+							152 link Description: Share, Add another co-owner, Value: make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/7a1f9c5b-ced0-f111-a05c-001dd806277c/owners
+							153 content list Flow owners
+								154 text Wohlgemuth, Jason
+							155 heading Flow runs error trends (last 7 days), Value: 3
+								156 text Flow runs error trends (last 7 days)
+							157 link Description: Go to Automation center, Value: make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/monitor/automations/overview?filterDateFrom=2026-10-18T23%3A48%3A00.000Z
+							158 container
+								159 text No data available for the last 7 days.
+								160 link Description: Learn more about flow run history in Dataverse, Value: go.microsoft.com/fwlink/?linkid=2281117
+						161 container
+							162 heading Solutions This flow is referenced in the following solutions, Value: 3
+								163 text Solutions
+								164 container This flow is referenced in the following solutions
+							165 text There aren't any custom solutions referencing this flow, but any solution flow can be found in the default solution.
+						166 container
+							167 heading Value: 3, Process mining (preview) Find out what actions in your flow are executing the most and what actions are taking the most time to gain insights to improve your flow. The insights are generated based on your flow runs in the last 28 days.
+								168 text Process mining (preview)
+								169 container Find out what actions in your flow are executing the most and what actions are taking the most time to gain insights to improve your flow. The insights are generated based on your flow runs in the last 28 days.
+							170 button (disabled) Improve your flow
+								171 text Improve your flow
+							172 image Improve your flow with process mining
+							173 container
+								174 heading Improve your flow with process mining, Value: 2
+									175 text Improve your flow with process mining
+								176 heading We are preparing your data for analysis, check back in a few minutes to analyze your flow., Value: 3
+									177 text We are preparing your data for analysis, check back in a few minutes to analyze your flow.
+						178 container
+							179 heading Run-only user, Value: 3
+								180 text Run-only user
+							181 button Edit, Add another user
+							182 text Your flow hasn't been shared with anyone.
+						183 container
+							184 heading Value: 3, Associated apps and flows Adding apps or flows here helps you see which apps and flows are using this flow.
+								185 text Associated apps and flows
+								186 button Adding apps or flows here helps you see which apps and flows are using this flow.
+							187 link Description: Edit, Value: make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/7a1f9c5b-ced0-f111-a05c-001dd806277c/associatedApps
+							188 container
+								189 text You don’t have any apps associated with this flow. 
+								190 link Description: Learn more, Value: go.microsoft.com/fwlink/?linkid=2247633
+
+The focused UI element is 1 AXWebArea Manage your flows | Power Automate, URL: make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/7a1f9c5b-ced0-f111-a05c-001dd806277c/details

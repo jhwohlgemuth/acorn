@@ -128,11 +128,6 @@
       "bytes": 19736
     },
     {
-      "path": "manual-jsonl-ingestion-graduation/_assets/graduate-replay.txt",
-      "sha256": "79dd3b9726672b0629e79fde2fdd3a7d14f30745b7b6efb931f4c97cb1218ef1",
-      "bytes": 218
-    },
-    {
       "path": "manual-jsonl-ingestion-graduation/_assets/graduate.json",
       "sha256": "423c7a16f92be51ed2ca3ca29b4be9b12c76166066adf8baac2fefaf7693a743",
       "bytes": 579
@@ -414,13 +409,13 @@
     },
     {
       "path": "powerapps-jsonl-intake/pilot-runbook.md",
-      "sha256": "b58bb3b09cc4e489088ecebefa94ed0a7c384f2ac8cdce80650722ae3b5234ab",
-      "bytes": 53824
+      "sha256": "4cf48240b92c02c9a3135ffa677f1d4df115432689d014b9e35a8cf81d717ab9",
+      "bytes": 54420
     },
     {
       "path": "powerapps-jsonl-intake/write-failure-acceptance.md",
-      "sha256": "07132180f45087387388e6f96d6ab2e5ab2e85a4ab13e6e4b9171c7bcc2627c0",
-      "bytes": 3329
+      "sha256": "96e1b1ca18f397aa438fde51edeabe4caf04a183f484bed4ec7de95cbf2ef19b",
+      "bytes": 3378
     },
     {
       "path": "vergil-gitlab-jsonl-automation/_assets/notifications/callback-claim.clipboard.json",

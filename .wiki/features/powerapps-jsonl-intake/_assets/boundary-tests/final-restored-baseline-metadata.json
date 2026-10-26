@@ -1,0 +1,10 @@
+{
+  "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+  "size": 457,
+  "content_sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+  "commit_id": "5d74108011b3517cf01d9ed304ed6736f9e9c699",
+  "last_commit_id": "5d74108011b3517cf01d9ed304ed6736f9e9c699",
+  "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+  "baseline_prefix_preserved": true,
+  "matches_baseline": true
+}

@@ -20,6 +20,8 @@ Supporting material: [pilot runbook](pilot-runbook.md), [notification walkthroug
 
 # Current evidence
 
+- PA-15 October 25 boundary acceptance: exact 1,200-character summaries appended once in both isolated environments with all prior bytes preserved. The next 1,000-character-detail case passed validation in each environment but file reads returned network-range 403. Both test flows returned Off and the 457-byte isolated baseline was restored exactly. Tail/size, 20-detail and remaining server guards are unaccepted; [case matrix and byte proofs](boundary-acceptance.md). Completed PA-14 simulation apps/flows and the accepted failure mock were removed; [cleanup inventory](test-artifact-cleanup.md).
+
 - PA-02 is closed by owner decision on October 25, 2026: the Jason-only pilot licensing assessment and access characterization are accepted, with intermittent GitLab connectivity recorded as a [known limitation](intake-access-decisions.md#known-limitation-and-pa-02-closure). Reliable connectivity has not been proven or repaired. PA-15/16/17 retain their own unpassed acceptance tests.
 
 - PA-02 October 25 evening acceptance: Jason's assigned Power Apps Per User Plan for Government and both test flows' invoking-user context were rechecked. App-driven catalog calls passed in both environments. ORNL restored-app intake reached the correct isolated flow, passed branch/history/catalog checks, then received a network-range HTTP 403 at `Read current PA17v2` (`2026-10-25T22:21:18Z`). The app retained an unresolved receipt; the write branch was skipped and test intake returned Off. The scoped pilot licensing assessment is complete; repeatable read/write/replay access is not accepted. [Dated test evidence](intake-access-decisions.md#october-25-evening-pa-02-acceptance).
@@ -73,12 +75,12 @@ Inspect actual action outcomes, line deltas, receipt UUID/commit, immutable snap
 ## PA-15 — Accept bounded inbox and field limits
 
 - Status: waiting-on-validation
-- Validation readiness: Boundary controls are implemented; the remaining work is the isolated acceptance matrix when authorized connector calls can complete. PA-02 is closed; the known connectivity limitation can still interrupt individual cases.
+- Validation readiness: Exact-summary append acceptance passed in both environments. Exact-detail validation passed but persistence was blocked by network-range 403 in both; remaining cases and reusable fixtures are recorded in boundary-acceptance.md. The actual append cap is 10,485,759 UTF-8 bytes. PA-02 remains closed with the connectivity limitation accepted.
 - Budget: 5 active hours maximum
 - Prerequisites: safe isolated fixtures and restored baseline; authorized connector access sufficient to execute each case
-- Exact write set: pilot project `22464` isolated intake test files; validation actions in isolated intake flow copies in both test environments; `.wiki/features/powerapps-jsonl-intake/boundary-acceptance.md`
+- Exact write set: pilot project `22464` isolated intake test files; validation actions in isolated intake flow copies in both test environments; `.wiki/features/powerapps-jsonl-intake/boundary-acceptance.md`; `.wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/`
 - Primary integration lock: intake route
-- Outcome: Complete exact field limits, blank/rejected-line preservation, malformed tail and file-size boundary acceptance.
+- Outcome: Complete the remaining detail/count/guard cases, blank/rejected-line preservation, malformed tail and file-size boundary acceptance; exact summary acceptance is already preserved.
 - Focused validation: Use one dimension per case; accepted records append once, rejected records do not alter any bytes, unsafe tails fail closed; preserve original pilot inbox.
 - Handoff: Record per-case outcomes and restore isolated fixtures; no implied concurrency acceptance.
 

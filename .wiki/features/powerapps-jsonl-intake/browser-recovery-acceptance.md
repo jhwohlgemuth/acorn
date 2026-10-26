@@ -1,5 +1,7 @@
 # Browser recovery acceptance checkpoint
 
+**Cleanup, October 25, 2026:** The two accepted PA-14 simulation apps and their four simulation flows were deleted after acceptance. The dated results below remain evidence; the test launch links are historical. PA-17 restore copies and all operational components were retained. See [cleanup inventory](test-artifact-cleanup.md).
+
 Updated October 25, 2026. PA-14 is accepted. Browser restart and denied-storage results were confirmed by the owner; simulated panels and tab-reload recovery were observed by the agent. Operational Sponsor Highlights, its flows, connections and browser storage were not changed by the agent. The agent did not restart the existing Chrome process because it contains operational tabs and unsaved work.
 
 ## Historical test package

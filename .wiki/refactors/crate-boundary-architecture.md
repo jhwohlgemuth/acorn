@@ -4,7 +4,7 @@ title: "Split ACORN along layered crate boundaries"
 description: "Coordinate the remaining package ownership boundaries and their prerequisite plans."
 difficulty: high
 impact: critical
-package: [workspace, acorn-lib, acorn-core, acorn-schema, acorn-analysis, acorn-host, acorn-wasm, acorn-service, acorn-server, acorn-cmd]
+package: [workspace, acorn-lib, acorn-core, acorn-schema, acorn-analysis, acorn-host, acorn-wasm, acorn-service, acorn-server, acorn-daemon, acorn-store, acorn-cmd]
 tags: [refactor, architecture, crate-extraction, portability, dependencies]
 status: in-progress
 execution: coordination
@@ -19,7 +19,7 @@ Coordinate the remaining extraction from `acorn-lib` into portable domains, adap
 - `acorn-core`, `acorn-schema`, `acorn-analysis`, `acorn-cmd`, `acorn-host`, `acorn-service`, and `acorn-server` exist under `crates/`. Portable values, schema codecs, analysis data, command execution, initial native capabilities, application policy, and protocol listeners have distinct owners.
 - `acorn-lib` still combines analyzer host execution, provider clients, persistence, export, and workflows. Its broad `std` feature enables unrelated native capabilities.
 - The outbound MCP client still combines service policy with native child-process and HTTP transports; extraction must preserve its landed contract.
-- The [shared API client](api/shared-client-contract.md) and [export pipeline](core/export-pipeline-hardening.md) plans prepare contracts for `acorn-api` and `acorn-export`. Neither creates those target packages; `acorn-store` has no executable extraction plan yet.
+- The [shared API client](api/shared-client-contract.md) and [export pipeline](core/export-pipeline-hardening.md) plans prepare contracts for `acorn-api` and `acorn-export`. Neither creates those target packages. The [acornd plan](../features/acornd-service.md) owns an initial `acorn-store` adapter for daemon history; it does not extract existing `acorn-lib` persistence.
 
 # Target package graph
 
@@ -40,6 +40,7 @@ browser adapters: acorn-wasm
 CLI / TUI  = service + native adapters
 JS / WASM  = service + browser adapters
 acorn-server = service + selected native adapters + protocol listeners
+acorn-daemon = service + server + store + host job execution
 ```
 
 The diagram shows the dominant direction rather than every direct edge. Port traits live with the domain or service that consumes them. `acorn-host`, `acorn-store`, and `acorn-wasm` implement those ports, while interface crates act as composition roots and select concrete adapters. `acorn-service` must not depend on a native adapter. `acorn-server` owns listener, authentication, TLS, health, and shutdown composition for JSON-RPC and gRPC without absorbing application policy. During migration, `acorn-lib` remains a host implementation package; it does not sit beside the graph as a re-export facade.
@@ -64,6 +65,7 @@ crates/
 ├── acorn-wasm
 ├── acorn-service
 ├── acorn-server
+├── acorn-daemon      (planned)
 └── acorn-cmd
 ```
 
@@ -81,6 +83,7 @@ Workspace-wide support projects that are not published ACORN product crates, inc
 | `acorn-wasm` | `wasm-bindgen` integration, JS-facing DTO conversion, and future browser adapters and composition | Native filesystem/process assumptions or portable domain policy |
 | `acorn-service` | Artifact discovery, analysis use cases, GitLab bot/webhook/intake flows, MCP client/server workflows, and orchestration over injected port traits | Concrete host, browser, provider transport, or database implementations |
 | `acorn-server` | JSON-RPC and gRPC listeners, authentication, TLS, health, request bounds, tracing setup, and graceful process lifecycle | Portable analysis, application policy, provider logic, or persistence implementation |
+| `acorn-daemon` | Long-running worker/listener composition, local job execution, host registration, and installation | Portable analysis policy, protocol implementation, or general-purpose persistence |
 | `acorn-cmd` | Command construction and execution helpers plus the public command macro surface; command-word parsing is isolated inside `acorn-macros` | General-purpose ACORN utilities |
 | `acorn-lib` | Host implementations awaiting extraction and ACORN-specific host extensions | Portable domains, schemas, or re-exports that conceal another crate's ownership |
 
@@ -88,12 +91,12 @@ Individual schemas, providers, commands, doctor checks, and generic utility coll
 
 # Coordination boundaries
 
-This record owns package direction, not implementation files or phases. The [shared API client plan](api/shared-client-contract.md) prepares `acorn-api`; the [export pipeline plan](core/export-pipeline-hardening.md) prepares `acorn-export`; the [CLI composition plan](core/cli-composition-boundary.md) owns interface cutover. Create an atomic extraction plan with current evidence, exact write sets, one primary lock per phase, and five-hour outcomes when a prerequisite contract lands. Do not treat a preparation plan as the extraction assignment.
+This record owns package direction, not implementation files or phases. The [shared API client plan](api/shared-client-contract.md) prepares `acorn-api`; the [export pipeline plan](core/export-pipeline-hardening.md) prepares `acorn-export`; the [CLI composition plan](core/cli-composition-boundary.md) owns interface cutover; the [acornd plan](../features/acornd-service.md) owns its daemon package and initial store adapter. Create a separate atomic extraction plan for remaining `acorn-lib` persistence with current evidence, exact write sets, one primary lock per phase, and five-hour outcomes when its prerequisite contract lands.
 
 # Plan dependencies
 
 - **Satisfied prerequisite:** the implemented portability matrix proves the analyzer boundary in-tree; that result does not itself authorize package extraction.
-- **Boundary inputs:** the analyzer/service/server extraction, `acorn-cmd`, and initial `acorn-host` boundaries are implemented; the [shared API client contract](api/shared-client-contract.md) prepares `acorn-api`; the [shared export and OOXML pipeline](core/export-pipeline-hardening.md) prepares `acorn-export`. No active plan owns package creation or `acorn-store` extraction.
+- **Boundary inputs:** the analyzer/service/server extraction, `acorn-cmd`, and initial `acorn-host` boundaries are implemented; the [shared API client contract](api/shared-client-contract.md) prepares `acorn-api`; the [shared export and OOXML pipeline](core/export-pipeline-hardening.md) prepares `acorn-export`. The [acornd plan](../features/acornd-service.md) creates a narrow `acorn-store` package; extraction of existing persistence is still unassigned.
 - **Downstream:** the implemented portability matrix expands with each accepted extraction. Browser adapters or consumer-owned host ports require a concrete alternate implementation and a new atomic plan.
 - The complete ordering and shared-file collision map is maintained in the [plan dependency network](../plan-network.md).
 
@@ -121,6 +124,7 @@ This architecture record is coordination-only. Before assigning extraction work,
 - [Shared API client contract](api/shared-client-contract.md) stabilizes endpoint, request, response, error, and provider mechanics before a separate `acorn-api` extraction plan.
 - [Shared export and OOXML pipeline](core/export-pipeline-hardening.md) establishes pure in-memory transformations before a separate `acorn-export` extraction plan.
 - [CLI composition boundary](core/cli-composition-boundary.md) keeps parsing and presentation at the interface root.
+- [Installable acornd service](../features/acornd-service.md) composes the server with native job execution and creates the initial `acorn-store` history adapter without moving unrelated database code.
 - [Structured research-activity enrichment](core/research-activity-enrichment-integration.md) owns its schema/service seam.
 - [Portable diff hardening](acorn-diff-resource-and-api-hardening.md) and [ZON codec hardening](zon-codec-hardening.md) remain independent portable leaves.
 

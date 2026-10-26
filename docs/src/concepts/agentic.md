@@ -1,33 +1,37 @@
 # ...But Is It Agentic?
 
-ACORN is developing agent capabilities through Intelligence in Depth (IID), an architecture that layers prompts, workflows, context, memory, and agent supervision. Each layer remains useful on its own, and a system can stop at the shallowest layer that meets its needs.
+ACORN is developing agent capabilities through Intelligence in Depth (IID), an architecture that builds on deterministic automation with prompts, workflows, context, memory, and agent supervision. Each layer remains useful on its own, and a system can stop at the shallowest layer that meets its needs, including layer 0 without a model call.
 
 > [!NOTE]
 > IID terminology is internal to ACORN and is being prepared for formal publication in the [Journal of Open Research Software (JORS)](https://openresearchsoftware.metajnl.com). Cite this page as a pre-publication description and contact the authors about prior-art claims.
 
 <blockquote class="blockquote-tag acorn-nutshell">
 <p class="blockquote-tag-title acorn-nutshell-title">In a nutshell</p>
-<p>IID organizes model use into six layers, from a single prompt through a supervised agent harness. The architecture supports local operation and keeps durable work in user-controlled files.</p>
+<p>IID organizes automation and model-assisted work into seven layers, numbered 0 through 6. Layer 0 uses schemas, validators, conversion code, and other deterministic operations. Higher layers add model capabilities up to a supervised agent harness. The architecture supports local operation and keeps durable work in user-controlled files.</p>
 </blockquote>
 
-IID adapts defense in depth, an information security strategy that combines people, technology, and operations across multiple layers.[^defense-in-depth] It distributes intelligence across reusable prompts, controlled workflows, skills and context, memory, and an interoperable agent harness.
+IID adapts defense in depth, an information security strategy that combines people, technology, and operations across multiple layers.[^defense-in-depth] It distributes intelligence across explicit rules and deterministic code, reusable prompts, controlled workflows, skills and context, memory, and an interoperable agent harness.
 
 ```pikchr
 scale = 0.75
+Automation: box "Deterministic" "automation" wid 1.15in ht 0.55in rad 0.08in fill white thickness 0
+arrow right 0.35in thick color 0x00662C
 Prompting: box "One-time" "prompting" wid 0.92in ht 0.55in rad 0.08in fill white thickness 0
 arrow right 0.35in thick color 0x00662C
 Templates: box "Prompt" "templates" wid 0.92in ht 0.55in rad 0.08in fill white thickness 0
 arrow right 0.35in thick color 0x00662C
 Loops: box "Workflow" "composition" wid 0.92in ht 0.55in rad 0.08in fill white thickness 0
-arrow right 0.35in thick color 0x00662C
-Context: box "Skills + context" "(+ MCP)" wid 1.15in ht 0.55in rad 0.08in fill white thickness 0
-arrow right 0.35in thick color 0x00662C
-Memory: box "Connected" "memory" wid 0.92in ht 0.55in rad 0.08in fill white thickness 0
-arrow right 0.35in thick color 0x00662C
-Harness: box "Harness" "(+ ACP)" wid 0.92in ht 0.55in rad 0.08in fill white thickness 0
+Context: box "Skills + context" "(+ MCP)" wid 1.15in ht 0.55in rad 0.08in fill white thickness 0 at Loops+(0,-0.9in)
+arrow from Loops.s to Context.n thick color 0x00662C
+Memory: box "Connected" "memory" wid 0.92in ht 0.55in rad 0.08in fill white thickness 0 at Templates+(0,-0.9in)
+arrow from Context.w to Memory.e thick color 0x00662C
+Harness: box "Harness" "(+ ACP)" wid 0.92in ht 0.55in rad 0.08in fill white thickness 0 at Prompting+(0,-0.9in)
+arrow from Memory.w to Harness.e thick color 0x00662C
 ```
 
-The arrows show composition and control flow. IID is distinct from the [ASPECT maturity](aspect/maturity.md) scale. IID describes layered control, while [autonomy](aspect/autonomy.md) describes how humans and machines divide responsibility.
+<div data-pikchr-fit hidden></div>
+
+The arrows show composition and control flow. A task can finish at layer 0, and higher layers can reuse its operations to transform data and check inputs and outputs. IID is distinct from the [ASPECT maturity](aspect/maturity.md) scale. IID describes layered control, while [autonomy](aspect/autonomy.md) describes how humans and machines divide responsibility.
 
 ## Principles
 
@@ -50,11 +54,11 @@ This supplied context gives a model evidence for interpreting the project and tr
 
 ## How IID guides ACORN
 
-ACORN keeps schema validation, identifier checks, formatting, linking, and artifact generation deterministic. AI can consume or produce data around those operations, while the deterministic rules provide validation and provenance.
+ACORN's layer 0 includes schema validation, identifier checks, formatting, metadata conversion, linking, and artifact generation. These operations use explicit rules and code without requiring model inference. AI can consume or produce data around those operations, while the deterministic rules provide validation and provenance.
 
 IID guides ACORN development in these ways:
 
-- ACORN schemas, validators, persistent identifiers, and provenance provide machine-checkable context for model-assisted work.
+- Use layer 0 when schemas, validators, and conversion code can complete the task. Its results also provide machine-checkable context for model-assisted work.
 - Prompts, skills, model APIs, local-model configuration, and future tools remain useful separately and can be composed when a workflow needs them.
 - Iteration has exit criteria and budgets. Memory has provenance and lifecycle rules. Tools have permissions, and consequential actions require validation or human approval.
 - Core operations and locally available models continue to work without a remote AI service. Network use respects ACORN's offline boundary.
@@ -71,7 +75,7 @@ MCP and ACP are optional extensions. MCP defines what context and capabilities a
 
 The [Protobuf/gRPC transport](../packages/grpc.md) is an implementation stepping stone for ACP and MCP integrations. It proves that protocol adapters can share registered operations, validation, effect metadata, authentication context, offline and mutation policy, and bounded operation errors. Its transport adapter also establishes deadline and cancellation handling. ACP sessions and MCP tool semantics remain native to their respective protocols rather than being encoded as gRPC calls.
 
-See [Intelligence in Depth layers](agentic-layers.md) for the six layers, examples, and current implementation status.
+See [Intelligence in Depth layers](agentic-layers.md) for layers 0 through 6, examples, and current implementation status.
 
 [^defense-in-depth]: National Institute of Standards and Technology, ["defense-in-depth," *Computer Security Resource Center Glossary*](https://csrc.nist.gov/glossary/term/defense_in_depth). The glossary traces the definition to CNSSI 4009-2015 and multiple NIST publications, including SP 800-53 Rev. 5.
 [^mcp]: Model Context Protocol, ["Architecture"](https://modelcontextprotocol.io/specification/2025-06-18/architecture) and ["Server features"](https://modelcontextprotocol.io/specification/2025-06-18/server/index).

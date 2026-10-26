@@ -1,0 +1,16 @@
+{
+  "removed": [
+    "powerapps-jsonl-intake/_assets/solution-export/pa17-published-test-app-catalog.txt",
+    "manual-jsonl-ingestion-graduation/_assets/graduate-replay.txt",
+    "vergil-gitlab-jsonl-automation/_assets/callback-claim-scope.clipboard.json",
+    "vergil-gitlab-jsonl-automation/_assets/callback-delivery-scope.clipboard.json",
+    "powerapps-jsonl-intake/_assets/notifications/intake-teams-received.png",
+    "vergil-gitlab-jsonl-automation/_assets/notifications/teams-received.png"
+  ],
+  "duplicatesReplacedBy": {
+    "powerapps-jsonl-intake/_assets/solution-export/pa17-published-test-app-catalog.txt": "powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-restored-app-catalog.txt",
+    "manual-jsonl-ingestion-graduation/_assets/graduate-replay.txt": "manual-jsonl-ingestion-graduation/_assets/07-graduate-replay.txt",
+    "vergil-gitlab-jsonl-automation/_assets/callback-claim-scope.clipboard.json": "vergil-gitlab-jsonl-automation/_assets/notifications/callback-claim.clipboard.json",
+    "vergil-gitlab-jsonl-automation/_assets/callback-delivery-scope.clipboard.json": "vergil-gitlab-jsonl-automation/_assets/notifications/callback-delivery.clipboard.json"
+  }
+}
