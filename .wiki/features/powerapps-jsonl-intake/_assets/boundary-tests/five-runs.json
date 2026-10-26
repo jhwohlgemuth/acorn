@@ -1,0 +1,315 @@
+[
+  {
+    "fixture": "ornl-details-exact",
+    "attempt": 1,
+    "run_url": "https://make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/7a1f9c5b-ced0-f111-a05c-001dd806277c/runs/08584086301397486255872376422CU16"
+  },
+  {
+    "fixture": "ornl-preservation",
+    "attempt": 1,
+    "run_url": "https://make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/7a1f9c5b-ced0-f111-a05c-001dd806277c/runs/08584086300385469633774270088CU07",
+    "action": "Read current PA17v2",
+    "actions": {
+      "Prior snapshot PA17v2": "0 seconds. Skipped",
+      "Parent snapshot PA17v2": "0 seconds. Skipped",
+      "Parent readable PA17v2": "0 seconds. Skipped",
+      "Load project catalog PA17v2": "0.3 seconds. Succeeded",
+      "Selected catalog project PA17v2": "0 seconds. Succeeded",
+      "Read current PA17v2": "0 seconds. Failed",
+      "Readable inbox PA17v2": "0.3 seconds. Succeeded",
+      "Existing bytes PA17v2": "0 seconds. Skipped",
+      "Safe tail PA17v2": "0 seconds. Skipped",
+      "History limit PA17v2": "0 seconds. Skipped"
+    },
+    "http403": true,
+    "network_range_restriction": true
+  },
+  {
+    "fixture": "ornl-preservation",
+    "attempt": 2,
+    "run_url": "https://make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/7a1f9c5b-ced0-f111-a05c-001dd806277c/runs/08584086299335145817406372698CU01",
+    "action": "Verify access to main",
+    "actions": {
+      "When Power Apps calls a flow (V2)": "0 seconds. Succeeded",
+      "Submission ID": "0 seconds. Succeeded",
+      "Submitted At": "0 seconds. Succeeded",
+      "Verify access to main": "0.1 seconds. Failed",
+      "Persist submission v3 PA17v2": "0 seconds. Skipped",
+      "Raw submission PA17v2": "0 seconds. Skipped",
+      "Parse submission PA17v2": "0 seconds. Skipped",
+      "Check timestamps PA17v2": "0 seconds. Skipped"
+    },
+    "http403": true,
+    "network_range_restriction": true
+  },
+  {
+    "fixture": "ornl-preservation",
+    "attempt": 3,
+    "run_url": "https://make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/7a1f9c5b-ced0-f111-a05c-001dd806277c/runs/08584086298469138273034865400CU02",
+    "action": "List submission history PA17v2",
+    "actions": {
+      "Envelope allowed PA17v2": "1 second. Failed",
+      "Commit marker PA17v2": "0 seconds. Succeeded",
+      "List submission history PA17v2": "0 seconds. Failed",
+      "Matching commits PA17v2": "0 seconds. Skipped",
+      "Prior submission exists PA17v2": "0 seconds. Skipped",
+      "Prior commit PA17v2": "0 seconds. Skipped",
+      "History exhausted PA17v2": "0 seconds. Skipped"
+    },
+    "http403": true,
+    "network_range_restriction": true
+  },
+  {
+    "fixture": "ornl-preservation",
+    "attempt": 4,
+    "run_url": "https://make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/7a1f9c5b-ced0-f111-a05c-001dd806277c/runs/08584086297673424339030191916CU26",
+    "action": "Commit append PA17v2",
+    "actions": {
+      "Safe tail PA17v2": "0.3 seconds. Failed",
+      "New bytes PA17v2": "0 seconds. Succeeded",
+      "Inbox size limit PA17v2": "0.2 seconds. Failed",
+      "Write action PA17v2": "0 seconds. Succeeded",
+      "Commit append PA17v2": "0 seconds. Failed",
+      "Verify written snapshot PA17v2": "0 seconds. Skipped"
+    },
+    "http403": true,
+    "network_range_restriction": true
+  },
+  {
+    "fixture": "ornl-preservation",
+    "attempt": 5,
+    "run_url": "https://make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/7a1f9c5b-ced0-f111-a05c-001dd806277c/runs/08584086296770386069731057905CU02",
+    "action": "List submission history PA17v2",
+    "actions": {
+      "Envelope allowed PA17v2": "0.7 seconds. Failed",
+      "Commit marker PA17v2": "0 seconds. Succeeded",
+      "List submission history PA17v2": "0 seconds. Failed",
+      "Matching commits PA17v2": "0 seconds. Skipped",
+      "Prior submission exists PA17v2": "0 seconds. Skipped",
+      "Prior commit PA17v2": "0 seconds. Skipped",
+      "History exhausted PA17v2": "0 seconds. Skipped"
+    },
+    "http403": true,
+    "network_range_restriction": true
+  },
+  {
+    "fixture": "ornl-tail",
+    "attempt": 1,
+    "run_url": "https://make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/7a1f9c5b-ced0-f111-a05c-001dd806277c/runs/08584086295508458384775193372CU31",
+    "action": "Unsafe inbox PA17v2",
+    "actions": {
+      "Parent snapshot PA17v2": "0 seconds. Skipped",
+      "Parent readable PA17v2": "0 seconds. Skipped",
+      "Selected catalog project PA17v2": "0 seconds. Succeeded",
+      "Read current PA17v2": "0.5 seconds. Succeeded",
+      "Readable inbox PA17v2": "0.3 seconds. Succeeded",
+      "Existing bytes PA17v2": "0 seconds. Succeeded",
+      "Safe tail PA17v2": "0.2 seconds. Succeeded",
+      "New bytes PA17v2": "0 seconds. Skipped",
+      "Inbox size limit PA17v2": "0 seconds. Skipped",
+      "Unsafe inbox PA17v2": "0 seconds. Succeeded"
+    },
+    "http403": false,
+    "network_range_restriction": false
+  },
+  {
+    "fixture": "jason-tail",
+    "attempt": 1,
+    "run_url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/1654dae8-ccd0-f111-a05c-001dd8062052/runs/08584086294579086949418698892CU08",
+    "action": "List submission history PA17v2",
+    "actions": {
+      "Envelope allowed PA17v2": "0.7 seconds. Failed",
+      "Commit marker PA17v2": "0 seconds. Succeeded",
+      "List submission history PA17v2": "0.1 seconds. Failed",
+      "Matching commits PA17v2": "0 seconds. Skipped",
+      "Prior submission exists PA17v2": "0 seconds. Skipped",
+      "Prior commit PA17v2": "0 seconds. Skipped",
+      "History exhausted PA17v2": "0 seconds. Skipped"
+    },
+    "http403": true,
+    "network_range_restriction": true
+  },
+  {
+    "fixture": "jason-tail",
+    "attempt": 2,
+    "run_url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/1654dae8-ccd0-f111-a05c-001dd8062052/runs/08584086293801339438063713254CU27",
+    "action": "Load project catalog PA17v2",
+    "actions": {
+      "Prior commit PA17v2": "0 seconds. Skipped",
+      "Prior snapshot PA17v2": "0 seconds. Skipped",
+      "Parent snapshot PA17v2": "0 seconds. Skipped",
+      "Parent readable PA17v2": "0 seconds. Skipped",
+      "History exhausted PA17v2": "0.9 seconds. Failed",
+      "Load project catalog PA17v2": "0.6 seconds. Failed",
+      "Selected catalog project PA17v2": "0 seconds. Skipped",
+      "Read current PA17v2": "0 seconds. Skipped",
+      "Readable inbox PA17v2": "0 seconds. Skipped"
+    },
+    "http403": true,
+    "network_range_restriction": false
+  },
+  {
+    "fixture": "jason-tail",
+    "attempt": 3,
+    "run_url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/1654dae8-ccd0-f111-a05c-001dd8062052/runs/08584086292412882413958198052CU04",
+    "action": "List submission history PA17v2",
+    "actions": {
+      "Envelope allowed PA17v2": "20.7 seconds. Failed",
+      "Commit marker PA17v2": "0 seconds. Succeeded",
+      "List submission history PA17v2": "20 seconds. Failed",
+      "Matching commits PA17v2": "0 seconds. Skipped",
+      "Prior submission exists PA17v2": "0 seconds. Skipped",
+      "Prior commit PA17v2": "0 seconds. Skipped",
+      "History exhausted PA17v2": "0 seconds. Skipped"
+    },
+    "http403": false,
+    "network_range_restriction": false,
+    "http_status": 504
+  },
+  {
+    "fixture": "jason-tail",
+    "attempt": 4,
+    "run_url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/1654dae8-ccd0-f111-a05c-001dd8062052/runs/08584086291711841949454092965CU06",
+    "action": "Load project catalog PA17v2",
+    "actions": {
+      "Prior commit PA17v2": "0 seconds. Skipped",
+      "Prior snapshot PA17v2": "0 seconds. Skipped",
+      "Parent snapshot PA17v2": "0 seconds. Skipped",
+      "Parent readable PA17v2": "0 seconds. Skipped",
+      "History exhausted PA17v2": "0.6 seconds. Failed",
+      "Load project catalog PA17v2": "0.3 seconds. Failed",
+      "Selected catalog project PA17v2": "0 seconds. Skipped",
+      "Read current PA17v2": "0 seconds. Skipped",
+      "Readable inbox PA17v2": "0 seconds. Skipped"
+    },
+    "http403": true,
+    "network_range_restriction": false
+  },
+  {
+    "fixture": "jason-tail",
+    "attempt": 5,
+    "run_url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/1654dae8-ccd0-f111-a05c-001dd8062052/runs/08584086291486081175404720061CU05",
+    "action": "List submission history PA17v2",
+    "actions": {
+      "Envelope allowed PA17v2": "0.6 seconds. Failed",
+      "Commit marker PA17v2": "0 seconds. Succeeded",
+      "List submission history PA17v2": "0 seconds. Failed",
+      "Matching commits PA17v2": "0 seconds. Skipped",
+      "Prior submission exists PA17v2": "0 seconds. Skipped",
+      "Prior commit PA17v2": "0 seconds. Skipped",
+      "History exhausted PA17v2": "0 seconds. Skipped"
+    },
+    "http403": true,
+    "network_range_restriction": true
+  },
+  {
+    "fixture": "jason-size-over",
+    "attempt": 1,
+    "run_url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/1654dae8-ccd0-f111-a05c-001dd8062052/runs/08584086290440985254746193993CU14",
+    "action": "Load project catalog PA17v2",
+    "actions": {
+      "Prior commit PA17v2": "0 seconds. Skipped",
+      "Prior snapshot PA17v2": "0 seconds. Skipped",
+      "Parent snapshot PA17v2": "0 seconds. Skipped",
+      "Parent readable PA17v2": "0 seconds. Skipped",
+      "History exhausted PA17v2": "0.5 seconds. Failed",
+      "Load project catalog PA17v2": "0.2 seconds. Failed",
+      "Selected catalog project PA17v2": "0 seconds. Skipped",
+      "Read current PA17v2": "0 seconds. Skipped",
+      "Readable inbox PA17v2": "0 seconds. Skipped"
+    },
+    "http403": true,
+    "network_range_restriction": false
+  },
+  {
+    "fixture": "jason-size-over",
+    "attempt": 2,
+    "run_url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/1654dae8-ccd0-f111-a05c-001dd8062052/runs/08584086290118401242774440855CU10",
+    "action": "List submission history PA17v2",
+    "actions": {
+      "Envelope allowed PA17v2": "0.6 seconds. Failed",
+      "Commit marker PA17v2": "0 seconds. Succeeded",
+      "List submission history PA17v2": "0 seconds. Failed",
+      "Matching commits PA17v2": "0 seconds. Skipped",
+      "Prior submission exists PA17v2": "0 seconds. Skipped",
+      "Prior commit PA17v2": "0 seconds. Skipped",
+      "History exhausted PA17v2": "0 seconds. Skipped"
+    },
+    "http403": true,
+    "network_range_restriction": true
+  },
+  {
+    "fixture": "jason-size-over",
+    "attempt": 3,
+    "run_url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/1654dae8-ccd0-f111-a05c-001dd8062052/runs/08584086289609653326210898947CU07",
+    "action": "List submission history PA17v2",
+    "actions": {
+      "Envelope allowed PA17v2": "0.7 seconds. Failed",
+      "Commit marker PA17v2": "0 seconds. Succeeded",
+      "List submission history PA17v2": "0 seconds. Failed",
+      "Matching commits PA17v2": "0 seconds. Skipped",
+      "Prior submission exists PA17v2": "0 seconds. Skipped",
+      "Prior commit PA17v2": "0 seconds. Skipped",
+      "History exhausted PA17v2": "0 seconds. Skipped"
+    },
+    "http403": true,
+    "network_range_restriction": true
+  },
+  {
+    "fixture": "jason-size-over",
+    "attempt": 4,
+    "run_url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/1654dae8-ccd0-f111-a05c-001dd8062052/runs/08584086289059498832287850676CU00",
+    "action": "Load project catalog PA17v2",
+    "actions": {
+      "Prior commit PA17v2": "0 seconds. Skipped",
+      "Prior snapshot PA17v2": "0 seconds. Skipped",
+      "Parent snapshot PA17v2": "0 seconds. Skipped",
+      "Parent readable PA17v2": "0 seconds. Skipped",
+      "History exhausted PA17v2": "0.6 seconds. Failed",
+      "Load project catalog PA17v2": "0.2 seconds. Failed",
+      "Selected catalog project PA17v2": "0 seconds. Skipped",
+      "Read current PA17v2": "0 seconds. Skipped",
+      "Readable inbox PA17v2": "0 seconds. Skipped"
+    },
+    "http403": true,
+    "network_range_restriction": false
+  },
+  {
+    "fixture": "jason-size-over",
+    "attempt": 5,
+    "run_url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/1654dae8-ccd0-f111-a05c-001dd8062052/runs/08584086288510509403242106042CU31",
+    "action": "List submission history PA17v2",
+    "actions": {
+      "Envelope allowed PA17v2": "0.6 seconds. Failed",
+      "Commit marker PA17v2": "0 seconds. Succeeded",
+      "List submission history PA17v2": "0 seconds. Failed",
+      "Matching commits PA17v2": "0 seconds. Skipped",
+      "Prior submission exists PA17v2": "0 seconds. Skipped",
+      "Prior commit PA17v2": "0 seconds. Skipped",
+      "History exhausted PA17v2": "0 seconds. Skipped"
+    },
+    "http403": true,
+    "network_range_restriction": true
+  },
+  {
+    "fixture": "jason-size-exact",
+    "attempt": 1,
+    "run_url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/1654dae8-ccd0-f111-a05c-001dd8062052/runs/08584086287664486331565261558CU00",
+    "action": "Read current PA17v2",
+    "actions": {
+      "Matching commits PA17v2": "0 seconds. Succeeded",
+      "Prior submission exists PA17v2": "1.1 seconds. Succeeded",
+      "Prior commit PA17v2": "0 seconds. Skipped",
+      "Prior snapshot PA17v2": "0 seconds. Skipped",
+      "Parent snapshot PA17v2": "0 seconds. Skipped",
+      "Parent readable PA17v2": "0 seconds. Skipped",
+      "History exhausted PA17v2": "0.8 seconds. Succeeded",
+      "Load project catalog PA17v2": "0.4 seconds. Succeeded",
+      "Selected catalog project PA17v2": "0 seconds. Succeeded",
+      "Read current PA17v2": "0 seconds. Failed",
+      "Readable inbox PA17v2": "0.3 seconds. Succeeded"
+    },
+    "http403": true,
+    "network_range_restriction": true
+  }
+]

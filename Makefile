@@ -84,8 +84,8 @@ mcpb: ## Build the MCP bundle artifacts for release packaging.
 linux-packages: ## Build x86_64 and ARM64 AppImage and Debian release packages.
 	@$(MUSL_BUILD) --release --package acorn-cli --target $(DEFAULT_TARGET)
 	@$(MUSL_BUILD) --release --package acorn-cli --target $(DEFAULT_ARM64_TARGET)
-	@./scripts/package-linux.sh $(VERSION) $(DEFAULT_TARGET) amd64 x86_64
-	@./scripts/package-linux.sh $(VERSION) $(DEFAULT_ARM64_TARGET) arm64 aarch64
+	@sh scripts/package-linux.sh $(VERSION) $(DEFAULT_TARGET) amd64 x86_64
+	@sh scripts/package-linux.sh $(VERSION) $(DEFAULT_ARM64_TARGET) arm64 aarch64
 
 release-checksums: ## Generate SHA256 checksums for release artifacts.
 	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION))

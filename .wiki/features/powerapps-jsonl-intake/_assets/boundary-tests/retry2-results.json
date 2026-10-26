@@ -1,0 +1,245 @@
+{
+  "date": "2026-10-25",
+  "source": "Power Automate run-action observations and independently verified GitLab file bytes/revisions",
+  "runs": [
+    {
+      "fixture": "jason-details-exact.json",
+      "run_url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/1654dae8-ccd0-f111-a05c-001dd8062052/runs/08584086320883016883829744137CU09",
+      "outcome": "accepted",
+      "decisive_action": "Exact appended JSONL bytes and immutable file commit",
+      "submission_id": "f1f29796-8706-41a0-bcfd-f1be332de7a3"
+    },
+    {
+      "fixture": "jason-preservation.json",
+      "run_url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/1654dae8-ccd0-f111-a05c-001dd8062052/runs/08584086320286375706413637199CU31",
+      "decisive_action": "Load project catalog PA17v2",
+      "outcome": "blocked",
+      "observed_actions": {
+        "Prior commit PA17v2": "0 seconds. Skipped",
+        "Prior snapshot PA17v2": "0 seconds. Skipped",
+        "Parent snapshot PA17v2": "0 seconds. Skipped",
+        "Parent readable PA17v2": "0 seconds. Skipped",
+        "History exhausted PA17v2": "0.7 seconds. Failed",
+        "Load project catalog PA17v2": "0.4 seconds. Failed",
+        "Selected catalog project PA17v2": "0 seconds. Skipped",
+        "Read current PA17v2": "0 seconds. Skipped",
+        "Readable inbox PA17v2": "0 seconds. Skipped"
+      },
+      "http403": true,
+      "network_range_restriction": false,
+      "submission_id": "3622708a-b3a6-42a6-989b-a55fa231ab59"
+    },
+    {
+      "fixture": "jason-tail.json",
+      "run_url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/1654dae8-ccd0-f111-a05c-001dd8062052/runs/08584086319835097131863099025CU26",
+      "decisive_action": "Read current PA17v2",
+      "outcome": "blocked",
+      "observed_actions": {
+        "Prior snapshot PA17v2": "0 seconds. Skipped",
+        "Parent snapshot PA17v2": "0 seconds. Skipped",
+        "Parent readable PA17v2": "0 seconds. Skipped",
+        "Load project catalog PA17v2": "0.3 seconds. Succeeded",
+        "Selected catalog project PA17v2": "0 seconds. Succeeded",
+        "Read current PA17v2": "0 seconds. Failed",
+        "Readable inbox PA17v2": "0.3 seconds. Succeeded",
+        "Existing bytes PA17v2": "0 seconds. Skipped",
+        "Safe tail PA17v2": "0 seconds. Skipped"
+      },
+      "http403": true,
+      "network_range_restriction": true,
+      "submission_id": "9a5e623b-8b58-4774-ad3b-17ca97bc45ef"
+    },
+    {
+      "fixture": "jason-size-exact.json",
+      "run_url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/1654dae8-ccd0-f111-a05c-001dd8062052/runs/08584086319438050132338584389CU17",
+      "decisive_action": "List submission history PA17v2",
+      "outcome": "blocked",
+      "observed_actions": {
+        "Envelope allowed PA17v2": "0.7 seconds. Failed",
+        "Commit marker PA17v2": "0 seconds. Succeeded",
+        "List submission history PA17v2": "0 seconds. Failed",
+        "Matching commits PA17v2": "0 seconds. Skipped",
+        "Prior submission exists PA17v2": "0 seconds. Skipped",
+        "Prior commit PA17v2": "0 seconds. Skipped",
+        "History exhausted PA17v2": "0 seconds. Skipped"
+      },
+      "http403": true,
+      "network_range_restriction": true,
+      "submission_id": "d343cf7c-b93e-4372-9b09-5e63d8140bc5"
+    },
+    {
+      "fixture": "ornl-detail-exact.json",
+      "run_url": "https://make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/7a1f9c5b-ced0-f111-a05c-001dd806277c/runs/08584086318612297066129422991CU06",
+      "decisive_action": "List submission history PA17v2",
+      "outcome": "blocked",
+      "observed_actions": {
+        "Envelope allowed PA17v2": "0.7 seconds. Failed",
+        "Commit marker PA17v2": "0 seconds. Succeeded",
+        "List submission history PA17v2": "0.1 seconds. Failed",
+        "Matching commits PA17v2": "0 seconds. Skipped",
+        "Prior submission exists PA17v2": "0 seconds. Skipped",
+        "Prior commit PA17v2": "0 seconds. Skipped",
+        "Prior snapshot PA17v2": "0 seconds. Skipped",
+        "History exhausted PA17v2": "0 seconds. Skipped"
+      },
+      "http403": true,
+      "network_range_restriction": true,
+      "submission_id": "34f134f6-d171-495e-a583-4366bfb5b4c3"
+    },
+    {
+      "fixture": "ornl-details-exact.json",
+      "run_url": "https://make.gov.powerautomate.us/environments/Default-db3dbd43-4c4b-4544-9f8a-0553f9f5f25e/flows/7a1f9c5b-ced0-f111-a05c-001dd806277c/runs/08584086318416333908211324542CU11",
+      "decisive_action": "Verify access to main",
+      "outcome": "blocked",
+      "observed_actions": {
+        "When Power Apps calls a flow (V2)": "0 seconds. Succeeded",
+        "Submission ID": "0 seconds. Succeeded",
+        "Submitted At": "0 seconds. Succeeded",
+        "Verify access to main": "0 seconds. Failed",
+        "Persist submission v3 PA17v2": "0 seconds. Skipped",
+        "Raw submission PA17v2": "0 seconds. Skipped",
+        "Parse submission PA17v2": "0 seconds. Skipped",
+        "Check timestamps PA17v2": "0 seconds. Skipped"
+      },
+      "http403": true,
+      "network_range_restriction": true,
+      "submission_id": "10905821-0aa8-4946-a4ed-0ac65772705b"
+    }
+  ],
+  "snapshots": {
+    "final-baseline": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 457,
+      "content_sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "commit_id": "835f1433a7ef78f900c9bbb2b42223bc7bffd5b1",
+      "last_commit_id": "835f1433a7ef78f900c9bbb2b42223bc7bffd5b1",
+      "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15"
+    },
+    "jason-preservation-after": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 512,
+      "content_sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a",
+      "commit_id": "e4d342a2bb415390b29802389292f240051f1a9d",
+      "last_commit_id": "e4d342a2bb415390b29802389292f240051f1a9d",
+      "sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a"
+    },
+    "jason-preservation-before": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 512,
+      "content_sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a",
+      "commit_id": "e4d342a2bb415390b29802389292f240051f1a9d",
+      "last_commit_id": "e4d342a2bb415390b29802389292f240051f1a9d",
+      "sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a"
+    },
+    "jason-restored": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 457,
+      "content_sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "commit_id": "835f1433a7ef78f900c9bbb2b42223bc7bffd5b1",
+      "last_commit_id": "835f1433a7ef78f900c9bbb2b42223bc7bffd5b1",
+      "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15"
+    },
+    "jason-size-exact-after": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 10485336,
+      "content_sha256": "a5a2ca93c65458389e1b6ab4f366c2159a7aae55a688f2cb4b50aea970a9fb5e",
+      "commit_id": "a39a3aecd782918d84e8f6fbfe3b9f41a8df92cb",
+      "last_commit_id": "a39a3aecd782918d84e8f6fbfe3b9f41a8df92cb",
+      "sha256": "a5a2ca93c65458389e1b6ab4f366c2159a7aae55a688f2cb4b50aea970a9fb5e"
+    },
+    "jason-size-exact-before": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 10485336,
+      "content_sha256": "a5a2ca93c65458389e1b6ab4f366c2159a7aae55a688f2cb4b50aea970a9fb5e",
+      "commit_id": "a39a3aecd782918d84e8f6fbfe3b9f41a8df92cb",
+      "last_commit_id": "a39a3aecd782918d84e8f6fbfe3b9f41a8df92cb",
+      "sha256": "a5a2ca93c65458389e1b6ab4f366c2159a7aae55a688f2cb4b50aea970a9fb5e"
+    },
+    "jason-tail-after": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 511,
+      "content_sha256": "a8a7b950f046b8b8fd7ce96622d136a36930f1ae1b3a1aa86b4815b80a5f375f",
+      "commit_id": "e375178406104e73b023dab6a0dc117d54e7ae7f",
+      "last_commit_id": "e375178406104e73b023dab6a0dc117d54e7ae7f",
+      "sha256": "a8a7b950f046b8b8fd7ce96622d136a36930f1ae1b3a1aa86b4815b80a5f375f"
+    },
+    "jason-tail-before": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 511,
+      "content_sha256": "a8a7b950f046b8b8fd7ce96622d136a36930f1ae1b3a1aa86b4815b80a5f375f",
+      "commit_id": "e375178406104e73b023dab6a0dc117d54e7ae7f",
+      "last_commit_id": "e375178406104e73b023dab6a0dc117d54e7ae7f",
+      "sha256": "a8a7b950f046b8b8fd7ce96622d136a36930f1ae1b3a1aa86b4815b80a5f375f"
+    },
+    "ornl-detail-exact-after": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 457,
+      "content_sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "commit_id": "835f1433a7ef78f900c9bbb2b42223bc7bffd5b1",
+      "last_commit_id": "835f1433a7ef78f900c9bbb2b42223bc7bffd5b1",
+      "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15"
+    },
+    "ornl-details-exact-after": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 457,
+      "content_sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "commit_id": "835f1433a7ef78f900c9bbb2b42223bc7bffd5b1",
+      "last_commit_id": "835f1433a7ef78f900c9bbb2b42223bc7bffd5b1",
+      "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15"
+    },
+    "retry2-jason-details-exact": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 1444,
+      "content_sha256": "706ed79e6a72fa1eee1037fd14c5376f4cb74a2e340bf2541c3617d4593b163e",
+      "commit_id": "a7eda88d8d1753b48463726bd02d3ec90db7001e",
+      "last_commit_id": "a7eda88d8d1753b48463726bd02d3ec90db7001e",
+      "sha256": "706ed79e6a72fa1eee1037fd14c5376f4cb74a2e340bf2541c3617d4593b163e",
+      "baseline_prefix_preserved": true,
+      "matches_baseline": false
+    },
+    "retry2-start": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 457,
+      "content_sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "commit_id": "d2d04425bfb54d63f3a5df7d7d5eba4431f8821c",
+      "last_commit_id": "d2d04425bfb54d63f3a5df7d7d5eba4431f8821c",
+      "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "baseline_prefix_preserved": true,
+      "matches_baseline": true
+    }
+  },
+  "accepted_append": {
+    "fixture": "jason-details-exact.json",
+    "snapshot": "retry2-jason-details-exact.jsonl",
+    "prior_bytes": 457,
+    "after_bytes": 1444,
+    "delta_bytes": 987,
+    "appended_lines": 1,
+    "detail_count": 20,
+    "exact_json_match": true,
+    "prior_bytes_preserved": true
+  },
+  "file_cases": {
+    "jason-preservation": {
+      "before_bytes": 512,
+      "outcome": "blocked before file read"
+    },
+    "jason-tail": {
+      "before_bytes": 511,
+      "outcome": "blocked at file read"
+    },
+    "jason-size-exact": {
+      "before_bytes": 10485336,
+      "proposed_bytes": 10485759,
+      "outcome": "blocked before file read"
+    }
+  },
+  "restoration": {
+    "bytes": 457,
+    "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+    "commit": "835f1433a7ef78f900c9bbb2b42223bc7bffd5b1",
+    "both_test_flows": "Off",
+    "operational_components_changed": false,
+    "notifications_sent": false
+  }
+}

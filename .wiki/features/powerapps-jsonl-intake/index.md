@@ -20,7 +20,7 @@ Supporting material: [pilot runbook](pilot-runbook.md), [notification walkthroug
 
 # Current evidence
 
-- PA-15 October 25 boundary acceptance: exact 1,200-character summaries passed in both environments; the retry also passed the 1,000-character detail in Jason. Whitespace and empty-array rejection passed in both native copies, and ORNL passed all three over-limit fields. The ORNL exact-detail and both 20-detail cases still stopped at GitLab 403. Both test flows returned Off and the 457-byte isolated baseline was restored exactly. Remaining acceptance covers the ORNL detail append, 20 details, mixed-line preservation, unsafe tail and file-size boundaries; [case matrix and byte proofs](boundary-acceptance.md). Completed PA-14 simulation apps/flows and the accepted failure mock were removed; [cleanup inventory](test-artifact-cleanup.md).
+- PA-15 October 25 boundary acceptance: exact 1,200-character summaries and 1,000-character details passed in both environments; Jason also passed the 20-detail count. All listed field rejections passed. The latest series added ORNL detail acceptance, then three attempts each for ORNL count, mixed-line and tail cases stopped at GitLab 403. Independent file-read timeout prevented the next size-fixture setup. Both test flows returned Off and two readbacks verified the original 457-byte baseline. Remaining acceptance covers ORNL 20 details plus mixed-line, unsafe-tail and size boundaries in both environments; [case matrix and byte proofs](boundary-acceptance.md). Completed simulation artifacts were removed separately; [cleanup inventory](test-artifact-cleanup.md).
 
 - PA-02 is closed by owner decision on October 25, 2026: the Jason-only pilot licensing assessment and access characterization are accepted, with intermittent GitLab connectivity recorded as a [known limitation](intake-access-decisions.md#known-limitation-and-pa-02-closure). Reliable connectivity has not been proven or repaired. PA-15/16/17 retain their own unpassed acceptance tests.
 
@@ -74,13 +74,13 @@ Inspect actual action outcomes, line deltas, receipt UUID/commit, immutable snap
 
 ## PA-15 — Accept bounded inbox and field limits
 
-- Status: waiting-on-validation
-- Validation readiness: Exact-summary append acceptance passed in both environments; exact-detail append passed in Jason. Server rejection coverage is complete for the listed field limits. The ORNL exact-detail and both 20-detail retries stopped at GitLab 403 before append; mixed-line, tail and size runtime acceptance remains unexecuted. See boundary-acceptance.md for evidence and reusable fixtures. The actual append cap is 10,485,759 UTF-8 bytes. PA-02 remains closed with the connectivity limitation accepted.
+- Status: in-progress
+- Validation readiness: Exact-summary, exact-detail and 20-detail appends passed in both environments. All listed field rejections passed. ORNL malformed-tail rejection also passed with unchanged bytes/revision. The requested five-attempt series is running; ORNL preservation and Jason tail exhausted five attempts with upstream 403/504 failures. File-size and Jason preservation tests remain in progress. See boundary-acceptance.md for retained evidence and the final case matrix. The actual append cap is 10,485,759 UTF-8 bytes. PA-02 remains closed with the connectivity limitation accepted.
 - Budget: 5 active hours maximum
 - Prerequisites: safe isolated fixtures and restored baseline; authorized connector access sufficient to execute each case
 - Exact write set: pilot project `22464` isolated intake test files; validation actions in isolated intake flow copies in both test environments; `.wiki/features/powerapps-jsonl-intake/boundary-acceptance.md`; `.wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/`
 - Primary integration lock: intake route
-- Outcome: Accept the ORNL 1,000-character-detail append, 20-detail append in both environments, blank/rejected-line preservation, malformed tail and file-size boundaries in both environments. Preserve already accepted summary, Jason exact-detail and field-rejection evidence.
+- Outcome: Accept blank/rejected-line preservation, malformed tail and file-size boundaries in both environments. Preserve already accepted summary/detail/count and field-rejection evidence.
 - Focused validation: Use one dimension per case; accepted records append once, rejected records do not alter any bytes, unsafe tails fail closed; preserve original pilot inbox.
 - Handoff: Record per-case outcomes and restore isolated fixtures; no implied concurrency acceptance.
 
