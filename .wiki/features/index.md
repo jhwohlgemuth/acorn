@@ -8,7 +8,7 @@
 
 ## Planned
 
-- [SharePoint JSONL download for ACORN intake](sharepoint-jsonl-download/index.md) - Add authenticated direct-URL capture, exact local snapshots and offline review; approved CLI tenant access is unverified, and both operational pilots remain unchanged.
+- [SharePoint JSONL download for ACORN intake](sharepoint-jsonl-download/index.md) - Add reusable OAuth 2.0/Entra browser/device authorization with ACRE auth profiles, verified account identity, scoped cache inspection/reset, cross-platform protected caching, existing Confirm controls and Graph file capture, consumed by SharePoint direct-URL intake and offline review; approved CLI tenant access is unverified, and both operational pilots remain unchanged.
 
 - [Installable acornd background service](acornd-service.md) - Serve existing APIs and configured check/gather jobs from a persistent local or SSH-managed service on Linux, macOS, and Windows; release requires signed paired binaries and live host acceptance.
 - [Automated JSONL management with the Vergil GitLab bot](vergil-gitlab-jsonl-automation/index.md) - PA-05/06/07/09 and BOT-02 are Waiting on validation, subject to their prerequisites. Service deployment, callback integration, reporting setup and authority decisions remain planned/blocked. Implemented runtime contracts await live deployment and end-to-end acceptance: protected runtime, callbacks, durable admission/cleanup, human review/merge and scheduled reporting.
