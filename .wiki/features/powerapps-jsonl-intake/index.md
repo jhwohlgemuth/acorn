@@ -20,7 +20,7 @@ Supporting material: [pilot runbook](pilot-runbook.md), [notification walkthroug
 
 # Current evidence
 
-- PA-15 October 25 boundary acceptance: exact 1,200-character summaries appended once in both isolated environments with all prior bytes preserved. The next 1,000-character-detail case passed validation in each environment but file reads returned network-range 403. Both test flows returned Off and the 457-byte isolated baseline was restored exactly. Tail/size, 20-detail and remaining server guards are unaccepted; [case matrix and byte proofs](boundary-acceptance.md). Completed PA-14 simulation apps/flows and the accepted failure mock were removed; [cleanup inventory](test-artifact-cleanup.md).
+- PA-15 October 25 boundary acceptance: exact 1,200-character summaries passed in both environments; the retry also passed the 1,000-character detail in Jason. Whitespace and empty-array rejection passed in both native copies, and ORNL passed all three over-limit fields. The ORNL exact-detail and both 20-detail cases still stopped at GitLab 403. Both test flows returned Off and the 457-byte isolated baseline was restored exactly. Remaining acceptance covers the ORNL detail append, 20 details, mixed-line preservation, unsafe tail and file-size boundaries; [case matrix and byte proofs](boundary-acceptance.md). Completed PA-14 simulation apps/flows and the accepted failure mock were removed; [cleanup inventory](test-artifact-cleanup.md).
 
 - PA-02 is closed by owner decision on October 25, 2026: the Jason-only pilot licensing assessment and access characterization are accepted, with intermittent GitLab connectivity recorded as a [known limitation](intake-access-decisions.md#known-limitation-and-pa-02-closure). Reliable connectivity has not been proven or repaired. PA-15/16/17 retain their own unpassed acceptance tests.
 
@@ -75,12 +75,12 @@ Inspect actual action outcomes, line deltas, receipt UUID/commit, immutable snap
 ## PA-15 — Accept bounded inbox and field limits
 
 - Status: waiting-on-validation
-- Validation readiness: Exact-summary append acceptance passed in both environments. Exact-detail validation passed but persistence was blocked by network-range 403 in both; remaining cases and reusable fixtures are recorded in boundary-acceptance.md. The actual append cap is 10,485,759 UTF-8 bytes. PA-02 remains closed with the connectivity limitation accepted.
+- Validation readiness: Exact-summary append acceptance passed in both environments; exact-detail append passed in Jason. Server rejection coverage is complete for the listed field limits. The ORNL exact-detail and both 20-detail retries stopped at GitLab 403 before append; mixed-line, tail and size runtime acceptance remains unexecuted. See boundary-acceptance.md for evidence and reusable fixtures. The actual append cap is 10,485,759 UTF-8 bytes. PA-02 remains closed with the connectivity limitation accepted.
 - Budget: 5 active hours maximum
 - Prerequisites: safe isolated fixtures and restored baseline; authorized connector access sufficient to execute each case
 - Exact write set: pilot project `22464` isolated intake test files; validation actions in isolated intake flow copies in both test environments; `.wiki/features/powerapps-jsonl-intake/boundary-acceptance.md`; `.wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/`
 - Primary integration lock: intake route
-- Outcome: Complete the remaining detail/count/guard cases, blank/rejected-line preservation, malformed tail and file-size boundary acceptance; exact summary acceptance is already preserved.
+- Outcome: Accept the ORNL 1,000-character-detail append, 20-detail append in both environments, blank/rejected-line preservation, malformed tail and file-size boundaries in both environments. Preserve already accepted summary, Jason exact-detail and field-rejection evidence.
 - Focused validation: Use one dimension per case; accepted records append once, rejected records do not alter any bytes, unsafe tails fail closed; preserve original pilot inbox.
 - Handoff: Record per-case outcomes and restore isolated fixtures; no implied concurrency acceptance.
 

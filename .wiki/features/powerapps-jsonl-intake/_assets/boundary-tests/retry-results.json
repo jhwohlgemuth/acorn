@@ -1,0 +1,491 @@
+{
+  "date": "2026-10-25",
+  "case_count": 14,
+  "environment_flow_ids": {
+    "jason": "1654dae8-ccd0-f111-a05c-001dd8062052",
+    "ornl": "7a1f9c5b-ced0-f111-a05c-001dd806277c"
+  },
+  "source": "Observed Power Automate run actions and independent GitLab file readbacks; transient full UI trees consolidated into this allowlisted evidence.",
+  "runs": [
+    {
+      "fixture": "jason-detail-exact.json",
+      "run_id": "08584086339199446408757739438CU14",
+      "outcome": "accepted",
+      "decisive_action": null,
+      "observed_action_statuses": {},
+      "submission_id": "a30f5d40-ee13-4117-841e-bbfaace3c6ed",
+      "summary_characters": 58,
+      "detail_characters": [
+        1000
+      ],
+      "http_status": null,
+      "error": null
+    },
+    {
+      "fixture": "jason-details-exact.json",
+      "run_id": "08584086338865674950268384681CU10",
+      "outcome": "blocked",
+      "decisive_action": "Read current PA17v2",
+      "observed_action_statuses": {
+        "Matching commits PA17v2": "0 seconds. Succeeded",
+        "Prior submission exists PA17v2": "1 second. Succeeded",
+        "Prior commit PA17v2": "0 seconds. Skipped",
+        "Prior snapshot PA17v2": "0 seconds. Skipped",
+        "Parent snapshot PA17v2": "0 seconds. Skipped",
+        "Parent readable PA17v2": "0 seconds. Skipped",
+        "History exhausted PA17v2": "0.8 seconds. Succeeded",
+        "Load project catalog PA17v2": "0.4 seconds. Succeeded",
+        "Selected catalog project PA17v2": "0 seconds. Succeeded",
+        "Read current PA17v2": "0 seconds. Failed",
+        "Readable inbox PA17v2": "0.2 seconds. Succeeded"
+      },
+      "submission_id": "f1f29796-8706-41a0-bcfd-f1be332de7a3",
+      "summary_characters": 59,
+      "detail_characters": [
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        27,
+        27,
+        27,
+        27,
+        27,
+        27,
+        27,
+        27,
+        27,
+        27
+      ],
+      "http_status": 403,
+      "error": "Forbidden: network-range restriction"
+    },
+    {
+      "fixture": "jason-summary-blank.json",
+      "run_id": "08584086338035189912077067962CU22",
+      "outcome": "blocked",
+      "decisive_action": "Verify access to main",
+      "observed_action_statuses": {
+        "When Power Apps calls a flow (V2)": "0 seconds. Succeeded",
+        "Submission ID": "0 seconds. Succeeded",
+        "Submitted At": "0 seconds. Succeeded",
+        "Verify access to main": "0 seconds. Failed",
+        "Persist submission v3 PA17v2": "0 seconds. Skipped",
+        "Raw submission PA17v2": "0 seconds. Skipped",
+        "Parse submission PA17v2": "0 seconds. Skipped",
+        "Check timestamps PA17v2": "0 seconds. Skipped"
+      },
+      "submission_id": "e39fe10b-3caa-4eb7-ae16-efdf177d15f3",
+      "summary_characters": 2,
+      "detail_characters": [
+        26
+      ],
+      "http_status": 403,
+      "error": "Forbidden: network-range restriction"
+    },
+    {
+      "fixture": "jason-detail-blank.json",
+      "run_id": "08584086337718606547670622201CU05",
+      "outcome": "rejected",
+      "decisive_action": "Rejected envelope PA17v2",
+      "observed_action_statuses": {
+        "Check timestamps PA17v2": "0 seconds. Succeeded",
+        "Blank details PA17v2": "0 seconds. Succeeded",
+        "Caller email PA17v2": "0 seconds. Succeeded",
+        "Envelope allowed PA17v2": "0.7 seconds. Succeeded",
+        "Commit marker PA17v2": "0 seconds. Skipped",
+        "List submission history PA17v2": "0 seconds. Skipped",
+        "Matching commits PA17v2": "0 seconds. Skipped",
+        "Rejected envelope PA17v2": "0 seconds. Succeeded"
+      },
+      "submission_id": "e788ebc8-747a-479e-97a5-fdc29e855caa",
+      "summary_characters": 58,
+      "detail_characters": [
+        2
+      ],
+      "http_status": null,
+      "error": null
+    },
+    {
+      "fixture": "jason-empty-details.json",
+      "run_id": "08584086337511683187473333000CU01",
+      "outcome": "rejected",
+      "decisive_action": "Parse submission PA17v2",
+      "observed_action_statuses": {
+        "Verify access to main": "0.5 seconds. Succeeded",
+        "Persist submission v3 PA17v2": "0.7 seconds. Failed",
+        "Raw submission PA17v2": "0 seconds. Succeeded",
+        "Parse submission PA17v2": "0 seconds. Failed",
+        "Check timestamps PA17v2": "0 seconds. Skipped",
+        "Blank details PA17v2": "0 seconds. Skipped",
+        "Caller email PA17v2": "0 seconds. Skipped"
+      },
+      "submission_id": "aba07622-534b-4595-85fa-a2c1a578d0d1",
+      "summary_characters": 59,
+      "detail_characters": [],
+      "http_status": null,
+      "error": "ValidationFailed"
+    },
+    {
+      "fixture": "ornl-detail-exact.json",
+      "run_id": "08584086336732800057803637219CU16",
+      "outcome": "blocked",
+      "decisive_action": "Load project catalog PA17v2",
+      "observed_action_statuses": {
+        "Commit marker PA17v2": "0 seconds. Succeeded",
+        "List submission history PA17v2": "0.2 seconds. Succeeded",
+        "Matching commits PA17v2": "0 seconds. Succeeded",
+        "Prior submission exists PA17v2": "0.8 seconds. Failed",
+        "Prior commit PA17v2": "0 seconds. Skipped",
+        "Prior snapshot PA17v2": "0 seconds. Skipped",
+        "Parent snapshot PA17v2": "0 seconds. Skipped",
+        "History exhausted PA17v2": "0.6 seconds. Failed",
+        "Load project catalog PA17v2": "0.2 seconds. Failed"
+      },
+      "submission_id": "34f134f6-d171-495e-a583-4366bfb5b4c3",
+      "summary_characters": 57,
+      "detail_characters": [
+        1000
+      ],
+      "http_status": 403,
+      "error": "Forbidden"
+    },
+    {
+      "fixture": "ornl-summary-over.json",
+      "run_id": "08584086336168059693565909498CU13",
+      "outcome": "rejected",
+      "decisive_action": "Parse submission PA17v2",
+      "observed_action_statuses": {
+        "Verify access to main": "0.2 seconds. Succeeded",
+        "Persist submission v3 PA17v2": "0.7 seconds. Failed",
+        "Raw submission PA17v2": "0 seconds. Succeeded",
+        "Parse submission PA17v2": "0 seconds. Failed",
+        "Check timestamps PA17v2": "0 seconds. Skipped",
+        "Blank details PA17v2": "0 seconds. Skipped",
+        "Caller email PA17v2": "0 seconds. Skipped"
+      },
+      "submission_id": "f12f86e9-4df2-45c2-9079-92f2bc06d2f5",
+      "summary_characters": 1201,
+      "detail_characters": [
+        26
+      ],
+      "http_status": null,
+      "error": "ValidationFailed"
+    },
+    {
+      "fixture": "ornl-details-over.json",
+      "run_id": "08584086335281418730547740499CU26",
+      "outcome": "rejected",
+      "decisive_action": "Parse submission PA17v2",
+      "observed_action_statuses": {
+        "Verify access to main": "0.2 seconds. Succeeded",
+        "Persist submission v3 PA17v2": "0.7 seconds. Failed",
+        "Raw submission PA17v2": "0 seconds. Succeeded",
+        "Parse submission PA17v2": "0 seconds. Failed",
+        "Check timestamps PA17v2": "0 seconds. Skipped",
+        "Blank details PA17v2": "0 seconds. Skipped",
+        "Caller email PA17v2": "0 seconds. Skipped"
+      },
+      "submission_id": "1d16f576-d8e9-41e3-b3df-ff959f6fabb4",
+      "summary_characters": 57,
+      "detail_characters": [
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        27,
+        27,
+        27,
+        27,
+        27,
+        27,
+        27,
+        27,
+        27,
+        27,
+        27
+      ],
+      "http_status": null,
+      "error": "ValidationFailed"
+    },
+    {
+      "fixture": "ornl-detail-over.json",
+      "run_id": "08584086335072007845992062395CU00",
+      "outcome": "rejected",
+      "decisive_action": "Parse submission PA17v2",
+      "observed_action_statuses": {
+        "Verify access to main": "0.2 seconds. Succeeded",
+        "Persist submission v3 PA17v2": "1.2 seconds. Failed",
+        "Raw submission PA17v2": "0 seconds. Succeeded",
+        "Parse submission PA17v2": "0 seconds. Failed",
+        "Check timestamps PA17v2": "0 seconds. Skipped",
+        "Blank details PA17v2": "0 seconds. Skipped",
+        "Caller email PA17v2": "0 seconds. Skipped"
+      },
+      "submission_id": "24074e64-9bca-4d5f-8d14-b4060fc54502",
+      "summary_characters": 56,
+      "detail_characters": [
+        1001
+      ],
+      "http_status": null,
+      "error": "ValidationFailed"
+    },
+    {
+      "fixture": "ornl-summary-blank.json",
+      "run_id": "08584086334958600906622055116CU25",
+      "outcome": "rejected",
+      "decisive_action": "Rejected envelope PA17v2",
+      "observed_action_statuses": {
+        "Check timestamps PA17v2": "0 seconds. Succeeded",
+        "Blank details PA17v2": "0 seconds. Succeeded",
+        "Caller email PA17v2": "0 seconds. Succeeded",
+        "Envelope allowed PA17v2": "0.7 seconds. Succeeded",
+        "Commit marker PA17v2": "0 seconds. Skipped",
+        "List submission history PA17v2": "0 seconds. Skipped",
+        "Matching commits PA17v2": "0 seconds. Skipped",
+        "Rejected envelope PA17v2": "0 seconds. Succeeded"
+      },
+      "submission_id": "740f9733-473a-4c39-bc29-bfa9f398e228",
+      "summary_characters": 2,
+      "detail_characters": [
+        26
+      ],
+      "http_status": null,
+      "error": null
+    },
+    {
+      "fixture": "ornl-detail-blank.json",
+      "run_id": "08584086334879198386699439959CU16",
+      "outcome": "rejected",
+      "decisive_action": "Rejected envelope PA17v2",
+      "observed_action_statuses": {
+        "Check timestamps PA17v2": "0 seconds. Succeeded",
+        "Blank details PA17v2": "0 seconds. Succeeded",
+        "Caller email PA17v2": "0 seconds. Succeeded",
+        "Envelope allowed PA17v2": "0.6 seconds. Succeeded",
+        "Commit marker PA17v2": "0 seconds. Skipped",
+        "List submission history PA17v2": "0 seconds. Skipped",
+        "Matching commits PA17v2": "0 seconds. Skipped",
+        "Rejected envelope PA17v2": "0 seconds. Succeeded"
+      },
+      "submission_id": "bcbb6e9a-f1e0-4001-9ad9-781b0501c35b",
+      "summary_characters": 57,
+      "detail_characters": [
+        2
+      ],
+      "http_status": null,
+      "error": null
+    },
+    {
+      "fixture": "ornl-empty-details.json",
+      "run_id": "08584086334789241665735459220CU05",
+      "outcome": "rejected",
+      "decisive_action": "Parse submission PA17v2",
+      "observed_action_statuses": {
+        "Verify access to main": "0.2 seconds. Succeeded",
+        "Persist submission v3 PA17v2": "0.7 seconds. Failed",
+        "Raw submission PA17v2": "0 seconds. Succeeded",
+        "Parse submission PA17v2": "0 seconds. Failed",
+        "Check timestamps PA17v2": "0 seconds. Skipped",
+        "Blank details PA17v2": "0 seconds. Skipped",
+        "Caller email PA17v2": "0 seconds. Skipped"
+      },
+      "submission_id": "fbea5bc7-a231-4b03-a817-c474997dd609",
+      "summary_characters": 58,
+      "detail_characters": [],
+      "http_status": null,
+      "error": "ValidationFailed"
+    },
+    {
+      "fixture": "ornl-details-exact.json",
+      "run_id": "08584086334533126005387498966CU30",
+      "outcome": "blocked",
+      "decisive_action": "List submission history PA17v2",
+      "observed_action_statuses": {
+        "Envelope allowed PA17v2": "0.6 seconds. Failed",
+        "Commit marker PA17v2": "0 seconds. Succeeded",
+        "List submission history PA17v2": "0 seconds. Failed",
+        "Matching commits PA17v2": "0 seconds. Skipped",
+        "Prior submission exists PA17v2": "0 seconds. Skipped",
+        "Prior commit PA17v2": "0 seconds. Skipped",
+        "Prior snapshot PA17v2": "0 seconds. Skipped",
+        "History exhausted PA17v2": "0 seconds. Skipped"
+      },
+      "submission_id": "10905821-0aa8-4946-a4ed-0ac65772705b",
+      "summary_characters": 58,
+      "detail_characters": [
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        26,
+        27,
+        27,
+        27,
+        27,
+        27,
+        27,
+        27,
+        27,
+        27,
+        27
+      ],
+      "http_status": 403,
+      "error": "Forbidden: network-range restriction"
+    },
+    {
+      "fixture": "jason-summary-blank.json",
+      "run_id": "08584086333878321377087991318CU13",
+      "outcome": "rejected",
+      "decisive_action": "Rejected envelope PA17v2",
+      "observed_action_statuses": {
+        "Check timestamps PA17v2": "0 seconds. Succeeded",
+        "Blank details PA17v2": "0 seconds. Succeeded",
+        "Caller email PA17v2": "0 seconds. Succeeded",
+        "Envelope allowed PA17v2": "0.6 seconds. Succeeded",
+        "Commit marker PA17v2": "0 seconds. Skipped",
+        "List submission history PA17v2": "0 seconds. Skipped",
+        "Matching commits PA17v2": "0 seconds. Skipped",
+        "Rejected envelope PA17v2": "0 seconds. Succeeded"
+      },
+      "submission_id": "e39fe10b-3caa-4eb7-ae16-efdf177d15f3",
+      "summary_characters": 2,
+      "detail_characters": [
+        26
+      ],
+      "http_status": null,
+      "error": null
+    }
+  ],
+  "snapshots": {
+    "retry-final-baseline": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 457,
+      "content_sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "commit_id": "d2d04425bfb54d63f3a5df7d7d5eba4431f8821c",
+      "last_commit_id": "d2d04425bfb54d63f3a5df7d7d5eba4431f8821c",
+      "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "baseline_prefix_preserved": true,
+      "matches_baseline": true
+    },
+    "retry-jason-detail-exact": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 1856,
+      "content_sha256": "a6bc35a32aa7a555ea40ca766e76c8732faa6c87b14d8157342476286a772453",
+      "commit_id": "04d0942f5abd29797ece197d8760c2a6382227cb",
+      "last_commit_id": "04d0942f5abd29797ece197d8760c2a6382227cb",
+      "sha256": "a6bc35a32aa7a555ea40ca766e76c8732faa6c87b14d8157342476286a772453",
+      "baseline_prefix_preserved": true,
+      "matches_baseline": false
+    },
+    "retry-jason-details-exact": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 1856,
+      "content_sha256": "a6bc35a32aa7a555ea40ca766e76c8732faa6c87b14d8157342476286a772453",
+      "commit_id": "04d0942f5abd29797ece197d8760c2a6382227cb",
+      "last_commit_id": "04d0942f5abd29797ece197d8760c2a6382227cb",
+      "sha256": "a6bc35a32aa7a555ea40ca766e76c8732faa6c87b14d8157342476286a772453",
+      "baseline_prefix_preserved": true,
+      "matches_baseline": false
+    },
+    "retry-jason-guards-after": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 1856,
+      "content_sha256": "a6bc35a32aa7a555ea40ca766e76c8732faa6c87b14d8157342476286a772453",
+      "commit_id": "04d0942f5abd29797ece197d8760c2a6382227cb",
+      "last_commit_id": "04d0942f5abd29797ece197d8760c2a6382227cb",
+      "sha256": "a6bc35a32aa7a555ea40ca766e76c8732faa6c87b14d8157342476286a772453",
+      "baseline_prefix_preserved": true,
+      "matches_baseline": false
+    },
+    "retry-jason-restored": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 457,
+      "content_sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "commit_id": "d2d04425bfb54d63f3a5df7d7d5eba4431f8821c",
+      "last_commit_id": "d2d04425bfb54d63f3a5df7d7d5eba4431f8821c",
+      "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "baseline_prefix_preserved": true,
+      "matches_baseline": true
+    },
+    "retry-ornl-detail-exact": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 457,
+      "content_sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "commit_id": "d2d04425bfb54d63f3a5df7d7d5eba4431f8821c",
+      "last_commit_id": "d2d04425bfb54d63f3a5df7d7d5eba4431f8821c",
+      "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "baseline_prefix_preserved": true,
+      "matches_baseline": true
+    },
+    "retry-ornl-details-exact": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 457,
+      "content_sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "commit_id": "d2d04425bfb54d63f3a5df7d7d5eba4431f8821c",
+      "last_commit_id": "d2d04425bfb54d63f3a5df7d7d5eba4431f8821c",
+      "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "baseline_prefix_preserved": true,
+      "matches_baseline": true
+    },
+    "retry-ornl-guards-after": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 457,
+      "content_sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "commit_id": "d2d04425bfb54d63f3a5df7d7d5eba4431f8821c",
+      "last_commit_id": "d2d04425bfb54d63f3a5df7d7d5eba4431f8821c",
+      "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "baseline_prefix_preserved": true,
+      "matches_baseline": true
+    },
+    "retry-start": {
+      "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+      "size": 457,
+      "content_sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "commit_id": "5d74108011b3517cf01d9ed304ed6736f9e9c699",
+      "last_commit_id": "5d74108011b3517cf01d9ed304ed6736f9e9c699",
+      "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+      "baseline_prefix_preserved": true,
+      "matches_baseline": true
+    }
+  },
+  "accepted_append": {
+    "fixture": "jason-detail-exact.json",
+    "snapshot": "retry-jason-detail-exact.jsonl",
+    "prior_bytes": 457,
+    "after_bytes": 1856,
+    "delta_bytes": 1399,
+    "appended_lines": 1,
+    "exact_json_match": true,
+    "prior_bytes_preserved": true
+  },
+  "no_write_proof": {
+    "jason_first_guards": "retry-jason-guards-after matched retry-jason-detail-exact bytes and last file commit",
+    "ornl_six_guards": "retry-ornl-guards-after matched retry-jason-restored bytes and last file commit",
+    "jason_final_guard": "retry-final-baseline matched retry-ornl-guards-after bytes and last file commit"
+  },
+  "final_state": {
+    "both_boundary_flows": "Off",
+    "isolated_baseline_restored": true,
+    "restore_commit": "d2d04425bfb54d63f3a5df7d7d5eba4431f8821c",
+    "operational_components_changed": false,
+    "notifications_sent": false
+  }
+}

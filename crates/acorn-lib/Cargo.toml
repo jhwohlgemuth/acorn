@@ -161,7 +161,7 @@ progress = ["std", "dep:indicatif", "dep:console", "dep:owo-colors", "dep:comfy-
 cli = ["std", "dep:directories", "dep:dotenvy", "dep:which", "dep:is_executable", "dep:glob", "dep:arboard"]
 db = ["std", "dep:rusqlite"]
 unicode = ["std", "console/std"]
-agentic = ["analysis", "dep:axum", "dep:rmcp", "dep:tower", "rmcp/server", "rmcp/transport-io"]
+agentic = ["analysis", "dep:axum", "dep:rmcp", "dep:tempfile", "dep:tower", "rmcp/server", "rmcp/transport-io"]
 analysis = [
   "dep:acorn-analysis",
   "dep:acorn-service",
@@ -213,7 +213,7 @@ mcp-client = [
   "tokio/rt-multi-thread",
   "tokio/time",
 ]
-needle = ["agentic", "dep:acorn-cmd", "dep:tempfile"]
+needle = ["agentic", "dep:acorn-cmd"]
 exec = ["analysis", "acorn-analysis/exec", "dep:cap-std", "dep:rhai"]
 shell-lint = ["analysis", "acorn-cmd/shell-lint"]
 swhid-compute = ["analysis", "dep:acorn-cmd", "dep:swhid"]
