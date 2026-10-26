@@ -17,6 +17,7 @@ convert_case = { version = "0.11.0", default-features = false }
 derive_more = { workspace = true }
 fancy-regex = { workspace = true, features = ["unicode"] }
 fluent-uri = { workspace = true }
+handlebars = { workspace = true, optional = true }
 jiff = { workspace = true }
 schemars = { version = "1.0.4", features = ["derive"], default-features = false }
 serde = { workspace = true }
@@ -45,7 +46,6 @@ ammonia = { version = "4.1.2", default-features = false, optional = true }
 percy-dom = { version = "0.10.0", features = ["macro"], default-features = false, optional = true }
 ring = { version = "0.17.14", default-features = false, optional = true }
 rust-embed = { workspace = true, optional = true }
-tera = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
 
 [build-dependencies]
@@ -68,7 +68,7 @@ harness = false
 default = ["std"]
 core = ["acorn-core/core"]
 alloc = ["core", "acorn-core/alloc", "serde/alloc", "jiff/alloc"]
-std = ["alloc", "acorn-core/std", "jiff/std", "dep:ammonia", "dep:percy-dom", "dep:rust-embed", "dep:tera", "dep:tracing", "dep:swhid", "ring"]
+std = ["alloc", "acorn-core/std", "jiff/std", "dep:ammonia", "dep:handlebars", "dep:percy-dom", "dep:rust-embed", "dep:tracing", "dep:swhid", "ring"]
 wasm = ["alloc"]
 swhid-compute = ["std", "dep:swhid"]
 analysis = []

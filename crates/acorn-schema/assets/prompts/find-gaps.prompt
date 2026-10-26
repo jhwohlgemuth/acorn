@@ -1,34 +1,17 @@
 ---
 name: find-gaps
-variant: default
-model:
-  family: any
-  name: any
-tools: []
 config:
-  version: "{{ config.version | default(value="1.0.0") }}"
-  temperature: "{{ config.temperature | default(value=0.6) }}"
-  maxOutputTokens: "{{ config.max_tokens | default(value=600) }}"
-  topK: "{{ config.top_k | default(value=10) }}"
-  stopSequences: "{{ config.stop_sequences | default(value=[]) }}"
+  temperature: 0.6
+  maxOutputTokens: 600
+  topK: 10
+  stopSequences: []
 input:
   default:
-    text: {{ data.text | default(value="") | json_encode }}
+    text: ""
   schema:
-    text:
-      type: string
+    text?: string
 output:
-  format: markdown
-  schema:
-    type: object
-    sections:
-      - Missing Information
-      - Overlooked Aspects
-      - Critical Gaps to Understanding
-      - Similarities, Overlaps, and Redundancies
-      - Opportunities for Improvement
-      - Potential Extensions and New Frontiers
-      - Recommendations
+  format: text
 metadata:
   description: Identify gaps in content, overlooked aspects crucial for understanding, and opportunities for improvement and extension.
 ---
@@ -102,3 +85,6 @@ Return only the following Markdown structure:
 - Solutions (if included) are realistic and valuable
 - Balanced view: includes what's done well AND what's missing
 - Appropriate depth for the content's complexity
+
+# Source Text
+{{ text }}

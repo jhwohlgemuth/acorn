@@ -1,15 +1,14 @@
 use super::{HydratedPrompt, PromptContext, PromptDataFormat};
 use crate::error::ApiResult;
-use acorn_core::prelude::{String, ToString, Vec};
+use acorn_core::prelude::{String, ToString};
 use acorn_core::util::{frontmatter_and_body, longest_character_run, MarkdownSupport};
-use acorn_schema::agent::{FrontMatter, PromptFileAsset};
+use acorn_schema::agent::{FrontMatter, PromptFileAsset, PromptTemplate};
 use acorn_schema::standard::zon;
 use acorn_schema::validation::Validate;
 use color_eyre::eyre::{eyre, Report};
-use core::{iter::successors, marker::PhantomData};
+use core::marker::PhantomData;
 use serde::Serialize;
 use serde_json::Value;
-use tera::{Context, Tera};
 
 const RESERVED_DATA_KEYS: [&str; 2] = ["config", "data"];
 const UNRESOLVED_TEMPLATE_MARKERS: [&str; 3] = ["{#", "{%", "{{"];
@@ -36,23 +35,16 @@ impl Prompt<Raw> {
     {
         serde_json::to_value(&prompt.data)
             .map_err(|why| Prompt::<Rejected>::new(format!("Failed to serialize prompt data — {why}")))
-            .and_then(|data| match data {
+            .and_then(|data| match &data {
                 | Value::Object(fields) => match RESERVED_DATA_KEYS.iter().find(|key| fields.contains_key(**key)) {
                     | Some(key) => Err(Prompt::<Rejected>::new(format!("Prompt data contains reserved key '{key}'"))),
-                    | None => prompt
-                        .config
-                        .to_render_value()
-                        .map_err(|why| Prompt::<Rejected>::new(why.to_string()))
-                        .map(|config| (config, Value::Object(fields))),
+                    | None => Ok(data),
                 },
                 | _ => Err(Prompt::<Rejected>::new("Prompt data must serialize as an object".to_string())),
             })
-            .and_then(|(config, data)| {
-                let mut context = Context::new();
-                context.insert("config", &config);
-                context.insert("data", &data);
-                Tera::one_off(&self.content, &context, false)
-                    .map_err(|why| Prompt::<Rejected>::new(format!("Failed to render prompt template — {}", error_chain(&why))))
+            .and_then(|data| {
+                PromptTemplate::render_content(&self.content, &prompt.config, data.clone())
+                    .map_err(|why| Prompt::<Rejected>::new(format!("Failed to render prompt template — {why}")))
                     .and_then(|content| {
                         format
                             .data_block(&data)
@@ -149,10 +141,4 @@ impl PromptHydrator {
             .and_then(|prompt| prompt.render(context, format).map_err(Prompt::into_error))
             .and_then(|prompt| asset.hydrate(prompt).map_err(Prompt::into_error))
     }
-}
-fn error_chain(error: &tera::Error) -> String {
-    successors(Some(error as &(dyn core::error::Error + 'static)), |source| source.source())
-        .map(ToString::to_string)
-        .collect::<Vec<_>>()
-        .join(" — ")
 }

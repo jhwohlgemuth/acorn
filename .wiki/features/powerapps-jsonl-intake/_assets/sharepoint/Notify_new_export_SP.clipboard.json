@@ -1,0 +1,67 @@
+{
+  "brandColor": "#8C6CFF",
+  "connectionReferences": {},
+  "connectorDisplayName": "Control",
+  "id": "fd05e247-2a41-554a-991b-6eb1dcbd98ff",
+  "isTrigger": false,
+  "operationName": "Notify_new_export_SP",
+  "operationDefinition": {
+    "type": "If",
+    "expression": {
+      "and": [
+        {
+          "equals": [
+            "@actions('Create_receipt_SP')?['status']",
+            "Succeeded"
+          ]
+        },
+        {
+          "equals": [
+            "@actions('Mark_exported_SP')?['status']",
+            "Succeeded"
+          ]
+        }
+      ]
+    },
+    "runAfter": {
+      "SharePoint_response_SP": [
+        "Succeeded",
+        "Failed",
+        "Skipped",
+        "TimedOut"
+      ]
+    },
+    "actions": {
+      "Post_SharePoint_update_to_Teams": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_teams",
+            "operationId": "PostMessageToSelf",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams"
+          },
+          "parameters": {
+            "body/body/content": "@concat(if(contains(toUpper(body('Parse_submission_SP')?['entry']?['summary']),'TEST ONLY'),'<p><strong>TEST ONLY</strong></p>',string(null)),'<p>ACORN // Sponsor Highlights</p><h2>\u2713 Highlight received \u00b7 JSONL ready</h2><p><strong>Project</strong><br>',replace(replace(replace(string(body('Parse_submission_SP')?['projectId']),'&','&amp;'),'<','&lt;'),'>','&gt;'),'</p><p><strong>Status</strong><br>SharePoint receipt saved \u00b7 JSONL export verified \u00b7 Awaiting ACORN review</p><p><a href=\"https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/',uriComponent(string(body('Parse_submission_SP')?['submissionId'])),'.jsonl\"><strong>Open JSONL export \u2192</strong></a></p><p><strong>Receipt ID</strong><br><code>',replace(replace(replace(string(body('Parse_submission_SP')?['submissionId']),'&','&amp;'),'<','&lt;'),'>','&gt;'),'</code></p><p><em>Saving does not approve or publish the highlight.</em></p>')",
+            "body/body/contentType": "html"
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {},
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      }
+    },
+    "else": {
+      "actions": {}
+    }
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "review_date": "2026-10-26",
+  "scope": "Unreferenced superseded PA drafts and intermediate screenshots; no current guides, native archives or exact JSONL fixtures removed.",
+  "removed_files": [
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/before-project-catalog.swagger.yaml",
+      "bytes": 6217,
+      "sha256": "4a865480b60b90663f049da544f87410d56fbb382fa0caa18900dd2e60a28589",
+      "reason": "Superseded draft source; current full form and connector source retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/before-project-selection.pa.yaml",
+      "bytes": 47299,
+      "sha256": "13eb69f3f52686dea0ef7836b20890b7495f0dcb110d44ddf8a761e269cffaa4",
+      "reason": "Superseded draft source; current full form and connector source retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/project-selection.pa.yaml",
+      "bytes": 51326,
+      "sha256": "eb4124fb3ca80ebf5bac6bf6e5910f3fb23a738e27425bbcfd447bc25d5dfd83",
+      "reason": "Superseded draft source; current full form and connector source retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/SubmitLayout.pa.yaml",
+      "bytes": 47984,
+      "sha256": "2f54c010346ef2e0688023b0bb730e2e1b1954c1cfb0d9778f90d9acb649f2aa",
+      "reason": "Superseded draft source; current full form and connector source retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/before-layout.pa.yaml",
+      "bytes": 64688,
+      "sha256": "ad00f53ccfcf2b72fe7e4ab743a9d72574df4b355eefad05856a0f59b32db5d9",
+      "reason": "Superseded draft source; current full form and connector source retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/entry-form.pa.yaml",
+      "bytes": 18802,
+      "sha256": "81447ed88f39940658ccce2c7b2b87c47de0de63c4e508c6da07a61bd2c9efee",
+      "reason": "Superseded draft source; current full form and connector source retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/app-success.png",
+      "bytes": 50762,
+      "sha256": "96d3f487e9ac059be54c219307e3a0814c9d86088abef8e9eafa6fecc8bcde90",
+      "reason": "Superseded intermediate screenshot; current acceptance evidence and native v6 archives retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/form-preview.png",
+      "bytes": 81531,
+      "sha256": "e1cc9c9c9db8d58e6b27d0e3ebc5a0b9e5b4d60485824b9ddd4e43b2ebd34f3e",
+      "reason": "Superseded intermediate screenshot; current acceptance evidence and native v6 archives retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/final-intake-saved.png",
+      "bytes": 85027,
+      "sha256": "02f674f4d6b55d183c63a37d2ded00595d0a68083cc8299a53b0a0d97b9c15b3",
+      "reason": "Superseded intermediate screenshot; current acceptance evidence and native v6 archives retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/project-selection-local-test.png",
+      "bytes": 102727,
+      "sha256": "d2225a7ad0eaee474c27c31a5db106fd6260b0b258e9b17c133e4a7e0fd99848",
+      "reason": "Superseded intermediate screenshot; current acceptance evidence and native v6 archives retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/jason-after-failed-import-flows.png",
+      "bytes": 86462,
+      "sha256": "05f41fe1f33d740cbbfb8841f38adfeb41c8cf59c91442ec99ce07511df79574",
+      "reason": "Superseded intermediate screenshot; current acceptance evidence and native v6 archives retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/jason-after-failed-import-apps.png",
+      "bytes": 58775,
+      "sha256": "2d293d4a6ff59a2c5e3de69355fb37f5948fb2e78f628950ecbe1683fa2bb20b",
+      "reason": "Superseded intermediate screenshot; current acceptance evidence and native v6 archives retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/jason-v2-import-error.png",
+      "bytes": 105517,
+      "sha256": "fc574bf9652bc0534532204397dfcfb727b7bde3fa1eaedcf34284fe2adcbf96",
+      "reason": "Superseded intermediate screenshot; current acceptance evidence and native v6 archives retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/jason-dependent-package-mappings.png",
+      "bytes": 97357,
+      "sha256": "9c6eaf039d21cdc1963a0aa7c9c5f12382eeba04304b145b71870e76a9bb66ed",
+      "reason": "Superseded intermediate screenshot; current acceptance evidence and native v6 archives retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-test-connections-before-v5.png",
+      "bytes": 76583,
+      "sha256": "ee272c87e48e4512d453b8dda4702258c3f47fea7a2ebc395431d5d4c79387a6",
+      "reason": "Superseded intermediate screenshot; current acceptance evidence and native v6 archives retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-jason-native-intake-idle.png",
+      "bytes": 99387,
+      "sha256": "4353d6f0ec3a23714472d2d7d8bf431346d83bb798be59495fb4a0062295f7cd",
+      "reason": "Superseded intermediate screenshot; current acceptance evidence and native v6 archives retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-jason-native-callback-idle.png",
+      "bytes": 101619,
+      "sha256": "14ecdc0e7a82026ccc554780822f74b89eacc41b24a523552a7090245a14deae",
+      "reason": "Superseded intermediate screenshot; current acceptance evidence and native v6 archives retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v5-import-success.png",
+      "bytes": 144730,
+      "sha256": "cd599d01f3df00d97a281948133e623297a3f342cbbab82d2e803cd8a41fac3d",
+      "reason": "Superseded intermediate screenshot; current acceptance evidence and native v6 archives retained."
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v5-intake-restored.png",
+      "bytes": 95034,
+      "sha256": "6c132e975bc2f085e7036c78968e6e519391fe8fede3028323b93dfcc4148318",
+      "reason": "Superseded intermediate screenshot; current acceptance evidence and native v6 archives retained."
+    }
+  ],
+  "removed_generated_directories": [
+    ".wiki/features/powerapps-jsonl-intake/_assets/catalog-tests/obj",
+    ".wiki/features/powerapps-jsonl-intake/_assets/catalog-tests/bin"
+  ],
+  "removed_cloud_resources": [
+    {
+      "environment": "ORNL Personal Productivity",
+      "name": "ACORN Logbook Intake",
+      "id": "e3a4ad29-ac14-4afe-887b-8b905f9e8dbb",
+      "evidence": "Never run, unshared, no associated apps; absent from refreshed four-flow inventory."
+    },
+    {
+      "environment": "Wohlgemuth, Jason",
+      "name": "ACORN Logbook Canvas Notifications",
+      "id": "ece463d8-fe39-72b6-dffe-f0b98faadc23",
+      "evidence": "Explicit owner approval after initial automatic review rejection; absent from refreshed ten-flow inventory."
+    },
+    {
+      "environment": "ORNL Personal Productivity",
+      "name": "ORNL Automation",
+      "unique_name": "GitLabFormIngestion",
+      "id": "5c269b88-62a5-f111-b8de-001dd806277c",
+      "evidence": "Zero objects and no listed dependencies; explicit owner confirmation; unique-name search empty after removal."
+    }
+  ]
+}

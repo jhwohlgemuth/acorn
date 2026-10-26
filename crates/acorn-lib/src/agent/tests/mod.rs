@@ -84,6 +84,15 @@ fn test_hydrate_accepts_structured_summary_data() {
 }
 #[cfg(feature = "template")]
 #[test]
+fn test_hydrate_accepts_camel_case_and_legacy_input_names() {
+    for data in [json!({"maxWords": 90, "maxItems": 2}), json!({"max_words": 90, "max_items": 2})] {
+        let prompt = PromptHydrator::hydrate(PromptFileAsset::Summarize, &context(data)).unwrap();
+        assert!(prompt.body.contains("Keep output under 90 words"));
+        assert!(prompt.body.contains("Limit key points to 2 bullets"));
+    }
+}
+#[cfg(feature = "template")]
+#[test]
 fn test_hydrate_appends_complete_zon_data_by_default() {
     let prompt = PromptHydrator::hydrate(PromptFileAsset::Summarize, &context(json!({"text": "source"}))).unwrap();
     assert!(prompt.body.ends_with("# Input Data (ZON)\n\n```zon\ntext:source\n```"));
@@ -206,7 +215,7 @@ fn test_hydrate_renders_every_embedded_prompt() {
         assert!(prompt.metadata.description().is_some());
         let output = prompt.metadata.output.as_ref().expect("embedded prompt should declare output metadata");
         assert!(output.format.is_some());
-        assert!(output.schema.is_some());
+        assert_eq!(output.schema.is_some(), output.format.as_deref() == Some("json"));
     });
 }
 #[cfg(feature = "template")]
@@ -224,8 +233,15 @@ fn test_hydrate_renders_multiline_data_into_valid_frontmatter() {
 #[cfg(feature = "template")]
 #[test]
 fn test_hydrate_reports_missing_required_data() {
-    let error = PromptHydrator::hydrate(PromptFileAsset::Translate, &context(json!({"text": "source"}))).unwrap_err();
-    assert!(error.to_string().contains("data.language"));
+    let error = PromptHydrator::hydrate(
+        PromptFileAsset::Translate,
+        &PromptContext {
+            config: PromptTemplateConfiguration::default(),
+            data: json!({"text": "source"}),
+        },
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("language"));
 }
 #[cfg(feature = "template")]
 #[test]

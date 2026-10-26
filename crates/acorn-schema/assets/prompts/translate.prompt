@@ -1,46 +1,31 @@
 ---
 name: translate
-variant: default
-model:
-  family: any
-  name: any
-tools: []
 config:
-  version: "{{ config.version | default(value="1.0.0") }}"
-  temperature: "{{ config.temperature | default(value=0.1) }}"
-  maxOutputTokens: "{{ config.max_tokens | default(value=300) }}"
-  topK: "{{ config.top_k | default(value=10) }}"
-  stopSequences: "{{ config.stop_sequences | default(value=[]) }}"
+  temperature: 0.1
+  maxOutputTokens: 300
+  topK: 10
+  stopSequences: []
 input:
   default:
-    text: {{ data.text | default(value="") | json_encode }}
-    language: {{ data.language | json_encode }}
+    text: ""
   schema:
-    text:
-      type: string
-    language:
-      type: string
+    text?: string
+    language: string
 output:
-  format: markdown
-  schema:
-    type: object
-    sections:
-      - Translation
-      - Notes
-      - Back Translation (English)
+  format: text
 metadata:
   description: Translate English text into a specified natural language with fidelity and fluent style.
 ---
 
 # Role
-You are an expert translator specializing in accurate English-to-{{ data.language }} translation.
+You are an expert translator specializing in accurate English-to-{{ language }} translation.
 
 # Objective
-Translate the input text from English into {{ data.language }} while preserving meaning, intent, and tone.
+Translate the input text from English into {{ language }} while preserving meaning, intent, and tone.
 
 # Instructions
 1. Assume source text is English unless explicitly marked otherwise.
-2. Translate into target language: {{ data.language }}.
+2. Translate into target language: {{ language }}.
 3. Preserve original meaning exactly; do not add or remove facts.
 4. Keep tone and register aligned with the source, adapting formality automatically.
 5. Preserve paragraphs, bullet structure, numbering, and inline emphasis (formatting).
@@ -63,6 +48,9 @@ Concise English rendering of the translated output.
 
 # Quality Checks
 - Meaning preserved from source.
-- Grammar and fluency are native-like for {{ data.language }}.
+- Grammar and fluency are native-like for {{ language }}.
 - Formatting constraints honored.
 - No hallucinated details.
+
+# Source Text
+{{ text }}

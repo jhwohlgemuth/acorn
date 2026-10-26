@@ -44,15 +44,15 @@ Additional top-level fields are accepted and remain visible in the complete data
 
 The templates also use internal configuration values. `infer run` currently uses their embedded defaults; `--data` and `--set` modify prompt data, not configuration. The prompt-specific settings are:
 
-- `eli5`: `max_words` is 150 and `include_analogy` is `true`.
-- `extract-claim`: `max_items` is 5 and `min_confidence` is 0.5.
+- `eli5`: `maxWords` is 150 and `includeAnalogy` is `true`.
+- `extract-claim`: `maxItems` is 5 and `minConfidence` is 0.5.
 - `find-gaps`: no prompt-specific settings.
 - `suggest-fixes`: no prompt-specific settings.
-- `summarize`: `max_items` is 5 and `max_words` is 160.
-- `teach`: `include_examples` and `include_practice` are both `true`.
+- `summarize`: `maxItems` is 5 and `maxWords` is 160.
+- `teach`: `includeExamples` and `includePractice` are both `true`.
 - `translate`: no prompt-specific settings.
 
-All templates also carry configuration fields such as `version`, `temperature`, and `max_tokens`. Most carry `top_k` and `stop_sequences` as well. These are not accepted as `infer run` data variables.
+All templates also carry Dotprompt model configuration fields such as `temperature` and `maxOutputTokens`. Most carry `topK` and `stopSequences` as well. These are not accepted as `infer run` data variables. Prompt input and output names use camelCase; existing snake_case input names remain accepted when they correspond to a declared prompt setting.
 
 Files, directories, and glob patterns may be combined for collective analysis. Directories recursively select JSON, YAML, YML, ZON, and ZONF files as if passed as `DIRECTORY/**/*`; matches are sorted, strings are joined with blank lines, arrays are concatenated, and conflicting scalar values are rejected.
 

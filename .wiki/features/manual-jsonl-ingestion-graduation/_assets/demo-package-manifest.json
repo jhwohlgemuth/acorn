@@ -1,6 +1,6 @@
 {
   "createdDate": "2026-10-24",
-  "purpose": "TEST ONLY captured-source demo; requires current ACORN CLI for rehearsal",
+  "purpose": "TEST ONLY captured-source demo with SharePoint and GitLab workflow documentation; retained full rehearsal uses the GitLab fixture",
   "files": [
     {
       "path": "manual-jsonl-ingestion-graduation/_assets/01-stage.txt",
@@ -64,8 +64,8 @@
     },
     {
       "path": "manual-jsonl-ingestion-graduation/_assets/build-demo-pdf.py",
-      "sha256": "4e276e5c324f73dead49433b0bf724509633d002fc11d916a531f730577822cd",
-      "bytes": 9133
+      "sha256": "4f90c199f4dc647c162578f16cfe94e4554902c057d296429acbe937fe8aadcc",
+      "bytes": 10138
     },
     {
       "path": "manual-jsonl-ingestion-graduation/_assets/candidates.json",
@@ -99,8 +99,8 @@
     },
     {
       "path": "manual-jsonl-ingestion-graduation/_assets/demo-walkthrough.pdf",
-      "sha256": "3bae70d302b0c5c92d5681f11977183b8956148ac4f83b9a2f632854173f12d8",
-      "bytes": 1131297
+      "sha256": "abe8e92f3f80923c8634bb59eddd2538f0262136960cb2a9d0dfaa0990fa7a91",
+      "bytes": 990083
     },
     {
       "path": "manual-jsonl-ingestion-graduation/_assets/form-prepared.png",
@@ -249,8 +249,8 @@
     },
     {
       "path": "manual-jsonl-ingestion-graduation/demo-bundle-readme.md",
-      "sha256": "a37b525f7feb1a3b9ba72431d16b7f03fafbed7ecea74153915b0b8e605c2e01",
-      "bytes": 1073
+      "sha256": "f6debfb422f91affc9c4294a4f21d95766f23a2a1740177f81abfb8509b1fd10",
+      "bytes": 1659
     },
     {
       "path": "manual-jsonl-ingestion-graduation/handback.md",
@@ -259,8 +259,23 @@
     },
     {
       "path": "manual-jsonl-ingestion-graduation/walkthrough.md",
-      "sha256": "3dd4da01fbc2f3577789befecad7d3610ebabaad92e3cb59252320159ffab74c",
-      "bytes": 10750
+      "sha256": "62b070088f6e6c22213780067a79500f88837de8c68b1b01427776ff2d5ffe71",
+      "bytes": 14490
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/browser-recovery/jason-conflict-panel.png",
+      "sha256": "f5d90f2ff12f50de13b2836563eb0d20e3873774c48c4580934d8b6e00fc49d1",
+      "bytes": 46326
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/browser-recovery/jason-unresolved-panel.png",
+      "sha256": "be67f5192558b1abb07aeac1432d9a81a893959f2e9b1ede1eb19d73c01290d6",
+      "bytes": 49576
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/build-workflow-guides.py",
+      "sha256": "7f1a6f4e160fa21cb6793265fa71cc44e5a66c53f5982604630ccf9e9f30b374",
+      "bytes": 35511
     },
     {
       "path": "powerapps-jsonl-intake/_assets/failure-tests/failure-commit-and-skips.png",
@@ -318,9 +333,19 @@
       "bytes": 358
     },
     {
+      "path": "powerapps-jsonl-intake/_assets/notifications/build-teams-example.py",
+      "sha256": "bea510c67a3dbaa27f3f531b8037adecb79c84f82a2e24aa202555ae32c11db2",
+      "bytes": 279
+    },
+    {
       "path": "powerapps-jsonl-intake/_assets/notifications/confirmed-submission.json",
       "sha256": "30d41e702c078233e744412be820f8e353f1556ecf8c22c50d55663b23dfeabd",
       "bytes": 715
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/notifications/developer-notification-update.pdf",
+      "sha256": "2290af07883defa3ff742b42ada071547948ff133ae59760453e4bd1f24e46a7",
+      "bytes": 321158
     },
     {
       "path": "powerapps-jsonl-intake/_assets/notifications/flow-checker.png",
@@ -369,48 +394,153 @@
     },
     {
       "path": "powerapps-jsonl-intake/_assets/notifications/intake-teams.clipboard.json",
-      "sha256": "9ba6822fec21e5ee2c0abe15d34cd1b442bf46d1283e0d364b1f60dcda928cc8",
-      "bytes": 1931
+      "sha256": "1b2e2dc1e90d6b462ac73a996cc43e7d71afb4712dee77bca9a9910e1cfbf609",
+      "bytes": 2194
     },
     {
       "path": "powerapps-jsonl-intake/_assets/notifications/teams-example.png",
-      "sha256": "c931c1a01e7b5efe81cfe6a277f5c80dcee6efcde3e389f02ad343a4b5bd266a",
-      "bytes": 154802
+      "sha256": "6ed22909388a882a9758a3d704db1c61901ece8c4e82c7b44b8290f3e70e169d",
+      "bytes": 149264
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/notifications/user-reviewer-notification-update.pdf",
+      "sha256": "4dfe1388cee942495fdc5c41c38f227ec68fe2c762c74c0b8ec41369e14544da",
+      "bytes": 320464
     },
     {
       "path": "powerapps-jsonl-intake/_assets/notifications/workflow.html",
-      "sha256": "71f2333c7578dc861554c6983ed50ee51f665e1962c6764209512667ae8949f8",
-      "bytes": 14472
+      "sha256": "7e761c1f42a33cfb9f1ca39abf56ce45639ec6809f2822f94ba35b049bf01919",
+      "bytes": 9937
     },
     {
       "path": "powerapps-jsonl-intake/_assets/notifications/workflow.pikchr",
-      "sha256": "832018383c531e2bce2d6119f177519faacb207e4ad48d6010593c1b01e13080",
-      "bytes": 2150
+      "sha256": "4c19d785210b6c77a9de92b9650dcb8b240740f861d1085cbee4fe61b726f8c4",
+      "bytes": 1921
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/notifications/workflow.png",
+      "sha256": "bead9a327c6d2d7e8d7d6c93d7f59aa69240689160be4f689241068a0262fcf7",
+      "bytes": 293842
     },
     {
       "path": "powerapps-jsonl-intake/_assets/notifications/workflow.svg",
-      "sha256": "c4371958b4973964c05e4c9a063bcd5cb0f096fd223ade4ec08a1e63caaea38b",
-      "bytes": 11303
+      "sha256": "91e4da3bb9d90b0658582bb2b11af2bf5911134cb7e4623411821616d93c4c7a",
+      "bytes": 9380
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/published-append-commit.png",
+      "sha256": "cef2bd2eb90933cc117025f1c65ee397068ff09c4456973a1363427f03dcd0eb",
+      "bytes": 185121
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/sharepoint/Combined_logbook_export_LB.clipboard.json",
+      "sha256": "8d4a7a98aaa112f2ce8d7e672c77d7dfb6f16807b948163ae8c399384e02c622",
+      "bytes": 13712
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/sharepoint/app-submission.json",
+      "sha256": "f3289e1bdce05d6f453384e9ebcc1912252245c91855ca4e03cd71aa6e4f71bc",
+      "bytes": 464
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/sharepoint/app-teams-success.png",
+      "sha256": "8326d9fa23bafb26e2e945446c105c0e2cdaf43cf0522069eb8674061fa374ba",
+      "bytes": 50514
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/sharepoint/build-logbook-export.py",
+      "sha256": "8a954befa2502631e0fe7ee616994db51eab7c468488930c1e295dc35520629e",
+      "bytes": 5943
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/sharepoint/catalog-success.png",
+      "sha256": "0085577dc5b6720bbd233856fb92c3d61db954039a1d0465f099a50b61a063ac",
+      "bytes": 98674
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/sharepoint/combined-export-repeat-evidence.txt",
+      "sha256": "ede8c50d356038f67c296c4bc79264f7826c40b22e80c6ec4cf1cc9de28a7da1",
+      "bytes": 14678
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/sharepoint/combined-logbook-library.png",
+      "sha256": "82203fc42f543d11cb2131cae2a58ee178a6d6bf5dd6d91c0e255e294fe6b836",
+      "bytes": 87870
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/sharepoint/projects-list.png",
+      "sha256": "faf95ddba1cfa0e32ed5e61c9cc8b6563d82ebefe65417c06932fdc5fdfa5726",
+      "bytes": 104296
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/sharepoint/teams-action-native.json",
+      "sha256": "7e86a8cb7ad77cbfa175da34578ea03abec2e180735cccbd5354897282b4165d",
+      "bytes": 1588
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/sharepoint/teams-app-run-evidence.txt",
+      "sha256": "2a53d0058923fd419a74078b7bc94f75022c85fea9954821b092ffdc4a5d22dd",
+      "bytes": 3361
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/sharepoint/teams-replay-run-evidence.txt",
+      "sha256": "98e7bfa8310932c8ae060edcb4d11e7e663fdf99c89b33de4251ce6ec02a3241",
+      "bytes": 21959
     },
     {
       "path": "powerapps-jsonl-intake/_assets/sponsor-highlights-developer-guide.pdf",
-      "sha256": "7ffb0ddf9ca561cc148dadb8e6ee4dbbfd753ef7c5a4649a49d2e5bcc5df51c8",
-      "bytes": 5445039
+      "sha256": "aac0a8223be0c4eb74130060431d81d9e1f7664259cb1f5e0364039a32848e16",
+      "bytes": 697102
     },
     {
       "path": "powerapps-jsonl-intake/_assets/sponsor-highlights-user-reviewer-guide.pdf",
-      "sha256": "5ad860a2ee0e598415b52f37763c350d695574d9304c8ac3ccdd4fef24d314ad",
-      "bytes": 5393238
+      "sha256": "63a4c376458150952a88da14cf51b4842627dc1353f4d33ad5c0eb6bca306867",
+      "bytes": 1288348
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/visual-polish-phone-bottom.png",
+      "sha256": "4d8463a58c5bfe46f59d77d1a51567a584bef440ef78096358e8672780250e8f",
+      "bytes": 85740
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/visual-polish-phone-top.png",
+      "sha256": "f020a65f4585447756d7a64aec1fc0acac60f31564b663ffcb227231e66abcc0",
+      "bytes": 83514
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/walkthrough/03-categories.png",
+      "sha256": "3ffd9a9b6abe8ca44799328a7cb2651c6a3660748376d5a674736dc5535c6c04",
+      "bytes": 66714
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/walkthrough/05-status-options.png",
+      "sha256": "2254c0a243cf051b0a7dd7455000c549de5445f95d0f8a76f5d385c365559e03",
+      "bytes": 67271
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/walkthrough/06-event-options.png",
+      "sha256": "4d60a589a5a8c82dda091c677b34c87457ebdd11397a405114ed499182eb0279",
+      "bytes": 61036
+    },
+    {
+      "path": "powerapps-jsonl-intake/_assets/walkthrough/07-date-picker.png",
+      "sha256": "e30d98ca02308516391552a7dc42f47df80849c5e2a6b3a323d76971dc34e588",
+      "bytes": 81113
     },
     {
       "path": "powerapps-jsonl-intake/notification-walkthrough.md",
-      "sha256": "47bf024d916bdf2beeccfb1424b68f5c5b80bdce43d7b3a5b67dade220d426d8",
-      "bytes": 10161
+      "sha256": "f2390bdb4c3be287ee8d2e41ff04bd1c2c74fe03faa3518a1fb30da7ac81950b",
+      "bytes": 14558
     },
     {
       "path": "powerapps-jsonl-intake/pilot-runbook.md",
       "sha256": "4cf48240b92c02c9a3135ffa677f1d4df115432689d014b9e35a8cf81d717ab9",
       "bytes": 54420
+    },
+    {
+      "path": "powerapps-jsonl-intake/sharepoint-pilot.md",
+      "sha256": "6dff04ad737a9692671e3711f660d1c1228a2e3d40657ba5a6a32a7c6530e516",
+      "bytes": 15377
     },
     {
       "path": "powerapps-jsonl-intake/write-failure-acceptance.md",
@@ -465,6 +595,6 @@
   ],
   "pathBase": "../..",
   "layout": "Plan folders; archive paths are relative to .wiki/features/",
-  "updatedDate": "2026-10-25",
+  "updatedDate": "2026-10-26",
   "privacyNote": "Personal Teams chat screenshots are excluded; teams-example.png is a fictional illustration."
 }

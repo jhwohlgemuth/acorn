@@ -1,43 +1,31 @@
 ---
 name: extract-claim
-variant: default
-model:
-  family: any
-  name: any
-tools: []
 config:
-  version: "{{ config.version | default(value="1.0.0") }}"
-  temperature: "{{ config.temperature | default(value=0.1) }}"
-  maxOutputTokens: "{{ config.max_tokens | default(value=300) }}"
-  topK: "{{ config.top_k | default(value=10) }}"
-  stopSequences: "{{ config.stop_sequences | default(value=[]) }}"
+  temperature: 0.1
+  maxOutputTokens: 300
+  topK: 10
+  stopSequences: []
 input:
   default:
-    text: {{ data.text | default(value="") | json_encode }}
-    max-items: "{{ config.max_items | default(value=5) }}"
-    min-confidence: "{{ config.min_confidence | default(value=0.50) }}"
+    text: ""
+    maxItems: 5
+    minConfidence: 0.5
   schema:
-    text:
-      type: string
-    max-items:
-      type: integer
-      default: 5
-    min-confidence:
-      type: number
-      default: 0.5
+    text?: string
+    maxItems?: integer
+    minConfidence?: number
 output:
   format: json
   schema:
-    type: object
-    claims:
-      - claim
-      - claim_type
-      - evidence_quote
-      - confidence
-      - rationale
-    discarded_candidates:
-      - candidate
-      - reason
+    claims(array):
+      claim: string
+      claimType: string
+      evidenceQuote: string
+      confidence: number
+      rationale: string
+    discardedCandidates(array):
+      candidate: string
+      reason: string
 metadata:
   description: Extract explicit, evidence-backed claims from source text.
 ---
@@ -55,14 +43,14 @@ Extract high-value claims from the input text and ground each claim in direct te
 
 # Instructions
 1. Read the entire text before extracting claims.
-2. Extract at most {{ config.max_items | default(value=5) }} distinct claims.
+2. Extract at most {{ maxItems }} distinct claims.
 3. Include both explicit claims (directly stated) and implicit claims (reasonably inferred from the text).
 4. Do not merge unrelated claims into one.
 5. For each claim, provide one concise supporting evidence quote.
 6. Keep evidence quotes short and exact; do not paraphrase in the quote field.
-7. Set claim_type to one of: factual, causal, predictive, normative, comparative, other.
-8. Keep only claims with confidence >= {{ config.min_confidence | default(value=0.50) }}.
-9. If a candidate is rejected, record it with a brief reason in discarded_candidates.
+7. Set claimType to one of: factual, causal, predictive, normative, comparative, other.
+8. Keep only claims with confidence >= {{ minConfidence }}.
+9. If a candidate is rejected, record it with a brief reason in discardedCandidates.
 10. Do not invent claims, entities, numbers, or citations not present in the text.
 11. Extract only from the text provided; use general domain context.
 
@@ -73,13 +61,13 @@ Return valid JSON only, no markdown and no prose outside JSON.
 	"claims": [
 		{
 			"claim": "...",
-			"claim_type": "factual|causal|predictive|normative|comparative|other",
-			"evidence_quote": "...",
+			"claimType": "factual|causal|predictive|normative|comparative|other",
+			"evidenceQuote": "...",
 			"confidence": 0.00,
 			"rationale": "Short explanation linking the quote to the claim."
 		}
 	],
-	"discarded_candidates": [
+	"discardedCandidates": [
 		{
 			"candidate": "...",
 			"reason": "Not a claim | duplicate | unsupported | below confidence threshold"
@@ -92,3 +80,6 @@ Return valid JSON only, no markdown and no prose outside JSON.
 - Claims are distinct and non-redundant.
 - Confidence values are numeric and within [0.00, 1.00].
 - JSON is syntactically valid.
+
+# Source Text
+{{ text }}

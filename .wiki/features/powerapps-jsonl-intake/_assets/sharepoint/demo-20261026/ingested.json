@@ -1,0 +1,103 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "identifier": "acorn",
+    "media": [],
+    "keywords": [
+      "Geospatial data",
+      "Workflow automation",
+      "Research reporting"
+    ],
+    "contributors": [],
+    "funders": [
+      {
+        "name": "Demonstration only - no sponsor claims",
+        "awards": []
+      }
+    ]
+  },
+  "title": "SharePoint Intake Demonstration",
+  "subtitle": "TEST ONLY - three live form submissions, local ACORN report",
+  "sections": {
+    "mission": "Demonstrate a traceable path from the Sponsor Highlights form through SharePoint JSONL collection to an ACORN report.",
+    "challenge": "Collect multiple submissions without a premium GitLab connector in the form.",
+    "approach": [
+      "Submit three explicitly synthetic highlights through the published SharePoint pilot.",
+      "Preserve exported JSONL bytes and review the selected records before local ingestion."
+    ],
+    "impact": [
+      "Show completed, in-progress and upcoming highlights in one local report."
+    ],
+    "research": {
+      "focus": "Traceable highlight reporting",
+      "areas": [
+        "Geospatial examples",
+        "SharePoint intake",
+        "Local reporting"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Sample project lead",
+    "givenName": "Alex",
+    "familyName": "Morgan",
+    "email": "alex.morgan@example.org",
+    "telephone": "+1 202-555-0123",
+    "url": "https://example.org/project",
+    "organization": "Example Research Group"
+  },
+  "logbook": {
+    "entries": [
+      {
+        "identifier": "form-dff-4315-e-8106-4-eb-8-83-ad-44-f-6-df-767476",
+        "projectId": "acorn",
+        "global": false,
+        "timestamp": "2026-10-26T04:00:00.000Z",
+        "category": "data",
+        "state": "completed",
+        "origin": "manual",
+        "summary": "TEST ONLY - Demo 1: Geospatial data quality review completed",
+        "items": [
+          "Synthetic example for the SharePoint-to-ACORN demonstration; not an actual project accomplishment.",
+          "Reviewed 12 sample map tiles and documented two metadata corrections.",
+          "The example shows how a measured data-quality outcome reaches the sponsor report."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "form-67-c-0-e-548-ac-0-c-4-a-01-829-c-9-e-4708-b-3-cf-1-f",
+        "projectId": "acorn",
+        "global": false,
+        "timestamp": "2026-10-26T04:00:00.000Z",
+        "category": "software",
+        "state": "in-progress",
+        "origin": "manual",
+        "summary": "TEST ONLY - Demo 2: Map validation dashboard prototype in progress",
+        "items": [
+          "Synthetic example for the SharePoint-to-ACORN demonstration; not an actual project accomplishment.",
+          "A sample dashboard compares coverage and metadata completeness across 12 map tiles.",
+          "Next step: review the exception display with a project analyst."
+        ],
+        "archived": false
+      },
+      {
+        "identifier": "form-32-baf-0-fa-96-a-7-43-c-0-8-e-80-cd-71-c-26-b-4-ca-3",
+        "projectId": "acorn",
+        "global": false,
+        "timestamp": "2026-10-26T04:00:00.000Z",
+        "category": "collaboration",
+        "state": "upcoming",
+        "origin": "manual",
+        "summary": "TEST ONLY - Demo 3: Analyst walkthrough planned for the reporting workflow",
+        "items": [
+          "Synthetic example for the SharePoint-to-ACORN demonstration; not an actual project commitment.",
+          "The sample agenda covers project selection, receipt confirmation, and reviewing a collected JSONL logbook.",
+          "Expected outcome: reviewers can trace each report highlight back to its original submission."
+        ],
+        "archived": false
+      }
+    ]
+  }
+}

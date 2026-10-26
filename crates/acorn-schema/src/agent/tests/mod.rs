@@ -340,6 +340,7 @@ fn test_quantization_unknown_from_str_round_trips() {
 fn test_render_accepts_prompt_asset_str_and_string_inputs() {
     let config = PromptTemplateConfiguration::init()
         .text("source text".to_string())
+        .language("French".to_string())
         .max_items(3)
         .max_words(42)
         .build();

@@ -8,10 +8,11 @@
       LayoutDirection: =LayoutDirection.Vertical
       LayoutGap: =20
       LayoutOverflowY: =LayoutOverflow.Scroll
-      PaddingBottom: =24
+      PaddingBottom: =56
       PaddingLeft: =If(Parent.Width < 700, 16, 40)
       PaddingRight: =If(Parent.Width < 700, 16, 40)
       PaddingTop: =24
+      Visible: =!Coalesce(varShowSubmissionResult, false)
       Width: =Parent.Width
     Children:
       - SubmitHeader:
@@ -20,8 +21,9 @@
           Properties:
             Fill: =ColorValue("#123B31")
             FillPortions: =0
-            Height: =184
-            LayoutMinHeight: =184
+            Height: =208
+            LayoutMinHeight: =208
+            LayoutMinWidth: =0
             RadiusBottomLeft: =12
             RadiusBottomRight: =12
             RadiusTopLeft: =12
@@ -33,6 +35,7 @@
                   Height: =Parent.Height
                   Image: ="data:image/svg+xml;utf8," & EncodeUrl("<svg xmlns=""http://www.w3.org/2000/svg"" viewBox=""0 0 1200 180""><g fill=""none"" stroke=""#79B493"" stroke-width=""1"" opacity="".32""><path d=""M500 -30 C380 40 900 65 710 210""/><path d=""M524 -30 C406 40 908 65 735 210""/><path d=""M548 -30 C432 40 916 65 760 210""/><path d=""M572 -30 C458 40 924 65 785 210""/><path d=""M596 -30 C484 40 932 65 810 210""/><path d=""M620 -30 C510 40 940 65 835 210""/><path d=""M644 -30 C536 40 948 65 860 210""/><path d=""M668 -30 C562 40 956 65 885 210""/><path d=""M692 -30 C588 40 964 65 910 210""/><path d=""M716 -30 C614 40 972 65 935 210""/><path d=""M740 -30 C640 40 980 65 960 210""/><path d=""M764 -30 C666 40 988 65 985 210""/><path d=""M788 -30 C692 40 996 65 1010 210""/><path d=""M0 45H1200M0 90H1200M0 135H1200M300 0V180M600 0V180M900 0V180"" opacity="".4""/><circle cx=""870"" cy=""90"" r=""35""/><path d=""M820 90h100M870 40v100""/></g></svg>")
                   ImagePosition: =ImagePosition.Fill
+                  OnSelect: =
                   Width: =Parent.Width
             - OrnlLogo:
                 Control: Image@2.2.3
@@ -241,6 +244,7 @@
                     	C77.2,2252.4,43.6,2230.3,36.2,2223.1z""/>
                     </svg>
                     ")
+                  OnSelect: =
                   Width: =190
                   X: =24
                   Y: =20
@@ -250,23 +254,26 @@
                   Color: =Color.White
                   Font: =Font.'Segoe UI'
                   FontWeight: =FontWeight.Semibold
-                  Height: =48
+                  Height: =64
+                  OnSelect: =
                   Role: =TextRole.Heading1
-                  Size: =If(Parent.Width < 600, 24, 30)
-                  Text: ="Sponsor highlights"
+                  Size: =If(Parent.Width < 360, 20, Parent.Width < 600, 24, 30)
+                  Text: ="Sponsor Highlights"
                   Width: =Parent.Width - 48
                   X: =24
                   Y: =76
             - HeaderSubtitle:
                 Control: Label@2.5.1
                 Properties:
+                  AutoHeight: =true
                   Color: =ColorValue("#D3E7DA")
                   Font: =Font.'Segoe UI'
+                  OnSelect: =
                   Size: =12
-                  Text: ="Document progress. Connect research to impact."
+                  Text: '="SharePoint pilot · Document progress. Connect research to impact." '
                   Width: =Parent.Width - 48
                   X: =24
-                  Y: =128
+                  Y: =144
       - EntryForm:
           Control: GroupContainer@1.5.0
           Variant: AutoLayout
@@ -274,11 +281,11 @@
             AlignInContainer: =AlignInContainer.Center
             Fill: =Color.White
             FillPortions: =0
-            Height: =1400
+            Height: =SectionDetails.Height + SubmissionContext.Height + ProjectLabel.Height + ProjectDropdown.Height + ProjectHelp.Height + RefreshProjectsButton.Height + DateLabel.Height + OccurredOnPicker.Height + CategoryLabel.Height + CategoryDropdown.Height + StateLabel.Height + StateDropdown.Height + EventLabel.Height + EventTypeDropdown.Height + SectionStory.Height + SummaryLabel.Height + SummaryInput.Height + SummaryCount.Height + ItemsLabel.Height + ItemsInput.Height + ItemsHelp.Height + PlacementLabel.Height + PlacementDropdown.Height + ReviewNote.Height + Self.PaddingTop + Self.PaddingBottom + Self.LayoutGap * 23
             LayoutAlignItems: =LayoutAlignItems.Stretch
             LayoutDirection: =LayoutDirection.Vertical
             LayoutGap: =6
-            LayoutMinHeight: =1400
+            LayoutMinHeight: =Self.Height
             LayoutMinWidth: =0
             PaddingBottom: =24
             PaddingLeft: =If(Parent.Width < 700, 16, 32)
@@ -298,15 +305,20 @@
                   FontWeight: =FontWeight.Semibold
                   Height: =28
                   LayoutMinHeight: =28
+                  LayoutMinWidth: =0
+                  OnSelect: =
                   Size: =10
-                  Text: ="01  /  HIGHLIGHT DETAILS"
+                  Text: ="01  //  HIGHLIGHT DETAILS"
             - SubmissionContext:
                 Control: Label@2.5.1
                 Properties:
+                  AutoHeight: =true
                   Color: =ColorValue("#52685F")
                   Font: =Font.'Segoe UI'
                   Height: =32
                   LayoutMinHeight: =32
+                  LayoutMinWidth: =0
+                  OnSelect: =
                   Size: =11
                   Text: ="Submitted by " & User().FullName & "  •  " & User().Email
             - ProjectLabel:
@@ -318,6 +330,7 @@
                   Height: =28
                   LayoutMinHeight: =28
                   LayoutMinWidth: =0
+                  OnSelect: =
                   Size: =12
                   Text: ="Project *"
             - ProjectDropdown:
@@ -329,7 +342,7 @@
                   ChevronBackground: =ColorValue("#EDF4EF")
                   ChevronFill: =ColorValue("#007833")
                   Color: =ColorValue("#123B31")
-                  Default: ="Select a project"
+                  Default: =Coalesce(varPendingProjectLabel, "Select a project")
                   DisplayMode: =If(varSubmitting || varProjectsLoading || CountRows(colProjects) <= 1 || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit)
                   Fill: =Color.White
                   FocusedBorderThickness: =2
@@ -337,8 +350,7 @@
                   Height: =44
                   HoverBorderColor: =ColorValue("#007833")
                   HoverFill: =ColorValue("#F0F7F2")
-                  Items: |-
-                    =colProjects
+                  Items: =colProjects
                   Items.Value: =Value
                   LayoutMinHeight: =44
                   LayoutMinWidth: =0
@@ -348,13 +360,15 @@
             - ProjectHelp:
                 Control: Label@2.5.1
                 Properties:
+                  AutoHeight: =true
                   Color: =ColorValue("#52685F")
                   Font: =Font.'Segoe UI'
                   Height: =44
                   LayoutMinHeight: =44
                   LayoutMinWidth: =0
+                  OnSelect: =
                   Size: =10
-                  Text: =If(varProjectsLoading, "Loading projects…", !IsBlank(varProjectCatalogError), varProjectCatalogError, !varCatalogLoaded, "Load the available projects to get started.", CountRows(colProjects) <= 1, "No projects are available yet. Contact the app owner.", IsBlank(ProjectDropdown.Selected.ProjectId), "Choose the project this highlight belongs to.", "This highlight will be prepared for " & ProjectDropdown.Selected.Value & ".")
+                  Text: =If(!IsBlank(varPendingJson), "This highlight belongs to " & varPendingProjectLabel & ". The project is fixed for this submission.", varProjectsLoading, "Loading projects…", !IsBlank(varProjectCatalogError), varProjectCatalogError, !varCatalogLoaded, "Load the available projects to get started.", CountRows(colProjects) <= 1, "No projects are available yet. Contact the app owner.", IsBlank(ProjectDropdown.Selected.ProjectId), "Choose the project this highlight belongs to.", "This highlight belongs to " & ProjectDropdown.Selected.Value & ".")
             - RefreshProjectsButton:
                 Control: Classic/Button@2.2.0
                 Properties:
@@ -363,6 +377,8 @@
                   Color: =ColorValue("#007833")
                   DisplayMode: =If(varProjectsLoading || varSubmitting || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit)
                   Fill: =ColorValue("#EDF4EF")
+                  FocusedBorderColor: =ColorValue("#123B31")
+                  FocusedBorderThickness: =3
                   Font: =Font.'Segoe UI'
                   Height: =36
                   HoverColor: =ColorValue("#123B31")
@@ -370,9 +386,20 @@
                   LayoutMinHeight: =36
                   LayoutMinWidth: =0
                   OnSelect: |-
-                    =Set(varProjectsLoading, true); Set(varProjectCatalogError, ""); Set(varCatalogLoaded, false); ClearCollect(colProjects, {Value: "Select a project", ProjectId: ""}); IfError(Set(varProjectCatalogResponse, ACORNProjectCatalog.Run()); Collect(colProjects, ForAll(Table(ParseJSON(varProjectCatalogResponse.catalog).projects), {Value: Text(ThisRecord.Value.label), ProjectId: Text(ThisRecord.Value.id)})); Set(varCatalogLoaded, true), ClearCollect(colProjects, {Value: "Select a project", ProjectId: ""}); Set(varProjectCatalogError, "Projects could not be loaded. Please try Refresh projects.")); Set(varProjectsLoading, false); Reset(ProjectDropdown)
+                    =Set(varProjectsLoading, true); Set(varProjectCatalogError, ""); Set(varCatalogLoaded, false);
+                    ClearCollect(colProjects, {Value: "Select a project", ProjectId: ""});
+                    IfError(
+                        Set(varProjectCatalogResponse, ACORNSharePointPilotCatalog.Run());
+                        With({catalog: ParseJSON(varProjectCatalogResponse.catalogjson)},
+                            If(!IsBlank(Text(catalog.error)) || Text(catalog.source) <> "sharepoint",
+                                Set(varProjectCatalogError, "The project list is unavailable. Contact the app owner."),
+                                Collect(colProjects, ForAll(Table(catalog.projects), {Value: Text(ThisRecord.Value.label), ProjectId: Text(ThisRecord.Value.id)}));
+                                Set(varCatalogLoaded, true))),
+                        ClearCollect(colProjects, {Value: "Select a project", ProjectId: ""});
+                        Set(varProjectCatalogError, "Projects could not be loaded. Please try Refresh Project List."));
+                    Set(varProjectsLoading, false); Reset(ProjectDropdown)
                   Size: =11
-                  Text: =If(varProjectsLoading, "Loading projects…", "Refresh projects")
+                  Text: =If(varProjectsLoading, "Loading projects…", Coalesce(varCatalogLoaded, false), "Refresh Project List", "Load Project List")
                   Width: =180
             - DateLabel:
                 Control: Label@2.5.1
@@ -382,6 +409,8 @@
                   FontWeight: =FontWeight.Semibold
                   Height: =28
                   LayoutMinHeight: =28
+                  LayoutMinWidth: =0
+                  OnSelect: =
                   Size: =12
                   Text: ="Date *"
             - OccurredOnPicker:
@@ -391,6 +420,7 @@
                   BorderColor: =ColorValue("#B7C9C0")
                   BorderThickness: =1
                   Color: =ColorValue("#123B31")
+                  DefaultDate: =If(IsBlank(varRestoredDraft), Today(), DateTimeValue(Text(varRestoredDraft.entry.timestamp)))
                   DisplayMode: =If(varSubmitting || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit)
                   Fill: =Color.White
                   FocusedBorderThickness: =2
@@ -400,6 +430,7 @@
                   IconBackground: =ColorValue("#007833")
                   IconFill: =Color.White
                   LayoutMinHeight: =44
+                  LayoutMinWidth: =0
                   Size: =12
             - CategoryLabel:
                 Control: Label@2.5.1
@@ -409,6 +440,8 @@
                   FontWeight: =FontWeight.Semibold
                   Height: =28
                   LayoutMinHeight: =28
+                  LayoutMinWidth: =0
+                  OnSelect: =
                   Size: =12
                   Text: ="Category *"
             - CategoryDropdown:
@@ -420,7 +453,7 @@
                   ChevronBackground: =ColorValue("#EDF4EF")
                   ChevronFill: =ColorValue("#007833")
                   Color: =ColorValue("#123B31")
-                  Default: ="Select a category"
+                  Default: =Coalesce(Text(varRestoredDraft.entry.category), "Select a category")
                   DisplayMode: =If(varSubmitting || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit)
                   Fill: =Color.White
                   FocusedBorderThickness: =2
@@ -431,6 +464,7 @@
                   Items: =["Select a category","administration","collaboration","data","engagement","funding","infrastructure","method","other","personnel","publication","research","software"]
                   Items.Value: =Value
                   LayoutMinHeight: =44
+                  LayoutMinWidth: =0
                   SelectionColor: =ColorValue("#123B31")
                   SelectionFill: =ColorValue("#D9EDDF")
                   Size: =12
@@ -442,6 +476,8 @@
                   FontWeight: =FontWeight.Semibold
                   Height: =28
                   LayoutMinHeight: =28
+                  LayoutMinWidth: =0
+                  OnSelect: =
                   Size: =12
                   Text: ="Status *"
             - StateDropdown:
@@ -453,7 +489,7 @@
                   ChevronBackground: =ColorValue("#EDF4EF")
                   ChevronFill: =ColorValue("#007833")
                   Color: =ColorValue("#123B31")
-                  Default: ="Select a status"
+                  Default: =Coalesce(Text(varRestoredDraft.entry.state), "Select a status")
                   DisplayMode: =If(varSubmitting || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit)
                   Fill: =Color.White
                   FocusedBorderThickness: =2
@@ -464,6 +500,7 @@
                   Items: =["Select a status","completed","in-progress","upcoming"]
                   Items.Value: =Value
                   LayoutMinHeight: =44
+                  LayoutMinWidth: =0
                   SelectionColor: =ColorValue("#123B31")
                   SelectionFill: =ColorValue("#D9EDDF")
                   Size: =12
@@ -475,6 +512,8 @@
                   FontWeight: =FontWeight.Semibold
                   Height: =28
                   LayoutMinHeight: =28
+                  LayoutMinWidth: =0
+                  OnSelect: =
                   Size: =12
                   Text: ="Event type · optional"
             - EventTypeDropdown:
@@ -486,7 +525,7 @@
                   ChevronBackground: =ColorValue("#EDF4EF")
                   ChevronFill: =ColorValue("#007833")
                   Color: =ColorValue("#123B31")
-                  Default: ="Not specified"
+                  Default: =Coalesce(Text(varRestoredDraft.entry.eventType), "Not specified")
                   DisplayMode: =If(varSubmitting || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit)
                   Fill: =Color.White
                   FocusedBorderThickness: =2
@@ -497,6 +536,7 @@
                   Items: =["Not specified","conference","exhibition","meeting","other","presentation","tour","training","workshop"]
                   Items.Value: =Value
                   LayoutMinHeight: =44
+                  LayoutMinWidth: =0
                   SelectionColor: =ColorValue("#123B31")
                   SelectionFill: =ColorValue("#D9EDDF")
                   Size: =12
@@ -506,8 +546,10 @@
                   Color: =ColorValue("#007833")
                   Font: =Font.'Segoe UI'
                   FontWeight: =FontWeight.Semibold
+                  LayoutMinWidth: =0
+                  OnSelect: =
                   Size: =10
-                  Text: ="02  /  THE DEVELOPMENT"
+                  Text: ="02  //  THE DEVELOPMENT"
             - SummaryLabel:
                 Control: Label@2.5.1
                 Properties:
@@ -516,6 +558,8 @@
                   FontWeight: =FontWeight.Semibold
                   Height: =28
                   LayoutMinHeight: =28
+                  LayoutMinWidth: =0
+                  OnSelect: =
                   Size: =12
                   Text: ="Summary *"
             - SummaryInput:
@@ -525,7 +569,7 @@
                   BorderColor: =ColorValue("#B7C9C0")
                   BorderThickness: =1
                   Color: =ColorValue("#123B31")
-                  Default: =""
+                  Default: =Coalesce(Text(varRestoredDraft.entry.summary), "")
                   DisplayMode: =If(varSubmitting || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit)
                   Fill: =Color.White
                   FocusedBorderThickness: =2
@@ -535,6 +579,7 @@
                   HoverBorderColor: =ColorValue("#007833")
                   HoverFill: =ColorValue("#F0F7F2")
                   LayoutMinHeight: =120
+                  LayoutMinWidth: =0
                   MaxLength: =1200
                   Mode: =TextMode.MultiLine
                   PaddingRight: =12
@@ -547,10 +592,13 @@
             - SummaryCount:
                 Control: Label@2.5.1
                 Properties:
+                  AutoHeight: =true
                   Color: =ColorValue("#52685F")
                   Font: =Font.'Segoe UI'
                   Height: =30
                   LayoutMinHeight: =30
+                  LayoutMinWidth: =0
+                  OnSelect: =
                   Size: =10
                   Text: =Text(Len(SummaryInput.Text)) & " / 1,200 characters. Lead with the outcome; explain its relevance."
             - ItemsLabel:
@@ -561,6 +609,8 @@
                   FontWeight: =FontWeight.Semibold
                   Height: =28
                   LayoutMinHeight: =28
+                  LayoutMinWidth: =0
+                  OnSelect: =
                   Size: =12
                   Text: ="Supporting details · optional"
             - ItemsInput:
@@ -570,7 +620,7 @@
                   BorderColor: =ColorValue("#B7C9C0")
                   BorderThickness: =1
                   Color: =ColorValue("#123B31")
-                  Default: =""
+                  Default: =If(IsBlank(varRestoredDraft), "", Concat(Table(varRestoredDraft.entry.items), Text(Value), Char(10)))
                   DisplayMode: =If(varSubmitting || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit)
                   Fill: =Color.White
                   FocusedBorderThickness: =2
@@ -580,6 +630,7 @@
                   HoverBorderColor: =ColorValue("#007833")
                   HoverFill: =ColorValue("#F0F7F2")
                   LayoutMinHeight: =100
+                  LayoutMinWidth: =0
                   MaxLength: =21000
                   Mode: =TextMode.MultiLine
                   PaddingRight: =12
@@ -592,10 +643,13 @@
             - ItemsHelp:
                 Control: Label@2.5.1
                 Properties:
+                  AutoHeight: =true
                   Color: =If(CountRows(Filter(Split(Substitute(ItemsInput.Text, Char(13), ""), Char(10)), !IsBlank(Trim(Value)))) > 20 || CountIf(Filter(Split(Substitute(ItemsInput.Text, Char(13), ""), Char(10)), !IsBlank(Trim(Value))), Len(Trim(Value)) > 1000) > 0, ColorValue("#A4262C"), ColorValue("#52685F"))
                   Font: =Font.'Segoe UI'
                   Height: =30
                   LayoutMinHeight: =30
+                  LayoutMinWidth: =0
+                  OnSelect: =
                   Size: =10
                   Text: =Text(CountRows(Filter(Split(Substitute(ItemsInput.Text, Char(13), ""), Char(10)), !IsBlank(Trim(Value))))) & " / 20 details · up to 1,000 characters each"
             - PlacementLabel:
@@ -606,6 +660,8 @@
                   FontWeight: =FontWeight.Semibold
                   Height: =28
                   LayoutMinHeight: =28
+                  LayoutMinWidth: =0
+                  OnSelect: =
                   Size: =12
                   Text: ="Report placement"
             - PlacementDropdown:
@@ -617,7 +673,7 @@
                   ChevronBackground: =ColorValue("#EDF4EF")
                   ChevronFill: =ColorValue("#007833")
                   Color: =ColorValue("#123B31")
-                  Default: ="Project highlight"
+                  Default: =If(!IsBlank(varRestoredDraft) && Boolean(varRestoredDraft.entry.global), "General update (report title page)", "Project highlight")
                   DisplayMode: =If(varSubmitting || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit)
                   Fill: =Color.White
                   FocusedBorderThickness: =2
@@ -628,69 +684,116 @@
                   Items: =["Project highlight","General update (report title page)"]
                   Items.Value: =Value
                   LayoutMinHeight: =44
+                  LayoutMinWidth: =0
                   SelectionColor: =ColorValue("#123B31")
                   SelectionFill: =ColorValue("#D9EDDF")
                   Size: =12
             - ReviewNote:
                 Control: Label@2.5.1
                 Properties:
+                  AutoHeight: =true
                   Color: =ColorValue("#52685F")
                   Font: =Font.'Segoe UI'
                   Height: =44
                   LayoutMinHeight: =44
+                  LayoutMinWidth: =0
+                  OnSelect: =
                   Size: =11
-                  Text: ="Your entry is submitted for review. Saving to the logbook does not publish a report."
+                  Text: '="For non-sensitive highlights. Pending submissions stay in this browser until confirmed. SharePoint stores your receipt and JSONL export; saving does not publish a report."    '
       - SubmitFooter:
           Control: GroupContainer@1.5.0
           Variant: AutoLayout
           Properties:
             AlignInContainer: =AlignInContainer.Center
             FillPortions: =0
-            Height: =160
+            Height: =SubmissionStatus.Height + SubmitButton.Height + If(EditDraftButton.Visible, EditDraftButton.Height + 10, 0) + If(ReceiptLabel.Visible, ReceiptLabel.Height + 10, 0) + AppAttribution.Height + 54
             LayoutAlignItems: =LayoutAlignItems.Stretch
             LayoutDirection: =LayoutDirection.Vertical
             LayoutGap: =10
-            LayoutMinHeight: =160
+            LayoutMinHeight: =Self.Height
             LayoutMinWidth: =0
+            PaddingBottom: =24
             Width: =Min(880, Parent.Width - Parent.PaddingLeft - Parent.PaddingRight)
           Children:
             - SubmissionStatus:
                 Control: Label@2.5.1
                 Properties:
-                  Color: =ColorValue("#52685F")
+                  AutoHeight: =true
+                  Color: '=If(varDisposition = "exported", ColorValue("#007833"), varDisposition in ["pending", "rejected", "conflict"] || varRecoveryBlocked, ColorValue("#8A3D12"), ColorValue("#52685F"))   '
                   Font: =Font.'Segoe UI'
                   Height: =44
                   LayoutMinHeight: =44
+                  LayoutMinWidth: =0
                   Live: =Live.Polite
+                  OnSelect: =
                   Size: =12
-                  Text: =Coalesce(varSubmissionStatus, "Complete the required fields to prepare your highlight.")
+                  Text: =Coalesce(varSubmissionStatus, "Complete the required fields, then submit your highlight.")
             - SubmitButton:
                 Control: Classic/Button@2.2.0
                 Properties:
                   BorderThickness: =0
                   Color: =Color.White
-                  DisplayMode: =If(varSubmitting || IsBlank(ProjectDropdown.Selected.ProjectId) || IsBlank(OccurredOnPicker.SelectedDate) || !(CategoryDropdown.Selected.Value in ["administration","collaboration","data","engagement","funding","infrastructure","method","other","personnel","publication","research","software"]) || !(StateDropdown.Selected.Value in ["completed","in-progress","upcoming"]) || IsBlank(Trim(SummaryInput.Text)) || Len(Trim(SummaryInput.Text)) > 1200 || CountRows(Filter(Split(Substitute(ItemsInput.Text, Char(13), ""), Char(10)), !IsBlank(Trim(Value)))) > 20 || CountIf(Filter(Split(Substitute(ItemsInput.Text, Char(13), ""), Char(10)), !IsBlank(Trim(Value))), Len(Trim(Value)) > 1000) > 0, DisplayMode.Disabled, DisplayMode.Edit)
+                  DisplayMode: '=If(varRecoveryBlocked || !Coalesce(varRecoveryLoaded, false) || varSubmitting || varDisposition in ["exported", "conflict", "rejected"], DisplayMode.Disabled, !IsBlank(varPendingJson), DisplayMode.Edit, If(varSubmitting || IsBlank(ProjectDropdown.Selected.ProjectId) || IsBlank(OccurredOnPicker.SelectedDate) || !(CategoryDropdown.Selected.Value in ["administration","collaboration","data","engagement","funding","infrastructure","method","other","personnel","publication","research","software"]) || !(StateDropdown.Selected.Value in ["completed","in-progress","upcoming"]) || IsBlank(Trim(SummaryInput.Text)) || Len(Trim(SummaryInput.Text)) > 1200 || CountRows(Filter(Split(Substitute(ItemsInput.Text, Char(13), ""), Char(10)), !IsBlank(Trim(Value)))) > 20 || CountIf(Filter(Split(Substitute(ItemsInput.Text, Char(13), ""), Char(10)), !IsBlank(Trim(Value))), Len(Trim(Value)) > 1000) > 0, DisplayMode.Disabled, DisplayMode.Edit))  '
                   Fill: =ColorValue("#007833")
+                  FocusedBorderColor: =ColorValue("#123B31")
+                  FocusedBorderThickness: =3
                   Font: =Font.'Segoe UI'
                   Height: =48
                   HoverFill: =ColorValue("#123B31")
                   LayoutMinHeight: =48
-                  OnSelect: |-
-                    =Set(varSubmitting, false); If(IsBlank(varPendingJson), Set(varPendingId, Lower(Text(GUID()))); Set(varPendingAt, Text(Now(), DateTimeFormat.UTC)); Set(varPendingJson, JSON({entry: {archived: false, category: CategoryDropdown.Selected.Value, eventType: If(EventTypeDropdown.Selected.Value = "Not specified", Blank(), EventTypeDropdown.Selected.Value), global: PlacementDropdown.Selected.Value = "General update (report title page)", items: If(IsEmpty(Filter(Split(Substitute(ItemsInput.Text, Char(13), ""), Char(10)), !IsBlank(Trim(Value)))), Blank(), ForAll(Filter(Split(Substitute(ItemsInput.Text, Char(13), ""), Char(10)), !IsBlank(Trim(Value))), Trim(Value))), origin: "manual", state: StateDropdown.Selected.Value, summary: Trim(SummaryInput.Text), timestamp: Text(OccurredOnPicker.SelectedDate, DateTimeFormat.UTC)}, projectId: ProjectDropdown.Selected.ProjectId, submissionId: varPendingId, submittedAt: varPendingAt, submitter: {email: Lower(User().Email)}}, JSONFormat.Compact & JSONFormat.FlattenValueTables))); Set(varSubmissionStatus, "Draft prepared for " & ProjectDropdown.Selected.Value & ". Nothing has been sent.")
+                  LayoutMinWidth: =0
+                  OnSelect: "=If(!varSubmitting && varDisposition <> \"exported\" && varDisposition <> \"conflict\",\n    Set(varSubmitting, true);\n    Set(varSubmissionStatus, \"Saving your highlight…\");\n    Set(varCanSend, false);\n    If(IsBlank(varPendingJson),\n        IfError(\n            With({newId: Lower(Text(GUID())), newAt: Text(Now(), DateTimeFormat.UTC)},\n                With({payload: JSON({entry: {archived: false, category: CategoryDropdown.Selected.Value, eventType: If(EventTypeDropdown.Selected.Value = \"Not specified\", Blank(), EventTypeDropdown.Selected.Value), global: PlacementDropdown.Selected.Value = \"General update (report title page)\", items: If(IsEmpty(Filter(Split(Substitute(ItemsInput.Text, Char(13), \"\"), Char(10)), !IsBlank(Trim(Value)))), Blank(), ForAll(Filter(Split(Substitute(ItemsInput.Text, Char(13), \"\"), Char(10)), !IsBlank(Trim(Value))), Trim(Value))), origin: \"manual\", state: StateDropdown.Selected.Value, summary: Trim(SummaryInput.Text), timestamp: Text(OccurredOnPicker.SelectedDate, DateTimeFormat.UTC)}, projectId: ProjectDropdown.Selected.ProjectId, submissionId: newId, submittedAt: newAt, submitter: {email: Lower(User().Email)}}, JSONFormat.Compact & JSONFormat.FlattenValueTables)},\n                    Set(varPendingJson, payload); Set(varPendingId, newId); Set(varPendingProjectLabel, ProjectDropdown.Selected.Value); Set(varDisposition, \"pending\"); Set(varCanSend, true))),\n            Set(varSubmissionStatus, \"We couldn't prepare your highlight. Your entries are still here. Please try again.\")),\n        Set(varCanSend, true)\n    );\n    If(varCanSend,\n        ClearCollect(colPendingHighlight, {payload: varPendingJson, owner: Lower(User().Email), projectLabel: varPendingProjectLabel, disposition: \"pending\", exportFileUrl: \"\", receiptUrl: \"\"});\n        IfError(SaveData(colPendingHighlight, \"SponsorHighlightSharePointPending\"); true,\n            Set(varCanSend, false); Set(varSubmissionStatus, \"Browser recovery is unavailable. Nothing was sent. Open the published app in a regular browser window and try again.\"))\n    );\n    If(varCanSend,\n        Set(varDisposition, \"pending\");\n        IfError(\n            With({receipt: ACORNSharePointPilotIntake.Run(varPendingJson)},\n                If(receipt.submissionid = varPendingId && receipt.status = \"received\",\n                    Set(varReceiptUrl, receipt.receipturl);\n                    Set(varExportFileUrl, If(receipt.exportstatus = \"exported\" && receipt.exportfileurl = \"https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/\" & varPendingId & \".jsonl\", receipt.exportfileurl, \"\"));\n                    Set(varDisposition, If(!IsBlank(varExportFileUrl), \"exported\", \"received\"));\n                    Set(varSubmissionStatus, If(varDisposition = \"exported\", \"Highlight received in SharePoint. Its JSONL export is verified and ready for ACORN review. This does not publish a report.\", \"Highlight received in SharePoint. The JSONL export is not yet confirmed. Select Retry JSONL export to finish safely with the same receipt ID.\"));\n                    ClearCollect(colPendingHighlight, {payload: varPendingJson, owner: Lower(User().Email), projectLabel: varPendingProjectLabel, disposition: varDisposition, exportFileUrl: varExportFileUrl, receiptUrl: varReceiptUrl});\n                    IfError(SaveData(colPendingHighlight, \"SponsorHighlightSharePointPending\"); true, Set(varSubmissionStatus, varSubmissionStatus & \" Browser recovery could not store the updated receipt; a retry will safely confirm the same submission.\")),\n                    receipt.submissionid = varPendingId && receipt.status = \"rejected\",\n                    Set(varDisposition, \"rejected\"); Set(varSubmissionStatus, \"Not submitted. The highlight did not pass validation. Select Edit highlight to correct it, or contact the app owner.\"),\n                    receipt.submissionid = varPendingId && receipt.status = \"conflict\",\n                    Set(varDisposition, \"conflict\"); Set(varSubmissionStatus, \"This receipt ID has different content in SharePoint. Keep this page and contact the app owner with the receipt ID below.\"),\n                    Set(varDisposition, \"pending\"); Set(varSubmissionStatus, \"We could not confirm the save. Your pending highlight is retained in this browser. Select Retry submission; the same ID prevents a duplicate.\"))),\n            Set(varDisposition, \"pending\"); Set(varSubmissionStatus, \"We could not confirm the save. Your pending highlight is retained in this browser. Select Retry submission; the same ID prevents a duplicate.\"))\n    );\n    Set(varSubmitting, false);\n    Set(varShowSubmissionResult, true)\n)\n    "
                   RadiusBottomLeft: =6
                   RadiusBottomRight: =6
                   RadiusTopLeft: =6
                   RadiusTopRight: =6
-                  Text: ="Prepare highlight"
+                  Text: '=If(varSubmitting, "Saving…", varDisposition = "exported", "JSONL export ready", varDisposition = "received", "Retry JSONL export", !IsBlank(varPendingJson), "Retry submission", "Submit highlight")    '
             - EditDraftButton:
                 Control: Classic/Button@2.2.0
                 Properties:
                   BorderThickness: =0
                   Color: =ColorValue("#007833")
                   Fill: =Color.Transparent
+                  FocusedBorderColor: =ColorValue("#123B31")
+                  FocusedBorderThickness: =3
                   Font: =Font.'Segoe UI'
                   Height: =36
                   LayoutMinHeight: =36
-                  OnSelect: =Set(varPendingJson, Blank()); Set(varPendingId, Blank()); Set(varSubmissionStatus, Blank())
-                  Text: ="Edit draft"
-                  Visible: =!IsBlank(varPendingJson) && !varSubmitting
+                  LayoutMinWidth: =0
+                  OnSelect: "=If(!varSubmitting && varDisposition in [\"exported\", \"rejected\"],\n    IfError(ClearData(\"SponsorHighlightSharePointPending\"),\n        Set(varSubmissionStatus, \"The saved browser record could not be cleared. Please try again before starting another highlight.\"); Set(varShowSubmissionResult, true),\n        If(varDisposition = \"exported\", Set(varRestoredDraft, Blank()), Set(varRestoredDraft, ParseJSON(varPendingJson))); Set(varPendingProjectLabel, Blank());\n        Clear(colPendingHighlight); Set(varPendingJson, Blank()); Set(varPendingId, Blank()); Set(varExportFileUrl, Blank()); Set(varReceiptUrl, Blank()); Set(varDisposition, Blank()); Set(varSubmissionStatus, Blank());\n        Reset(OccurredOnPicker); Reset(CategoryDropdown); Reset(StateDropdown); Reset(EventTypeDropdown); Reset(SummaryInput); Reset(ItemsInput); Reset(PlacementDropdown);\n        Select(RefreshProjectsButton); Set(varShowSubmissionResult, false)\n    )\n)\n    "
+                  Text: '=If(varDisposition = "exported", "New highlight", "Edit highlight")  '
+                  Visible: '=!varSubmitting && varDisposition in ["exported", "rejected"]    '
+            - ReceiptLabel:
+                Control: Label@2.5.1
+                Properties:
+                  AutoHeight: =true
+                  Color: =ColorValue("#52685F")
+                  Font: =Font.'Segoe UI'
+                  LayoutMinHeight: =24
+                  LayoutMinWidth: =0
+                  OnSelect: =
+                  Size: =10
+                  Text: "=If(!IsBlank(varPendingId), \"Receipt ID: \" & varPendingId & If(varDisposition = \"exported\", Char(10) & \"SharePoint receipt and JSONL export confirmed\", \"\")) "
+                  Visible: =!IsBlank(varPendingId)
+            - AppAttribution:
+                Control: Label@2.5.1
+                Properties:
+                  Align: =Align.Center
+                  Color: =ColorValue("#52685F")
+                  Font: =Font.'Segoe UI'
+                  Height: =76
+                  LayoutMinHeight: =76
+                  LayoutMinWidth: =0
+                  OnSelect: =
+                  PaddingBottom: =8
+                  PaddingTop: =24
+                  Size: =10
+                  Text: |-
+                    ="ACORN · Oak Ridge National Laboratory" & Char(10) & "App owner: Jason Wohlgemuth"
+                  Width: =Parent.Width
+      - RestoreDraftButton:
+          Control: Classic/Button@2.2.0
+          Properties:
+            OnSelect: "=If(!Coalesce(varRecoveryLoaded, false),\n    Set(varRecoveryBlocked, false);\n    ClearCollect(colPendingHighlight, {payload: \"\", owner: \"\", projectLabel: \"\", disposition: \"\", exportFileUrl: \"\", receiptUrl: \"\"}); Clear(colPendingHighlight);\n    IfError(\n        LoadData(colPendingHighlight, \"SponsorHighlightSharePointPending\", true);\n        If(!IsEmpty(colPendingHighlight),\n            If(CountRows(colPendingHighlight) <> 1 || First(colPendingHighlight).owner <> Lower(User().Email),\n                Set(varRecoveryBlocked, true); Set(varSubmissionStatus, \"This browser has a pending highlight for another account. Sign in with that account to resolve it before submitting here.\"),\n                With({saved: First(colPendingHighlight)},\n                    With({draft: ParseJSON(saved.payload)},\n                        If(Text(draft.submitter.email) <> Lower(User().Email) || !IsMatch(Text(draft.submissionId), \"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\"),\n                            Set(varRecoveryBlocked, true); Set(varSubmissionStatus, \"The saved highlight could not be verified. Contact the app owner before sending another highlight.\"),\n                            Set(varPendingJson, saved.payload); Set(varPendingId, Text(draft.submissionId)); Set(varPendingProjectLabel, saved.projectLabel); Set(varRestoredDraft, draft);\n                            Set(varExportFileUrl, saved.exportFileUrl); Set(varReceiptUrl, saved.receiptUrl); Set(varDisposition, If(saved.disposition = \"exported\" && saved.exportFileUrl = \"https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/\" & varPendingId & \".jsonl\", \"exported\", saved.disposition = \"received\", \"received\", \"pending\"));\n                            ClearCollect(colProjects, {Value: saved.projectLabel, ProjectId: Text(draft.projectId)});\n                            Set(varSubmissionStatus, If(varDisposition = \"exported\", \"Highlight received in SharePoint. Its JSONL export is verified and ready for ACORN review.\", varDisposition = \"received\", \"Highlight received in SharePoint. Select Retry JSONL export to confirm its export.\", \"Pending highlight recovered. Select Retry submission to confirm its save without creating a duplicate.\"));\n                            Reset(ProjectDropdown); Reset(OccurredOnPicker); Reset(CategoryDropdown); Reset(StateDropdown); Reset(EventTypeDropdown); Reset(SummaryInput); Reset(ItemsInput); Reset(PlacementDropdown)\n                        )\n                    )\n                )\n            )\n        ); Set(varRecoveryLoaded, true),\n        Set(varRecoveryBlocked, true); Set(varSubmissionStatus, \"Browser recovery is unavailable. Open the published app in a regular browser window. Your pending data has not been cleared.\")\n    );\n    Set(varShowSubmissionResult, varRecoveryBlocked || !IsBlank(varPendingJson));\n    If(IsBlank(varPendingJson) && !varRecoveryBlocked && !Coalesce(varCatalogLoaded, false), Select(RefreshProjectsButton))\n)\n    "
+            Text: ="Restore draft"
+            Visible: =false

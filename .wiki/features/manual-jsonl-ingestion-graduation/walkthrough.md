@@ -1,8 +1,8 @@
 # Sponsor Highlights: demo without Vergil
 
-Plan assets now live in local `_assets/` folders. The demo walkthrough PDF was refreshed October 25, 2026 with the current commands and confirmation controls. Historical screenshots and execution records retain their original paths; the links and commands in this walkthrough use the current layout.
+Plan assets now live in local `_assets/` folders. The demo walkthrough PDF was refreshed October 26, 2026 with both intake branches, current commands and confirmation controls. Historical screenshots and execution records retain their original paths; the links and commands in this walkthrough use the current layout.
 
-This packet follows **one actual PowerApp submission** through GitLab JSONL, local review, ingestion, contributor graduation and a local PDF. The contributor, baseline project and report are **TEST ONLY**. Nothing in the local rehearsal publishes a report, sends a callback, drains the remote inbox or starts Vergil.
+This packet explains both capture routes. Its retained end-to-end rehearsal follows **one actual GitLab PowerApp submission** through JSONL, local review, ingestion, contributor graduation and a local PDF. SharePoint receipt/export and Teams tests passed separately; the downloaded SharePoint file-to-CLI handoff has not yet been accepted. The contributor, baseline project and report are **TEST ONLY**. Nothing in the local rehearsal publishes a report, sends a callback, drains the remote inbox or starts Vergil.
 
 ## Start here
 
@@ -16,8 +16,8 @@ This packet follows **one actual PowerApp submission** through GitLab JSONL, loc
 
 | Time | Role and action | Point to show |
 | --- | --- | --- |
-| 0:00-1:30 | Contributor opens Sponsor Highlights, loads the project list, selects `acorn`, and enters a non-sensitive highlight. | Use the recorded [prepared form](_assets/form-prepared.png) and [saved receipt](_assets/form-receipt.png) if cloud access fails. The saved example is category Personnel, status Completed, summary `Example, Avery (TEST ONLY)`. |
-| 1:30-2:15 | Operator opens the GitLab commit. | [Exactly one added line](_assets/gitlab-append.png), no removed lines. A receipt confirms capture; it does not approve the content. |
+| 0:00-1:30 | Contributor opens the assigned SharePoint or GitLab app, loads projects and enters a non-sensitive highlight. | Use the recorded [prepared form](_assets/form-prepared.png) and [saved receipt](_assets/form-receipt.png) if cloud access fails. The saved example is category Personnel, status Completed, summary `Example, Avery (TEST ONLY)`. |
+| 1:30-2:15 | Operator shows the branch-specific receipt and JSONL source. | SharePoint: list receipt plus combined `logbook.jsonl`, refreshed every five minutes. Individual receipt files remain evidence. GitLab: immutable commit with [one added line](_assets/gitlab-append.png). Neither approves content. The retained local rehearsal uses the GitLab personnel fixture. |
 | 2:15-3:30 | Reviewer runs stage and inspect. | Explicit project/member mapping, exact source bytes, one proposed entry and a readable diff. The index is unchanged before approval. |
 | 3:30-4:15 | Reviewer approves the disposable local change and applies it. | One entry. Repeat apply produces no duplicate. |
 | 4:15-5:30 | Reviewer previews graduation candidates, then selects the contributor entry with the reviewed digest. | Ingestion and graduation are separate approvals. Graduation adds one contributor and archives the retained source entry; unrelated metadata stays unchanged. |
@@ -26,6 +26,39 @@ This packet follows **one actual PowerApp submission** through GitLab JSONL, loc
 | 7:30-8:00 | Presenter explains the next step. | Vergil will automate intake/review plumbing. Canonical review and promotion remain explicit. Shared deployment and production access approval are separate work. |
 
 The automated eleven-step rehearsal completed in 2.01 seconds on October 24, 2026, excluding human explanation and approval time. The eight minutes above is a presentation allocation, not a measured human rehearsal.
+
+## Choose the capture branch
+
+| Branch | Capture and storage | Handoff to local ACORN |
+| --- | --- | --- |
+| [SharePoint pilot](https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/163f110f-7f8a-401c-894e-0786b2c018a4) | Standard SharePoint intake/catalog connections; one list receipt and one UUID-named receipt file. A separate five-minute exporter collects all rows into logbook.jsonl. | Download combined logbook.jsonl after its next refresh and stage its local path or file URI. Preserve exact bytes; list CSV/Excel export is not the intake envelope. |
+| [GitLab connector app](https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/15ae605b-585b-49f5-a413-2b091f919a35) | Existing custom connector; append to project 22464/main/.acorn/intake/logbook.jsonl. Confirmation identifies an immutable commit. | Stage a GitLab raw/blob file URL; the CLI captures an immutable snapshot. An already captured local file also works. |
+
+The SharePoint catalog contains 13 seeded projects; it is not automatically synchronized with GitLab. Owner-context app submission, exact export, reload recovery and Teams action tests passed on October 26. Standard-license participant access, download-to-CLI acceptance, failure recovery and broader boundary/concurrency tests remain open. The original GitLab app remains operational; intermittent GitLab access is a known limitation. Use one branch per highlight. Do not reroute an unresolved receipt into the other app.
+
+Example handoff commands, using an approved ACRE configuration with local destination indexes and member rules:
+
+```sh
+# SharePoint: download combined logbook.jsonl after the next five-minute refresh.
+acorn intake stage --batch --config intake.json \
+  --source "/path/to/logbook.jsonl"
+
+# GitLab: resolve and save an exact source snapshot.
+CI_SERVER_HOST=code.ornl.gov acorn intake stage --batch \
+  --config intake.json --source "<GitLab raw/blob file URL>"
+
+# Both routes converge here; use your source's batch ID.
+acorn intake inspect --config intake.json --batch-id <batch-ID>
+acorn intake apply --config intake.json --batch-id <batch-ID>
+```
+
+Direct SharePoint HTTPS sources are not supported by the CLI source adapter. Do not regenerate the envelope, UUID or JSON formatting. These commands describe the SharePoint handoff to validate; they do not claim it has been rehearsed. The frozen demo script below continues to use its verified GitLab fixture.
+
+## Where notifications occur
+
+Both intake branches send best-effort Teams notices to the owner after a confirmed new save. SharePoint requires a new receipt and a verified export in the same run; if export first succeeds on a later retry, the initial notice is skipped. GitLab requires the confirmed new-commit response. Exact replays do not send another notice. There is no routine intake email.
+
+Later milestones use the separate owner-triggered callback: Teams for workspace created or no report changes; email for review requested, report ready or actionable failure. The local CLI does not trigger those messages. A local PDF is not evidence of remote publication. The page 2 diagram shows both routes and the manual milestone boundary. See [notification routing](../powerapps-jsonl-intake/notification-walkthrough.md) and [SharePoint acceptance](../powerapps-jsonl-intake/sharepoint-pilot.md).
 
 ## Repeat safely
 
@@ -51,7 +84,7 @@ acorn intake run --index project/index.json --interactive
 acorn intake run --index project/index.json --force
 ```
 
-`--force` preserves validation, stale-digest checks and exact backups. Combining it with `--dry-run` writes nothing. The older `candidates` and `graduate` commands visible in historical manuals and transcripts still work as hidden compatibility commands; the refreshed demo PDF uses `run`. See the [current command reference](../../../docs/src/cli-reference/commands/intake.md#local-graduation) for reviewed-ID selection and all mode combinations.
+`--force` preserves validation, stale-digest checks and exact backups. Combining it with `--dry-run` writes nothing. The older `candidates` and `graduate` commands visible in historical transcripts still work as hidden compatibility commands; the refreshed PDFs use `run`. See the [current command reference](../../../docs/src/cli-reference/commands/intake.md#local-graduation) for reviewed-ID selection and all mode combinations.
 
 The script verifies the immutable source hashes and exact line selection before writing, creates a disposable index, records all command results, creates a local Git commit using the explicitly synthetic `ACORN Synthetic Demo` identity, and renders the PDF twice. It asserts that retries, rejected apply and both report runs preserve the correct index. `evidence.json` is the local report manifest; `remotePublication` is false.
 

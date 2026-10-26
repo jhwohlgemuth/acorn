@@ -47,17 +47,18 @@ def main():
     story = [Paragraph("SPONSOR HIGHLIGHTS  //  ACORN", styles["Caption"]),
              Paragraph("One highlight,<br/>from capture to report", styles["Hero"]),
              Paragraph("Demo walkthrough without Vergil", styles["Section"]),
-             Paragraph("Current commands and reviewer controls | October 25, 2026", styles["Body"]),
+             Paragraph("Current commands and reviewer controls | October 26, 2026", styles["Body"]),
              Paragraph("An eight-minute presentation using one captured TEST ONLY submission, local review, explicit approval and a local PDF. The screenshot appendix preserves dated cloud evidence.", styles["Body"]),
              Spacer(1, 16)]
     for number, title, detail in [
-        ("01", "Capture", "PowerApp receipt and immutable GitLab JSONL commit"),
+        ("01", "Capture", "Choose SharePoint receipt/file or GitLab immutable commit"),
         ("02", "Review and apply", "Inspect one proposed entry, then confirm the local change"),
         ("03", "Graduate", "Select the contributor promotion and confirm it separately"),
         ("04", "Report", "Open the local PDF and demonstrate safe replay"),
     ]:
         story += [Paragraph(number + " // " + title, styles["Section"]), Paragraph(detail, styles["Body"])]
-    story += [Spacer(1, 15), Paragraph("The following workflow map is retained from the user guide. The confirmed new-save Teams notice is automatic. Other review/report messages use the owner-triggered callback flow.", styles["Caption"]), PageBreak()]
+    story += [Spacer(1, 15), Paragraph("The following map shows both capture branches. New-save Teams notices are automatic and best effort. Later review/report messages use the owner-triggered callback. The retained full rehearsal uses the GitLab fixture.", styles["Caption"]), PageBreak(),
+              Paragraph("Demo scope and evidence", styles["Section"])]
     lines = SOURCE.read_text().splitlines()
     i = 1
     while i < len(lines):
@@ -101,8 +102,15 @@ def main():
                 paragraph.append(lines[i])
                 i += 1
             story.append(Paragraph(inline(" ".join(paragraph)), styles["Body"]))
+    story += [PageBreak(), Paragraph("SharePoint: verified receipt and export", styles["Section"]),
+              Paragraph("October 26, 2026: owner-context published app created a list receipt and verified its JSONL export. The Teams action succeeded. This is intake evidence; the downloaded-file-to-CLI handoff and standard-license participant access remain unaccepted.", styles["Body"])]
+    sp_image = Image(str(ASSETS.parents[1] / "powerapps-jsonl-intake/_assets/sharepoint/app-teams-success.png"))
+    sp_scale = min(WIDTH / sp_image.imageWidth, 510 / sp_image.imageHeight)
+    sp_image.drawWidth = sp_image.imageWidth * sp_scale
+    sp_image.drawHeight = sp_image.imageHeight * sp_scale
+    story += [sp_image, Spacer(1, 12), Paragraph("Receipt 64b836e0-016f-4493-9894-a6fe79acc8de. One file per receipt; no GitLab append is performed by this branch.", styles["Caption"])]
     for title, images in [
-        ("Captured form and receipt", [("form-prepared.png", "Prepared TEST ONLY personnel highlight."),
+        ("GitLab: captured form and receipt", [("form-prepared.png", "Prepared TEST ONLY personnel highlight."),
                                        ("form-receipt.png", "Saved receipt: capture is confirmed; content review follows.")]),
         ("Captured append and replay", [("gitlab-append.png", "GitLab commit: exactly one added JSONL line."),
                                        ("cloud-replay.png", "Exact replay: the prior immutable commit is reused.")]),
@@ -133,7 +141,7 @@ def main():
         footer.rect(0, 0, width, 45, fill=1, stroke=0)
         footer.setFillColor(INK)
         footer.setFont("Helvetica", 8)
-        footer.drawString(54, 28, "ACORN / ORNL PILOT  |  TEST ONLY  |  OCT 25, 2026")
+        footer.drawString(54, 28, "ACORN / ORNL PILOT  |  TEST ONLY  |  OCT 26, 2026")
         footer.drawRightString(width - 54, 28, f"{number} / {len(pages)}")
         footer.save()
         current.merge_page(PdfReader(overlay).pages[0])

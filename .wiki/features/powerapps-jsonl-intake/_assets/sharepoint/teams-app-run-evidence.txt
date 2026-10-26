@@ -1,0 +1,41 @@
+Run 08584085694369117892624466851CU16
+Receipt 64b836e0-016f-4493-9894-a6fe79acc8de
+					39 container Your flow ran successfully.
+						40 text Your flow ran successfully.
+											56 container Description: 0 seconds. Succeeded, ID: When Power Apps calls a flow (V2)-status
+											62 container Description: 0.1 seconds. Succeeded, ID: Get items-status
+												66 container Connection name: SharePoint ACORNSharePointPilot-0c871
+											70 container Description: 1.6 seconds. Succeeded, ID: SharePoint intake SP-status
+											177 container Description: 0 seconds. Succeeded, ID: Raw submission SP-status
+											185 container Description: 0 seconds. Succeeded, ID: Parse submission SP-status
+											193 container Description: 0 seconds. Succeeded, ID: Check timestamps SP-status
+											201 container Description: 0 seconds. Succeeded, ID: Blank details SP-status
+											209 container Description: 0 seconds. Succeeded, ID: Caller email SP-status
+											217 container Description: 0 seconds. Succeeded, ID: Matching projects SP-status
+											225 container Description: 1.5 seconds. Succeeded, ID: Envelope allowed SP-status
+											235 container Description: 0.1 seconds. Succeeded, ID: Find receipt SP-status
+												239 container Connection name: SharePoint ACORNSharePointPilot-0c871
+											245 container Description: 0.5 seconds. Succeeded, ID: Create if missing SP-status
+											255 container Description: 0.5 seconds. Succeeded, ID: Create receipt SP-status
+												259 container Connection name: SharePoint ACORNSharePointPilot-0c871
+											269 container Description: 0.1 seconds. Succeeded, ID: Read receipt SP-status
+												273 container Connection name: SharePoint ACORNSharePointPilot-0c871
+											279 container Description: 0.8 seconds. Succeeded, ID: One receipt SP-status
+											289 container Description: 0.8 seconds. Succeeded, ID: Exact receipt SP-status
+											299 container Description: 0 seconds. Succeeded, ID: Accepted receipt SP-status
+											307 container Description: 0.4 seconds. Succeeded, ID: Create JSONL SP-status
+												311 container Connection name: SharePoint ACORNSharePointPilot-0c871
+											317 container Description: 0.1 seconds. Succeeded, ID: Read JSONL SP-status
+												321 container Connection name: SharePoint ACORNSharePointPilot-0c871
+											327 container Description: 0.2 seconds. Succeeded, ID: Exact export SP-status
+											337 container Description: 0.1 seconds. Succeeded, ID: Mark exported SP-status
+												341 container Connection name: SharePoint ACORNSharePointPilot-0c871
+											354 container Description: 0 seconds. Skipped, ID: Conflict SP-status
+											370 container Description: 0 seconds. Skipped, ID: Rejected SP-status
+											379 container Description: 0 seconds. Succeeded, ID: SharePoint response SP-status
+											385 container Description: 0.4 seconds. Succeeded, ID: Notify new export SP-status
+									393 container Post SharePoint update to Teams
+											395 container Description: 0.3 seconds. Succeeded, ID: Post SharePoint update to Teams-status
+											396 button Post SharePoint update to Teams operation, Microsoft Teams connector
+												397 text Post SharePoint update to Teams
+												399 container Connection name: Microsoft Teams Default-52fd4

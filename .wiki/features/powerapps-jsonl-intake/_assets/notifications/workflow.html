@@ -1,107 +1,61 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>Sponsor Highlights: Workflow and Notifications</title>
-<style>
-@page { size: 15in 11.25in; margin: 0; }
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; background: white; color: #183c43; font-family: Arial, Helvetica, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-body { width: 1080pt; height: 810pt; position: relative; }
-header { height: 137pt; background: #004851; color: white; padding: 30pt 54pt 0 73pt; }
-header::before { content: ""; position: absolute; top: 44pt; left: 54pt; width: 4pt; height: 58pt; background: #88e7b7; }
-.kicker { color: #88e7b7; font-size: 12pt; font-weight: bold; letter-spacing: .7pt; text-transform: uppercase; }
-h1 { font-size: 30pt; margin: 17pt 0 0; line-height: 1.1; }
-main { padding: 28pt 54pt 0; }
-.intro { margin: 0; font-size: 17pt; line-height: 25pt; }
-.legend { display: flex; gap: 28pt; align-items: center; font-size: 12pt; margin-top: 19pt; color: #506a70; }
-.legend span { display: inline-flex; align-items: center; gap: 8pt; }
-.line { width: 35pt; border-top: 2pt solid #00662c; }
-.dash { width: 35pt; border-top: 1.4pt dashed #506a70; }
-.diagram { margin: 24pt 0 0; width: 972pt; }
-.diagram svg { display: block; width: 972pt; height: auto; font-family: Arial, Helvetica, sans-serif; }
-.notes { display: grid; grid-template-columns: 1fr 1fr; gap: 28pt; margin-top: 22pt; }
-.notes p { font-size: 13pt; line-height: 19pt; margin: 0; }
-.recipient { background: #edf4f3; padding: 13pt 18pt; border-radius: 8pt; font-size: 14pt; line-height: 20pt; margin-top: 19pt; }
-footer { position: absolute; left: 54pt; right: 54pt; bottom: 29pt; border-top: 1pt solid #c8dcdd; padding-top: 12pt; color: #506a70; display:flex; justify-content:space-between; font-size: 10pt; }
-</style></head><body>
-<header><div class="kicker">Current Workflow / Contributor and Reviewer</div><h1>From Highlight to Report: Who Gets Notified</h1></header>
-<main>
-<p class="intro">Follow one highlight through capture, human review and reporting. Notifications mark progress;<br>the GitLab receipt and reviewed records remain the evidence.</p>
-<div class="legend"><span><i class="line"></i> Workflow / automatic saved-highlight notice</span><span><i class="dash"></i> Owner-triggered notification</span></div>
-<div class="diagram"><svg xmlns="http://www.w3.org/2000/svg" style="font-size:initial;" viewbox="0 0 1645.92 501.12">
-<path d="M13.68,146.16L228.24,146.16A11.52 11.52 0 0 0 239.76 134.64L239.76,13.68A11.52 11.52 0 0 0 228.24 2.16L13.68,2.16A11.52 11.52 0 0 0 2.16 13.68L2.16,134.64A11.52 11.52 0 0 0 13.68 146.16Z" style="fill:rgb(232,241,251);stroke-width:0;stroke:rgb(24,60,67);" />
-<text x="120.96" y="47.952" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">1. Submit</text>
-<text x="120.96" y="74.16" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Highlight in</text>
-<text x="120.96" y="100.368" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">PowerApp</text>
-<path d="M294.48,146.16L509.04,146.16A11.52 11.52 0 0 0 520.56 134.64L520.56,13.68A11.52 11.52 0 0 0 509.04 2.16L294.48,2.16A11.52 11.52 0 0 0 282.96 13.68L282.96,134.64A11.52 11.52 0 0 0 294.48 146.16Z" style="fill:rgb(243,240,255);stroke-width:0;stroke:rgb(24,60,67);" />
-<text x="401.76" y="47.952" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">2. Save</text>
-<text x="401.76" y="74.16" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">JSONL + receipt</text>
-<text x="401.76" y="100.368" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Power Automate</text>
-<path d="M575.28,146.16L789.84,146.16A11.52 11.52 0 0 0 801.36 134.64L801.36,13.68A11.52 11.52 0 0 0 789.84 2.16L575.28,2.16A11.52 11.52 0 0 0 563.76 13.68L563.76,134.64A11.52 11.52 0 0 0 575.28 146.16Z" style="fill:rgb(255,244,214);stroke-width:0;stroke:rgb(24,60,67);" />
-<text x="682.56" y="47.952" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">3. Review</text>
-<text x="682.56" y="74.16" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Stage and inspect</text>
-<text x="682.56" y="100.368" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">the entry</text>
-<path d="M856.08,146.16L1070.64,146.16A11.52 11.52 0 0 0 1082.16 134.64L1082.16,13.68A11.52 11.52 0 0 0 1070.64 2.16L856.08,2.16A11.52 11.52 0 0 0 844.56 13.68L844.56,134.64A11.52 11.52 0 0 0 856.08 146.16Z" style="fill:rgb(231,243,233);stroke-width:0;stroke:rgb(24,60,67);" />
-<text x="963.36" y="47.952" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">4. Apply</text>
-<text x="963.36" y="74.16" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Confirm adding</text>
-<text x="963.36" y="100.368" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">the logbook entry</text>
-<path d="M1136.88,146.16L1351.44,146.16A11.52 11.52 0 0 0 1362.96 134.64L1362.96,13.68A11.52 11.52 0 0 0 1351.44 2.16L1136.88,2.16A11.52 11.52 0 0 0 1125.36 13.68L1125.36,134.64A11.52 11.52 0 0 0 1136.88 146.16Z" style="fill:rgb(231,243,233);stroke-width:0;stroke:rgb(24,60,67);" />
-<text x="1244.16" y="47.952" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">5. Graduate</text>
-<text x="1244.16" y="74.16" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Confirm optional</text>
-<text x="1244.16" y="100.368" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">promotion</text>
-<path d="M1417.68,146.16L1632.24,146.16A11.52 11.52 0 0 0 1643.76 134.64L1643.76,13.68A11.52 11.52 0 0 0 1632.24 2.16L1417.68,2.16A11.52 11.52 0 0 0 1406.16 13.68L1406.16,134.64A11.52 11.52 0 0 0 1417.68 146.16Z" style="fill:rgb(242,242,242);stroke-width:0;stroke:rgb(24,60,67);" />
-<text x="1524.96" y="47.952" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">6. Report</text>
-<text x="1524.96" y="74.16" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Build the</text>
-<text x="1524.96" y="100.368" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">local PDF</text>
-<polygon points="282.96,74.16 265.68,80.64 265.68,67.68" style="fill:rgb(0,102,44)" />
-<path d="M239.76,74.16L274.32,74.16" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
-<polygon points="563.76,74.16 546.48,80.64 546.48,67.68" style="fill:rgb(0,102,44)" />
-<path d="M520.56,74.16L555.12,74.16" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
-<polygon points="844.56,74.16 827.28,80.64 827.28,67.68" style="fill:rgb(0,102,44)" />
-<path d="M801.36,74.16L835.92,74.16" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
-<polygon points="1125.36,74.16 1108.08,80.64 1108.08,67.68" style="fill:rgb(0,102,44)" />
-<path d="M1082.16,74.16L1116.72,74.16" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
-<polygon points="1406.16,74.16 1388.88,80.64 1388.88,67.68" style="fill:rgb(0,102,44)" />
-<path d="M1362.96,74.16L1397.52,74.16" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
-<path d="M294.48,405.36L509.04,405.36A11.52 11.52 0 0 0 520.56 393.84L520.56,272.88A11.52 11.52 0 0 0 509.04 261.36L294.48,261.36A11.52 11.52 0 0 0 282.96 272.88L282.96,393.84A11.52 11.52 0 0 0 294.48 405.36Z" style="fill:rgb(238,234,248);stroke-width:0;stroke:rgb(24,60,67);" />
-<text x="401.76" y="294.048" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">TEAMS</text>
-<text x="401.76" y="320.256" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Highlight</text>
-<text x="401.76" y="346.464" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">saved</text>
-<text x="401.76" y="372.672" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Automatic</text>
-<path d="M575.28,405.36L789.84,405.36A11.52 11.52 0 0 0 801.36 393.84L801.36,272.88A11.52 11.52 0 0 0 789.84 261.36L575.28,261.36A11.52 11.52 0 0 0 563.76 272.88L563.76,393.84A11.52 11.52 0 0 0 575.28 405.36Z" style="fill:rgb(238,234,248);stroke-width:0;stroke:rgb(24,60,67);" />
-<text x="682.56" y="294.048" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">TEAMS</text>
-<text x="682.56" y="320.256" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Workspace</text>
-<text x="682.56" y="346.464" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">created*</text>
-<text x="682.56" y="372.672" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Owner sends</text>
-<path d="M856.08,405.36L1070.64,405.36A11.52 11.52 0 0 0 1082.16 393.84L1082.16,272.88A11.52 11.52 0 0 0 1070.64 261.36L856.08,261.36A11.52 11.52 0 0 0 844.56 272.88L844.56,393.84A11.52 11.52 0 0 0 856.08 405.36Z" style="fill:rgb(255,244,214);stroke-width:0;stroke:rgb(24,60,67);" />
-<text x="963.36" y="294.048" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">EMAIL</text>
-<text x="963.36" y="320.256" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Review</text>
-<text x="963.36" y="346.464" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">requested</text>
-<text x="963.36" y="372.672" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Owner sends</text>
-<path d="M1136.88,405.36L1351.44,405.36A11.52 11.52 0 0 0 1362.96 393.84L1362.96,272.88A11.52 11.52 0 0 0 1351.44 261.36L1136.88,261.36A11.52 11.52 0 0 0 1125.36 272.88L1125.36,393.84A11.52 11.52 0 0 0 1136.88 405.36Z" style="fill:rgb(238,234,248);stroke-width:0;stroke:rgb(24,60,67);" />
-<text x="1244.16" y="294.048" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">TEAMS</text>
-<text x="1244.16" y="320.256" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">No report</text>
-<text x="1244.16" y="346.464" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">changes</text>
-<text x="1244.16" y="372.672" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Owner sends</text>
-<path d="M1417.68,405.36L1632.24,405.36A11.52 11.52 0 0 0 1643.76 393.84L1643.76,272.88A11.52 11.52 0 0 0 1632.24 261.36L1417.68,261.36A11.52 11.52 0 0 0 1406.16 272.88L1406.16,393.84A11.52 11.52 0 0 0 1417.68 405.36Z" style="fill:rgb(255,244,214);stroke-width:0;stroke:rgb(24,60,67);" />
-<text x="1524.96" y="294.048" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">EMAIL</text>
-<text x="1524.96" y="320.256" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Published report</text>
-<text x="1524.96" y="346.464" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">ready</text>
-<text x="1524.96" y="372.672" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">Owner sends</text>
-<polygon points="401.76,261.36 395.28,244.08 408.24,244.08" style="fill:rgb(0,102,44)" />
-<path d="M401.76,146.16L401.76,252.72" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
-<path d="M682.56,146.16L682.56,203.76" style="fill:none;stroke-width:2.16;stroke:rgb(80,106,112);stroke-dasharray:7.2,7.2;" />
-<polygon points="682.56,261.36 678.24,249.84 686.88,249.84" style="fill:rgb(80,106,112)" />
-<path d="M682.56,203.76L682.56,255.6" style="fill:none;stroke-width:2.16;stroke:rgb(80,106,112);stroke-dasharray:7.2,7.2;" />
-<polygon points="963.36,261.36 959.04,249.84 967.68,249.84" style="fill:rgb(80,106,112)" />
-<path d="M682.56,203.76L963.36,203.76L963.36,255.6" style="fill:none;stroke-width:2.16;stroke-linejoin:round;stroke:rgb(80,106,112);stroke-dasharray:7.2,7.2;" />
-<path d="M1524.96,146.16L1524.96,203.76" style="fill:none;stroke-width:2.16;stroke:rgb(80,106,112);stroke-dasharray:7.2,7.2;" />
-<polygon points="1524.96,261.36 1520.64,249.84 1529.28,249.84" style="fill:rgb(80,106,112)" />
-<path d="M1524.96,203.76L1524.96,255.6" style="fill:none;stroke-width:2.16;stroke:rgb(80,106,112);stroke-dasharray:7.2,7.2;" />
-<polygon points="1244.16,261.36 1239.84,249.84 1248.48,249.84" style="fill:rgb(80,106,112)" />
-<path d="M1524.96,203.76L1244.16,203.76L1244.16,255.6" style="fill:none;stroke-width:2.16;stroke-linejoin:round;stroke:rgb(80,106,112);stroke-dasharray:7.2,7.2;" />
-<path d="M294.48,498.96L1632.24,498.96A11.52 11.52 0 0 0 1643.76 487.44L1643.76,438.48A11.52 11.52 0 0 0 1632.24 426.96L294.48,426.96A11.52 11.52 0 0 0 282.96 438.48L282.96,487.44A11.52 11.52 0 0 0 294.48 498.96Z" style="fill:rgb(251,236,232);stroke-width:0;stroke:rgb(24,60,67);" />
-<text x="963.36" y="462.96" text-anchor="middle" fill="rgb(24,60,67)" font-size="130%" dominant-baseline="central">EMAIL  /  Actionable failure at any stage  /  Owner sends</text>
-</svg></div>
-<div class="notes"><p><b>Review stays human.</b> Apply and graduation use separate Yes / No confirmations. Promotion is optional and depends on the entry. *Workspace created refers to an optional GitLab review workspace.</p><p><b>Messages after capture are manual today.</b> The local CLI does not send them. The owner records the actual milestone in Power Automate. A local PDF alone does not trigger a published-report email.</p></div>
-<div class="recipient"><b>Current recipient: Jason Wohlgemuth</b> &nbsp; Teams self-chat for routine updates; email for review requests, published reports and actionable failures. Exact replays send no new notice.</div>
-</main><footer><span>ACORN / ORNL pilot | October 24, 2026 | Current notification routing</span><span>Workflow Map</span></footer>
-</body></html>
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Two intake branches</title><style>body{font-family:Arial;color:#163c47;max-width:1100px;margin:30px auto}svg{width:100%;height:auto}@media print{@page{size:landscape}}</style><h1>Sponsor Highlights // Two intake branches</h1><svg xmlns="http://www.w3.org/2000/svg" style="font-size:initial;font-family:Arial,Helvetica,sans-serif;" viewBox="0 0 1084.32 724.32">
+<path d="M13.68,124.56L293.04,124.56A11.52 11.52 0 0 0 304.56 113.04L304.56,13.68A11.52 11.52 0 0 0 293.04 2.16L13.68,2.16A11.52 11.52 0 0 0 2.16 13.68L2.16,113.04A11.52 11.52 0 0 0 13.68 124.56Z" style="fill:rgb(232,241,251);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="153.36" y="51.264" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">SharePoint app</text>
+<text x="153.36" y="75.456" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Standard connectors</text>
+<path d="M380.88,124.56L660.24,124.56A11.52 11.52 0 0 0 671.76 113.04L671.76,13.68A11.52 11.52 0 0 0 660.24 2.16L380.88,2.16A11.52 11.52 0 0 0 369.36 13.68L369.36,113.04A11.52 11.52 0 0 0 380.88 124.56Z" style="fill:rgb(231,243,233);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="520.56" y="39.168" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">List + logbook.jsonl</text>
+<text x="520.56" y="63.36" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Combined: every 5 min</text>
+<text x="520.56" y="87.552" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Teams: new receipt export</text>
+<path d="M748.08,124.56L1027.44,124.56A11.52 11.52 0 0 0 1038.96 113.04L1038.96,13.68A11.52 11.52 0 0 0 1027.44 2.16L748.08,2.16A11.52 11.52 0 0 0 736.56 13.68L736.56,113.04A11.52 11.52 0 0 0 748.08 124.56Z" style="fill:rgb(255,244,214);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="887.76" y="39.168" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Download logbook</text>
+<text x="887.76" y="63.36" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">All collected rows</text>
+<text x="887.76" y="87.552" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Preserve exact bytes</text>
+<polygon points="369.36,63.36 352.08,69.84 352.08,56.88" style="fill:rgb(0,102,44)" />
+<path d="M304.56,63.36L360.72,63.36" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<polygon points="736.56,63.36 719.28,69.84 719.28,56.88" style="fill:rgb(0,102,44)" />
+<path d="M671.76,63.36L727.92,63.36" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<path d="M13.68,311.76L293.04,311.76A11.52 11.52 0 0 0 304.56 300.24L304.56,200.88A11.52 11.52 0 0 0 293.04 189.36L13.68,189.36A11.52 11.52 0 0 0 2.16 200.88L2.16,300.24A11.52 11.52 0 0 0 13.68 311.76Z" style="fill:rgb(232,241,251);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="153.36" y="238.464" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">GitLab app</text>
+<text x="153.36" y="262.656" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Custom connector</text>
+<path d="M380.88,311.76L660.24,311.76A11.52 11.52 0 0 0 671.76 300.24L671.76,200.88A11.52 11.52 0 0 0 660.24 189.36L380.88,189.36A11.52 11.52 0 0 0 369.36 200.88L369.36,300.24A11.52 11.52 0 0 0 380.88 311.76Z" style="fill:rgb(231,243,233);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="520.56" y="226.368" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">JSONL logbook</text>
+<text x="520.56" y="250.56" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Immutable commit</text>
+<text x="520.56" y="274.752" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Teams: confirmed new save</text>
+<path d="M748.08,311.76L1027.44,311.76A11.52 11.52 0 0 0 1038.96 300.24L1038.96,200.88A11.52 11.52 0 0 0 1027.44 189.36L748.08,189.36A11.52 11.52 0 0 0 736.56 200.88L736.56,300.24A11.52 11.52 0 0 0 748.08 311.76Z" style="fill:rgb(255,244,214);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="887.76" y="238.464" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Use GitLab file URL</text>
+<text x="887.76" y="262.656" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">CLI captures snapshot</text>
+<polygon points="369.36,250.56 352.08,257.04 352.08,244.08" style="fill:rgb(0,102,44)" />
+<path d="M304.56,250.56L360.72,250.56" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<polygon points="736.56,250.56 719.28,257.04 719.28,244.08" style="fill:rgb(0,102,44)" />
+<path d="M671.76,250.56L727.92,250.56" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<path d="M1038.96,63.36L1082.16,63.36L1082.16,358.56" style="fill:none;stroke-width:2.16;stroke-linejoin:round;stroke:rgb(0,102,44);" />
+<path d="M1038.96,250.56L1082.16,250.56" style="fill:none;stroke-width:2.16;stroke:rgb(0,102,44);" />
+<path d="M46.08,534.96L260.64,534.96A11.52 11.52 0 0 0 272.16 523.44L272.16,438.48A11.52 11.52 0 0 0 260.64 426.96L46.08,426.96A11.52 11.52 0 0 0 34.56 438.48L34.56,523.44A11.52 11.52 0 0 0 46.08 534.96Z" style="fill:rgb(255,244,214);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="153.36" y="468.864" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Stage + inspect</text>
+<text x="153.36" y="493.056" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Review the diff</text>
+<path d="M312.48,534.96L527.04,534.96A11.52 11.52 0 0 0 538.56 523.44L538.56,438.48A11.52 11.52 0 0 0 527.04 426.96L312.48,426.96A11.52 11.52 0 0 0 300.96 438.48L300.96,523.44A11.52 11.52 0 0 0 312.48 534.96Z" style="fill:rgb(231,243,233);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="419.76" y="468.864" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Apply</text>
+<text x="419.76" y="493.056" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Confirm intake</text>
+<path d="M578.88,534.96L793.44,534.96A11.52 11.52 0 0 0 804.96 523.44L804.96,438.48A11.52 11.52 0 0 0 793.44 426.96L578.88,426.96A11.52 11.52 0 0 0 567.36 438.48L567.36,523.44A11.52 11.52 0 0 0 578.88 534.96Z" style="fill:rgb(231,243,233);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="686.16" y="468.864" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">run --index</text>
+<text x="686.16" y="493.056" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Optional promotion</text>
+<path d="M845.28,534.96L1059.84,534.96A11.52 11.52 0 0 0 1071.36 523.44L1071.36,438.48A11.52 11.52 0 0 0 1059.84 426.96L845.28,426.96A11.52 11.52 0 0 0 833.76 438.48L833.76,523.44A11.52 11.52 0 0 0 845.28 534.96Z" style="fill:rgb(242,242,242);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="952.56" y="468.864" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Report</text>
+<text x="952.56" y="493.056" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Local PDF</text>
+<polygon points="153.36,426.96 146.88,409.68 159.84,409.68" style="fill:rgb(0,102,44)" />
+<path d="M1082.16,358.56L153.36,358.56L153.36,418.32" style="fill:none;stroke-width:3.24;stroke-linejoin:round;stroke:rgb(0,102,44);" />
+<polygon points="300.96,480.96 283.68,487.44 283.68,474.48" style="fill:rgb(0,102,44)" />
+<path d="M272.16,480.96L292.32,480.96" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<polygon points="567.36,480.96 550.08,487.44 550.08,474.48" style="fill:rgb(0,102,44)" />
+<path d="M538.56,480.96L558.72,480.96" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<polygon points="833.76,480.96 816.48,487.44 816.48,474.48" style="fill:rgb(0,102,44)" />
+<path d="M804.96,480.96L825.12,480.96" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<path d="M46.08,722.16L1059.84,722.16A11.52 11.52 0 0 0 1071.36 710.64L1071.36,611.28A11.52 11.52 0 0 0 1059.84 599.76L46.08,599.76A11.52 11.52 0 0 0 34.56 611.28L34.56,710.64A11.52 11.52 0 0 0 46.08 722.16Z" style="fill:rgb(243,240,255);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="552.96" y="636.768" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">OWNER-TRIGGERED MILESTONES</text>
+<text x="552.96" y="660.96" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Teams: workspace created / no report changes</text>
+<text x="552.96" y="685.152" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Email: review requested / report ready / actionable failure</text>
+<polygon points="419.76,599.76 415.44,588.24 424.08,588.24" style="fill:rgb(80,106,112)" />
+<path d="M419.76,534.96L419.76,594" style="fill:none;stroke-width:2.16;stroke:rgb(80,106,112);stroke-dasharray:7.2,7.2;" />
+<polygon points="952.56,599.76 948.24,588.24 956.88,588.24" style="fill:rgb(80,106,112)" />
+<path d="M952.56,534.96L952.56,594" style="fill:none;stroke-width:2.16;stroke:rgb(80,106,112);stroke-dasharray:7.2,7.2;" />
+</svg><p>Choose one branch per highlight. Save notices are automatic and best effort. Dashed links indicate owner-triggered milestones; the local CLI sends no messages. A local PDF does not itself publish or send a report.</p><p>ACORN / ORNL pilot // October 26, 2026</p></html>

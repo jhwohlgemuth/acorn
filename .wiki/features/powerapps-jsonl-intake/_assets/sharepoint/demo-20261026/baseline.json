@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "identifier": "acorn",
+    "keywords": [
+      "Geospatial data",
+      "Workflow automation",
+      "Research reporting"
+    ],
+    "contributors": [],
+    "funders": [
+      "Demonstration only - no sponsor claims"
+    ],
+    "media": []
+  },
+  "title": "SharePoint Intake Demonstration",
+  "subtitle": "TEST ONLY - three live form submissions, local ACORN report",
+  "sections": {
+    "mission": "Demonstrate a traceable path from the Sponsor Highlights form through SharePoint JSONL collection to an ACORN report.",
+    "challenge": "Collect multiple submissions without a premium GitLab connector in the form.",
+    "approach": [
+      "Submit three explicitly synthetic highlights through the published SharePoint pilot.",
+      "Preserve exported JSONL bytes and review the selected records before local ingestion."
+    ],
+    "impact": [
+      "Show completed, in-progress and upcoming highlights in one local report."
+    ],
+    "research": {
+      "focus": "Traceable highlight reporting",
+      "areas": [
+        "Geospatial examples",
+        "SharePoint intake",
+        "Local reporting"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Sample project lead",
+    "givenName": "Alex",
+    "familyName": "Morgan",
+    "email": "alex.morgan@example.org",
+    "telephone": "+1 202-555-0123",
+    "url": "https://example.org/project",
+    "organization": "Example Research Group"
+  }
+}

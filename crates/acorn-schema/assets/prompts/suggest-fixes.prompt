@@ -1,27 +1,26 @@
 ---
 name: suggest-fixes
-variant: default
-model:
-  family: any
-  name: any
-tools: []
 config:
-  version: "{{ config.version | default(value="1.0.0") }}"
-  temperature: "{{ config.temperature | default(value=0.1) }}"
-  maxOutputTokens: "{{ config.max_tokens | default(value=300) }}"
+  temperature: 0.1
+  maxOutputTokens: 300
 input:
   default:
-    version: "{{ data.version | default(value="1") }}"
-    findings: {{ data.findings | default(value=[]) | json_encode }}
+    version: "1"
+    findings: []
   schema:
-    version:
-      type: string
-    findings:
-      type: array
+    version?: string
+    findings?(array): any
 output:
   format: json
   schema:
     type: object
+    properties:
+      version:
+        type: string
+      fixes:
+        type: array
+        items:
+          type: object
     required:
       - version
       - fixes
@@ -46,3 +45,7 @@ You propose reviewable fixes for ACORN analyzer findings.
 
 # Output
 Return valid JSON only. Do not wrap it in Markdown or add explanatory prose.
+
+# Input Data
+Version: {{ version }}
+Findings: {{ json findings }}

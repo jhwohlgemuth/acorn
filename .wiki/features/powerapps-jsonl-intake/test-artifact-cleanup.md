@@ -25,7 +25,7 @@ The app IDs were checked on their Details pages before removal. The failure mock
 - Operational Sponsor Highlights, its intake/catalog flows, and manual callback receipt/notification workflow.
 - Both PA-17 native test apps, test solutions, intake/catalog flows, callback test flow, connectors and protected references. Full restore acceptance is unfinished.
 - The two PA-15 boundary copies, with notifications disabled, for the remaining acceptance matrix. Their IDs and final states are recorded in [boundary acceptance](boundary-acceptance.md).
-- Older `ACORN Logbook Canvas Notifications`, ORNL `ACORN Logbook Intake`, and ORNL `Test` flows: their ownership/dependencies were not established as disposable, so they were not removed.
+- October 25 retained the older notification/intake/Test flows pending investigation. Their October 26 dispositions are recorded below; the unused ORNL intake prototype and owner-approved legacy notification flow were removed.
 - Native restore archives, manifests, current PDFs, demo packet and durable acceptance evidence.
 
 ## Wiki asset cleanup
@@ -33,3 +33,36 @@ The app IDs were checked on their Details pages before removal. The failure mock
 Two personal Teams screenshots were removed from plan assets. Current guides use the fictional `teams-example.png`; the personal screenshots were already excluded from distributed archives. Four byte-identical duplicate files were removed, preserving their canonical copies and updating the current runbook link. Exact paths and replacements are recorded in [asset-cleanup.json](_assets/boundary-tests/asset-cleanup.json).
 
 Source/demo archives and manifests were rebuilt from their selected current files. Historical failure screenshots and native restore packages are retained because they explain unresolved acceptance or support recovery. This cleanup does not certify PA-15, PA-16 or PA-17.
+
+## October 26 portfolio and inventory review
+
+Reviewed all 33 executable plans and two coordination records, with focused current-code checks and live flow/solution inventories in Wohlgemuth, Jason and ORNL Personal Productivity. No additional whole plan was proven complete; the manual-ingestion plan was already retired. Its walkthrough, PDF guides, exact demo fixtures and handback procedure remain useful documentation. PA completed-history prose was condensed into linked evidence. SharePoint user access (PA-22), native restoration (PA-24), and optional cutover (PA-25) now have separate acceptance ownership; PA-12 depends on the selected route rather than forcing GitLab gates onto SharePoint.
+
+### Cloud cleanup and retained dependencies
+
+| Resource | Environment | Disposition and evidence |
+| --- | --- | --- |
+| ACORN Logbook Intake (`e3a4ad29-ac14-4afe-887b-8b905f9e8dbb`) | ORNL Personal Productivity | Deleted October 26. Owner Jason; created/modified October 7; never run, unshared, no associated apps. Refreshed cloud-flow inventory contains four remaining flows and no matching ID. |
+| ORNL Automation / GitLabFormIngestion (`5c269b88-62a5-f111-b8de-001dd806277c`) | ORNL Personal Productivity | Empty unmanaged v1.1.0.0 solution: All/Apps/Flows/Tables each zero, dependency results empty. Deleted after explicit owner confirmation. Search by its unique name returned no results after removal. |
+| ACORN Logbook Canvas Notifications (`ece463d8-fe39-72b6-dffe-f0b98faadc23`) | Wohlgemuth, Jason | Deleted after explicit owner confirmation naming this legacy flow. Before removal it was enabled with successful October 22 runs and no listed app/custom-solution associations. Automatic approval review initially rejected deletion because non-use was uncertain; the owner then specifically authorized removal. Refreshed inventory has ten flows and no matching ID. Current inline intake notices and the durable callback receipt flow remain enabled. |
+| Test (`bd0497c0-a06e-4c14-bfd4-be7fa383ddb0`) | ORNL Personal Productivity | Retained as unrelated. Read-only definition inspection found a manual Teams booking-link message, not Sponsor Highlights intake. No edits, saves or runs. |
+| PA15 TEST ONLY Boundary Acceptance (both environments) | Both | Retained Off for unfinished PA-15/16 matrices. |
+| PA17 TEST ONLY Native Intake (both) and Native Callback (Jason) | Both/Jason | Retained Off for unfinished restore acceptance. Native catalogs remain On for app/catalog checks. |
+| PA17 native readiness/restore/backup solutions and operational intake solution | Both | Retained: dependency containers, native restore acceptance or operational recovery. Names containing TEST ONLY do not make unfinished acceptance resources disposable. |
+| SharePoint app, three flows and ACORN SharePoint Pilot solution | Wohlgemuth, Jason | Retained enabled and unchanged; PA-19–24 acceptance is incomplete. |
+
+The Jason inventory has 10 flows after removal of the legacy notification flow. ORNL has four after deletion: PA15 boundary Off, PA17 intake Off, PA17 catalog On and unrelated Test On. The operational GitLab intake/catalog and SharePoint intake/catalog/combined exporter remain enabled. No app bindings, connections, credentials, list/library records, callback rows, recipient settings or operational JSONL bytes were changed by cleanup.
+
+The live Jason list identifies the operational GitLab intake as `6039f419-420f-6922-46ef-04b00d2290f1`; older saved-source/run evidence retains `ff4a134b-5fd3-4465-ab19-0325c2f2bf1b`. These are recorded by observation context; cleanup did not rebind either app or rewrite historical identities.
+
+![ORNL remaining flow inventory](_assets/cleanup/ornl-flows-after.png)
+
+![Jason remaining flow inventory](_assets/cleanup/jason-flows-after.png)
+
+![Empty legacy solution absent from search](_assets/cleanup/ornl-solution-removed.png)
+
+### Local cleanup
+
+Removed **19 unreferenced superseded drafts and intermediate screenshots**, totaling **1,421,827 bytes**, plus generated `catalog-tests/bin` and `catalog-tests/obj` directories. [The removal manifest](_assets/cleanup/20261026-manifest.json) records exact paths, hashes and reasons. Names were checked against wiki text, remaining repository references and ZIP members before deletion. Current form/connector sources, PDFs, selected demo archives, native packages and exact-byte historical JSONL fixtures remain. Historical import failures retain their written diagnostic evidence; obsolete screenshots do not need to duplicate it.
+
+Validation passed for wiki plan metadata, all wiki Markdown file targets, four manifest-listed native archive sizes/hashes/ZIP integrity, and whitespace. One pre-existing Rhai runtime link was corrected to its current module path. No changed documentation is embedded in a retained ZIP, so those archives were not rebuilt. No application code was modified and no cloud submission or notification was sent as a cleanup test. Existing staged documentation and unrelated source edits were preserved.

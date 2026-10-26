@@ -12,7 +12,7 @@ use crate::validation::{is_partial_date, validate_license, IntoValidationReport,
 use crate::OneOrMany;
 use acorn_core::prelude::alloc::{format, vec, Box, String, ToString, Vec};
 #[cfg(feature = "std")]
-use acorn_core::util::longest_character_run;
+use acorn_core::util::{frontmatter_and_body, longest_character_run};
 use acorn_core::util::{strip_suffixes, MarkdownSupport, SemanticVersion, StringInterpolation};
 use acorn_core::validation::ValidationError;
 use acorn_core::{AcornError, AcornResult, Location, Noul};
@@ -24,13 +24,13 @@ use core::str::from_utf8;
 use core::{convert::Infallible, fmt, str::FromStr};
 use derive_more::Display;
 #[cfg(feature = "std")]
+use handlebars::{handlebars_helper, no_escape, Handlebars};
+#[cfg(feature = "std")]
 use rust_embed::Embed;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::{EnumIs, EnumIter, IntoEnumIterator};
-#[cfg(feature = "std")]
-use tera::{Context, Tera};
 #[cfg(feature = "std")]
 use tracing::warn;
 
@@ -1283,19 +1283,57 @@ impl PromptTemplate {
         asset
             .into()
             .load()
-            .and_then(|template| config.to_render_value().map(|value| (template, value)))
-            .and_then(|(template, value)| {
-                let mut context = Context::new();
-                context.insert("config", &value);
-                context.insert("data", &value);
-                Tera::one_off(&template, &context, false)
-                    .map_err(|why| AcornError::new(why.to_string()))
-                    .and_then(|rendered| {
-                        zon::encode(&value).map_err(|why| AcornError::new(why.to_string())).map(|encoded| {
-                            let fence = "`".repeat(longest_character_run(&encoded, '`').saturating_add(1).max(3));
-                            format!("{}\n\n# Input Data (ZON)\n\n{fence}zon\n{encoded}\n{fence}", rendered.trim_end())
-                        })
+            .and_then(|template| config.to_render_value().map(|data| (template, data)))
+            .and_then(|(template, data)| {
+                Self::render_content(&template, config, serde_json::Value::Object(Default::default())).and_then(|rendered| {
+                    zon::encode(&data).map_err(|why| AcornError::new(why.to_string())).map(|encoded| {
+                        let fence = "`".repeat(longest_character_run(&encoded, '`').saturating_add(1).max(3));
+                        format!("{}\n\n# Input Data (ZON)\n\n{fence}zon\n{encoded}\n{fence}", rendered.trim_end())
                     })
+                })
+            })
+    }
+    /// Render a Dotprompt asset using its declared defaults and caller-supplied values.
+    pub fn render_content(source: &str, config: &PromptTemplateConfiguration, data: serde_json::Value) -> AcornResult<String> {
+        let (header, body) = frontmatter_and_body(source);
+        header
+            .ok_or_else(|| AcornError::new("Prompt requires YAML frontmatter"))
+            .and_then(|header| {
+                FrontMatter::from_front_matter(&header).map_err(AcornError::new).and_then(|metadata| {
+                    let defaults = metadata
+                        .input
+                        .as_ref()
+                        .and_then(|input| input.get("default"))
+                        .and_then(serde_json::Value::as_object)
+                        .cloned()
+                        .unwrap_or_default();
+                    config.to_render_value().and_then(|config| match (config, data) {
+                        | (serde_json::Value::Object(config), serde_json::Value::Object(data)) => {
+                            let mut inputs = defaults;
+                            inputs.extend(
+                                config
+                                    .into_iter()
+                                    .filter(|(_, value)| !value.is_null())
+                                    .map(|(key, value)| (key.to_case(Case::Camel), value)),
+                            );
+                            let data = data.into_iter().map(|(key, value)| {
+                                let camel_key = key.to_case(Case::Camel);
+                                (if inputs.contains_key(&camel_key) { camel_key } else { key }, value)
+                            });
+                            inputs.extend(data.collect::<Vec<_>>());
+                            handlebars_helper!(json: |value: Json| value.to_string());
+                            let mut renderer = Handlebars::new();
+                            renderer.register_escape_fn(no_escape);
+                            renderer.set_strict_mode(true);
+                            renderer.register_helper("json", Box::new(json));
+                            renderer
+                                .render_template(&body, &inputs)
+                                .map(|body| format!("---\n{header}\n---\n{body}"))
+                                .map_err(|why| AcornError::new(why.to_string()))
+                        }
+                        | _ => Err(AcornError::new("Prompt inputs must serialize as objects")),
+                    })
+                })
             })
     }
 }

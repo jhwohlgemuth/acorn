@@ -1,0 +1,394 @@
+Run: 08584085692740963250031363046CU21
+Exact replay of receipt 02b7231b-47e0-4034-b49b-0b6e594548e0 after Teams deployment.
+
+Browser tab: 1329059340, Title: "Manage your flows | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/64679e9c-ae76-4263-b8fa-8832835516ca/runs/08584085692740963250031363046CU21".
+1 AXWebArea Manage your flows | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/64679e9c-ae76-4263-b8fa-8832835516ca/runs/08584085692740963250031363046CU21
+	2 container
+		3 container root
+			4 container
+				5 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				6 container o365header
+					7 container O365_NavHeader
+						8 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							99 text 
+						10 container ppuxOfficeHeaderTopLevelRegion
+							11 container ppuxOfficeHeaderLeftRegion
+								12 text Power Automate
+							13 container ppuxOfficeHeaderRightRegion
+								14 button Wohlgemuth, Jason
+									15 container
+										16 text Environments Wohlgemuth, Jason
+								17 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								18 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						19 container O365_HeaderRightRegion
+							20 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								21 image JW
+				22 container
+					23 button Go back to previous page
+					24 heading The flow name is ACORN SharePoint Pilot Intake., Value: 1
+						25 container The flow name is ACORN SharePoint Pilot Intake.
+							26 text ACORN SharePoint Pilot Intake
+					27 toolbar
+						28 button Description: Resubmit, ID: resubmitFlowRun
+							29 text Resubmit
+						30 button (disabled) Description: Cancel, ID: cancelFlowRun
+							31 text Cancel
+						32 button Description: Copilot, ID: chat
+							33 text Copilot
+						34 button Description: Edit, ID: editFlow
+							35 text Edit
+						36 container
+							37 switch Description: New view, Value: 1, ID: switchDesignerFlowRunDetails
+							38 text New view
+					39 container Your flow ran successfully.
+						40 text Your flow ran successfully.
+						41 button Dismiss
+					42 container
+						43 container Workflow canvas
+							44 container
+								123 image
+									124 container Edge from When_Power_Apps_calls_a_flow_(V2) to Get_items
+								125 image
+									126 container Edge from Get_items to SharePoint_intake_SP
+								127 image
+									128 container Edge from SharePoint_intake_SP-#scope to Raw_submission_SP
+								129 image
+									130 container Edge from Raw_submission_SP to Parse_submission_SP
+								131 image
+									132 container Edge from Parse_submission_SP to Check_timestamps_SP
+								133 image
+									134 container Edge from Check_timestamps_SP to Blank_details_SP
+								135 image
+									136 container Edge from Blank_details_SP to Caller_email_SP
+								137 image
+									138 container Edge from Caller_email_SP to Matching_projects_SP
+								139 image
+									140 container Edge from Matching_projects_SP to Envelope_allowed_SP
+								141 image
+									142 edge Edge from Envelope_allowed_SP-#scope to Envelope_allowed_SP-actions
+								143 image
+									144 edge Edge from Envelope_allowed_SP-#scope to Envelope_allowed_SP-elseActions
+								145 image
+									146 container Edge from Envelope_allowed_SP-actions-#subgraph to Find_receipt_SP
+								147 image
+									148 container Edge from Find_receipt_SP to Create_if_missing_SP
+								149 image
+									150 edge Edge from Create_if_missing_SP-#scope to Create_if_missing_SP-actions
+								151 image
+									152 edge Edge from Create_if_missing_SP-#scope to Create_if_missing_SP-elseActions
+								153 image
+									154 container Edge from Create_if_missing_SP-actions-#subgraph to Create_receipt_SP
+								155 image
+									156 container Edge from Create_if_missing_SP to Read_receipt_SP
+								157 image
+									158 container Edge from Read_receipt_SP to One_receipt_SP
+								159 image
+									160 edge Edge from One_receipt_SP-#scope to One_receipt_SP-actions
+								161 image
+									162 edge Edge from One_receipt_SP-#scope to One_receipt_SP-elseActions
+								163 image
+									164 container Edge from One_receipt_SP-actions-#subgraph to Exact_receipt_SP
+								165 image
+									166 edge Edge from Exact_receipt_SP-#scope to Exact_receipt_SP-actions
+								167 image
+									168 edge Edge from Exact_receipt_SP-#scope to Exact_receipt_SP-elseActions
+								169 image
+									170 container Edge from Exact_receipt_SP-actions-#subgraph to Accepted_receipt_SP
+								171 image
+									172 container Edge from Accepted_receipt_SP to Create_JSONL_SP
+								173 image
+									174 container Edge from Create_JSONL_SP to Read_JSONL_SP
+								175 image
+									176 container Edge from Read_JSONL_SP to Exact_export_SP
+								177 image
+									178 edge Edge from Exact_export_SP-#scope to Exact_export_SP-actions
+								179 image
+									180 edge Edge from Exact_export_SP-#scope to Exact_export_SP-elseActions
+								181 image
+									182 container Edge from Exact_export_SP-actions-#subgraph to Mark_exported_SP
+								183 image
+									184 container Edge from Exact_receipt_SP-elseActions-#subgraph to Conflict_SP
+								185 image
+									186 container Edge from Envelope_allowed_SP-elseActions-#subgraph to Rejected_SP
+								187 image
+									188 container Edge from SharePoint_intake_SP to SharePoint_response_SP
+								189 image
+									190 container Edge from SharePoint_response_SP to Notify_new_export_SP
+								191 image
+									192 edge Edge from Notify_new_export_SP-#scope to Notify_new_export_SP-actions
+								193 image
+									194 edge Edge from Notify_new_export_SP-#scope to Notify_new_export_SP-elseActions
+								195 image
+									196 container Edge from Notify_new_export_SP-actions-#subgraph to Post_SharePoint_update_to_Teams
+								53 container
+									54 container When Power Apps calls a flow (V2)
+										55 container msla-node-When_Power_Apps_calls_a_flow_(V2)
+											56 container Description: 0 seconds. Succeeded, ID: When Power Apps calls a flow (V2)-status
+											57 button When Power Apps calls a flow (V2) operation, Power Apps connector
+												58 text When Power Apps calls a flow (V2)
+								59 container
+									60 container Get items
+										61 container msla-node-Get_items
+											62 container Description: 0.6 seconds. Succeeded, ID: Get items-status
+											63 button Get items operation, SharePoint connector
+												64 text Get items
+											65 container SharePoint ACORNSharePointPilot-0c871
+												66 container Connection name: SharePoint ACORNSharePointPilot-0c871
+								67 container
+									68 container SharePoint intake SP
+										69 container
+											70 container Description: 1.2 seconds. Succeeded, ID: SharePoint intake SP-status
+											71 button Description: SharePoint intake SP operation, ID: msla-node-SharePoint_intake_SP
+												72 text SharePoint intake SP
+											73 button (expanded) Description: Collapse SharePoint intake SP, Secondary Actions: Collapse
+								110 container
+									197 container Raw submission SP
+										198 container msla-node-Raw_submission_SP
+											199 container Description: 0 seconds. Succeeded, ID: Raw submission SP-status
+											200 button Raw submission SP operation, Data Operation connector
+												201 text Raw submission SP
+											202 container This operation has secure inputs or outputs enabled.
+												203 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								113 container
+									204 container Parse submission SP
+										205 container msla-node-Parse_submission_SP
+											206 container Description: 0 seconds. Succeeded, ID: Parse submission SP-status
+											207 button Parse submission SP operation, Data Operations connector
+												208 text Parse submission SP
+											209 container This operation has secure inputs or outputs enabled.
+												210 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								116 container
+									211 container Check timestamps SP
+										212 container msla-node-Check_timestamps_SP
+											213 container Description: 0 seconds. Succeeded, ID: Check timestamps SP-status
+											214 button Check timestamps SP operation, Data Operation connector
+												215 text Check timestamps SP
+											216 container This operation has secure inputs or outputs enabled.
+												217 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								119 container
+									218 container Blank details SP
+										219 container msla-node-Blank_details_SP
+											220 container Description: 0 seconds. Succeeded, ID: Blank details SP-status
+											221 button Blank details SP operation, Data Operations connector
+												222 text Blank details SP
+											223 container This operation has secure inputs or outputs enabled.
+												224 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								122 container
+									225 container Caller email SP
+										226 container msla-node-Caller_email_SP
+											227 container Description: 0 seconds. Succeeded, ID: Caller email SP-status
+											228 button Caller email SP operation, Data Operation connector
+												229 text Caller email SP
+											230 container This operation has secure inputs or outputs enabled.
+												231 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								232 container
+									233 container Matching projects SP
+										234 container msla-node-Matching_projects_SP
+											235 container Description: 0 seconds. Succeeded, ID: Matching projects SP-status
+											236 button Matching projects SP operation, Data Operations connector
+												237 text Matching projects SP
+											238 container This operation has secure inputs or outputs enabled.
+												239 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								240 container
+									241 container Envelope allowed SP
+										242 container
+											243 container Description: 1 second. Succeeded, ID: Envelope allowed SP-status
+											244 button Description: Envelope allowed SP operation, ID: msla-node-Envelope_allowed_SP
+												245 text Envelope allowed SP
+											246 button (expanded) Description: Collapse Envelope allowed SP, Secondary Actions: Collapse
+								247 container
+									248 button (expanded) Description: True condition, Secondary Actions: Collapse
+										249 text True
+								250 container
+									251 container Find receipt SP
+										252 container msla-node-Find_receipt_SP
+											253 container Description: 0.1 seconds. Succeeded, ID: Find receipt SP-status
+											254 button Find receipt SP operation, SharePoint connector
+												255 text Find receipt SP
+											256 container SharePoint ACORNSharePointPilot-0c871
+												257 container Connection name: SharePoint ACORNSharePointPilot-0c871
+											258 container This operation has secure inputs or outputs enabled.
+												259 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								260 container
+									261 container Create if missing SP
+										262 container
+											263 container Description: 0 seconds. Succeeded, ID: Create if missing SP-status
+											264 button Description: Create if missing SP operation, ID: msla-node-Create_if_missing_SP
+												265 text Create if missing SP
+											266 button (expanded) Description: Collapse Create if missing SP, Secondary Actions: Collapse
+								267 container
+									268 button (expanded) Description: True condition, Secondary Actions: Collapse
+										269 text True
+								270 container
+									271 container Create receipt SP
+										272 container msla-node-Create_receipt_SP
+											273 container Description: 0 seconds. Skipped, ID: Create receipt SP-status
+												274 image
+											275 button Create receipt SP operation, SharePoint connector
+												276 text Create receipt SP
+											277 container SharePoint ACORNSharePointPilot-0c871
+												278 container Connection name: SharePoint ACORNSharePointPilot-0c871
+											279 container This operation has secure inputs or outputs enabled.
+												280 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								281 container
+									282 button (expanded) Description: False condition, Secondary Actions: Collapse
+										283 text False
+									284 text No Actions
+								285 container
+									286 container Read receipt SP
+										287 container msla-node-Read_receipt_SP
+											288 container Description: 0.1 seconds. Succeeded, ID: Read receipt SP-status
+											289 button Read receipt SP operation, SharePoint connector
+												290 text Read receipt SP
+											291 container SharePoint ACORNSharePointPilot-0c871
+												292 container Connection name: SharePoint ACORNSharePointPilot-0c871
+											293 container This operation has secure inputs or outputs enabled.
+												294 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								295 container
+									296 container One receipt SP
+										297 container
+											298 container Description: 0.7 seconds. Succeeded, ID: One receipt SP-status
+											299 button Description: One receipt SP operation, ID: msla-node-One_receipt_SP
+												300 text One receipt SP
+											301 button (expanded) Description: Collapse One receipt SP, Secondary Actions: Collapse
+								302 container
+									303 button (expanded) Description: True condition, Secondary Actions: Collapse
+										304 text True
+								305 container
+									306 container Exact receipt SP
+										307 container
+											308 container Description: 0.7 seconds. Succeeded, ID: Exact receipt SP-status
+											309 button Description: Exact receipt SP operation, ID: msla-node-Exact_receipt_SP
+												310 text Exact receipt SP
+											311 button (expanded) Description: Collapse Exact receipt SP, Secondary Actions: Collapse
+								312 container
+									313 button (expanded) Description: True condition, Secondary Actions: Collapse
+										314 text True
+								315 container
+									316 container Accepted receipt SP
+										317 container msla-node-Accepted_receipt_SP
+											318 container Description: 0 seconds. Succeeded, ID: Accepted receipt SP-status
+											319 button Accepted receipt SP operation, Data Operation connector
+												320 text Accepted receipt SP
+											321 container This operation has secure inputs or outputs enabled.
+												322 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								323 container
+									324 container Create JSONL SP
+										325 container msla-node-Create_JSONL_SP
+											326 container Description: 0.3 seconds. Failed, ID: Create JSONL SP-status
+												327 image
+											328 button Create JSONL SP operation, SharePoint connector
+												329 text Create JSONL SP
+												330 container
+													331 text BadRequest
+											332 container SharePoint ACORNSharePointPilot-0c871
+												333 container Connection name: SharePoint ACORNSharePointPilot-0c871
+											334 container This operation has secure inputs or outputs enabled.
+												335 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								336 container
+									337 container Read JSONL SP
+										338 container msla-node-Read_JSONL_SP
+											339 container Description: 0.2 seconds. Succeeded, ID: Read JSONL SP-status
+											340 button Read JSONL SP operation, SharePoint connector
+												341 text Read JSONL SP
+											342 container SharePoint ACORNSharePointPilot-0c871
+												343 container Connection name: SharePoint ACORNSharePointPilot-0c871
+											344 container This operation has secure inputs or outputs enabled.
+												345 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								346 container
+									347 container Exact export SP
+										348 container
+											349 container Description: 0.2 seconds. Succeeded, ID: Exact export SP-status
+											350 button Description: Exact export SP operation, ID: msla-node-Exact_export_SP
+												351 text Exact export SP
+											352 button (expanded) Description: Collapse Exact export SP, Secondary Actions: Collapse
+								353 container
+									354 button (expanded) Description: True condition, Secondary Actions: Collapse
+										355 text True
+								356 container
+									357 container Mark exported SP
+										358 container msla-node-Mark_exported_SP
+											359 container Description: 0.2 seconds. Succeeded, ID: Mark exported SP-status
+											360 button Mark exported SP operation, SharePoint connector
+												361 text Mark exported SP
+											362 container SharePoint ACORNSharePointPilot-0c871
+												363 container Connection name: SharePoint ACORNSharePointPilot-0c871
+											364 container This operation has secure inputs or outputs enabled.
+												365 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								366 container
+									367 button (expanded) Description: False condition, Secondary Actions: Collapse
+										368 text False
+									369 text No Actions
+								370 container
+									371 button (expanded) Description: False condition, Secondary Actions: Collapse
+										372 text False
+								373 container
+									374 container Conflict SP
+										375 container msla-node-Conflict_SP
+											376 container Description: 0 seconds. Skipped, ID: Conflict SP-status
+												377 image
+											378 button Conflict SP operation, Data Operation connector
+												379 text Conflict SP
+											380 container This operation has secure inputs or outputs enabled.
+												381 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								382 container
+									383 button (expanded) Description: False condition, Secondary Actions: Collapse
+										384 text False
+									385 text No Actions
+								386 container
+									387 button (expanded) Description: False condition, Secondary Actions: Collapse
+										388 text False
+								389 container
+									390 container Rejected SP
+										391 container msla-node-Rejected_SP
+											392 container Description: 0 seconds. Skipped, ID: Rejected SP-status
+												393 image
+											394 button Rejected SP operation, Data Operation connector
+												395 text Rejected SP
+											396 container This operation has secure inputs or outputs enabled.
+												397 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								398 container
+									399 container SharePoint response SP
+										400 container msla-node-SharePoint_response_SP
+											401 container Description: 0 seconds. Succeeded, ID: SharePoint response SP-status
+											402 button SharePoint response SP operation, Power Apps connector
+												403 text SharePoint response SP
+								404 container
+									405 container Notify new export SP
+										406 container
+											407 container Description: 0 seconds. Succeeded, ID: Notify new export SP-status
+											408 button Description: Notify new export SP operation, ID: msla-node-Notify_new_export_SP
+												409 text Notify new export SP
+											410 button (expanded) Description: Collapse Notify new export SP, Secondary Actions: Collapse
+								411 container
+									412 button (expanded) Description: True condition, Secondary Actions: Collapse
+										413 text True
+								414 container
+									415 container Post SharePoint update to Teams
+										416 container msla-node-Post_SharePoint_update_to_Teams
+											417 container Description: 0 seconds. Skipped, ID: Post SharePoint update to Teams-status
+												418 image
+											419 button Post SharePoint update to Teams operation, Microsoft Teams connector
+												420 text Post SharePoint update to Teams
+											421 container Microsoft Teams Default-52fd4
+												422 container Connection name: Microsoft Teams Default-52fd4
+											423 container This operation has secure inputs or outputs enabled.
+												424 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+								425 container
+									426 button (expanded) Description: False condition, Secondary Actions: Collapse
+										427 text False
+									428 text No Actions
+							89 image
+							429 container
+								430 container Control Panel
+									431 button Description: Collapse all action groups, ID: control-expand-collapse-button
+									432 button Description: Zoom in, ID: control-zoom-in-button
+									433 button Description: Zoom out, ID: control-zoom-out-button
+									434 button Description: Zoom view to fit, ID: control-zoom-fit-button
+									435 button Description: Toggle minimap, ID: control-minimap-button
+									436 button Description: Search workflow actions, ID: control-search-button
+								437 text Zoom level: 100 percent
+						97 container Operation details panel
+							98 button Collapse
+
+The focused UI element is 434 button Description: Zoom view to fit, ID: control-zoom-fit-button

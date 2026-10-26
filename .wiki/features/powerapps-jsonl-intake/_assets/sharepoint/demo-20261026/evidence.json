@@ -1,0 +1,99 @@
+{
+  "date": "2026-10-26",
+  "mode": "live SharePoint capture; local TEST ONLY ACORN report",
+  "appId": "163f110f-7f8a-401c-894e-0786b2c018a4",
+  "intakeFlow": "64679e9c-ae76-4263-b8fa-8832835516ca",
+  "submissions": [
+    {
+      "submissionId": "dff4315e-8106-4eb8-83ad-44f6df767476",
+      "runId": "08584085557069877718061222716CU28",
+      "receipt": "JSONL ready",
+      "teamsAction": "Succeeded"
+    },
+    {
+      "submissionId": "67c0e548-ac0c-4a01-829c-9e4708b3cf1f",
+      "runId": "08584085556666191837902385414CU30",
+      "receipt": "JSONL ready",
+      "teamsAction": "Succeeded"
+    },
+    {
+      "submissionId": "32baf0fa-96a7-43c0-8e80-cd71c26b4ca3",
+      "runId": "08584085556294438987943610816CU22",
+      "receipt": "JSONL ready",
+      "teamsAction": "Succeeded"
+    }
+  ],
+  "exportFlow": "51efa5f9-6e69-4d75-a53b-2c2965fd51bd",
+  "exportRun": "08584085556021667768976833698CU24",
+  "exportOutcome": "Succeeded",
+  "downloadedRows": 6,
+  "downloadedBytes": 3413,
+  "previousRowsPreservedExactly": 3,
+  "previousPrefixBytes": 1395,
+  "selectedRows": 3,
+  "batchId": "7f481b73c72c1a294ee0bfa64585ec604f19bbd84d237c79e7006cdc30652da8",
+  "localCommit": "af48c2fc35150e2aa7766410941cc946d77a1b10",
+  "acornVersion": "acorn-cli 0.5.1",
+  "remotePublication": false,
+  "reportPages": 3,
+  "reportWindow": {
+    "from": "2026-10-26T00:00:00Z",
+    "through": "2026-10-27T00:00:00Z"
+  },
+  "limitations": [
+    "Owner context only; no intended standard-license participant tested.",
+    "No concurrency, row/byte boundary, failure or independent stored-list-payload comparison matrix run.",
+    "Bulk receipt ZIP download did not complete; single logbook download succeeded.",
+    "No canonical repository mutation, Vergil run, metadata graduation or milestone email."
+  ],
+  "files": {
+    "sharepoint-demo-report.pdf": {
+      "sha256": "df5f40cc1d60c36869a1d25de35da4933f37e04155930785c70fc23f1bbf4d0a",
+      "bytes": 485355
+    },
+    "logbook.jsonl": {
+      "sha256": "84eef36810338f5ebabb074d4e9993a09b9a910e38da82dc458f4344a18a09c7",
+      "bytes": 3413
+    },
+    "selected-demo.jsonl": {
+      "sha256": "66c76931f6832ffef71ef5c8375ad9d75872d804ea2a390f20dcac9db6706280",
+      "bytes": 2018
+    },
+    "baseline.json": {
+      "sha256": "9388ec78b5ccca742dc639cdf16cacc8782a459866e8b69737fe8777eb58846a",
+      "bytes": 1482
+    },
+    "ingested.json": {
+      "sha256": "677d4da6d20b77f187aad257f2161bec9802f59ed7692c5534a528017f2a34cf",
+      "bytes": 3793
+    },
+    "stage.json": {
+      "sha256": "2cc2937e041f3e8fa79cbce4765e8851668db72ba1750d25e92964ca97d61753",
+      "bytes": 155
+    },
+    "apply.json": {
+      "sha256": "4d18d51ae657756e175855ecd262ee23e4e14082361abbc28c625e6287a17832",
+      "bytes": 313
+    },
+    "inspect.txt": {
+      "sha256": "07e0e86c44983b7d9a8d6acb2d24868535a076a6c6c3e43b93b879b0672ed996",
+      "bytes": 3917
+    },
+    "jsonl-library.png": {
+      "sha256": "a92321f9a2cd93643b3901076e6fdc3f8d6a078c785d38a33c823408820ce889",
+      "bytes": 103378
+    },
+    "receipt-3.png": {
+      "sha256": "2a75fb4b5ac000b6c0916a15710b5eb928dc59a74587366c86936e343ea5a4a2",
+      "bytes": 49460
+    },
+    "teams-run-3.png": {
+      "sha256": "f6c0c93a9eb8de782f8492c1160c2b7b4126059038b5305b68720e62d07ce0bd",
+      "bytes": 106063
+    },
+    "report-preview.png": {
+      "sha256": "e76b0f25b9310a60d090dd1013d83c7d65936b0a74177854c1f4e8db6f10ab21",
+      "bytes": 216524
+    }
+  }
+}

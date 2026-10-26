@@ -31,8 +31,8 @@
             "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams"
           },
           "parameters": {
-            "body/body/content": "@concat(if(contains(toUpper(body('Parse_submission')?['entry']?['summary']),'TEST ONLY'),'TEST ONLY | ','') ,'ACORN | Highlight saved',decodeUriComponent('%0A%0A'),'Project: ',body('Parse_submission')?['projectId'],decodeUriComponent('%0A'),'A new highlight is in the GitLab logbook and awaits ACORN review. This is not an approval or a published report.',decodeUriComponent('%0A'),'Receipt: ',body('Parse_submission')?['submissionId'],decodeUriComponent('%0A'),'Commit: https://code.ornl.gov/research-enablement/experiments/power-automate/-/commit/',body('Commit_append')?['id'])",
-            "body/body/contentType": "text"
+            "body/body/content": "@concat(if(contains(toUpper(body('Parse_submission')?['entry']?['summary']),'TEST ONLY'),'<p><strong>TEST ONLY</strong></p>',''),'<p>ACORN // Sponsor Highlights</p><h2>✓ Highlight saved</h2><p><strong>Project</strong><br>',replace(replace(replace(string(body('Parse_submission')?['projectId']),'&','&amp;'),'<','&lt;'),'>','&gt;'),'</p><p><strong>Status</strong><br>Saved to the logbook · Awaiting ACORN review</p><p><a href=\"https://code.ornl.gov/research-enablement/experiments/power-automate/-/commit/',uriComponent(string(body('Commit_append')?['id'])),'\"><strong>View saved record →</strong></a></p><p><strong>Receipt ID</strong><br><code>',replace(replace(replace(string(body('Parse_submission')?['submissionId']),'&','&amp;'),'<','&lt;'),'>','&gt;'),'</code></p><p><em>Saving does not approve or publish the highlight.</em></p>')",
+            "body/body/contentType": "html"
           },
           "authentication": "@parameters('$authentication')",
           "retryPolicy": {
