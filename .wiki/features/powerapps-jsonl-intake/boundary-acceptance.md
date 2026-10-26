@@ -1,6 +1,6 @@
 # PA-15 boundary acceptance
 
-October 25, 2026: **Waiting on validation.** The 1,200-character summary and 1,000-character detail passed in both isolated environments. Jason's 20-detail count also passed. Each accepted case appended exactly once and preserved every prior byte. All listed field-rejection checks passed. The latest series added ORNL's exact-detail acceptance, followed by three attempts each for ORNL's count, mixed-line and tail cases; all nine stopped at GitLab HTTP 403 responses. An independent file-read timeout prevented installing the next size fixture. Remaining persistence cases are unaccepted. No operational component or inbox was changed.
+October 25, 2026: **Waiting on validation.** All listed field limits and field-rejection cases passed in both isolated environments. The requested five-attempt series completed 34 cloud runs and added three accepted cases: ORNL's 20-detail append, malformed-tail rejection and one-byte-over-cap rejection. Each still-open case received five attempts; GitLab HTTP 403 or 504 responses prevented acceptance. Remaining work is mixed-line preservation and exact-cap append in both environments, plus malformed-tail and oversized-file rejection in Jason. Both test flows are Off and the original isolated baseline is restored. No operational component or inbox was changed.
 
 ## Isolation and source
 
@@ -81,18 +81,36 @@ The next ORNL exact-cap setup timed out during its initial independent GitLab fi
 
 Restoration then succeeded under the original byte/revision guards, followed by two matching readbacks. The test-only flows were confirmed Off. Protected connections, networking controls and flow definitions were unchanged throughout.
 
+### Requested five-attempt series
+
+The [five-attempt evidence](_assets/boundary-tests/five-results.json) preserves **34 runs and 26 independent byte/revision snapshots**. Each still-open case received five attempts in this series. Retrying stopped early for accepted cases. The saved flow definitions, connections, credentials and notification guards were unchanged.
+
+| Case | Attempts in this series | Result |
+| --- | --- | --- |
+| ORNL 20 details | 1 | Passed: run `08584086301397486255872376422CU16`, commit `b40f50a5e4945593b2149250f86bb1dca788e226`; 457 → 1,443 bytes; one exact 986-byte line and unchanged original prefix |
+| ORNL malformed tail | 1 | Passed: run `08584086295508458384775193372CU31`; `Unsafe inbox PA17v2` succeeded; 511-byte fixture and revision unchanged |
+| ORNL one byte over cap | 2 | First catalog lookup timed out with 504. Second passed: run `08584086275593359095602686809CU20`; `Inbox full PA17v2` succeeded; 10,485,339-byte fixture and revision unchanged; proposed append would total 10,485,760 bytes |
+| ORNL mixed-line preservation | 5 | All 403: file read, branch preflight, history lookup, append and history lookup respectively; every independent readback preserved the 512-byte fixture and revision |
+| Jason malformed tail | 5 | Four 403 responses and one history-lookup 504; intended tail guard skipped; original 511-byte fixture and revision unchanged |
+| Jason one byte over cap | 5 | All 403 at catalog or history lookup; size guard skipped; original fixture and revision unchanged |
+| Jason exact cap | 5 | All 403 at file read, history, catalog or branch preflight; original fixture and revision unchanged |
+| Jason mixed-line preservation | 5 | Three 504 responses and two 403 responses. Attempt 2 reached the append but timed out; an independent readback proved no write before retrying. Final bytes and revision unchanged |
+| ORNL exact cap | 5 | Two catalog-lookup 504 responses followed by three 403 responses at catalog or branch access; original fixture and revision unchanged |
+
+Every run ID and decisive action result is in the evidence file. The Jason mixed-line fixture replacement returned HTTP 400 after committing; independent readback reconciled the exact intended 512 bytes at commit `a8695885f9c0ae74458b97c33f4b622fcd955b07` before testing continued. No duplicate replacement was issued. ORNL exact-cap attempt 2 also returned `BadGateway` in the run dialog; its existing cloud run was located and confirmed terminal before the next attempt.
+
+The final readbacks cover serialized groups of runs when the intended write was never reached. Unchanged last file commits and exact bytes rule out an intervening append by these append-only test scopes. A failed response is never used alone to infer that a write did not happen.
+
 ## Remaining matrix
 
 | Case | Current evidence | Remaining acceptance |
 | --- | --- | --- |
-| Summary 1,200 | Exact append passed in both environments | None for this dimension |
-| Summary 1,201; 21 details; detail 1,001 | Jason's three individual no-write server passes are retained in the [runbook](pilot-runbook.md#isolated-live-server-boundaries); ORNL native-copy cases passed in this retry | None for these dimensions |
-| Detail 1,000 | Exact append passed in both environments | None for this dimension |
-| 20 details | Jason exact append passed; three more ORNL attempts blocked by 403 | Runtime append proof in ORNL |
-| Whitespace summary/detail; empty detail array | Independent server guards passed in both native test copies, with unchanged bytes/revision | None for these dimensions |
-| Blank/rejected lines, mixed LF/CRLF, Unicode | Jason attempt and three ORNL attempts blocked by 403 before append | Real conditional append preserves every original byte in both environments |
-| Malformed tail without terminal LF | Jason attempt and three ORNL attempts blocked by 403 before the tail guard | Runtime unsafe-tail result and unchanged file/revision in both environments |
-| Exact append-size cap and one byte over | Arithmetic checked; Jason exact-cap attempt blocked by 403; ORNL exact-cap setup timed out before fixture installation | Accepted/rejected runtime boundary cases in both environments |
+| Summary 1,200; detail 1,000; 20 details | Exact one-line appends passed in both environments | None for these dimensions |
+| Summary 1,201; detail 1,001; 21 details; whitespace summary/detail; empty detail array | Individual server rejections passed in both environments with no write; earlier Jason over-limit evidence is in the [runbook](pilot-runbook.md#isolated-live-server-boundaries) | None for these dimensions |
+| Blank/rejected lines, mixed LF/CRLF and Unicode | Five new attempts per environment failed with 403/504; no accepted append | Real conditional append preserves every original byte in both environments |
+| Malformed tail without terminal LF | ORNL intended rejection passed; five new Jason attempts stopped upstream | Jason runtime unsafe-tail result and unchanged file/revision |
+| Exact append-size cap | Five new attempts per environment stopped upstream; installed fixtures and revisions unchanged | Exact 10,485,759-byte accepted append in both environments |
+| One byte over append-size cap | ORNL intended rejection passed; five new Jason attempts stopped upstream | Jason runtime rejection and unchanged file/revision |
 
 Retries used unchanged authorized connections; no network or credential control was changed. After the second retry's successful count append, mixed-content, unsafe-tail and exact-cap fixtures were installed only at the isolated path and tested individually. Their upstream denials do not count as rejection or preservation passes. This does not reopen PA-02 or require an administrator ticket; it preserves the known limitation and the unpassed PA-15 cases. PA-16 concurrency and PA-17 restoration retain their independent gates.
 
@@ -100,7 +118,7 @@ Retries used unchanged authorized connections; no network or credential control 
 
 The current saved expression checks proposed-file base64 length ≤ **13,981,012**, equivalent to at most **10,485,759 UTF-8 bytes**. The pre-existing file guard allows at most 10,485,760 bytes. A proposed file of exactly 10 MiB therefore fails the append-size condition. This is a conservative bound, one byte below 10 MiB, and was not changed during testing. Simply raising the base64 threshold to 13,981,016 would also admit 10,485,761 and 10,485,762 bytes; any future change needs an exact-byte predicate and separate validation.
 
-The [local checks](_assets/boundary-tests/local-checks.json) are source/arithmetic evidence, not a substitute for cloud size/tail acceptance. The [fixture preparer](_assets/boundary-tests/prepare-inbox-fixtures.py) writes only to a new local output directory. Large padded files were generated under a temporary directory; only Jason's exact-cap fixture was subsequently uploaded to the isolated test path. No large padded file was added to wiki assets.
+The [local checks](_assets/boundary-tests/local-checks.json) are source/arithmetic evidence, not a substitute for cloud size/tail acceptance. The [fixture preparer](_assets/boundary-tests/prepare-inbox-fixtures.py) writes only to a new local output directory. Large padded files were generated under a temporary directory. Both environments’ exact-cap and one-byte-over fixtures were installed and tested at the isolated path during the five-attempt series. No large padded file was added to wiki assets.
 
 ## Restoration and cleanup
 
@@ -111,5 +129,7 @@ The earlier [final readback](_assets/boundary-tests/final-restored-baseline-meta
 After the second retry, conditional restoration commit `835f1433a7ef78f900c9bbb2b42223bc7bffd5b1` returned the isolated file to the same original 457-byte baseline. ORNL's subsequent attempts left that revision unchanged, confirmed by the `final-baseline` snapshot in the second retry evidence. Both copies were reloaded and confirmed **Off**: [Jason](_assets/boundary-tests/retry2-jason-off.png), [ORNL](_assets/boundary-tests/retry2-ornl-off.png).
 
 After the requested three-attempt series, the latest restoration commit is `ec84e2b6512529466511ca30d9ce2b6a198e2d76`. Both `rounds-restored` and `rounds-recovery-probe` snapshots confirm the original 457 bytes, the original SHA-256 above, and that same file revision. Final Off-state proofs: [Jason](_assets/boundary-tests/rounds-jason-off.png), [ORNL](_assets/boundary-tests/rounds-ornl-off.png).
+
+After the five-attempt series, conditional restoration commit `a4dbc224dadf8ef12edaa597f4887bf7fb79c5ec` restored the original **457 bytes** and SHA-256 above. The `five-restored` snapshot in the [evidence](_assets/boundary-tests/five-results.json) verifies the readback. Both copies were reloaded and confirmed **Off**: [Jason](_assets/boundary-tests/five-jason-off.png), [ORNL](_assets/boundary-tests/five-ornl-off.png). The compact evidence replaces transient run captures; only the small accepted count-append body and final Off screenshots were retained.
 
 Completed PA-14 apps/flows, the accepted failure mock, personal Teams screenshots and duplicate wiki files were removed separately. See the [cleanup inventory](test-artifact-cleanup.md).
