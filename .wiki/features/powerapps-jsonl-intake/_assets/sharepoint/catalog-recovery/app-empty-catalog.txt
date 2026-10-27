@@ -1,0 +1,93 @@
+Browser tab: 1329059533, Title: "Power Apps Studio  |  PA28 TEST ONLY Sponsor Highlights SharePoint (Editing)", URL: "https://make.gov.powerapps.us/e/221f44a6-1468-ea4e-b93d-cd52f1723079/canvas/?action=edit&app-id=%2Fproviders%2FMicrosoft.PowerApps%2Fapps%2Fde4cfeaf-7944-4342-bd84-efc6ea99b3ef".
+1 AXWebArea Power Apps Studio  |  PA28 TEST ONLY Sponsor Highlights SharePoint (Editing), URL: make.gov.powerapps.us/e/221f44a6-1468-ea4e-b93d-cd52f1723079/canvas/?action=edit&app-id=%2Fproviders%2FMicrosoft.PowerApps%2Fapps%2Fde4cfeaf-7944-4342-bd84-efc6ea99b3ef
+	2 container root
+		3 container
+			4 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+			5 container o365header
+				6 container O365_NavHeader
+					7 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+						183 text 
+					9 container ppuxOfficeHeaderTopLevelRegion
+						10 container ppuxOfficeHeaderLeftRegion
+							11 link Description: Power Apps  |  PA28 TEST ONLY Sponsor Highlights SharePoint (Editing), Value: make.gov.powerapps.us/, ID: O365_AppName
+						12 container ppuxOfficeHeaderRightRegion
+							13 pop up button (collapsed) Description: Environment: Wohlgemuth, Jason, Secondary Actions: Expand
+							16 pop up button (collapsed) Description: Notifications, ID: shell-notifications, Secondary Actions: Expand
+							17 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+							18 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+					19 container O365_HeaderRightRegion
+						20 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+							21 image JW
+		23 container Power Apps Studio
+			24 AXWebArea PA28 TEST ONLY Sponsor Highlights SharePoint - Power Apps, URL: authoring.us-il101.gateway.gov.island.powerapps.us/v3.26101.10.384545205/embed/
+				25 container rootBody
+					26 container root
+						103 container Authoring canvas
+							104 container blankPage
+								184 container
+									185 button Description: Publish (Ctrl+Shift+P), ID: preview-publish-button
+										186 text Publish
+									187 button Description: Close preview mode (Esc), ID: preview-close-button
+								105 container canvasGrid
+									188 container
+										189 container ba-DevicePicker
+											190 pop up button (collapsed) Description: Tablets , Secondary Actions: Expand
+												191 image
+											192 pop up button (collapsed) Description: Phones , Secondary Actions: Expand
+												193 image
+											194 pop up button (collapsed) Description: Browser options selected, Secondary Actions: Expand
+												195 image
+										196 container
+											197 container SubmitEntryScreen
+												198 text SubmitEntryScreen
+											199 container
+												200 container
+													201 heading Sponsor Highlights, Value: 1
+														202 text Sponsor Highlights
+													203 text SharePoint pilot · Document progress. Connect research to impact.
+													204 container
+														205 image Oak Ridge National Laboratory
+												206 container
+													207 text 01  //  HIGHLIGHT DETAILS
+													208 text Submitted by Jason Wohlgemuth  •  o9w@ornl.gov
+													209 text Project *
+													210 container
+														211 pop up button (disabled, collapsed) Description: Project, required. Select a project, Secondary Actions: Expand
+													246 text No projects are available yet. Ask the app owner to update the project list, then retry.
+													213 button Retry Project List
+														247 text Retry Project List
+													215 text Date *
+													216 container
+														217 text field Description: Date of highlight, required, Value: Oct 27, 2026, ID: datepicker_siena_5598681b56b6263_input
+														218 button Date of highlight, required10/27/2026. Open calendar to select a date
+													219 text Category *
+													220 container
+														221 pop up button (collapsed) Description: Category, required. Select a category, Secondary Actions: Expand
+													222 text Status *
+													223 container
+														224 pop up button (collapsed) Description: Status, required. Select a status, Secondary Actions: Expand
+													225 text Event type · optional
+													226 container
+														227 pop up button (collapsed) Description: Event type, optional. Not specified, Secondary Actions: Expand
+													228 text 02  //  THE DEVELOPMENT
+													229 text Summary *
+													230 text entry area (settable) What changed, and why does it matter?
+													231 text 0 / 1,200 characters. Lead with the outcome; explain its relevance.
+													232 text Supporting details · optional
+													233 text entry area (settable) One detail per line. Include evidence, a measure, a milestone, or a next step.
+													234 text 0 / 20 details · up to 1,000 characters each
+													235 text Report placement
+													236 container
+														237 pop up button (collapsed) Description: Report placement. Project highlight, Secondary Actions: Expand
+													238 text For non-sensitive highlights. Pending submissions stay in this browser until confirmed. SharePoint stores your receipt and JSONL export; saving does not publish a report.
+												239 container
+													240 text Browser recovery is unavailable. Open the published app in a regular browser window. Your pending data has not been cleared.
+													241 button (disabled) Submit highlight
+														242 text Submit highlight
+													243 container
+														244 text ACORN · Oak Ridge National Laboratory
+														245 text App owner: Jason Wohlgemuth
+						122 container Footer bar
+						182 text SubmitEntryScreen of type Screen is selected
+
+The focused UI element is 213 button Retry Project List

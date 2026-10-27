@@ -209,7 +209,7 @@ pub struct ImpedanceCost {
     /// Duration incurred at the stated scope.
     pub duration: Option<Milliseconds>,
     /// Amount transferred for an input, output, or coordination cost.
-    pub volume_bytes: Option<u64>,
+    pub volume: Option<Memory>,
     /// Effective transfer bandwidth per second.
     pub bandwidth: Option<Memory>,
     /// Fixed transfer or request latency in milliseconds.
@@ -266,99 +266,149 @@ pub enum CostScope {
 }
 impl Computation {
     fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
-        let mut report = ValidationReport::empty("stages", self.stages.is_empty());
-        let mut identifiers = BTreeSet::new();
-        for (index, stage) in self.stages.iter().enumerate() {
-            for dependency in &stage.depends_on {
-                if !identifiers.contains(dependency.as_str()) {
-                    report.add(
-                        format!("stages[{index}].dependsOn"),
-                        ValidationError::new("reference").with_message("Dependency must name an earlier stage"),
-                    );
+        let report = self
+            .stages
+            .iter()
+            .enumerate()
+            .fold(ValidationReport::empty("stages", self.stages.is_empty()), |report, (index, stage)| {
+                let earlier = self.stages.iter().take(index);
+                let report = stage
+                    .depends_on
+                    .iter()
+                    .filter(|dependency| !earlier.clone().any(|candidate| candidate.identifier == **dependency))
+                    .fold(report, |report, _| {
+                        report.merge(
+                            "",
+                            ValidationReport::from_error(
+                                format!("stages[{index}].dependsOn"),
+                                ValidationError::new("reference").with_message("Dependency must name an earlier stage"),
+                            ),
+                        )
+                    });
+                if self.stages.iter().take(index).any(|candidate| candidate.identifier == stage.identifier) {
+                    report.merge(
+                        "",
+                        ValidationReport::from_error(
+                            format!("stages[{index}].identifier"),
+                            ValidationError::new("duplicate").with_message("Stage identifiers must be unique"),
+                        ),
+                    )
+                } else {
+                    report
                 }
-            }
-            if !identifiers.insert(stage.identifier.as_str()) {
-                report.add(
-                    format!("stages[{index}].identifier"),
-                    ValidationError::new("duplicate").with_message("Stage identifiers must be unique"),
-                );
-            }
-        }
-        let mut profile_identifiers = BTreeSet::new();
-        for (profile_index, profile) in self.profiles.iter().flat_map(OneOrMany::iter).enumerate() {
-            if !profile_identifiers.insert(profile.identifier.as_str()) {
-                report.add(
-                    format!("profiles[{profile_index}].identifier"),
-                    ValidationError::new("duplicate").with_message("Profile identifiers must be unique"),
-                );
-            }
-            for (stage_index, stage) in profile.stages.iter().enumerate() {
-                if !identifiers.contains(stage.stage.as_str()) {
-                    report.add(
-                        format!("profiles[{profile_index}].stages[{stage_index}].stage"),
-                        ValidationError::new("reference").with_message("Execution must name a computation stage"),
-                    );
-                } else if stage.compiled_circuit.is_some()
-                    && !self.stages.iter().any(|definition| {
-                        definition.identifier == stage.stage && matches!(definition.operation, Operation::Quantum(QuantumOperation::Circuit(_)))
-                    })
-                {
-                    report.add(
-                        format!("profiles[{profile_index}].stages[{stage_index}].compiledCircuit"),
-                        ValidationError::new("model").with_message("Compiled circuits require a circuit stage"),
-                    );
-                }
-            }
-            for (cost_index, cost) in profile.impedance.iter().flat_map(OneOrMany::iter).enumerate() {
-                if cost.stage.as_ref().is_some_and(|stage| !identifiers.contains(stage.as_str())) {
-                    report.add(
-                        format!("profiles[{profile_index}].impedance[{cost_index}].stage"),
-                        ValidationError::new("reference").with_message("Impedance cost must name a computation stage"),
-                    );
-                }
-                if let Some(port) = &cost.port {
-                    let matching_port = self
-                        .stages
-                        .iter()
-                        .find(|stage| cost.stage.as_ref() == Some(&stage.identifier))
-                        .and_then(|stage| match cost.kind {
-                            | ImpedanceKind::InputTransfer => stage.inputs.as_ref(),
-                            | ImpedanceKind::OutputTransfer => stage.outputs.as_ref(),
-                            | _ => None,
-                        })
-                        .is_some_and(|ports| ports.iter().any(|candidate| candidate.name == *port));
-                    if !matching_port {
-                        report.add(
-                            format!("profiles[{profile_index}].impedance[{cost_index}].port"),
-                            ValidationError::new("reference").with_message("Transfer cost must name an input or output port on its stage"),
-                        );
+            });
+        self.profiles
+            .iter()
+            .flat_map(OneOrMany::iter)
+            .enumerate()
+            .fold(report, |report, (profile_index, profile)| {
+                let earlier_profiles = self.profiles.iter().flat_map(OneOrMany::iter).take(profile_index);
+                let duplicate = earlier_profiles.into_iter().any(|candidate| candidate.identifier == profile.identifier);
+                let report = if duplicate {
+                    report.merge(
+                        "",
+                        ValidationReport::from_error(
+                            format!("profiles[{profile_index}].identifier"),
+                            ValidationError::new("duplicate").with_message("Profile identifiers must be unique"),
+                        ),
+                    )
+                } else {
+                    report
+                };
+                let report = profile.stages.iter().enumerate().fold(report, |report, (stage_index, stage)| {
+                    let definition = self.stages.iter().find(|definition| definition.identifier == stage.stage);
+                    let is_circuit = self.stages.iter().any(|candidate| {
+                        candidate.identifier == stage.stage && matches!(candidate.operation, Operation::Quantum(QuantumOperation::Circuit(_)))
+                    });
+                    match definition {
+                        | None => report.merge(
+                            "",
+                            ValidationReport::from_error(
+                                format!("profiles[{profile_index}].stages[{stage_index}].stage"),
+                                ValidationError::new("reference").with_message("Execution must name a computation stage"),
+                            ),
+                        ),
+                        | Some(_) if stage.compiled_circuit.is_some() && !is_circuit => report.merge(
+                            "",
+                            ValidationReport::from_error(
+                                format!("profiles[{profile_index}].stages[{stage_index}].compiledCircuit"),
+                                ValidationError::new("model").with_message("Compiled circuits require a circuit stage"),
+                            ),
+                        ),
+                        | _ => report,
                     }
-                }
-            }
-        }
-        report.finish()
+                });
+                profile
+                    .impedance
+                    .iter()
+                    .flat_map(OneOrMany::iter)
+                    .enumerate()
+                    .fold(report, |report, (cost_index, cost)| {
+                        let definition = cost
+                            .stage
+                            .as_ref()
+                            .and_then(|stage| self.stages.iter().find(|candidate| candidate.identifier == *stage));
+                        let report = if cost.stage.is_some() && definition.is_none() {
+                            report.merge(
+                                "",
+                                ValidationReport::from_error(
+                                    format!("profiles[{profile_index}].impedance[{cost_index}].stage"),
+                                    ValidationError::new("reference").with_message("Impedance cost must name a computation stage"),
+                                ),
+                            )
+                        } else {
+                            report
+                        };
+                        let matching_port = definition
+                            .and_then(|stage| match cost.kind {
+                                | ImpedanceKind::InputTransfer => stage.inputs.as_ref(),
+                                | ImpedanceKind::OutputTransfer => stage.outputs.as_ref(),
+                                | _ => None,
+                            })
+                            .is_some_and(|ports| {
+                                cost.port
+                                    .as_ref()
+                                    .is_some_and(|port| ports.iter().any(|candidate| candidate.name == *port))
+                            });
+                        if cost.port.is_some() && !matching_port {
+                            report.merge(
+                                "",
+                                ValidationReport::from_error(
+                                    format!("profiles[{profile_index}].impedance[{cost_index}].port"),
+                                    ValidationError::new("reference").with_message("Transfer cost must name an input or output port on its stage"),
+                                ),
+                            )
+                        } else {
+                            report
+                        }
+                    })
+            })
+            .finish()
     }
 }
 impl ExecutionProfile {
     fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
-        let mut report = ValidationReport::empty("stages", self.stages.is_empty());
-        let mut stages = BTreeSet::new();
-        for (index, stage) in self.stages.iter().enumerate() {
-            if !stages.insert(stage.stage.as_str()) {
-                report.add(
-                    format!("stages[{index}].stage"),
-                    ValidationError::new("duplicate").with_message("Each stage may be bound only once per profile"),
-                );
-            }
-        }
-        report.finish()
+        self.stages
+            .iter()
+            .enumerate()
+            .filter(|(index, stage)| self.stages.iter().take(*index).any(|candidate| candidate.stage == stage.stage))
+            .fold(ValidationReport::empty("stages", self.stages.is_empty()), |report, (index, _)| {
+                report.merge(
+                    "",
+                    ValidationReport::from_error(
+                        format!("stages[{index}].stage"),
+                        ValidationError::new("duplicate").with_message("Each stage may be bound only once per profile"),
+                    ),
+                )
+            })
+            .finish()
     }
 }
 impl ImpedanceCost {
     fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
-        match self.bandwidth_bytes_per_second {
-            | Some(0) => ValidationReport::from_error(
-                "bandwidthBytesPerSecond",
+        match self.bandwidth.as_ref().map(Memory::checked_bytes) {
+            | Some(None | Some(0)) => ValidationReport::from_error(
+                "bandwidth",
                 ValidationError::new("positive").with_message("Bandwidth must be greater than zero"),
             )
             .finish(),
@@ -368,86 +418,4 @@ impl ImpedanceCost {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::hardware::Resource;
-    use crate::research_activity::ResearchActivity;
-    use serde_json::json;
-
-    #[test]
-    fn test_hybrid_computation_round_trip_and_validation() {
-        let value = json!({
-            "identifier": "hybrid-search",
-            "stages": [
-                {"identifier": "prepare", "operation": "classical", "outputs": {"name": "problem", "data": {"Synthetic": {"modality": "text"}}}},
-                {"identifier": "sample", "operation": {"quantum": {"circuit": {"logicalQubits": 8, "logicalDepth": 12, "gateBasis": "Clifford+T"}}}, "dependsOn": ["prepare"], "inputs": {"name": "problem", "data": {"Synthetic": {"modality": "text"}}}}
-            ],
-            "profiles": {"identifier": "remote-run", "environment": "lab", "stages": [
-                {"stage": "prepare", "platform": "host", "durationMs": 2},
-                {"stage": "sample", "platform": "qpu", "durationMs": 1, "repetitions": 100, "compiledCircuit": {"depth": 40, "physicalQubits": 24, "gateBasis": "native"}}
-            ], "impedance": {"kind": "inputTransfer", "basis": "measured", "scope": "workload", "stage": "sample", "port": "problem", "durationMs": 60000, "volumeBytes": 1000000, "bandwidthBytesPerSecond": 16667, "latencyMs": 0}, "observedEndToEndMs": 60003}
-        });
-        let computation: Computation = serde_json::from_value(value.clone()).expect("valid computation JSON");
-        assert!(computation.validate().is_ok());
-        let serialized = serde_json::to_value(&computation).expect("serialize computation");
-        assert_eq!(serialized.pointer("/stages/1/operation/quantum/circuit/logicalDepth"), Some(&json!(12)));
-        assert_eq!(serialized.pointer("/profiles/impedance/durationMs"), Some(&json!(60000)));
-        let environment = serde_json::from_value(json!({
-            "identifier": "lab", "name": "Lab", "platforms": [
-                {"identifier": "host", "name": "Host", "resources": "CPU"},
-                {"identifier": "qpu", "name": "QPU", "resources": "Quantum"}
-            ]
-        }))
-        .expect("parse compute environment");
-        let mut activity = ResearchActivity::default();
-        activity.meta.infrastructure = Some(vec![environment].into());
-        activity.aspect = Some(
-            crate::research_activity::aspect::AspectFramework::init()
-                .computation(vec![computation])
-                .build(),
-        );
-        assert!(activity.validate().is_ok());
-    }
-    #[test]
-    fn test_invalid_dependencies_and_profile_references_are_rejected() {
-        let value = json!({
-            "identifier": "invalid",
-            "stages": [{"identifier": "first", "operation": "classical", "dependsOn": ["later"]}, {"identifier": "later", "operation": "classical"}],
-            "profiles": {"identifier": "run", "environment": "missing", "stages": {"stage": "unknown", "platform": "missing"},
-                "impedance": {"kind": "inputTransfer", "basis": "estimated", "scope": "workload", "stage": "first", "port": "unknown"}}
-        });
-        let computation: Computation = serde_json::from_value(value.clone()).expect("parse invalid references");
-        let report = computation.validate().expect_err("invalid stage references");
-        assert!(report.to_string().contains("dependsOn"));
-        assert!(report.to_string().contains("stage"));
-        assert!(report.to_string().contains("port"));
-        let mut activity = ResearchActivity::default();
-        activity.aspect = Some(
-            crate::research_activity::aspect::AspectFramework::init()
-                .computation(vec![computation])
-                .build(),
-        );
-        let report = activity.validate().expect_err("missing environment");
-        assert!(report.to_string().contains("environment"));
-    }
-    #[test]
-    fn test_zero_bandwidth_is_rejected() {
-        let cost: ImpedanceCost = serde_json::from_value(json!({
-            "kind": "inputTransfer", "basis": "estimated", "scope": "invocation", "bandwidthBytesPerSecond": 0
-        }))
-        .expect("parse cost");
-        assert!(cost.validate().is_err());
-    }
-    #[test]
-    fn test_quantum_hardware_dimensions_are_independent() {
-        let value = json!({"Quantum": {
-            "model": "Heron", "technology": "superconducting", "physical_qubits": 133,
-            "logical_qubits": 2, "error_correction": {"code": "surface", "physicalQubitsPerLogicalQubit": 50}
-        }});
-        let resource: Resource = serde_json::from_value(value).expect("parse quantum hardware");
-        let serialized = serde_json::to_value(resource).expect("serialize quantum hardware");
-        assert_eq!(serialized.pointer("/Quantum/technology"), Some(&json!("superconducting")));
-        assert_eq!(serialized.pointer("/Quantum/physical_qubits"), Some(&json!(133)));
-        assert_eq!(serialized.pointer("/Quantum/logical_qubits"), Some(&json!(2)));
-    }
-}
+mod tests;

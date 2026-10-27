@@ -1,0 +1,19 @@
+{
+    "kind": "PowerApp",
+    "inputs": {
+        "statusCode": 200,
+        "body": {
+            "catalogjson": "@{if(equals(actions('Get_items')?['status'], 'Succeeded'), if(equals(actions('Select')?['status'], 'Succeeded'), if(greater(length(body('Select')), 1000), '{\"error\":\"catalog_limit\",\"projects\":[],\"source\":\"sharepoint\"}', string(setProperty(json('{\"source\":\"sharepoint\"}'), 'projects', body('Select')))), '{\"error\":\"invalid_catalog\",\"projects\":[],\"source\":\"sharepoint\"}'), if(or(equals(string(outputs('Get_items')?['statusCode']), '401'), equals(string(outputs('Get_items')?['statusCode']), '403')), '{\"error\":\"access_denied\",\"projects\":[],\"source\":\"sharepoint\"}', '{\"error\":\"unavailable\",\"projects\":[],\"source\":\"sharepoint\"}'))}"
+        },
+        "schema": {
+            "type": "object",
+            "properties": {
+                "catalogjson": {
+                    "title": "catalogJson",
+                    "x-ms-dynamically-added": true,
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

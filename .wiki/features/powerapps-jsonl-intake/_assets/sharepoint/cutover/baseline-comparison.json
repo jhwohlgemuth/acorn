@@ -1,0 +1,6 @@
+{
+  "scope_equivalent": true,
+  "trigger_equivalent": true,
+  "normalization": "Modern editor renames connectionName to connection, omits authentication/evaluatedRecurrence/empty runAfter and adds empty else. All expressions, destinations, conditions, secure settings and concurrency match archived deployed revision.",
+  "editor_mutations_before_readback": 0
+}

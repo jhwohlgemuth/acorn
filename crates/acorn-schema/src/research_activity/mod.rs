@@ -853,15 +853,13 @@ impl ResearchActivity {
                                     format!("aspect.computation[{computation_index}].profiles[{profile_index}].stages[{stage_index}].platform"),
                                     ValidationError::new("reference").with_message("Stage execution must name a platform in its environment"),
                                 ),
-                                | Some(_) if unsupported_circuit => {
-                                    report.add(
-                                        format!(
-                                            "aspect.computation[{computation_index}].profiles[{profile_index}].stages[{stage_index}].compiledCircuit"
-                                        ),
-                                        ValidationError::new("resource")
-                                            .with_message("Compiled circuit requires a quantum resource on the selected platform"),
-                                    )
-                                }
+                                | Some(_) if unsupported_circuit => report.add(
+                                    format!(
+                                        "aspect.computation[{computation_index}].profiles[{profile_index}].stages[{stage_index}].compiledCircuit"
+                                    ),
+                                    ValidationError::new("resource")
+                                        .with_message("Compiled circuit requires a quantum resource on the selected platform"),
+                                ),
                                 | Some(_) => {}
                             }
                         }

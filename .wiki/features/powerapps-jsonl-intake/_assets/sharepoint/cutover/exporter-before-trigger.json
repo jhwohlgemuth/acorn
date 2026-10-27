@@ -1,0 +1,16 @@
+{
+  "type": "Recurrence",
+  "recurrence": {
+    "frequency": "Minute",
+    "interval": 5,
+    "startTime": "2026-10-26T14:00:00.000Z"
+  },
+  "runtimeConfiguration": {
+    "concurrency": {
+      "runs": 1
+    }
+  },
+  "metadata": {
+    "operationMetadataId": "44739325-0d3a-455e-87c8-741cc8b9d9a3"
+  }
+}

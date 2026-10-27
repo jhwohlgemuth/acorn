@@ -1,0 +1,275 @@
+Browser tab: 1329059533, Title: "Power Apps Studio  |  PA28 TEST ONLY Sponsor Highlights SharePoint (Editing)", URL: "https://make.gov.powerapps.us/e/221f44a6-1468-ea4e-b93d-cd52f1723079/canvas/?action=edit&app-id=%2Fproviders%2FMicrosoft.PowerApps%2Fapps%2Fde4cfeaf-7944-4342-bd84-efc6ea99b3ef".
+1 AXWebArea Power Apps Studio  |  PA28 TEST ONLY Sponsor Highlights SharePoint (Editing), URL: make.gov.powerapps.us/e/221f44a6-1468-ea4e-b93d-cd52f1723079/canvas/?action=edit&app-id=%2Fproviders%2FMicrosoft.PowerApps%2Fapps%2Fde4cfeaf-7944-4342-bd84-efc6ea99b3ef
+	2 container root
+		3 container
+			4 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+			5 container o365header
+				6 container O365_NavHeader
+					7 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+						183 text 
+					9 container ppuxOfficeHeaderTopLevelRegion
+						10 container ppuxOfficeHeaderLeftRegion
+							11 link Description: Power Apps  |  PA28 TEST ONLY Sponsor Highlights SharePoint (Editing), Value: make.gov.powerapps.us/, ID: O365_AppName
+						12 container ppuxOfficeHeaderRightRegion
+							13 pop up button (collapsed) Description: Environment: Wohlgemuth, Jason, Secondary Actions: Expand
+							16 pop up button (collapsed) Description: Notifications, ID: shell-notifications, Secondary Actions: Expand
+							17 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+							18 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+					19 container O365_HeaderRightRegion
+						20 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+							21 image JW
+		23 container Power Apps Studio
+			24 AXWebArea PA28 TEST ONLY Sponsor Highlights SharePoint - Power Apps, URL: authoring.us-il101.gateway.gov.island.powerapps.us/v3.26101.10.384545205/embed/
+				25 container rootBody
+					26 container root
+						184 container Command bar
+							185 container commandBarContainer
+								186 menu bar
+									187 container
+										188 Description: Back, ID: commandBar_back
+											189 text Back
+										190 (collapsed) Description: Undo (Ctrl+Z), Secondary Actions: Expand
+											191 Undo (Ctrl+Z)
+											192 pop up button (collapsed) Description: More options, Secondary Actions: Expand
+										193 (collapsed) Description: Paste (Ctrl+V), Secondary Actions: Expand
+											194 Description: Paste (Ctrl+V), ID: commandBar_paste
+											195 pop up button (collapsed) Description: More options, Secondary Actions: Expand
+										196 (collapsed) Description: More options, ID: CommandBarMoreButton, Secondary Actions: Expand
+									197 container
+										198 text Editing
+										199 Description: Share with other users, ID: commandBar_share
+										200 Description: Preview the app (F5), ID: commandBar_preview
+										201 (collapsed) Description: Save (Ctrl+S), Secondary Actions: Expand
+											202 Description: Save (Ctrl+S), ID: commandBar_save
+											203 pop up button (collapsed) Description: More options, Secondary Actions: Expand
+										204 Description: Publish (Ctrl+Shift+P), ID: commandBar_publish
+						205 container Formula bar
+							206 container formulaBarContainer
+								207 container
+									208 combo box (collapsed, settable) Description: Property, Value: OnSelect, ID: powerapps-property-combo-box, Secondary Actions: Expand
+									209 button (collapsed) Description: Open Property, Secondary Actions: Expand
+								210 text =
+								211 container Description: Leave scan mode, then press Enter or Space to edit the formula, ID: formulabar
+									212 text No formula errors present
+									213 container formulaEditor
+										214 pop up button (collapsed) Description: Copilot functionality menu, ID: contextual-copilot-menu-button, Secondary Actions: Expand
+											215 image
+										216 container Power fx formula editor for control names RefreshProjectsButton and property OnSelect.
+											217 container
+												218 editor (settable) Description: Power fx formula edit field., Value:     );
+    If(!varCatalogLoaded, ClearCollect(colProjects, {Value: "Select a project", ProjectId: ""}));
+    Clear(colCatalogCandidate); Set(varProjectsLoading, false); Reset(ProjectDropdown)
+)
+    
+								219 button (collapsed) Description: Open formula bar tray, Help: Expand formula bar, Secondary Actions: Expand
+								220 button Open the formula bar in a new window
+						221 container Navigational side bar
+							222 container
+								223 menu
+									224 Tree view
+									225 Insert
+									226 Data
+									227 Variables
+									228 Search
+									229 Description: More, ID: menu30
+									230 App settings
+								231 heading Tree view, Value: 2
+									232 text Tree view
+								233 button Close
+								234 tab group
+									235 tab (selected, settable, boolean) Screens, Help: Screen view, Value: 1, ID: TreeViewTab_screens
+									236 tab (selectable, settable, boolean) Components, Help: Component view, Value: 0, ID: TreeViewTab_components
+								237 container Screens
+									238 container selection-tree
+										239 toolbar
+											240 button (collapsed) New screen, Secondary Actions: Expand
+										241 container
+											242 outline Tree view
+												243 row (selectable, collapsed) Description: App, ID: menu78, Secondary Actions: Expand
+													244 text field App
+												245 row (selectable, expanded) Description: SubmitEntryScreen, ID: menu80, Secondary Actions: Collapse
+													246 text field SubmitEntryScreen
+													249 container
+														250 row (selectable, collapsed) Description: SubmissionResultPanel, ID: menu83, Secondary Actions: Expand
+															251 text field SubmissionResultPanel
+														252 row (selectable, expanded) Description: SubmitLayout, ID: menu85, Secondary Actions: Collapse
+															253 text field SubmitLayout
+															254 container
+																255 row (selectable, collapsed) Description: SubmitHeader, ID: menu87, Secondary Actions: Expand
+																	256 text field SubmitHeader
+																257 row (selectable, expanded) Description: EntryForm, ID: menu89, Secondary Actions: Collapse
+																	258 text field EntryForm
+																	259 container
+																		260 row (selectable) Description: SectionDetails, ID: menu95
+																			261 text field SectionDetails
+																		262 row (selectable) Description: SubmissionContext, ID: menu97
+																			263 text field SubmissionContext
+																		264 row (selectable) Description: ProjectLabel, ID: menu99
+																			265 text field ProjectLabel
+																		266 row (selectable) Description: ProjectDropdown, ID: menu101
+																			267 text field ProjectDropdown
+																		268 row (selectable) Description: ProjectHelp, ID: menu103
+																			269 text field ProjectHelp
+																		270 row (selectable) Description: RefreshProjectsButton, ID: menu105
+																			271 text field RefreshProjectsButton
+																			426 toolbar
+																				427 pop up button Description: More options, ID: menu277
+																		272 row (selectable) Description: DateLabel, ID: menu107
+																			273 text field DateLabel
+																		274 row (selectable) Description: OccurredOnPicker, ID: menu109
+																			275 text field OccurredOnPicker
+																		276 row (selectable) Description: CategoryLabel, ID: menu111
+																			277 text field CategoryLabel
+																		278 row (selectable) Description: CategoryDropdown, ID: menu113
+																			279 text field CategoryDropdown
+																		280 row (selectable) Description: StateLabel, ID: menu115
+																			281 text field StateLabel
+																		282 row (selectable) Description: StateDropdown, ID: menu117
+																			283 text field StateDropdown
+																		284 row (selectable) Description: EventLabel, ID: menu119
+																			285 text field EventLabel
+																		286 row (selectable) Description: EventTypeDropdown, ID: menu121
+																			287 text field EventTypeDropdown
+																		288 row (selectable) Description: SectionStory, ID: menu123
+																			289 text field SectionStory
+																		290 row (selectable) Description: SummaryLabel, ID: menu125
+																			291 text field SummaryLabel
+																		292 row (selectable) Description: SummaryInput, ID: menu127
+																			293 text field SummaryInput
+																		294 row (selectable) Description: SummaryCount, ID: menu129
+																			295 text field SummaryCount
+																		296 row (selectable) Description: ItemsLabel, ID: menu131
+																			297 text field ItemsLabel
+																		298 row (selectable) Description: ItemsInput, ID: menu133
+																			299 text field ItemsInput
+																		300 row (selectable) Description: ItemsHelp, ID: menu135
+																			301 text field ItemsHelp
+																		302 row (selectable) Description: PlacementLabel, ID: menu137
+																			303 text field PlacementLabel
+																		304 row (selectable) Description: PlacementDropdown, ID: menu139
+																			305 text field PlacementDropdown
+																		306 row (selectable) Description: ReviewNote, ID: menu141
+																			307 text field ReviewNote
+																308 row (selectable, collapsed) Description: SubmitFooter, ID: menu91, Secondary Actions: Expand
+																	309 text field SubmitFooter
+																310 row (selectable) Description: RestoreDraftButton, ID: menu93
+																	311 text field RestoreDraftButton
+						312 container Navigational side bar for controls
+							313 menu
+								314 Properties
+								315 Comments
+								316 App checker
+						103 container Authoring canvas
+							104 container blankPage
+								105 container canvasGrid
+									317 container workspaceCanvas
+										318 container
+											319 container SubmitEntryScreen
+												320 text SubmitEntryScreen
+											321 container
+												322 container
+													323 heading Sponsor Highlights, Value: 1
+														324 text Sponsor Highlights
+													325 text SharePoint pilot · Document progress. Connect research to impact.
+													326 container
+														327 image Oak Ridge National Laboratory
+												328 container
+													329 text 01  //  HIGHLIGHT DETAILS
+													330 text Submitted by Jason Wohlgemuth  •  o9w@ornl.gov
+													331 text Project *
+													332 container
+														333 pop up button (disabled, collapsed) Description: Project, required. Select a project, Secondary Actions: Expand
+													334 text The project list could not be verified. Retry, or contact the app owner if this continues.
+													335 button Retry Project List
+														336 text Retry Project List
+													337 text Date *
+													338 container
+														339 text field Description: Date of highlight, required, Value: Oct 27, 2026, ID: datepicker_siena_5598681b56b6263_input
+														340 button Date of highlight, required10/27/2026. Open calendar to select a date
+													341 text Category *
+													342 container
+														343 pop up button (collapsed) Description: Category, required. Select a category, Secondary Actions: Expand
+													344 text Status *
+													345 container
+														346 pop up button (collapsed) Description: Status, required. Select a status, Secondary Actions: Expand
+													347 text Event type · optional
+													348 container
+														349 pop up button (collapsed) Description: Event type, optional. Not specified, Secondary Actions: Expand
+													350 text 02  //  THE DEVELOPMENT
+													351 text Summary *
+													352 text entry area (settable) Description: What changed, and why does it matter?, Value: PA28 TEST ONLY unsent draft preserved through project retry
+													353 text 59 / 1,200 characters. Lead with the outcome; explain its relevance.
+													354 text Supporting details · optional
+													355 text entry area (settable) One detail per line. Include evidence, a measure, a milestone, or a next step.
+													356 text 0 / 20 details · up to 1,000 characters each
+													357 text Report placement
+													358 container
+														359 pop up button (collapsed) Description: Report placement. Project highlight, Secondary Actions: Expand
+													360 text For non-sensitive highlights. Pending submissions stay in this browser until confirmed. SharePoint stores your receipt and JSONL export; saving does not publish a report.
+												361 container
+													362 text Browser recovery is unavailable. Open the published app in a regular browser window. Your pending data has not been cleared.
+													363 button (disabled) Submit highlight
+														364 text Submit highlight
+													365 container
+														366 text ACORN · Oak Ridge National Laboratory
+														367 text App owner: Jason Wohlgemuth
+										368 container Authoring canvas view
+											369 container
+												370 container
+													371 container Double click to edit text
+													372 container Double click to edit text
+												373 container Double click to edit text
+												374 container
+													375 container Double click to edit text
+													376 container Double click to edit text
+													377 container Double click to edit text
+													378 container Double click to edit text
+													379 container Double click to edit text
+													380 container Double click to edit text
+													381 container Double click to edit text
+													382 container Double click to edit text
+													383 container Double click to edit text
+													384 container Double click to edit text
+													385 container Double click to edit text
+													386 container Double click to edit text
+													387 container Double click to edit text
+													388 container Double click to edit text
+													389 container Double click to edit text
+													390 container Double click to edit text
+													391 container Double click to edit text
+													392 container Double click to edit text
+												393 container
+													394 container Double click to edit text
+													395 container Double click to edit text
+													396 container Double click to edit text
+						122 container Footer bar
+							401 container
+								402 container Breadcrumb
+								405 SizeBreakpoint preview
+									406 radio button Description: Default 1366x768, Value: 0
+									407 radio button Description: Large 1200x768, Value: 0
+									408 radio button Description: Medium 900x768, Value: 0
+									409 radio button Description: Small 600x768, Value: 0
+								410 button Zoom out (Ctrl+-)
+								411 container
+									412 slider (settable, integer) Description: Zoom control, Value: 0, ID: slider-33
+								413 button Zoom in (Ctrl+=)
+								414 container Zoom value
+									415 text 10 %
+								416 button Fit to window (Ctrl+0)
+						417 container
+							418 button Back
+							419 heading Formulas, Value: 1
+								420 text Formulas
+							421 button Close
+							422 text No errors found
+							423 text View activity in your app to understand performance and identify bugs.
+							424 button Open monitor
+								425 text Open monitor
+						182 text RefreshProjectsButton of type Button is selected with text Retry Project List
+
+The focused UI element is 218 editor (settable) Description: Power fx formula edit field., Value:     );
+    If(!varCatalogLoaded, ClearCollect(colProjects, {Value: "Select a project", ProjectId: ""}));
+    Clear(colCatalogCandidate); Set(varProjectsLoading, false); Reset(ProjectDropdown)
+)
+    
