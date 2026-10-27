@@ -1,0 +1,11 @@
+{
+  "submissionId": "1d1e94f5-b49e-46d5-b954-edf595dc2ffe",
+  "runId": "08584085441170884863666160316CU20",
+  "bytes": 65535,
+  "parts": [
+    45000,
+    42380
+  ],
+  "exactBase64Match": true,
+  "sha256": "6e4cb54909e8b1a463e2f6d1a4f60872c0aa08e84bd5862db7d1abf8dc69a2c1"
+}

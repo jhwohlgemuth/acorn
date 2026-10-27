@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-26",
+  "list": "PA19 TEST ONLY Receipts",
+  "url": "https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/PA19%20TEST%20ONLY%20Receipts/AllItems.aspx",
+  "submissionId": "bb7a1a3c-08be-48a9-9515-dd00e5c7ea19",
+  "attempts": 1,
+  "rawBytes": 65536,
+  "base64PartA": 45000,
+  "base64PartB": 42384,
+  "exactReopenedReadback": true,
+  "sha256": "3933b938a2928c608f8de83307f27e846de5eea67935c938d771cd5a74315819",
+  "duplicateAttemptCount": 1,
+  "duplicateResult": "Error: This value already exists in the list.",
+  "syntheticStorageFixture": true,
+  "validIntakeEnvelope": false
+}

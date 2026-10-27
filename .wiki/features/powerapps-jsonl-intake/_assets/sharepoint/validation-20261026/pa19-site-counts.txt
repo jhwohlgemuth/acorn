@@ -1,0 +1,264 @@
+Browser tab: 1329059368, Title: "Site Contents", URL: "https://ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/viewlsts.aspx?view=14".
+1 AXWebArea Site Contents, URL: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/viewlsts.aspx?view=14
+	2 container
+		3 link Description: Skip to main content, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/viewlsts.aspx?view=14#, ID: sp-skipToContent
+		4 container
+			5 container Description: Microsoft Office 365 suite navigation, ID: SuiteNavWrapper
+				49 container SuiteNavPlaceholder
+					50 container O365_NavHeader
+						51 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							52 text 
+						53 container topLevelRegion
+							54 container leftRegion
+								55 link Description: SharePoint, Value: ornl.sharepoint.com/_layouts/15/sharepoint.aspx?&login_hint=o9w@ornl.gov, ID: O365_AppName
+							56 combo box (collapsed, settable) Description: Search box. Suggestions appear as you type, Secondary Actions: Expand
+							57 container HeaderButtonRegion
+								58 button (collapsed) Description: Next steps to improve your site, ID: TipsNTricksButton, Secondary Actions: Expand
+								59 button (collapsed) Description: Provide feedback to Microsoft, ID: GiveFeedbackButton, Secondary Actions: Expand
+								60 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								61 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						62 container O365_HeaderRightRegion
+							63 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								64 image JW
+			6 heading Research Enablement, Value: 1
+				7 text Research Enablement
+			8 container sp-appBar
+				9 container
+					10 button (collapsed) Description: Discover, 1 of 4, ID: ngspAppBarDiscover, Secondary Actions: Expand
+					11 button (collapsed) Description: Publish, 2 of 4, ID: ngspAppBarPublish, Secondary Actions: Expand
+					12 button (collapsed) Description: Build, 3 of 4, ID: ngspAppBarBuild, Secondary Actions: Expand
+					13 button Description: OneDrive, 4 of 4, ID: ngspAppBarOneDrive
+			14 container
+				15 container
+					16 container SharePoint Site Header
+						17 container
+							18 link Description: Research Enablement home, Value: ornl.sharepoint.com/sites/ResearchEnablement
+							19 heading Research Enablement, Value: 2
+								20 text Research Enablement
+							21 button Go to the Microsoft Teams channel
+							22 container showOverlayText
+								23 container Private group
+									24 text Private group
+								25 button
+								65 button Not following, Add to favorites
+									66 text Not following
+								26 button 2 members. Open Group Membership pane
+				27 container Site
+					28 content list Site
+						29 link Description: Home, Value: ornl.sharepoint.com/sites/ResearchEnablement
+						30 link Description: Conversations, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/groupstatus.aspx?Target=CONVERSATIONS&Source=QuickLaunch
+						31 link Description: Documents, Value: ornl.sharepoint.com/sites/ResearchEnablement/Shared%20Documents/Forms/AllItems.aspx
+						32 link Description: Notebook, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/Doc.aspx?sourcedoc=%7B92502988-e964-4074-8e41-6625180e6324%7D&action=editnew
+						33 link Description: Pages, Value: ornl.sharepoint.com/sites/ResearchEnablement/SitePages/Forms/ByAuthor.aspx
+						34 link Description: Marketing Campaign, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Marketing%20Campaign/AllItems.aspx
+						35 link Description: Sponsor Highlights Intake Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/AllItems.aspx
+						36 link Description: Sponsor Highlights JSONL Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/Forms/AllItems.aspx
+						37 link Description: Sponsor Highlights Projects Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Projects%20Pilot/AllItems.aspx
+						38 link Description: Site contents, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/viewlsts.aspx
+						39 link Description: Recycle bin, Help: Recycle bin, Opens the Recycle Bin view to see a list of files and folders that have been deleted., Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/RecycleBin.aspx
+						40 button Edit, ID: LeftNavEditLink
+				41 link Description: Click or enter to return to classic SharePoint, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/viewlsts.aspx?view=14#
+				42 container Commands
+					67 menu bar
+						68 (collapsed) Description: New. Select a new item to add to this site, Secondary Actions: Expand
+							69 text New
+						70 container
+							71 Site usage
+								72 text Site usage
+							73 Site settings
+								74 text Site settings
+							75 Recycle bin
+								76 text Recycle bin
+							77 Expand content
+				43 container
+					44 container Site contents and subsites lists. Use search box to search the site contents.
+						45 tab group
+							46 tab (selected, settable, boolean) Contents, Value: 1, ID: sp-AppsList-tabId
+							47 tab (selectable, settable, boolean) Subsites, Value: 0, ID: sp-SubsiteList-tabId
+						48 container Contents
+							78 table List of folders, files or items
+								79 row Column headers. Use menus to perform column operations like sort, filter, or group by a column.
+									80 cell App Type Icon
+										81 text App Type Icon
+									82 cell
+										83 button Name, ID: header12-name
+											84 text Name
+									85 cell
+										86 button Type, ID: header12-appTypeString
+											87 text Type
+									88 cell
+										89 button Items, ID: header12-appItemCount
+											90 text Items
+									91 cell Modified
+										92 text Modified
+								93 row Description: Agent Assets, Document library icon, Modified 10/26/2026 12:56 PM, Private, ID: row11-0
+									94 cell
+										95 image Document library icon
+									96 cell row11-0-header
+										97 link Description: Agent Assets, Value: ornl.sharepoint.com/sites/ResearchEnablement/AgentAssets/Forms/AllItems.aspx
+										98 pop up button Show actions
+									99 cell
+										100 text Document library
+									101 cell
+										102 text 2
+									103 cell
+										104 container Modified column, 10/26/2026 12:56 PM
+											105 text 10/26/2026 12:56 PM
+								106 row Description: Documents, Document library icon, Modified 5/21/2026 2:25 PM, Private, ID: row11-1
+									107 cell
+										108 image Document library icon
+									109 cell row11-1-header
+										110 link Description: Documents, Value: ornl.sharepoint.com/sites/ResearchEnablement/Shared%20Documents/Forms/AllItems.aspx
+										111 pop up button Show actions
+									112 cell
+										113 text Document library
+									114 cell
+										115 text 87
+									116 cell
+										117 container Modified column, 5/21/2026 2:25 PM
+											118 text 5/21/2026 2:25 PM
+								119 row Description: Form Templates, Document library icon, Modified 10/13/2024 4:51 PM, Private, ID: row11-2
+									120 cell
+										121 image Document library icon
+									122 cell row11-2-header
+										123 link Description: Form Templates, Value: ornl.sharepoint.com/sites/ResearchEnablement/FormServerTemplates/Forms/All%20Forms.aspx
+										124 pop up button Show actions
+									125 cell
+										126 text Document library
+									127 cell
+										128 text 0
+									129 cell
+										130 container Modified column, 10/13/2024 4:51 PM
+											131 text 10/13/2024 4:51 PM
+								132 row Description: PA19 TEST ONLY JSONL, Document library icon, Modified 10/26/2026 8:46 PM, Private, ID: row11-3
+									133 cell
+										134 image Document library icon
+									135 cell row11-3-header
+										136 link Description: PA19 TEST ONLY JSONL, Value: ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/Forms/AllItems.aspx
+										137 pop up button Show actions
+									138 cell
+										139 text Document library
+									140 cell
+										141 text 0
+									142 cell
+										143 container Modified column, 10/26/2026 8:46 PM
+											144 text 10/26/2026 8:46 PM
+								145 row Description: Site Assets, Document library icon, Modified 1/1/2025 10:37 AM, Private, ID: row11-4
+									146 cell
+										147 image Document library icon
+									148 cell row11-4-header
+										149 link Description: Site Assets, Value: ornl.sharepoint.com/sites/ResearchEnablement/SiteAssets/Forms/AllItems.aspx
+										150 pop up button Show actions
+									151 cell
+										152 text Document library
+									153 cell
+										154 text 4
+									155 cell
+										156 container Modified column, 1/1/2025 10:37 AM
+											157 text 1/1/2025 10:37 AM
+								158 row Description: Sponsor Highlights JSONL Pilot, Document library icon, Modified 10/26/2026 5:48 PM, Private, ID: row11-5
+									159 cell
+										160 image Document library icon
+									161 cell row11-5-header
+										162 link Description: Sponsor Highlights JSONL Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/Forms/AllItems.aspx
+										163 pop up button Show actions
+									164 cell
+										165 text Document library
+									166 cell
+										167 text 7
+									168 cell
+										169 container Modified column, 10/26/2026 5:48 PM
+											170 text 10/26/2026 5:48 PM
+								171 row Description: Style Library, Document library icon, Modified 10/13/2024 1:03 AM, Private, ID: row11-6
+									172 cell
+										173 image Document library icon
+									174 cell row11-6-header
+										175 link Description: Style Library, Value: ornl.sharepoint.com/sites/ResearchEnablement/Style%20Library/Forms/AllItems.aspx
+										176 pop up button Show actions
+									177 cell
+										178 text Document library
+									179 cell
+										180 text 0
+									181 cell
+										182 container Modified column, 10/13/2024 1:03 AM
+											183 text 10/13/2024 1:03 AM
+								184 row Description: Marketing Campaign, List icon, Modified 8/20/2026 12:34 PM, Private, ID: row11-7
+									185 cell
+										186 image List icon
+									187 cell row11-7-header
+										188 link Description: Marketing Campaign, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Marketing%20Campaign/AllItems.aspx
+										189 pop up button Show actions
+									190 cell
+										191 text List
+									192 cell
+										193 text 4
+									194 cell
+										195 container Modified column, 8/20/2026 12:34 PM
+											196 text 8/20/2026 12:34 PM
+								197 row Description: PA19 TEST ONLY Projects, List icon, Modified 10/26/2026 8:47 PM, Private, ID: row11-8
+									198 cell
+										199 image List icon
+									200 cell row11-8-header
+										201 link Description: PA19 TEST ONLY Projects, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/PA19%20TEST%20ONLY%20Projects/AllItems.aspx
+										202 pop up button Show actions
+									203 cell
+										204 text List
+									205 cell
+										206 text 1001
+									207 cell
+										208 container Modified column, 10/26/2026 8:47 PM
+											209 text 10/26/2026 8:47 PM
+								210 row Description: PA19 TEST ONLY Receipts, List icon, Modified 10/26/2026 8:34 PM, Private, ID: row11-9
+									211 cell
+										212 image List icon
+									213 cell row11-9-header
+										214 link Description: PA19 TEST ONLY Receipts, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/PA19%20TEST%20ONLY%20Receipts/AllItems.aspx
+										215 pop up button Show actions
+									216 cell
+										217 text List
+									218 cell
+										219 text 1
+									220 cell
+										221 container Modified column, 10/26/2026 8:34 PM
+											222 text 10/26/2026 8:34 PM
+								223 row Description: Sponsor Highlights Intake Pilot, List icon, Modified 10/26/2026 5:47 PM, Private, ID: row11-10
+									224 cell
+										225 image List icon
+									226 cell row11-10-header
+										227 link Description: Sponsor Highlights Intake Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/AllItems.aspx
+										228 pop up button Show actions
+									229 cell
+										230 text List
+									231 cell
+										232 text 6
+									233 cell
+										234 container Modified column, 10/26/2026 5:47 PM
+											235 text 10/26/2026 5:47 PM
+								236 row Description: Sponsor Highlights Projects Pilot, List icon, Modified 10/26/2026 1:00 PM, Private, ID: row11-11
+									237 cell
+										238 image List icon
+									239 cell row11-11-header
+										240 link Description: Sponsor Highlights Projects Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Projects%20Pilot/AllItems.aspx
+										241 pop up button Show actions
+									242 cell
+										243 text List
+									244 cell
+										245 text 13
+									246 cell
+										247 container Modified column, 10/26/2026 1:00 PM
+											248 text 10/26/2026 1:00 PM
+								249 row Description: Site Pages, Page library icon, Modified 10/13/2024 1:03 AM, Private, ID: row11-12
+									250 cell
+										251 image Page library icon
+									252 cell row11-12-header
+										253 link Description: Site Pages, Value: ornl.sharepoint.com/sites/ResearchEnablement/SitePages
+										254 pop up button Show actions
+									255 cell
+										256 text Page library
+									257 cell
+										258 text 1
+									259 cell
+										260 container Modified column, 10/13/2024 1:03 AM
+											261 text 10/13/2024 1:03 AM
+
+The focused UI element is 46 tab (selected, settable, boolean) Contents, Value: 1, ID: sp-AppsList-tabId

@@ -1,0 +1,192 @@
+Browser tab: 1329059361, Title: "Manage your flows | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/solutions/~preferred/flows/d696dacf-9ed1-f111-a05c-001dd8062052/runs/08584085448123335092835947515CU11".
+0 AXWebArea Manage your flows | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/solutions/~preferred/flows/d696dacf-9ed1-f111-a05c-001dd8062052/runs/08584085448123335092835947515CU11
+	1 container
+		2 container root
+			3 container
+				4 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				5 container o365header
+					6 container O365_NavHeader
+						7 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							95 text 
+						9 container ppuxOfficeHeaderTopLevelRegion
+							10 container ppuxOfficeHeaderLeftRegion
+								11 text Power Automate
+							12 container ppuxOfficeHeaderRightRegion
+								13 button Wohlgemuth, Jason
+									14 container
+										15 text Environments Wohlgemuth, Jason
+								16 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								17 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						18 container O365_HeaderRightRegion
+							19 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								20 image JW
+				21 container
+					22 button Go back to previous page
+					23 heading The flow name is PA19 TEST ONLY SharePoint Catalog., Value: 1
+						24 container The flow name is PA19 TEST ONLY SharePoint Catalog.
+							25 text PA19 TEST ONLY SharePoint Catalog
+					26 toolbar
+						27 button Description: Resubmit, ID: resubmitFlowRun
+							28 text Resubmit
+						29 button (disabled) Description: Cancel, ID: cancelFlowRun
+							30 text Cancel
+						31 button Description: Copilot, ID: chat
+							32 text Copilot
+						33 button Description: Edit, ID: editFlow
+							34 text Edit
+						35 container
+							36 switch Description: New view, Value: 1, ID: switchDesignerFlowRunDetails
+							37 text New view
+					38 container Your flow ran successfully.
+						39 text Your flow ran successfully.
+						40 button Dismiss
+					41 container
+						42 container Workflow canvas
+							43 container
+								44 image
+									45 container Edge from When_Power_Apps_calls_a_flow_(V2) to Get_items
+								46 image
+									47 container Edge from Get_items to Select
+								48 image
+									49 container Edge from Select to Respond_to_a_Power_App_or_flow
+								50 image
+									51 container Edge from Respond_to_a_Power_App_or_flow to Seed_PA19_TEST_ONLY
+								52 container
+									53 container When Power Apps calls a flow (V2)
+										54 container msla-node-When_Power_Apps_calls_a_flow_(V2)
+											55 container Description: 0 seconds. Succeeded, ID: When Power Apps calls a flow (V2)-status
+											56 button When Power Apps calls a flow (V2) operation, Power Apps connector
+												57 text When Power Apps calls a flow (V2)
+								58 container
+									59 container Get items
+										60 container msla-node-Get_items
+											61 container Description: 0.6 seconds. Succeeded, ID: Get items-status
+											62 button Get items operation, SharePoint connector
+												63 text Get items
+											64 container SharePoint ACORNSharePointPilot-0c871
+												65 container Connection name: SharePoint ACORNSharePointPilot-0c871
+								66 container
+									67 container Select
+										68 container msla-node-Select
+											69 container Description: 0.1 seconds. Succeeded, ID: Select-status
+											70 button Select operation, Data Operation connector
+												71 text Select
+								72 container
+									73 container Respond to a Power App or flow
+										74 container msla-node-Respond_to_a_Power_App_or_flow
+											75 container Description: 0 seconds. Succeeded, ID: Respond to a Power App or flow-status
+											76 button Respond to a Power App or flow operation, Power Apps connector
+												77 text Respond to a Power App or flow
+								78 container
+									79 container Seed PA19 TEST ONLY
+										80 container
+											81 container Description: 0 seconds. Succeeded, ID: Seed PA19 TEST ONLY-status
+											82 button Description: Seed PA19 TEST ONLY operation, ID: msla-node-Seed_PA19_TEST_ONLY
+												83 text Seed PA19 TEST ONLY
+											84 button (collapsed) Description: Expand Seed PA19 TEST ONLY, Secondary Actions: Expand
+									85 text 2 Cases
+							86 image
+							87 container Control Panel
+								88 button Description: Expand all action groups, ID: control-expand-collapse-button
+								89 button Description: Zoom in, ID: control-zoom-in-button
+								90 button Description: Zoom out, ID: control-zoom-out-button
+								91 button Description: Zoom view to fit, ID: control-zoom-fit-button
+								92 button Description: Toggle minimap, ID: control-minimap-button
+								93 button Description: Search workflow actions, ID: control-search-button
+						94 container Operation details panel
+							96 container Respond to a Power App or flow
+								97 button Description: Collapse, ID: msla-panel-header-collapse-nav
+								98 text field Description: Card title, Value: Respond to a Power App or flow, ID: Respond_to_a_Power_App_or_flow-title
+								99 pop up button Description: More commands, ID: menu193
+							100 container flow-node-details-panel-Respond_to_a_Power_App_or_flow
+								101 tab group
+									102 tab (selected, settable, boolean) Run results, Value: 1
+									103 tab (selectable, settable, boolean) Settings, Value: 0
+									104 tab (selectable, settable, boolean) Code view, Value: 0
+									105 tab (selectable, settable, boolean) About, Value: 0
+								106 container
+									107 heading INPUTS, Value: 3
+										108 text INPUTS
+									109 button Show raw inputs
+										110 text Show raw inputs
+									111 container INPUTS
+										112 container
+											113 text schema
+											114 button Copy the value of 'schema' to the clipboard
+											115 table schema
+												116 row Field Value
+													117 cell
+														118 text Field
+													119 cell
+														120 text Value
+												121 container
+													122 row type object
+														123 cell
+															124 text type
+														125 cell
+															126 text object
+													127 row properties.catalogjson.title catalogJson
+														128 cell
+															129 text properties.catalogjson.title
+														130 cell
+															131 text catalogJson
+													132 row properties.catalogjson.x-ms-dynamically-added true
+														133 cell
+															134 text properties.catalogjson.x-ms-dynamically-added
+														135 cell
+															136 text true
+													137 row properties.catalogjson.type string
+														138 cell
+															139 text properties.catalogjson.type
+														140 cell
+															141 text string
+													142 row additionalProperties.outputValueMap.catalogjson {"error":"catalog_limit","projects":[],"source":"sharepoint"}
+														143 cell
+															144 text additionalProperties.outputValueMap.catalogjson
+														145 cell
+															146 text {"error":"catalog_limit","projects":[],"source":"sharepoint"}
+										147 container
+											148 text statusCode
+											149 text field Description: statusCode, Value: 200
+												150 button Copy the value of 'statusCode' to the clipboard
+												151 text 200
+									152 heading OUTPUTS, Value: 3
+										153 text OUTPUTS
+									154 button Show raw outputs
+										155 text Show raw outputs
+									156 container OUTPUTS
+										157 text No outputs
+									158 heading PROPERTIES, Value: 3
+										159 text PROPERTIES
+									160 container PROPERTIES
+										161 container
+											162 text Start time
+											163 text field Description: Start time, Value: 10/26/2026, 8:47:53 PM (Local time)
+												164 container
+													165 checkbox Description: Switch 'Start time' to the UTC time format, Value: 0
+													166 button Copy the value of 'Start time' to the clipboard
+												167 text 10/26/2026, 8:47:53 PM (Local time)
+										168 container
+											169 text End time
+											170 text field Description: End time, Value: 10/26/2026, 8:47:53 PM (Local time)
+												171 container
+													172 checkbox Description: Switch 'End time' to the UTC time format, Value: 0
+													173 button Copy the value of 'End time' to the clipboard
+												174 text 10/26/2026, 8:47:53 PM (Local time)
+										175 container
+											176 text Status
+											177 text field Description: Status, Value: Succeeded
+												178 button Copy the value of 'Status' to the clipboard
+												179 text Succeeded
+										180 container
+											181 text Client tracking ID
+											182 text field Description: Client tracking ID, Value: 08584085448123335092835947515CU11
+												183 button Copy the value of 'Client tracking ID' to the clipboard
+												184 text 08584085448123335092835947515CU11
+										185 container
+											186 text Action tracking ID
+											187 text field Description: Action tracking ID, Value: 1801e4ac-f030-48f4-8455-c667e2e7434c
+												188 button Copy the value of 'Action tracking ID' to the clipboard
+												189 text 1801e4ac-f030-48f4-8455-c667e2e7434c
+
+The focused UI element is 74 container msla-node-Respond_to_a_Power_App_or_flow

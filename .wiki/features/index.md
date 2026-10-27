@@ -4,7 +4,7 @@
 
 - [Model acquisition and metadata hardening](model-acquisition-hardening.md) - Complete identity-safe Hugging Face requests, exact GGUF metadata, and ModelKit/ModelPack interoperability evidence.
 - [Needle routing and native capability parity](needle-router-native-parity.md) - Bring bounded native ACORN workflows behind `acorn ask` with measured parity.
-- [PowerApp and Power Automate JSONL intake](powerapps-jsonl-intake/index.md) - SharePoint is the standard-connector manual path: the owner three-row stage/inspect/apply/report demo passed. PA-22 retains intended-user access; PA-19–21 retain storage/intake/browser edge cases. New PA-26 repairs saved exporter failure handling in isolation, then PA-23 accepts collected snapshots. PA-24 covers native restore; PA-25 optional cutover; PA-12 shared deployment. GitLab PA-15–17 remain independent; both pilots stay enabled.
+- [PowerApp and Power Automate JSONL intake](powerapps-jsonl-intake/index.md) - SharePoint is the standard-connector manual path: the owner three-row stage/inspect/apply/report demo passed. PA-22 retains SharePoint participant acceptance; PA-19 storage/catalog and PA-20 intake/export acceptance passed October 26; PA-21 retains browser edge cases. New PA-26 repairs saved exporter failure handling in isolation, then PA-23 accepts collected snapshots. PA-24 covers native restore; PA-25 optional cutover; PA-12 shared deployment. GitLab PA-15–17 remain independent; both pilots stay enabled.
 
 ## Planned
 

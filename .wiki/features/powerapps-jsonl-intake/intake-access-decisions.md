@@ -2,6 +2,12 @@
 
 Updated October 25, 2026 (America/New_York) in Jason Wohlgemuth's existing signed-in session. The owner reports no administrator ticket and requests using existing access. An administrator ticket is not a prerequisite for isolated testing. No network policy or operational component, credential or connection binding was changed. The owner subsequently created a separate test connection using the existing authorized credential.
 
+## Original participant licensing issue resolved
+
+Owner confirmation, October 26, 2026: DH could not open the original GitLab-backed Sponsor Highlights app because he did not have a premium entitlement and its GitLab custom connector required one. The reported premium-plan prompt is explained; no further DH-specific diagnosis or retest of the original premium app is required. This closes that access investigation without claiming that his license was changed or access to that app was granted.
+
+This licensing issue is separate from the intermittent GitLab network-range 403/504 limitation recorded below. The separate [SharePoint pilot](sharepoint-pilot.md) removes the GitLab bindings and uses standard connectors. [PA-22](index.md#pa-22--accept-standard-user-access-and-manual-cli-handoff) retains only that route's intended-participant acceptance and handoff; any approved standard-license participant can supply it. DH's original denial neither blocks that test nor proves a successful SharePoint submission. No new live test or account/connection change was performed for this closure.
+
 ## Known limitation and PA-02 closure
 
 **Owner decision, October 25, 2026:** “Record GitLab connectivity as a known limitation and finish PA-02.” PA-02 is complete under this revised acceptance scope: the Jason-only pilot licensing assessment and observed access behavior are documented; dependable GitLab connectivity is no longer a condition for closing this phase. Its completed execution section has been removed from the active plan.

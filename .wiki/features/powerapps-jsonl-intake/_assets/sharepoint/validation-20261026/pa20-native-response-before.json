@@ -1,0 +1,46 @@
+{
+  "kind": "PowerApp",
+  "inputs": {
+    "statusCode": 200,
+    "body": {
+      "status": "@{if(equals(actions('Accepted_receipt_SP')?['status'], 'Succeeded'), 'received', if(equals(actions('Conflict_SP')?['status'], 'Succeeded'), 'conflict', if(or(equals(actions('Rejected_SP')?['status'], 'Succeeded'), equals(actions('Parse_submission_SP')?['status'], 'Failed'), equals(actions('Check_timestamps_SP')?['status'], 'Failed')), 'rejected', 'unresolved')))}",
+      "submissionid": "@{if(equals(actions('Parse_submission_SP')?['status'], 'Succeeded'), body('Parse_submission_SP')?['submissionId'], string(null))}",
+      "exportstatus": "@{if(equals(actions('Mark_exported_SP')?['status'], 'Succeeded'), 'exported', 'pending')}",
+      "exportfileurl": "@{if(equals(actions('Mark_exported_SP')?['status'], 'Succeeded'), concat('https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/', body('Parse_submission_SP')?['submissionId'], '.jsonl'), string(null))}",
+      "receipturl": "@{if(equals(actions('Accepted_receipt_SP')?['status'], 'Succeeded'), concat('https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/DispForm.aspx?ID=', string(outputs('Accepted_receipt_SP'))), string(null))}"
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "title": "status",
+          "x-ms-dynamically-added": true,
+          "type": "string"
+        },
+        "submissionid": {
+          "title": "submissionId",
+          "x-ms-dynamically-added": true,
+          "type": "string"
+        },
+        "exportstatus": {
+          "title": "exportStatus",
+          "x-ms-dynamically-added": true,
+          "type": "string"
+        },
+        "exportfileurl": {
+          "title": "exportFileUrl",
+          "x-ms-dynamically-added": true,
+          "type": "string"
+        },
+        "receipturl": {
+          "title": "receiptUrl",
+          "x-ms-dynamically-added": true,
+          "type": "string"
+        }
+      }
+    }
+  },
+  "metadata": {
+    "operationMetadataId": "9aefd201-b24f-4859-858d-df0f54e92fee"
+  }
+}

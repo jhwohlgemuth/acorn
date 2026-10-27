@@ -1,0 +1,15 @@
+Browser tab: 1329059371, Title: "Manage your flows | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/cad28673-a0d1-f111-a05c-001dd8062052/runs/08584085441978075346553308797CU14".
+0 AXWebArea Manage your flows | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/cad28673-a0d1-f111-a05c-001dd8062052/runs/08584085441978075346553308797CU14
+											59 container Description: 0.1 seconds. Failed, ID: Get items-status
+													409 row message The field 'ProjectId' of type 'Note' cannot be used in the query filter expression. clientRequestId: 204c7f76-490a-4d32-837b-baa710f16c79 serviceRequestId: a2d048a2-80c4-0000-0857-1f221e23ac9c
+											432 text Status
+											433 text field Description: Status, Value: Failed
+												434 button Copy the value of 'Status' to the clipboard
+												435 text Failed
+											437 text Client tracking ID
+											438 text field Description: Client tracking ID, Value: 08584085441978075346553308797CU14
+												439 button Copy the value of 'Client tracking ID' to the clipboard
+												440 text 08584085441978075346553308797CU14
+											442 text Action tracking ID
+											443 text field Description: Action tracking ID, Value: 7236e5f7-3f88-4ec7-b4af-3aa15b0a3f6c
+												444 button Copy the value of 'Action tracking ID' to the clipboard

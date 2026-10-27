@@ -1,0 +1,57 @@
+{
+  "id": "6969c95c-753f-41f1-b39e-c3cec4d251b1",
+  "brandColor": "#8C6CFF",
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "connectionName": "shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "tier": "NotSpecified",
+      "apiName": "sharepointonline",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": true
+    }
+  },
+  "connectorDisplayName": "Control",
+  "isTrigger": false,
+  "operationName": "Seed_PA19_TEST_ONLY",
+  "operationDefinition": {
+    "type": "If",
+    "expression": {
+      "equals": [
+        "@length(body('Get_items')?['value'])",
+        0
+      ]
+    },
+    "actions": {
+      "Create_test_projects": {
+        "type": "Foreach",
+        "foreach": "@range(1,1001)",
+        "actions": {
+          "Create_test_project": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "PostItem",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                "table": "40f2847e-3698-4ae6-b84b-7e42002c84eb",
+                "item/Title": "@concat('PA19 TEST ONLY ',string(item()))",
+                "item/ProjectId": "@concat('pa19-test-',string(item()))",
+                "item/SourceRevision": "PA19-overflow-20261026"
+              },
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runAfter": {}
+          }
+        },
+        "runAfter": {}
+      }
+    },
+    "runAfter": {}
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "type": "OpenApiConnection",
+  "inputs": {
+    "parameters": {
+      "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+      "table": "40f2847e-3698-4ae6-b84b-7e42002c84eb",
+      "$filter": "Title eq 'PA19 TEST ONLY 1'",
+      "$orderby": "Title asc",
+      "$top": 1001
+    },
+    "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "connection": "shared_sharepointonline",
+      "operationId": "GetItems"
+    }
+  },
+  "runAfter": {},
+  "runtimeConfiguration": {
+    "paginationPolicy": {
+      "minimumItemCount": 1001
+    }
+  },
+  "metadata": {
+    "operationMetadataId": "ec917cdc-6a99-4dfd-a74d-d4387ff8bcdb"
+  }
+}

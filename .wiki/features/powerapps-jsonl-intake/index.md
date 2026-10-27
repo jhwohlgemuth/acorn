@@ -22,14 +22,16 @@ Supporting material: [pilot runbook](pilot-runbook.md), [notification walkthroug
 
 # Current evidence
 
-Reviewed October 26, 2026 against `58c22da4` plus the current working tree, retained October 26 cloud evidence, saved flow definitions and focused current-code checks. This pass did not inspect a fresh live inventory, execute cloud tests or rerun the workspace suite. The last recorded inventory shows both pilots enabled; recheck actual revisions before deployment or acceptance.
+Reviewed October 26, 2026 against `58c22da4` plus the current working tree, retained October 26 cloud evidence, saved flow definitions and focused current-code checks. The later October 26 live pass accepted PA-19 storage/catalog and PA-20 intake/export using isolated SharePoint copies, and Jason's PA-15 unsafe-tail rejection. Test flows were returned to Off; both operational pilots remain enabled. No workspace suite was needed for these cloud checks; recheck actual revisions before deployment or further acceptance.
 
 | Track | Verified state | Remaining acceptance |
 | --- | --- | --- |
-| SharePoint pilot | Separate published app, 13-project catalog, immutable receipt and per-submission JSONL export; owner/app persistence, reload and new-receipt Teams tests passed. Five-minute combined `logbook.jsonl` exporter passed initial/repeat runs and exact flow readback. Three later live demo submissions and Teams actions passed; a six-row download preserved the earlier prefix exactly, and the three selected rows produced a local ACORN PDF. | PA-19–21 storage, intake and browser edge cases; PA-26 exporter failure-path repair, then PA-23 full stored-payload comparison and aggregate boundaries; PA-22 intended standard-user access. Owner-context manual CLI handoff passed. Owner premium access does not establish standard-user access. |
+| SharePoint pilot | Separate published app, 13-project catalog, immutable receipt and per-submission JSONL export; owner/app persistence, reload and new-receipt Teams tests passed. Isolated PA-19 storage/catalog and PA-20 size/concurrency/export-recovery acceptance passed October 26. Five-minute combined `logbook.jsonl` exporter passed initial/repeat runs and exact flow readback. Three later live demo submissions and Teams actions passed; a six-row download preserved the earlier prefix exactly, and the three selected rows produced a local ACORN PDF. | PA-21 browser edge cases; PA-26 exporter failure-path repair, then PA-23 full stored-payload comparison and aggregate boundaries; PA-22 intended standard-user access. Owner-context manual CLI handoff passed. Owner premium access does not establish standard-user access. |
 | GitLab pilot | Original app and intake/catalog remain enabled. Dated append, replay and Teams evidence is retained. PA-02 closed by owner decision with intermittent 403/504 connectivity accepted as a limitation. | PA-15 remaining byte boundaries, PA-16 concurrent writes, PA-17 app-driven native restore and ORNL callback/table restoration. No successful single run closes those gates. |
 | Recovery and packaging | PA-14 browser recovery and PA-18 native reference repair are accepted. GitLab native v6 app/catalog restore passed; native backups remain intact. | ORNL callback restoration lacks `prvCreateEntity`; fresh app-driven GitLab write acceptance remains unproven. The separate SharePoint route needs its own native backup/restore, PA-24. |
 | Deployment | Both routes remain separate and enabled in Wohlgemuth, Jason. Jason is the operational owner and notification recipient. | PA-25 owns any later route cutover; PA-12 owns shared-environment deployment. Neither is implied by pilot publication. Vergil remains a separate plan. |
+
+The original DH access investigation is resolved by the owner's October 26 confirmation: he lacked a premium entitlement required by the GitLab custom connector. No DH-specific check remains. See the [licensing resolution](intake-access-decisions.md#original-participant-licensing-issue-resolved). PA-22 concerns the separate SharePoint route and can use any approved standard-license participant; it does not require repairing or retesting access to the original premium app.
 
 Durable evidence: [SharePoint pilot](sharepoint-pilot.md), [GitLab boundaries](boundary-acceptance.md), [access decision](intake-access-decisions.md#known-limitation-and-pa-02-closure), [native restore handoff](_assets/solution-export/PA17-RESTORE-HANDOFF.md), [browser recovery](browser-recovery-acceptance.md), [write failure](write-failure-acceptance.md), [notification routing](notification-walkthrough.md), and [manual demo](../manual-jsonl-ingestion-graduation/walkthrough.md). These records preserve dated runs and limitations without keeping completed phases here.
 
@@ -50,7 +52,7 @@ The collected file is a retained history, not a work queue. Applying a downloade
 
 Saved exporter source allows `Read_previous_logbook_LB` failure, timeout or skip to reach an overwrite; only a confirmed missing file should authorize first creation. Post-write readback failure also cannot prove the prior file survived. PA-26 owns the isolated repair. PA-23 must distinguish validation/read failures before publication (prior file unchanged) from ambiguous publication/readback outcomes (inspect and reconcile; no verified-success claim). Current source/clipboard evidence is not a fresh deployment inspection.
 
-SharePoint faults, maximum-size fixtures, competing writers, browser-storage tests and restore tests use explicitly named TEST ONLY copies and storage. PA-19–21/23/26 may read the published pilot for baseline evidence but must not inject malformed rows, change bindings, delete receipts, replace its collected file or disrupt normal runs. Before any test, verify every connector destination and disable unrelated notifications. Stop on a destination mismatch. Planned test names below describe copies to create, not resources already observed.
+SharePoint faults, maximum-size fixtures, competing writers, browser-storage tests and restore tests use explicitly named TEST ONLY copies and storage. Remaining PA-21/23/26 tests may read the published pilot for baseline evidence but must not inject malformed rows, change bindings, delete receipts, replace its collected file or disrupt normal runs. Before any test, verify every connector destination and disable unrelated notifications. Stop on a destination mismatch. PA19 TEST ONLY receipt/project lists, JSONL library and catalog flow, plus the PA20 TEST ONLY intake flow, were created and verified October 26. Both test flows are Off. Other planned test names describe copies still to create; see the dated SharePoint evidence for exact IDs.
 
 Normal intake sends best-effort Teams save notices under each route's recorded gate. Local CLI commands send no messages; later Teams/email milestones use the separate owner-triggered receiver. Its Dataverse/external-callback requirements are not dependencies of the standard SharePoint app. The [Vergil plan](../vergil-gitlab-jsonl-automation/index.md) owns future authenticated unattended callbacks; keep that integration outside app bindings and PA-22's standard-user proof.
 
@@ -60,9 +62,9 @@ Local browser recovery remains approved for non-sensitive data only. Neither rec
 
 **Current manual MVP:** The SharePoint three-row owner demonstration already proves downloaded exact rows -> stage/inspect/apply -> combined local PDF; the earlier GitLab personnel rehearsal additionally proves supported graduation. Neither proves intended standard-user access or full reliability. For a new live demo, recheck approved access and combined-export freshness. If unavailable, use the retained exact local snapshot and label the capture as recorded evidence. Do not repeat a completed demo phase or reopen the retired manual-ingestion plan.
 
-**Next work:** PA-22 intended-participant access is the highest-value external check and can proceed independently of edge-case matrices. In parallel, PA-26 prepares the isolated exporter repair; PA-19 then PA-20/21 cover storage, intake and browser behavior, while PA-23 closes aggregate-export acceptance after PA-26. PA-24 captures/restores the accepted SharePoint revision. Direct CLI download (SPD) is an optional operator convenience; the working browser download remains supported.
+**Next work:** PA-21 can use the accepted isolated storage/intake after creating and verifying a separate native app copy; its browser restart and storage-denial actions need the owner's isolated browser participation. PA-22 intended-participant access remains the highest-value external check and can proceed independently. PA-26 prepares the isolated exporter repair, then PA-23 closes aggregate-export acceptance. PA-24 captures/restores the accepted SharePoint revision. Direct CLI download (SPD) is an optional operator convenience; the working browser download remains supported.
 
-**Wider release gate:** SharePoint acceptance is PA-19–23 plus PA-26's repaired exporter revision; native restore is PA-24. PA-25 owns any explicit default-route cutover and installation of the accepted revisions, with rollback. GitLab-only PA-15–17 are independent and do not block the standard SharePoint route. PA-12 requires the acceptance/licensing of whichever route is chosen and an approved shared target. Callback integration, bot deployment and sponsor publication have separate owners. Preserve unfinished phase IDs and never infer cutover permission from a planning update.
+**Wider release gate:** SharePoint acceptance requires remaining PA-21–23 plus PA-26's repaired exporter revision; native restore is PA-24. PA-25 owns any explicit default-route cutover and installation of the accepted revisions, with rollback. GitLab-only PA-15–17 are independent and do not block the standard SharePoint route. PA-12 requires the acceptance/licensing of whichever route is chosen and an approved shared target. Callback integration, bot deployment and sponsor publication have separate owners. Preserve unfinished phase IDs and never infer cutover permission from a planning update.
 
 # Validation
 
@@ -72,36 +74,12 @@ Inspect route-specific evidence: SharePoint list UUID/payload, individual receip
 
 `waiting-on-validation` (“Waiting on validation”) means the implementation exists and the phase awaits acceptance evidence. Prerequisites and external blockers still apply; this status does not mean ready to execute or accepted. Phases that still need deployment, integration or policy setup retain their existing status.
 
-## PA-19 — Accept standard SharePoint storage and project catalog
-
-- Status: waiting-on-validation
-- Validation readiness: Shared storage and the 13-project catalog are deployed and owner/app calls passed. Catalog overflow, permission inheritance review and maximum payload capacity remain to be accepted.
-- Budget: 5 active hours maximum
-- Prerequisites: recorded Research Enablement site and authorized SharePoint connection; recheck current access before isolated setup
-- Exact write set: isolated `PA19 TEST ONLY` receipt/catalog lists and JSONL library on the Research Enablement site, plus `PA19 TEST ONLY SharePoint Catalog` in Wohlgemuth, Jason; published pilot permissions/schema are read-only baselines; `.wiki/features/powerapps-jsonl-intake/sharepoint-pilot.md`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/`
-- Primary integration lock: SharePoint pilot storage
-- Outcome: Shared receipt storage with unique IDs, exact-payload capacity, export library and a bounded standard catalog returning the recorded 13 projects.
-- Focused validation: Inspect list membership inheritance and maximum payload capacity; fail closed on catalog overflow; retain the recorded 13-ID acceptance without claiming live GitLab synchronization.
-- Handoff: Record URLs, IDs, connection reference and schema; no operational cutover.
-
-## PA-20 — Accept standard intake and verified JSONL export
-
-- Status: waiting-on-validation
-- Validation readiness: New/replay/conflict/malformed persistence branches passed, and published-app exports plus a Teams action succeeded. Size limits, concurrent attempts and export-failure recovery remain unaccepted.
-- Budget: 5 active hours maximum
-- Prerequisites: PA-19; retain current envelope validation and authenticated caller checks
-- Exact write set: `PA20 TEST ONLY SharePoint Intake` in Wohlgemuth, Jason, bound only to the PA19 test receipt list/library and isolated notification test destination; `.wiki/features/powerapps-jsonl-intake/sharepoint-pilot.md`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/`
-- Primary integration lock: SharePoint pilot intake
-- Outcome: One immutable receipt per UUID, exact replay, changed-payload conflict, and one verified UTF-8 JSONL file per accepted receipt. Notification follows confirmed storage; no dual submission to GitLab.
-- Focused validation: Simultaneous same-ID attempts, size boundary, export failure and exact readback after recovery. Preserve the new/replay/conflict/malformed and Unicode evidence; no success on unresolved writes or truncated exports.
-- Handoff: Preserve source and acceptance IDs; list receipt is received, export is exported, neither means graduated.
-
 ## PA-21 — Accept the separate standard-only canvas app
 
 - Status: waiting-on-validation
 - Validation readiness: Separate app published with only the SharePoint flow bindings, distinct recovery key and received/exported feedback. Project loading, fresh submit, confirmed receipt reload and new-highlight reset passed. App-driven replay/conflict and pending-export recovery remain.
 - Budget: 5 active hours maximum
-- Prerequisites: PA-19 and PA-20; verified native copy with its own app ID
+- Prerequisites: isolated storage/intake accepted October 26; verified native copy with its own app ID
 - Exact write set: `PA21 TEST ONLY Sponsor Highlights SharePoint` app/solution copy in Wohlgemuth, Jason, using PA19/20 test endpoints and a test-only browser recovery key; published app is a read-only baseline; `.wiki/features/powerapps-jsonl-intake/sharepoint-pilot.md`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/`
 - Primary integration lock: SharePoint pilot canvas
 - Outcome: Catalog and submission use only standard flows; recovery uses a separate local-storage namespace and honest SharePoint receipt panels.
@@ -123,7 +101,7 @@ Inspect route-specific evidence: SharePoint list UUID/payload, individual receip
 
 - Status: waiting-on-validation
 - Budget: 5 active hours maximum
-- Prerequisites: PA-26 repaired isolated exporter; isolated PA-19 test storage and existing authorized connection; live pilot revision recorded read-only
+- Prerequisites: PA-26 repaired isolated exporter; accepted isolated test storage and existing authorized connection; live pilot revision recorded read-only
 - Exact write set: `PA26 TEST ONLY SharePoint Logbook Export` and its isolated lists/library/acceptance fixtures; `_assets/sharepoint/`; `sharepoint-pilot.md`; published logbook is read-only evidence
 - Primary integration lock: SharePoint pilot logbook export
 - Outcome: Accept independent downloaded bytes, concurrent arrivals, empty list, malformed rows, pagination overflow and 10 MiB boundary behavior without disturbing operational intake.
@@ -135,7 +113,7 @@ Inspect route-specific evidence: SharePoint list UUID/payload, individual receip
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: published separate SharePoint app; intended standard-license participant and approved pilot access. Owner-context downloaded-file-to-CLI handoff is recorded; participant-context access remains.
+- Prerequisites: published separate SharePoint app; intended standard-license participant and approved pilot access. Owner-context downloaded-file-to-CLI handoff is recorded; SharePoint participant-context access remains. Any approved standard-license participant may validate it; DH’s original GitLab premium-license denial is resolved and is not a prerequisite.
 - Exact write set: sharing/run-only settings of the named SharePoint pilot app, flows and storage; `.wiki/features/powerapps-jsonl-intake/sharepoint-pilot.md`; pilot runbook and user/developer guides under this plan
 - Primary integration lock: Power Platform deployment
 - Outcome: An intended standard-license participant launches the separate SharePoint app, loads projects and submits without a premium prompt; an authorized operator downloads the next combined snapshot and completes stage -> inspect -> confirmed apply -> combined local PDF in an isolated destination. Contributors need only their approved role; do not assume every contributor is also a CLI operator or list administrator.
@@ -157,7 +135,7 @@ Inspect route-specific evidence: SharePoint list UUID/payload, individual receip
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: PA-19–24 and PA-26 accepted; owner selection of the replacement link and intended audience
+- Prerequisites: remaining PA-21–24 and PA-26 accepted; owner selection of the replacement link and intended audience
 - Exact write set: approved accepted SharePoint app/flow revision installation and pilot entry links, selected GitLab flow enablement only if explicitly authorized for cutover, SharePoint/GitLab runbooks and user guides
 - Primary integration lock: Power Platform deployment
 - Outcome: The chosen default route and rollback procedure are explicit, with no dual submission or loss of unresolved receipts.
@@ -167,12 +145,12 @@ Inspect route-specific evidence: SharePoint list UUID/payload, individual receip
 ## PA-15 — Accept bounded inbox and field limits
 
 - Status: waiting-on-validation
-- Validation readiness: All listed field-limit and field-rejection cases passed in both environments. ORNL unsafe-tail and one-byte-over-cap rejection also passed with unchanged bytes/revision. The requested five-attempt series completed 34 runs with three new accepted cases. Each still-open case received five attempts; GitLab 403/504 responses prevented acceptance. Remaining cases need runnable connector calls and independent byte/revision verification. See boundary-acceptance.md. The actual append cap is 10,485,759 UTF-8 bytes. PA-02 remains closed with the connectivity limitation accepted.
+- Validation readiness: Field limits and unsafe-tail rejection passed in both environments; ORNL oversized-file rejection also passed. Mixed-line preservation and exact-cap append remain in both environments, plus oversized-file rejection in Jason. Five October 26 Jason mixed-line attempts did not append; the final attempt and the separate oversized-file attempt stopped at Forbidden branch access. Remaining cases require runnable connector calls and independent byte/revision verification. See [boundary acceptance](boundary-acceptance.md) for dated attempts and proofs. The append cap is 10,485,759 UTF-8 bytes. PA-02 remains closed with the connectivity limitation accepted.
 - Budget: 5 active hours maximum
 - Prerequisites: safe isolated fixtures and restored baseline; authorized connector access sufficient to execute each case
 - Exact write set: pilot project `22464` isolated intake test files; validation actions in isolated intake flow copies in both test environments; `.wiki/features/powerapps-jsonl-intake/boundary-acceptance.md`; `.wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/`
 - Primary integration lock: intake route
-- Outcome: Accept mixed-line preservation and exact-cap append in both environments, plus unsafe-tail and one-byte-over-cap rejection in Jason. Preserve accepted field and ORNL rejection evidence.
+- Outcome: Accept mixed-line preservation and exact-cap append in both environments, plus one-byte-over-cap rejection in Jason. Jason unsafe-tail rejection passed on October 26. Preserve accepted field and ORNL rejection evidence.
 - Focused validation: Use one dimension per case; accepted records append once, rejected records do not alter any bytes, unsafe tails fail closed; preserve original pilot inbox.
 - Handoff: Record per-case outcomes and restore isolated fixtures; no implied concurrency acceptance.
 
@@ -204,7 +182,7 @@ Inspect route-specific evidence: SharePoint list UUID/payload, individual receip
 
 - Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: selected route accepted (SharePoint PA-19–24 plus PA-26, or GitLab PA-15–17); named approved GCC environment, maker/sharing rights, route-appropriate licensing, owner and recipient group/channel
+- Prerequisites: selected route accepted (SharePoint remaining PA-21–24 plus PA-26, or GitLab PA-15–17); named approved GCC environment, maker/sharing rights, route-appropriate licensing, owner and recipient group/channel
 - Exact write set: target Power Platform solution import, protected connections, app/flow sharing and notification destination; `.wiki/features/powerapps-jsonl-intake/shared-deployment.md`
 - Primary integration lock: Power Platform deployment
 - Outcome: Deploy the accepted app/flows and switch future notifications from Jason to the approved shared destination.

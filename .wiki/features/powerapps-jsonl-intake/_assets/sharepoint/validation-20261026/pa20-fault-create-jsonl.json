@@ -1,0 +1,39 @@
+{
+  "type": "OpenApiConnection",
+  "inputs": {
+    "parameters": {
+      "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+      "parameters/method": "POST",
+      "parameters/uri": "@concat('_api/web/GetFolderByServerRelativeUrl(', decodeUriComponent('%27'), '/sites/ResearchEnablement/PA20 TEST ONLY MISSING JSONL', decodeUriComponent('%27'), ')/Files/add(url=', decodeUriComponent('%27'), body('Parse_submission_SP')?['submissionId'], '.jsonl', decodeUriComponent('%27'), ',overwrite=false)')",
+      "parameters/headers": {
+        "Accept": "application/json;odata=nometadata",
+        "Content-Type": "application/octet-stream"
+      },
+      "parameters/body": "@concat(outputs('Raw_submission_SP'), decodeUriComponent('%0A'))"
+    },
+    "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "connection": "shared_sharepointonline",
+      "operationId": "HttpRequest"
+    },
+    "retryPolicy": {
+      "type": "none"
+    }
+  },
+  "runAfter": {
+    "Accepted_receipt_SP": [
+      "Succeeded"
+    ]
+  },
+  "runtimeConfiguration": {
+    "secureData": {
+      "properties": [
+        "inputs",
+        "outputs"
+      ]
+    }
+  },
+  "metadata": {
+    "operationMetadataId": "108c971b-a050-4989-9dc3-038551c66571"
+  }
+}

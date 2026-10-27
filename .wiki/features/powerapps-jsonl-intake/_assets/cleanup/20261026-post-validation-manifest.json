@@ -1,0 +1,360 @@
+{
+  "date": "2026-10-26",
+  "scope": "Local wiki cleanup after isolated PA-19/20 acceptance; no cloud changes",
+  "removed_count": 31,
+  "removed_bytes": 2066614,
+  "reference_check": "Repository text references and all eight retained wiki ZIP member lists checked; referenced duplicates redirected and superseded screenshot links replaced with retained ledgers. No selected file occurs in a retained ZIP.",
+  "removed": [
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/jason-flows-after-pa14-cleanup.txt",
+      "bytes": 10378,
+      "sha256": "7e2c65d3bbef6808115a2ac47e2ba8596f435e655c2c2197bf17c7b71ccfc8fa",
+      "reason": "Intermediate Off-state or inventory capture superseded by later final-state evidence and consolidated retry ledgers.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/boundary-acceptance.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-results.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-ornl-off.png",
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa15-final-off.txt"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/jason-test-off.png",
+      "bytes": 117276,
+      "sha256": "ff6c35b5cb83b3e39420a4c40adbb1b0c37658217c56fae55477da8aa44b3663",
+      "reason": "Intermediate Off-state or inventory capture superseded by later final-state evidence and consolidated retry ledgers.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/boundary-acceptance.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-results.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-ornl-off.png",
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa15-final-off.txt"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/jason-test-off.txt",
+      "bytes": 10857,
+      "sha256": "f07ed4d7a4882a61248b7f5a759d1a817dfa5c84e409e6f220672f518852ea45",
+      "reason": "Intermediate Off-state or inventory capture superseded by later final-state evidence and consolidated retry ledgers.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/boundary-acceptance.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-results.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-ornl-off.png",
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa15-final-off.txt"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/ornl-flows-after-cleanup.txt",
+      "bytes": 6945,
+      "sha256": "9fbdf88605cbb482404973ad38b80f08ea7ad04587648b16f820fd2dd647a793",
+      "reason": "Intermediate Off-state or inventory capture superseded by later final-state evidence and consolidated retry ledgers.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/boundary-acceptance.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-results.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-ornl-off.png",
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa15-final-off.txt"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/ornl-test-off.png",
+      "bytes": 104481,
+      "sha256": "6d09ed61e7a5cae1164e01071c2071414fe3b832c55c36a4d64c068ade074c35",
+      "reason": "Intermediate Off-state or inventory capture superseded by later final-state evidence and consolidated retry ledgers.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/boundary-acceptance.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-results.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-ornl-off.png",
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa15-final-off.txt"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/ornl-test-off.txt",
+      "bytes": 10077,
+      "sha256": "24e9444751165686bc9e11f49d3931e2780562969ed3641c86740d7304158f0b",
+      "reason": "Intermediate Off-state or inventory capture superseded by later final-state evidence and consolidated retry ledgers.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/boundary-acceptance.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-results.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-ornl-off.png",
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa15-final-off.txt"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/retry-jason-off.png",
+      "bytes": 129231,
+      "sha256": "68f74cc40de348628a69181b5ce877526f11d83ac2cab7d6212cfe4a5a066922",
+      "reason": "Intermediate Off-state or inventory capture superseded by later final-state evidence and consolidated retry ledgers.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/boundary-acceptance.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-results.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-ornl-off.png",
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa15-final-off.txt"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/retry-ornl-off.png",
+      "bytes": 119299,
+      "sha256": "82febb180fcb13417cf70807616f3d96574554e1517cd3950d3527b24254a2b6",
+      "reason": "Intermediate Off-state or inventory capture superseded by later final-state evidence and consolidated retry ledgers.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/boundary-acceptance.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-results.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-ornl-off.png",
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa15-final-off.txt"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/retry2-jason-off.png",
+      "bytes": 129474,
+      "sha256": "460e3b3f67315cfb9bc5e015797386fbdc87190c5c208940b380958467a0b2ca",
+      "reason": "Intermediate Off-state or inventory capture superseded by later final-state evidence and consolidated retry ledgers.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/boundary-acceptance.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-results.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-ornl-off.png",
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa15-final-off.txt"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/retry2-ornl-off.png",
+      "bytes": 119718,
+      "sha256": "40811e91332995b3939612edfe21b9c139cf7bd516b3e5c43c22f628208f61ca",
+      "reason": "Intermediate Off-state or inventory capture superseded by later final-state evidence and consolidated retry ledgers.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/boundary-acceptance.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-results.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-ornl-off.png",
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa15-final-off.txt"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/rounds-jason-off.png",
+      "bytes": 119613,
+      "sha256": "3749eb92cecb40c7df645e525d4c04b2341adfe7e8d4afc31274e3cef165f97a",
+      "reason": "Intermediate Off-state or inventory capture superseded by later final-state evidence and consolidated retry ledgers.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/boundary-acceptance.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-results.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-ornl-off.png",
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa15-final-off.txt"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/rounds-ornl-off.png",
+      "bytes": 129474,
+      "sha256": "a3eedc0c8f36d27ffdfda6252071c112652d0fb326f0474580474d67c046b218",
+      "reason": "Intermediate Off-state or inventory capture superseded by later final-state evidence and consolidated retry ledgers.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/boundary-acceptance.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-results.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/five-ornl-off.png",
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa15-final-off.txt"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa20-exact-run.txt",
+      "bytes": 10308,
+      "sha256": "782d5faad66bbbbd1f9ab788dfdd8346a13a586f92419c77025e83a7728797da",
+      "reason": "Transient partial run/editor capture superseded by saved action definition, independent byte proof and completed acceptance ledger.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/results.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa20-restored-create-jsonl.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa20-exact-receipt-proof.json"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa20-restored-editor.txt",
+      "bytes": 74750,
+      "sha256": "f06feeb2ba90ea0c75186fa02314e963787eccae20a3002e41490aa11e52bf23",
+      "reason": "Transient partial run/editor capture superseded by saved action definition, independent byte proof and completed acceptance ledger.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/results.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa20-restored-create-jsonl.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/validation-20261026/pa20-exact-receipt-proof.json"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/jason-connector-import-success.png",
+      "bytes": 95980,
+      "sha256": "fe68311ba560a6e8bb27ab0e1c1378deb7c64827e6abb42c9e826100740db754",
+      "reason": "Intermediate import, editor or state capture superseded by native v6 archive, audit, restore evidence and retained final-state proof.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/restore-target-readiness.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-backup-manifest.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v6-restore-evidence.json"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/jason-restored-catalog-code.cs",
+      "bytes": 6901,
+      "sha256": "38d6b9ca805cb6e862521e343fb67afce4b7859fd99c431b754ee0a9f99725c0",
+      "reason": "Byte-identical restored connector code; canonical source and observed digest retained.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/_assets/project-catalog.cs",
+        ".wiki/features/powerapps-jsonl-intake/restore-target-readiness.md"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/jason-restored-catalog-code.png",
+      "bytes": 124051,
+      "sha256": "c9cf32d5b29eeb3840f8677e0a199ea1c10c998e8be83451248fa6aba71e8911",
+      "reason": "Intermediate import, editor or state capture superseded by native v6 archive, audit, restore evidence and retained final-state proof.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/restore-target-readiness.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-backup-manifest.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v6-restore-evidence.json"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-app-export-complete.png",
+      "bytes": 83863,
+      "sha256": "571555125af5d5e27e05624368ed113503a7230a1261bd147f1a0a405ebcc208",
+      "reason": "Intermediate import, editor or state capture superseded by native v6 archive, audit, restore evidence and retained final-state proof.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/restore-target-readiness.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-backup-manifest.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v6-restore-evidence.json"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-app-formulas-clean.png",
+      "bytes": 85561,
+      "sha256": "ec014adf14f8f0af835bfdde7550340e487d68d4f90adec3037ec00862de465c",
+      "reason": "Intermediate import, editor or state capture superseded by native v6 archive, audit, restore evidence and retained final-state proof.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/restore-target-readiness.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-backup-manifest.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v6-restore-evidence.json"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-app-saved.png",
+      "bytes": 93853,
+      "sha256": "88f9afdc4215f230a7cb46d1638d761bffed1d56686730be8c82e20b68762bbc",
+      "reason": "Intermediate import, editor or state capture superseded by native v6 archive, audit, restore evidence and retained final-state proof.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/restore-target-readiness.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-backup-manifest.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v6-restore-evidence.json"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-v6-export-success.txt",
+      "bytes": 9066,
+      "sha256": "e85597b23b6812152e2b95681569011f3b66af1a00a36aeef4f6505c72e42918",
+      "reason": "Intermediate import, editor or state capture superseded by native v6 archive, audit, restore evidence and retained final-state proof.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/restore-target-readiness.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-backup-manifest.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v6-restore-evidence.json"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-native-intake-final-details.txt",
+      "bytes": 10691,
+      "sha256": "141c20c7f4e9ed86c0be22e18f384f11f55f4b52b5bbc119844eee4d919bd5c6",
+      "reason": "Intermediate import, editor or state capture superseded by native v6 archive, audit, restore evidence and retained final-state proof.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/restore-target-readiness.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-backup-manifest.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v6-restore-evidence.json"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-native-intake-off.png",
+      "bytes": 106056,
+      "sha256": "aea0ddee39ee64f195f9e288ed6df743d527f292b149af66fe75244af2a8a314",
+      "reason": "Intermediate import, editor or state capture superseded by native v6 archive, audit, restore evidence and retained final-state proof.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/restore-target-readiness.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-backup-manifest.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v6-restore-evidence.json"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-test-connections-before-v5.txt",
+      "bytes": 7980,
+      "sha256": "b6eee3a761714e8ffc728d2998ca1ed55aab3aea04d68c9a015e71ae2f257b40",
+      "reason": "Intermediate import, editor or state capture superseded by native v6 archive, audit, restore evidence and retained final-state proof.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/restore-target-readiness.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-backup-manifest.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v6-restore-evidence.json"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v5-import-history.txt",
+      "bytes": 6556,
+      "sha256": "c301cf212d4f97774bac4374be0825657b61fc28dd3a27f25a5c3bc1a1da7ae1",
+      "reason": "Intermediate import, editor or state capture superseded by native v6 archive, audit, restore evidence and retained final-state proof.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/restore-target-readiness.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-backup-manifest.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v6-restore-evidence.json"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v5-intake-restored-details.txt",
+      "bytes": 8821,
+      "sha256": "2713263ff419fc189163c912dc33106fcdbfde4d3df19a7d6709b0e7f5e9f59d",
+      "reason": "Intermediate import, editor or state capture superseded by native v6 archive, audit, restore evidence and retained final-state proof.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/restore-target-readiness.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-backup-manifest.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v6-restore-evidence.json"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v5-notifications-disabled.png",
+      "bytes": 98574,
+      "sha256": "22620df2ffdd3e67ba5f86da4535ba769c2178157ed553c369605cd97b5d7568",
+      "reason": "Intermediate import, editor or state capture superseded by native v6 archive, audit, restore evidence and retained final-state proof.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/restore-target-readiness.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-backup-manifest.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v6-restore-evidence.json"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v5-run-only-bindings.txt",
+      "bytes": 1547,
+      "sha256": "e1e4b54d08383b8999109b53f119fbcdb492cd5e6cc20ae4cf18f3f3ba18b74b",
+      "reason": "Intermediate import, editor or state capture superseded by native v6 archive, audit, restore evidence and retained final-state proof.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/restore-target-readiness.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-backup-manifest.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v6-restore-evidence.json"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa18-ornl-import-success.png",
+      "bytes": 104020,
+      "sha256": "23b6ef81ad95f7e544089268af5baaeea80d97d785294630fdefeeb95e4dbe41",
+      "reason": "Intermediate import, editor or state capture superseded by native v6 archive, audit, restore evidence and retained final-state proof.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/restore-target-readiness.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-backup-manifest.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v6-restore-evidence.json"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa18-ornl-restored-catalog-code.cs",
+      "bytes": 6901,
+      "sha256": "38d6b9ca805cb6e862521e343fb67afce4b7859fd99c431b754ee0a9f99725c0",
+      "reason": "Byte-identical restored connector code; canonical source and observed digest retained.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/_assets/project-catalog.cs",
+        ".wiki/features/powerapps-jsonl-intake/restore-target-readiness.md"
+      ]
+    },
+    {
+      "path": ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa18-ornl-restored-code.png",
+      "bytes": 124312,
+      "sha256": "1d0b015bfacad4fe91a1877fa7f736b82c71c94b892e0bfa7edd55a4478f62cd",
+      "reason": "Intermediate import, editor or state capture superseded by native v6 archive, audit, restore evidence and retained final-state proof.",
+      "retained_evidence": [
+        ".wiki/features/powerapps-jsonl-intake/restore-target-readiness.md",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-native-backup-manifest.json",
+        ".wiki/features/powerapps-jsonl-intake/_assets/solution-export/pa17-ornl-v6-restore-evidence.json"
+      ]
+    }
+  ]
+}

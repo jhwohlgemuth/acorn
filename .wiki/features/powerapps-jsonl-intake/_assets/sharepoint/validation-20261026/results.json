@@ -1,0 +1,225 @@
+{
+  "date": "2026-10-26",
+  "pa19": {
+    "status": "accepted",
+    "receiptListId": "fcae092f-c899-4254-bf13-1108997a0a77",
+    "projectListId": "40f2847e-3698-4ae6-b84b-7e42002c84eb",
+    "libraryId": "03074b27-a5e9-4c22-8fd4-0bd991a11a79",
+    "flowId": "d696dacf-9ed1-f111-a05c-001dd8062052",
+    "seedRun": "08584085450931705878654358585CU21",
+    "overflowRun": "08584085448123335092835947515CU11",
+    "realProjectRows": 1001,
+    "response": {
+      "error": "catalog_limit",
+      "projects": [],
+      "source": "sharepoint"
+    },
+    "finalFlowState": "Off"
+  },
+  "pa15": {
+    "status": "waiting-on-validation",
+    "jasonMalformedTail": {
+      "attempts": 1,
+      "accepted": true,
+      "run": "08584085452759265770943578230CU21",
+      "action": "Unsafe inbox PA17v2",
+      "actionStatus": "Succeeded"
+    },
+    "jasonMixed": {
+      "attempts": 5,
+      "accepted": false,
+      "runs": [
+        "08584085451199908876946138635CU03",
+        "08584085449511769116475001280CU09",
+        "08584085449152418976946274951CU01",
+        "08584085448726794641307271917CU26",
+        "08584085448308604335400116979CU29"
+      ],
+      "lastFailure": "Verify access to main: Forbidden",
+      "allReadbacksUnchanged": true
+    },
+    "jasonOver": {
+      "attempts": 1,
+      "accepted": false,
+      "run": "08584085447480811971957178384CU25",
+      "failure": "Verify access to main: Forbidden"
+    },
+    "finalFlowState": "Off",
+    "snapshots": [
+      {
+        "label": "oct26-start",
+        "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+        "size": 457,
+        "content_sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+        "commit_id": "d11827161294da3355bb134c0b694c26df65ce26",
+        "last_commit_id": "a4dbc224dadf8ef12edaa597f4887bf7fb79c5ec",
+        "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15"
+      },
+      {
+        "label": "oct26-tail-before",
+        "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+        "size": 511,
+        "content_sha256": "a8a7b950f046b8b8fd7ce96622d136a36930f1ae1b3a1aa86b4815b80a5f375f",
+        "commit_id": "70fad24c8094279c49b2df96de6e3defa30314d7",
+        "last_commit_id": "70fad24c8094279c49b2df96de6e3defa30314d7",
+        "sha256": "a8a7b950f046b8b8fd7ce96622d136a36930f1ae1b3a1aa86b4815b80a5f375f"
+      },
+      {
+        "label": "oct26-tail-after1",
+        "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+        "size": 511,
+        "content_sha256": "a8a7b950f046b8b8fd7ce96622d136a36930f1ae1b3a1aa86b4815b80a5f375f",
+        "commit_id": "70fad24c8094279c49b2df96de6e3defa30314d7",
+        "last_commit_id": "70fad24c8094279c49b2df96de6e3defa30314d7",
+        "sha256": "a8a7b950f046b8b8fd7ce96622d136a36930f1ae1b3a1aa86b4815b80a5f375f"
+      },
+      {
+        "label": "oct26-mixed-before",
+        "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+        "size": 512,
+        "content_sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a",
+        "commit_id": "d876e0af5f83aea499c1ea685117d2fbd16d11a5",
+        "last_commit_id": "d876e0af5f83aea499c1ea685117d2fbd16d11a5",
+        "sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a"
+      },
+      {
+        "label": "oct26-mixed-after1",
+        "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+        "size": 512,
+        "content_sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a",
+        "commit_id": "d876e0af5f83aea499c1ea685117d2fbd16d11a5",
+        "last_commit_id": "d876e0af5f83aea499c1ea685117d2fbd16d11a5",
+        "sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a"
+      },
+      {
+        "label": "oct26-mixed-after2",
+        "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+        "size": 512,
+        "content_sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a",
+        "commit_id": "d876e0af5f83aea499c1ea685117d2fbd16d11a5",
+        "last_commit_id": "d876e0af5f83aea499c1ea685117d2fbd16d11a5",
+        "sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a"
+      },
+      {
+        "label": "oct26-mixed-after3",
+        "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+        "size": 512,
+        "content_sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a",
+        "commit_id": "d876e0af5f83aea499c1ea685117d2fbd16d11a5",
+        "last_commit_id": "d876e0af5f83aea499c1ea685117d2fbd16d11a5",
+        "sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a"
+      },
+      {
+        "label": "oct26-mixed-after4",
+        "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+        "size": 512,
+        "content_sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a",
+        "commit_id": "d876e0af5f83aea499c1ea685117d2fbd16d11a5",
+        "last_commit_id": "d876e0af5f83aea499c1ea685117d2fbd16d11a5",
+        "sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a"
+      },
+      {
+        "label": "oct26-mixed-after5",
+        "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+        "size": 512,
+        "content_sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a",
+        "commit_id": "d876e0af5f83aea499c1ea685117d2fbd16d11a5",
+        "last_commit_id": "d876e0af5f83aea499c1ea685117d2fbd16d11a5",
+        "sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a"
+      },
+      {
+        "label": "oct26-over-before",
+        "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+        "size": 10485357,
+        "content_sha256": "c458ff7f6dd29629fe70d75f49cb7c1030e1518e958e3e24217f74bbceeb45f6",
+        "commit_id": "97b5797f98c87fc6af45a6d8e44e6d44dc0829e4",
+        "last_commit_id": "97b5797f98c87fc6af45a6d8e44e6d44dc0829e4",
+        "sha256": "c458ff7f6dd29629fe70d75f49cb7c1030e1518e958e3e24217f74bbceeb45f6"
+      },
+      {
+        "label": "oct26-over-after1",
+        "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+        "size": 10485357,
+        "content_sha256": "c458ff7f6dd29629fe70d75f49cb7c1030e1518e958e3e24217f74bbceeb45f6",
+        "commit_id": "97b5797f98c87fc6af45a6d8e44e6d44dc0829e4",
+        "last_commit_id": "97b5797f98c87fc6af45a6d8e44e6d44dc0829e4",
+        "sha256": "c458ff7f6dd29629fe70d75f49cb7c1030e1518e958e3e24217f74bbceeb45f6"
+      },
+      {
+        "label": "oct26-restored",
+        "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+        "size": 457,
+        "content_sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+        "commit_id": "b655ff3a831198359409daf3e87ef134bba54ad4",
+        "last_commit_id": "b655ff3a831198359409daf3e87ef134bba54ad4",
+        "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15"
+      }
+    ]
+  },
+  "pa20": {
+    "status": "accepted",
+    "flowId": "cad28673-a0d1-f111-a05c-001dd8062052",
+    "fixtureCatalogFilter": "Title eq 'PA19 TEST ONLY 1'",
+    "notificationActions": "removed in test copy",
+    "concurrencyBarrierSeconds": 20,
+    "sizeExact": {
+      "attempts": 2,
+      "firstRun": "08584085441978075346553308797CU14",
+      "firstOutcome": "test catalog Note field filter rejected before intake; corrected fixture filter to Title",
+      "runId": "08584085441170884863666160316CU20",
+      "status": "accepted",
+      "submissionId": "1d1e94f5-b49e-46d5-b954-edf595dc2ffe",
+      "rawBytes": 65535,
+      "storedBase64Exact": true,
+      "downloadedBytes": 65536,
+      "downloadedExact": true,
+      "sha256": "b25034445713786717829a342f903214e252ae7c405991c39753627b8c3e4701"
+    },
+    "sizeOver": {
+      "attempts": 1,
+      "runId": "08584085440963351392169365439CU03",
+      "status": "accepted",
+      "submissionId": "5bbdfcde-3431-4657-a0db-641d3bec82d6",
+      "rawBytes": 65536,
+      "rejectedAction": "Succeeded",
+      "persistenceActions": "Skipped",
+      "receiptAndFileAbsent": true
+    },
+    "concurrent": {
+      "status": "accepted",
+      "attempts": 1,
+      "runIds": [
+        "08584085438999226522209242785CU23",
+        "08584085438999125457678915904CU26"
+      ],
+      "submissionId": "440d8060-e073-4aa7-bbdc-64b672ef29d5",
+      "overlap": "Both ran the 20-second pre-create barrier; one Create receipt succeeded, the other failed; both reconciled and Mark exported succeeded",
+      "receiptRows": 1,
+      "fileCount": 1,
+      "storedPayloadExact": true,
+      "downloadedExact": true,
+      "downloadedSha256": "2d989b8b844243e59b9175a9b7b86703a552d41d5a0ee6d1ac962fc91b6dcca0"
+    },
+    "recovery": {
+      "status": "accepted",
+      "attempts": 1,
+      "failureRun": "08584085434970746138533118727CU15",
+      "recoveryRun": "08584085431401560075107709995CU23",
+      "submissionId": "73ea24a0-929c-438c-9140-f5e05e120e7e",
+      "fault": "Create JSONL targeted a deliberately absent TEST ONLY folder; actual list/readback paths unchanged",
+      "pendingExactReceipt": true,
+      "pendingReceiptId": 6,
+      "pendingFileAbsent": true,
+      "markExportedSkippedOnFailure": true,
+      "sameRawPayloadRetried": true,
+      "receiptCreationSkippedOnRetry": true,
+      "recoveredReceiptId": 6,
+      "storedPayloadExact": true,
+      "downloadedExact": true,
+      "bytes": 438,
+      "sha256": "6385ebecccef18607df62c29cea329cbbcca85dd1db30ae6799399572d266c02",
+      "originalCreateUriRestored": true
+    },
+    "finalState": "Off"
+  }
+}

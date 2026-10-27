@@ -1,0 +1,115 @@
+Browser tab: 1329059368, Title: "Permissions: PA19 TEST ONLY Receipts", URL: "https://ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/user.aspx?obj=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D,list&List=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D".
+1 AXWebArea Permissions: PA19 TEST ONLY Receipts, URL: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/user.aspx?obj=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D,list&List=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D
+	2 container aspnetForm
+		3 link Description: Turn on more accessible mode, ID: linkTurnOnAcc, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/user.aspx?obj=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D,list&List=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D#
+		4 link Description: Skip Ribbon Commands, Value: javascript:;
+		5 link Description: Skip to main content, Value: javascript:;
+		6 link Description: Turn off Animations, ID: linkTurnOffAnimation, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/user.aspx?obj=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D,list&List=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D#
+		7 container suiteBarTop
+			8 container O365_NavHeader
+				9 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+					10 text 
+				11 container topLevelRegion
+					12 container leftRegion
+						13 link Description: SharePoint, Value: ornl.sharepoint.com/_layouts/15/sharepoint.aspx?&login_hint=o9w@ornl.gov, ID: O365_AppName
+					14 container HeaderButtonRegion
+						15 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+						16 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+				17 container O365_HeaderRightRegion
+					18 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+						108 image JW
+		19 container globalNavBox
+			20 container ribbonBox
+				21 toolbar Ribbon
+					22 text To navigate through the Ribbon, use standard browser navigation keys. To skip between groups, use Ctrl+LEFT or Ctrl+RIGHT. To jump to the first Ribbon tab use Ctrl+[. To jump to the last selected command use Ctrl+]. To activate a command, use Enter.
+					23 container
+						24 tab group
+							25 tab (selectable, settable, boolean) BROWSE Tab 1 of 2., ID: Ribbon.Read-title, Value: 0
+BROWSE
+Tab 1 of 2.
+							26 text Permission Tools
+							27 content list Ribbon.PermissionContextualGroup_lower
+								28 tab (selectable, settable, boolean) PERMISSIONS Permission Tools group. Tab 2 of 2., ID: Ribbon.Permission-title, Value: 0
+PERMISSIONS
+Permission Tools group. Tab 2 of 2.
+						29 link Description: Focus on Content, Value: ornl.sharepoint.com/sites/ResearchEnablement/sites/ResearchEnablement/_catalogs/masterpage/#, ID: ctl00_fullscreenmodeBtn
+					30 container Description: PERMISSIONS Permission Tools group. Tab 2 of 2., ID: Ribbon.Permission
+						31 container
+							32 container Ribbon.Permission.Parent-LargeLarge-0-0
+								33 button Manage Parent, ID: Ribbon.Permission.Parent.ManageParent-Large
+									34 image
+									35 text Manage
+									36 text Parent
+								37 button Stop Inheriting Permissions, ID: Ribbon.Permission.Manage.StopInherit-Large
+									38 image
+									39 text Stop Inheriting
+									40 text Permissions
+							41 text Inheritance
+						42 container
+							43 button Check Permissions, ID: Ribbon.Permission.Check.CheckUsrPerm-Large
+								44 image
+								45 text Check
+								46 text Permissions
+							47 text Check
+		48 container s4-workspace
+			49 container contentRow
+				50 container DeltaPlaceHolderLeftNavBar
+					51 content list zz12_RootAspMenu
+						52 link Description: Home, Value: ornl.sharepoint.com/sites/ResearchEnablement
+						53 link Description: Conversations, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/groupstatus.aspx?Target=CONVERSATIONS&Source=QuickLaunch
+						54 link Description: Documents, Value: ornl.sharepoint.com/sites/ResearchEnablement/Shared%20Documents/Forms/AllItems.aspx
+						55 link Description: Notebook, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/Doc.aspx?sourcedoc=%7B92502988-e964-4074-8e41-6625180e6324%7D&action=editnew
+						56 link Description: Pages, Value: ornl.sharepoint.com/sites/ResearchEnablement/SitePages/Forms/ByAuthor.aspx
+						57 text Recent
+						58 link Description: Marketing Campaign, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Marketing%20Campaign/AllItems.aspx
+						59 link Description: Sponsor Highlights Intake Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/AllItems.aspx
+						60 link Description: Sponsor Highlights JSONL Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/Forms/AllItems.aspx
+						61 link Description: Sponsor Highlights Projects Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Projects%20Pilot/AllItems.aspx
+						62 link Description: Site contents, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/viewlsts.aspx
+						63 link Description: Recycle Bin, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/AdminRecycleBin.aspx?ql=1
+						64 container zz11_V4QuickLaunchMenu_NavMenu_Edit
+							65 link Description: EDIT LINKS, Help: Edit Links, ID: zz11_V4QuickLaunchMenu_NavMenu_EditLinks, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/user.aspx?obj=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D,list&List=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D#
+				66 container contentBox
+					67 container status_1
+						68 text Important Status
+						69 container status_1_body
+							70 text There are limited access users on this site. Users may have limited access if an item or document under the site has been shared with them. 
+							71 link Description: Show users., ID: showLimitedAccessUsers, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/user.aspx?obj=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D,list&List=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D&showLimitedAccessUsers=true
+							72 text This list inherits permissions from its parent.
+							73 link Description:  (Research Enablement), Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/user.aspx
+					74 container
+						75 table ctl00_PlaceHolderMain_rptrUsers
+							76 row
+								77 cell
+									78 image Description: Presence enabled for this column, ID: users_imn_header
+									79 link Description: Name, Value: javascript:__doPostBack('ctl00$PlaceHolderMain$rptrUsers','Sort$FullName')
+								80 cell
+									81 link Description: Type, Value: javascript:__doPostBack('ctl00$PlaceHolderMain$rptrUsers','Sort$PrincipalType')
+								82 cell
+									83 link Description: Permission Levels, Value: javascript:__doPostBack('ctl00$PlaceHolderMain$rptrUsers','Sort$UserRoles')
+							84 row
+								85 cell
+									86 container Research Enablement Members
+										87 link Description: Research Enablement Members, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/user.aspx?obj=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D,list&List=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D#
+								88 cell
+									89 text SharePoint Group
+								90 cell
+									91 text Edit
+							92 row
+								93 cell
+									94 container Research Enablement Owners
+										95 link Description: Research Enablement Owners, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/user.aspx?obj=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D,list&List=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D#
+								96 cell
+									97 text SharePoint Group
+								98 cell
+									99 text Full Control
+							100 row
+								101 cell
+									102 container Research Enablement Visitors
+										103 link Description: Research Enablement Visitors, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/user.aspx?obj=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D,list&List=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D#
+								104 cell
+									105 text SharePoint Group
+								106 cell
+									107 text Read
+
+The focused UI element is 1 AXWebArea Permissions: PA19 TEST ONLY Receipts, URL: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/user.aspx?obj=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D,list&List=%7BFCAE092F%2DC899%2D4254%2DBF13%2D1108997A0A77%7D

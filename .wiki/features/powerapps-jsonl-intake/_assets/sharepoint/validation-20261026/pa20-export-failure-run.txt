@@ -1,0 +1,319 @@
+Browser tab: 1329059361, Title: "Run History | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/cad28673-a0d1-f111-a05c-001dd8062052/runs/08584085434970746138533118727CU15?v3=false".
+1 AXWebArea Run History | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/cad28673-a0d1-f111-a05c-001dd8062052/runs/08584085434970746138533118727CU15?v3=false
+	2 container
+		3 container root
+			4 container
+				5 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				6 container o365header
+					7 container O365_NavHeader
+						8 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							100 text 
+						10 container ppuxOfficeHeaderTopLevelRegion
+							11 container ppuxOfficeHeaderLeftRegion
+								12 text Power Automate
+							13 container ppuxOfficeHeaderRightRegion
+								14 button Wohlgemuth, Jason
+									15 container
+										16 text Environments Wohlgemuth, Jason
+								17 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								18 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						19 container O365_HeaderRightRegion
+							20 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								21 image JW
+				22 container Main
+					23 button (expanded) Left navigation panel, Secondary Actions: Collapse
+						24 image Left navigation panel
+					25 menu
+						26 container
+							27 container aboveCustomizableItemsId0
+								28 Home
+								29 Create
+								30 Templates
+								31 Learn
+								32 My flows
+							33 Approvals, press right arrow to navigate more options
+							34 Solutions, press right arrow to navigate more options
+							35 Automation center, press right arrow to navigate more options
+							36 Process mining, press right arrow to navigate more options
+								37 image
+								38 text Process mining
+							39 AI hub, press right arrow to navigate more options
+							40 Connections, press right arrow to navigate more options
+							41 More
+							42 Power Platform
+				43 container
+					44 container
+						45 button Go back to previous page
+						46 container The flow name is PA20 TEST ONLY SharePoint Intake.
+							47 text PA20 TEST ONLY SharePoint Intake
+							48 container
+								127 text • Ran at 10/26/2026 9:09:48 PM
+						50 toolbar
+							51 button Description: Resubmit, ID: resubmitFlowRun
+								52 text Resubmit
+							53 button (disabled) Description: Cancel, ID: cancelFlowRun
+								54 text Cancel
+							55 button Description: Edit, ID: editFlow
+								56 text Edit
+							57 container
+								58 switch Description: New view, Value: 0, ID: switchDesignerFlowRunDetails
+								59 text New view
+						60 container Your flow ran successfully.
+							61 text Your flow ran successfully.
+						62 button Your flow ran successfully. Dismiss message.
+					63 container
+						64 container
+							65 button (collapsed) Power Apps (V2), Secondary Actions: Expand
+								66 button (collapsed) Power Apps (V2), Secondary Actions: Expand
+									67 text Power Apps (V2)
+							68 text 0 seconds. Succeeded
+							69 container 0 seconds
+								70 text 0s
+							71 image Succeeded
+						72 container
+							73 button (collapsed) Get items, Secondary Actions: Expand
+								74 button (collapsed) Get items, Secondary Actions: Expand
+									75 text Get items
+							76 text 0 seconds. Succeeded
+							77 container 0 seconds
+								78 text 0s
+							79 image Succeeded
+						80 container
+							81 container
+								82 button (expanded) SharePoint intake SP, Secondary Actions: Collapse
+									83 button (expanded) SharePoint intake SP, Secondary Actions: Collapse
+										84 text SharePoint intake SP
+								85 text 21 seconds. Failed
+								86 container 21 seconds
+									87 text 21s
+								88 image Failed
+							128 container MessageBar72
+								129 text ActionFailed
+								130 text .  An action failed. No dependent actions succeeded.
+							102 container
+								103 container
+									104 button (collapsed) Raw submission SP, Secondary Actions: Expand
+										131 button (collapsed) Raw submission SP, Secondary Actions: Expand
+											132 text Raw submission SP
+									133 text 0 seconds. Succeeded
+									134 container 0 seconds
+										135 text 0s
+									105 image Succeeded
+								106 container
+									107 button (collapsed) Parse submission SP, Secondary Actions: Expand
+										136 button (collapsed) Parse submission SP, Secondary Actions: Expand
+											137 text Parse submission SP
+									138 text 0 seconds. Succeeded
+									139 container 0 seconds
+										140 text 0s
+									108 image Succeeded
+								109 container
+									110 container
+										111 button (collapsed) Check timestamps SP, Secondary Actions: Expand
+											141 button (collapsed) Check timestamps SP, Secondary Actions: Expand
+												142 text Check timestamps SP
+										143 text 0 seconds. Succeeded
+										144 container 0 seconds
+											145 text 0s
+										112 image Succeeded
+									113 container
+										114 button (collapsed) Blank details SP, Secondary Actions: Expand
+											146 button (collapsed) Blank details SP, Secondary Actions: Expand
+												147 text Blank details SP
+										148 text 0 seconds. Succeeded
+										149 container 0 seconds
+											150 text 0s
+										115 image Succeeded
+									116 container
+										117 container
+											118 button (collapsed) Caller email SP, Secondary Actions: Expand
+												151 button (collapsed) Caller email SP, Secondary Actions: Expand
+													152 text Caller email SP
+											153 text 0 seconds. Succeeded
+											154 container 0 seconds
+												155 text 0s
+											119 image Succeeded
+										120 container
+											121 button (collapsed) Matching projects SP, Secondary Actions: Expand
+												156 button (collapsed) Matching projects SP, Secondary Actions: Expand
+													157 text Matching projects SP
+											158 text 0 seconds. Succeeded
+											159 container 0 seconds
+												160 text 0s
+											122 image Succeeded
+										123 container
+											161 container Envelope allowed SP 21 seconds. Failed 21s Failed Content not shown due to security configuration. If yes Find receipt SP 0 seconds. Succeeded 0s Succeeded Create if missing SP 20 seconds. Succeeded 20s Succeeded View when "Read receipt SP" will run under "Configure run after" Read receipt SP 0 seconds. Succeeded 0s
+												162 container
+													163 button (expanded) Envelope allowed SP, Secondary Actions: Collapse
+														164 button (expanded) Envelope allowed SP, Secondary Actions: Collapse
+															165 text Envelope allowed SP
+													166 container
+														167 text 21 seconds. Failed
+														168 container 21 seconds
+															169 text 21s
+														170 image Failed
+													194 container
+														195 text INPUTS Content not shown due to security configuration.
+													171 container
+														172 button (expanded) Description: If yes, Secondary Actions: Collapse
+															196 button (expanded) If yes, Secondary Actions: Collapse
+																197 text If yes
+														173 container
+															174 button (collapsed) Find receipt SP, Secondary Actions: Expand
+																198 button (collapsed) Find receipt SP, Secondary Actions: Expand
+																	199 text Find receipt SP
+															200 text 0 seconds. Succeeded
+															201 container 0 seconds
+																202 text 0s
+															175 image Succeeded
+														176 container
+															177 container
+																178 button (collapsed) Create if missing SP, Secondary Actions: Expand
+																	203 button (collapsed) Create if missing SP, Secondary Actions: Expand
+																		204 text Create if missing SP
+																205 text 20 seconds. Succeeded
+																206 container 20 seconds
+																	207 text 20s
+																179 image Succeeded
+															180 container
+																181 button View when "Read receipt SP" will run under "Configure run after"
+															182 container
+																183 button (collapsed) Read receipt SP, Secondary Actions: Expand
+																	208 button (collapsed) Read receipt SP, Secondary Actions: Expand
+																		209 text Read receipt SP
+																210 text 0 seconds. Succeeded
+																211 container 0 seconds
+																	212 text 0s
+																184 image Succeeded
+															185 container
+																225 container One receipt SP 0 seconds. Failed 0s Failed Content not shown due to security configuration. If yes Exact receipt SP 0 seconds. Failed 0s Failed Content not shown due to security configuration. If yes Accepted receipt SP 0 seconds. Succeeded 0s Succeeded
+																	226 container
+																		227 button (expanded) One receipt SP, Secondary Actions: Collapse
+																			228 button (expanded) One receipt SP, Secondary Actions: Collapse
+																				229 text One receipt SP
+																		230 container
+																			231 text 0 seconds. Failed
+																			232 container 0 seconds
+																				233 text 0s
+																			234 image Failed
+																		241 container
+																			242 text INPUTS Content not shown due to security configuration.
+																		235 container
+																			236 button (expanded) Description: If yes, Secondary Actions: Collapse
+																				243 button (expanded) If yes, Secondary Actions: Collapse
+																					244 text If yes
+																			252 container Exact receipt SP 0 seconds. Failed 0s Failed Content not shown due to security configuration. If yes Accepted receipt SP 0 seconds. Succeeded 0s Succeeded Create JSONL SP 0 seconds. Failed 0s Failed View when "Read JSONL SP" will run under "Configure run after" Read JSONL SP 0 seconds. Failed 0s Failed
+																				253 container
+																					254 button (expanded) Exact receipt SP, Secondary Actions: Collapse
+																						255 button (expanded) Exact receipt SP, Secondary Actions: Collapse
+																							256 text Exact receipt SP
+																					257 container
+																						258 text 0 seconds. Failed
+																						259 container 0 seconds
+																							260 text 0s
+																						261 image Failed
+																					285 container
+																						286 text INPUTS Content not shown due to security configuration.
+																					262 container
+																						263 button (expanded) Description: If yes, Secondary Actions: Collapse
+																							287 button (expanded) If yes, Secondary Actions: Collapse
+																								288 text If yes
+																						264 container
+																							265 button (collapsed) Accepted receipt SP, Secondary Actions: Expand
+																								289 button (collapsed) Accepted receipt SP, Secondary Actions: Expand
+																									290 text Accepted receipt SP
+																							291 text 0 seconds. Succeeded
+																							292 container 0 seconds
+																								293 text 0s
+																							266 image Succeeded
+																						267 container
+																							268 container
+																								269 button (collapsed) Create JSONL SP, Secondary Actions: Expand
+																									294 button (collapsed) Create JSONL SP, Secondary Actions: Expand
+																										295 text Create JSONL SP
+																								296 text 0 seconds. Failed
+																								297 container 0 seconds
+																									298 text 0s
+																								270 image Failed
+																							271 container
+																								272 button View when "Read JSONL SP" will run under "Configure run after"
+																							273 container
+																								274 button (collapsed) Read JSONL SP, Secondary Actions: Expand
+																									299 button (collapsed) Read JSONL SP, Secondary Actions: Expand
+																										300 text Read JSONL SP
+																								301 text 0 seconds. Failed
+																								302 container 0 seconds
+																									303 text 0s
+																								275 image Failed
+																							276 container
+																								316 container Exact export SP 0 seconds. Skipped 0s Skipped INPUTS If yes Mark exported SP 0 seconds. Skipped 0s Skipped If no
+																									317 container
+																										318 button (expanded) Exact export SP, Secondary Actions: Collapse
+																											319 button (expanded) Exact export SP, Secondary Actions: Collapse
+																												320 text Exact export SP
+																										321 container
+																											322 text 0 seconds. Skipped
+																											323 container 0 seconds
+																												324 text 0s
+																											325 image Skipped
+																										332 container MessageBar81
+																											333 text ActionConditionFailed
+																											334 text .  The execution of template action 'Exact_export_SP' is skipped: the 'runAfter' condition for action 'Read_JSONL_SP' is not satisfied. Expected status values 'Succeeded' and actual value 'Failed'.
+																										335 text INPUTS
+																										336 container INPUTS
+																											337 text No inputs
+																										326 container
+																											327 button (expanded) Description: If yes, Secondary Actions: Collapse
+																												338 button (expanded) If yes, Secondary Actions: Collapse
+																													339 text If yes
+																											328 container
+																												329 button (collapsed) Mark exported SP, Secondary Actions: Expand
+																													340 button (collapsed) Mark exported SP, Secondary Actions: Expand
+																														341 text Mark exported SP
+																												342 text 0 seconds. Skipped
+																												343 container 0 seconds
+																													344 text 0s
+																												330 image Skipped
+																										331 button (expanded) Description: If no, Secondary Actions: Collapse
+																											345 button (expanded) If no, Secondary Actions: Collapse
+																												346 text If no
+																					280 container
+																						281 button (expanded) Description: If no, Secondary Actions: Collapse
+																							309 button (expanded) If no, Secondary Actions: Collapse
+																								310 text If no
+																						282 container
+																							283 button (collapsed) Conflict SP, Secondary Actions: Expand
+																								311 button (collapsed) Conflict SP, Secondary Actions: Expand
+																									312 text Conflict SP
+																							313 text 0 seconds. Skipped
+																							314 container 0 seconds
+																								315 text 0s
+																							284 image Skipped
+																		240 button (expanded) Description: If no, Secondary Actions: Collapse
+																			250 button (expanded) If no, Secondary Actions: Collapse
+																				251 text If no
+													189 container
+														190 button (expanded) Description: If no, Secondary Actions: Collapse
+															218 button (expanded) If no, Secondary Actions: Collapse
+																219 text If no
+														191 container
+															192 button (collapsed) Rejected SP, Secondary Actions: Expand
+																220 button (collapsed) Rejected SP, Secondary Actions: Expand
+																	221 text Rejected SP
+															222 text 0 seconds. Skipped
+															223 container 0 seconds
+																224 text 0s
+															193 image Skipped
+							89 container
+								90 button View when "SharePoint response SP" will run under "Configure run after"
+							91 container
+								92 button (collapsed) SharePoint response SP, Secondary Actions: Expand
+									93 button (collapsed) SharePoint response SP, Secondary Actions: Expand
+										94 text SharePoint response SP
+								95 text 0 seconds. Succeeded
+								96 container 0 seconds
+									97 text 0s
+								98 image Succeeded
+					99 container flowCtrl.contextualHelpPanel.title
+
+The focused UI element is 318 button (expanded) Exact export SP, Secondary Actions: Collapse

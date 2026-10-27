@@ -1,6 +1,16 @@
 # PA-15 boundary acceptance
 
-October 25, 2026: **Waiting on validation.** All listed field limits and field-rejection cases passed in both isolated environments. The requested five-attempt series completed 34 cloud runs and added three accepted cases: ORNL's 20-detail append, malformed-tail rejection and one-byte-over-cap rejection. Each still-open case received five attempts; GitLab HTTP 403 or 504 responses prevented acceptance. Remaining work is mixed-line preservation and exact-cap append in both environments, plus malformed-tail and oversized-file rejection in Jason. Both test flows are Off and the original isolated baseline is restored. No operational component or inbox was changed.
+October 26, 2026: **Waiting on validation.** Jason malformed-tail rejection passed in the new isolated pass below. Remaining work is mixed-line preservation and exact-cap append in both environments, plus oversized-file rejection in Jason. Test flows are Off and the original isolated baseline is restored.
+
+Earlier October 25 checkpoint: All listed field limits and field-rejection cases passed in both isolated environments. The requested five-attempt series completed 34 cloud runs and added three accepted cases: ORNL's 20-detail append, malformed-tail rejection and one-byte-over-cap rejection. Each still-open case received five attempts; GitLab HTTP 403 or 504 responses prevented acceptance. Remaining work is mixed-line preservation and exact-cap append in both environments, plus malformed-tail and oversized-file rejection in Jason. Both test flows are Off and the original isolated baseline is restored. No operational component or inbox was changed.
+
+## October 26 isolated validation pass
+
+Jason malformed-tail rejection is now accepted on the first new attempt: run `08584085452759265770943578230CU21` reached `Unsafe inbox PA17v2` (Succeeded), while new-byte/append actions were skipped. Independent reads before and after showed the same 511-byte SHA-256 `a8a7b950f046b8b8fd7ce96622d136a36930f1ae1b3a1aa86b4815b80a5f375f` and file commit `70fad24c8094279c49b2df96de6e3defa30314d7`.
+
+Jason mixed-line preservation received five fresh attempts, using the same new immutable UUID and exact payload. None appended; independent reads after each retained the same 512 bytes and revision. The final run stopped at `Verify access to main` with Forbidden, and persistence was skipped. The later Jason one-byte-over fixture received one attempt, also Forbidden at branch preflight; the size guard did not run. No new acceptance is claimed for those cases. Exact-cap and ORNL cases were not rerun in this pass; they remain open. PA-16 remains dependent on full PA-15 acceptance.
+
+[Run IDs and independent snapshots](_assets/sharepoint/validation-20261026/results.json) preserve this pass. The live Jason flow resource ID is `aa7d4202-cd93-7d22-3ebc-4b8321273543`; the table below retains the separate native workflow ID. The test notification guard was rechecked as constant false before enabling. The flow was returned to Off. Conditional restoration returned the isolated inbox to the original 457 bytes and SHA-256 `adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15` at commit `b655ff3a831198359409daf3e87ef134bba54ad4`. The operational inbox, flows and credentials were unchanged.
 
 ## Isolation and source
 
@@ -101,16 +111,16 @@ Every run ID and decisive action result is in the evidence file. The Jason mixed
 
 The final readbacks cover serialized groups of runs when the intended write was never reached. Unchanged last file commits and exact bytes rule out an intervening append by these append-only test scopes. A failed response is never used alone to infer that a write did not happen.
 
-## Remaining matrix
+## Current acceptance matrix (October 26)
 
 | Case | Current evidence | Remaining acceptance |
 | --- | --- | --- |
 | Summary 1,200; detail 1,000; 20 details | Exact one-line appends passed in both environments | None for these dimensions |
 | Summary 1,201; detail 1,001; 21 details; whitespace summary/detail; empty detail array | Individual server rejections passed in both environments with no write; earlier Jason over-limit evidence is in the [runbook](pilot-runbook.md#isolated-live-server-boundaries) | None for these dimensions |
-| Blank/rejected lines, mixed LF/CRLF and Unicode | Five new attempts per environment failed with 403/504; no accepted append | Real conditional append preserves every original byte in both environments |
-| Malformed tail without terminal LF | ORNL intended rejection passed; five new Jason attempts stopped upstream | Jason runtime unsafe-tail result and unchanged file/revision |
+| Blank/rejected lines, mixed LF/CRLF and Unicode | Earlier five attempts per environment failed with 403/504; five additional October 26 Jason attempts produced no append | Real conditional append preserves every original byte in both environments |
+| Malformed tail without terminal LF | Intended rejection passed in both environments; Jason accepted October 26 with exact unchanged bytes/revision | None for this dimension |
 | Exact append-size cap | Five new attempts per environment stopped upstream; installed fixtures and revisions unchanged | Exact 10,485,759-byte accepted append in both environments |
-| One byte over append-size cap | ORNL intended rejection passed; five new Jason attempts stopped upstream | Jason runtime rejection and unchanged file/revision |
+| One byte over append-size cap | ORNL intended rejection passed; earlier five Jason attempts and one October 26 attempt stopped upstream | Jason runtime rejection and unchanged file/revision |
 
 Retries used unchanged authorized connections; no network or credential control was changed. After the second retry's successful count append, mixed-content, unsafe-tail and exact-cap fixtures were installed only at the isolated path and tested individually. Their upstream denials do not count as rejection or preservation passes. This does not reopen PA-02 or require an administrator ticket; it preserves the known limitation and the unpassed PA-15 cases. PA-16 concurrency and PA-17 restoration retain their independent gates.
 
@@ -126,9 +136,9 @@ Both accepted records were preserved as local evidence and then removed from the
 
 The earlier [final readback](_assets/boundary-tests/final-restored-baseline-metadata.json) and the later `retry-final-baseline` readback in [retry evidence](_assets/boundary-tests/retry-results.json) confirm **457 bytes**, SHA-256 `adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15`, exactly matching the original baseline. The later accepted detail record was restored conditionally in commit `d2d04425bfb54d63f3a5df7d7d5eba4431f8821c`; the remaining runs in that retry left that file revision unchanged. There were no other writers to reconcile. Reuse the saved UUID only for the same frozen payload; immutable GitLab history still contains the accepted test commits even though the fixture file was restored.
 
-After the second retry, conditional restoration commit `835f1433a7ef78f900c9bbb2b42223bc7bffd5b1` returned the isolated file to the same original 457-byte baseline. ORNL's subsequent attempts left that revision unchanged, confirmed by the `final-baseline` snapshot in the second retry evidence. Both copies were reloaded and confirmed **Off**: [Jason](_assets/boundary-tests/retry2-jason-off.png), [ORNL](_assets/boundary-tests/retry2-ornl-off.png).
+After the second retry, conditional restoration commit `835f1433a7ef78f900c9bbb2b42223bc7bffd5b1` returned the isolated file to the same original 457-byte baseline. ORNL's subsequent attempts left that revision unchanged, confirmed by the `final-baseline` snapshot in the [second retry evidence](_assets/boundary-tests/retry2-results.json). Both copies were reloaded and confirmed **Off**. Later final-state captures below supersede the intermediate screenshots.
 
-After the requested three-attempt series, the latest restoration commit is `ec84e2b6512529466511ca30d9ce2b6a198e2d76`. Both `rounds-restored` and `rounds-recovery-probe` snapshots confirm the original 457 bytes, the original SHA-256 above, and that same file revision. Final Off-state proofs: [Jason](_assets/boundary-tests/rounds-jason-off.png), [ORNL](_assets/boundary-tests/rounds-ornl-off.png).
+After the requested three-attempt series, restoration commit `ec84e2b6512529466511ca30d9ce2b6a198e2d76` was recorded. Both `rounds-restored` and `rounds-recovery-probe` snapshots in the [series evidence](_assets/boundary-tests/rounds-results.json) confirm the original 457 bytes, the original SHA-256 above, and that same file revision. Both copies were confirmed Off; later final-state captures below supersede the intermediate screenshots.
 
 After the five-attempt series, conditional restoration commit `a4dbc224dadf8ef12edaa597f4887bf7fb79c5ec` restored the original **457 bytes** and SHA-256 above. The `five-restored` snapshot in the [evidence](_assets/boundary-tests/five-results.json) verifies the readback. Both copies were reloaded and confirmed **Off**: [Jason](_assets/boundary-tests/five-jason-off.png), [ORNL](_assets/boundary-tests/five-ornl-off.png). The compact evidence replaces transient run captures; only the small accepted count-append body and final Off screenshots were retained.
 

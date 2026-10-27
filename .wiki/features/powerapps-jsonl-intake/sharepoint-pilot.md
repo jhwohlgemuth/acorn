@@ -20,6 +20,8 @@ The original Sponsor Highlights app, GitLab intake/catalog bindings and operatio
 
 Solution **ACORN SharePoint Pilot** (`0fafd397-64d1-f111-a05c-001dd8062052`) was created with the two pilot flows and SharePoint connection reference `cr1d0_sharedsharepointonline_0c871`. This registers the flows for selection in Studio; it does not add Dataverse data actions to the intake. The subsequent Teams action uses existing **Microsoft Teams Default-52fd4**, under `o9w@ornl.gov`; the connection credentials were not changed. The app uses `SponsorHighlightSharePointPending` for browser recovery, separate from the original GitLab key. It distinguishes a received SharePoint receipt from a confirmed JSONL export; a pending export retains the UUID and offers a safe retry. [Form formula changes](_assets/sharepoint/form-patches.json) were compared with the live [layout](_assets/sharepoint/layout.pa.yaml) and [result panel](_assets/sharepoint/result-panel.pa.yaml). No original GitLab bindings, commit fields, queued states or original storage key remain in those captured controls. The app still needs inclusion in an exported native solution backup.
 
+The owner's October 26 confirmation resolves DH's original access report as a missing premium entitlement for the GitLab custom connector. [Access resolution](intake-access-decisions.md#original-participant-licensing-issue-resolved) records that conclusion. No DH-specific retest is pending; PA-22 separately verifies this SharePoint app with any approved standard-license participant.
+
 # Intake storage contract
 
 | Column | Saved type/settings | Purpose |
@@ -83,7 +85,7 @@ The formatted Teams notice goes to Jason through the existing connection's self-
 
 The reproducible [clipboard builder](_assets/sharepoint/build-intake.py) retains the existing envelope and caller validation, creates a unique list receipt, compares exact stored payload bytes, creates a receipt-named file without overwriting, and reads the file back before marking it exported. Its two generated clipboard actions are deployment source, not an importable Power Platform backup. Compose and Parse JSON retain the platform-supported secure-input settings. The native classic designer required `string(null)` for empty string expression arguments. Response fields require dynamic-field schema metadata; configure the response to run after all four scope outcomes in the designer because clipboard insertion resets that outer dependency.
 
-The [active plan](index.md) assigns PA-19 storage/catalog acceptance, PA-20 validated intake and exact export, PA-21 isolated app binding/recovery, PA-22 intended-user access and manual handoff, PA-24 native backup/restore, and PA-25 any later cutover. Preserve GitLab pending receipts in the original app and never automatically reroute an unresolved submission. The SharePoint app uses its own browser storage key and reports received/exported independently of GitLab commit receipts.
+PA-19 storage/catalog and PA-20 validated intake/exact export are accepted below. The [active plan](index.md) retains PA-21 isolated app binding/recovery, PA-22 intended-user access and manual handoff, PA-23/26 collected-export acceptance/repair, PA-24 native backup/restore, and PA-25 any later cutover. Preserve GitLab pending receipts in the original app and never automatically reroute an unresolved submission. The SharePoint app uses its own browser storage key and reports received/exported independently of GitLab commit receipts.
 
 
 # Combined logbook export
@@ -121,3 +123,47 @@ For the current repeatable command flow using `acorn`, interactive apply and def
 # October 26 plan review: exporter failure contract
 
 The saved builder and clipboard definition let `Read_previous_logbook_LB` failure, timeout or skip proceed to `Changed_logbook_LB`; that condition can call the overwrite operation. They do not distinguish a confirmed missing file from a denied or unavailable read. Readback mismatch terminates after the attempted write and does not restore the old file. The earlier preservation statement applies to validation/read/size failures that stop before publication; it is not a rollback guarantee after a write begins. This is a saved-source review, not a fresh live failure test. PA-26 owns an isolated repair; PA-23 owns acceptance of the resulting snapshot behavior. The operational exporter has not been changed by this review.
+
+# October 26 isolated storage and catalog acceptance (PA-19)
+
+PA-19 accepted against separate copies in Research Enablement, using the existing authorized SharePoint connection in Wohlgemuth, Jason. Operational list schemas, rows, permissions, catalog, app bindings and flow definitions were unchanged. The original catalog still contained 13 projects, the receipt list six rows and the JSONL library seven files in the final storage inventory. This does not establish standard-license participant access (PA-22).
+
+| Isolated resource | ID |
+| --- | --- |
+| PA19 TEST ONLY Receipts | `fcae092f-c899-4254-bf13-1108997a0a77` |
+| PA19 TEST ONLY Projects | `40f2847e-3698-4ae6-b84b-7e42002c84eb` |
+| PA19 TEST ONLY JSONL | `03074b27-a5e9-4c22-8fd4-0bd991a11a79` |
+| PA19 TEST ONLY SharePoint Catalog | `d696dacf-9ed1-f111-a05c-001dd8062052` |
+
+The lists/library copied the corresponding pilot schemas without copying their content. Each inherits the parent site's Research Enablement Members (Edit), Owners (Full Control) and Visitors (Read) roles. No permissions were changed. Limited-access users are reported by SharePoint; inheritance inspection does not prove every intended contributor can access the site or app.
+
+The receipt list stored and reopened exactly 65,536 UTF-8 bytes, including Unicode, encoded across PayloadBase64A (45,000 characters) and PayloadBase64B (42,384). Both reopened columns matched exactly. A second item using the same submission UUID was rejected with “This value already exists in the list”; it was cancelled and only one fixture row remained. This synthetic storage fixture deliberately is not a valid intake envelope and must never enter reports. It proves column capacity, not PA-20 envelope acceptance.
+
+The catalog flow was saved as an isolated copy and its Get items destination changed only to the test project list. The retained query requests 1,001 rows ordered by Title. A test-only seeding action after the response created 1,001 synthetic rows once, only when the list was empty. Setup run `08584085450931705878654358585CU21` succeeded; site contents independently showed exactly 1,001 rows. Bulk grid paste had failed to populate the empty list and was cleared before this setup; no incomplete paste was counted as acceptance.
+
+Overflow acceptance run `08584085448123335092835947515CU11` succeeded on its first attempt. The unchanged response expression returned `{"error":"catalog_limit","projects":[],"source":"sharepoint"}` after reading the real test list. The error did not expose a truncated project selection. No mocked connector outputs were used. The existing successful 13-project pilot evidence remains the normal-path acceptance; no live GitLab synchronization is claimed.
+
+[Capacity and duplicate evidence](_assets/sharepoint/validation-20261026/pa19-capacity.json), [overflow run](_assets/sharepoint/validation-20261026/pa19-overflow-run.txt), [site counts](_assets/sharepoint/validation-20261026/pa19-site-counts.txt), and the three permission captures in that directory preserve the acceptance. The isolated list/library URLs use their displayed names under the Research Enablement site. These resources are retained for PA-20/21/23/26; the capacity fixture is not input for an exporter test. PA-19's seeding helper is test-only and is not part of any release candidate.
+
+The PA19 catalog test flow was verified Off after acceptance. Its synthetic resources remain isolated for subsequent validation; no release/cutover was performed.
+
+# October 26 isolated intake acceptance (PA-20)
+
+The separate `PA20 TEST ONLY SharePoint Intake` flow (`cad28673-a0d1-f111-a05c-001dd8062052`) copies the deployed native intake validation and persistence actions. Its receipt writes and file creation/readback point only to PA19 test storage. Notifications were removed. The test catalog query selects `Title eq 'PA19 TEST ONLY 1'` from the 1,001-row test list; the native project-match and catalog-count guards remain intact. A 20-second test-only wait immediately before receipt creation makes concurrent creation attempts overlap. Neither fixture selection nor this wait belongs in a production release.
+
+The flow checker reported zero errors and seven connection-change warnings for the unassociated test copy. Native saved action definitions and the dated [acceptance ledger](_assets/sharepoint/validation-20261026/results.json) are retained alongside the fixtures. Operational components and their credentials were unchanged.
+
+| Case | Accepted evidence |
+| --- | --- |
+| Exact raw payload limit | Run `08584085441170884863666160316CU20` stored 65,535 UTF-8 bytes, including Unicode. Reopened payload columns matched exactly (45,000 + 42,380 Base64 characters). The independently downloaded file matched the original bytes plus one LF: 65,536 bytes, SHA-256 `b25034445713786717829a342f903214e252ae7c405991c39753627b8c3e4701`. |
+| One byte over raw limit | Run `08584085440963351392169365439CU03` reached `Rejected SP`; receipt operations were skipped and no receipt/file for that UUID existed. The submitted envelope was 65,536 bytes. |
+| Simultaneous same-ID submissions | Runs `08584085438999226522209242785CU23` and `08584085438999125457678915904CU26` overlapped their pre-create waits. One receipt creation succeeded and the other failed; both reconciled to the exact receipt and completed `Mark exported SP`. One row and one file existed for UUID `440d8060-e073-4aa7-bbdc-64b672ef29d5`; reopened payload and independently downloaded 436-byte JSONL matched exactly. |
+| Export failure and recovery | Run `08584085434970746138533118727CU15` stored the exact receipt but could not create its file in a deliberately missing test folder. The receipt remained Pending and `Mark exported SP` was skipped. After restoring the normal test folder, run `08584085431401560075107709995CU23` retried the same UUID/payload, skipped receipt creation, reused row 6 and completed verified export. One 438-byte file matched the original bytes plus LF, SHA-256 `6385ebecccef18607df62c29cea329cbbcca85dd1db30ae6799399572d266c02`. |
+
+Exact-limit acceptance took two attempts. The first, `08584085441978075346553308797CU14`, stopped before intake because the fixture query tried to filter the multiline `ProjectId` column, which SharePoint disallows. The test-only query was corrected to the single-line Title column. The over-limit case and concurrent pair each passed on their first attempt. A green overall run alone was never counted as acceptance.
+
+The failure/recovery pair passed on its first attempt. UUID `73ea24a0-929c-438c-9140-f5e05e120e7e` retained the same exact payload and receipt ID across Pending and Exported states. File absence before recovery and independent downloaded bytes afterward corroborate the action statuses. The fault changed only the test file-creation destination; receipt storage and readback destinations stayed isolated and correct. This accepts recovery from that missing-folder failure, not every outage or permission failure.
+
+PA-20 is accepted with the previously retained new/replay/conflict/malformed and notification evidence. The normal test file-creation URI was restored and checked in saved code, and the test flow was verified **Off**. The isolated receipt list contains four fixture rows and the library three individual files. Keep the invalid PA-19 capacity fixture out of aggregate-export inputs and all synthetic rows out of real reports.
+
+[Failure actions](_assets/sharepoint/validation-20261026/pa20-export-failure-run.txt), [recovery actions](_assets/sharepoint/validation-20261026/pa20-recovery-run.txt), [downloaded recovery file](_assets/sharepoint/validation-20261026/pa20-recovery-downloaded.jsonl), and [final Off state](_assets/sharepoint/validation-20261026/pa20-final-off.png) preserve the result. The individual JSONL evidence does not accept the collected-logbook exporter (PA-23/26), browser recovery (PA-21), or standard-user licensing (PA-22). Neither operational pilot was edited or disabled.

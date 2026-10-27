@@ -1,0 +1,83 @@
+Browser tab: 1329059361, Title: "Edit your flow | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/solutions/~preferred/flows/cad28673-a0d1-f111-a05c-001dd8062052?v3=false&v3survey=true".
+1 AXWebArea Edit your flow | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/solutions/~preferred/flows/cad28673-a0d1-f111-a05c-001dd8062052?v3=false&v3survey=true
+	2 container Flow checker
+		3 container
+			4 heading Flow checker, Value: 1, ID: Panel1056-headerText
+				5 text Flow checker
+			6 button Close
+			7 table
+				8 row (expanded) Description: Errors 0, Secondary Actions: Collapse
+					9 cell
+						10 button (expanded) Description: expand collapse group, Secondary Actions: Collapse
+					11 text Errors
+					12 text ( 0 )
+				13 row (expanded) Description: Warnings 7, Secondary Actions: Collapse
+					14 cell
+						15 button (expanded) Description: expand collapse group, Secondary Actions: Collapse
+					16 text Warnings
+					17 text ( 7 )
+				18 row (expanded) expand collapse group Get_items (1), Secondary Actions: Collapse
+					19 cell
+						20 button (expanded) Description: expand collapse group, Secondary Actions: Collapse
+					21 text Get_items
+					22 text ( 1 )
+				23 container Description: Get_items, ID: GroupedListSection1609
+					24 row You may break your Power Apps triggered flow with the changes on the added connections. Make sure to refresh the flow in Power Apps and publish the app.
+						25 cell
+							26 text You may break your Power Apps triggered flow with the changes on the added connections. Make sure to refresh the flow in Power Apps and publish the app.
+				27 row (expanded) expand collapse group Find_receipt_SP (1), Secondary Actions: Collapse
+					28 cell
+						29 button (expanded) Description: expand collapse group, Secondary Actions: Collapse
+					30 text Find_receipt_SP
+					31 text ( 1 )
+				32 container Description: Find_receipt_SP, ID: GroupedListSection1613
+					33 row You may break your Power Apps triggered flow with the changes on the added connections. Make sure to refresh the flow in Power Apps and publish the app.
+						34 cell
+							35 text You may break your Power Apps triggered flow with the changes on the added connections. Make sure to refresh the flow in Power Apps and publish the app.
+				36 row (expanded) expand collapse group Create_receipt_SP (1), Secondary Actions: Collapse
+					37 cell
+						38 button (expanded) Description: expand collapse group, Secondary Actions: Collapse
+					39 text Create_receipt_SP
+					40 text ( 1 )
+				41 container Description: Create_receipt_SP, ID: GroupedListSection1615
+					42 row You may break your Power Apps triggered flow with the changes on the added connections. Make sure to refresh the flow in Power Apps and publish the app.
+						43 cell
+							44 text You may break your Power Apps triggered flow with the changes on the added connections. Make sure to refresh the flow in Power Apps and publish the app.
+				45 row (expanded) expand collapse group Read_receipt_SP (1), Secondary Actions: Collapse
+					46 cell
+						47 button (expanded) Description: expand collapse group, Secondary Actions: Collapse
+					48 text Read_receipt_SP
+					49 text ( 1 )
+				50 container Description: Read_receipt_SP, ID: GroupedListSection1617
+					51 row You may break your Power Apps triggered flow with the changes on the added connections. Make sure to refresh the flow in Power Apps and publish the app.
+						52 cell
+							53 text You may break your Power Apps triggered flow with the changes on the added connections. Make sure to refresh the flow in Power Apps and publish the app.
+				54 row (expanded) expand collapse group Create_JSONL_SP (1), Secondary Actions: Collapse
+					55 cell
+						56 button (expanded) Description: expand collapse group, Secondary Actions: Collapse
+					57 text Create_JSONL_SP
+					58 text ( 1 )
+				59 container Description: Create_JSONL_SP, ID: GroupedListSection1619
+					60 row You may break your Power Apps triggered flow with the changes on the added connections. Make sure to refresh the flow in Power Apps and publish the app.
+						61 cell
+							62 text You may break your Power Apps triggered flow with the changes on the added connections. Make sure to refresh the flow in Power Apps and publish the app.
+				63 row (expanded) expand collapse group Read_JSONL_SP (1), Secondary Actions: Collapse
+					64 cell
+						65 button (expanded) Description: expand collapse group, Secondary Actions: Collapse
+					66 text Read_JSONL_SP
+					67 text ( 1 )
+				68 container Description: Read_JSONL_SP, ID: GroupedListSection1621
+					69 row You may break your Power Apps triggered flow with the changes on the added connections. Make sure to refresh the flow in Power Apps and publish the app.
+						70 cell
+							71 text You may break your Power Apps triggered flow with the changes on the added connections. Make sure to refresh the flow in Power Apps and publish the app.
+				72 row (expanded) expand collapse group Mark_exported_SP (1), Secondary Actions: Collapse
+					73 cell
+						74 button (expanded) Description: expand collapse group, Secondary Actions: Collapse
+					75 text Mark_exported_SP
+					76 text ( 1 )
+				77 container Description: Mark_exported_SP, ID: GroupedListSection1623
+					78 row You may break your Power Apps triggered flow with the changes on the added connections. Make sure to refresh the flow in Power Apps and publish the app.
+						79 cell
+							80 text You may break your Power Apps triggered flow with the changes on the added connections. Make sure to refresh the flow in Power Apps and publish the app.
+
+The focused UI element is 6 button Close
