@@ -294,7 +294,7 @@ impl Vendored for Resource {
             | Resource::FPGA { architecture, .. } => architecture.as_ref().map(Architecture::from),
             | Resource::GPU { architecture, .. } => architecture.as_ref().map(Architecture::from),
             | Resource::NPU { architecture, .. } | Resource::TPU { architecture, .. } => architecture.as_ref().map(Architecture::from),
-            | Resource::Neuromorphic { .. } | Resource::Quantum { .. } | Resource::Sensor { .. } | Resource::Other(_) => None,
+            | Resource::Neuromorphic { .. } | Resource::Quantum(_) | Resource::Sensor { .. } | Resource::Other(_) => None,
         }
     }
     fn vendor(&self) -> Option<Vendor> {
@@ -308,12 +308,12 @@ impl Vendored for Resource {
             | Resource::NPU { vendor, .. }
             | Resource::Neuromorphic { vendor, .. }
             | Resource::Sensor { vendor, .. }
-            | Resource::TPU { vendor, .. }
-            | Resource::Quantum { vendor, .. } => vendor.clone(),
+            | Resource::TPU { vendor, .. } => vendor.clone(),
+            | Resource::Quantum(resource) => resource.vendor.clone(),
             | Resource::Other(_) => None,
         };
         match self {
-            | Resource::Quantum { model, .. } => model.as_ref().and_then(Vendored::vendor).or_else(explicit_vendor),
+            | Resource::Quantum(resource) => resource.model.as_ref().and_then(Vendored::vendor).or_else(explicit_vendor),
             | _ => self
                 .architecture()
                 .and_then(|architecture| architecture.vendor())
@@ -332,12 +332,12 @@ pub(super) fn validate_vendor(resource: &Resource) -> Result<(), ValidationRepor
         | Resource::NPU { vendor, .. }
         | Resource::Neuromorphic { vendor, .. }
         | Resource::Sensor { vendor, .. }
-        | Resource::TPU { vendor, .. }
-        | Resource::Quantum { vendor, .. } => vendor.as_ref(),
+        | Resource::TPU { vendor, .. } => vendor.as_ref(),
+        | Resource::Quantum(resource) => resource.vendor.as_ref(),
         | Resource::Other(_) => None,
     };
     match resource {
-        | Resource::Neuromorphic { .. } | Resource::Quantum { .. } | Resource::Sensor { .. } | Resource::Other(_) => Ok(()),
+        | Resource::Neuromorphic { .. } | Resource::Quantum(_) | Resource::Sensor { .. } | Resource::Other(_) => Ok(()),
         | value => match (value.architecture(), explicit_vendor) {
             | (Some(arch), Some(vendor)) => match arch.vendor() {
                 | Some(arch_vendor) if arch_vendor != *vendor => {

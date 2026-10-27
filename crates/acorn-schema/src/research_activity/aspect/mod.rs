@@ -14,8 +14,11 @@
 //!
 //! In the context of technology, AI/ML and automation are the same.
 //!
+use crate::computation::Computation;
 use crate::impl_to_markdown;
 use crate::namespaces::schema_org;
+use crate::validation::Validate;
+use crate::OneOrMany;
 use crate::TechnologyReadinessLevel;
 use acorn_core::prelude::alloc::{format, String, ToString, Vec};
 use acorn_core::util::{LinkedData, MarkdownSupport};
@@ -188,7 +191,7 @@ pub enum VisidataMachineAssistanceLevel {
     UnsolicitedMachineAction = 10,
 }
 /// Model the "AI triad" of data, compute, and algorithms
-#[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
+#[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct AspectFramework {
@@ -200,6 +203,10 @@ pub struct AspectFramework {
     pub aspect_type: Option<String>,
     /// Data associated with technology (e.g., training data, input data, etc.)
     pub data: Option<Vec<Data>>,
+    /// Computations performed by the technology, including execution profiles.
+    #[builder(into)]
+    #[validate(nested)]
+    pub computation: Option<OneOrMany<Computation>>,
     /// Software portability level
     pub portability: Option<SoftwarePortability>,
     /// Type of motivity (e.g., interactivity and impact on environment)
@@ -213,6 +220,7 @@ pub struct AspectFramework {
 #[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[builder(start_fn = init, on(String, into))]
 pub struct AspectFrameworkContext {
+    pub(crate) computation: String,
     pub(crate) data: String,
     pub(crate) portability: String,
     pub(crate) motivity: String,
@@ -227,6 +235,7 @@ impl Default for AspectFramework {
 impl Default for AspectFrameworkContext {
     fn default() -> Self {
         AspectFrameworkContext::init()
+            .computation(schema_org("Action"))
             .data(schema_org("DefinedTerm"))
             .portability(schema_org("DefinedTerm"))
             .motivity(schema_org("DefinedTerm"))
@@ -253,11 +262,26 @@ impl MarkdownSupport for AspectFramework {
             .filter(|values| !values.is_empty())
             .map(|values| format!("\n\n### Data\n{}", values.join("\n")))
             .unwrap_or_default();
+        let computation = self
+            .computation
+            .as_ref()
+            .filter(|values| !values.is_empty())
+            .map(|values| {
+                format!(
+                    "\n\n### Computation\n{}",
+                    values
+                        .iter()
+                        .map(|value| format!("- {}", value.identifier))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                )
+            })
+            .unwrap_or_default();
 
-        if summary.is_empty() && data.is_empty() {
+        if summary.is_empty() && data.is_empty() && computation.is_empty() {
             "## ASPECT\n[]".to_string()
         } else {
-            format!("## ASPECT\n{}{}", summary.join("\n"), data)
+            format!("## ASPECT\n{}{}{}", summary.join("\n"), data, computation)
         }
     }
 }
@@ -265,6 +289,7 @@ impl_to_markdown!(Autonomy, Maturity, Motivity, SoftwarePortability, VisidataMac
 impl MarkdownSupport for AspectFrameworkContext {
     fn to_markdown(&self) -> String {
         [
+            format!("- Computation: {}", self.computation),
             format!("- Data: {}", self.data),
             format!("- Portability: {}", self.portability),
             format!("- Motivity: {}", self.motivity),

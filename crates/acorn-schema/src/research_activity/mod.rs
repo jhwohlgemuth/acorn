@@ -138,6 +138,7 @@ pub struct ResearchActivity {
     pub meta: ResearchActivityMetadata,
     /// Technology ASPECT of associated research activity - describes the data, compute, and algorithms used in the associated research activity
     #[eserde(compat)]
+    #[validate(nested)]
     pub aspect: Option<AspectFramework>,
     /// Heading that identifies and describes the associated research activity
     #[validate(length(min = 4, max = "MAX_LENGTH_TITLE"))]
@@ -804,7 +805,7 @@ impl ResearchActivity {
             })
             .map(Err)
             .unwrap_or(Ok(()));
-        match (!self.meta.draft && self.sections.is_none(), classification_error) {
+        let base = match (!self.meta.draft && self.sections.is_none(), classification_error) {
             | (false, result) => result,
             | (true, Ok(())) => Err(ValidationReport::from_error(
                 "sections",
@@ -817,7 +818,58 @@ impl ResearchActivity {
                 );
                 Err(report)
             }
+        };
+        let mut report = base.err().unwrap_or_default();
+        let computations = self
+            .aspect
+            .as_ref()
+            .and_then(|aspect| aspect.computation.as_ref())
+            .into_iter()
+            .flat_map(OneOrMany::iter)
+            .enumerate();
+        for (computation_index, computation) in computations {
+            for (profile_index, profile) in computation.profiles.iter().flat_map(OneOrMany::iter).enumerate() {
+                let environment = self
+                    .meta
+                    .infrastructure
+                    .as_ref()
+                    .into_iter()
+                    .flat_map(OneOrMany::iter)
+                    .find(|environment| environment.identifier == profile.environment);
+                match environment {
+                    | None => report.add(
+                        format!("aspect.computation[{computation_index}].profiles[{profile_index}].environment"),
+                        ValidationError::new("reference").with_message("Execution profile must name a research activity compute environment"),
+                    ),
+                    | Some(environment) => {
+                        for (stage_index, stage) in profile.stages.iter().enumerate() {
+                            let platform = environment.platforms.iter().find(|platform| platform.identifier == stage.platform);
+                            let unsupported_circuit = platform.as_ref().is_some_and(|platform| {
+                                stage.compiled_circuit.is_some()
+                                    && !platform.resources.iter().any(|resource| matches!(resource, Resource::Quantum(_)))
+                            });
+                            match platform {
+                                | None => report.add(
+                                    format!("aspect.computation[{computation_index}].profiles[{profile_index}].stages[{stage_index}].platform"),
+                                    ValidationError::new("reference").with_message("Stage execution must name a platform in its environment"),
+                                ),
+                                | Some(_) if unsupported_circuit => {
+                                    report.add(
+                                        format!(
+                                            "aspect.computation[{computation_index}].profiles[{profile_index}].stages[{stage_index}].compiledCircuit"
+                                        ),
+                                        ValidationError::new("resource")
+                                            .with_message("Compiled circuit requires a quantum resource on the selected platform"),
+                                    )
+                                }
+                                | Some(_) => {}
+                            }
+                        }
+                    }
+                }
+            }
         }
+        report.finish()
     }
     /// Creates a new `ResearchActivity`
     pub fn new() -> Self {

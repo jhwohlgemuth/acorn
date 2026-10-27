@@ -8,6 +8,7 @@ use crate::util::constants::gpu::{
     NVIDIA_CC_TESLA_12_PATTERNS, NVIDIA_CC_TESLA_12_QUADRO_SUFFIXES, NVIDIA_CC_TESLA_13_PATTERNS, NVIDIA_CC_TESLA_13_QUADRO_SUFFIXES,
 };
 use crate::validation::{Validate, ValidationReport};
+use crate::OneOrMany;
 use acorn_core::prelude::alloc::{format, String, ToString, Vec};
 use acorn_core::util::{contains_any, contains_any_with_prefix};
 use derive_more::Display;
@@ -23,7 +24,7 @@ pub mod quantum;
 /// Vendor types and vendor-aware trait
 pub mod vendor;
 pub use memory::{Memory, MemoryUnit};
-pub use quantum::{Model, Paradigm, Regime, Topology};
+pub use quantum::{ErrorCorrection, Model, QuantumResource, Qubit, QubitType, Regime, Technology, Topology};
 use vendor::validate_vendor;
 pub use vendor::{Vendor, Vendored};
 
@@ -1098,22 +1099,7 @@ pub enum Resource {
         vendor: Option<Vendor>,
     },
     /// Quantum computing (e.g., NISQ, etc.)
-    Quantum {
-        /// Number of QPUs required (if applicable)
-        count: Option<u32>,
-        /// Chip or system model name (e.g., "Eagle", "Heron", "Sycamore")
-        model: Option<Model>,
-        /// Computing paradigm or modality
-        paradigm: Option<Paradigm>,
-        /// Number of qubits (physical or logical, as applicable)
-        qubits: Option<u32>,
-        /// Whether this resource is required
-        required: Option<bool>,
-        /// Qubit connectivity topology (e.g., "heavy-hex", "all-to-all")
-        topology: Option<Topology>,
-        /// Hardware vendor (e.g., IBM, Google, IonQ)
-        vendor: Option<Vendor>,
-    },
+    Quantum(QuantumResource),
     /// Sensor hardware for data acquisition and measurement
     Sensor {
         /// Number of sensors required (if applicable)
@@ -1629,15 +1615,7 @@ impl<'de> Deserialize<'de> for Resource {
                         synapses: None,
                         vendor: None,
                     }),
-                    | "Quantum" | "quantum" => Ok(Resource::Quantum {
-                        count: Some(1),
-                        model: None,
-                        paradigm: None,
-                        qubits: None,
-                        required: None,
-                        topology: None,
-                        vendor: None,
-                    }),
+                    | "Quantum" | "quantum" => Ok(Resource::Quantum(QuantumResource::init().count(1).build())),
                     | "Sensor" | "sensor" => Ok(Resource::Sensor {
                         count: Some(1),
                         modality: None,
@@ -1863,27 +1841,32 @@ impl<'de> Deserialize<'de> for Resource {
                         }
                         | "Quantum" => {
                             #[derive(Deserialize)]
+                            #[serde(deny_unknown_fields)]
                             struct F {
                                 #[serde(default = "default_count")]
                                 count: Option<u32>,
                                 model: Option<Model>,
-                                paradigm: Option<Paradigm>,
-                                qubits: Option<u32>,
+                                technology: Option<Technology>,
+                                qubits: Option<OneOrMany<Qubit>>,
+                                error_correction: Option<ErrorCorrection>,
                                 required: Option<bool>,
                                 topology: Option<Topology>,
                                 vendor: Option<Vendor>,
                             }
                             let next_value_result: Result<F, M::Error> = map.next_value();
                             match next_value_result {
-                                | Ok(f) => Ok(Resource::Quantum {
-                                    count: f.count,
-                                    model: f.model,
-                                    paradigm: f.paradigm,
-                                    qubits: f.qubits,
-                                    required: f.required,
-                                    topology: f.topology,
-                                    vendor: f.vendor,
-                                }),
+                                | Ok(f) => Ok(Resource::Quantum(
+                                    QuantumResource::init()
+                                        .maybe_count(f.count)
+                                        .maybe_model(f.model)
+                                        .maybe_technology(f.technology)
+                                        .maybe_qubits(f.qubits)
+                                        .maybe_error_correction(f.error_correction)
+                                        .maybe_required(f.required)
+                                        .maybe_topology(f.topology)
+                                        .maybe_vendor(f.vendor)
+                                        .build(),
+                                )),
                                 | Err(why) => Err(why),
                             }
                         }

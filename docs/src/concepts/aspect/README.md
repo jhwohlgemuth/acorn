@@ -69,6 +69,10 @@ Its dimensions include:
 - Modality
 - Quality
 
+### [Computation](./computation.md)
+
+Computations describe classical and quantum stages, their data interfaces, and the cost of running them on a specific environment.
+
 ## Example
 
 The following fictional project shows how four levels form one ASPECT classification.

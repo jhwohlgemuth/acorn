@@ -1482,9 +1482,11 @@ fn test_metadata_with_minimal_resources() {
             Resource::Quantum {
                 count: None,
                 model: None,
-                paradigm: None,
+                technology: None,
                 required: None,
-                qubits: None,
+                physical_qubits: None,
+                logical_qubits: None,
+                error_correction: None,
                 topology: None,
                 vendor: None,
             },

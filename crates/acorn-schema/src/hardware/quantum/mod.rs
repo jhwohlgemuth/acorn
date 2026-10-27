@@ -1,5 +1,8 @@
 //! Quantum computing paradigms and hardware definitions
+use super::vendor::Vendor;
+use crate::OneOrMany;
 use acorn_core::prelude::alloc::String;
+use bon::Builder;
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -97,51 +100,73 @@ pub enum Model {
     #[display("{}", _0)]
     Other(String),
 }
-/// Quantum computing paradigm or modality
+/// Physical mechanism used to implement a quantum processor.
 #[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
-pub enum Paradigm {
-    /// Gate-based quantum computing (e.g., IBM, Google)
-    #[display("Gate-based")]
-    #[serde(alias = "gate-based", alias = "gate_based", alias = "GateBased")]
-    GateBased,
-    /// Quantum annealing (e.g., D-Wave)
-    #[display("Annealing")]
-    Annealing,
-    /// Hybrid quantum-classical workflows
-    #[display("Hybrid Quantum-Classical")]
-    #[serde(
-        alias = "Hybrid Quantum-Classical",
-        alias = "hybrid quantum-classical",
-        alias = "hybrid quantum classical",
-        alias = "hybrid_quantum_classical",
-        alias = "HybridQuantumClassical"
-    )]
-    HybridQuantumClassical,
-    /// Photonic quantum computing (e.g., PsiQuantum, Xanadu)
-    #[display("Photonic")]
+#[serde(rename_all = "camelCase")]
+pub enum Technology {
+    /// Photons carry the quantum state.
     Photonic,
-    /// Neutral atom quantum computing (e.g., QuEra, Pasqal)
-    #[display("Neutral Atom")]
-    #[serde(alias = "Neutral Atom", alias = "neutral_atom", alias = "NeutralAtom")]
+    /// Neutral atoms carry the quantum state.
     NeutralAtom,
-    /// Noisy Intermediate-Scale Quantum (NISQ) computing
-    #[display("NISQ")]
-    #[serde(
-        alias = "NISQ",
-        alias = "nisq",
-        alias = "Noisy Intermediate-Scale Quantum",
-        alias = "noisy intermediate-scale quantum",
-        alias = "noisy_intermediate_scale_quantum",
-        alias = "NoisyIntermediateScaleQuantum"
-    )]
-    Nisq,
-    /// Trapped ion quantum computing (e.g., IonQ, Honeywell)
-    #[display("Trapped Ion")]
-    #[serde(alias = "Trapped Ion", alias = "trapped_ion", alias = "TrappedIon")]
+    /// Superconducting circuits carry the quantum state.
+    Superconducting,
+    /// Trapped ions carry the quantum state.
     TrappedIon,
-    /// Other or unspecified quantum paradigm
-    #[display("{}", _0)]
+    /// Another physical mechanism.
     Other(String),
+}
+/// Whether a qubit count describes physical or logical qubits.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum QubitType {
+    /// A physical qubit implemented by the processor technology.
+    Physical,
+    /// A logical qubit exposed after error correction or encoding.
+    Logical,
+}
+/// Error correction implemented by a quantum processor configuration.
+#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct ErrorCorrection {
+    /// Name of the code or technique in use.
+    pub code: String,
+    /// Ratio of physical qubits allocated to each logical qubit, when known.
+    pub physical_to_logical_ratio: Option<u32>,
+}
+/// A typed qubit capacity reported by a quantum processor.
+#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct Qubit {
+    /// Whether the capacity counts physical or logical qubits.
+    #[serde(rename = "type")]
+    pub qubit_type: QubitType,
+    /// Number of qubits of this type.
+    pub count: u32,
+}
+/// Configured quantum processing resources for a hardware requirement or platform.
+#[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields)]
+pub struct QuantumResource {
+    /// Number of QPUs required, when applicable.
+    pub count: Option<u32>,
+    /// Chip or system model name.
+    pub model: Option<Model>,
+    /// Physical implementation technology.
+    pub technology: Option<Technology>,
+    /// Physical and logical qubit capacities, when known.
+    #[builder(into)]
+    pub qubits: Option<OneOrMany<Qubit>>,
+    /// Configured error correction, if any.
+    pub error_correction: Option<ErrorCorrection>,
+    /// Whether this resource is required.
+    pub required: Option<bool>,
+    /// Qubit connectivity topology.
+    pub topology: Option<Topology>,
+    /// Hardware vendor.
+    pub vendor: Option<Vendor>,
 }
 /// Quantum sensing regime classification used by hardware sensor modalities
 ///

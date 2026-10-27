@@ -8,8 +8,8 @@
 use super::memory::{Memory, MemoryUnit};
 use super::vendor::Vendored;
 use super::{
-    AcceleratorArchitecture, Architecture, CpuArchitecture, DspArchitecture, FpgaArchitecture, GpuArchitecture, Paradigm, Regime, Resource,
-    SensorModality, Vendor,
+    AcceleratorArchitecture, Architecture, CpuArchitecture, DspArchitecture, FpgaArchitecture, GpuArchitecture, QuantumResource, Regime, Resource,
+    SensorModality, Technology, Vendor,
 };
 use crate::research_activity::aspect::Modality as DataModality;
 use crate::research_activity::ResearchActivityMetadata;
@@ -123,15 +123,7 @@ fn test_resource_vendor() {
         vendor: Some(Vendor::Intel),
     };
     assert_eq!(cpu.vendor(), Some(Vendor::Intel));
-    let quantum = Resource::Quantum {
-        count: Some(1),
-        model: Some(super::Model::Heron),
-        paradigm: None,
-        required: None,
-        qubits: None,
-        topology: None,
-        vendor: None,
-    };
+    let quantum = Resource::Quantum(QuantumResource::init().count(1).model(super::Model::Heron).build());
     assert_eq!(quantum.vendor(), Some(Vendor::IBM));
     let other = Resource::Other("custom".to_string());
     assert_eq!(other.vendor(), None);
@@ -475,25 +467,9 @@ fn test_memory_in_research_activity_float() {
     }
 }
 #[test]
-fn test_quantum_paradigm_deserialize() {
-    let tests = [
-        (r#""NISQ""#, Paradigm::Nisq),
-        (r#""nisq""#, Paradigm::Nisq),
-        (r#""Noisy Intermediate-Scale Quantum""#, Paradigm::Nisq),
-    ];
-    for (json, expected) in tests {
-        let actual: Paradigm = serde_json::from_str(json).unwrap();
-        assert_eq!(actual, expected, "QuantumParadigm mismatch: {}", json);
-    }
-    let tests = [
-        (r#""Hybrid Quantum-Classical""#, Paradigm::HybridQuantumClassical),
-        (r#""hybrid quantum-classical""#, Paradigm::HybridQuantumClassical),
-        (r#""hybrid quantum classical""#, Paradigm::HybridQuantumClassical),
-    ];
-    for (json, expected) in tests {
-        let actual: Paradigm = serde_json::from_str(json).unwrap();
-        assert_eq!(actual, expected, "QuantumParadigm mismatch: {}", json);
-    }
+fn test_quantum_technology_deserialize() {
+    let actual: Technology = serde_json::from_str(r#""superconducting""#).unwrap();
+    assert_eq!(actual, Technology::Superconducting);
 }
 #[test]
 fn test_resource_validate_vendor() {

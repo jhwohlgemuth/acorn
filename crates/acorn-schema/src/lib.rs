@@ -19,6 +19,7 @@ macro_rules! schema_error {
 pub mod agent;
 pub mod assets;
 pub mod codec;
+pub mod computation;
 pub mod discovery;
 pub mod enrichment;
 pub mod geonames;
@@ -39,8 +40,8 @@ pub mod validation;
 pub mod vocabulary;
 pub use hardware::memory::{Memory, MemoryUnit};
 pub use hardware::{
-    AcceleratorArchitecture, Architecture, Backend, CpuArchitecture, DspArchitecture, FpgaArchitecture, GpuArchitecture, Model, Paradigm, Regime,
-    Resource, SensorModality, Topology, Vendor, Vendored,
+    AcceleratorArchitecture, Architecture, Backend, CpuArchitecture, DspArchitecture, ErrorCorrection, FpgaArchitecture, GpuArchitecture, Model,
+    QuantumResource, Qubit, QubitType, Regime, Resource, SensorModality, Technology, Topology, Vendor, Vendored,
 };
 pub use types::*;
 pub use validation::{Each, Validate, ValidationIssue, ValidationReport};
