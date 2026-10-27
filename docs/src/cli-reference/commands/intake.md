@@ -81,6 +81,33 @@ acorn intake apply --config .acorn.json --submission-id <submission-UUID>
 
 `stage` writes proposals without changing the inbox or RAD index. `apply --submission-id` rechecks the destination and base index digest before writing one reviewed proposal. If the index changed, stage the submission again. A GitLab-sourced inbox needs an explicit handoff: stop its intake worker, use an exact local snapshot, reconcile reviewed index changes into the approved repository, and handle only the exact completed lines before restarting the worker.
 
+## Downloaded JSONL to a local PDF
+
+For a SharePoint export, download the combined `logbook.jsonl` in the browser first. Direct SharePoint HTTPS authentication is planned, not yet implemented. If reviewing only selected submissions, copy their complete original lines into a separate JSONL file without changing UUIDs or payload bytes.
+
+Run from the local workspace containing `intake.json`, `report.json` and `selected-demo.jsonl`. Both ACRE configs must reference the same local destination indexes; the intake config also declares authorized members. Keep this order:
+
+```sh
+# 1. Stage the selected original rows.
+acorn --offline intake stage --batch \
+  --config intake.json --source selected-demo.jsonl
+
+# 2. Inspect the batch ID returned by stage.
+acorn --offline intake inspect --config intake.json --batch-id <batch-ID>
+
+# 3. Apply after review; confirm with the Yes / No buttons.
+acorn --offline intake apply --config intake.json --batch-id <batch-ID>
+
+# 4. Produce one local PDF for this example reporting window.
+acorn --offline report --config report.json \
+  --from 2026-10-26T00:00:00Z --through 2026-10-27T00:00:00Z \
+  --dry-run --combine
+```
+
+Replace the batch placeholder and reporting dates for your review. The report uses the current directory as its root, includes all configured folders, and writes `.acorn/reports/report.pdf`. Use `--project` only to narrow a multi-project configuration, `--output` only for a different output directory, and `--root` only when reporting from another directory. Combined mode needs no commit identifier. `--through` is required unless supplied by `ACORN_REPORT_THROUGH`; omitting `--from` includes all earlier history. Browser discovery uses cached or installed Chrome/Chromium; set `CHROME_PATH` if needed, since offline mode cannot fetch a browser.
+
+Intake's config/source/batch arguments remain explicit. Apply prompts by default; `--yes` is only for reviewed unattended execution. This local flow sends no callbacks, messages or published reports. Optional metadata graduation is separate and is not needed to report the ingested logbook entries.
+
 ## Local graduation
 
 After ingestion, `run --index` promotes supported logbook entries into canonical metadata. Choose how to approve them:

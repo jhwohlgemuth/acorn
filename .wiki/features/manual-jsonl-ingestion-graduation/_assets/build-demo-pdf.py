@@ -42,19 +42,20 @@ def main():
     styles.add(ParagraphStyle("Cell", parent=styles["Body"], fontSize=8.5, leading=11.5, spaceAfter=0))
     styles.add(ParagraphStyle("DemoCode", parent=styles["Body"], fontName="Courier", fontSize=7.6, leading=10.5,
                               backColor=PALE, borderPadding=9, spaceBefore=7, spaceAfter=12))
+    styles.add(ParagraphStyle("Step", parent=styles["Body"], keepWithNext=True))
     styles.add(ParagraphStyle("Caption", parent=styles["Body"], fontSize=8, leading=11, textColor=colors.HexColor("#526A70")))
     styles.add(ParagraphStyle("Hero", parent=styles["Section"], fontSize=32, leading=36, spaceBefore=20, spaceAfter=20))
     story = [Paragraph("SPONSOR HIGHLIGHTS  //  ACORN", styles["Caption"]),
              Paragraph("One highlight,<br/>from capture to report", styles["Hero"]),
              Paragraph("Demo walkthrough without Vergil", styles["Section"]),
              Paragraph("Current commands and reviewer controls | October 26, 2026", styles["Body"]),
-             Paragraph("An eight-minute presentation using one captured TEST ONLY submission, local review, explicit approval and a local PDF. The screenshot appendix preserves dated cloud evidence.", styles["Body"]),
+             Paragraph("Stage, inspect, apply and report using the three-row SharePoint demo. A separate eight-minute GitLab rehearsal also demonstrates optional graduation. All entries are TEST ONLY; screenshots preserve dated cloud evidence.", styles["Body"]),
              Spacer(1, 16)]
     for number, title, detail in [
-        ("01", "Capture", "Choose SharePoint receipt/file or GitLab immutable commit"),
-        ("02", "Review and apply", "Inspect one proposed entry, then confirm the local change"),
-        ("03", "Graduate", "Select the contributor promotion and confirm it separately"),
-        ("04", "Report", "Open the local PDF and demonstrate safe replay"),
+        ("01", "Stage", "Capture selected original JSONL rows as one reviewable batch"),
+        ("02", "Inspect", "Read the proposed changes and verify the selected destination"),
+        ("03", "Apply", "Confirm the reviewed entries with the Yes / No buttons"),
+        ("04", "Report", "Generate one combined local PDF; graduation is optional"),
     ]:
         story += [Paragraph(number + " // " + title, styles["Section"]), Paragraph(detail, styles["Body"])]
     story += [Spacer(1, 15), Paragraph("The following map shows both capture branches. New-save Teams notices are automatic and best effort. Later review/report messages use the owner-triggered callback. The retained full rehearsal uses the GitLab fixture.", styles["Caption"]), PageBreak(),
@@ -66,6 +67,8 @@ def main():
         if not line.strip():
             i += 1
         elif line.startswith("## "):
+            if line == "## SharePoint download to a combined local PDF":
+                story.append(PageBreak())
             story.append(Paragraph(inline(line[3:]), styles["Section"]))
             i += 1
         elif line.startswith("```"):
@@ -75,7 +78,7 @@ def main():
                 block += textwrap.wrap(lines[i], width=100, subsequent_indent="  ", replace_whitespace=False,
                                        drop_whitespace=False) or [""]
                 i += 1
-            story.append(Paragraph("<br/>".join(html.escape(value).replace(" ", "&#160;") for value in block), styles["DemoCode"]))
+            story.append(KeepTogether([Paragraph("<br/>".join(html.escape(value).replace(" ", "&#160;") for value in block), styles["DemoCode"])]))
             i += 1
         elif line.startswith("|"):
             rows = []
@@ -101,9 +104,10 @@ def main():
             while i < len(lines) and lines[i].strip() and not lines[i].startswith(("## ", "```", "|", "- ")):
                 paragraph.append(lines[i])
                 i += 1
-            story.append(Paragraph(inline(" ".join(paragraph)), styles["Body"]))
+            style = styles["Step"] if re.match(r"^\*\*\d+\.", paragraph[0]) else styles["Body"]
+            story.append(Paragraph(inline(" ".join(paragraph)), style))
     story += [PageBreak(), Paragraph("SharePoint: verified receipt and export", styles["Section"]),
-              Paragraph("October 26, 2026: owner-context published app created a list receipt and verified its JSONL export. The Teams action succeeded. This is intake evidence; the downloaded-file-to-CLI handoff and standard-license participant access remain unaccepted.", styles["Body"])]
+              Paragraph("October 26, 2026: owner-context published app created a list receipt and verified its JSONL export. The Teams action succeeded. The separate three-row owner-context download, stage, inspect, apply and report demonstration also passed October 26. Standard-license participant access and broader exporter acceptance remain open.", styles["Body"])]
     sp_image = Image(str(ASSETS.parents[1] / "powerapps-jsonl-intake/_assets/sharepoint/app-teams-success.png"))
     sp_scale = min(WIDTH / sp_image.imageWidth, 510 / sp_image.imageHeight)
     sp_image.drawWidth = sp_image.imageWidth * sp_scale

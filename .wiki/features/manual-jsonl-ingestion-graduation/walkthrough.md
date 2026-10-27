@@ -2,7 +2,7 @@
 
 Plan assets now live in local `_assets/` folders. The demo walkthrough PDF was refreshed October 26, 2026 with both intake branches, current commands and confirmation controls. Historical screenshots and execution records retain their original paths; the links and commands in this walkthrough use the current layout.
 
-This packet explains both capture routes. Its retained end-to-end rehearsal follows **one actual GitLab PowerApp submission** through JSONL, local review, ingestion, contributor graduation and a local PDF. SharePoint receipt/export and Teams tests passed separately; the downloaded SharePoint file-to-CLI handoff has not yet been accepted. The contributor, baseline project and report are **TEST ONLY**. Nothing in the local rehearsal publishes a report, sends a callback, drains the remote inbox or starts Vergil.
+This packet explains both capture routes. Its retained end-to-end rehearsal follows **one actual GitLab PowerApp submission** through JSONL, local review, ingestion, contributor graduation and a local PDF. A separate October 26 SharePoint demonstration downloaded six rows, selected three exact synthetic rows, and completed stage, inspect, apply and a combined local PDF. Intended-user access and broader exporter acceptance remain open. The contributor, baseline project and report are **TEST ONLY**. Nothing in the local rehearsal publishes a report, sends a callback, drains the remote inbox or starts Vergil.
 
 ## Start here
 
@@ -34,7 +34,7 @@ The automated eleven-step rehearsal completed in 2.01 seconds on October 24, 202
 | [SharePoint pilot](https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/163f110f-7f8a-401c-894e-0786b2c018a4) | Standard SharePoint intake/catalog connections; one list receipt and one UUID-named receipt file. A separate five-minute exporter collects all rows into logbook.jsonl. | Download combined logbook.jsonl after its next refresh and stage its local path or file URI. Preserve exact bytes; list CSV/Excel export is not the intake envelope. |
 | [GitLab connector app](https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/15ae605b-585b-49f5-a413-2b091f919a35) | Existing custom connector; append to project 22464/main/.acorn/intake/logbook.jsonl. Confirmation identifies an immutable commit. | Stage a GitLab raw/blob file URL; the CLI captures an immutable snapshot. An already captured local file also works. |
 
-The SharePoint catalog contains 13 seeded projects; it is not automatically synchronized with GitLab. Owner-context app submission, exact export, reload recovery and Teams action tests passed on October 26. Standard-license participant access, download-to-CLI acceptance, failure recovery and broader boundary/concurrency tests remain open. The original GitLab app remains operational; intermittent GitLab access is a known limitation. Use one branch per highlight. Do not reroute an unresolved receipt into the other app.
+The SharePoint catalog contains 13 seeded projects; it is not automatically synchronized with GitLab. Owner-context app submission, exact export, reload recovery and Teams action tests passed on October 26. The owner-context three-row download-to-CLI report passed. Standard-license participant access, failure recovery and broader boundary/concurrency tests remain open. The original GitLab app remains operational; intermittent GitLab access is a known limitation. Use one branch per highlight. Do not reroute an unresolved receipt into the other app.
 
 Example handoff commands, using an approved ACRE configuration with local destination indexes and member rules:
 
@@ -52,7 +52,48 @@ acorn intake inspect --config intake.json --batch-id <batch-ID>
 acorn intake apply --config intake.json --batch-id <batch-ID>
 ```
 
-Direct SharePoint HTTPS sources are not supported by the CLI source adapter. Do not regenerate the envelope, UUID or JSON formatting. These commands describe the SharePoint handoff to validate; they do not claim it has been rehearsed. The frozen demo script below continues to use its verified GitLab fixture.
+Direct SharePoint HTTPS sources are not supported by the CLI source adapter. Do not regenerate the envelope, UUID or JSON formatting. The owner-context SharePoint handoff below passed on October 26. The separate frozen rehearsal script later in this guide uses its verified GitLab fixture and additionally exercises graduation.
+
+## SharePoint download to a combined local PDF
+
+The October 26 demonstration used three exact rows selected from the six-row downloaded logbook. Keep their original bytes and UUIDs in `selected-demo.jsonl`; keep the full download as evidence. `intake.json` routes only to the separate demo index, and `report.json` selects that same one-project index. Use the existing prepared workspace, with `acorn` on your PATH:
+
+```sh
+cd output/pdf/sharepoint-demo-20261026
+```
+
+**1. Stage the three selected rows.**
+
+```sh
+acorn --offline intake stage --batch \
+  --config intake.json --source selected-demo.jsonl
+```
+
+**2. Inspect the proposed changes.** Replace `<batch-ID>` with the ID printed by stage; use that same ID for apply. The expected result is three accepted rows and no rejected rows.
+
+```sh
+acorn --offline intake inspect --config intake.json --batch-id <batch-ID>
+```
+
+**3. Apply the reviewed entries to the local demo index.** Confirm with the normal Yes / No buttons. Add `--yes` only for an already reviewed unattended run.
+
+```sh
+acorn --offline intake apply --config intake.json --batch-id <batch-ID>
+```
+
+**4. Generate the combined local PDF.**
+
+```sh
+acorn --offline report --config report.json \
+  --from 2026-10-26T00:00:00Z --through 2026-10-27T00:00:00Z \
+  --dry-run --combine
+```
+
+Open `.acorn/reports/report.pdf` inside the demo directory. The default root is the current directory; the default selection includes every folder in `report.json` (only `acorn` here); the default output is `.acorn/reports`. Combined mode does not require `--commit`. Keep the explicit window to reproduce the three-row demo; `--through` has no time default, and omitting `--from` includes older history. The shorter commands change the output location from the historical `report/` directory, not the intended content.
+
+PDF rendering uses cached or discoverable Chrome/Chromium by default. If discovery fails, set `CHROME_PATH` to your installed browser before running; offline mode cannot download it. Intake currently requires explicit `--config`, `--source` and batch selectors; those have no defaults to remove. These commands do not publish, send callbacks/messages, drain the SharePoint list, or graduate entries. Graduation is optional work after ingestion, not a prerequisite for this report.
+
+The [original evidence and report](../powerapps-jsonl-intake/sharepoint-pilot.md#october-26-live-demonstration-and-local-report) retain the actual batch ID, explicit historical options and hashes. This defaults-based walkthrough describes equivalent steps; it does not claim a new live submission or acceptance run. The workspace's prepared configs contain local paths: use a separate approved demo destination if recreating it elsewhere, and take a new batch ID from stage.
 
 ## Where notifications occur
 

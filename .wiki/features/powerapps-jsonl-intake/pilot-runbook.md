@@ -4,9 +4,15 @@ Plan assets now live in local `_assets/` folders. Historical PDFs, screenshots a
 
 Updated 2026-10-24 after published Teams routing, milestone email acceptance, and the illustrated workflow update.
 
+## Current workflow and planning scope
+
+October 26: the separate SharePoint app stores immutable list receipts, individual JSONL receipt files and a five-minute collected logbook. The owner three-row [download -> stage -> inspect -> apply -> local PDF demonstration](../manual-jsonl-ingestion-graduation/walkthrough.md#sharepoint-download-to-a-combined-local-pdf) passed. Local processing leaves the list/export untouched; graduation is optional and local reporting sends no callbacks. Intended-user access, edge cases, exporter failure handling (PA-26), aggregate acceptance (PA-23), backup/restore and any cutover remain in the [form plan](index.md). Direct OAuth download is planned separately; the Vergil bot remains a GitLab-only track. Both pilots were enabled in the last recorded inventory.
+
+The remaining entries preserve dated GitLab deployment/rehearsal evidence, not the only current workflow. The [current guides](../manual-jsonl-ingestion-graduation/walkthrough.md) supersede historical page counts and command screenshots; do not infer that any operational route was disabled or that a fresh acceptance run occurred during this planning review.
+
 ## Current notification walkthrough
 
-[Open the current PowerApp/Power Automate walkthrough](notification-walkthrough.md). New confirmed intake saves, review-workspace creation, and no-change updates use Jason's Teams self-chat. Review requests, report delivery, and actionable failures keep email. Callback events remain owner-triggered until Vergil integration is accepted. The updated user/reviewer guide has 26 pages and developer guide has 27; their opening updates supersede older notification descriptions below.
+[Open the current PowerApp/Power Automate walkthrough](notification-walkthrough.md). New confirmed intake saves, review-workspace creation, and no-change updates use Jason's Teams self-chat. Review requests, report delivery, and actionable failures keep email. Callback events remain owner-triggered until Vergil integration is accepted. Use the current user/reviewer and developer PDFs linked from the demo walkthrough; historical notification descriptions below are dated evidence.
 
 Controlled LandScan submission `82a8dd58-8c60-4ec5-abf5-cb251ab9e033` added exactly one line at commit `03ff5836289447034f40f2a4898c155441e6cb66`, preserving the previous six lines. The app receipt and actual Teams notice matched. Routine callback exact replay skipped delivery; a labeled milestone email test passed. The inbox now has seven TEST ONLY entries. See the walkthrough for run IDs, recovery rules, and screenshot evidence.
 

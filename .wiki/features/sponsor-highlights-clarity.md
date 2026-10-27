@@ -38,6 +38,8 @@ Help a sponsor reader answer what changed, why it matters to the mission, what c
 
 # Boundary and decisions
 
+- The October 26 SharePoint route already supports local stage/inspect/apply and combined reporting from downloaded JSONL. This plan's editorial synthesis and ASPECT graduation are enhancements, not prerequisites for that workflow. Logbook reporting does not require metadata graduation. HIL-07's approved sponsor publication library is a separate audience/destination decision from the pilot SharePoint intake list and export library; access to one does not authorize publication to the other.
+
 - Keep `LogbookEntry` as an event/development record. Do not force every entry to repeat mission value, challenges, and next steps. A separate optional editorial input, bound to one reporting window and keyed by project ID, supplies the monthly synthesis. Runs without it retain the present PDF behavior.
 - For projects with editorial input, require the five-part structure. Project description may reuse the existing subtitle, while the monthly summary and lists are editorial content. A measure must carry its meaning and evidence; omit unsupported numbers. Challenges may explicitly say “None reported,” but silence is not treated as that assertion.
 - The first-page synopsis names cross-project opportunities without claiming a connection was acted on. Keep the detailed status-grouped entries beneath each project's concise synthesis. Do not duplicate full logbook narratives in the synthesis.

@@ -252,13 +252,18 @@ def gl_persistence(c):
 
 
 def local_handoff(c):
-    top=paragraph(c,'SharePoint: download combined logbook.jsonl from the export library. It collects list receipts in item-ID order every five minutes. Preserve its bytes; CSV/Excel export is not JSONL. Direct SharePoint HTTPS sources are unsupported.',54,156,size=16)
-    top=code(c,'acorn intake stage --batch --config intake.json \\\n  --source "/path/to/logbook.jsonl"',top)
-    top=paragraph(c,'GitLab: use a GitLab file URL with a branch or commit. The adapter resolves and captures an immutable snapshot before local review. Credentials remain in protected environment references, never in the URL.',54,top,size=16)
-    top=code(c,'CI_SERVER_HOST=code.ornl.gov acorn intake stage --batch \\\n  --config intake.json --source "<GitLab raw/blob file URL>"',top)
-    top=paragraph(c,'Both sources use the same review and apply steps. Configuration supplies destination file indexes and authorized members. Stage and inspect leave the source and destination indexes unchanged.',54,top,size=16)
-    top=code(c,'acorn intake inspect --config intake.json --batch-id <batch-ID>\nacorn intake apply --config intake.json --batch-id <batch-ID>',top)
-    paragraph(c,'Apply prompts Yes / No and revalidates before writing. No is selected by default. Use --yes only for a previously reviewed unattended application. SharePoint download-to-CLI acceptance is still open; the existing end-to-end demo fixture came from GitLab.',54,top,size=15)
+    top=paragraph(c,'SharePoint: download the combined logbook.jsonl after the next five-minute refresh. Preserve the selected original rows and UUIDs. The owner-context three-row local report passed October 26; intended-user and broader export acceptance remain open.',54,156,size=15)
+    top=paragraph(c,'From the prepared demo directory, use acorn on PATH. intake.json and report.json point to the same separate demo index. Replace BATCH_ID below with the value printed by stage.',54,top,size=15)
+    top=code(c,'cd output/pdf/sharepoint-demo-20261026\n'
+        '# 1. Stage the three exact selected rows.\n'
+        'acorn --offline intake stage --batch --config intake.json \\\n  --source selected-demo.jsonl\n'
+        '# 2. Inspect; 3. apply with the normal Yes / No buttons.\n'
+        'acorn --offline intake inspect --config intake.json --batch-id BATCH_ID\n'
+        'acorn --offline intake apply --config intake.json --batch-id BATCH_ID\n'
+        '# 4. Generate the combined local PDF.\n'
+        'acorn --offline report --config report.json \\\n  --from 2026-10-26T00:00:00Z --through 2026-10-27T00:00:00Z \\\n  --dry-run --combine',top,13)
+    top=paragraph(c,'Open .acorn/reports/report.pdf. Defaults use the current directory and all configured projects (only acorn here). Combined mode needs no commit. Keep the fixed date window; --through has no time default. Set CHROME_PATH only if browser discovery fails.',54,top,size=14)
+    paragraph(c,'GitLab file URLs use online stage with CI_SERVER_HOST and the existing protected credential reference, then the same local inspect / apply / report steps. Direct SharePoint URLs remain planned. Local reporting sends no messages or callbacks; optional graduation is separate.',54,top,size=14)
 
 
 def graduation(c):
@@ -276,7 +281,7 @@ def delivery(c):
 
 
 def operations(c):
-    top=grid(c,[['Area','Current acceptance and next action'],['SharePoint pilot','Owner app submit, catalog, exact export, reload and new Teams action passed. Manual replay/conflict/malformed handling passed.'],['Remaining SharePoint gates','PA-19 to PA-21: catalog overflow, max sizes, concurrency, export-failure recovery, app conflict/replay, full restart and denied storage. PA-22: participant access, download handoff, backup and cutover. PA-23: combined-export boundary and arrival tests.'],['GitLab gates','PA-15: remaining tail/size cases; PA-16: concurrent writes; PA-17: complete restore acceptance. PA-02 closure records intermittent connectivity as a known limitation.'],['Backup','Native GitLab packages exist; full restore acceptance remains open. SharePoint solution contains its flows/reference; app inclusion and complete native export/restore are pending. Clipboard JSON/YAML is not a native backup.'],['Release boundary','Pilot remains in Wohlgemuth, Jason. Site membership unchanged. Owner premium access does not prove standard-user access. PA-12 shared-environment/channel migration remains separate.']],156,widths=(245,727),size=15)
+    top=grid(c,[['Area','Current acceptance and next action'],['SharePoint pilot','Owner app submit, catalog, exact export, reload and new Teams action passed. Manual replay/conflict/malformed handling passed.'],['Remaining SharePoint gates','PA-19 to PA-21: catalog overflow, max sizes, concurrency, export-failure recovery, app conflict/replay, full restart and denied storage. PA-22: intended-participant access/handoff; the owner three-row report passed. PA-24/25: backup/restore and optional cutover. PA-23: combined-export boundary and arrival tests.'],['GitLab gates','PA-15: remaining tail/size cases; PA-16: concurrent writes; PA-17: complete restore acceptance. PA-02 closure records intermittent connectivity as a known limitation.'],['Backup','Native GitLab packages exist; full restore acceptance remains open. SharePoint solution contains its flows/reference; app inclusion and complete native export/restore are pending. Clipboard JSON/YAML is not a native backup.'],['Release boundary','Pilot remains in Wohlgemuth, Jason. Site membership unchanged. Owner premium access does not prove standard-user access. PA-12 shared-environment/channel migration remains separate.']],156,widths=(245,727),size=15)
     paragraph(c,'Keep original pending receipts in their original app. Do not disable the GitLab route or widen sharing as part of documentation work. Teams/email are notifications; stored receipt, exact source and reviewed index are the evidence.',54,top,size=15)
 
 
