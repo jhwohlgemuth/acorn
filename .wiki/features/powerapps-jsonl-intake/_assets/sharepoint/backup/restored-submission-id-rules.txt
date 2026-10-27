@@ -1,0 +1,170 @@
+Browser tab: 1329059500, Title: "Change Column", URL: "https://ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEdit.aspx?List=%7B13FA719A%2D32AE%2D45DE%2DB444%2D95D3A33E8048%7D&Field=SubmissionId".
+1 AXWebArea Change Column, URL: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEdit.aspx?List=%7B13FA719A%2D32AE%2D45DE%2DB444%2D95D3A33E8048%7D&Field=SubmissionId
+	2 container aspnetForm
+		3 link Description: Turn on more accessible mode, ID: linkTurnOnAcc, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEdit.aspx?List=%7B13FA719A%2D32AE%2D45DE%2DB444%2D95D3A33E8048%7D&Field=SubmissionId#
+		4 link Description: Skip to main content, Value: javascript:;
+		5 link Description: Turn off Animations, ID: linkTurnOffAnimation, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEdit.aspx?List=%7B13FA719A%2D32AE%2D45DE%2DB444%2D95D3A33E8048%7D&Field=SubmissionId#
+		6 container suiteBarTop
+			7 container O365_NavHeader
+				8 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+					9 text 
+				10 container topLevelRegion
+					165 container leftRegion
+						166 link Description: SharePoint, Value: ornl.sharepoint.com/_layouts/15/sharepoint.aspx?&login_hint=o9w@ornl.gov, ID: O365_AppName
+					167 container HeaderButtonRegion
+						168 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+						169 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+				14 container O365_HeaderRightRegion
+					15 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+						170 image JW
+		16 container globalNavBox
+			17 container ribbonBox
+				18 container DeltaSPRibbon
+					19 container
+						20 link Description: Focus on Content, Value: ornl.sharepoint.com/sites/ResearchEnablement/sites/ResearchEnablement/_catalogs/masterpage/#, ID: ctl00_fullscreenmodeBtn
+		21 container s4-workspace
+			22 container s4-bodyContainer
+				23 container titleAreaRow
+					24 link Description: Research Enablement, Value: ornl.sharepoint.com/sites/ResearchEnablement, ID: ctl00_onetidProjectPropertyTitleGraphic
+					25 container Settings : Edit Column   Use this page to edit a column of this list.
+						26 content list zz10_RootAspMenu
+							27 container zz9_TopNavigationMenuV4_NavMenu_Edit
+								28 link Description: EDIT LINKS, Help: Edit Links, ID: zz9_TopNavigationMenuV4_NavMenu_EditLinks, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEdit.aspx?List=%7B13FA719A%2D32AE%2D45DE%2DB444%2D95D3A33E8048%7D&Field=SubmissionId#
+						29 heading Settings : Edit Column   Use this page to edit a column of this list., Value: 1, ID: pageTitle
+							30 container DeltaPlaceHolderPageTitleInTitleArea
+								31 link Description: Settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/listedit.aspx?List=%7B13FA719A%2D32AE%2D45DE%2DB444%2D95D3A33E8048%7D
+								32 image :
+								33 text Edit Column
+							34 container DeltaPlaceHolderPageDescription
+								35 button  , Help: Use this page to edit a column of this list., ID: ms-pageDescriptionDiv
+								36 text Use this page to edit a column of this list.
+				37 container contentRow
+					38 container DeltaPlaceHolderLeftNavBar
+						39 content list zz12_RootAspMenu
+							40 link Description: Home, Value: ornl.sharepoint.com/sites/ResearchEnablement
+							41 link Description: Conversations, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/groupstatus.aspx?Target=CONVERSATIONS&Source=QuickLaunch
+							42 link Description: Documents, Value: ornl.sharepoint.com/sites/ResearchEnablement/Shared%20Documents/Forms/AllItems.aspx
+							43 link Description: Notebook, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/Doc.aspx?sourcedoc=%7B92502988-e964-4074-8e41-6625180e6324%7D&action=editnew
+							44 link Description: Pages, Value: ornl.sharepoint.com/sites/ResearchEnablement/SitePages/Forms/ByAuthor.aspx
+							45 text Recent
+							46 link Description: Marketing Campaign, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Marketing%20Campaign/AllItems.aspx
+							47 link Description: Sponsor Highlights Intake Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/AllItems.aspx
+							48 link Description: Sponsor Highlights JSONL Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/Forms/AllItems.aspx
+							49 link Description: Sponsor Highlights Projects Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Projects%20Pilot/AllItems.aspx
+							50 link Description: Site contents, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/viewlsts.aspx
+							51 link Description: Recycle Bin, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/AdminRecycleBin.aspx?ql=1
+							52 container zz11_V4QuickLaunchMenu_NavMenu_Edit
+								53 link Description: EDIT LINKS, Help: Edit Links, ID: zz11_V4QuickLaunchMenu_NavMenu_EditLinks, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEdit.aspx?List=%7B13FA719A%2D32AE%2D45DE%2DB444%2D95D3A33E8048%7D&Field=SubmissionId#
+					54 container contentBox
+						55 container
+							56 table
+								57 row
+									58 cell align02
+										59 container
+											60 container Name and Type, ID: onetidFldEditGuts1
+												61 heading Name and Type, Value: 3
+													62 text Name and Type
+											63 container Type a name for this column., ID: onetidNewColumnDescription
+												64 text Type a name for this column.
+								65 row
+									66 cell onetidFldEditGuts2
+										67 text Column name:
+										68 container SubmissionId
+											69 text field (settable) Column name:, Value: SubmissionId, ID: idColName
+								70 row
+									71 cell onetidFldEditGuts3
+										72 text The type of information in this column is: 
+										73 container
+											74 container Single line of text Multiple lines of text Choice (menu to choose from) Number (1, 1.0, 100) Currency ($, ¥, €) Date and Time
+												75 container
+													76 container Single line of text
+														77 radio button (settable, integer) Description: Single line of text, Help: The type of information in this column is: Single line of text, Value: 1, ID: onetidTypeText
+													78 container Single line of text, ID: L_onetidTypeText
+													79 container Multiple lines of text
+														80 radio button (settable, integer) Description: Multiple lines of text, Help: The type of information in this column is: Multiple lines of text, Value: 0, ID: onetidTypeMultiText
+													81 container Multiple lines of text, ID: L_onetidTypeMultiText
+													82 container Choice (menu to choose from)
+														83 radio button (settable, integer) Description: Choice (menu to choose from), Help: The type of information in this column is: Choice (menu to choose from), Value: 0, ID: onetidTypeChoice
+													84 container Choice (menu to choose from), ID: L_onetidTypeChoice
+													85 container Number (1, 1.0, 100)
+														86 radio button (settable, integer) Description: Number (1, 1.0, 100), Help: The type of information in this column is: Number (1, 1.0, 100), Value: 0, ID: onetidTypeNumber
+													87 container Number (1, 1.0, 100), ID: L_onetidTypeNumber
+													88 container Currency ($, ¥, €)
+														89 radio button (settable, integer) Description: Currency ($, ¥, €), Help: The type of information in this column is: Currency ($, ¥, €), Value: 0, ID: onetidTypeCurrency
+													90 container Currency ($, ¥, €), ID: L_onetidTypeCurrency
+													91 container Date and Time
+														92 radio button (settable, integer) Description: Date and Time, Help: The type of information in this column is: Date and Time, Value: 0, ID: onetidTypeDateTime
+													93 container Date and Time, ID: L_onetidTypeDateTime
+								94 row
+									95 cell align03
+										96 container
+											97 container Additional Column Settings, ID: onetidNewColumnOption
+												98 heading Additional Column Settings, Value: 3
+													99 text Additional Column Settings
+											100 container Specify detailed options for the type of information you selected., ID: onetidNewColumnOption2
+												101 text Specify detailed options for the type of information you selected.
+									102 cell onetidFldEditGuts6
+										103 text Description:
+										104 container Immutable receipt UUID. Exact replays reuse this identifier; changed content must be rejected.
+											105 text entry area (settable) Description:, Value: Immutable receipt UUID. Exact replays reuse this identifier; changed content must be rejected., ID: idDesc
+								106 row
+									107 cell onetidTypeRequiredData
+										108 text Require that this column contains information:
+										109 container
+											110 container Yes   
+												111 radio button (settable, integer) Description: Yes   , Help: Require that this column contains information: Yes, Value: 1, ID: onetidRequiredTrue
+											112 container Yes   , ID: onetidYes
+											113 container No
+												114 radio button (settable, integer) Description: No, Help: Require that this column contains information: No, Value: 0, ID: onetidRequiredFalse
+											115 container No, ID: onetidNo
+								116 row
+									117 cell onetidTypeEnforceUniqueValuesData
+										118 text Enforce unique values:
+										119 container
+											120 container Yes   
+												121 radio button (settable, integer) Description: Yes   , Help: Enforce unique values for this column: Yes, Value: 1, ID: onetidEnforceUniqueValuesTrue
+											122 container Yes   , ID: onetidYes
+											123 container No
+												124 radio button (settable, integer) Description: No, Help: Enforce unique values for this column: No, Value: 0, ID: onetidEnforceUniqueValuesFalse
+											125 container No, ID: onetidNo
+								126 row
+									127 cell onetidTextMaxChar
+										128 text Maximum number of characters:
+										129 container 36
+											130 text field (settable) Maximum number of characters:, Help: Maximum number of characters, Value: 36, ID: idMaxLength
+								131 row
+									132 cell onetidDefaultTextValue
+										133 text Default value:
+										134 container
+											135 container Text
+												136 radio button (settable, integer) Description: Text, Help: Default value: Text, Value: 1, ID: onetidIONoDate
+											137 container Text
+											138 container Calculated Value
+												139 radio button (settable, integer) Description: Calculated Value, Help: Default value: Calculated Value, Value: 0, ID: onetidIOLiteralDefaultFormula02
+											140 container Calculated Value
+										141 container Default value:
+											142 text field (settable) Default value:, Help: Default Value, ID: onetidIODefTextValue
+								143 row
+									144 cell onetidFieldCustomization
+										145 text Column Formatting:
+										146 text Change the display of this column by adding JSON below.
+										147 text Remove the text from the box to clear the custom formatting.
+										148 link Description: Learn more about formatting columns with JSON, Help: Learn more about formatting columns with JSON - Opens in new window, Value: javascript:HelpWindowKey('WSSEndUser_ColumnFormatting')
+										149 container Column Formatting:, ID: onetidFldEditGuts6
+											150 container Column Formatting:
+												151 text entry area (settable) Description: Column Formatting:, ID: idCustomization, Help: Change the display of this column by adding JSON below.<br>Remove the text from the box to clear the custom formatting.
+								152 container ValidationSection
+									153 row
+										154 cell
+											155 heading   Column Validation, Value: 3
+												156 link Description:   Column Validation, Value: javascript:toggleValidationSettings()
+								157 row
+									158 cell
+										159 table
+											160 row
+												161 cell
+													162 button Delete, ID: onetidDeleteItem
+													163 button OK, ID: onetidSaveItem
+													164 button Cancel, ID: onetidCancelItem
+
+The focused UI element is 69 text field (settable) Column name:, Value: SubmissionId, ID: idColName

@@ -1,0 +1,56 @@
+Browser tab: 1329059389, Title: "Research Enablement - PA19 TEST ONLY Receipts", URL: "https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/PA19%20TEST%20ONLY%20Receipts/AllItems.aspx".
+1 AXWebArea Research Enablement - PA19 TEST ONLY Receipts, URL: ornl.sharepoint.com/sites/ResearchEnablement/Lists/PA19%20TEST%20ONLY%20Receipts/AllItems.aspx
+	2 container 8ec06581-ab13-496d-a78b-2657427f9c57
+		3 container
+			4 menu bar
+				5 Edit all
+					6 text Edit all
+				7 container
+					8 Copy link
+						9 text Copy link
+					10 Hide comments
+					11 (collapsed) Description: Edit form, Secondary Actions: Expand
+					12 Close
+			13 container
+				14 heading 8ec06581-ab13-496d-a78b-2657427f9c57, Value: 2, ID: reactClientFormHeader
+					15 text 8ec06581-ab13-496d-a78b-2657427f9c57
+				16 text Title
+				17 button Title, 8ec06581-ab13-496d-a78b-2657427f9c57, press enter to edit.
+					18 text 8ec06581-ab13-496d-a78b-2657427f9c57
+				19 text SubmissionId
+				20 button SubmissionId Required Field, 8ec06581-ab13-496d-a78b-2657427f9c57, press enter to edit.
+					21 text 8ec06581-ab13-496d-a78b-2657427f9c57
+				22 text PayloadBase64A
+				23 text field Description: PayloadBase64A Required Field, eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlZlcmlmeSBzYXZlZCByZWNlaXB0IHN1cnZpdmVzIGV4cG9ydCBmYWlsdXJlLiIsIlJldHJ5IG11c3QgcmV1c2UgdGhlIHNhbWUgVVVJRCBhbmQgZXhhY3QgcGF5bG9hZC4iXSwib3JpZ2luIjoibWFudWFsIiwic3RhdGUiOiJpbi1wcm9ncmVzcyIsInN1bW1hcnkiOiJQQTIxIFRFU1QgT05MWSBhdXRob3JpdGF0aXZlIGNvbmZsaWN0IGZpeHR1cmU7IGRpZmZlcnMgZnJvbSBicm93c2VyIHBlbmRpbmcgcGF5bG9hZC4iLCJ0aW1lc3RhbXAiOiIyMDI2LTEwLTI2VDA0OjAwOjAwLjAwMFoifSwicHJvamVjdElkIjoicGExOS10ZXN0LTEiLCJzdWJtaXNzaW9uSWQiOiI4ZWMwNjU4MS1hYjEzLTQ5NmQtYTc4Yi0yNjU3NDI3ZjljNTciLCJzdWJtaXR0ZWRBdCI6IjIwMjYtMTAtMjdUMDE6NDQ6MDYuMzE2WiIsInN1Ym1pdHRlciI6eyJlbWFpbCI6Im85d0Bvcm5sLmdvdiJ9fQ==, press enter to edit., Value: eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlZlcmlmeSBzYXZlZCByZWNlaXB0IHN1cnZpdmVzIGV4cG9ydCBmYWlsdXJlLiIsIlJldHJ5IG11c3QgcmV1c2UgdGhlIHNhbWUgVVVJRCBhbmQgZXhhY3QgcGF5bG9hZC4iXSwib3JpZ2luIjoibWFudWFsIiwic3RhdGUiOiJpbi1wcm9ncmVzcyIsInN1bW1hcnkiOiJQQTIxIFRFU1QgT05MWSBhdXRob3JpdGF0aXZlIGNvbmZsaWN0IGZpeHR1cmU7IGRpZmZlcnMgZnJvbSBicm93c2VyIHBlbmRpbmcgcGF5bG9hZC4iLCJ0aW1lc3RhbXAiOiIyMDI2LTEwLTI2VDA0OjAwOjAwLjAwMFoifSwicHJvamVjdElkIjoicGExOS10ZXN0LTEiLCJzdWJtaXNzaW9uSWQiOiI4ZWMwNjU4MS1hYjEzLTQ5NmQtYTc4Yi0yNjU3NDI3ZjljNTciLCJzdWJtaXR0ZWRBdCI6IjIwMjYtMTAtMjdUMDE6NDQ6MDYuMzE2WiIsInN1Ym1pdHRlciI6eyJlbWFpbCI6Im85d0Bvcm5sLmdvdiJ9fQ==
+					24 text eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlZlcmlmeSBzYXZlZCByZWNlaXB0IHN1cnZpdmVzIGV4cG9ydCBmYWlsdXJlLiIsIlJldHJ5IG11c3QgcmV1c2UgdGhlIHNhbWUgVVVJRCBhbmQgZXhhY3QgcGF5bG9hZC4iXSwib3JpZ2luIjoibWFudWFsIiwic3RhdGUiOiJpbi1wcm9ncmVzcyIsInN1bW1hcnkiOiJQQTIxIFRFU1QgT05MWSBhdXRob3JpdGF0aXZlIGNvbmZsaWN0IGZpeHR1cmU7IGRpZmZlcnMgZnJvbSBicm93c2VyIHBlbmRpbmcgcGF5bG9hZC4iLCJ0aW1lc3RhbXAiOiIyMDI2LTEwLTI2VDA0OjAwOjAwLjAwMFoifSwicHJvamVjdElkIjoicGExOS10ZXN0LTEiLCJzdWJtaXNzaW9uSWQiOiI4ZWMwNjU4MS1hYjEzLTQ5NmQtYTc4Yi0yNjU3NDI3ZjljNTciLCJzdWJtaXR0ZWRBdCI6IjIwMjYtMTAtMjdUMDE6NDQ6MDYuMzE2WiIsInN1Ym1pdHRlciI6eyJlbWFpbCI6Im85d0Bvcm5sLmdvdiJ9fQ==
+				25 button See more
+				26 text PayloadBase64B
+				27 text field Description: PayloadBase64B, empty, press enter to edit., Value: Enter value here
+					28 text Enter value here
+				29 text ProjectId
+				30 text field Description: ProjectId, pa19-test-1, press enter to edit., Value: pa19-test-1
+					31 text pa19-test-1
+				32 text Summary
+				33 text field Value: PA21 TEST ONLY authoritative conflict fixture; differs from browser pending payload., Description: Summary, PA21 TEST ONLY authoritative conflict fixture; differs from browser pending payload., press enter to edit.
+					34 text PA21 TEST ONLY authoritative conflict fixture; differs from browser pending payload.
+				35 text SubmitterEmail
+				36 button SubmitterEmail, o9w@ornl.gov, press enter to edit.
+					37 text o9w@ornl.gov
+				38 text ExportStatus
+				39 button ExportStatus, Exported, press enter to edit.
+					40 text Exported
+				41 text ExportFileUrl
+				42 text field Description: ExportFileUrl, https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/8ec06581-ab13-496d-a78b-2657427f9c57.jsonl, press enter to edit., Value: https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/8ec06581-ab13-496d-a78b-2657427f9c57.jsonl
+					43 text https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/8ec06581-ab13-496d-a78b-2657427f9c57.jsonl
+				44 text Attachments
+				45 button Attachments, , press enter to edit.
+					46 text Add or remove attachments
+			47 pop up button (collapsed) Description: Activity feed view options. Selected view option is Comments, Secondary Actions: Expand
+				48 text Comments
+			49 combo box (collapsed) Description: Comment input, Secondary Actions: Expand
+				50 text entry area (settable) Comment input
+					51 text @mention or comment
+			52 container List of item activities. Use up and down keys to navigate. Use left and right arrow keys to navigate within activity items.
+				53 text Be the first one to add a comment
+
+The focused UI element is 17 button Title, 8ec06581-ab13-496d-a78b-2657427f9c57, press enter to edit.

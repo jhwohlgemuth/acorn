@@ -1,0 +1,103 @@
+[
+  {
+    "file": "PA24AcceptedRepairedExporter20261027_20261027131627.zip",
+    "bytes": 5018,
+    "sha256": "4a1dcffb64bb68ab3b1a14e2e4007045a1289be3bb596f75fbb4d32efca27bb5",
+    "members": [
+      "Microsoft.Flow/flows/de47cd38-b7e2-4c2e-8e87-b5f37c4a9980/apisMap.json",
+      "Microsoft.Flow/flows/de47cd38-b7e2-4c2e-8e87-b5f37c4a9980/connectionsMap.json",
+      "Microsoft.Flow/flows/de47cd38-b7e2-4c2e-8e87-b5f37c4a9980/definition.json",
+      "Microsoft.Flow/flows/manifest.json",
+      "manifest.json"
+    ],
+    "flowDefinitions": [
+      {
+        "name": "PA26 TEST ONLY SharePoint Logbook Export",
+        "id": "28cba548-c862-484c-b838-ea21eaf52630",
+        "actions": [
+          "Combined_logbook_export_LB"
+        ]
+      }
+    ],
+    "connectorApis": [
+      "shared_logicflows",
+      "shared_sharepointonline"
+    ],
+    "credentialPatternFindings": [],
+    "textMembersAudited": 5
+  },
+  {
+    "file": "PA24DeployedExporterRollback20261027_20261027132154.zip",
+    "bytes": 4574,
+    "sha256": "5768836e29532a0e4458c600b5e8010ff1b072dce9c25778def743808a21f04e",
+    "members": [
+      "Microsoft.Flow/flows/16a3874c-e9a4-49ba-9e2c-dff8d94c935b/apisMap.json",
+      "Microsoft.Flow/flows/16a3874c-e9a4-49ba-9e2c-dff8d94c935b/connectionsMap.json",
+      "Microsoft.Flow/flows/16a3874c-e9a4-49ba-9e2c-dff8d94c935b/definition.json",
+      "Microsoft.Flow/flows/manifest.json",
+      "manifest.json"
+    ],
+    "flowDefinitions": [
+      {
+        "name": "ACORN SharePoint Pilot Logbook Export",
+        "id": "51efa5f9-6e69-4d75-a53b-2c2965fd51bd",
+        "actions": [
+          "Combined_logbook_export_LB"
+        ]
+      }
+    ],
+    "connectorApis": [
+      "shared_logicflows",
+      "shared_sharepointonline"
+    ],
+    "credentialPatternFindings": [],
+    "textMembersAudited": 5
+  },
+  {
+    "file": "SponsorHighlightsSharePointNativeBackup20261027_20261027131412.zip",
+    "bytes": 111899,
+    "sha256": "ea1ddd0a0fdb6a34310f8d43737972393a38ae69db6917b67e2d3c96383fd15a",
+    "members": [
+      "Microsoft.Flow/flows/09bca51e-5a3d-4250-86cf-7cbf14556bf6/apisMap.json",
+      "Microsoft.Flow/flows/09bca51e-5a3d-4250-86cf-7cbf14556bf6/connectionsMap.json",
+      "Microsoft.Flow/flows/09bca51e-5a3d-4250-86cf-7cbf14556bf6/definition.json",
+      "Microsoft.Flow/flows/61cce34a-f5c9-46b5-b7a8-b92177ca9379/apisMap.json",
+      "Microsoft.Flow/flows/61cce34a-f5c9-46b5-b7a8-b92177ca9379/connectionsMap.json",
+      "Microsoft.Flow/flows/61cce34a-f5c9-46b5-b7a8-b92177ca9379/definition.json",
+      "Microsoft.Flow/flows/manifest.json",
+      "Microsoft.PowerApps/apps/1201867180033777690/1201867180033777690.json",
+      "Microsoft.PowerApps/apps/1201867180033777690/N30153bbc-c7cb-41ed-ad60-7db99cc9d5d7-identity.json",
+      "Microsoft.PowerApps/apps/1201867180033777690/N5e4cfdc7-69c9-4d10-9530-e33ffe893cb3-document.msapp",
+      "Microsoft.PowerApps/apps/1201867180033777690/N6d746a5b-752f-4f95-8062-8b3e124eab46-logoSmallFile",
+      "manifest.json"
+    ],
+    "flowDefinitions": [
+      {
+        "name": "ACORN SharePoint Pilot Catalog",
+        "id": "6f8a4ab5-dd66-4904-9f5d-f307519ab4d5",
+        "actions": [
+          "Get_items",
+          "Select",
+          "Respond_to_a_Power_App_or_flow"
+        ]
+      },
+      {
+        "name": "ACORN SharePoint Pilot Intake",
+        "id": "64679e9c-ae76-4263-b8fa-8832835516ca",
+        "actions": [
+          "Get_items",
+          "SharePoint_intake_SP",
+          "SharePoint_response_SP",
+          "Notify_new_export_SP"
+        ]
+      }
+    ],
+    "connectorApis": [
+      "shared_logicflows",
+      "shared_sharepointonline",
+      "shared_teams"
+    ],
+    "credentialPatternFindings": [],
+    "textMembersAudited": 26
+  }
+]

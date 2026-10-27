@@ -1,0 +1,19 @@
+{
+  "suffix": "385beb282f",
+  "old": "{\"submissionId\":\"pa26-prior\",\"text\":\"previous synthetic snapshot\"}\n",
+  "expected": "{\"submissionId\":\"pa26-next\",\"text\":\"caf\u00e9 \u03a9 and escaped \\n newline\"}\n",
+  "later": "{\"submissionId\":\"pa26-later\",\"text\":\"later synthetic snapshot\"}\n",
+  "cases": [
+    "denied_403",
+    "server_500",
+    "server_503",
+    "read_timeout",
+    "timeout_with_404",
+    "lost_committed",
+    "lost_uncommitted",
+    "readback_failed",
+    "readback_mismatch",
+    "unchanged"
+  ],
+  "injection_limits": "Prior HTTP codes/timeouts are injected observations. Lost responses and readback failure use deliberate native action failure, not a real network timeout."
+}

@@ -1,0 +1,458 @@
+Browser tab: 1329059518, Title: "Manage your flows | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/runs/08584084951683106531538354315CU08".
+0 AXWebArea Manage your flows | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/runs/08584084951683106531538354315CU08
+	1 container
+		2 container root
+			3 container
+				4 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				5 container o365header
+					6 container O365_NavHeader
+						7 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							114 text 
+						9 container ppuxOfficeHeaderTopLevelRegion
+							10 container ppuxOfficeHeaderLeftRegion
+								11 text Power Automate
+							12 container ppuxOfficeHeaderRightRegion
+								13 button Wohlgemuth, Jason
+									14 container
+										15 text Environments Wohlgemuth, Jason
+								16 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								17 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						18 container O365_HeaderRightRegion
+							19 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								20 image JW
+				21 container
+					22 button Go back to previous page
+					23 heading The flow name is ACORN SharePoint Pilot Catalog., Value: 1
+						24 container The flow name is ACORN SharePoint Pilot Catalog.
+							25 text ACORN SharePoint Pilot Catalog
+					26 toolbar
+						27 button Description: Resubmit, ID: resubmitFlowRun
+							28 text Resubmit
+						29 button (disabled) Description: Cancel, ID: cancelFlowRun
+							30 text Cancel
+						31 button Description: Copilot, ID: chat
+							32 text Copilot
+						33 button Description: Edit, ID: editFlow
+							34 text Edit
+						35 container
+							36 switch Description: New view, Value: 1, ID: switchDesignerFlowRunDetails
+							37 text New view
+					38 container
+						39 text Flow run failed.
+						40 button Dismiss
+					41 container
+						42 container Workflow canvas
+							43 container
+								44 image
+									45 container Edge from When_Power_Apps_calls_a_flow_(V2) to Get_items
+								46 image
+									47 container Edge from Get_items to Select
+								48 image
+									49 container Edge from Select to Respond_to_a_Power_App_or_flow
+								50 container
+									51 container When Power Apps calls a flow (V2)
+										52 container msla-node-When_Power_Apps_calls_a_flow_(V2)
+											53 container Description: 0 seconds. Succeeded, ID: When Power Apps calls a flow (V2)-status
+											54 button When Power Apps calls a flow (V2) operation, Power Apps connector
+												55 text When Power Apps calls a flow (V2)
+								56 container
+									57 container Get items
+										58 container msla-node-Get_items
+											59 container Description: 0.3 seconds. Failed, ID: Get items-status
+												60 image
+											61 button Get items operation, SharePoint connector
+												62 text Get items
+												63 container
+													64 text Forbidden
+											65 container SharePoint ACORNSharePointPilot-0c871
+												66 container Connection name: SharePoint ACORNSharePointPilot-0c871
+								67 container
+									68 container Select
+										69 container msla-node-Select
+											70 container Description: 0 seconds. Skipped, ID: Select-status
+												71 image
+											72 button Select operation, Data Operation connector
+												73 text Select
+								74 container
+									75 container Respond to a Power App or flow
+										76 container msla-node-Respond_to_a_Power_App_or_flow
+											77 container Description: 0 seconds. Skipped, ID: Respond to a Power App or flow-status
+												78 image
+											79 button Respond to a Power App or flow operation, Power Apps connector
+												80 text Respond to a Power App or flow
+							81 image
+							82 container Control Panel
+								83 button Description: Expand all action groups, ID: control-expand-collapse-button
+								84 button Description: Zoom in, ID: control-zoom-in-button
+								85 button Description: Zoom out, ID: control-zoom-out-button
+								86 button Description: Zoom view to fit, ID: control-zoom-fit-button
+								87 button Description: Toggle minimap, ID: control-minimap-button
+								88 button Description: Search workflow actions, ID: control-search-button
+						91 container Operation details panel
+							115 container Get items
+								116 button Description: Collapse, ID: msla-panel-header-collapse-nav
+								117 text field Description: Card title, Value: Get items, ID: Get_items-title
+								118 pop up button Description: More commands, ID: menu30
+							119 container flow-node-details-panel-Get_items
+								120 tab group
+									121 tab (selected, settable, boolean) Run results, Value: 1
+									122 tab (selectable, settable, boolean) Settings, Value: 0
+									123 tab (selectable, settable, boolean) Code view, Value: 0
+									124 tab (selectable, settable, boolean) About, Value: 0
+								125 container
+									126 text Forbidden
+									127 heading INPUTS, Value: 3
+										128 text INPUTS
+									129 button Show raw inputs
+										130 text Show raw inputs
+									131 container INPUTS
+										132 container
+											133 text host
+											134 button Copy the value of 'host' to the clipboard
+											135 table host
+												136 row Field Value
+													137 cell
+														138 text Field
+													139 cell
+														140 text Value
+												141 container
+													142 row apiId subscriptions/221f44a6-1468-ea4e-b93d-cd52f1723079/providers/Microsoft.Web/locations/usgovtexas/runtimes/power-apis-usgov001-public/apis/sharepointonline
+														143 cell
+															144 text apiId
+														145 cell
+															146 text subscriptions/221f44a6-1468-ea4e-b93d-cd52f1723079/providers/Microsoft.Web/locations/usgovtexas/runtimes/power-apis-usgov001-public/apis/sharepointonline
+													147 row connectionReferenceName shared_sharepointonline
+														148 cell
+															149 text connectionReferenceName
+														150 cell
+															151 text shared_sharepointonline
+													152 row operationId GetItems
+														153 cell
+															154 text operationId
+														155 cell
+															156 text GetItems
+										157 container
+											158 text parameters
+											159 button Copy the value of 'parameters' to the clipboard
+											160 table parameters
+												161 row Field Value
+													162 cell
+														163 text Field
+													164 cell
+														165 text Value
+												166 container
+													167 row dataset https://ornl.sharepoint.com/sites/ResearchEnablement
+														168 cell
+															169 text dataset
+														170 cell
+															171 text https://ornl.sharepoint.com/sites/ResearchEnablement
+													172 row table 88dfa78d-a62f-4e0f-aae5-0d5ea52758ed
+														173 cell
+															174 text table
+														175 cell
+															176 text 88dfa78d-a62f-4e0f-aae5-0d5ea52758ed
+													177 row $orderby Title asc
+														178 cell
+															179 text $orderby
+														180 cell
+															181 text Title asc
+													182 row $top 1001
+														183 cell
+															184 text $top
+														185 cell
+															186 text 1001
+									187 heading OUTPUTS, Value: 3
+										188 text OUTPUTS
+									189 button Show raw outputs
+										190 text Show raw outputs
+									191 container OUTPUTS
+										192 container
+											193 text statusCode
+											194 text field Description: statusCode, Value: 403
+												195 button Copy the value of 'statusCode' to the clipboard
+												196 text 403
+										197 container
+											198 text headers
+											199 button Copy the value of 'headers' to the clipboard
+											200 table headers
+												201 row Field Value
+													202 cell
+														203 text Field
+													204 cell
+														205 text Value
+												206 container
+													207 row Cache-Control max-age=0, private
+														208 cell
+															209 text Cache-Control
+														210 cell
+															211 text max-age=0, private
+													212 row Vary Origin
+														213 cell
+															214 text Vary
+														215 cell
+															216 text Origin
+													217 row X-NetworkStatistics 0,65535,0,3,94262,462553,462553,2251
+														218 cell
+															219 text X-NetworkStatistics
+														220 cell
+															221 text 0,65535,0,3,94262,462553,462553,2251
+													222 row X-SharePointHealthScore 3
+														223 cell
+															224 text X-SharePointHealthScore
+														225 cell
+															226 text 3
+													227 row X-MSDAVEXT_Error 917656; Access+denied.+Before+opening+files+in+this+location%2c+you+must+first+browse+to+the+web+site+and+select+the+option+to+login+automatically.
+														228 cell
+															229 text X-MSDAVEXT_Error
+														230 cell
+															231 text 917656; Access+denied.+Before+opening+files+in+this+location%2c+you+must+first+browse+to+the+web+site+and+select+the+option+to+login+automatically.
+													232 row DATASERVICEVERSION 3.0
+														233 cell
+															234 text DATASERVICEVERSION
+														235 cell
+															236 text 3.0
+													237 row IsOCDI 0
+														238 cell
+															239 text IsOCDI
+														240 cell
+															241 text 0
+													242 row X-DataBoundary NONE
+														243 cell
+															244 text X-DataBoundary
+														245 cell
+															246 text NONE
+													247 row X-1DSCollectorUrl https://tb.events.data.microsoft.com/OneCollector/1.0/
+														248 cell
+															249 text X-1DSCollectorUrl
+														250 cell
+															251 text https://tb.events.data.microsoft.com/OneCollector/1.0/
+													252 row X-AriaCollectorURL https://browser.pipe.aria.microsoft.com/Collector/3.0/
+														253 cell
+															254 text X-AriaCollectorURL
+														255 cell
+															256 text https://browser.pipe.aria.microsoft.com/Collector/3.0/
+													257 row SPRequestGuid a3a99d45-2754-4a1e-8cad-91f349e45102
+														258 cell
+															259 text SPRequestGuid
+														260 cell
+															261 text a3a99d45-2754-4a1e-8cad-91f349e45102
+													262 row request-id a3a99d45-2754-4a1e-8cad-91f349e45102
+														263 cell
+															264 text request-id
+														265 cell
+															266 text a3a99d45-2754-4a1e-8cad-91f349e45102
+													267 row MS-CV okj/ZNvwAAAHe7SnNQSc2w.0
+														268 cell
+															269 text MS-CV
+														270 cell
+															271 text okj/ZNvwAAAHe7SnNQSc2w.0
+													272 row SPLogId 64ff48a2-f0db-0000-077b-b4a735049cdb
+														273 cell
+															274 text SPLogId
+														275 cell
+															276 text 64ff48a2-f0db-0000-077b-b4a735049cdb
+													277 row Strict-Transport-Security max-age=31536000
+														278 cell
+															279 text Strict-Transport-Security
+														280 cell
+															281 text max-age=31536000
+													282 row X-Frame-Options SAMEORIGIN
+														283 cell
+															284 text X-Frame-Options
+														285 cell
+															286 text SAMEORIGIN
+													287 row Content-Security-Policy frame-ancestors 'self' teams.microsoft.com *.teams.microsoft.com *.skype.com *.teams.microsoft.us local.teams.office.com teams.cloud.microsoft *.office365.com goals.cloud.microsoft *.powerapps.com *.powerbigov.us *.yammer.com engage.cloud.microsoft word.cloud.microsoft excel.cloud.microsoft powerpoint.cloud.microsoft *.officeapps.live.com *.office.com *.microsoft365.com m365.cloud.microsoft *.cloud.microsoft *.stream.azure-test.net *.dynamics.com *.microsoft.com onedrive.live.com *.onedrive.live.com teams.microsoft.com *.teams.microsoft.com securebroker.sharepointonline.com;
+														288 cell
+															289 text Content-Security-Policy
+														290 cell
+															291 text frame-ancestors 'self' teams.microsoft.com *.teams.microsoft.com *.skype.com *.teams.microsoft.us local.teams.office.com teams.cloud.microsoft *.office365.com goals.cloud.microsoft *.powerapps.com *.powerbigov.us *.yammer.com engage.cloud.microsoft word.cloud.microsoft excel.cloud.microsoft powerpoint.cloud.microsoft *.officeapps.live.com *.office.com *.microsoft365.com m365.cloud.microsoft *.cloud.microsoft *.stream.azure-test.net *.dynamics.com *.microsoft.com onedrive.live.com *.onedrive.live.com teams.microsoft.com *.teams.microsoft.com securebroker.sharepointonline.com;
+													292 row MicrosoftSharePointTeamServices 16.0.0.27821
+														293 cell
+															294 text MicrosoftSharePointTeamServices
+														295 cell
+															296 text 16.0.0.27821
+													297 row X-Content-Type-Options nosniff
+														298 cell
+															299 text X-Content-Type-Options
+														300 cell
+															301 text nosniff
+													302 row X-MS-InvokeApp 1; RequireReadOnly
+														303 cell
+															304 text X-MS-InvokeApp
+														305 cell
+															306 text 1; RequireReadOnly
+													307 row P3P CP="ALL IND DSP COR ADM CONo CUR CUSo IVAo IVDo PSA PSD TAI TELo OUR SAMo CNT COM INT NAV ONL PHY PRE PUR UNI"
+														308 cell
+															309 text P3P
+														310 cell
+															311 text CP="ALL IND DSP COR ADM CONo CUR CUSo IVAo IVDo PSA PSD TAI TELo OUR SAMo CNT COM INT NAV ONL PHY PRE PUR UNI"
+													312 row X-AspNet-Version 4.0.30319
+														313 cell
+															314 text X-AspNet-Version
+														315 cell
+															316 text 4.0.30319
+													317 row X-Powered-By ASP.NET
+														318 cell
+															319 text X-Powered-By
+														320 cell
+															321 text ASP.NET
+													322 row x-ms-environment-id 221f44a6-1468-ea4e-b93d-cd52f1723079
+														323 cell
+															324 text x-ms-environment-id
+														325 cell
+															326 text 221f44a6-1468-ea4e-b93d-cd52f1723079
+													327 row x-ms-tenant-id db3dbd43-4c4b-4544-9f8a-0553f9f5f25e
+														328 cell
+															329 text x-ms-tenant-id
+														330 cell
+															331 text db3dbd43-4c4b-4544-9f8a-0553f9f5f25e
+													332 row x-ms-subscription-id 221f44a6-1468-ea4e-b93d-cd52f1723079
+														333 cell
+															334 text x-ms-subscription-id
+														335 cell
+															336 text 221f44a6-1468-ea4e-b93d-cd52f1723079
+													337 row x-ms-dlp-re -|-
+														338 cell
+															339 text x-ms-dlp-re
+														340 cell
+															341 text -|-
+													342 row x-ms-dlp-gu -|-
+														343 cell
+															344 text x-ms-dlp-gu
+														345 cell
+															346 text -|-
+													347 row x-ms-dlp-ef -|-/-|-|-|-
+														348 cell
+															349 text x-ms-dlp-ef
+														350 cell
+															351 text -|-/-|-|-|-
+													352 row x-ms-mip-sl -|-|-|-
+														353 cell
+															354 text x-ms-mip-sl
+														355 cell
+															356 text -|-|-|-
+													357 row x-ms-au-creator-id 6fb24261-5cd8-4cb9-83f0-71b77cc3b987
+														358 cell
+															359 text x-ms-au-creator-id
+														360 cell
+															361 text 6fb24261-5cd8-4cb9-83f0-71b77cc3b987
+													362 row Timing-Allow-Origin *
+														363 cell
+															364 text Timing-Allow-Origin
+														365 cell
+															366 text *
+													367 row x-ms-apihub-cached-response true
+														368 cell
+															369 text x-ms-apihub-cached-response
+														370 cell
+															371 text true
+													372 row x-ms-apihub-obo false
+														373 cell
+															374 text x-ms-apihub-obo
+														375 cell
+															376 text false
+													377 row Date Tue, 27 Oct 2026 14:35:17 GMT
+														378 cell
+															379 text Date
+														380 cell
+															381 text Tue, 27 Oct 2026 14:35:17 GMT
+													382 row Content-Length 208
+														383 cell
+															384 text Content-Length
+														385 cell
+															386 text 208
+													387 row Content-Type application/json
+														388 cell
+															389 text Content-Type
+														390 cell
+															391 text application/json
+													392 row Expires Mon, 12 Oct 2026 14:35:17 GMT
+														393 cell
+															394 text Expires
+														395 cell
+															396 text Mon, 12 Oct 2026 14:35:17 GMT
+													397 row Last-Modified Tue, 27 Oct 2026 14:35:17 GMT
+														398 cell
+															399 text Last-Modified
+														400 cell
+															401 text Tue, 27 Oct 2026 14:35:17 GMT
+										402 container
+											403 text body
+											404 button Copy the value of 'body' to the clipboard
+											405 table body
+												406 row Field Value
+													407 cell
+														408 text Field
+													409 cell
+														410 text Value
+												411 container
+													412 row odata.error.code -2147024891, System.UnauthorizedAccessException
+														413 cell
+															414 text odata.error.code
+														415 cell
+															416 text -2147024891, System.UnauthorizedAccessException
+													417 row odata.error.message.lang en-US
+														418 cell
+															419 text odata.error.message.lang
+														420 cell
+															421 text en-US
+													422 row odata.error.message.value Attempted to perform an unauthorized operation.
+														423 cell
+															424 text odata.error.message.value
+														425 cell
+															426 text Attempted to perform an unauthorized operation.
+									427 heading PROPERTIES, Value: 3
+										428 text PROPERTIES
+									429 container PROPERTIES
+										430 container
+											431 text Start time
+											432 text field Description: Start time, Value: 10/27/2026, 10:35:17 AM (Local time)
+												433 container
+													434 checkbox Description: Switch 'Start time' to the UTC time format, Value: 0
+													435 button Copy the value of 'Start time' to the clipboard
+												436 text 10/27/2026, 10:35:17 AM (Local time)
+										437 container
+											438 text End time
+											439 text field Description: End time, Value: 10/27/2026, 10:35:17 AM (Local time)
+												440 container
+													441 checkbox Description: Switch 'End time' to the UTC time format, Value: 0
+													442 button Copy the value of 'End time' to the clipboard
+												443 text 10/27/2026, 10:35:17 AM (Local time)
+										444 container
+											445 text Status
+											446 text field Description: Status, Value: Failed
+												447 button Copy the value of 'Status' to the clipboard
+												448 text Failed
+										449 container
+											450 text Client tracking ID
+											451 text field Description: Client tracking ID, Value: 08584084951683106531538354315CU08
+												452 button Copy the value of 'Client tracking ID' to the clipboard
+												453 text 08584084951683106531538354315CU08
+										454 container
+											455 text Action tracking ID
+											456 text field Description: Action tracking ID, Value: c0cb035b-c252-4526-8b42-c3f5a3f92cf0
+												457 button Copy the value of 'Action tracking ID' to the clipboard
+												458 text c0cb035b-c252-4526-8b42-c3f5a3f92cf0
+						93 container
+							94 text Copilot
+							95 button Close
+						96 container Copilot
+							97 container I found the following error:
+								98 text I found the following error:
+								99 button Get items Get items sharepointonline
+									100 image Get items
+									101 text Get items
+									102 text sharepointonline
+								103 text Need troubleshooting assistance? Just ask.
+								104 button Assist me
+									105 text Assist me
+								106 text AI-generated content may be incorrect
+						107 text entry area (settable) TextField444
+						108 container
+							109 text 0 / 2000
+						110 checkbox Description: Actions, Value: 0
+						111 button (disabled) Submit
+						112 container Make sure AI-generated content is accurate and appropriate before using.
+							113 text Make sure AI-generated content is accurate and appropriate before using.
+
+The focused UI element is 58 container msla-node-Get_items

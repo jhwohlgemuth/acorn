@@ -1,0 +1,166 @@
+Browser tab: 1329059502, Title: "Research Enablement - Sponsor Highlights Intake Pilot", URL: "https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/AllItems.aspx".
+1 AXWebArea Research Enablement - Sponsor Highlights Intake Pilot, URL: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/AllItems.aspx
+	2 container
+		3 link Description: Skip to main content, ID: sp-skipToContent, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/AllItems.aspx#
+		4 container appRoot
+			5 container
+				6 button (collapsed) Description: Discover, 1 of 4, ID: ngspAppBarDiscover, Secondary Actions: Expand
+				7 button (collapsed) Description: Publish, 2 of 4, ID: ngspAppBarPublish, Secondary Actions: Expand
+				8 button (collapsed) Description: Build, 3 of 4, ID: ngspAppBarBuild, Secondary Actions: Expand
+				9 button Description: OneDrive, 4 of 4, ID: ngspAppBarOneDrive
+			10 container
+				11 container
+					12 container SharePoint Site Header
+						13 container
+							14 pop up button (collapsed) Description: navigation pane, ID: showOverlayTextForLeftNavToggleButton, Secondary Actions: Expand
+							15 link Description: Research Enablement home, Value: ornl.sharepoint.com/sites/ResearchEnablement
+							16 heading Research Enablement, Value: 2
+								17 text Research Enablement
+							18 button Go to the Microsoft Teams channel
+							19 container showOverlayText
+								20 container Private group
+									21 text Private group
+								22 button
+								23 button Not following, Add to favorites
+									24 text Not following
+								25 button 2 members. Open Group Membership pane
+				26 container
+					27 heading Sponsor Highlights Intake Pilot, Value: 2
+						28 button Sponsor Highlights Intake Pilot
+					29 container
+						30 toolbar List view options
+							31 button Filter
+							32 button Group By
+							33 button Sort
+						34 tab group List views
+							35 tab (selected, settable, boolean) All Items, Value: 1
+All Items
+						36 button Add view
+							37 text 
+							38 text Add view
+					39 container html-list_3
+						40 table Description: Sponsor Highlights Intake Pilot, ID: list-content-id
+							41 row Select all rows Title ProjectId Summary SubmitterEmail ExportStatus ExportFileUrl Created  Add column
+								42 cell (selectable)
+									43 checkbox (settable, integer) Description: Select all rows, Value: 0
+								44 cell
+									45 pop up button (collapsed) Title, Secondary Actions: Expand
+								46 cell
+									47 pop up button (collapsed) ProjectId, Secondary Actions: Expand
+								48 cell
+									49 pop up button (collapsed) Summary, Secondary Actions: Expand
+								50 cell
+									51 pop up button (collapsed) SubmitterEmail, Secondary Actions: Expand
+								52 cell
+									53 pop up button (collapsed) ExportStatus, Secondary Actions: Expand
+								54 cell
+									55 pop up button (collapsed) ExportFileUrl, Secondary Actions: Expand
+								56 cell
+									57 pop up button (collapsed) Created, Secondary Actions: Expand
+								58 cell
+									59 pop up button (collapsed)  Add column, Secondary Actions: Expand
+							60 row (selectable) ID: virtualized-list_4_page-0_1, Select row 5e505b15-5f25-4ae7-8e13-7b4df6f6715e acorn TEST ONLY — SharePoint intake exact export o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/5e505b15-5f25-4ae7-8e13-7b4df6f6715e.jsonl Yesterday at 1:20 PM
+								61 cell (selectable)
+									62 checkbox (settable, integer) Description: Select row, Value: 0
+								63 cell
+									64 button 5e505b15-5f25-4ae7-8e13-7b4df6f6715e
+								65 cell
+									66 text acorn
+								67 cell
+									68 text TEST ONLY — SharePoint intake exact export
+								69 cell
+									70 text o9w@ornl.gov
+								71 cell
+									72 text Exported
+								73 cell
+									74 text https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/5e505b15-5f25-4ae7-8e13-7b4df6f6715e.jsonl
+								75 cell 10/26/2026 1:20 PM
+									76 text Yesterday at 1:20 PM
+							77 row (selectable) ID: virtualized-list_4_page-0_2, Select row 02b7231b-47e0-4034-b49b-0b6e594548e0 acorn TEST ONLY — SharePoint canvas receipt and JSONL acceptance o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/02b7231b-47e0-4034-b49b-0b6e594548e0.jsonl Yesterday at 1:50 PM
+								78 cell (selectable)
+									79 checkbox (settable, integer) Description: Select row, Value: 0
+								80 cell
+									81 button 02b7231b-47e0-4034-b49b-0b6e594548e0
+								82 cell
+									83 text acorn
+								84 cell
+									85 text TEST ONLY — SharePoint canvas receipt and JSONL acceptance
+								86 cell
+									87 text o9w@ornl.gov
+								88 cell
+									89 text Exported
+								90 cell
+									91 text https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/02b7231b-47e0-4034-b49b-0b6e594548e0.jsonl
+								92 cell 10/26/2026 1:50 PM
+									93 text Yesterday at 1:50 PM
+							94 row (selectable) ID: virtualized-list_4_page-0_3, Select row 64b836e0-016f-4493-9894-a6fe79acc8de acorn TEST ONLY — SharePoint pilot Teams notification acceptance o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/64b836e0-016f-4493-9894-a6fe79acc8de.jsonl Yesterday at 1:57 PM
+								95 cell (selectable)
+									96 checkbox (settable, integer) Description: Select row, Value: 0
+								97 cell
+									98 button 64b836e0-016f-4493-9894-a6fe79acc8de
+								99 cell
+									100 text acorn
+								101 cell
+									102 text TEST ONLY — SharePoint pilot Teams notification acceptance
+								103 cell
+									104 text o9w@ornl.gov
+								105 cell
+									106 text Exported
+								107 cell
+									108 text https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/64b836e0-016f-4493-9894-a6fe79acc8de.jsonl
+								109 cell 10/26/2026 1:57 PM
+									110 text Yesterday at 1:57 PM
+							111 row (selectable) ID: virtualized-list_4_page-0_4, Select row dff4315e-8106-4eb8-83ad-44f6df767476 acorn TEST ONLY - Demo 1: Geospatial data quality review completed o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/dff4315e-8106-4eb8-83ad-44f6df767476.jsonl Yesterday at 5:46 PM
+								112 cell (selectable)
+									113 checkbox (settable, integer) Description: Select row, Value: 0
+								114 cell
+									115 button dff4315e-8106-4eb8-83ad-44f6df767476
+								116 cell
+									117 text acorn
+								118 cell
+									119 text TEST ONLY - Demo 1: Geospatial data quality review completed
+								120 cell
+									121 text o9w@ornl.gov
+								122 cell
+									123 text Exported
+								124 cell
+									125 text https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/dff4315e-8106-4eb8-83ad-44f6df767476.jsonl
+								126 cell 10/26/2026 5:46 PM
+									127 text Yesterday at 5:46 PM
+							128 row (selectable) ID: virtualized-list_4_page-0_5, Select row 67c0e548-ac0c-4a01-829c-9e4708b3cf1f acorn TEST ONLY - Demo 2: Map validation dashboard prototype in progress o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/67c0e548-ac0c-4a01-829c-9e4708b3cf1f.jsonl Yesterday at 5:46 PM
+								129 cell (selectable)
+									130 checkbox (settable, integer) Description: Select row, Value: 0
+								131 cell
+									132 button 67c0e548-ac0c-4a01-829c-9e4708b3cf1f
+								133 cell
+									134 text acorn
+								135 cell
+									136 text TEST ONLY - Demo 2: Map validation dashboard prototype in progress
+								137 cell
+									138 text o9w@ornl.gov
+								139 cell
+									140 text Exported
+								141 cell
+									142 text https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/67c0e548-ac0c-4a01-829c-9e4708b3cf1f.jsonl
+								143 cell 10/26/2026 5:46 PM
+									144 text Yesterday at 5:46 PM
+							145 row (selectable) ID: virtualized-list_4_page-0_6, Select row 32baf0fa-96a7-43c0-8e80-cd71c26b4ca3 acorn TEST ONLY - Demo 3: Analyst walkthrough planned for the reporting workflow o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/32baf0fa-96a7-43c0-8e80-cd71c26b4ca3.jsonl Yesterday at 5:47 PM
+								146 cell (selectable)
+									147 checkbox (settable, integer) Description: Select row, Value: 0
+								148 cell
+									149 button 32baf0fa-96a7-43c0-8e80-cd71c26b4ca3
+								150 cell
+									151 text acorn
+								152 cell
+									153 text TEST ONLY - Demo 3: Analyst walkthrough planned for the reporting workflow
+								154 cell
+									155 text o9w@ornl.gov
+								156 cell
+									157 text Exported
+								158 cell
+									159 text https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/32baf0fa-96a7-43c0-8e80-cd71c26b4ca3.jsonl
+								160 cell 10/26/2026 5:47 PM
+									161 text Yesterday at 5:47 PM
+						162 table
+
+The focused UI element is 1 AXWebArea Research Enablement - Sponsor Highlights Intake Pilot, URL: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/AllItems.aspx

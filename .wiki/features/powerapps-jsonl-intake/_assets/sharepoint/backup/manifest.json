@@ -1,0 +1,311 @@
+{
+  "acceptedDate": "2026-10-27",
+  "phase": "PA-24",
+  "environment": "221f44a6-1468-ea4e-b93d-cd52f1723079",
+  "finalTestFlows": "Off",
+  "checks": {
+    "nativeArchiveHashes": true,
+    "receiptPayloadsExact": true,
+    "projectsExact": true,
+    "combinedSevenRowsExact": true,
+    "restoredAppBindingsAndRecoveryKey": true,
+    "helperSourceWrites": 0
+  },
+  "files": [
+    {
+      "path": "PA24-restored-canvas.msapp",
+      "bytes": 89445,
+      "sha256": "c3207c37ba9508fb11bc0bfdb6c7f6d568157ca5489e17031cd23bf952217efe"
+    },
+    {
+      "path": "PA24AcceptedRepairedExporter20261027_20261027131627.zip",
+      "bytes": 5018,
+      "sha256": "4a1dcffb64bb68ab3b1a14e2e4007045a1289be3bb596f75fbb4d32efca27bb5"
+    },
+    {
+      "path": "PA24DeployedExporterRollback20261027_20261027132154.zip",
+      "bytes": 4574,
+      "sha256": "5768836e29532a0e4458c600b5e8010ff1b072dce9c25778def743808a21f04e"
+    },
+    {
+      "path": "Projects-snapshot.json",
+      "bytes": 26377,
+      "sha256": "92fe3875bdae3cf51713a8e33c4d3d4784b6a62a3ad4b7da4cc3bb7faf10b775"
+    },
+    {
+      "path": "README.md",
+      "bytes": 12208,
+      "sha256": "cd3c39045da12b22b82361806599eae469bf0fa88bee51b9441beb2c80cba784"
+    },
+    {
+      "path": "Receipts-snapshot.json",
+      "bytes": 18906,
+      "sha256": "d0151bb81614916c7f36865e450ef51dfc582beadef81710c5423245bd3a1a24"
+    },
+    {
+      "path": "Restored-snapshot.json",
+      "bytes": 42537,
+      "sha256": "d68c3eb1e980189fa1d0f197c4cc833896e1d9ef1fdaa9aee509305041ad0422"
+    },
+    {
+      "path": "SponsorHighlightsSharePointNativeBackup20261027_20261027131412.zip",
+      "bytes": 111899,
+      "sha256": "ea1ddd0a0fdb6a34310f8d43737972393a38ae69db6917b67e2d3c96383fd15a"
+    },
+    {
+      "path": "aggregate-recovery-validation.json",
+      "bytes": 336,
+      "sha256": "fce3a41626137913e55ac04ce26bb8a1affccd4a3a6d79fc8f29f10f32593e29"
+    },
+    {
+      "path": "app-receipt.jsonl",
+      "bytes": 552,
+      "sha256": "207c3821962b61707599a954a8ae46eeeff57b66bb83456beba8df9de5def311"
+    },
+    {
+      "path": "catalog-app-runs.txt",
+      "bytes": 9132,
+      "sha256": "66f6cc7f72f7aa09c0895459be454406cda0c2ec44914ae9d22aabbac1a588c8"
+    },
+    {
+      "path": "catalog-final-off.txt",
+      "bytes": 9142,
+      "sha256": "4470c1f9686f51be113752649bf086187fbe22c94167d94f1cee97fdb2a3fc1d"
+    },
+    {
+      "path": "create-new-import-settings.png",
+      "bytes": 71852,
+      "sha256": "9689ec9044a9a058f7c2f5b7a6f54582835bad4d2ac11a7ce0f449b63ad48cb3"
+    },
+    {
+      "path": "data-recovery-validation.json",
+      "bytes": 1300,
+      "sha256": "90adf1d6f724c81562646871f5ff95c580973c9d82670f8b6ae621eddb0b78fb"
+    },
+    {
+      "path": "data-restore-run.txt",
+      "bytes": 14665,
+      "sha256": "b0abfd3b626ac40f969db9ae14c6985b5c78427d244a3b65036be7bcf2db24dc"
+    },
+    {
+      "path": "exporter-import-handoff.png",
+      "bytes": 22835,
+      "sha256": "95ffacdb34aa1fa49ae57c694ab3052f6bf5c646c1be283f7e6f2bb033d49350"
+    },
+    {
+      "path": "exporter-isolation-diff.json",
+      "bytes": 491,
+      "sha256": "7e276b06f2de2be5cbfde4e6400fd3bfd20345a89cb1356e1a4dc0d30a731f04"
+    },
+    {
+      "path": "exporter-test-runs-off.txt",
+      "bytes": 8451,
+      "sha256": "3f7047f7869a1fff863304f0f13c85b231be2bf3239473097115a0536eddea7a"
+    },
+    {
+      "path": "helper-static-validation.json",
+      "bytes": 274,
+      "sha256": "60ec771a0db46dc5684d994fcb4f90c6aaf972bd7089092e8e8686fc31553a8b"
+    },
+    {
+      "path": "import-upload-handoff.png",
+      "bytes": 29028,
+      "sha256": "65a9ce5c4d6b101dfc5b1ee82fdd1eeb285ad6e64190e842917f8b2061559ef2"
+    },
+    {
+      "path": "intake-isolation-diff.json",
+      "bytes": 549,
+      "sha256": "a5bbdbb6e938d884c332981abecd0faccb1fd6ff011aaf037a136bd1bdeacc41"
+    },
+    {
+      "path": "intake-test-runs-off.txt",
+      "bytes": 9155,
+      "sha256": "663ef6ea5acc090fe661a8c3eda9885768851d6bf6c9307afa21e143630b22c2"
+    },
+    {
+      "path": "live-response.json",
+      "bytes": 2426,
+      "sha256": "dded3cc5feec0f857c14f4d684d403c0e686664ec854d947c110117b62ce6f15"
+    },
+    {
+      "path": "native-app-export.png",
+      "bytes": 62004,
+      "sha256": "862ad49be3a37aabb41b3fc98f2edc6b456527f31cd66c749802a5dd39943b88"
+    },
+    {
+      "path": "native-app-import-success.png",
+      "bytes": 68516,
+      "sha256": "d49c1ffec503ad0f96f9ce779d6b5012ff68a15a9e4d0d8796a1f42facc951ff"
+    },
+    {
+      "path": "native-app-import-success.txt",
+      "bytes": 5381,
+      "sha256": "2923b3db75970714a5178f7e983f525bf977d75710fa0fdc2a32292e813872eb"
+    },
+    {
+      "path": "native-exporter-import-success.png",
+      "bytes": 50577,
+      "sha256": "16b4da3d74e7f0b655d475458d7f3cf9d3e916a1d6a62d7759c0644ed11358cd"
+    },
+    {
+      "path": "native-package-audit.json",
+      "bytes": 3719,
+      "sha256": "c9cc699c69d95f71dd858aa78178ea9e386f17e23dc628f4820f7ae76f76d69c"
+    },
+    {
+      "path": "operational-exporter-unchanged.txt",
+      "bytes": 11326,
+      "sha256": "affc6367c237211a516626ca57b1cc8288f21c53da91beaeecf029ed495d9189"
+    },
+    {
+      "path": "operational-receipts-unchanged.txt",
+      "bytes": 9418,
+      "sha256": "caf3c37d5b6db6792d430d807a9abd53c4b9a3c74027dc8fad1b613d283c1af7"
+    },
+    {
+      "path": "prepare_restore.py",
+      "bytes": 7814,
+      "sha256": "9606bfb0c59900a62ea4ea2fd801b35cd6fef987fd97762e5b2174a961925a84"
+    },
+    {
+      "path": "project-fields.json",
+      "bytes": 4295,
+      "sha256": "fb77d3583f107e2ff9b7fafafbf83013250db2f06c7eaae5aa01e8895aed1b25"
+    },
+    {
+      "path": "receipt-fields.json",
+      "bytes": 10093,
+      "sha256": "a882c1f909a07cfdcf6605ab10a1856d2fc8b051376b5750eb189f377c01e8f5"
+    },
+    {
+      "path": "restore-data.clipboard.json",
+      "bytes": 28185,
+      "sha256": "24230d06627d6012a4112ada63822f5e56612e9fb6b97c12cdad44122bbe695e"
+    },
+    {
+      "path": "restored-app-dependencies.txt",
+      "bytes": 3884,
+      "sha256": "13f363a3c15eec312652caedc786f0fe983d6c5c26622e2ef4084f93df666fac"
+    },
+    {
+      "path": "restored-app-formula-check.txt",
+      "bytes": 7876,
+      "sha256": "db358495aacbe70650dfd703359f1a26dfee302da7e7f2734b644af649cd5357"
+    },
+    {
+      "path": "restored-app-success.png",
+      "bytes": 44307,
+      "sha256": "7196ca6fa765db89ab21196470c282f4432a8e56c0f49dc52b51229f92797f36"
+    },
+    {
+      "path": "restored-app-success.txt",
+      "bytes": 4334,
+      "sha256": "8f9365d397c95be5e7107b43bb08accf504cf08913e757ae3b1c443d556e2635"
+    },
+    {
+      "path": "restored-app-versions.txt",
+      "bytes": 6773,
+      "sha256": "7ca4cb87ceb0163bbbbafc9f5b96a249ad4d6d3537cea5bd89f35c49132a5c32"
+    },
+    {
+      "path": "restored-exporter.clipboard.json",
+      "bytes": 20385,
+      "sha256": "68df8390c198f381fbbf4b0de160ab5d7b3e85d65581fb1f1cd4acbcbe7cca4a"
+    },
+    {
+      "path": "restored-intake.clipboard.json",
+      "bytes": 26040,
+      "sha256": "eae6193f157b28021a46527a1e05555c417e1d1443064f3247e9091c49f4b833"
+    },
+    {
+      "path": "restored-library-permissions.txt",
+      "bytes": 8622,
+      "sha256": "49bc0690c34a4e804f35a426c64009367f4bd168140d6bd986b7b8e22b83ae5d"
+    },
+    {
+      "path": "restored-library-versioning.txt",
+      "bytes": 14696,
+      "sha256": "bffe9867f78a8a2b2a6c63ac7bee47acb9d9c730ff2d31386dbd649a3a0d7755"
+    },
+    {
+      "path": "restored-logbook.jsonl",
+      "bytes": 3965,
+      "sha256": "6c1feba07ac7bfcf1b17980cb6352384802034a3f01986de915cb749d130f262"
+    },
+    {
+      "path": "restored-project-permissions.txt",
+      "bytes": 8608,
+      "sha256": "42d123786d52fb1b562d83d59570c40a591faf9d1a97a67bde2f499eaf6d84be"
+    },
+    {
+      "path": "restored-project-versioning.txt",
+      "bytes": 10661,
+      "sha256": "e83f471960938254ff6f92312cb12b34861c3789ac9782862861c02a40ebe4ce"
+    },
+    {
+      "path": "restored-receipt-permissions.txt",
+      "bytes": 8608,
+      "sha256": "4997d483ba201f9bd80fa695a6dcb33029695c5668f17011252f1c3710e850df"
+    },
+    {
+      "path": "restored-receipt-schema.txt",
+      "bytes": 17933,
+      "sha256": "8848fbeb8fd75ae683f6bae5733f23afabc9c89397ccef9dc8e98965dbc8f204"
+    },
+    {
+      "path": "restored-receipt-versioning.txt",
+      "bytes": 10680,
+      "sha256": "bef230df9ce355d6779beb0c6ab30b9b870aef0236b4490dd95fb598d5772b62"
+    },
+    {
+      "path": "restored-receipts-after-retry.txt",
+      "bytes": 12271,
+      "sha256": "597b1d8c479eb3e6d3f6e0fc40dac368a7646d9550309bb553ba5c0b0f545e59"
+    },
+    {
+      "path": "restored-response.clipboard.json",
+      "bytes": 2969,
+      "sha256": "d6848f6c95c75d12531c738803543058353bc5c02e7f509821c893b0e1fc4c6b"
+    },
+    {
+      "path": "restored-submission-id-rules.txt",
+      "bytes": 12472,
+      "sha256": "66ab5f8fdb4ce99c850ac2f9a43e3f7b9b72964f3c4f2a081e63a02fcd338352"
+    },
+    {
+      "path": "source-library-permissions.txt",
+      "bytes": 8652,
+      "sha256": "f28740f6e8c40e8c6fcd4270872bbcd25db59aa0fd4d6d3132ce437678f209ae"
+    },
+    {
+      "path": "source-library-schema.txt",
+      "bytes": 17625,
+      "sha256": "acb97a00b384e11f779c9c7392df9568c216228a5de59af0861359554a461a37"
+    },
+    {
+      "path": "source-library-versioning.txt",
+      "bytes": 14696,
+      "sha256": "ddabde15bb80d65c63f06a7bb8dd5c19a5bdf36970ec2436b50919e922263f4c"
+    },
+    {
+      "path": "source-project-list-with-schema.csv",
+      "bytes": 3447,
+      "sha256": "0c360cf9975410b9efb642193679797e44ea6dd47168dcb37093adaef916c065"
+    },
+    {
+      "path": "source-receipt-list-view-with-schema.csv",
+      "bytes": 6805,
+      "sha256": "18fb3077204b8505152b3cc6006df3c30f6f71bd6727ee85d55eb87e3ca2b4ce"
+    },
+    {
+      "path": "source-receipt-permissions.txt",
+      "bytes": 8632,
+      "sha256": "28de43c5e7733fb6ac0c2c122c1acba99d3f433a419f5118f790a19a54599d3b"
+    },
+    {
+      "path": "source-receipt-versioning.txt",
+      "bytes": 10680,
+      "sha256": "a0d6ebe491aa48035da5dc498df8976c77e6598f291a866f50df295922270974"
+    }
+  ]
+}

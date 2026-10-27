@@ -1,0 +1,14 @@
+{
+  "run": "08584085011106798746802183030CU28",
+  "actual_sharepoint_rows": 5000,
+  "source_rows_match_exactly": true,
+  "generated_order_matches_download": true,
+  "bytes": 2370000,
+  "sha256": "c4e739fdf1ee2ac14c86bbaf6d40f0bdaf4ed6b7021453962ce02fa87d41254f",
+  "overflow_rows": 5001,
+  "overflow_retained_bytes": 34,
+  "overflow_sha256": "1d34e5917456c430d9615ce98e9535fe1be9b15e6278c3a873a8d6caf6a4e07b",
+  "batch_successes": 50,
+  "rows_per_batch": 100,
+  "scope": "Actual GetItems with configured pagination, not injected arrays."
+}

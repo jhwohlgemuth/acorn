@@ -1,12 +1,12 @@
 # PowerApp and Power Automate walkthrough
 
-Updated October 26, 2026, in the **Wohlgemuth, Jason** pilot. GitLab notification acceptance is dated October 24; the parallel SharePoint app/export/Teams tests are dated October 26. Jason Wohlgemuth remains the owner and initial notification recipient. The updated [contributor/reviewer guide](_assets/sponsor-highlights-user-reviewer-guide.pdf) and [developer guide](_assets/sponsor-highlights-developer-guide.pdf) now cover both SharePoint and GitLab intake, with branch-specific receipts, recovery, notifications and current local CLI commands. Screenshots retain explicit evidence dates.
+Updated October 27, 2026, in the **Wohlgemuth, Jason** pilot. GitLab notification acceptance is dated October 24; the parallel SharePoint app/export/Teams tests are dated October 26. Jason Wohlgemuth receives every current workflow notification and milestone email. SharePoint submitters also receive a Teams confirmation; this October 27 routing update supersedes the earlier owner-only descriptions in the dated PDF captures. The updated [contributor/reviewer guide](_assets/sponsor-highlights-user-reviewer-guide.pdf) and [developer guide](_assets/sponsor-highlights-developer-guide.pdf) now cover both SharePoint and GitLab intake, with branch-specific receipts, recovery, notifications and current local CLI commands. Screenshots retain explicit evidence dates.
 
 The user guide now includes a workflow map on **page 2**, styled like the ACORN book diagrams. It shows both capture branches joining local review, apply, optional graduation and reporting. Save boxes identify the automatic Teams notice; dashed links identify owner-triggered milestones. Editable [Pikchr source](_assets/notifications/workflow.pikchr), the rendered [vector diagram](_assets/notifications/workflow.svg), and the [printable page](_assets/notifications/workflow.html) are preserved here.
 
 ## Choose the intake branch
 
-- [SharePoint pilot](https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/163f110f-7f8a-401c-894e-0786b2c018a4): shared list receipt plus one exact JSONL file per UUID. The app confirms **Highlight saved · JSONL ready** only after export readback. If only the receipt is confirmed, retain the same ID and use **Retry JSONL export**. The catalog is a maintained 13-row snapshot, not live GitLab discovery. Standard-license participant access remains unaccepted.
+- [SharePoint pilot](https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/163f110f-7f8a-401c-894e-0786b2c018a4): shared list receipt plus one exact JSONL file per UUID. The app confirms **Highlight saved · JSONL ready** only after export readback. If only the receipt is confirmed, retain the same ID and use **Retry JSONL export**. The catalog is a maintained 13-row snapshot, not live GitLab discovery. Standard-license participant access passed October 27 (PA-22).
 - Original GitLab app: repository JSONL append and immutable commit receipt. It remains enabled with its existing custom connector. Intermittent access remains a known limitation.
 
 Use one branch per highlight. Keep unresolved submissions in their original app. The SharePoint app has a separate recovery slot; it does not migrate GitLab pending records. See [SharePoint deployment and acceptance](sharepoint-pilot.md).
@@ -27,7 +27,7 @@ Use one branch per highlight. Keep unresolved submissions in their original app.
 
 | Stage | Channel | Current trigger and meaning |
 | --- | --- | --- |
-| New SharePoint receipt and verified export in the same run | Jason's Teams self-chat | Automatic after response handling; includes project, receipt and export file link. Exact replay skips. An export first confirmed on a later retry also skips this initial notice. |
+| New SharePoint receipt and verified export in the same run | Jason's Teams self-chat plus a direct chat with the submitter | Owner receives the export link; submitter receives project, receipt and review status without a private-storage link. Skip the extra submitter message when Jason submits. Exact replay and export first confirmed on a later retry skip both initial notices. |
 | New highlight confirmed in GitLab | Jason's Teams self-chat | Automatic intake notice after the new-save response succeeds; includes project, receipt, and immutable commit link. |
 | Review workspace created (`mr-created`) | Jason's Teams self-chat | Owner manually supplies the validated event. A later email requests review when ready. |
 | No report changes (`report-no-changes`) | Jason's Teams self-chat | Owner manually records that the specified period produced no report changes. No action needed. |
@@ -37,7 +37,7 @@ Use one branch per highlight. Keep unresolved submissions in their original app.
 | Form validation, saving progress, uncertain result | App feedback | No message for keystrokes, project loading, or unconfirmed saves. |
 | Exact duplicate callback / intake replay | No new notification | Keep the existing receipt and destination. |
 
-These notices go to the pilot owner, not to every contributor. The callback flow is still owner-only and manually triggered. Local CLI ingestion, graduation, and reporting do not invoke it automatically. The Vergil integration and authenticated external callback endpoint remain future work. A later approved group/channel migration belongs to PA-12.
+Jason receives all current notices. A SharePoint submitter receives only their own intake confirmation; other contributors are not included. The legacy GitLab intake notice remains owner-only. The callback flow is still owner-only and manually triggered. Local CLI ingestion, graduation, and reporting do not invoke it automatically. The Vergil integration and authenticated external callback endpoint remain future work. A later approved group/channel migration belongs to PA-12.
 
 ![Generic Teams-style illustration with fictional chats and notification messages](_assets/notifications/teams-example.png)
 
@@ -45,9 +45,9 @@ The illustration replaces the personal Teams screenshot in the shared guide. The
 
 ## SharePoint notification behavior
 
-The SharePoint pilot sends through the existing Teams self-notification connection after response handling, only when both receipt creation and exact export confirmation succeed in that run. The app-driven new-save test passed; exact manual replay skipped Teams. The notice omits summary/details and uses a formatted project, status, export link and receipt. It is best effort with retries disabled; a successful later export retry does not resend the initial notice. No durable notice outbox or routine intake email is implemented. Stored receipts remain authoritative. Full run evidence and limits are in [the SharePoint handoff](sharepoint-pilot.md).
+The SharePoint pilot retains its owner self-chat notice and adds `Notify_submitter_SP` after all outcomes of that notice, only when both receipt creation and exact export confirmation succeed in that run. The condition skips an extra send when the normalized submitter is `o9w@ornl.gov`; otherwise `Create_submitter_chat_SP` creates/resolves a chat with the validated submitter and `Post_submitter_confirmation_SP` posts as User through the existing operational Teams reference. Microsoft documents Flow bot as unsupported in GCC, so this uses the User poster. The owner remains part of the direct conversation. The app-driven new-save test passed; exact manual replay skipped Teams. The notice omits summary/details and uses a formatted project, status, export link and receipt. It is best effort with retries disabled; a successful later export retry does not resend the initial notice. No durable notice outbox or routine intake email is implemented. Stored receipts remain authoritative. Full run evidence and limits are in [the SharePoint handoff](sharepoint-pilot.md).
 
-The existing owner-only callback continues to handle later milestones. It is separate from the standard-only contributor bindings and retains its Dataverse receipt ledger. Download-to-CLI, standard-user access and remaining SharePoint recovery/concurrency acceptance are not established by successful owner tests.
+The existing owner-only callback continues to handle later milestones. It is separate from the standard-only contributor bindings and retains its Dataverse receipt ledger. The separately accepted participant access and operator CLI handoff remain distinct from notification delivery. The original participant receipt proved only the owner notice; it did not establish submitter delivery.
 
 ## What the GitLab flows do
 
@@ -92,3 +92,15 @@ This is a source backup, not an importable Power Platform solution. The intake c
 
 
 The SharePoint intake notice links its individual receipt file. A separate serialized exporter refreshes the [combined logbook](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/logbook.jsonl) every five minutes from the collected list rows. Use that combined file for normal local intake. The exporter sends no additional Teams message or email; app confirmation does not imply the next combined refresh has already finished. See [export evidence](sharepoint-pilot.md#combined-logbook-export).
+
+## October 27 participant delivery repair
+
+The participant reported no Teams message for receipt `341cfb78-c673-4c5c-9e0f-e63c520130f4`. The earlier successful action was `PostMessageToSelf` on Jason's connection, so it never targeted the submitter. No email was expected on submission. The owner reaffirmed Teams for submission and email only for important milestones.
+
+The new guarded SharePoint branch is saved. It uses the existing operational Teams reference, secure inputs/outputs and no automatic retries. Submitter failure cannot undo the stored receipt or response. The owner notice is attempted first; the submitter branch can still run after its failure. The participant message includes no summary/details or private SharePoint link. Exact intake replay still skips the entire initial-notice condition.
+
+Notification-only run `08584084919625153315352587758CU17` at 11:28 AM America/New_York succeeded: owner notice, chat creation and participant confirmation all succeeded. It sent a delayed receipt confirmation to `c5c@ornl.gov` and an operator notice to Jason without invoking intake, exporting data or adding a JSONL row. This is connector-delivery evidence; recipient reading/Teams alert visibility was not independently observed. The test flow `861f6bdf-4c38-4fa8-902f-b1b0eb277678` is Off after the single run.
+
+The live callback claim was independently inspected: routine events freeze `teams-self:o9w@ornl.gov`, and all other validated milestone events freeze `o9w@ornl.gov`. Existing destinations already include Jason, so no callback mutation or test email was necessary. Historical receipt destinations and delivery states remain unchanged.
+
+[Guarded branch source](_assets/notifications/participant-routing/Notify_submitter_SP.clipboard.json), [successful run](_assets/notifications/participant-routing/participant-notification-run.txt), [callback recipient audit](_assets/notifications/participant-routing/callback-claim-audit.json) and [test Off state](_assets/notifications/participant-routing/notification-test-off.txt) preserve evidence. The complete SharePoint notice source is `_assets/sharepoint/Notify_new_export_SP.clipboard.json`; the existing native backup predates this addition, so restore it with this documented branch overlay to retain submitter confirmations.

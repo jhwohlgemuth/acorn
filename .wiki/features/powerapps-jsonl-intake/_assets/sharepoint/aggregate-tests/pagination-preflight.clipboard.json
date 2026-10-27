@@ -1,0 +1,49 @@
+{
+  "id": "bf1e3b05-04fd-55cd-acde-d524adfe555e",
+  "brandColor": "#8C6CFF",
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "connectionName": "shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "tier": "NotSpecified",
+      "apiName": "sharepointonline",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": true
+    }
+  },
+  "connectorDisplayName": "Control",
+  "isTrigger": false,
+  "operationName": "PA23_batch_seed_preflight",
+  "operationDefinition": {
+    "type": "Scope",
+    "actions": {
+      "Seed_batch_preflight": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/$batch",
+            "parameters/headers": {
+              "Content-Type": "multipart/mixed; boundary=batch_pa23",
+              "Accept": "application/json"
+            },
+            "parameters/body": "--batch_pa23\r\nContent-Type: multipart/mixed; boundary=changeset_pa23\r\n\r\n--changeset_pa23\r\nContent-Type: application/http\r\nContent-Transfer-Encoding: binary\r\n\r\nPOST https://ornl.sharepoint.com/sites/ResearchEnablement/_api/web/lists(guid'fcae092f-c899-4254-bf13-1108997a0a77')/items HTTP/1.1\r\nContent-Type: application/json;odata=nometadata\r\nAccept: application/json;odata=nometadata\r\n\r\n{\"Title\":\"pa23-20261027-page-9001\",\"SubmissionId\":\"23231027-1000-4000-8000-000000009001\",\"ProjectId\":\"acorn\",\"PayloadBase64A\":\"eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlN5bnRoZXRpYyBhY2NlcHRhbmNlIG9ubHkuIiwiVW5pY29kZSBjYWbDqSDOlCDwn5e6OyBlc2NhcGVkIG5ld2xpbmVcbmluc2lkZSBhIEpTT04gc3RyaW5nLiJdLCJvcmlnaW4iOiJtYW51YWwiLCJzdGF0ZSI6ImluLXByb2dyZXNzIiwic3VtbWFyeSI6IlBBMjMgVEVTVCBPTkxZIGFnZ3JlZ2F0ZSBib3VuZGFyeSIsInRpbWVzdGFtcCI6IjIwMjYtMTAtMjdUMDQ6MDA6MDAuMDAwWiJ9LCJwcm9qZWN0SWQiOiJhY29ybiIsInN1Ym1pc3Npb25JZCI6IjIzMjMxMDI3LTEwMDAtNDAwMC04MDAwLTAwMDAwMDAwOTAwMSIsInN1Ym1pdHRlZEF0IjoiMjAyNi0xMC0yN1QxMjowMDowMC4wMDBaIiwic3VibWl0dGVyIjp7ImVtYWlsIjoiYWxleC5tb3JnYW5AZXhhbXBsZS5vcmcifX0=\",\"PayloadBase64B\":\"\",\"ExportStatus\":\"Pending\"}\r\n--changeset_pa23\r\nContent-Type: application/http\r\nContent-Transfer-Encoding: binary\r\n\r\nPOST https://ornl.sharepoint.com/sites/ResearchEnablement/_api/web/lists(guid'fcae092f-c899-4254-bf13-1108997a0a77')/items HTTP/1.1\r\nContent-Type: application/json;odata=nometadata\r\nAccept: application/json;odata=nometadata\r\n\r\n{\"Title\":\"pa23-20261027-page-9002\",\"SubmissionId\":\"23231027-1000-4000-8000-000000009002\",\"ProjectId\":\"acorn\",\"PayloadBase64A\":\"eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlN5bnRoZXRpYyBhY2NlcHRhbmNlIG9ubHkuIiwiVW5pY29kZSBjYWbDqSDOlCDwn5e6OyBlc2NhcGVkIG5ld2xpbmVcbmluc2lkZSBhIEpTT04gc3RyaW5nLiJdLCJvcmlnaW4iOiJtYW51YWwiLCJzdGF0ZSI6ImluLXByb2dyZXNzIiwic3VtbWFyeSI6IlBBMjMgVEVTVCBPTkxZIGFnZ3JlZ2F0ZSBib3VuZGFyeSIsInRpbWVzdGFtcCI6IjIwMjYtMTAtMjdUMDQ6MDA6MDAuMDAwWiJ9LCJwcm9qZWN0SWQiOiJhY29ybiIsInN1Ym1pc3Npb25JZCI6IjIzMjMxMDI3LTEwMDAtNDAwMC04MDAwLTAwMDAwMDAwOTAwMiIsInN1Ym1pdHRlZEF0IjoiMjAyNi0xMC0yN1QxMjowMDowMC4wMDBaIiwic3VibWl0dGVyIjp7ImVtYWlsIjoiYWxleC5tb3JnYW5AZXhhbXBsZS5vcmcifX0=\",\"PayloadBase64B\":\"\",\"ExportStatus\":\"Pending\"}\r\n--changeset_pa23--\r\n--batch_pa23--\r\n"
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {},
+        "runtimeConfiguration": {}
+      }
+    },
+    "runAfter": {}
+  }
+}

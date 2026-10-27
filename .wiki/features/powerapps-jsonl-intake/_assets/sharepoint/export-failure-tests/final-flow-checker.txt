@@ -1,0 +1,20 @@
+Browser tab: 1329059480, Title: "Edit your flow | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/28cba548-c862-484c-b838-ea21eaf52630?v3=false".
+0 AXWebArea Edit your flow | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/28cba548-c862-484c-b838-ea21eaf52630?v3=false
+	1 container Flow checker
+		2 container
+			3 heading Flow checker, Value: 1, ID: Panel3514-headerText
+				4 text Flow checker
+			5 button Close
+			6 table
+				7 row (expanded) Description: Errors 0, Secondary Actions: Collapse
+					8 cell
+						9 button (expanded) Description: expand collapse group, Secondary Actions: Collapse
+					10 text Errors
+					11 text ( 0 )
+				12 row (expanded) Description: Warnings 0, Secondary Actions: Collapse
+					13 cell
+						14 button (expanded) Description: expand collapse group, Secondary Actions: Collapse
+					15 text Warnings
+					16 text ( 0 )
+
+The focused UI element is 5 button Close

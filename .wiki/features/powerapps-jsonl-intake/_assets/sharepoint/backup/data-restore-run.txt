@@ -1,0 +1,318 @@
+Browser tab: 1329059505, Title: "Run History | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/b17d36d1-738c-4743-8a53-920258af0eeb/runs/08584084988987057788111161650CU11?v3=false".
+0 AXWebArea Run History | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/b17d36d1-738c-4743-8a53-920258af0eeb/runs/08584084988987057788111161650CU11?v3=false
+	1 container
+		2 container root
+			3 container
+				4 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				5 container o365header
+					6 container O365_NavHeader
+						7 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							8 text 
+						9 container ppuxOfficeHeaderTopLevelRegion
+							10 container ppuxOfficeHeaderLeftRegion
+								11 text Power Automate
+							12 container ppuxOfficeHeaderRightRegion
+								13 button Wohlgemuth, Jason
+									14 container
+										15 text Environments Wohlgemuth, Jason
+								16 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								17 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						18 container O365_HeaderRightRegion
+							19 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								20 image JW
+				21 container Main
+					22 button (collapsed) Left navigation panel, Secondary Actions: Expand
+						23 image Left navigation panel
+					24 menu
+						25 container
+							26 container
+								27 container aboveCustomizableItemsId0
+									28 Home
+									29 Create
+									30 Templates
+									31 Learn
+									32 My flows
+								33 Approvals
+								34 Solutions
+								35 Automation center
+								36 Process mining
+									37 image
+								38 AI hub
+								39 Connections
+								40 More
+								41 Power Platform
+				42 container
+					43 container
+						44 button Go back to previous page
+						45 container The flow name is PA24 TEST ONLY SharePoint Catalog.
+							46 text PA24 TEST ONLY SharePoint Catalog
+							47 container
+								48 text • Ran at 10/27/2026 9:33:06 AM
+						49 toolbar
+							50 button Description: Resubmit, ID: resubmitFlowRun
+								51 text Resubmit
+							52 button (disabled) Description: Cancel, ID: cancelFlowRun
+								53 text Cancel
+							54 button Description: Edit, ID: editFlow
+								55 text Edit
+							56 container
+								57 switch Description: New view, Value: 0, ID: switchDesignerFlowRunDetails
+								58 text New view
+						59 container Your flow ran successfully.
+							60 text Your flow ran successfully.
+						61 button Your flow ran successfully. Dismiss message.
+					64 container
+						65 container
+							66 button (collapsed) Power Apps (V2), Secondary Actions: Expand
+								67 button (collapsed) Power Apps (V2), Secondary Actions: Expand
+									68 text Power Apps (V2)
+							69 text 0 seconds. Succeeded
+							70 container 0 seconds
+								71 text 0s
+							72 image Succeeded
+						73 container
+							74 button (collapsed) Get items, Secondary Actions: Expand
+								75 button (collapsed) Get items, Secondary Actions: Expand
+									76 text Get items
+							77 text 0 seconds. Succeeded
+							78 container 0 seconds
+								79 text 0s
+							80 image Succeeded
+						81 container
+							82 container
+								83 button (collapsed) Select, Secondary Actions: Expand
+									84 button (collapsed) Select, Secondary Actions: Expand
+										85 text Select
+								86 text 0 seconds. Succeeded
+								87 container 0 seconds
+									88 text 0s
+								89 image Succeeded
+							90 container
+								91 button (collapsed) Respond to a Power App or flow, Secondary Actions: Expand
+									92 button (collapsed) Respond to a Power App or flow, Secondary Actions: Expand
+										93 text Respond to a Power App or flow
+								94 text 0 seconds. Succeeded
+								95 container 0 seconds
+									96 text 0s
+								97 image Succeeded
+							98 container
+								99 container
+									100 button (expanded) PA24 restore data, Secondary Actions: Collapse
+										101 button (expanded) PA24 restore data, Secondary Actions: Collapse
+											102 text PA24 restore data
+									103 text 15 seconds. Succeeded
+									104 container 15 seconds
+										105 text 15s
+									106 image Succeeded
+								107 container
+									108 container
+										109 button (collapsed) Check empty receipts, Secondary Actions: Expand
+											191 button (collapsed) Check empty receipts, Secondary Actions: Expand
+												192 text Check empty receipts
+										193 text 0 seconds. Succeeded
+										194 container 0 seconds
+											195 text 0s
+										110 image Succeeded
+									111 container
+										112 button (collapsed) Check empty projects, Secondary Actions: Expand
+											196 button (collapsed) Check empty projects, Secondary Actions: Expand
+												197 text Check empty projects
+										198 text 0 seconds. Succeeded
+										199 container 0 seconds
+											200 text 0s
+										113 image Succeeded
+									114 container
+										115 container
+											116 button (collapsed) Require empty targets, Secondary Actions: Expand
+												201 button (collapsed) Require empty targets, Secondary Actions: Expand
+													202 text Require empty targets
+											203 text 0 seconds. Succeeded
+											204 container 0 seconds
+												205 text 0s
+											117 image Succeeded
+										118 container
+											119 button (collapsed) Receipts latest, Secondary Actions: Expand
+												206 button (collapsed) Receipts latest, Secondary Actions: Expand
+													207 text Receipts latest
+											208 text 0 seconds. Succeeded
+											209 container 0 seconds
+												210 text 0s
+											120 image Succeeded
+										121 container
+											122 container
+												123 button (collapsed) Receipts rows, Secondary Actions: Expand
+													211 button (collapsed) Receipts rows, Secondary Actions: Expand
+														212 text Receipts rows
+												213 text 0 seconds. Succeeded
+												214 container 0 seconds
+													215 text 0s
+												124 image Succeeded
+											125 container
+												126 button (collapsed) Receipts snapshot, Secondary Actions: Expand
+													216 button (collapsed) Receipts snapshot, Secondary Actions: Expand
+														217 text Receipts snapshot
+												218 text 0 seconds. Succeeded
+												219 container 0 seconds
+													220 text 0s
+												127 image Succeeded
+											128 container
+												129 container
+													130 button (collapsed) Receipts backup write, Secondary Actions: Expand
+														221 button (collapsed) Receipts backup write, Secondary Actions: Expand
+															222 text Receipts backup write
+													223 text 0 seconds. Succeeded
+													224 container 0 seconds
+														225 text 0s
+													131 image Succeeded
+												132 container
+													133 button (collapsed) Receipts backup read, Secondary Actions: Expand
+														226 button (collapsed) Receipts backup read, Secondary Actions: Expand
+															227 text Receipts backup read
+													228 text 0 seconds. Succeeded
+													229 container 0 seconds
+														230 text 0s
+													134 image Succeeded
+												135 container
+													136 container
+														137 button (collapsed) Receipts backup exact, Secondary Actions: Expand
+															231 button (collapsed) Receipts backup exact, Secondary Actions: Expand
+																232 text Receipts backup exact
+														233 text 0 seconds. Succeeded
+														234 container 0 seconds
+															235 text 0s
+														138 image Succeeded
+													139 container
+														140 button (collapsed) Receipts restored input, Secondary Actions: Expand
+															236 button (collapsed) Receipts restored input, Secondary Actions: Expand
+																237 text Receipts restored input
+														238 text 0 seconds. Succeeded
+														239 container 0 seconds
+															240 text 0s
+														141 image Succeeded
+													142 container
+														143 container
+															144 button (collapsed) Projects latest, Secondary Actions: Expand
+																241 button (collapsed) Projects latest, Secondary Actions: Expand
+																	242 text Projects latest
+															243 text 0 seconds. Succeeded
+															244 container 0 seconds
+																245 text 0s
+															145 image Succeeded
+														146 container
+															147 button (collapsed) Projects rows, Secondary Actions: Expand
+																246 button (collapsed) Projects rows, Secondary Actions: Expand
+																	247 text Projects rows
+															248 text 0 seconds. Succeeded
+															249 container 0 seconds
+																250 text 0s
+															148 image Succeeded
+														149 container
+															150 container
+																151 button (collapsed) Projects snapshot, Secondary Actions: Expand
+																	251 button (collapsed) Projects snapshot, Secondary Actions: Expand
+																		252 text Projects snapshot
+																253 text 0 seconds. Succeeded
+																254 container 0 seconds
+																	255 text 0s
+																152 image Succeeded
+															153 container
+																154 button (collapsed) Projects backup write, Secondary Actions: Expand
+																	256 button (collapsed) Projects backup write, Secondary Actions: Expand
+																		257 text Projects backup write
+																258 text 0 seconds. Succeeded
+																259 container 0 seconds
+																	260 text 0s
+																155 image Succeeded
+															156 container
+																157 container
+																	158 button (collapsed) Projects backup read, Secondary Actions: Expand
+																		261 button (collapsed) Projects backup read, Secondary Actions: Expand
+																			262 text Projects backup read
+																	263 text 0 seconds. Succeeded
+																	264 container 0 seconds
+																		265 text 0s
+																	159 image Succeeded
+																160 container
+																	161 button (collapsed) Projects backup exact, Secondary Actions: Expand
+																		266 button (collapsed) Projects backup exact, Secondary Actions: Expand
+																			267 text Projects backup exact
+																	268 text 0 seconds. Succeeded
+																	269 container 0 seconds
+																		270 text 0s
+																	162 image Succeeded
+																163 container
+																	164 container
+																		165 button (collapsed) Projects restored input, Secondary Actions: Expand
+																			271 button (collapsed) Projects restored input, Secondary Actions: Expand
+																				272 text Projects restored input
+																		273 text 0 seconds. Succeeded
+																		274 container 0 seconds
+																			275 text 0s
+																		166 image Succeeded
+																	167 container
+																		168 button (collapsed) Restore projects, Secondary Actions: Expand
+																			276 button (collapsed) Restore projects, Secondary Actions: Expand
+																				277 text Restore projects
+																		278 text 4 seconds. Succeeded
+																		279 container 4 seconds
+																			280 text 4s
+																		169 image Succeeded
+																	170 container
+																		171 container
+																			172 button (collapsed) Restore receipts, Secondary Actions: Expand
+																				281 button (collapsed) Restore receipts, Secondary Actions: Expand
+																					282 text Restore receipts
+																			283 text 7 seconds. Succeeded
+																			284 container 7 seconds
+																				285 text 7s
+																			173 image Succeeded
+																		174 container
+																			175 button (collapsed) Read restored receipts, Secondary Actions: Expand
+																				286 button (collapsed) Read restored receipts, Secondary Actions: Expand
+																					287 text Read restored receipts
+																			288 text 0 seconds. Succeeded
+																			289 container 0 seconds
+																				290 text 0s
+																			176 image Succeeded
+																		177 container
+																			178 container
+																				179 button (collapsed) Read restored projects, Secondary Actions: Expand
+																					291 button (collapsed) Read restored projects, Secondary Actions: Expand
+																						292 text Read restored projects
+																				293 text 0 seconds. Succeeded
+																				294 container 0 seconds
+																					295 text 0s
+																				180 image Succeeded
+																			181 container
+																				182 button (collapsed) Restored snapshot, Secondary Actions: Expand
+																					296 button (collapsed) Restored snapshot, Secondary Actions: Expand
+																						297 text Restored snapshot
+																				298 text 0 seconds. Succeeded
+																				299 container 0 seconds
+																					300 text 0s
+																				183 image Succeeded
+																			184 container
+																				185 container
+																					186 button (collapsed) Write restored snapshot, Secondary Actions: Expand
+																						301 button (collapsed) Write restored snapshot, Secondary Actions: Expand
+																							302 text Write restored snapshot
+																					303 text 0 seconds. Succeeded
+																					304 container 0 seconds
+																						305 text 0s
+																					187 image Succeeded
+																				306 container
+																					307 button (expanded) Restore counts, Secondary Actions: Collapse
+																						308 button (expanded) Restore counts, Secondary Actions: Collapse
+																							309 text Restore counts
+																					310 container
+																						311 text 0 seconds. Succeeded
+																						312 container 0 seconds
+																							313 text 0s
+																						314 image Succeeded
+																					315 text INPUTS
+																					316 text Content not shown due to security configuration.
+																					317 text OUTPUTS
+																					318 text Content not shown due to security configuration.
+					63 container flowCtrl.contextualHelpPanel.title
+
+The focused UI element is 307 button (expanded) Restore counts, Secondary Actions: Collapse

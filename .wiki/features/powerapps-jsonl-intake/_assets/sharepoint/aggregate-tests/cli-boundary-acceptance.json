@@ -1,0 +1,30 @@
+{
+  "records": [
+    {
+      "case": "bytes_exact",
+      "batchId": "89a056a7e673c3badc5c542bf826e1660fdf7cdbfeebd56f41aa37eddc8c4ec2",
+      "canApply": true,
+      "statuses": {
+        "accepted": 162
+      },
+      "reasons": {},
+      "applied": false
+    },
+    {
+      "case": "rows5000",
+      "batchId": "b0b7026739e2b2ae208e1a25bc3da0666e5a571f21e41877b4037bc9ffce51de",
+      "canApply": false,
+      "statuses": {
+        "rejected": 4002,
+        "accepted": 998
+      },
+      "reasons": {
+        "Submission UUID was already staged with different bytes": 162,
+        "Invalid research activity data \u2014 logbook.entries: length": 3840
+      },
+      "applied": false
+    }
+  ],
+  "note": "Supplementary staging: exact 10 MiB passed. The 5000-row one-project stress attempt was not applied; its fixture reused UUIDs with different raw padding from the preceding staged size fixture, and remaining proposals exceeded destination logbook schema length. This is not export/pagination failure. The accepted repeated-ingestion proof uses independently downloaded two/three-row snapshots.",
+  "unchanged_index_sha256": "cbac4fefa766760d4c8dea897a5c34408c03d4d911f767f6eb675cc24faa1090"
+}

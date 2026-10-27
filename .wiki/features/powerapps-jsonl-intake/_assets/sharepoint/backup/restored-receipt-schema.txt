@@ -1,0 +1,252 @@
+Browser tab: 1329059500, Title: "List Settings", URL: "https://ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/listedit.aspx?List=%7B13fa719a-32ae-45de-b444-95d3a33e8048%7D".
+1 AXWebArea List Settings, URL: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/listedit.aspx
+	2 container aspnetForm
+		3 link Description: Turn on more accessible mode, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/listedit.aspx, ID: linkTurnOnAcc
+		4 link Description: Skip to main content, Value: javascript:;
+		5 link Description: Turn off Animations, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/listedit.aspx, ID: linkTurnOffAnimation
+		6 container suiteBarTop
+			7 container O365_NavHeader
+				8 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+					9 text 
+				10 container topLevelRegion
+					11 container leftRegion
+						12 link Description: SharePoint, Value: ornl.sharepoint.com/_layouts/15/sharepoint.aspx, ID: O365_AppName
+					13 container HeaderButtonRegion
+						14 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+						15 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+				16 container O365_HeaderRightRegion
+					17 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+						18 image JW
+		19 container globalNavBox
+			20 container ribbonBox
+				21 container DeltaSPRibbon
+					22 container
+						23 link Description: Focus on Content, Value: ornl.sharepoint.com/sites/ResearchEnablement/sites/ResearchEnablement/_catalogs/masterpage/, ID: ctl00_fullscreenmodeBtn
+		24 container s4-workspace
+			25 container s4-bodyContainer
+				26 container titleAreaRow
+					27 link Description: Research Enablement, Value: ornl.sharepoint.com/sites/ResearchEnablement, ID: ctl00_onetidProjectPropertyTitleGraphic
+					28 container PA24 TEST ONLY Receipts : Settings
+						29 content list zz10_RootAspMenu
+							30 container zz9_TopNavigationMenuV4_NavMenu_Edit
+								31 link Description: EDIT LINKS, Help: Edit Links, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/listedit.aspx, ID: zz9_TopNavigationMenuV4_NavMenu_EditLinks
+						32 heading PA24 TEST ONLY Receipts : Settings, Value: 1, ID: pageTitle
+							33 container DeltaPlaceHolderPageTitleInTitleArea
+								34 link Description: PA24 TEST ONLY Receipts, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/PA24%20TEST%20ONLY%20Receipts/AllItems.aspx
+								35 image :
+								36 text Settings
+				37 container contentRow
+					38 container DeltaPlaceHolderLeftNavBar
+						39 content list zz12_RootAspMenu
+							40 link Description: Home, Value: ornl.sharepoint.com/sites/ResearchEnablement
+							41 link Description: Conversations, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/groupstatus.aspx
+							42 link Description: Documents, Value: ornl.sharepoint.com/sites/ResearchEnablement/Shared%20Documents/Forms/AllItems.aspx
+							43 link Description: Notebook, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/Doc.aspx
+							44 link Description: Pages, Value: ornl.sharepoint.com/sites/ResearchEnablement/SitePages/Forms/ByAuthor.aspx
+							45 text Recent
+							46 link Description: Marketing Campaign, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Marketing%20Campaign/AllItems.aspx
+							47 link Description: Sponsor Highlights Intake Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/AllItems.aspx
+							48 link Description: Sponsor Highlights JSONL Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/Forms/AllItems.aspx
+							49 link Description: Sponsor Highlights Projects Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Projects%20Pilot/AllItems.aspx
+							50 link Description: Site contents, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/viewlsts.aspx
+							51 link Description: Recycle Bin, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/AdminRecycleBin.aspx
+							52 container zz11_V4QuickLaunchMenu_NavMenu_Edit
+								53 link Description: EDIT LINKS, Help: Edit Links, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/listedit.aspx, ID: zz11_V4QuickLaunchMenu_NavMenu_EditLinks
+					54 container contentBox
+						55 container
+							56 table idItemHoverTable
+								57 row
+									58 cell
+										59 heading List Information, Value: 3
+											60 text List Information
+								61 row
+									62 cell 500
+										63 text Name:
+									64 cell
+										65 text PA24 TEST ONLY Receipts
+								66 row
+									67 cell 600
+										68 text Web Address:
+									69 cell
+										70 text https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/PA24 TEST ONLY Receipts/AllItems.aspx
+								71 row
+									72 cell 701
+										73 text Description:
+							74 container General Settings   List name, description and navigation   Versioning settings   Advanced settings   Validation settings   Audience targeting settings   Rating settings   Form settings Permissions and Management   Delete this list  
+								75 container
+									76 container General Settings   List name, description and navigation   Versioning settings   Advanced settings   Validation settings   Audience targeting settings   Rating settings   Form settings
+										77 container
+											78 container General Settings
+												79 heading General Settings, Value: 3
+													80 text General Settings
+											81 container   List name, description and navigation   Versioning settings   Advanced settings   Validation settings   Audience targeting settings   Rating settings   Form settings
+												82 container
+													83 container   List name, description and navigation   Versioning settings   Advanced settings   Validation settings
+														84 container
+															85 container List name, description and navigation
+																86 link Description: List name, description and navigation, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/ListGeneralSettings.aspx, ID: ctl00_PlaceHolderMain_ctl08_RptControls_LnkGeneralSettings
+															87 container Versioning settings
+																88 link Description: Versioning settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/LstSetng.aspx, ID: ctl00_PlaceHolderMain_ctl08_RptControls_onetidListEdit1
+															89 container Advanced settings
+																90 link Description: Advanced settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/advsetng.aspx, ID: ctl00_PlaceHolderMain_ctl08_RptControls_onetidListEdit10
+															91 container Validation settings
+																92 link Description: Validation settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/VldSetng.aspx, ID: ctl00_PlaceHolderMain_ctl08_RptControls_LnkValidationSettings
+													93 container   Audience targeting settings   Rating settings   Form settings
+														94 container
+															95 container Audience targeting settings
+																96 link Description: Audience targeting settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/ListEnableTargeting.aspx, ID: ctl00_PlaceHolderMain_ctl08_ctl00_RptControls_EnableAudienceTargeting
+															97 container Rating settings
+																98 link Description: Rating settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/RatingsSettings.aspx, ID: ctl00_PlaceHolderMain_ctl08_ctl00_RptControls_EnableListRatingsLink
+															99 container Form settings
+																100 link Description: Form settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FormSettings.aspx, ID: ctl00_PlaceHolderMain_ctl08_ctl00_RptControls_IPFSSettingsListEditPage
+									101 container Permissions and Management   Delete this list   Permissions for this list   Information Rights Management   Workflow Settings   Apply label to items in this list or library   Enterprise Metadata and Keywords Settings
+										102 container
+											103 container Permissions and Management
+												104 heading Permissions and Management, Value: 3
+													105 text Permissions and Management
+											106 container   Delete this list   Permissions for this list   Information Rights Management   Workflow Settings   Apply label to items in this list or library   Enterprise Metadata and Keywords Settings
+												107 container
+													108 container   Delete this list   Permissions for this list   Information Rights Management   Workflow Settings   Apply label to items in this list or library
+														109 container
+															110 container Delete this list
+																111 link Description: Delete this list, Value: javascript:DeleteList(), ID: ctl00_PlaceHolderMain_ctl09_RptControls_onetidListEdit2
+															112 container Permissions for this list
+																113 link Description: Permissions for this list, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/user.aspx, ID: ctl00_PlaceHolderMain_ctl09_RptControls_onetidListEdit7
+															114 container Information Rights Management
+																115 link Description: Information Rights Management, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/irm.aspx, ID: ctl00_PlaceHolderMain_ctl09_RptControls_onetidListEdit7i
+															116 container Workflow Settings
+																117 link Description: Workflow Settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/WrkSetng.aspx, ID: ctl00_PlaceHolderMain_ctl09_RptControls_onetidListEdit11
+															118 container Apply label to items in this list or library
+																119 link Description: Apply label to items in this list or library, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/Hold.aspx, ID: ctl00_PlaceHolderMain_ctl09_RptControls_onetidManageTag
+													120 container   Enterprise Metadata and Keywords Settings
+														121 container
+															122 container Enterprise Metadata and Keywords Settings
+																123 link Description: Enterprise Metadata and Keywords Settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/metadatacolsettings.aspx, ID: ctl00_PlaceHolderMain_ctl09_ctl01_RptControls_ListMetadataColSettings
+									124 container Communications   RSS settings
+										125 container
+											126 container Communications
+												127 heading Communications, Value: 3
+													128 text Communications
+											129 container   RSS settings
+												130 container
+													131 container   RSS settings
+														132 container
+															133 container RSS settings
+																134 link Description: RSS settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/listsyndication.aspx, ID: ctl00_PlaceHolderMain_LnksecCommunications_RptControls_onetidRssSettings
+							135 container Columns A column stores information about each item in the list. The following columns are currently available in this list: PA24 TEST ONLY Receipts   Create column   Add from existing site columns   Column ordering   Indexed columns
+								136 container
+									137 container Columns, ID: 1400
+										138 heading Columns, Value: 3
+											139 text Columns
+									140 container ID: 1500, A column stores information about each item in the list. The following columns are currently available in this list:
+										141 text A column stores information about each item in the list. The following columns are currently available in this list:
+									142 container PA24 TEST ONLY Receipts
+										143 table PA24 TEST ONLY Receipts
+											144 row
+												145 cell 1600
+													146 text Column (click to edit)
+												147 cell 1700
+													148 text Type
+												149 cell 1800
+													150 text Required
+											151 row
+												152 cell
+													153 link Description: Title, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEdit.aspx, ID: LinkEditField1
+												154 cell
+													155 text Single line of text
+											156 row
+												157 cell
+													158 link Description: SubmissionId, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEdit.aspx, ID: LinkEditField9
+												159 cell
+													160 text Single line of text
+											161 row
+												162 cell
+													163 link Description: PayloadBase64A, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEdit.aspx, ID: LinkEditField10
+												164 cell
+													165 text Multiple lines of text
+											166 row
+												167 cell
+													168 link Description: PayloadBase64B, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEdit.aspx, ID: LinkEditField11
+												169 cell
+													170 text Multiple lines of text
+											171 row
+												172 cell
+													173 link Description: ProjectId, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEdit.aspx, ID: LinkEditField12
+												174 cell
+													175 text Multiple lines of text
+											176 row
+												177 cell
+													178 link Description: Summary, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEdit.aspx, ID: LinkEditField13
+												179 cell
+													180 text Multiple lines of text
+											181 row
+												182 cell
+													183 link Description: SubmitterEmail, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEdit.aspx, ID: LinkEditField14
+												184 cell
+													185 text Single line of text
+											186 row
+												187 cell
+													188 link Description: ExportStatus, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEdit.aspx, ID: LinkEditField15
+												189 cell
+													190 text Single line of text
+											191 row
+												192 cell
+													193 link Description: ExportFileUrl, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEdit.aspx, ID: LinkEditField16
+												194 cell
+													195 text Multiple lines of text
+											196 row
+												197 cell
+													198 link Description: Modified, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEditEx.aspx, ID: LinkEditField19
+												199 cell
+													200 text Date and Time
+											201 row
+												202 cell
+													203 link Description: Created, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEditEx.aspx, ID: LinkEditField20
+												204 cell
+													205 text Date and Time
+											206 row
+												207 cell
+													208 link Description: Created By, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEditEx.aspx, ID: LinkEditField91
+												209 cell
+													210 text Person or Group
+											211 row
+												212 cell
+													213 link Description: Modified By, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEditEx.aspx, ID: LinkEditField92
+												214 cell
+													215 text Person or Group
+									216 container   Create column   Add from existing site columns   Column ordering   Indexed columns
+										217 container
+											218 container Create column
+												219 link Description: Create column, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/fldNew.aspx, ID: onetidListEdit4
+											220 container Add from existing site columns
+												221 link Description: Add from existing site columns, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/AddFieldFromTemplate.aspx, ID: onetidListEdit4b
+											222 container Column ordering
+												223 link Description: Column ordering, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/formEdt.aspx, ID: onetidListEdit5
+											224 container Indexed columns
+												225 link Description: Indexed columns, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/IndexedColumns.aspx, ID: onetidListEdit13
+							226 container Views A view of a list allows you to see a particular selection of items or to see the items sorted in a particular order. Views currently configured for this list:   Create view
+								227 container
+									228 container Views, ID: 3000
+										229 heading Views, Value: 3
+											230 text Views
+									231 container A view of a list allows you to see a particular selection of items or to see the items sorted in a particular order. Views currently configured for this list:
+										232 text A view of a list allows you to see a particular selection of items or to see the items sorted in a particular order. Views currently configured for this list:
+									233 table
+										234 row
+											235 cell
+												236 text View (click to edit)
+											237 cell
+												238 text Default View
+											239 cell
+												240 text Mobile View
+											241 cell
+												242 text Default Mobile View
+										243 row
+											244 cell
+												245 link Description: All Items, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/ViewEdit.aspx, ID: onetid200
+									246 container   Create view
+										247 container
+											248 container Create view
+												249 link Description: Create view, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/ViewType.aspx, ID: onetidListEdit6
+
+The focused UI element is 86 link Description: List name, description and navigation, URL: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/ListGeneralSettings.aspx, ID: ctl00_PlaceHolderMain_ctl08_RptControls_LnkGeneralSettings

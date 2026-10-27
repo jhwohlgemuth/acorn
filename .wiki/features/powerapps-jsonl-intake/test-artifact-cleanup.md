@@ -69,10 +69,44 @@ Validation passed for wiki plan metadata, all wiki Markdown file targets, four m
 
 ## October 26 post-validation wiki cleanup
 
+Subsequent acceptance added the published `PA21 TEST ONLY Sponsor Highlights SharePoint` app (`eb6ed2fe-2855-48bb-a439-b6bbd95099b8`) and two synthetic PA21 receipt/file fixtures. PA-21 is now accepted after owner confirmation of full-restart/denied-storage checks; retain the app and fixtures as isolated acceptance evidence. PA20 test intake is Off with its normal test destination restored. PA19 test catalog is now verified Off after the owner's checks, with its one-project filter and disabled seeding retained. The latest PA15 fixture is restored to the original 457 bytes and its test flow is Off. See [PA21 evidence](sharepoint-pilot.md#october-26-isolated-canvas-acceptance-pa-21) and [PA15 follow-up](boundary-acceptance.md#october-26-follow-up-after-studio-recovery). This follow-up created no operational component and removed no cloud resources.
+
 After the isolated PA-19/20 acceptance, removed **31 redundant artifacts totaling 2,066,614 bytes**. The [removal manifest](_assets/cleanup/20261026-post-validation-manifest.json) records each path, digest, reason and retained replacement evidence. Removed files were intermediate Off-state/inventory captures, superseded import/editor screenshots, two byte-identical restored catalog-code copies, and two transient PA-20 editor/run captures. Repository text references and all eight retained ZIP member lists were checked before removal; no deleted file belongs to those archives. Superseded screenshot links now point to retained retry ledgers. Restored catalog code links to the byte-identical canonical source, with the observed hash preserved.
 
 Native backup packages, current PDFs and their build inputs, exact-byte JSONL fixtures, failure diagnostics, final Off-state proofs and current acceptance ledgers remain. The dated demo ZIP retains its captured version of `sharepoint-pilot.md`; consult the live [SharePoint record](sharepoint-pilot.md) for subsequent validation. Archives are retained captures, not automatically refreshed copies of active plans.
 
-PA-19 and PA-20 remain pruned after acceptance. PA-15's active readiness statement now lists remaining cases and links its detailed history. Root portfolio prose was condensed and synchronized with the new acceptance. All 35 executable plans and two coordination records still have remaining work; no additional whole plan was retired. This cleanup changed only local wiki files. It made no cloud-resource, connection, permission, operational-flow or notification changes. PA19/20 test resources remain needed for PA-21/23/26 and were not deleted.
+PA-19, PA-20 and PA-21 are pruned after acceptance. PA-15's active readiness statement now lists remaining cases and links its detailed history. Root portfolio prose was condensed and synchronized with the new acceptance. All 35 executable plans and two coordination records still have remaining work; no additional whole plan was retired. This cleanup changed only local wiki files. It made no cloud-resource, connection, permission, operational-flow or notification changes. PA19/20 test resources remain needed for PA-23 and were not deleted.
 
 Validation passed: planning metadata and dependencies, 593 Markdown file targets, all eight ZIP integrity checks, four native-package manifest sizes/hashes, removal/replacement paths, and whitespace. No application behavior changed, so no workspace test suite was run.
+
+
+# October 26 PA-26 test cleanup
+
+Retain **PA26 TEST ONLY SharePoint Logbook Export** (`28cba548-c862-484c-b838-ea21eaf52630`) **Off** for PA-23. Its temporary ten-case fault scope was removed after acceptance; the repaired export scope and serialized trigger remain. Ten small `pa26-385beb282f-*.jsonl` files and the filtered synthetic combined logbook remain in PA19 TEST ONLY JSONL as reproducible evidence. Do not include them in real reporting or treat the test filter as a release configuration. Local stale harness capture and generated Python caches were removed. The operational exporter remains On and unchanged; [acceptance and final state](sharepoint-pilot.md#october-26-isolated-exporter-repair-acceptance-pa-26) record the evidence. PA-26 was pruned; PA-23 retains aggregate validation.
+
+
+### October 27 aggregate acceptance cleanup
+
+PA-23/27 native acceptance is complete. The PA26 test exporter (`28cba548-c862-484c-b838-ea21eaf52630`) contains only Recurrence and the clean repaired export scope, uses the original single valid fixture filter and secure-data settings, and is Off after successful run `08584085004435567040138500880CU11`. Temporary seeding, fault markers and aggregate test scopes were removed. Retained PA19 test rows/files support reproducibility; they are excluded from reports and the normal test-export filter. Large generated expected files are under ignored `output/pa23-20261027`, with compact hashes/builders in wiki assets. Operational app/flow revisions, credentials and receipt data were unchanged. [Acceptance and hashes](sharepoint-pilot.md#october-27-collected-export-acceptance) identify the clean candidate for PA-24 backup/restore.
+
+
+## October 27 PA-24 restore closeout
+
+Retained the three native backup ZIPs, full current-row snapshots, schemas/settings evidence, restored canvas and exact-byte acceptance proof in [the PA24 recovery set](_assets/sharepoint/backup/README.md). The one-time data-restoration helper was removed from the catalog flow after successful recovery; its guarded source remains for audit. All test destinations remain separate from operational storage, and all three PA24 flows are Off:
+
+| Component | ID | Retention reason |
+| --- | --- | --- |
+| PA24 TEST ONLY Sponsor Highlights | `ff6b367e-27d8-42f6-9809-62834d6b9ef5` | Published isolated restore evidence; no participant rollout |
+| PA24 TEST ONLY SharePoint Catalog | `b17d36d1-738c-4743-8a53-920258af0eeb` | Off; helper removed |
+| PA24 TEST ONLY SharePoint Intake | `726caf67-bcc4-4c21-ba22-9a66e46cb57a` | Off; notifications removed |
+| PA24 TEST ONLY SharePoint Logbook Export | `654d13ea-c549-42a8-a4c6-d1e48f5ec02d` | Off; accepted repaired revision, isolated destinations |
+| PA24 TEST ONLY Receipts | `13fa719a-32ae-45de-b444-95d3a33e8048` | Seven synthetic receipts including same-ID retry evidence |
+| PA24 TEST ONLY Projects | `c482b248-39fb-45f8-833e-26baf05cc15c` | Thirteen restored catalog rows |
+| PA24 TEST ONLY JSONL | `905b083e-e909-4eef-a496-166a2b2bc8d7` | Restored receipt files, collected output and recovery snapshots |
+
+No operational components were disabled, deleted or rebound. These named recovery fixtures are retained deliberately; no further cleanup authorization was inferred from PA-24 acceptance.
+
+
+## October 27 notification-only check
+
+`ACORN TEST ONLY Participant Notification` (`861f6bdf-4c38-4fa8-902f-b1b0eb277678`) is retained **Off** after one successful receipt-notification run. It contains only a fixed receipt metadata fixture and Teams actions; no SharePoint/GitLab data writes. Its source and run proof are in `_assets/notifications/participant-routing/`. It must not be run again as a routine check because it targets the already-confirmed participant receipt.

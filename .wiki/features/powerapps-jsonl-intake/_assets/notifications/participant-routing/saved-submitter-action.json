@@ -1,0 +1,30 @@
+{
+  "inputs": {
+    "host": {
+      "connectionName": "shared_teams",
+      "operationId": "PostMessageToConversation",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams"
+    },
+    "parameters": {
+      "poster": "User",
+      "location": "Group chat",
+      "body/recipient": "@body('Create_submitter_chat_SP')?['id']",
+      "body/messageBody": "<p>ACORN // Sponsor Highlights</p><h2>✓ Your highlight was received</h2><p><strong>Project</strong><br>@{replace(replace(replace(string(body('Parse_submission_SP')?['projectId']), '&', '&amp;'), '<', '&lt;'), '>', '&gt;')}</p><p><strong>Status</strong><br>Saved · JSONL export verified · Awaiting review</p><p><strong>Receipt ID</strong><br><code>@{body('Parse_submission_SP')?['submissionId']}</code></p><p>Keep this receipt for your records. Jason Wohlgemuth also receives an operator notification.</p><p><em>Saving does not approve or publish the highlight. Email is reserved for important workflow milestones.</em></p>"
+    },
+    "authentication": "@parameters('$authentication')",
+    "retryPolicy": {
+      "type": "none"
+    }
+  },
+  "runtimeConfiguration": {
+    "secureData": {
+      "properties": [
+        "inputs",
+        "outputs"
+      ]
+    }
+  },
+  "metadata": {
+    "operationMetadataId": "2f2b141c-62e2-4ade-9f34-0163b8268c26"
+  }
+}

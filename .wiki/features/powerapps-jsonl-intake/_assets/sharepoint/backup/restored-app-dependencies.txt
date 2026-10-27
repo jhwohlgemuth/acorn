@@ -1,0 +1,91 @@
+Browser tab: 1329059500, Title: "Power Apps", URL: "https://make.gov.powerapps.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/apps/ff6b367e-27d8-42f6-9809-62834d6b9ef5/flows".
+1 AXWebArea Power Apps, URL: make.gov.powerapps.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/apps/ff6b367e-27d8-42f6-9809-62834d6b9ef5/flows
+	2 container
+		3 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+		4 container o365header
+			5 container O365_NavHeader
+				6 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+					39 text 
+				8 container ppuxOfficeHeaderTopLevelRegion
+					9 container ppuxOfficeHeaderLeftRegion
+						10 link Description: Power Apps, Value: make.gov.powerapps.us/, ID: O365_AppName
+					11 container ppuxOfficeHeaderRightRegion
+						12 pop up button (collapsed) Description: Environment: Wohlgemuth, Jason, Secondary Actions: Expand
+							13 container
+								14 text Environment Wohlgemuth, Jason
+						15 pop up button (collapsed) Description: Notifications, ID: shell-notifications, Secondary Actions: Expand
+						16 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+						17 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+				18 container O365_HeaderRightRegion
+					19 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+						20 image JW
+		106 container Main
+			107 button (collapsed) Left navigation panel, Secondary Actions: Expand
+				108 image Left navigation panel
+			109 menu
+				110 container
+					111 container
+						112 container aboveCustomizableItemsId0
+							113 Home
+							114 Create
+							115 Learn
+							116 Apps
+							117 AI hub
+						118 Tables
+						119 Flows
+						120 Solutions
+						121 More
+						122 Power Platform
+		40 container
+			41 menu bar
+				88 container
+					89 (collapsed) Edit More Edit options, Secondary Actions: Expand
+						90 Edit
+							91 text Edit
+						92 pop up button (collapsed) Description: More Edit options, Secondary Actions: Expand
+					93 Play
+						94 text Play
+					95 Share
+						96 text Share
+					97 Export package
+						98 text Export package
+					99 Wrap
+						100 text Wrap
+					101 (collapsed) Secondary Actions: Expand
+				102 Search box
+					103 search text field (settable) Description: Search box, ID: SearchBox806
+			60 container
+				61 container Apps
+					62 content list
+						63 button Apps
+						64 heading PA24 TEST ONLY Sponsor Highlights SharePoint, Value: 2
+							65 text PA24 TEST ONLY Sponsor Highlights SharePoint
+				66 tab group
+					67 tab (selectable, settable, boolean) Details, ID: Pivot710-Tab0, Value: 0
+Details
+					68 tab (selectable, settable, boolean) Versions, ID: Pivot710-Tab1, Value: 0
+Versions
+					69 tab (selectable, settable, boolean) Connections, ID: Pivot710-Tab2, Value: 0
+Connections
+					70 tab (selected, settable, boolean) Flows, Value: 1, ID: Pivot710-Tab3
+						104 text Flows
+				105 container Flows
+					123 table
+						124 row Name
+							125 cell
+								126 button Description: Name, ID: header814-name
+									127 text Name
+						128 row PA24 TEST ONLY SharePoint Catalog PA24 TEST ONLY SharePoint Catalog, ID: row856-0
+							129 cell
+								130 image PA24 TEST ONLY SharePoint Catalog
+							131 cell row856-0-header
+								132 link PA24 TEST ONLY SharePoint Catalog
+									133 text PA24 TEST ONLY SharePoint Catalog
+						134 row PA24 TEST ONLY SharePoint Intake PA24 TEST ONLY SharePoint Intake, ID: row856-1
+							135 cell
+								136 image PA24 TEST ONLY SharePoint Intake
+							137 cell row856-1-header
+								138 link PA24 TEST ONLY SharePoint Intake
+									139 text PA24 TEST ONLY SharePoint Intake
+
+The focused UI element is 70 tab (selected, settable, boolean) Flows, Value: 1, ID: Pivot710-Tab3

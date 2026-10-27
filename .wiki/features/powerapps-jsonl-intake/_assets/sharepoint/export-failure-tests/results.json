@@ -1,0 +1,66 @@
+{
+  "phase": "PA-26",
+  "accepted": "2026-10-26",
+  "environment": "221f44a6-1468-ea4e-b93d-cd52f1723079",
+  "test_flow": "28cba548-c862-484c-b838-ea21eaf52630",
+  "final_state": "Off; temporary harness removed",
+  "local_tests_passed": 7,
+  "native_creation_run": "08584085391268511565691464645CU24",
+  "native_matrix_run": "08584085381247382641544582529CU13",
+  "native_matrix_attempt": 4,
+  "cases": [
+    "denied_403",
+    "server_500",
+    "server_503",
+    "read_timeout",
+    "timeout_with_404",
+    "lost_committed",
+    "lost_uncommitted",
+    "readback_failed",
+    "readback_mismatch",
+    "unchanged"
+  ],
+  "injection_limits": "Prior HTTP codes/timeouts are injected observations. Lost responses and readback failure use deliberate native action failure, not a real network timeout.",
+  "fixture_sha256": {
+    "old": "691dc3a122b0c3ef52fc9c328c94f7ff33aa97e241829d04c679b74f641ee5f1",
+    "expected": "190acdfd13b7f7a210fee04df1201c7225c1159be4300ece62055cb62c8bc024",
+    "later": "786687a80039ff10eaa3c676970a12025f2f2bc39631e4e200d25bbe89444c9a"
+  },
+  "publish_write_attempts": {
+    "denied_403": 0,
+    "server_500": 0,
+    "server_503": 0,
+    "read_timeout": 0,
+    "timeout_with_404": 0,
+    "lost_committed": 1,
+    "lost_uncommitted": 1,
+    "readback_failed": 1,
+    "readback_mismatch": 1,
+    "unchanged": 0
+  },
+  "actual_publish_commits": {
+    "denied_403": 0,
+    "server_500": 0,
+    "server_503": 0,
+    "read_timeout": 0,
+    "timeout_with_404": 0,
+    "lost_committed": 1,
+    "lost_uncommitted": 0,
+    "readback_failed": 1,
+    "readback_mismatch": 1,
+    "unchanged": 0
+  },
+  "write_count_note": "Excludes seed writes and the independent later-writer fixture; attempts/statuses are asserted in native tests, commits follow the explicit harness branch and final bytes.",
+  "operational_changed": false,
+  "artifacts_sha256": {
+    "deployed-before.json": "0922663da16855cae5fa35598336fa2c2070c211465e7c0d84b1fa72be8493e8",
+    "isolated-export.clipboard.json": "10c8b3e0be6582cd2a562552934ce21f931a794542a88b9ac35acdf27b0bffbb",
+    "saved-isolated.clipboard.json": "10c8b3e0be6582cd2a562552934ce21f931a794542a88b9ac35acdf27b0bffbb",
+    "native-fault-matrix.clipboard.json": "10ec010df7f7d397112abfd6d4165cb53242ab3ab1b375de6eec1ce88fbaf7ad",
+    "native-accepted-run.txt": "939404a54ca297e730aeececafacbd20a65714a0da07998ae081dc47eadb1f7f",
+    "final-editor.txt": "f71d9c407f5e6fa60be1b8580b7c6cdc3d24953200c3193e5441c2222c4d2acb",
+    "final-flow-checker.txt": "f6f8c15c35515ecb228df219d4c93e3a98545b1f56b0af5aa1d2fc9960ba9e0d",
+    "final-off.txt": "609d9887ce59e8970ce109044e7175a7b0a4bcbe72373b0f7c9da8f2740a26f9"
+  },
+  "release_candidate_sha256": "89e722a7bd81459d8dffbe9f49608c6e0cca9131d28bd8e5a06c0957fa7aa4c6"
+}

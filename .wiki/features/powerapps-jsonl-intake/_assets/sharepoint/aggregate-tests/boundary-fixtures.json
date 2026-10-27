@@ -1,0 +1,37 @@
+{
+  "cases": [
+    {
+      "case": "rows5000",
+      "rows": 5000,
+      "source_bytes": 2370000,
+      "source_sha256": "7eb2b6f53e5ad146cdd11d98d20823f5abcd36998e0df7300e4ee6973ca91fa1",
+      "rejected": false,
+      "max_record_bytes": 473
+    },
+    {
+      "case": "rows5001",
+      "rows": 5001,
+      "source_bytes": 2370474,
+      "source_sha256": "9de38dea1c59b7c2f7eead74f6451a03d4cccdb9b460659ff61dbaa580d35e39",
+      "rejected": true,
+      "max_record_bytes": 473
+    },
+    {
+      "case": "bytes_exact",
+      "rows": 162,
+      "source_bytes": 10485760,
+      "source_sha256": "bcf91baa601ad2697655e4a7d8372167fb1e4ef132c8ad69234a0185736e6023",
+      "rejected": false,
+      "max_record_bytes": 65000
+    },
+    {
+      "case": "bytes_over",
+      "rows": 162,
+      "source_bytes": 10485761,
+      "source_sha256": "af1cb27b2d11644496cccd1f2ce255a3d12d0f145f01af1ebfa74a6ea57acfcf",
+      "rejected": true,
+      "max_record_bytes": 65000
+    }
+  ],
+  "limits": "Native receipt arrays are injected; this does not prove connector pagination. File writes/readbacks are real test-library operations."
+}

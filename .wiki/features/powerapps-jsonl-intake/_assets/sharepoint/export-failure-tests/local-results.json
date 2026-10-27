@@ -1,0 +1,441 @@
+{
+  "kind": "Local injected execution of generated publish graph, not live Power Automate evidence",
+  "expected_sha256": "ef46653c1d1813108dc03fadf650f5592148a3cd618aed943e95573d873b22d0",
+  "previous_sha256": "1eb6b0bc9526efdf218134d565a914f3792a6dbc2fdb152aa56c9e9ab9769b6a",
+  "cases": {
+    "confirmed_404": {
+      "file": null,
+      "writes": 1,
+      "verified": true,
+      "error": null,
+      "final_sha256": "ef46653c1d1813108dc03fadf650f5592148a3cd618aed943e95573d873b22d0",
+      "trace": [
+        {
+          "action": "Read_previous_logbook_LB",
+          "status": "Failed"
+        },
+        {
+          "action": "Write_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Changed_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Read_published_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Export_receipt_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Exact_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Readable_or_missing_LB",
+          "status": "Succeeded"
+        }
+      ]
+    },
+    "read_403": {
+      "file": null,
+      "writes": 0,
+      "verified": false,
+      "error": "LogbookPreviousReadUnavailable",
+      "final_sha256": "1eb6b0bc9526efdf218134d565a914f3792a6dbc2fdb152aa56c9e9ab9769b6a",
+      "trace": [
+        {
+          "action": "Read_previous_logbook_LB",
+          "status": "Failed"
+        },
+        {
+          "action": "LogbookPreviousReadUnavailable",
+          "status": "Failed"
+        },
+        {
+          "action": "Readable_or_missing_LB",
+          "status": "Failed"
+        }
+      ]
+    },
+    "read_500": {
+      "file": null,
+      "writes": 0,
+      "verified": false,
+      "error": "LogbookPreviousReadUnavailable",
+      "final_sha256": "1eb6b0bc9526efdf218134d565a914f3792a6dbc2fdb152aa56c9e9ab9769b6a",
+      "trace": [
+        {
+          "action": "Read_previous_logbook_LB",
+          "status": "Failed"
+        },
+        {
+          "action": "LogbookPreviousReadUnavailable",
+          "status": "Failed"
+        },
+        {
+          "action": "Readable_or_missing_LB",
+          "status": "Failed"
+        }
+      ]
+    },
+    "read_503": {
+      "file": null,
+      "writes": 0,
+      "verified": false,
+      "error": "LogbookPreviousReadUnavailable",
+      "final_sha256": "1eb6b0bc9526efdf218134d565a914f3792a6dbc2fdb152aa56c9e9ab9769b6a",
+      "trace": [
+        {
+          "action": "Read_previous_logbook_LB",
+          "status": "Failed"
+        },
+        {
+          "action": "LogbookPreviousReadUnavailable",
+          "status": "Failed"
+        },
+        {
+          "action": "Readable_or_missing_LB",
+          "status": "Failed"
+        }
+      ]
+    },
+    "read_timeout": {
+      "file": null,
+      "writes": 0,
+      "verified": false,
+      "error": "LogbookPreviousReadUnavailable",
+      "final_sha256": "1eb6b0bc9526efdf218134d565a914f3792a6dbc2fdb152aa56c9e9ab9769b6a",
+      "trace": [
+        {
+          "action": "Read_previous_logbook_LB",
+          "status": "TimedOut"
+        },
+        {
+          "action": "LogbookPreviousReadUnavailable",
+          "status": "Failed"
+        },
+        {
+          "action": "Readable_or_missing_LB",
+          "status": "Failed"
+        }
+      ]
+    },
+    "timeout_with_404": {
+      "file": null,
+      "writes": 0,
+      "verified": false,
+      "error": "LogbookPreviousReadUnavailable",
+      "final_sha256": "1eb6b0bc9526efdf218134d565a914f3792a6dbc2fdb152aa56c9e9ab9769b6a",
+      "trace": [
+        {
+          "action": "Read_previous_logbook_LB",
+          "status": "TimedOut"
+        },
+        {
+          "action": "LogbookPreviousReadUnavailable",
+          "status": "Failed"
+        },
+        {
+          "action": "Readable_or_missing_LB",
+          "status": "Failed"
+        }
+      ]
+    },
+    "write_timeout_committed": {
+      "file": null,
+      "writes": 1,
+      "verified": true,
+      "error": null,
+      "final_sha256": "ef46653c1d1813108dc03fadf650f5592148a3cd618aed943e95573d873b22d0",
+      "trace": [
+        {
+          "action": "Read_previous_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Write_logbook_LB",
+          "status": "TimedOut"
+        },
+        {
+          "action": "Changed_logbook_LB",
+          "status": "Failed"
+        },
+        {
+          "action": "Read_published_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Export_receipt_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Exact_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Readable_or_missing_LB",
+          "status": "Succeeded"
+        }
+      ]
+    },
+    "write_timeout_uncommitted": {
+      "file": null,
+      "writes": 1,
+      "verified": false,
+      "error": "LogbookOutcomeUnresolved",
+      "final_sha256": "1eb6b0bc9526efdf218134d565a914f3792a6dbc2fdb152aa56c9e9ab9769b6a",
+      "trace": [
+        {
+          "action": "Read_previous_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Write_logbook_LB",
+          "status": "TimedOut"
+        },
+        {
+          "action": "Changed_logbook_LB",
+          "status": "Failed"
+        },
+        {
+          "action": "Read_published_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "LogbookOutcomeUnresolved",
+          "status": "Failed"
+        },
+        {
+          "action": "Exact_logbook_LB",
+          "status": "Failed"
+        },
+        {
+          "action": "Readable_or_missing_LB",
+          "status": "Failed"
+        }
+      ]
+    },
+    "write_failure_committed": {
+      "file": null,
+      "writes": 1,
+      "verified": true,
+      "error": null,
+      "final_sha256": "ef46653c1d1813108dc03fadf650f5592148a3cd618aed943e95573d873b22d0",
+      "trace": [
+        {
+          "action": "Read_previous_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Write_logbook_LB",
+          "status": "Failed"
+        },
+        {
+          "action": "Changed_logbook_LB",
+          "status": "Failed"
+        },
+        {
+          "action": "Read_published_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Export_receipt_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Exact_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Readable_or_missing_LB",
+          "status": "Succeeded"
+        }
+      ]
+    },
+    "write_failure_uncommitted": {
+      "file": null,
+      "writes": 1,
+      "verified": false,
+      "error": "LogbookOutcomeUnresolved",
+      "final_sha256": "1eb6b0bc9526efdf218134d565a914f3792a6dbc2fdb152aa56c9e9ab9769b6a",
+      "trace": [
+        {
+          "action": "Read_previous_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Write_logbook_LB",
+          "status": "Failed"
+        },
+        {
+          "action": "Changed_logbook_LB",
+          "status": "Failed"
+        },
+        {
+          "action": "Read_published_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "LogbookOutcomeUnresolved",
+          "status": "Failed"
+        },
+        {
+          "action": "Exact_logbook_LB",
+          "status": "Failed"
+        },
+        {
+          "action": "Readable_or_missing_LB",
+          "status": "Failed"
+        }
+      ]
+    },
+    "readback_failure": {
+      "file": null,
+      "writes": 1,
+      "verified": false,
+      "error": "LogbookOutcomeUnresolved",
+      "final_sha256": "ef46653c1d1813108dc03fadf650f5592148a3cd618aed943e95573d873b22d0",
+      "trace": [
+        {
+          "action": "Read_previous_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Write_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Changed_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Read_published_logbook_LB",
+          "status": "Failed"
+        },
+        {
+          "action": "LogbookOutcomeUnresolved",
+          "status": "Failed"
+        },
+        {
+          "action": "Exact_logbook_LB",
+          "status": "Failed"
+        },
+        {
+          "action": "Readable_or_missing_LB",
+          "status": "Failed"
+        }
+      ]
+    },
+    "readback_timeout": {
+      "file": null,
+      "writes": 1,
+      "verified": false,
+      "error": "LogbookOutcomeUnresolved",
+      "final_sha256": "ef46653c1d1813108dc03fadf650f5592148a3cd618aed943e95573d873b22d0",
+      "trace": [
+        {
+          "action": "Read_previous_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Write_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Changed_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Read_published_logbook_LB",
+          "status": "TimedOut"
+        },
+        {
+          "action": "LogbookOutcomeUnresolved",
+          "status": "Failed"
+        },
+        {
+          "action": "Exact_logbook_LB",
+          "status": "Failed"
+        },
+        {
+          "action": "Readable_or_missing_LB",
+          "status": "Failed"
+        }
+      ]
+    },
+    "readback_mismatch": {
+      "file": null,
+      "writes": 1,
+      "verified": false,
+      "error": "LogbookOutcomeUnresolved",
+      "final_sha256": "ef46653c1d1813108dc03fadf650f5592148a3cd618aed943e95573d873b22d0",
+      "trace": [
+        {
+          "action": "Read_previous_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Write_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Changed_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Read_published_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "LogbookOutcomeUnresolved",
+          "status": "Failed"
+        },
+        {
+          "action": "Exact_logbook_LB",
+          "status": "Failed"
+        },
+        {
+          "action": "Readable_or_missing_LB",
+          "status": "Failed"
+        }
+      ]
+    },
+    "unchanged": {
+      "file": null,
+      "writes": 0,
+      "verified": true,
+      "error": null,
+      "final_sha256": "ef46653c1d1813108dc03fadf650f5592148a3cd618aed943e95573d873b22d0",
+      "trace": [
+        {
+          "action": "Read_previous_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Changed_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Read_published_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Export_receipt_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Exact_logbook_LB",
+          "status": "Succeeded"
+        },
+        {
+          "action": "Readable_or_missing_LB",
+          "status": "Succeeded"
+        }
+      ]
+    }
+  }
+}

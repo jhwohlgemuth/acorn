@@ -1,0 +1,363 @@
+Browser tab: 1329059482, Title: "Run History | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/28cba548-c862-484c-b838-ea21eaf52630/runs/08584085386408861571220504404CU19?v3=false".
+1 AXWebArea Run History | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/28cba548-c862-484c-b838-ea21eaf52630/runs/08584085386408861571220504404CU19?v3=false
+	2 container
+		3 container root
+			4 container
+				5 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				12 container o365header
+					13 container O365_NavHeader
+						14 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							346 text 
+						16 container ppuxOfficeHeaderTopLevelRegion
+							17 container ppuxOfficeHeaderLeftRegion
+								18 text Power Automate
+							19 container ppuxOfficeHeaderRightRegion
+								20 button Wohlgemuth, Jason
+									21 container
+										22 text Environments Wohlgemuth, Jason
+								23 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								24 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						25 container O365_HeaderRightRegion
+							26 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								27 image JW
+				6 container Main
+					7 button (expanded) Left navigation panel, Secondary Actions: Collapse
+						8 image Left navigation panel
+					9 menu
+						10 container
+							11 container aboveCustomizableItemsId0
+								28 Home
+								29 Create
+								30 Templates
+								31 Learn
+								32 My flows
+							33 Approvals, press right arrow to navigate more options
+							34 Solutions, press right arrow to navigate more options
+							35 Automation center, press right arrow to navigate more options
+							36 Process mining, press right arrow to navigate more options
+								37 image
+								38 text Process mining
+							39 AI hub, press right arrow to navigate more options
+							40 Connections, press right arrow to navigate more options
+							41 More
+							42 Power Platform
+				43 container
+					44 container
+						45 button Go back to previous page
+						46 container The flow name is PA26 TEST ONLY SharePoint Logbook Export.
+							47 text PA26 TEST ONLY SharePoint Logbook Export
+							48 container
+								347 text • Ran at 10/26/2026 10:30:44 PM
+						50 toolbar
+							51 button Description: Resubmit, ID: resubmitFlowRun
+								52 text Resubmit
+							53 button (disabled) Description: Cancel, ID: cancelFlowRun
+								54 text Cancel
+							55 button Description: Edit, ID: editFlow
+								56 text Edit
+							57 container
+								58 switch Description: New view, Value: 0, ID: switchDesignerFlowRunDetails
+								59 text New view
+							60 button Description: Help, ID: help
+								61 text Help
+						62 container Flow run failed.
+							63 text Flow run failed.
+						64 button Close
+					65 container
+						66 container
+							67 button (collapsed) Recurrence, Secondary Actions: Expand
+								68 button (collapsed) Recurrence, Secondary Actions: Expand
+									69 text Recurrence
+							70 text 0 seconds. Succeeded
+							71 container 0 seconds
+								72 text 0s
+							73 image Succeeded
+						74 container
+							75 button (collapsed) Combined logbook export LB, Secondary Actions: Expand
+								76 button (collapsed) Combined logbook export LB, Secondary Actions: Expand
+									77 text Combined logbook export LB
+							78 text 1 seconds. Succeeded
+							79 container 1 seconds
+								80 text 1s
+							81 image Succeeded
+						82 container
+							83 container
+								84 button (expanded) PA26 native fault matrix, Secondary Actions: Collapse
+									85 button (expanded) PA26 native fault matrix, Secondary Actions: Collapse
+										86 text PA26 native fault matrix
+								87 text 9 seconds. Cancelled
+								88 container 9 seconds
+									89 text 9s
+								90 image Cancelled
+							106 container
+								107 container
+									108 button (collapsed) Case denied 403, Secondary Actions: Expand
+										109 button (collapsed) Case denied 403, Secondary Actions: Expand
+											110 text Case denied 403
+									111 text 1 seconds. Succeeded
+									112 container 1 seconds
+										113 text 1s
+									114 image Succeeded
+								115 container
+									116 button (collapsed) Case server 500, Secondary Actions: Expand
+										117 button (collapsed) Case server 500, Secondary Actions: Expand
+											118 text Case server 500
+									119 text 1 seconds. Succeeded
+									120 container 1 seconds
+										121 text 1s
+									122 image Succeeded
+								123 container
+									124 container
+										125 button (collapsed) Case server 503, Secondary Actions: Expand
+											126 button (collapsed) Case server 503, Secondary Actions: Expand
+												127 text Case server 503
+										128 text 1 seconds. Succeeded
+										129 container 1 seconds
+											130 text 1s
+										131 image Succeeded
+									132 container
+										133 button (collapsed) Case read timeout, Secondary Actions: Expand
+											134 button (collapsed) Case read timeout, Secondary Actions: Expand
+												135 text Case read timeout
+										136 text 1 seconds. Succeeded
+										137 container 1 seconds
+											138 text 1s
+										139 image Succeeded
+									140 container
+										141 container
+											142 button (collapsed) Case timeout with 404, Secondary Actions: Expand
+												143 button (collapsed) Case timeout with 404, Secondary Actions: Expand
+													144 text Case timeout with 404
+											145 text 1 seconds. Succeeded
+											146 container 1 seconds
+												147 text 1s
+											148 image Succeeded
+										191 container
+											192 button (expanded) Case lost committed, Secondary Actions: Collapse
+												193 button (expanded) Case lost committed, Secondary Actions: Collapse
+													194 text Case lost committed
+											195 container
+												196 text 2 seconds. Cancelled
+												197 container 2 seconds
+													198 text 2s
+												199 image Cancelled
+											200 container
+												201 button (collapsed) Seed prior snapshot lost committed, Secondary Actions: Expand
+													217 button (collapsed) Seed prior snapshot lost committed, Secondary Actions: Expand
+														218 text Seed prior snapshot lost committed
+												219 text 1 seconds. Succeeded
+												220 container 1 seconds
+													221 text 1s
+												202 image Succeeded
+											203 container
+												204 container
+													205 button (collapsed) Combined JSONL LB lost committed, Secondary Actions: Expand
+														222 button (collapsed) Combined JSONL LB lost committed, Secondary Actions: Expand
+															223 text Combined JSONL LB lost committed
+													224 text 0 seconds. Succeeded
+													225 container 0 seconds
+														226 text 0s
+													206 image Succeeded
+												227 container
+													228 button (expanded) Publish under test lost committed, Secondary Actions: Collapse
+														229 button (expanded) Publish under test lost committed, Secondary Actions: Collapse
+															230 text Publish under test lost committed
+													231 container
+														232 text 1 seconds. Succeeded
+														233 container 1 seconds
+															234 text 1s
+														235 image Succeeded
+													236 container
+														237 button (collapsed) Read previous logbook LB lost committed, Secondary Actions: Expand
+															238 button (collapsed) Read previous logbook LB lost committed, Secondary Actions: Expand
+																239 text Read previous logbook LB lost committed
+														240 text 0 seconds. Succeeded
+														241 container 0 seconds
+															242 text 0s
+														243 image Succeeded
+													244 container
+														245 button View when "Readable or missing LB lost committed" will run under "Configure run after"
+														264 container Readable or missing LB lost committed 1 seconds. Succeeded 1s Succeeded Show raw inputs INPUTS If yes Changed logbook LB lost committed 1 seconds. Failed 1s Failed Show raw inputs INPUTS If yes Write logbook LB lost committed 1 seconds. Failed 1 seconds
+															265 container
+																266 button (expanded) Readable or missing LB lost committed, Secondary Actions: Collapse
+																	267 button (expanded) Readable or missing LB lost committed, Secondary Actions: Collapse
+																		268 text Readable or missing LB lost committed
+																269 container
+																	270 text 1 seconds. Succeeded
+																	271 container 1 seconds
+																		272 text 1s
+																	273 image Succeeded
+																274 text INPUTS
+																275 button Show raw inputs
+																	276 text Show raw inputs
+																277 container INPUTS
+																	278 container
+																		279 text Expression result
+																		280 container
+																			281 editor (settable) Description: Expression result, Value: true
+																282 container
+																	283 button (expanded) Description: If yes, Secondary Actions: Collapse
+																		284 button (expanded) If yes, Secondary Actions: Collapse
+																			285 text If yes
+																	348 container Changed logbook LB lost committed 1 seconds. Failed 1s Failed Show raw inputs INPUTS If yes Write logbook LB lost committed 1 seconds. Failed 1s Failed If no
+																		349 container
+																			350 button (expanded) Changed logbook LB lost committed, Secondary Actions: Collapse
+																				351 button (expanded) Changed logbook LB lost committed, Secondary Actions: Collapse
+																					352 text Changed logbook LB lost committed
+																			353 container
+																				354 text 1 seconds. Failed
+																				355 container 1 seconds
+																					356 text 1s
+																				357 image Failed
+																			381 container MessageBar119
+																				382 text ActionFailed
+																				383 text .  An action failed. No dependent actions succeeded.
+																			384 text INPUTS
+																			358 button Show raw inputs
+																				385 text Show raw inputs
+																			386 container INPUTS
+																				387 container
+																					388 text Expression result
+																					389 container
+																						390 editor (settable) Description: Expression result, Value: true
+																			359 container
+																				360 button (expanded) Description: If yes, Secondary Actions: Collapse
+																					391 button (expanded) If yes, Secondary Actions: Collapse
+																						392 text If yes
+																				361 container
+																					362 button (collapsed) Write logbook LB lost committed, Secondary Actions: Expand
+																						393 button (collapsed) Write logbook LB lost committed, Secondary Actions: Expand
+																							394 text Write logbook LB lost committed
+																					395 text 1 seconds. Failed
+																					396 container 1 seconds
+																						397 text 1s
+																					363 image Failed
+																			364 button (expanded) Description: If no, Secondary Actions: Collapse
+																				398 button (expanded) If no, Secondary Actions: Collapse
+																					399 text If no
+																	294 container
+																		295 button View when "Read published logbook LB lost committed" will run under "Configure run after"
+																		296 container
+																			297 button (collapsed) Read published logbook LB lost committed, Secondary Actions: Expand
+																				298 button (collapsed) Read published logbook LB lost committed, Secondary Actions: Expand
+																					299 text Read published logbook LB lost committed
+																			300 text 0 seconds. Succeeded
+																			301 container 0 seconds
+																				302 text 0s
+																			303 image Succeeded
+																		304 container
+																			305 button View when "Exact logbook LB lost committed" will run under "Configure run after"
+																		326 container Exact logbook LB lost committed 0 seconds. Succeeded 0s Succeeded Content not shown due to security configuration. If yes Export receipt LB lost committed 0 seconds. Succeeded 0s Succeeded If no LogbookOutcomeUnresolved lost committed 0 seconds. Skipped 0s Skipped
+																			327 container
+																				328 button (expanded) Exact logbook LB lost committed, Secondary Actions: Collapse
+																					329 button (expanded) Exact logbook LB lost committed, Secondary Actions: Collapse
+																						330 text Exact logbook LB lost committed
+																				331 container
+																					332 text 0 seconds. Succeeded
+																					333 container 0 seconds
+																						334 text 0s
+																					335 image Succeeded
+																				365 container
+																					366 text INPUTS Content not shown due to security configuration.
+																				336 container
+																					337 button (expanded) Description: If yes, Secondary Actions: Collapse
+																						367 button (expanded) If yes, Secondary Actions: Collapse
+																							368 text If yes
+																					338 container
+																						339 button (collapsed) Export receipt LB lost committed, Secondary Actions: Expand
+																							369 button (collapsed) Export receipt LB lost committed, Secondary Actions: Expand
+																								370 text Export receipt LB lost committed
+																						371 text 0 seconds. Succeeded
+																						372 container 0 seconds
+																							373 text 0s
+																						340 image Succeeded
+																				341 container
+																					342 button (expanded) Description: If no, Secondary Actions: Collapse
+																						374 button (expanded) If no, Secondary Actions: Collapse
+																							375 text If no
+																					343 container
+																						344 button (collapsed) LogbookOutcomeUnresolved lost committed, Secondary Actions: Expand
+																							376 button (collapsed) LogbookOutcomeUnresolved lost committed, Secondary Actions: Expand
+																								377 text LogbookOutcomeUnresolved lost committed
+																						378 text 0 seconds. Skipped
+																						379 container 0 seconds
+																							380 text 0s
+																						345 image Skipped
+																314 container
+																	315 button (expanded) Description: If no, Secondary Actions: Collapse
+																		316 button (expanded) If no, Secondary Actions: Collapse
+																			317 text If no
+																	318 container
+																		319 button (collapsed) LogbookPreviousReadUnavailable lost committed, Secondary Actions: Expand
+																			320 button (collapsed) LogbookPreviousReadUnavailable lost committed, Secondary Actions: Expand
+																				321 text LogbookPreviousReadUnavailable lost committed
+																		322 text 0 seconds. Skipped
+																		323 container 0 seconds
+																			324 text 0s
+																		325 image Skipped
+												210 container
+													211 container
+														212 button (collapsed) Independent final read lost committed, Secondary Actions: Expand
+															254 button (collapsed) Independent final read lost committed, Secondary Actions: Expand
+																255 text Independent final read lost committed
+														256 text 0 seconds. Succeeded
+														257 container 0 seconds
+															258 text 0s
+														213 image Succeeded
+													214 container
+														215 button (collapsed) Assert expected outcome lost committed, Secondary Actions: Expand
+															259 button (collapsed) Assert expected outcome lost committed, Secondary Actions: Expand
+																260 text Assert expected outcome lost committed
+														261 text 0 seconds. Cancelled
+														262 container 0 seconds
+															263 text 0s
+														216 image Cancelled
+										157 container
+											158 container
+												159 button (collapsed) Case lost uncommitted, Secondary Actions: Expand
+													160 button (collapsed) Case lost uncommitted, Secondary Actions: Expand
+														161 text Case lost uncommitted
+												162 text 0 seconds. Skipped
+												163 container 0 seconds
+													164 text 0s
+												165 image Skipped
+											166 container
+												167 button (collapsed) Case readback failed, Secondary Actions: Expand
+													168 button (collapsed) Case readback failed, Secondary Actions: Expand
+														169 text Case readback failed
+												170 text 0 seconds. Skipped
+												171 container 0 seconds
+													172 text 0s
+												173 image Skipped
+											174 container
+												175 container
+													176 button (collapsed) Case readback mismatch, Secondary Actions: Expand
+														177 button (collapsed) Case readback mismatch, Secondary Actions: Expand
+															178 text Case readback mismatch
+													179 text 0 seconds. Skipped
+													180 container 0 seconds
+														181 text 0s
+													182 image Skipped
+												183 container
+													184 button (collapsed) Case unchanged, Secondary Actions: Expand
+														185 button (collapsed) Case unchanged, Secondary Actions: Expand
+															186 text Case unchanged
+													187 text 0 seconds. Skipped
+													188 container 0 seconds
+														189 text 0s
+													190 image Skipped
+					91 container
+						92 heading Run Details, Value: 2
+							93 text Run Details
+						94 button Close
+						95 text Start time Oct 26, 10:30 PM  ( 44 seconds ago ) Duration 00:00:10 Error Action 'Lose_write_response_lost_committed' failed
+						96 text entry area ID: TextField85, Value: Unable to process template language expressions in action 'Lose_write_response_lost_committed' inputs at line '0' and column '0': 'Attempt to divide an integral or decimal value by zero in function 'div'.'.
+						97 text How to fix If this error was temporary, you can try resubmitting the run and the issue may have been resolved. Ask the Power Automate community Check to see if other Power Automate users have discussed or solved this problem.
+						98 link Description: Go to community site, Value: go.microsoft.com/fwlink/?LinkId=787467
+						99 container Is this content helpful?
+							100 text Is this content helpful?
+							101 checkbox Description: Yes, Value: 0
+							102 checkbox Description: No, Value: 0
+					103 container flowCtrl.contextualHelpPanel.title
+
+The focused UI element is 350 button (expanded) Changed logbook LB lost committed, Secondary Actions: Collapse

@@ -1,0 +1,10 @@
+{
+  "rows": 7,
+  "bytes": 3965,
+  "sha256": "6c1feba07ac7bfcf1b17980cb6352384802034a3f01986de915cb749d130f262",
+  "originalSixRowsExact": true,
+  "newReceiptId": "1a62b98e-d1a8-4a07-8c3e-637a30fa0912",
+  "receiptBytes": 552,
+  "receiptSha256": "207c3821962b61707599a954a8ae46eeeff57b66bb83456beba8df9de5def311",
+  "oneLfPerRow": true
+}

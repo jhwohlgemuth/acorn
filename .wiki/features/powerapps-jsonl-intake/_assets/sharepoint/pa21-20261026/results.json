@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-26",
+  "source_app": "163f110f-7f8a-401c-894e-0786b2c018a4",
+  "test_app": "eb6ed2fe-2855-48bb-a439-b6bbd95099b8",
+  "test_app_name": "PA21 TEST ONLY Sponsor Highlights SharePoint",
+  "environment": "221f44a6-1468-ea4e-b93d-cd52f1723079",
+  "catalog_flow": "d696dacf-9ed1-f111-a05c-001dd8062052",
+  "intake_flow": "cad28673-a0d1-f111-a05c-001dd8062052",
+  "recovery_key": "SponsorHighlightPA21TestPending",
+  "isolation_replacements": {
+    "recovery_key_instances": 4,
+    "intake_alias_instances": 1,
+    "catalog_alias_instances": 1,
+    "export_library_guard_instances": 2,
+    "unused_operational_bindings_removed": true
+  },
+  "formula_checker": "No errors found",
+  "catalog": {
+    "filter": "Title eq 'PA19 TEST ONLY 1'",
+    "top": 1001,
+    "seed_condition": "length(Get_items.value) == -1"
+  },
+  "recovery": {
+    "submission_id": "1fa33754-c8f8-472b-94d7-125ea1c4effb",
+    "failure_run": "08584085417102234312362972660CU22",
+    "retry_run": "08584085416185671699426701564CU26",
+    "receipt_item": 7,
+    "raw_bytes": 555,
+    "jsonl_bytes": 556,
+    "jsonl_sha256": "5e76ce56e45f0da059b05b3d70b6e2af873e624d9060eb4dbf286f2d29f7d67f",
+    "exact_download_equals_stored_payload_plus_lf": true,
+    "tab_reload_same_id": true,
+    "receipt_create_skipped_on_retry": true,
+    "verified_export": true
+  },
+  "conflict": {
+    "submission_id": "8ec06581-ab13-496d-a78b-2657427f9c57",
+    "seed_run": "08584085413982458168014730572CU25",
+    "app_retry_run": "08584085413623242930149204480CU14",
+    "receipt_item": 8,
+    "stored_payload_sha256": "1961405f06ce731827d710fbec0b7e5166aa311d99bf6f06e3adf0c96f1e7d47",
+    "stored_payload_unchanged": true,
+    "conflict_feedback": true,
+    "export_actions_skipped": true
+  },
+  "pending": {
+    "unavailable_intake_feedback": true,
+    "tab_reload_same_id": true
+  },
+  "unpassed": [],
+  "final_test_intake_status": "Off",
+  "final_test_catalog_status": "Off",
+  "operational_components_changed": false,
+  "status": "accepted",
+  "owner_browser_acceptance": {
+    "date": "2026-10-26",
+    "confirmation": "Complete",
+    "full_browser_restart": "owner-confirmed passed",
+    "denied_local_storage": "owner-confirmed passed",
+    "storage_restoration": "owner-confirmed completion of requested procedure",
+    "submission_id": null,
+    "browser_profile": null,
+    "evidence_note": "Owner replied Complete to the isolated restart and denied-storage procedure. UUID and browser/profile were not supplied; these checks were not directly observed by the agent."
+  }
+}

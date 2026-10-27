@@ -1,0 +1,102 @@
+Browser tab: 1329059526, Title: "Manage your flows | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/runs/08584084933267645819237841434CU19".
+0 AXWebArea Manage your flows | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/runs/08584084933267645819237841434CU19
+	1 container
+		2 container root
+			3 container
+				4 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				5 container o365header
+					6 container O365_NavHeader
+						7 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							8 text 
+						9 container ppuxOfficeHeaderTopLevelRegion
+							10 container ppuxOfficeHeaderLeftRegion
+								11 text Power Automate
+							12 container ppuxOfficeHeaderRightRegion
+								13 button Wohlgemuth, Jason
+									14 container
+										15 text Environments Wohlgemuth, Jason
+								16 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								17 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						18 container O365_HeaderRightRegion
+							19 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								20 image JW
+				21 container
+					22 button Go back to previous page
+					23 heading The flow name is ACORN SharePoint Pilot Catalog., Value: 1
+						24 container The flow name is ACORN SharePoint Pilot Catalog.
+							25 text ACORN SharePoint Pilot Catalog
+					26 toolbar
+						27 button Description: Resubmit, ID: resubmitFlowRun
+							28 text Resubmit
+						29 button (disabled) Description: Cancel, ID: cancelFlowRun
+							30 text Cancel
+						31 button Description: Copilot, ID: chat
+							32 text Copilot
+						33 button Description: Edit, ID: editFlow
+							34 text Edit
+						35 container
+							36 switch Description: New view, Value: 1, ID: switchDesignerFlowRunDetails
+							37 text New view
+					38 container Your flow ran successfully.
+						39 text Your flow ran successfully.
+						40 button Dismiss
+					41 container
+						42 container Workflow canvas
+							43 container
+								44 image
+									45 container Edge from When_Power_Apps_calls_a_flow_(V2) to Get_items
+								46 image
+									47 container Edge from Get_items to Select
+								48 image
+									49 container Edge from Select to Respond_to_a_Power_App_or_flow
+								50 container
+									51 container When Power Apps calls a flow (V2)
+										52 container msla-node-When_Power_Apps_calls_a_flow_(V2)
+											53 container Description: 0 seconds. Succeeded, ID: When Power Apps calls a flow (V2)-status
+											54 button When Power Apps calls a flow (V2) operation, Power Apps connector
+												55 text When Power Apps calls a flow (V2)
+								56 container
+									57 container Get items
+										58 container msla-node-Get_items
+											59 container Description: 0.1 seconds. Succeeded, ID: Get items-status
+											60 button Get items operation, SharePoint connector
+												61 text Get items
+											62 container SharePoint ACORNSharePointPilot-0c871
+												63 container Connection name: SharePoint ACORNSharePointPilot-0c871
+								64 container
+									65 container Select
+										66 container msla-node-Select
+											67 container Description: 0 seconds. Succeeded, ID: Select-status
+											68 button Select operation, Data Operation connector
+												69 text Select
+								70 container
+									71 container Respond to a Power App or flow
+										72 container msla-node-Respond_to_a_Power_App_or_flow
+											73 container Description: 0 seconds. Succeeded, ID: Respond to a Power App or flow-status
+											74 button Respond to a Power App or flow operation, Power Apps connector
+												75 text Respond to a Power App or flow
+							76 image
+							77 container Control Panel
+								78 button Description: Expand all action groups, ID: control-expand-collapse-button
+								79 button Description: Zoom in, ID: control-zoom-in-button
+								80 button Description: Zoom out, ID: control-zoom-out-button
+								81 button Description: Zoom view to fit, ID: control-zoom-fit-button
+								82 button Description: Toggle minimap, ID: control-minimap-button
+								83 button Description: Search workflow actions, ID: control-search-button
+						84 container Operation details panel
+							85 button Collapse
+						86 container
+							87 text Copilot
+							88 button Close
+						89 container Copilot
+						90 button Test this flow
+							91 text Test this flow
+						92 text entry area (settable) TextField893
+						93 container
+							94 text 0 / 2000
+						95 checkbox Description: Actions, Value: 0
+						96 button (disabled) Submit
+						97 container Make sure AI-generated content is accurate and appropriate before using.
+							98 text Make sure AI-generated content is accurate and appropriate before using.
+
+The focused UI element is 88 button Close

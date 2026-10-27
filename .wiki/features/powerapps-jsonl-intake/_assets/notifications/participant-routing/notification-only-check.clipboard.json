@@ -1,0 +1,144 @@
+{
+  "brandColor": "#8C6CFF",
+  "connectionReferences": {},
+  "connectorDisplayName": "Control",
+  "id": "9535d7a2-b6c9-4e0e-b774-ccfbb36cc7f8",
+  "isTrigger": false,
+  "operationName": "Verify_participant_notification",
+  "operationDefinition": {
+    "type": "Scope",
+    "runAfter": {},
+    "actions": {
+      "Parse_submission_SP": {
+        "type": "ParseJson",
+        "inputs": {
+          "content": {
+            "entry": {
+              "summary": "Notification routing verification"
+            },
+            "projectId": "acorn",
+            "submissionId": "341cfb78-c673-4c5c-9e0f-e63c520130f4",
+            "submitter": {
+              "email": "c5c@ornl.gov"
+            }
+          },
+          "schema": {
+            "type": "object"
+          }
+        },
+        "runAfter": {}
+      },
+      "Post_SharePoint_update_to_Teams": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_teams",
+            "operationId": "PostMessageToSelf",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams"
+          },
+          "parameters": {
+            "body/body/content": "@concat(if(contains(toUpper(body('Parse_submission_SP')?['entry']?['summary']), 'TEST ONLY'), '<p><strong>TEST ONLY</strong></p>', string(null)), '<p>ACORN // Sponsor Highlights</p><h2>✓ Highlight received · JSONL ready</h2><p><strong>Project</strong><br>', replace(replace(replace(string(body('Parse_submission_SP')?['projectId']), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'), '</p><p><strong>Status</strong><br>SharePoint receipt saved · JSONL export verified · Awaiting ACORN review</p><p><a href=\"https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/', uriComponent(string(body('Parse_submission_SP')?['submissionId'])), '.jsonl\"><strong>Open JSONL export →</strong></a></p><p><strong>Receipt ID</strong><br><code>', replace(replace(replace(string(body('Parse_submission_SP')?['submissionId']), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'), '</code></p><p><em>Saving does not approve or publish the highlight.</em></p>')",
+            "body/body/contentType": "html"
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        },
+        "runAfter": {
+          "Parse_submission_SP": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Notify_submitter_SP": {
+        "type": "If",
+        "expression": {
+          "not": {
+            "equals": [
+              "@toLower(trim(body('Parse_submission_SP')?['submitter']?['email']))",
+              "o9w@ornl.gov"
+            ]
+          }
+        },
+        "actions": {
+          "Create_submitter_chat_SP": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_teams",
+                "operationId": "CreateChat",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams"
+              },
+              "parameters": {
+                "item/members": "@toLower(trim(body('Parse_submission_SP')?['submitter']?['email']))"
+              },
+              "authentication": "@parameters('$authentication')",
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runAfter": {},
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            }
+          },
+          "Post_submitter_confirmation_SP": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_teams",
+                "operationId": "PostMessageToConversation",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams"
+              },
+              "parameters": {
+                "poster": "User",
+                "location": "Group chat",
+                "body/recipient": "@body('Create_submitter_chat_SP')?['id']",
+                "body/messageBody": "<p>ACORN // Sponsor Highlights</p><h2>✓ Your highlight was received</h2><p><strong>Project</strong><br>@{replace(replace(replace(string(body('Parse_submission_SP')?['projectId']),'&','&amp;'),'<','&lt;'),'>','&gt;')}</p><p><strong>Status</strong><br>Saved · JSONL export verified · Awaiting review</p><p><strong>Receipt ID</strong><br><code>@{body('Parse_submission_SP')?['submissionId']}</code></p><p>Keep this receipt for your records. Jason Wohlgemuth also receives an operator notification.</p><p><em>Saving does not approve or publish the highlight. Email is reserved for important workflow milestones.</em></p>"
+              },
+              "authentication": "@parameters('$authentication')",
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runAfter": {
+              "Create_submitter_chat_SP": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            }
+          }
+        },
+        "runAfter": {
+          "Post_SharePoint_update_to_Teams": [
+            "Succeeded",
+            "Failed",
+            "TimedOut",
+            "Skipped"
+          ]
+        }
+      }
+    }
+  }
+}

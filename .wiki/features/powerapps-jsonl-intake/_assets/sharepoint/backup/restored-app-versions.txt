@@ -1,0 +1,161 @@
+Browser tab: 1329059500, Title: "Power Apps", URL: "https://make.gov.powerapps.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/apps/ff6b367e-27d8-42f6-9809-62834d6b9ef5/versions".
+1 AXWebArea Power Apps, URL: make.gov.powerapps.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/apps/ff6b367e-27d8-42f6-9809-62834d6b9ef5/versions
+	2 container
+		3 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+		4 container o365header
+			5 container O365_NavHeader
+				6 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+					39 text 
+				8 container ppuxOfficeHeaderTopLevelRegion
+					9 container ppuxOfficeHeaderLeftRegion
+						10 link Description: Power Apps, Value: make.gov.powerapps.us/, ID: O365_AppName
+					11 container ppuxOfficeHeaderRightRegion
+						12 pop up button (collapsed) Description: Environment: Wohlgemuth, Jason, Secondary Actions: Expand
+							13 container
+								14 text Environment Wohlgemuth, Jason
+						15 pop up button (collapsed) Description: Notifications, ID: shell-notifications, Secondary Actions: Expand
+						16 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+						17 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+				18 container O365_HeaderRightRegion
+					19 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+						20 image JW
+		104 container Main
+			105 button (collapsed) Left navigation panel, Secondary Actions: Expand
+				106 image Left navigation panel
+			107 menu
+				108 container
+					109 container
+						110 container aboveCustomizableItemsId0
+							111 Home
+							112 Create
+							113 Learn
+							114 Apps
+							115 AI hub
+						116 Tables
+						117 Flows
+						118 Solutions
+						119 More
+						120 Power Platform
+		40 container
+			41 menu bar
+				88 container
+					89 (collapsed) Edit More Edit options, Secondary Actions: Expand
+						90 Edit
+							91 text Edit
+						92 pop up button (collapsed) Description: More Edit options, Secondary Actions: Expand
+					93 Play
+						94 text Play
+					95 Share
+						96 text Share
+					97 Export package
+						98 text Export package
+					99 Wrap
+						100 text Wrap
+					101 (collapsed) Secondary Actions: Expand
+				102 Search box
+					103 search text field (settable) Description: Search box, ID: SearchBox806
+			60 container
+				61 container Apps
+					62 content list
+						63 button Apps
+						64 heading PA24 TEST ONLY Sponsor Highlights SharePoint, Value: 2
+							65 text PA24 TEST ONLY Sponsor Highlights SharePoint
+				66 tab group
+					67 tab (selectable, settable, boolean) Details, ID: Pivot710-Tab0, Value: 0
+Details
+					68 tab (selected, settable, boolean) Versions, Value: 1, ID: Pivot710-Tab1
+						121 text Versions
+					69 tab (selectable, settable, boolean) Connections, ID: Pivot710-Tab2, Value: 0
+Connections
+					70 tab (selectable, settable, boolean) Flows, ID: Pivot710-Tab3, Value: 0
+Flows
+				122 container Versions
+					123 table
+						124 row Version Modified Modified by Power Apps release Published Version note
+							125 cell
+								126 button Description: Version, ID: header871-version
+									127 text Version
+							128 cell
+								129 button Description: Modified, ID: header871-appDateVersion
+									130 text Modified
+							131 cell
+								132 button Description: Modified by, ID: header871-lastModifiedByWithAdditionalAuthors
+									133 text Modified by
+							134 cell
+								135 button Description: Power Apps release, ID: header871-clientVersion
+									136 text Power Apps release
+							137 cell
+								138 button Description: Published, ID: header871-isLive
+									139 text Published
+							140 cell
+								141 button Description: Version note, ID: header871-commitMessage
+									142 text Version note
+						143 row (selectable) Row selection Version 5 More Commands 10/27/2026, 9:44:22 AM Wohlgemuth, Jason 3.26101.10, ID: row877-0
+							144 cell
+								145 radio button Row selection Version 5, Value: 0, ID: row877-0-checkbox
+							146 cell row877-0-header
+								147 text Version 5
+							148 cell
+								149 pop up button (collapsed) Description: More Commands, Secondary Actions: Expand
+							150 cell
+								151 text 10/27/2026, 9:44:22 AM
+							152 cell
+								153 text Wohlgemuth, Jason
+							154 cell
+								155 text 3.26101.10
+						156 row (selectable) Row selection Version 4 More Commands 10/27/2026, 9:41:50 AM Wohlgemuth, Jason 3.26101.10 Live, ID: row877-1
+							157 cell
+								158 radio button Row selection Version 4, Value: 0, ID: row877-1-checkbox
+							159 cell row877-1-header
+								160 text Version 4
+							161 cell
+								162 pop up button (collapsed) Description: More Commands, Secondary Actions: Expand
+							163 cell
+								164 text 10/27/2026, 9:41:50 AM
+							165 cell
+								166 text Wohlgemuth, Jason
+							167 cell
+								168 text 3.26101.10
+							169 cell
+								170 text Live
+						171 row (selectable) Row selection Version 3 More Commands 10/27/2026, 9:37:45 AM Wohlgemuth, Jason 3.26101.10, ID: row877-2
+							172 cell
+								173 radio button Row selection Version 3, Value: 0, ID: row877-2-checkbox
+							174 cell row877-2-header
+								175 text Version 3
+							176 cell
+								177 pop up button (collapsed) Description: More Commands, Secondary Actions: Expand
+							178 cell
+								179 text 10/27/2026, 9:37:45 AM
+							180 cell
+								181 text Wohlgemuth, Jason
+							182 cell
+								183 text 3.26101.10
+						184 row (selectable) Row selection Version 2 More Commands 10/27/2026, 9:21:27 AM Wohlgemuth, Jason 3.26101.10, ID: row877-3
+							185 cell
+								186 radio button Row selection Version 2, Value: 0, ID: row877-3-checkbox
+							187 cell row877-3-header
+								188 text Version 2
+							189 cell
+								190 pop up button (collapsed) Description: More Commands, Secondary Actions: Expand
+							191 cell
+								192 text 10/27/2026, 9:21:27 AM
+							193 cell
+								194 text Wohlgemuth, Jason
+							195 cell
+								196 text 3.26101.10
+						197 row (selectable) Row selection Version 1 More Commands 10/27/2026, 9:18:35 AM Wohlgemuth, Jason 3.26101.10, ID: row877-4
+							198 cell
+								199 radio button Row selection Version 1, Value: 0, ID: row877-4-checkbox
+							200 cell row877-4-header
+								201 text Version 1
+							202 cell
+								203 pop up button (collapsed) Description: More Commands, Secondary Actions: Expand
+							204 cell
+								205 text 10/27/2026, 9:18:35 AM
+							206 cell
+								207 text Wohlgemuth, Jason
+							208 cell
+								209 text 3.26101.10
+
+The focused UI element is 68 tab (selected, settable, boolean) Versions, Value: 1, ID: Pivot710-Tab1

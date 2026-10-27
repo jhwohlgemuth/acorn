@@ -1,0 +1,145 @@
+Browser tab: 1329059503, Title: "Power Apps Studio  |  PA24 TEST ONLY Sponsor Highlights SharePoint (Editing)", URL: "https://make.gov.powerapps.us/e/221f44a6-1468-ea4e-b93d-cd52f1723079/canvas/?action=edit&app-id=%2Fproviders%2FMicrosoft.PowerApps%2Fapps%2Fff6b367e-27d8-42f6-9809-62834d6b9ef5".
+0 AXWebArea Power Apps Studio  |  PA24 TEST ONLY Sponsor Highlights SharePoint (Editing), URL: make.gov.powerapps.us/e/221f44a6-1468-ea4e-b93d-cd52f1723079/canvas/?action=edit&app-id=%2Fproviders%2FMicrosoft.PowerApps%2Fapps%2Fff6b367e-27d8-42f6-9809-62834d6b9ef5
+	1 container root
+		2 container
+			3 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+			4 container o365header
+				5 container O365_NavHeader
+					6 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+						7 text 
+					8 container ppuxOfficeHeaderTopLevelRegion
+						9 container ppuxOfficeHeaderLeftRegion
+							10 link Description: Power Apps  |  PA24 TEST ONLY Sponsor Highlights SharePoint (Editing), Value: make.gov.powerapps.us/, ID: O365_AppName
+						11 container ppuxOfficeHeaderRightRegion
+							12 pop up button (collapsed) Description: Environment: Wohlgemuth, Jason, Secondary Actions: Expand
+							13 pop up button (collapsed) Description: Notifications, ID: shell-notifications, Secondary Actions: Expand
+							14 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+							15 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+					16 container O365_HeaderRightRegion
+						17 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+							18 image JW
+		19 container Power Apps Studio
+			20 AXWebArea PA24 TEST ONLY Sponsor Highlights SharePoint - Power Apps, URL: authoring.us-il101.gateway.gov.island.powerapps.us/v3.26101.10.384545205/embed/
+				21 container rootBody
+					22 container root
+						23 container Command bar
+							24 container commandBarContainer
+								25 menu bar
+									26 container
+										27 Description: Back, ID: commandBar_back
+											28 text Back
+										29 (collapsed) Description: Undo (Ctrl+Z), Secondary Actions: Expand
+											30 Undo (Ctrl+Z)
+											31 pop up button (collapsed) Description: More options, Secondary Actions: Expand
+										32 (collapsed) Description: Paste (Ctrl+V), Secondary Actions: Expand
+											33 Description: Paste (Ctrl+V), ID: commandBar_paste
+											34 pop up button (collapsed) Description: More options, Secondary Actions: Expand
+										35 (collapsed) Description: More options, ID: CommandBarMoreButton, Secondary Actions: Expand
+									36 container
+										37 text Editing
+										38 Description: Share with other users, ID: commandBar_share
+										39 Description: Preview the app (F5), ID: commandBar_preview
+										40 (collapsed) Description: Save (Ctrl+S), Secondary Actions: Expand
+											41 Description: Save (Ctrl+S), ID: commandBar_save
+											42 pop up button (collapsed) Description: More options, Secondary Actions: Expand
+										43 Description: Publish (Ctrl+Shift+P), ID: commandBar_publish
+						44 container Formula bar
+							45 container formulaBarContainer
+								46 container
+									47 combo box (collapsed, settable) Description: Property, Value: Fill, ID: powerapps-property-combo-box, Secondary Actions: Expand
+									48 button (collapsed) Description: Open Property, Secondary Actions: Expand
+								49 text =
+								50 container Description: Leave scan mode, then press Enter or Space to edit the formula, ID: formulabar
+									51 text No formula errors present
+									52 container formulaEditor
+										53 pop up button (collapsed) Description: Copilot functionality menu, ID: contextual-copilot-menu-button, Secondary Actions: Expand
+											54 image
+										55 container Power fx formula editor for control names SubmitEntryScreen and property Fill.
+											56 container
+												57 editor (settable) Description: Power fx formula edit field., Value: RGBA(255, 255, 255, 1)
+								58 button (collapsed) Description: Open formula bar tray, Help: Expand formula bar, Secondary Actions: Expand
+								59 button Open the formula bar in a new window
+						60 container Navigational side bar
+							61 container
+								62 menu
+									63 Tree view
+									64 Insert
+									65 Data
+									66 Variables
+									67 Search
+									68 Description: More, ID: menu30
+									69 App settings
+								70 heading Search, Value: 2
+									71 text Search
+								72 button Close
+								73 tab group
+									74 tab (selectable, settable, boolean) Find, ID: Pivot396-Tab0, Value: 0
+Find
+									75 tab (selected, settable, boolean) Replace, ID: Pivot396-Tab1, Value: 1
+Replace
+								76 search text field (settable) Value: ACORNSharePointPilotIntake, ID: field-65__control
+								77 button Clear
+								78 combo box (collapsed) Description: Filter results, ID: field-65__control, Secondary Actions: Expand
+								79 container
+									80 text field (settable) PA24TESTONLYSharePointIntake
+								81 button Refresh
+								82 text No results found
+						85 container Navigational side bar for controls
+							86 menu
+								87 Properties
+								88 Comments
+								89 App checker
+						90 container Authoring canvas
+							91 container blankPage
+								92 container canvasGrid
+									93 container workspaceCanvas
+										94 container
+											95 container SubmitEntryScreen
+												96 text SubmitEntryScreen
+											97 container
+												98 text Your highlight needs attention
+												99 text Browser recovery is unavailable. Open the published app in a regular browser window. Your pending data has not been cleared.
+												100 button Back to highlight
+													101 text Back to highlight
+										102 container Authoring canvas view
+											103 container
+												104 container Double click to edit text
+												105 container Double click to edit text
+												106 container Double click to edit text
+											107 menu
+												108 Description: Toggle the pinned state of inline actions, Help: Pin action bar, Value: 0
+												109 (collapsed) Data, ID: CanvasInlineActionBarAction_ApplyToDescendants, Secondary Actions: Expand
+													110 text Data
+						114 container Footer bar
+							115 container
+								116 container Breadcrumb
+								117 SizeBreakpoint preview
+									118 radio button Description: Default 1366x768, Value: 0
+									119 radio button Description: Large 1200x768, Value: 0
+									120 radio button Description: Medium 900x768, Value: 0
+									121 radio button Description: Small 600x768, Value: 0
+								122 button Zoom out (Ctrl+-)
+								123 container
+									124 slider (settable, integer) Description: Zoom control, Value: 0, ID: slider-33
+								125 button Zoom in (Ctrl+=)
+								126 container Zoom value
+									127 text 10 %
+								128 button Fit to window (Ctrl+0)
+						129 container Message banner
+							130 container
+								131 text 1 instance was replaced.
+								132 button (collapsed) Description: See more, Secondary Actions: Expand
+								133 button Close
+						135 container
+							192 button Back
+							166 heading Formulas, Value: 1
+								167 text Formulas
+							168 button Close
+							193 text No errors found
+							189 text View activity in your app to understand performance and identify bugs.
+							190 button Open monitor
+								191 text Open monitor
+						164 text SubmitEntryScreen of type Screen is selected
+						165 text ACORNSharePointPilotCatalog successfully removed from app
+
+The focused UI element is 20 AXWebArea PA24 TEST ONLY Sponsor Highlights SharePoint - Power Apps, URL: authoring.us-il101.gateway.gov.island.powerapps.us/v3.26101.10.384545205/embed/

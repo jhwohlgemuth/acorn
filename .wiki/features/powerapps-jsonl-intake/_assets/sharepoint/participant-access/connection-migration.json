@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-27",
+  "source": "PA24 native operational app/intake export for identity contract; October 27 11:05 live settings and subsequent participant run for connection acceptance",
+  "checks": {
+    "callerIdentityFromPlatformHeader": true,
+    "payloadEmailMustMatchCaller": true,
+    "exactPayloadRequiredForReplay": true,
+    "fixedSiteListLibraryDestinations": true
+  },
+  "connectionChangeStatus": "saved-by-owner-and-independently-verified",
+  "catalogFlow": "6f8a4ab5-dd66-4904-9f5d-f307519ab4d5",
+  "intakeFlow": "64679e9c-ae76-4263-b8fa-8832835516ca",
+  "sharePointConnection": "shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104",
+  "teamsConnection": "shared-teams-101f8962-eebf-41cd-ba5a-8ff380c0b050",
+  "contributorGroup": null,
+  "approval": "Owner reported saved; reopened dialogs verified persisted selections",
+  "scope": "Existing pilot app audience. No direct SharePoint grants, new connections or credentials.",
+  "verifiedLocalTime": "2026-10-27 11:05 America/New_York",
+  "catalogSmokeRun": "08584084933267645819237841434CU19",
+  "catalogSmokeResult": "Succeeded; all four actions succeeded",
+  "participantAcceptance": "Accepted: c5c receipt, successful Teams action and exact collected inclusion; see participant-acceptance.json",
+  "groupRollout": "Deferred by owner: use existing two-person pilot audience for now",
+  "pilotAudience": [
+    {
+      "email": "o9w@ornl.gov",
+      "role": "Owner"
+    },
+    {
+      "email": "c5c@ornl.gov",
+      "role": "User"
+    }
+  ],
+  "pilotAudienceVerified": true
+}

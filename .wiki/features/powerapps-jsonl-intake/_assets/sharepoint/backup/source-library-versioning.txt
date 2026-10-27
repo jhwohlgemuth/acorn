@@ -1,0 +1,218 @@
+Browser tab: 1329059500, Title: "Document Library Versioning Settings", URL: "https://ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/LstSetng.aspx?List=%7B684BC3A4%2D751E%2D4DED%2DB118%2D7DBC568E5621%7D".
+1 AXWebArea Document Library Versioning Settings, URL: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/LstSetng.aspx?List=%7B684BC3A4%2D751E%2D4DED%2DB118%2D7DBC568E5621%7D
+	2 container aspnetForm
+		3 link Description: Turn on more accessible mode, ID: linkTurnOnAcc, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/LstSetng.aspx?List=%7B684BC3A4%2D751E%2D4DED%2DB118%2D7DBC568E5621%7D#
+		4 link Description: Skip to main content, Value: javascript:;
+		5 link Description: Turn off Animations, ID: linkTurnOffAnimation, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/LstSetng.aspx?List=%7B684BC3A4%2D751E%2D4DED%2DB118%2D7DBC568E5621%7D#
+		6 container suiteBarTop
+			7 container O365_NavHeader
+				8 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+					9 text 
+				10 container topLevelRegion
+					11 container leftRegion
+						12 link Description: SharePoint, Value: ornl.sharepoint.com/_layouts/15/sharepoint.aspx?&login_hint=o9w@ornl.gov, ID: O365_AppName
+					13 container HeaderButtonRegion
+						14 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+						15 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+				16 container O365_HeaderRightRegion
+					17 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+						215 image JW
+		18 container globalNavBox
+			19 container ribbonBox
+				20 container DeltaSPRibbon
+					21 container
+						22 link Description: Focus on Content, Value: ornl.sharepoint.com/sites/ResearchEnablement/sites/ResearchEnablement/_catalogs/masterpage/#, ID: ctl00_fullscreenmodeBtn
+		23 container s4-workspace
+			24 container s4-bodyContainer
+				25 container titleAreaRow
+					26 link Description: Research Enablement, Value: ornl.sharepoint.com/sites/ResearchEnablement, ID: ctl00_onetidProjectPropertyTitleGraphic
+					27 container Settings : Versioning Settings
+						28 content list zz10_RootAspMenu
+							29 container zz9_TopNavigationMenuV4_NavMenu_Edit
+								30 link Description: EDIT LINKS, Help: Edit Links, ID: zz9_TopNavigationMenuV4_NavMenu_EditLinks, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/LstSetng.aspx?List=%7B684BC3A4%2D751E%2D4DED%2DB118%2D7DBC568E5621%7D#
+						31 heading Settings : Versioning Settings, Value: 1, ID: pageTitle
+							32 container DeltaPlaceHolderPageTitleInTitleArea
+								33 link Description: Settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/listedit.aspx?List=%7B684BC3A4%2D751E%2D4DED%2DB118%2D7DBC568E5621%7D
+								34 image :
+								35 text Versioning Settings
+				36 container contentRow
+					37 container DeltaPlaceHolderLeftNavBar
+						38 content list zz12_RootAspMenu
+							39 link Description: Home, Value: ornl.sharepoint.com/sites/ResearchEnablement
+							40 link Description: Conversations, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/groupstatus.aspx?Target=CONVERSATIONS&Source=QuickLaunch
+							41 link Description: Documents, Value: ornl.sharepoint.com/sites/ResearchEnablement/Shared%20Documents/Forms/AllItems.aspx
+							42 link Description: Notebook, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/Doc.aspx?sourcedoc=%7B92502988-e964-4074-8e41-6625180e6324%7D&action=editnew
+							43 link Description: Pages, Value: ornl.sharepoint.com/sites/ResearchEnablement/SitePages/Forms/ByAuthor.aspx
+							44 text Recent
+							45 link Description: Marketing Campaign, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Marketing%20Campaign/AllItems.aspx
+							46 link Description: Sponsor Highlights Intake Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/AllItems.aspx
+							47 link Description: Sponsor Highlights JSONL Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/Forms/AllItems.aspx
+							48 link Description: Sponsor Highlights Projects Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Projects%20Pilot/AllItems.aspx
+							49 link Description: Site contents, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/viewlsts.aspx
+							50 link Description: Recycle Bin, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/AdminRecycleBin.aspx?ql=1
+							51 container zz11_V4QuickLaunchMenu_NavMenu_Edit
+								52 link Description: EDIT LINKS, Help: Edit Links, ID: zz11_V4QuickLaunchMenu_NavMenu_EditLinks, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/LstSetng.aspx?List=%7B684BC3A4%2D751E%2D4DED%2DB118%2D7DBC568E5621%7D#
+					53 container contentBox
+						54 table
+							55 row HideSection2
+								56 cell align07
+									57 container
+										58 container Content Approval
+											59 heading Content Approval, Value: 3
+												60 text Content Approval
+										61 container ID: onetidNewColumnDescription, Specify whether new items or changes to existing items should remain in a draft state until they have been approved.   Learn about requiring approval.
+											62 text Specify whether new items or changes to existing items should remain in a draft state until they have been approved.   
+											63 link Description: Learn about requiring approval., Help: Learn about requiring approval. - Opens in new window, Value: javascript:HelpWindowKey('WSSEndUser_ContentApproval')
+							64 row HideSection4
+								65 cell onetidModerated
+									66 text Require content approval for submitted items?
+							67 row HideSection5
+								68 cell
+									69 radio button (settable, integer) Description: Yes, Help: Require content approval for submitted items: Yes, Value: 0, ID: onetidModerated1
+									70 radio button (settable, integer) Description: No, Help: Require content approval for submitted items: No, Value: 1, ID: onetidModerated2
+							71 row
+								72 cell
+									73 container
+										74 container Document Version History
+											75 heading Document Version History, Value: 3
+												76 text Document Version History
+										77 container Specify whether a version is created each time you edit a file in this document library.
+											78 text Specify whether a version is created each time you edit a file in this document library.
+							79 row
+								80 cell
+									81 text Create a version each time you edit a file in this document library?
+							82 row
+								83 cell
+									84 container
+										85 container Create major versions
+											86 radio button (settable, integer) Description: Create major versions, Value: 1, ID: onetidVersioningEnabledSimple
+										87 container  Create major versions
+										88 container  Example: 1, 2, 3, 4
+											89 text  Example: 1, 2, 3, 4
+							90 row
+								91 cell
+									92 container
+										93 container Create major and minor (draft) versions
+											94 radio button (settable, integer) Description: Create major and minor (draft) versions, Value: 0, ID: onetidVersioningEnabledMinor
+										95 container  Create major and minor (draft) versions
+										96 container  Example: 1.0, 1.1, 1.2, 2.0
+											97 text  Example: 1.0, 1.1, 1.2, 2.0
+							98 row
+								99 cell
+									100 container
+										101 container Version time limit
+											102 heading Version time limit, Value: 3
+												103 text Version time limit
+										104 container Set a time limit to delete versions based on their age.
+											105 text Set a time limit to delete versions based on their age.
+							106 row
+								107 cell
+									108 text What kind of version time limit do you want to set?
+							109 row
+								110 cell
+									111 container
+										112 container No time limit
+											113 radio button (settable, integer) Description: No time limit, Help: No time-based expiration, Value: 1, ID: onetidVersioningPolicyNoExpire
+										114 container  No time limit
+										115 container  Versions won't be deleted based on their age.
+											116 text  Versions won't be deleted based on their age.
+							117 row
+								118 cell
+									119 container
+										120 container Automatic
+											121 radio button (settable, integer) Description: Automatic, Help: Dynamic time-based expiration, Value: 0, ID: onetidVersioningPolicyAutoExpiration
+										122 container  Automatic
+										123 container  Versions are deleted over time based on activity and how long ago the file was first created.
+											124 text  Versions are deleted over time based on activity and how long ago the file was first created.
+							125 row
+								126 cell
+									127 container
+										128 container Manual
+											129 radio button (settable, integer) Description: Manual, Help: Expiration after a fixed number of days, Value: 0, ID: onetidVersioningPolicyExpireAfter
+										130 container  Manual
+										131 container  Versions are deleted when they exceed the following number of days.
+											132 text  Versions are deleted when they exceed the following number of days.
+										133 container   Enter the number of days after which the versions are deleted.
+											134 text field (disabled) Description: Enter the number of days after which the versions are deleted., ID: onetidVersionPolicyExpireAfterDays
+							135 row
+								136 cell
+									137 container
+										138 container Version count limit
+											139 heading Version count limit, Value: 3
+												140 text Version count limit
+										141 container Delete the oldest versions when the number of versions exceeds a number you set.
+											142 text Delete the oldest versions when the number of versions exceeds a number you set.
+							143 row
+								144 cell
+									145 container MajorLimit
+										146 container Keep the following number of major versions:
+											147 text Keep the following number of major versions:
+										148 container 500
+											149 text field (settable) Description: Enter number of versions to keep, Value: 500, ID: onetidMajorVersionLimit
+							150 row
+								151 cell
+									152 container MajorMinorLimit
+										153 container
+											154 container Keep drafts for the following number of major versions:
+												155 checkbox (disabled, settable, integer) Description: Keep drafts for the following number of major versions:, Value: 0, ID: onetidMajorMinorVersionLimitEnabled
+											156 container  Keep drafts for the following number of major versions:
+										157 container
+											158 container   Enter the number of approved versions that will have drafts
+												159 text field (disabled) Description: Enter the number of approved versions that will have drafts, ID: onetidMajorWithMinorVersionLimit
+							160 container MinorVisibleOption
+								161 row
+									162 cell
+										163 container
+											164 container Draft Item Security
+												165 heading Draft Item Security, Value: 3
+													166 text Draft Item Security
+											167 container Drafts are minor versions or items which have not been approved. Specify which users should be able to view drafts in this document library.   Learn about specifying who can view and edit drafts.
+												168 text Drafts are minor versions or items which have not been approved. Specify which users should be able to view drafts in this document library.   
+												169 link Description: Learn about specifying who can view and edit drafts., Help: Learn about specifying who can view and edit drafts. - Opens in new window, Value: javascript:HelpWindowKey('WSSEndUser_DraftItemSecurity')
+								170 row
+									171 cell
+										172 text Who should see draft items in this document library?
+								173 row
+									174 cell
+										175 container
+											176 container Any user who can read items
+												177 radio button (disabled, settable, integer) Description: Any user who can read items, Help: Who should see draft items in this list? Any user who can read items, Value: 1, ID: onetidMinorReader
+											178 container Any user who can read items
+								179 row
+									180 cell
+										181 container
+											182 container Only users who can edit items
+												183 radio button (disabled, settable, integer) Description: Only users who can edit items, Value: 0, ID: onetidMinorAuthor
+											184 container Only users who can edit items
+								185 row
+									186 cell
+										187 container
+											188 container Only users who can approve items (and the author of the item)
+												189 radio button (disabled, settable, integer) Description: Only users who can approve items (and the author of the item), Value: 0, ID: onetidMinorApprover
+											190 container Only users who can approve items (and the author of the item)
+							191 row
+								192 cell
+									193 container
+										194 container Require Check Out
+											195 heading Require Check Out, Value: 3
+												196 text Require Check Out
+										197 container Specify whether users must check out documents before making changes in this document library.   Learn about requiring check out.
+											198 text Specify whether users must check out documents before making changes in this document library.   
+											199 link Description: Learn about requiring check out., Help: Learn about requiring check out. - Opens in new window, Value: javascript:HelpWindowKey('WSSEndUser_RequireCheckout')
+							200 row
+								201 cell
+									202 text Require documents to be checked out before they can be edited?
+							203 row
+								204 cell
+									205 radio button (settable, integer) Description: Yes, Help: Require documents to be checked out before they can be edited: Yes, Value: 0, ID: onetidFCheckoutEnabledYes
+								206 cell
+									207 radio button (settable, integer) Description: No, Help: Require documents to be checked out before they can be edited: No, Value: 1, ID: onetidFCheckoutEnabledNo
+							208 row
+								209 cell
+									210 table
+										211 row
+											212 cell align01
+												213 button OK, ID: onetidCreateList
+												214 button Cancel, ID: onetidClose
+
+The focused UI element is 1 AXWebArea Document Library Versioning Settings, URL: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/LstSetng.aspx?List=%7B684BC3A4%2D751E%2D4DED%2DB118%2D7DBC568E5621%7D

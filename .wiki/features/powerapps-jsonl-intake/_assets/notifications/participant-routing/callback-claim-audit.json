@@ -1,0 +1,26 @@
+{
+  "inputs": {
+    "host": {
+      "connectionName": "shared_commondataserviceforapps",
+      "operationId": "CreateRecord",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+    },
+    "parameters": {
+      "entityName": "cr1d0_acorncallbackreceipts",
+      "item/cr1d0_webhookid": "@triggerBody()?['text']",
+      "item/cr1d0_emailrecipient": "@if(or(equals(body('Validate_event')?['event'], 'mr-created'), equals(body('Validate_event')?['event'], 'report-no-changes')), 'teams-self:o9w@ornl.gov', 'o9w@ornl.gov')",
+      "item/cr1d0_emailstate": "Pending",
+      "item/cr1d0_payloadjson": "@triggerBody()?['text_1']"
+    },
+    "authentication": {
+      "type": "Raw",
+      "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']"
+    },
+    "retryPolicy": {
+      "type": "none"
+    }
+  },
+  "metadata": {
+    "operationMetadataId": "8e76c20d-9444-4433-9fcf-ca1630f7649f"
+  }
+}

@@ -1,0 +1,1183 @@
+{
+  "id": "bf1e3b05-04fd-55cd-acde-d524adfe555e",
+  "brandColor": "#8C6CFF",
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "connectionName": "shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "tier": "NotSpecified",
+      "apiName": "sharepointonline",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": true
+    }
+  },
+  "connectorDisplayName": "Control",
+  "isTrigger": false,
+  "operationName": "PA23_real_pagination",
+  "operationDefinition": {
+    "type": "Scope",
+    "actions": {
+      "Read_lower_bound": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "table": "fcae092f-c899-4254-bf13-1108997a0a77",
+            "$orderby": "ID desc",
+            "$top": 1
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {},
+        "runtimeConfiguration": {}
+      },
+      "Lower_bound": {
+        "type": "Compose",
+        "inputs": "@first(body('Read_lower_bound')?['value'])?['ID']",
+        "runAfter": {
+          "Read_lower_bound": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Seed_5000": {
+        "type": "Foreach",
+        "foreach": "@range(0,50)",
+        "actions": {
+          "Generate_items": {
+            "type": "Select",
+            "inputs": {
+              "from": "@range(add(mul(items('Seed_5000'),100),1),100)",
+              "select": {
+                "Title": "@concat('pa23-20261027-page-',string(item()))",
+                "SubmissionId": "@concat('23231027-1000-4000-8000-',formatNumber(item(),'000000000000'))",
+                "ProjectId": "acorn",
+                "PayloadBase64A": "@base64(replace(base64ToString('eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlN5bnRoZXRpYyBhY2NlcHRhbmNlIG9ubHkuIiwiVW5pY29kZSBjYWbDqSDOlCDwn5e6OyBlc2NhcGVkIG5ld2xpbmVcbmluc2lkZSBhIEpTT04gc3RyaW5nLiJdLCJvcmlnaW4iOiJtYW51YWwiLCJzdGF0ZSI6ImluLXByb2dyZXNzIiwic3VtbWFyeSI6IlBBMjMgVEVTVCBPTkxZIGFnZ3JlZ2F0ZSBib3VuZGFyeSIsInRpbWVzdGFtcCI6IjIwMjYtMTAtMjdUMDQ6MDA6MDAuMDAwWiJ9LCJwcm9qZWN0SWQiOiJhY29ybiIsInN1Ym1pc3Npb25JZCI6IjIzMjMxMDI3LTEwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsInN1Ym1pdHRlZEF0IjoiMjAyNi0xMC0yN1QxMjowMDowMC4wMDBaIiwic3VibWl0dGVyIjp7ImVtYWlsIjoiYWxleC5tb3JnYW5AZXhhbXBsZS5vcmcifX0='),'23231027-1000-4000-8000-000000000001',concat('23231027-1000-4000-8000-',formatNumber(item(),'000000000000'))))",
+                "PayloadBase64B": "",
+                "ExportStatus": "Pending"
+              }
+            },
+            "runAfter": {}
+          },
+          "Generate_parts": {
+            "type": "Select",
+            "inputs": {
+              "from": "@body('Generate_items')",
+              "select": "@concat(base64ToString('LS1jaGFuZ2VzZXRfcGEyMw0KQ29udGVudC1UeXBlOiBhcHBsaWNhdGlvbi9odHRwDQpDb250ZW50LVRyYW5zZmVyLUVuY29kaW5nOiBiaW5hcnkNCg0KUE9TVCBodHRwczovL29ybmwuc2hhcmVwb2ludC5jb20vc2l0ZXMvUmVzZWFyY2hFbmFibGVtZW50L19hcGkvd2ViL2xpc3RzKGd1aWQnZmNhZTA5MmYtYzg5OS00MjU0LWJmMTMtMTEwODk5N2EwYTc3JykvaXRlbXMgSFRUUC8xLjENCkNvbnRlbnQtVHlwZTogYXBwbGljYXRpb24vanNvbjtvZGF0YT1ub21ldGFkYXRhDQpBY2NlcHQ6IGFwcGxpY2F0aW9uL2pzb247b2RhdGE9bm9tZXRhZGF0YQ0KDQo='),string(item()),decodeUriComponent('%0D%0A'))"
+            },
+            "runAfter": {
+              "Generate_items": [
+                "Succeeded"
+              ]
+            }
+          },
+          "Seed_batch": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "HttpRequest",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                "parameters/method": "POST",
+                "parameters/uri": "_api/$batch",
+                "parameters/headers": {
+                  "Content-Type": "multipart/mixed; boundary=batch_pa23",
+                  "Accept": "application/json"
+                },
+                "parameters/body": "@concat(base64ToString('LS1iYXRjaF9wYTIzDQpDb250ZW50LVR5cGU6IG11bHRpcGFydC9taXhlZDsgYm91bmRhcnk9Y2hhbmdlc2V0X3BhMjMNCg0K'),join(body('Generate_parts'),string(null)),base64ToString('LS1jaGFuZ2VzZXRfcGEyMy0tDQotLWJhdGNoX3BhMjMtLQ0K'))"
+              },
+              "authentication": "@parameters('$authentication')",
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runAfter": {
+              "Generate_parts": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {}
+          },
+          "Verify_batch": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@sub(length(split(base64ToString(body('Seed_batch')?['$content']),'HTTP/1.1 201 Created')),1)",
+                100
+              ]
+            },
+            "actions": {
+              "Passed": {
+                "type": "Compose",
+                "inputs": "100 created rows",
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {
+                "Seed_count_mismatch": {
+                  "type": "Compose",
+                  "inputs": "@int('PA23 seed count mismatch')",
+                  "runAfter": {}
+                }
+              }
+            },
+            "runAfter": {
+              "Seed_batch": [
+                "Succeeded"
+              ]
+            }
+          }
+        },
+        "runAfter": {
+          "Lower_bound": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "concurrency": {
+            "repetitions": 1
+          }
+        }
+      },
+      "Page_5000": {
+        "type": "Scope",
+        "actions": {
+          "Seed_file_page5000": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "HttpRequest",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                "parameters/method": "POST",
+                "parameters/uri": "_api/web/GetFolderByServerRelativeUrl('/sites/ResearchEnablement/PA19 TEST ONLY JSONL')/Files/add(url='pa23-20261027-a-page5000.jsonl',overwrite=true)",
+                "parameters/headers": {
+                  "Content-Type": "application/octet-stream"
+                },
+                "parameters/body": "@base64ToString('eyJ0ZXN0IjoiUEEyMyBwcmV2aW91cyBzbmFwc2hvdCJ9Cg==')"
+              },
+              "authentication": "@parameters('$authentication')",
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runAfter": {},
+            "runtimeConfiguration": {}
+          },
+          "Exporter_page5000": {
+            "type": "Scope",
+            "actions": {
+              "Read_latest_receipt_LB_page5000": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "GetItems",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "table": "fcae092f-c899-4254-bf13-1108997a0a77",
+                    "$orderby": "ID desc",
+                    "$top": 1,
+                    "$filter": "@concat('ID gt ',string(outputs('Lower_bound')))"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {},
+                "runtimeConfiguration": {}
+              },
+              "High_water_item_LB_page5000": {
+                "type": "Compose",
+                "inputs": "@if(empty(body('Read_latest_receipt_LB_page5000')?['value']),0,first(body('Read_latest_receipt_LB_page5000')?['value'])?['ID'])",
+                "runAfter": {
+                  "Read_latest_receipt_LB_page5000": [
+                    "Succeeded"
+                  ]
+                },
+                "runtimeConfiguration": {}
+              },
+              "Read_receipts_LB_page5000": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "GetItems",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "table": "fcae092f-c899-4254-bf13-1108997a0a77",
+                    "$filter": "@concat('ID gt ',string(outputs('Lower_bound')),' and ID le ',string(outputs('High_water_item_LB_page5000')))",
+                    "$orderby": "ID asc",
+                    "$top": 5001
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {
+                  "High_water_item_LB_page5000": [
+                    "Succeeded"
+                  ]
+                },
+                "runtimeConfiguration": {
+                  "paginationPolicy": {
+                    "minimumItemCount": 5001
+                  }
+                }
+              },
+              "Invalid_rows_LB_page5000": {
+                "type": "Query",
+                "inputs": {
+                  "from": "@body('Read_receipts_LB_page5000')?['value']",
+                  "where": "@or(empty(item()?['SubmissionId']),empty(item()?['PayloadBase64A']),contains(base64ToString(concat(item()?['PayloadBase64A'],coalesce(item()?['PayloadBase64B'],string(null)))),decodeUriComponent('%0A')),contains(base64ToString(concat(item()?['PayloadBase64A'],coalesce(item()?['PayloadBase64B'],string(null)))),decodeUriComponent('%0D')),not(equals(json(base64ToString(concat(item()?['PayloadBase64A'],coalesce(item()?['PayloadBase64B'],string(null)))))?['submissionId'],item()?['SubmissionId'])),not(equals(json(base64ToString(concat(item()?['PayloadBase64A'],coalesce(item()?['PayloadBase64B'],string(null)))))?['projectId'],item()?['ProjectId'])))"
+                },
+                "runAfter": {
+                  "Read_receipts_LB_page5000": [
+                    "Succeeded"
+                  ]
+                },
+                "runtimeConfiguration": {}
+              },
+              "Complete_valid_rows_LB_page5000": {
+                "type": "If",
+                "expression": {
+                  "and": [
+                    {
+                      "lessOrEquals": [
+                        "@length(body('Read_receipts_LB_page5000')?['value'])",
+                        5000
+                      ]
+                    },
+                    {
+                      "equals": [
+                        "@length(body('Invalid_rows_LB_page5000'))",
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "actions": {
+                  "Select_original_rows_LB_page5000": {
+                    "type": "Select",
+                    "inputs": {
+                      "from": "@body('Read_receipts_LB_page5000')?['value']",
+                      "select": "@base64ToString(concat(item()?['PayloadBase64A'],coalesce(item()?['PayloadBase64B'],string(null))))"
+                    },
+                    "runAfter": {},
+                    "runtimeConfiguration": {}
+                  },
+                  "Combined_JSONL_LB_page5000": {
+                    "type": "Compose",
+                    "inputs": "@if(empty(body('Select_original_rows_LB_page5000')),string(null),concat(join(body('Select_original_rows_LB_page5000'),decodeUriComponent('%0A')),decodeUriComponent('%0A')))",
+                    "runAfter": {
+                      "Select_original_rows_LB_page5000": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {}
+                  },
+                  "Within_byte_limit_LB_page5000": {
+                    "type": "If",
+                    "expression": {
+                      "lessOrEquals": [
+                        "@sub(div(mul(length(base64(outputs('Combined_JSONL_LB_page5000'))),3),4),if(endsWith(base64(outputs('Combined_JSONL_LB_page5000')),'=='),2,if(endsWith(base64(outputs('Combined_JSONL_LB_page5000')),'='),1,0)))",
+                        10485760
+                      ]
+                    },
+                    "actions": {
+                      "Read_previous_logbook_LB_page5000": {
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "host": {
+                            "connectionName": "shared_sharepointonline",
+                            "operationId": "GetFileContentByPath",
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                          },
+                          "parameters": {
+                            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                            "path": "/PA19 TEST ONLY JSONL/pa23-20261027-a-page5000.jsonl",
+                            "inferContentType": false
+                          },
+                          "authentication": "@parameters('$authentication')",
+                          "retryPolicy": {
+                            "type": "none"
+                          }
+                        },
+                        "runAfter": {},
+                        "runtimeConfiguration": {}
+                      },
+                      "Readable_or_missing_LB_page5000": {
+                        "type": "If",
+                        "expression": {
+                          "or": [
+                            {
+                              "and": [
+                                {
+                                  "equals": [
+                                    "@actions('Read_previous_logbook_LB_page5000')?['status']",
+                                    "Succeeded"
+                                  ]
+                                },
+                                {
+                                  "not": {
+                                    "equals": [
+                                      "@if(and(equals(actions('Read_previous_logbook_LB_page5000')?['status'],'Succeeded'),equals(outputs('Read_previous_logbook_LB_page5000')?['statusCode'],200),equals(string(outputs('Read_previous_logbook_LB_page5000')?['headers']?['Content-Length']),'0'),equals(body('Read_previous_logbook_LB_page5000')?['$content'],null)),string(null),body('Read_previous_logbook_LB_page5000')?['$content'])",
+                                      null
+                                    ]
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "and": [
+                                {
+                                  "equals": [
+                                    "@actions('Read_previous_logbook_LB_page5000')?['status']",
+                                    "Failed"
+                                  ]
+                                },
+                                {
+                                  "equals": [
+                                    "@outputs('Read_previous_logbook_LB_page5000')?['statusCode']",
+                                    404
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "actions": {
+                          "Changed_logbook_LB_page5000": {
+                            "type": "If",
+                            "expression": {
+                              "not": {
+                                "equals": [
+                                  "@if(and(equals(actions('Read_previous_logbook_LB_page5000')?['status'],'Succeeded'),equals(outputs('Read_previous_logbook_LB_page5000')?['statusCode'],200),equals(string(outputs('Read_previous_logbook_LB_page5000')?['headers']?['Content-Length']),'0'),equals(body('Read_previous_logbook_LB_page5000')?['$content'],null)),string(null),body('Read_previous_logbook_LB_page5000')?['$content'])",
+                                  "@base64(outputs('Combined_JSONL_LB_page5000'))"
+                                ]
+                              }
+                            },
+                            "actions": {
+                              "Write_logbook_LB_page5000": {
+                                "type": "OpenApiConnection",
+                                "inputs": {
+                                  "host": {
+                                    "connectionName": "shared_sharepointonline",
+                                    "operationId": "HttpRequest",
+                                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                                  },
+                                  "parameters": {
+                                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                    "parameters/method": "POST",
+                                    "parameters/uri": "_api/web/GetFolderByServerRelativeUrl('/sites/ResearchEnablement/PA19 TEST ONLY JSONL')/Files/add(url='pa23-20261027-a-page5000.jsonl',overwrite=@{if(equals(actions('Read_previous_logbook_LB_page5000')?['status'],'Succeeded'),'true','false')})",
+                                    "parameters/headers": {
+                                      "Accept": "application/json;odata=nometadata",
+                                      "Content-Type": "application/octet-stream"
+                                    },
+                                    "parameters/body": "@outputs('Combined_JSONL_LB_page5000')"
+                                  },
+                                  "authentication": "@parameters('$authentication')",
+                                  "retryPolicy": {
+                                    "type": "none"
+                                  }
+                                },
+                                "runAfter": {},
+                                "runtimeConfiguration": {}
+                              }
+                            },
+                            "else": {
+                              "actions": {}
+                            },
+                            "runAfter": {}
+                          },
+                          "Read_published_logbook_LB_page5000": {
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "host": {
+                                "connectionName": "shared_sharepointonline",
+                                "operationId": "GetFileContentByPath",
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                              },
+                              "parameters": {
+                                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                "path": "/PA19 TEST ONLY JSONL/pa23-20261027-a-page5000.jsonl",
+                                "inferContentType": false
+                              },
+                              "authentication": "@parameters('$authentication')",
+                              "retryPolicy": {
+                                "type": "none"
+                              }
+                            },
+                            "runAfter": {
+                              "Changed_logbook_LB_page5000": [
+                                "Succeeded",
+                                "Failed",
+                                "TimedOut"
+                              ]
+                            },
+                            "runtimeConfiguration": {}
+                          },
+                          "Exact_logbook_LB_page5000": {
+                            "type": "If",
+                            "expression": {
+                              "and": [
+                                {
+                                  "equals": [
+                                    "@actions('Read_published_logbook_LB_page5000')?['status']",
+                                    "Succeeded"
+                                  ]
+                                },
+                                {
+                                  "equals": [
+                                    "@if(and(equals(actions('Read_published_logbook_LB_page5000')?['status'],'Succeeded'),equals(outputs('Read_published_logbook_LB_page5000')?['statusCode'],200),equals(string(outputs('Read_published_logbook_LB_page5000')?['headers']?['Content-Length']),'0'),equals(body('Read_published_logbook_LB_page5000')?['$content'],null)),string(null),body('Read_published_logbook_LB_page5000')?['$content'])",
+                                    "@base64(outputs('Combined_JSONL_LB_page5000'))"
+                                  ]
+                                }
+                              ]
+                            },
+                            "actions": {
+                              "Export_receipt_LB_page5000": {
+                                "type": "Compose",
+                                "inputs": {
+                                  "rows": "@length(body('Read_receipts_LB_page5000')?['value'])",
+                                  "highWaterItemId": "@outputs('High_water_item_LB_page5000')",
+                                  "verifiedAt": "@utcNow()",
+                                  "url": "https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/pa23-20261027-a-page5000.jsonl"
+                                },
+                                "runAfter": {}
+                              }
+                            },
+                            "else": {
+                              "actions": {
+                                "LogbookOutcomeUnresolved_page5000": {
+                                  "type": "Compose",
+                                  "inputs": {
+                                    "code": "LogbookOutcomeUnresolved_page5000",
+                                    "message": "Combined logbook outcome is unresolved. Read and compare exact expected bytes before retrying; the prior file is not guaranteed retained. Do not roll back over a later snapshot."
+                                  },
+                                  "runAfter": {}
+                                }
+                              }
+                            },
+                            "runAfter": {
+                              "Read_published_logbook_LB_page5000": [
+                                "Succeeded",
+                                "Failed",
+                                "TimedOut",
+                                "Skipped"
+                              ]
+                            }
+                          }
+                        },
+                        "else": {
+                          "actions": {
+                            "LogbookPreviousReadUnavailable_page5000": {
+                              "type": "Compose",
+                              "inputs": {
+                                "code": "LogbookPreviousReadUnavailable_page5000",
+                                "message": "Previous logbook was not read and no confirmed 404 was returned. No write was attempted."
+                              },
+                              "runAfter": {}
+                            }
+                          }
+                        },
+                        "runAfter": {
+                          "Read_previous_logbook_LB_page5000": [
+                            "Succeeded",
+                            "Failed",
+                            "TimedOut",
+                            "Skipped"
+                          ]
+                        }
+                      }
+                    },
+                    "else": {
+                      "actions": {
+                        "LogbookTooLarge_page5000": {
+                          "type": "Compose",
+                          "inputs": {
+                            "code": "LogbookTooLarge_page5000",
+                            "message": "Export exceeds the 10 MiB ACORN source limit; previous logbook retained."
+                          },
+                          "runAfter": {}
+                        }
+                      }
+                    },
+                    "runAfter": {
+                      "Combined_JSONL_LB_page5000": [
+                        "Succeeded"
+                      ]
+                    }
+                  }
+                },
+                "else": {
+                  "actions": {
+                    "LogbookInvalidOrTruncated_page5000": {
+                      "type": "Compose",
+                      "inputs": {
+                        "code": "LogbookInvalidOrTruncated_page5000",
+                        "message": "Receipt limit or invalid stored payload; previous logbook retained."
+                      },
+                      "runAfter": {}
+                    }
+                  }
+                },
+                "runAfter": {
+                  "Invalid_rows_LB_page5000": [
+                    "Succeeded"
+                  ]
+                }
+              }
+            },
+            "runAfter": {
+              "Seed_file_page5000": [
+                "Succeeded"
+              ]
+            }
+          },
+          "Independent_read_page5000": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "GetFileContentByPath",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                "path": "/PA19 TEST ONLY JSONL/pa23-20261027-a-page5000.jsonl",
+                "inferContentType": false
+              },
+              "authentication": "@parameters('$authentication')",
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runAfter": {
+              "Exporter_page5000": [
+                "Succeeded",
+                "Failed",
+                "TimedOut",
+                "Skipped"
+              ]
+            },
+            "runtimeConfiguration": {}
+          },
+          "Assert_bytes_page5000": {
+            "type": "If",
+            "expression": {
+              "and": [
+                {
+                  "equals": [
+                    "@if(and(equals(actions('Independent_read_page5000')?['status'],'Succeeded'),equals(outputs('Independent_read_page5000')?['statusCode'],200),equals(string(outputs('Independent_read_page5000')?['headers']?['Content-Length']),'0'),equals(body('Independent_read_page5000')?['$content'],null)),string(null),body('Independent_read_page5000')?['$content'])",
+                    "@base64(outputs('Combined_JSONL_LB_page5000'))"
+                  ]
+                },
+                {
+                  "equals": [
+                    "@actions('Write_logbook_LB_page5000')?['status']",
+                    "Succeeded"
+                  ]
+                },
+                {
+                  "equals": [
+                    "@actions('Export_receipt_LB_page5000')?['status']",
+                    "Succeeded"
+                  ]
+                },
+                {
+                  "equals": [
+                    "@length(body('Read_receipts_LB_page5000')?['value'])",
+                    5000
+                  ]
+                }
+              ]
+            },
+            "actions": {
+              "Passed_page5000": {
+                "type": "Compose",
+                "inputs": "page5000",
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {
+                "Assertion_failed_page5000": {
+                  "type": "Terminate",
+                  "inputs": {
+                    "runStatus": "Failed",
+                    "runError": {
+                      "code": "Assertion_failed_page5000",
+                      "message": "page5000 did not meet its acceptance assertion."
+                    }
+                  },
+                  "runAfter": {}
+                }
+              }
+            },
+            "runAfter": {
+              "Independent_read_page5000": [
+                "Succeeded"
+              ]
+            }
+          }
+        },
+        "runAfter": {
+          "Seed_5000": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Seed_5001": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "PostItem",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "table": "fcae092f-c899-4254-bf13-1108997a0a77",
+            "item/Title": "pa23-20261027-page-5001",
+            "item/SubmissionId": "23231027-1000-4000-8000-000000005001",
+            "item/ProjectId": "acorn",
+            "item/PayloadBase64A": "eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlN5bnRoZXRpYyBhY2NlcHRhbmNlIG9ubHkuIiwiVW5pY29kZSBjYWbDqSDOlCDwn5e6OyBlc2NhcGVkIG5ld2xpbmVcbmluc2lkZSBhIEpTT04gc3RyaW5nLiJdLCJvcmlnaW4iOiJtYW51YWwiLCJzdGF0ZSI6ImluLXByb2dyZXNzIiwic3VtbWFyeSI6IlBBMjMgVEVTVCBPTkxZIGFnZ3JlZ2F0ZSBib3VuZGFyeSIsInRpbWVzdGFtcCI6IjIwMjYtMTAtMjdUMDQ6MDA6MDAuMDAwWiJ9LCJwcm9qZWN0SWQiOiJhY29ybiIsInN1Ym1pc3Npb25JZCI6IjIzMjMxMDI3LTEwMDAtNDAwMC04MDAwLTAwMDAwMDAwNTAwMSIsInN1Ym1pdHRlZEF0IjoiMjAyNi0xMC0yN1QxMjowMDowMC4wMDBaIiwic3VibWl0dGVyIjp7ImVtYWlsIjoiYWxleC5tb3JnYW5AZXhhbXBsZS5vcmcifX0=",
+            "item/PayloadBase64B": "",
+            "item/ExportStatus": "Pending"
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Page_5000": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {}
+      },
+      "Page_5001": {
+        "type": "Scope",
+        "actions": {
+          "Seed_file_page5001": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "HttpRequest",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                "parameters/method": "POST",
+                "parameters/uri": "_api/web/GetFolderByServerRelativeUrl('/sites/ResearchEnablement/PA19 TEST ONLY JSONL')/Files/add(url='pa23-20261027-a-page5001.jsonl',overwrite=true)",
+                "parameters/headers": {
+                  "Content-Type": "application/octet-stream"
+                },
+                "parameters/body": "@base64ToString('eyJ0ZXN0IjoiUEEyMyBwcmV2aW91cyBzbmFwc2hvdCJ9Cg==')"
+              },
+              "authentication": "@parameters('$authentication')",
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runAfter": {},
+            "runtimeConfiguration": {}
+          },
+          "Exporter_page5001": {
+            "type": "Scope",
+            "actions": {
+              "Read_latest_receipt_LB_page5001": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "GetItems",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "table": "fcae092f-c899-4254-bf13-1108997a0a77",
+                    "$orderby": "ID desc",
+                    "$top": 1,
+                    "$filter": "@concat('ID gt ',string(outputs('Lower_bound')))"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {},
+                "runtimeConfiguration": {}
+              },
+              "High_water_item_LB_page5001": {
+                "type": "Compose",
+                "inputs": "@if(empty(body('Read_latest_receipt_LB_page5001')?['value']),0,first(body('Read_latest_receipt_LB_page5001')?['value'])?['ID'])",
+                "runAfter": {
+                  "Read_latest_receipt_LB_page5001": [
+                    "Succeeded"
+                  ]
+                },
+                "runtimeConfiguration": {}
+              },
+              "Read_receipts_LB_page5001": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "GetItems",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "table": "fcae092f-c899-4254-bf13-1108997a0a77",
+                    "$filter": "@concat('ID gt ',string(outputs('Lower_bound')),' and ID le ',string(outputs('High_water_item_LB_page5001')))",
+                    "$orderby": "ID asc",
+                    "$top": 5001
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {
+                  "High_water_item_LB_page5001": [
+                    "Succeeded"
+                  ]
+                },
+                "runtimeConfiguration": {
+                  "paginationPolicy": {
+                    "minimumItemCount": 5001
+                  }
+                }
+              },
+              "Invalid_rows_LB_page5001": {
+                "type": "Query",
+                "inputs": {
+                  "from": "@body('Read_receipts_LB_page5001')?['value']",
+                  "where": "@or(empty(item()?['SubmissionId']),empty(item()?['PayloadBase64A']),contains(base64ToString(concat(item()?['PayloadBase64A'],coalesce(item()?['PayloadBase64B'],string(null)))),decodeUriComponent('%0A')),contains(base64ToString(concat(item()?['PayloadBase64A'],coalesce(item()?['PayloadBase64B'],string(null)))),decodeUriComponent('%0D')),not(equals(json(base64ToString(concat(item()?['PayloadBase64A'],coalesce(item()?['PayloadBase64B'],string(null)))))?['submissionId'],item()?['SubmissionId'])),not(equals(json(base64ToString(concat(item()?['PayloadBase64A'],coalesce(item()?['PayloadBase64B'],string(null)))))?['projectId'],item()?['ProjectId'])))"
+                },
+                "runAfter": {
+                  "Read_receipts_LB_page5001": [
+                    "Succeeded"
+                  ]
+                },
+                "runtimeConfiguration": {}
+              },
+              "Complete_valid_rows_LB_page5001": {
+                "type": "If",
+                "expression": {
+                  "and": [
+                    {
+                      "lessOrEquals": [
+                        "@length(body('Read_receipts_LB_page5001')?['value'])",
+                        5000
+                      ]
+                    },
+                    {
+                      "equals": [
+                        "@length(body('Invalid_rows_LB_page5001'))",
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "actions": {
+                  "Select_original_rows_LB_page5001": {
+                    "type": "Select",
+                    "inputs": {
+                      "from": "@body('Read_receipts_LB_page5001')?['value']",
+                      "select": "@base64ToString(concat(item()?['PayloadBase64A'],coalesce(item()?['PayloadBase64B'],string(null))))"
+                    },
+                    "runAfter": {},
+                    "runtimeConfiguration": {}
+                  },
+                  "Combined_JSONL_LB_page5001": {
+                    "type": "Compose",
+                    "inputs": "@if(empty(body('Select_original_rows_LB_page5001')),string(null),concat(join(body('Select_original_rows_LB_page5001'),decodeUriComponent('%0A')),decodeUriComponent('%0A')))",
+                    "runAfter": {
+                      "Select_original_rows_LB_page5001": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {}
+                  },
+                  "Within_byte_limit_LB_page5001": {
+                    "type": "If",
+                    "expression": {
+                      "lessOrEquals": [
+                        "@sub(div(mul(length(base64(outputs('Combined_JSONL_LB_page5001'))),3),4),if(endsWith(base64(outputs('Combined_JSONL_LB_page5001')),'=='),2,if(endsWith(base64(outputs('Combined_JSONL_LB_page5001')),'='),1,0)))",
+                        10485760
+                      ]
+                    },
+                    "actions": {
+                      "Read_previous_logbook_LB_page5001": {
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "host": {
+                            "connectionName": "shared_sharepointonline",
+                            "operationId": "GetFileContentByPath",
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                          },
+                          "parameters": {
+                            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                            "path": "/PA19 TEST ONLY JSONL/pa23-20261027-a-page5001.jsonl",
+                            "inferContentType": false
+                          },
+                          "authentication": "@parameters('$authentication')",
+                          "retryPolicy": {
+                            "type": "none"
+                          }
+                        },
+                        "runAfter": {},
+                        "runtimeConfiguration": {}
+                      },
+                      "Readable_or_missing_LB_page5001": {
+                        "type": "If",
+                        "expression": {
+                          "or": [
+                            {
+                              "and": [
+                                {
+                                  "equals": [
+                                    "@actions('Read_previous_logbook_LB_page5001')?['status']",
+                                    "Succeeded"
+                                  ]
+                                },
+                                {
+                                  "not": {
+                                    "equals": [
+                                      "@if(and(equals(actions('Read_previous_logbook_LB_page5001')?['status'],'Succeeded'),equals(outputs('Read_previous_logbook_LB_page5001')?['statusCode'],200),equals(string(outputs('Read_previous_logbook_LB_page5001')?['headers']?['Content-Length']),'0'),equals(body('Read_previous_logbook_LB_page5001')?['$content'],null)),string(null),body('Read_previous_logbook_LB_page5001')?['$content'])",
+                                      null
+                                    ]
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "and": [
+                                {
+                                  "equals": [
+                                    "@actions('Read_previous_logbook_LB_page5001')?['status']",
+                                    "Failed"
+                                  ]
+                                },
+                                {
+                                  "equals": [
+                                    "@outputs('Read_previous_logbook_LB_page5001')?['statusCode']",
+                                    404
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "actions": {
+                          "Changed_logbook_LB_page5001": {
+                            "type": "If",
+                            "expression": {
+                              "not": {
+                                "equals": [
+                                  "@if(and(equals(actions('Read_previous_logbook_LB_page5001')?['status'],'Succeeded'),equals(outputs('Read_previous_logbook_LB_page5001')?['statusCode'],200),equals(string(outputs('Read_previous_logbook_LB_page5001')?['headers']?['Content-Length']),'0'),equals(body('Read_previous_logbook_LB_page5001')?['$content'],null)),string(null),body('Read_previous_logbook_LB_page5001')?['$content'])",
+                                  "@base64(outputs('Combined_JSONL_LB_page5001'))"
+                                ]
+                              }
+                            },
+                            "actions": {
+                              "Write_logbook_LB_page5001": {
+                                "type": "OpenApiConnection",
+                                "inputs": {
+                                  "host": {
+                                    "connectionName": "shared_sharepointonline",
+                                    "operationId": "HttpRequest",
+                                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                                  },
+                                  "parameters": {
+                                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                    "parameters/method": "POST",
+                                    "parameters/uri": "_api/web/GetFolderByServerRelativeUrl('/sites/ResearchEnablement/PA19 TEST ONLY JSONL')/Files/add(url='pa23-20261027-a-page5001.jsonl',overwrite=@{if(equals(actions('Read_previous_logbook_LB_page5001')?['status'],'Succeeded'),'true','false')})",
+                                    "parameters/headers": {
+                                      "Accept": "application/json;odata=nometadata",
+                                      "Content-Type": "application/octet-stream"
+                                    },
+                                    "parameters/body": "@outputs('Combined_JSONL_LB_page5001')"
+                                  },
+                                  "authentication": "@parameters('$authentication')",
+                                  "retryPolicy": {
+                                    "type": "none"
+                                  }
+                                },
+                                "runAfter": {},
+                                "runtimeConfiguration": {}
+                              }
+                            },
+                            "else": {
+                              "actions": {}
+                            },
+                            "runAfter": {}
+                          },
+                          "Read_published_logbook_LB_page5001": {
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "host": {
+                                "connectionName": "shared_sharepointonline",
+                                "operationId": "GetFileContentByPath",
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                              },
+                              "parameters": {
+                                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                "path": "/PA19 TEST ONLY JSONL/pa23-20261027-a-page5001.jsonl",
+                                "inferContentType": false
+                              },
+                              "authentication": "@parameters('$authentication')",
+                              "retryPolicy": {
+                                "type": "none"
+                              }
+                            },
+                            "runAfter": {
+                              "Changed_logbook_LB_page5001": [
+                                "Succeeded",
+                                "Failed",
+                                "TimedOut"
+                              ]
+                            },
+                            "runtimeConfiguration": {}
+                          },
+                          "Exact_logbook_LB_page5001": {
+                            "type": "If",
+                            "expression": {
+                              "and": [
+                                {
+                                  "equals": [
+                                    "@actions('Read_published_logbook_LB_page5001')?['status']",
+                                    "Succeeded"
+                                  ]
+                                },
+                                {
+                                  "equals": [
+                                    "@if(and(equals(actions('Read_published_logbook_LB_page5001')?['status'],'Succeeded'),equals(outputs('Read_published_logbook_LB_page5001')?['statusCode'],200),equals(string(outputs('Read_published_logbook_LB_page5001')?['headers']?['Content-Length']),'0'),equals(body('Read_published_logbook_LB_page5001')?['$content'],null)),string(null),body('Read_published_logbook_LB_page5001')?['$content'])",
+                                    "@base64(outputs('Combined_JSONL_LB_page5001'))"
+                                  ]
+                                }
+                              ]
+                            },
+                            "actions": {
+                              "Export_receipt_LB_page5001": {
+                                "type": "Compose",
+                                "inputs": {
+                                  "rows": "@length(body('Read_receipts_LB_page5001')?['value'])",
+                                  "highWaterItemId": "@outputs('High_water_item_LB_page5001')",
+                                  "verifiedAt": "@utcNow()",
+                                  "url": "https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/pa23-20261027-a-page5001.jsonl"
+                                },
+                                "runAfter": {}
+                              }
+                            },
+                            "else": {
+                              "actions": {
+                                "LogbookOutcomeUnresolved_page5001": {
+                                  "type": "Compose",
+                                  "inputs": {
+                                    "code": "LogbookOutcomeUnresolved_page5001",
+                                    "message": "Combined logbook outcome is unresolved. Read and compare exact expected bytes before retrying; the prior file is not guaranteed retained. Do not roll back over a later snapshot."
+                                  },
+                                  "runAfter": {}
+                                }
+                              }
+                            },
+                            "runAfter": {
+                              "Read_published_logbook_LB_page5001": [
+                                "Succeeded",
+                                "Failed",
+                                "TimedOut",
+                                "Skipped"
+                              ]
+                            }
+                          }
+                        },
+                        "else": {
+                          "actions": {
+                            "LogbookPreviousReadUnavailable_page5001": {
+                              "type": "Compose",
+                              "inputs": {
+                                "code": "LogbookPreviousReadUnavailable_page5001",
+                                "message": "Previous logbook was not read and no confirmed 404 was returned. No write was attempted."
+                              },
+                              "runAfter": {}
+                            }
+                          }
+                        },
+                        "runAfter": {
+                          "Read_previous_logbook_LB_page5001": [
+                            "Succeeded",
+                            "Failed",
+                            "TimedOut",
+                            "Skipped"
+                          ]
+                        }
+                      }
+                    },
+                    "else": {
+                      "actions": {
+                        "LogbookTooLarge_page5001": {
+                          "type": "Compose",
+                          "inputs": {
+                            "code": "LogbookTooLarge_page5001",
+                            "message": "Export exceeds the 10 MiB ACORN source limit; previous logbook retained."
+                          },
+                          "runAfter": {}
+                        }
+                      }
+                    },
+                    "runAfter": {
+                      "Combined_JSONL_LB_page5001": [
+                        "Succeeded"
+                      ]
+                    }
+                  }
+                },
+                "else": {
+                  "actions": {
+                    "LogbookInvalidOrTruncated_page5001": {
+                      "type": "Compose",
+                      "inputs": {
+                        "code": "LogbookInvalidOrTruncated_page5001",
+                        "message": "Receipt limit or invalid stored payload; previous logbook retained."
+                      },
+                      "runAfter": {}
+                    }
+                  }
+                },
+                "runAfter": {
+                  "Invalid_rows_LB_page5001": [
+                    "Succeeded"
+                  ]
+                }
+              }
+            },
+            "runAfter": {
+              "Seed_file_page5001": [
+                "Succeeded"
+              ]
+            }
+          },
+          "Independent_read_page5001": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "GetFileContentByPath",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                "path": "/PA19 TEST ONLY JSONL/pa23-20261027-a-page5001.jsonl",
+                "inferContentType": false
+              },
+              "authentication": "@parameters('$authentication')",
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runAfter": {
+              "Exporter_page5001": [
+                "Succeeded",
+                "Failed",
+                "TimedOut",
+                "Skipped"
+              ]
+            },
+            "runtimeConfiguration": {}
+          },
+          "Assert_bytes_page5001": {
+            "type": "If",
+            "expression": {
+              "and": [
+                {
+                  "equals": [
+                    "@if(and(equals(actions('Independent_read_page5001')?['status'],'Succeeded'),equals(outputs('Independent_read_page5001')?['statusCode'],200),equals(string(outputs('Independent_read_page5001')?['headers']?['Content-Length']),'0'),equals(body('Independent_read_page5001')?['$content'],null)),string(null),body('Independent_read_page5001')?['$content'])",
+                    "eyJ0ZXN0IjoiUEEyMyBwcmV2aW91cyBzbmFwc2hvdCJ9Cg=="
+                  ]
+                },
+                {
+                  "equals": [
+                    "@actions('Write_logbook_LB_page5001')?['status']",
+                    "Skipped"
+                  ]
+                },
+                {
+                  "equals": [
+                    "@actions('Export_receipt_LB_page5001')?['status']",
+                    "Skipped"
+                  ]
+                },
+                {
+                  "equals": [
+                    "@length(body('Read_receipts_LB_page5001')?['value'])",
+                    5001
+                  ]
+                }
+              ]
+            },
+            "actions": {
+              "Passed_page5001": {
+                "type": "Compose",
+                "inputs": "page5001",
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {
+                "Assertion_failed_page5001": {
+                  "type": "Terminate",
+                  "inputs": {
+                    "runStatus": "Failed",
+                    "runError": {
+                      "code": "Assertion_failed_page5001",
+                      "message": "page5001 did not meet its acceptance assertion."
+                    }
+                  },
+                  "runAfter": {}
+                }
+              }
+            },
+            "runAfter": {
+              "Independent_read_page5001": [
+                "Succeeded"
+              ]
+            }
+          }
+        },
+        "runAfter": {
+          "Seed_5001": [
+            "Succeeded"
+          ]
+        }
+      }
+    },
+    "runAfter": {}
+  }
+}

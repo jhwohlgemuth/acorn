@@ -1,0 +1,145 @@
+Browser tab: 1329059500, Title: "Power Apps", URL: "https://make.gov.powerapps.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/apps/import".
+1 AXWebArea Power Apps, URL: make.gov.powerapps.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/apps/import
+	2 container
+		3 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+		4 container o365header
+			5 container O365_NavHeader
+				6 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+					7 text 
+				8 container ppuxOfficeHeaderTopLevelRegion
+					9 container ppuxOfficeHeaderLeftRegion
+						10 link Description: Power Apps, Value: make.gov.powerapps.us/, ID: O365_AppName
+					11 container ppuxOfficeHeaderRightRegion
+						12 pop up button (collapsed) Description: Environment: Wohlgemuth, Jason, Secondary Actions: Expand
+							13 container
+								14 text Environment Wohlgemuth, Jason
+						15 pop up button (collapsed) Description: Notifications, ID: shell-notifications, Secondary Actions: Expand
+						16 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+						17 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+				18 container O365_HeaderRightRegion
+					19 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+						20 image JW
+		21 container Main
+			22 button (collapsed) Left navigation panel, Secondary Actions: Expand
+				23 image Left navigation panel
+			24 menu
+				25 container
+					26 container
+						27 container aboveCustomizableItemsId0
+							28 Home
+							29 Create
+							30 Learn
+							31 Apps
+							32 AI hub
+						33 Tables
+						34 Flows
+						35 Solutions
+						36 More
+						37 Power Platform
+		38 container
+			39 heading SponsorHighlightsSharePointNativeBackup20261027, Value: 3
+				40 text SponsorHighlightsSharePointNativeBackup20261027
+			41 text All package resources were successfully imported.
+			42 text Next steps ...
+			43 content list Next steps ...
+				44 container
+					45 AXListMarker • 
+					46 text Open and test your app in the Power Apps Studio. 
+					47 link Description: Open app, Value: make.gov.powerapps.us/e/221f44a6-1468-ea4e-b93d-cd52f1723079/canvas/?action=edit&app-id=%2Fproviders%2FMicrosoft.PowerApps%2Fapps%2Fff6b367e-27d8-42f6-9809-62834d6b9ef5
+				48 container
+					49 AXListMarker • 
+					50 text If the app is working, 
+					51 link Description: share, Value: make.gov.powerapps.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/apps/ff6b367e-27d8-42f6-9809-62834d6b9ef5/share
+					52 text  your app with your organization.
+			53 container Package details
+				54 container
+					55 heading Package details, Value: 3
+						56 text Package details
+					57 text Created by o9w@ornl.gov on 10/27/2026
+				58 text Name
+				59 container Description: Name, ID: package-name-input
+					60 text SponsorHighlightsSharePointNativeBackup20261027
+				61 text Environment
+				62 container Description: Environment, ID: package-environment-input
+					63 text Wohlgemuth, Jason
+				64 text Description
+				65 container Description: Description, ID: package-description-input
+					66 text PA-24 read-only native backup. Create isolated copies only; rebind test storage and disable notifications before execution. SharePoint rows and credentials require separate recovery.
+			67 container Review Package Content
+				68 heading Review Package Content, Value: 3
+					69 text Review Package Content
+				70 text Choose your import options.
+				71 table Source resources
+					72 row
+						73 cell
+							74 text Name
+						75 cell
+							76 text Resource type
+						77 cell
+							78 text Import setup
+						79 cell
+							80 text Action
+					81 row
+						82 cell
+							83 button Import setup
+							84 text PA24 TEST ONLY Sponsor Highlights SharePoint
+						85 cell
+							86 text App
+						87 cell
+							88 button Create as new
+						89 cell
+							90 button Import setup
+				91 heading Related resources, Value: 4
+					92 text Related resources
+				93 table Related resources
+					94 row
+						95 cell
+							96 text Name
+						97 cell
+							98 text Resource type
+						99 cell
+							100 text Import setup
+						101 cell
+							102 text Action
+					103 row
+						104 cell
+							105 button Import setup
+							106 text PA24 TEST ONLY SharePoint Catalog
+						107 cell
+							108 text Flow
+						109 cell
+							110 button Create as new
+						111 cell
+							112 button Import setup
+					113 row
+						114 cell
+							115 button Import setup
+							116 text PA24 TEST ONLY SharePoint Intake
+						117 cell
+							118 text Flow
+						119 cell
+							120 button Create as new
+						121 cell
+							122 button Import setup
+					123 row
+						124 cell
+							125 button Import setup
+							126 text o9w@ornl.gov
+						127 cell
+							128 text SharePoint Connection
+						129 cell
+							130 button Select during import
+						131 cell
+							132 button Import setup
+					133 row
+						134 cell
+							135 button Import setup
+							136 text o9w@ornl.gov
+						137 cell
+							138 text Microsoft Teams Connection
+						139 cell
+							140 button Select during import
+						141 cell
+							142 button Import setup
+
+The focused UI element is 1 AXWebArea Power Apps, URL: make.gov.powerapps.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/apps/import

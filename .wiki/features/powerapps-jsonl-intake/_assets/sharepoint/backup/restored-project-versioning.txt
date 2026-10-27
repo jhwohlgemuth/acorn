@@ -1,0 +1,144 @@
+Browser tab: 1329059500, Title: "List Versioning Settings", URL: "https://ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/LstSetng.aspx?List=%7BC482B248%2D39FB%2D45F8%2D833E%2D26BAF05CC15C%7D".
+1 AXWebArea List Versioning Settings, URL: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/LstSetng.aspx?List=%7BC482B248%2D39FB%2D45F8%2D833E%2D26BAF05CC15C%7D
+	2 container aspnetForm
+		3 link Description: Turn on more accessible mode, ID: linkTurnOnAcc, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/LstSetng.aspx?List=%7BC482B248%2D39FB%2D45F8%2D833E%2D26BAF05CC15C%7D#
+		4 link Description: Skip to main content, Value: javascript:;
+		5 link Description: Turn off Animations, ID: linkTurnOffAnimation, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/LstSetng.aspx?List=%7BC482B248%2D39FB%2D45F8%2D833E%2D26BAF05CC15C%7D#
+		6 container suiteBarTop
+			7 container O365_NavHeader
+				8 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+					9 text 
+				10 container topLevelRegion
+					11 container leftRegion
+						12 link Description: SharePoint, Value: ornl.sharepoint.com/_layouts/15/sharepoint.aspx?&login_hint=o9w@ornl.gov, ID: O365_AppName
+					13 container HeaderButtonRegion
+						14 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+						15 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+				16 container O365_HeaderRightRegion
+					17 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+		18 container globalNavBox
+			19 container ribbonBox
+				20 container DeltaSPRibbon
+					21 container
+						22 link Description: Focus on Content, Value: ornl.sharepoint.com/sites/ResearchEnablement/sites/ResearchEnablement/_catalogs/masterpage/#, ID: ctl00_fullscreenmodeBtn
+		23 container s4-workspace
+			24 container s4-bodyContainer
+				25 container titleAreaRow
+					26 link Description: Research Enablement, Value: ornl.sharepoint.com/sites/ResearchEnablement, ID: ctl00_onetidProjectPropertyTitleGraphic
+					27 container Settings : Versioning Settings
+						28 content list zz10_RootAspMenu
+							29 container zz9_TopNavigationMenuV4_NavMenu_Edit
+								30 link Description: EDIT LINKS, Help: Edit Links, ID: zz9_TopNavigationMenuV4_NavMenu_EditLinks, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/LstSetng.aspx?List=%7BC482B248%2D39FB%2D45F8%2D833E%2D26BAF05CC15C%7D#
+						31 heading Settings : Versioning Settings, Value: 1, ID: pageTitle
+							32 container DeltaPlaceHolderPageTitleInTitleArea
+								33 link Description: Settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/listedit.aspx?List=%7BC482B248%2D39FB%2D45F8%2D833E%2D26BAF05CC15C%7D
+								34 image :
+								35 text Versioning Settings
+				36 container contentRow
+					37 container DeltaPlaceHolderLeftNavBar
+						38 content list zz12_RootAspMenu
+							39 link Description: Home, Value: ornl.sharepoint.com/sites/ResearchEnablement
+							40 link Description: Conversations, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/groupstatus.aspx?Target=CONVERSATIONS&Source=QuickLaunch
+							41 link Description: Documents, Value: ornl.sharepoint.com/sites/ResearchEnablement/Shared%20Documents/Forms/AllItems.aspx
+							42 link Description: Notebook, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/Doc.aspx?sourcedoc=%7B92502988-e964-4074-8e41-6625180e6324%7D&action=editnew
+							43 link Description: Pages, Value: ornl.sharepoint.com/sites/ResearchEnablement/SitePages/Forms/ByAuthor.aspx
+							44 text Recent
+							45 link Description: Marketing Campaign, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Marketing%20Campaign/AllItems.aspx
+							46 link Description: Sponsor Highlights Intake Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/AllItems.aspx
+							47 link Description: Sponsor Highlights JSONL Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/Forms/AllItems.aspx
+							48 link Description: Sponsor Highlights Projects Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Projects%20Pilot/AllItems.aspx
+							49 link Description: Site contents, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/viewlsts.aspx
+							50 link Description: Recycle Bin, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/AdminRecycleBin.aspx?ql=1
+							51 container zz11_V4QuickLaunchMenu_NavMenu_Edit
+								52 link Description: EDIT LINKS, Help: Edit Links, ID: zz11_V4QuickLaunchMenu_NavMenu_EditLinks, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/LstSetng.aspx?List=%7BC482B248%2D39FB%2D45F8%2D833E%2D26BAF05CC15C%7D#
+					53 container contentBox
+						54 table
+							55 row HideSection2
+								56 cell align07
+									57 container
+										58 container Content Approval
+											59 heading Content Approval, Value: 3
+												60 text Content Approval
+										61 container ID: onetidNewColumnDescription, Specify whether new items or changes to existing items should remain in a draft state until they have been approved.   Learn about requiring approval.
+											62 text Specify whether new items or changes to existing items should remain in a draft state until they have been approved.   
+											63 link Description: Learn about requiring approval., Help: Learn about requiring approval. - Opens in new window, Value: javascript:HelpWindowKey('WSSEndUser_ContentApproval')
+							64 row HideSection4
+								65 cell onetidModerated
+									66 text Require content approval for submitted items?
+							67 row HideSection5
+								68 cell
+									69 radio button (settable, integer) Description: Yes, Help: Require content approval for submitted items: Yes, Value: 0, ID: onetidModerated1
+									70 radio button (settable, integer) Description: No, Help: Require content approval for submitted items: No, Value: 1, ID: onetidModerated2
+							71 row
+								72 cell
+									73 container
+										74 container Item Version History
+											75 heading Item Version History, Value: 3
+												76 text Item Version History
+										77 container Specify whether a version is created each time you edit an item in this list.   Learn about versions.
+											78 text Specify whether a version is created each time you edit an item in this list.   
+											79 link Description: Learn about versions., Help: Learn about versions. - Opens in new window, Value: javascript:HelpWindowKey('WSSEndUser_documentversions')
+							80 row
+								81 cell
+									82 text Create a version each time you edit an item in this list?
+							83 row
+								84 cell
+									85 radio button (settable, integer) Description: Yes, Help: Create a version each time you edit an item in this list: Yes, Value: 1, ID: onetidVersioningEnabledYes
+									86 radio button (settable, integer) Description: No, Help: Create a version each time you edit an item in this list: No, Value: 0, ID: onetidVersioningEnabledNo
+							87 row
+								88 cell
+									89 container MajorLimit
+										90 container Keep the following number of versions:
+											91 text Keep the following number of versions:
+										92 container 50
+											93 text field (settable) Description: Enter number of versions to keep, Value: 50, ID: onetidMajorVersionLimit
+							94 row
+								95 cell
+									96 container MajorMinorLimit
+										97 container
+											98 container Keep drafts for the following number of approved versions:
+												99 checkbox (disabled, settable, integer) Description: Keep drafts for the following number of approved versions:, Value: 0, ID: onetidMajorMinorVersionLimitEnabled
+											100 container  Keep drafts for the following number of approved versions:
+										101 container
+											102 container   Enter the number of approved versions that will have drafts
+												103 text field (disabled) Description: Enter the number of approved versions that will have drafts, ID: onetidMajorWithMinorVersionLimit
+							104 container MinorVisibleOption
+								105 row
+									106 cell
+										107 container
+											108 container Draft Item Security
+												109 heading Draft Item Security, Value: 3
+													110 text Draft Item Security
+											111 container Drafts are minor versions or items which have not been approved. Specify which users should be able to view drafts in this list.   Learn about specifying who can view and edit drafts.
+												112 text Drafts are minor versions or items which have not been approved. Specify which users should be able to view drafts in this list.   
+												113 link Description: Learn about specifying who can view and edit drafts., Help: Learn about specifying who can view and edit drafts. - Opens in new window, Value: javascript:HelpWindowKey('WSSEndUser_DraftItemSecurity')
+								114 row
+									115 cell
+										116 text Who should see draft items in this list?
+								117 row
+									118 cell
+										119 container
+											120 container Any user who can read items
+												121 radio button (disabled, settable, integer) Description: Any user who can read items, Help: Who should see draft items in this list? Any user who can read items, Value: 1, ID: onetidMinorReader
+											122 container Any user who can read items
+								123 row
+									124 cell
+										125 container
+											126 container Only users who can edit items
+												127 radio button (disabled, settable, integer) Description: Only users who can edit items, Value: 0, ID: onetidMinorAuthor
+											128 container Only users who can edit items
+								129 row
+									130 cell
+										131 container
+											132 container Only users who can approve items (and the author of the item)
+												133 radio button (disabled, settable, integer) Description: Only users who can approve items (and the author of the item), Value: 0, ID: onetidMinorApprover
+											134 container Only users who can approve items (and the author of the item)
+							135 row
+								136 cell
+									137 table
+										138 row
+											139 cell align01
+												140 button OK, ID: onetidCreateList
+												141 button Cancel, ID: onetidClose
+
+The focused UI element is 1 AXWebArea List Versioning Settings, URL: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/LstSetng.aspx?List=%7BC482B248%2D39FB%2D45F8%2D833E%2D26BAF05CC15C%7D

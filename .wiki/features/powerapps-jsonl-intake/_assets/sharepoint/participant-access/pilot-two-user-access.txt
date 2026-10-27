@@ -1,0 +1,46 @@
+Browser tab: 1329059533, Title: "Power Apps | Apps", URL: "https://make.gov.powerapps.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/apps".
+0 AXWebArea Power Apps | Apps, URL: make.gov.powerapps.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/apps
+	164 container
+		165 button Back
+		166 heading Manage access, Value: 3
+			167 text Manage access
+		168 button Add more users or groups
+		169 pop up button Description: More options, ID: menu33
+		170 button Close dialog
+		171 tab group
+			172 tab (selected, settable, boolean) People + groups · 2, Value: 1, ID: peopleAndGroups
+			173 tab (selectable, settable, boolean) Pending Invites · 0, Value: 0, ID: pendingInvites
+			174 tab (selectable, settable, boolean) Additional data access, Value: 0, ID: additionalData
+		175 toolbar Manage access actions
+			176 pop up button (disabled, collapsed) Assign access, ID: menu35, Secondary Actions: Expand
+			177 pop up button Description: Filter list by role, ID: menu36
+			178 text field (settable)
+		179 table People and groups
+			180 container
+				181 row (selectable) Select all rows Name Access Actions
+					182 cell
+						183 checkbox (settable, integer) Description: Select all rows, Value: 0, ID: checkbox-38
+					184 cell
+						185 button Name
+					186 cell
+						187 button Access
+					188 cell
+						189 text Actions
+				190 row Wohlgemuth, Jason Wohlgemuth, Jason Owner
+					191 cell
+						192 container Description: Wohlgemuth, Jason, ID: avatar-39
+						193 text Wohlgemuth, Jason
+					194 cell
+						195 text Owner
+			196 row (selectable) Select row Clark, Niki Clark, Niki User
+				197 cell (selectable)
+					198 checkbox (settable, integer) Description: Select row, Value: 0, ID: checkbox-41
+				199 cell
+					200 container Description: Clark, Niki, ID: avatar-42
+					201 text Clark, Niki
+				202 cell
+					203 pop up button (collapsed) User, ID: menu43, Secondary Actions: Expand
+				204 cell
+		205 button (disabled) Apply
+
+The focused UI element is 199 cell

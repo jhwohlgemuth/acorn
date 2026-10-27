@@ -1,0 +1,152 @@
+Browser tab: 1329059491, Title: "Run History | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/28cba548-c862-484c-b838-ea21eaf52630/runs/08584085013254438335041330656CU30?v3=false".
+1 AXWebArea Run History | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/28cba548-c862-484c-b838-ea21eaf52630/runs/08584085013254438335041330656CU30?v3=false
+	2 container
+		3 container root
+			4 container
+				5 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				6 container o365header
+					7 container O365_NavHeader
+						8 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							9 text 
+						10 container ppuxOfficeHeaderTopLevelRegion
+							11 container ppuxOfficeHeaderLeftRegion
+								12 text Power Automate
+							13 container ppuxOfficeHeaderRightRegion
+								14 button Wohlgemuth, Jason
+									15 container
+										16 text Environments Wohlgemuth, Jason
+								17 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								18 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						19 container O365_HeaderRightRegion
+							20 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								21 image JW
+				22 container Main
+					23 button (collapsed) Left navigation panel, Secondary Actions: Expand
+						24 image Left navigation panel
+					25 menu
+						26 container
+							27 container
+								28 container aboveCustomizableItemsId0
+									29 Home
+									30 Create
+									31 Templates
+									32 Learn
+									33 My flows
+								34 Approvals
+								35 Solutions
+								36 Automation center
+								37 Process mining
+									38 image
+								39 AI hub
+								40 Connections
+								41 More
+								42 Power Platform
+				43 container
+					44 container
+						45 button Go back to previous page
+						46 container The flow name is PA26 TEST ONLY SharePoint Logbook Export.
+							47 text PA26 TEST ONLY SharePoint Logbook Export
+							48 container
+								49 text • Ran at 10/27/2026 8:52:40 AM
+						50 toolbar
+							51 button Description: Resubmit, ID: resubmitFlowRun
+								52 text Resubmit
+							53 button (disabled) Description: Cancel, ID: cancelFlowRun
+								54 text Cancel
+							55 button Description: Edit, ID: editFlow
+								56 text Edit
+							57 container
+								58 switch Description: New view, Value: 0, ID: switchDesignerFlowRunDetails
+								59 text New view
+						60 container Your flow ran successfully.
+							61 text Your flow ran successfully.
+						62 button Your flow ran successfully. Dismiss message.
+					63 container
+						64 container
+							65 button (collapsed) Recurrence, Secondary Actions: Expand
+								66 button (collapsed) Recurrence, Secondary Actions: Expand
+									67 text Recurrence
+							68 text 0 seconds. Succeeded
+							69 container 0 seconds
+								70 text 0s
+							71 image Succeeded
+						72 container
+							73 button (collapsed) Combined logbook export LB, Secondary Actions: Expand
+								74 button (collapsed) Combined logbook export LB, Secondary Actions: Expand
+									75 text Combined logbook export LB
+							76 text 1 seconds. Succeeded
+							77 container 1 seconds
+								78 text 1s
+							79 image Succeeded
+						80 container
+							81 container
+								82 button (expanded) PA23 aggregate boundaries, Secondary Actions: Collapse
+									83 button (expanded) PA23 aggregate boundaries, Secondary Actions: Collapse
+										84 text PA23 aggregate boundaries
+								85 text 15 seconds. Succeeded
+								86 container 15 seconds
+									87 text 15s
+								88 image Succeeded
+							90 container
+								91 container
+									92 button (collapsed) Padding 1k, Secondary Actions: Expand
+										93 button (collapsed) Padding 1k, Secondary Actions: Expand
+											94 text Padding 1k
+									95 text 0 seconds. Succeeded
+									96 container 0 seconds
+										97 text 0s
+									98 image Succeeded
+								99 container
+									100 button (collapsed) Padding, Secondary Actions: Expand
+										101 button (collapsed) Padding, Secondary Actions: Expand
+											102 text Padding
+									103 text 0 seconds. Succeeded
+									104 container 0 seconds
+										105 text 0s
+									106 image Succeeded
+								107 container
+									108 container
+										109 button (collapsed) Case rows5000, Secondary Actions: Expand
+											110 button (collapsed) Case rows5000, Secondary Actions: Expand
+												111 text Case rows5000
+										112 text 5 seconds. Succeeded
+										113 container 5 seconds
+											114 text 5s
+										115 image Succeeded
+									116 container
+										117 button (collapsed) Case rows5001, Secondary Actions: Expand
+											118 button (collapsed) Case rows5001, Secondary Actions: Expand
+												119 text Case rows5001
+										120 text 3 seconds. Succeeded
+										121 container 3 seconds
+											122 text 3s
+										123 image Succeeded
+									124 container
+										125 container
+											126 button (collapsed) Case bytes exact, Secondary Actions: Expand
+												127 button (collapsed) Case bytes exact, Secondary Actions: Expand
+													128 text Case bytes exact
+											129 text 5 seconds. Succeeded
+											130 container 5 seconds
+												131 text 5s
+											132 image Succeeded
+										133 container
+											134 button (collapsed) Case bytes over, Secondary Actions: Expand
+												135 button (collapsed) Case bytes over, Secondary Actions: Expand
+													136 text Case bytes over
+											137 text 2 seconds. Succeeded
+											138 container 2 seconds
+												139 text 2s
+											140 image Succeeded
+										141 container
+											142 container
+												143 button (collapsed) Seed batch preflight, Secondary Actions: Expand
+													144 button (collapsed) Seed batch preflight, Secondary Actions: Expand
+														145 text Seed batch preflight
+												146 text 0 seconds. Succeeded
+												147 container 0 seconds
+													148 text 0s
+												149 image Succeeded
+					89 container flowCtrl.contextualHelpPanel.title
+
+The focused UI element is 82 button (expanded) PA23 aggregate boundaries, Secondary Actions: Collapse

@@ -1,0 +1,285 @@
+Browser tab: 1329059481, Title: "Run History | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/28cba548-c862-484c-b838-ea21eaf52630/runs/08584085391268511565691464645CU24?v3=false".
+0 AXWebArea Run History | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/28cba548-c862-484c-b838-ea21eaf52630/runs/08584085391268511565691464645CU24?v3=false
+	1 container
+		2 container root
+			3 container
+				4 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				8 container o365header
+					9 container O365_NavHeader
+						10 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							203 text 
+						12 container ppuxOfficeHeaderTopLevelRegion
+							13 container ppuxOfficeHeaderLeftRegion
+								14 text Power Automate
+							15 container ppuxOfficeHeaderRightRegion
+								16 button Wohlgemuth, Jason
+									17 container
+										18 text Environments Wohlgemuth, Jason
+								19 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								20 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						21 container O365_HeaderRightRegion
+							22 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								23 image JW
+				5 container Main
+					6 button (expanded) Left navigation panel, Secondary Actions: Collapse
+						7 image Left navigation panel
+					24 menu
+						25 container
+							26 container aboveCustomizableItemsId0
+								27 Home
+								28 Create
+								29 Templates
+								30 Learn
+								31 My flows
+							32 Approvals, press right arrow to navigate more options
+							33 Solutions, press right arrow to navigate more options
+							34 Automation center, press right arrow to navigate more options
+							35 Process mining, press right arrow to navigate more options
+								36 image
+								37 text Process mining
+							38 AI hub, press right arrow to navigate more options
+							39 Connections, press right arrow to navigate more options
+							40 More
+							41 Power Platform
+				42 container
+					43 container
+						44 button Go back to previous page
+						45 container The flow name is PA26 TEST ONLY SharePoint Logbook Export.
+							46 text PA26 TEST ONLY SharePoint Logbook Export
+							47 container
+								204 text • Ran at 10/26/2026 10:22:38 PM
+						49 toolbar
+							50 button Description: Resubmit, ID: resubmitFlowRun
+								51 text Resubmit
+							52 button (disabled) Description: Cancel, ID: cancelFlowRun
+								53 text Cancel
+							54 button Description: Edit, ID: editFlow
+								55 text Edit
+							56 container
+								57 switch Description: New view, Value: 0, ID: switchDesignerFlowRunDetails
+								58 text New view
+						59 container Your flow ran successfully.
+							60 text Your flow ran successfully.
+						61 button Your flow ran successfully. Dismiss message.
+					62 container
+						63 container
+							64 button (collapsed) Recurrence, Secondary Actions: Expand
+								65 button (collapsed) Recurrence, Secondary Actions: Expand
+									66 text Recurrence
+							67 text 0 seconds. Succeeded
+							68 container 0 seconds
+								69 text 0s
+							70 image Succeeded
+						82 container
+							83 button (expanded) Combined logbook export LB, Secondary Actions: Collapse
+								84 button (expanded) Combined logbook export LB, Secondary Actions: Collapse
+									85 text Combined logbook export LB
+							86 container
+								87 text 2 seconds. Succeeded
+								88 container 2 seconds
+									89 text 2s
+								90 image Succeeded
+							91 container
+								92 button (collapsed) Read latest receipt LB, Secondary Actions: Expand
+									93 button (collapsed) Read latest receipt LB, Secondary Actions: Expand
+										94 text Read latest receipt LB
+								95 text 0 seconds. Succeeded
+								96 container 0 seconds
+									97 text 0s
+								98 image Succeeded
+							99 container
+								100 container
+									101 button (collapsed) High water item LB, Secondary Actions: Expand
+										102 button (collapsed) High water item LB, Secondary Actions: Expand
+											103 text High water item LB
+									104 text 0 seconds. Succeeded
+									105 container 0 seconds
+										106 text 0s
+									107 image Succeeded
+								108 container
+									109 button (collapsed) Read receipts LB, Secondary Actions: Expand
+										110 button (collapsed) Read receipts LB, Secondary Actions: Expand
+											111 text Read receipts LB
+									112 text 0 seconds. Succeeded
+									113 container 0 seconds
+										114 text 0s
+									115 image Succeeded
+								116 container
+									117 container
+										118 button (collapsed) Invalid rows LB, Secondary Actions: Expand
+											119 button (collapsed) Invalid rows LB, Secondary Actions: Expand
+												120 text Invalid rows LB
+										121 text 0 seconds. Succeeded
+										122 container 0 seconds
+											123 text 0s
+										124 image Succeeded
+									125 container Complete valid rows LB 1 seconds. Succeeded 1s Succeeded Content not shown due to security configuration. If yes Select original rows LB 0 seconds. Succeeded 0s Succeeded Combined JSONL LB 0 seconds. Succeeded 0s Succeeded Within byte limit LB 1 seconds. Succeeded 1s Succeeded
+										126 container
+											127 button (expanded) Complete valid rows LB, Secondary Actions: Collapse
+												128 button (expanded) Complete valid rows LB, Secondary Actions: Collapse
+													129 text Complete valid rows LB
+											130 container
+												131 text 1 seconds. Succeeded
+												132 container 1 seconds
+													133 text 1s
+												134 image Succeeded
+											152 container
+												153 text INPUTS Content not shown due to security configuration.
+											135 container
+												136 button (expanded) Description: If yes, Secondary Actions: Collapse
+													154 button (expanded) If yes, Secondary Actions: Collapse
+														155 text If yes
+												137 container
+													138 button (collapsed) Select original rows LB, Secondary Actions: Expand
+														156 button (collapsed) Select original rows LB, Secondary Actions: Expand
+															157 text Select original rows LB
+													158 text 0 seconds. Succeeded
+													159 container 0 seconds
+														160 text 0s
+													139 image Succeeded
+												140 container
+													141 container
+														142 button (collapsed) Combined JSONL LB, Secondary Actions: Expand
+															161 button (collapsed) Combined JSONL LB, Secondary Actions: Expand
+																162 text Combined JSONL LB
+														163 text 0 seconds. Succeeded
+														164 container 0 seconds
+															165 text 0s
+														143 image Succeeded
+													178 container Within byte limit LB 1 seconds. Succeeded 1s Succeeded Content not shown due to security configuration. If yes Read previous logbook LB 0 seconds. Failed 0s Failed View when "Readable or missing LB" will run under "Configure run after" Readable or missing LB 1 seconds. Succeeded 1s Succeeded Content not shown due to security configuration. If yes
+														179 container
+															180 button (expanded) Within byte limit LB, Secondary Actions: Collapse
+																181 button (expanded) Within byte limit LB, Secondary Actions: Collapse
+																	182 text Within byte limit LB
+															183 container
+																184 text 1 seconds. Succeeded
+																185 container 1 seconds
+																	186 text 1s
+																187 image Succeeded
+															205 container
+																206 text INPUTS Content not shown due to security configuration.
+															188 container
+																189 button (expanded) Description: If yes, Secondary Actions: Collapse
+																	207 button (expanded) If yes, Secondary Actions: Collapse
+																		208 text If yes
+																190 container
+																	191 button (collapsed) Read previous logbook LB, Secondary Actions: Expand
+																		209 button (collapsed) Read previous logbook LB, Secondary Actions: Expand
+																			210 text Read previous logbook LB
+																	211 text 0 seconds. Failed
+																	212 container 0 seconds
+																		213 text 0s
+																	192 image Failed
+																193 container
+																	194 button View when "Readable or missing LB" will run under "Configure run after"
+																	226 container Readable or missing LB 1 seconds. Succeeded 1s Succeeded Content not shown due to security configuration. If yes Changed logbook LB 1 seconds. Succeeded 1s Succeeded View when "Read published logbook LB" will run under "Configure run after" Read published logbook LB 0 seconds. Succeeded 0s Succeeded View when "Exact logbook LB" will run under "Configure run after"
+																		227 container
+																			228 button (expanded) Readable or missing LB, Secondary Actions: Collapse
+																				229 button (expanded) Readable or missing LB, Secondary Actions: Collapse
+																					230 text Readable or missing LB
+																			231 container
+																				232 text 1 seconds. Succeeded
+																				233 container 1 seconds
+																					234 text 1s
+																				235 image Succeeded
+																			256 container
+																				257 text INPUTS Content not shown due to security configuration.
+																			236 container
+																				237 button (expanded) Description: If yes, Secondary Actions: Collapse
+																					258 button (expanded) If yes, Secondary Actions: Collapse
+																						259 text If yes
+																				238 container
+																					239 button (collapsed) Changed logbook LB, Secondary Actions: Expand
+																						260 button (collapsed) Changed logbook LB, Secondary Actions: Expand
+																							261 text Changed logbook LB
+																					262 text 1 seconds. Succeeded
+																					263 container 1 seconds
+																						264 text 1s
+																					240 image Succeeded
+																				241 container
+																					242 button View when "Read published logbook LB" will run under "Configure run after"
+																					243 container
+																						244 button (collapsed) Read published logbook LB, Secondary Actions: Expand
+																							265 button (collapsed) Read published logbook LB, Secondary Actions: Expand
+																								266 text Read published logbook LB
+																						267 text 0 seconds. Succeeded
+																						268 container 0 seconds
+																							269 text 0s
+																						245 image Succeeded
+																					246 container
+																						247 button View when "Exact logbook LB" will run under "Configure run after"
+																					282 container Exact logbook LB 0 seconds. Succeeded 0s Succeeded Content not shown due to security configuration. If yes Export receipt LB 0 seconds. Succeeded 0s Succeeded If no LogbookOutcomeUnresolved 0 seconds. Skipped 0s Skipped
+																						283 container
+																							284 button (expanded) Exact logbook LB, Secondary Actions: Collapse
+																								285 button (expanded) Exact logbook LB, Secondary Actions: Collapse
+																									286 text Exact logbook LB
+																							287 container
+																								288 text 0 seconds. Succeeded
+																								289 container 0 seconds
+																									290 text 0s
+																								291 image Succeeded
+																							302 container
+																								303 text INPUTS Content not shown due to security configuration.
+																							292 container
+																								293 button (expanded) Description: If yes, Secondary Actions: Collapse
+																									304 button (expanded) If yes, Secondary Actions: Collapse
+																										305 text If yes
+																								294 container
+																									295 button (collapsed) Export receipt LB, Secondary Actions: Expand
+																										306 button (collapsed) Export receipt LB, Secondary Actions: Expand
+																											307 text Export receipt LB
+																									308 text 0 seconds. Succeeded
+																									309 container 0 seconds
+																										310 text 0s
+																									296 image Succeeded
+																							297 container
+																								298 button (expanded) Description: If no, Secondary Actions: Collapse
+																									311 button (expanded) If no, Secondary Actions: Collapse
+																										312 text If no
+																								299 container
+																									300 button (collapsed) LogbookOutcomeUnresolved, Secondary Actions: Expand
+																										313 button (collapsed) LogbookOutcomeUnresolved, Secondary Actions: Expand
+																											314 text LogbookOutcomeUnresolved
+																									315 text 0 seconds. Skipped
+																									316 container 0 seconds
+																										317 text 0s
+																									301 image Skipped
+																			251 container
+																				252 button (expanded) Description: If no, Secondary Actions: Collapse
+																					275 button (expanded) If no, Secondary Actions: Collapse
+																						276 text If no
+																				253 container
+																					254 button (collapsed) LogbookPreviousReadUnavailable, Secondary Actions: Expand
+																						277 button (collapsed) LogbookPreviousReadUnavailable, Secondary Actions: Expand
+																							278 text LogbookPreviousReadUnavailable
+																					279 text 0 seconds. Skipped
+																					280 container 0 seconds
+																						281 text 0s
+																					255 image Skipped
+															198 container
+																199 button (expanded) Description: If no, Secondary Actions: Collapse
+																	219 button (expanded) If no, Secondary Actions: Collapse
+																		220 text If no
+																200 container
+																	201 button (collapsed) LogbookTooLarge, Secondary Actions: Expand
+																		221 button (collapsed) LogbookTooLarge, Secondary Actions: Expand
+																			222 text LogbookTooLarge
+																	223 text 0 seconds. Skipped
+																	224 container 0 seconds
+																		225 text 0s
+																	202 image Skipped
+											147 container
+												148 button (expanded) Description: If no, Secondary Actions: Collapse
+													171 button (expanded) If no, Secondary Actions: Collapse
+														172 text If no
+												149 container
+													150 button (collapsed) LogbookInvalidOrTruncated, Secondary Actions: Expand
+														173 button (collapsed) LogbookInvalidOrTruncated, Secondary Actions: Expand
+															174 text LogbookInvalidOrTruncated
+													175 text 0 seconds. Skipped
+													176 container 0 seconds
+														177 text 0s
+													151 image Skipped
+					79 container flowCtrl.contextualHelpPanel.title
+
+The focused UI element is 284 button (expanded) Exact logbook LB, Secondary Actions: Collapse

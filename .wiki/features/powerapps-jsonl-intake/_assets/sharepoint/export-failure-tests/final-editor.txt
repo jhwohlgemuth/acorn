@@ -1,0 +1,84 @@
+Browser tab: 1329059480, Title: "Edit your flow | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/28cba548-c862-484c-b838-ea21eaf52630?v3=false".
+0 AXWebArea Edit your flow | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/28cba548-c862-484c-b838-ea21eaf52630?v3=false
+	1 container
+		2 container root
+			3 container
+				4 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				5 container o365header
+					6 container O365_NavHeader
+						7 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							62 text 
+						9 container ppuxOfficeHeaderTopLevelRegion
+							10 container ppuxOfficeHeaderLeftRegion
+								11 text Power Automate
+							12 container ppuxOfficeHeaderRightRegion
+								13 button Wohlgemuth, Jason
+									14 container
+										15 text Environments Wohlgemuth, Jason
+								16 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								17 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						18 container O365_HeaderRightRegion
+							19 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								20 image JW
+				21 container Main
+					22 button (expanded) Left navigation panel, Secondary Actions: Collapse
+						23 image Left navigation panel
+					24 menu
+						25 container
+							26 container aboveCustomizableItemsId0
+								27 Home
+								28 Create
+								29 Templates
+								30 Learn
+								31 My flows
+							32 Approvals, press right arrow to navigate more options
+							33 Solutions, press right arrow to navigate more options
+							34 Automation center, press right arrow to navigate more options
+							35 Process mining, press right arrow to navigate more options
+								36 image
+								37 text Process mining
+							38 AI hub, press right arrow to navigate more options
+							39 Connections, press right arrow to navigate more options
+							40 More
+							41 Power Platform
+				42 container
+					43 container
+						44 button Go back to previous page
+						45 text field (settable) Description: The flow name is PA26 TEST ONLY SharePoint Logbook Export. Press enter to edit., Value: PA26 TEST ONLY SharePoint Logbook Export
+							63 text PA26 TEST ONLY SharePoint Logbook Export
+						46 toolbar
+							47 button (disabled) Description: Undo, ID: undo
+								48 text Undo
+							49 button (disabled) Description: Redo, ID: redo
+								50 text Redo
+							51 button Description: Comments, ID: openCommentingPane
+								52 text Comments
+							53 button Description: Save, ID: saveFlow
+								54 text Save
+							55 button Description: Flow checker, ID: checkFlow
+								56 text Flow checker
+							57 button Description: Test, ID: testFlow
+								58 text Test
+							59 container
+								60 switch Description: New designer, Value: 0, ID: switchDesigner
+								61 text New designer
+					64 container
+						65 container
+							66 button (collapsed) Description: Recurrence, Secondary Actions: Expand
+								67 button (collapsed) Recurrence, Secondary Actions: Expand
+									68 text Recurrence
+							69 button (collapsed) Description: Menu for Recurrence, Secondary Actions: Expand
+							70 container
+								71 button Insert a new step
+							72 container
+								73 button (collapsed) Description: Combined logbook export LB, Secondary Actions: Expand
+									74 button (collapsed) Combined logbook export LB, Secondary Actions: Expand
+										75 text Combined logbook export LB
+								76 button (collapsed) Description: Menu for Combined logbook export LB, Secondary Actions: Expand
+								77 text Menu for Combined logbook export LB
+						78 container
+							79 button + New step
+							80 button Save
+					81 container flowCtrl.contextualHelpPanel.title
+
+The focused UI element is 76 button (collapsed) Description: Menu for Combined logbook export LB, Secondary Actions: Expand

@@ -1,0 +1,226 @@
+Browser tab: 1329059500, Title: "Document Library Settings", URL: "https://ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/listedit.aspx?List=%7B684bc3a4-751e-4ded-b118-7dbc568e5621%7D".
+1 AXWebArea Document Library Settings, URL: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/listedit.aspx
+	2 container aspnetForm
+		3 link Description: Turn on more accessible mode, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/listedit.aspx, ID: linkTurnOnAcc
+		4 link Description: Skip to main content, Value: javascript:;
+		5 link Description: Turn off Animations, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/listedit.aspx, ID: linkTurnOffAnimation
+		6 container suiteBarTop
+			7 container O365_NavHeader
+				8 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+					9 text 
+				10 container
+					11 link ornl.sharepoint.com/_layouts/15/sharepoint.aspx
+					12 button (collapsed) Secondary Actions: Expand
+					13 button (collapsed) Secondary Actions: Expand
+				14 container O365_HeaderRightRegion
+					15 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+		16 container globalNavBox
+			17 container ribbonBox
+				18 container DeltaSPRibbon
+					19 container
+						20 link Description: Focus on Content, Value: ornl.sharepoint.com/sites/ResearchEnablement/sites/ResearchEnablement/_catalogs/masterpage/, ID: ctl00_fullscreenmodeBtn
+		21 container s4-workspace
+			22 container s4-bodyContainer
+				23 container titleAreaRow
+					24 link Description: Research Enablement, Value: ornl.sharepoint.com/sites/ResearchEnablement, ID: ctl00_onetidProjectPropertyTitleGraphic
+					25 container Sponsor Highlights JSONL Pilot : Settings
+						26 content list zz10_RootAspMenu
+							27 container zz9_TopNavigationMenuV4_NavMenu_Edit
+								28 link Description: EDIT LINKS, Help: Edit Links, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/listedit.aspx, ID: zz9_TopNavigationMenuV4_NavMenu_EditLinks
+						29 heading Sponsor Highlights JSONL Pilot : Settings, Value: 1, ID: pageTitle
+							30 container DeltaPlaceHolderPageTitleInTitleArea
+								31 link Description: Sponsor Highlights JSONL Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/Forms/AllItems.aspx
+								32 image :
+								33 text Settings
+				34 container contentRow
+					35 container DeltaPlaceHolderLeftNavBar
+						36 content list zz12_RootAspMenu
+							37 link Description: Home, Value: ornl.sharepoint.com/sites/ResearchEnablement
+							38 link Description: Conversations, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/groupstatus.aspx
+							39 link Description: Documents, Value: ornl.sharepoint.com/sites/ResearchEnablement/Shared%20Documents/Forms/AllItems.aspx
+							40 link Description: Notebook, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/Doc.aspx
+							41 link Description: Pages, Value: ornl.sharepoint.com/sites/ResearchEnablement/SitePages/Forms/ByAuthor.aspx
+							42 text Recent
+							43 link Description: Marketing Campaign, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Marketing%20Campaign/AllItems.aspx
+							44 link Description: Sponsor Highlights Intake Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/AllItems.aspx
+							45 link Description: Sponsor Highlights JSONL Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/Forms/AllItems.aspx
+							46 link Description: Sponsor Highlights Projects Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Projects%20Pilot/AllItems.aspx
+							47 link Description: Site contents, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/viewlsts.aspx
+							48 link Description: Recycle Bin, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/AdminRecycleBin.aspx
+							49 container zz11_V4QuickLaunchMenu_NavMenu_Edit
+								50 link Description: EDIT LINKS, Help: Edit Links, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/listedit.aspx, ID: zz11_V4QuickLaunchMenu_NavMenu_EditLinks
+					51 container contentBox
+						52 container
+							53 table idItemHoverTable
+								54 row
+									55 cell
+										56 heading List Information, Value: 3
+											57 text List Information
+								58 row
+									59 cell 500
+										60 text Name:
+									61 cell
+										62 text Sponsor Highlights JSONL Pilot
+								63 row
+									64 cell 600
+										65 text Web Address:
+									66 cell
+										67 text https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor Highlights JSONL Pilot/Forms/AllItems.aspx
+								68 row
+									69 cell 701
+										70 text Description:
+									71 cell
+										72 text Pilot JSONL exports from validated Sponsor Highlights receipts. Export does not imply ACORN admission or graduation. Non-sensitive highlights only.
+							73 container General Settings   List name, description and navigation   Versioning settings   Advanced settings   Validation settings   Column default value settings   Audience targeting settings   Rating settings   Form settings Permissions and Management
+								74 container
+									75 container General Settings   List name, description and navigation   Versioning settings   Advanced settings   Validation settings   Column default value settings   Audience targeting settings   Rating settings   Form settings
+										76 container
+											77 container General Settings
+												78 heading General Settings, Value: 3
+													79 text General Settings
+											80 container   List name, description and navigation   Versioning settings   Advanced settings   Validation settings   Column default value settings   Audience targeting settings   Rating settings   Form settings
+												81 container
+													82 container   List name, description and navigation   Versioning settings   Advanced settings   Validation settings
+														83 container
+															84 container List name, description and navigation
+																85 link Description: List name, description and navigation, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/ListGeneralSettings.aspx, ID: ctl00_PlaceHolderMain_ctl08_RptControls_LnkGeneralSettings
+															86 container Versioning settings
+																87 link Description: Versioning settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/LstSetng.aspx, ID: ctl00_PlaceHolderMain_ctl08_RptControls_onetidListEdit1
+															88 container Advanced settings
+																89 link Description: Advanced settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/advsetng.aspx, ID: ctl00_PlaceHolderMain_ctl08_RptControls_onetidListEdit10
+															90 container Validation settings
+																91 link Description: Validation settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/VldSetng.aspx, ID: ctl00_PlaceHolderMain_ctl08_RptControls_LnkValidationSettings
+													92 container   Column default value settings   Audience targeting settings   Rating settings   Form settings
+														93 container
+															94 container Column default value settings
+																95 link Description: Column default value settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/ColumnDefaults.aspx, ID: ctl00_PlaceHolderMain_ctl08_ctl00_RptControls_MetadataDefaultsSettings
+														96 container
+															97 container Audience targeting settings
+																98 link Description: Audience targeting settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/ListEnableTargeting.aspx, ID: ctl00_PlaceHolderMain_ctl08_ctl01_RptControls_EnableAudienceTargeting
+															99 container Rating settings
+																100 link Description: Rating settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/RatingsSettings.aspx, ID: ctl00_PlaceHolderMain_ctl08_ctl01_RptControls_EnableListRatingsLink
+															101 container Form settings
+																102 link Description: Form settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FormSettings.aspx, ID: ctl00_PlaceHolderMain_ctl08_ctl01_RptControls_IPFSSettingsListEditPage
+									103 container Permissions and Management   Delete this document library   Permissions for this document library   Manage files which have no checked in version   Information Rights Management   Workflow Settings   Apply label to items in this list or library   Enterprise Metadata and Keywords Settings
+										104 container
+											105 container Permissions and Management
+												106 heading Permissions and Management, Value: 3
+													107 text Permissions and Management
+											108 container   Delete this document library   Permissions for this document library   Manage files which have no checked in version   Information Rights Management   Workflow Settings   Apply label to items in this list or library   Enterprise Metadata and Keywords Settings
+												109 container
+													110 container   Delete this document library   Permissions for this document library   Manage files which have no checked in version   Information Rights Management   Workflow Settings   Apply label to items in this list or library
+														111 container
+															112 container Delete this document library
+																113 link Description: Delete this document library, Value: javascript:DeleteList(), ID: ctl00_PlaceHolderMain_ctl09_RptControls_onetidListEdit2
+															114 container Permissions for this document library
+																115 link Description: Permissions for this document library, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/user.aspx, ID: ctl00_PlaceHolderMain_ctl09_RptControls_onetidListEdit7
+															116 container Manage files which have no checked in version
+																117 link Description: Manage files which have no checked in version, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/ManageCheckedOutFiles.aspx, ID: ctl00_PlaceHolderMain_ctl09_RptControls_onetidManageCheckedOutFiles
+															118 container Information Rights Management
+																119 link Description: Information Rights Management, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/irm.aspx, ID: ctl00_PlaceHolderMain_ctl09_RptControls_onetidListEdit7i
+															120 container Workflow Settings
+																121 link Description: Workflow Settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/WrkSetng.aspx, ID: ctl00_PlaceHolderMain_ctl09_RptControls_onetidListEdit11
+															122 container Apply label to items in this list or library
+																123 link Description: Apply label to items in this list or library, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/Hold.aspx, ID: ctl00_PlaceHolderMain_ctl09_RptControls_onetidManageTag
+													124 container   Enterprise Metadata and Keywords Settings
+														125 container
+															126 container Enterprise Metadata and Keywords Settings
+																127 link Description: Enterprise Metadata and Keywords Settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/metadatacolsettings.aspx, ID: ctl00_PlaceHolderMain_ctl09_ctl01_RptControls_ListMetadataColSettings
+									128 container Communications   RSS settings
+										129 container
+											130 container Communications
+												131 heading Communications, Value: 3
+													132 text Communications
+											133 container   RSS settings
+												134 container
+													135 container   RSS settings
+														136 container
+															137 container RSS settings
+																138 link Description: RSS settings, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/listsyndication.aspx, ID: ctl00_PlaceHolderMain_LnksecCommunications_RptControls_onetidRssSettings
+							139 container Columns A column stores information about each document in the document library. The following columns are currently available in this document library: Sponsor Highlights JSONL Pilot   Create column   Add from existing site columns   Column ordering   Indexed columns
+								140 container
+									141 container Columns, ID: 1400
+										142 heading Columns, Value: 3
+											143 text Columns
+									144 container ID: 1500, A column stores information about each document in the document library. The following columns are currently available in this document library:
+										145 text A column stores information about each document in the document library. The following columns are currently available in this document library:
+									146 container Sponsor Highlights JSONL Pilot
+										147 table Sponsor Highlights JSONL Pilot
+											148 row
+												149 cell 1600
+													150 text Column (click to edit)
+												151 cell 1700
+													152 text Type
+												153 cell 1800
+													154 text Required
+											155 row
+												156 cell
+													157 link Description: Created, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEditEx.aspx, ID: LinkEditField3
+												158 cell
+													159 text Date and Time
+											160 row
+												161 cell
+													162 link Description: Modified, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEditEx.aspx, ID: LinkEditField4
+												163 cell
+													164 text Date and Time
+											165 row
+												166 cell
+													167 link Description: Title, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEdit.aspx, ID: LinkEditField121
+												168 cell
+													169 text Single line of text
+											170 row
+												171 cell
+													172 link Description: Description, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEdit.aspx, ID: LinkEditField133
+												173 cell
+													174 text Multiple lines of text
+											175 row
+												176 cell
+													177 link Description: Created By, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEditEx.aspx, ID: LinkEditField136
+												178 cell
+													179 text Person or Group
+											180 row
+												181 cell
+													182 link Description: Modified By, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEditEx.aspx, ID: LinkEditField137
+												183 cell
+													184 text Person or Group
+											185 row
+												186 cell
+													187 link Description: Checked Out To, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/FldEditEx.aspx, ID: LinkEditField138
+												188 cell
+													189 text Person or Group
+									190 container   Create column   Add from existing site columns   Column ordering   Indexed columns
+										191 container
+											192 container Create column
+												193 link Description: Create column, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/fldNew.aspx, ID: onetidListEdit4
+											194 container Add from existing site columns
+												195 link Description: Add from existing site columns, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/AddFieldFromTemplate.aspx, ID: onetidListEdit4b
+											196 container Column ordering
+												197 link Description: Column ordering, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/formEdt.aspx, ID: onetidListEdit5
+											198 container Indexed columns
+												199 link Description: Indexed columns, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/IndexedColumns.aspx, ID: onetidListEdit13
+							200 container Views A view of a document library allows you to see a particular selection of items or to see the items sorted in a particular order. Views currently configured for this document library:   Create view
+								201 container
+									202 container Views, ID: 3000
+										203 heading Views, Value: 3
+											204 text Views
+									205 container A view of a document library allows you to see a particular selection of items or to see the items sorted in a particular order. Views currently configured for this document library:
+										206 text A view of a document library allows you to see a particular selection of items or to see the items sorted in a particular order. Views currently configured for this document library:
+									207 table
+										208 row
+											209 cell
+												210 text View (click to edit)
+											211 cell
+												212 text Default View
+											213 cell
+												214 text Mobile View
+											215 cell
+												216 text Default Mobile View
+										217 row
+											218 cell
+												219 link Description: All Documents, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/ViewEdit.aspx, ID: onetid200
+									220 container   Create view
+										221 container
+											222 container Create view
+												223 link Description: Create view, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/ViewType.aspx, ID: onetidListEdit6
+
+The focused UI element is 85 link Description: List name, description and navigation, URL: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/ListGeneralSettings.aspx, ID: ctl00_PlaceHolderMain_ctl08_RptControls_LnkGeneralSettings

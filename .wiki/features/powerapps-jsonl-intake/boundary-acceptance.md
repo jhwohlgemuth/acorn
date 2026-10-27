@@ -1,8 +1,21 @@
 # PA-15 boundary acceptance
 
-October 26, 2026: **Waiting on validation.** Jason malformed-tail rejection passed in the new isolated pass below. Remaining work is mixed-line preservation and exact-cap append in both environments, plus oversized-file rejection in Jason. Test flows are Off and the original isolated baseline is restored.
+October 26, 2026: **Waiting on validation.** Jason malformed-tail rejection and mixed-line preservation are accepted. Remaining work is ORNL mixed-line preservation, exact-cap append in both environments, and oversized-file rejection in Jason. Test flows are Off and the original isolated baseline is restored.
 
 Earlier October 25 checkpoint: All listed field limits and field-rejection cases passed in both isolated environments. The requested five-attempt series completed 34 cloud runs and added three accepted cases: ORNL's 20-detail append, malformed-tail rejection and one-byte-over-cap rejection. Each still-open case received five attempts; GitLab HTTP 403 or 504 responses prevented acceptance. Remaining work is mixed-line preservation and exact-cap append in both environments, plus malformed-tail and oversized-file rejection in Jason. Both test flows are Off and the original isolated baseline is restored. No operational component or inbox was changed.
+
+## October 26 follow-up after Studio recovery
+
+Jason mixed-line preservation passed on its first fresh attempt, run `08584085424616813505331453417CU29`. The 512-byte fixture at `a89b69e76b7d786b4335f3ec90e0f3ecb356e69b` became exactly 921 bytes at `d9bad9d142d650bda570f9b788454b7f9e128775`: the original bytes plus the frozen 408-byte payload and one LF. Independent comparison preserved all prior blank/rejected lines, mixed LF/CRLF and Unicode. The accepted file SHA-256 is `a98747d5e96b5c07eb85d440c420ab7ef64cbbaab54b743294f7d98d5b4a12a9`. Commit append, snapshot verification, written-byte confirmation and Queued new all succeeded.
+
+| Remaining Jason case | Attempts in this follow-up | Result |
+| --- | --- | --- |
+| Exact proposed-file cap | 5 | Attempts 2 and 4 read the fixture and passed the size gate, but Commit append returned network-range 403. Attempts 1, 3 and 5 stopped at catalog access. No append acceptance. |
+| One byte over proposed-file cap | 5 | Attempts 1, 3, 4 and 5 stopped at catalog access; attempt 2 reached file read and received network-range 403. The size-rejection action never ran. No rejection acceptance. |
+
+The same frozen size payload added 409 bytes including LF. Exact-cap setup was 10,485,350 bytes (proposed 10,485,759); over-cap setup was 10,485,351 (proposed 10,485,760). All five exact-cap readbacks retained the setup bytes and revision. Serialized over-cap readbacks after attempts 1, 3 and 5 retained its setup bytes and revision. Where an error body was not expanded, the ledger records the failed action without inventing its HTTP status. ORNL cases were not rerun in this follow-up; their earlier five-attempt results remain open.
+
+[Follow-up ledger](_assets/boundary-tests/followup-20261026/results.json), [independent snapshots](_assets/boundary-tests/followup-20261026/snapshots.json), [mixed prefix](_assets/boundary-tests/followup-20261026/mixed-before.jsonl) and [accepted file](_assets/boundary-tests/followup-20261026/mixed-accepted.jsonl) preserve the result. Conditional restoration at `0532c9c4350b80fe655e3cbc7e480c1fa0d98d3c` returned the exact original 457-byte baseline and SHA-256 `adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15`. Jason was verified Off; ORNL remained Off and unchanged. No operational component, credential, notification gate or operational inbox was changed.
 
 ## October 26 isolated validation pass
 
@@ -117,10 +130,10 @@ The final readbacks cover serialized groups of runs when the intended write was 
 | --- | --- | --- |
 | Summary 1,200; detail 1,000; 20 details | Exact one-line appends passed in both environments | None for these dimensions |
 | Summary 1,201; detail 1,001; 21 details; whitespace summary/detail; empty detail array | Individual server rejections passed in both environments with no write; earlier Jason over-limit evidence is in the [runbook](pilot-runbook.md#isolated-live-server-boundaries) | None for these dimensions |
-| Blank/rejected lines, mixed LF/CRLF and Unicode | Earlier five attempts per environment failed with 403/504; five additional October 26 Jason attempts produced no append | Real conditional append preserves every original byte in both environments |
+| Blank/rejected lines, mixed LF/CRLF and Unicode | Jason accepted in the October 26 follow-up; ORNL earlier five attempts failed with 403/504 | ORNL real conditional append preserves every original byte |
 | Malformed tail without terminal LF | Intended rejection passed in both environments; Jason accepted October 26 with exact unchanged bytes/revision | None for this dimension |
 | Exact append-size cap | Five new attempts per environment stopped upstream; installed fixtures and revisions unchanged | Exact 10,485,759-byte accepted append in both environments |
-| One byte over append-size cap | ORNL intended rejection passed; earlier five Jason attempts and one October 26 attempt stopped upstream | Jason runtime rejection and unchanged file/revision |
+| One byte over append-size cap | ORNL intended rejection passed; latest five Jason follow-up attempts stopped at catalog/file reads | Jason runtime rejection and unchanged file/revision |
 
 Retries used unchanged authorized connections; no network or credential control was changed. After the second retry's successful count append, mixed-content, unsafe-tail and exact-cap fixtures were installed only at the isolated path and tested individually. Their upstream denials do not count as rejection or preservation passes. This does not reopen PA-02 or require an administrator ticket; it preserves the known limitation and the unpassed PA-15 cases. PA-16 concurrency and PA-17 restoration retain their independent gates.
 

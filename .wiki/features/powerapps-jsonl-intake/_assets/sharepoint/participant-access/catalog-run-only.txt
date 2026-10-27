@@ -1,0 +1,289 @@
+Browser tab: 1329059518, Title: "Manage your flows | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/details".
+0 AXWebArea Manage your flows | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/details
+	1 container
+		2 container root
+			3 container
+				4 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				5 container o365header
+					6 container O365_NavHeader
+						7 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							136 text 
+						9 container ppuxOfficeHeaderTopLevelRegion
+							10 container ppuxOfficeHeaderLeftRegion
+								11 text Power Automate
+							12 container ppuxOfficeHeaderRightRegion
+								13 button Wohlgemuth, Jason
+									14 container
+										15 text Environments Wohlgemuth, Jason
+								16 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								17 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						18 container O365_HeaderRightRegion
+							19 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								20 image JW
+				115 container Main
+					116 button (collapsed) Left navigation panel, Secondary Actions: Expand
+						117 image Left navigation panel
+					118 menu
+						119 container
+							120 container
+								121 container aboveCustomizableItemsId0
+									122 Home
+									123 Create
+									124 Templates
+									125 Learn
+									126 My flows
+								127 Approvals
+								128 Solutions
+								129 Automation center
+								130 Process mining
+									131 image
+								132 AI hub
+								133 Connections
+								134 More
+								135 Power Platform
+				137 container
+					138 container
+						139 menu bar
+							140 container
+								141 Edit
+									142 text Edit
+								143 Share
+									144 text Share
+								145 Save As
+									146 text Save As
+								147 ACORN SharePoint Pilot Catalog Delete
+									148 text Delete
+								149 Run
+									150 text Run
+								151 Send a copy
+									152 text Send a copy
+								153 (collapsed) Export, Secondary Actions: Expand
+									154 text Export
+								155 (collapsed) Description: More actions, Secondary Actions: Expand
+							156 Flow checker
+								157 text Flow checker
+						158 container
+							159 content list
+								160 link Description: Flows, Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows
+								161 heading ACORN SharePoint Pilot Catalog, Value: 2
+									162 text ACORN SharePoint Pilot Catalog
+							163 container
+								164 heading Details, Value: 3
+									165 text Details
+								166 button Edit description
+								167 container
+									168 container Flow
+										169 text Flow
+										170 text ACORN SharePoint Pilot Catalog
+									171 container Primary owner
+										172 text Primary owner
+										173 text Jason Wohlgemuth
+								174 container
+									175 container Status
+										176 text Status
+										177 text On
+									178 container Created
+										179 text Created
+										180 text Oct 26, 2026, 01:00 PM
+									181 container Modified
+										182 text Modified
+										183 text Oct 26, 2026, 01:43 PM
+									184 container Type
+										185 text Type
+										186 text Instant
+									187 container Plan
+										188 text Plan
+										189 text The user who runs the flow
+							190 container
+								191 heading Value: 3, 28-day run history General Data Protection Regulation (GDPR) requires us to keep run logs for no longer than 28 days. To maintain a longer history you'll need to manually capture run histories before they are deleted.
+									192 text 28-day run history
+									193 container General Data Protection Regulation (GDPR) requires us to keep run logs for no longer than 28 days. To maintain a longer history you'll need to manually capture run histories before they are deleted.
+								194 button Edit columns
+								195 button Refresh Flow runs
+								196 link Description: All runs, Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/runs
+								197 table
+									198 row Start Duration Status
+										199 cell Start
+											200 text Start
+										201 cell Duration
+											202 text Duration
+										203 cell Status
+											204 text Status
+									205 row Oct 27, 10:35 AM ( 1 minute ago ) 482 ms Failed, ID: row795-0
+										206 cell row795-0-header
+											207 link Description: Oct 27, 10:35 AM ( 1 minute ago ), Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/runs/08584084951683106531538354315CU08
+										208 cell
+											209 text 482 ms
+										210 cell
+											211 text Failed
+									212 row Oct 27, 10:34 AM ( 1 minute ago ) 143 ms Failed, ID: row795-1
+										213 cell row795-1-header
+											214 link Description: Oct 27, 10:34 AM ( 1 minute ago ), Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/runs/08584084951964698580839771964CU05
+										215 cell
+											216 text 143 ms
+										217 cell
+											218 text Failed
+									219 row Oct 27, 10:34 AM ( 2 minutes ago ) 477 ms Failed, ID: row795-2
+										220 cell row795-2-header
+											221 link Description: Oct 27, 10:34 AM ( 2 minutes ago ), Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/runs/08584084952005465151578948764CU14
+										222 cell
+											223 text 477 ms
+										224 cell
+											225 text Failed
+									226 row Oct 27, 10:33 AM ( 2 minutes ago ) 158 ms Failed, ID: row795-3
+										227 cell row795-3-header
+											228 link Description: Oct 27, 10:33 AM ( 2 minutes ago ), Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/runs/08584084952574210642327879755CU03
+										229 cell
+											230 text 158 ms
+										231 cell
+											232 text Failed
+									233 row Oct 27, 10:33 AM ( 3 minutes ago ) 172 ms Failed, ID: row795-4
+										234 cell row795-4-header
+											235 link Description: Oct 27, 10:33 AM ( 3 minutes ago ), Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/runs/08584084952609976379286219701CU16
+										236 cell
+											237 text 172 ms
+										238 cell
+											239 text Failed
+									240 row Oct 27, 10:33 AM ( 3 minutes ago ) 165 ms Failed, ID: row795-5
+										241 cell row795-5-header
+											242 link Description: Oct 27, 10:33 AM ( 3 minutes ago ), Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/runs/08584084952639711889234344566CU14
+										243 cell
+											244 text 165 ms
+										245 cell
+											246 text Failed
+									247 row Oct 27, 10:33 AM ( 3 minutes ago ) 162 ms Failed, ID: row795-6
+										248 cell row795-6-header
+											249 link Description: Oct 27, 10:33 AM ( 3 minutes ago ), Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/runs/08584084952694705540042676797CU29
+										250 cell
+											251 text 162 ms
+										252 cell
+											253 text Failed
+									254 row Oct 27, 10:32 AM ( 3 minutes ago ) 369 ms Succeeded, ID: row795-7
+										255 cell row795-7-header
+											256 link Description: Oct 27, 10:32 AM ( 3 minutes ago ), Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/runs/08584084953125991198332160718CU23
+										257 cell
+											258 text 369 ms
+										259 cell
+											260 text Succeeded
+									261 row Oct 27, 10:32 AM ( 4 minutes ago ) 176 ms Failed, ID: row795-8
+										262 cell row795-8-header
+											263 link Description: Oct 27, 10:32 AM ( 4 minutes ago ), Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/runs/08584084953244273640702407821CU26
+										264 cell
+											265 text 176 ms
+										266 cell
+											267 text Failed
+									268 row Oct 27, 10:31 AM ( 4 minutes ago ) 179 ms Failed, ID: row795-9
+										269 cell row795-9-header
+											270 link Description: Oct 27, 10:31 AM ( 4 minutes ago ), Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/runs/08584084953718070961103132401CU27
+										271 cell
+											272 text 179 ms
+										273 cell
+											274 text Failed
+							275 container
+								276 heading Connection references, Value: 3
+									277 text Connection references
+								278 button See all
+								279 table
+									280 row o9w@ornl.gov SharePoint Permissions o9w@ornl.gov, ID: row657-0
+										281 cell
+											282 image o9w@ornl.gov
+										283 cell
+											284 text SharePoint
+											285 button Permissions
+												286 text Permissions
+										287 cell
+											288 text o9w@ornl.gov
+							289 container
+								290 heading Co-owner, Value: 3
+									291 text Co-owner
+								292 button Set primary owner
+								293 link Description: Share, Add another co-owner, Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/owners
+								294 content list Flow owners
+									295 text Wohlgemuth, Jason
+								296 heading Flow runs error trends (last 7 days), Value: 3
+									297 text Flow runs error trends (last 7 days)
+								298 link Description: Go to Automation center, Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/monitor/automations/overview?filterDateFrom=2026-10-20T14%3A36%3A00.000Z&filterCloudFlowIds=11c076c1-64d1-f111-a05c-001dd8062052&filterCloudFlowResourceIds=6f8a4ab5-dd66-4904-9f5d-f307519ab4d5
+								299 container chart_598
+									300 container Vertical bar chart with 2 stacked bars and 1 lines. The X axis displays categories. The Y axis displays values. 
+										301 image Description: 10/25/2026. Flow runs, 5. Error rate, 0% (0)., ID: 0-singleBar
+										302 container Total: 5
+										303 image Description: 10/26/2026. Flow runs, 9. Error rate, 67% (6)., ID: 1-singleBar
+										304 container Total: 9
+									305 list Legends
+										306 container
+											307 Error rate
+												308 text Error rate
+											309 1 more
+												310 button (collapsed) Description: 1 more, Secondary Actions: Expand
+													311 text 1 more
+							312 container
+								313 heading Solutions This flow is referenced in the following solutions, Value: 3
+									314 text Solutions
+									315 container This flow is referenced in the following solutions
+								316 table
+									317 row Solution Name Managed
+										318 cell Solution Name
+											319 text Solution Name
+										320 cell Managed
+											321 text Managed
+									322 row ACORN SharePoint Pilot No, ID: row809-0
+										323 cell row809-0-header
+											324 link Description: ACORN SharePoint Pilot, Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/solutions/0fafd397-64d1-f111-a05c-001dd8062052
+										325 cell
+											326 text No
+							327 container
+								328 heading Value: 3, Process mining (preview) Find out what actions in your flow are executing the most and what actions are taking the most time to gain insights to improve your flow. The insights are generated based on your flow runs in the last 28 days.
+									329 text Process mining (preview)
+									330 container Find out what actions in your flow are executing the most and what actions are taking the most time to gain insights to improve your flow. The insights are generated based on your flow runs in the last 28 days.
+								331 button Improve your flow
+									332 text Improve your flow
+								333 image Improve your flow with process mining
+								334 container
+									335 text Average run duration 272 ms
+							336 container
+								337 heading Run-only user, Value: 3
+									338 text Run-only user
+								339 button Edit, Add another user
+								340 text Your flow hasn't been shared with anyone.
+							341 container
+								342 heading Value: 3, Associated apps and flows Adding apps or flows here helps you see which apps and flows are using this flow.
+									343 text Associated apps and flows
+									344 button Adding apps or flows here helps you see which apps and flows are using this flow.
+								345 link Description: Edit, Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f8a4ab5-dd66-4904-9f5d-f307519ab4d5/associatedApps
+								346 container
+									347 text You don’t have any apps associated with this flow. 
+									348 link Description: Learn more, Value: go.microsoft.com/fwlink/?linkid=2247633
+					349 container
+						351 container Manage run-only permissions
+							352 container
+								353 button Close
+									354 text 
+								355 heading Manage run-only permissions, Value: 1, ID: infoPane-title8e9a6269-c224-9f12-36ab-1c63644e56e0
+									356 text Manage run-only permissions
+							357 container
+								358 tab group
+									359 tab (selected, settable, boolean) Description: Users and groups, Value: 1
+									360 tab (selectable, settable, boolean) Description: SharePoint, Value: 0
+								361 heading Invite system users or teams, Value: 1
+									362 text Invite system users or teams
+								363 text Let others run this flow and see the results, but not edit in any way.
+								364 container
+									365 text field (settable)
+								366 heading Currently shared with, Value: 1
+									367 text Currently shared with
+								368 text This flow has not been shared with any users. Add a person and see their name here.
+								369 heading Connections Used, Value: 1
+									370 text Connections Used
+								371 text These connections will provide the users listed here to have run-only access to this flow. Unless providing their own connection, run-only users will not have access to these connections outside this flow.
+								372 container SharePoint
+									373 text SharePoint
+									374 text Run-only users will be asked to provide their own connection to this connector.
+								375 pop up button (collapsed, settable) Description: Select a connection for SharePoint., Value: Provided by run-only user, Secondary Actions: Expand
+									376 menu
+										377 (selected) Provided by run-only user
+										378 Use this connection (o9w@ornl.gov)
+								379 button (disabled) Save
+								380 button Cancel
+						350 container Connections Used Users with run-only access will not control or have access to these connections outside of this flow.
+
+The focused UI element is 339 button Edit, Add another user

@@ -1,0 +1,41 @@
+{
+  "receiptCount": 6,
+  "projectCount": 13,
+  "receiptCutoff": 6,
+  "projectCutoff": 13,
+  "capturedUtc": "2026-10-27T13:33:07.6422780Z",
+  "payloadAndCatalogExact": true,
+  "receiptFilesVerifiedByFlow": true,
+  "receipts": [
+    {
+      "submissionId": "5e505b15-5f25-4ae7-8e13-7b4df6f6715e",
+      "bytes": 470,
+      "sha256": "c0fe9440b065d3b2b13494e80b6a6685d43328af2ea9f8b6671c1bd01aba3bb0"
+    },
+    {
+      "submissionId": "02b7231b-47e0-4034-b49b-0b6e594548e0",
+      "bytes": 464,
+      "sha256": "f3289e1bdce05d6f453384e9ebcc1912252245c91855ca4e03cd71aa6e4f71bc"
+    },
+    {
+      "submissionId": "64b836e0-016f-4493-9894-a6fe79acc8de",
+      "bytes": 461,
+      "sha256": "a3d2eb0ebb184c676256152a7b52e3ff7f8c722de814472cb6e62a24f6281435"
+    },
+    {
+      "submissionId": "dff4315e-8106-4eb8-83ad-44f6df767476",
+      "bytes": 648,
+      "sha256": "6bd820a846df4c527c10790d6068c14509a14e9c32f40d248a38a9789461934a"
+    },
+    {
+      "submissionId": "67c0e548-ac0c-4a01-829c-9e4708b3cf1f",
+      "bytes": 656,
+      "sha256": "b004695ed56c49de8e0b5e89a2edcef825e9a97385f436fe9b15a2cab2d09b4a"
+    },
+    {
+      "submissionId": "32baf0fa-96a7-43c0-8e80-cd71c26b4ca3",
+      "bytes": 714,
+      "sha256": "bb7fcb6f1e241361884767ee5db9f5cd25ef174cfc4e2ddded33554c53d07cba"
+    }
+  ]
+}

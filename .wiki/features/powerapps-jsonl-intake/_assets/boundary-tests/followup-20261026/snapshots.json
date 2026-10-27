@@ -1,0 +1,114 @@
+{
+  "oct26-followup-mixed-after1": {
+    "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    "size": 921,
+    "content_sha256": "a98747d5e96b5c07eb85d440c420ab7ef64cbbaab54b743294f7d98d5b4a12a9",
+    "commit_id": "d9bad9d142d650bda570f9b788454b7f9e128775",
+    "last_commit_id": "d9bad9d142d650bda570f9b788454b7f9e128775",
+    "sha256": "a98747d5e96b5c07eb85d440c420ab7ef64cbbaab54b743294f7d98d5b4a12a9"
+  },
+  "oct26-followup-mixed-before": {
+    "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    "size": 512,
+    "content_sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a",
+    "commit_id": "a89b69e76b7d786b4335f3ec90e0f3ecb356e69b",
+    "last_commit_id": "a89b69e76b7d786b4335f3ec90e0f3ecb356e69b",
+    "sha256": "9cf2900873a4b85373a06f58dd94b4bf5abe6aecb09d97d13f0468dabd171a5a"
+  },
+  "oct26-followup-over-after1": {
+    "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    "size": 10485351,
+    "content_sha256": "9ab5ca1cd1df25965bc17a6b65ad8c8443b90a1adedfea993951aced1355cd3c",
+    "commit_id": "898ad0ccb5205b2b03b817cb186873eb7b50f129",
+    "last_commit_id": "898ad0ccb5205b2b03b817cb186873eb7b50f129",
+    "sha256": "9ab5ca1cd1df25965bc17a6b65ad8c8443b90a1adedfea993951aced1355cd3c"
+  },
+  "oct26-followup-over-after3": {
+    "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    "size": 10485351,
+    "content_sha256": "9ab5ca1cd1df25965bc17a6b65ad8c8443b90a1adedfea993951aced1355cd3c",
+    "commit_id": "898ad0ccb5205b2b03b817cb186873eb7b50f129",
+    "last_commit_id": "898ad0ccb5205b2b03b817cb186873eb7b50f129",
+    "sha256": "9ab5ca1cd1df25965bc17a6b65ad8c8443b90a1adedfea993951aced1355cd3c"
+  },
+  "oct26-followup-over-after5": {
+    "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    "size": 10485351,
+    "content_sha256": "9ab5ca1cd1df25965bc17a6b65ad8c8443b90a1adedfea993951aced1355cd3c",
+    "commit_id": "898ad0ccb5205b2b03b817cb186873eb7b50f129",
+    "last_commit_id": "898ad0ccb5205b2b03b817cb186873eb7b50f129",
+    "sha256": "9ab5ca1cd1df25965bc17a6b65ad8c8443b90a1adedfea993951aced1355cd3c"
+  },
+  "oct26-followup-over-before": {
+    "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    "size": 10485351,
+    "content_sha256": "9ab5ca1cd1df25965bc17a6b65ad8c8443b90a1adedfea993951aced1355cd3c",
+    "commit_id": "898ad0ccb5205b2b03b817cb186873eb7b50f129",
+    "last_commit_id": "898ad0ccb5205b2b03b817cb186873eb7b50f129",
+    "sha256": "9ab5ca1cd1df25965bc17a6b65ad8c8443b90a1adedfea993951aced1355cd3c"
+  },
+  "oct26-followup-restored": {
+    "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    "size": 457,
+    "content_sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+    "commit_id": "0532c9c4350b80fe655e3cbc7e480c1fa0d98d3c",
+    "last_commit_id": "0532c9c4350b80fe655e3cbc7e480c1fa0d98d3c",
+    "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15"
+  },
+  "oct26-followup-size-after1": {
+    "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    "size": 10485350,
+    "content_sha256": "52988968fe04ef61dc5d84db7952da5e16920dac836394b57318098d6fb8d08e",
+    "commit_id": "8fca79879fd481645258840ffd0fc7ded7c0d282",
+    "last_commit_id": "8fca79879fd481645258840ffd0fc7ded7c0d282",
+    "sha256": "52988968fe04ef61dc5d84db7952da5e16920dac836394b57318098d6fb8d08e"
+  },
+  "oct26-followup-size-after2": {
+    "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    "size": 10485350,
+    "content_sha256": "52988968fe04ef61dc5d84db7952da5e16920dac836394b57318098d6fb8d08e",
+    "commit_id": "8fca79879fd481645258840ffd0fc7ded7c0d282",
+    "last_commit_id": "8fca79879fd481645258840ffd0fc7ded7c0d282",
+    "sha256": "52988968fe04ef61dc5d84db7952da5e16920dac836394b57318098d6fb8d08e"
+  },
+  "oct26-followup-size-after3": {
+    "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    "size": 10485350,
+    "content_sha256": "52988968fe04ef61dc5d84db7952da5e16920dac836394b57318098d6fb8d08e",
+    "commit_id": "8fca79879fd481645258840ffd0fc7ded7c0d282",
+    "last_commit_id": "8fca79879fd481645258840ffd0fc7ded7c0d282",
+    "sha256": "52988968fe04ef61dc5d84db7952da5e16920dac836394b57318098d6fb8d08e"
+  },
+  "oct26-followup-size-after4": {
+    "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    "size": 10485350,
+    "content_sha256": "52988968fe04ef61dc5d84db7952da5e16920dac836394b57318098d6fb8d08e",
+    "commit_id": "8fca79879fd481645258840ffd0fc7ded7c0d282",
+    "last_commit_id": "8fca79879fd481645258840ffd0fc7ded7c0d282",
+    "sha256": "52988968fe04ef61dc5d84db7952da5e16920dac836394b57318098d6fb8d08e"
+  },
+  "oct26-followup-size-after5": {
+    "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    "size": 10485350,
+    "content_sha256": "52988968fe04ef61dc5d84db7952da5e16920dac836394b57318098d6fb8d08e",
+    "commit_id": "8fca79879fd481645258840ffd0fc7ded7c0d282",
+    "last_commit_id": "8fca79879fd481645258840ffd0fc7ded7c0d282",
+    "sha256": "52988968fe04ef61dc5d84db7952da5e16920dac836394b57318098d6fb8d08e"
+  },
+  "oct26-followup-size-before": {
+    "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    "size": 10485350,
+    "content_sha256": "52988968fe04ef61dc5d84db7952da5e16920dac836394b57318098d6fb8d08e",
+    "commit_id": "8fca79879fd481645258840ffd0fc7ded7c0d282",
+    "last_commit_id": "8fca79879fd481645258840ffd0fc7ded7c0d282",
+    "sha256": "52988968fe04ef61dc5d84db7952da5e16920dac836394b57318098d6fb8d08e"
+  },
+  "oct26-followup-start": {
+    "file_path": ".acorn/intake/acceptance/pa17-logbook.jsonl",
+    "size": 457,
+    "content_sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15",
+    "commit_id": "b655ff3a831198359409daf3e87ef134bba54ad4",
+    "last_commit_id": "b655ff3a831198359409daf3e87ef134bba54ad4",
+    "sha256": "adcbd471fb91c075b4d48604648d118e6fd2c3de30b1688780de845827a71f15"
+  }
+}

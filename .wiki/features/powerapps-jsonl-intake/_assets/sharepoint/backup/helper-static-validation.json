@@ -1,0 +1,13 @@
+{
+  "uniqueActions": 34,
+  "isolatedWrites": [
+    "Receipts_backup_write",
+    "Projects_backup_write",
+    "Restore_project",
+    "Restore_receipt",
+    "Restore_receipt_file",
+    "Mark_restored_receipt_exported",
+    "Write_restored_snapshot"
+  ],
+  "sourceWrites": 0
+}

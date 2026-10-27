@@ -1,0 +1,72 @@
+{
+  "id": "3e39b9d2-a5c3-5e96-ac31-6aaa618eed4c",
+  "brandColor": "#8C6CFF",
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "connectionName": "shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "tier": "NotSpecified",
+      "apiName": "sharepointonline",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": true
+    }
+  },
+  "connectorDisplayName": "Control",
+  "isTrigger": false,
+  "operationName": "SharePoint_response_SP",
+  "operationDefinition": {
+    "runAfter": {
+      "SharePoint_intake_SP": [
+        "Succeeded",
+        "Failed",
+        "Skipped",
+        "TimedOut"
+      ]
+    },
+    "metadata": {
+      "operationMetadataId": "9aefd201-b24f-4859-858d-df0f54e92fee"
+    },
+    "type": "Response",
+    "kind": "PowerApp",
+    "inputs": {
+      "statusCode": 200,
+      "body": {
+        "status": "@{if(equals(actions('Accepted_receipt_SP')?['status'], 'Succeeded'), 'received', if(equals(actions('Conflict_SP')?['status'], 'Succeeded'), 'conflict', if(or(equals(actions('Rejected_SP')?['status'], 'Succeeded'), equals(actions('Parse_submission_SP')?['status'], 'Failed'), equals(actions('Check_timestamps_SP')?['status'], 'Failed')), 'rejected', 'unresolved')))}",
+        "submissionid": "@{if(equals(actions('Parse_submission_SP')?['status'], 'Succeeded'), body('Parse_submission_SP')?['submissionId'], string(null))}",
+        "exportstatus": "@{if(equals(actions('Mark_exported_SP')?['status'], 'Succeeded'), 'exported', 'pending')}",
+        "exportfileurl": "@{if(equals(actions('Mark_exported_SP')?['status'], 'Succeeded'), concat('https://ornl.sharepoint.com/sites/ResearchEnablement/PA24%20TEST%20ONLY%20JSONL/', body('Parse_submission_SP')?['submissionId'], '.jsonl'), string(null))}",
+        "receipturl": "@{if(equals(actions('Accepted_receipt_SP')?['status'], 'Succeeded'), concat('https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/PA24%20TEST%20ONLY%20Receipts/DispForm.aspx?ID=', string(outputs('Accepted_receipt_SP'))), string(null))}"
+      },
+      "schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "title": "status",
+            "x-ms-dynamically-added": true,
+            "type": "string"
+          },
+          "submissionid": {
+            "title": "submissionId",
+            "x-ms-dynamically-added": true,
+            "type": "string"
+          },
+          "exportstatus": {
+            "title": "exportStatus",
+            "x-ms-dynamically-added": true,
+            "type": "string"
+          },
+          "exportfileurl": {
+            "title": "exportFileUrl",
+            "x-ms-dynamically-added": true,
+            "type": "string"
+          },
+          "receipturl": {
+            "title": "receiptUrl",
+            "x-ms-dynamically-added": true,
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

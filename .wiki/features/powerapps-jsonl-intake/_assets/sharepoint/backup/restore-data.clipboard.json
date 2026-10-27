@@ -1,0 +1,843 @@
+{
+  "id": "91f09eb1-b58b-5eae-b449-43f6fcf5e72c",
+  "brandColor": "#8C6CFF",
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "connectionName": "shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "tier": "NotSpecified",
+      "apiName": "sharepointonline",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": true
+    }
+  },
+  "connectorDisplayName": "Control",
+  "isTrigger": false,
+  "operationName": "PA24_restore_data",
+  "operationDefinition": {
+    "type": "Scope",
+    "runAfter": {},
+    "actions": {
+      "Check_empty_receipts": {
+        "type": "OpenApiConnection",
+        "runAfter": {},
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "table": "13fa719a-32ae-45de-b444-95d3a33e8048",
+            "$top": 1
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Check_empty_projects": {
+        "type": "OpenApiConnection",
+        "runAfter": {
+          "Check_empty_receipts": [
+            "Succeeded"
+          ]
+        },
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "table": "c482b248-39fb-45f8-833e-26baf05cc15c",
+            "$top": 1
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Require_empty_targets": {
+        "type": "If",
+        "expression": {
+          "and": [
+            {
+              "equals": [
+                "@length(body('Check_empty_receipts')?['value'])",
+                0
+              ]
+            },
+            {
+              "equals": [
+                "@length(body('Check_empty_projects')?['value'])",
+                0
+              ]
+            }
+          ]
+        },
+        "runAfter": {
+          "Check_empty_projects": [
+            "Succeeded"
+          ]
+        },
+        "actions": {},
+        "else": {
+          "actions": {
+            "Check_empty_projects_guard_failed": {
+              "type": "Compose",
+              "inputs": "@int('PA24 restore validation failed')",
+              "runAfter": {}
+            }
+          }
+        }
+      },
+      "Receipts_latest": {
+        "type": "OpenApiConnection",
+        "runAfter": {
+          "Require_empty_targets": [
+            "Succeeded"
+          ]
+        },
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "table": "a904a6c6-5dd0-427b-9575-8167c4c0c412",
+            "$orderby": "ID desc",
+            "$top": 1
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Receipts_rows": {
+        "type": "OpenApiConnection",
+        "runAfter": {
+          "Receipts_latest": [
+            "Succeeded"
+          ]
+        },
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "table": "a904a6c6-5dd0-427b-9575-8167c4c0c412",
+            "$orderby": "ID asc",
+            "$top": 1001,
+            "$filter": "@concat('ID le ', string(coalesce(first(body('Receipts_latest')?['value'])?['ID'], 0)))"
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Receipts_snapshot": {
+        "type": "Compose",
+        "inputs": {
+          "capturedUtc": "@utcNow()",
+          "sourceList": "a904a6c6-5dd0-427b-9575-8167c4c0c412",
+          "cutoffId": "@coalesce(first(body('Receipts_latest')?['value'])?['ID'], 0)",
+          "rows": "@body('Receipts_rows')?['value']"
+        },
+        "runAfter": {
+          "Receipts_rows": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Receipts_backup_write": {
+        "type": "OpenApiConnection",
+        "runAfter": {
+          "Receipts_snapshot": [
+            "Succeeded"
+          ]
+        },
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "@concat('_api/web/GetFolderByServerRelativeUrl(', decodeUriComponent('%27'), '/sites/ResearchEnablement/PA24 TEST ONLY JSONL', decodeUriComponent('%27'), ')/Files/add(url=', decodeUriComponent('%27'), 'Receipts-snapshot.json', decodeUriComponent('%27'), ',overwrite=false)')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/octet-stream"
+            },
+            "parameters/body": "@string(outputs('Receipts_snapshot'))"
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Receipts_backup_read": {
+        "type": "OpenApiConnection",
+        "runAfter": {
+          "Receipts_backup_write": [
+            "Succeeded"
+          ]
+        },
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetFileContentByPath"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "path": "/PA24 TEST ONLY JSONL/Receipts-snapshot.json",
+            "inferContentType": false
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Receipts_backup_exact": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@body('Receipts_backup_read')?['$content']",
+            "@base64(string(outputs('Receipts_snapshot')))"
+          ]
+        },
+        "runAfter": {
+          "Receipts_backup_read": [
+            "Succeeded"
+          ]
+        },
+        "actions": {},
+        "else": {
+          "actions": {
+            "Receipts_backup_read_guard_failed": {
+              "type": "Compose",
+              "inputs": "@int('PA24 restore validation failed')",
+              "runAfter": {}
+            }
+          }
+        }
+      },
+      "Receipts_restored_input": {
+        "type": "Compose",
+        "inputs": "@json(base64ToString(body('Receipts_backup_read')?['$content']))",
+        "runAfter": {
+          "Receipts_backup_exact": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Projects_latest": {
+        "type": "OpenApiConnection",
+        "runAfter": {
+          "Receipts_restored_input": [
+            "Succeeded"
+          ]
+        },
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "table": "88dfa78d-a62f-4e0f-aae5-0d5ea52758ed",
+            "$orderby": "ID desc",
+            "$top": 1
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Projects_rows": {
+        "type": "OpenApiConnection",
+        "runAfter": {
+          "Projects_latest": [
+            "Succeeded"
+          ]
+        },
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "table": "88dfa78d-a62f-4e0f-aae5-0d5ea52758ed",
+            "$orderby": "ID asc",
+            "$top": 1001,
+            "$filter": "@concat('ID le ', string(coalesce(first(body('Projects_latest')?['value'])?['ID'], 0)))"
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Projects_snapshot": {
+        "type": "Compose",
+        "inputs": {
+          "capturedUtc": "@utcNow()",
+          "sourceList": "88dfa78d-a62f-4e0f-aae5-0d5ea52758ed",
+          "cutoffId": "@coalesce(first(body('Projects_latest')?['value'])?['ID'], 0)",
+          "rows": "@body('Projects_rows')?['value']"
+        },
+        "runAfter": {
+          "Projects_rows": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Projects_backup_write": {
+        "type": "OpenApiConnection",
+        "runAfter": {
+          "Projects_snapshot": [
+            "Succeeded"
+          ]
+        },
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "@concat('_api/web/GetFolderByServerRelativeUrl(', decodeUriComponent('%27'), '/sites/ResearchEnablement/PA24 TEST ONLY JSONL', decodeUriComponent('%27'), ')/Files/add(url=', decodeUriComponent('%27'), 'Projects-snapshot.json', decodeUriComponent('%27'), ',overwrite=false)')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/octet-stream"
+            },
+            "parameters/body": "@string(outputs('Projects_snapshot'))"
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Projects_backup_read": {
+        "type": "OpenApiConnection",
+        "runAfter": {
+          "Projects_backup_write": [
+            "Succeeded"
+          ]
+        },
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetFileContentByPath"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "path": "/PA24 TEST ONLY JSONL/Projects-snapshot.json",
+            "inferContentType": false
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Projects_backup_exact": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@body('Projects_backup_read')?['$content']",
+            "@base64(string(outputs('Projects_snapshot')))"
+          ]
+        },
+        "runAfter": {
+          "Projects_backup_read": [
+            "Succeeded"
+          ]
+        },
+        "actions": {},
+        "else": {
+          "actions": {
+            "Projects_backup_read_guard_failed": {
+              "type": "Compose",
+              "inputs": "@int('PA24 restore validation failed')",
+              "runAfter": {}
+            }
+          }
+        }
+      },
+      "Projects_restored_input": {
+        "type": "Compose",
+        "inputs": "@json(base64ToString(body('Projects_backup_read')?['$content']))",
+        "runAfter": {
+          "Projects_backup_exact": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Restore_projects": {
+        "type": "Foreach",
+        "foreach": "@outputs('Projects_restored_input')?['rows']",
+        "runAfter": {
+          "Projects_restored_input": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "concurrency": {
+            "repetitions": 1
+          }
+        },
+        "actions": {
+          "Restore_project": {
+            "type": "OpenApiConnection",
+            "runAfter": {},
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "connectionName": "shared_sharepointonline",
+                "operationId": "PostItem"
+              },
+              "parameters": {
+                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                "table": "c482b248-39fb-45f8-833e-26baf05cc15c",
+                "item/ProjectId": "@items('Restore_projects')?['ProjectId']",
+                "item/SourceRevision": "@items('Restore_projects')?['SourceRevision']",
+                "item/Title": "@items('Restore_projects')?['Title']"
+              },
+              "authentication": "@parameters('$authentication')",
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "Restore_receipts": {
+        "type": "Foreach",
+        "foreach": "@outputs('Receipts_restored_input')?['rows']",
+        "runAfter": {
+          "Restore_projects": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "concurrency": {
+            "repetitions": 1
+          }
+        },
+        "actions": {
+          "Restore_receipt": {
+            "type": "OpenApiConnection",
+            "runAfter": {},
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "connectionName": "shared_sharepointonline",
+                "operationId": "PostItem"
+              },
+              "parameters": {
+                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                "table": "13fa719a-32ae-45de-b444-95d3a33e8048",
+                "item/PayloadBase64A": "@items('Restore_receipts')?['PayloadBase64A']",
+                "item/PayloadBase64B": "@items('Restore_receipts')?['PayloadBase64B']",
+                "item/ProjectId": "@items('Restore_receipts')?['ProjectId']",
+                "item/SubmissionId": "@items('Restore_receipts')?['SubmissionId']",
+                "item/SubmitterEmail": "@items('Restore_receipts')?['SubmitterEmail']",
+                "item/Summary": "@items('Restore_receipts')?['Summary']",
+                "item/Title": "@items('Restore_receipts')?['Title']",
+                "item/ExportStatus": "Pending"
+              },
+              "authentication": "@parameters('$authentication')",
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            }
+          },
+          "Restore_receipt_file": {
+            "type": "OpenApiConnection",
+            "runAfter": {
+              "Restore_receipt": [
+                "Succeeded"
+              ]
+            },
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "connectionName": "shared_sharepointonline",
+                "operationId": "HttpRequest"
+              },
+              "parameters": {
+                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                "parameters/method": "POST",
+                "parameters/uri": "@concat('_api/web/GetFolderByServerRelativeUrl(', decodeUriComponent('%27'), '/sites/ResearchEnablement/PA24 TEST ONLY JSONL', decodeUriComponent('%27'), ')/Files/add(url=', decodeUriComponent('%27'), concat(items('Restore_receipts')?['SubmissionId'], '.jsonl'), decodeUriComponent('%27'), ',overwrite=false)')",
+                "parameters/headers": {
+                  "Accept": "application/json;odata=nometadata",
+                  "Content-Type": "application/octet-stream"
+                },
+                "parameters/body": "@concat(base64ToString(concat(coalesce(items('Restore_receipts')?['PayloadBase64A'], string(null)), coalesce(items('Restore_receipts')?['PayloadBase64B'], string(null)))), decodeUriComponent('%0A'))"
+              },
+              "authentication": "@parameters('$authentication')",
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            }
+          },
+          "Read_restored_receipt_file": {
+            "type": "OpenApiConnection",
+            "runAfter": {
+              "Restore_receipt_file": [
+                "Succeeded"
+              ]
+            },
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "connectionName": "shared_sharepointonline",
+                "operationId": "GetFileContentByPath"
+              },
+              "parameters": {
+                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                "path": "@concat('/PA24 TEST ONLY JSONL/', items('Restore_receipts')?['SubmissionId'], '.jsonl')",
+                "inferContentType": false
+              },
+              "authentication": "@parameters('$authentication')",
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            }
+          },
+          "Require_exact_receipt_file": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@body('Read_restored_receipt_file')?['$content']",
+                "@base64(concat(base64ToString(concat(coalesce(items('Restore_receipts')?['PayloadBase64A'], string(null)), coalesce(items('Restore_receipts')?['PayloadBase64B'], string(null)))), decodeUriComponent('%0A')))"
+              ]
+            },
+            "runAfter": {
+              "Read_restored_receipt_file": [
+                "Succeeded"
+              ]
+            },
+            "actions": {},
+            "else": {
+              "actions": {
+                "Read_restored_receipt_file_guard_failed": {
+                  "type": "Compose",
+                  "inputs": "@int('PA24 restore validation failed')",
+                  "runAfter": {}
+                }
+              }
+            }
+          },
+          "Mark_restored_receipt_exported": {
+            "type": "OpenApiConnection",
+            "runAfter": {
+              "Require_exact_receipt_file": [
+                "Succeeded"
+              ]
+            },
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "connectionName": "shared_sharepointonline",
+                "operationId": "PatchItem"
+              },
+              "parameters": {
+                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                "table": "13fa719a-32ae-45de-b444-95d3a33e8048",
+                "id": "@body('Restore_receipt')?['ID']",
+                "item/PayloadBase64A": "@items('Restore_receipts')?['PayloadBase64A']",
+                "item/PayloadBase64B": "@items('Restore_receipts')?['PayloadBase64B']",
+                "item/ProjectId": "@items('Restore_receipts')?['ProjectId']",
+                "item/SubmissionId": "@items('Restore_receipts')?['SubmissionId']",
+                "item/SubmitterEmail": "@items('Restore_receipts')?['SubmitterEmail']",
+                "item/Summary": "@items('Restore_receipts')?['Summary']",
+                "item/Title": "@items('Restore_receipts')?['Title']",
+                "item/ExportStatus": "Exported",
+                "item/ExportFileUrl": "@concat('https://ornl.sharepoint.com/sites/ResearchEnablement/PA24%20TEST%20ONLY%20JSONL/', items('Restore_receipts')?['SubmissionId'], '.jsonl')"
+              },
+              "authentication": "@parameters('$authentication')",
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "Read_restored_receipts": {
+        "type": "OpenApiConnection",
+        "runAfter": {
+          "Restore_receipts": [
+            "Succeeded"
+          ]
+        },
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "table": "13fa719a-32ae-45de-b444-95d3a33e8048",
+            "$orderby": "ID asc",
+            "$top": 1001
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Read_restored_projects": {
+        "type": "OpenApiConnection",
+        "runAfter": {
+          "Read_restored_receipts": [
+            "Succeeded"
+          ]
+        },
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "table": "c482b248-39fb-45f8-833e-26baf05cc15c",
+            "$orderby": "ID asc",
+            "$top": 1001
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Restored_snapshot": {
+        "type": "Compose",
+        "inputs": {
+          "receipts": "@body('Read_restored_receipts')?['value']",
+          "projects": "@body('Read_restored_projects')?['value']"
+        },
+        "runAfter": {
+          "Read_restored_projects": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Write_restored_snapshot": {
+        "type": "OpenApiConnection",
+        "runAfter": {
+          "Restored_snapshot": [
+            "Succeeded"
+          ]
+        },
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "@concat('_api/web/GetFolderByServerRelativeUrl(', decodeUriComponent('%27'), '/sites/ResearchEnablement/PA24 TEST ONLY JSONL', decodeUriComponent('%27'), ')/Files/add(url=', decodeUriComponent('%27'), 'Restored-snapshot.json', decodeUriComponent('%27'), ',overwrite=false)')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/octet-stream"
+            },
+            "parameters/body": "@string(outputs('Restored_snapshot'))"
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Restore_counts": {
+        "type": "Compose",
+        "inputs": {
+          "receiptCount": "@length(body('Read_restored_receipts')?['value'])",
+          "projectCount": "@length(body('Read_restored_projects')?['value'])",
+          "receiptCutoff": "@outputs('Receipts_restored_input')?['cutoffId']",
+          "projectCutoff": "@outputs('Projects_restored_input')?['cutoffId']"
+        },
+        "runAfter": {
+          "Write_restored_snapshot": [
+            "Succeeded"
+          ]
+        }
+      }
+    }
+  }
+}

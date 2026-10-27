@@ -1,0 +1,21 @@
+{
+  "receiptId": "341cfb78-c673-4c5c-9e0f-e63c520130f4",
+  "submitterEmail": "c5c@ornl.gov",
+  "receiptBytes": 529,
+  "receiptSha256": "0e0889bc36f80d0f625f0af8e2c15a620844665b4334e1516b69c2bbf9605e6c",
+  "collectedBytes": 3942,
+  "collectedSha256": "01d836fdea6ef590d8b7b5fadda3a3f8d075ada280f282e8ee1f4de5306b130c",
+  "rowCount": 7,
+  "receiptOccurrences": 1,
+  "exactReceiptLinePresent": true,
+  "previousSnapshotPrefixPreserved": true,
+  "exactPreviousPlusReceipt": true,
+  "validUtf8JsonLines": true,
+  "trailingLF": true,
+  "hasBom": false,
+  "intakeRun": "08584084929876126307246013085CU22",
+  "teamsAction": "Post SharePoint update to Teams: Succeeded",
+  "participantLicenseEvidence": "Owner identifies friend as standard-license participant; not an independent tenant licensing audit",
+  "payloadRetention": "No new copy of participant free text retained in wiki; downloaded originals remain in operator Downloads",
+  "observedDate": "2026-10-27"
+}

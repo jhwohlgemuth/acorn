@@ -1,0 +1,169 @@
+Browser tab: 1329059195, Title: "Power Apps Studio  |  PA21 TEST ONLY Sponsor Highlights SharePoint (Editing)", URL: "https://make.gov.powerapps.us/e/221f44a6-1468-ea4e-b93d-cd52f1723079/canvas/?action=edit&app-id=%2Fproviders%2FMicrosoft.PowerApps%2Fapps%2Feb6ed2fe-2855-48bb-a439-b6bbd95099b8".
+0 AXWebArea Power Apps Studio  |  PA21 TEST ONLY Sponsor Highlights SharePoint (Editing), URL: make.gov.powerapps.us/e/221f44a6-1468-ea4e-b93d-cd52f1723079/canvas/?action=edit&app-id=%2Fproviders%2FMicrosoft.PowerApps%2Fapps%2Feb6ed2fe-2855-48bb-a439-b6bbd95099b8
+	1 container
+		2 container root
+			3 container
+				4 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				5 container o365header
+					6 container O365_NavHeader
+						7 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							184 text 
+						9 container ppuxOfficeHeaderTopLevelRegion
+							10 container ppuxOfficeHeaderLeftRegion
+								11 link Description: Power Apps  |  PA21 TEST ONLY Sponsor Highlights SharePoint (Editing), Value: make.gov.powerapps.us/, ID: O365_AppName
+							12 container ppuxOfficeHeaderRightRegion
+								13 pop up button (collapsed) Description: Environment: Wohlgemuth, Jason, Secondary Actions: Expand
+									14 container
+										15 text Environment Wohlgemuth, Jason
+								16 pop up button (collapsed) Description: Notifications, ID: shell-notifications, Secondary Actions: Expand
+								17 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								18 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						19 container O365_HeaderRightRegion
+							20 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								21 image JW
+			22 container Power Apps Studio
+				23 AXWebArea PA21 TEST ONLY Sponsor Highlights SharePoint - Power Apps, URL: authoring.us-il101.gateway.gov.island.powerapps.us/v3.26101.10.384545205/embed/
+					185 container rootBody
+						186 container root
+							187 container Command bar
+								188 container commandBarContainer
+									189 menu bar
+										190 container
+											191 Description: Back, ID: commandBar_back
+												192 text Back
+											193 (collapsed) Description: Undo (Ctrl+Z), Secondary Actions: Expand
+												194 Undo (Ctrl+Z)
+												195 pop up button (collapsed) Description: More options, Secondary Actions: Expand
+											196 (collapsed) Description: Paste (Ctrl+V), Secondary Actions: Expand
+												197 Description: Paste (Ctrl+V), ID: commandBar_paste
+												198 pop up button (collapsed) Description: More options, Secondary Actions: Expand
+											199 (collapsed) Description: Insert, ID: commandBar_insert, Secondary Actions: Expand
+												200 text Insert
+											201 (collapsed) Description: Add data, ID: commandBar_addData, Secondary Actions: Expand
+												202 text Add data
+											203 (collapsed) Description: New screen, Help: Add a new screen (Ctrl+M), ID: commandBar_newScreen, Secondary Actions: Expand
+												204 text New screen
+											205 (collapsed) Description: Theme, ID: commandBar_theme, Secondary Actions: Expand
+												206 text Theme
+											207 (collapsed) Description: Background color, Help: Fill Visual background color., ID: commandBar_Fill, Secondary Actions: Expand
+												208 text Background color
+											209 (collapsed) Description: Background image, Help: Background image Image file or URL to set as the background image., ID: commandBar_BackgroundImage, Secondary Actions: Expand
+												210 text Background image
+											211 (collapsed) Description: More options, ID: CommandBarMoreButton, Secondary Actions: Expand
+										212 container
+											213 text Editing
+											214 Description: Share with other users, ID: commandBar_share
+											215 Description: Preview the app (F5), ID: commandBar_preview
+											216 (collapsed) Description: Save (Ctrl+S), Secondary Actions: Expand
+												217 Description: Save (Ctrl+S), ID: commandBar_save
+												218 pop up button (collapsed) Description: More options, Secondary Actions: Expand
+											219 Description: Publish (Ctrl+Shift+P), ID: commandBar_publish
+							220 container Formula bar
+								221 container formulaBarContainer
+									222 container
+										223 combo box (collapsed, settable) Description: Property, Value: OnVisible, ID: powerapps-property-combo-box, Secondary Actions: Expand
+										224 button (collapsed) Description: Open Property, Secondary Actions: Expand
+									225 text =
+									226 container Description: Leave scan mode, then press Enter or Space to edit the formula, ID: formulabar
+										227 text No formula errors present
+										228 container formulaEditor
+											229 pop up button (collapsed) Description: Copilot functionality menu, ID: contextual-copilot-menu-button, Secondary Actions: Expand
+												230 image
+											231 container Power fx formula editor for control names SubmitEntryScreen and property OnVisible.
+												232 container
+													233 editor (settable) Description: Power fx formula edit field., Value: Select(RestoreDraftButton)
+									234 button (collapsed) Description: Open formula bar tray, Help: Expand formula bar, Secondary Actions: Expand
+									235 button Open the formula bar in a new window
+							236 container Navigational side bar
+								237 container
+									238 menu
+										239 Tree view
+										240 Insert
+										241 Data
+										242 Variables
+										243 Search
+										244 Description: More, ID: menu30
+										245 App settings
+									367 heading Power Automate, Value: 2
+										368 text Power Automate
+									369 button Close
+									370 search text field (settable) field-88__control
+									371 toolbar
+										372 button (collapsed) Add flow, ID: PowerAutomatePane_FlyoutPicker, Secondary Actions: Expand
+										373 button Remove unused flows
+									374 container
+										375 button (expanded) In your app, Secondary Actions: Collapse
+											376 heading In your app, Value: 3
+												377 text In your app
+										378 content list
+											379 container
+												380 image Data source icon
+												381 text field PA20 TEST ONLY SharePoint Intake
+												382 text PA20TESTONLYSharePointIntake
+												383 pop up button (collapsed) Description: More options for PA20 TEST ONLY SharePoint Intake, Help: More actions..., Secondary Actions: Expand
+											384 container
+												385 image Data source icon
+												386 text field PA19 TEST ONLY SharePoint Catalog
+												387 text PA19TESTONLYSharePointCatalog
+												388 pop up button (collapsed) Description: More options for PA19 TEST ONLY SharePoint Catalog, Help: More actions..., Secondary Actions: Expand
+							259 container Navigational side bar for controls
+								260 menu
+									261 Properties
+									262 Comments
+									263 App checker
+							264 container Authoring canvas
+								265 container blankPage
+									266 container canvasGrid
+										267 container workspaceCanvas
+											268 container
+												269 container SubmitEntryScreen
+													270 text SubmitEntryScreen
+												271 container
+													272 text Your highlight needs attention
+													273 text Browser recovery is unavailable. Open the published app in a regular browser window. Your pending data has not been cleared.
+													274 button Back to highlight
+														275 text Back to highlight
+											276 container Authoring canvas view
+												277 container
+													278 container Double click to edit text
+													279 container Double click to edit text
+													280 container Double click to edit text
+												281 menu
+													282 Description: Toggle the pinned state of inline actions, Help: Pin action bar, Value: 0
+													283 (collapsed) Data, ID: CanvasInlineActionBarAction_ApplyToDescendants, Secondary Actions: Expand
+														284 text Data
+							285 container Footer bar
+								286 container
+									287 container Breadcrumb
+										288 button SubmitEntryScreen
+											289 text SubmitEntryScreen
+									290 SizeBreakpoint preview
+										291 radio button Description: Default 1366x768, Value: 0
+										292 radio button Description: Large 1200x768, Value: 0
+										293 radio button Description: Medium 900x768, Value: 0
+										294 radio button Description: Small 600x768, Value: 0
+									295 button Zoom out (Ctrl+-)
+									296 container
+										297 slider (settable, integer) Description: Zoom control, Value: 36, ID: slider-33
+									298 button Zoom in (Ctrl+=)
+									299 container Zoom value
+										300 text 70 %
+									301 button Fit to window (Ctrl+0)
+							302 container Message banner
+								303 container
+									304 text 2 instances were replaced.
+									305 button (collapsed) Description: See more, Secondary Actions: Expand
+									306 button Close
+							308 container
+								365 button Back
+								339 heading Formulas, Value: 1
+									340 text Formulas
+								341 button Close
+								366 text No errors found
+								362 text View activity in your app to understand performance and identify bugs.
+								363 button Open monitor
+									364 text Open monitor
+							337 text SubmitEntryScreen of type Screen is selected
+							338 text ACORNSharePointPilotIntake successfully removed from app
+
+The focused UI element is 370 search text field (settable) field-88__control

@@ -1,0 +1,257 @@
+Browser tab: 1329059538, Title: "Edit your flow | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/64679e9c-ae76-4263-b8fa-8832835516ca?v3=false".
+0 AXWebArea Edit your flow | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/64679e9c-ae76-4263-b8fa-8832835516ca?v3=false
+	1 container
+		2 container root
+			3 container
+				4 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				5 container o365header
+					6 container O365_NavHeader
+						7 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							66 text 
+						9 container ppuxOfficeHeaderTopLevelRegion
+							10 container ppuxOfficeHeaderLeftRegion
+								11 text Power Automate
+							12 container ppuxOfficeHeaderRightRegion
+								13 button Wohlgemuth, Jason
+									14 container
+										15 text Environments Wohlgemuth, Jason
+								16 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								17 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						18 container O365_HeaderRightRegion
+							19 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								20 image JW
+				21 container Main
+					22 button (collapsed) Left navigation panel, Secondary Actions: Expand
+						23 image Left navigation panel
+					24 menu
+						25 container
+							26 container
+								27 container aboveCustomizableItemsId0
+									28 Home
+									29 Create
+									30 Templates
+									31 Learn
+									32 My flows
+								33 Approvals
+								34 Solutions
+								35 Automation center
+								36 Process mining
+									37 image
+								38 AI hub
+								39 Connections
+								40 More
+								41 Power Platform
+				42 container
+					43 container
+						44 button Go back to previous page
+						45 text field (settable) Description: The flow name is ACORN SharePoint Pilot Intake. Press enter to edit., Value: ACORN SharePoint Pilot Intake
+							46 text ACORN SharePoint Pilot Intake
+						47 toolbar
+							48 button Description: Undo, ID: undo
+								49 text Undo
+							50 button (disabled) Description: Redo, ID: redo
+								51 text Redo
+							52 button Description: Comments, ID: openCommentingPane
+								53 text Comments
+							54 button Description: Save, ID: saveFlow
+								55 text Save
+							56 button Description: Flow checker, ID: checkFlow
+								57 text Flow checker
+							58 button Description: Test, ID: testFlow
+								59 text Test
+							60 container
+								61 switch Description: New designer, Value: 0, ID: switchDesigner
+								62 text New designer
+						214 container Your flow is ready to go. We recommend you test it.
+							215 text Your flow is ready to go. We recommend you test it.
+						216 button Close
+					67 container
+						68 container
+							69 button (collapsed) Description: Power Apps (V2), Secondary Actions: Expand
+								70 button (collapsed) Power Apps (V2), Secondary Actions: Expand
+									71 text Power Apps (V2)
+							72 button Help for Power Apps (V2)
+							217 button (collapsed) Description: Menu for Power Apps (V2), Secondary Actions: Expand
+							74 container
+								75 button (collapsed) Description: Get items, Secondary Actions: Expand
+									76 button (collapsed) Get items, Secondary Actions: Expand
+										77 text Get items
+								78 button Help for Get items
+								218 button (collapsed) Description: Menu for Get items, Secondary Actions: Expand
+							80 container
+								81 button (collapsed) Description: SharePoint intake SP, Secondary Actions: Expand
+									82 button (collapsed) SharePoint intake SP, Secondary Actions: Expand
+										83 text SharePoint intake SP
+								219 button (collapsed) Description: Menu for SharePoint intake SP, Secondary Actions: Expand
+								85 container
+									86 button View when "SharePoint response SP" will run under "Configure run after"
+								87 container
+									88 button (collapsed) Description: SharePoint response SP, Secondary Actions: Expand
+										89 button (collapsed) SharePoint response SP, Secondary Actions: Expand
+											90 text SharePoint response SP
+									91 button Help for SharePoint response SP
+									220 button (collapsed) Description: Menu for SharePoint response SP, Secondary Actions: Expand
+								93 container
+									94 button View when "Notify new export SP" will run under "Configure run after"
+									104 container And Select row actions(...)×​ is equal to Succeeded Condition actions Select row actions(...)×​ is equal to Succeeded Condition actions Add If yes
+										105 container
+											106 button (expanded) Description: Notify new export SP, Secondary Actions: Collapse
+												107 button (expanded) Notify new export SP, Secondary Actions: Collapse
+													108 text Notify new export SP
+											221 button (collapsed) Description: Menu for Notify new export SP, Secondary Actions: Expand
+											110 list Description: Group type selector, ID: Dropdown1847
+												111 (selected) Value: And, ID: Dropdown1847-option
+											222 container
+												223 checkbox (settable, integer) Description: Select row, Value: 0, ID: checkbox-1990
+											224 text entry area (settable) Description: Object Name, Value: actions(...)×​
+												225 container
+													226 container actions('Create_receipt_SP')?['status']
+														227 text actions(...)
+														228 button Description: Delete actions(...), Help: Delete
+											229 list Description: Relationship, ID: Dropdown1991
+												230 (selected) Value: is equal to, ID: Dropdown1991-option
+											231 text entry area (settable) Description: Value, Value: Succeeded
+												232 text Succeeded
+											233 button Condition actions
+											234 container
+												235 checkbox (settable, integer) Description: Select row, Value: 0, ID: checkbox-1995
+											236 text entry area (settable) Description: Object Name, Value: actions(...)×​
+												237 container
+													238 container actions('Mark_exported_SP')?['status']
+														239 text actions(...)
+														240 button Description: Delete actions(...), Help: Delete
+											241 list Description: Relationship, ID: Dropdown1996
+												242 (selected) Value: is equal to, ID: Dropdown1996-option
+											243 text entry area (settable) Description: Value, Value: Succeeded
+												244 text Succeeded
+											245 button Condition actions
+											246 pop up button (collapsed) Add, Secondary Actions: Expand
+												247 text Add
+											138 container
+												139 button (expanded) Description: If yes, Secondary Actions: Collapse
+													140 button (expanded) If yes, Secondary Actions: Collapse
+														141 text If yes
+												142 container
+													143 button (collapsed) Description: Post SharePoint update to Teams, Secondary Actions: Expand
+														144 button (collapsed) Post SharePoint update to Teams, Secondary Actions: Expand
+															145 text Post SharePoint update to Teams
+													146 button Help for Post SharePoint update to Teams
+													147 button This operation has secure inputs or outputs enabled.
+													248 button (collapsed) Description: Menu for Post SharePoint update to Teams, Secondary Actions: Expand
+												149 container
+													180 button View when "Notify submitter SP" will run under "Configure run after"
+													181 container Object Name is not equal to Value Add If yes Insert a new step Required Post as Post as Required Post in Post in Required Group chat
+														182 container
+															183 button (expanded) Description: Notify submitter SP, Secondary Actions: Collapse
+																184 button (expanded) Notify submitter SP, Secondary Actions: Collapse
+																	185 text Notify submitter SP
+															250 button (collapsed) Description: Menu for Notify submitter SP, Secondary Actions: Expand
+															186 container Object Name
+																187 container
+																	188 text toLower(...)
+															189 list (disabled) Description: Relationship, ID: Dropdown1941
+																190 (selected) Value: is not equal to, ID: Dropdown1941-option
+															191 container Value
+																192 text o9w@ornl.gov
+															251 pop up button (collapsed) Add, Secondary Actions: Expand
+																252 text Add
+															193 container
+																194 button (expanded) Description: If yes, Secondary Actions: Collapse
+																	195 button (expanded) If yes, Secondary Actions: Collapse
+																		196 text If yes
+																197 container
+																	198 button (collapsed) Description: Create submitter chat SP, Secondary Actions: Expand
+																		199 button (collapsed) Create submitter chat SP, Secondary Actions: Expand
+																			200 text Create submitter chat SP
+																	201 button Help for Create submitter chat SP
+																	202 button This operation has secure inputs or outputs enabled.
+																	253 button (collapsed) Description: Menu for Create submitter chat SP, Secondary Actions: Expand
+																203 container
+																	266 button Insert a new step
+																	267 button (expanded) Description: Post submitter confirmation SP, Secondary Actions: Collapse
+																		298 button (expanded) Post submitter confirmation SP, Secondary Actions: Collapse
+																			299 text Post submitter confirmation SP
+																	268 button Help for Post submitter confirmation SP
+																	269 button This operation has secure inputs or outputs enabled.
+																	270 button (collapsed) Description: Menu for Post submitter confirmation SP, Secondary Actions: Expand
+																	271 container
+																		300 container Description: Post as, ID: EA599AF9-D07F-42F2-BCBD-BF985424AA17
+																			301 container Required
+																				302 text *
+																			303 text Post as
+																		272 combo box (collapsed) Description: Post as, Secondary Actions: Expand
+																			273 container
+																				274 text entry area (settable) Description: Post as, Value: User
+																					304 text User
+																				275 button (collapsed) Description: Show options, Secondary Actions: Expand
+																	276 container
+																		305 container Description: Post in, ID: 76506B1F-D5B7-4121-A6F6-886491CF7BDB
+																			306 container Required
+																				307 text *
+																			308 text Post in
+																		277 combo box (collapsed) Description: Post in, Secondary Actions: Expand
+																			278 container
+																				279 text entry area (settable) Description: Post in, Value: Group chat
+																					309 text Group chat
+																				280 button (collapsed) Description: Show options, Secondary Actions: Expand
+																	281 container
+																		310 container Description: Group chat, ID: 005169D9-28F6-4338-8A19-C7D4638B4E1B
+																			311 container Required
+																				312 text *
+																			313 text Group chat
+																		282 combo box (collapsed) Description: Group chat, Secondary Actions: Expand
+																			283 container
+																				284 text entry area (settable) Description: Group chat, Value: ​id×
+
+​
+																					285 container
+																						314 container body('Create_submitter_chat_SP')?['id']
+																							315 text id
+																							316 button Delete id
+																				287 button (collapsed) Description: Clear custom value, Secondary Actions: Expand
+																	288 container
+																		317 container Message
+																			318 container Required
+																				319 text *
+																			320 text Message
+																		321 container Toolbar
+																		289 text entry area (settable) Description: Message, Value: <p>ACORN // Sponsor Highlights</p><h2>✓ Your highlight was received</h2><p><strong>Project</strong><br>⁠replace(...)
+×
+⁠</p><p><strong>Status</strong><br>Saved · JSONL export verified · Awaiting review</p><p><strong>Receipt ID</strong><br><code>⁠submissionId
+×
+
+⁠</code></p><p>Keep this receipt for your records. Jason Wohlgemuth also receives an operator notification.</p><p><em>Saving does not approve or publish the highlight. Email is reserved for important workflow milestones.</em></p>
+																			290 container
+																				322 text <p>ACORN // Sponsor Highlights</p><h2>✓ Your highlight was received</h2><p><strong>Project</strong><br>⁠
+																				323 container replace(replace(replace(string(body('Parse_submission_SP')?['projectId']), '&', '&amp;'), '<', '&lt;'), '>', '&gt;')
+																					324 text replace(...)
+																					325 button Description: Delete replace(...), Help: Delete
+																				326 text ⁠</p><p><strong>Status</strong><br>Saved · JSONL export verified · Awaiting review</p><p><strong>Receipt ID</strong><br><code>⁠
+																				327 container body('Parse_submission_SP')?['submissionId']
+																					328 text submissionId
+																					329 button Delete submissionId
+																				330 text ⁠</code></p><p>Keep this receipt for your records. Jason Wohlgemuth also receives an operator notification.</p><p><em>Saving does not approve or publish the highlight. Email is reserved for important workflow milestones.</em></p>
+																	293 button Show advanced options
+																		331 text Show advanced options
+																294 button Add an action for Notify submitter SP's If yes branch
+																	332 text Add an action
+															209 container
+																210 button (expanded) Description: If no, Secondary Actions: Collapse
+																	211 button (expanded) If no, Secondary Actions: Collapse
+																		212 text If no
+																295 button Add an action for Notify submitter SP's If no branch
+																	333 text Add an action
+												296 button Add an action for Notify new export SP's If yes branch
+													334 text Add an action
+											156 container
+												157 button (expanded) Description: If no, Secondary Actions: Collapse
+													158 button (expanded) If no, Secondary Actions: Collapse
+														159 text If no
+												297 button Add an action for Notify new export SP's If no branch
+													335 text Add an action
+						263 container
+							264 button + New step
+							265 button Save
+					102 container flowCtrl.contextualHelpPanel.title
+
+The focused UI element is 0 AXWebArea Edit your flow | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/64679e9c-ae76-4263-b8fa-8832835516ca?v3=false

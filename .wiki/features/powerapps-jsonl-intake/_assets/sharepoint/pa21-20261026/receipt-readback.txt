@@ -1,0 +1,257 @@
+Browser tab: 1329059389, Title: "Research Enablement - PA19 TEST ONLY Receipts", URL: "https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/PA19%20TEST%20ONLY%20Receipts/AllItems.aspx".
+0 AXWebArea Research Enablement - PA19 TEST ONLY Receipts, URL: ornl.sharepoint.com/sites/ResearchEnablement/Lists/PA19%20TEST%20ONLY%20Receipts/AllItems.aspx
+	1 container
+		3 container spoAppComponent
+			19 container SuiteNavPlaceholder
+				20 container O365_NavHeader
+					21 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+						222 text 
+					23 container topLevelRegion
+						24 container leftRegion
+							25 link Description: SharePoint, Value: ornl.sharepoint.com/_layouts/15/sharepoint.aspx?&login_hint=o9w@ornl.gov, ID: O365_AppName
+						26 combo box (collapsed, settable) Description: Search box. Suggestions appear as you type, Secondary Actions: Expand
+						27 container HeaderButtonRegion
+							28 button (collapsed) Description: Next steps to improve your site, ID: TipsNTricksButton, Secondary Actions: Expand
+							29 button (collapsed) Description: Provide feedback to Microsoft, ID: GiveFeedbackButton, Secondary Actions: Expand
+							30 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+							31 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+					32 container O365_HeaderRightRegion
+						33 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+							34 image JW
+			11 container appRoot
+				12 container sp-appBar
+					13 container
+						14 button (collapsed) Description: Discover, 1 of 4, ID: ngspAppBarDiscover, Secondary Actions: Expand
+						15 button (collapsed) Description: Publish, 2 of 4, ID: ngspAppBarPublish, Secondary Actions: Expand
+						16 button (collapsed) Description: Build, 3 of 4, ID: ngspAppBarBuild, Secondary Actions: Expand
+						17 button Description: OneDrive, 4 of 4, ID: ngspAppBarOneDrive
+				18 container
+					35 container
+						36 container SharePoint Site Header
+							37 container
+								38 link Description: Research Enablement home, Value: ornl.sharepoint.com/sites/ResearchEnablement
+								39 heading Research Enablement, Value: 2
+									40 text Research Enablement
+								41 button Go to the Microsoft Teams channel
+								42 container showOverlayText
+									43 container Private group
+										44 text Private group
+									45 button
+									46 button Not following, Add to favorites
+										47 text Not following
+									48 button 2 members. Open Group Membership pane
+					49 container main-left-nav
+						50 container Site
+							51 content list Site
+								52 link Description: Home, Value: ornl.sharepoint.com/sites/ResearchEnablement
+								53 link Description: Conversations, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/groupstatus.aspx?Target=CONVERSATIONS&Source=QuickLaunch
+								54 link Description: Documents, Value: ornl.sharepoint.com/sites/ResearchEnablement/Shared%20Documents/Forms/AllItems.aspx
+								55 link Description: Notebook, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/Doc.aspx?sourcedoc=%7B92502988-e964-4074-8e41-6625180e6324%7D&action=editnew
+								56 link Description: Pages, Value: ornl.sharepoint.com/sites/ResearchEnablement/SitePages/Forms/ByAuthor.aspx
+								57 link Description: Marketing Campaign, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Marketing%20Campaign/AllItems.aspx
+								58 link Description: Sponsor Highlights Intake Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/AllItems.aspx
+								59 link Description: Sponsor Highlights JSONL Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/Forms/AllItems.aspx
+								60 link Description: Sponsor Highlights Projects Pilot, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Projects%20Pilot/AllItems.aspx
+								61 link Description: Site contents, Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/viewlsts.aspx
+								62 link Description: Recycle bin, Help: Recycle bin, Opens the Recycle Bin view to see a list of files and folders that have been deleted., Value: ornl.sharepoint.com/sites/ResearchEnablement/_layouts/15/RecycleBin.aspx
+								63 button Edit, ID: LeftNavEditLink
+						64 link Description: Click or enter to return to classic SharePoint, Value: ornl.sharepoint.com/sites/ResearchEnablement/Lists/PA19%20TEST%20ONLY%20Receipts/AllItems.aspx#
+					65 container
+						66 menu bar
+							67 New
+							206 Edit
+							68 Edit in grid view
+							69 (disabled) Undo
+							70 Share
+							71 Copy link
+							207 Comment
+							208 Delete
+							80 (collapsed) Automate, Secondary Actions: Expand
+							209 Print
+								210 image
+								211 text Print
+							82 Description: More, Help: More commands
+							212  1 selected
+							83 Open the details pane
+						85 heading PA19 TEST ONLY Receipts, Value: 2
+							86 button PA19 TEST ONLY Receipts
+						87 container
+							88 checkbox (settable, integer) Description: Favorite this list, Value: 0, ID: LIST_FAVORITE_BUTTON
+							89 container Favorite this list
+								223 text ☆
+						91 container
+							92 toolbar List view options
+								93 button Filter
+								94 button Group By
+								95 button Sort
+							96 tab group List views
+								97 tab (selected, settable, boolean) All Items, Value: 1
+All Items
+							98 button Add view
+								224 text 
+								100 text Add view
+						101 container html-list_3
+							102 table Description: PA19 TEST ONLY Receipts, ID: list-content-id
+								103 row Select all rows Title ProjectId Summary SubmitterEmail ExportStatus ExportFileUrl Created  Add column
+									104 cell (selectable)
+										105 checkbox (settable, integer) Description: Select all rows, Value: 0
+									106 cell
+										107 pop up button (collapsed) Title, Secondary Actions: Expand
+									108 cell
+										109 pop up button (collapsed) ProjectId, Secondary Actions: Expand
+									110 cell
+										111 pop up button (collapsed) Summary, Secondary Actions: Expand
+									112 cell
+										113 pop up button (collapsed) SubmitterEmail, Secondary Actions: Expand
+									114 cell
+										115 pop up button (collapsed) ExportStatus, Secondary Actions: Expand
+									116 cell
+										117 pop up button (collapsed) ExportFileUrl, Secondary Actions: Expand
+									118 cell
+										119 pop up button (collapsed) Created, Secondary Actions: Expand
+									120 cell
+										121 pop up button (collapsed)  Add column, Secondary Actions: Expand
+								122 row (selectable) ID: virtualized-list_4_page-0_1, Select row PA19 TEST ONLY 65536-byte storage capacity TEST ONLY storage capacity fixture; not a valid intake submission. Pending About an hour ago
+									123 cell (selectable)
+										124 checkbox (settable, integer) Description: Select row, Value: 0
+									125 cell
+										126 button PA19 TEST ONLY 65536-byte storage capacity
+									127 cell
+									128 cell
+										129 text TEST ONLY storage capacity fixture; not a valid intake submission.
+									130 cell
+									131 cell
+										132 text Pending
+									133 cell
+									134 cell 10/26/2026 8:34 PM
+										135 text About an hour ago
+								136 row (selectable) ID: virtualized-list_4_page-0_3, Select row 1d1e94f5-b49e-46d5-b954-edf595dc2ffe pa19-test-1 PA20 TEST ONLY exact payload boundary o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/1d1e94f5-b49e-46d5-b954-edf595dc2ffe.jsonl 42 minutes ago
+									137 cell (selectable)
+										138 checkbox (settable, integer) Description: Select row, Value: 0
+									139 cell
+										140 button 1d1e94f5-b49e-46d5-b954-edf595dc2ffe
+									141 cell
+										142 text pa19-test-1
+									143 cell
+										144 text PA20 TEST ONLY exact payload boundary
+									145 cell
+										146 text o9w@ornl.gov
+									147 cell
+										148 text Exported
+									149 cell
+										150 text https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/1d1e94f5-b49e-46d5-b954-edf595dc2ffe.jsonl
+									151 cell 10/26/2026 8:59 PM
+										152 text 42 minutes ago
+								153 row (selectable) ID: virtualized-list_4_page-0_4, Select row 440d8060-e073-4aa7-bbdc-64b672ef29d5 pa19-test-1 PA20 TEST ONLY simultaneous same-ID receipt o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/440d8060-e073-4aa7-bbdc-64b672ef29d5.jsonl 38 minutes ago
+									154 cell (selectable)
+										155 checkbox (settable, integer) Description: Select row, Value: 0
+									156 cell
+										157 button 440d8060-e073-4aa7-bbdc-64b672ef29d5
+									158 cell
+										159 text pa19-test-1
+									160 cell
+										161 text PA20 TEST ONLY simultaneous same-ID receipt
+									162 cell
+										163 text o9w@ornl.gov
+									164 cell
+										165 text Exported
+									166 cell
+										167 text https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/440d8060-e073-4aa7-bbdc-64b672ef29d5.jsonl
+									168 cell 10/26/2026 9:03 PM
+										169 text 38 minutes ago
+								170 row (selectable) ID: virtualized-list_4_page-0_6, Select row 73ea24a0-929c-438c-9140-f5e05e120e7e pa19-test-1 PA20 TEST ONLY export failure and exact retry o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/73ea24a0-929c-438c-9140-f5e05e120e7e.jsonl 31 minutes ago
+									171 cell (selectable)
+										172 checkbox (settable, integer) Description: Select row, Value: 0
+									173 cell
+										174 button 73ea24a0-929c-438c-9140-f5e05e120e7e
+									175 cell
+										176 text pa19-test-1
+									177 cell
+										178 text PA20 TEST ONLY export failure and exact retry
+									179 cell
+										180 text o9w@ornl.gov
+									181 cell
+										182 text Exported
+									183 cell
+										184 text https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/73ea24a0-929c-438c-9140-f5e05e120e7e.jsonl
+									185 cell 10/26/2026 9:10 PM
+										186 text 31 minutes ago
+								187 row (selected) ID: virtualized-list_4_page-0_7,  Select row  1fa33754-c8f8-472b-94d7-125ea1c4effb More Actions Add Comment pa19-test-1 PA21 TEST ONLY — app-driven export recovery, café Δ. Synthetic acceptance data; exclude from sponsor reports. o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/1fa33754-c8f8-472b-94d7-125ea1c4effb.jsonl About a minute ago
+									188 cell (selected)
+										225 text 
+										189 checkbox (settable, integer) Description: Select row, Value: 1
+										226 text 
+									190 cell
+										191 button 1fa33754-c8f8-472b-94d7-125ea1c4effb
+										217 button More Actions
+											227 text 
+										219 button Add Comment
+											228 text 
+									192 cell
+										193 text pa19-test-1
+									194 cell
+										195 text PA21 TEST ONLY — app-driven export recovery, café Δ. Synthetic acceptance data; exclude from sponsor reports.
+									196 cell
+										197 text o9w@ornl.gov
+									198 cell
+										199 text Exported
+									200 cell
+										201 text https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/1fa33754-c8f8-472b-94d7-125ea1c4effb.jsonl
+									202 cell 10/26/2026 9:39 PM
+										203 text About a minute ago
+							204 table
+							221 text 1 selected
+		229 container 1fa33754-c8f8-472b-94d7-125ea1c4effb
+			230 container
+				231 menu bar
+					232 Edit all
+						233 text Edit all
+					234 container
+						235 Copy link
+							236 text Copy link
+						237 Hide comments
+						238 (collapsed) Description: Edit form, Secondary Actions: Expand
+						239 Close
+				240 container
+					241 heading 1fa33754-c8f8-472b-94d7-125ea1c4effb, Value: 2, ID: reactClientFormHeader
+						242 text 1fa33754-c8f8-472b-94d7-125ea1c4effb
+					243 text Title
+					244 button Title, 1fa33754-c8f8-472b-94d7-125ea1c4effb, press enter to edit.
+						245 text 1fa33754-c8f8-472b-94d7-125ea1c4effb
+					246 text SubmissionId
+					247 button SubmissionId Required Field, 1fa33754-c8f8-472b-94d7-125ea1c4effb, press enter to edit.
+						248 text 1fa33754-c8f8-472b-94d7-125ea1c4effb
+					249 text PayloadBase64A
+					250 text field Description: PayloadBase64A Required Field, eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlZlcmlmeSBzYXZlZCByZWNlaXB0IHN1cnZpdmVzIGV4cG9ydCBmYWlsdXJlLiIsIlJldHJ5IG11c3QgcmV1c2UgdGhlIHNhbWUgVVVJRCBhbmQgZXhhY3QgcGF5bG9hZC4iXSwib3JpZ2luIjoibWFudWFsIiwic3RhdGUiOiJpbi1wcm9ncmVzcyIsInN1bW1hcnkiOiJQQTIxIFRFU1QgT05MWSDigJQgYXBwLWRyaXZlbiBleHBvcnQgcmVjb3ZlcnksIGNhZsOpIM6ULiBTeW50aGV0aWMgYWNjZXB0YW5jZSBkYXRhOyBleGNsdWRlIGZyb20gc3BvbnNvciByZXBvcnRzLiIsInRpbWVzdGFtcCI6IjIwMjYtMTAtMjZUMDQ6MDA6MDAuMDAwWiJ9LCJwcm9qZWN0SWQiOiJwYTE5LXRlc3QtMSIsInN1Ym1pc3Npb25JZCI6IjFmYTMzNzU0LWM4ZjgtNDcyYi05NGQ3LTEyNWVhMWM0ZWZmYiIsInN1Ym1pdHRlZEF0IjoiMjAyNi0xMC0yN1QwMTozOTozNC45MjZaIiwic3VibWl0dGVyIjp7ImVtYWlsIjoibzl3QG9ybmwuZ292In19, press enter to edit., Value: eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlZlcmlmeSBzYXZlZCByZWNlaXB0IHN1cnZpdmVzIGV4cG9ydCBmYWlsdXJlLiIsIlJldHJ5IG11c3QgcmV1c2UgdGhlIHNhbWUgVVVJRCBhbmQgZXhhY3QgcGF5bG9hZC4iXSwib3JpZ2luIjoibWFudWFsIiwic3RhdGUiOiJpbi1wcm9ncmVzcyIsInN1bW1hcnkiOiJQQTIxIFRFU1QgT05MWSDigJQgYXBwLWRyaXZlbiBleHBvcnQgcmVjb3ZlcnksIGNhZsOpIM6ULiBTeW50aGV0aWMgYWNjZXB0YW5jZSBkYXRhOyBleGNsdWRlIGZyb20gc3BvbnNvciByZXBvcnRzLiIsInRpbWVzdGFtcCI6IjIwMjYtMTAtMjZUMDQ6MDA6MDAuMDAwWiJ9LCJwcm9qZWN0SWQiOiJwYTE5LXRlc3QtMSIsInN1Ym1pc3Npb25JZCI6IjFmYTMzNzU0LWM4ZjgtNDcyYi05NGQ3LTEyNWVhMWM0ZWZmYiIsInN1Ym1pdHRlZEF0IjoiMjAyNi0xMC0yN1QwMTozOTozNC45MjZaIiwic3VibWl0dGVyIjp7ImVtYWlsIjoibzl3QG9ybmwuZ292In19
+						251 text eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlZlcmlmeSBzYXZlZCByZWNlaXB0IHN1cnZpdmVzIGV4cG9ydCBmYWlsdXJlLiIsIlJldHJ5IG11c3QgcmV1c2UgdGhlIHNhbWUgVVVJRCBhbmQgZXhhY3QgcGF5bG9hZC4iXSwib3JpZ2luIjoibWFudWFsIiwic3RhdGUiOiJpbi1wcm9ncmVzcyIsInN1bW1hcnkiOiJQQTIxIFRFU1QgT05MWSDigJQgYXBwLWRyaXZlbiBleHBvcnQgcmVjb3ZlcnksIGNhZsOpIM6ULiBTeW50aGV0aWMgYWNjZXB0YW5jZSBkYXRhOyBleGNsdWRlIGZyb20gc3BvbnNvciByZXBvcnRzLiIsInRpbWVzdGFtcCI6IjIwMjYtMTAtMjZUMDQ6MDA6MDAuMDAwWiJ9LCJwcm9qZWN0SWQiOiJwYTE5LXRlc3QtMSIsInN1Ym1pc3Npb25JZCI6IjFmYTMzNzU0LWM4ZjgtNDcyYi05NGQ3LTEyNWVhMWM0ZWZmYiIsInN1Ym1pdHRlZEF0IjoiMjAyNi0xMC0yN1QwMTozOTozNC45MjZaIiwic3VibWl0dGVyIjp7ImVtYWlsIjoibzl3QG9ybmwuZ292In19
+					252 button See more
+					253 text PayloadBase64B
+					254 text field Description: PayloadBase64B, empty, press enter to edit., Value: Enter value here
+						255 text Enter value here
+					256 text ProjectId
+					257 text field Description: ProjectId, pa19-test-1, press enter to edit., Value: pa19-test-1
+						258 text pa19-test-1
+					259 text Summary
+					260 text field Description: Summary, PA21 TEST ONLY — app-driven export recovery, café Δ. Synthetic acceptance data; exclude from sponsor reports., press enter to edit., Value: PA21 TEST ONLY — app-driven export recovery, café Δ. Synthetic acceptance data; exclude from sponsor reports.
+						261 text PA21 TEST ONLY — app-driven export recovery, café Δ. Synthetic acceptance data; exclude from sponsor reports.
+					262 text SubmitterEmail
+					263 button SubmitterEmail, o9w@ornl.gov, press enter to edit.
+						264 text o9w@ornl.gov
+					265 text ExportStatus
+					266 button ExportStatus, Exported, press enter to edit.
+						267 text Exported
+					268 text ExportFileUrl
+					269 text field Description: ExportFileUrl, https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/1fa33754-c8f8-472b-94d7-125ea1c4effb.jsonl, press enter to edit., Value: https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/1fa33754-c8f8-472b-94d7-125ea1c4effb.jsonl
+						270 text https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/1fa33754-c8f8-472b-94d7-125ea1c4effb.jsonl
+					271 text Attachments
+					272 button Attachments, , press enter to edit.
+						273 text Add or remove attachments
+				274 pop up button (collapsed) Description: Activity feed view options. Selected view option is Comments, Secondary Actions: Expand
+					275 text Comments
+				276 combo box (collapsed) Description: Comment input, Secondary Actions: Expand
+					277 text entry area (settable) Comment input
+						278 text @mention or comment
+				279 container List of item activities. Use up and down keys to navigate. Use left and right arrow keys to navigate within activity items.
+					280 text Be the first one to add a comment
+
+The focused UI element is 232 Edit all
