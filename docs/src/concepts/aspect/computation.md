@@ -1,6 +1,8 @@
 # Computation
 
-`aspect.computation` records one or more computations performed by a research activity. Each computation contains stages in dependency order. A stage is classical or uses a specified quantum execution model, and its input and output ports reuse the existing ASPECT `Data` description. Algorithm complexity describes the work independently of any machine.
+`aspect.computation` records one or more computations performed by a research activity. Each computation contains stages in dependency order. A stage is classical or uses a specified quantum execution model, and its input and output ports reuse the existing ASPECT `Data` description. Algorithm complexity describes the work independently of any machine. Its `bounds` contain a `time` expression, a `space` expression, or both; `variables` defines the names used in those expressions.
+
+For example, `"complexity": {"bounds": [{"time": "O(n log n)"}, {"space": "O(n)"}], "variables": {"n": "number of records"}}` declares both bounds for one stage. Each resource can appear once.
 
 An execution profile connects a computation to an environment in `meta.infrastructure`. Each stage execution names a platform in that environment. Profiles can record workload variable values, operation duration, repetitions, and an observed end-to-end duration. A compiled circuit's physical depth belongs in its stage execution; a circuit stage's logical depth belongs in the computation definition.
 

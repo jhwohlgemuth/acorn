@@ -100,17 +100,21 @@ pub struct CircuitRequirements {
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[validate(schema(function = "AlgorithmComplexity::is_valid", skip_on_field_errors = false))]
 pub struct AlgorithmComplexity {
-    /// Time complexity expression, such as `O(n log n)`.
-    #[validate(nonempty)]
-    pub time: Option<String>,
-    /// Space complexity expression, such as `O(n)`.
-    #[validate(nonempty)]
-    pub space: Option<String>,
+    /// Bounds for the resources consumed by the algorithm.
+    pub bounds: OneOrMany<ComplexityBound>,
     /// Meaning of each variable used by the expressions.
     pub variables: Option<BTreeMap<String, String>>,
-    /// Assumptions under which the bounds hold.
-    pub assumptions: Option<String>,
+}
+/// Asymptotic cost of one algorithmic resource.
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ComplexityBound {
+    /// Auxiliary space complexity, such as `O(n)`.
+    Space(String),
+    /// Time complexity, such as `O(n log n)`.
+    Time(String),
 }
 /// A named input or output using the existing ASPECT data vocabulary.
 #[skip_serializing_none]
@@ -263,6 +267,47 @@ pub enum CostScope {
     Invocation,
     /// Once for each shot or repeated execution.
     Repetition,
+}
+impl AlgorithmComplexity {
+    fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
+        self.bounds
+            .iter()
+            .enumerate()
+            .fold(ValidationReport::empty("bounds", self.bounds.is_empty()), |report, (index, bound)| {
+                let (resource, expression) = match bound {
+                    | ComplexityBound::Space(expression) => ("space", expression),
+                    | ComplexityBound::Time(expression) => ("time", expression),
+                };
+                let report = if expression.trim().is_empty() {
+                    report.merge(
+                        "",
+                        ValidationReport::from_error(
+                            format!("bounds[{index}]"),
+                            ValidationError::new("nonempty").with_message("Complexity expression cannot be empty"),
+                        ),
+                    )
+                } else {
+                    report
+                };
+                if self.bounds.iter().take(index).any(|earlier| {
+                    matches!(
+                        (earlier, bound),
+                        (ComplexityBound::Space(_), ComplexityBound::Space(_)) | (ComplexityBound::Time(_), ComplexityBound::Time(_))
+                    )
+                }) {
+                    report.merge(
+                        "",
+                        ValidationReport::from_error(
+                            format!("bounds[{index}]"),
+                            ValidationError::new("duplicate").with_message(format!("{resource} complexity bound must be unique")),
+                        ),
+                    )
+                } else {
+                    report
+                }
+            })
+            .finish()
+    }
 }
 impl Computation {
     fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
