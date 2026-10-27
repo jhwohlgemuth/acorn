@@ -1,0 +1,124 @@
+- TestHarnessPanel:
+    Control: GroupContainer@1.5.0
+    Variant: ManualLayout
+    Properties:
+      Fill: "=Color.White"
+      Width: "=Parent.Width"
+      Height: "=Parent.Height"
+      Visible: "=Coalesce(varTestHarness, false)"
+    Children:
+      - TestHarnessTitle:
+          Control: Label@2.5.1
+          Properties:
+            TabIndex: "=0"
+            FocusedBorderThickness: "=2"
+            Color: "=ColorValue(\"#123B31\")"
+            Font: "=Font.'Segoe UI'"
+            Size: "=22"
+            Width: "=Parent.Width - 48"
+            X: "=24"
+            Height: "=48"
+            Text: "=\"PA31 TEST ONLY // Correction acceptance\""
+            Y: "=20"
+      - TestRequestA:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            Default: "=\"list\""
+            Mode: "=TextMode.MultiLine"
+            X: "=24"
+            Y: "=88"
+            Width: "=Parent.Width - 48"
+            Height: "=150"
+            Size: "=12"
+            AccessibleLabel: "=\"Test request A\""
+      - TestRequestB:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            Default: "=\"list\""
+            Mode: "=TextMode.MultiLine"
+            X: "=24"
+            Y: "=250"
+            Width: "=Parent.Width - 48"
+            Height: "=150"
+            Size: "=12"
+            AccessibleLabel: "=\"Test request B\""
+      - TestRunOne:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderThickness: "=0"
+            Color: "=Color.White"
+            Fill: "=ColorValue(\"#007833\")"
+            Font: "=Font.'Segoe UI'"
+            Height: "=44"
+            Size: "=14"
+            RadiusTopLeft: "=6"
+            RadiusTopRight: "=6"
+            RadiusBottomLeft: "=6"
+            RadiusBottomRight: "=6"
+            Width: "=180"
+            Text: "=\"Run request A\""
+            X: "=24"
+            Y: "=416"
+            OnSelect: "=Set(varTestStatusA, \"Running…\"); Set(varTestStatusB, \"\"); IfError(With({r: PA31TESTONLYSharePointSubmissionEditing.Run(TestRequestA.Text)}, Set(varTestStatusA, JSON({status: r.status, reason: r.reason, submissionId: r.submissionid, exportStatus: r.exportstatus}, JSONFormat.Compact))), Set(varTestStatusA, FirstError.Message))"
+      - TestRunBoth:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderThickness: "=0"
+            Color: "=Color.White"
+            Fill: "=ColorValue(\"#007833\")"
+            Font: "=Font.'Segoe UI'"
+            Height: "=44"
+            Size: "=14"
+            RadiusTopLeft: "=6"
+            RadiusTopRight: "=6"
+            RadiusBottomLeft: "=6"
+            RadiusBottomRight: "=6"
+            Width: "=180"
+            Text: "=\"Run concurrently\""
+            X: "=220"
+            Y: "=416"
+            OnSelect: "=Set(varTestStatusA, \"Running…\"); Set(varTestStatusB, \"Running…\"); Concurrent(IfError(With({r: PA31TESTONLYSharePointSubmissionEditing.Run(TestRequestA.Text)}, Set(varTestStatusA, JSON({status: r.status, reason: r.reason, submissionId: r.submissionid, exportStatus: r.exportstatus}, JSONFormat.Compact))), Set(varTestStatusA, FirstError.Message)), IfError(With({r: PA31TESTONLYSharePointSubmissionEditing.Run(TestRequestB.Text)}, Set(varTestStatusB, JSON({status: r.status, reason: r.reason, submissionId: r.submissionid, exportStatus: r.exportstatus}, JSONFormat.Compact))), Set(varTestStatusB, FirstError.Message)))"
+      - TestStatusA:
+          Control: Label@2.5.1
+          Properties:
+            TabIndex: "=0"
+            FocusedBorderThickness: "=2"
+            Color: "=ColorValue(\"#123B31\")"
+            Font: "=Font.'Segoe UI'"
+            Size: "=13"
+            Width: "=Parent.Width - 48"
+            X: "=24"
+            Height: "=76"
+            Text: "=varTestStatusA"
+            Y: "=480"
+      - TestStatusB:
+          Control: Label@2.5.1
+          Properties:
+            TabIndex: "=0"
+            FocusedBorderThickness: "=2"
+            Color: "=ColorValue(\"#123B31\")"
+            Font: "=Font.'Segoe UI'"
+            Size: "=13"
+            Width: "=Parent.Width - 48"
+            X: "=24"
+            Height: "=76"
+            Text: "=varTestStatusB"
+            Y: "=560"
+      - TestHarnessBack:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderThickness: "=0"
+            Color: "=Color.White"
+            Fill: "=ColorValue(\"#007833\")"
+            Font: "=Font.'Segoe UI'"
+            Height: "=44"
+            Size: "=14"
+            RadiusTopLeft: "=6"
+            RadiusTopRight: "=6"
+            RadiusBottomLeft: "=6"
+            RadiusBottomRight: "=6"
+            Width: "=180"
+            Text: "=\"Back to form\""
+            X: "=24"
+            Y: "=650"
+            OnSelect: "=Set(varTestHarness, false)"

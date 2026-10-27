@@ -1,27 +1,25 @@
 // Rounded pastel boxes and green arrows match the ACORN book.
 scale = 1
-fontscale = 1.2
+fontscale = 1.15
 color = 0x183C43
-S: box "SharePoint app" bold "Standard connectors" wid 2.1in ht 0.85in rad 0.08in fill 0xE8F1FB thickness 0
-SL: box "List + logbook.jsonl" bold "Combined: every 5 min" "Teams: new receipt export" same fill 0xE7F3E9 at S+(2.55in,0)
-SD: box "Download logbook" bold "All collected rows" "Preserve exact bytes" same fill 0xFFF4D6 at SL+(2.55in,0)
+S: box "Submit highlight" bold "New highlight" wid 2.2in ht 0.8in rad 0.08in fill 0xE8F1FB thickness 0
+SL: box "Keep every receipt" bold "Exact JSONL export" "Teams: owner + submitter" same fill 0xE7F3E9 at S+(2.7in,0)
+SD: box "Collect + download" bold "All originals + corrections" "Refresh: every 5 min" same fill 0xFFF4D6 at SL+(2.7in,0)
+E: box "My submissions" bold "Edit selected" "Latest confirmed highlight" same fill 0xE8F1FB at S+(0,1.15in)
+C: box "Save correction" bold "New receipt ID" "Links original + previous" same fill 0xE7F3E9 at SL+(0,1.15in)
+arrow from E.e to C.w thick color 0x00662C
+arrow from C.s to SL.n thick color 0x00662C
 arrow from S.e to SL.w thick color 0x00662C
 arrow from SL.e to SD.w thick color 0x00662C
-G: box "GitLab app" bold "Custom connector" same fill 0xE8F1FB at S+(0,-1.3in)
-GL: box "JSONL logbook" bold "Immutable commit" "Teams: confirmed new save" same fill 0xE7F3E9 at SL+(0,-1.3in)
-GD: box "Use GitLab file URL" bold "CLI captures snapshot" same fill 0xFFF4D6 at SD+(0,-1.3in)
-arrow from G.e to GL.w thick color 0x00662C
-arrow from GL.e to GD.w thick color 0x00662C
-Join: line from SD.e right 0.3in then down 2.05in color 0x00662C
-line from GD.e right 0.3in color 0x00662C
-R: box "Stage + inspect" bold "Review the diff" wid 1.65in ht 0.75in rad 0.08in fill 0xFFF4D6 thickness 0 at S+(0,-2.9in)
-A: box "Apply" bold "Confirm intake" same fill 0xE7F3E9 at R+(1.85in,0)
-P: box "run --index" bold "Optional promotion" same fill 0xE7F3E9 at A+(1.85in,0)
-F: box "Report" bold "Local PDF" same fill 0xF2F2F2 at P+(1.85in,0)
+Join: line from SD.e right 0.3in then down 0.65in color 0x00662C
+R: box "Stage + inspect" bold "Review latest content" wid 1.8in ht 0.75in rad 0.08in fill 0xFFF4D6 thickness 0 at S+(0,-1.45in)
+A: box "Apply" bold "Confirm changes" same fill 0xE7F3E9 at R+(2in,0)
+P: box "run --index" bold "Optional promotion" same fill 0xE7F3E9 at A+(2in,0)
+F: box "Report" bold "New local PDF" same fill 0xF2F2F2 at P+(2in,0)
 arrow from Join.end left until even with R then down until even with R.n thick color 0x00662C
 arrow from R.e to A.w thick color 0x00662C
 arrow from A.e to P.w thick color 0x00662C
 arrow from P.e to F.w thick color 0x00662C
-N: box "OWNER-TRIGGERED MILESTONES" bold "Teams: workspace created / no report changes" "Email: review requested / report ready / actionable failure" wid 7.2in ht 0.85in rad 0.08in fill 0xF3F0FF thickness 0 at A+(0.925in,-1.25in)
+N: box "OWNER-TRIGGERED MILESTONES" bold "Teams: workspace created / no report changes" "Email: review requested / report ready / actionable failure" wid 7.8in ht 0.85in rad 0.08in fill 0xF3F0FF thickness 0 at A+(1in,-1.15in)
 arrow from A.s to (A.x,N.n.y) dashed color 0x506A70
 arrow from F.s to (F.x,N.n.y) dashed color 0x506A70

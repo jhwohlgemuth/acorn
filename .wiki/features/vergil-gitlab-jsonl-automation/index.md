@@ -19,7 +19,7 @@ Supporting material: [ACRE configuration examples](configuration-examples.md), [
 
 # Current evidence
 
-October 26 SharePoint-aware review against `58c22da4` plus the current working tree retained these deployment gates. Focused source checks and retained evidence do not establish new Vergil service or callback acceptance. The parallel SharePoint route currently hands a downloaded local JSONL file to manual CLI ingestion; this plan does not implement an automatic SharePoint-to-GitLab or SharePoint-to-Vergil bridge.
+October 26 SharePoint-aware review against `58c22da4` plus the current working tree retained these deployment gates. Focused source checks and retained evidence do not establish new Vergil service or callback acceptance. SharePoint is now the accepted default, and the original GitLab intake/catalog flows are Off. The SharePoint route hands a downloaded local JSONL file to manual CLI ingestion; this plan does not implement an automatic SharePoint-to-GitLab or SharePoint-to-Vergil bridge.
 
 - October 24 owner-only callback routing is saved and tested: new `mr-created`/`report-no-changes` receipts use Jason's Teams self-chat; review requests, completed artifacts and failures use email. Existing receipts keep their frozen destination. Routine replay skipped delivery; a milestone email test passed. [Walkthrough and evidence](../powerapps-jsonl-intake/notification-walkthrough.md). The manual receiver still has no authenticated external callback trigger; bot phases remain open.
 

@@ -29,6 +29,7 @@ pub(crate) struct FormAdmission {
     pub(crate) folder_id: String,
     pub(crate) entry: LogbookEntry,
     pub(crate) operation_key: String,
+    pub(crate) replaces: Option<LogbookEntry>,
 }
 /// Form-controlled fields for one manual logbook entry.
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
@@ -81,6 +82,10 @@ pub struct Submission {
     pub entry: FormEntry,
     /// Stable deployment-owned folder identifier or alias.
     pub project_id: String,
+    /// Immutable correction linkage; absent on an original receipt.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[validate(nested)]
+    pub revision: Option<SubmissionRevision>,
     /// Stable UUID assigned by the submitting flow.
     #[validate(uuid)]
     pub submission_id: String,
@@ -90,6 +95,17 @@ pub struct Submission {
     /// Authenticated human submitter metadata.
     #[validate(nested)]
     pub submitter: Submitter,
+}
+/// The original receipt and immediate predecessor of a correction.
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct SubmissionRevision {
+    /// UUID of the original submission, shared by every correction.
+    #[validate(uuid)]
+    pub root_submission_id: String,
+    /// UUID of the exact receipt the contributor reviewed before editing.
+    #[validate(uuid)]
+    pub supersedes_submission_id: String,
 }
 /// Human submitter identity supplied by PowerAutomate.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Validate)]
@@ -119,67 +135,73 @@ impl From<EnqueueStatus> for ReceiptDisposition {
 impl Submission {
     /// Validate, authorize, and normalize a submission against one routing snapshot.
     pub(crate) fn admit(&self, routing: &FolderRegistry, lookup: &dyn Fn(&str) -> Option<String>, cutoff: Option<&str>) -> ApiResult<FormAdmission> {
-        routing.folder(&self.project_id).map(|folder| folder.id.clone()).and_then(|folder_id| {
-            let normalized = Self {
-                project_id: folder_id.clone(),
-                ..self.clone()
-            };
-            normalized
-                .validate()
-                .map_err(|why| eyre!("Invalid PowerAutomate form submission — {why}"))
-                .and_then(|()| routing.authorizes(&folder_id, self.submitter.email.as_str(), lookup))
-                .and_then(|authorized| match authorized {
-                    | true => Ok(()),
-                    | false => Err(eyre!("Submitter is not authorized for PowerAutomate folder '{}'", folder_id)),
-                })
-                .and_then(|()| {
-                    cutoff
-                        .map(|cutoff| {
-                            rules::parse_timestamp(cutoff)
-                                .map_err(|_| eyre!("Invalid report cutoff timestamp"))
-                                .and_then(|cutoff| {
-                                    rules::parse_timestamp(&self.entry.timestamp)
-                                        .map_err(|_| eyre!("Invalid logbook entry timestamp"))
-                                        .and_then(|timestamp| match timestamp < cutoff {
-                                            | true => Err(eyre!("Logbook entry predates the latest successful report cutoff")),
-                                            | false => Ok(()),
-                                        })
-                                })
-                        })
-                        .transpose()
-                        .map(|_| ())
-                })
-                .and_then(|()| {
-                    let identifier = self
-                        .entry
-                        .identifier
-                        .clone()
-                        .unwrap_or_else(|| format!("form-{}", self.submission_id.to_ascii_lowercase()).to_case(Case::Kebab));
-                    let entry = LogbookEntry::init()
-                        .archived(self.entry.archived)
-                        .category(self.entry.category)
-                        .maybe_classification(self.entry.classification.clone())
-                        .maybe_discovery(self.entry.discovery.clone())
-                        .maybe_event_type(self.entry.event_type)
-                        .global(self.entry.global)
-                        .identifier(identifier)
-                        .maybe_items(self.entry.items.clone())
-                        .origin(self.entry.origin)
-                        .project_id(&folder_id)
-                        .state(self.entry.state)
-                        .summary(self.entry.summary.trim())
-                        .timestamp(self.entry.timestamp.trim())
-                        .build();
-                    entry
-                        .validate()
-                        .map_err(|why| eyre!("Invalid normalized PowerAutomate logbook entry — {why}"))
-                        .map(|()| FormAdmission {
-                            folder_id,
-                            entry,
-                            operation_key: self.operation_key(),
-                        })
-                })
-        })
+        match &self.revision {
+            | Some(_) => Err(eyre!(
+                "Corrections require batch intake with their receipt history; use intake stage --batch"
+            )),
+            | None => routing.folder(&self.project_id).map(|folder| folder.id.clone()).and_then(|folder_id| {
+                let normalized = Self {
+                    project_id: folder_id.clone(),
+                    ..self.clone()
+                };
+                normalized
+                    .validate()
+                    .map_err(|why| eyre!("Invalid PowerAutomate form submission — {why}"))
+                    .and_then(|()| routing.authorizes(&folder_id, self.submitter.email.as_str(), lookup))
+                    .and_then(|authorized| match authorized {
+                        | true => Ok(()),
+                        | false => Err(eyre!("Submitter is not authorized for PowerAutomate folder '{}'", folder_id)),
+                    })
+                    .and_then(|()| {
+                        cutoff
+                            .map(|cutoff| {
+                                rules::parse_timestamp(cutoff)
+                                    .map_err(|_| eyre!("Invalid report cutoff timestamp"))
+                                    .and_then(|cutoff| {
+                                        rules::parse_timestamp(&self.entry.timestamp)
+                                            .map_err(|_| eyre!("Invalid logbook entry timestamp"))
+                                            .and_then(|timestamp| match timestamp < cutoff {
+                                                | true => Err(eyre!("Logbook entry predates the latest successful report cutoff")),
+                                                | false => Ok(()),
+                                            })
+                                    })
+                            })
+                            .transpose()
+                            .map(|_| ())
+                    })
+                    .and_then(|()| {
+                        let identifier = self
+                            .entry
+                            .identifier
+                            .clone()
+                            .unwrap_or_else(|| format!("form-{}", self.submission_id.to_ascii_lowercase()).to_case(Case::Kebab));
+                        let entry = LogbookEntry::init()
+                            .archived(self.entry.archived)
+                            .category(self.entry.category)
+                            .maybe_classification(self.entry.classification.clone())
+                            .maybe_discovery(self.entry.discovery.clone())
+                            .maybe_event_type(self.entry.event_type)
+                            .global(self.entry.global)
+                            .identifier(identifier)
+                            .maybe_items(self.entry.items.clone())
+                            .origin(self.entry.origin)
+                            .project_id(&folder_id)
+                            .state(self.entry.state)
+                            .summary(self.entry.summary.trim())
+                            .timestamp(self.entry.timestamp.trim())
+                            .build();
+                        entry
+                            .validate()
+                            .map_err(|why| eyre!("Invalid normalized PowerAutomate logbook entry — {why}"))
+                            .map(|()| FormAdmission {
+                                folder_id,
+                                entry,
+                                operation_key: self.operation_key(),
+                                replaces: None,
+                            })
+                    })
+            }),
+        }
     }
     /// Convert authorized form fields into a manual, active logbook entry.
     pub fn entry(&self, routing: &FolderRegistry) -> ApiResult<LogbookEntry> {

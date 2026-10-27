@@ -217,7 +217,7 @@
                         "expression": {
                           "equals": [
                             "@first(body('Find_receipt')?['value'])?['cr1d0_emailrecipient']",
-                            "teams-self:o9w@ornl.gov"
+                            "teams-self:owner@example.invalid"
                           ]
                         },
                         "actions": {

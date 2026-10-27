@@ -217,13 +217,13 @@
   - heading "Connection references" [level=3]
   - button "See all"
   - grid:
-    - row "o9w@ornl.gov Microsoft Dataverse o9w@ornl.gov":
-      - gridcell "o9w@ornl.gov":
-        - img "o9w@ornl.gov"
+    - row "owner@example.invalid Microsoft Dataverse owner@example.invalid":
+      - gridcell "owner@example.invalid":
+        - img "owner@example.invalid"
       - gridcell "Microsoft Dataverse":
         - 'generic "Display Name: Microsoft Dataverse ACORNSponsorHighlightsIntake-5298a. Name: cr1d0_sharedcommondataserviceforapps_5298a"': Microsoft Dataverse
-      - gridcell "o9w@ornl.gov":
-        - generic: o9w@ornl.gov
+      - gridcell "owner@example.invalid":
+        - generic: owner@example.invalid
       - gridcell:
         - generic: 
   - heading "Co-owner" [level=3]

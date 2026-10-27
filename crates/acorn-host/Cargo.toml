@@ -12,14 +12,20 @@ rust-version.workspace = true
 [dependencies]
 acorn-cmd = { version = "0.5.1", path = "../acorn-cmd", default-features = false, optional = true }
 acorn-core = { version = "0.5.1", path = "../acorn-core", default-features = false, features = ["alloc"] }
+async-trait = { workspace = true, optional = true }
+chrono = { version = "0.4.41", default-features = false, features = ["clock"], optional = true }
 data-encoding = { workspace = true, optional = true }
 directories = { workspace = true, optional = true }
 futures = { workspace = true, features = ["std"], optional = true }
 jsonc-parser = { workspace = true, optional = true }
+keyring-core = { workspace = true, optional = true }
 nanoid = { workspace = true, optional = true }
+oauth2 = { workspace = true, optional = true }
+openidconnect = { workspace = true, optional = true }
 owo-colors = { workspace = true, optional = true }
 reqwest = { version = "0.13.2", features = ["rustls", "stream"], default-features = false, optional = true }
 ring = { version = "0.17.14", default-features = false, optional = true }
+secrecy = { workspace = true, optional = true }
 serde = { workspace = true, features = ["std"], optional = true }
 serde_json = { workspace = true, features = ["std"], optional = true }
 serde_norway = { workspace = true, optional = true }
@@ -27,8 +33,18 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs", "io-util", "time"], optional = true }
 url = { version = "2.5.7", optional = true }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus-secret-service-keyring-store = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+apple-native-keyring-store = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-native-keyring-store = { workspace = true, optional = true }
+
 [features]
 default = []
+auth = ["http", "dep:async-trait", "dep:chrono", "dep:keyring-core", "dep:oauth2", "dep:openidconnect", "dep:secrecy", "dep:serde", "dep:serde_json", "dep:tokio", "tokio/macros", "tokio/net", "tokio/rt", "tokio/sync", "dep:apple-native-keyring-store", "dep:windows-native-keyring-store", "dep:zbus-secret-service-keyring-store"]
 config = ["dep:jsonc-parser", "dep:serde", "dep:serde_json", "dep:serde_norway"]
 download = ["fs", "http", "dep:futures", "dep:tokio"]
 fs = ["acorn-core/digest", "dep:data-encoding", "dep:directories", "dep:nanoid", "dep:ring", "dep:url"]
@@ -40,7 +56,7 @@ terminal = ["dep:owo-colors"]
 axum = { workspace = true, features = ["http1", "tokio"] }
 serde = { workspace = true, features = ["derive", "std"] }
 tempfile = "3"
-tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "test-util"] }
 
 [lints]
 workspace = true

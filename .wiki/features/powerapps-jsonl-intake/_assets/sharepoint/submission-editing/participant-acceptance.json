@@ -1,0 +1,45 @@
+{
+  "acceptedOn": "2026-10-27",
+  "status": "accepted",
+  "flowId": "36695ee1-47d2-f111-a05c-001dd8062052",
+  "correctionRunId": "08584084650010578599029769360CU13",
+  "correctionRunStartedAt": "2026-10-27T18:58:04-04:00",
+  "receipts": [
+    {
+      "submissionId": "c62dcf3e-e6fe-4b92-95d5-8097b1fd50ac",
+      "submittedAt": "2026-10-27T22:56:03.946Z",
+      "revision": null,
+      "sha256": "b290d1063c70a148d0cc4c9db36f6a815991638eb0e0850bca37c065c9748d03",
+      "occurrences_in_aggregate": 1,
+      "exact_individual_file_match": true
+    },
+    {
+      "submissionId": "1f3a013d-18b5-4020-ae53-0ff9bfef12e8",
+      "submittedAt": "2026-10-27T22:58:04.473Z",
+      "revision": {
+        "rootSubmissionId": "c62dcf3e-e6fe-4b92-95d5-8097b1fd50ac",
+        "supersedesSubmissionId": "c62dcf3e-e6fe-4b92-95d5-8097b1fd50ac"
+      },
+      "sha256": "44bb7edc65b0fc5a2d9b6db2d684976f5864170bd3fca20a8e22474dd2a0f8ea",
+      "occurrences_in_aggregate": 1,
+      "exact_individual_file_match": true
+    }
+  ],
+  "project": "general",
+  "different_from_owner": true,
+  "same_submitter_and_destination": true,
+  "changed_fields": [
+    "summary"
+  ],
+  "history_visibility": "Contributor confirmed only own entries, relayed by user",
+  "teams_visible_to_contributor": "Confirmed by user",
+  "owner_teams_action": "Succeeded",
+  "contributor_chat_action": "Succeeded",
+  "contributor_teams_action": "Succeeded",
+  "aggregate": {
+    "rows": 18,
+    "sha256": "dd82d130ef3581ed64de859020731f0fb8aa117ee74fcbbb2881205a54de429d",
+    "previous_snapshot_rows_preserved_exactly": 15
+  },
+  "privacy": "Contributor account and payload contents omitted. Raw records remain in authorized SharePoint storage and private downloads. No local reporting or publication was performed with these live records."
+}

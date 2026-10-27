@@ -186,22 +186,22 @@ Browser tab: 1329059538, Title: "Manage your flows | Power Automate", URL: "http
 								184 text Connection references
 							185 button See all
 							186 table
-								187 row o9w@ornl.gov SharePoint Permissions o9w@ornl.gov, ID: row1700-0
+								187 row owner@example.invalid SharePoint Permissions owner@example.invalid, ID: row1700-0
 									188 cell
-										189 image o9w@ornl.gov
+										189 image owner@example.invalid
 									190 cell
 										191 text SharePoint
 										192 button Permissions
 											193 text Permissions
 									194 cell
-										195 text o9w@ornl.gov
-								196 row o9w@ornl.gov Microsoft Teams o9w@ornl.gov, ID: row1700-1
+										195 text owner@example.invalid
+								196 row owner@example.invalid Microsoft Teams owner@example.invalid, ID: row1700-1
 									197 cell
-										198 image o9w@ornl.gov
+										198 image owner@example.invalid
 									199 cell
 										200 text Microsoft Teams
 									201 cell
-										202 text o9w@ornl.gov
+										202 text owner@example.invalid
 						203 container
 							204 heading Co-owner, Value: 3
 								205 text Co-owner

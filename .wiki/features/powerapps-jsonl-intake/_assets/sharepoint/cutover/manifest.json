@@ -1,0 +1,122 @@
+{
+  "README.md": {
+    "bytes": 9149,
+    "sha256": "7ca6547cd02ed8aae5a9b38e102c949566c94e636a02f1e94863577e7bf54b1b"
+  },
+  "app-change-audit.json": {
+    "bytes": 345,
+    "sha256": "2c3aa4733a44e11070fcce61a689b742e1895e017bb06f6f601023c0acd5d799"
+  },
+  "baseline-comparison.json": {
+    "bytes": 362,
+    "sha256": "761e473497c73029ccea97126a2d14d63c4c0c744deb01643fd662aad52fcaa9"
+  },
+  "catalog-installed-run-after.txt": {
+    "bytes": 5060,
+    "sha256": "31781f660bb8b47ddc84246bd7b83ecf363e465283c1126226746cd2b8db8913"
+  },
+  "catalog-response-before.json": {
+    "bytes": 621,
+    "sha256": "ccf853673263e8baf9ecbd8abbae7ec767f71063291c1e44db1eeebc3c286a6b"
+  },
+  "catalog-response-installed.json": {
+    "bytes": 1092,
+    "sha256": "006d67f430d2bd72816a2a951fd30462b81e1e9301778190e23d68d3cadcd420"
+  },
+  "confirmed-receipt-preserved.txt": {
+    "bytes": 7133,
+    "sha256": "05354b2485f3eece03bd13433eb886537c1a2cfdf898323e2d2f471fd72e744a"
+  },
+  "cutover-test-receipt.jsonl": {
+    "bytes": 539,
+    "sha256": "1a9f169f3fe6ddcf725963e975ba545932838f750cf4bbc4971be0178853b431"
+  },
+  "deployment-validation.json": {
+    "bytes": 1520,
+    "sha256": "157d33214e193743ec6654445272beb775c45bbc13fd3938795f5fcd9a944fc6"
+  },
+  "exporter-before-scope.json": {
+    "bytes": 13880,
+    "sha256": "c95fdd30b40f09c068fd7554864cd28822f242bac5a4073faf6c52463a48458b"
+  },
+  "exporter-before-trigger.json": {
+    "bytes": 302,
+    "sha256": "525d408aee861e10e7b06326bf20302f3947505e9421bcf177afe97775c6e1a7"
+  },
+  "exporter-before.txt": {
+    "bytes": 11511,
+    "sha256": "a85419f985a4273c5f87e8011c328e79bc7452c9d263eb8531d47daa2840365e"
+  },
+  "exporter-final-runs.txt": {
+    "bytes": 11412,
+    "sha256": "01434c5709bbd491177492dfaf87f9885df0ed405b357102ce3fe541ead40b63"
+  },
+  "exporter-first-installed-run.txt": {
+    "bytes": 5214,
+    "sha256": "82c6dbc3d15e45b0bcb786b71ff9e88edbd8f9479f253d0b436a6af10da37c6e"
+  },
+  "exporter-installed-scope.json": {
+    "bytes": 18225,
+    "sha256": "07d15be0bb8c504a33ca483b3899394883371f5bdcfa16ea0d9078461e562508"
+  },
+  "exporter-rollback.clipboard.json": {
+    "bytes": 15842,
+    "sha256": "2e4c348ed1d447e9f038c0c9a13e7cb8c24a34afa232cd0a8d6cbb6063bd3e7d"
+  },
+  "gitlab-catalog-before.txt": {
+    "bytes": 13487,
+    "sha256": "2908d0aa8885fe9694c452711a670c6099a382a25ca7b89dc6d577ff57df879e"
+  },
+  "gitlab-catalog-off.png": {
+    "bytes": 78197,
+    "sha256": "f978874bf10d15432d0c73273f2a3d0c88b5f5378ce9aecff725f1c102845bcb"
+  },
+  "gitlab-catalog-off.txt": {
+    "bytes": 13710,
+    "sha256": "523e30f9177d9f72dfc387e1121666612df0f13ac8371ab86c6a20707ee9de46"
+  },
+  "gitlab-intake-before.txt": {
+    "bytes": 13575,
+    "sha256": "53e9e90a9609d597ed550afc2fe9710c0274d35caf371585a2473d05e2cb520c"
+  },
+  "gitlab-intake-off.png": {
+    "bytes": 81086,
+    "sha256": "a7d9534b97c531866a6f13a4225f11ccdf0b8878a51cebdbb58dc53ccd90c00f"
+  },
+  "gitlab-intake-off.txt": {
+    "bytes": 13783,
+    "sha256": "37c9b7e0e65240722878a71e5a11d1f3a5d8cdd3b4ac3d7187b7344a2bdef7ec"
+  },
+  "intake-notification-run.png": {
+    "bytes": 60961,
+    "sha256": "3b6f2419e13455d251cbbbf71aae4ece235a1f6b74fa78908f52e36738197478"
+  },
+  "intake-notification-run.txt": {
+    "bytes": 8283,
+    "sha256": "a98385caad4b3de2e04fbea0d3345663c720d9f18c924fd253b81fc6acf026d5"
+  },
+  "published-before-refresh.txt": {
+    "bytes": 3681,
+    "sha256": "abbe14fa9b883194b6fb6ab2728aafe220287d4cd9287d263e144b697f9ff4be"
+  },
+  "published-projects.txt": {
+    "bytes": 6765,
+    "sha256": "b0780518fb4f9c1562fdacfd2488c3f69497f64c5742af5566f755b75b666518"
+  },
+  "published-submission.png": {
+    "bytes": 44180,
+    "sha256": "8e68498c963f8a6827b682c8cb07c01c0477ee0a50b4f58fe02e301322e9bea0"
+  },
+  "published-submission.txt": {
+    "bytes": 4301,
+    "sha256": "971b48a5e70406e1fab85f7484dc30b240a8fabbac20309f7371cdf0a4cd1d9c"
+  },
+  "sharepoint-before.msapp": {
+    "bytes": 90085,
+    "sha256": "2f55628016f44513aaf42e09046b2141aa5f6d7d736258dddcb5a4f63614cca7"
+  },
+  "sharepoint-installed.msapp": {
+    "bytes": 91432,
+    "sha256": "bac83ba0cc5e8cb41d4b935a5477446cc608f053e7f3e1881a4c934abac15801"
+  }
+}

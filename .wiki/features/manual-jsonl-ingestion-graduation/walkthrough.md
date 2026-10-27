@@ -1,58 +1,44 @@
 # Sponsor Highlights: demo without Vergil
 
-Plan assets now live in local `_assets/` folders. The demo walkthrough PDF was refreshed October 26, 2026 with both intake branches, current commands and confirmation controls. Historical screenshots and execution records retain their original paths; the links and commands in this walkthrough use the current layout.
-
-This packet explains both capture routes. Its retained end-to-end rehearsal follows **one actual GitLab PowerApp submission** through JSONL, local review, ingestion, contributor graduation and a local PDF. A separate October 26 SharePoint demonstration downloaded six rows, selected three exact synthetic rows, and completed stage, inspect, apply and a combined local PDF. Intended-user access and broader exporter acceptance remain open. The contributor, baseline project and report are **TEST ONLY**. Nothing in the local rehearsal publishes a report, sends a callback, drains the remote inbox or starts Vergil.
+Updated October 27, 2026. **SharePoint is the active default; GitLab intake and catalog flows are Off.** The contributor/reviewer and developer guides cover the published form, immutable corrections and notifications. Historical screenshots and acceptance records retain their dates; they are not fresh cloud runs.
 
 ## Start here
 
-- [Presentation walkthrough](_assets/demo-walkthrough.pdf): the eight-minute story and captured screens.
-- [Resulting report](_assets/demo-report.pdf): the archived personnel entry remains visible in the fixed October 24 reporting window.
-- [Rehearsal evidence](_assets/rehearsal-evidence.json): source and output hashes, local Git revision, exact commands, exit codes and elapsed time.
-- [Failure acceptance](../powerapps-jsonl-intake/write-failure-acceptance.md): isolated, non-writing test of the single unresolved response.
-- [CLI guide](../../../docs/src/cli-reference/commands/intake.md): supported command contract.
+- [Presentation walkthrough](_assets/demo-walkthrough.pdf)
+- [User and reviewer guide](../powerapps-jsonl-intake/_assets/sponsor-highlights-user-reviewer-guide.pdf)
+- [Developer guide](../powerapps-jsonl-intake/_assets/sponsor-highlights-developer-guide.pdf)
+- [SharePoint demo report](../powerapps-jsonl-intake/_assets/sharepoint/demo-20261026/sharepoint-demo-report.pdf)
+- [CLI guide](../../../docs/src/cli-reference/commands/intake.md)
 
-## Eight-minute presentation
+The manual MVP is accepted: browser download → stage → inspect → confirmed apply → combined local PDF. Standard-license contributor access, recovery, collected-export boundaries, native restore, deployed exporter repair and contributor editing are accepted. Wider shared rollout remains PA-12; standalone reporting for the separate `general` destination remains PA-29. Direct CLI OAuth download and Vergil are separate unfinished plans.
 
-| Time | Role and action | Point to show |
+## Eight-minute SharePoint presentation
+
+| Time | Action | Point to show |
 | --- | --- | --- |
-| 0:00-1:30 | Contributor opens the assigned SharePoint or GitLab app, loads projects and enters a non-sensitive highlight. | Use the recorded [prepared form](_assets/form-prepared.png) and [saved receipt](_assets/form-receipt.png) if cloud access fails. The saved example is category Personnel, status Completed, summary `Example, Avery (TEST ONLY)`. |
-| 1:30-2:15 | Operator shows the branch-specific receipt and JSONL source. | SharePoint: list receipt plus combined `logbook.jsonl`, refreshed every five minutes. Individual receipt files remain evidence. GitLab: immutable commit with [one added line](_assets/gitlab-append.png). Neither approves content. The retained local rehearsal uses the GitLab personnel fixture. |
-| 2:15-3:30 | Reviewer runs stage and inspect. | Explicit project/member mapping, exact source bytes, one proposed entry and a readable diff. The index is unchanged before approval. |
-| 3:30-4:15 | Reviewer approves the disposable local change and applies it. | One entry. Repeat apply produces no duplicate. |
-| 4:15-5:30 | Reviewer previews graduation candidates, then selects the contributor entry with the reviewed digest. | Ingestion and graduation are separate approvals. Graduation adds one contributor and archives the retained source entry; unrelated metadata stays unchanged. |
-| 5:30-6:30 | Operator opens the local PDF. | The same entry is visible with its Archived label. The output is local, not a published sponsor report. |
-| 6:30-7:30 | Operator repeats graduation and tries an unknown project. | Stale graduation and rejected input fail without changing the index. |
-| 7:30-8:00 | Presenter explains the next step. | Vergil will automate intake/review plumbing. Canonical review and promotion remain explicit. Shared deployment and production access approval are separate work. |
+| 0:00–1:30 | Open the SharePoint form and keep Project highlight selected. Load projects and submit a clearly labeled TEST ONLY highlight. | Placement precedes Project. A report-wide update needs no project, but its standalone CLI reporting is still pending. Use project highlights for the complete current demo. |
+| 1:30–2:30 | Read the receipt and Teams confirmation. | JSONL ready verifies the individual receipt file. Teams is best effort; there is no routine submission email. |
+| 2:30–3:30 | Use My Submissions between the banner and form, then Edit selected and Save correction. | Only the caller's latest receipts are offered. The correction has a new UUID and retains original/previous links; project and placement stay fixed. |
+| 3:30–4:30 | Check the next collected export and download logbook.jsonl. | The exporter runs every five minutes. Confirm freshness and include required correction ancestry; do not export list CSV or recreate JSON. |
+| 4:30–6:30 | Stage, inspect and approve apply in a separate demo workspace. | Review the latest logical content. Receipt history stays immutable; repeat apply does not duplicate it. |
+| 6:30–7:30 | Generate and open the combined local PDF. | Local reporting sends no notifications and does not publish. Metadata graduation is optional. |
+| 7:30–8:00 | Explain remaining rollout work. | General reporting, shared deployment, direct OAuth download and Vergil are independent follow-ups. |
 
-The automated eleven-step rehearsal completed in 2.01 seconds on October 24, 2026, excluding human explanation and approval time. The eight minutes above is a presentation allocation, not a measured human rehearsal.
+The eight minutes is a presentation allocation. The recorded three-row demo below used original project receipts; correction acceptance is recorded separately in the [editing evidence](../powerapps-jsonl-intake/_assets/sharepoint/submission-editing/README.md). Use only approved synthetic data and a disposable local destination for a new demonstration.
 
-## Choose the capture branch
+## Capture through SharePoint
 
-| Branch | Capture and storage | Handoff to local ACORN |
-| --- | --- | --- |
-| [SharePoint pilot](https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/163f110f-7f8a-401c-894e-0786b2c018a4) | Standard SharePoint intake/catalog connections; one list receipt and one UUID-named receipt file. A separate five-minute exporter collects all rows into logbook.jsonl. | Download combined logbook.jsonl after its next refresh and stage its local path or file URI. Preserve exact bytes; list CSV/Excel export is not the intake envelope. |
-| [GitLab connector app](https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/15ae605b-585b-49f5-a413-2b091f919a35) | Existing custom connector; append to project 22464/main/.acorn/intake/logbook.jsonl. Confirmation identifies an immutable commit. | Stage a GitLab raw/blob file URL; the CLI captures an immutable snapshot. An already captured local file also works. |
+Open the [SharePoint form](https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/163f110f-7f8a-401c-894e-0786b2c018a4). New highlights default to Project highlight. Choose a project after loading the maintained catalog of 13 projects. The reserved general destination is separate and hidden from project choices.
 
-The SharePoint catalog contains 13 seeded projects; it is not automatically synchronized with GitLab. Owner-context app submission, exact export, reload recovery and Teams action tests passed on October 26. The owner-context three-row download-to-CLI report passed. Standard-license participant access, failure recovery and broader boundary/concurrency tests remain open. The original GitLab app remains operational; intermittent GitLab access is a known limitation. Use one branch per highlight. Do not reroute an unresolved receipt into the other app.
-
-Example handoff commands, using an approved ACRE configuration with local destination indexes and member rules:
+Each original or correction creates one immutable list receipt and one verified UUID-named JSONL file. The five-minute exporter collects all receipts into `logbook.jsonl`. Download that combined file for local intake. A save confirmation does not prove the combined file has refreshed yet. For correction batches, include the predecessor chain in the batch or use previously applied local history; missing ancestry stops review/apply.
 
 ```sh
-# SharePoint: download combined logbook.jsonl after the next five-minute refresh.
-acorn intake stage --batch --config intake.json \
-  --source "/path/to/logbook.jsonl"
-
-# GitLab: resolve and save an exact source snapshot.
-CI_SERVER_HOST=code.ornl.gov acorn intake stage --batch \
-  --config intake.json --source "<GitLab raw/blob file URL>"
-
-# Both routes converge here; use your source's batch ID.
+acorn intake stage --batch --config intake.json --source /path/to/logbook.jsonl
 acorn intake inspect --config intake.json --batch-id <batch-ID>
 acorn intake apply --config intake.json --batch-id <batch-ID>
 ```
 
-Direct SharePoint HTTPS sources are not supported by the CLI source adapter. Do not regenerate the envelope, UUID or JSON formatting. The owner-context SharePoint handoff below passed on October 26. The separate frozen rehearsal script later in this guide uses its verified GitLab fixture and additionally exercises graduation.
+Direct SharePoint HTTPS capture is not exposed by the CLI yet. Preserve downloaded bytes and IDs. General receipts must remain available for PA-29; do not silently drop them from a mixed batch or create a fake project index. If selecting project-only demo rows, retain the complete download separately and document the exact selection.
 
 ## SharePoint download to a combined local PDF
 
@@ -65,8 +51,7 @@ cd output/pdf/sharepoint-demo-20261026
 **1. Stage the three selected rows.**
 
 ```sh
-acorn --offline intake stage --batch \
-  --config intake.json --source selected-demo.jsonl
+acorn --offline intake stage --batch --config intake.json --source selected-demo.jsonl
 ```
 
 **2. Inspect the proposed changes.** Replace `<batch-ID>` with the ID printed by stage; use that same ID for apply. The expected result is three accepted rows and no rejected rows.
@@ -84,9 +69,7 @@ acorn --offline intake apply --config intake.json --batch-id <batch-ID>
 **4. Generate the combined local PDF.**
 
 ```sh
-acorn --offline report --config report.json \
-  --from 2026-10-26T00:00:00Z --through 2026-10-27T00:00:00Z \
-  --dry-run --combine
+acorn --offline report --config report.json --from 2026-10-26T00:00:00Z --through 2026-10-27T00:00:00Z --dry-run --combine
 ```
 
 Open `.acorn/reports/report.pdf` inside the demo directory. The default root is the current directory; the default selection includes every folder in `report.json` (only `acorn` here); the default output is `.acorn/reports`. Combined mode does not require `--commit`. Keep the explicit window to reproduce the three-row demo; `--through` has no time default, and omitting `--from` includes older history. The shorter commands change the output location from the historical `report/` directory, not the intended content.
@@ -97,19 +80,26 @@ The [original evidence and report](../powerapps-jsonl-intake/sharepoint-pilot.md
 
 ## Where notifications occur
 
-Both intake branches send best-effort Teams notices to the owner after a confirmed new save. SharePoint requires a new receipt and a verified export in the same run; if export first succeeds on a later retry, the initial notice is skipped. GitLab requires the confirmed new-commit response. Exact replays do not send another notice. There is no routine intake email.
+A newly saved and verified SharePoint original or correction sends best-effort Teams confirmation to the owner and submitter; a self-submission skips the duplicate notice. History reads and exact replays send no notice. If export first succeeds only on a later retry, the initial notice is not resent. No routine submission email is sent.
 
-Later milestones use the separate owner-triggered callback: Teams for workspace created or no report changes; email for review requested, report ready or actionable failure. The local CLI does not trigger those messages. A local PDF is not evidence of remote publication. The page 2 diagram shows both routes and the manual milestone boundary. See [notification routing](../powerapps-jsonl-intake/notification-walkthrough.md) and [SharePoint acceptance](../powerapps-jsonl-intake/sharepoint-pilot.md).
+Later milestones use the separate owner-triggered receiver: Teams for workspace created or no report changes; email for review requested, report ready or actionable failure. Local CLI commands do not invoke this receiver. Corrections do not change an existing PDF; generate and review a new report. The page 2 map shows the active route and this manual milestone boundary. See [notification routing](../powerapps-jsonl-intake/notification-walkthrough.md).
 
-## Repeat safely
+## Day-of fallback and boundaries
+
+If approved cloud access fails, use the retained synthetic snapshot and clearly say **recorded cloud capture, live local review and reporting**. Do not enable the paused GitLab flows as an automatic fallback or rotate credentials to evade access controls. Keep unresolved receipts in their original app and browser slot.
+
+Sanitized fixture bytes and native packages may differ from historical hashes. Follow [privacy and reuse limits](../../privacy.md) and deliberately rebaseline in an isolated synthetic workspace before rerunning a frozen rehearsal. A historical success record is not verification of a redacted file. Local review/reporting never drains SharePoint or acknowledges rows to a future bot.
+
+## Appendix A — Retained GitLab rehearsal
+
+The original GitLab app and connector are retained, with intake and catalog flows Off. The owner must explicitly restore the route and verify premium rights and connectivity before a new submission. Existing captured files can still be reviewed offline. The following October 24 rehearsal additionally exercises optional contributor graduation; it is historical evidence, not the active capture route.
+
+## Appendix A — Repeat safely
 
 Build the current CLI (`cargo build --bin acorn`, default PDF feature), then run from the repository root:
 
 ```sh
-python3 .wiki/features/manual-jsonl-ingestion-graduation/_assets/rehearse.py \
-  --workspace /tmp/acorn-demo-next-week-01 \
-  --acorn target/debug/acorn \
-  --chrome '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+python3 .wiki/features/manual-jsonl-ingestion-graduation/_assets/rehearse.py --workspace /tmp/acorn-demo-next-week-01 --acorn target/debug/acorn --chrome '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 ```
 
 The workspace must not exist. The script refuses to reset an existing directory. Use a new name for each rehearsal; retain earlier evidence. It uses ACORN’s **Yes / No** buttons for intake approval, selection of the contributor promotion, and final graduation approval. No is selected by default; Tab or the arrow keys switches selection and Enter confirms it. `y` and `n` also work; Escape or Ctrl+C cancels. No skips a graduation candidate; in this one-candidate rehearsal, skipping it stops the expected graduation checks. Declining the intake or final graduation approval stops the rehearsal without applying that change. Run in a terminal with both input and output attached. Interactive receipts appear in the terminal; the evidence records each command, confirmation mode and exit status.
@@ -129,15 +119,13 @@ acorn intake run --index project/index.json --force
 
 The script verifies the immutable source hashes and exact line selection before writing, creates a disposable index, records all command results, creates a local Git commit using the explicitly synthetic `ACORN Synthetic Demo` identity, and renders the PDF twice. It asserts that retries, rejected apply and both report runs preserve the correct index. `evidence.json` is the local report manifest; `remotePublication` is false.
 
-## Confirmation acceptance
+## Appendix A — Confirmation acceptance
 
-The earlier October 24 confirmation update passed [20 terminal checks and three interactive rehearsal paths](_assets/confirmation-checks.json): No, default Enter, Escape and Ctrl+C preserved the local index; Yes applied the reviewed change. Declining graduation also left no backup file. Revoking folder membership while either Apply prompt was open prevented the write after Yes, confirming that permissions are reloaded after approval. The complete interactive rehearsal passed all eleven steps with two native confirmation prompts; its [recorded evidence](_assets/confirmation-rehearsal-evidence.json) records the confirmation mode for each command. The unattended synthetic rehearsal also passed using `--yes`. CLI integration tests verify redirected input/output cannot approve implicitly, and `--yes` retains stale-index, digest and replay protections. Final validation passed: `make lint`, `make test` (2,672 passed; 17 skipped), and the planning wiki validator.
+The October 24 [confirmation checks](_assets/confirmation-checks.json) and [interactive rehearsal](_assets/confirmation-rehearsal-evidence.json) accepted Yes / No behavior, cancellation, stale permissions and replay protection. The consolidated `run` API then passed [ten terminal checks](_assets/run-confirmation-checks.json), the [unattended rehearsal](_assets/run-rehearsal-evidence.json), and the [interactive rehearsal](_assets/run-interactive-rehearsal-evidence.json). The latter used three prompts. Recorded final gates passed warning-free lint, 2,694 tests (17 skipped), book and wiki validation.
 
-The consolidated `run` API passed [ten native terminal checks](_assets/run-confirmation-checks.json): per-entry selection, default No, final rejection, Escape/Ctrl+C, interactive dry-run, exact backups, and rejection of concurrent index changes. Both the [unattended rehearsal](_assets/run-rehearsal-evidence.json) and [interactive rehearsal](_assets/run-interactive-rehearsal-evidence.json) passed all eleven steps with the current commands. The interactive rehearsal used three native prompts. These checks used synthetic local data and sent no messages or repository updates. Final validation for the consolidated API passed: warning-free `make lint`, `make test` (2,694 passed; 17 skipped), the documentation book build, and the planning wiki validator.
+These are dated synthetic-local results, not a new run of sanitized fixtures. They sent no messages or remote updates. Current commands preserve explicit approval and exact-backup behavior; source records retain the detailed test outcomes.
 
-The original rehearsal manifest and screenshots remain the captured demonstration record. This walkthrough and its refreshed PDF describe the current button controls and unattended invocation contract. The PDF adds captured screens and the workflow notification map.
-
-## Exact trace
+## Appendix A — Exact trace
 
 | Evidence | Value |
 | --- | --- |
@@ -156,12 +144,4 @@ The original rehearsal manifest and screenshots remain the captured demonstratio
 
 The replay run reached **Queued replay** after reading the prior immutable commit and its parent; the new-write branch was skipped. Response values remain protected in run history. The saved flow's replay response references that verified prior commit. The original app receipt and the downloaded snapshot establish the UUID/commit mapping.
 
-`_assets/baseline.json` is a separate synthetic local project, not a downloaded canonical project index. `_assets/selected.jsonl` is unchanged capture data. `_assets/rejected.jsonl` intentionally changes the project selector and is a separate negative fixture, never submitted to the live flow. The index's contributor and selected archive flag are the only semantic changes between `_assets/ingested.json` and `_assets/graduated.json`.
-
-## Day-of fallback and boundaries
-
-Try the approved cloud route once. If access is denied, stop that segment and show the captured form receipt, commit and replay screenshots; continue the local script with the exact frozen source. Say **“recorded cloud capture, live local review and reporting.”** Do not claim that a new cloud submission succeeded.
-
-Use one browser tab and non-sensitive examples. A network denial is not a reason to rotate credentials or weaken access controls. Reliable egress/licensing approval and wider browser/concurrency acceptance remain in the intake plan. The remote TEST ONLY records remain in place. Before enabling a bot against any manually processed production data, approve the actual baseline using the [verified handback procedure](handback.md); local receipts alone do not prevent a fresh bot database from admitting those lines again.
-
-The demonstration uses `report --dry-run --combine` and an explicit local-only evidence manifest. This avoids presenting publication-shaped previews as evidence of remote publication.
+`_assets/baseline.json` is a separate synthetic local project, not a downloaded canonical project index. `_assets/selected.jsonl` is a sanitized illustration of the captured data; historical hashes apply to the original. `_assets/rejected.jsonl` intentionally changes the project selector and is a separate negative fixture, never submitted to the live flow. The index's contributor and selected archive flag are the only semantic changes between `_assets/ingested.json` and `_assets/graduated.json`.

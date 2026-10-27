@@ -18,15 +18,15 @@
   "verifiedLocalTime": "2026-10-27 11:05 America/New_York",
   "catalogSmokeRun": "08584084933267645819237841434CU19",
   "catalogSmokeResult": "Succeeded; all four actions succeeded",
-  "participantAcceptance": "Accepted: c5c receipt, successful Teams action and exact collected inclusion; see participant-acceptance.json",
+  "participantAcceptance": "Accepted: participant receipt, successful Teams action and exact collected inclusion; see participant-acceptance.json",
   "groupRollout": "Deferred by owner: use existing two-person pilot audience for now",
   "pilotAudience": [
     {
-      "email": "o9w@ornl.gov",
+      "email": "owner@example.invalid",
       "role": "Owner"
     },
     {
-      "email": "c5c@ornl.gov",
+      "email": "participant@example.invalid",
       "role": "User"
     }
   ],

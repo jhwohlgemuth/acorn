@@ -184,22 +184,22 @@ Browser tab: 1329059519, Title: "Manage your flows | Power Automate", URL: "http
 									183 text Connection references
 								184 button See all
 								185 table
-									186 row o9w@ornl.gov SharePoint Permissions o9w@ornl.gov, ID: row404-0
+									186 row owner@example.invalid SharePoint Permissions owner@example.invalid, ID: row404-0
 										187 cell
-											188 image o9w@ornl.gov
+											188 image owner@example.invalid
 										189 cell
 											190 text SharePoint
 											191 button Permissions
 												192 text Permissions
 										193 cell
-											194 text o9w@ornl.gov
-									195 row o9w@ornl.gov Microsoft Teams o9w@ornl.gov, ID: row404-1
+											194 text owner@example.invalid
+									195 row owner@example.invalid Microsoft Teams owner@example.invalid, ID: row404-1
 										196 cell
-											197 image o9w@ornl.gov
+											197 image owner@example.invalid
 										198 cell
 											199 text Microsoft Teams
 										200 cell
-											201 text o9w@ornl.gov
+											201 text owner@example.invalid
 							202 container
 								203 heading Co-owner, Value: 3
 									204 text Co-owner
@@ -286,15 +286,15 @@ Browser tab: 1329059519, Title: "Manage your flows | Power Automate", URL: "http
 								286 pop up button (collapsed, settable) Description: Select a connection for SharePoint., Value: Provided by run-only user, Secondary Actions: Expand
 									287 menu
 										288 (selected) Provided by run-only user
-										289 Use this connection (o9w@ornl.gov)
+										289 Use this connection (owner@example.invalid)
 								290 container Microsoft Teams
 									291 text Microsoft Teams
 									292 text Run-only users will be asked to provide their own connection to this connector.
 								293 pop up button (collapsed, settable) Description: Select a connection for Microsoft Teams., Value: Provided by run-only user, Secondary Actions: Expand
 									294 menu
 										295 (selected) Provided by run-only user
-										296 Use this connection (o9w@ornl.gov)
-										297 Use this connection (o9w@ornl.gov)
+										296 Use this connection (owner@example.invalid)
+										297 Use this connection (owner@example.invalid)
 								298 button (disabled) Save
 								299 button Cancel
 						261 container Connections Used Users with run-only access will not control or have access to these connections outside of this flow.

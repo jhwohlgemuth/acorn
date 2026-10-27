@@ -1,0 +1,634 @@
+{
+  "date": "2026-10-27",
+  "baseline_commit": "bde5df3f",
+  "includes_working_tree": true,
+  "scope": "All plan metadata/phases/dependencies, linked assets and PDF guides; targeted source spot-checks plus existing recorded acceptance. No new full-workspace tests, live OAuth/cloud validation or external release verification.",
+  "executable_plan_count": 36,
+  "coordination_record_count": 2,
+  "retired_plans": [],
+  "plans": [
+    {
+      "path": "features/acornd-service.md",
+      "status": "planned",
+      "remaining_phases": [
+        "ACD-01 \u2014 Freeze portable job contract",
+        "ACD-02 \u2014 Add daemon package and validated config",
+        "ACD-03 \u2014 Persist daemon job and run history",
+        "ACD-04 \u2014 Execute fixed check jobs",
+        "ACD-05 \u2014 Execute fixed gather jobs",
+        "ACD-06 \u2014 Add watcher and interval scheduling",
+        "ACD-07 \u2014 Expose composable server lifecycle",
+        "ACD-08 \u2014 Register job control and coordinate daemon shutdown",
+        "ACD-09 \u2014 Add local CLI daemon management",
+        "ACD-10 \u2014 Register persistent Linux service",
+        "ACD-11 \u2014 Register persistent macOS service",
+        "ACD-12 \u2014 Run acornd under Windows Service Control Manager",
+        "ACD-13 \u2014 Register persistent Windows service",
+        "ACD-14 \u2014 Define signed bundle verification",
+        "ACD-15 \u2014 Produce Linux release bundles",
+        "ACD-16 \u2014 Produce macOS release bundles",
+        "ACD-17 \u2014 Produce Windows release bundle",
+        "ACD-18 \u2014 Stage and activate a local signed bundle",
+        "ACD-19 \u2014 Implement SSH transfer and remote control",
+        "ACD-20 \u2014 Accept SSH installation on Linux",
+        "ACD-21 \u2014 Accept SSH installation on macOS",
+        "ACD-22 \u2014 Accept SSH installation on Windows",
+        "ACD-23 \u2014 Publish daemon documentation and generated help",
+        "ACD-24 \u2014 Close workspace and deployment acceptance"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/acre-ron-configuration.md",
+      "status": "planned",
+      "remaining_phases": [
+        "RON-01 \u2014 Register the dependency and format identifier",
+        "RON-02 \u2014 Implement and prove the ACRE RON adapter",
+        "RON-03 \u2014 Complete configuration loading and persistence",
+        "RON-04 \u2014 Add check input and canonical-file discovery",
+        "RON-05 \u2014 Add canonical ACRE RON formatting",
+        "RON-06 \u2014 Document, verify, and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/ask-executor-adapters.md",
+      "status": "planned",
+      "remaining_phases": [
+        "ADP-01 \u2014 Define executor configuration",
+        "ADP-08 \u2014 Add optional sidecar feature wiring",
+        "ADP-09 \u2014 Compose configured bindings at the CLI",
+        "ADP-02 \u2014 Adapt configured MCP tools",
+        "ADP-03 \u2014 Adapt trusted ACP agent capabilities",
+        "ADP-04 \u2014 Adapt configured inference endpoints",
+        "ADP-05 \u2014 Prove reusable local sidecar registration",
+        "ADP-06 \u2014 Validate heterogeneous executor selection",
+        "ADP-07 \u2014 Document and release the generic router"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/azure-cosmos-buckets.md",
+      "status": "planned",
+      "remaining_phases": [
+        "COS-01 \u2014 Confirm demand and SDK feasibility",
+        "COS-02 \u2014 Add the optional feature graph",
+        "COS-03 \u2014 Add typed Cosmos source configuration",
+        "COS-04 \u2014 Validate the item envelope",
+        "COS-05 \u2014 Implement bounded paginated listing",
+        "COS-06 \u2014 Implement authenticated point reads",
+        "COS-07 \u2014 Integrate the shared transfer executor",
+        "COS-08 \u2014 Cover CLI configuration and filtering",
+        "COS-09 \u2014 Persist bounded provenance",
+        "COS-10 \u2014 Document the preview capability",
+        "COS-11 \u2014 Run opt-in live evidence and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/beam-inference-integration.md",
+      "status": "planned",
+      "remaining_phases": [
+        "BEAM-01 \u2014 Verify release, license, and hosting evidence",
+        "BEAM-02 \u2014 Capture authorized protocol fixtures",
+        "BEAM-03 \u2014 Prove existing inference compatibility",
+        "BEAM-04 \u2014 Add only the proven adapter gap",
+        "BEAM-05 \u2014 Freeze the ACORN evaluation",
+        "BEAM-06 \u2014 Complete offline conformance coverage",
+        "BEAM-07 \u2014 Add explicit invocation documentation",
+        "BEAM-08 \u2014 Run live smoke and frozen evaluation",
+        "BEAM-09 \u2014 Decide support and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/cel-validation-profile-pilot.md",
+      "status": "planned",
+      "remaining_phases": [
+        "CEL-01 \u2014 Obtain owner-backed rules and fixtures",
+        "CEL-02 \u2014 Pin the dependency and license gate",
+        "CEL-03 \u2014 Characterize language and checker semantics",
+        "CEL-04 \u2014 Prove enforceable runtime budgets",
+        "CEL-05 \u2014 Add the versioned profile manifest",
+        "CEL-06 \u2014 Implement compile-once evaluation",
+        "CEL-07 \u2014 Map findings and provenance",
+        "CEL-08 \u2014 Add explicit CLI profile selection",
+        "CEL-09 \u2014 Integrate analyzer summaries",
+        "CEL-10 \u2014 Measure conformance and resource cost",
+        "CEL-11 \u2014 Prove owner-editable policy",
+        "CEL-12 \u2014 Decide adoption and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/database-backed-artifact-generation.md",
+      "status": "planned",
+      "remaining_phases": [
+        "DBA-01 \u2014 Define the database artifact selector",
+        "DBA-02 \u2014 Resolve SQLite current and historical sources",
+        "DBA-03 \u2014 Prove DuckDB selector parity",
+        "DBA-04 \u2014 Extend the reproducibility manifest",
+        "DBA-05 \u2014 Unify deterministic text rendering",
+        "DBA-06 \u2014 Render bounded logbook updates",
+        "DBA-07 \u2014 Add CLI database source selection",
+        "DBA-08 \u2014 Add the inbound MCP operation",
+        "DBA-09 \u2014 Complete renderer parity and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/dpid-research-object-support.md",
+      "status": "planned",
+      "remaining_phases": [
+        "DPID-01 \u2014 Capture legacy resolver fixtures",
+        "DPID-02 \u2014 Freeze stream and failure fixtures",
+        "DPID-03 \u2014 Implement the portable DPID value",
+        "DPID-04 \u2014 Wire dPID into generic PID discovery",
+        "DPID-05 \u2014 Add extensible activity identifiers",
+        "DPID-06 \u2014 Persist dPID root identity",
+        "DPID-07 \u2014 Decode the narrow RO-Crate graph",
+        "DPID-08 \u2014 Crosswalk root metadata",
+        "DPID-09 \u2014 Crosswalk agents, rights, and outputs",
+        "DPID-10 \u2014 Implement typed history resolution",
+        "DPID-11 \u2014 Resolve exact JSON-LD consistently",
+        "DPID-12 \u2014 Register the provider endpoint",
+        "DPID-13 \u2014 Integrate gather resolution and deduplication",
+        "DPID-14 \u2014 Assemble dPID project candidates",
+        "DPID-15 \u2014 Add import syntax and dispatch",
+        "DPID-16 \u2014 Implement metadata-only import",
+        "DPID-17 \u2014 Document trust and identity boundaries",
+        "DPID-18 \u2014 Run final gates and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/gather-extraction.md",
+      "status": "planned",
+      "remaining_phases": [
+        "GAT-01 \u2014 Define normalized selector requests",
+        "GAT-02 \u2014 Implement pure deterministic extraction",
+        "GAT-03 \u2014 Add bounded asynchronous fetching",
+        "GAT-04 \u2014 Add CLI scraping composition",
+        "GAT-05 \u2014 Migrate TUI gather to the shared pipeline",
+        "GAT-06 \u2014 Freeze typed inference DTOs",
+        "GAT-07 \u2014 Implement one fake-backed provider adapter",
+        "GAT-08 \u2014 Enforce deterministic-first fallback ordering",
+        "GAT-09 \u2014 Validate proposals and cache identity",
+        "GAT-10 \u2014 Document the combined pipeline",
+        "GAT-11 \u2014 Run full gates and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/grouped-report-separators.md",
+      "status": "planned",
+      "remaining_phases": [
+        "SEP-01 \u2014 Define ordered report groups",
+        "SEP-02 \u2014 Render the grouped PDF",
+        "SEP-03 \u2014 Wire grouping into the existing local combined output",
+        "SEP-04 \u2014 Verify the combined report and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/interactive-metadata-chat.md",
+      "status": "in-progress",
+      "remaining_phases": [
+        "IMC-06 \u2014 Expose `ask --interactive`",
+        "IMC-07 \u2014 Review and apply chat fix proposals",
+        "IMC-10 \u2014 Add interactive formatting for deterministic paths",
+        "IMC-11 \u2014 Review enrichment in the full format workflow",
+        "IMC-12 \u2014 Prove the future TUI consumer seam",
+        "IMC-13 \u2014 Document, validate, and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/julia-decision-sidecar.md",
+      "status": "planned",
+      "remaining_phases": [
+        "JUL-01 \u2014 Pin Julia feasibility inputs",
+        "JUL-02 \u2014 Freeze protocol, corpus, and gates",
+        "JUL-03 \u2014 Implement the pinned Python reference runner",
+        "JUL-04 \u2014 Implement and test Noul types",
+        "JUL-05 \u2014 Validate ONNX graph assets",
+        "JUL-06 \u2014 Reproduce strict Julia encoding",
+        "JUL-07 \u2014 Implement ONNX CPU inference",
+        "JUL-08 \u2014 Prove Python/ONNX parity",
+        "JUL-09 \u2014 Package immutable Julia artifacts",
+        "JUL-10 \u2014 Add JuliaSidecar",
+        "JUL-11 \u2014 Register decision routing and backend selection",
+        "JUL-16 \u2014 Expose decision backend selection in the CLI",
+        "JUL-12 \u2014 Complete decision lifecycle tests",
+        "JUL-13 \u2014 Evaluate Choice decisions",
+        "JUL-14 \u2014 Evaluate Noul and resource gates",
+        "JUL-15 \u2014 Document and release the independent Julia profile"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/model-acquisition-hardening.md",
+      "status": "in-progress",
+      "remaining_phases": [
+        "MOD-01 \u2014 Characterize the request API break",
+        "MOD-02 \u2014 Add RepositoryIdentifier",
+        "MOD-03 \u2014 Split operation-specific requests",
+        "MOD-04 \u2014 Make resolved file sets identity-bearing",
+        "MOD-05 \u2014 Migrate all Hugging Face callers",
+        "MOD-06 \u2014 Reconcile ModelPack annotations",
+        "MOD-07 \u2014 Complete split and projector behavior",
+        "MOD-08 \u2014 Stabilize redacted diagnostic categories",
+        "MOD-09 \u2014 Add independent producer fixtures",
+        "MOD-10 \u2014 Validate Linux registry interoperability",
+        "MOD-11 \u2014 Validate Windows registry interoperability",
+        "MOD-12 \u2014 Publish support evidence and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/needle-router-native-parity.md",
+      "status": "in-progress",
+      "remaining_phases": [
+        "PAR-02 \u2014 Expose full analysis checks",
+        "PAR-03 \u2014 Expose semantic diff and similarity",
+        "PAR-04 \u2014 Expose current gather operations",
+        "PAR-05 \u2014 Align format and crosswalk behavior",
+        "PAR-06 \u2014 Expose linked-data operations",
+        "PAR-07 \u2014 Expose SWHID calculate and verify",
+        "PAR-08 \u2014 Expose structured diagnostics",
+        "PAR-09 \u2014 Align exports and artifact results",
+        "PAR-10 \u2014 Expose bounded imports",
+        "PAR-11 \u2014 Expose explicit downloads and status",
+        "PAR-12 \u2014 Expose configuration synchronization",
+        "PAR-13 \u2014 Expose reporting and explicit publication",
+        "PAR-14 \u2014 Expose constrained script checking",
+        "PAR-15 \u2014 Prove routing at near-parity catalog size",
+        "PAR-16 \u2014 Release native near parity"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/portable-big-o-notation.md",
+      "status": "planned",
+      "remaining_phases": [
+        "COM-01 \u2014 Land the portable parser",
+        "COM-02 \u2014 Validate computation bounds with the parser",
+        "COM-03 \u2014 Add the compile-time literal macro",
+        "COM-04 \u2014 Expose and verify the complete capability"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/index.md",
+      "status": "in-progress",
+      "remaining_phases": [
+        "PA-15 \u2014 Accept bounded inbox and field limits",
+        "PA-16 \u2014 Accept concurrent inbox creation and append",
+        "PA-17 \u2014 Accept the native GitLab Power Platform restore",
+        "PA-12 \u2014 Move the accepted pilot to an approved shared environment",
+        "PA-29 \u2014 Support general updates without a project index"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/sharepoint-headless-ci-download/index.md",
+      "status": "planned",
+      "remaining_phases": [
+        "HCI-01 \u2014 Prove the approved federation path",
+        "HCI-02 \u2014 Extend ACRE with a workload profile",
+        "HCI-03 \u2014 Implement bounded workload token acquisition",
+        "HCI-04 \u2014 Connect workload authentication to headless intake",
+        "HCI-05 \u2014 Prepare an opt-in GitLab CI template",
+        "HCI-06 \u2014 Accept fresh unattended jobs in the isolated pilot",
+        "HCI-07 \u2014 Publish operations guidance and close integration gates"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/sharepoint-jsonl-download/index.md",
+      "status": "in-progress",
+      "remaining_phases": [
+        "SPD-01 \u2014 Prove approved read-only tenant access",
+        "SPD-24 \u2014 Implement shared cache policy and refresh coordination",
+        "SPD-04 \u2014 Implement reusable interactive OAuth sign-in",
+        "SPD-05 \u2014 Implement the macOS Keychain adapter",
+        "SPD-14 \u2014 Implement Windows Credential Manager caching",
+        "SPD-15 \u2014 Implement Linux Secret Service caching",
+        "SPD-06 \u2014 Resolve the configured SharePoint document",
+        "SPD-07 \u2014 Capture bounded content with revision proof",
+        "SPD-08 \u2014 Persist complete immutable local snapshots",
+        "SPD-13 \u2014 Reuse Confirm for OAuth and add a titled sign-in panel",
+        "SPD-20 \u2014 Implement scoped cache inspection and clearing",
+        "SPD-21 \u2014 Expose login and testing cache controls in the CLI",
+        "SPD-09 \u2014 Connect SharePoint to the intake source URI",
+        "SPD-10 \u2014 Accept the real read-only handoff",
+        "SPD-22 \u2014 Accept live device authorization and a clean testing cycle",
+        "SPD-16 \u2014 Accept native macOS caching and restart recovery",
+        "SPD-17 \u2014 Accept native Windows caching and restart recovery",
+        "SPD-18 \u2014 Accept native Linux caching and restart recovery",
+        "SPD-26 \u2014 Hand off shared functionality after one native acceptance",
+        "SPD-11 \u2014 Publish operator instructions and demo handoff",
+        "SPD-12 \u2014 Complete integration gates and retire the plan"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/sponsor-highlights-clarity.md",
+      "status": "planned",
+      "remaining_phases": [
+        "HIL-01 \u2014 Publish the editorial authoring contract",
+        "HIL-02 \u2014 Define validated monthly editorial input",
+        "HIL-03 \u2014 Load editorial input for a report run",
+        "HIL-04 \u2014 Render the consistent project synopsis",
+        "HIL-05 \u2014 Render portfolio takeaways and connections",
+        "HIL-06 \u2014 Audit sponsor PDF accessibility",
+        "HIL-07 \u2014 Pilot approved wider distribution",
+        "HIL-08 \u2014 Define ASPECT event evidence and review rules",
+        "HIL-09 \u2014 Select graduation targets independently",
+        "HIL-10 \u2014 Graduate evidence-backed maturity transitions",
+        "HIL-11 \u2014 Graduate observed portability capability",
+        "HIL-12 \u2014 Graduate observed motivity classification",
+        "HIL-13 \u2014 Graduate observed autonomy classification",
+        "HIL-14 \u2014 Graduate identified data evidence",
+        "HIL-15 \u2014 Preserve ASPECT graduation in database and MCP paths",
+        "HIL-16 \u2014 Preserve ASPECT graduation in GitLab review",
+        "HIL-17 \u2014 Show verified capability transitions in sponsor highlights",
+        "HIL-19 \u2014 Carry target-specific graduation into local intake run",
+        "HIL-18 \u2014 Reconcile sponsor evidence and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/swift-slm-profile.md",
+      "status": "planned",
+      "remaining_phases": [
+        "SLM-01 \u2014 Obtain redistribution approval",
+        "SLM-02 \u2014 Prove the macOS build host",
+        "SLM-03 \u2014 Freeze the one-request protocol fixtures",
+        "SLM-04 \u2014 Implement shared Swift protocol support",
+        "SLM-05 \u2014 Implement TongueRunner",
+        "SLM-06 \u2014 Implement RedactRunner",
+        "SLM-07 \u2014 Implement TitleRunner",
+        "SLM-08 \u2014 Build Linux x86_64 runner artifacts",
+        "SLM-09 \u2014 Build Linux ARM64 runner artifacts",
+        "SLM-10 \u2014 Build macOS ARM64 runner artifacts",
+        "SLM-11 \u2014 Publish immutable Swift artifacts",
+        "SLM-12 \u2014 Pin Swift profile manifests and registration",
+        "SLM-13 \u2014 Implement bounded SLM process lifecycle",
+        "SLM-14 \u2014 Add LanguageSidecar",
+        "SLM-15 \u2014 Add RedactSidecar",
+        "SLM-16 \u2014 Add TitleSidecar",
+        "SLM-17 \u2014 Register Swift capabilities behind acorn ask",
+        "SLM-23 \u2014 Expose Swift download and status in the CLI",
+        "SLM-18 \u2014 Document supported SLM behavior",
+        "SLM-19 \u2014 Evaluate Tongue quality",
+        "SLM-20 \u2014 Evaluate Redact quality",
+        "SLM-21 \u2014 Evaluate Title quality",
+        "SLM-22 \u2014 Release the Swift profile"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "features/vergil-gitlab-jsonl-automation/index.md",
+      "status": "planned",
+      "remaining_phases": [
+        "BOT-01 \u2014 Establish bot authority, credentials and callback contract",
+        "PA-03 \u2014 Prove a native ARM64 Vergil service boot",
+        "PA-04 \u2014 Connect the authenticated external callback receiver",
+        "PA-05 \u2014 Accept one-shot JSONL admission on Vergil",
+        "BOT-02 \u2014 Accept append-cleanup races and restart recovery",
+        "PA-06 \u2014 Accept duplicate-safe review and callback delivery",
+        "PA-07 \u2014 Graduate and merge the reviewed entry",
+        "PA-08 \u2014 Publish the single-project pilot artifact",
+        "BOT-03 \u2014 Accept scheduled publication and callback recovery",
+        "PA-09 \u2014 Validate routed automation and retire the bot plan"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "migrations/needle-3-upgrade.md",
+      "status": "waiting-on-validation",
+      "remaining_phases": [
+        "NDL-02 \u2014 Validate Windows x86_64",
+        "NDL-05 \u2014 Validate Linux ARM64",
+        "NDL-06 \u2014 Publish the verified matrix and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "migrations/podman-makefile.md",
+      "status": "planned",
+      "remaining_phases": [
+        "POD-01 \u2014 Add Podman preflight and static contract",
+        "POD-02 \u2014 Replace local inspect, run, and cleanup commands",
+        "POD-03 \u2014 Replace ordinary image build and push commands",
+        "POD-04 \u2014 Repair build-in-image mounts and fallback",
+        "POD-05 \u2014 Split native Rust architecture targets",
+        "POD-06 \u2014 Replace Buildx with Podman manifests",
+        "POD-07 \u2014 Validate rootless Linux AMD64",
+        "POD-08 \u2014 Validate enforcing-SELinux Linux",
+        "POD-09 \u2014 Validate native Linux ARM64",
+        "POD-10 \u2014 Validate macOS ARM64",
+        "POD-11 \u2014 Validate Windows AMD64",
+        "POD-12 \u2014 Validate registry manifests end to end",
+        "POD-13 \u2014 Update guidance and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "refactors/acorn-diff-resource-and-api-hardening.md",
+      "status": "planned",
+      "remaining_phases": [
+        "DIF-01 \u2014 Characterize cost and output behavior",
+        "DIF-02 \u2014 Add typed errors and option contracts",
+        "DIF-03 \u2014 Preflight JSON depth and nodes iteratively",
+        "DIF-04 \u2014 Bound JSON operations and traversal",
+        "DIF-05 \u2014 Add bounded sink-based unified rendering",
+        "DIF-06 \u2014 Migrate library and fix-preview consumers",
+        "DIF-07 \u2014 Bound CLI file and terminal output handling",
+        "DIF-08 \u2014 Escape unified header labels",
+        "DIF-09 \u2014 Complete patch construction and iteration",
+        "DIF-10 \u2014 Add bounded sequence-aware arrays",
+        "DIF-11 \u2014 Run fuzz, benchmark, and portability gates",
+        "DIF-12 \u2014 Document and retire diff hardening"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "refactors/api/outbound-mcp-client-interface.md",
+      "status": "in-progress",
+      "remaining_phases": [
+        "MCP-01 \u2014 Finish embedder documentation",
+        "MCP-02 \u2014 Complete portability evidence and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "refactors/api/shared-client-contract.md",
+      "status": "in-progress",
+      "remaining_phases": [
+        "API-01 \u2014 Inventory remaining client duplication",
+        "API-02 \u2014 Migrate identity-provider endpoint composition",
+        "API-03 \u2014 Migrate research-metadata endpoint composition",
+        "API-04 \u2014 Migrate artifact and model endpoint composition",
+        "API-05 \u2014 Add narrow invocation and parsing helpers",
+        "API-06 \u2014 Resolve provider configuration once",
+        "API-07 \u2014 Unify health and status classification",
+        "API-09 \u2014 Normalize redacted error envelopes",
+        "API-10 \u2014 Validate OpenAPI templates before transport",
+        "API-11 \u2014 Rebase RAiD list and lookup workflows",
+        "API-12 \u2014 Rebase and guard RAiD creation",
+        "API-14 \u2014 Migrate provider environment discovery",
+        "API-13 \u2014 Close the shared client contract"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "refactors/ci-runner-pools.md",
+      "status": "in-progress",
+      "remaining_phases": [
+        "RUN-01 \u2014 Register isolated Rust workers",
+        "RUN-02 \u2014 Route Rust and fuzz jobs",
+        "RUN-03 \u2014 Prove isolated concurrency and remove serialization",
+        "RUN-04 \u2014 Register the reporting worker",
+        "RUN-05 \u2014 Prove scheduled reporting isolation",
+        "RUN-06 \u2014 Document operations and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "refactors/core/cli-composition-boundary.md",
+      "status": "planned",
+      "remaining_phases": [
+        "CLI-01 \u2014 Freeze parser-to-command crossings",
+        "CLI-02 \u2014 Normalize check and doctor requests",
+        "CLI-03 \u2014 Normalize transform and export requests",
+        "CLI-04 \u2014 Normalize gather and import requests",
+        "CLI-05 \u2014 Normalize download and sync requests",
+        "CLI-06 \u2014 Normalize create and inference requests",
+        "CLI-07 \u2014 Normalize exec and outbound MCP requests",
+        "CLI-08 \u2014 Consolidate remote serve dispatch",
+        "CLI-09 \u2014 Extract startup services",
+        "CLI-10 \u2014 Establish the outer error and exit boundary",
+        "CLI-11 \u2014 Reconcile the CLI boundary and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "refactors/core/export-pipeline-hardening.md",
+      "status": "in-progress",
+      "remaining_phases": [
+        "EXP-01 \u2014 Characterize replacement behavior",
+        "EXP-02 \u2014 Add the portable replacement plan",
+        "EXP-03 \u2014 Project one ExportContext",
+        "EXP-04 \u2014 Migrate HTML rendering to ExportContext",
+        "EXP-05 \u2014 Migrate PowerPoint projection to ExportContext",
+        "EXP-06 \u2014 Replace regex interpolation with event parsing",
+        "EXP-07 \u2014 Stage OOXML mutations atomically",
+        "EXP-08 \u2014 Add bounded OOXML fuzz targets",
+        "EXP-09 \u2014 Verify generated presentations visually",
+        "EXP-10 \u2014 Close export hardening"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "refactors/core/remote-create-container-targets.md",
+      "status": "in-progress",
+      "remaining_phases": [
+        "RCC-01 \u2014 Model attempt ownership",
+        "RCC-02 \u2014 Preflight Docker and SSH connectivity",
+        "RCC-03 \u2014 Preflight capabilities and names",
+        "RCC-04 \u2014 Record post-registration resource conflicts",
+        "RCC-05 \u2014 Add compensating runner/container rollback",
+        "RCC-06 \u2014 Add ownership-aware volume and template cleanup",
+        "RCC-07 \u2014 Complete the failure-path matrix",
+        "RCC-08 \u2014 Smoke-test remote bot creation",
+        "RCC-09 \u2014 Smoke-test runner rollback and GPU setup",
+        "RCC-10 \u2014 Document and retire remote creation hardening"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "refactors/core/research-activity-enrichment-integration.md",
+      "status": "planned",
+      "remaining_phases": [
+        "ENR-01 \u2014 Freeze merge identities and conflict policy",
+        "ENR-02 \u2014 Map typed activity dates",
+        "ENR-03 \u2014 Map contributors and organizations",
+        "ENR-04 \u2014 Map rights and access",
+        "ENR-05 \u2014 Map funding awards",
+        "ENR-06 \u2014 Extend graduation rules",
+        "ENR-07 \u2014 Prove provenance and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "refactors/zon-codec-hardening.md",
+      "status": "planned",
+      "remaining_phases": [
+        "ZON-01 \u2014 Complete the behavior matrix",
+        "ZON-02 \u2014 Consolidate quoted strings and escapes",
+        "ZON-03 \u2014 Simplify root classification",
+        "ZON-04 \u2014 Assign authoritative resource limits",
+        "ZON-05 \u2014 Strengthen diagnostic locations",
+        "ZON-06 \u2014 Expand property and regression coverage",
+        "ZON-07 \u2014 Measure, document, and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "testing/cli-coverage.md",
+      "status": "planned",
+      "remaining_phases": [
+        "COV-01 \u2014 Consolidate crate-local log capture",
+        "COV-02 \u2014 Cover link success and dry-run behavior",
+        "COV-03 \u2014 Cover link failures and ordering",
+        "COV-04 \u2014 Cover serve target behavior",
+        "COV-05 \u2014 Cover the SWHID command",
+        "COV-06 \u2014 Add high-value binary failure coverage",
+        "COV-07 \u2014 Run CI and retire coverage work"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "testing/coverage-throughput.md",
+      "status": "planned",
+      "remaining_phases": [
+        "COVT-01 \u2014 Remove the forced clean stage and record the baseline",
+        "COVT-02 \u2014 Scope default coverage to product crates",
+        "COVT-03 \u2014 Bound sleep- and network-bound test time",
+        "COVT-04 \u2014 Trim the coverage build profile",
+        "COVT-05 \u2014 Publish the measured loop and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "testing/gitlab-shell-runner-readiness.md",
+      "status": "waiting-on-validation",
+      "remaining_phases": [
+        "GSR-02 \u2014 Prove a native Windows shell runner"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    },
+    {
+      "path": "testing/pid-verification.md",
+      "status": "planned",
+      "remaining_phases": [
+        "PID-01 \u2014 Characterize repeated PID parsing",
+        "PID-02 \u2014 Add shared parse defaults",
+        "PID-03 \u2014 Share percent-escape syntax validation",
+        "PID-04 \u2014 Add the curated Miri target",
+        "PID-05 \u2014 Wire Miri automation",
+        "PID-06 \u2014 Prove the Creusot toolchain",
+        "PID-07 \u2014 Verify ISBN checksum cores",
+        "PID-08 \u2014 Verify ISNI and ORCID checksum cores",
+        "PID-09 \u2014 Verify the ROR checksum core",
+        "PID-10 \u2014 Verify ARK and NOID checksum cores",
+        "PID-11 \u2014 Wire proof automation",
+        "PID-12 \u2014 Publish verification guidance and retire"
+      ],
+      "disposition": "Retained: remaining implementation or acceptance requirements"
+    }
+  ],
+  "ready_next_pa_phase": "PA-29: standalone general-logbook intake/reporting; owner decision is recorded and no implementation prerequisite remains"
+}

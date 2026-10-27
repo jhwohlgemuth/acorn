@@ -11,7 +11,7 @@ Browser tab: 1329059500, Title: "Permissions: Sponsor Highlights JSONL Pilot", U
 					10 text 
 				11 container topLevelRegion
 					12 container leftRegion
-						13 link Description: SharePoint, Value: ornl.sharepoint.com/_layouts/15/sharepoint.aspx?&login_hint=o9w@ornl.gov, ID: O365_AppName
+						13 link Description: SharePoint, Value: ornl.sharepoint.com/_layouts/15/sharepoint.aspx?&login_hint=owner@example.invalid, ID: O365_AppName
 					14 container HeaderButtonRegion
 						15 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
 						16 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand

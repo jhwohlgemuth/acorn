@@ -32,6 +32,7 @@ Every top-level attribute is optional. Unknown attributes and unsupported explic
 | Attribute | Description |
 | --- | --- |
 | `schemaVersion` | Schema version. Use `2.0.0`; omission resolves to `2.0.0`. |
+| `auth` | Ordered, non-secret Entra profiles and explicit SharePoint document source mappings. This schema is available before the auth CLI route is enabled. |
 | `buckets` | Research-activity collections to import or download, as source strings or detailed repository objects. |
 | `config` | llama-swap, OpenCode, VS Code, and Goose targets updated by `acorn sync`. |
 | `endpoints` | Named HTTP API endpoints with authentication settings and templated resources. |
@@ -48,6 +49,12 @@ Every top-level attribute is optional. Unknown attributes and unsupported explic
 | `options` | Command defaults, resolved from the CLI. `options.scripts` (`enabled`) governs both root `scripts` and root `scriptManifest`; `options.folders.root` sets the folder destination base. |
 
 The [complete ACRE specification](https://code.ornl.gov/research-enablement/acorn/-/blob/main/ACRE_SPEC.md) describes every object field and accepted shorthand. See [CLI configuration](../cli-reference/configuration.md) for working examples, [Model workflows](../cli-reference/model-workflows.md) for downloads, and [Rhai exec](../packages/exec.md) for constrained script hooks.
+
+## Authorization profiles
+
+The optional `auth.profiles` map keeps declaration order: its first entry is the default when a future auth command does not select a name. Each profile names a public Entra tenant and client UUID, a cloud, a default resource, and permitted HTTPS audiences with delegated scopes. `flow` defaults to `browser`; `cache` defaults to `preferred`. `auth.sources` binds an exact SharePoint document URL to one named profile and a resource, optionally narrowing its scopes. Unknown keys, missing references, scope widening, unsafe paths, and Graph audiences for the wrong cloud fail validation. The configuration contains no tokens, client secrets, or passwords.
+
+See the [SharePoint intake configuration contract](../cli-reference/commands/sharepoint-intake.md#acre-configuration-contract) for a complete synthetic example. The host auth and source resolver are feature gated; the `auth login` and SharePoint capture commands are separate implementation phases.
 
 ## GitLab logbook inbox
 

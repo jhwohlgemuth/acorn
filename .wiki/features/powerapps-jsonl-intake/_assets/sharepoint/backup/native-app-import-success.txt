@@ -55,7 +55,7 @@ Browser tab: 1329059500, Title: "Power Apps", URL: "https://make.gov.powerapps.u
 				54 container
 					55 heading Package details, Value: 3
 						56 text Package details
-					57 text Created by o9w@ornl.gov on 10/27/2026
+					57 text Created by owner@example.invalid on 10/27/2026
 				58 text Name
 				59 container Description: Name, ID: package-name-input
 					60 text SponsorHighlightsSharePointNativeBackup20261027
@@ -124,7 +124,7 @@ Browser tab: 1329059500, Title: "Power Apps", URL: "https://make.gov.powerapps.u
 					123 row
 						124 cell
 							125 button Import setup
-							126 text o9w@ornl.gov
+							126 text owner@example.invalid
 						127 cell
 							128 text SharePoint Connection
 						129 cell
@@ -134,7 +134,7 @@ Browser tab: 1329059500, Title: "Power Apps", URL: "https://make.gov.powerapps.u
 					133 row
 						134 cell
 							135 button Import setup
-							136 text o9w@ornl.gov
+							136 text owner@example.invalid
 						137 cell
 							138 text Microsoft Teams Connection
 						139 cell

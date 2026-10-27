@@ -1,15 +1,21 @@
 //! Bounded inline terminal viewport for command-owned interaction.
-use acorn::util::constants::app::{MAX_VIEWPORT_HEIGHT, MAX_VIEWPORT_HISTORY_LINES};
+use acorn::util::constants::app::MAX_VIEWPORT_HEIGHT;
+#[cfg(test)]
+use acorn::util::constants::app::MAX_VIEWPORT_HISTORY_LINES;
 use acorn_core::prelude::Vec;
 use color_eyre::eyre::{eyre, Result};
+#[cfg(test)]
 use core::{future::Future, time::Duration};
+#[cfg(test)]
+use crossterm::event::EventStream;
 use crossterm::{
     cursor::{self, MoveTo, Show},
-    event::{self, Event, EventStream, KeyCode, KeyEventKind, KeyModifiers},
+    event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
     queue,
     style::{Attribute, Color, Print, ResetColor, SetAttribute, SetBackgroundColor, SetForegroundColor},
     terminal::{self, Clear, ClearType},
 };
+#[cfg(test)]
 use futures::StreamExt;
 use std::{
     env,
@@ -18,12 +24,14 @@ use std::{
 use unicode_width::UnicodeWidthChar;
 
 /// One completed input operation from the inline viewport.
+#[cfg(test)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum Input {
     Cancelled,
     Submitted(String),
 }
 pub(crate) enum Overlay {
+    #[cfg(test)]
     Choose {
         prompt: String,
         options: Vec<String>,
@@ -35,6 +43,7 @@ pub(crate) enum Overlay {
         yes: bool,
         no_color: bool,
     },
+    #[cfg(test)]
     Spin {
         label: String,
         frame: usize,
@@ -120,6 +129,7 @@ impl Viewport {
             })
     }
     /// Add one complete output message to scrollable history.
+    #[cfg(test)]
     pub(crate) fn push(&mut self, text: impl Into<String>) -> Result<()> {
         self.history.push(text.into());
         if self.history.len() > MAX_VIEWPORT_HISTORY_LINES {
@@ -129,6 +139,7 @@ impl Viewport {
         self.render()
     }
     /// Read and edit one line while retaining the viewport position.
+    #[cfg(test)]
     pub(crate) fn read_line(&mut self) -> Result<Input> {
         loop {
             let next = event::read().map_err(Into::into).and_then(|event| match event {
@@ -178,6 +189,7 @@ impl Viewport {
         }
     }
     /// Select one option by its index, or cancel without selecting.
+    #[cfg(test)]
     pub(crate) fn choose(&mut self, prompt: &str, options: &[String], no_color: bool) -> Result<PromptOutcome<usize>> {
         if options.is_empty() {
             Err(eyre!("Choose requires at least one option"))
@@ -185,6 +197,7 @@ impl Viewport {
             self.choose_nonempty(prompt, options, no_color)
         }
     }
+    #[cfg(test)]
     fn choose_nonempty(&mut self, prompt: &str, options: &[String], no_color: bool) -> Result<PromptOutcome<usize>> {
         self.overlay = Some(Overlay::Choose {
             prompt: prompt.to_string(),
@@ -274,6 +287,7 @@ impl Viewport {
         self.render().and(result)
     }
     /// Animate within the viewport until a future completes, fails, or is cancelled.
+    #[cfg(test)]
     pub(crate) async fn spin<T, F>(&mut self, label: &str, operation: F) -> Result<PromptOutcome<T>>
     where
         F: Future<Output = Result<T>>,
@@ -377,6 +391,7 @@ impl Viewport {
         (0..self.height)
             .try_for_each(|offset| queue!(output, MoveTo(0, self.anchor.saturating_add(offset)), Clear(ClearType::CurrentLine)))
             .and_then(|()| match &self.overlay {
+                #[cfg(test)]
                 | Some(Overlay::Choose {
                     prompt,
                     options,
@@ -454,6 +469,7 @@ impl Viewport {
                             }
                         }
                     }),
+                #[cfg(test)]
                 | Some(Overlay::Spin { label, frame }) => {
                     let symbol = ["|", "/", "-", "\\"].get(frame % 4).copied().unwrap_or("|");
                     print_overlay(output, 0, self.anchor, &clip_to_width(&format!("{symbol} {label}"), width), None)

@@ -1,0 +1,43 @@
+{
+  "installed_scope_matches_accepted_source": true,
+  "baseline_download": "/Users/owner/Downloads/logbook (3).jsonl",
+  "baseline_bytes": 3942,
+  "baseline_rows": 7,
+  "baseline_sha256": "01d836fdea6ef590d8b7b5fadda3a3f8d075ada280f282e8ee1f4de5306b130c",
+  "baseline_uuids": [
+    "5e505b15-5f25-4ae7-8e13-7b4df6f6715e",
+    "02b7231b-47e0-4034-b49b-0b6e594548e0",
+    "64b836e0-016f-4493-9894-a6fe79acc8de",
+    "dff4315e-8106-4eb8-83ad-44f6df767476",
+    "67c0e548-ac0c-4a01-829c-9e4708b3cf1f",
+    "32baf0fa-96a7-43c0-8e80-cd71c26b4ca3",
+    "341cfb78-c673-4c5c-9e0f-e63c520130f4"
+  ],
+  "after_download": "/Users/owner/Downloads/logbook (4).jsonl",
+  "after_rows": 8,
+  "after_bytes": 4481,
+  "after_sha256": "c46ff84f25be44cc9bcb8c4f4d4f080a624957157c99c3ed397717adffa93ee5",
+  "prior_rows_byte_identical": true,
+  "test_receipt_exactly_once": true,
+  "test_receipt": "807ecb08-3f88-4aa8-a076-f623680b56db",
+  "receipt_bytes": 539,
+  "receipt_sha256": "1a9f169f3fe6ddcf725963e975ba545932838f750cf4bbc4971be0178853b431",
+  "intake_run": "08584084878392744473980560609CU11",
+  "exporter_run": "08584084877801675875246644382CU18",
+  "teams_owner_action": "Succeeded",
+  "duplicate_self_submitter_notice": "Skipped",
+  "catalog_response_matches_accepted_source": true,
+  "catalog_run_after": [
+    "Succeeded",
+    "Failed",
+    "Skipped",
+    "TimedOut"
+  ],
+  "gitlab_intake_state": "Off",
+  "gitlab_catalog_state": "Off",
+  "route": "SharePoint",
+  "audience_preserved": [
+    "owner@example.invalid",
+    "participant@example.invalid"
+  ]
+}

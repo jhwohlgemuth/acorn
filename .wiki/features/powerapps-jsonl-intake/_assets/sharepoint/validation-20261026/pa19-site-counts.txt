@@ -10,7 +10,7 @@ Browser tab: 1329059368, Title: "Site Contents", URL: "https://ornl.sharepoint.c
 							52 text 
 						53 container topLevelRegion
 							54 container leftRegion
-								55 link Description: SharePoint, Value: ornl.sharepoint.com/_layouts/15/sharepoint.aspx?&login_hint=o9w@ornl.gov, ID: O365_AppName
+								55 link Description: SharePoint, Value: ornl.sharepoint.com/_layouts/15/sharepoint.aspx?&login_hint=owner@example.invalid, ID: O365_AppName
 							56 combo box (collapsed, settable) Description: Search box. Suggestions appear as you type, Secondary Actions: Expand
 							57 container HeaderButtonRegion
 								58 button (collapsed) Description: Next steps to improve your site, ID: TipsNTricksButton, Secondary Actions: Expand

@@ -16,6 +16,140 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
+/// Asymptotic cost of one algorithmic resource.
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ComplexityBound {
+    /// Auxiliary space complexity, such as `O(n)`.
+    Space(String),
+    /// Time complexity, such as `O(n log n)`.
+    Time(String),
+}
+/// Input case for an algorithm's asymptotic bounds.
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ComplexityCase {
+    /// Maximum cost over inputs of a given size.
+    Worst,
+    /// Expected cost over an input distribution.
+    Average,
+    /// Average cost per operation over a sequence.
+    Amortized,
+    /// Minimum cost over inputs of a given size.
+    Best,
+}
+/// Provenance of a cost value.
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CostBasis {
+    /// Predicted from a model or prior observation.
+    Estimated,
+    /// Observed during execution.
+    Measured,
+}
+/// Frequency to which a cost applies.
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CostScope {
+    /// Once for the full workload.
+    Workload,
+    /// Once for each batch.
+    Batch,
+    /// Once for each stage execution.
+    Invocation,
+    /// Once for each shot or repeated execution.
+    Repetition,
+}
+/// Work that contributes to compute impedance.
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ImpedanceKind {
+    /// Data encoding or serialization.
+    Encoding,
+    /// Input transfer to the selected platform.
+    InputTransfer,
+    /// Output transfer from the selected platform.
+    OutputTransfer,
+    /// Compiling or routing a quantum circuit or classical program.
+    Compilation,
+    /// Scheduling and queueing delay.
+    Queue,
+    /// Device or runtime initialization.
+    Setup,
+    /// Quantum state preparation.
+    StatePreparation,
+    /// Measurement and readout.
+    Readout,
+    /// Decoding and postprocessing.
+    Postprocessing,
+    /// Synchronization between stages or compute domains.
+    Synchronization,
+    /// Other named overhead.
+    Other,
+}
+/// The form of work performed by a stage.
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub enum Operation {
+    /// Conventional computation.
+    Classical,
+    /// Quantum computation with model-specific requirements.
+    Quantum(QuantumOperation),
+}
+/// Quantum execution model and its intrinsic algorithm requirements.
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub enum QuantumOperation {
+    /// An algorithm expressed as a circuit of logical gates.
+    Circuit(CircuitRequirements),
+    /// An optimization problem expressed as an annealing schedule.
+    Annealing { variables: Option<u64>, schedule_steps: Option<u64> },
+    /// Continuous quantum evolution.
+    Analog { sites: Option<u64> },
+    /// Computation driven by adaptive measurements.
+    MeasurementBased { logical_qubits: Option<u64> },
+}
+/// Asymptotic time and space costs over named workload variables.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[validate(schema(function = "AlgorithmComplexity::is_valid", skip_on_field_errors = false))]
+pub struct AlgorithmComplexity {
+    /// Input case described by the time and space bounds.
+    pub case: Option<ComplexityCase>,
+    /// Bounds for the resources consumed by the algorithm.
+    pub bounds: OneOrMany<ComplexityBound>,
+    /// Meaning of each variable used by the expressions.
+    pub variables: Option<BTreeMap<String, String>>,
+}
+/// Algorithmic circuit properties independent of a target device.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct CircuitRequirements {
+    /// Logical qubits required by the algorithm.
+    pub logical_qubits: Option<u64>,
+    /// Algorithmic depth before routing, decomposition, and fault tolerance.
+    pub logical_depth: Option<u64>,
+    /// Gate basis used when reporting logical depth.
+    pub gate_basis: Option<String>,
+}
+/// Target-specific circuit properties after gate decomposition and routing.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct CompiledCircuit {
+    /// Physical circuit depth on the selected platform.
+    pub depth: u64,
+    /// Physical qubits used by the compiled circuit.
+    pub physical_qubits: Option<u64>,
+    /// Gate basis used to count depth.
+    #[validate(nonempty)]
+    pub gate_basis: String,
+}
 /// A workload and the observations made when it runs on compute infrastructure.
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
@@ -60,62 +194,6 @@ pub struct ComputationStage {
     #[validate(each(uuid))]
     pub depends_on: Vec<String>,
 }
-/// The form of work performed by a stage.
-#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub enum Operation {
-    /// Conventional computation.
-    Classical,
-    /// Quantum computation with model-specific requirements.
-    Quantum(QuantumOperation),
-}
-/// Quantum execution model and its intrinsic algorithm requirements.
-#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub enum QuantumOperation {
-    /// An algorithm expressed as a circuit of logical gates.
-    Circuit(CircuitRequirements),
-    /// An optimization problem expressed as an annealing schedule.
-    Annealing { variables: Option<u64>, schedule_steps: Option<u64> },
-    /// Continuous quantum evolution.
-    Analog { sites: Option<u64> },
-    /// Computation driven by adaptive measurements.
-    MeasurementBased { logical_qubits: Option<u64> },
-}
-/// Algorithmic circuit properties independent of a target device.
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
-#[builder(start_fn = init)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct CircuitRequirements {
-    /// Logical qubits required by the algorithm.
-    pub logical_qubits: Option<u64>,
-    /// Algorithmic depth before routing, decomposition, and error correction.
-    pub logical_depth: Option<u64>,
-    /// Gate basis used when reporting logical depth.
-    pub gate_basis: Option<String>,
-}
-/// Asymptotic time and space costs over named workload variables.
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
-#[builder(start_fn = init)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-#[validate(schema(function = "AlgorithmComplexity::is_valid", skip_on_field_errors = false))]
-pub struct AlgorithmComplexity {
-    /// Bounds for the resources consumed by the algorithm.
-    pub bounds: OneOrMany<ComplexityBound>,
-    /// Meaning of each variable used by the expressions.
-    pub variables: Option<BTreeMap<String, String>>,
-}
-/// Asymptotic cost of one algorithmic resource.
-#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum ComplexityBound {
-    /// Auxiliary space complexity, such as `O(n)`.
-    Space(String),
-    /// Time complexity, such as `O(n log n)`.
-    Time(String),
-}
 /// A named input or output using the existing ASPECT data vocabulary.
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
@@ -155,42 +233,6 @@ pub struct ExecutionProfile {
     /// Observed elapsed time for the whole computation, including overlapping stages.
     pub observed_end_to_end: Option<Milliseconds>,
 }
-/// Target-dependent execution of one computation stage.
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
-#[builder(start_fn = init)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct StageExecution {
-    /// Identifier of the computation stage.
-    #[validate(uuid)]
-    pub stage: String,
-    /// Identifier of a platform in the selected environment.
-    #[validate(nonempty)]
-    pub platform: String,
-    /// Duration for one execution at the stated workload and repetition scope.
-    pub duration: Option<Milliseconds>,
-    /// Whether the stage duration was measured or estimated.
-    pub basis: Option<CostBasis>,
-    /// Number of circuit shots or other repeated executions.
-    pub repetitions: Option<u64>,
-    /// Circuit properties after compilation for this platform.
-    #[validate(nested)]
-    pub compiled_circuit: Option<CompiledCircuit>,
-}
-/// Target-specific circuit properties after gate decomposition and routing.
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
-#[builder(start_fn = init)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct CompiledCircuit {
-    /// Physical circuit depth on the selected platform.
-    pub depth: u64,
-    /// Physical qubits used by the compiled circuit.
-    pub physical_qubits: Option<u64>,
-    /// Gate basis used to count depth.
-    #[validate(nonempty)]
-    pub gate_basis: String,
-}
 /// A measured or estimated source of elapsed overhead.
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
@@ -219,54 +261,27 @@ pub struct ImpedanceCost {
     /// Fixed transfer or request latency in milliseconds.
     pub latency: Option<Milliseconds>,
 }
-/// Provenance of a cost value.
-#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum CostBasis {
-    /// Predicted from a model or prior observation.
-    Estimated,
-    /// Observed during execution.
-    Measured,
-}
-/// Work that contributes to compute impedance.
-#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum ImpedanceKind {
-    /// Data encoding or serialization.
-    Encoding,
-    /// Input transfer to the selected platform.
-    InputTransfer,
-    /// Output transfer from the selected platform.
-    OutputTransfer,
-    /// Compiling or routing a quantum circuit or classical program.
-    Compilation,
-    /// Scheduling and queueing delay.
-    Queue,
-    /// Device or runtime initialization.
-    Setup,
-    /// Quantum state preparation.
-    StatePreparation,
-    /// Measurement and readout.
-    Readout,
-    /// Decoding and postprocessing.
-    Postprocessing,
-    /// Synchronization between stages or compute domains.
-    Synchronization,
-    /// Other named overhead.
-    Other,
-}
-/// Frequency to which a cost applies.
-#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum CostScope {
-    /// Once for the full workload.
-    Workload,
-    /// Once for each batch.
-    Batch,
-    /// Once for each stage execution.
-    Invocation,
-    /// Once for each shot or repeated execution.
-    Repetition,
+/// Target-dependent execution of one computation stage.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct StageExecution {
+    /// Identifier of the computation stage.
+    #[validate(uuid)]
+    pub stage: String,
+    /// Identifier of a platform in the selected environment.
+    #[validate(nonempty)]
+    pub platform: String,
+    /// Duration for one execution at the stated workload and repetition scope.
+    pub duration: Option<Milliseconds>,
+    /// Whether the stage duration was measured or estimated.
+    pub basis: Option<CostBasis>,
+    /// Number of circuit shots or other repeated executions.
+    pub repetitions: Option<u64>,
+    /// Circuit properties after compilation for this platform.
+    #[validate(nested)]
+    pub compiled_circuit: Option<CompiledCircuit>,
 }
 impl AlgorithmComplexity {
     fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {

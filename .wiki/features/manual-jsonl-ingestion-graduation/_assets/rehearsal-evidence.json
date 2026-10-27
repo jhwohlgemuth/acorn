@@ -37,27 +37,27 @@
     {
       "step": "01-stage",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "stage",
         "--batch",
         "--config",
-        "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/intake.json",
+        "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/intake.json",
         "--inbox",
-        "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/selected.jsonl"
+        "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/selected.jsonl"
       ],
       "exitCode": 0
     },
     {
       "step": "02-inspect",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "inspect",
         "--config",
-        "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/intake.json",
+        "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/intake.json",
         "--batch-id",
         "e3ab151172e9ce536473c33926bb17ec759d8573d79aaf8844a9a21a4f597b45"
       ],
@@ -66,12 +66,12 @@
     {
       "step": "03-apply",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "apply",
         "--config",
-        "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/intake.json",
+        "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/intake.json",
         "--batch-id",
         "e3ab151172e9ce536473c33926bb17ec759d8573d79aaf8844a9a21a4f597b45"
       ],
@@ -80,12 +80,12 @@
     {
       "step": "04-apply-replay",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "apply",
         "--config",
-        "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/intake.json",
+        "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/intake.json",
         "--batch-id",
         "e3ab151172e9ce536473c33926bb17ec759d8573d79aaf8844a9a21a4f597b45"
       ],
@@ -94,24 +94,24 @@
     {
       "step": "05-candidates",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "candidates",
         "--index",
-        "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/acorn/index.json"
+        "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/acorn/index.json"
       ],
       "exitCode": 0
     },
     {
       "step": "06-graduate",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "graduate",
         "--index",
-        "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/acorn/index.json",
+        "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/acorn/index.json",
         "--accept",
         "form-4313-fcfc-0201-441-e-8-bda-c-77718-a-31-dcf",
         "--expected-digest",
@@ -122,12 +122,12 @@
     {
       "step": "07-graduate-replay",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "graduate",
         "--index",
-        "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/acorn/index.json",
+        "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/acorn/index.json",
         "--accept",
         "form-4313-fcfc-0201-441-e-8-bda-c-77718-a-31-dcf",
         "--expected-digest",
@@ -138,27 +138,27 @@
     {
       "step": "08-rejected-stage",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "stage",
         "--batch",
         "--config",
-        "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/intake.json",
+        "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/intake.json",
         "--inbox",
-        "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/rejected.jsonl"
+        "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/rejected.jsonl"
       ],
       "exitCode": 70
     },
     {
       "step": "09-rejected-apply",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "apply",
         "--config",
-        "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/intake.json",
+        "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/intake.json",
         "--batch-id",
         "5d48fd39a6ab694edd3ccd3e7b417598d8cfd057357f101ec26677cde419ff26"
       ],
@@ -167,13 +167,13 @@
     {
       "step": "10-report",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "report",
         "--config",
-        "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/report.json",
+        "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/report.json",
         "--root",
-        "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3",
+        "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3",
         "--project",
         "acorn",
         "--commit",
@@ -187,20 +187,20 @@
         "--dry-run",
         "--combine",
         "--output",
-        "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/report"
+        "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/report"
       ],
       "exitCode": 0
     },
     {
       "step": "11-report-repeat",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "report",
         "--config",
-        "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/report.json",
+        "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/report.json",
         "--root",
-        "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3",
+        "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3",
         "--project",
         "acorn",
         "--commit",
@@ -214,7 +214,7 @@
         "--dry-run",
         "--combine",
         "--output",
-        "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/report-repeat"
+        "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/report-repeat"
       ],
       "exitCode": 0
     }

@@ -511,6 +511,7 @@ impl Options {
         match self.logbook_context(branch, path).await {
             | Ok((target_branch, source_revision, content)) => {
                 let proposal = LogbookProposal {
+                    replaces: None,
                     base_revision: source_revision.clone(),
                     content: content.clone(),
                     entry,

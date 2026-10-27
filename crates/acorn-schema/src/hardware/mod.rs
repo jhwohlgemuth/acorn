@@ -14,6 +14,7 @@ use acorn_core::util::{contains_any, contains_any_with_prefix};
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use vendor::validate_vendor;
 
 /// Provider-neutral observed GPU inventory and telemetry types
 pub mod gpu;
@@ -24,8 +25,7 @@ pub mod quantum;
 /// Vendor types and vendor-aware trait
 pub mod vendor;
 pub use memory::{Memory, MemoryUnit};
-pub use quantum::{ErrorCorrection, Model, QuantumResource, Qubit, QubitType, Regime, Technology, Topology};
-use vendor::validate_vendor;
+pub use quantum::{FaultTolerance, Model, QuantumResource, Qubit, QubitType, Regime, Technology, Topology};
 pub use vendor::{Vendor, Vendored};
 
 /// AI accelerator architectures
@@ -1848,7 +1848,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 model: Option<Model>,
                                 technology: Option<Technology>,
                                 qubits: Option<OneOrMany<Qubit>>,
-                                error_correction: Option<ErrorCorrection>,
+                                fault_tolerance: Option<FaultTolerance>,
                                 required: Option<bool>,
                                 topology: Option<Topology>,
                                 vendor: Option<Vendor>,
@@ -1861,7 +1861,7 @@ impl<'de> Deserialize<'de> for Resource {
                                         .maybe_model(f.model)
                                         .maybe_technology(f.technology)
                                         .maybe_qubits(f.qubits)
-                                        .maybe_error_correction(f.error_correction)
+                                        .maybe_fault_tolerance(f.fault_tolerance)
                                         .maybe_required(f.required)
                                         .maybe_topology(f.topology)
                                         .maybe_vendor(f.vendor)

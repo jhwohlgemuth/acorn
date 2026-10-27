@@ -1,0 +1,19 @@
+- CancelCorrectionButton:
+    Control: Classic/Button@2.2.0
+    Properties:
+      BorderThickness: "=0"
+      Color: "=Color.White"
+      Fill: "=ColorValue(\"#466659\")"
+      Font: "=Font.'Segoe UI'"
+      Height: "=44"
+      Size: "=14"
+      RadiusTopLeft: "=6"
+      RadiusTopRight: "=6"
+      RadiusBottomLeft: "=6"
+      RadiusBottomRight: "=6"
+      Width: "=180"
+      Text: "=If(varCorrectionConflict, \"Load latest submission\", \"Cancel editing\")"
+      OnSelect: "=If(varCorrectionConflict, If(varCorrectionConflict && varDisposition = \"conflict\" && !varSubmitting,\n IfError(ClearData(\"SponsorHighlightPA31Pending\"), Set(varSubmissionStatus, \"The stale edit could not be cleared from this browser. Try again.\"),\n  Clear(colPendingHighlight); Set(varPendingJson, Blank()); Set(varPendingId, Blank()); Set(varDisposition, Blank()); Set(varExportFileUrl, Blank()); Set(varReceiptUrl, Blank()); Set(varCorrectionConflict, false); Set(varShowSubmissionResult, false); Set(varCorrectionParent, Blank()); Set(varCorrectionRoot, Blank()); Set(varEditingProjectId, Blank()); Set(varRestoredDraft, Blank()); Set(varPendingProjectLabel, Blank()); Reset(ProjectDropdown); Reset(OccurredOnPicker); Reset(CategoryDropdown); Reset(StateDropdown); Reset(EventTypeDropdown); Reset(SummaryInput); Reset(ItemsInput); Reset(PlacementDropdown); Select(MySubmissionsButton))), If(!varSubmitting && IsBlank(varPendingJson), Set(varCorrectionParent, Blank()); Set(varCorrectionRoot, Blank()); Set(varEditingProjectId, Blank()); Set(varRestoredDraft, Blank()); Set(varPendingProjectLabel, Blank()); Set(varSubmissionStatus, Blank()); Reset(ProjectDropdown); Reset(OccurredOnPicker); Reset(CategoryDropdown); Reset(StateDropdown); Reset(EventTypeDropdown); Reset(SummaryInput); Reset(ItemsInput); Reset(PlacementDropdown); Select(RefreshProjectsButton)))"
+      Visible: "=!IsBlank(varCorrectionParent) && (IsBlank(varPendingJson) || varCorrectionConflict)"
+      DisplayMode: "=If(varSubmitting, DisplayMode.Disabled, DisplayMode.Edit)"
+      AlignInContainer: "=AlignInContainer.Stretch"

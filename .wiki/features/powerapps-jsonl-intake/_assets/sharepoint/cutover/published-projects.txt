@@ -1,0 +1,93 @@
+Browser tab: 1329059567, Title: "Sponsor Highlights - SharePoint Pilot - Power Apps", URL: "https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/163f110f-7f8a-401c-894e-0786b2c018a4#".
+1 AXWebArea Sponsor Highlights - SharePoint Pilot - Power Apps, URL: apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/163f110f-7f8a-401c-894e-0786b2c018a4#
+	2 container
+		3 container playerShell
+			4 button Skip to main content.
+				5 text Skip to main content.
+			6 container shellHeaderContainer
+				7 container O365_NavHeader
+					8 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+						9 text 
+					10 container shellHeaderTopLevelRegion
+						11 container shellHeaderLeftRegion
+							12 text Power Apps  |  Sponsor Highlights - SharePoint Pilot
+						13 container shellHeaderRightRegion
+							14 pop up button (collapsed) Share, ID: shareBtn_id, Secondary Actions: Expand
+								15 text Share
+							16 button Description: Fit to screen, ID: FitToScreenButton
+							17 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+							18 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+					19 container O365_HeaderRightRegion
+						20 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+							21 image JW
+		22 container Description: application, ID: fullscreen-app-host
+			23 AXWebArea Sponsor Highlights - SharePoint Pilot, URL: runtime-app.gov.powerplatform.microsoft.us/publishedapp/e/221f44a6-1468-ea4e-b93d-cd52f1723079/preloadindex/V1?preloadIndexPath=https%3A%2F%2Fgov.content.powerapps.us%2Fresource%2Fapp%2F55rc9pqvgis28%2Fpreloadindex.web.html&&PowerAppsLanguage=en-US&loader=inline&lv=pb4u0u866gdlc&piv=1437890726#%7B%22platform%22%3A%22notwindows%22%2C%22hideNavBar%22%3A%22true%22%2C%22cdnUrl%22%3A%22https%3A%2F%2Fgov.content.powerapps.us%2Fresource%2Fapp%22%2C%22paramsQuery%22%3A%22%22%2C%22iframeMode%22%3A%22player%22%2C%22appId%22%3A%22163f110f-7f8a-401c-894e-0786b2c018a4%22%2C%22appIdWithVersion%22%3A%22163f110f-7f8a-401c-894e-0786b2c018a4%22%2C%22appName%22%3A%22163f110f-7f8a-401c-894e-0786b2c018a4%22%2C%22staticContentProxy%22%3A%22%2F%22%2C%22hostOrigin%22%3A%22https%3A%2F%2Fapps.gov.powerapps.us%22%2C%22launchFunctionUrlFormat%22%3A%22https%3A%2F%2Fapps.gov.powerapps.us%2Fplay%2F0%22%2C%22region%22%3A%22gccmoderate%22%2C%22staticContentUrl%22%3A%22https%3A%2F%2Fgov.static.powerapps.us%22%7D
+				24 container
+					25 container SubmitEntryScreen
+						26 text SubmitEntryScreen
+					38 container
+						39 container
+							40 container
+								41 image Oak Ridge National Laboratory
+							42 heading Sponsor Highlights, Value: 1
+								43 text Sponsor Highlights
+							44 text SharePoint pilot · Document progress. Connect research to impact.
+						45 container
+							46 text 01  //  HIGHLIGHT DETAILS
+							47 text Submitted by Jason Wohlgemuth  •  owner@example.invalid
+							48 text Project *
+							49 container
+								50 pop up button (expanded) Description: Project, required. Select a project, Secondary Actions: Collapse
+							98 text Choose the project this highlight belongs to.
+							99 button Refresh Project List
+								100 text Refresh Project List
+							54 text Date *
+							55 container
+								56 text field Description: Date of highlight, required, Value: Oct 27, 2026, ID: datepicker_siena_1af7d6127f7e72_input
+								57 button Date of highlight, required10/27/2026. Open calendar to select a date
+							58 text Category *
+							59 container
+								60 pop up button (collapsed) Description: Category, required. Select a category, Secondary Actions: Expand
+							61 text Status *
+							62 container
+								63 pop up button (collapsed) Description: Status, required. Select a status, Secondary Actions: Expand
+							64 text Event type · optional
+							65 container
+								66 pop up button (collapsed) Description: Event type, optional. Not specified, Secondary Actions: Expand
+							67 text 02  //  THE DEVELOPMENT
+							68 text Summary *
+							69 text entry area (settable) What changed, and why does it matter?
+							94 text 0 / 1,200 characters. Lead with the outcome; explain its relevance.
+							71 text Supporting details · optional
+							72 text entry area (settable) One detail per line. Include evidence, a measure, a milestone, or a next step.
+							95 text 0 / 20 details · up to 1,000 characters each
+							74 text Report placement
+							75 container
+								76 pop up button (collapsed) Description: Report placement. Project highlight, Secondary Actions: Expand
+							77 text For non-sensitive highlights. Pending submissions stay in this browser until confirmed. SharePoint stores your receipt and JSONL export; saving does not publish a report.
+						78 container
+							96 text Complete the required fields, then submit your highlight.
+							80 button (disabled) Submit highlight
+								97 text Submit highlight
+							87 container
+								88 text ACORN · Oak Ridge National Laboratory
+								89 text App owner: Jason Wohlgemuth
+				36 container Description: You can drag-and-drop this tab anywhere on the 4 edges of the screen, ID: visualsp-handle
+					37 text Site Help
+				101 list Project, required items
+					102 (selected) Value: Select a project, ID: appmagic-dropdownFlyoutdropdown_siena_2f9a56e5018db39_0
+					103 Value: acorn, ID: appmagic-dropdownFlyoutdropdown_siena_2f9a56e5018db39_1
+					104 Value: building-damage-indicators, ID: appmagic-dropdownFlyoutdropdown_siena_2f9a56e5018db39_2
+					105 Value: global-terrain, ID: appmagic-dropdownFlyoutdropdown_siena_2f9a56e5018db39_3
+					106 Value: gravity, ID: appmagic-dropdownFlyoutdropdown_siena_2f9a56e5018db39_4
+					107 Value: hifld, ID: appmagic-dropdownFlyoutdropdown_siena_2f9a56e5018db39_5
+					108 Value: landscan, ID: appmagic-dropdownFlyoutdropdown_siena_2f9a56e5018db39_6
+					109 Value: landscan-global, ID: appmagic-dropdownFlyoutdropdown_siena_2f9a56e5018db39_7
+					110 Value: landscan-mosaic, ID: appmagic-dropdownFlyoutdropdown_siena_2f9a56e5018db39_8
+					111 Value: myriad, ID: appmagic-dropdownFlyoutdropdown_siena_2f9a56e5018db39_9
+					112 Value: nautical-charts, ID: appmagic-dropdownFlyoutdropdown_siena_2f9a56e5018db39_10
+					113 Value: planetsense, ID: appmagic-dropdownFlyoutdropdown_siena_2f9a56e5018db39_11
+					114 Value: planetsense-segraph, ID: appmagic-dropdownFlyoutdropdown_siena_2f9a56e5018db39_12
+					115 Value: precision-imagery, ID: appmagic-dropdownFlyoutdropdown_siena_2f9a56e5018db39_13
+
+The focused UI element is 102 (selected) Value: Select a project, ID: appmagic-dropdownFlyoutdropdown_siena_2f9a56e5018db39_0

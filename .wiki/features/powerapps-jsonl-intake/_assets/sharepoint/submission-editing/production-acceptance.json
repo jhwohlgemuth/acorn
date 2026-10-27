@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-27",
+  "app": "163f110f-7f8a-401c-894e-0786b2c018a4",
+  "app_checker_issues": 0,
+  "original_and_correction_saved": true,
+  "owner_teams_delivery": true,
+  "scheduled_aggregate_rows": 15,
+  "scheduled_aggregate_sha256": "9bf2b2c2295f92da7c9ab6313318bba8e217f6c94993035cedde65bac079107c",
+  "receipts": [
+    {
+      "id": "28a1dae3-bde9-425c-880a-c5f72d2470bf",
+      "exact_line_match": true,
+      "sha256": "fcc2b27218a3eac204ae0d7492cb6f7e35f4d23300cb40d8a43ab05a8fe69d6f",
+      "revision": null
+    },
+    {
+      "id": "4162b67a-79fd-4fd1-b7e8-72854600dd0b",
+      "exact_line_match": true,
+      "sha256": "85650b22bd1e8e188a9b3dd1715aad3679622589eb4aa569c8b25e89cd6d73d8",
+      "revision": {
+        "rootSubmissionId": "28a1dae3-bde9-425c-880a-c5f72d2470bf",
+        "supersedesSubmissionId": "28a1dae3-bde9-425c-880a-c5f72d2470bf"
+      }
+    }
+  ],
+  "standard_license_contributor_correction": "accepted",
+  "local_batch_id": "793fedb7fe24eac431cb8ff51ee0df7c49ffb3059118ffb1d8cf50a1a3928393",
+  "local_batch_accepted": 2,
+  "local_new_logical_entries": 1,
+  "local_apply": "complete",
+  "notification_style_original_receipt": "00391119-6349-4e3a-bbc2-3f310f458d7a",
+  "participant_acceptance_evidence": "participant-acceptance.json"
+}

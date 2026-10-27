@@ -184,15 +184,15 @@ Browser tab: 1329059526, Title: "Manage your flows | Power Automate", URL: "http
 									375 text Connection references
 								376 button See all
 								377 table
-									378 row o9w@ornl.gov SharePoint Permissions o9w@ornl.gov, ID: row604-0
+									378 row owner@example.invalid SharePoint Permissions owner@example.invalid, ID: row604-0
 										379 cell
-											380 image o9w@ornl.gov
+											380 image owner@example.invalid
 										381 cell
 											382 text SharePoint
 											383 button Permissions
 												384 text Permissions
 										385 cell
-											386 text o9w@ornl.gov
+											386 text owner@example.invalid
 							387 container
 								388 heading Co-owner, Value: 3
 									389 text Co-owner
@@ -278,10 +278,10 @@ Browser tab: 1329059526, Title: "Manage your flows | Power Automate", URL: "http
 								468 container SharePoint
 									469 text SharePoint
 									470 text Access to this connection is provided by the owner of the flow.
-								471 pop up button (collapsed, settable) Description: Select a connection for SharePoint., Value: Use this connection (o9w@ornl.gov), Secondary Actions: Expand
+								471 pop up button (collapsed, settable) Description: Select a connection for SharePoint., Value: Use this connection (owner@example.invalid), Secondary Actions: Expand
 									472 menu
 										473 Provided by run-only user
-										474 (selected) Use this connection (o9w@ornl.gov)
+										474 (selected) Use this connection (owner@example.invalid)
 								475 button (disabled) Save
 								476 button Cancel
 						255 container Connections Used Users with run-only access will not control or have access to these connections outside of this flow.

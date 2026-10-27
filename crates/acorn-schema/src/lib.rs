@@ -33,14 +33,14 @@ pub mod pid;
 pub mod research_activity;
 pub mod software;
 pub mod standard;
+mod types;
 #[macro_use]
 pub mod util;
-mod types;
 pub mod validation;
 pub mod vocabulary;
 pub use hardware::memory::{Memory, MemoryUnit};
 pub use hardware::{
-    AcceleratorArchitecture, Architecture, Backend, CpuArchitecture, DspArchitecture, ErrorCorrection, FpgaArchitecture, GpuArchitecture, Model,
+    AcceleratorArchitecture, Architecture, Backend, CpuArchitecture, DspArchitecture, FaultTolerance, FpgaArchitecture, GpuArchitecture, Model,
     QuantumResource, Qubit, QubitType, Regime, Resource, SensorModality, Technology, Topology, Vendor, Vendored,
 };
 pub use types::*;

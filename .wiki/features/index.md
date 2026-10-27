@@ -1,16 +1,21 @@
 # Feature Plans
 
+> **Sanitized copy:** Account labels and related assets have been redacted. Historical checksums and import results describe the originals; see [privacy and reuse limits](../privacy.md).
+
 ## In progress
+
+- [Interactive metadata chat and terminal prompts](interactive-metadata-chat.md) - Complete inline multi-turn `ask`, durable transcripts, Gum-like Confirm buttons within reusable terminal controls, and interactive enrichment feedback for `format`.
+
+- [SharePoint JSONL download for ACORN intake](sharepoint-jsonl-download/index.md) - Complete reusable OAuth 2.0/Entra browser/device authorization with ACRE auth profiles, verified account identity, scoped cache inspection/reset, cross-platform protected caching, existing Confirm controls and Graph file capture, consumed by SharePoint direct-URL intake and offline review; approved CLI tenant access is unverified, and it requires no operational app/flow changes.
 
 - [Model acquisition and metadata hardening](model-acquisition-hardening.md) - Complete identity-safe Hugging Face requests, exact GGUF metadata, and ModelKit/ModelPack interoperability evidence.
 - [Needle routing and native capability parity](needle-router-native-parity.md) - Bring bounded native ACORN workflows behind `acorn ask` with measured parity.
-- [PowerApp and Power Automate JSONL intake](powerapps-jsonl-intake/index.md) - SharePoint is the standard-connector manual path: the owner three-row stage/inspect/apply/report demo passed. PA-22 participant acceptance passed October 27: c5c submitted successfully, Teams succeeded, and the downloaded seven-row collected file contains the receipt exactly once with the prior six rows unchanged. Owner-backed connections and the two-person audience are verified; group rollout and environment capacity remain wider-deployment work. PA-28 isolated catalog-failure feedback is accepted with a native canvas backup; PA-25 retains installation; PA-19 storage/catalog and PA-20 intake/export acceptance passed October 26; PA-21 canvas/recovery acceptance passed, including owner-confirmed full restart and denied-storage checks. PA-23/26/27 collected-export and repair acceptance passed, including real pagination and independent boundary downloads; the clean test exporter is Off and operational revisions are unchanged. PA-24 native backup/restore passed October 27; all three restored flows are Off. PA-25 retains optional cutover; PA-12 shared deployment. GitLab PA-15–17 remain independent; both pilots stay enabled.
+- [PowerApp and Power Automate JSONL intake](powerapps-jsonl-intake/index.md) - SharePoint is the accepted default, including contributor access, browser recovery, collected export, native restore and immutable submission editing. GitLab intake/catalog remain Off. PA-29 owns standalone general-logbook intake/reporting without a project index; PA-12 waits for shared-target/group/capacity approval. Independent GitLab PA-15–17 retain isolated acceptance blockers; OAuth download and Vergil are separate.
 
 ## Planned
 
 - [Portable Big-O notation parser and literal macro](portable-big-o-notation.md) - Share an alloc-only parser between computation-bound validation and a compile-time checked `bigo!` literal.
 
-- [SharePoint JSONL download for ACORN intake](sharepoint-jsonl-download/index.md) - Add reusable OAuth 2.0/Entra browser/device authorization with ACRE auth profiles, verified account identity, scoped cache inspection/reset, cross-platform protected caching, existing Confirm controls and Graph file capture, consumed by SharePoint direct-URL intake and offline review; approved CLI tenant access is unverified, and both operational pilots remain unchanged.
 
 - [Headless CI SharePoint JSONL download](sharepoint-headless-ci-download/index.md) - Follow SPD-26 shared functionality and acceptance on any one native OS with GitLab OIDC federation, ACRE workload profiles and read-only unattended capture/staging; seven bounded phases require approved app-only access and isolated live acceptance. No user credential cache or automatic apply/reporting.
 
@@ -20,7 +25,6 @@
 - [Sponsor highlights clarity](sponsor-highlights-clarity.md) - Add evidence-backed mission value, a consistent project synopsis, reviewed ASPECT graduation across schema, local CLI and other adapters, accessibility checks, and an approved distribution pilot.
 - [Grouped report separators](grouped-report-separators.md) - Extend the existing local --combine PDF with ordered project groups and full-page office dividers; keep individual report publication unchanged.
 - [RON support for ACRE configuration](acre-ron-configuration.md) - Add `.acorn.ron` loading, checking, persistence, and canonical formatting with the existing ACRE data model and discovery precedence.
-- [Interactive metadata chat and terminal prompts](interactive-metadata-chat.md) - Add inline multi-turn `ask`, durable transcripts, Gum-like Confirm buttons within reusable terminal controls, and interactive enrichment feedback for `format`.
 - [Generic ask executor adapters](ask-executor-adapters.md) - Add configured MCP, ACP, endpoint, and local-sidecar bindings after router contracts land; release follows native parity.
 - [Swift SLM capability profile](swift-slm-profile.md) - Release Tongue, Redact, and Title after licensing, host, artifact, and quality gates.
 - [Julia decision sidecar profile](julia-decision-sidecar.md) - Release advisory Choice and Noul decisions after independent parity and quality gates.

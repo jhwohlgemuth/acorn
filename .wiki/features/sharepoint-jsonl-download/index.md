@@ -6,7 +6,7 @@ difficulty: high
 impact: high
 package: [acorn-cli, acorn-host, acorn-lib]
 tags: [sharepoint, microsoft-graph, oauth2, entra, jsonl, intake, authentication, credentials, cross-platform, download]
-status: planned
+status: in-progress
 execution: phased
 phase_budget_hours: 5
 ---
@@ -30,11 +30,15 @@ Preserve the documented **stage -> inspect -> apply -> report** workflow in the 
 
 # Current evidence
 
-SharePoint-aware planning review: October 26, 2026 against `58c22da4` plus the current working tree. Earlier capture evidence was recorded against `ca774b01`. CodeGraph inspection of `crates/acorn-cli/src/commands/intake/source.rs` confirms local files and GitLab HTTP(S) file URLs are supported; HTTP(S) inputs currently enter the GitLab parser. Remote capture rejects offline mode, bounds the source to 10 MiB, pins GitLab commit provenance, and stores snapshots beneath the intake configuration's `.acorn/intake/sources/` directory. There is no implemented SharePoint/Graph authentication or download adapter in the searched crates. Current code inspection confirms existing `Authenticator`, `Credential`, secret redaction and configuration-loading facilities. The unfinished shared API resolved-configuration contract is a coordination constraint, not an already implemented OAuth profile system. Current ACRE `ApplicationConfiguration` rejects unknown attributes and has no `auth` field; its existing `config` field serves synchronization targets. The requested ACRE authentication attribute, CLI auth commands and native OAuth credential caching are not implemented. The existing global `--clear-cache` clears application/database/download cache and must retain that separate meaning.
+SharePoint-aware planning review: October 26, 2026 against `58c22da4` plus the current working tree. Earlier capture evidence was recorded against `ca774b01`. CodeGraph inspection of `crates/acorn-cli/src/commands/intake/source.rs` confirms local files and GitLab HTTP(S) file URLs are supported; HTTP(S) inputs currently enter the GitLab parser. Remote capture rejects offline mode, bounds the source to 10 MiB, pins GitLab commit provenance, and stores snapshots beneath the intake configuration's `.acorn/intake/sources/` directory. There is no live SharePoint/Graph authentication or download adapter; SPD-03 has only inactive, compiling module seams. The existing global `--clear-cache` clears application/database/download cache and must retain that separate meaning.
+
+October 27 implementation evidence: the frozen contract and synthetic fixtures are in the [SharePoint intake capture guide](../../../docs/src/cli-reference/commands/sharepoint-intake.md). Feature-gated host auth and Graph/SharePoint seams compile on macOS without exposing a CLI route. Focused host tests, the SharePoint library check, portable WASM check and existing GitLab capture/offline-review regression passed. The lockfile advisory count remains six, matching the prior baseline. Linux cross-compilation on this macOS host stopped before Rust code checking because the cross C compiler is absent; target-specific dependency trees show only the selected native backend. [SPD-01's sanitized evidence](_assets/auth-evidence.json) records the missing approved public-client registration; no Graph request was made.
+
+October 27 fixture implementation against `bde5df3f` plus the current working tree: ACRE now parses and validates ordered `auth.profiles` and exact SharePoint `auth.sources` in JSON, JSONC and YAML. The test-only CLI resolver exercises selection of a validated host profile without invoking project hooks or database setup; SPD-09 or SPD-21 must make it a production module when adding its first caller. The host profile pins Entra authority and grant endpoints; its OIDC verifier checks signed ID tokens against trusted discovery/JWKS with bounded metadata requests. The device grant uses library polling with a private code handle, typed redacted failures, cancellation and an outer monotonic deadline. `cargo test -p acorn-host --features auth auth::tests --offline` passed 16 tests covering grant success, pending, slow-down, denial, expiry, provider errors, rate limiting, URL safety, signature and claim failures. `cargo test -p acorn-lib --features auth test_auth_ --offline` passed focused ACRE tests, and `cargo test -p acorn-cli --no-default-features --features auth io::tests::auth --offline` passed two resolver tests. Focused Clippy checks for all three crates and the planning wiki validator passed. No CLI auth route, protected cache adapter, live tenant sign-in or Graph capture is claimed; those remain separate phases.
 
 The [October 26 live demonstration](../powerapps-jsonl-intake/sharepoint-pilot.md#october-26-live-demonstration-and-local-report) downloaded six rows (3,413 bytes) through the browser. Three selected submissions then passed local ACORN staging/application and generated a PDF. The original six-row bytes have SHA-256 `84eef36810338f5ebabb074d4e9993a09b9a910e38da82dc458f4344a18a09c7`; the [evidence packet](../powerapps-jsonl-intake/_assets/sharepoint/demo-20261026/evidence.json) records the files and runs. This proves the export and manual handoff, **not CLI authentication or remote capture**.
 
-The combined exporter runs every five minutes and is distinct from per-submission receipt files. Its 5,000-row/10 MiB bounds and repaired isolated revision passed [collected-export acceptance](../powerapps-jsonl-intake/sharepoint-pilot.md#october-27-collected-export-acceptance) on October 27. The operational exporter retains its previous revision; native backup/restore and installation remain PA-24/25. Capturing the exported file does not force a fresh list export or prove that every just-submitted receipt has reached it. Graph revision consistency proves captured file identity/bytes, not list completeness or successful exporter readback. The SharePoint receipt history is retained across local apply; repeated snapshots need replay-safe local staging, not remote deletion or acknowledgement. Both operational pilots remain enabled; this work requires no app, flow, connector, credential, or SharePoint schema changes.
+The combined exporter runs every five minutes and is distinct from per-submission receipt files. Its 5,000-row/10 MiB bounds and repaired isolated revision passed [collected-export acceptance](../powerapps-jsonl-intake/sharepoint-pilot.md#october-27-collected-export-acceptance) on October 27. PA-24 native backup/restore and PA-25 operational installation are accepted. The repaired exporter is deployed; later editing acceptance independently verified original/correction bytes in an 18-row collected snapshot. Capturing the exported file does not force a fresh list export or prove that every just-submitted receipt has reached it. Graph revision consistency proves captured file identity/bytes, not list completeness or successful exporter readback. The SharePoint receipt history is retained across local apply; repeated snapshots need replay-safe local staging, not remote deletion or acknowledgement. SharePoint is the active default; the retained GitLab intake and catalog flows are Off; this work requires no app, flow, connector, credential, or SharePoint schema changes.
 
 # Reusable architecture
 
@@ -52,7 +56,7 @@ The proposed host module is `acorn-host::auth`, with an OAuth 2.0 implementation
 
 The proposed optional ACRE `auth` attribute separates a reusable named authentication profile from the source profile's allowed host, site/drive/item identity and resource scopes. The ORNL URL is an acceptance fixture, never a compiled default. Another approved tenant, site, document or Entra-protected API must not require changes to the OAuth implementation. Standard protocol behavior is verified with two synthetic issuers; real support for additional providers, grant types and APIs still needs provider-specific acceptance.
 
-Authentication reuse does not make tokens interchangeable. Token requests and cached access-token selection must include authority/tenant, application, account, resource audience and normalized scopes; only compatible grants may be reused. Refresh credentials follow the library/provider's documented cache rules and retain account/authority/client isolation. A Graph token must not be sent to SharePoint REST, Azure Key Vault or an arbitrary URL; another resource requires its own correctly scoped token. Consent is requested only for the operation selected by the caller. OIDC ID tokens are never used as API bearer tokens. The Entra profile uses library-validated OIDC identity for account binding; grant-specific validation belongs to SPD-25.
+Authentication reuse does not make tokens interchangeable. Token requests and cached access-token selection must include authority/tenant, application, account, resource audience and normalized scopes; only compatible grants may be reused. Refresh credentials follow the library/provider's documented cache rules and retain account/authority/client isolation. A Graph token must not be sent to SharePoint REST, Azure Key Vault or an arbitrary URL; another resource requires its own correctly scoped token. Consent is requested only for the operation selected by the caller. OIDC ID tokens are never used as API bearer tokens. The Entra profile uses library-validated OIDC identity for account binding.
 
 Keep the initial implementation bounded: two explicit interactive grants (browser authorization code with PKCE and device authorization), one live Entra profile and one SharePoint intake consumer. Prove reusable boundaries with fixtures rather than adding unrelated live service integrations, an unrestricted token-management CLI, other OAuth grant types, or a new crate. A narrow `auth login` and `auth cache status/clear` CLI is in scope for reusable sign-in and repeatable testing. A later OneDrive/Graph consumer should reuse byte capture; a different Entra API should reuse sign-in with its own permissions and API adapter.
 
@@ -64,12 +68,12 @@ The existing Confirm control is implemented in `crates/acorn-cli/src/io/interact
 
 - Accept a direct HTTPS SharePoint document URL from an explicitly configured tenant/host. Initially support the combined export file; reject sharing links, library view pages, query strings, fragments, embedded credentials, malformed escaping, traversal, and unsupported schemes with actionable errors. Do not guess a provider by an arbitrary `.jsonl` suffix.
 - Resolve the site, document library, and item through Graph. Match decoded path segments correctly, including spaces and Unicode; never double-decode. Freeze a bounded discovery strategy before implementation. If the least-privilege grant cannot support discovery, configure verified site/drive/item IDs rather than silently widening permission.
-- Resolve a named authentication profile (non-secret tenant ID, public-client application ID and cloud) separately from the SharePoint source profile (allowed host, resource scopes and optional pinned resource IDs), once at the CLI boundary. SPD-02 defines their exact names and precedence; do not add Microsoft secrets to an intake config, `.env`, command line or log.
+- Resolve a named authentication profile (non-secret tenant ID, public-client application ID and cloud) separately from the SharePoint source profile (allowed host, resource scopes and optional pinned resource IDs), once at the CLI boundary. The frozen contract defines their exact names and precedence; do not add Microsoft secrets to an intake config, `.env`, command line or log.
 - Keep GitLab URL parsing, origin checks, credential selection and commit receipts unchanged. A SharePoint URL must never receive GitLab credentials, and an unknown HTTPS origin must fail before sign-in or network access.
 
 ## Profile loading and trust boundary
 
-SPD-23 adds an optional top-level `auth` attribute to ACRE (`ApplicationConfiguration`), containing `auth.profiles` (named reusable non-secret authentication profiles) and `auth.sources` (SharePoint source mappings referencing those names). Use the existing ACRE discovery and explicit `--config` selection, including JSON/JSONC and YAML support; do not introduce a separate user-level OAuth configuration file or a second merge/precedence mechanism. ACRE's existing `config` attribute is reserved for synchronization targets and is not the home for authentication. Existing documents without `auth` retain their behavior; requesting OAuth without a matching profile fails clearly. SPD-02 freezes the nested field contract and ACRE schema compatibility before implementation; SPD-23 updates parsing, validation, schema export and format round-trips together.
+The optional top-level ACRE `auth` attribute (`ApplicationConfiguration`) contains `auth.profiles` (named reusable non-secret authentication profiles) and `auth.sources` (SharePoint source mappings referencing those names). It uses existing ACRE discovery and explicit `--config` selection, including JSON/JSONC and YAML support. ACRE's existing `config` attribute remains reserved for synchronization targets. Existing documents without `auth` retain their behavior; requesting OAuth without a matching profile fails clearly.
 
 For example, `acorn auth login --config .acorn.jsonc --device` selects the first declared entry in `auth.profiles` from that ACRE document. Add `--profile ornl` to select `auth.profiles.ornl` explicitly. Without `--config`, use normal ACRE discovery. The intake command's existing `--config` selects the same ACRE document for folders, authority rules and authentication/source mappings; it does not select a second OAuth file. `--profile` selects a name, not a path. Show the resolved configuration path and selected profile in interactive context so operators know which repository's settings they are using. The attribute contains public client/tenant identifiers, resource/scope limits, grant preference and cache policy only; passwords, client secrets, access/refresh tokens and cache contents are forbidden and remain outside ACRE.
 
@@ -83,7 +87,7 @@ Repository configuration is shareable policy, not proof that an endpoint may rec
 
 The account used for caching and `--account` selection must be established by validated provider identity, never a caller-supplied email or decoded API access token. For the Entra profile, request `openid` for identity and `offline_access` when persistent refresh is requested; use a maintained OIDC library to validate returned ID tokens. Use issuer plus subject as the opaque stable account key, bound to the configured client and tenant. Email/display name is optional presentation only. Browser flow requires its generated nonce; device flow validates signature, issuer, client audience and time constraints under the documented grant rules without inventing a nonce requirement the provider does not support. If validated identity or refresh material is absent, report that limitation and do not silently persist credentials under a guessed account.
 
-Treat Microsoft API access tokens as opaque. Enforce resource binding through validated configuration, the token request and response metadata; validation of the API token belongs to its resource server. Reject wrong-account/tenant results before replacing cached credentials. Pin discovery/JWKS to the selected authority and validate allowed HTTPS destinations before fetching; bound metadata size, redirects and key refresh, including unknown-key rotation. See [Microsoft access-token guidance](https://learn.microsoft.com/en-us/entra/identity-platform/access-tokens). SPD-25 owns this identity adapter and its fixtures, shared by both grant implementations.
+Treat Microsoft API access tokens as opaque. Enforce resource binding through validated configuration, the token request and response metadata; validation of the API token belongs to its resource server. Reject wrong-account/tenant results before replacing cached credentials. Pin discovery/JWKS to the selected authority and validate allowed HTTPS destinations before fetching; bound metadata size, redirects and key refresh, including unknown-key rotation. See [Microsoft access-token guidance](https://learn.microsoft.com/en-us/entra/identity-platform/access-tokens). The landed identity adapter is shared by both grant implementations.
 
 ## Authentication
 
@@ -109,7 +113,7 @@ Keep the chosen grant/origin in protected cache metadata when needed for provide
 
 ## Cross-platform credential cache
 
-Keep one reusable cache contract with target-specific store adapters. Select maintained dependencies in SPD-02 and register only the relevant target features in SPD-03. The current [Rust Keyring documentation](https://docs.rs/keyring/latest/keyring/) recommends `keyring-core` plus selected store implementations when applications need explicit backend control; evaluate that approach rather than assuming an older crate API or enabling every backend. No backend dependency may leak into the portable/WASM path, and ACORN adds no unsafe native bindings of its own.
+Keep one reusable cache contract with target-specific store adapters. The selected dependencies and target feature wiring are recorded in the SharePoint intake capture contract. The current [Rust Keyring documentation](https://docs.rs/keyring/latest/keyring/) recommends `keyring-core` plus selected store implementations when applications need explicit backend control; evaluate that approach rather than assuming an older crate API or enabling every backend. No backend dependency may leak into the portable/WASM path, and ACORN adds no unsafe native bindings of its own.
 
 | Platform | Protected persistence target | Native acceptance required |
 |---|---|---|
@@ -119,7 +123,7 @@ Keep one reusable cache contract with target-specific store adapters. Select mai
 
 These are platform-specific implementations of one contract. See [Apple Keychain services](https://developer.apple.com/documentation/security/keychain-services), [Windows credential persistence](https://learn.microsoft.com/en-us/windows/win32/api/wincred/ns-wincred-credentialw), and the [Secret Service API](https://specifications.freedesktop.org/secret-service/latest/). Linux acceptance must name the tested service/version and its persistent collection; the API alone does not establish the implementation's at-rest protection. A session-only kernel keyring does not satisfy restart/re-login persistence. Additional Linux store implementations need their own evidence before being advertised.
 
-Freeze the following behavior in SPD-02:
+The frozen contract requires:
 
 - Non-secret profile policy offers **preferred**, **required**, and **disabled** persistence. Preferred uses the native store when available and reports session-only operation if unavailable; required fails clearly when storage cannot be read or updated; disabled neither reads nor writes persistent credentials. Preferred is the default. No fallback writes plaintext, creates a homemade encrypted file, or switches to another OS user's store.
 - Store only the minimal refresh material and associated protected metadata needed by the selected OAuth library. Keep access tokens in memory. Version and namespace entries under ACORN; bind them to authority/tenant/client/account, with resource/scope compatibility enforced during token acquisition. Entry labels and lookup attributes contain no secrets or unnecessary personal details.
@@ -157,24 +161,7 @@ For repeatable tests: use an isolated ACORN test profile/namespace; inspect -> d
 
 ## Dependency selection and wiring
 
-The following are the recommended direct dependency candidates, verified against their upstream documentation on October 26, 2026. They are not yet added to ACORN or version-approved. SPD-02 records the selected versions/features and review evidence; SPD-03 owns manifest and lockfile changes. Four storage crates are declared across the supported targets, with only the matching platform backend compiled into each native build.
-
-| Candidate | Purpose and planned wiring |
-|---|---|
-| [`keyring-core`](https://docs.rs/keyring-core/latest/keyring_core/) | Optional shared credential-store interface in `acorn-host`; use its mock store only for tests, never as a production fallback. |
-| [`apple-native-keyring-store`](https://docs.rs/apple-native-keyring-store/latest/apple_native_keyring_store/) | macOS-only dependency with the `keychain` feature. Do not enable the separate protected-data backend unless a later requirement justifies it. |
-| [`windows-native-keyring-store`](https://docs.rs/windows-native-keyring-store/latest/windows_native_keyring_store/) | Windows-only Credential Manager backend. Explicitly choose `Local` persistence; the documented default is `Enterprise`, which does not meet this plan's non-roaming policy. |
-| [`zbus-secret-service-keyring-store`](https://docs.rs/zbus-secret-service-keyring-store/latest/zbus_secret_service_keyring_store/) | Linux-only Secret Service backend. Select exactly one supported runtime/cryptography feature combination compatible with ACORN's Tokio runtime; inspect its D-Bus and cryptographic transitive dependencies. |
-| [`oauth2`](https://docs.rs/oauth2/latest/oauth2/) | Separately evaluated candidate for authorization-code/PKCE, device authorization and refresh exchanges. It acquires tokens; it does not implement the persistent vault. Prefer disabled default HTTP features and the existing host transport through its supported HTTP adapter interface, subject to compatibility checks. |
-| [`openidconnect`](https://docs.rs/openidconnect/latest/openidconnect/) | Candidate for required Entra account-identity validation and bounded discovery/JWKS handling. Prefer its compatible OAuth re-exports where practical; retain a separate `oauth2` direct dependency only if the device-flow implementation requires it, using one compatible resolved OAuth version. |
-
-Reuse workspace `secrecy` for protected in-memory secret values, adding optional `acorn-host` wiring rather than introducing a second secret wrapper. Reuse existing `reqwest`, `tokio`, URL and serialization facilities where compatible. `zeroize` is already in the dependency graph; do not add another direct dependency unless the implementation actually calls it. Existing transitive Windows and Apple bindings do not by themselves provide an ACORN credential-cache adapter.
-
-Do not add the all-backends `keyring` CLI/sample facade alongside these explicit stores. Do not add a second HTTP/TLS stack merely to accept an OAuth library's defaults. Account binding now requires OIDC validation for Entra. SPD-02 evaluates `openidconnect` alongside `oauth2`, checks their compatible shared versions and records the actual direct-dependency set before SPD-03. `oauth2` alone does not validate ID tokens; do not implement JWT signature/claim verification manually.
-
-Dependency acceptance must record minimum supported Rust version, licenses, maintenance/security advisories, supported targets, feature selection and the resolved transitive tree. Check the actual OAuth HTTP interface against ACORN's existing `reqwest` version; nominal support for reqwest is not proof of version compatibility. Use target-specific dependency sections and optional host features, verify native and no-default-feature builds, inspect feature unification, and retain the WASM exclusion. Any new dependency required for cross-process cache coordination must be explicitly justified after checking existing facilities, rather than silently added during a backend phase.
-
-Linux also requires a usable session D-Bus and a persistent Secret Service provider such as the tested GNOME Keyring deployment. Those are documented runtime prerequisites, not Cargo dependencies; do not install or unlock them automatically. Record any build-time system-library requirements of the selected backend/features during SPD-02. Native vault access on macOS and Windows uses their OS services. Final package choices remain contingent on passing the platform acceptance phases.
+The selected OAuth/OIDC, keyring and target-specific store versions, features, licenses, MSRVs, runtime costs and rejected HTTP adapters are recorded in the [SharePoint intake capture contract](../../../docs/src/cli-reference/commands/sharepoint-intake.md#dependency-decision-and-validation). The optional host and provider feature paths compile on macOS; the portable WASM path excludes native stores. Linux and Windows still require target/native acceptance in their later phases. No all-backends keyring facade or second OAuth HTTP stack was added.
 
 ## Interactive sign-in and code presentation
 
@@ -209,7 +196,7 @@ All interactive controls and instructions use stderr/the interactive terminal; s
 2. Fetch content using bounded time, redirects, response size and retry limits. Graph's content API redirects to a short-lived preauthenticated URL. Follow only the validated provider redirect policy over HTTPS; do not forward Graph authorization to the destination, log the signed URL, or accept arbitrary redirects into loopback/private services. See the [download API redirect contract](https://learn.microsoft.com/en-us/graph/api/driveitem-get-content?view=graph-rest-1.0).
 3. The Graph service returns bounded exact bytes and revision metadata without knowing their file format; the intake adapter then validates UTF-8/JSONL. Preserve the original UTF-8 bytes, including Unicode and LF delimiters. Enforce the existing 10 MiB source and 64 KiB record limits. Reject invalid UTF-8, login HTML, malformed/truncated JSONL, and size/integrity mismatches with no ready snapshot. Use the existing intake validator for envelope/schema acceptance; do not invent a second LogbookEntry model.
 4. If the item changes during capture, discard the temporary result and retry a bounded number of times; report an unstable export after exhaustion. Do not combine rows from different revisions. A Graph 401 may refresh at most once per request sequence; an expired signed-download URL instead reacquires content metadata through Graph and restarts the consistency check, without sending OAuth credentials to that URL. Distinguish permission denial from missing items, and bound 429/503 retries with `Retry-After` and an overall deadline.
-5. Materialize `logbook.jsonl` and a versioned `source.json` receipt atomically beneath `.acorn/intake/sources/`. Retain provider, canonical source identity, revision evidence, byte/record counts, source modification time, capture time and SHA-256. Never put tokens or preauthenticated URLs in the receipt. Preserve the existing GitLab receipt format. Do not overwrite an existing verified snapshot; reuse identical content only after verifying its stored receipt and digest. Snapshot identity includes provider/tenant/source identity, remote revision and byte digest, excluding capture time. Identical bytes from different sources must not share provenance. Write both files into a restricted temporary directory on the same filesystem, then publish it atomically without replacing an existing final directory; reject symlink/reparse-point redirection and verify existing contents before reuse. Freeze Windows/POSIX permission and crash-recovery behavior in SPD-02. Keep first-capture time unchanged on reuse and report the latest verification time separately.
+5. Materialize `logbook.jsonl` and a versioned `source.json` receipt atomically beneath `.acorn/intake/sources/`. Retain provider, canonical source identity, revision evidence, byte/record counts, source modification time, capture time and SHA-256. Never put tokens or preauthenticated URLs in the receipt. Preserve the existing GitLab receipt format. Do not overwrite an existing verified snapshot; reuse identical content only after verifying its stored receipt and digest. Snapshot identity includes provider/tenant/source identity, remote revision and byte digest, excluding capture time. Identical bytes from different sources must not share provenance. Write both files into a restricted temporary directory on the same filesystem, then publish it atomically without replacing an existing final directory; reject symlink/reparse-point redirection and verify existing contents before reuse. Use the frozen Windows/POSIX permission and crash-recovery behavior. Keep first-capture time unchanged on reuse and report the latest verification time separately.
 6. Distinguish downloaded, verified and staged states. Failed byte/framing validation or interrupted persistence must not leave a ready receipt, mutate the intake ledger, or erase a prior good snapshot. A verified capture is not an accepted submission: retain the existing staging outcomes for schema errors, duplicate/conflicting IDs, routing and authority failures instead of deleting a valid captured file or silently accepting its rows. Local project/actor/authority checks still apply after download: read access to a SharePoint file does not confer intake authority.
 
 `--offline` must reject a remote URL before authentication, directory creation or network calls. A captured local snapshot must remain usable offline after token expiry. A cached file must never be silently substituted for a failed fresh download. Display export age without calling it the latest list state; a missing modification time is unknown, not current.
@@ -245,9 +232,9 @@ All interactive controls and instructions use stderr/the interactive terminal; s
 
 # Execution order and release gates
 
-Start with SPD-02's fixture/contract review and SPD-01's independent tenant-access probe. Missing tenant consent does not block implementation against synthetic fixtures. SPD-03 registers dependencies/types, SPD-23 loads profiles, SPD-25 validates identity and SPD-24 freezes cache coordination. The native cache leaves then share that contract; neither Windows nor Linux implementation needs the macOS leaf to finish. Browser and device grants share identity validation but remain independent implementations. SPD-20/21 compose explicit cache clearing and auth commands after those leaves; native and device live acceptance remain external gates.
+The contract, synthetic fixtures, feature-gated seams, ACRE auth profiles, verified identity adapter and fixture-tested device grant are landed. SPD-01 remains blocked on an approved public-client registration and delegated Graph read consent; this does not block synthetic implementation. SPD-24 next implements cache coordination. The native cache leaves then share that contract; neither Windows nor Linux implementation needs the macOS leaf to finish. The browser grant remains a separate implementation. SPD-20/21 compose explicit cache clearing and auth commands after those leaves; native and device live acceptance remain external gates.
 
-The full cross-platform CLI download release and SPD retirement require all three native cache acceptances, real SharePoint handoff and a successful approved device-grant test. The earlier SPD-26 handoff requires the shared implementation, SPD-10, SPD-22 and any one of SPD-16, SPD-17 or SPD-18. That gate unlocks HCI independently of SPD-11/12 and the remaining native acceptance phases; it does not claim those platforms are accepted. The platform providing SPD evidence need not match the later Linux CI runner, whose headless workload behavior is separately verified by HCI-06. These gates do not block the existing browser-download/manual-report workflow; the accepted PA-22 evidence independently proves standard participant access and the recorded isolated producer acceptance covers completeness/failure behavior; its operational installation remains separate. A tenant denial is recorded accurately, never counted as successful device authorization; it does not prohibit merging fixture-tested work or demonstrating an accepted browser path with its limitations labeled. Neither path may change operational Power Platform components. No full-workspace test result or live OAuth acceptance is claimed by this planning review.
+The full cross-platform CLI download release and SPD retirement require all three native cache acceptances, real SharePoint handoff and a successful approved device-grant test. The earlier SPD-26 handoff requires the shared implementation, SPD-10, SPD-22 and any one of SPD-16, SPD-17 or SPD-18. That gate unlocks HCI independently of SPD-11/12 and the remaining native acceptance phases; it does not claim those platforms are accepted. The platform providing SPD evidence need not match the later Linux CI runner, whose headless workload behavior is separately verified by HCI-06. These gates do not block the existing browser-download/manual-report workflow; the accepted PA-22 evidence independently proves standard participant access and the recorded isolated producer acceptance covers completeness/failure behavior; PA-25 operational installation is also accepted. A tenant denial is recorded accurately, never counted as successful device authorization; it does not prohibit merging fixture-tested work or demonstrating an accepted browser path with its limitations labeled. Neither path may change operational Power Platform components. No full-workspace test result or live OAuth acceptance is claimed by this planning review.
 
 # Execution phases
 
@@ -255,64 +242,20 @@ New files below are proposed ownership boundaries, not files claimed to exist. E
 
 ## SPD-01 — Prove approved read-only tenant access
 
-- Status: planned
+- Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: Operator sign-in through the approved ORNL setup; permission to use an existing public-client registration or obtain one. Availability is unverified.
+- Prerequisites: An approved Entra public-client registration and delegated read consent for the operator and export. The operator has an enterprise SharePoint account but does not know of such a registration; see the [sanitized auth evidence](_assets/auth-evidence.json).
 - Exact write set: `docs/src/cli-reference/commands/sharepoint-intake.md` (new feasibility/operations record); this plan's `_assets/auth-evidence.json` (sanitized); authorized Entra desktop-app registration and read-only Graph access to the ResearchEnablement export, if permitted.
 - Primary integration lock: Entra CLI identity
 - Outcome: Verify tenant/cloud, registration, redirect, delegated scopes, and a metadata/content read using an approved client. Record browser and device-grant registration/policy availability, the minimum sufficient route and whether site/drive IDs must be configured; make no operational Power Platform changes.
 - Focused validation: Compare downloaded bytes/digest to the browser export at the same revision; demonstrate an authenticated Graph request rather than browser-cookie reuse; record exact denial if blocked.
 - Handoff: Non-secret identifiers and consent/access evidence, or a precise external prerequisite. No live-read or licensing claim without evidence.
 
-## SPD-02 — Freeze source, authentication and receipt contracts
+## SPD-24 — Implement shared cache policy and refresh coordination
 
 - Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: Current source behavior verified; live tenant evidence may remain pending, with tenant-specific values explicitly unresolved.
-- Exact write set: `docs/src/cli-reference/commands/sharepoint-intake.md`; `tests/fixtures/sharepoint-intake/`, `tests/fixtures/oauth2/`, `tests/fixtures/microsoft-graph/` (new synthetic fixtures); this plan.
-- Primary integration lock: SharePoint source contract
-- Outcome: Freeze the reusable OAuth request/token capability, typed interaction-needed/continuation events, ACRE `auth.profiles` and `auth.sources` fields, schema compatibility, existing ACRE discovery/explicit-file precedence, first-declared-profile selection with order-preserving round-trips, optional named override and translation into host inputs. Specify the `--device` boolean override and profile flow fallback, device polling/error/deadline policy, auth login/cache status/clear command semantics, account selectors and removal generations, provider routing, bounded path/ID resolution, callback, Confirm/code-panel presentation and credential-cache lifecycle, byte-only Graph result, snapshot identity/receipt version, empty/CRLF behavior and retry/deadline limits. Select maintained OAuth and secure-store dependencies after API/license/platform review; document the read-only service interface and macOS/Windows/Linux cache contract, persistence policies, supported store selection, size limits and concurrency/removal semantics.
-- Focused validation: Walk two synthetic OAuth issuers, distinct resource audiences/scopes and a non-JSONL Graph file through the contract; confirm no credentials in fixtures and no changes to GitLab receipts, intake authority, or downstream commands. Resolve every implementation-affecting choice before SPD-03.
-- Handoff: Frozen contract, fixture expectations and the dependency matrix above with selected versions/features, licenses, minimum Rust versions, transitive/runtime requirements and any rejected candidates; future library owners can implement without inventing tenant policy.
-
-## SPD-03 — Register optional host/provider dependencies and seams
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: SPD-02; exclusive manifest/root ownership window.
-- Exact write set: `Cargo.toml`, `Cargo.lock`, `crates/acorn-host/Cargo.toml`, `crates/acorn-host/src/lib.rs`, `crates/acorn-host/src/auth/{mod.rs,config.rs,identity.rs,oauth2.rs,device.rs,entra.rs}` and `crates/acorn-host/src/auth/cache/{mod.rs,coordination.rs,manage.rs,macos.rs,windows.rs,linux.rs}` (new), `crates/acorn-lib/Cargo.toml`, `crates/acorn-lib/src/io/api/mod.rs`, `crates/acorn-lib/src/io/api/graph/{mod.rs,drive.rs}` and `crates/acorn-lib/src/io/api/sharepoint/{mod.rs,resolve.rs}` (new).
-- Primary integration lock: Workspace graph
-- Outcome: Land the reusable auth/token capability, Entra profile, byte-oriented Graph result and feature-gated registration. Wire the SPD-02-approved `keyring-core`, platform store crates and OAuth library, plus existing workspace `secrecy`, under optional host and target-specific dependencies. Keep JSONL and SharePoint identifiers out of auth and Graph transfer types. Unimplemented operations return explicit unsupported errors; no route is advertised or enabled prematurely.
-- Focused validation: Build affected crates and portable/no-default-feature paths; review licenses/advisories and resolved dependency/feature trees for each target; verify only the relevant native backend is compiled, HTTP versions are compatible, and host-only dependencies do not leak into WASM.
-- Handoff: Compiling, testable seams for independent leaf implementation. Reserve shared API/library roots in this same serialized integration window.
-
-## SPD-23 — Add ACRE auth profiles and source mappings
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: SPD-02 frozen ACRE attribute/compatibility contract and SPD-03 host type registration; exclusive ACRE/API configuration-root ownership window.
-- Exact write set: `crates/acorn-host/src/auth/config.rs`, `crates/acorn-lib/src/io/config/application.rs`, `crates/acorn-lib/src/io/config/application/auth.rs` (new nested attribute types/validation), `crates/acorn-lib/src/io/config/tests/mod.rs`, `crates/acorn-cli/src/io/mod.rs` (private module registration only), `crates/acorn-cli/src/io/auth_config.rs` (new boundary adapter); `tests/fixtures/oauth2/config/`; `docs/src/concepts/acre.md`, `docs/src/cli-reference/configuration.md`.
-- Primary integration lock: API/config roots
-- Outcome: Optional ACRE `auth.profiles`/`auth.sources` schema and validated loading through existing discovery/explicit-file selection, canonical host/site matching and one immutable resolved input consumed by auth commands and intake. Translate ACRE into host inputs without reversing crate dependencies. Preserve documents without `auth`, existing intake configuration semantics and GitLab credentials; retain OS-protected per-user credential storage.
-- Focused validation: ACRE parse/check/schema-export/format round-trips for JSON, JSONC and YAML; absent `auth`, duplicate/unknown/missing profiles, invalid versions/fields and embedded secrets. Test explicit-file versus discovery precedence, first-declared-profile defaults with nonalphabetic fixture names, explicit named overrides, empty/unknown profiles, order-preserving format round-trips, same-name profiles across repositories, changed endpoints, overlapping mappings, pinned-ID conflict and pure provider inputs. Verify auth configuration loading runs no hooks and needs no unrelated project/database initialization.
-- Handoff: Tested ACRE attribute/resolver and documented non-secret setup example; reusable code is ready for both grants and the SharePoint adapter.
-
-## SPD-25 — Validate provider identity for cache account binding
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: SPD-03 selected OIDC library/types and SPD-23 authority/profile resolution.
-- Exact write set: `crates/acorn-host/src/auth/identity.rs`; `tests/fixtures/oauth2/identity/`.
-- Primary integration lock: Host OAuth identity
-- Outcome: Library-backed ID-token/discovery validation and stable issuer/subject account binding for both grant types, with bounded trusted metadata/key fetching. Keep API access tokens opaque; fail before persistence on missing/unverified identity or account mismatch.
-- Focused validation: Synthetic signed tokens for wrong issuer/audience/subject/tenant, expired/not-yet-valid claims, browser nonce mismatch, device grant without a nonce, rotated/unknown keys, bounded JWKS errors and opaque access tokens. Fixtures contain no real credentials.
-- Handoff: Verified account identity service and typed failures for SPD-04/19 and cache lookup.
-
-## SPD-24 — Implement shared cache policy and refresh coordination
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: SPD-03 cache seams, SPD-23 resolved policy and SPD-25 identity contract.
+- Prerequisites: The resolved profile policy and verified identity contract are landed; cache seams are available.
 - Exact write set: `crates/acorn-host/src/auth/cache/mod.rs`, `crates/acorn-host/src/auth/cache/coordination.rs`; `tests/fixtures/oauth2/cache/lifecycle/`.
 - Primary integration lock: Host credential cache lifecycle
 - Outcome: A cache-aware token acquisition service using injected grant/refresh and store interfaces: preferred/required/disabled policy, identity namespacing, minimal non-secret identity index, refresh rotation, per-identity coordination and generation tombstones shared by all stores/grants. No native backend or grant protocol implementation in this phase. Define late-completion behavior for blocking store calls and safe metadata writes with protected paths.
@@ -321,31 +264,20 @@ New files below are proposed ownership boundaries, not files claimed to exist. E
 
 ## SPD-04 — Implement reusable interactive OAuth sign-in
 
-- Status: planned
+- Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: SPD-03, SPD-23 configuration and SPD-25 identity validation; fixture implementation does not require live sign-in.
-- Exact write set: `crates/acorn-host/src/auth/{oauth2.rs,entra.rs}`; `tests/fixtures/oauth2/`.
+- Prerequisites: The ACRE configuration and identity verifier are landed; fixture implementation does not require live sign-in.
+- Exact write set: `crates/acorn-host/src/auth/oauth2.rs`; `tests/fixtures/oauth2/browser/`.
 - Primary integration lock: Host OAuth authentication
 - Outcome: Provider-configured browser sign-in, reusable refresh-token exchange and in-memory token acquisition with state/PKCE/redirect validation, bounded listener lifetime, cancellation and explicit noninteractive failure. Entra authority/cloud/tenant policy is a separate profile; callers provide resource/scopes, never SharePoint-specific auth logic. Return a typed interaction-needed event before launching a browser; resume only after caller confirmation, and propagate cancellation without embedding terminal controls.
 - Focused validation: Mock two issuers and resource/scope requests, wrong state, callback errors, timeout/cancel, wrong tenant/audience configuration, OIDC ID-token misuse and redaction; live approved sign-in when available.
 - Handoff: Reusable memory-only authentication usable without a persistent cache or SharePoint dependency.
 
-## SPD-19 — Implement bounded device authorization
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: SPD-02 grant contract, SPD-03 registration, SPD-23 configuration and SPD-25 identity validation; use the shared token/interaction types without depending on browser-flow implementation.
-- Exact write set: `crates/acorn-host/src/auth/device.rs`; `tests/fixtures/oauth2/device/`.
-- Primary integration lock: Host OAuth device grant
-- Outcome: Library-backed device authorization and bounded polling with shared token/cache identity results and typed presenter events. No implicit grant fallback, browser launch, terminal rendering or cached credential writes after cancellation.
-- Focused validation: Mock pending/slow-down/denied/expired and provider-specific errors, polling intervals and monotonic expiry, rate limiting, cancellation/late responses, malicious verification URLs, scope/identity checks and redaction. Verify no requests occur before caller consent.
-- Handoff: Independently tested device grant for SPD-09/21; SPD-22 retains live policy acceptance.
-
 ## SPD-05 — Implement the macOS Keychain adapter
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SPD-03 target wiring and SPD-24 shared cache contract.
+- Prerequisites: SPD-24 shared cache contract; target wiring is available.
 - Exact write set: `crates/acorn-host/src/auth/cache/macos.rs`; `tests/fixtures/oauth2/cache/macos/`; macOS cache section of `docs/src/cli-reference/commands/sharepoint-intake.md`.
 - Primary integration lock: Host OAuth authentication
 - Outcome: Implement non-synchronizing macOS Keychain entries against the shared lifecycle and typed failure contract. Preserve profile/account isolation, supported replace/remove behavior and explicit prompt/locked-store handling. No plaintext fallback or shared coordination rewrite.
@@ -356,7 +288,7 @@ New files below are proposed ownership boundaries, not files claimed to exist. E
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SPD-03 target wiring and SPD-24 shared cache contract.
+- Prerequisites: SPD-24 shared cache contract; target wiring is available.
 - Exact write set: `crates/acorn-host/src/auth/cache/windows.rs`; `tests/fixtures/oauth2/cache/windows/`.
 - Primary integration lock: Windows credential cache leaf
 - Outcome: User-scoped generic credentials with non-roaming local persistence, versioned namespacing, replace/remove semantics and typed unavailable/profile/permission/size failures. Consume shared coordination and policy behavior without changing OAuth protocol code.
@@ -367,7 +299,7 @@ New files below are proposed ownership boundaries, not files claimed to exist. E
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SPD-03 target wiring and SPD-24 shared cache contract.
+- Prerequisites: SPD-24 shared cache contract; target wiring is available.
 - Exact write set: `crates/acorn-host/src/auth/cache/linux.rs`; `tests/fixtures/oauth2/cache/linux/`.
 - Primary integration lock: Linux credential cache leaf
 - Outcome: Persistent user Secret Service collection support with bounded D-Bus access, explicit unlock/denial behavior and the shared persistence policy. Missing service, locked collection, SSH/headless context and session-only storage produce accurate capabilities or errors.
@@ -376,9 +308,9 @@ New files below are proposed ownership boundaries, not files claimed to exist. E
 
 ## SPD-06 — Resolve the configured SharePoint document
 
-- Status: planned
+- Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: SPD-03, SPD-23 configuration and frozen SPD-02 path/identity contract; fixture implementation does not require real resource mapping.
+- Prerequisites: The ACRE source configuration and frozen path/identity contract are landed; fixture implementation does not require real resource mapping.
 - Exact write set: `crates/acorn-lib/src/io/api/sharepoint/resolve.rs`; `tests/fixtures/sharepoint-intake/resolve/`.
 - Primary integration lock: SharePoint provider leaf
 - Outcome: Bounded Graph metadata resolution returning stable site/drive/item identity and revision evidence from a permitted direct URL or configured IDs.
@@ -389,7 +321,7 @@ New files below are proposed ownership boundaries, not files claimed to exist. E
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SPD-04 and SPD-06; SPD-02 transfer contract.
+- Prerequisites: SPD-04 and SPD-06; use the frozen transfer contract.
 - Exact write set: `crates/acorn-lib/src/io/api/graph/drive.rs`; `tests/fixtures/microsoft-graph/`.
 - Primary integration lock: Graph file transfer
 - Outcome: Format-independent exact bytes and consistent revision evidence by drive/item identity using existing HTTP policy and an injected resource-scoped token capability. Refresh/retry/redirect handling stays bounded and cannot leak credentials; a changing export fails safely after the configured retry budget.
@@ -411,18 +343,18 @@ New files below are proposed ownership boundaries, not files claimed to exist. E
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SPD-02 interaction contract, SPD-04 host interaction events; exclusive shared terminal-controls window. Listed here in dependency order; existing phase IDs remain unchanged.
+- Prerequisites: SPD-04 host interaction events and an exclusive shared terminal-controls window; use the frozen interaction contract.
 - Exact write set: `crates/acorn-cli/src/io/mod.rs`, `crates/acorn-cli/src/io/auth.rs` (new presenter), `crates/acorn-cli/src/io/interactive/mod.rs`, `crates/acorn-cli/src/io/interactive/tests.rs`, `tests/fixtures/oauth2/presentation/` (new synthetic fixtures).
 - Primary integration lock: CLI interactive controls
-- Outcome: Reuse Confirm/Spin through a tested selectable output stream and a provider-neutral OAuth presenter. Show profile/resource context, ask before interactive sign-in, and render an optional user code in the titled panel with accessible fallbacks. Existing commands retain their current behavior. Provide grant-specific Confirm text and the device-code panel through typed events; SPD-19 owns protocol behavior, and the presenter never requests extra permissions.
+- Outcome: Reuse Confirm/Spin through a tested selectable output stream and a provider-neutral OAuth presenter. Show profile/resource context, ask before interactive sign-in, and render an optional user code in the titled panel with accessible fallbacks. Existing commands retain their current behavior. Provide grant-specific Confirm text and the device-code panel through typed events from the landed device grant; the presenter never requests extra permissions.
 - Focused validation: Renderer and PTY tests for Yes/No/default Enter/Escape/Ctrl-C, no browser launch on decline, cached-token bypass, waiting-state cleanup, stdout JSON with stderr TTY, no TTY, color/no-color/ASCII, resize/narrow widths, exact code/URL display, provider control-character sanitization and absence of credentials from logs. Use fake code data only; run existing Confirm tests for regressions.
-- Handoff: Reusable CLI presentation functions ready for SPD-09 and SPD-21; SPD-19 supplies the real device-grant events and SPD-22 proves the live interaction.
+- Handoff: Reusable CLI presentation functions ready for SPD-09 and SPD-21; the device grant supplies typed events and SPD-22 proves the live interaction.
 
 ## SPD-20 — Implement scoped cache inspection and clearing
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SPD-24 shared coordination contract, SPD-05/14/15 adapters and SPD-04/19 grant implementations.
+- Prerequisites: SPD-24 shared coordination contract, SPD-05/14/15 adapters and SPD-04 browser grant; the device grant is landed.
 - Exact write set: `crates/acorn-host/src/auth/cache/manage.rs`, `crates/acorn-host/src/auth/cache/mod.rs`, `crates/acorn-host/src/auth/cache/coordination.rs`, `crates/acorn-host/src/auth/oauth2.rs`, `crates/acorn-host/src/auth/device.rs`; `tests/fixtures/oauth2/cache/manage/`.
 - Primary integration lock: Host credential cache lifecycle
 - Outcome: Compose both real grants and native adapters with the SPD-24 acquisition service, then add bounded local inspection, deterministic scoped deletion plans, dry-run support and generation-aware removal that prevents in-flight sign-in/refresh from restoring cleared entries. Extend both grant paths to honor the generation boundary; no remote revocation or whole-vault operations.
@@ -433,10 +365,10 @@ New files below are proposed ownership boundaries, not files claimed to exist. E
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SPD-13 presenter, SPD-19 device grant, SPD-20 management service and SPD-23 configuration; exclusive CLI parser/dispatch window.
-- Exact write set: `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/cli/tests/mod.rs`, `crates/acorn-cli/src/main.rs`, `crates/acorn-cli/src/commands/mod.rs`, `crates/acorn-cli/src/commands/auth/{mod.rs,tests.rs}` (new), `CommandLineHelp.md`, `docs/src/cli-reference/commands/auth.md` (new).
+- Prerequisites: SPD-13 presenter and SPD-20 management service; the device grant and ACRE configuration are landed. Requires an exclusive CLI parser/dispatch window.
+- Exact write set: `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/cli/tests/mod.rs`, `crates/acorn-cli/src/main.rs`, `crates/acorn-cli/src/commands/mod.rs`, `crates/acorn-cli/src/commands/auth/{mod.rs,tests.rs}` (new), `crates/acorn-cli/src/io/mod.rs`, `crates/acorn-cli/src/io/auth/{mod.rs,config.rs}`, `CommandLineHelp.md`, `docs/src/cli-reference/commands/auth.md` (new).
 - Primary integration lock: CLI contract
-- Outcome: `auth login [--profile NAME] [--device]`, `auth cache status` and scoped `auth cache clear --dry-run/--yes` follow the frozen contract, reuse Confirm/panels and report metadata only. Register the commands using the repository's current dispatch mechanism; no token output command.
+- Outcome: `auth login [--profile NAME] [--device]`, `auth cache status` and scoped `auth cache clear --dry-run/--yes` follow the frozen contract, reuse Confirm/panels and report metadata only. Register the commands using the repository's current dispatch mechanism and make the tested CLI auth resolver a production module when this is its first caller; no token output command.
 - Focused validation: Parser/dispatch tests and fake-service PTY scenarios for default/explicit profile selection, `--device` precedence over profile flow, browser default, rejection of the superseded `--flow` syntax, account ambiguity, default No/cancel, explicit unattended clear, dry-run/no-network behavior, secret-free stdout, actual device events in the titled panel and help regeneration via `make help`. Verify auth commands are routed before unrelated project/database initialization, offline status/clear produce clean output, and existing global cache flags never delete credentials.
 - Handoff: Reviewable login/reset CLI for real acceptance; local clear is explicitly distinguished from browser logout or remote revocation.
 
@@ -444,10 +376,10 @@ New files below are proposed ownership boundaries, not files claimed to exist. E
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SPD-05, SPD-08, SPD-13, SPD-14, SPD-15, SPD-19, SPD-20, SPD-23; exclusive intake source window.
-- Exact write set: `crates/acorn-cli/src/commands/intake/source.rs`, `crates/acorn-cli/src/commands/intake/sharepoint.rs`; `tests/fixtures/sharepoint-intake/cli/`.
+- Prerequisites: SPD-05, SPD-08, SPD-13, SPD-14, SPD-15 and SPD-20; the device grant and ACRE configuration are landed. Requires an exclusive intake source window.
+- Exact write set: `crates/acorn-cli/src/commands/intake/source.rs`, `crates/acorn-cli/src/commands/intake/sharepoint.rs`, `crates/acorn-cli/src/io/mod.rs`, `crates/acorn-cli/src/io/auth/{mod.rs,config.rs}`; `tests/fixtures/sharepoint-intake/cli/`.
 - Primary integration lock: Intake source routing
-- Outcome: Existing `intake stage --source` selects SharePoint, resolves non-secret configuration once, uses silent authentication when available or the explicitly configured browser/device flow through the SPD-13 Confirm presenter when interaction is required, then captures and stages locally. Output names the snapshot and its freshness/provenance. Auth command registration belongs to SPD-21; no automatic intake application is introduced.
+- Outcome: Existing `intake stage --source` selects SharePoint, resolves non-secret configuration once, uses silent authentication when available or the explicitly configured browser/device flow through the SPD-13 Confirm presenter when interaction is required, then captures and stages locally. Make the tested CLI auth resolver a production module when this is its first caller. Output names the snapshot and its freshness/provenance. Auth command registration belongs to SPD-21; no automatic intake application is introduced.
 - Focused validation: Local/GitLab source regressions, offline failure before network/storage, unknown host before auth, fresh-versus-cached semantics, decline/cancel without starting sign-in, clean JSON stdout during interactive stderr rendering, repeat staging of a retained full snapshot, a later snapshot containing old and new UUIDs, same-ID changed-payload conflict, and local replay after token expiry; no list deletion or acknowledgement. Follow existing `Label` output conventions.
 - Handoff: Fixture-tested CLI behavior with live acceptance still explicitly pending.
 

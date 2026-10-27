@@ -110,3 +110,13 @@ No operational components were disabled, deleted or rebound. These named recover
 ## October 27 notification-only check
 
 `ACORN TEST ONLY Participant Notification` (`861f6bdf-4c38-4fa8-902f-b1b0eb277678`) is retained **Off** after one successful receipt-notification run. It contains only a fixed receipt metadata fixture and Teams actions; no SharePoint/GitLab data writes. Its source and run proof are in `_assets/notifications/participant-routing/`. It must not be run again as a routine check because it targets the already-confirmed participant receipt.
+
+## October 27 portfolio and guide refresh
+
+Reviewed all 36 executable plans and both coordination records against current metadata, remaining phases, source evidence and recorded acceptance. No whole plan had enough evidence to retire. PA-31 remains pruned; PA-29 is ready for local implementation, PA-12 awaits shared-deployment approval and the independent GitLab validation gates remain. OAuth download and interactive metadata chat are marked in progress to reflect their implemented foundations; its native cache, browser sign-in, Graph and CLI seams still require implementation and live acceptance. This review did not rerun product tests or change cloud resources.
+
+Removed 20 local artifacts: obsolete source/demo distribution ZIPs and their manifests, two redundant notification-only PDF extracts, and 14 unreferenced earlier UI captures. The [removal inventory](_assets/cleanup/20261027-portfolio-refresh.json) preserves names, sizes, hashes and reasons. Kept native import archives, restore sources, case-specific acceptance files and historical report PDFs. Duplicate expected/downloaded fixtures remain because their separate roles establish comparison evidence.
+
+The three current guides now describe active SharePoint capture, standard-license contributor acceptance, immutable editing, Teams to owner/submitter, milestone-only email and the new navigation row. GitLab-only rehearsal material is at the end in an appendix. They explicitly retain PA-29's standalone general-reporting limitation. Sanitized fixtures and archives are never represented as current exact-byte originals.
+
+Validation: wiki structure passed; local Markdown file links and heading anchors resolve; all five retained PDFs were rendered and visually reviewed. Three current guides were rebuilt (user/reviewer: 21 pages; developer: 15; demo: 12); the two three-page historical reports were inspected without rewriting. Recursive text/PDF/encoded-field privacy and archive-integrity checks passed. Native imports, external release claims and product test suites were not rerun.

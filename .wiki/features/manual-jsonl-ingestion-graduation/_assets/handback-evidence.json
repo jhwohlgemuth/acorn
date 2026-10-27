@@ -52,7 +52,7 @@
   "commands": [
     {
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "stage",
@@ -66,7 +66,7 @@
     },
     {
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "inspect",
@@ -79,7 +79,7 @@
     },
     {
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "apply",
@@ -93,7 +93,7 @@
     },
     {
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "run",
@@ -105,7 +105,7 @@
     },
     {
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "run",

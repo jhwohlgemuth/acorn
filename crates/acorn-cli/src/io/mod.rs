@@ -7,7 +7,8 @@ use is_terminal::IsTerminal;
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
 
-#[allow(dead_code)]
+#[cfg(all(feature = "auth", test))]
+pub(crate) mod auth;
 pub(crate) mod interactive;
 
 /// Enum for representing input/output stream state (e.g., "piped" or "not piped")
@@ -80,3 +81,6 @@ where
     let _ = stdout.flush();
     drop(stdout);
 }
+
+#[cfg(test)]
+mod tests;

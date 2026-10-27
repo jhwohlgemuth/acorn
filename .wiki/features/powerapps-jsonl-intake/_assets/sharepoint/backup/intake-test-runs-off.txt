@@ -139,15 +139,15 @@ Browser tab: 1329059504, Title: "Manage your flows | Power Automate", URL: "http
 								207 text Connections
 							208 link Description: Edit Flow Connections, Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/726caf67-bcc4-4c21-ba22-9a66e46cb57a/owners?v3=false
 							209 table
-								210 row o9w@ornl.gov SharePoint Permissions o9w@ornl.gov, ID: row1690-0
+								210 row owner@example.invalid SharePoint Permissions owner@example.invalid, ID: row1690-0
 									211 cell
-										212 image o9w@ornl.gov
+										212 image owner@example.invalid
 									213 cell
 										214 text SharePoint
 										215 button Permissions
 											216 text Permissions
 									217 cell
-										218 text o9w@ornl.gov
+										218 text owner@example.invalid
 						219 container
 							220 heading Co-owner, Value: 3
 								221 text Co-owner

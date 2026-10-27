@@ -1,6 +1,7 @@
 //! Application configuration I/O
 //!
 //! Handles discovery, parsing, rendering and synchronization of ACORN files.
+use self::auth::AuthConfiguration;
 #[cfg(feature = "exec")]
 use crate::exec::manifest::ScriptManifestSource;
 #[cfg(feature = "agentic")]
@@ -12,7 +13,7 @@ use crate::{
         api::Endpoint,
         config::{bucket, Bucket, ModelEntry, RegistryProfile, RunnerDetails, SourceInput},
         mcp::config::McpServerConfiguration,
-        parse_jsonc_cst, read_file, sync,
+        read_file, sync,
         sync::ConfigExt,
         write_file, ApiResult, CstRootNode, CstValue, FromPath, InputOutput,
     },
@@ -27,7 +28,7 @@ use crate::{
 use acorn_core::{
     prelude::{HashMap, HashSet},
     time::{Seconds, UnitOfTime},
-    util::{detect_json, split_list, MimeType},
+    util::{detect_json, split_list, MimeType, ParseOptionsExt},
     validation::ValidationError,
     Location, Scheme, SimpleOrDetailed,
 };
@@ -46,6 +47,7 @@ use core::iter::once;
 use feature_configuration::ScriptManifestSource;
 #[cfg(not(feature = "agentic"))]
 use feature_configuration::{DeploymentConfig, PowerAutomateConfig};
+use jsonc_parser::{parse_to_serde_value, ParseOptions};
 use owo_colors::OwoColorize;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -57,6 +59,7 @@ use std::{
 use strum::{Display, EnumIs, EnumString};
 use tracing::{error, info};
 
+pub mod auth;
 /// Configuration-only representations retained when optional execution features are disabled.
 pub mod feature_configuration {
     use acorn_core::util::MimeType;
@@ -240,6 +243,7 @@ pub mod feature_configuration {
         pub paths: OneOrMany<String>,
     }
 }
+
 /// Root attributes governed by `options.scripts`.
 pub const SCRIPT_OPTION_ROOTS: [&str; 2] = ["scripts", "scriptManifest"];
 /// Root attributes that have no `options` counterpart and are excluded from option coverage.
@@ -352,6 +356,10 @@ pub struct ApplicationConfiguration {
     /// ACRE schema version. Omitted files resolve to 2.0.0.
     #[serde(default, rename = "schemaVersion")]
     pub schema_version: AcreSchemaVersion,
+    /// Named non-secret authorization profiles and SharePoint source mappings.
+    #[eserde(compat)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth: Option<AuthConfiguration>,
     /// List of buckets
     #[eserde(compat)]
     #[serde(default)]
@@ -751,10 +759,17 @@ impl ApplicationConfiguration {
         eserde::json::from_str(content.as_ref())
     }
     fn parse_jsonc(content: impl AsRef<str>) -> ApiResult<Self> {
-        parse_jsonc_cst::<ApplicationConfiguration>(content.as_ref()).map(|(mut config, cst)| {
-            config.cst = Some(cst);
-            config
-        })
+        let options = ParseOptions::strict_jsonc();
+        CstRootNode::parse(content.as_ref(), &options)
+            .map_err(|why| eyre!("JSONC parse error — {why}"))
+            .and_then(|cst| {
+                parse_to_serde_value::<Self>(content.as_ref(), &options)
+                    .map_err(|why| eyre!("JSONC deserialize error — {why}"))
+                    .map(|mut config| {
+                        config.cst = Some(cst);
+                        config
+                    })
+            })
     }
     fn parse_yaml(content: impl AsRef<str>) -> serde_norway::Result<Self> {
         serde_norway::from_str(content.as_ref())
@@ -1093,6 +1108,11 @@ impl Validate for ApplicationConfiguration {
     fn validate(&self) -> Result<(), ValidationReport> {
         let entries = self.scripts.as_deref().unwrap_or_default();
         let mut report = ValidationReport::new();
+        if let Some(auth) = &self.auth {
+            if let Err(errors) = auth.validate() {
+                report.append_prefixed("auth", errors);
+            }
+        }
         #[cfg(feature = "agentic")]
         if let Some(power_automate) = self.power_automate() {
             if let Err(errors) = power_automate.validate() {

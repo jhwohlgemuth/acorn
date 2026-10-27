@@ -1,5 +1,7 @@
 # Catalog failure feedback acceptance — PA-28
 
+Current operational state: the October 27 [PA25 cutover](../cutover/README.md) installed this accepted feedback in the original SharePoint app/catalog. The isolated evidence below is retained.
+
 Accepted October 27, 2026 in **Wohlgemuth, Jason**. This is an isolated, saved implementation. Operational installation belongs to PA-25; neither operational route was edited, published, disabled or given new permissions.
 
 ## Retained components
@@ -50,6 +52,6 @@ Under PA-25's separately authorized installation:
 2. Install only the safe response expression and its four run-after outcomes in the operational catalog. Retain its operational list, query, pagination and connection; never install the PA19 test filter or destination. Confirm no static results are enabled.
 3. Apply the seven properties in `control-properties.json` to the operational form, using its actual catalog alias. Refresh the catalog binding if its response metadata changed. Preserve ProjectHelp's existing error-aware Text/AutoHeight properties and all submission/recovery formulas.
 4. Save, check formulas, verify the real project list and a representative standard participant's retry, then publish the explicitly selected app revision. Reconfirm notification routing through the existing intake acceptance procedure; catalog acceptance alone does not prove notification delivery.
-5. If verification fails, restore the previous app/catalog revisions without altering receipts or route selection. Keep both pilots enabled unless the owner separately authorizes a route cutover.
+5. If verification fails, restore the previous app/catalog revisions without altering receipts or route selection. Preserve the current route state: PA-25 subsequently made SharePoint the default and paused both GitLab flows. Restoring a catalog revision does not authorize enabling GitLab.
 
 To reopen this isolated test, enable only the named PA28 read-only catalog and preview the saved PA28 app; keep PA20 intake Off. Turn the catalog Off again afterward.

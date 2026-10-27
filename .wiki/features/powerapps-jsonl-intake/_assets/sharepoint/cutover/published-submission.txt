@@ -1,0 +1,40 @@
+Browser tab: 1329059567, Title: "Sponsor Highlights - SharePoint Pilot - Power Apps", URL: "https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/163f110f-7f8a-401c-894e-0786b2c018a4#".
+1 AXWebArea Sponsor Highlights - SharePoint Pilot - Power Apps, URL: apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/163f110f-7f8a-401c-894e-0786b2c018a4#
+	2 container
+		3 container playerShell
+			4 button Skip to main content.
+				5 text Skip to main content.
+			6 container shellHeaderContainer
+				7 container O365_NavHeader
+					8 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+						9 text 
+					10 container shellHeaderTopLevelRegion
+						11 container shellHeaderLeftRegion
+							12 text Power Apps  |  Sponsor Highlights - SharePoint Pilot
+						13 container shellHeaderRightRegion
+							14 pop up button (collapsed) Share, ID: shareBtn_id, Secondary Actions: Expand
+								15 text Share
+							16 button Description: Fit to screen, ID: FitToScreenButton
+							17 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+							18 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+					19 container O365_HeaderRightRegion
+						20 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+							21 image JW
+		22 container Description: application, ID: fullscreen-app-host
+			23 AXWebArea Sponsor Highlights - SharePoint Pilot, URL: runtime-app.gov.powerplatform.microsoft.us/publishedapp/e/221f44a6-1468-ea4e-b93d-cd52f1723079/preloadindex/V1?preloadIndexPath=https%3A%2F%2Fgov.content.powerapps.us%2Fresource%2Fapp%2F55rc9pqvgis28%2Fpreloadindex.web.html&&PowerAppsLanguage=en-US&loader=inline&lv=pb4u0u866gdlc&piv=1437890726#%7B%22platform%22%3A%22notwindows%22%2C%22hideNavBar%22%3A%22true%22%2C%22cdnUrl%22%3A%22https%3A%2F%2Fgov.content.powerapps.us%2Fresource%2Fapp%22%2C%22paramsQuery%22%3A%22%22%2C%22iframeMode%22%3A%22player%22%2C%22appId%22%3A%22163f110f-7f8a-401c-894e-0786b2c018a4%22%2C%22appIdWithVersion%22%3A%22163f110f-7f8a-401c-894e-0786b2c018a4%22%2C%22appName%22%3A%22163f110f-7f8a-401c-894e-0786b2c018a4%22%2C%22staticContentProxy%22%3A%22%2F%22%2C%22hostOrigin%22%3A%22https%3A%2F%2Fapps.gov.powerapps.us%22%2C%22launchFunctionUrlFormat%22%3A%22https%3A%2F%2Fapps.gov.powerapps.us%2Fplay%2F0%22%2C%22region%22%3A%22gccmoderate%22%2C%22staticContentUrl%22%3A%22https%3A%2F%2Fgov.static.powerapps.us%22%7D
+				24 container
+					25 container SubmitEntryScreen
+						26 text SubmitEntryScreen
+					38 container
+						39 text Highlight saved · JSONL ready
+						40 text Highlight received in SharePoint. Its JSONL export is verified and ready for ACORN review. This does not publish a report.
+						41 container
+							42 text Receipt ID
+							43 text 807ecb08-3f88-4aa8-a076-f623680b56db
+							44 text SharePoint receipt and JSONL export confirmed
+						45 button Back to highlight
+							46 text Back to highlight
+				36 container Description: You can drag-and-drop this tab anywhere on the 4 edges of the screen, ID: visualsp-handle
+					37 text Site Help
+
+The focused UI element is 23 AXWebArea Sponsor Highlights - SharePoint Pilot, URL: runtime-app.gov.powerplatform.microsoft.us/publishedapp/e/221f44a6-1468-ea4e-b93d-cd52f1723079/preloadindex/V1?preloadIndexPath=https%3A%2F%2Fgov.content.powerapps.us%2Fresource%2Fapp%2F55rc9pqvgis28%2Fpreloadindex.web.html&&PowerAppsLanguage=en-US&loader=inline&lv=pb4u0u866gdlc&piv=1437890726#%7B%22platform%22%3A%22notwindows%22%2C%22hideNavBar%22%3A%22true%22%2C%22cdnUrl%22%3A%22https%3A%2F%2Fgov.content.powerapps.us%2Fresource%2Fapp%22%2C%22paramsQuery%22%3A%22%22%2C%22iframeMode%22%3A%22player%22%2C%22appId%22%3A%22163f110f-7f8a-401c-894e-0786b2c018a4%22%2C%22appIdWithVersion%22%3A%22163f110f-7f8a-401c-894e-0786b2c018a4%22%2C%22appName%22%3A%22163f110f-7f8a-401c-894e-0786b2c018a4%22%2C%22staticContentProxy%22%3A%22%2F%22%2C%22hostOrigin%22%3A%22https%3A%2F%2Fapps.gov.powerapps.us%22%2C%22launchFunctionUrlFormat%22%3A%22https%3A%2F%2Fapps.gov.powerapps.us%2Fplay%2F0%22%2C%22region%22%3A%22gccmoderate%22%2C%22staticContentUrl%22%3A%22https%3A%2F%2Fgov.static.powerapps.us%22%7D

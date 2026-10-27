@@ -37,7 +37,7 @@
     {
       "step": "01-stage",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "stage",
@@ -53,7 +53,7 @@
     {
       "step": "02-inspect",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "inspect",
@@ -68,7 +68,7 @@
     {
       "step": "03-apply",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "apply",
@@ -83,7 +83,7 @@
     {
       "step": "04-apply-replay",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "apply",
@@ -99,7 +99,7 @@
     {
       "step": "05-candidates",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "candidates",
@@ -112,7 +112,7 @@
     {
       "step": "06-graduate",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "graduate",
@@ -129,7 +129,7 @@
     {
       "step": "07-graduate-replay",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "graduate",
@@ -147,7 +147,7 @@
     {
       "step": "08-rejected-stage",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "stage",
@@ -163,7 +163,7 @@
     {
       "step": "09-rejected-apply",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "intake",
         "apply",
@@ -179,7 +179,7 @@
     {
       "step": "10-report",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "report",
         "--config",
@@ -207,7 +207,7 @@
     {
       "step": "11-report-repeat",
       "command": [
-        "/Users/o9w/dev/re/acorn/target/debug/acorn",
+        "/Users/owner/dev/re/acorn/target/debug/acorn",
         "--offline",
         "report",
         "--config",

@@ -237,7 +237,7 @@
                 "parameters": {
                   "entityName": "new_pa17callbackreceipts",
                   "item/new_webhookid": "@triggerBody()?['text']",
-                  "item/new_emailrecipient": "@if(or(equals(body('Validate_event_PA17')?['event'], 'mr-created'), equals(body('Validate_event_PA17')?['event'], 'report-no-changes')), 'teams-self:o9w@ornl.gov', 'o9w@ornl.gov')",
+                  "item/new_emailrecipient": "@if(or(equals(body('Validate_event_PA17')?['event'], 'mr-created'), equals(body('Validate_event_PA17')?['event'], 'report-no-changes')), 'teams-self:owner@example.invalid', 'owner@example.invalid')",
                   "item/new_emailstate": "Pending",
                   "item/new_payloadjson": "@triggerBody()?['text_1']"
                 },
@@ -435,7 +435,7 @@
                                   {
                                     "equals": [
                                       "@first(body('Find_receipt_PA17')?['value'])?['new_emailrecipient']",
-                                      "teams-self:o9w@ornl.gov"
+                                      "teams-self:owner@example.invalid"
                                     ]
                                   }
                                 ]

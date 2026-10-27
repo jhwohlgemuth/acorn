@@ -102,13 +102,14 @@ fn test_quantum_hardware_dimensions_are_independent() {
     let value = json!({"Quantum": {
         "model": "Heron", "technology": "superconducting", "qubits": [
             {"type": "physical", "count": 133}, {"type": "logical", "count": 2}
-        ], "error_correction": {"code": "surface", "physicalToLogicalRatio": 50}
+        ], "fault_tolerance": {"code": "surface", "physicalToLogicalRatio": 50}
     }});
     let resource: Resource = serde_json::from_value(value).expect("parse quantum hardware");
     let serialized = serde_json::to_value(resource).expect("serialize quantum hardware");
     assert_eq!(serialized.pointer("/Quantum/technology"), Some(&json!("superconducting")));
     assert_eq!(serialized.pointer("/Quantum/qubits/0/count"), Some(&json!(133)));
     assert_eq!(serialized.pointer("/Quantum/qubits/1/count"), Some(&json!(2)));
+    assert_eq!(serialized.pointer("/Quantum/fault_tolerance/code"), Some(&json!("surface")));
 }
 #[test]
 fn test_zero_bandwidth_is_rejected() {

@@ -1,0 +1,10 @@
+{
+  "siteId": "synthetic-site",
+  "driveId": "synthetic-drive",
+  "itemId": "synthetic-item",
+  "name": "sample.bin",
+  "size": 8,
+  "eTag": "\"revision-one\"",
+  "lastModifiedDateTime": "2026-01-01T00:00:00Z",
+  "contentBase64": "AAECAwQFBgc="
+}

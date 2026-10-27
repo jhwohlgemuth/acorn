@@ -11,9 +11,9 @@
         "stage",
         "--batch",
         "--source",
-        "/Users/o9w/dev/re/acorn/.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/aggregate-tests/downloaded-cutoff.jsonl",
+        "/Users/owner/dev/re/acorn/.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/aggregate-tests/downloaded-cutoff.jsonl",
         "--config",
-        "/Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
+        "/Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
       ],
       "returncode": 0,
       "output": "{\n  \"batchId\": \"af33de536faea98c8a04d7b11e38ee7540b855506051b4f2bf5ccb4c5a3551ab\",\n  \"canApply\": true,\n  \"accepted\": 2,\n  \"replayed\": 0,\n  \"rejected\": 0\n}\n"
@@ -27,10 +27,10 @@
         "--batch-id",
         "af33de536faea98c8a04d7b11e38ee7540b855506051b4f2bf5ccb4c5a3551ab",
         "--config",
-        "/Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
+        "/Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
       ],
       "returncode": 0,
-      "output": "=> \u001b[36mUSING\u001b[0m Batch af33de536faea98c8a04d7b11e38ee7540b855506051b4f2bf5ccb4c5a3551ab\nSource /Users/o9w/dev/re/acorn/.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/aggregate-tests/downloaded-cutoff.jsonl (sha256:4218e52014ed65938a319e2f1f7335d34d449fadb8822eaccc1c1d41763bc9a9)\nCan apply: true\nStatus: staged\nLine 1: accepted 81f2359f-4c00-50bf-8bdc-54ca55d209d7 acorn\nLine 2: accepted 6db36b27-92b2-57a2-9529-d510ad86474b acorn\nProject acorn -> /Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/index.json (base)\nBase: sha256:73ff608fed3024cbe90a3f7f2fc8c93862c53c7a0d58507190962f26e5458c63  Final: sha256:8c11039db91888773302d12a5f5ea65252d5512ad93cee13b7438ff0dfbfff68\n--- a//Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/index.json\n+++ b//Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/index.json\n@@ -47,5 +47,39 @@\n     \"telephone\": \"+1 202-555-0123\",\n     \"url\": \"https://example.org/project\",\n     \"organization\": \"Example Research Group\"\n+  },\n+  \"logbook\": {\n+    \"entries\": [\n+      {\n+        \"identifier\": \"form-81-f-2359-f-4-c-00-50-bf-8-bdc-54-ca-55-d-209-d-7\",\n+        \"projectId\": \"acorn\",\n+        \"global\": false,\n+        \"timestamp\": \"2026-10-27T04:00:00.000Z\",\n+        \"category\": \"software\",\n+        \"state\": \"in-progress\",\n+        \"origin\": \"manual\",\n+        \"summary\": \"PA23 TEST ONLY snapshot row 1\",\n+        \"items\": [\n+          \"Synthetic acceptance only.\",\n+          \"Unicode caf\u00e9 \u0394 \ud83d\uddfa; escaped newline\\ninside a JSON string.\"\n+        ],\n+        \"archived\": false\n+      },\n+      {\n+        \"identifier\": \"form-6-db-36-b-27-92-b-2-57-a-2-9529-d-510-ad-86474-b\",\n+        \"projectId\": \"acorn\",\n+        \"global\": false,\n+        \"timestamp\": \"2026-10-27T04:00:00.000Z\",\n+        \"category\": \"software\",\n+        \"state\": \"in-progress\",\n+        \"origin\": \"manual\",\n+        \"summary\": \"PA23 TEST ONLY snapshot row 2\",\n+        \"items\": [\n+          \"Synthetic acceptance only.\",\n+          \"Unicode caf\u00e9 \u0394 \ud83d\uddfa; escaped newline\\ninside a JSON string.\"\n+        ],\n+        \"archived\": false\n+      }\n+    ]\n   }\n }\n"
+      "output": "=> \u001b[36mUSING\u001b[0m Batch af33de536faea98c8a04d7b11e38ee7540b855506051b4f2bf5ccb4c5a3551ab\nSource /Users/owner/dev/re/acorn/.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/aggregate-tests/downloaded-cutoff.jsonl (sha256:4218e52014ed65938a319e2f1f7335d34d449fadb8822eaccc1c1d41763bc9a9)\nCan apply: true\nStatus: staged\nLine 1: accepted 81f2359f-4c00-50bf-8bdc-54ca55d209d7 acorn\nLine 2: accepted 6db36b27-92b2-57a2-9529-d510ad86474b acorn\nProject acorn -> /Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/index.json (base)\nBase: sha256:73ff608fed3024cbe90a3f7f2fc8c93862c53c7a0d58507190962f26e5458c63  Final: sha256:8c11039db91888773302d12a5f5ea65252d5512ad93cee13b7438ff0dfbfff68\n--- a//Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/index.json\n+++ b//Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/index.json\n@@ -47,5 +47,39 @@\n     \"telephone\": \"+1 202-555-0123\",\n     \"url\": \"https://example.org/project\",\n     \"organization\": \"Example Research Group\"\n+  },\n+  \"logbook\": {\n+    \"entries\": [\n+      {\n+        \"identifier\": \"form-81-f-2359-f-4-c-00-50-bf-8-bdc-54-ca-55-d-209-d-7\",\n+        \"projectId\": \"acorn\",\n+        \"global\": false,\n+        \"timestamp\": \"2026-10-27T04:00:00.000Z\",\n+        \"category\": \"software\",\n+        \"state\": \"in-progress\",\n+        \"origin\": \"manual\",\n+        \"summary\": \"PA23 TEST ONLY snapshot row 1\",\n+        \"items\": [\n+          \"Synthetic acceptance only.\",\n+          \"Unicode caf\u00e9 \u0394 \ud83d\uddfa; escaped newline\\ninside a JSON string.\"\n+        ],\n+        \"archived\": false\n+      },\n+      {\n+        \"identifier\": \"form-6-db-36-b-27-92-b-2-57-a-2-9529-d-510-ad-86474-b\",\n+        \"projectId\": \"acorn\",\n+        \"global\": false,\n+        \"timestamp\": \"2026-10-27T04:00:00.000Z\",\n+        \"category\": \"software\",\n+        \"state\": \"in-progress\",\n+        \"origin\": \"manual\",\n+        \"summary\": \"PA23 TEST ONLY snapshot row 2\",\n+        \"items\": [\n+          \"Synthetic acceptance only.\",\n+          \"Unicode caf\u00e9 \u0394 \ud83d\uddfa; escaped newline\\ninside a JSON string.\"\n+        ],\n+        \"archived\": false\n+      }\n+    ]\n   }\n }\n"
     },
     {
       "args": [
@@ -42,10 +42,10 @@
         "af33de536faea98c8a04d7b11e38ee7540b855506051b4f2bf5ccb4c5a3551ab",
         "--yes",
         "--config",
-        "/Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
+        "/Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
       ],
       "returncode": 0,
-      "output": "{\n  \"batchId\": \"af33de536faea98c8a04d7b11e38ee7540b855506051b4f2bf5ccb4c5a3551ab\",\n  \"status\": \"complete\",\n  \"projects\": [\n    {\n      \"projectId\": \"acorn\",\n      \"destination\": \"/Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/index.json\",\n      \"status\": \"applied\"\n    }\n  ],\n  \"error\": null\n}\n"
+      "output": "{\n  \"batchId\": \"af33de536faea98c8a04d7b11e38ee7540b855506051b4f2bf5ccb4c5a3551ab\",\n  \"status\": \"complete\",\n  \"projects\": [\n    {\n      \"projectId\": \"acorn\",\n      \"destination\": \"/Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/index.json\",\n      \"status\": \"applied\"\n    }\n  ],\n  \"error\": null\n}\n"
     },
     {
       "args": [
@@ -55,9 +55,9 @@
         "stage",
         "--batch",
         "--source",
-        "/Users/o9w/dev/re/acorn/.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/aggregate-tests/downloaded-next.jsonl",
+        "/Users/owner/dev/re/acorn/.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/aggregate-tests/downloaded-next.jsonl",
         "--config",
-        "/Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
+        "/Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
       ],
       "returncode": 0,
       "output": "{\n  \"batchId\": \"76383ffbf8bcd16e5cd19a13c953ce9fc2a11a13d1bf634ca9a030bf83ae03ba\",\n  \"canApply\": true,\n  \"accepted\": 1,\n  \"replayed\": 2,\n  \"rejected\": 0\n}\n"
@@ -71,10 +71,10 @@
         "--batch-id",
         "76383ffbf8bcd16e5cd19a13c953ce9fc2a11a13d1bf634ca9a030bf83ae03ba",
         "--config",
-        "/Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
+        "/Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
       ],
       "returncode": 0,
-      "output": "=> \u001b[36mUSING\u001b[0m Batch 76383ffbf8bcd16e5cd19a13c953ce9fc2a11a13d1bf634ca9a030bf83ae03ba\nSource /Users/o9w/dev/re/acorn/.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/aggregate-tests/downloaded-next.jsonl (sha256:5a148f7552f61dac3364365dcc3924f26166f068fa7f85891d77a97a7d4b4bd2)\nCan apply: true\nStatus: staged\nLine 1: replayed 81f2359f-4c00-50bf-8bdc-54ca55d209d7 acorn\nLine 2: replayed 6db36b27-92b2-57a2-9529-d510ad86474b acorn\nLine 3: accepted fa9dc9cb-adee-58ef-a79f-47eb76817e4d acorn\nProject acorn -> /Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/index.json (base)\nBase: sha256:8c11039db91888773302d12a5f5ea65252d5512ad93cee13b7438ff0dfbfff68  Final: sha256:cbac4fefa766760d4c8dea897a5c34408c03d4d911f767f6eb675cc24faa1090\n--- a//Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/index.json\n+++ b//Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/index.json\n@@ -79,6 +79,21 @@\n           \"Unicode caf\u00e9 \u0394 \ud83d\uddfa; escaped newline\\ninside a JSON string.\"\n         ],\n         \"archived\": false\n+      },\n+      {\n+        \"identifier\": \"form-fa-9-dc-9-cb-adee-58-ef-a-79-f-47-eb-76817-e-4-d\",\n+        \"projectId\": \"acorn\",\n+        \"global\": false,\n+        \"timestamp\": \"2026-10-27T04:00:00.000Z\",\n+        \"category\": \"software\",\n+        \"state\": \"in-progress\",\n+        \"origin\": \"manual\",\n+        \"summary\": \"PA23 TEST ONLY snapshot row 3\",\n+        \"items\": [\n+          \"Synthetic acceptance only.\",\n+          \"Unicode caf\u00e9 \u0394 \ud83d\uddfa; escaped newline\\ninside a JSON string.\"\n+        ],\n+        \"archived\": false\n       }\n     ]\n   }\n"
+      "output": "=> \u001b[36mUSING\u001b[0m Batch 76383ffbf8bcd16e5cd19a13c953ce9fc2a11a13d1bf634ca9a030bf83ae03ba\nSource /Users/owner/dev/re/acorn/.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/aggregate-tests/downloaded-next.jsonl (sha256:5a148f7552f61dac3364365dcc3924f26166f068fa7f85891d77a97a7d4b4bd2)\nCan apply: true\nStatus: staged\nLine 1: replayed 81f2359f-4c00-50bf-8bdc-54ca55d209d7 acorn\nLine 2: replayed 6db36b27-92b2-57a2-9529-d510ad86474b acorn\nLine 3: accepted fa9dc9cb-adee-58ef-a79f-47eb76817e4d acorn\nProject acorn -> /Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/index.json (base)\nBase: sha256:8c11039db91888773302d12a5f5ea65252d5512ad93cee13b7438ff0dfbfff68  Final: sha256:cbac4fefa766760d4c8dea897a5c34408c03d4d911f767f6eb675cc24faa1090\n--- a//Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/index.json\n+++ b//Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/index.json\n@@ -79,6 +79,21 @@\n           \"Unicode caf\u00e9 \u0394 \ud83d\uddfa; escaped newline\\ninside a JSON string.\"\n         ],\n         \"archived\": false\n+      },\n+      {\n+        \"identifier\": \"form-fa-9-dc-9-cb-adee-58-ef-a-79-f-47-eb-76817-e-4-d\",\n+        \"projectId\": \"acorn\",\n+        \"global\": false,\n+        \"timestamp\": \"2026-10-27T04:00:00.000Z\",\n+        \"category\": \"software\",\n+        \"state\": \"in-progress\",\n+        \"origin\": \"manual\",\n+        \"summary\": \"PA23 TEST ONLY snapshot row 3\",\n+        \"items\": [\n+          \"Synthetic acceptance only.\",\n+          \"Unicode caf\u00e9 \u0394 \ud83d\uddfa; escaped newline\\ninside a JSON string.\"\n+        ],\n+        \"archived\": false\n       }\n     ]\n   }\n"
     },
     {
       "args": [
@@ -86,10 +86,10 @@
         "76383ffbf8bcd16e5cd19a13c953ce9fc2a11a13d1bf634ca9a030bf83ae03ba",
         "--yes",
         "--config",
-        "/Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
+        "/Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
       ],
       "returncode": 0,
-      "output": "{\n  \"batchId\": \"76383ffbf8bcd16e5cd19a13c953ce9fc2a11a13d1bf634ca9a030bf83ae03ba\",\n  \"status\": \"complete\",\n  \"projects\": [\n    {\n      \"projectId\": \"acorn\",\n      \"destination\": \"/Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/index.json\",\n      \"status\": \"applied\"\n    }\n  ],\n  \"error\": null\n}\n"
+      "output": "{\n  \"batchId\": \"76383ffbf8bcd16e5cd19a13c953ce9fc2a11a13d1bf634ca9a030bf83ae03ba\",\n  \"status\": \"complete\",\n  \"projects\": [\n    {\n      \"projectId\": \"acorn\",\n      \"destination\": \"/Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/index.json\",\n      \"status\": \"applied\"\n    }\n  ],\n  \"error\": null\n}\n"
     },
     {
       "args": [
@@ -99,9 +99,9 @@
         "stage",
         "--batch",
         "--source",
-        "/Users/o9w/dev/re/acorn/.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/aggregate-tests/downloaded-next.jsonl",
+        "/Users/owner/dev/re/acorn/.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/aggregate-tests/downloaded-next.jsonl",
         "--config",
-        "/Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
+        "/Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
       ],
       "returncode": 0,
       "output": "{\n  \"batchId\": \"76383ffbf8bcd16e5cd19a13c953ce9fc2a11a13d1bf634ca9a030bf83ae03ba\",\n  \"canApply\": true,\n  \"accepted\": 1,\n  \"replayed\": 2,\n  \"rejected\": 0\n}\n"
@@ -114,9 +114,9 @@
         "stage",
         "--batch",
         "--source",
-        "/Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/reordered.jsonl",
+        "/Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/reordered.jsonl",
         "--config",
-        "/Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
+        "/Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
       ],
       "returncode": 0,
       "output": "{\n  \"batchId\": \"86868545cb2b22b31c17d897ebcd917d8ab755c2abc0e3f6b84acd8e6653403c\",\n  \"canApply\": true,\n  \"accepted\": 0,\n  \"replayed\": 3,\n  \"rejected\": 0\n}\n"
@@ -129,9 +129,9 @@
         "stage",
         "--batch",
         "--source",
-        "/Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/conflict.jsonl",
+        "/Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/conflict.jsonl",
         "--config",
-        "/Users/o9w/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
+        "/Users/owner/dev/re/acorn/output/pa23-20261027/download-acceptance-v2/intake.json"
       ],
       "returncode": 70,
       "output": "{\n  \"batchId\": \"981ae528433c6443145befb32d2efeee08c6ed73aaf32d06e24b90bdc89f75a7\",\n  \"canApply\": false,\n  \"accepted\": 0,\n  \"replayed\": 0,\n  \"rejected\": 1\n}\nError: \n   0: \u001b[91mBatch contains 1 rejected line(s)\u001b[0m\n\nBacktrace omitted. Run with RUST_BACKTRACE=1 environment variable to display it.\nRun with RUST_BACKTRACE=full to include source snippets.\n"

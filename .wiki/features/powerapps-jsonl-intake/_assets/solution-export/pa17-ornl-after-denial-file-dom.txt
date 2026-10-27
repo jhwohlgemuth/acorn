@@ -11,7 +11,7 @@
   - button "Create new…":
     - generic: Create new…
   - link "50 Assigned work items":
-    - /url: /dashboard/issues?assignee_username=o9w
+    - /url: /dashboard/issues?assignee_username=owner
     - generic: "50"
   - link "1 Merge requests":
     - /url: /dashboard/merge_requests
@@ -20,7 +20,7 @@
     - /url: /dashboard/todos
     - generic: "21"
   - link "Wohlgemuth, Jason user’s menu":
-    - /url: /o9w
+    - /url: /owner
     - generic: Wohlgemuth, Jason user’s menu
 - navigation "Primary navigation":
   - heading "Primary navigation" [level=2]
@@ -383,9 +383,9 @@
       - /url: /research-enablement/experiments/power-automate/-/blame/main/.acorn/intake/acceptance/pa17-logbook.jsonl?ref_type=heads#L2
     - link "2":
       - /url: "#L2"
-    - code: "{\"entry\":{\"archived\":false,\"category\":\"software\",\"eventType\":null,\"global\":false,\"items\":[\"Synthetic PA17 restoration acceptance; exclude from sponsor reports.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"TEST ONLY — PA17 native intake restore acceptance\",\"timestamp\":\"2026-10-25T18:06:52.310Z\"},\"projectId\":\"acorn\",\"submissionId\":\"983545be-9d86-4d9c-8e67-3cd667a74a7d\",\"submittedAt\":\"2026-10-25T18:06:52.317Z\",\"submitter\":{\"email\":\"o9w@ornl.gov\"}}"
+    - code: "{\"entry\":{\"archived\":false,\"category\":\"software\",\"eventType\":null,\"global\":false,\"items\":[\"Synthetic PA17 restoration acceptance; exclude from sponsor reports.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"TEST ONLY — PA17 native intake restore acceptance\",\"timestamp\":\"2026-10-25T18:06:52.310Z\"},\"projectId\":\"acorn\",\"submissionId\":\"983545be-9d86-4d9c-8e67-3cd667a74a7d\",\"submittedAt\":\"2026-10-25T18:06:52.317Z\",\"submitter\":{\"email\":\"owner@example.invalid\"}}"
     - code:
-      - generic: "{\"entry\":{\"archived\":false,\"category\":\"software\",\"eventType\":null,\"global\":false,\"items\":[\"Synthetic PA17 restoration acceptance; exclude from sponsor reports.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"TEST ONLY — PA17 native intake restore acceptance\",\"timestamp\":\"2026-10-25T18:06:52.310Z\"},\"projectId\":\"acorn\",\"submissionId\":\"983545be-9d86-4d9c-8e67-3cd667a74a7d\",\"submittedAt\":\"2026-10-25T18:06:52.317Z\",\"submitter\":{\"email\":\"o9w@ornl.gov\"}}"
+      - generic: "{\"entry\":{\"archived\":false,\"category\":\"software\",\"eventType\":null,\"global\":false,\"items\":[\"Synthetic PA17 restoration acceptance; exclude from sponsor reports.\"],\"origin\":\"manual\",\"state\":\"completed\",\"summary\":\"TEST ONLY — PA17 native intake restore acceptance\",\"timestamp\":\"2026-10-25T18:06:52.310Z\"},\"projectId\":\"acorn\",\"submissionId\":\"983545be-9d86-4d9c-8e67-3cd667a74a7d\",\"submittedAt\":\"2026-10-25T18:06:52.317Z\",\"submitter\":{\"email\":\"owner@example.invalid\"}}"
 - navigation "Duo controls":
   - generic "Add new chat":
     - button "Add new chat":

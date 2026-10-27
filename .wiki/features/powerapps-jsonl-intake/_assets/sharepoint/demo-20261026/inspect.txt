@@ -1,14 +1,14 @@
 => [36mUSING[0m Batch 7f481b73c72c1a294ee0bfa64585ec604f19bbd84d237c79e7006cdc30652da8
-Source /Users/o9w/dev/re/acorn/output/pdf/sharepoint-demo-20261026/selected-demo.jsonl (sha256:66c76931f6832ffef71ef5c8375ad9d75872d804ea2a390f20dcac9db6706280)
+Source /Users/owner/dev/re/acorn/output/pdf/sharepoint-demo-20261026/selected-demo.jsonl (sha256:66c76931f6832ffef71ef5c8375ad9d75872d804ea2a390f20dcac9db6706280)
 Can apply: true
 Status: staged
 Line 1: accepted dff4315e-8106-4eb8-83ad-44f6df767476 acorn
 Line 2: accepted 67c0e548-ac0c-4a01-829c-9e4708b3cf1f acorn
 Line 3: accepted 32baf0fa-96a7-43c0-8e80-cd71c26b4ca3 acorn
-Project acorn -> /Users/o9w/dev/re/acorn/output/pdf/sharepoint-demo-20261026/acorn/index.json (base)
+Project acorn -> /Users/owner/dev/re/acorn/output/pdf/sharepoint-demo-20261026/acorn/index.json (base)
 Base: sha256:9388ec78b5ccca742dc639cdf16cacc8782a459866e8b69737fe8777eb58846a  Final: sha256:677d4da6d20b77f187aad257f2161bec9802f59ed7692c5534a528017f2a34cf
---- a//Users/o9w/dev/re/acorn/output/pdf/sharepoint-demo-20261026/acorn/index.json
-+++ b//Users/o9w/dev/re/acorn/output/pdf/sharepoint-demo-20261026/acorn/index.json
+--- a//Users/owner/dev/re/acorn/output/pdf/sharepoint-demo-20261026/acorn/index.json
++++ b//Users/owner/dev/re/acorn/output/pdf/sharepoint-demo-20261026/acorn/index.json
 @@ -4,6 +4,7 @@
      "draft": false,
      "status": "active",

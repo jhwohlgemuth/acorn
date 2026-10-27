@@ -1,0 +1,18 @@
+- TestHarnessButton:
+    Control: Classic/Button@2.2.0
+    Properties:
+      BorderThickness: "=0"
+      Color: "=Color.White"
+      Fill: "=ColorValue(\"#007833\")"
+      Font: "=Font.'Segoe UI'"
+      Height: "=40"
+      Size: "=14"
+      RadiusTopLeft: "=6"
+      RadiusTopRight: "=6"
+      RadiusBottomLeft: "=6"
+      RadiusBottomRight: "=6"
+      Width: "=180"
+      Text: "=\"Acceptance tests\""
+      X: "=224"
+      Y: "=152"
+      OnSelect: "=Set(varTestHarness, true)"

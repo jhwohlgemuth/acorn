@@ -100,73 +100,14 @@ pub enum Model {
     #[display("{}", _0)]
     Other(String),
 }
-/// Physical mechanism used to implement a quantum processor.
-#[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub enum Technology {
-    /// Photons carry the quantum state.
-    Photonic,
-    /// Neutral atoms carry the quantum state.
-    NeutralAtom,
-    /// Superconducting circuits carry the quantum state.
-    Superconducting,
-    /// Trapped ions carry the quantum state.
-    TrappedIon,
-    /// Another physical mechanism.
-    Other(String),
-}
 /// Whether a qubit count describes physical or logical qubits.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum QubitType {
     /// A physical qubit implemented by the processor technology.
     Physical,
-    /// A logical qubit exposed after error correction or encoding.
+    /// A logical qubit exposed after fault tolerance or encoding.
     Logical,
-}
-/// Error correction implemented by a quantum processor configuration.
-#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]
-#[builder(start_fn = init)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct ErrorCorrection {
-    /// Name of the code or technique in use.
-    pub code: String,
-    /// Ratio of physical qubits allocated to each logical qubit, when known.
-    pub physical_to_logical_ratio: Option<u32>,
-}
-/// A typed qubit capacity reported by a quantum processor.
-#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]
-#[builder(start_fn = init)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct Qubit {
-    /// Whether the capacity counts physical or logical qubits.
-    #[serde(rename = "type")]
-    pub qubit_type: QubitType,
-    /// Number of qubits of this type.
-    pub count: u32,
-}
-/// Configured quantum processing resources for a hardware requirement or platform.
-#[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
-#[builder(start_fn = init)]
-#[serde(deny_unknown_fields)]
-pub struct QuantumResource {
-    /// Number of QPUs required, when applicable.
-    pub count: Option<u32>,
-    /// Chip or system model name.
-    pub model: Option<Model>,
-    /// Physical implementation technology.
-    pub technology: Option<Technology>,
-    /// Physical and logical qubit capacities, when known.
-    #[builder(into)]
-    pub qubits: Option<OneOrMany<Qubit>>,
-    /// Configured error correction, if any.
-    pub error_correction: Option<ErrorCorrection>,
-    /// Whether this resource is required.
-    pub required: Option<bool>,
-    /// Qubit connectivity topology.
-    pub topology: Option<Topology>,
-    /// Hardware vendor.
-    pub vendor: Option<Vendor>,
 }
 /// Quantum sensing regime classification used by hardware sensor modalities
 ///
@@ -194,6 +135,21 @@ pub enum Regime {
     #[display("deep")]
     #[serde(alias = "deep")]
     Deep = 2,
+}
+/// Physical mechanism used to implement a quantum processor.
+#[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum Technology {
+    /// Photons carry the quantum state.
+    Photonic,
+    /// Neutral atoms carry the quantum state.
+    NeutralAtom,
+    /// Superconducting circuits carry the quantum state.
+    Superconducting,
+    /// Trapped ions carry the quantum state.
+    TrappedIon,
+    /// Another physical mechanism.
+    Other(String),
 }
 /// Qubit connectivity topology
 #[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
@@ -241,4 +197,48 @@ pub enum Topology {
     /// Other or unspecified topology
     #[display("{}", _0)]
     Other(String),
+}
+/// Fault tolerance implemented by a quantum processor configuration.
+#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct FaultTolerance {
+    /// Name of the code or technique in use.
+    pub code: String,
+    /// Ratio of physical qubits allocated to each logical qubit, when known.
+    pub physical_to_logical_ratio: Option<u32>,
+}
+/// Configured quantum processing resources for a hardware requirement or platform.
+#[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields)]
+pub struct QuantumResource {
+    /// Number of QPUs required, when applicable.
+    pub count: Option<u32>,
+    /// Chip or system model name.
+    pub model: Option<Model>,
+    /// Physical implementation technology.
+    pub technology: Option<Technology>,
+    /// Physical and logical qubit capacities, when known.
+    #[builder(into)]
+    pub qubits: Option<OneOrMany<Qubit>>,
+    /// Configured fault tolerance, if any.
+    pub fault_tolerance: Option<FaultTolerance>,
+    /// Whether this resource is required.
+    pub required: Option<bool>,
+    /// Qubit connectivity topology.
+    pub topology: Option<Topology>,
+    /// Hardware vendor.
+    pub vendor: Option<Vendor>,
+}
+/// A typed qubit capacity reported by a quantum processor.
+#[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct Qubit {
+    /// Whether the capacity counts physical or logical qubits.
+    #[serde(rename = "type")]
+    pub qubit_type: QubitType,
+    /// Number of qubits of this type.
+    pub count: u32,
 }

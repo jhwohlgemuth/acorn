@@ -7,6 +7,8 @@ The current schema version is `2.0.0`. New files should declare it with the `sch
 
 Attribute names are `snake_case` in every format — JSON, JSONC, and YAML — so one document shape is valid everywhere. Pre-existing camelCase attributes such as `schemaVersion` keep their current spelling.
 
+The optional `auth` attribute uses the frozen `tenantId`, `clientId`, `defaultResource`, `sitePath`, `libraryPath`, and `itemPath` field names in every format. Named profiles retain declaration order across JSON, JSONC, and YAML, so the first profile is the default for future auth commands. Auth configuration is non-secret: place no password, client secret, access token, refresh token, or device code in ACRE. See the [synthetic SharePoint example](commands/sharepoint-intake.md#acre-configuration-contract) for profile and source fields. The schema and source matching are available now; CLI auth commands and profile resolution are implemented separately.
+
 ### Example
 `.acorn.json` file
 ```json

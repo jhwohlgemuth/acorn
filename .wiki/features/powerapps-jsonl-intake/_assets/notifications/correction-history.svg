@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="font-size:initial;font-family:Arial,Helvetica,sans-serif;" viewBox="0 0 1134.72 515.52">
+<path d="M13.68,138.96L314.64,138.96A11.52 11.52 0 0 0 326.16 127.44L326.16,13.68A11.52 11.52 0 0 0 314.64 2.16L13.68,2.16A11.52 11.52 0 0 0 2.16 13.68L2.16,127.44A11.52 11.52 0 0 0 13.68 138.96Z" style="fill:rgb(232,241,251);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="164.16" y="46.368" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Original receipt A</text>
+<text x="164.16" y="70.56" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">First saved highlight</text>
+<text x="164.16" y="94.752" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Original: A</text>
+<path d="M416.88,138.96L717.84,138.96A11.52 11.52 0 0 0 729.36 127.44L729.36,13.68A11.52 11.52 0 0 0 717.84 2.16L416.88,2.16A11.52 11.52 0 0 0 405.36 13.68L405.36,127.44A11.52 11.52 0 0 0 416.88 138.96Z" style="fill:rgb(231,243,233);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="567.36" y="46.368" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Correction B</text>
+<text x="567.36" y="70.56" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Original: A</text>
+<text x="567.36" y="94.752" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Replaces: A</text>
+<path d="M820.08,138.96L1121.04,138.96A11.52 11.52 0 0 0 1132.56 127.44L1132.56,13.68A11.52 11.52 0 0 0 1121.04 2.16L820.08,2.16A11.52 11.52 0 0 0 808.56 13.68L808.56,127.44A11.52 11.52 0 0 0 820.08 138.96Z" style="fill:rgb(231,243,233);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="970.56" y="46.368" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Correction C</text>
+<text x="970.56" y="70.56" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Original: A</text>
+<text x="970.56" y="94.752" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Replaces: B</text>
+<polygon points="405.36,70.56 388.08,77.04 388.08,64.08" style="fill:rgb(0,102,44)" />
+<path d="M326.16,70.56L396.72,70.56" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<polygon points="808.56,70.56 791.28,77.04 791.28,64.08" style="fill:rgb(0,102,44)" />
+<path d="M729.36,70.56L799.92,70.56" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<path d="M13.68,308.16L1121.04,308.16A11.52 11.52 0 0 0 1132.56 296.64L1132.56,218.88A11.52 11.52 0 0 0 1121.04 207.36L13.68,207.36A11.52 11.52 0 0 0 2.16 218.88L2.16,296.64A11.52 11.52 0 0 0 13.68 308.16Z" style="fill:rgb(255,244,214);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="567.36" y="245.664" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">COLLECTED JSONL: A + B + C</text>
+<text x="567.36" y="269.856" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Each receipt keeps its exact original bytes</text>
+<polygon points="164.16,207.36 157.68,190.08 170.64,190.08" style="fill:rgb(0,102,44)" />
+<path d="M164.16,138.96L164.16,198.72" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<polygon points="567.36,207.36 560.88,190.08 573.84,190.08" style="fill:rgb(0,102,44)" />
+<path d="M567.36,138.96L567.36,198.72" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<polygon points="970.56,207.36 964.08,190.08 977.04,190.08" style="fill:rgb(0,102,44)" />
+<path d="M970.56,138.96L970.56,198.72" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<path d="M13.68,513.36L314.64,513.36A11.52 11.52 0 0 0 326.16 501.84L326.16,402.48A11.52 11.52 0 0 0 314.64 390.96L13.68,390.96A11.52 11.52 0 0 0 2.16 402.48L2.16,501.84A11.52 11.52 0 0 0 13.68 513.36Z" style="fill:rgb(255,244,214);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="164.16" y="440.064" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Stage + inspect</text>
+<text x="164.16" y="464.256" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Check history + diff</text>
+<path d="M416.88,513.36L717.84,513.36A11.52 11.52 0 0 0 729.36 501.84L729.36,402.48A11.52 11.52 0 0 0 717.84 390.96L416.88,390.96A11.52 11.52 0 0 0 405.36 402.48L405.36,501.84A11.52 11.52 0 0 0 416.88 513.36Z" style="fill:rgb(231,243,233);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="567.36" y="440.064" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Confirm apply</text>
+<text x="567.36" y="464.256" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Verify prior content</text>
+<path d="M820.08,513.36L1121.04,513.36A11.52 11.52 0 0 0 1132.56 501.84L1132.56,402.48A11.52 11.52 0 0 0 1121.04 390.96L820.08,390.96A11.52 11.52 0 0 0 808.56 402.48L808.56,501.84A11.52 11.52 0 0 0 820.08 513.36Z" style="fill:rgb(231,243,233);stroke-width:0;stroke:rgb(24,60,67);" />
+<text x="970.56" y="427.968" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">One current entry</text>
+<text x="970.56" y="452.16" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Content from C</text>
+<text x="970.56" y="476.352" text-anchor="middle" fill="rgb(24,60,67)" font-size="120%" dominant-baseline="central">Same highlight identity</text>
+<polygon points="164.16,390.96 157.68,373.68 170.64,373.68" style="fill:rgb(0,102,44)" />
+<path d="M164.16,308.16L164.16,382.32" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<polygon points="405.36,452.16 388.08,458.64 388.08,445.68" style="fill:rgb(0,102,44)" />
+<path d="M326.16,452.16L396.72,452.16" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+<polygon points="808.56,452.16 791.28,458.64 791.28,445.68" style="fill:rgb(0,102,44)" />
+<path d="M729.36,452.16L799.92,452.16" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
+</svg>

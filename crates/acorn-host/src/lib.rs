@@ -1,9 +1,11 @@
 //! Concrete, feature-gated native host capabilities for ACORN consumers.
 #![forbid(unsafe_code)]
 
-#[cfg(feature = "source")]
+#[cfg(any(feature = "source", all(feature = "auth", test)))]
 extern crate alloc;
 
+#[cfg(feature = "auth")]
+pub mod auth;
 #[cfg(feature = "config")]
 pub mod config;
 #[cfg(feature = "download")]

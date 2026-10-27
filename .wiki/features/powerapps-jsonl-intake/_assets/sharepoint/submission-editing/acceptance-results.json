@@ -1,0 +1,48 @@
+[
+  {
+    "case": "exact replay",
+    "status": "received",
+    "id": "9642e33c-4d4a-4fda-ad9f-c3565598658f"
+  },
+  {
+    "case": "second blank-parent original",
+    "id": "1b203787-5c86-4716-9e88-cd438f39c727",
+    "status": "received"
+  },
+  {
+    "case": "concurrent A",
+    "id": "e34d3cbd-527d-4aa8-bcda-03a09950d762",
+    "status": "unresolved"
+  },
+  {
+    "case": "concurrent B",
+    "id": "4e8c2bcc-be95-4c0b-9869-aea73cd45064",
+    "status": "received"
+  },
+  {
+    "case": "losing concurrent retry",
+    "id": "e34d3cbd-527d-4aa8-bcda-03a09950d762",
+    "status": "conflict",
+    "reason": "stale_revision"
+  },
+  {
+    "case": "wrong owner",
+    "id": "872787bc-a737-4d27-97c5-3b796b5dad01",
+    "status": "rejected"
+  },
+  {
+    "case": "changed bytes same UUID",
+    "id": "9642e33c-4d4a-4fda-ad9f-c3565598658f",
+    "status": "conflict"
+  },
+  {
+    "case": "changed routing",
+    "id": "6ca9b751-49aa-481b-9f4f-98e932c9e94d",
+    "status": "rejected"
+  },
+  {
+    "case": "missing predecessor",
+    "id": "aab94cbc-a729-4c8c-88e4-fd5c908a5b1a",
+    "status": "rejected"
+  }
+]

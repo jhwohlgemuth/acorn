@@ -1,0 +1,143 @@
+- SubmissionHistoryPanel:
+    Control: GroupContainer@1.5.0
+    Variant: ManualLayout
+    Properties:
+      Fill: "=ColorValue(\"#EDF3EF\")"
+      Width: "=Parent.Width"
+      Height: "=Parent.Height"
+      Visible: "=Coalesce(varHistoryOpen, false)"
+    Children:
+      - HistoryCard:
+          Control: GroupContainer@1.5.0
+          Variant: ManualLayout
+          Properties:
+            Fill: "=Color.White"
+            X: "=Max(16, (Parent.Width - Self.Width) / 2)"
+            Y: "=20"
+            Width: "=Min(800, Parent.Width - 32)"
+            Height: "=Max(600, Parent.Height - 40)"
+            RadiusTopLeft: "=12"
+            RadiusTopRight: "=12"
+            RadiusBottomLeft: "=12"
+            RadiusBottomRight: "=12"
+          Children:
+            - HistoryTitle:
+                Control: Label@2.5.1
+                Properties:
+                  TabIndex: "=0"
+                  FocusedBorderThickness: "=2"
+                  Color: "=ColorValue(\"#123B31\")"
+                  Font: "=Font.'Segoe UI'"
+                  Size: "=26"
+                  Width: "=Parent.Width - 48"
+                  X: "=24"
+                  Height: "=50"
+                  Text: "=\"My Submissions\""
+                  FontWeight: "=FontWeight.Semibold"
+                  Y: "=18"
+            - HistoryHelp:
+                Control: Label@2.5.1
+                Properties:
+                  TabIndex: "=0"
+                  FocusedBorderThickness: "=2"
+                  Color: "=ColorValue(\"#123B31\")"
+                  Font: "=Font.'Segoe UI'"
+                  Size: "=14"
+                  Width: "=Parent.Width - 48"
+                  X: "=24"
+                  Height: "=70"
+                  Text: "=\"Choose a saved highlight to correct. Earlier receipts stay in the logbook. Project and report placement remain fixed.\""
+                  Y: "=76"
+            - HistoryDropdown:
+                Control: Classic/DropDown@2.3.1
+                Properties:
+                  AccessibleLabel: "=\"Select a submission to edit\""
+                  Items: "=SortByColumns(Filter(colSubmissionHistory As candidate, !(candidate.receiptId in colSubmissionHistory.supersedesId)), \"submittedAt\", SortOrder.Descending)"
+                  Items.Value: "=label"
+                  Default: "=Blank()"
+                  AllowEmptySelection: "=true"
+                  DisplayMode: "=If(varHistoryLoading || !IsBlank(varHistoryError) || IsEmpty(colSubmissionHistory), DisplayMode.Disabled, DisplayMode.Edit)"
+                  X: "=24"
+                  Y: "=154"
+                  Width: "=Parent.Width - 48"
+                  Height: "=48"
+                  Color: "=ColorValue(\"#123B31\")"
+                  Fill: "=ColorValue(\"#F0F5F2\")"
+                  Size: "=14"
+            - HistorySummary:
+                Control: Label@2.5.1
+                Properties:
+                  TabIndex: "=0"
+                  FocusedBorderThickness: "=2"
+                  Color: "=ColorValue(\"#123B31\")"
+                  Font: "=Font.'Segoe UI'"
+                  Size: "=14"
+                  Width: "=Parent.Width - 48"
+                  X: "=24"
+                  Height: "=90"
+                  Text: "=Coalesce(HistoryDropdown.Selected.summary, \"Select a submission above\")"
+                  FontWeight: "=FontWeight.Semibold"
+                  Y: "=218"
+            - HistoryReceipt:
+                Control: Label@2.5.1
+                Properties:
+                  TabIndex: "=0"
+                  FocusedBorderThickness: "=2"
+                  Color: "=ColorValue(\"#123B31\")"
+                  Font: "=Font.'Segoe UI'"
+                  Size: "=11"
+                  Width: "=Parent.Width - 48"
+                  X: "=24"
+                  Height: "=60"
+                  Text: "=If(!IsBlank(HistoryDropdown.Selected.receiptId), \"Receipt: \" & HistoryDropdown.Selected.receiptId & Char(10) & \"Destination: \" & HistoryDropdown.Selected.projectId & \" · \" & HistoryDropdown.Selected.exportStatus)"
+                  Y: "=312"
+            - HistoryStatus:
+                Control: Label@2.5.1
+                Properties:
+                  TabIndex: "=0"
+                  FocusedBorderThickness: "=2"
+                  Color: "=ColorValue(\"#123B31\")"
+                  Font: "=Font.'Segoe UI'"
+                  Size: "=14"
+                  Width: "=Parent.Width - 48"
+                  X: "=24"
+                  Height: "=100"
+                  Text: "=If(varHistoryLoading, \"Loading your submissions…\", !IsBlank(varHistoryError), varHistoryError, IsEmpty(colSubmissionHistory), \"You have no saved submissions yet.\", !IsBlank(HistoryDropdown.Selected.receiptId) && HistoryDropdown.Selected.exportStatus <> \"Exported\", \"This receipt has an unfinished export. Reconcile it before editing.\", \"Saving a correction does not replace a published report. Operators review corrections before applying them.\")"
+                  Y: "=384"
+            - HistoryEditButton:
+                Control: Classic/Button@2.2.0
+                Properties:
+                  BorderThickness: "=0"
+                  Color: "=Color.White"
+                  Fill: "=ColorValue(\"#007833\")"
+                  Font: "=Font.'Segoe UI'"
+                  Height: "=44"
+                  Size: "=14"
+                  RadiusTopLeft: "=6"
+                  RadiusTopRight: "=6"
+                  RadiusBottomLeft: "=6"
+                  RadiusBottomRight: "=6"
+                  Width: "=Min(180, (Parent.Width - 60) / 2)"
+                  Text: "=\"Edit selected\""
+                  OnSelect: "=If(!IsBlank(HistoryDropdown.Selected.receiptId) && HistoryDropdown.Selected.exportStatus = \"Exported\" && !varRecoveryBlocked && (IsBlank(varPendingJson) || varDisposition = \"exported\"),\n IfError(ClearData(\"SponsorHighlightSharePointPending\"), Set(varHistoryError, \"Browser recovery could not clear the previous confirmed receipt. Try again.\"),\n With({chosen: HistoryDropdown.Selected},\n  Set(varRestoredDraft, ParseJSON(chosen.raw)); Set(varCorrectionParent, chosen.receiptId); Set(varCorrectionRoot, chosen.rootId); Set(varEditingProjectId, chosen.projectId);\n  Set(varPendingProjectLabel, Coalesce(LookUp(colProjects, ProjectId = chosen.projectId, Value), chosen.projectId));\n  ClearCollect(colProjects, {Value: varPendingProjectLabel, ProjectId: chosen.projectId}); Set(varCatalogLoaded, true);\n  Clear(colPendingHighlight); Set(varPendingJson, Blank()); Set(varPendingId, Blank()); Set(varDisposition, Blank()); Set(varExportFileUrl, Blank()); Set(varReceiptUrl, Blank());\n  Set(varSubmissionStatus, \"Editing a saved submission. Saving creates a new correction receipt; the original remains in the logbook.\"); Set(varShowSubmissionResult, false); Set(varHistoryOpen, false); Reset(ProjectDropdown); Reset(OccurredOnPicker); Reset(CategoryDropdown); Reset(StateDropdown); Reset(EventTypeDropdown); Reset(SummaryInput); Reset(ItemsInput); Reset(PlacementDropdown)\n )))"
+                  DisplayMode: "=If(varHistoryLoading || varRecoveryBlocked || IsBlank(HistoryDropdown.Selected.receiptId) || HistoryDropdown.Selected.exportStatus <> \"Exported\", DisplayMode.Disabled, DisplayMode.Edit)"
+                  X: "=24"
+                  Y: "=Parent.Height - 72"
+            - HistoryBackButton:
+                Control: Classic/Button@2.2.0
+                Properties:
+                  BorderThickness: "=0"
+                  Color: "=Color.White"
+                  Fill: "=ColorValue(\"#466659\")"
+                  Font: "=Font.'Segoe UI'"
+                  Height: "=44"
+                  Size: "=14"
+                  RadiusTopLeft: "=6"
+                  RadiusTopRight: "=6"
+                  RadiusBottomLeft: "=6"
+                  RadiusBottomRight: "=6"
+                  Width: "=Min(180, (Parent.Width - 60) / 2)"
+                  Text: "=\"Back to form\""
+                  OnSelect: "=Set(varHistoryOpen, false)"
+                  X: "=Parent.Width - Self.Width - 24"
+                  Y: "=Parent.Height - 72"

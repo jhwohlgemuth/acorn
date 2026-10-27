@@ -464,6 +464,142 @@ fn test_acre_supports_power_automate_options_and_folders() {
     assert!(configuration.validate().is_ok());
 }
 #[test]
+fn test_auth_profiles_preserve_declaration_order_in_all_formats() {
+    for (format, content) in [
+        ("json", include_str!("../../../../../../tests/fixtures/oauth2/config/ordered.json")),
+        ("jsonc", include_str!("../../../../../../tests/fixtures/oauth2/config/ordered.jsonc")),
+        ("yaml", include_str!("../../../../../../tests/fixtures/oauth2/config/ordered.yaml")),
+    ] {
+        let configuration = ApplicationConfiguration::parse(content).expect("auth fixture parses");
+        configuration.validate().expect("auth fixture validates");
+        let auth = configuration.auth.as_ref().expect("auth attribute");
+        assert_eq!(auth.profile(None).map(|(name, _)| name), Some("zeta"), "{format}");
+        assert_eq!(auth.profile(Some("alpha")).map(|(name, _)| name), Some("alpha"));
+        assert!(auth.profile(Some("missing")).is_none());
+        let serialized = match format {
+            | "yaml" => serde_norway::to_string(&configuration).expect("serialize YAML auth config"),
+            | "jsonc" => configuration.cst.as_ref().expect("JSONC syntax tree").to_string(),
+            | _ => serde_json::to_string(&configuration).expect("serialize JSON auth config"),
+        };
+        let reparsed = ApplicationConfiguration::parse(serialized).expect("parse serialized auth config");
+        assert_eq!(
+            reparsed.auth.as_ref().and_then(|auth| auth.profile(None)).map(|(name, _)| name),
+            Some("zeta")
+        );
+    }
+}
+#[test]
+fn test_auth_rejects_duplicate_profiles_and_scope_widening() {
+    let duplicate = include_str!("../../../../../../tests/fixtures/oauth2/config/ordered.json").replace("\"alpha\":", "\"zeta\":");
+    assert!(ApplicationConfiguration::parse(duplicate).is_err());
+    let duplicate_resource = r#"{"schemaVersion":"2.0.0","auth":{"profiles":{"one":{"provider":"entra","tenantId":"00000000-0000-0000-0000-000000000001","clientId":"00000000-0000-0000-0000-000000000002","cloud":"public","resources":{"graph":{"audience":"https://graph.microsoft.com","scopes":["Files.Read"]},"graph":{"audience":"https://graph.microsoft.com","scopes":["Sites.Read.All"]}},"defaultResource":"graph"}},"sources":[]}}"#;
+    assert!(ApplicationConfiguration::parse(duplicate_resource).is_err());
+    let mut configuration =
+        ApplicationConfiguration::parse(include_str!("../../../../../../tests/fixtures/oauth2/config/ordered.json")).expect("auth fixture parses");
+    let auth = configuration.auth.as_mut().expect("auth attribute");
+    auth.sources.push(application::auth::SharePointSource {
+        drive_id: None,
+        host: "example.sharepoint.com".to_string(),
+        id: "combined".to_string(),
+        item_id: None,
+        item_path: "logbook.jsonl".to_string(),
+        library_path: "/Library".to_string(),
+        profile: "zeta".to_string(),
+        provider: application::auth::SourceProvider::Sharepoint,
+        resource: "graph".to_string(),
+        scopes: Some(vec!["Sites.Read.All".to_string()]),
+        site_id: None,
+        site_path: "/sites/Example".to_string(),
+    });
+    assert!(configuration.validate().is_err());
+}
+#[test]
+fn test_auth_rejects_embedded_secrets_invalid_ids_and_incomplete_pins() {
+    let fixture = include_str!("../../../../../../tests/fixtures/oauth2/config/ordered.json");
+    let embedded_secret = fixture.replace("\"provider\": \"entra\",", "\"provider\": \"entra\", \"clientSecret\": \"secret\",");
+    assert!(ApplicationConfiguration::parse(embedded_secret).is_err());
+
+    let invalid_id = fixture.replace("00000000-0000-0000-0000-000000000001", "not-a-tenant");
+    let configuration = ApplicationConfiguration::parse(invalid_id).expect("invalid UUID parses for validation");
+    assert!(configuration.validate().is_err());
+
+    let mut configuration = ApplicationConfiguration::parse(fixture).expect("auth fixture parses");
+    configuration
+        .auth
+        .as_mut()
+        .expect("auth attribute")
+        .sources
+        .push(application::auth::SharePointSource {
+            drive_id: None,
+            host: "example.sharepoint.com".to_string(),
+            id: "combined".to_string(),
+            item_id: None,
+            item_path: "logbook.jsonl".to_string(),
+            library_path: "/Library".to_string(),
+            profile: "zeta".to_string(),
+            provider: application::auth::SourceProvider::Sharepoint,
+            resource: "graph".to_string(),
+            scopes: None,
+            site_id: Some("site-id".to_string()),
+            site_path: "/sites/Example".to_string(),
+        });
+    assert!(configuration.validate().is_err());
+}
+#[test]
+fn test_auth_schema_exports_profile_and_source_fields() {
+    let schema = schemars::schema_for!(ApplicationConfiguration);
+    let json = serde_json::to_string(&schema).expect("ACRE schema");
+    assert!(json.contains("\"auth\""));
+    assert!(json.contains("\"profiles\""));
+    assert!(json.contains("\"sources\""));
+}
+#[test]
+fn test_auth_source_matches_one_exact_document_without_widening() {
+    let mut configuration =
+        ApplicationConfiguration::parse(include_str!("../../../../../../tests/fixtures/oauth2/config/ordered.json")).expect("auth fixture parses");
+    let auth = configuration.auth.as_mut().expect("auth attribute");
+    auth.sources.push(application::auth::SharePointSource {
+        drive_id: None,
+        host: "example.sharepoint.com".to_string(),
+        id: "combined".to_string(),
+        item_id: None,
+        item_path: "logbook.jsonl".to_string(),
+        library_path: "/Sponsor Highlights".to_string(),
+        profile: "zeta".to_string(),
+        provider: application::auth::SourceProvider::Sharepoint,
+        resource: "graph".to_string(),
+        scopes: Some(vec!["Files.Read".to_string()]),
+        site_id: None,
+        site_path: "/sites/Example".to_string(),
+    });
+    configuration.validate().expect("source policy");
+    let auth = configuration.auth.as_ref().expect("auth attribute");
+    assert_eq!(
+        auth.source("https://example.sharepoint.com/sites/Example/Sponsor%20Highlights/logbook.jsonl")
+            .expect("configured document")
+            .id,
+        "combined"
+    );
+    for url in [
+        "https://example.sharepoint.com/sites/Example/Sponsor%20Highlights/other.jsonl",
+        "https://example.sharepoint.com/sites/Example/Sponsor%20Highlights/logbook.jsonl?download=1",
+        "https://example.sharepoint.com/sites/Example/Sponsor%2FHighlights/logbook.jsonl",
+        "https://example.sharepoint.com/sites/Example/../Example/Sponsor%20Highlights/logbook.jsonl",
+    ] {
+        assert!(auth.source(url).is_err(), "{url}");
+    }
+    let mut duplicate = auth.sources.first().expect("configured source").clone();
+    duplicate.id = "second".to_string();
+    configuration.auth.as_mut().expect("auth attribute").sources.push(duplicate);
+    assert!(configuration.validate().is_err());
+    assert!(configuration
+        .auth
+        .as_ref()
+        .expect("auth attribute")
+        .source("https://example.sharepoint.com/sites/Example/Sponsor%20Highlights/logbook.jsonl")
+        .is_err());
+}
+#[test]
 fn test_bucket() {
     let bucket = Bucket {
         name: Some("nssd".to_string()),

@@ -1,0 +1,129 @@
+{
+  "date": "2026-10-27",
+  "review_commit": "bde5df3f",
+  "scope": "Local wiki/documents only; no cloud resources changed",
+  "removed": [
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/sponsor-highlights-source-bundle.zip",
+      "bytes": 982824,
+      "sha256": "cfa24a8b0e3a75a708b296e842e0d707f6b392cc3e2c68ddda4227c96ec3b609",
+      "reason": "Superseded distribution copy"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/source-bundle-manifest.json",
+      "bytes": 13789,
+      "sha256": "5f2fbf5006e70ec782aa457b1d9edaeb3134072f060a13a1c590aba47f52730b",
+      "reason": "Superseded distribution copy"
+    },
+    {
+      "path": "features/manual-jsonl-ingestion-graduation/_assets/sponsor-highlights-demo.zip",
+      "bytes": 7100476,
+      "sha256": "3f32c5456f8f16d611522acc8c1f688c04c2dd021c89bfa034cc126230cc565d",
+      "reason": "Superseded distribution copy"
+    },
+    {
+      "path": "features/manual-jsonl-ingestion-graduation/_assets/demo-package-manifest.json",
+      "bytes": 23867,
+      "sha256": "43348536085ef3edd3712ac189d8ce528412da232d2e6da0df694d41627d7a3b",
+      "reason": "Superseded distribution copy"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/notifications/user-reviewer-notification-update.pdf",
+      "bytes": 642924,
+      "sha256": "41daf0dc744c8ea1d7a0bb9c15f4908a09c230db0a7135b3fe20c08a3d0d3838",
+      "reason": "Redundant PDF extract"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/notifications/developer-notification-update.pdf",
+      "bytes": 1300401,
+      "sha256": "890698f4ba42b890fb655c3728bcb67572c15cf704746637602c5c32612acc1b",
+      "reason": "Redundant PDF extract"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/pilot-catalog-config.png",
+      "bytes": 105306,
+      "sha256": "8544435d55ac656b5f3115a4a740cb5312fae11d5f8eae26036facb4f185e4d2",
+      "reason": "Unreferenced earlier UI capture; linked acceptance evidence retained"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/visual-polish-desktop-footer.png",
+      "bytes": 76489,
+      "sha256": "ef21fda138931b4eacf7600ba8960191cdf90d89b94c6fc79d0314a3adb15491",
+      "reason": "Unreferenced earlier UI capture; linked acceptance evidence retained"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/project-catalog-flow-run.png",
+      "bytes": 94180,
+      "sha256": "2476aa9b378797b145b38106d03e07904dff7bf73794c50fd1018729e7da3227",
+      "reason": "Unreferenced earlier UI capture; linked acceptance evidence retained"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/append-test.png",
+      "bytes": 55399,
+      "sha256": "a59d3dde992f2d5465e7de971ecf80c45e4c78a8b1111d344e173d5e026d3b90",
+      "reason": "Unreferenced earlier UI capture; linked acceptance evidence retained"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/project-catalog-test.png",
+      "bytes": 109045,
+      "sha256": "92496a8ab5d2b28dbc4d1e1c10f8b7bbd3bf38f0ff734af02d0e1287e27f4bed",
+      "reason": "Unreferenced earlier UI capture; linked acceptance evidence retained"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/project-catalog-response.png",
+      "bytes": 102088,
+      "sha256": "f00acdb6c57d02b38d3110b9e2f9debcd297c6d39c1cd9a2cf811f50456de044",
+      "reason": "Unreferenced earlier UI capture; linked acceptance evidence retained"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/submission-feedback-error.png",
+      "bytes": 61015,
+      "sha256": "ac8a23ba06f5ff2682e2ea055ad1f091564de2cb083adce9af9d8cf7343c278d",
+      "reason": "Unreferenced earlier UI capture; linked acceptance evidence retained"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/gitlab-network-block.png",
+      "bytes": 84958,
+      "sha256": "8c94d18656ded2b4661b90a74ffd8b3f78b1a227515b9ea1ebc25df76da75b09",
+      "reason": "Unreferenced earlier UI capture; linked acceptance evidence retained"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/interrupted-response-closed.png",
+      "bytes": 97084,
+      "sha256": "1c29b6a4ccc7798088d2637e2ea890f379386cfb9d766fc45dc6c3912db10c02",
+      "reason": "Unreferenced earlier UI capture; linked acceptance evidence retained"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/conflict-test.png",
+      "bytes": 86975,
+      "sha256": "11927ab884eab5d6d02d14d84a00411d3f609cd1318f90c066406fe53a593d30",
+      "reason": "Unreferenced earlier UI capture; linked acceptance evidence retained"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/identity-rejection-test.png",
+      "bytes": 80673,
+      "sha256": "414c415dadfbd188a761dcdbe1b481d45fdb3d9dcc7acede35180c3f9411aa4e",
+      "reason": "Unreferenced earlier UI capture; linked acceptance evidence retained"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/submission-feedback-edit.png",
+      "bytes": 62091,
+      "sha256": "b42b5cca333d4dd6a6d095ab5cc085b7aad93b39552a411e5ff761faaf4a509c",
+      "reason": "Unreferenced earlier UI capture; linked acceptance evidence retained"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/invalid-envelope-test.png",
+      "bytes": 76165,
+      "sha256": "05dd68b0d7a85d905b4471ef7c2d35d13d55edfcc70f3a7e4504c7524c5000e4",
+      "reason": "Unreferenced earlier UI capture; linked acceptance evidence retained"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/project-list-label-detail.png",
+      "bytes": 9566,
+      "sha256": "92d7bb17b3fd08caac31f985a1b93532e6319dd68e5f26f640be91e2ca9d173a",
+      "reason": "Unreferenced earlier UI capture; linked acceptance evidence retained"
+    }
+  ],
+  "retained": "Native packages, recovery sources, exact-case acceptance records, historical report outputs and handback evidence",
+  "removed_bytes": 11165315
+}

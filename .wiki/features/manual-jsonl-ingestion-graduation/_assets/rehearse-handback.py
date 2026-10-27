@@ -41,7 +41,7 @@ def main():
     (root / "selected.jsonl").write_bytes(accepted)
     config = root / "intake.json"
     config.write_bytes(json_bytes({"schemaVersion": "2.0.0", "folders": [
-        {"id": "acorn", "members": ["o9w@ornl.gov"], "path": index.as_uri()}
+        {"id": "acorn", "members": ["owner@example.invalid"], "path": index.as_uri()}
     ]}))
     evidence_dir = root / "evidence"
     evidence_dir.mkdir()

@@ -175,7 +175,7 @@ Browser tab: 1329059533, Title: "Power Apps Studio  |  PA28 TEST ONLY Sponso
 														327 image Oak Ridge National Laboratory
 												328 container
 													329 text 01  //  HIGHLIGHT DETAILS
-													330 text Submitted by Jason Wohlgemuth  •  o9w@ornl.gov
+													330 text Submitted by Jason Wohlgemuth  •  owner@example.invalid
 													331 text Project *
 													332 container
 														333 pop up button (disabled, collapsed) Description: Project, required. Select a project, Secondary Actions: Expand

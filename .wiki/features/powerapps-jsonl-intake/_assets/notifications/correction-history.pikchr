@@ -1,0 +1,19 @@
+// Receipt letters are illustrative IDs, not literal UUIDs.
+scale = 1
+fontscale = 1.2
+color = 0x183C43
+A: box "Original receipt A" bold "First saved highlight" "Original: A" wid 2.25in ht 0.95in rad 0.08in fill 0xE8F1FB thickness 0
+B: box "Correction B" bold "Original: A" "Replaces: A" same fill 0xE7F3E9 at A+(2.8in,0)
+C: box "Correction C" bold "Original: A" "Replaces: B" same fill 0xE7F3E9 at B+(2.8in,0)
+arrow from A.e to B.w thick color 0x00662C
+arrow from B.e to C.w thick color 0x00662C
+L: box "COLLECTED JSONL: A + B + C" bold "Each receipt keeps its exact original bytes" wid 7.85in ht 0.7in rad 0.08in fill 0xFFF4D6 thickness 0 at B+(0,-1.3in)
+arrow from A.s to (A.x,L.n.y) thick color 0x00662C
+arrow from B.s to L.n thick color 0x00662C
+arrow from C.s to (C.x,L.n.y) thick color 0x00662C
+R: box "Stage + inspect" bold "Check history + diff" wid 2.25in ht 0.85in rad 0.08in fill 0xFFF4D6 thickness 0 at A+(0,-2.65in)
+P: box "Confirm apply" bold "Verify prior content" same fill 0xE7F3E9 at R+(2.8in,0)
+I: box "One current entry" bold "Content from C" "Same highlight identity" same fill 0xE7F3E9 at P+(2.8in,0)
+arrow from (R.x,L.s.y) to R.n thick color 0x00662C
+arrow from R.e to P.w thick color 0x00662C
+arrow from P.e to I.w thick color 0x00662C

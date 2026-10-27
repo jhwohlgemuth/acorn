@@ -1,4 +1,5 @@
 //! Reviewable, resumable batches for standalone local JSONL intake.
+use super::super::{revisions::RevisionHistory, Submission, SubmissionRevision};
 use super::types::{BatchApplyStatus, BatchInspectionStatus, BatchLineStatus, BatchProjectApplyStatus, BatchProjectState};
 use super::{digest_text, ApplicationConfiguration, Destination, FolderRegistry, Proposal, MAX_INDEX_BYTES};
 use crate::io::{read_file_snapshot, sync_parent_directory, ApiResult};
@@ -64,6 +65,7 @@ pub(super) struct BatchLine {
     pub(super) operation_key: Option<String>,
     pub(super) project_id: Option<String>,
     pub(super) entry: Option<LogbookEntry>,
+    pub(super) replaces: Option<LogbookEntry>,
     pub(super) status: BatchLineStatus,
     pub(super) reason: Option<String>,
 }
@@ -71,6 +73,8 @@ pub(super) struct BatchLine {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BatchLineView {
+    /// Correction ancestry, when this line revises a previous receipt.
+    pub revision: Option<SubmissionRevision>,
     /// One-based physical source line number.
     pub line: u64,
     /// Submission UUID, when the envelope parsed.
@@ -164,6 +168,7 @@ pub struct BatchSummary {
 }
 #[derive(Validate)]
 pub(super) struct PriorRecord {
+    raw: String,
     #[validate(digest)]
     digest: String,
     destination: Option<PathBuf>,
@@ -223,6 +228,9 @@ impl BatchManifest {
                 self.lines
                     .iter()
                     .map(|line| BatchLineView {
+                        revision: serde_json::from_str::<Submission>(&line.raw)
+                            .ok()
+                            .and_then(|submission| submission.revision),
                         line: line.line,
                         submission_id: line.submission_id.clone(),
                         project_id: line.project_id.clone(),
@@ -363,6 +371,19 @@ impl From<&Path> for PriorRecordLookup {
     }
 }
 impl PriorRecordLookup {
+    pub(super) fn revision_history<'a>(&'a self, rows: impl Iterator<Item = &'a str>) -> ApiResult<RevisionHistory> {
+        match self {
+            | Self::Loaded(records) => {
+                let rows = records
+                    .values()
+                    .filter(|record| record.applied)
+                    .map(|record| record.raw.as_str())
+                    .chain(rows);
+                RevisionHistory::read(rows)
+            }
+            | Self::Pending(_) => Err(eyre!("Prior local batch records were not loaded")),
+        }
+    }
     pub(super) fn load(self) -> ApiResult<Self> {
         match self {
             | Self::Pending(directory) => read_dir(&directory)
@@ -444,6 +465,7 @@ impl PriorRecordLookup {
                             records.insert(
                                 id.clone(),
                                 PriorRecord {
+                                    raw: line.raw.clone(),
                                     digest: line.digest.clone(),
                                     destination: project.map(|project| project.destination.clone()),
                                     applied,

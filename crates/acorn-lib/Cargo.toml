@@ -59,6 +59,7 @@ glob = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
 httpdate = { workspace = true, optional = true }
 indicatif = { workspace = true, optional = true }
+indexmap = { workspace = true, optional = true }
 is_executable = { version = "1.0.5", default-features = false, optional = true }
 itertools = { workspace = true }
 jsonc-parser = { workspace = true }
@@ -150,6 +151,7 @@ required-features = ["analysis"]
 
 [features]
 acp = ["std", "dep:acorn-cmd", "dep:agent-client-protocol", "dep:thiserror", "dep:tokio", "tokio/rt", "tokio/time"]
+auth = ["analysis", "acorn-host/auth"]
 core = ["acorn-core/core", "acorn-schema/core"]
 alloc = ["core", "acorn-core/alloc", "acorn-schema/alloc", "serde/alloc", "jiff/alloc"]
 wasm = ["alloc", "acorn-schema/alloc"]
@@ -184,6 +186,7 @@ analysis = [
   "unicode",
   "dep:ariadne",
   "dep:bat",
+  "dep:indexmap",
   "dep:polars-error",
   "dep:rayon",
   "dep:rust-ini",

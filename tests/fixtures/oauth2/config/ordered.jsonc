@@ -1,0 +1,25 @@
+{
+  // First declaration remains the default after a comment-preserving edit.
+  "schemaVersion": "2.0.0",
+  "auth": {
+    "profiles": {
+      "zeta": {
+        "provider": "entra",
+        "tenantId": "00000000-0000-0000-0000-000000000001",
+        "clientId": "00000000-0000-0000-0000-000000000002",
+        "cloud": "public",
+        "resources": {"graph": {"audience": "https://graph.microsoft.com", "scopes": ["Files.Read"]}},
+        "defaultResource": "graph"
+      },
+      "alpha": {
+        "provider": "entra",
+        "tenantId": "00000000-0000-0000-0000-000000000003",
+        "clientId": "00000000-0000-0000-0000-000000000004",
+        "cloud": "public",
+        "resources": {"graph": {"audience": "https://graph.microsoft.com", "scopes": ["Files.Read"]}},
+        "defaultResource": "graph"
+      }
+    },
+    "sources": []
+  }
+}

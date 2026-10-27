@@ -26,6 +26,8 @@ pub struct LogbookProposal {
     pub entry: LogbookEntry,
     /// Repository-relative research activity path.
     pub path: String,
+    /// Exact predecessor required for a correction; absent for an append.
+    pub replaces: Option<LogbookEntry>,
 }
 impl TryFrom<LogbookProposal> for ProcessRepositoryResponse {
     type Error = color_eyre::eyre::Report;
@@ -37,6 +39,7 @@ impl TryFrom<LogbookProposal> for ProcessRepositoryResponse {
             content,
             entry,
             path,
+            replaces,
         } = proposal;
         match (base_revision.trim().is_empty(), SafePath::new(&path)) {
             | (true, _) => Err(eyre!("Repository revision is required")),
@@ -66,15 +69,45 @@ impl TryFrom<LogbookProposal> for ProcessRepositoryResponse {
                         .into_iter()
                         .flat_map(|logbook| &logbook.entries)
                         .find(|candidate| candidate.identifier == entry.identifier);
-                    match existing {
-                        | Some(existing) => serde_json::to_value(existing)
+                    match (existing, replaces.as_ref()) {
+                        | (Some(existing), Some(previous)) => {
+                            let archived = existing.archived;
+                            let same = |left: &LogbookEntry, right: &LogbookEntry| {
+                                serde_json::to_value(left).and_then(|left| serde_json::to_value(right).map(|right| left == right))
+                            };
+                            same(existing, previous)
+                                .map_err(|why| eyre!("Failed to compare correction predecessor — {why}"))
+                                .and_then(|matches| {
+                                    if !matches || archived || entry.archived || previous.identifier != entry.identifier {
+                                        Err(eyre!("Correction predecessor changed or was graduated; operator review is required"))
+                                    } else {
+                                        let logbook = activity.logbook.map(|logbook| {
+                                            let entries = logbook
+                                                .entries
+                                                .into_iter()
+                                                .map(|candidate| {
+                                                    if candidate.identifier == entry.identifier {
+                                                        entry.clone()
+                                                    } else {
+                                                        candidate
+                                                    }
+                                                })
+                                                .collect();
+                                            Logbook { entries, ..logbook }
+                                        });
+                                        Ok((ResearchActivity { logbook, ..activity }, true))
+                                    }
+                                })
+                        }
+                        | (None, Some(_)) => Err(eyre!("Correction predecessor is missing; import the original receipt first")),
+                        | (Some(existing), None) => serde_json::to_value(existing)
                             .and_then(|existing| serde_json::to_value(&entry).map(|entry| existing == entry))
                             .map_err(|why| eyre!("Failed to compare logbook replay — {why}"))
                             .and_then(|identical| match identical {
                                 | true => Ok((activity, false)),
                                 | false => Err(eyre!("Logbook entry identifier '{}' already has different content", entry.identifier)),
                             }),
-                        | None => {
+                        | (None, None) => {
                             let logbook = match activity.logbook {
                                 | Some(logbook) => Logbook {
                                     entries: logbook.entries.into_iter().chain(core::iter::once(entry)).collect(),

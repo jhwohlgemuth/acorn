@@ -1,0 +1,14 @@
+{
+  "changed_properties": [
+    "ProjectDropdown.DisplayMode",
+    "ProjectHelp.Fill",
+    "ProjectHelp.Live",
+    "ProjectHelp.Color",
+    "ProjectHelp.Size",
+    "RefreshProjectsButton.OnSelect",
+    "RefreshProjectsButton.Text"
+  ],
+  "data_sources_unchanged": true,
+  "app_startup_and_recovery_key_unchanged": true,
+  "checker_results": 0
+}

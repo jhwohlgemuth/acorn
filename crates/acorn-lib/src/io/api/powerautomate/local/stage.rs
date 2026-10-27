@@ -1,4 +1,5 @@
 //! Local JSONL batch admission and per-project proposal folding.
+use super::super::revisions::RevisionHistory;
 use super::super::{form::FormAdmission, Submission};
 use super::manifest::{secure_directory, BatchLine, BatchManifest, BatchProject, BatchSummary, PriorRecordLookup};
 use super::types::BatchLineStatus;
@@ -8,15 +9,20 @@ use crate::io::{read_file_snapshot, ApiResult};
 use crate::util::constants::app::APPLICATION;
 use acorn_schema::hardware::memory::Memory;
 use alloc::collections::BTreeMap;
+use bon::Builder;
 use color_eyre::eyre::eyre;
 use std::env;
 use std::path::{Path, PathBuf};
 
+#[derive(Builder)]
 struct StageContext<'a> {
     config_path: &'a Path,
     registry: &'a FolderRegistry,
     prior: &'a PriorRecordLookup,
+    history: &'a RevisionHistory,
+    #[builder(default)]
     seen: BTreeMap<String, String>,
+    #[builder(default)]
     projects: BTreeMap<PathBuf, BatchProject>,
 }
 impl BatchSummary {
@@ -48,26 +54,27 @@ impl BatchSummary {
                             }),
                             | false => split_snapshot(&source_text, &Memory::kb(64)).and_then(|lines| {
                                 PriorRecordLookup::from(directory.as_path()).load().and_then(|prior| {
-                                    let registry = config.registry();
-                                    let mut context = StageContext {
-                                        config_path: &resolved_config,
-                                        registry: &registry,
-                                        prior: &prior,
-                                        seen: BTreeMap::new(),
-                                        projects: BTreeMap::new(),
-                                    };
-                                    let lines = lines.into_iter().map(|line| line.stage(&mut context)).collect::<Vec<_>>();
-                                    let can_apply = lines.iter().all(|line| line.status != BatchLineStatus::Rejected);
-                                    let manifest = BatchManifest {
-                                        batch_id,
-                                        config_digest,
-                                        source_path,
-                                        source_digest,
-                                        can_apply,
-                                        lines,
-                                        projects: context.projects.into_values().collect(),
-                                    };
-                                    manifest.write(&directory).map(|()| manifest.summary())
+                                    prior.revision_history(lines.iter().map(|line| line.raw.as_str())).and_then(|history| {
+                                        let registry = config.registry();
+                                        let mut context = StageContext::builder()
+                                            .config_path(&resolved_config)
+                                            .registry(&registry)
+                                            .prior(&prior)
+                                            .history(&history)
+                                            .build();
+                                        let lines = lines.into_iter().map(|line| line.stage(&mut context)).collect::<Vec<_>>();
+                                        let can_apply = lines.iter().all(|line| line.status != BatchLineStatus::Rejected);
+                                        let manifest = BatchManifest {
+                                            batch_id,
+                                            config_digest,
+                                            source_path,
+                                            source_digest,
+                                            can_apply,
+                                            lines,
+                                            projects: context.projects.into_values().collect(),
+                                        };
+                                        manifest.write(&directory).map(|()| manifest.summary())
+                                    })
                                 })
                             }),
                         }
@@ -91,8 +98,9 @@ impl JsonlLine {
             let id = submission.submission_id.to_ascii_lowercase();
             match context.seen.get(&id) {
                 | Some(previous) if previous != &digest => Err(eyre!("Submission UUID conflicts with another line in this batch")),
-                | Some(_) => submission
-                    .admit(context.registry, &|name| env::var(name).ok(), None)
+                | Some(_) => context
+                    .history
+                    .admit(&submission, context.registry, &|name| env::var(name).ok())
                     .and_then(|admission| {
                         context
                             .registry
@@ -101,8 +109,9 @@ impl JsonlLine {
                     }),
                 | None => {
                     context.seen.insert(id.clone(), digest.clone());
-                    submission
-                        .admit(context.registry, &|name| env::var(name).ok(), None)
+                    context
+                        .history
+                        .admit(&submission, context.registry, &|name| env::var(name).ok())
                         .and_then(|admission| {
                             context.registry.local_destination(&admission.folder_id).and_then(|destination| {
                                 context
@@ -126,6 +135,7 @@ impl JsonlLine {
                 .maybe_submission_id(submission_id)
                 .maybe_operation_key(admission.as_ref().map(|admission| admission.operation_key.clone()))
                 .maybe_project_id(admission.as_ref().map(|admission| admission.folder_id.clone()))
+                .maybe_replaces(admission.as_ref().and_then(|admission| admission.replaces.clone()))
                 .maybe_entry(admission.map(|admission| admission.entry))
                 .status(status)
                 .build(),
@@ -159,6 +169,7 @@ fn fold_project(projects: &mut BTreeMap<PathBuf, BatchProject>, destination: &Pa
                                 .base_revision(digest_text(&base))
                                 .content(&base)
                                 .entry(admission.entry.clone())
+                                .maybe_replaces(admission.replaces.clone())
                                 .path(path)
                                 .build(),
                         )

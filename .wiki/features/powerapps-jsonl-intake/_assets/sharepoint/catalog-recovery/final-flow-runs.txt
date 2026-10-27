@@ -151,15 +151,15 @@ Browser tab: 1329059545, Title: "Manage your flows | Power Automate", URL: "http
 								100 text Connection references
 							101 button See all
 							208 table
-								209 row o9w@ornl.gov SharePoint Permissions o9w@ornl.gov, ID: row3380-0
+								209 row owner@example.invalid SharePoint Permissions owner@example.invalid, ID: row3380-0
 									210 cell
-										211 image o9w@ornl.gov
+										211 image owner@example.invalid
 									212 cell
 										213 text SharePoint
 										214 button Permissions
 											215 text Permissions
 									216 cell
-										217 text o9w@ornl.gov
+										217 text owner@example.invalid
 						106 container
 							107 heading Co-owner, Value: 3
 								108 text Co-owner

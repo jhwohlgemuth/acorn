@@ -1,0 +1,18 @@
+- MySubmissionsButton:
+    Control: Classic/Button@2.2.0
+    Properties:
+      BorderThickness: "=0"
+      Color: "=Color.White"
+      Fill: "=ColorValue(\"#007833\")"
+      Font: "=Font.'Segoe UI'"
+      Height: "=44"
+      Size: "=14"
+      RadiusTopLeft: "=6"
+      RadiusTopRight: "=6"
+      RadiusBottomLeft: "=6"
+      RadiusBottomRight: "=6"
+      Width: "=180"
+      AlignInContainer: "=AlignInContainer.Center"
+      Text: "=\"My Submissions\""
+      OnSelect: "=If(!varSubmitting && !varHistoryLoading && (IsBlank(varPendingJson) || varDisposition = \"exported\"),\n Set(varHistoryOpen, true); Set(varHistoryLoading, true); Set(varHistoryError, \"\"); Clear(colSubmissionHistory);\n IfError(With({history: ACORNSharePointSubmissionEditing.Run(\"list\")},\n  If(history.status = \"listed\",\n   ClearCollect(colSubmissionHistory, ForAll(Table(ParseJSON(history.submissions)), With({row: ThisRecord.Value}, {receiptId: Text(row.receipt.submissionId), rootId: Coalesce(Text(row.receipt.revision.rootSubmissionId), Text(row.receipt.submissionId)), supersedesId: Text(row.receipt.revision.supersedesSubmissionId), raw: Text(row.raw), summary: Text(row.receipt.entry.summary), projectId: Text(row.receipt.projectId), submittedAt: Text(row.receipt.submittedAt), exportStatus: Text(row.exportStatus), label: Text(DateTimeValue(Text(row.receipt.submittedAt)), \"mmm d, yyyy h:mm AM/PM\") & \" · \" & Left(Text(row.receipt.entry.summary), 100)}))),\n   Set(varHistoryError, \"We couldn't verify your complete submission history. Try again or contact the app owner.\"))),\n  Set(varHistoryError, \"Your submissions could not be loaded. Your current form is unchanged. Try again.\"));\n Set(varHistoryLoading, false); Reset(HistoryDropdown)\n)"
+      DisplayMode: "=If(varSubmitting || varHistoryLoading || (!IsBlank(varPendingJson) && varDisposition <> \"exported\"), DisplayMode.Disabled, DisplayMode.Edit)"

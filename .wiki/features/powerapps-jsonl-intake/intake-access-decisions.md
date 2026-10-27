@@ -6,7 +6,7 @@ Updated October 25, 2026 (America/New_York) in Jason Wohlgemuth's existing signe
 
 Owner confirmation, October 26, 2026: DH could not open the original GitLab-backed Sponsor Highlights app because he did not have a premium entitlement and its GitLab custom connector required one. The reported premium-plan prompt is explained; no further DH-specific diagnosis or retest of the original premium app is required. This closes that access investigation without claiming that his license was changed or access to that app was granted.
 
-This licensing issue is separate from the intermittent GitLab network-range 403/504 limitation recorded below. The separate [SharePoint pilot](sharepoint-pilot.md) removes the GitLab bindings and uses standard connectors. [PA-22](index.md#pa-22--accept-standard-user-access-and-manual-cli-handoff) retains only that route's intended-participant acceptance and handoff; any approved standard-license participant can supply it. DH's original denial neither blocks that test nor proves a successful SharePoint submission. No new live test or account/connection change was performed for this closure.
+This licensing issue is separate from the intermittent GitLab network-range 403/504 limitation recorded below. The separate [SharePoint pilot](sharepoint-pilot.md) removes the GitLab bindings and uses standard connectors. [PA-22 participant acceptance](sharepoint-pilot.md#october-27-standard-participant-acceptance) subsequently passed for that route, alongside the separate manual CLI handoff. DH's original denial neither blocks that test nor proves a successful SharePoint submission. No new live test or account/connection change was performed for this closure.
 
 ## Known limitation and PA-02 closure
 
@@ -62,7 +62,7 @@ The next attempt, `08584086551396206729261127404CU24`, returned HTTP 403 from Ve
 
 Native intake/catalog version 1.0.0.5 imported successfully in ORNL Personal Productivity on October 25. Manual replay `08584086532554165170447843195CU19` and changed-summary conflict `08584086532144607697385592776CU20` both reached their intended responses without writes or delivery. Fresh submission `08584086531530438165830898752CU14` then passed branch, history, catalog and current-file reads but received HTTP 403 at Commit append. The response dated `2026-10-25T18:42:13Z` explicitly identifies a network-range security restriction; action tracking ID `d38bf387-a801-4cf6-823d-fdc4763103f1`. No source IP is inferred.
 
-The unresolved response succeeded, confirmation/queued-new and Teams were skipped, and the isolated file stayed byte-identical at 457 bytes. No retry or network/credential workaround followed. The test intake was returned Off. This proves that successful reads in ORNL do not establish write access or resolve the intermittent restriction. PA-02 was open at this checkpoint. [Restoration and run evidence](restore-target-readiness.md#ornl-version-1005-import-and-restored-intake-acceptance).
+The unresolved response succeeded, confirmation/queued-new and Teams were skipped, and the isolated file stayed byte-identical at 457 bytes. No retry or network/credential workaround followed. The test intake was returned Off. This proves that successful reads in ORNL do not establish write access or resolve the intermittent restriction. PA-02 was open at this checkpoint. [Restoration and run evidence](restore-target-readiness.md#ornl-native-restore-acceptance).
 
 ## October 25 evening PA-02 acceptance
 

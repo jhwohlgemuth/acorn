@@ -6,7 +6,7 @@ difficulty: high
 impact: high
 package: [acorn-lib, acorn-cli, acorn-schema]
 tags: [feature, ask, metadata, chat, terminal, enrichment]
-status: planned
+status: in-progress
 execution: phased
 phase_budget_hours: 5
 ---

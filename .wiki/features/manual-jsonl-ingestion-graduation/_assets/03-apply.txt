@@ -4,7 +4,7 @@
   "projects": [
     {
       "projectId": "acorn",
-      "destination": "/Users/o9w/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/acorn/index.json",
+      "destination": "/Users/owner/dev/re/acorn/.wiki/assets/sponsor-highlights/manual-demo/rehearsal-work-3/acorn/index.json",
       "status": "applied"
     }
   ],

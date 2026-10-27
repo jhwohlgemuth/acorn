@@ -34,7 +34,7 @@ Browser tab: 1329059091, Title: "Sponsor Highlights - Power Apps", URL: "https:/
 							43 text Document progress. Connect research to impact.
 						44 container
 							45 text 01  //  HIGHLIGHT DETAILS
-							46 text Submitted by Jason Wohlgemuth  •  o9w@ornl.gov
+							46 text Submitted by Jason Wohlgemuth  •  owner@example.invalid
 							47 text Project *
 							48 container
 								49 pop up button (expanded) Description: Project, required. Select a project, Secondary Actions: Collapse

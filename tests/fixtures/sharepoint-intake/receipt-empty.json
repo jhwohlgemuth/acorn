@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "provider": "sharepoint-graph",
+  "tenantId": "synthetic-tenant",
+  "sourceUrl": "https://example.sharepoint.test/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/logbook.jsonl",
+  "siteId": "synthetic-site",
+  "driveId": "synthetic-drive",
+  "itemId": "synthetic-item",
+  "revision": {
+    "proof": "beforeAfter",
+    "value": "\"revision-one\""
+  },
+  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "byteCount": 0,
+  "recordCount": 0,
+  "modifiedAt": null,
+  "capturedAt": "2026-01-01T00:00:00Z",
+  "verifiedAt": "2026-01-01T00:00:00Z"
+}

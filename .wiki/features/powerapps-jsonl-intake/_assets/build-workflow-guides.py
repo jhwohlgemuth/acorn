@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the two current guides and their notification extracts from retained evidence."""
+"""Build the two current guides from retained evidence."""
 import html
 import os
 import re
@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from pypdf import PdfReader, PdfWriter
+from pdf_code import shell_block
 from reportlab.lib.colors import HexColor, white
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.utils import ImageReader
@@ -64,8 +64,12 @@ def grid(c, rows, top, widths=(200, 386, 386), size=15):
 
 
 def code(c, text, top, size=14):
-    safe = '<br/>'.join(html.escape(line).replace(' ','&#160;') for line in text.splitlines())
-    return paragraph(c, f'<font name="Courier">{safe}</font>', 68, top, 944, size)
+    block = shell_block(text, 944, size, minimum=11)
+    _, height = block.wrap(944, H)
+    if top + height + 16 > 748:
+        raise ValueError('Code exceeds page')
+    block.drawOn(c, 68, H-top-height-8)
+    return top+height+30
 
 
 def header(c, title, section, number, total, audience):
@@ -81,7 +85,7 @@ def header(c, title, section, number, total, audience):
     paragraph(c,title,73,58,920,29,'#FFFFFF',True)
     c.setStrokeColor(HexColor('#C4D9DB'));c.line(54,47,1026,47)
     c.setFillColor(HexColor('#526A70'));c.setFont('Helvetica',10)
-    c.drawString(54,29,f'ACORN / ORNL PILOT  //  {audience}  //  OCT 26, 2026')
+    c.drawString(54,29,f'ACORN / ORNL PILOT  //  {audience}  //  OCT 27, 2026  //  SANITIZED')
     c.drawRightString(1026,29,f'{number:02} / {total:02}')
 
 
@@ -90,53 +94,58 @@ def link(label, url):
 
 
 def diagram(c):
-    paragraph(c,'Choose one intake route per highlight. Both preserve the original submission for later review.',54,153,size=17)
+    paragraph(c,'New highlights and later corrections follow the same SharePoint review and reporting path.',54,153,size=17)
     picture(c,ASSETS/'notifications/workflow.png',85,192,910,465)
-    paragraph(c,'Solid green: data handoff. Teams notices at save are automatic and best effort. Dashed: owner-triggered milestones; the local CLI sends no messages. A local PDF does not itself publish a report or send email.',54,676,size=14)
+    paragraph(c,'Solid green: saved data and review steps. A newly exported original or correction triggers Teams, best effort. Dashed: owner-triggered milestones. Corrections do not alter existing reports; local CLI commands send no messages.',54,676,size=14)
 
 
 def branch_overview(c):
-    paragraph(c,'Use the app link supplied by the owner. These are separate apps, not a branch selector within one form.',54,157)
+    paragraph(c,'Use the SharePoint app for new highlights. The separate GitLab app is retained with both flows Off.',54,157)
     top=grid(c,[['','SharePoint pilot','GitLab connector'],
-      ['Open',link('Sponsor Highlights - SharePoint Pilot',SP_APP),link('Sponsor Highlights',GL_APP)],
+      ['Open',link('Sponsor Highlights - SharePoint Pilot',SP_APP),link('Retained app - flows Off',GL_APP)],
       ['Storage','One shared list row per receipt. Combined logbook.jsonl refreshes every five minutes; individual receipt files remain available.','One appended line in the repository JSONL logbook; receipt identifies a commit.'],
       ['Projects','13 seeded SharePoint catalog rows. Updates are maintained explicitly.','Repository configuration: .acorn.jsonc folders, or index.json / index.yaml discovery.'],
-      ['Current scope','Owner tests passed. Standard-license participant access is still awaiting validation.','Existing operational pilot. Custom connector requires appropriate premium use rights; intermittent GitLab denials remain.'],
+      ['Current scope','Published with accepted recovery/export repairs. Standard-license participant access passed; approved audience remains owner and participant.','Paused October 27. Custom connector and credentials retained. Restoration requires premium use rights; intermittent denials remain.'],
       ['After capture','Download combined logbook.jsonl for local ACORN review. Allow the next five-minute export run.','Stage the GitLab file URL or an exact local snapshot for ACORN review.'] ],198,size=15)
-    paragraph(c,'Do not send the same pending highlight through both apps. The original GitLab app remains enabled; the SharePoint app does not replace it yet.',54,top,size=16,bold=True)
+    paragraph(c,'Keep pending GitLab receipts in the original app. Ask the owner to reconcile them; never resubmit the same uncertain highlight through SharePoint.',54,top,size=16,bold=True)
+
+
+def start(c):
+    top=paragraph(c,'Use Sponsor Highlights - SharePoint Pilot to submit highlights and correct your own confirmed submissions. Each save retains an immutable receipt for review.',54,156)
+    top=paragraph(c,link('Open the SharePoint form',SP_APP),54,top,size=21)
+    top=grid(c,[['Step','What happens'],['1 // Submit or correct','For new work, complete the form and submit once. For a correction, use My Submissions > Edit selected > Save correction.'],['2 // Confirm','JSONL ready confirms the individual receipt file. Teams notifies the owner and submitter; self-submissions skip the duplicate notice.'],['3 // Collect','The five-minute exporter rebuilds logbook.jsonl from the stored list receipts. Operators check freshness before downloading.'],['4 // Review and report','Stage the downloaded rows, inspect the latest content, confirm apply and generate a new local report. Email is reserved for important milestones.']],top,widths=(220,752),size=17)
+    paragraph(c,'This guide follows the active SharePoint workflow. Appendix A preserves the paused GitLab connector reference. Retry each pending save with its same receipt ID. A correction gets a new linked ID; original records remain unchanged.',54,top,size=16)
 
 
 def projects(c):
-    paragraph(c,'Sign in with your approved ORNL account. Check Submitted by, then load the project catalog and select the correct project.',54,156)
+    paragraph(c,'Report placement is first and defaults to Project highlight. Check Submitted by, then load the project list. My Submissions sits between the banner and form for later corrections.',54,156)
     paragraph(c,'The catalog may load automatically. The button reads <b>Load Project List</b> before its first successful load and <b>Refresh Project List</b> afterward. Loading alone does not submit anything.',54,218,size=16)
-    picture(c,ASSETS/'sharepoint/projects-list.png',54,290,972,350)
-    paragraph(c,'October 26 capture: the shared SharePoint catalog contains 13 project IDs. It is a seeded snapshot, not an automatic GitLab synchronization. If a project is absent, ask the owner; do not choose an unrelated project.',54,658,size=14)
+    picture(c,ASSETS/'sharepoint/submission-editing/navigation-published.png',54,290,972,300)
+    paragraph(c,'The catalog has 13 project choices. Report-wide update (no associated project) disables Project and its load button. For project highlights, failed catalog loading blocks submission and offers Retry Project List.',54,658,size=14)
 
 
 def fields(c):
-    top=grid(c,[['Field','What to enter'],['Project / date','Select the research project and the date the highlight describes.'],
+    top=grid(c,[['Field','What to enter'],['Report placement','Project highlight is the default. Report-wide update (no associated project) routes to the separate general logbook; standalone CLI reporting remains PA-29.'],['Project / date','For project highlights, load and select the research project. Enter the date of the work.'],
      ['Category','administration, collaboration, data, engagement, funding, infrastructure, method, other, personnel, publication, research or software.'],
      ['Status','completed, in-progress or upcoming.'],['Event type','Optional: conference, exhibition, meeting, other, presentation, tour, training or workshop.'],
-     ['Summary / details','Summary: required, up to 1,200 characters. Details: optional, one per line; up to 20 details, each up to 1,000 characters.'],
-     ['Report placement','Project highlight, or General update (report title page). This chooses later placement; it does not publish.']],156,widths=(215,757),size=16)
-    paragraph(c,'Both branches use the same form fields and envelope. Include a concrete result and why it matters. Use non-sensitive content because pending submissions are stored in the browser.',54,top,size=17)
+     ['Summary / details','Summary: required, up to 1,200 characters. Details: optional, one per line; up to 20 details, each up to 1,000 characters.']],156,widths=(215,757),size=16)
+    paragraph(c,'The form captures the original fields in one submission envelope. Include a concrete result and why it matters. Use non-sensitive content because pending submissions are stored in the browser.',54,top,size=17)
 
 
 def write_highlight(c):
-    paragraph(c,'Review the project, date, category, status and text. Select <b>Submit highlight</b> once. The app freezes the payload and receipt ID while it waits for confirmation.',54,156)
-    picture(c,ASSETS/'notifications/form-before-submit.png',54,220,972,445)
-    paragraph(c,'Dated GitLab capture, October 24: a synthetic LandScan example. SharePoint uses the same entry fields with a SharePoint pilot subtitle and different save confirmation.',54,686,size=14)
-
+    top=paragraph(c,'Review the project, date, category, status and text. Select <b>Submit highlight</b> once. The app freezes the payload and receipt ID while it waits for confirmation.',54,156)
+    top=grid(c,[['Check','Before you send'],['Project','For a project highlight, load and choose the correct project. Report-wide updates disable these controls. Never substitute an unrelated project.'],['Summary and details','Describe the result and why it matters. Use only non-sensitive content: the pending draft is stored locally in your browser.'],['Placement','Project highlight is the default. Use Report-wide update (no associated project) only for program- or organization-wide work. It does not publish; standalone general reporting is pending.'],['After Submit','Wait for the result panel. Keep the same receipt if the result is uncertain; do not start another highlight for the same work.']],top,widths=(240,732),size=17)
+    paragraph(c,'A confirmed submission is ready for operator review. The next page shows the published SharePoint confirmation and the distinction between an individual receipt and the collected logbook.',54,top,size=17)
 
 def field_menus(c):
-    paragraph(c,'Set the date of the work, then choose the category that best describes it. These shared controls work the same way in both intake branches.',54,156)
+    paragraph(c,'Set the date of the work, then choose the category that best describes it.',54,156)
     picture(c,ASSETS/'walkthrough/07-date-picker.png',54,231,474,390)
     picture(c,ASSETS/'walkthrough/03-categories.png',552,231,474,390)
     paragraph(c,'Dated form captures, October 24. Left: calendar picker; confirm with Ok or use Cancel to retain the prior date. Right: category menu; scroll for additional choices. Earlier project labels in the captures are not the current catalog inventory.',54,661,size=15)
 
 
 def status_menus(c):
-    paragraph(c,'Status is required. Event type can remain Not specified if the highlight has no associated event. The same choices are used in both apps.',54,156)
+    paragraph(c,'Status is required. Event type can remain Not specified if the highlight has no associated event. Choose the most specific applicable value.',54,156)
     picture(c,ASSETS/'walkthrough/05-status-options.png',54,231,474,390)
     picture(c,ASSETS/'walkthrough/06-event-options.png',552,231,474,390)
     paragraph(c,'Dated form captures, October 24. Left: progress status. Right: optional event type. The form remains an intake surface; choosing Completed describes the work, not reviewer approval.',54,661,size=15)
@@ -144,22 +153,23 @@ def status_menus(c):
 
 def recovery_panels(c):
     paragraph(c,'An unresolved save and a conflicting receipt require different actions. Read the result before retrying or editing.',54,156)
-    picture(c,ASSETS/'browser-recovery/jason-unresolved-panel.png',54,230,474,390)
-    picture(c,ASSETS/'browser-recovery/jason-conflict-panel.png',552,230,474,390)
-    paragraph(c,'Isolated PA-14 test app captures: unresolved outcome (left) and conflict (right). These simulated panels demonstrate the safety distinction; they are not proof of a new SharePoint retry or conflict. Preserve the same receipt for owner investigation.',54,661,size=15)
+    picture(c,ASSETS/'sharepoint/pa21-20261026/unconfirmed.png',54,230,474,390)
+    picture(c,ASSETS/'sharepoint/pa21-20261026/conflict-panel.png',552,230,474,390)
+    paragraph(c,'Isolated SharePoint PA21 acceptance captures: unconfirmed outcome (left) and conflict (right). Preserve the same receipt and original content for retry or owner investigation; never clear an unresolved draft.',54,661,size=15)
 
 
 def mobile(c):
-    paragraph(c,'On a small screen the form stacks vertically. Scroll through the same fields, review the selected project and use one tab while a submission is pending.',54,156)
-    picture(c,ASSETS/'visual-polish-phone-top.png',54,225,474,410)
-    picture(c,ASSETS/'visual-polish-phone-bottom.png',552,225,474,410)
-    paragraph(c,'Dated responsive previews of the original form. They illustrate the shared layout, not native-mobile or SharePoint mobile-storage acceptance. The lower section contains report placement, review guidance and Submit highlight.',54,661,size=15)
+    paragraph(c,'The form stacks vertically. My Submissions occupies its own row between the banner and form; it no longer overlaps the header.',54,156)
+    picture(c,ASSETS/'sharepoint/submission-editing/navigation-phone.png',54,232,350,420)
+    top=paragraph(c,'Report placement comes first. Project highlight is the default; load a project only for that choice.',450,248,550,size=19)
+    top=paragraph(c,'For an existing confirmed receipt, use My Submissions to load your own history and start a linked correction. Pending submissions must reconcile before another edit.',450,top,550,size=18)
+    paragraph(c,'October 27 phone-size Studio preview. This verifies spacing, not native-mobile storage acceptance. Keep one tab per pending browser slot.',450,top,550,size=16)
 
 
 def sp_receipt(c):
     paragraph(c,'<b>Highlight saved · JSONL ready</b> means the list receipt exists and the exported file passed exact readback. Keep the receipt ID. Saving is separate from content approval and publication.',54,156)
-    picture(c,ASSETS/'sharepoint/app-teams-success.png',54,218,972,447)
-    paragraph(c,'October 26 published-app test: receipt 64b836e0-016f-4493-9894-a6fe79acc8de. Receipt, file verification and Teams action succeeded. Recipient reading of the message was not independently checked.',54,681,size=14)
+    picture(c,ASSETS/'sharepoint/cutover/published-submission.png',54,218,972,447)
+    paragraph(c,'October 27 deployed app: receipt 807ecb08-3f88-4aa8-a076-f623680b56db. Individual download matched the eighth collected row exactly; the prior seven rows were unchanged. Teams action succeeded.',54,681,size=14)
 
 
 def gl_receipt(c):
@@ -169,35 +179,31 @@ def gl_receipt(c):
 
 
 def recovery(c):
-    top=grid(c,[['Result','SharePoint pilot','GitLab connector'],
-      ['Confirmed','Receipt plus verified export. Back to highlight preserves the locked entry.','Receipt plus immutable commit. Back to highlight preserves the locked entry.'],
-      ['Received; export pending','Keep the same ID. Use Retry JSONL export; the list receipt alone is not an export confirmation.','Not used by this branch. Read its commit / unresolved result.'],
-      ['Uncertain save','Keep the frozen content and retry the existing submission. Do not change apps.','Retry the same ID and content so prior immutable history can be reconciled.'],
-      ['Rejected / conflict','Edit only after explicit rejection permits it. Conflicting ID/content needs owner review.','Same rule: rejection permits correction; conflict needs owner review.'],
-      ['Browser recovery unavailable','Read the message; a new send is stopped if pending storage cannot be prepared.','Same rule. Do not clear existing browser data while a result is unresolved.']],156,size=14.5)
-    paragraph(c,'Use one tab and the same browser profile/account. New highlight clears only that app\'s recovery slot; it does not delete the stored receipt. SharePoint reload passed; its full restart, denied-storage and pending-export recovery acceptance remain open.',54,top,size=15)
-
+    top=grid(c,[['Result','SharePoint action'],['Confirmed','Receipt plus verified export. Back to highlight preserves the locked entry; My Submissions starts a separate correction.'],['Received; export pending','Keep the same ID. Use Retry JSONL export; the list receipt alone is not an export confirmation.'],['Uncertain save','Keep the frozen content and retry the existing submission.'],['Rejected / conflict','Edit only after explicit rejection permits it. Conflicting ID/content needs owner review.'],['Browser recovery unavailable','A new send is stopped if pending storage cannot be prepared. Do not clear existing browser data while a result is unresolved.']],156,widths=(265,707),size=17)
+    paragraph(c,'Use one tab and the same browser profile/account. New highlight clears only this app\'s recovery slot; it does not delete the stored receipt. Restart, denied-storage, pending-export and conflict acceptance passed in isolated copies. The deployed update preserves its recovery key and formulas.',54,top,size=16)
 
 def teams_mock(c):
-    paragraph(c,'Fictional chats and receipts below illustrate both routes. No personal Teams screenshot is used.',54,155,size=16)
-    c.setFillColor(HexColor('#484772'));c.roundRect(54,145,972,450,10,fill=1,stroke=0)
-    paragraph(c,'Teams  //  Pilot owner (you)  //  Example workflow updates',74,228,920,16,'#FFFFFF',True)
-    for x,branch,status,target in [(74,'SHAREPOINT PILOT','Received and exported','View JSONL export'),(554,'GITLAB CONNECTOR','Saved to the logbook','View saved record')]:
-        c.setFillColor(white);c.roundRect(x,H-292-335,452,335,8,fill=1,stroke=0)
-        y=paragraph(c,branch,x+22,310,410,11,GREEN,True)
-        y=paragraph(c,'ACORN // Sponsor Highlights',x+22,y,410,13)
-        y=paragraph(c,'Highlight saved',x+22,y,410,24,INK,True)
-        y=paragraph(c,'<b>Project</b><br/>Example Project',x+22,y,410,15)
-        y=paragraph(c,'<b>Status</b><br/>'+status+'<br/>Awaiting ACORN review',x+22,y,410,15)
-        y=paragraph(c,target,x+22,y,410,16,GREEN,True)
-        paragraph(c,'Receipt ID: EXAMPLE-001',x+22,y,410,12)
-    paragraph(c,'Link destination differs: the SharePoint JSONL file or the immutable GitLab commit. Real notices go to the pilot owner, not every contributor. A missing notice does not undo a confirmed save.',54,681,size=14)
+    paragraph(c,'Fictional examples show the new message hierarchy. Teams clients may simplify colors and borders.',54,155,size=16)
+    c.setFillColor(HexColor('#484772'));c.roundRect(54,147,972,449,10,fill=1,stroke=0)
+    paragraph(c,'Teams  //  Sponsor Highlights',74,227,920,16,'#FFFFFF',True)
+    for x,branch,target in [(74,'OWNER NOTICE','Open JSONL export'),(554,'CONTRIBUTOR CONFIRMATION','Keep this receipt for support')]:
+        c.setFillColor(white);c.roundRect(x,170,452,368,8,fill=1,stroke=0)
+        paragraph(c,branch,x+22,284,408,10,'#526A70',True)
+        paragraph(c,'ACORN // SPONSOR HIGHLIGHTS',x+22,310,408,11,'#526A70',True)
+        paragraph(c,'Highlight received',x+22,338,408,23,GREEN,True)
+        c.setStrokeColor(HexColor(GREEN));c.setLineWidth(4);c.line(x+24,H-391,x+24,H-544)
+        y=paragraph(c,'<b>Project</b><br/>Example Project',x+40,385,385,14)
+        y=paragraph(c,'<b>Status</b><br/>Saved · JSONL verified · Awaiting review',x+40,y,385,14)
+        paragraph(c,'<b>Receipt ID</b><br/>EXAMPLE-001',x+40,y,385,12)
+        paragraph(c,target,x+22,553,408,14,GREEN,True)
+        c.setStrokeColor(HexColor('#C4D9DB'));c.setLineWidth(0.6);c.line(x+22,H-588,x+430,H-588)
+        paragraph(c,'<i>Saving does not approve or publish the highlight.</i>',x+22,596,408,11,'#526A70')
+    paragraph(c,'Bold labels and indented details remain useful when a client omits styling. Owner notices link to stored JSONL; contributors receive their receipt without a private-storage link. Email stays reserved for milestones.',54,678,size=14)
 
 
 def notifications(c):
     top=grid(c,[['Milestone','Channel','When it happens today'],
-      ['SharePoint new receipt + export','Teams to owner','Automatic after response handling, only when this run created the receipt and verified its export.'],
-      ['GitLab confirmed new save','Teams to owner','Automatic after confirmed new-save response. Exact replay does not resend.'],
+      ['Original or correction + export','Teams to owner + submitter','Automatic after a new receipt and verified export in the same run. History reads and exact replays send no notice. Skip duplicate owner self-notices.'],
       ['Workspace created / no report changes','Teams to owner','Owner invokes the manual callback for an actual milestone.'],
       ['Review requested / report ready / actionable failure','Email to owner','Owner invokes the manual callback with the real review or deliverable evidence.'],
       ['Typing, validation or unconfirmed save','App feedback only','No routine intake email; no new notice for exact replays.']],156,size=15)
@@ -206,43 +212,55 @@ def notifications(c):
 
 def reviewer(c):
     top=paragraph(c,'The form collects submissions; it does not provide an approval screen. The owner supplies the proposed changes and review location.',54,156)
-    for title,body in [('1 // Check the evidence','Match the project and receipt. Review date, category, status, placement, summary and details against the underlying work.'),('2 // Inspect the local proposal','Both routes feed the same ACORN stage / inspect / apply process. Confirm the proposed diff before allowing the destination index to change.'),('3 // Confirm optional promotion','Graduation may add a contributor or other supported metadata. Use the interactive run --index mode for per-entry Yes / No selection and a separate final confirmation.'),('4 // Review the report','A local PDF is a preview, not publication. Follow the supplied review process before merging changes or releasing a report.')]:
+    for title,body in [('1 // Check the evidence','Match the project and receipt. Review date, category, status, placement, summary and details against the underlying work.'),('2 // Inspect the local proposal','Stage the downloaded originals and corrections together. Inspect the latest content and linked history, then confirm apply. Conflicts require operator review.'),('3 // Confirm optional promotion','Graduation may add a contributor or other supported metadata. Use the interactive run --index mode for per-entry Yes / No selection and a separate final confirmation.'),('4 // Review the report','A local PDF is a preview, not publication. Follow the supplied review process before merging changes or releasing a report.')]:
         top=paragraph(c,title,54,top,size=20,bold=True)
         top=paragraph(c,body,54,top,size=17)
-    paragraph(c,'Ask the owner to coordinate corrections to confirmed records. Do not edit stored receipt payloads or create duplicate submissions just to retry reporting.',54,top,size=16,color=GREEN,bold=True)
+    paragraph(c,'Use My Submissions to correct your own confirmed highlight. Operators review the new linked receipt. Never overwrite stored payloads or create duplicates just to retry reporting.',54,top,size=16,color=GREEN,bold=True)
+
+
+def correction_history(c):
+    paragraph(c,'An edit adds a linked receipt. It preserves the original and the complete correction history.',54,153,size=17)
+    picture(c,ASSETS/'notifications/correction-history.png',70,203,940,400)
+    top=paragraph(c,'Example IDs A, B and C represent three saves of one highlight. The download keeps all three rows; reviewed apply keeps one current logbook entry with the latest accepted content.',54,623,size=15)
+    paragraph(c,'Keep ancestry in the batch or previously applied workspace history. Missing parents, competing corrections or changed/graduated prior content stop apply for review. Existing PDFs stay unchanged; generate and review a new report.',54,top,size=14)
+
+
+def editing(c):
+    top=paragraph(c,'Use My Submissions between the banner and form to correct a confirmed highlight. You can see only your own receipt history.',54,156)
+    top=grid(c,[['Step','Action'],['1 // Choose','Open My Submissions, select the latest receipt and choose Edit selected.'],['2 // Correct','Update date, category, status, event type, summary or details. Project and report placement stay fixed. Cancel editing leaves the saved record unchanged.'],['3 // Save once','Select Save correction. Wait for confirmed JSONL feedback and keep the new receipt ID. If uncertain, retry the same frozen correction.'],['4 // Review','The new receipt links the original and previous version. Both stay in collected JSONL; operators stage, inspect and apply the latest version before reporting.']],top,widths=(210,762),size=16)
+    top=paragraph(c,'A correction sends Teams confirmation after a newly saved, verified export. It does not approve the highlight, reverse graduation or change an existing report. Email remains milestone-only.',54,top,size=16)
+    paragraph(c,'Published and accepted October 27 for the owner and a standard-license contributor, including private history and Teams confirmation. If another correction won first, reload history before editing again.',54,top,size=14,color=GREEN)
 
 
 def support(c):
     top=paragraph(c,'If access fails, keep the exact error and app link. A standard connector does not grant an account entitlement, app sharing, site access or environment permission.',54,156)
-    top=grid(c,[['Check','Current position'],['SharePoint participant access','Owner-context tests passed. Another intended standard-license user still needs an end-to-end access test before wider sharing.'],['GitLab access','Custom connector use requires appropriate premium use rights. Intermittent network-range denials are recorded as a known limitation.'],['Help request','Send the owner the app/branch, receipt ID, selected project, approximate time and visible result. Never send a token or API key.'],['Pending submission','Keep its original app, ID and content. No automatic migration or duplicate submission across branches.']],top,widths=(240,732),size=16)
-    paragraph(c,link('Open SharePoint pilot',SP_APP)+'  |  '+link('Open GitLab app',GL_APP)+'  |  '+link('ACORN intake reference',DOCS),54,top,size=16)
+    top=grid(c,[['Check','Current position'],['SharePoint participant access','Standard-license participant access passed October 27. Current approved audience: owner and participant. Wider group rollout remains separate.'],['Help request','Send the owner the app/branch, receipt ID, selected project, approximate time and visible result. Never send a token or API key.'],['Pending submission','Keep its original app, ID and content. Do not discard an unresolved receipt or resubmit it under a new ID.']],top,widths=(240,732),size=16)
+    paragraph(c,link('Open SharePoint pilot',SP_APP)+'  |  '+link('ACORN intake reference',DOCS),54,top,size=16)
     paragraph(c,'Microsoft references: '+link('SharePoint connector', 'https://learn.microsoft.com/en-us/connectors/sharepointonline/')+'; '+link('Power Apps license designation','https://learn.microsoft.com/en-us/power-apps/maker/canvas-apps/license-designation')+'. Pilot acceptance is recorded in sharepoint-pilot.md and the active PA plan.',54,top+57,size=13)
 
 
 def components(c):
-    rows=[['Component','SharePoint pilot','GitLab connector'],['Canvas app','163f110f-7f8a-401c-894e-0786b2c018a4','15ae605b-585b-49f5-a413-2b091f919a35'],['Intake flow','64679e9c-ae76-4263-b8fa-8832835516ca','ff4a134b-5fd3-4465-ab19-0325c2f2bf1b'],['Catalog flow','6f8a4ab5-dd66-4904-9f5d-f307519ab4d5','cd27888f-dd74-4675-9dd1-abc246ba56d5'],['Browser slot','SponsorHighlightSharePointPending','SponsorHighlightPending'],['Destination','Research Enablement site: Intake Pilot list and JSONL Pilot library','Project 22464 / main / .acorn/intake/logbook.jsonl']]
-    top=grid(c,rows,156,widths=(180,396,396),size=14)
-    top=paragraph(c,'Environment: <b>Wohlgemuth, Jason</b> ('+ENV+'). The SharePoint app binds only its two pilot flows. Both original GitLab flows remain enabled and unchanged.',54,top,size=16)
-    paragraph(c,'Owner-only callback flow (separate from both app intake bindings): dd1d8f67-116c-f55d-7752-7c7d322691c5. It retains Dataverse receipt tracking and is not the standard-only contributor route.',54,top,size=15)
-
+    rows=[['Component','SharePoint pilot'],['Canvas app','163f110f-7f8a-401c-894e-0786b2c018a4'],['Intake flow','64679e9c-ae76-4263-b8fa-8832835516ca'],['Catalog flow','6f8a4ab5-dd66-4904-9f5d-f307519ab4d5'],['History / correction flow','36695ee1-47d2-f111-a05c-001dd8062052'],['Collected exporter','51efa5f9-6e69-4d75-a53b-2c2965fd51bd'],['Browser slot','SponsorHighlightSharePointPending'],['Destination','Research Enablement site: Intake Pilot list and JSONL Pilot library']]
+    top=grid(c,rows,156,widths=(250,722),size=17)
+    top=paragraph(c,'Environment: <b>Wohlgemuth, Jason</b> ('+ENV+'). The app binds three standard SharePoint pilot flows; the collected exporter runs separately every five minutes.',54,top,size=16)
+    paragraph(c,'Owner-only milestone receiver: dd1d8f67-116c-f55d-7752-7c7d322691c5. It retains Dataverse receipt tracking and is separate from the standard-only contributor bindings.',54,top,size=15)
 
 def sp_contract(c):
-    top=grid(c,[['Field / behavior','Contract'],['SubmissionId','Required, unique 36-character UUID. Find/read the receipt before confirming; changed payload under the same UUID conflicts.'],['PayloadBase64A / B','Base64 of exact original UTF-8 JSON. A holds the first 45,000 encoded characters; B holds the remainder. Encoding is not encryption.'],['Display fields','ProjectId, Summary and SubmitterEmail are for viewing; do not reconstruct the export from them.'],['JSONL export','Receipt: decode A + B, add LF and verify UUID.jsonl. Combined: one serialized five-minute flow rebuilds logbook.jsonl from list rows, verifies exact bytes and skips unchanged writes.'],['ExportStatus / URL','Pending until exact readback succeeds; then Exported with the confirmed file location. A receipt alone is not a successful export.']],156,widths=(230,742),size=15)
-    paragraph(c,'Server checks include envelope shape, raw size/newlines, caller identity, timestamps and exact catalog membership. Combined export caps at 5,000 rows and 10 MiB, retaining the prior file on validation failure. Boundary and concurrent-arrival acceptance remains open. Standard SharePoint HttpRequest is used; no premium generic HTTP action is introduced.',54,top,size=15)
+    top=grid(c,[['Field / behavior','Contract'],['SubmissionId','Required, unique 36-character UUID. Find/read the receipt before confirming; changed payload under the same UUID conflicts.'],['PayloadBase64A / B','Base64 of exact original UTF-8 JSON. A holds the first 45,000 encoded characters; B holds the remainder. Encoding is not encryption.'],['Correction links','revision.rootSubmissionId identifies the original; supersedesSubmissionId identifies the previous receipt. Each correction has a new SubmissionId. Never overwrite a stored payload.'],['JSONL export','Receipt: decode A + B, add LF and verify UUID.jsonl. Combined: one serialized five-minute flow rebuilds logbook.jsonl from list rows, verifies exact bytes and skips unchanged writes.'],['ExportStatus / URL','Pending until exact readback succeeds; then Exported with the confirmed file location. A receipt alone is not a successful export.']],156,widths=(230,742),size=15)
+    paragraph(c,'Correction intake verifies authenticated ownership, current predecessor and fixed project/placement. The unique, nullable, indexed CorrectionParentId prevents competing successors; exact replays reuse their receipt. History is caller-filtered and bounded. Combined export retains all receipts, caps at 5,000 rows / 10 MiB and preserves its prior file on failure. Display fields are not an export source.',54,top,size=15)
 
 
 def sp_run(c):
     top=paragraph(c,'Read action outcomes, not just the overall run color. A replay can fail non-overwrite file creation while successfully reading and confirming the existing exact file.',54,156)
     top=grid(c,[['Case','Observed October 26','Run suffix'],['Fresh app + Teams','Receipt, export/readback, response and Teams action succeeded.','...94369117892624466851CU16'],['Exact replay after Teams','Receipt creation skipped; existing file matched; Teams skipped.','...92740963250031363046CU21'],['Changed payload','Conflict branch succeeded; receipt/file writes skipped.','...11980621045990695644CU06'],['Malformed envelope','Parse failed; persistence skipped; outer response succeeded.','...11189995757802689639CU25']],top,widths=(185,535,252),size=14)
     paragraph(c,'Response outputs: status, submissionid, exportstatus, exportfileurl and receipturl. The app accepts exported only with a matching UUID, received status, exported state and expected file URL. Uncertain export retains the frozen payload and offers Retry JSONL export.',54,top,size=16)
-    paragraph(c,'Full run IDs and action evidence: sharepoint-pilot.md and _assets/sharepoint/. Secure history hides response values; the published app confirmed the successful response contract. Failure/retry panels still require app-driven acceptance.',54,top+95,size=14)
+    paragraph(c,'Full run IDs and action evidence: sharepoint-pilot.md and _assets/sharepoint/. Secure history hides response values; the published app confirmed the successful response contract. Isolated app-driven failure/retry acceptance passed. October 27 live deployment also verified eight exact collected rows and Teams delivery action.',54,top+95,size=14)
 
 
 def catalogs(c):
-    top=grid(c,[['','SharePoint','GitLab'],['Source','13 rows seeded from retained revision 03ff5836289447034f40f2a4898c155441e6cb66. No automatic sync.','.acorn.jsonc folders is authoritative, including an empty list. Without it, find folders with index.json or index.yaml.'],['Response','catalogjson text: source=sharepoint, projects=[{id,label}]. More than 1,000 rows returns catalog_limit with an empty list.','Choices correspond to canonical folders at one repository revision; invalid config or denied access stops discovery.'],['Acceptance','Owner manual and app loads passed. Overflow is authored but not tested.','Successful reads do not prove later writes; network restrictions may be intermittent.']],156,size=15)
-    picture(c,ASSETS/'sharepoint/catalog-success.png',54,top,972,240)
-    paragraph(c,'October 26 catalog flow capture. Catalog membership does not replace ACORN folder/member authorization during later admission.',54,696,size=13)
-
+    top=grid(c,[['Contract','SharePoint catalog'],['Source','13 project choices plus a reserved general destination. Project choices were seeded from revision 03ff5836289447034f40f2a4898c155441e6cb66. No automatic repository synchronization.'],['Response','catalogjson text: source=sharepoint, projects=[{id,label}]. More than 1,000 rows returns catalog_limit with an empty list.'],['Failure feedback','Safe access_denied, unavailable, invalid_catalog or catalog_limit response. The app shows persistent guidance and Retry Project List, with submission disabled until a valid list loads.'],['Acceptance','13-project live load and isolated overflow/error/retry acceptance passed. Accepted response and app feedback are deployed.']],156,widths=(220,752),size=16)
+    picture(c,ASSETS/'sharepoint/catalog-success.png',54,top,972,210)
+    paragraph(c,'October 26 catalog capture. Catalog membership does not replace ACORN folder/member authorization during later admission.',54,696,size=13)
 
 def gl_persistence(c):
     paragraph(c,'Validate the caller/envelope, resolve the project, check immutable history for an exact replay, then conditionally append one line. Preserve every previous byte and verify the committed snapshot before success.',54,156)
@@ -252,7 +270,7 @@ def gl_persistence(c):
 
 
 def local_handoff(c):
-    top=paragraph(c,'SharePoint: download the combined logbook.jsonl after the next five-minute refresh. Preserve the selected original rows and UUIDs. The owner-context three-row local report passed October 26; intended-user and broader export acceptance remain open.',54,156,size=15)
+    top=paragraph(c,'Download logbook.jsonl after its next five-minute refresh. Preserve exact rows and IDs. For corrections, include the original and intervening receipts, or use already-applied workspace ancestry. Stage and inspect before confirmed apply; one logical entry retains the latest accepted content.',54,156,size=15)
     top=paragraph(c,'From the prepared demo directory, use acorn on PATH. intake.json and report.json point to the same separate demo index. Replace BATCH_ID below with the value printed by stage.',54,top,size=15)
     top=code(c,'cd output/pdf/sharepoint-demo-20261026\n'
         '# 1. Stage the three exact selected rows.\n'
@@ -263,50 +281,79 @@ def local_handoff(c):
         '# 4. Generate the combined local PDF.\n'
         'acorn --offline report --config report.json \\\n  --from 2026-10-26T00:00:00Z --through 2026-10-27T00:00:00Z \\\n  --dry-run --combine',top,13)
     top=paragraph(c,'Open .acorn/reports/report.pdf. Defaults use the current directory and all configured projects (only acorn here). Combined mode needs no commit. Keep the fixed date window; --through has no time default. Set CHROME_PATH only if browser discovery fails.',54,top,size=14)
-    paragraph(c,'GitLab file URLs use online stage with CI_SERVER_HOST and the existing protected credential reference, then the same local inspect / apply / report steps. Direct SharePoint URLs remain planned. Local reporting sends no messages or callbacks; optional graduation is separate.',54,top,size=14)
+    paragraph(c,'Direct SharePoint URLs remain planned; download the file first. Local reporting sends no messages or callbacks; optional graduation is separate.',54,top,size=14)
 
 
 def graduation(c):
     top=paragraph(c,'After ingestion, use the current local graduation API. Supported entries can propose contributor or other metadata changes; unsupported entries remain unchanged.',54,156)
     top=code(c,'acorn intake run --index project/index.json --dry-run\nacorn intake run --index project/index.json --interactive\nacorn intake run --index project/index.json --force',top,16)
     top=grid(c,[['Mode','Meaning'],['--dry-run','Validate and preview; write nothing.'],['--interactive','Per-candidate Yes / No selection, then separate final write confirmation. No is the default.'],['--force','Accept all eligible promotions without prompts; validation, digest checks and exact backup remain.'],['--accept ID --expected-digest DIGEST','Apply only an explicitly reviewed selection with the pinned digest.']],top,widths=(340,632),size=15)
-    paragraph(c,'Promotion retains and archives source entries and writes an adjacent exact-byte backup. A bare run --index with eligible entries requires an explicit approval mode. Local run --index is distinct from the GitLab worker run --config. Neither local ingestion nor graduation sends milestone messages.',54,top,size=15)
+    paragraph(c,'Promotion retains and archives source entries and writes an adjacent exact-byte backup. A bare run --index with eligible entries requires an explicit approval mode. Neither local ingestion nor graduation sends milestone messages.',54,top,size=15)
 
 
 def delivery(c):
-    top=grid(c,[['Route','Automatic Teams gate','Recovery limit'],['SharePoint','Create_receipt_SP and Mark_exported_SP must both succeed in the same run. Runs after response handling.','Exact replay skips. Export first confirmed on a later retry also skips the initial notice; no durable notice outbox.'],['GitLab','Queued_new must succeed. Runs after response handling.','Replay, rejection and unresolved results skip. A later notice failure does not roll back the saved commit.']],156,size=15)
-    top=paragraph(c,'Both use the existing Teams self-notification connection, secure action inputs/outputs and no automatic send retries. Notices omit summary/details and link to the stored record. Do not resubmit confirmed intake merely to generate a message.',54,top,size=16)
+    top=grid(c,[['Route','Automatic Teams gate','Recovery limit'],['SharePoint','Create_receipt_SP and Mark_exported_SP must both succeed in the same run. Runs after response handling.','Exact replay skips. Export first confirmed on a later retry also skips the initial notice; no durable notice outbox.']],156,size=15)
+    top=paragraph(c,'SharePoint sends the owner a record link and the submitter a separate confirmation without that private link; self-submissions skip duplication. Secure inputs/outputs and disabled automatic send retries remain. Never resubmit only to get a message.',54,top,size=16)
     top=grid(c,[['Callback event','Required additional fields','Channel'],['mr-created / review-needed','merge_request_url, project_id','Teams / email'],['report-no-changes','project_id, through','Teams'],['artifact-ready','checksum, package_url, project_id, through','Email'],['failed','message, project_id','Email']],top,widths=(275,520,177),size=14)
     paragraph(c,'Manual callback: exact Webhook ID + Event JSON. Unique claim; frozen payload and destination; Pending > Sending > Sent; concurrency one. Sent replay skips. Uncertain Sending holds for reconciliation against the recorded attempt. Never reset solely because a send timed out.',54,top,size=14)
 
 
 def operations(c):
-    top=grid(c,[['Area','Current acceptance and next action'],['SharePoint pilot','Owner app submit, catalog, exact export, reload and new Teams action passed. Manual replay/conflict/malformed handling passed.'],['Remaining SharePoint gates','PA-19 to PA-21: catalog overflow, max sizes, concurrency, export-failure recovery, app conflict/replay, full restart and denied storage. PA-22: intended-participant access/handoff; the owner three-row report passed. PA-24/25: backup/restore and optional cutover. PA-23: combined-export boundary and arrival tests.'],['GitLab gates','PA-15: remaining tail/size cases; PA-16: concurrent writes; PA-17: complete restore acceptance. PA-02 closure records intermittent connectivity as a known limitation.'],['Backup','Native GitLab packages exist; full restore acceptance remains open. SharePoint solution contains its flows/reference; app inclusion and complete native export/restore are pending. Clipboard JSON/YAML is not a native backup.'],['Release boundary','Pilot remains in Wohlgemuth, Jason. Site membership unchanged. Owner premium access does not prove standard-user access. PA-12 shared-environment/channel migration remains separate.']],156,widths=(245,727),size=15)
-    paragraph(c,'Keep original pending receipts in their original app. Do not disable the GitLab route or widen sharing as part of documentation work. Teams/email are notifications; stored receipt, exact source and reviewed index are the evidence.',54,top,size=15)
+    top=grid(c,[['Area','Current acceptance and operating action'],['SharePoint default','PA-19 through PA-28 SharePoint work is accepted. Published app keeps its ID, audience, submission formulas and recovery key. Eight-row collected download preserves the prior seven rows exactly.'],['Rollback SharePoint','Dated sanitized native copies in cutover/ and backup/ predate correction controls. Keep current editing sources separately. Restore approved settings and revalidate an isolated import; historical hashes describe originals. Never blindly overwrite an uncertain write.'],['Editing acceptance','Published editing passed owner and standard-license contributor checks: private history, correction save and Teams confirmation. The 18-row aggregate preserves original and correction bytes; local review/apply also passed.'],['Remaining rollout','Pilot stays in Wohlgemuth, Jason for owner and participant. PA-12 owns shared environment, groups and notification migration. Monitor exporter history and file freshness; no automatic exporter-failure alert is implemented.']],156,widths=(245,727),size=14)
+    paragraph(c,'Keep pending receipts in their original browser slot and reconcile the same UUID. Never create a duplicate to work around uncertainty. Teams/email are notifications; exact stored receipts and reviewed indexes are the evidence.',54,top,size=15)
 
 
 def references(c):
     top=paragraph(c,'Working links',54,156,size=21,bold=True)
-    for label,url in [('SharePoint pilot app',SP_APP),('Original GitLab app',GL_APP),('Research Enablement SharePoint site',SP_SITE),('Pilot GitLab repository',REPO),('ACORN intake command reference',DOCS),('Microsoft SharePoint connector classification','https://learn.microsoft.com/en-us/connectors/sharepointonline/'),('Microsoft Power Apps license designation and linked-flow caveat','https://learn.microsoft.com/en-us/power-apps/maker/canvas-apps/license-designation')]:
+    for label,url in [('SharePoint pilot app',SP_APP),('Research Enablement SharePoint site',SP_SITE),('ACORN intake command reference',DOCS),('Microsoft SharePoint connector classification','https://learn.microsoft.com/en-us/connectors/sharepointonline/'),('Microsoft Power Apps license designation and linked-flow caveat','https://learn.microsoft.com/en-us/power-apps/maker/canvas-apps/license-designation')]:
         top=paragraph(c,link(label,url),54,top,size=16)
     top=paragraph(c,'Repository evidence',54,top+5,size=21,bold=True)
-    paragraph(c,'Within .wiki/features/powerapps-jsonl-intake/: sharepoint-pilot.md, notification-walkthrough.md, boundary-acceptance.md, restore-target-readiness.md and index.md. Manual workflow: ../manual-jsonl-ingestion-graduation/walkthrough.md and handback.md.<br/><br/>Screenshots are dated evidence, not a promise of current availability. Synthetic records remain TEST ONLY. The full PDFs were regenerated October 26 with both branches and current CLI commands.',54,top,size=16)
+    paragraph(c,'Within .wiki/features/powerapps-jsonl-intake/: sharepoint-pilot.md, notification-walkthrough.md, boundary-acceptance.md, restore-target-readiness.md and index.md. Manual workflow: ../manual-jsonl-ingestion-graduation/walkthrough.md and handback.md.<br/><br/>Screenshots and technical records are sanitized copies. Historical hashes describe the originals; revalidate account settings and package imports before reuse. Synthetic records remain TEST ONLY. Updated October 27 after cutover, contributor correction acceptance and navigation spacing verification. Current route, rollback evidence and native before/after app backups: _assets/sharepoint/cutover/README.md.',54,top,size=16)
 
 
-def render_diagram():
+def gl_submit(c):
+    paragraph(c,'After the owner restores the route, open the original app, load the repository project list and complete the same highlight fields. Select Submit highlight once; the app freezes the payload and UUID until the result is reconciled.',54,156)
+    picture(c,ASSETS/'notifications/form-before-submit.png',54,232,972,425)
+    paragraph(c,'Historical GitLab form capture, October 24: a synthetic LandScan example. This paused route requires premium use rights. Keep a pending receipt in its original app; do not create a SharePoint duplicate.',54,681,size=14)
+
+
+def gl_recovery(c):
+    top=paragraph(c,'Both GitLab flows are Off. Keep any existing pending receipt in the original app and browser profile. Ask the owner to reconcile it before retrying; never copy an uncertain submission into SharePoint.',54,156)
+    top=grid(c,[['Result after restoration','What to do'],['Confirmed','Keep the receipt UUID and immutable commit reference. Back to highlight preserves the locked entry.'],['Uncertain or network error','Retry the same frozen ID and payload only after the owner restores and checks the route. Missing immutable proof remains unresolved.'],['Rejected / conflict','Explicit rejection may permit correction. A conflicting ID or payload needs owner review.'],['Notifications','Only a confirmed new save sends the owner a Teams notice. Replay, rejection and unresolved results do not resend it. Missing Teams does not undo a saved commit.']],top,widths=(270,702),size=16)
+    top=paragraph(c,'This custom connector requires appropriate premium use rights. Intermittent network-range 403/504 denials remain a known limitation. A successful catalog load does not prove a later write.',54,top,size=16)
+    paragraph(c,link('Retained original app (paused)',GL_APP)+'  |  '+link('Pilot repository',REPO),54,top,size=16)
+
+
+def gl_inventory(c):
+    top=paragraph(c,'The GitLab route is preserved with intake and catalog Off. No connector, protected connection, credential, app binding or stored data was deleted during the SharePoint cutover.',54,156)
+    top=grid(c,[['Component','Retained identity'],['Canvas app','15ae605b-585b-49f5-a413-2b091f919a35'],['Intake','ACORN Logbook GitLab JSONL Intake (Draft)<br/>ff4a134b-5fd3-4465-ab19-0325c2f2bf1b'],['Catalog','ACORN Project Catalog<br/>cd27888f-dd74-4675-9dd1-abc246ba56d5'],['Browser slot','SponsorHighlightPending'],['Destination','Project 22464 / main / .acorn/intake/logbook.jsonl']],top,widths=(210,762),size=15)
+    top=paragraph(c,'Catalog: .acorn.jsonc folders is authoritative, including an empty list. Without it, discover folders containing index.json or index.yaml. Resolve canonical choices at one repository revision; invalid configuration or denied reads stop discovery.',54,top,size=15)
+    paragraph(c,link('Retained app (paused)',GL_APP)+'  |  '+link('Pilot GitLab repository',REPO),54,top,size=16)
+
+
+def gl_restore(c):
+    top=paragraph(c,'Restoration normally needs two flow toggles in Wohlgemuth, Jason. Existing credentials must still be valid, premium entitlement must cover the intended users, and GitLab access must succeed.',54,156)
+    for title,body in [('1 // Enable and check','Turn On ACORN Project Catalog and ACORN Logbook GitLab JSONL Intake (Draft). Verify connection health and catalog load. Retained bindings mean no reimport or new token is normally needed.'),('2 // Reconcile before new work','Keep the original UUID and exact payload for pending receipts. Check immutable history and retry the same ID. Do not resubmit uncertain GitLab content through SharePoint.'),('3 // Preserve notification semantics','Queued_new must succeed before the owner Teams notice. Replay, rejection and unresolved results skip delivery. A send failure does not roll back the commit; do not resubmit merely to get a message.')]:
+        top=paragraph(c,title,54,top,size=18,bold=True)
+        top=paragraph(c,body,54,top,size=15)
+    top=paragraph(c,'For local review, stage a GitLab file URL online with CI_SERVER_HOST and the protected credential reference, or stage an exact local snapshot. Then use the same inspect / apply / report steps. Local commands send no milestones.',54,top,size=15)
+    paragraph(c,'PA-15 boundaries, PA-16 concurrency and PA-17 full restoration checks remain independent unfinished gates. PA-02 records accepted intermittent connectivity. Full rollback evidence: _assets/sharepoint/cutover/README.md.',54,top,size=14)
+
+
+def render_diagram(stem='workflow'):
     folder = ASSETS/'notifications'
     with tempfile.TemporaryDirectory(prefix='pa-guides-') as name:
         root=Path(name);(root/'src').mkdir()
         (root/'book.toml').write_text('[book]\ntitle="Workflow"\n[preprocessor.pikchr]\ncommand="'+str(Path.home()/'.cargo/bin/mdbook-pikchr')+'"\n')
         (root/'src/SUMMARY.md').write_text('# Summary\n- [Workflow](workflow.md)\n')
-        (root/'src/workflow.md').write_text('```pikchr\n'+(folder/'workflow.pikchr').read_text()+'\n```')
+        (root/'src/workflow.md').write_text('```pikchr\n'+(folder/f'{stem}.pikchr').read_text()+'\n```')
         subprocess.run([shutil.which('mdbook') or str(Path.home()/'.cargo/bin/mdbook'),'build',str(root)],check=True)
         content=(root/'book/workflow.html').read_text().split('<main>',1)[1].split('</main>',1)[0]
         svg=re.search(r'<svg[\s\S]*?</svg>',content).group(0).replace('viewbox=','viewBox=').replace('font-size:initial;','font-size:initial;font-family:Arial,Helvetica,sans-serif;')
-        (folder/'workflow.svg').write_text(svg)
+        (folder/f'{stem}.svg').write_text(svg)
         js="const sharp=require(process.argv[1]); sharp(process.argv[2],{density:220}).flatten({background:'#ffffff'}).png().toFile(process.argv[3]);"
-        subprocess.run([str(RUNTIME/'node/bin/node'),'-e',js,str(RUNTIME/'node/node_modules/sharp'),str(folder/'workflow.svg'),str(folder/'workflow.png')],check=True)
-        (folder/'workflow.html').write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>Two intake branches</title><style>body{font-family:Arial;color:#163c47;max-width:1100px;margin:30px auto}svg{width:100%;height:auto}@media print{@page{size:landscape}}</style><h1>Sponsor Highlights // Two intake branches</h1>'+svg+'<p>Choose one branch per highlight. Save notices are automatic and best effort. Dashed links indicate owner-triggered milestones; the local CLI sends no messages. A local PDF does not itself publish or send a report.</p><p>ACORN / ORNL pilot // October 26, 2026</p></html>')
+        subprocess.run([str(RUNTIME/'node/bin/node'),'-e',js,str(RUNTIME/'node/node_modules/sharp'),str(folder/f'{stem}.svg'),str(folder/f'{stem}.png')],check=True)
+        (folder/f'{stem}.html').write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>SharePoint workflow</title><style>body{font-family:Arial;color:#163c47;max-width:1100px;margin:30px auto}svg{width:100%;height:auto}@media print{@page{size:landscape}}</style><h1>Sponsor Highlights // SharePoint workflow</h1>'+svg+'<p>New originals and corrections retain separate immutable receipts and trigger best-effort Teams after verified export. Review and apply keep the latest accepted content. Existing reports remain unchanged. Dashed links indicate owner-triggered milestones; local CLI commands send no messages.</p><p>ACORN / ORNL pilot // October 27, 2026</p></html>')
 
 
 def build(filename, pages, audience):
@@ -315,43 +362,53 @@ def build(filename, pages, audience):
     c.setTitle('Sponsor Highlights - '+audience);c.setAuthor('ACORN / ORNL pilot')
     for i,(title,section,draw) in enumerate(pages,1):
         header(c,title,section,i,len(pages),audience)
-        c.bookmarkPage(f'p{i}');c.addOutlineEntry(title,f'p{i}',0)
+        c.bookmarkPage(f'p{i}')
+        appendix=section.startswith('Appendix A')
+        if appendix and (i==1 or not pages[i-2][1].startswith('Appendix A')):
+            c.bookmarkPage('appendix-a')
+            c.addOutlineEntry('Appendix A - GitLab connector','appendix-a',0)
+        c.addOutlineEntry(title,f'p{i}',1 if appendix else 0)
         draw(c);c.showPage()
     c.save()
     return target
 
 
-def extract(source, indexes, output):
-    reader=PdfReader(source);writer=PdfWriter()
-    for i in indexes:writer.add_page(reader.pages[i])
-    writer.add_metadata({'/Title':'Sponsor Highlights - Workflow and notification extract','/Author':'ACORN / ORNL pilot'})
-    with output.open('wb') as stream:writer.write(stream)
-
 
 def main():
     render_diagram()
-    common=[('One workflow, two intake branches','Start here',branch_overview),('From highlight to reviewed report','Workflow map',diagram)]
-    user=build('sponsor-highlights-user-reviewer-guide.pdf',common+[
-        ('Load the correct project list','Contributor // 01',projects),('Complete the shared form fields','Contributor // 02',fields),
-        ('Choose the date and category','Shared controls',field_menus),('Choose status and optional event type','Shared controls',status_menus),
-        ('Write, review and submit once','Contributor // 03',write_highlight),('Read the SharePoint confirmation','SharePoint branch',sp_receipt),
-        ('Read the GitLab confirmation','GitLab branch',gl_receipt),('Recover without creating a duplicate','Both branches // Recovery',recovery),
-        ('Distinguish an uncertain result from a conflict','Dated recovery evidence',recovery_panels),('Use the form on a small screen','Responsive layout',mobile),
+    render_diagram('correction-history')
+    common=[('Submit and review with SharePoint','Start here',start),('From highlight to reviewed report','Workflow map',diagram)]
+    user_pages=common+[
+        ('Load the correct project list','Contributor // 01',projects),('Complete the form fields','Contributor // 02',fields),
+        ('Choose the date and category','Form controls',field_menus),('Choose status and optional event type','Form controls',status_menus),
+        ('Write, review and submit once','Contributor // 03',write_highlight),('Read the SharePoint confirmation','SharePoint receipt',sp_receipt),
+        ('Recover without creating a duplicate','SharePoint recovery',recovery),
+        ('Distinguish an uncertain result from a conflict','SharePoint recovery evidence',recovery_panels),('Use the form on a small screen','Responsive layout',mobile),
         ('Recognize the saved-highlight notice','Illustrative Teams messages',teams_mock),('Know when Teams and email are used','Notifications',notifications),
-        ('Review before applying or publishing','Reviewer',reviewer),('Access, help and pilot boundaries','Reference',support)],'User and reviewer guide')
-    dev=build('sponsor-highlights-developer-guide.pdf',common+[
-        ('Locate the deployed components','Developer // Inventory',components),('Understand each project catalog','Developer // Catalogs',catalogs),
-        ('Preserve the SharePoint storage contract','SharePoint branch',sp_contract),('Read SharePoint run evidence','SharePoint branch // Acceptance',sp_run),
-        ('Verify the GitLab commit and replay','GitLab branch',gl_persistence),('Bring either JSONL source into local review','Shared local workflow',local_handoff),
-        ('Use the current graduation commands','Shared local workflow',graduation),('Operate notifications independently of storage','Teams and email',delivery),
-        ('Separate proven behavior from release gates','Operations and backup',operations),('Find the live apps and retained evidence','Reference',references)],'Developer and operations guide')
-    extract(user,[0,1,12,13],ASSETS/'notifications/user-reviewer-notification-update.pdf')
-    extract(dev,[0,1,9,10],ASSETS/'notifications/developer-notification-update.pdf')
+        ('Review before applying or publishing','Reviewer',reviewer),('Access, help and pilot boundaries','Reference',support),
+        ('Correct a confirmed highlight','Contributor // Editing',editing),
+        ('From correction history to current content','Correction workflow',correction_history),
+        ('The retained GitLab connector route','Appendix A // Paused connector',branch_overview),
+        ('Submit through GitLab after restoration','Appendix A // Historical form',gl_submit),
+        ('Read a retained GitLab confirmation','Appendix A // Receipt evidence',gl_receipt),
+        ('Handle an existing GitLab receipt','Appendix A // Recovery and notifications',gl_recovery)]
+    dev_pages=common+[
+        ('Locate the deployed SharePoint components','Developer // Inventory',components),('Understand the SharePoint project catalog','Developer // Catalog',catalogs),
+        ('Preserve the SharePoint storage contract','SharePoint storage',sp_contract),('Read SharePoint run evidence','SharePoint acceptance',sp_run),
+        ('Bring downloaded JSONL into local review','Local workflow',local_handoff),('Use the current graduation commands','Local workflow',graduation),
+        ('Operate notifications independently of storage','Teams and email',delivery),('Separate proven behavior from release gates','Operations and backup',operations),
+        ('Find the live app and retained evidence','Reference',references),
+        ('Preserve correction history during intake','Correction workflow',correction_history),
+        ('Locate the retained GitLab components','Appendix A // Paused connector',gl_inventory),
+        ('Verify the GitLab commit and replay','Appendix A // Persistence evidence',gl_persistence),
+        ('Restore and operate the GitLab route','Appendix A // Restoration',gl_restore)]
+    user=build('sponsor-highlights-user-reviewer-guide.pdf',user_pages,'User and reviewer guide')
+    dev=build('sponsor-highlights-developer-guide.pdf',dev_pages,'Developer and operations guide')
     with tempfile.TemporaryDirectory(prefix='pa-fonts-') as name:
         font_config=Path(name)/'fonts.conf'
         font_config.write_text('<fontconfig><dir>/System/Library/Fonts</dir><dir>/Library/Fonts</dir>'
                                f'<cachedir>{name}/cache</cachedir></fontconfig>')
-        subprocess.run([str(RUNTIME/'bin/override/pdftoppm'),'-f','13','-singlefile','-scale-to','1600','-png',
+        subprocess.run([str(RUNTIME/'bin/override/pdftoppm'),'-f','12','-singlefile','-scale-to','1600','-png',
                         str(user),str(ASSETS/'notifications/teams-example')],check=True,
                        env={**os.environ,'FONTCONFIG_FILE':str(font_config)})
     print(user);print(dev)

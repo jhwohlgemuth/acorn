@@ -65,7 +65,7 @@
           "not": {
             "equals": [
               "@toLower(trim(body('Parse_submission_SP')?['submitter']?['email']))",
-              "o9w@ornl.gov"
+              "owner@example.invalid"
             ]
           }
         },

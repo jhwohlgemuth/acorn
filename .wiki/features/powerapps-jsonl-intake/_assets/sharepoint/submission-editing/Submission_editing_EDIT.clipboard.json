@@ -1,0 +1,1695 @@
+{
+  "id": "69d49799-e308-51ae-9248-68c44438f367",
+  "brandColor": "#8C6CFF",
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "connectionName": "shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "tier": "NotSpecified",
+      "apiName": "sharepointonline",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": true
+    }
+  },
+  "connectorDisplayName": "Control",
+  "isTrigger": false,
+  "operationName": "Submission_editing_EDIT",
+  "operationDefinition": {
+    "type": "Scope",
+    "runAfter": {},
+    "actions": {
+      "Caller_EDIT": {
+        "type": "Compose",
+        "inputs": "@toLower(if(not(empty(triggerOutputs()?['headers']?['x-ms-user-email-encoded'])), base64ToString(triggerOutputs()?['headers']?['x-ms-user-email-encoded']), coalesce(triggerOutputs()?['headers']?['x-ms-user-email'], string(null))))",
+        "runAfter": {},
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs"
+            ]
+          }
+        }
+      },
+      "Unique_predecessor_schema_EDIT": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists(guid'31a7f178-6729-4252-a2bc-e06a07838f5c')/fields/getbyinternalnameortitle('CorrectionParentId')?$select=EnforceUniqueValues,Indexed,Required,TypeAsString",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Caller_EDIT": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Read_my_receipts_EDIT": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "table": "31a7f178-6729-4252-a2bc-e06a07838f5c",
+            "$filter": "@concat('SubmitterEmail eq ',decodeUriComponent('%27'),replace(outputs('Caller_EDIT'),decodeUriComponent('%27'),concat(decodeUriComponent('%27'),decodeUriComponent('%27'))),decodeUriComponent('%27'))",
+            "$orderby": "ID asc",
+            "$top": 1001
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Unique_predecessor_schema_EDIT": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          },
+          "paginationPolicy": {
+            "minimumItemCount": 1001
+          }
+        }
+      },
+      "Bounded_history_EDIT": {
+        "type": "If",
+        "expression": {
+          "and": [
+            {
+              "not": {
+                "equals": [
+                  "@outputs('Caller_EDIT')",
+                  ""
+                ]
+              }
+            },
+            {
+              "lessOrEquals": [
+                "@length(body('Read_my_receipts_EDIT')?['value'])",
+                1000
+              ]
+            },
+            {
+              "equals": [
+                "@body('Unique_predecessor_schema_EDIT')?['EnforceUniqueValues']",
+                true
+              ]
+            },
+            {
+              "equals": [
+                "@body('Unique_predecessor_schema_EDIT')?['Indexed']",
+                true
+              ]
+            },
+            {
+              "equals": [
+                "@body('Unique_predecessor_schema_EDIT')?['Required']",
+                false
+              ]
+            },
+            {
+              "equals": [
+                "@body('Unique_predecessor_schema_EDIT')?['TypeAsString']",
+                "Text"
+              ]
+            }
+          ]
+        },
+        "actions": {
+          "Decoded_history_EDIT": {
+            "type": "Select",
+            "inputs": {
+              "from": "@body('Read_my_receipts_EDIT')?['value']",
+              "select": {
+                "receipt": "@json(base64ToString(concat(item()?['PayloadBase64A'],coalesce(item()?['PayloadBase64B'],string(null)))))",
+                "raw": "@base64ToString(concat(item()?['PayloadBase64A'],coalesce(item()?['PayloadBase64B'],string(null))))",
+                "correctionParentId": "@item()?['CorrectionParentId']",
+                "id": "@item()?['SubmissionId']",
+                "projectId": "@item()?['ProjectId']",
+                "exportStatus": "@item()?['ExportStatus']"
+              }
+            },
+            "runAfter": {},
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            }
+          },
+          "Invalid_history_EDIT": {
+            "type": "Query",
+            "inputs": {
+              "from": "@body('Decoded_history_EDIT')",
+              "where": "@or(not(equals(toLower(item()?['receipt']?['submitter']?['email']),outputs('Caller_EDIT'))),not(equals(item()?['receipt']?['submissionId'],item()?['id'])),not(equals(item()?['receipt']?['projectId'],item()?['projectId'])),contains(item()?['raw'],decodeUriComponent('%0A')),contains(item()?['raw'],decodeUriComponent('%0D')),not(equals(coalesce(item()?['receipt']?['revision']?['supersedesSubmissionId'],string(null)),coalesce(item()?['correctionParentId'],string(null)))))"
+            },
+            "runAfter": {
+              "Decoded_history_EDIT": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            }
+          },
+          "Valid_history_EDIT": {
+            "type": "If",
+            "expression": {
+              "and": [
+                {
+                  "equals": [
+                    "@length(body('Invalid_history_EDIT'))",
+                    0
+                  ]
+                },
+                {
+                  "lessOrEquals": [
+                    "@length(base64(string(body('Decoded_history_EDIT'))))",
+                    6990504
+                  ]
+                }
+              ]
+            },
+            "actions": {
+              "History_checked_EDIT": {
+                "type": "Compose",
+                "inputs": true,
+                "runAfter": {},
+                "runtimeConfiguration": {
+                  "secureData": {
+                    "properties": [
+                      "inputs"
+                    ]
+                  }
+                }
+              }
+            },
+            "else": {
+              "actions": {
+                "History_invalid_EDIT": {
+                  "type": "Compose",
+                  "inputs": "unresolved",
+                  "runAfter": {},
+                  "runtimeConfiguration": {
+                    "secureData": {
+                      "properties": [
+                        "inputs"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "runAfter": {
+              "Invalid_history_EDIT": [
+                "Succeeded"
+              ]
+            }
+          }
+        },
+        "else": {
+          "actions": {
+            "History_limit_EDIT": {
+              "type": "Compose",
+              "inputs": "unresolved",
+              "runAfter": {},
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "runAfter": {
+          "Read_my_receipts_EDIT": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_mode_EDIT": {
+        "type": "If",
+        "expression": {
+          "and": [
+            {
+              "equals": [
+                "@actions('History_checked_EDIT')?['status']",
+                "Succeeded"
+              ]
+            },
+            {
+              "equals": [
+                "@triggerBody()?['text']",
+                "list"
+              ]
+            }
+          ]
+        },
+        "actions": {
+          "History_result_EDIT": {
+            "type": "Compose",
+            "inputs": "@string(body('Decoded_history_EDIT'))",
+            "runAfter": {},
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs"
+                ]
+              }
+            }
+          }
+        },
+        "else": {
+          "actions": {}
+        },
+        "runAfter": {
+          "Bounded_history_EDIT": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Correction_mode_EDIT": {
+        "type": "If",
+        "expression": {
+          "and": [
+            {
+              "equals": [
+                "@actions('History_checked_EDIT')?['status']",
+                "Succeeded"
+              ]
+            },
+            {
+              "not": {
+                "equals": [
+                  "@triggerBody()?['text']",
+                  "list"
+                ]
+              }
+            }
+          ]
+        },
+        "actions": {
+          "Is_correction_EDIT": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@empty(json(triggerBody()?['text'])?['revision'])",
+                false
+              ]
+            },
+            "actions": {
+              "SharePoint_intake_SP": {
+                "type": "Scope",
+                "actions": {
+                  "Raw_submission_SP": {
+                    "type": "Compose",
+                    "inputs": "@triggerBody()?['text']",
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs"
+                        ]
+                      }
+                    },
+                    "runAfter": {}
+                  },
+                  "Parse_submission_SP": {
+                    "type": "ParseJson",
+                    "inputs": {
+                      "content": "@outputs('Raw_submission_SP')",
+                      "schema": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "entry": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "archived": {
+                                "enum": [
+                                  false
+                                ],
+                                "type": "boolean"
+                              },
+                              "category": {
+                                "enum": [
+                                  "administration",
+                                  "collaboration",
+                                  "data",
+                                  "engagement",
+                                  "funding",
+                                  "infrastructure",
+                                  "method",
+                                  "other",
+                                  "personnel",
+                                  "publication",
+                                  "research",
+                                  "software"
+                                ],
+                                "type": "string"
+                              },
+                              "eventType": {
+                                "enum": [
+                                  null,
+                                  "conference",
+                                  "exhibition",
+                                  "meeting",
+                                  "other",
+                                  "presentation",
+                                  "tour",
+                                  "training",
+                                  "workshop"
+                                ],
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "global": {
+                                "type": "boolean"
+                              },
+                              "items": {
+                                "items": {
+                                  "maxLength": 1000,
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "maxItems": 20,
+                                "minItems": 1,
+                                "type": [
+                                  "array",
+                                  "null"
+                                ]
+                              },
+                              "origin": {
+                                "enum": [
+                                  "manual"
+                                ],
+                                "type": "string"
+                              },
+                              "state": {
+                                "enum": [
+                                  "completed",
+                                  "in-progress",
+                                  "upcoming"
+                                ],
+                                "type": "string"
+                              },
+                              "summary": {
+                                "maxLength": 1200,
+                                "minLength": 1,
+                                "type": "string"
+                              },
+                              "timestamp": {
+                                "format": "date-time",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "archived",
+                              "category",
+                              "eventType",
+                              "global",
+                              "items",
+                              "origin",
+                              "state",
+                              "summary",
+                              "timestamp"
+                            ],
+                            "type": "object"
+                          },
+                          "projectId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 512
+                          },
+                          "submissionId": {
+                            "maxLength": 36,
+                            "minLength": 36,
+                            "type": "string"
+                          },
+                          "submittedAt": {
+                            "format": "date-time",
+                            "type": "string"
+                          },
+                          "submitter": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "email": {
+                                "format": "email",
+                                "maxLength": 254,
+                                "minLength": 3,
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "email"
+                            ],
+                            "type": "object"
+                          },
+                          "revision": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "rootSubmissionId",
+                              "supersedesSubmissionId"
+                            ],
+                            "properties": {
+                              "rootSubmissionId": {
+                                "type": "string",
+                                "minLength": 36,
+                                "maxLength": 36
+                              },
+                              "supersedesSubmissionId": {
+                                "type": "string",
+                                "minLength": 36,
+                                "maxLength": 36
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "entry",
+                          "projectId",
+                          "submissionId",
+                          "submittedAt",
+                          "submitter",
+                          "revision"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "runAfter": {
+                      "Raw_submission_SP": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Check_timestamps_SP": {
+                    "type": "Compose",
+                    "inputs": "@createArray(ticks(body('Parse_submission_SP')?['submittedAt']), ticks(body('Parse_submission_SP')?['entry']?['timestamp']))",
+                    "runAfter": {
+                      "Parse_submission_SP": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Blank_details_SP": {
+                    "type": "Query",
+                    "inputs": {
+                      "from": "@coalesce(body('Parse_submission_SP')?['entry']?['items'], json('[]'))",
+                      "where": "@empty(trim(item()))"
+                    },
+                    "runAfter": {
+                      "Check_timestamps_SP": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Caller_email_SP": {
+                    "type": "Compose",
+                    "inputs": "@toLower(if(not(empty(triggerOutputs()?['headers']?['x-ms-user-email-encoded'])), base64ToString(triggerOutputs()?['headers']?['x-ms-user-email-encoded']), coalesce(triggerOutputs()?['headers']?['x-ms-user-email'], string(null))))",
+                    "runAfter": {
+                      "Blank_details_SP": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Find_parent_EDIT": {
+                    "type": "Query",
+                    "inputs": {
+                      "from": "@body('Decoded_history_EDIT')",
+                      "where": "@equals(item()?['receipt']?['submissionId'],body('Parse_submission_SP')?['revision']?['supersedesSubmissionId'])"
+                    },
+                    "runAfter": {
+                      "Caller_email_SP": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Find_replay_EDIT": {
+                    "type": "Query",
+                    "inputs": {
+                      "from": "@body('Decoded_history_EDIT')",
+                      "where": "@equals(item()?['receipt']?['submissionId'],body('Parse_submission_SP')?['submissionId'])"
+                    },
+                    "runAfter": {
+                      "Find_parent_EDIT": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Find_successors_EDIT": {
+                    "type": "Query",
+                    "inputs": {
+                      "from": "@body('Decoded_history_EDIT')",
+                      "where": "@equals(item()?['receipt']?['revision']?['supersedesSubmissionId'],body('Parse_submission_SP')?['revision']?['supersedesSubmissionId'])"
+                    },
+                    "runAfter": {
+                      "Find_replay_EDIT": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Parent_record_EDIT": {
+                    "type": "Compose",
+                    "inputs": "@if(equals(length(body('Find_parent_EDIT')),1),first(body('Find_parent_EDIT'))?['receipt'],json('{}'))",
+                    "runAfter": {
+                      "Find_successors_EDIT": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Stale_revision_EDIT": {
+                    "type": "Compose",
+                    "inputs": "@and(equals(length(body('Find_replay_EDIT')),0),greater(length(body('Find_successors_EDIT')),0))",
+                    "runAfter": {
+                      "Parent_record_EDIT": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Envelope_allowed_SP": {
+                    "type": "If",
+                    "expression": {
+                      "and": [
+                        {
+                          "equals": [
+                            "@and(and(not(empty(outputs('Caller_email_SP'))), equals(outputs('Caller_email_SP'), toLower(body('Parse_submission_SP')?['submitter']?['email'])), lessOrEquals(length(base64(outputs('Raw_submission_SP'))), 87380), not(contains(outputs('Raw_submission_SP'), decodeUriComponent('%0A'))), not(contains(outputs('Raw_submission_SP'), decodeUriComponent('%0D')))), empty(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(body('Parse_submission_SP')?['submissionId'], '0', string(null)), '1', string(null)), '2', string(null)), '3', string(null)), '4', string(null)), '5', string(null)), '6', string(null)), '7', string(null)), '8', string(null)), '9', string(null)), 'a', string(null)), 'b', string(null)), 'c', string(null)), 'd', string(null)), 'e', string(null)), 'f', string(null)), '-', string(null))), equals(length(split(body('Parse_submission_SP')?['submissionId'], '-')), 5), equals(substring(body('Parse_submission_SP')?['submissionId'], 8, 1), '-'), equals(substring(body('Parse_submission_SP')?['submissionId'], 13, 1), '-'), equals(substring(body('Parse_submission_SP')?['submissionId'], 18, 1), '-'), equals(substring(body('Parse_submission_SP')?['submissionId'], 23, 1), '-'), not(empty(trim(body('Parse_submission_SP')?['entry']?['summary']))), empty(body('Blank_details_SP')))",
+                            true
+                          ]
+                        },
+                        {
+                          "equals": [
+                            "@outputs('Parent_record_EDIT')?['projectId']",
+                            "@body('Parse_submission_SP')?['projectId']"
+                          ]
+                        },
+                        {
+                          "equals": [
+                            "@coalesce(outputs('Parent_record_EDIT')?['entry']?['global'],false)",
+                            "@coalesce(body('Parse_submission_SP')?['entry']?['global'],false)"
+                          ]
+                        },
+                        {
+                          "equals": [
+                            "@coalesce(outputs('Parent_record_EDIT')?['entry']?['identifier'],string(null))",
+                            "@coalesce(body('Parse_submission_SP')?['entry']?['identifier'],string(null))"
+                          ]
+                        },
+                        {
+                          "equals": [
+                            "@body('Parse_submission_SP')?['revision']?['rootSubmissionId']",
+                            "@coalesce(outputs('Parent_record_EDIT')?['revision']?['rootSubmissionId'],outputs('Parent_record_EDIT')?['submissionId'])"
+                          ]
+                        },
+                        {
+                          "not": {
+                            "equals": [
+                              "@body('Parse_submission_SP')?['submissionId']",
+                              "@body('Parse_submission_SP')?['revision']?['supersedesSubmissionId']"
+                            ]
+                          }
+                        },
+                        {
+                          "not": {
+                            "equals": [
+                              "@body('Parse_submission_SP')?['submissionId']",
+                              "@body('Parse_submission_SP')?['revision']?['rootSubmissionId']"
+                            ]
+                          }
+                        },
+                        {
+                          "equals": [
+                            "@coalesce(outputs('Parent_record_EDIT')?['entry']?['archived'],false)",
+                            false
+                          ]
+                        },
+                        {
+                          "greaterOrEquals": [
+                            "@ticks(body('Parse_submission_SP')?['submittedAt'])",
+                            "@ticks(coalesce(outputs('Parent_record_EDIT')?['submittedAt'],'1970-01-01T00:00:00Z'))"
+                          ]
+                        },
+                        {
+                          "equals": [
+                            "@length(body('Find_parent_EDIT'))",
+                            1
+                          ]
+                        },
+                        {
+                          "or": [
+                            {
+                              "equals": [
+                                "@length(body('Find_replay_EDIT'))",
+                                1
+                              ]
+                            },
+                            {
+                              "equals": [
+                                "@length(body('Find_successors_EDIT'))",
+                                0
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "equals": [
+                            "@first(body('Find_parent_EDIT'))?['exportStatus']",
+                            "Exported"
+                          ]
+                        }
+                      ]
+                    },
+                    "actions": {
+                      "Find_receipt_SP": {
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "host": {
+                            "connectionName": "shared_sharepointonline",
+                            "operationId": "GetItems",
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                          },
+                          "parameters": {
+                            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                            "table": "31a7f178-6729-4252-a2bc-e06a07838f5c",
+                            "$filter": "@concat('SubmissionId eq ',decodeUriComponent('%27'),body('Parse_submission_SP')?['submissionId'],decodeUriComponent('%27'))",
+                            "$top": 2
+                          },
+                          "authentication": "@parameters('$authentication')",
+                          "retryPolicy": {
+                            "type": "none"
+                          }
+                        },
+                        "runAfter": {},
+                        "runtimeConfiguration": {
+                          "secureData": {
+                            "properties": [
+                              "inputs",
+                              "outputs"
+                            ]
+                          }
+                        }
+                      },
+                      "Create_if_missing_SP": {
+                        "type": "If",
+                        "expression": {
+                          "equals": [
+                            "@length(body('Find_receipt_SP')?['value'])",
+                            0
+                          ]
+                        },
+                        "actions": {
+                          "Create_receipt_SP": {
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "host": {
+                                "connectionName": "shared_sharepointonline",
+                                "operationId": "PostItem",
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                              },
+                              "parameters": {
+                                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                "table": "31a7f178-6729-4252-a2bc-e06a07838f5c",
+                                "item/Title": "@body('Parse_submission_SP')?['submissionId']",
+                                "item/SubmissionId": "@body('Parse_submission_SP')?['submissionId']",
+                                "item/PayloadBase64A": "@take(base64(outputs('Raw_submission_SP')),45000)",
+                                "item/PayloadBase64B": "@skip(base64(outputs('Raw_submission_SP')),45000)",
+                                "item/ProjectId": "@body('Parse_submission_SP')?['projectId']",
+                                "item/Summary": "@body('Parse_submission_SP')?['entry']?['summary']",
+                                "item/SubmitterEmail": "@outputs('Caller_email_SP')",
+                                "item/ExportStatus": "Pending",
+                                "item/CorrectionParentId": "@body('Parse_submission_SP')?['revision']?['supersedesSubmissionId']"
+                              },
+                              "authentication": "@parameters('$authentication')",
+                              "retryPolicy": {
+                                "type": "none"
+                              }
+                            },
+                            "runAfter": {},
+                            "runtimeConfiguration": {
+                              "secureData": {
+                                "properties": [
+                                  "inputs",
+                                  "outputs"
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "else": {
+                          "actions": {}
+                        },
+                        "runAfter": {
+                          "Find_receipt_SP": [
+                            "Succeeded"
+                          ]
+                        }
+                      },
+                      "Read_receipt_SP": {
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "host": {
+                            "connectionName": "shared_sharepointonline",
+                            "operationId": "GetItems",
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                          },
+                          "parameters": {
+                            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                            "table": "31a7f178-6729-4252-a2bc-e06a07838f5c",
+                            "$filter": "@concat('SubmissionId eq ',decodeUriComponent('%27'),body('Parse_submission_SP')?['submissionId'],decodeUriComponent('%27'))",
+                            "$top": 2
+                          },
+                          "authentication": "@parameters('$authentication')",
+                          "retryPolicy": {
+                            "type": "none"
+                          }
+                        },
+                        "runAfter": {
+                          "Create_if_missing_SP": [
+                            "Succeeded",
+                            "Failed",
+                            "Skipped",
+                            "TimedOut"
+                          ]
+                        },
+                        "runtimeConfiguration": {
+                          "secureData": {
+                            "properties": [
+                              "inputs",
+                              "outputs"
+                            ]
+                          }
+                        }
+                      },
+                      "One_receipt_SP": {
+                        "type": "If",
+                        "expression": {
+                          "equals": [
+                            "@length(body('Read_receipt_SP')?['value'])",
+                            1
+                          ]
+                        },
+                        "actions": {
+                          "Exact_receipt_SP": {
+                            "type": "If",
+                            "expression": {
+                              "equals": [
+                                "@concat(first(body('Read_receipt_SP')?['value'])?['PayloadBase64A'],coalesce(first(body('Read_receipt_SP')?['value'])?['PayloadBase64B'],string(null)))",
+                                "@base64(outputs('Raw_submission_SP'))"
+                              ]
+                            },
+                            "actions": {
+                              "Accepted_receipt_SP": {
+                                "type": "Compose",
+                                "inputs": "@first(body('Read_receipt_SP')?['value'])?['ID']",
+                                "runAfter": {},
+                                "runtimeConfiguration": {
+                                  "secureData": {
+                                    "properties": [
+                                      "inputs"
+                                    ]
+                                  }
+                                }
+                              },
+                              "Create_JSONL_SP": {
+                                "type": "OpenApiConnection",
+                                "inputs": {
+                                  "host": {
+                                    "connectionName": "shared_sharepointonline",
+                                    "operationId": "HttpRequest",
+                                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                                  },
+                                  "parameters": {
+                                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                    "parameters/method": "POST",
+                                    "parameters/uri": "@concat('_api/web/GetFolderByServerRelativeUrl(',decodeUriComponent('%27'),'/sites/ResearchEnablement/PA19 TEST ONLY JSONL',decodeUriComponent('%27'),')/Files/add(url=',decodeUriComponent('%27'),body('Parse_submission_SP')?['submissionId'],'.jsonl',decodeUriComponent('%27'),',overwrite=false)')",
+                                    "parameters/headers": {
+                                      "Accept": "application/json;odata=nometadata",
+                                      "Content-Type": "application/octet-stream"
+                                    },
+                                    "parameters/body": "@concat(outputs('Raw_submission_SP'),decodeUriComponent('%0A'))"
+                                  },
+                                  "authentication": "@parameters('$authentication')",
+                                  "retryPolicy": {
+                                    "type": "none"
+                                  }
+                                },
+                                "runAfter": {
+                                  "Accepted_receipt_SP": [
+                                    "Succeeded"
+                                  ]
+                                },
+                                "runtimeConfiguration": {
+                                  "secureData": {
+                                    "properties": [
+                                      "inputs",
+                                      "outputs"
+                                    ]
+                                  }
+                                }
+                              },
+                              "Read_JSONL_SP": {
+                                "type": "OpenApiConnection",
+                                "inputs": {
+                                  "host": {
+                                    "connectionName": "shared_sharepointonline",
+                                    "operationId": "GetFileContentByPath",
+                                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                                  },
+                                  "parameters": {
+                                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                    "path": "@concat('/PA19 TEST ONLY JSONL/',body('Parse_submission_SP')?['submissionId'],'.jsonl')",
+                                    "inferContentType": false
+                                  },
+                                  "authentication": "@parameters('$authentication')",
+                                  "retryPolicy": {
+                                    "type": "none"
+                                  }
+                                },
+                                "runAfter": {
+                                  "Create_JSONL_SP": [
+                                    "Succeeded",
+                                    "Failed",
+                                    "Skipped",
+                                    "TimedOut"
+                                  ]
+                                },
+                                "runtimeConfiguration": {
+                                  "secureData": {
+                                    "properties": [
+                                      "inputs",
+                                      "outputs"
+                                    ]
+                                  }
+                                }
+                              },
+                              "Exact_export_SP": {
+                                "type": "If",
+                                "expression": {
+                                  "equals": [
+                                    "@body('Read_JSONL_SP')?['$content']",
+                                    "@base64(concat(outputs('Raw_submission_SP'),decodeUriComponent('%0A')))"
+                                  ]
+                                },
+                                "actions": {
+                                  "Mark_exported_SP": {
+                                    "type": "OpenApiConnection",
+                                    "inputs": {
+                                      "host": {
+                                        "connectionName": "shared_sharepointonline",
+                                        "operationId": "PatchItem",
+                                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                                      },
+                                      "parameters": {
+                                        "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                        "table": "31a7f178-6729-4252-a2bc-e06a07838f5c",
+                                        "id": "@outputs('Accepted_receipt_SP')",
+                                        "item/Title": "@body('Parse_submission_SP')?['submissionId']",
+                                        "item/SubmissionId": "@body('Parse_submission_SP')?['submissionId']",
+                                        "item/PayloadBase64A": "@take(base64(outputs('Raw_submission_SP')),45000)",
+                                        "item/PayloadBase64B": "@skip(base64(outputs('Raw_submission_SP')),45000)",
+                                        "item/ProjectId": "@body('Parse_submission_SP')?['projectId']",
+                                        "item/Summary": "@body('Parse_submission_SP')?['entry']?['summary']",
+                                        "item/SubmitterEmail": "@outputs('Caller_email_SP')",
+                                        "item/ExportStatus": "Exported",
+                                        "item/ExportFileUrl": "@concat('https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/',body('Parse_submission_SP')?['submissionId'],'.jsonl')",
+                                        "item/CorrectionParentId": "@body('Parse_submission_SP')?['revision']?['supersedesSubmissionId']"
+                                      },
+                                      "authentication": "@parameters('$authentication')",
+                                      "retryPolicy": {
+                                        "type": "none"
+                                      }
+                                    },
+                                    "runAfter": {},
+                                    "runtimeConfiguration": {
+                                      "secureData": {
+                                        "properties": [
+                                          "inputs",
+                                          "outputs"
+                                        ]
+                                      }
+                                    }
+                                  }
+                                },
+                                "else": {
+                                  "actions": {}
+                                },
+                                "runAfter": {
+                                  "Read_JSONL_SP": [
+                                    "Succeeded"
+                                  ]
+                                }
+                              }
+                            },
+                            "else": {
+                              "actions": {
+                                "Conflict_SP": {
+                                  "type": "Compose",
+                                  "inputs": "conflict",
+                                  "runAfter": {},
+                                  "runtimeConfiguration": {
+                                    "secureData": {
+                                      "properties": [
+                                        "inputs"
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "runAfter": {}
+                          }
+                        },
+                        "else": {
+                          "actions": {}
+                        },
+                        "runAfter": {
+                          "Read_receipt_SP": [
+                            "Succeeded"
+                          ]
+                        }
+                      }
+                    },
+                    "else": {
+                      "actions": {
+                        "Rejected_SP": {
+                          "type": "Compose",
+                          "inputs": "rejected",
+                          "runAfter": {},
+                          "runtimeConfiguration": {
+                            "secureData": {
+                              "properties": [
+                                "inputs"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "runAfter": {
+                      "Stale_revision_EDIT": [
+                        "Succeeded"
+                      ]
+                    }
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {
+                "Test_original_SEED": {
+                  "type": "Scope",
+                  "actions": {
+                    "Raw_submission_SEED": {
+                      "type": "Compose",
+                      "inputs": "@triggerBody()?['text']",
+                      "runtimeConfiguration": {
+                        "secureData": {
+                          "properties": [
+                            "inputs"
+                          ]
+                        }
+                      },
+                      "runAfter": {}
+                    },
+                    "Parse_submission_SEED": {
+                      "type": "ParseJson",
+                      "inputs": {
+                        "content": "@outputs('Raw_submission_SEED')",
+                        "schema": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "entry": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "archived": {
+                                  "enum": [
+                                    false
+                                  ],
+                                  "type": "boolean"
+                                },
+                                "category": {
+                                  "enum": [
+                                    "administration",
+                                    "collaboration",
+                                    "data",
+                                    "engagement",
+                                    "funding",
+                                    "infrastructure",
+                                    "method",
+                                    "other",
+                                    "personnel",
+                                    "publication",
+                                    "research",
+                                    "software"
+                                  ],
+                                  "type": "string"
+                                },
+                                "eventType": {
+                                  "enum": [
+                                    null,
+                                    "conference",
+                                    "exhibition",
+                                    "meeting",
+                                    "other",
+                                    "presentation",
+                                    "tour",
+                                    "training",
+                                    "workshop"
+                                  ],
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "global": {
+                                  "type": "boolean"
+                                },
+                                "items": {
+                                  "items": {
+                                    "maxLength": 1000,
+                                    "minLength": 1,
+                                    "type": "string"
+                                  },
+                                  "maxItems": 20,
+                                  "minItems": 1,
+                                  "type": [
+                                    "array",
+                                    "null"
+                                  ]
+                                },
+                                "origin": {
+                                  "enum": [
+                                    "manual"
+                                  ],
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "enum": [
+                                    "completed",
+                                    "in-progress",
+                                    "upcoming"
+                                  ],
+                                  "type": "string"
+                                },
+                                "summary": {
+                                  "maxLength": 1200,
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "timestamp": {
+                                  "format": "date-time",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "archived",
+                                "category",
+                                "eventType",
+                                "global",
+                                "items",
+                                "origin",
+                                "state",
+                                "summary",
+                                "timestamp"
+                              ],
+                              "type": "object"
+                            },
+                            "projectId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512
+                            },
+                            "submissionId": {
+                              "maxLength": 36,
+                              "minLength": 36,
+                              "type": "string"
+                            },
+                            "submittedAt": {
+                              "format": "date-time",
+                              "type": "string"
+                            },
+                            "submitter": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "email": {
+                                  "format": "email",
+                                  "maxLength": 254,
+                                  "minLength": 3,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "email"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "entry",
+                            "projectId",
+                            "submissionId",
+                            "submittedAt",
+                            "submitter"
+                          ],
+                          "type": "object"
+                        }
+                      },
+                      "runAfter": {
+                        "Raw_submission_SEED": [
+                          "Succeeded"
+                        ]
+                      },
+                      "runtimeConfiguration": {
+                        "secureData": {
+                          "properties": [
+                            "inputs"
+                          ]
+                        }
+                      }
+                    },
+                    "Check_timestamps_SEED": {
+                      "type": "Compose",
+                      "inputs": "@createArray(ticks(body('Parse_submission_SEED')?['submittedAt']), ticks(body('Parse_submission_SEED')?['entry']?['timestamp']))",
+                      "runAfter": {
+                        "Parse_submission_SEED": [
+                          "Succeeded"
+                        ]
+                      },
+                      "runtimeConfiguration": {
+                        "secureData": {
+                          "properties": [
+                            "inputs"
+                          ]
+                        }
+                      }
+                    },
+                    "Blank_details_SEED": {
+                      "type": "Query",
+                      "inputs": {
+                        "from": "@coalesce(body('Parse_submission_SEED')?['entry']?['items'], json('[]'))",
+                        "where": "@empty(trim(item()))"
+                      },
+                      "runAfter": {
+                        "Check_timestamps_SEED": [
+                          "Succeeded"
+                        ]
+                      },
+                      "runtimeConfiguration": {
+                        "secureData": {
+                          "properties": [
+                            "inputs",
+                            "outputs"
+                          ]
+                        }
+                      }
+                    },
+                    "Caller_email_SEED": {
+                      "type": "Compose",
+                      "inputs": "@toLower(if(not(empty(triggerOutputs()?['headers']?['x-ms-user-email-encoded'])), base64ToString(triggerOutputs()?['headers']?['x-ms-user-email-encoded']), coalesce(triggerOutputs()?['headers']?['x-ms-user-email'], string(null))))",
+                      "runAfter": {
+                        "Blank_details_SEED": [
+                          "Succeeded"
+                        ]
+                      },
+                      "runtimeConfiguration": {
+                        "secureData": {
+                          "properties": [
+                            "inputs"
+                          ]
+                        }
+                      }
+                    },
+                    "Envelope_allowed_SEED": {
+                      "type": "If",
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              "@and(and(not(empty(outputs('Caller_email_SEED'))), equals(outputs('Caller_email_SEED'), toLower(body('Parse_submission_SEED')?['submitter']?['email'])), lessOrEquals(length(base64(outputs('Raw_submission_SEED'))), 87380), not(contains(outputs('Raw_submission_SEED'), decodeUriComponent('%0A'))), not(contains(outputs('Raw_submission_SEED'), decodeUriComponent('%0D')))), empty(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(body('Parse_submission_SEED')?['submissionId'], '0', string(null)), '1', string(null)), '2', string(null)), '3', string(null)), '4', string(null)), '5', string(null)), '6', string(null)), '7', string(null)), '8', string(null)), '9', string(null)), 'a', string(null)), 'b', string(null)), 'c', string(null)), 'd', string(null)), 'e', string(null)), 'f', string(null)), '-', string(null))), equals(length(split(body('Parse_submission_SEED')?['submissionId'], '-')), 5), equals(substring(body('Parse_submission_SEED')?['submissionId'], 8, 1), '-'), equals(substring(body('Parse_submission_SEED')?['submissionId'], 13, 1), '-'), equals(substring(body('Parse_submission_SEED')?['submissionId'], 18, 1), '-'), equals(substring(body('Parse_submission_SEED')?['submissionId'], 23, 1), '-'), not(empty(trim(body('Parse_submission_SEED')?['entry']?['summary']))), empty(body('Blank_details_SEED')))",
+                              true
+                            ]
+                          },
+                          {
+                            "equals": [
+                              "@body('Parse_submission_SEED')?['projectId']",
+                              "acorn"
+                            ]
+                          },
+                          {
+                            "equals": [
+                              "@startsWith(body('Parse_submission_SEED')?['entry']?['summary'],'TEST ONLY')",
+                              true
+                            ]
+                          }
+                        ]
+                      },
+                      "actions": {
+                        "Find_receipt_SEED": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "host": {
+                              "connectionName": "shared_sharepointonline",
+                              "operationId": "GetItems",
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                            },
+                            "parameters": {
+                              "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                              "table": "31a7f178-6729-4252-a2bc-e06a07838f5c",
+                              "$filter": "@concat('SubmissionId eq ',decodeUriComponent('%27'),body('Parse_submission_SEED')?['submissionId'],decodeUriComponent('%27'))",
+                              "$top": 2
+                            },
+                            "authentication": "@parameters('$authentication')",
+                            "retryPolicy": {
+                              "type": "none"
+                            }
+                          },
+                          "runAfter": {},
+                          "runtimeConfiguration": {
+                            "secureData": {
+                              "properties": [
+                                "inputs",
+                                "outputs"
+                              ]
+                            }
+                          }
+                        },
+                        "Create_if_missing_SEED": {
+                          "type": "If",
+                          "expression": {
+                            "equals": [
+                              "@length(body('Find_receipt_SEED')?['value'])",
+                              0
+                            ]
+                          },
+                          "actions": {
+                            "Create_receipt_SEED": {
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "host": {
+                                  "connectionName": "shared_sharepointonline",
+                                  "operationId": "PostItem",
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                                },
+                                "parameters": {
+                                  "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                  "table": "31a7f178-6729-4252-a2bc-e06a07838f5c",
+                                  "item/Title": "@body('Parse_submission_SEED')?['submissionId']",
+                                  "item/SubmissionId": "@body('Parse_submission_SEED')?['submissionId']",
+                                  "item/PayloadBase64A": "@take(base64(outputs('Raw_submission_SEED')),45000)",
+                                  "item/PayloadBase64B": "@skip(base64(outputs('Raw_submission_SEED')),45000)",
+                                  "item/ProjectId": "@body('Parse_submission_SEED')?['projectId']",
+                                  "item/Summary": "@body('Parse_submission_SEED')?['entry']?['summary']",
+                                  "item/SubmitterEmail": "@outputs('Caller_email_SEED')",
+                                  "item/ExportStatus": "Pending"
+                                },
+                                "authentication": "@parameters('$authentication')",
+                                "retryPolicy": {
+                                  "type": "none"
+                                }
+                              },
+                              "runAfter": {},
+                              "runtimeConfiguration": {
+                                "secureData": {
+                                  "properties": [
+                                    "inputs",
+                                    "outputs"
+                                  ]
+                                }
+                              }
+                            }
+                          },
+                          "else": {
+                            "actions": {}
+                          },
+                          "runAfter": {
+                            "Find_receipt_SEED": [
+                              "Succeeded"
+                            ]
+                          }
+                        },
+                        "Read_receipt_SEED": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "host": {
+                              "connectionName": "shared_sharepointonline",
+                              "operationId": "GetItems",
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                            },
+                            "parameters": {
+                              "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                              "table": "31a7f178-6729-4252-a2bc-e06a07838f5c",
+                              "$filter": "@concat('SubmissionId eq ',decodeUriComponent('%27'),body('Parse_submission_SEED')?['submissionId'],decodeUriComponent('%27'))",
+                              "$top": 2
+                            },
+                            "authentication": "@parameters('$authentication')",
+                            "retryPolicy": {
+                              "type": "none"
+                            }
+                          },
+                          "runAfter": {
+                            "Create_if_missing_SEED": [
+                              "Succeeded",
+                              "Failed",
+                              "Skipped",
+                              "TimedOut"
+                            ]
+                          },
+                          "runtimeConfiguration": {
+                            "secureData": {
+                              "properties": [
+                                "inputs",
+                                "outputs"
+                              ]
+                            }
+                          }
+                        },
+                        "One_receipt_SEED": {
+                          "type": "If",
+                          "expression": {
+                            "equals": [
+                              "@length(body('Read_receipt_SEED')?['value'])",
+                              1
+                            ]
+                          },
+                          "actions": {
+                            "Exact_receipt_SEED": {
+                              "type": "If",
+                              "expression": {
+                                "equals": [
+                                  "@concat(first(body('Read_receipt_SEED')?['value'])?['PayloadBase64A'],coalesce(first(body('Read_receipt_SEED')?['value'])?['PayloadBase64B'],string(null)))",
+                                  "@base64(outputs('Raw_submission_SEED'))"
+                                ]
+                              },
+                              "actions": {
+                                "Accepted_receipt_SEED": {
+                                  "type": "Compose",
+                                  "inputs": "@first(body('Read_receipt_SEED')?['value'])?['ID']",
+                                  "runAfter": {},
+                                  "runtimeConfiguration": {
+                                    "secureData": {
+                                      "properties": [
+                                        "inputs"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "Create_JSONL_SEED": {
+                                  "type": "OpenApiConnection",
+                                  "inputs": {
+                                    "host": {
+                                      "connectionName": "shared_sharepointonline",
+                                      "operationId": "HttpRequest",
+                                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                                    },
+                                    "parameters": {
+                                      "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                      "parameters/method": "POST",
+                                      "parameters/uri": "@concat('_api/web/GetFolderByServerRelativeUrl(',decodeUriComponent('%27'),'/sites/ResearchEnablement/PA19 TEST ONLY JSONL',decodeUriComponent('%27'),')/Files/add(url=',decodeUriComponent('%27'),body('Parse_submission_SEED')?['submissionId'],'.jsonl',decodeUriComponent('%27'),',overwrite=false)')",
+                                      "parameters/headers": {
+                                        "Accept": "application/json;odata=nometadata",
+                                        "Content-Type": "application/octet-stream"
+                                      },
+                                      "parameters/body": "@concat(outputs('Raw_submission_SEED'),decodeUriComponent('%0A'))"
+                                    },
+                                    "authentication": "@parameters('$authentication')",
+                                    "retryPolicy": {
+                                      "type": "none"
+                                    }
+                                  },
+                                  "runAfter": {
+                                    "Accepted_receipt_SEED": [
+                                      "Succeeded"
+                                    ]
+                                  },
+                                  "runtimeConfiguration": {
+                                    "secureData": {
+                                      "properties": [
+                                        "inputs",
+                                        "outputs"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "Read_JSONL_SEED": {
+                                  "type": "OpenApiConnection",
+                                  "inputs": {
+                                    "host": {
+                                      "connectionName": "shared_sharepointonline",
+                                      "operationId": "GetFileContentByPath",
+                                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                                    },
+                                    "parameters": {
+                                      "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                      "path": "@concat('/PA19 TEST ONLY JSONL/',body('Parse_submission_SEED')?['submissionId'],'.jsonl')",
+                                      "inferContentType": false
+                                    },
+                                    "authentication": "@parameters('$authentication')",
+                                    "retryPolicy": {
+                                      "type": "none"
+                                    }
+                                  },
+                                  "runAfter": {
+                                    "Create_JSONL_SEED": [
+                                      "Succeeded",
+                                      "Failed",
+                                      "Skipped",
+                                      "TimedOut"
+                                    ]
+                                  },
+                                  "runtimeConfiguration": {
+                                    "secureData": {
+                                      "properties": [
+                                        "inputs",
+                                        "outputs"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "Exact_export_SEED": {
+                                  "type": "If",
+                                  "expression": {
+                                    "equals": [
+                                      "@body('Read_JSONL_SEED')?['$content']",
+                                      "@base64(concat(outputs('Raw_submission_SEED'),decodeUriComponent('%0A')))"
+                                    ]
+                                  },
+                                  "actions": {
+                                    "Mark_exported_SEED": {
+                                      "type": "OpenApiConnection",
+                                      "inputs": {
+                                        "host": {
+                                          "connectionName": "shared_sharepointonline",
+                                          "operationId": "PatchItem",
+                                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                                        },
+                                        "parameters": {
+                                          "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                          "table": "31a7f178-6729-4252-a2bc-e06a07838f5c",
+                                          "id": "@outputs('Accepted_receipt_SEED')",
+                                          "item/Title": "@body('Parse_submission_SEED')?['submissionId']",
+                                          "item/SubmissionId": "@body('Parse_submission_SEED')?['submissionId']",
+                                          "item/PayloadBase64A": "@take(base64(outputs('Raw_submission_SEED')),45000)",
+                                          "item/PayloadBase64B": "@skip(base64(outputs('Raw_submission_SEED')),45000)",
+                                          "item/ProjectId": "@body('Parse_submission_SEED')?['projectId']",
+                                          "item/Summary": "@body('Parse_submission_SEED')?['entry']?['summary']",
+                                          "item/SubmitterEmail": "@outputs('Caller_email_SEED')",
+                                          "item/ExportStatus": "Exported",
+                                          "item/ExportFileUrl": "@concat('https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/',body('Parse_submission_SEED')?['submissionId'],'.jsonl')"
+                                        },
+                                        "authentication": "@parameters('$authentication')",
+                                        "retryPolicy": {
+                                          "type": "none"
+                                        }
+                                      },
+                                      "runAfter": {},
+                                      "runtimeConfiguration": {
+                                        "secureData": {
+                                          "properties": [
+                                            "inputs",
+                                            "outputs"
+                                          ]
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "else": {
+                                    "actions": {}
+                                  },
+                                  "runAfter": {
+                                    "Read_JSONL_SEED": [
+                                      "Succeeded"
+                                    ]
+                                  }
+                                }
+                              },
+                              "else": {
+                                "actions": {
+                                  "Conflict_SEED": {
+                                    "type": "Compose",
+                                    "inputs": "conflict",
+                                    "runAfter": {},
+                                    "runtimeConfiguration": {
+                                      "secureData": {
+                                        "properties": [
+                                          "inputs"
+                                        ]
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "runAfter": {}
+                            }
+                          },
+                          "else": {
+                            "actions": {}
+                          },
+                          "runAfter": {
+                            "Read_receipt_SEED": [
+                              "Succeeded"
+                            ]
+                          }
+                        }
+                      },
+                      "else": {
+                        "actions": {
+                          "Rejected_SEED": {
+                            "type": "Compose",
+                            "inputs": "rejected",
+                            "runAfter": {},
+                            "runtimeConfiguration": {
+                              "secureData": {
+                                "properties": [
+                                  "inputs"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "runAfter": {
+                        "Caller_email_SEED": [
+                          "Succeeded"
+                        ]
+                      }
+                    }
+                  },
+                  "runAfter": {}
+                }
+              }
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {}
+        },
+        "runAfter": {
+          "List_mode_EDIT": [
+            "Succeeded"
+          ]
+        }
+      }
+    }
+  }
+}

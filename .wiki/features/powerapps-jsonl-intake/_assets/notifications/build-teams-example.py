@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rebuild the guides and fictional two-branch Teams illustration together."""
+"""Rebuild the guides and fictional SharePoint owner/submitter Teams illustration together."""
 from pathlib import Path
 import runpy
 

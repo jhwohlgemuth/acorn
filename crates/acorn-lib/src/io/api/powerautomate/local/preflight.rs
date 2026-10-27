@@ -1,4 +1,5 @@
 //! Revalidate every staged line and project before writing a local batch.
+use super::super::revisions::RevisionHistory;
 use super::manifest::{batch_directory, BatchLine, BatchManifest, BatchProject, PriorRecordLookup};
 use super::types::BatchLineStatus;
 use super::{
@@ -19,13 +20,14 @@ type LineContext<'a> = (
     &'a Path,
     &'a FolderRegistry,
     &'a PriorRecordLookup,
+    &'a RevisionHistory,
     &'a mut BTreeMap<String, String>,
 );
 pub(super) trait Preflight<Context> {
     fn preflight(&self, context: Context) -> ApiResult<()>;
 }
 impl<'a> Preflight<LineContext<'a>> for BatchLine {
-    fn preflight(&self, (source, manifest, config_path, registry, prior, seen): LineContext<'a>) -> ApiResult<()> {
+    fn preflight(&self, (source, manifest, config_path, registry, prior, history, seen): LineContext<'a>) -> ApiResult<()> {
         let stored = self;
         match () {
             | _ if source.line != stored.line || source.raw != stored.raw || source.digest != stored.digest => {
@@ -37,10 +39,11 @@ impl<'a> Preflight<LineContext<'a>> for BatchLine {
             | _ => serde_json::from_str::<Submission>(&stored.raw)
                 .map_err(|_| eyre!("Invalid staged submission"))
                 .and_then(|submission| {
-                    submission.admit(registry, &|name| env::var(name).ok(), None).and_then(|admission| {
+                    history.admit(&submission, registry, &|name| env::var(name).ok()).and_then(|admission| {
                         registry.local_destination(&admission.folder_id).and_then(|destination| {
                             let entry_matches = stored.entry.as_ref().and_then(|entry| serde_json::to_value(entry).ok())
                                 == serde_json::to_value(&admission.entry).ok();
+                            let predecessor_matches = serde_json::to_value(&stored.replaces).ok() == serde_json::to_value(&admission.replaces).ok();
                             let id = submission.submission_id.to_ascii_lowercase();
                             let earlier = seen.insert(id.clone(), stored.digest.clone());
                             let prior_matches = match (stored.status, earlier.is_none()) {
@@ -58,10 +61,11 @@ impl<'a> Preflight<LineContext<'a>> for BatchLine {
                                         .projects
                                         .iter()
                                         .any(|project| project.project_id == admission.folder_id && project.destination == destination);
-                                let admission_changed = duplicate_changed || !prior_matches || identity_changed || !entry_matches || project_missing;
-                                match admission_changed {
-                                    | true => Err(eyre!("Batch admission or route changed; restage")),
-                                    | false => Ok(()),
+                                let status_changed = duplicate_changed || identity_changed || project_missing;
+                                let admission_matches = prior_matches && entry_matches && predecessor_matches && !status_changed;
+                                match admission_matches {
+                                    | true => Ok(()),
+                                    | false => Err(eyre!("Batch admission or route changed; restage")),
                                 }
                             })
                         })
@@ -88,13 +92,14 @@ impl<'a> Preflight<BatchContext<'a>> for BatchManifest {
                             split_snapshot(&source_text, &Memory::kb(64)).and_then(|source_lines| match source_lines.len() == manifest.lines.len() {
                                 | true => batch_directory(config_path).and_then(|directory| {
                                     PriorRecordLookup::from(directory.as_path()).load().and_then(|prior| {
+                                        let history = prior.revision_history(source_lines.iter().map(|line| line.raw.as_str()))?;
                                         let registry = config.registry();
                                         let mut seen = BTreeMap::<String, String>::new();
                                         source_lines
                                             .iter()
                                             .zip(&manifest.lines)
                                             .try_for_each(|(source, stored)| {
-                                                stored.preflight((source, manifest, config_path, &registry, &prior, &mut seen))
+                                                stored.preflight((source, manifest, config_path, &registry, &prior, &history, &mut seen))
                                             })
                                             .and_then(|()| manifest.projects.iter().try_for_each(|project| project.preflight(manifest)))
                                     })
@@ -129,6 +134,7 @@ impl Preflight<&BatchManifest> for BatchProject {
                                     .base_revision(digest_text(&content))
                                     .content(&content)
                                     .entry(entry)
+                                    .maybe_replaces(line.replaces.clone())
                                     .path(path)
                                     .build()
                             })

@@ -1,5 +1,7 @@
 # PA-17 native backup and restore handoff
 
+> **Sanitized copy:** Account labels and related assets have been redacted. Historical checksums and import results describe the originals; see [privacy and reuse limits](../../../../privacy.md).
+
 Verified October 25, 2026. This archive is a collection of native packages and evidence, not itself a Power Platform import file. Extract it first. Inner ZIPs are unchanged native exports. Complete recovery acceptance is BLOCKED, not passed.
 
 ## Import inputs

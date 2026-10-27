@@ -71,6 +71,16 @@ For a previously reviewed unattended invocation, add `--yes`. This is required i
 
 An entry may supply `identifier`, `global`, `archived`, `origin`, and `discovery` when preserving existing report records. Without them, intake generates a submission-based identifier and uses a manual, active, project-only entry. Discovered entries require discovery provenance.
 
+### Submission corrections
+
+An edited submission is a new immutable receipt. Its optional `revision` object identifies the original receipt (`rootSubmissionId`) and the exact receipt being corrected (`supersedesSubmissionId`). Each correction has a new `submissionId`; it retains the original submitter, project, report placement and logical entry identifier. Keep both original and correction rows in the downloaded logbook.
+
+Use `stage --batch`, `inspect`, then confirmed `apply` for corrections. Inspection identifies the predecessor and shows the proposed change. The batch replaces the exact previous logbook entry, so the current index contains one entry per logical highlight. Original receipt bytes remain in the source snapshot and batch manifests. A correction source may include its ancestry in chronological order, or use ancestry from previously applied batches in the same local workspace.
+
+Missing ancestors, competing corrections, ownership or placement changes, and altered or graduated predecessors stop the batch for operator review. Apply revalidates the correction evidence before writing. Existing generated reports are unchanged; corrected content is available for a later report. This does not automatically amend published reports or undo graduated metadata. Single-submission intake and the GitLab worker reject corrections until they have a revision-aware review adapter.
+
+This is the local receipt contract; availability of editing in a deployed PowerApp depends on that app's separately validated history and correction flow.
+
 For the existing single-submission workflow:
 
 ```sh

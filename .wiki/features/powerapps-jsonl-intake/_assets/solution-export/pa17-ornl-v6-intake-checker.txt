@@ -202,13 +202,13 @@
         - generic: ACORN PA18 ORNL TEST ONLY
       - gridcell:
         - generic: 
-    - row "o9w@ornl.gov Microsoft Teams o9w@ornl.gov":
-      - gridcell "o9w@ornl.gov":
-        - img "o9w@ornl.gov"
+    - row "owner@example.invalid Microsoft Teams owner@example.invalid":
+      - gridcell "owner@example.invalid":
+        - img "owner@example.invalid"
       - gridcell "Microsoft Teams":
         - 'generic "Display Name: PA17 TEST ONLY Teams Reference. Name: new_PA17TESTONLYTeamsReference"': Microsoft Teams
-      - gridcell "o9w@ornl.gov":
-        - generic: o9w@ornl.gov
+      - gridcell "owner@example.invalid":
+        - generic: owner@example.invalid
       - gridcell:
         - generic: 
   - heading "Co-owner" [level=3]

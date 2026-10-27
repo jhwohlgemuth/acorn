@@ -54,22 +54,6 @@ pub fn apply_batch(config: &Path, batch_id: &str, yes: bool, verbose: &Verbosity
                 })
         })
 }
-fn confirm(yes: bool, prompt: &str) -> Result<()> {
-    if yes {
-        Ok(())
-    } else if !stdin().is_terminal() || !stdout().is_terminal() {
-        Err(eyre!(
-            "Intake confirmation requires a terminal; review the change, then use --yes for redirected or unattended execution"
-        ))
-    } else {
-        Viewport::open()
-            .and_then(|mut viewport| viewport.confirm(prompt, false))
-            .and_then(|outcome| match outcome {
-                | PromptOutcome::Selected(true) => Ok(()),
-                | PromptOutcome::Selected(false) | PromptOutcome::Cancelled => Err(eyre!("Intake cancelled; no changes applied")),
-            })
-    }
-}
 fn configured(config: &Path, require_intake: bool) -> Result<(ApplicationConfiguration, gitlab::Options, OperationQueue)> {
     match env::var("ACORN_DATABASE_PATH").ok().filter(|value| !value.trim().is_empty()) {
         | Some(_) => ApplicationConfiguration::load(&Some(config.to_path_buf())).and_then(|document| {
@@ -109,6 +93,22 @@ fn configured_server(config: &Path, require_intake: bool) -> Result<(bot::Server
                     .map(|server_config| (bot::Server::new(server_config), queue))
             })
     })
+}
+fn confirm(yes: bool, prompt: &str) -> Result<()> {
+    if yes {
+        Ok(())
+    } else if !stdin().is_terminal() || !stdout().is_terminal() {
+        Err(eyre!(
+            "Intake confirmation requires a terminal; review the change, then use --yes for redirected or unattended execution"
+        ))
+    } else {
+        Viewport::open()
+            .and_then(|mut viewport| viewport.confirm(prompt, false))
+            .and_then(|outcome| match outcome {
+                | PromptOutcome::Selected(true) => Ok(()),
+                | PromptOutcome::Selected(false) | PromptOutcome::Cancelled => Err(eyre!("Intake cancelled; no changes applied")),
+            })
+    }
 }
 /// Deliver ready callback intents from the durable queue without polling intake.
 pub async fn deliver(config: &Path) -> Result<()> {
@@ -223,6 +223,12 @@ pub fn inspect(config: &Path, batch_id: &str, verbose: &Verbosity) -> Result<()>
                 );
                 if let Some(reason) = &line.reason {
                     println!("  {reason}");
+                }
+                if let Some(revision) = &line.revision {
+                    println!(
+                        "  Correction of {} (original {})",
+                        revision.supersedes_submission_id, revision.root_submission_id
+                    );
                 }
             });
             inspection.projects.iter().for_each(|project| {

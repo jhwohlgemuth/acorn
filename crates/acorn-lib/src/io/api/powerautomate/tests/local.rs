@@ -58,6 +58,17 @@ fn batch_setup() -> (tempfile::TempDir, PathBuf, PathBuf, Vec<PathBuf>) {
     .unwrap();
     (directory, config, inbox, indexes)
 }
+fn correction(original: &str, id: &str) -> String {
+    let mut row: serde_json::Value = serde_json::from_str(original).unwrap();
+    let root = row["revision"]["rootSubmissionId"]
+        .as_str()
+        .unwrap_or(row["submissionId"].as_str().unwrap())
+        .to_string();
+    row["revision"] = serde_json::json!({"rootSubmissionId": root, "supersedesSubmissionId": row["submissionId"]});
+    row["submissionId"] = id.into();
+    row["entry"]["summary"] = "Corrected synthetic highlight".into();
+    serde_json::to_string(&row).unwrap()
+}
 fn setup(destination: &str) -> (tempfile::TempDir, PathBuf, PathBuf, PathBuf) {
     let directory = tempfile::tempdir().unwrap();
     let config = directory.path().join(".acorn.json");
@@ -153,6 +164,114 @@ fn test_batch_changed_uuid_bytes_and_invalid_line_prevent_all_writes() {
     );
 }
 #[cfg(unix)]
+#[test]
+fn test_batch_correction_after_apply_and_complete_history_replay() {
+    let (_directory, config, inbox, index) = setup("local");
+    let original = fs::read_to_string(&inbox).unwrap();
+    let first = BatchSummary::stage(&config, &inbox).unwrap();
+    apply_batch(&config, &first.batch_id).unwrap();
+    let revised = correction(original.trim_end(), "22222222-2222-4222-8222-222222222222");
+    fs::write(&inbox, format!("{revised}\n")).unwrap();
+    let staged = BatchSummary::stage(&config, &inbox).unwrap();
+    assert!(staged.can_apply, "{:?}", BatchInspection::inspect(&config, &staged.batch_id).unwrap());
+    let inspection = BatchInspection::inspect(&config, &staged.batch_id).unwrap();
+    assert_eq!(inspection.lines[0].revision.as_ref().unwrap().supersedes_submission_id, ID);
+    assert_eq!(apply_batch(&config, &staged.batch_id).unwrap().status, BatchApplyStatus::Complete);
+    let activity: ResearchActivity = serde_json::from_str(&fs::read_to_string(&index).unwrap()).unwrap();
+    let entries = activity.logbook.unwrap().entries;
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].summary, "Corrected synthetic highlight");
+    let revised_again = correction(&revised, "33333333-3333-4333-8333-333333333333");
+    fs::write(&inbox, format!("{original}{revised}\n{revised_again}\n")).unwrap();
+    let last = BatchSummary::stage(&config, &inbox).unwrap();
+    assert_eq!((last.accepted, last.replayed, last.rejected), (1, 2, 0));
+    assert_eq!(apply_batch(&config, &last.batch_id).unwrap().status, BatchApplyStatus::Complete);
+    assert_eq!(apply_batch(&config, &last.batch_id).unwrap().status, BatchApplyStatus::Complete);
+}
+#[test]
+fn test_batch_correction_blocks_changed_or_graduated_predecessor() {
+    for archived in [false, true] {
+        let (_directory, config, inbox, index) = setup("local");
+        let original = fs::read_to_string(&inbox).unwrap();
+        let first = BatchSummary::stage(&config, &inbox).unwrap();
+        apply_batch(&config, &first.batch_id).unwrap();
+        let mut activity: ResearchActivity = serde_json::from_str(&fs::read_to_string(&index).unwrap()).unwrap();
+        let entry = &mut activity.logbook.as_mut().unwrap().entries[0];
+        if archived {
+            entry.archived = true;
+        } else {
+            entry.summary = "Independent operator edit".into();
+        }
+        fs::write(&index, serde_json::to_vec(&activity).unwrap()).unwrap();
+        let revised = correction(original.trim_end(), "22222222-2222-4222-8222-222222222222");
+        fs::write(&inbox, format!("{revised}\n")).unwrap();
+        let staged = BatchSummary::stage(&config, &inbox).unwrap();
+        assert!(!staged.can_apply);
+        assert!(BatchInspection::inspect(&config, &staged.batch_id).unwrap().lines[0]
+            .reason
+            .as_ref()
+            .unwrap()
+            .contains("operator review"));
+    }
+}
+#[test]
+fn test_batch_correction_chain_folds_without_duplicate_entries() {
+    let (_directory, config, inbox, index) = setup("local");
+    let original = fs::read_to_string(&inbox).unwrap();
+    let revised = correction(original.trim_end(), "22222222-2222-4222-8222-222222222222");
+    fs::write(&inbox, format!("{original}{revised}\n")).unwrap();
+    let staged = BatchSummary::stage(&config, &inbox).unwrap();
+    assert_eq!((staged.accepted, staged.rejected), (2, 0));
+    assert_eq!(apply_batch(&config, &staged.batch_id).unwrap().status, BatchApplyStatus::Complete);
+    let activity: ResearchActivity = serde_json::from_str(&fs::read_to_string(index).unwrap()).unwrap();
+    assert_eq!(activity.logbook.unwrap().entries.len(), 1);
+}
+#[test]
+fn test_batch_correction_predecessor_evidence_cannot_be_tampered() {
+    let (directory, config, inbox, index) = setup("local");
+    let original = fs::read_to_string(&inbox).unwrap();
+    let revised = correction(original.trim_end(), "22222222-2222-4222-8222-222222222222");
+    fs::write(&inbox, format!("{original}{revised}\n")).unwrap();
+    let before = fs::read(&index).unwrap();
+    let staged = BatchSummary::stage(&config, &inbox).unwrap();
+    let manifest_path = directory.path().join(format!(".acorn/intake/batches/{}.json", staged.batch_id));
+    let mut manifest: serde_json::Value = serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    manifest["lines"][1]["replaces"]["summary"] = "Forged predecessor".into();
+    fs::write(&manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+    assert!(apply_batch(&config, &staged.batch_id).is_err());
+    assert_eq!(fs::read(&index).unwrap(), before);
+}
+#[test]
+fn test_batch_correction_rejects_invalid_history_without_writing() {
+    for case in ["missing", "owner", "route", "placement", "root", "fork", "cycle", "identity", "time"] {
+        let (_directory, config, inbox, index) = setup("local");
+        let original = fs::read_to_string(&inbox).unwrap();
+        let before = fs::read(&index).unwrap();
+        let revised = correction(original.trim_end(), "22222222-2222-4222-8222-222222222222");
+        let mut value: serde_json::Value = serde_json::from_str(&revised).unwrap();
+        match case {
+            | "owner" => value["submitter"]["email"] = "other@example.org".into(),
+            | "route" => value["projectId"] = "elsewhere".into(),
+            | "placement" => value["entry"]["global"] = true.into(),
+            | "root" => value["revision"]["rootSubmissionId"] = "33333333-3333-4333-8333-333333333333".into(),
+            | "cycle" => value["revision"]["supersedesSubmissionId"] = value["submissionId"].clone(),
+            | "identity" => value["entry"]["identifier"] = "another-entry".into(),
+            | "time" => value["submittedAt"] = "2000-01-01T00:00:00Z".into(),
+            | _ => (),
+        }
+        let prefix = if case == "missing" { String::new() } else { original.clone() };
+        let suffix = if case == "fork" {
+            correction(original.trim_end(), "33333333-3333-4333-8333-333333333333") + "\n"
+        } else {
+            String::new()
+        };
+        fs::write(&inbox, format!("{prefix}{value}\n{suffix}")).unwrap();
+        let staged = BatchSummary::stage(&config, &inbox).unwrap();
+        assert!(!staged.can_apply, "{case}");
+        assert!(apply_batch(&config, &staged.batch_id).is_err());
+        assert_eq!(fs::read(&index).unwrap(), before);
+    }
+}
 #[test]
 fn test_batch_manifest_is_owner_readable() {
     use std::os::unix::fs::PermissionsExt;
@@ -255,6 +374,17 @@ fn test_changed_base_requires_restage() {
     assert!(apply(&config, ID).unwrap_err().to_string().contains("restage"));
     assert_eq!(stage(&config, &inbox).unwrap().staged, vec![ID]);
     assert_eq!(apply(&config, ID).unwrap(), ApplyStatus::Applied);
+}
+#[test]
+fn test_correction_single_submission_path_requires_batch_review() {
+    let (_directory, config, inbox, index) = setup("local");
+    let original = fs::read_to_string(&inbox).unwrap();
+    let revised = correction(original.trim_end(), "22222222-2222-4222-8222-222222222222");
+    fs::write(&inbox, format!("{revised}\n")).unwrap();
+    let before = fs::read(&index).unwrap();
+    let summary = stage(&config, &inbox).unwrap();
+    assert_eq!(summary.rejected.len(), 1);
+    assert_eq!(fs::read(index).unwrap(), before);
 }
 #[test]
 fn test_invalid_line_does_not_block_valid_line_and_changed_uuid_bytes_conflict() {

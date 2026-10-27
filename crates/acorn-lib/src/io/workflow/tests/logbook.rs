@@ -13,6 +13,7 @@ fn entry(identifier: &str, summary: &str) -> LogbookEntry {
 }
 fn proposal(content: String, entry: LogbookEntry) -> LogbookProposal {
     LogbookProposal {
+        replaces: None,
         base_revision: "0123456789abcdef".to_string(),
         content,
         entry,

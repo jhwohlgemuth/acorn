@@ -10,7 +10,7 @@ Browser tab: 1329059502, Title: "Document Library Versioning Settings", URL: "ht
 					9 text 
 				10 container topLevelRegion
 					11 container leftRegion
-						12 link Description: SharePoint, Value: ornl.sharepoint.com/_layouts/15/sharepoint.aspx?&login_hint=o9w@ornl.gov, ID: O365_AppName
+						12 link Description: SharePoint, Value: ornl.sharepoint.com/_layouts/15/sharepoint.aspx?&login_hint=owner@example.invalid, ID: O365_AppName
 					13 container HeaderButtonRegion
 						14 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
 						15 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand

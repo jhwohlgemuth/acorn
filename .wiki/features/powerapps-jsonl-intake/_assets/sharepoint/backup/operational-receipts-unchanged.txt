@@ -59,7 +59,7 @@ All Items
 									57 pop up button (collapsed) Created, Secondary Actions: Expand
 								58 cell
 									59 pop up button (collapsed)  Add column, Secondary Actions: Expand
-							60 row (selectable) ID: virtualized-list_4_page-0_1, Select row 5e505b15-5f25-4ae7-8e13-7b4df6f6715e acorn TEST ONLY — SharePoint intake exact export o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/5e505b15-5f25-4ae7-8e13-7b4df6f6715e.jsonl Yesterday at 1:20 PM
+							60 row (selectable) ID: virtualized-list_4_page-0_1, Select row 5e505b15-5f25-4ae7-8e13-7b4df6f6715e acorn TEST ONLY — SharePoint intake exact export owner@example.invalid Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/5e505b15-5f25-4ae7-8e13-7b4df6f6715e.jsonl Yesterday at 1:20 PM
 								61 cell (selectable)
 									62 checkbox (settable, integer) Description: Select row, Value: 0
 								63 cell
@@ -69,14 +69,14 @@ All Items
 								67 cell
 									68 text TEST ONLY — SharePoint intake exact export
 								69 cell
-									70 text o9w@ornl.gov
+									70 text owner@example.invalid
 								71 cell
 									72 text Exported
 								73 cell
 									74 text https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/5e505b15-5f25-4ae7-8e13-7b4df6f6715e.jsonl
 								75 cell 10/26/2026 1:20 PM
 									76 text Yesterday at 1:20 PM
-							77 row (selectable) ID: virtualized-list_4_page-0_2, Select row 02b7231b-47e0-4034-b49b-0b6e594548e0 acorn TEST ONLY — SharePoint canvas receipt and JSONL acceptance o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/02b7231b-47e0-4034-b49b-0b6e594548e0.jsonl Yesterday at 1:50 PM
+							77 row (selectable) ID: virtualized-list_4_page-0_2, Select row 02b7231b-47e0-4034-b49b-0b6e594548e0 acorn TEST ONLY — SharePoint canvas receipt and JSONL acceptance owner@example.invalid Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/02b7231b-47e0-4034-b49b-0b6e594548e0.jsonl Yesterday at 1:50 PM
 								78 cell (selectable)
 									79 checkbox (settable, integer) Description: Select row, Value: 0
 								80 cell
@@ -86,14 +86,14 @@ All Items
 								84 cell
 									85 text TEST ONLY — SharePoint canvas receipt and JSONL acceptance
 								86 cell
-									87 text o9w@ornl.gov
+									87 text owner@example.invalid
 								88 cell
 									89 text Exported
 								90 cell
 									91 text https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/02b7231b-47e0-4034-b49b-0b6e594548e0.jsonl
 								92 cell 10/26/2026 1:50 PM
 									93 text Yesterday at 1:50 PM
-							94 row (selectable) ID: virtualized-list_4_page-0_3, Select row 64b836e0-016f-4493-9894-a6fe79acc8de acorn TEST ONLY — SharePoint pilot Teams notification acceptance o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/64b836e0-016f-4493-9894-a6fe79acc8de.jsonl Yesterday at 1:57 PM
+							94 row (selectable) ID: virtualized-list_4_page-0_3, Select row 64b836e0-016f-4493-9894-a6fe79acc8de acorn TEST ONLY — SharePoint pilot Teams notification acceptance owner@example.invalid Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/64b836e0-016f-4493-9894-a6fe79acc8de.jsonl Yesterday at 1:57 PM
 								95 cell (selectable)
 									96 checkbox (settable, integer) Description: Select row, Value: 0
 								97 cell
@@ -103,14 +103,14 @@ All Items
 								101 cell
 									102 text TEST ONLY — SharePoint pilot Teams notification acceptance
 								103 cell
-									104 text o9w@ornl.gov
+									104 text owner@example.invalid
 								105 cell
 									106 text Exported
 								107 cell
 									108 text https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/64b836e0-016f-4493-9894-a6fe79acc8de.jsonl
 								109 cell 10/26/2026 1:57 PM
 									110 text Yesterday at 1:57 PM
-							111 row (selectable) ID: virtualized-list_4_page-0_4, Select row dff4315e-8106-4eb8-83ad-44f6df767476 acorn TEST ONLY - Demo 1: Geospatial data quality review completed o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/dff4315e-8106-4eb8-83ad-44f6df767476.jsonl Yesterday at 5:46 PM
+							111 row (selectable) ID: virtualized-list_4_page-0_4, Select row dff4315e-8106-4eb8-83ad-44f6df767476 acorn TEST ONLY - Demo 1: Geospatial data quality review completed owner@example.invalid Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/dff4315e-8106-4eb8-83ad-44f6df767476.jsonl Yesterday at 5:46 PM
 								112 cell (selectable)
 									113 checkbox (settable, integer) Description: Select row, Value: 0
 								114 cell
@@ -120,14 +120,14 @@ All Items
 								118 cell
 									119 text TEST ONLY - Demo 1: Geospatial data quality review completed
 								120 cell
-									121 text o9w@ornl.gov
+									121 text owner@example.invalid
 								122 cell
 									123 text Exported
 								124 cell
 									125 text https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/dff4315e-8106-4eb8-83ad-44f6df767476.jsonl
 								126 cell 10/26/2026 5:46 PM
 									127 text Yesterday at 5:46 PM
-							128 row (selectable) ID: virtualized-list_4_page-0_5, Select row 67c0e548-ac0c-4a01-829c-9e4708b3cf1f acorn TEST ONLY - Demo 2: Map validation dashboard prototype in progress o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/67c0e548-ac0c-4a01-829c-9e4708b3cf1f.jsonl Yesterday at 5:46 PM
+							128 row (selectable) ID: virtualized-list_4_page-0_5, Select row 67c0e548-ac0c-4a01-829c-9e4708b3cf1f acorn TEST ONLY - Demo 2: Map validation dashboard prototype in progress owner@example.invalid Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/67c0e548-ac0c-4a01-829c-9e4708b3cf1f.jsonl Yesterday at 5:46 PM
 								129 cell (selectable)
 									130 checkbox (settable, integer) Description: Select row, Value: 0
 								131 cell
@@ -137,14 +137,14 @@ All Items
 								135 cell
 									136 text TEST ONLY - Demo 2: Map validation dashboard prototype in progress
 								137 cell
-									138 text o9w@ornl.gov
+									138 text owner@example.invalid
 								139 cell
 									140 text Exported
 								141 cell
 									142 text https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/67c0e548-ac0c-4a01-829c-9e4708b3cf1f.jsonl
 								143 cell 10/26/2026 5:46 PM
 									144 text Yesterday at 5:46 PM
-							145 row (selectable) ID: virtualized-list_4_page-0_6, Select row 32baf0fa-96a7-43c0-8e80-cd71c26b4ca3 acorn TEST ONLY - Demo 3: Analyst walkthrough planned for the reporting workflow o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/32baf0fa-96a7-43c0-8e80-cd71c26b4ca3.jsonl Yesterday at 5:47 PM
+							145 row (selectable) ID: virtualized-list_4_page-0_6, Select row 32baf0fa-96a7-43c0-8e80-cd71c26b4ca3 acorn TEST ONLY - Demo 3: Analyst walkthrough planned for the reporting workflow owner@example.invalid Exported https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/32baf0fa-96a7-43c0-8e80-cd71c26b4ca3.jsonl Yesterday at 5:47 PM
 								146 cell (selectable)
 									147 checkbox (settable, integer) Description: Select row, Value: 0
 								148 cell
@@ -154,7 +154,7 @@ All Items
 								152 cell
 									153 text TEST ONLY - Demo 3: Analyst walkthrough planned for the reporting workflow
 								154 cell
-									155 text o9w@ornl.gov
+									155 text owner@example.invalid
 								156 cell
 									157 text Exported
 								158 cell

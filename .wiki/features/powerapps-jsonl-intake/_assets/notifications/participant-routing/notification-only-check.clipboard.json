@@ -19,7 +19,7 @@
             "projectId": "acorn",
             "submissionId": "341cfb78-c673-4c5c-9e0f-e63c520130f4",
             "submitter": {
-              "email": "c5c@ornl.gov"
+              "email": "participant@example.invalid"
             }
           },
           "schema": {
@@ -65,7 +65,7 @@
           "not": {
             "equals": [
               "@toLower(trim(body('Parse_submission_SP')?['submitter']?['email']))",
-              "o9w@ornl.gov"
+              "owner@example.invalid"
             ]
           }
         },

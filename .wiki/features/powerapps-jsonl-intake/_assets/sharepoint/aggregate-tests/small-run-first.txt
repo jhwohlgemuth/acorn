@@ -221,7 +221,7 @@ Browser tab: 1329059491, Title: "Run History | Power Automate", URL: "https://ma
 													266 text OUTPUTS
 												267 container
 													268 text Connection :
-												226 link Description: o9w@ornl.gov, Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/connections?apiName=shared_sharepointonline&connectionName=shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104
+												226 link Description: owner@example.invalid, Value: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/connections?apiName=shared_sharepointonline&connectionName=shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104
 												170 container
 													171 button (collapsed) Assert bytes empty, Secondary Actions: Expand
 														188 button (collapsed) Assert bytes empty, Secondary Actions: Expand

@@ -1,0 +1,82 @@
+{
+  "id": "3e39b9d2-a5c3-5e96-ac31-6aaa618eed4c",
+  "brandColor": "#8C6CFF",
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "connectionName": "shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "tier": "NotSpecified",
+      "apiName": "sharepointonline",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": true
+    }
+  },
+  "connectorDisplayName": "Control",
+  "isTrigger": false,
+  "operationName": "SharePoint_response_SP",
+  "operationDefinition": {
+    "type": "Response",
+    "kind": "PowerApp",
+    "inputs": {
+      "statusCode": 200,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "status",
+            "x-ms-dynamically-added": true
+          },
+          "submissionid": {
+            "type": "string",
+            "title": "submissionId",
+            "x-ms-dynamically-added": true
+          },
+          "exportstatus": {
+            "type": "string",
+            "title": "exportStatus",
+            "x-ms-dynamically-added": true
+          },
+          "exportfileurl": {
+            "type": "string",
+            "title": "exportFileUrl",
+            "x-ms-dynamically-added": true
+          },
+          "receipturl": {
+            "type": "string",
+            "title": "receiptUrl",
+            "x-ms-dynamically-added": true
+          },
+          "submissions": {
+            "type": "string",
+            "title": "submissions",
+            "x-ms-dynamically-added": true
+          },
+          "reason": {
+            "type": "string",
+            "title": "reason",
+            "x-ms-dynamically-added": true
+          }
+        },
+        "additionalProperties": {}
+      },
+      "body": {
+        "status": "@{if(equals(actions('History_result_EDIT')?['status'],'Succeeded'),'listed',if(equals(outputs('Stale_revision_EDIT'),true),'conflict',if(equals(actions('Accepted_receipt_SP')?['status'],'Succeeded'),'received',if(equals(actions('Conflict_SP')?['status'],'Succeeded'),'conflict',if(or(equals(actions('Rejected_SP')?['status'],'Succeeded'),equals(actions('Parse_submission_SP')?['status'],'Failed'),equals(actions('Check_timestamps_SP')?['status'],'Failed')),'rejected','unresolved')))))}",
+        "submissionid": "@{if(equals(actions('Parse_submission_SP')?['status'],'Succeeded'),body('Parse_submission_SP')?['submissionId'],string(null))}",
+        "exportstatus": "@{if(equals(actions('Mark_exported_SP')?['status'],'Succeeded'),'exported','pending')}",
+        "exportfileurl": "@{if(equals(actions('Mark_exported_SP')?['status'],'Succeeded'),concat('https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/',body('Parse_submission_SP')?['submissionId'],'.jsonl'),string(null))}",
+        "receipturl": "@{if(equals(actions('Accepted_receipt_SP')?['status'],'Succeeded'),concat('https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/DispForm.aspx?ID=',string(outputs('Accepted_receipt_SP'))),string(null))}",
+        "submissions": "@{if(equals(actions('History_result_EDIT')?['status'],'Succeeded'),outputs('History_result_EDIT'),'[]')}",
+        "reason": "@{if(equals(outputs('Stale_revision_EDIT'),true),'stale_revision',string(null))}"
+      }
+    },
+    "runAfter": {
+      "Submission_editing_EDIT": [
+        "Succeeded",
+        "Failed",
+        "Skipped",
+        "TimedOut"
+      ]
+    }
+  }
+}

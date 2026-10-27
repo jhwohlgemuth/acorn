@@ -184,22 +184,22 @@ Browser tab: 1329059527, Title: "Manage your flows | Power Automate", URL: "http
 									380 text Connection references
 								381 button See all
 								382 table
-									383 row o9w@ornl.gov SharePoint Permissions o9w@ornl.gov, ID: row555-0
+									383 row owner@example.invalid SharePoint Permissions owner@example.invalid, ID: row555-0
 										384 cell
-											385 image o9w@ornl.gov
+											385 image owner@example.invalid
 										386 cell
 											387 text SharePoint
 											388 button Permissions
 												389 text Permissions
 										390 cell
-											391 text o9w@ornl.gov
-									392 row o9w@ornl.gov Microsoft Teams o9w@ornl.gov, ID: row555-1
+											391 text owner@example.invalid
+									392 row owner@example.invalid Microsoft Teams owner@example.invalid, ID: row555-1
 										393 cell
-											394 image o9w@ornl.gov
+											394 image owner@example.invalid
 										395 cell
 											396 text Microsoft Teams
 										397 cell
-											398 text o9w@ornl.gov
+											398 text owner@example.invalid
 							399 container
 								400 heading Co-owner, Value: 3
 									401 text Co-owner
@@ -283,18 +283,18 @@ Browser tab: 1329059527, Title: "Manage your flows | Power Automate", URL: "http
 								478 container SharePoint
 									479 text SharePoint
 									480 text Access to this connection is provided by the owner of the flow.
-								481 pop up button (collapsed, settable) Description: Select a connection for SharePoint., Value: Use this connection (o9w@ornl.gov), Secondary Actions: Expand
+								481 pop up button (collapsed, settable) Description: Select a connection for SharePoint., Value: Use this connection (owner@example.invalid), Secondary Actions: Expand
 									482 menu
 										483 Provided by run-only user
-										484 (selected) Use this connection (o9w@ornl.gov)
+										484 (selected) Use this connection (owner@example.invalid)
 								485 container Microsoft Teams
 									486 text Microsoft Teams
 									487 text Access to this connection is provided by the owner of the flow.
-								488 pop up button (collapsed, settable) Description: Select a connection for Microsoft Teams., Value: Use this connection (o9w@ornl.gov), Secondary Actions: Expand
+								488 pop up button (collapsed, settable) Description: Select a connection for Microsoft Teams., Value: Use this connection (owner@example.invalid), Secondary Actions: Expand
 									489 menu
 										490 Provided by run-only user
-										491 Use this connection (o9w@ornl.gov)
-										492 (selected) Use this connection (o9w@ornl.gov)
+										491 Use this connection (owner@example.invalid)
+										492 (selected) Use this connection (owner@example.invalid)
 								493 button (disabled) Save
 								494 button Cancel
 						260 container Connections Used Users with run-only access will not control or have access to these connections outside of this flow.

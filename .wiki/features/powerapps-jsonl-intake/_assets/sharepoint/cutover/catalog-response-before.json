@@ -1,0 +1,19 @@
+{
+    "kind": "PowerApp",
+    "inputs": {
+        "statusCode": 200,
+        "body": {
+            "catalogjson": "@{if(greater(length(body('Select')),1000),'{\"error\":\"catalog_limit\",\"projects\":[],\"source\":\"sharepoint\"}',string(setProperty(json('{\"source\":\"sharepoint\"}'),'projects',body('Select'))))}"
+        },
+        "schema": {
+            "type": "object",
+            "properties": {
+                "catalogjson": {
+                    "title": "catalogJson",
+                    "x-ms-dynamically-added": true,
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

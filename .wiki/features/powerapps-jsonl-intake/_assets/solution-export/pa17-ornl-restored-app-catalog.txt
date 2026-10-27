@@ -23,7 +23,7 @@
     - heading [level=1]: Sponsor Highlights
     - generic: Document progress. Connect research to impact.
     - generic: 01 // HIGHLIGHT DETAILS
-    - generic: Submitted by Jason Wohlgemuth • o9w@ornl.gov
+    - generic: Submitted by Jason Wohlgemuth • owner@example.invalid
     - generic: Project *
     - button [expanded]: Select a project
     - generic: Choose the project this highlight belongs to.

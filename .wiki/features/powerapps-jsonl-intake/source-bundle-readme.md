@@ -1,7 +1,13 @@
-# Sponsor Highlights source bundle
+# Sponsor Highlights sources and recovery assets
 
-[Download the source bundle](_assets/sponsor-highlights-source-bundle.zip). Archive paths are relative to `.wiki/features/`; extract there in a fresh ACORN checkout to retain cross-plan links and access to repository documentation. The bundle contains the same selected source and acceptance records as before the folder migration, organized by their owning plan.
+Use the current repository files; the old selected-source ZIP and manifest were removed because they predated SharePoint cutover, correction support and the latest guides.
 
-Start with the [pilot runbook](pilot-runbook.md), [notification walkthrough](notification-walkthrough.md), or [manual rehearsal](../manual-jsonl-ingestion-graduation/walkthrough.md). The [manifest](_assets/source-bundle-manifest.json) resolves its `files[].path` entries from `pathBase`, relative to the manifest's own directory. It records SHA-256 hashes of the current bundled files and excludes itself and the ZIP.
+- [Current user/reviewer guide](_assets/sponsor-highlights-user-reviewer-guide.pdf)
+- [Current developer guide](_assets/sponsor-highlights-developer-guide.pdf)
+- [Published editing controls and acceptance](_assets/sharepoint/submission-editing/README.md)
+- [SharePoint cutover sources and rollback](_assets/sharepoint/cutover/README.md)
+- [Native SharePoint backup and isolated restore](_assets/sharepoint/backup/README.md)
+- [GitLab native restore readiness](restore-target-readiness.md)
+- [Manual review and demo walkthrough](../manual-jsonl-ingestion-graduation/walkthrough.md)
 
-This is a source backup, not an importable Power Platform solution. Historical transcripts, screenshots and PDFs retain the paths and commands recorded when they were captured. Current Markdown links and executable commands use plan-local paths.
+Native archives are dated recovery evidence, not a backup of later editing controls. Sanitized packages require approved account settings and isolated revalidation before reuse. See [privacy and reuse limits](../../privacy.md). A source file or ZIP never substitutes for an accepted native import.

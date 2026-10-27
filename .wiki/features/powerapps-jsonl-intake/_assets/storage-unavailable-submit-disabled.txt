@@ -51,7 +51,7 @@ Browser tab: 1329059060, Title: "Power Apps Studio  |  Sponsor Highlights (E
 														219 image Oak Ridge National Laboratory
 												220 container
 													221 text 01  /  HIGHLIGHT DETAILS
-													222 text Submitted by Jason Wohlgemuth  •  o9w@ornl.gov
+													222 text Submitted by Jason Wohlgemuth  •  owner@example.invalid
 													223 text Project *
 													224 container
 														225 pop up button (disabled, collapsed) Description: Project, required. , Secondary Actions: Expand

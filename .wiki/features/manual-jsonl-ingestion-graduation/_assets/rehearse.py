@@ -42,7 +42,7 @@ def main():
     (root / "selected.jsonl").write_bytes(selected)
     config = root / "intake.json"
     config.write_text(json.dumps({"schemaVersion": "2.0.0", "folders": [{
-        "id": "acorn", "members": ["o9w@ornl.gov"], "path": index.as_uri()
+        "id": "acorn", "members": ["owner@example.invalid"], "path": index.as_uri()
     }]}, indent=2) + "\n")
     transcript = []
     acorn = str(args.acorn.resolve())

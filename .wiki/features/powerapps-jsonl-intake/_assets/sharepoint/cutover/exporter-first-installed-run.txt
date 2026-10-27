@@ -1,0 +1,99 @@
+Browser tab: 1329059556, Title: "Manage your flows | Power Automate", URL: "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/51efa5f9-6e69-4d75-a53b-2c2965fd51bd/runs/08584084879849494890355451407CU03".
+0 AXWebArea Manage your flows | Power Automate, URL: make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/51efa5f9-6e69-4d75-a53b-2c2965fd51bd/runs/08584084879849494890355451407CU03
+	1 container
+		2 container root
+			3 container
+				4 button Skip to main content, ID: PPUXOfficeHeaderSkipButton
+				5 container o365header
+					6 container O365_NavHeader
+						7 pop up button (collapsed) Description: App launcher, ID: O365_MainLink_NavMenu, Secondary Actions: Expand
+							93 text 
+						9 container ppuxOfficeHeaderTopLevelRegion
+							10 container ppuxOfficeHeaderLeftRegion
+								11 text Power Automate
+							12 container ppuxOfficeHeaderRightRegion
+								13 button Wohlgemuth, Jason
+									14 container
+										15 text Environments Wohlgemuth, Jason
+								16 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
+								17 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand
+						18 container O365_HeaderRightRegion
+							19 button (collapsed) Description: Account manager for Wohlgemuth, Jason, ID: O365_MainLink_Me, Secondary Actions: Expand
+								20 image JW
+				21 container
+					22 button Go back to previous page
+					23 heading The flow name is ACORN SharePoint Pilot Logbook Export., Value: 1
+						24 container The flow name is ACORN SharePoint Pilot Logbook Export.
+							25 text ACORN SharePoint Pilot Logbook Export
+					26 toolbar
+						27 button Description: Resubmit, ID: resubmitFlowRun
+							28 text Resubmit
+						29 button (disabled) Description: Cancel, ID: cancelFlowRun
+							30 text Cancel
+						31 button Description: Copilot, ID: chat
+							32 text Copilot
+						33 button Description: Edit, ID: editFlow
+							34 text Edit
+						35 container
+							36 switch Description: New view, Value: 1, ID: switchDesignerFlowRunDetails
+							37 text New view
+					38 container Your flow ran successfully.
+						39 text Your flow ran successfully.
+						40 button Dismiss
+					41 container
+						42 container Workflow canvas
+							43 container
+								104 image
+									105 container Edge from Recurrence to Combined_logbook_export_LB
+								106 image
+									107 container Edge from Invalid_rows_LB to Complete_valid_rows_LB
+								108 image
+									109 edge Edge from Complete_valid_rows_LB-#scope to Complete_valid_rows_LB-actions
+								110 image
+									111 container Edge from Complete_valid_rows_LB-actions-#subgraph to Select_original_rows_LB
+								112 image
+									113 container Edge from Select_original_rows_LB to Combined_JSONL_LB
+								101 container
+									102 button (expanded) Description: True condition, Secondary Actions: Collapse
+										114 text True
+								103 container
+									115 container Select original rows LB
+										116 container msla-node-Select_original_rows_LB
+											117 container Description: 0 seconds. Succeeded, ID: Select original rows LB-status
+											118 button Select original rows LB operation, Data Operation connector
+												119 text Select original rows LB
+											120 container This operation has secure inputs or outputs enabled.
+												121 container Secure inputs or outputs enabled.: This operation has secure inputs or outputs enabled.
+							60 image
+							61 container Control Panel
+								62 button Description: Collapse all action groups, ID: control-expand-collapse-button
+								63 button Description: Zoom in, ID: control-zoom-in-button
+								64 button Description: Zoom out, ID: control-zoom-out-button
+								65 button Description: Zoom view to fit, ID: control-zoom-fit-button
+								66 button Description: Toggle minimap, ID: control-minimap-button
+								67 button Description: Search workflow actions, ID: control-search-button
+						70 container Operation details panel
+							71 button Collapse
+						72 container
+							73 text Copilot
+							74 button Close
+						75 container Copilot
+							76 container Copilot message
+								77 container
+									78 text Welcome back! If you want me to change your flow, just say what you want. For example:
+									79 content list
+										80 text Add an action that sends an email
+										81 text Explain what an action does
+										82 text Add a condition
+									83 text Check the flow’s actions to see if any parameters need to be set. Don’t forget to save when you’re done! AI-generated content may be incorrect
+						84 button Test this flow
+							85 text Test this flow
+						86 text entry area (settable) TextField1242
+						87 container
+							88 text 0 / 2000
+						89 checkbox Description: Actions, Value: 0
+						90 button (disabled) Submit
+						91 container Make sure AI-generated content is accurate and appropriate before using.
+							92 text Make sure AI-generated content is accurate and appropriate before using.
+
+The focused UI element is 62 button Description: Collapse all action groups, ID: control-expand-collapse-button

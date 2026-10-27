@@ -17,7 +17,7 @@
     "submissionId": "146b840c-52b2-4d3c-a257-df6e507f808a",
     "submittedAt": "2026-10-24T20:23:06.494Z",
     "submitter": {
-      "email": "o9w@ornl.gov"
+      "email": "owner@example.invalid"
     }
   },
   {
@@ -38,7 +38,7 @@
     "submissionId": "7a899477-da02-47bb-a02b-798a9c97fe7d",
     "submittedAt": "2026-10-24T20:23:06.494Z",
     "submitter": {
-      "email": "o9w@ornl.gov"
+      "email": "owner@example.invalid"
     }
   }
 ]

@@ -80,6 +80,7 @@ openssl-sys = { version = "0.9.117", features = ["vendored"] }
 
 [features]
 default = ["pdf", "tui"]
+auth = ["acorn-lib/auth", "acorn-host/auth"]
 chart = ["acorn-lib/chart"]
 duckdb = ["acorn-lib/duckdb"]
 pdf = ["dep:chromiumoxide", "dep:percy-dom", "dep:fast_qr", "chart"]

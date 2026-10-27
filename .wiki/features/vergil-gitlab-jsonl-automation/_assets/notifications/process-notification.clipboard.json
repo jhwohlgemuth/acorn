@@ -180,7 +180,7 @@
               "parameters": {
                 "entityName": "cr1d0_acorncallbackreceipts",
                 "item/cr1d0_webhookid": "@triggerBody()?['text']",
-                "item/cr1d0_emailrecipient": "@if(or(equals(body('Validate_event')?['event'],'mr-created'),equals(body('Validate_event')?['event'],'report-no-changes')),'teams-self:o9w@ornl.gov','o9w@ornl.gov')",
+                "item/cr1d0_emailrecipient": "@if(or(equals(body('Validate_event')?['event'],'mr-created'),equals(body('Validate_event')?['event'],'report-no-changes')),'teams-self:owner@example.invalid','owner@example.invalid')",
                 "item/cr1d0_emailstate": "Pending",
                 "item/cr1d0_payloadjson": "@triggerBody()?['text_1']"
               },
@@ -413,7 +413,7 @@
                             "expression": {
                               "equals": [
                                 "@first(body('Find_receipt')?['value'])?['cr1d0_emailrecipient']",
-                                "teams-self:o9w@ornl.gov"
+                                "teams-self:owner@example.invalid"
                               ]
                             },
                             "actions": {

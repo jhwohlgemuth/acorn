@@ -1,0 +1,28 @@
+{
+  "inputs": {
+    "host": {
+      "connectionName": "shared_teams",
+      "operationId": "PostMessageToSelf",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams"
+    },
+    "parameters": {
+      "body/body/content": "@{if(contains(toUpper(body('Parse_submission_SP')?['entry']?['summary']), 'TEST ONLY'), '<p style=\"color:#8A4B08\"><strong>TEST ONLY // Synthetic validation</strong></p>', string(null))}<p style=\"color:#526A70;font-size:12px;letter-spacing:1px\"><strong>ACORN // SPONSOR HIGHLIGHTS</strong></p><h2 style=\"color:#00785B;font-size:22px;margin:8px 0 16px\">✓ Highlight received · JSONL ready</h2><blockquote style=\"border-left:4px solid #00785B;margin:12px 0;padding:4px 0 4px 16px\"><strong>Project</strong><br>@{replace(replace(replace(string(body('Parse_submission_SP')?['projectId']), '&', '&amp;'), '<', '&lt;'), '>', '&gt;')}</blockquote><blockquote style=\"border-left:4px solid #00785B;margin:12px 0;padding:4px 0 4px 16px\"><strong>Status</strong><br>SharePoint receipt saved · JSONL export verified · Awaiting ACORN review</blockquote><p><a href=\"https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/@{uriComponent(string(body('Parse_submission_SP')?['submissionId']))}.jsonl\"><strong>Open JSONL export →</strong></a></p><blockquote style=\"border-left:4px solid #00785B;margin:12px 0;padding:4px 0 4px 16px\"><strong>Receipt ID</strong><br><code>@{replace(replace(replace(string(body('Parse_submission_SP')?['submissionId']), '&', '&amp;'), '<', '&lt;'), '>', '&gt;')}</code></blockquote><hr><p style=\"color:#526A70;font-size:12px\"><em>Saving does not approve or publish the highlight.</em></p>",
+      "body/body/contentType": "html"
+    },
+    "authentication": "@parameters('$authentication')",
+    "retryPolicy": {
+      "type": "none"
+    }
+  },
+  "runtimeConfiguration": {
+    "secureData": {
+      "properties": [
+        "inputs",
+        "outputs"
+      ]
+    }
+  },
+  "metadata": {
+    "operationMetadataId": "628137e4-d671-43e5-982e-2314d207f17d"
+  }
+}

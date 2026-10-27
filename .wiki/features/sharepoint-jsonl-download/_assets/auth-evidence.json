@@ -1,0 +1,14 @@
+{
+  "observedAt": "2026-10-27",
+  "status": "blocked",
+  "operatorSharePointAccount": "available",
+  "approvedPublicClientRegistration": "not identified",
+  "delegatedGraphConsent": "unverified",
+  "tenantCloud": "unverified",
+  "browserGrantPolicy": "unverified",
+  "deviceGrantPolicy": "unverified",
+  "metadataRead": "not attempted",
+  "contentRead": "not attempted",
+  "sameRevisionByteComparison": "not attempted",
+  "nextEvidence": "Approved tenant/client identifiers, public-client and redirect settings, delegated scopes, and operator permission for a read-only Graph probe"
+}

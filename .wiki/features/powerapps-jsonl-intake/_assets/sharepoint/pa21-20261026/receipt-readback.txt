@@ -8,7 +8,7 @@ Browser tab: 1329059389, Title: "Research Enablement - PA19 TEST ONLY Receipts",
 						222 text 
 					23 container topLevelRegion
 						24 container leftRegion
-							25 link Description: SharePoint, Value: ornl.sharepoint.com/_layouts/15/sharepoint.aspx?&login_hint=o9w@ornl.gov, ID: O365_AppName
+							25 link Description: SharePoint, Value: ornl.sharepoint.com/_layouts/15/sharepoint.aspx?&login_hint=owner@example.invalid, ID: O365_AppName
 						26 combo box (collapsed, settable) Description: Search box. Suggestions appear as you type, Secondary Actions: Expand
 						27 container HeaderButtonRegion
 							28 button (collapsed) Description: Next steps to improve your site, ID: TipsNTricksButton, Secondary Actions: Expand
@@ -125,7 +125,7 @@ All Items
 									133 cell
 									134 cell 10/26/2026 8:34 PM
 										135 text About an hour ago
-								136 row (selectable) ID: virtualized-list_4_page-0_3, Select row 1d1e94f5-b49e-46d5-b954-edf595dc2ffe pa19-test-1 PA20 TEST ONLY exact payload boundary o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/1d1e94f5-b49e-46d5-b954-edf595dc2ffe.jsonl 42 minutes ago
+								136 row (selectable) ID: virtualized-list_4_page-0_3, Select row 1d1e94f5-b49e-46d5-b954-edf595dc2ffe pa19-test-1 PA20 TEST ONLY exact payload boundary owner@example.invalid Exported https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/1d1e94f5-b49e-46d5-b954-edf595dc2ffe.jsonl 42 minutes ago
 									137 cell (selectable)
 										138 checkbox (settable, integer) Description: Select row, Value: 0
 									139 cell
@@ -135,14 +135,14 @@ All Items
 									143 cell
 										144 text PA20 TEST ONLY exact payload boundary
 									145 cell
-										146 text o9w@ornl.gov
+										146 text owner@example.invalid
 									147 cell
 										148 text Exported
 									149 cell
 										150 text https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/1d1e94f5-b49e-46d5-b954-edf595dc2ffe.jsonl
 									151 cell 10/26/2026 8:59 PM
 										152 text 42 minutes ago
-								153 row (selectable) ID: virtualized-list_4_page-0_4, Select row 440d8060-e073-4aa7-bbdc-64b672ef29d5 pa19-test-1 PA20 TEST ONLY simultaneous same-ID receipt o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/440d8060-e073-4aa7-bbdc-64b672ef29d5.jsonl 38 minutes ago
+								153 row (selectable) ID: virtualized-list_4_page-0_4, Select row 440d8060-e073-4aa7-bbdc-64b672ef29d5 pa19-test-1 PA20 TEST ONLY simultaneous same-ID receipt owner@example.invalid Exported https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/440d8060-e073-4aa7-bbdc-64b672ef29d5.jsonl 38 minutes ago
 									154 cell (selectable)
 										155 checkbox (settable, integer) Description: Select row, Value: 0
 									156 cell
@@ -152,14 +152,14 @@ All Items
 									160 cell
 										161 text PA20 TEST ONLY simultaneous same-ID receipt
 									162 cell
-										163 text o9w@ornl.gov
+										163 text owner@example.invalid
 									164 cell
 										165 text Exported
 									166 cell
 										167 text https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/440d8060-e073-4aa7-bbdc-64b672ef29d5.jsonl
 									168 cell 10/26/2026 9:03 PM
 										169 text 38 minutes ago
-								170 row (selectable) ID: virtualized-list_4_page-0_6, Select row 73ea24a0-929c-438c-9140-f5e05e120e7e pa19-test-1 PA20 TEST ONLY export failure and exact retry o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/73ea24a0-929c-438c-9140-f5e05e120e7e.jsonl 31 minutes ago
+								170 row (selectable) ID: virtualized-list_4_page-0_6, Select row 73ea24a0-929c-438c-9140-f5e05e120e7e pa19-test-1 PA20 TEST ONLY export failure and exact retry owner@example.invalid Exported https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/73ea24a0-929c-438c-9140-f5e05e120e7e.jsonl 31 minutes ago
 									171 cell (selectable)
 										172 checkbox (settable, integer) Description: Select row, Value: 0
 									173 cell
@@ -169,14 +169,14 @@ All Items
 									177 cell
 										178 text PA20 TEST ONLY export failure and exact retry
 									179 cell
-										180 text o9w@ornl.gov
+										180 text owner@example.invalid
 									181 cell
 										182 text Exported
 									183 cell
 										184 text https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/73ea24a0-929c-438c-9140-f5e05e120e7e.jsonl
 									185 cell 10/26/2026 9:10 PM
 										186 text 31 minutes ago
-								187 row (selected) ID: virtualized-list_4_page-0_7,  Select row  1fa33754-c8f8-472b-94d7-125ea1c4effb More Actions Add Comment pa19-test-1 PA21 TEST ONLY — app-driven export recovery, café Δ. Synthetic acceptance data; exclude from sponsor reports. o9w@ornl.gov Exported https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/1fa33754-c8f8-472b-94d7-125ea1c4effb.jsonl About a minute ago
+								187 row (selected) ID: virtualized-list_4_page-0_7,  Select row  1fa33754-c8f8-472b-94d7-125ea1c4effb More Actions Add Comment pa19-test-1 PA21 TEST ONLY — app-driven export recovery, café Δ. Synthetic acceptance data; exclude from sponsor reports. owner@example.invalid Exported https://ornl.sharepoint.com/sites/ResearchEnablement/PA19%20TEST%20ONLY%20JSONL/1fa33754-c8f8-472b-94d7-125ea1c4effb.jsonl About a minute ago
 									188 cell (selected)
 										225 text 
 										189 checkbox (settable, integer) Description: Select row, Value: 1
@@ -192,7 +192,7 @@ All Items
 									194 cell
 										195 text PA21 TEST ONLY — app-driven export recovery, café Δ. Synthetic acceptance data; exclude from sponsor reports.
 									196 cell
-										197 text o9w@ornl.gov
+										197 text owner@example.invalid
 									198 cell
 										199 text Exported
 									200 cell
@@ -222,8 +222,8 @@ All Items
 					247 button SubmissionId Required Field, 1fa33754-c8f8-472b-94d7-125ea1c4effb, press enter to edit.
 						248 text 1fa33754-c8f8-472b-94d7-125ea1c4effb
 					249 text PayloadBase64A
-					250 text field Description: PayloadBase64A Required Field, eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlZlcmlmeSBzYXZlZCByZWNlaXB0IHN1cnZpdmVzIGV4cG9ydCBmYWlsdXJlLiIsIlJldHJ5IG11c3QgcmV1c2UgdGhlIHNhbWUgVVVJRCBhbmQgZXhhY3QgcGF5bG9hZC4iXSwib3JpZ2luIjoibWFudWFsIiwic3RhdGUiOiJpbi1wcm9ncmVzcyIsInN1bW1hcnkiOiJQQTIxIFRFU1QgT05MWSDigJQgYXBwLWRyaXZlbiBleHBvcnQgcmVjb3ZlcnksIGNhZsOpIM6ULiBTeW50aGV0aWMgYWNjZXB0YW5jZSBkYXRhOyBleGNsdWRlIGZyb20gc3BvbnNvciByZXBvcnRzLiIsInRpbWVzdGFtcCI6IjIwMjYtMTAtMjZUMDQ6MDA6MDAuMDAwWiJ9LCJwcm9qZWN0SWQiOiJwYTE5LXRlc3QtMSIsInN1Ym1pc3Npb25JZCI6IjFmYTMzNzU0LWM4ZjgtNDcyYi05NGQ3LTEyNWVhMWM0ZWZmYiIsInN1Ym1pdHRlZEF0IjoiMjAyNi0xMC0yN1QwMTozOTozNC45MjZaIiwic3VibWl0dGVyIjp7ImVtYWlsIjoibzl3QG9ybmwuZ292In19, press enter to edit., Value: eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlZlcmlmeSBzYXZlZCByZWNlaXB0IHN1cnZpdmVzIGV4cG9ydCBmYWlsdXJlLiIsIlJldHJ5IG11c3QgcmV1c2UgdGhlIHNhbWUgVVVJRCBhbmQgZXhhY3QgcGF5bG9hZC4iXSwib3JpZ2luIjoibWFudWFsIiwic3RhdGUiOiJpbi1wcm9ncmVzcyIsInN1bW1hcnkiOiJQQTIxIFRFU1QgT05MWSDigJQgYXBwLWRyaXZlbiBleHBvcnQgcmVjb3ZlcnksIGNhZsOpIM6ULiBTeW50aGV0aWMgYWNjZXB0YW5jZSBkYXRhOyBleGNsdWRlIGZyb20gc3BvbnNvciByZXBvcnRzLiIsInRpbWVzdGFtcCI6IjIwMjYtMTAtMjZUMDQ6MDA6MDAuMDAwWiJ9LCJwcm9qZWN0SWQiOiJwYTE5LXRlc3QtMSIsInN1Ym1pc3Npb25JZCI6IjFmYTMzNzU0LWM4ZjgtNDcyYi05NGQ3LTEyNWVhMWM0ZWZmYiIsInN1Ym1pdHRlZEF0IjoiMjAyNi0xMC0yN1QwMTozOTozNC45MjZaIiwic3VibWl0dGVyIjp7ImVtYWlsIjoibzl3QG9ybmwuZ292In19
-						251 text eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlZlcmlmeSBzYXZlZCByZWNlaXB0IHN1cnZpdmVzIGV4cG9ydCBmYWlsdXJlLiIsIlJldHJ5IG11c3QgcmV1c2UgdGhlIHNhbWUgVVVJRCBhbmQgZXhhY3QgcGF5bG9hZC4iXSwib3JpZ2luIjoibWFudWFsIiwic3RhdGUiOiJpbi1wcm9ncmVzcyIsInN1bW1hcnkiOiJQQTIxIFRFU1QgT05MWSDigJQgYXBwLWRyaXZlbiBleHBvcnQgcmVjb3ZlcnksIGNhZsOpIM6ULiBTeW50aGV0aWMgYWNjZXB0YW5jZSBkYXRhOyBleGNsdWRlIGZyb20gc3BvbnNvciByZXBvcnRzLiIsInRpbWVzdGFtcCI6IjIwMjYtMTAtMjZUMDQ6MDA6MDAuMDAwWiJ9LCJwcm9qZWN0SWQiOiJwYTE5LXRlc3QtMSIsInN1Ym1pc3Npb25JZCI6IjFmYTMzNzU0LWM4ZjgtNDcyYi05NGQ3LTEyNWVhMWM0ZWZmYiIsInN1Ym1pdHRlZEF0IjoiMjAyNi0xMC0yN1QwMTozOTozNC45MjZaIiwic3VibWl0dGVyIjp7ImVtYWlsIjoibzl3QG9ybmwuZ292In19
+					250 text field Description: PayloadBase64A Required Field, eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlZlcmlmeSBzYXZlZCByZWNlaXB0IHN1cnZpdmVzIGV4cG9ydCBmYWlsdXJlLiIsIlJldHJ5IG11c3QgcmV1c2UgdGhlIHNhbWUgVVVJRCBhbmQgZXhhY3QgcGF5bG9hZC4iXSwib3JpZ2luIjoibWFudWFsIiwic3RhdGUiOiJpbi1wcm9ncmVzcyIsInN1bW1hcnkiOiJQQTIxIFRFU1QgT05MWSDigJQgYXBwLWRyaXZlbiBleHBvcnQgcmVjb3ZlcnksIGNhZsOpIM6ULiBTeW50aGV0aWMgYWNjZXB0YW5jZSBkYXRhOyBleGNsdWRlIGZyb20gc3BvbnNvciByZXBvcnRzLiIsInRpbWVzdGFtcCI6IjIwMjYtMTAtMjZUMDQ6MDA6MDAuMDAwWiJ9LCJwcm9qZWN0SWQiOiJwYTE5LXRlc3QtMSIsInN1Ym1pc3Npb25JZCI6IjFmYTMzNzU0LWM4ZjgtNDcyYi05NGQ3LTEyNWVhMWM0ZWZmYiIsInN1Ym1pdHRlZEF0IjoiMjAyNi0xMC0yN1QwMTozOTozNC45MjZaIiwic3VibWl0dGVyIjp7ImVtYWlsIjoib3duZXJAZXhhbXBsZS5pbnZhbGlkIn19, press enter to edit., Value: eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlZlcmlmeSBzYXZlZCByZWNlaXB0IHN1cnZpdmVzIGV4cG9ydCBmYWlsdXJlLiIsIlJldHJ5IG11c3QgcmV1c2UgdGhlIHNhbWUgVVVJRCBhbmQgZXhhY3QgcGF5bG9hZC4iXSwib3JpZ2luIjoibWFudWFsIiwic3RhdGUiOiJpbi1wcm9ncmVzcyIsInN1bW1hcnkiOiJQQTIxIFRFU1QgT05MWSDigJQgYXBwLWRyaXZlbiBleHBvcnQgcmVjb3ZlcnksIGNhZsOpIM6ULiBTeW50aGV0aWMgYWNjZXB0YW5jZSBkYXRhOyBleGNsdWRlIGZyb20gc3BvbnNvciByZXBvcnRzLiIsInRpbWVzdGFtcCI6IjIwMjYtMTAtMjZUMDQ6MDA6MDAuMDAwWiJ9LCJwcm9qZWN0SWQiOiJwYTE5LXRlc3QtMSIsInN1Ym1pc3Npb25JZCI6IjFmYTMzNzU0LWM4ZjgtNDcyYi05NGQ3LTEyNWVhMWM0ZWZmYiIsInN1Ym1pdHRlZEF0IjoiMjAyNi0xMC0yN1QwMTozOTozNC45MjZaIiwic3VibWl0dGVyIjp7ImVtYWlsIjoib3duZXJAZXhhbXBsZS5pbnZhbGlkIn19
+						251 text eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlZlcmlmeSBzYXZlZCByZWNlaXB0IHN1cnZpdmVzIGV4cG9ydCBmYWlsdXJlLiIsIlJldHJ5IG11c3QgcmV1c2UgdGhlIHNhbWUgVVVJRCBhbmQgZXhhY3QgcGF5bG9hZC4iXSwib3JpZ2luIjoibWFudWFsIiwic3RhdGUiOiJpbi1wcm9ncmVzcyIsInN1bW1hcnkiOiJQQTIxIFRFU1QgT05MWSDigJQgYXBwLWRyaXZlbiBleHBvcnQgcmVjb3ZlcnksIGNhZsOpIM6ULiBTeW50aGV0aWMgYWNjZXB0YW5jZSBkYXRhOyBleGNsdWRlIGZyb20gc3BvbnNvciByZXBvcnRzLiIsInRpbWVzdGFtcCI6IjIwMjYtMTAtMjZUMDQ6MDA6MDAuMDAwWiJ9LCJwcm9qZWN0SWQiOiJwYTE5LXRlc3QtMSIsInN1Ym1pc3Npb25JZCI6IjFmYTMzNzU0LWM4ZjgtNDcyYi05NGQ3LTEyNWVhMWM0ZWZmYiIsInN1Ym1pdHRlZEF0IjoiMjAyNi0xMC0yN1QwMTozOTozNC45MjZaIiwic3VibWl0dGVyIjp7ImVtYWlsIjoib3duZXJAZXhhbXBsZS5pbnZhbGlkIn19
 					252 button See more
 					253 text PayloadBase64B
 					254 text field Description: PayloadBase64B, empty, press enter to edit., Value: Enter value here
@@ -235,8 +235,8 @@ All Items
 					260 text field Description: Summary, PA21 TEST ONLY — app-driven export recovery, café Δ. Synthetic acceptance data; exclude from sponsor reports., press enter to edit., Value: PA21 TEST ONLY — app-driven export recovery, café Δ. Synthetic acceptance data; exclude from sponsor reports.
 						261 text PA21 TEST ONLY — app-driven export recovery, café Δ. Synthetic acceptance data; exclude from sponsor reports.
 					262 text SubmitterEmail
-					263 button SubmitterEmail, o9w@ornl.gov, press enter to edit.
-						264 text o9w@ornl.gov
+					263 button SubmitterEmail, owner@example.invalid, press enter to edit.
+						264 text owner@example.invalid
 					265 text ExportStatus
 					266 button ExportStatus, Exported, press enter to edit.
 						267 text Exported

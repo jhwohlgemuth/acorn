@@ -10,7 +10,7 @@ Browser tab: 1329059500, Title: "Change Column", URL: "https://ornl.sharepoint.c
 					9 text 
 				10 container topLevelRegion
 					165 container leftRegion
-						166 link Description: SharePoint, Value: ornl.sharepoint.com/_layouts/15/sharepoint.aspx?&login_hint=o9w@ornl.gov, ID: O365_AppName
+						166 link Description: SharePoint, Value: ornl.sharepoint.com/_layouts/15/sharepoint.aspx?&login_hint=owner@example.invalid, ID: O365_AppName
 					167 container HeaderButtonRegion
 						168 button (collapsed) Description: Settings, ID: O365_MainLink_Settings, Secondary Actions: Expand
 						169 button (collapsed) Description: Help, ID: O365_MainLink_Help, Secondary Actions: Expand

@@ -1,0 +1,26 @@
+{
+  "issuers": [
+    {
+      "name": "primary",
+      "issuer": "https://login.example.test/tenant-one/v2.0",
+      "tenantId": "00000000-0000-0000-0000-000000000001",
+      "clientId": "00000000-0000-0000-0000-000000000002",
+      "accountSubject": "opaque-subject-one",
+      "resource": "https://graph.example.test",
+      "scopes": ["Files.Read"]
+    },
+    {
+      "name": "secondary",
+      "issuer": "https://identity.other.test/tenant-two",
+      "tenantId": "00000000-0000-0000-0000-000000000003",
+      "clientId": "00000000-0000-0000-0000-000000000004",
+      "accountSubject": "opaque-subject-two",
+      "resource": "https://records.other.test",
+      "scopes": ["records.read"]
+    }
+  ],
+  "incompatible": [
+    ["issuer", "clientId", "resource", "scopes"],
+    ["accountSubject", "tenantId", "resource"]
+  ]
+}

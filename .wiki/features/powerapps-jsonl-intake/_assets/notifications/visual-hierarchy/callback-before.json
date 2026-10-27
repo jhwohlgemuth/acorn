@@ -1,0 +1,31 @@
+{
+    "inputs": {
+        "host": {
+            "connectionName": "shared_teams",
+            "operationId": "PostMessageToSelf",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams"
+        },
+        "parameters": {
+            "body/body/content": "@concat(if(startsWith(triggerBody()?['text'], 'acorn-test-'), 'TEST ONLY — no review or report action is requested.', 'ACORN Sponsor Highlights'), decodeUriComponent('%0A%0A'), 'Project: ', body('Validate_event')?['project_id'], decodeUriComponent('%0A'), if(equals(body('Validate_event')?['event'], 'mr-created'), 'Review workspace created. A separate email will request review when it is ready.', 'No report changes for the requested period. No action is needed.'), decodeUriComponent('%0A'), coalesce(body('Validate_event')?['merge_request_url'], concat('Through: ', string(body('Validate_event')?['through']))), decodeUriComponent('%0A%0A'), 'Receipt: ', triggerBody()?['text'])",
+            "body/body/contentType": "text"
+        },
+        "authentication": {
+            "type": "Raw",
+            "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']"
+        },
+        "retryPolicy": {
+            "type": "none"
+        }
+    },
+    "runtimeConfiguration": {
+        "secureData": {
+            "properties": [
+                "inputs",
+                "outputs"
+            ]
+        }
+    },
+    "metadata": {
+        "operationMetadataId": "f526910e-d61f-4caf-ac70-af3126181f7c"
+    }
+}

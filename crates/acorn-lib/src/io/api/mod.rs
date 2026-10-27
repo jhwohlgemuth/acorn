@@ -57,6 +57,8 @@ pub mod citeas;
 pub mod geonames;
 pub mod github;
 pub mod gitlab;
+#[cfg(feature = "auth")]
+pub mod graph;
 pub mod handle;
 pub mod harbor;
 pub mod huggingface;
@@ -76,6 +78,8 @@ pub mod osti;
 pub mod powerautomate;
 pub mod raid;
 pub mod ror;
+#[cfg(feature = "auth")]
+pub mod sharepoint;
 pub mod spdx;
 pub mod swhid;
 /// Provider-neutral webhook verification and callback transport contracts.
@@ -451,6 +455,18 @@ pub struct TypedResponse<T> {
     pub headers: HeaderMap,
     /// HTTP response status code.
     pub status_code: u16,
+}
+impl Searchable<Endpoint> for [Endpoint] {
+    fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint> {
+        let name = value.into();
+        self.iter().find(|endpoint| endpoint.name.eq_ignore_ascii_case(&name)).cloned()
+    }
+}
+impl Searchable<Resource> for [Resource] {
+    fn find_by_name(&self, value: impl Into<String>) -> Option<Resource> {
+        let name = value.into();
+        self.iter().find(|resource| resource.name.eq_ignore_ascii_case(&name)).cloned()
+    }
 }
 impl<E> Configuration for CoreApiOptions<E, Param>
 where
@@ -1113,12 +1129,6 @@ impl TreeEntry {
         self.path
     }
 }
-impl Searchable<Endpoint> for [Endpoint] {
-    fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint> {
-        let name = value.into();
-        self.iter().find(|endpoint| endpoint.name.eq_ignore_ascii_case(&name)).cloned()
-    }
-}
 impl IntoBody for Vec<Param> {
     fn into_body(self) -> serde_json::Value {
         let params: Vec<Param> = self.into_iter().filter(|Param { style, .. }| style.is_body()).collect();
@@ -1175,12 +1185,6 @@ impl IntoHeaders for Vec<Param> {
             }
         });
         headers
-    }
-}
-impl Searchable<Resource> for [Resource] {
-    fn find_by_name(&self, value: impl Into<String>) -> Option<Resource> {
-        let name = value.into();
-        self.iter().find(|resource| resource.name.eq_ignore_ascii_case(&name)).cloned()
     }
 }
 pub(crate) fn extract_template_keys(template: &str) -> Vec<String> {

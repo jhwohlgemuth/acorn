@@ -1,0 +1,18 @@
+{
+  "mapping": {
+    "host": "example.sharepoint.test",
+    "sitePath": "/sites/ResearchEnablement",
+    "libraryPath": "/Sponsor Highlights JSONL Pilot",
+    "itemPath": "logbook.jsonl"
+  },
+  "accepted": [
+    "https://example.sharepoint.test/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/logbook.jsonl"
+  ],
+  "rejected": [
+    "http://example.sharepoint.test/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/logbook.jsonl",
+    "https://other.sharepoint.test/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/logbook.jsonl",
+    "https://example.sharepoint.test/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/logbook.jsonl?download=1",
+    "https://example.sharepoint.test/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/../logbook.jsonl",
+    "https://example.sharepoint.test/:x:/s/ResearchEnablement/opaque-sharing-link"
+  ]
+}

@@ -1,18 +1,22 @@
 # Sponsor Highlights intake handoff
 
+> **Sanitized copy:** Account labels and related assets have been redacted. Historical checksums and import results describe the originals; see [privacy and reuse limits](../../privacy.md).
+
 Plan assets now live in local `_assets/` folders. Historical PDFs, screenshots and execution records retain their original paths; the links and commands in this walkthrough use the current layout.
 
-Updated 2026-10-24 after published Teams routing, milestone email acceptance, and the illustrated workflow update.
+Updated October 27, 2026 after the approved SharePoint cutover and reversible GitLab pause.
 
 ## Current workflow and planning scope
 
-October 26: the separate SharePoint app stores immutable list receipts, individual JSONL receipt files and a five-minute collected logbook. The owner three-row [download -> stage -> inspect -> apply -> local PDF demonstration](../manual-jsonl-ingestion-graduation/walkthrough.md#sharepoint-download-to-a-combined-local-pdf) passed. Local processing leaves the list/export untouched; graduation is optional and local reporting sends no callbacks. October 27 isolated aggregate/exporter acceptance is complete, including an empty-file response repair. [Evidence and release candidate](sharepoint-pilot.md#october-27-collected-export-acceptance) identify the clean Off test copy; the operational exporter remains unchanged. [Native SharePoint backup/restore](_assets/sharepoint/backup/README.md) passed October 27, with all restored test flows Off. Intended-user access (PA-22) passed October 27; approved installation/cutover (PA-25) remains in the [form plan](index.md). The collected-source cap is 5,000 rows/10 MiB; each destination logbook retains its existing 1,000-entry schema cap. Select appropriate rows/destinations for ingestion without deleting remote history. Direct OAuth download is planned separately; the Vergil bot remains a GitLab-only track. Both pilots were enabled in the last recorded inventory.
+**SharePoint is the default. GitLab intake and catalog are Off.** The October 27 [PA25 cutover and rollback record](_assets/sharepoint/cutover/README.md) documents the installed catalog feedback, accepted exporter, unchanged app/audience, successful live Teams action and independently verified eight-row download. Restoring GitLab normally requires turning its two retained flows On; components, connections, credentials and data are preserved. Keep unresolved GitLab receipts in the original route and reconcile the same UUID before retrying.
 
-The remaining entries preserve dated GitLab deployment/rehearsal evidence, not the only current workflow. The [current guides](../manual-jsonl-ingestion-graduation/walkthrough.md) supersede historical page counts and command screenshots; do not infer that any operational route was disabled or that a fresh acceptance run occurred during this planning review.
+The owner three-row [download -> stage -> inspect -> apply -> local PDF demonstration](../manual-jsonl-ingestion-graduation/walkthrough.md#sharepoint-download-to-a-combined-local-pdf), standard-license participant access, aggregate acceptance and native SharePoint restore are accepted. The collected-source cap remains 5,000 rows/10 MiB; destination logbooks retain their 1,000-entry schema cap. Local processing does not drain the source or send callbacks. PA12 shared deployment, optional OAuth download and Vergil remain separate.
+
+Entries below preserve dated GitLab deployment/rehearsal evidence. Use the SharePoint form for new highlights; the retained GitLab walkthrough applies only after an explicit restoration decision.
 
 ## Current notification walkthrough
 
-[Open the current PowerApp/Power Automate walkthrough](notification-walkthrough.md). New confirmed intake saves, review-workspace creation, and no-change updates use Jason's Teams self-chat. Review requests, report delivery, and actionable failures keep email. Callback events remain owner-triggered until Vergil integration is accepted. Use the current user/reviewer and developer PDFs linked from the demo walkthrough; historical notification descriptions below are dated evidence.
+[Open the current PowerApp/Power Automate walkthrough](notification-walkthrough.md). New SharePoint saves notify Jason and the submitter (skip duplicate self-notice); owner-triggered review-workspace and no-change updates use Jason's Teams self-chat. Review requests, report delivery, and actionable failures keep email. Callback events remain owner-triggered until Vergil integration is accepted. Use the current user/reviewer and developer PDFs linked from the demo walkthrough; historical notification descriptions below are dated evidence.
 
 Controlled LandScan submission `82a8dd58-8c60-4ec5-abf5-cb251ab9e033` added exactly one line at commit `03ff5836289447034f40f2a4898c155441e6cb66`, preserving the previous six lines. The app receipt and actual Teams notice matched. Routine callback exact replay skipped delivery; a labeled milestone email test passed. The inbox now has seven TEST ONLY entries. See the walkthrough for run IDs, recovery rules, and screenshot evidence.
 
@@ -32,13 +36,13 @@ Desktop and 360 × 800 phone previews were visually checked. Studio formula and 
 
 Current layout source: `_assets/final-intake.pa.yaml`. Pre-change source: `_assets/before-visual-polish.pa.yaml`. Screenshots: `_assets/visual-polish-published-header.png`, `_assets/visual-polish-published-footer.png`, `_assets/visual-polish-phone-top.png`, and `_assets/visual-polish-phone-bottom.png`. The PDF guides retain their earlier screenshots as dated evidence.
 
-## Deployed pilot
+## Retained GitLab pilot (paused October 27)
 
 - App: `15ae605b-585b-49f5-a413-2b091f919a35`, environment `221f44a6-1468-ea4e-b93d-cd52f1723079` (the user's developer environment).
 - [Open Sponsor Highlights](https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/15ae605b-585b-49f5-a413-2b091f919a35).
 - GitLab project `22464`, `main`, `.acorn/intake/logbook.jsonl`, as selected by the user.
-- Intake flow `ff4a134b-5fd3-4465-ab19-0325c2f2bf1b`, **ACORN Logbook GitLab JSONL Intake (Draft)**, is On. The existing name is retained to preserve the canvas binding; it now contains the saved `Persist submission v3` scope.
-- Catalog flow `cd27888f-dd74-4675-9dd1-abc246ba56d5`, **ACORN Project Catalog**, is On.
+- Intake flow `ff4a134b-5fd3-4465-ab19-0325c2f2bf1b`, **ACORN Logbook GitLab JSONL Intake (Draft)**, is **Off**. The existing name is retained to preserve the canvas binding; it now contains the saved `Persist submission v3` scope.
+- Catalog flow `cd27888f-dd74-4675-9dd1-abc246ba56d5`, **ACORN Project Catalog**, is **Off**.
 - Both use the user's existing protected **ACORN GitLab Logbook** API-key connection. No credential value was read, copied, or embedded in source or the app.
 
 The ORNL logo, green palette, contour background, responsive form, required project selection, schema-aligned fields, submit feedback, and browser recovery are published. The unused notification-only flow was removed from the app without deleting that flow. This publication does not configure Vergil, admission authorization, review, reporting, or callbacks.
@@ -224,7 +228,7 @@ Both existing connection references were added to the solution. Export version 1
 
 ### Callback receiver preparation
 
-The user confirmed Jason Wohlgemuth as the initial recipient and the existing pilot environment. Future shared migration and a group channel are PA-12. Intended initial email destination is `o9w@ornl.gov`; freeze the destination with each claimed receipt so a future configuration change cannot reroute a retry unexpectedly.
+The user confirmed Jason Wohlgemuth as the initial recipient and the existing pilot environment. Future shared migration and a group channel are PA-12. Intended initial email destination is `owner@example.invalid`; freeze the destination with each claimed receipt so a future configuration change cannot reroute a retry unexpectedly.
 
 `../vergil-gitlab-jsonl-automation/_assets/callback-event.schema.json` and `../vergil-gitlab-jsonl-automation/_assets/callback-event-fixtures.json` follow the actual current `ArtifactEvent` representation: fields are `project_id`, `merge_request_url`, and `package_url`. The prior plan incorrectly used camelCase field names. A cached-serde compilation using the source enum's exact serialization attributes produced `{"event":"review-needed","merge_request_url":"https://code.ornl.gov/example/-/merge_requests/1","project_id":"acorn"}`. The enum-level `rename_all` does not rename struct-variant fields. No Vergil or Rust source was changed. Fixture links are synthetic and do not assert that a merge request/package exists.
 
@@ -234,7 +238,7 @@ Authentication remains a release gate: the current outbound sender has no Entra 
 
 Table **ACORN Callback Receipts** (`cr1d0_acorncallbackreceipts`, table ID `5e3c082e-f4cf-f111-a05c-001dd8062052`) is user/team-owned in the pilot solution. Required primary `cr1d0_webhookid` has maximum length 400 and alternate key `cr1d0_uniquewebhookid` is **Active**. Columns `cr1d0_payloadjson` (multiline 65,536 characters), `cr1d0_emailrecipient` (400), `cr1d0_emailstate`, and `cr1d0_emailattemptrun` preserve exact input, frozen destination, delivery state, and attempt identity. No sharing permissions were widened. Evidence: `../vergil-gitlab-jsonl-automation/_assets/callback-unique-key-active.png`. The manual validation flow is separate from an externally reachable receiver. The manual notification path is enabled; no public callback endpoint has been activated.
 
-The owner-only instant flow **ACORN Callback Receipt Validation** (`dd1d8f67-116c-f55d-7752-7c7d322691c5`) is saved and On in the same solution, with Dataverse reference `cr1d0_sharedcommondataserviceforapps_5298a`. It validates delivery-ID length and the strict event schema, then attempts one unique receipt creation with automatic retries disabled. It is an owner-only manual receipt/notification flow; conversion to the authenticated external receiver remains outstanding. First artifact-ready test run `08584087280680953294196390662CU07` passed and created row `185eac5d-f5cf-f111-a05c-001dd8062052` at `2026-10-24T21:53:38Z`, retaining the exact payload, `o9w@ornl.gov`, and Pending state. Evidence: `../vergil-gitlab-jsonl-automation/_assets/callback-first-claim.txt` and `../vergil-gitlab-jsonl-automation/_assets/callback-first-claim.png`. Power Automate rejected JSON Schema `pattern`; the compatible saved delivery check uses a one-element JSON array with a required nonempty string of at most 400 characters. The subsequent notification and guard tests below cover sequential duplicate and uncertain-send handling. Endpoint authentication remains outstanding.
+The owner-only instant flow **ACORN Callback Receipt Validation** (`dd1d8f67-116c-f55d-7752-7c7d322691c5`) is saved and On in the same solution, with Dataverse reference `cr1d0_sharedcommondataserviceforapps_5298a`. It validates delivery-ID length and the strict event schema, then attempts one unique receipt creation with automatic retries disabled. It is an owner-only manual receipt/notification flow; conversion to the authenticated external receiver remains outstanding. First artifact-ready test run `08584087280680953294196390662CU07` passed and created row `185eac5d-f5cf-f111-a05c-001dd8062052` at `2026-10-24T21:53:38Z`, retaining the exact payload, `owner@example.invalid`, and Pending state. Evidence: `../vergil-gitlab-jsonl-automation/_assets/callback-first-claim.txt` and `../vergil-gitlab-jsonl-automation/_assets/callback-first-claim.png`. Power Automate rejected JSON Schema `pattern`; the compatible saved delivery check uses a one-element JSON array with a required nonempty string of at most 400 characters. The subsequent notification and guard tests below cover sequential duplicate and uncertain-send handling. Endpoint authentication remains outstanding.
 
 All five event fixtures passed in the manual receipt validator: artifact-ready `08584087280680953294196390662CU07`, failed `08584087280233556631342477788CU05`, mr-created `08584087280173134595172518075CU22`, report-no-changes `08584087280025048509062858047CU25`, and review-needed `08584087279934435300149713384CU01`. Exact duplicate claim `08584087279494021723442845390CU05` failed with `Entity Key Unique Webhook ID violated`, explicitly preventing a second record. This proves atomic duplicate protection at creation, not complete duplicate notification handling. Evidence: `../vergil-gitlab-jsonl-automation/_assets/callback-event-runs.txt` and `../vergil-gitlab-jsonl-automation/_assets/callback-duplicate-claim.txt`.
 
@@ -251,7 +255,7 @@ The guarded notification save returned `Request to XRM API failed` / `Timeout oc
 
 The current [Teams/milestone routing](notification-walkthrough.md) supersedes the channel selection in this historical test section. Existing receipts retain their frozen recipients.
 
-Existing Outlook connection reference `new_sharedoffice365_29833` (Office 365 Outlook Default-29833, `o9w@ornl.gov`) is bound alongside Dataverse. Email recipient is frozen at receipt creation. To switch future receipts to another approved email destination, update Claim receipt's recipient value. A Teams group channel needs a separate channel action and independent channel state; PA-12 owns that migration. Existing receipts retain their original destination.
+Existing Outlook connection reference `new_sharedoffice365_29833` (Office 365 Outlook Default-29833, `owner@example.invalid`) is bound alongside Dataverse. Email recipient is frozen at receipt creation. To switch future receipts to another approved email destination, update Claim receipt's recipient value. A Teams group channel needs a separate channel action and independent channel state; PA-12 owns that migration. Existing receipts retain their original destination.
 
 | Case | Run ID | Verified outcome |
 | --- | --- | --- |
@@ -275,7 +279,7 @@ At this earlier acceptance point, the receipt table contained seven synthetic ro
 
 ### Source backup
 
-`_assets/sponsor-highlights-source-bundle.zip` contains source files and selected redacted acceptance evidence with SHA-256 hashes in `_assets/source-bundle-manifest.json`. It is a source backup, not an importable Power Platform solution. The portal custom-connector inclusion failure still prevents a complete solution export.
+The obsolete source-only ZIP has been removed. Use the [current source and native recovery pointers](source-bundle-readme.md). Complete native GitLab archives exist; remaining app-driven write and callback/table restore gates are recorded in PA-17. SharePoint native restore is separately accepted. These dated packages predate later editing controls and are sanitized copies requiring isolated revalidation.
 
 
 ### Concurrent callback acceptance
@@ -302,9 +306,9 @@ The published button now uses the existing catalog state: Load Project List befo
 The user/reviewer PDF includes a Pikchr workflow and notification map on page 2. See the [diagram source and routing notes](notification-walkthrough.md).
 
 
-Contributor and operator permissions are documented in the [access runbook](contributor-access.md). The owner chose one contributor group and owner-backed flow connections; the owner saved the pilot connection changes October 27 at 11:05 AM. Persisted settings, catalog smoke run and subsequent c5c participant submission passed; the Teams action and exact collected inclusion are verified in the [participant acceptance](sharepoint-pilot.md#october-27-standard-participant-acceptance). The requested o9w/c5c pilot audience is already present; group selection and environment sharing capacity remain prerequisites for the deferred larger rollout.
+Contributor and operator permissions are documented in the [access runbook](contributor-access.md). The owner chose one contributor group and owner-backed flow connections; the owner saved the pilot connection changes October 27 at 11:05 AM. Persisted settings, catalog smoke run and subsequent participant participant submission passed; the Teams action and exact collected inclusion are verified in the [participant acceptance](sharepoint-pilot.md#october-27-standard-participant-acceptance). The requested owner/participant pilot audience is already present; group selection and environment sharing capacity remain prerequisites for the deferred larger rollout.
 
 
 ## October 27 submitter notifications
 
-The SharePoint intake now sends a Teams confirmation to the validated submitter as well as the existing owner notice. Jason (`o9w@ornl.gov`) remains included in all current Teams and milestone-email routes; self-submissions skip the extra recipient send. The participant confirmation omits private-storage links. Routine submissions send no email. The notification-only delivery check passed without modifying JSONL data, and its helper flow is Off. See the [routing and acceptance record](notification-walkthrough.md#october-27-participant-delivery-repair).
+The SharePoint intake now sends a Teams confirmation to the validated submitter as well as the existing owner notice. Jason (`owner@example.invalid`) remains included in all current Teams and milestone-email routes; self-submissions skip the extra recipient send. The participant confirmation omits private-storage links. Routine submissions send no email. The notification-only delivery check passed without modifying JSONL data, and its helper flow is Off. See the [routing and acceptance record](notification-walkthrough.md#october-27-participant-delivery-repair).

@@ -4,6 +4,10 @@ title: "SharePoint native recovery package — October 27, 2026"
 description: "PA-24 accepted native imports, separate data recovery, exact-byte proof and restore instructions."
 ---
 
+> **Sanitized copy:** Account labels and related assets have been redacted. Historical checksums and import results describe the originals; see [privacy and reuse limits](../../../../../privacy.md).
+
+Current operational state: the October 27 [PA25 cutover](../cutover/README.md) installed the accepted repairs in the original SharePoint app/flows and paused both GitLab flows. The evidence below remains a dated isolated acceptance record.
+
 # Accepted recovery set
 
 PA-24 passed October 27, 2026 in **Wohlgemuth, Jason** (`221f44a6-1468-ea4e-b93d-cd52f1723079`). Native exports/imports, current-row recovery and app-driven receipt/collected-file readback were verified in separate test components. All three restored flows are now **Off**. Operational components and data were unchanged. This is current-pilot recovery evidence; it does not establish intended standard-user access, shared-environment deployment or permission to install the exporter repair operationally.

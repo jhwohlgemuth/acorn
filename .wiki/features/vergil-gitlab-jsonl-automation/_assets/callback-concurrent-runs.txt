@@ -268,24 +268,24 @@
   - heading "Connection references" [level=3]
   - button "See all"
   - grid:
-    - row "o9w@ornl.gov Microsoft Dataverse o9w@ornl.gov":
-      - gridcell "o9w@ornl.gov":
-        - img "o9w@ornl.gov"
+    - row "owner@example.invalid Microsoft Dataverse owner@example.invalid":
+      - gridcell "owner@example.invalid":
+        - img "owner@example.invalid"
       - gridcell "Microsoft Dataverse":
         - 'generic "Display Name: Microsoft Dataverse ACORNSponsorHighlightsIntake-5298a. Name: cr1d0_sharedcommondataserviceforapps_5298a"': Microsoft Dataverse
-      - gridcell "o9w@ornl.gov":
-        - generic: o9w@ornl.gov
+      - gridcell "owner@example.invalid":
+        - generic: owner@example.invalid
       - gridcell:
         - generic: 
-    - row "o9w@ornl.gov Office 365 Outlook Permissions o9w@ornl.gov":
-      - gridcell "o9w@ornl.gov":
-        - img "o9w@ornl.gov"
+    - row "owner@example.invalid Office 365 Outlook Permissions owner@example.invalid":
+      - gridcell "owner@example.invalid":
+        - img "owner@example.invalid"
       - gridcell "Office 365 Outlook Permissions":
         - 'generic "Display Name: Office 365 Outlook Default-29833. Name: new_sharedoffice365_29833"': Office 365 Outlook
         - button "Permissions":
           - generic: Permissions
-      - gridcell "o9w@ornl.gov":
-        - generic: o9w@ornl.gov
+      - gridcell "owner@example.invalid":
+        - generic: owner@example.invalid
       - gridcell:
         - generic: 
   - heading "Co-owner" [level=3]
