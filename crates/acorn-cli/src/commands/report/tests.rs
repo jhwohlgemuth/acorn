@@ -32,7 +32,7 @@ fn arguments(projects: Vec<String>) -> Report {
         pipeline_id: Some("100".to_string()),
         projects,
         root: directory,
-        through: "2026-10-01T00:00:00Z".to_string(),
+        through: Some("2026-10-01T00:00:00Z".to_string()),
         verbose: Verbosity::default(),
     }
 }
@@ -42,7 +42,7 @@ fn report_fixture_arguments() -> Report {
     arguments.config = Some(root.join("config.json"));
     arguments.from = Some("2026-10-01T00:00:00Z".to_string());
     arguments.root = root;
-    arguments.through = "2026-11-01T00:00:00Z".to_string();
+    arguments.through = Some("2026-11-01T00:00:00Z".to_string());
     arguments
 }
 
@@ -149,7 +149,7 @@ async fn test_local_jsonl_apply_updates_report_source_and_renders_when_configure
         pipeline_id: None,
         projects: vec!["acorn".to_string()],
         root: root.to_path_buf(),
-        through: "2026-11-01T00:00:00Z".to_string(),
+        through: Some("2026-11-01T00:00:00Z".to_string()),
         verbose: Verbosity::default(),
     };
     let (config, _routing, baseline_commit, selected) = prepare(&arguments, true).expect("report configuration accepted");

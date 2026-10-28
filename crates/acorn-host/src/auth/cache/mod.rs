@@ -2,13 +2,7 @@
 use secrecy::SecretString;
 
 pub mod coordination;
-#[cfg(target_os = "linux")]
-mod linux;
-#[cfg(target_os = "macos")]
-mod macos;
 pub mod manage;
-#[cfg(target_os = "windows")]
-mod windows;
 
 /// Credential identity independent of a local profile alias.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]

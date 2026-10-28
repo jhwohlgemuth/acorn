@@ -1,7 +1,10 @@
 //! Scheduled bounded artifact creation and immutable package publication.
 #[cfg(feature = "pdf")]
 use crate::commands::export::{html, pdf};
-use crate::{cli::arguments::Report, commands::export::updates::LogbookUpdatesExport};
+use crate::{
+    cli::{arguments::Report, parse::resolve_report_bounds},
+    commands::export::updates::LogbookUpdatesExport,
+};
 use acorn::io::{
     api::{
         gitlab::{self, Package, PackageLifecycle, PackageOptions, ReportManifest, ReportStatus},
@@ -40,8 +43,11 @@ pub(crate) struct ProjectReportResult {
     version: Option<String>,
 }
 impl Report {
+    fn through(&self) -> &str {
+        self.through.as_deref().unwrap_or_default()
+    }
     fn selected_updates(&self, selected: &[Folder]) -> ApiResult<(ReportingWindow, Vec<LogbookUpdates>)> {
-        ReportingWindow::new(self.from.as_deref(), &self.through)
+        ReportingWindow::new(self.from.as_deref(), self.through())
             .map_err(|why| eyre!(why))
             .and_then(|window| {
                 selected
@@ -271,7 +277,7 @@ fn prepare_project(
     relative_path: &str,
     from: Option<&str>,
 ) -> ApiResult<(ReportingWindow, LogbookUpdates, std::path::PathBuf)> {
-    ReportingWindow::new(from, &arguments.through)
+    ReportingWindow::new(from, arguments.through())
         .map_err(|why| eyre!(why))
         .and_then(|window| {
             SafePath::new(relative_path)
@@ -344,7 +350,7 @@ async fn report_project(
                 | false => package.download().await,
             };
             match previous {
-                | Ok(Some(manifest)) if arguments.from.is_none() && manifest.through == arguments.through => {
+                | Ok(Some(manifest)) if arguments.from.is_none() && manifest.through == arguments.through() => {
                     replay_manifest(arguments, config, queue, manifest)
                 }
                 | Ok(previous) => {
@@ -393,6 +399,14 @@ async fn report_project(
 }
 /// Run bounded reporting for every selected project and fail after independent projects finish.
 pub(crate) async fn run(arguments: &Report, offline: bool) -> ApiResult<()> {
+    let year = Timestamp::now().to_zoned(jiff::tz::TimeZone::UTC).year();
+    let (from, through) = resolve_report_bounds(arguments.from.as_deref(), arguments.through.as_deref(), year).map_err(|why| eyre!(why))?;
+    let normalized = Report {
+        from,
+        through: Some(through),
+        ..arguments.clone()
+    };
+    let arguments = &normalized;
     match arguments.combine {
         | true => match prepare_combined(arguments) {
             | Ok(selected) => arguments.write_combined_pdf(&selected, offline).await,
@@ -454,7 +468,7 @@ async fn run_selected(
                     .enqueue(
                         &queue,
                         &automation.callback_destination,
-                        &format!("{}:{}:failed", folder.id, arguments.through),
+                        &format!("{}:{}:failed", folder.id, arguments.through()),
                     );
                 }
                 results.push(
@@ -462,7 +476,7 @@ async fn run_selected(
                         .error(message)
                         .project_id(folder.id)
                         .status("failed")
-                        .through(arguments.through.clone())
+                        .through(arguments.through().to_string())
                         .build(),
                 );
             }

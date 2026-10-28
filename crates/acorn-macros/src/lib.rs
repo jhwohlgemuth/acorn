@@ -17,6 +17,7 @@ enum ValidationRule {
     Range(Box<RangeOptions>),
     Contains(Expr, RuleOptions),
     Date(RuleOptions),
+    DateOnly(RuleOptions),
     Timestamp(RuleOptions),
     Nonempty(RuleOptions),
     Url(RuleOptions),
@@ -1180,6 +1181,8 @@ fn parse_rule(meta: &Meta, inside_each: bool) -> syn::Result<ValidationRule> {
         Ok(ValidationRule::Contains(pattern, options_from_nested(&nested)))
     } else if path.is_ident("date") {
         Ok(ValidationRule::Date(parse_rule_options(meta)?))
+    } else if path.is_ident("date_only") {
+        Ok(ValidationRule::DateOnly(parse_rule_options(meta)?))
     } else if path.is_ident("timestamp") {
         Ok(ValidationRule::Timestamp(parse_rule_options(meta)?))
     } else if path.is_ident("nonempty") {
@@ -1429,6 +1432,7 @@ fn scalar_expression(
             }})
         }
         | ValidationRule::Date(options) => override_error(quote! { #acorn::validation::rules::date((#value).as_ref()) }, options),
+        | ValidationRule::DateOnly(options) => override_error(quote! { #acorn::validation::rules::date_only((#value).as_ref()) }, options),
         | ValidationRule::Url(options) => override_error(quote! { #acorn::validation::rules::url((#value).as_ref()) }, options),
         | ValidationRule::Email(options) => override_error(quote! { #acorn::validation::rules::email((#value).as_ref()) }, options),
         | ValidationRule::Timestamp(options) => override_error(quote! { #acorn::validation::rules::timestamp(#value) }, options),

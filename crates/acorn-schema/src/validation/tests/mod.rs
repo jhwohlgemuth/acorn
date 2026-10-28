@@ -53,6 +53,11 @@ struct Child {
     email: String,
 }
 #[derive(Serialize, Validate)]
+struct DateOnlyRules {
+    #[validate(date_only)]
+    date: String,
+}
+#[derive(Serialize, Validate)]
 struct DoiModel {
     #[validate(doi)]
     doi: String,
@@ -349,6 +354,32 @@ async fn test_async_validation_propagates_through_nested_and_blanket_implementat
         .map(|issue| issue.path)
         .collect::<Vec<_>>();
     assert_eq!(paths, ["[0][0].value"]);
+}
+#[test]
+fn test_date_only_rule_checks_calendar_and_year_range() {
+    for value in ["1950-01-01", "2024-02-29", "2029-12-31"] {
+        assert!(rules::date_only(value).is_ok(), "expected valid calendar date: {value}");
+        assert!(
+            DateOnlyRules { date: value.to_string() }.validate().is_ok(),
+            "expected built-in rule to accept: {value}"
+        );
+    }
+    for value in [
+        "1949-12-31",
+        "2026-02-29",
+        "2026-04-31",
+        "2026-13-01",
+        "2026-1-2",
+        "2026-10-27T00:00:00Z",
+        "2030-01-01",
+        "garbage",
+    ] {
+        assert!(rules::date_only(value).is_err(), "expected invalid calendar date: {value}");
+        let report = DateOnlyRules { date: value.to_string() }
+            .validate()
+            .expect_err("built-in date-only rule should reject invalid input");
+        assert_eq!(report.iter().next().map(|issue| issue.error.code.as_str()), Some("date_only"));
+    }
 }
 #[test]
 fn test_each_reports_every_index_in_rule_order() {

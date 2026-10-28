@@ -110,13 +110,15 @@ acorn --offline intake apply --config intake.json --batch-id <batch-ID>
 
 # 4. Produce one local PDF for this example reporting window.
 acorn --offline report --config report.json \
-  --from 2026-10-26T00:00:00Z --through 2026-10-27T00:00:00Z \
+  --from 2026-10-26 --through 2026-10-27 \
   --dry-run --combine
 ```
 
-Replace the batch placeholder and reporting dates for your review. The report uses the current directory as its root, includes all configured folders, and writes `.acorn/reports/report.pdf`. Use `--project` only to narrow a multi-project configuration, `--output` only for a different output directory, and `--root` only when reporting from another directory. Combined mode needs no commit identifier. `--through` is required unless supplied by `ACORN_REPORT_THROUGH`; omitting `--from` includes all earlier history. Browser discovery uses cached or installed Chrome/Chromium; set `CHROME_PATH` if needed, since offline mode cannot fetch a browser.
+Replace the batch placeholder and reporting dates for your review. The report uses the current directory as its root, includes all configured folders, and writes `.acorn/reports/report.pdf`. Use `--project` only to narrow a multi-project configuration, `--output` only for a different output directory, and `--root` only when reporting from another directory. Combined mode needs no commit identifier. `--through` is required unless supplied by `ACORN_REPORT_THROUGH` or inferred from a month-only `--from`; omitting `--from` includes all earlier history. Browser discovery uses cached or installed Chrome/Chromium; set `CHROME_PATH` if needed, since offline mode cannot fetch a browser.
 
 Intake's config/source/batch arguments remain explicit. Apply prompts by default; `--yes` is only for reviewed unattended execution. This local flow sends no callbacks, messages or published reports. Optional metadata graduation is separate and is not needed to report the ingested logbook entries.
+
+Both bounds accept `YYYY-MM-DD` dates, interpreted as midnight UTC, or full RFC 3339 timestamps with an explicit offset. They also accept `DDMMM` (for example, `27OCT`) and `MMM` (for example, `OCT`), case-insensitively, using the current UTC year. Calendar dates use the supported 1950–2029 range. A month-only `--from OCT` starts on October 1 and defaults `--through` to November 1, including October's final day; `--through OCT` has the same exclusive November 1 bound. `--from` is inclusive and `--through` is exclusive: the example includes all of October 26 UTC and excludes October 27. Use the following day's date to include a complete final day. The same bound syntax works in `ACORN_REPORT_THROUGH`; invalid calendar dates and timestamps without offsets are rejected.
 
 ## Local graduation
 

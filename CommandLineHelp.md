@@ -1511,16 +1511,16 @@ Generate bounded artifacts and publish immutable GitLab packages
 
     $> acorn report --through 2026-10-01T00:00:00Z --commit "$CI_COMMIT_SHA"
 
-**Usage:** `acorn-cli report [OPTIONS] --through <TIMESTAMP>`
+**Usage:** `acorn-cli report [OPTIONS]`
 
 ###### **Options:**
 
 * `-c`, `--config <PATH>` — Application configuration containing PowerAutomate project mappings
 * `--commit <SHA>` — Exact merged default-branch commit used as report input
 * `--combine` — Write one local PDF containing the title, selected projects, and final legend
-* `--from <TIMESTAMP>` — Explicit inclusive lower bound for local or recovery runs
+* `--from <DATE|DDMMM|MMM|TIMESTAMP>` — Inclusive lower bound: YYYY-MM-DD, DDMMM, MMM, or RFC 3339 timestamp with an offset
 * `--full-timestamp` — Show the full date and time in report PDFs instead of month and day
-* `--through <TIMESTAMP>` — Fixed exclusive reporting upper bound shared by every project
+* `--through <DATE|DDMMM|MMM|TIMESTAMP>` — Exclusive upper bound; MMM includes its final day. Defaults to the end of --from MMM
 * `--root <PATH>` — Repository checkout root containing configured project paths
 
   Default value: `.`

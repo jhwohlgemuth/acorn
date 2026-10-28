@@ -14,7 +14,7 @@ use crate::cli::arguments::{
     AcpAgentKind, CheckOutputFormat, DiffOutputFormat, FileFormat, FuzzyMode, InferenceBackendKind, SimilarityMethod, SimilarityPreprocessing,
     SyncTarget,
 };
-use crate::cli::parse::infer_standard_from_content;
+use crate::cli::parse::{infer_standard_from_content, resolve_report_bounds};
 use crate::cli::{
     resolve_export_paths, resolve_paths, resolve_paths_including, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands,
     ImportCommands, InferCommands, McpCommands, ServeCommands,
@@ -1394,8 +1394,131 @@ fn test_paste_rejects_watch_mode() {
     assert!(crate::commands::validate_watch_arguments(&arguments).is_err());
 }
 #[test]
+fn test_report_command_date_bounds_preserve_half_open_window() {
+    use acorn_schema::research_activity::{Logbook, LogbookEntry, ReportingWindow, ResearchActivity};
+    let parsed = Arguments::try_parse_from(["acorn", "report", "--from", "2024-02-29", "--through", "2024-03-01"]).expect("date-only report bounds");
+    let Some(Commands::Report(arguments)) = parsed.command else {
+        panic!("expected report command");
+    };
+    assert_eq!(arguments.from.as_deref(), Some("2024-02-29T00:00:00Z"));
+    assert_eq!(arguments.through.as_deref(), Some("2024-03-01T00:00:00Z"));
+    let window = ReportingWindow::new(arguments.from.as_deref(), arguments.through.as_deref().expect("upper bound")).expect("valid leap-day window");
+    let entries = [
+        ("before", "2024-02-28T23:59:59Z"),
+        ("lower", "2024-02-29T00:00:00Z"),
+        ("inside", "2024-02-29T23:59:59.999999999Z"),
+        ("upper", "2024-03-01T00:00:00Z"),
+    ]
+    .into_iter()
+    .map(|(id, timestamp)| {
+        LogbookEntry::init()
+            .identifier(id)
+            .project_id("example")
+            .timestamp(timestamp)
+            .category("software")
+            .state("completed")
+            .summary("Boundary test")
+            .build()
+    })
+    .collect::<Vec<_>>();
+    let activity = ResearchActivity {
+        logbook: Some(Logbook::init().entries(entries).build()),
+        ..ResearchActivity::default()
+    };
+    let updates = activity.updates_within(&window).expect("bounded updates");
+    assert_eq!(
+        updates.entries.iter().map(|entry| entry.identifier.as_str()).collect::<Vec<_>>(),
+        ["inside", "lower"]
+    );
+}
+#[test]
+fn test_report_command_date_bounds_reject_empty_or_reversed_windows() {
+    use acorn_schema::research_activity::ReportingWindow;
+    for from in ["2026-10-27", "2026-10-28"] {
+        let parsed = Arguments::try_parse_from(["acorn", "report", "--from", from, "--through", "2026-10-27"])
+            .expect("calendar dates parse before window validation");
+        let Some(Commands::Report(arguments)) = parsed.command else {
+            panic!("expected report command");
+        };
+        assert!(ReportingWindow::new(arguments.from.as_deref(), arguments.through.as_deref().expect("upper bound")).is_err());
+    }
+}
+#[test]
+fn test_report_command_date_bounds_reject_invalid_input() {
+    for flag in ["--from", "--through"] {
+        for value in [
+            "1949-12-31",
+            "2026-02-29",
+            "2026-04-31",
+            "2026-13-01",
+            "2026-10",
+            "2026-1-2",
+            "2026-10-26T12:00:00",
+            "2030-01-01",
+            "garbage",
+        ] {
+            let mut args = vec!["acorn", "report", flag, value];
+            if flag == "--from" {
+                args.extend(["--through", "2026-11-01"]);
+            }
+            assert!(Arguments::try_parse_from(args).is_err(), "accepted {flag} {value}");
+        }
+    }
+}
+#[test]
+fn test_report_command_date_upper_bound_from_environment() {
+    temp_env::with_var("ACORN_REPORT_THROUGH", Some("2026-10-27"), || {
+        let parsed = Arguments::try_parse_from(["acorn", "report", "--from", "2026-10-26"]).expect("environment date bound");
+        let Some(Commands::Report(arguments)) = parsed.command else {
+            panic!("expected report command");
+        };
+        assert_eq!(arguments.through.as_deref(), Some("2026-10-27T00:00:00Z"));
+    });
+}
+#[test]
+fn test_report_command_mixes_dates_and_explicit_offsets() {
+    for (from, through, expected_from, expected_through) in [
+        (
+            "2026-10-26",
+            "2026-10-27T03:00:00-04:00",
+            "2026-10-26T00:00:00Z",
+            "2026-10-27T03:00:00-04:00",
+        ),
+        (
+            "2026-10-26T03:00:00+02:00",
+            "2026-10-27",
+            "2026-10-26T03:00:00+02:00",
+            "2026-10-27T00:00:00Z",
+        ),
+    ] {
+        let parsed = Arguments::try_parse_from(["acorn", "report", "--from", from, "--through", through]).expect("mixed report bounds");
+        let Some(Commands::Report(arguments)) = parsed.command else {
+            panic!("expected report command");
+        };
+        assert_eq!(arguments.from.as_deref(), Some(expected_from));
+        assert_eq!(arguments.through.as_deref(), Some(expected_through));
+    }
+}
+#[test]
+fn test_report_command_month_from_infers_an_inclusive_calendar_month() {
+    let parsed = temp_env::with_var_unset("ACORN_REPORT_THROUGH", || {
+        Arguments::try_parse_from(["acorn", "report", "--from", "oct"]).expect("month-only report bounds")
+    });
+    let Some(Commands::Report(arguments)) = parsed.command else {
+        panic!("expected report command");
+    };
+    let (from, through) = resolve_report_bounds(arguments.from.as_deref(), arguments.through.as_deref(), 2026).expect("resolved October window");
+    assert_eq!(from.as_deref(), Some("2026-10-01T00:00:00Z"));
+    assert_eq!(through, "2026-11-01T00:00:00Z");
+    let (from, through) = resolve_report_bounds(Some("DEC"), None, 2029).expect("December crosses into the following year");
+    assert_eq!(from.as_deref(), Some("2029-12-01T00:00:00Z"));
+    assert_eq!(through, "2030-01-01T00:00:00Z");
+}
+#[test]
 fn test_report_command_requires_fixed_bounds_and_accepts_project_selection() {
-    assert!(Arguments::try_parse_from(["acorn", "report", "--commit", "abc123"]).is_err());
+    temp_env::with_var_unset("ACORN_REPORT_THROUGH", || {
+        assert!(Arguments::try_parse_from(["acorn", "report", "--commit", "abc123"]).is_err());
+    });
     let parsed = Arguments::try_parse_from([
         "acorn",
         "report",
@@ -1413,11 +1536,29 @@ fn test_report_command_requires_fixed_bounds_and_accepts_project_selection() {
         | Some(Commands::Report(arguments)) => {
             assert_eq!(arguments.commit.as_deref(), Some("abc123"));
             assert_eq!(arguments.projects, ["pilot", "other"]);
-            assert_eq!(arguments.through, "2026-10-01T00:00:00Z");
+            assert_eq!(arguments.through.as_deref(), Some("2026-10-01T00:00:00Z"));
             assert!(arguments.dry_run);
             assert!(arguments.full_timestamp);
         }
         | _ => panic!("expected report command"),
+    }
+}
+#[test]
+fn test_report_command_short_dates_validate_day_and_month() {
+    let parsed = Arguments::try_parse_from(["acorn", "report", "--from", "27oCt", "--through", "NOV"]).expect("short report bounds");
+    let Some(Commands::Report(arguments)) = parsed.command else {
+        panic!("expected report command");
+    };
+    assert_eq!(arguments.from.as_deref(), Some("27OCT"));
+    assert_eq!(arguments.through.as_deref(), Some("NOV"));
+    let (from, through) = resolve_report_bounds(arguments.from.as_deref(), arguments.through.as_deref(), 2026).expect("resolved short bounds");
+    assert_eq!(from.as_deref(), Some("2026-10-27T00:00:00Z"));
+    assert_eq!(through, "2026-12-01T00:00:00Z");
+    assert!(resolve_report_bounds(Some("29FEB"), Some("MAR"), 2024).is_ok());
+    assert!(resolve_report_bounds(Some("29FEB"), Some("MAR"), 2026).is_err());
+    assert!(resolve_report_bounds(Some("01OCT"), None, 2026).is_err());
+    for value in ["00JAN", "32OCT", "1JAN", "JANU"] {
+        assert!(Arguments::try_parse_from(["acorn", "report", "--from", value, "--through", "DEC"]).is_err());
     }
 }
 #[test]

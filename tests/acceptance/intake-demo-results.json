@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-27",
+  "scope": "Synthetic local project-highlight demo and current-checkout regression checks",
+  "sourceCommit": "29512a443be50d651bf2f9c33f894f32e90fa5e2",
+  "version": "acorn-cli 0.5.1",
+  "platform": "macOS-26.7.1-arm64-arm-64bit",
+  "binarySha256": "f891c3ac5b2ed1ba88f6a3085a491c6eb26cc2ef4b2bd39fdc2360f8ee90665c",
+  "runner": "scripts/qa/verify-intake-demo.py",
+  "runnerSha256": "cf3c8176e25bfac16f79f207cfd0f251efb9a09ad33ca09281961f2f16de57d7",
+  "baselineSha256": {
+    "watershed-sensing": "d92c7d2a5182812a81f8400d072fb8ac497523e185a9d1eb27d86aa22d87c5e2",
+    "materials-discovery": "04d8710641b4b4061793c43d06c1fc0afa9755811f37f6a38c015dd112eb10f4",
+    "grid-resilience": "8886464c3b791c0aa5a8d169fe5f7fff508229d3e3b86ac67996499994a9f561"
+  },
+  "cases": {
+    "INTAKE-01": "PASS",
+    "INTAKE-02": "PASS",
+    "INTAKE-03": "PASS",
+    "INTAKE-04": "PASS",
+    "INTAKE-05": "PASS",
+    "INTAKE-06": "PASS",
+    "INTAKE-07": "PASS",
+    "INTAKE-08": "PASS",
+    "INTAKE-09": "PASS",
+    "INTAKE-10": "MANUAL: live contributor/SharePoint/Teams smoke test",
+    "INTAKE-11": "PASS: real PTY No/Enter, Escape, Ctrl+C, Tab/Enter and y; apply and graduation cancellation preserved bytes/backups; approved writes verified"
+  },
+  "pdf": {
+    "path": "output/pdf/intake-acceptance-demo/report.pdf",
+    "sha256": "238cee8f7b675015f1c3c71a7757883a8384642611495b6d1b75327a62142b91",
+    "pages": 5,
+    "visualReview": "PASS: all five rendered pages reviewed; text counts and reporting-window exclusions verified"
+  },
+  "workspaceChecks": {
+    "lint": "PASS: make lint",
+    "tests": {
+      "command": "make test",
+      "passed": 2713,
+      "skipped": 17,
+      "leaky": 1,
+      "leakRecheck": {
+        "test": "test_batch_correction_chain_folds_without_duplicate_entries",
+        "command": "cargo nextest run -E 'package(acorn-lib) and test(test_batch_correction_chain_folds_without_duplicate_entries)'",
+        "passed": 1,
+        "leaky": 0,
+        "note": "The full-suite leak warning did not reproduce in the focused workspace run."
+      }
+    }
+  },
+  "evidenceWorkspace": "target/qa-acceptance/intake-release-20261027-r3",
+  "limitations": [
+    "INTAKE-10 live SharePoint/Teams smoke test was not rerun. Prior cloud acceptance is independent of this local rehearsal.",
+    "INTAKE-07 passes by rejecting unsupported standalone general rows; PA-29 general intake/reporting is not implemented.",
+    "Direct SharePoint OAuth download is not required or validated; download collected JSONL in the browser first.",
+    "This result covers the source checkout still labeled 0.5.1; rerun against the final minor-release executable."
+  ]
+}

@@ -5,7 +5,9 @@ Feature: Human acceptance of the ACORN command line
 
   This file specifies behavior. Matching IDs and copy-paste PowerShell commands are
   in docs/src/cli-reference/acceptance-test-plan.md. These scenarios become directly
-  executable only after a Cucumber runner and step definitions are added.
+  executable as Gherkin only after a Cucumber runner and step definitions are added.
+  The intake handbook also supplies a Python rehearsal covering INTAKE-01 through
+  INTAKE-09; visual, interactive, and live-service checks remain explicit.
 
   Background:
     Given the tester is in the ACORN repository root
@@ -35,7 +37,9 @@ Feature: Human acceptance of the ACORN command line
         | format   |
         | gather   |
         | import   |
+        | intake   |
         | link     |
+        | report   |
         | swhid    |
         | skill    |
         | serve    |
@@ -62,7 +66,12 @@ Feature: Human acceptance of the ACORN command line
         | import         |
         | import model   |
         | import spec    |
+        | intake stage   |
+        | intake inspect |
+        | intake apply   |
+        | intake run     |
         | link           |
+        | report         |
         | swhid          |
         | skill          |
         | serve bot      |
@@ -583,6 +592,124 @@ Feature: Human acceptance of the ACORN command line
       When the tester runs doctor with fix enabled
       Then the command fails without changing the host
       And the error says autofix is not implemented
+
+  Rule: Downloaded form receipts can produce a reviewed local demonstration
+
+    @baseline @demo @INTAKE-01
+    Scenario: Stage and inspect a collected project JSONL snapshot
+      Given three synthetic receipts target three configured local project indexes
+      When the tester stages the file as a batch and inspects its batch ID
+      Then all three routes and proposed changes are visible
+      And the downloaded bytes and all project indexes remain unchanged
+
+    @baseline @demo @negative @INTAKE-02
+    Scenario: Require approval before applying a reviewed batch
+      When apply runs with redirected output and without explicit approval
+      Then it fails without changing any index
+      When the reviewed synthetic batch is applied with explicit approval
+      Then each project gains exactly one entry
+      And quoted, Unicode, and multiline item text is preserved
+
+    @baseline @demo @INTAKE-03
+    Scenario: Replaying a receipt or batch does not duplicate content
+      Given the three-receipt batch has been applied
+      When the tester repeats apply and stages the exact receipts again
+      Then all receipts are recognized as replayed
+      And subsequent apply leaves index bytes unchanged
+
+    @baseline @demo @INTAKE-04
+    Scenario: Correct a submission while retaining its immutable history
+      Given the original batch has been applied
+      When a new receipt corrects the exact original in a later batch
+      Then inspection identifies the root and predecessor
+      And apply replaces the logical entry without changing its identifier
+      And the complete four-receipt history replays without index changes
+      And applying that history in a fresh workspace produces identical indexes
+      And original downloaded receipts remain unchanged
+
+    @baseline @demo @negative @INTAKE-05
+    Scenario Outline: Reject an invalid collected history without partial application
+      Given valid project receipts and "<defect>" in an isolated batch
+      When the tester stages and tries to apply the batch
+      Then staging marks it non-applicable and apply fails
+      And every project index remains unchanged
+
+      Examples:
+        | defect                          |
+        | missing correction ancestry     |
+        | changed authorized owner        |
+        | changed registered project      |
+        | changed report placement        |
+        | competing correction successors |
+        | changed bytes under one UUID    |
+        | malformed envelope              |
+
+    @baseline @demo @negative @INTAKE-06
+    Scenario Outline: Recheck the reviewed batch before writing
+      Given a staged batch whose "<input>" changes before approval
+      When the tester applies the batch
+      Then apply fails and preserves all current index bytes
+
+      Examples:
+        | input                  |
+        | downloaded source      |
+        | destination index      |
+        | authorized membership  |
+
+    @baseline @demo @gap @INTAKE-07
+    Scenario: Do not silently drop a standalone report-wide update
+      Given a mixed batch includes a general destination without a project index
+      When the tester stages and tries to apply it
+      Then the unsupported general route blocks the whole batch
+      And no row is silently discarded or remapped to a project
+      And a demo requiring standalone general reporting remains blocked
+
+    @baseline @demo @INTAKE-08
+    Scenario: Graduate optional metadata only after reviewing its preview
+      Given an ingested synthetic personnel entry in a separate workspace
+      When intake run previews with dry-run and force
+      Then it proposes a contributor without writing
+      When the reviewed promotion is forced with its expected digest
+      Then the contributor is added and the source entry is retained archived
+      And an exact original-byte backup exists
+      And reusing the stale digest fails without another change
+
+    @demo @pdf @manual @INTAKE-09
+    Scenario: Produce a readable combined PDF from corrected project highlights
+      Given the corrected project indexes and an explicit reporting window
+      When report runs offline with dry-run and combine using local defaults
+      Then a combined PDF contains the title page, three projects, and legend
+      And the corrected highlight appears once without its superseded text
+      And the other two highlights appear once and out-of-window entries are absent
+      And every rendered page is readable without clipped or overlapping content
+      And no index, remote inbox, publication, callback, or notification is changed
+
+    @demo @network @manual @INTAKE-10
+    Scenario: Verify the live SharePoint handoff separately from the CLI rehearsal
+      Given an authorized standard-license contributor and test project
+      And project highlight is the default with project controls gated by placement
+      When the contributor submits and corrects a TEST ONLY highlight
+      Then receipt feedback is visible after both saves
+      And My submissions occupies a separate row below the banner
+      And only their own history is visible with project and placement fixed during editing
+      And the contributor and operator receive Teams confirmations
+      And routine submission sends no milestone email
+      And a fresh collected export retains both linked receipts and previous rows
+      When an operator reviews and imports the exact selected history locally
+      Then the report contains the corrected highlight once
+      And the GitLab connector branch remains disabled
+
+    @demo @interactive @manual @INTAKE-11
+    Scenario: Confirm or cancel intake and graduation in a real terminal
+      Given the runner's staged but unapplied confirmation workspace
+      When the tester presses default No, Escape, or Ctrl+C during apply
+      Then no index changes
+      When the tester selects Yes for the reviewed batch
+      Then the expected entries are applied once
+      When the tester declines a graduation candidate or its final write
+      Then the index and backup inventory remain unchanged
+      When the tester approves the candidate and final write
+      Then graduation retains an archived source and exact-byte backup
 
   Rule: Global controls and cleanup are safe
 

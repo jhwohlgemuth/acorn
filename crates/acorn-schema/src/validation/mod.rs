@@ -25,7 +25,7 @@
 //! | `length(min = ..., max = ..., equal = ...)` | Constrain collection or string length. |
 //! | `range(min = ..., max = ...)` | Constrain an ordered numeric value. |
 //! | `contains(pattern = ...)` | Require a string or collection pattern. |
-//! | `date`, `timestamp`, `year` | Validate supported calendar representations. |
+//! | `date`, `date_only`, `timestamp`, `year` | Validate supported calendar representations. |
 //! | `email`, `json`, `numeric`, `url`, `nonempty`, `version`, `zon` | Validate common scalar text. |
 //! | `ark`, `arxiv`, `doi`, `handle`, `isbn`, `isni`, `orcid`, `patent`, `raid`, `ror`, `swhid` | Delegate persistent identifiers to canonical schema validators. |
 //! | `phone`, `commit`, `latitude`, `longitude`, `state`, `kebabcase`, `camelCase`, `snake_case` | Validate ACORN scalar shapes. |
@@ -249,32 +249,35 @@ pub mod rules {
     /// ```
     /// use acorn_schema::validation::rules;
     ///
+    /// assert!(rules::date("2024-02-29").is_ok());
     /// assert!(rules::date("2025-01-01").is_ok());
+    /// assert!(rules::date("2026-02-29").is_err());
     /// assert!(rules::date("1949-12-31").is_err());
     /// ```
     pub fn date(value: &str) -> Result<(), ValidationError> {
-        let parts = value.as_bytes();
-        let year = value.get(0..4).and_then(|part| part.parse::<u16>().ok());
-        let month = value.get(5..7).and_then(|part| part.parse::<u8>().ok());
-        let day = value.get(8..10).and_then(|part| part.parse::<u8>().ok());
-        let max_day = match month {
-            | Some(2) => 29,
-            | Some(4 | 6 | 9 | 11) => 30,
-            | Some(1 | 3 | 5 | 7 | 8 | 10 | 12) => 31,
-            | None | Some(_) => 0,
-        };
-        let valid = parts.len() == 10
-            && parts.get(4) == Some(&b'-')
-            && parts.get(7) == Some(&b'-')
-            && parts
-                .iter()
+        date_only(value).map_err(|_| ValidationError::new("date").with_message("Provide valid ISO 8601 date (e.g., YYYY-MM-DD)"))
+    }
+    /// Validate a strict `YYYY-MM-DD` calendar date from 1950 through 2029.
+    /// ### Examples
+    /// ```
+    /// use acorn_schema::validation::rules;
+    ///
+    /// assert!(rules::date_only("2024-02-29").is_ok());
+    /// assert!(rules::date_only("2026-02-29").is_err());
+    /// ```
+    pub fn date_only(value: &str) -> Result<(), ValidationError> {
+        let valid_shape = value.len() == 10
+            && value
+                .bytes()
                 .enumerate()
-                .all(|(index, byte)| matches!(index, 4 | 7) || byte.is_ascii_digit())
-            && year.is_some_and(|year| (1950..=2029).contains(&year))
-            && day.is_some_and(|day| (1..=max_day).contains(&day));
-        valid
+                .all(|(index, byte)| if matches!(index, 4 | 7) { byte == b'-' } else { byte.is_ascii_digit() });
+        let valid_year = value
+            .get(0..4)
+            .and_then(|year| year.parse::<u16>().ok())
+            .is_some_and(|year| (1950..=2029).contains(&year));
+        (valid_shape && valid_year && value.parse::<Date>().is_ok())
             .then_some(())
-            .ok_or_else(|| ValidationError::new("date").with_message("Provide valid ISO 8601 date (e.g., YYYY-MM-DD)"))
+            .ok_or_else(|| ValidationError::new("date_only").with_message("Provide a valid calendar date in YYYY-MM-DD format"))
     }
     /// Validate a DOI with ACORN's canonical parser.
     pub fn doi(value: &str) -> Result<(), ValidationError> {

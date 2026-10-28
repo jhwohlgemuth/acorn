@@ -2,7 +2,7 @@
 
 This handbook tests ACORN as a person would use it. It is written for a tester who is comfortable copying commands into PowerShell but does not need to know Rust, JSON schemas, databases, containers, or metadata standards.
 
-The companion Gherkin behavior specification is stored at `tests/acceptance/features/acorn_cli.feature`. Scenario tags and IDs match this handbook. The Gherkin is human-readable rather than automatically executable; this page remains the copy-paste execution layer until Cucumber step definitions are added.
+The companion Gherkin behavior specification is stored at `tests/acceptance/features/acorn_cli.feature`. Scenario tags and IDs match this handbook. The feature file has no Cucumber step definitions; use this page's copy-paste commands. The intake section also supplies a runnable Python rehearsal for INTAKE-01–09, with separate visual, interactive, and live-service checks.
 
 | Gherkin tag | Meaning |
 | --- | --- |
@@ -12,6 +12,7 @@ The companion Gherkin behavior specification is stored at `tests/acceptance/feat
 | `@owner` | Requires adult/repository-owner supervision and authorization |
 | `@gap` | Confirms a currently incomplete interface fails clearly |
 | `@optional` | Depends on a build feature or installed program |
+| `@demo` | Required before accepting the intake demonstration for a release |
 
 The baseline tests work on disposable copies under `target/qa-acceptance/`. Optional tests are clearly labeled when they require the internet, Chrome, Git, a container runtime, credentials, or an account-changing action.
 
@@ -29,6 +30,8 @@ ACORN manages research activity data (RAD) and the artifacts and workflows aroun
 | Discover identifiers | Find DOI, ORCID, ROR, arXiv, ISBN, RAiD, Handle, and other identifiers in text and documents | `gather` |
 | Resolve and catalog research | Look up identifier metadata and retain discovery/candidate history | `gather --resolve` |
 | Move research content | Download remote buckets or import local/remote content and BagIt archives | `download`, `import` |
+| Review form submissions | Stage collected JSONL, inspect changes, apply corrections, and graduate metadata | `intake` |
+| Assemble sponsor highlights | Generate a combined local PDF from reviewed project logbooks | `report --combine` |
 | Manage local models | Inspect GGUF metadata, download model weights, and configure inference applications | `import model`, `download model`, `sync` |
 | Describe APIs | Turn an OpenAPI document into an ACORN endpoint resource | `import spec` |
 | Identify software | Calculate and verify Software Hash Identifiers for files, directories, and Git objects | `swhid` |
@@ -108,7 +111,7 @@ Expected: output similar to `acorn-cli 0.1.76`.
 ```powershell
 $help = & $env:ACORN_BIN --help 2>&1 | Out-String
 $code = $LASTEXITCODE
-$required = 'check','create','doctor','download','export','format','gather','import','link','swhid','skill','serve','sync','tui'
+$required = 'check','create','doctor','download','export','format','gather','import','intake','link','report','swhid','skill','serve','sync','tui'
 $missing = $required | Where-Object { $help -notmatch "(?m)^  $_\s" }
 $help
 Confirm-ExitCode -Actual $code -Expected 0 -Test "Top-level help"
@@ -123,7 +126,8 @@ $commands = @(
     @('check'), @('create'), @('create','runner'), @('create','bot'),
     @('doctor'), @('download'), @('download','model'), @('export'),
     @('format'), @('gather'), @('import'), @('import','model'),
-    @('import','spec'), @('link'), @('swhid'), @('skill'),
+    @('import','spec'), @('intake'), @('intake','stage'), @('intake','inspect'),
+    @('intake','apply'), @('intake','run'), @('link'), @('report'), @('swhid'), @('skill'),
     @('serve'), @('serve','bot'), @('sync'), @('tui')
 )
 foreach ($command in $commands) {
@@ -1073,7 +1077,127 @@ Confirm-ExitCode -Actual $LASTEXITCODE -Expected 0 -Test "Disposable database re
 
 Do not test `--clear-cache` against a normal user profile: it intentionally removes ACORN cache data and downloaded Chromium artifacts. Test `--reset-database` only against `$env:ACORN_QA_DATABASE` and only when earlier database tests no longer need their data.
 
-## 14. Completion and cleanup
+## 14. Intake demo release gate
+
+These cases cover the current SharePoint workflow: browser download of the collected JSONL, local staging and review, confirmed application, immutable corrections, and a combined PDF. They do not require a premium connector, direct OAuth download, Vergil, Git credentials, or a live cloud write. Run them against the exact binary intended for release. Python 3.9 or later is required only for this acceptance runner; it uses the standard library.
+
+The dated result in `tests/acceptance/intake-demo-results.json` identifies the tested source commit, executable and runner hashes, platform, local acceptance results, and remaining live check. It is evidence for that build; rerun the rehearsal against the final minor-release executable.
+
+Run from the repository root after SETUP-02. The runner creates a fresh child workspace, refuses existing destinations, copies fictional project metadata, and generates synthetic receipts. Its intake config uses explicit local file URIs; its report config resolves relative project paths with `options.folders.root: "file:."`. It records version, executable hash, operating system, command output, and every exit status in `evidence.json` and numbered transcripts. A failed check exits nonzero and retains the evidence. It never edits the source fixtures. Use only the synthetic fixture for the runner's automatic `--yes` and `--force` approvals.
+
+```powershell
+$intakeRoot = Join-Path $env:ACORN_QA_ROOT 'intake-demo'
+python scripts/qa/verify-intake-demo.py --acorn $env:ACORN_BIN --workspace $intakeRoot --chrome $env:ACORN_QA_CHROME
+Confirm-ExitCode -Actual $LASTEXITCODE -Expected 0 -Test 'Intake demo automated checks'
+```
+
+If Chrome was not detected, supply its installed executable path, or omit `--chrome` to use ACORN's browser discovery. Offline mode will not download a browser. `--skip-pdf` runs INTAKE-01–08 but records INTAKE-09 as skipped; that is **not** a passed demo gate. On macOS/Linux, the same runner accepts `--acorn target/debug/acorn`. Use a new workspace for each rerun.
+
+### INTAKE-01 — Stage and inspect three project receipts
+
+The runner stages three synthetic submissions from a local JSONL file and inspects the returned batch ID. Expect three accepted receipts, all three project routes and their proposed changes in the inspection, unchanged source bytes, and unchanged destination indexes. JSONL is an envelope per line, including submission UUID, submitter, project, submission time, and entry; it is not a raw list of `LogbookEntry` values.
+
+### INTAKE-02 — Require approval before applying
+
+The runner first invokes apply with redirected input/output and no `--yes`. Expect a nonzero exit explaining the terminal requirement and no index changes. It then approves only its reviewed synthetic batch with `--yes`. Expect one new entry in each project and intact quotes, Unicode, supporting items, and embedded newline text. Human button behavior is checked separately in INTAKE-11.
+
+### INTAKE-03 — Replay without duplicate entries
+
+Repeat apply with the original batch ID, then restage the exact original receipts. Expect three replayed receipts, zero newly accepted receipts, and byte-identical indexes after both apply attempts. Keep the downloaded source; applying is not an inbox drain.
+
+### INTAKE-04 — Edit an existing submission through a new receipt
+
+Apply a correction in a later batch using the original receipt evidence retained in the workspace. Inspection must identify the original and immediate predecessor. Expect the same logical entry identifier, corrected text, and no additional entry. Restage the complete original-plus-correction history: all four receipts replay and the corrected indexes stay byte-identical. In another fresh workspace, importing the complete history in one batch must produce the same indexes. Original receipts remain unchanged in the downloaded JSONL.
+
+### INTAKE-05 — Reject invalid or ambiguous history without partial writes
+
+The runner exercises missing ancestry, a changed owner who is otherwise an authorized member, routing to another registered project, changed report placement, competing successors, changed bytes under an existing UUID, and a malformed envelope. Each has a separate workspace. Expect a rejected batch, a nonzero apply exit, and no changes to any project, including valid rows in the same batch.
+
+### INTAKE-06 — Recheck reviewed inputs at apply time
+
+After staging, independently change the source bytes, destination index bytes, or authorized membership. Expect each apply attempt to fail and preserve all indexes exactly as they were immediately before apply. Review and stage a new batch after resolving the cause; do not bypass the digest checks.
+
+### INTAKE-07 — Keep the standalone general destination an explicit gap
+
+Stage a mixed batch of valid project highlights plus a report-wide receipt routed to `general`, with `global: true`, and no associated project/index. Expect the general row to be rejected, the whole batch to be non-applicable, and no index writes. Preserve every receipt for later review; never silently drop the general row or route it to a project with fabricated contact information.
+
+**Current demo boundary:** project highlights and their corrections can be demonstrated now. Standalone report-wide intake/reporting remains PA-29 work. Passing this negative case documents the limitation; it does not establish general-update support. Project-backed entries with `global: true` are a different, already supported report feature. If the planned demonstration includes standalone general updates, this gap blocks that demonstration.
+
+### INTAKE-08 — Preview and graduate optional metadata safely
+
+In a separate workspace, ingest a synthetic personnel entry. `intake run --dry-run --force` must preview one contributor without writing. Applying the reviewed promotion with `--force --expected-digest` must add that contributor, retain the source entry as archived, and create an exact-byte backup. Reusing the stale digest must fail without further changes. Graduation is optional and separate from producing the sponsor-highlights PDF.
+
+### INTAKE-09 — Produce and inspect the combined PDF
+
+The runner uses the corrected three-project indexes, an explicit October 26–27 reporting window, the default report root/output, and `--dry-run --combine`. No commit selector, publication, callback, or remote inbox update is needed. Expect `demo/.acorn/reports/report.pdf` and unchanged indexes. The PDF must open successfully; its mere existence is insufficient.
+
+```powershell
+Start-Process (Join-Path $intakeRoot 'demo/.acorn/reports/report.pdf')
+```
+
+Inspect every page. Require a readable title page, all three project sections, and the legend. The watershed section must show **TEST ONLY corrected watershed highlight** exactly once and must not show its original highlight. The other two original highlights must each appear once. October 3 baseline entries must be absent from this October 26 window. Check text wrapping, quotes/Unicode, bullets, page breaks, colors, and absence of clipped or overlapping content. Record the visual result with the PDF hash from `evidence.json`; the runner deliberately leaves `visualReview` as `PENDING` until a person reviews it.
+
+The actual demo sequence, from a directory with matching local configs, is:
+
+```sh
+acorn --offline intake stage --batch --config intake.json --source collected.jsonl
+acorn --offline intake inspect --config intake.json --batch-id <batch-ID>
+acorn --offline intake apply --config intake.json --batch-id <batch-ID>
+acorn --offline report --config report.json --from 2026-10-26 --through 2026-10-27 --dry-run --combine
+```
+
+Replace the dates and batch ID for the actual demo. Keep original and correction rows together, or retain previously applied ancestry in the same workspace. The terminal's Yes/No confirmation is the normal operator path; the automated runner uses explicit approvals only for its fictional data.
+
+### INTAKE-10 — Smoke-test the live form-to-download handoff
+
+This is a separate manual, authorized cloud check. Local synthetic results do not prove current tenant access or delivery. Before demonstrating the live form:
+
+1. Use a standard-license contributor to open the SharePoint form. Confirm Project highlight is the default. Briefly select Report-wide update (no associated project): project controls should be disabled. Switch back, load projects, and submit a clearly labeled TEST ONLY project highlight. Require visible success/receipt feedback and record its UUID. My submissions should occupy its own row below the banner without overlapping it.
+2. Confirm the contributor and operator receive Teams confirmations, with no routine submission email. Keep email reserved for the configured milestone workflow.
+3. Open My submissions; verify the contributor sees only their own history. Edit the test highlight; project and report placement must remain fixed. Save the correction, require visible success feedback, record its new UUID, and verify the Teams confirmation.
+4. Wait for the collected export to refresh, download `logbook.jsonl`, and confirm it contains both immutable receipts with the correct root/predecessor links. A receipt download is not the collected export. Confirm other existing rows were retained; use the retained source snapshot to compare.
+5. Stage only the exact selected project receipts and their complete ancestry into a separate local workspace, inspect, approve, and generate the PDF. Verify the corrected highlight appears once. Preserve unselected/general receipts; never overwrite the collected export with the selected subset.
+6. Confirm the disabled GitLab branch remains Off. Do not enable it or send milestone emails solely to test a local ACORN release. If milestone delivery itself is in demo scope, test it separately with approved test recipients.
+
+Record timestamps, receipt IDs, evidence of both Teams deliveries, export freshness, and PDF result using role aliases. Do not put credentials, participant addresses, or personal screenshots into shared acceptance records. This case is required for a **live end-to-end demo**, independent of INTAKE-01–09.
+
+### INTAKE-11 — Exercise the confirmation buttons in a real terminal
+
+The runner also leaves an unapplied four-receipt batch in `confirmation`, including one personnel entry. In the original PowerShell window, inspect it and capture the index hashes:
+
+```powershell
+$confirmationBatch = (Get-Content (Join-Path $intakeRoot 'evidence.json') -Raw | ConvertFrom-Json).confirmationBatch
+Push-Location (Join-Path $intakeRoot 'confirmation')
+& $env:ACORN_BIN --offline intake inspect --config intake.json --batch-id $confirmationBatch
+$before = Get-ChildItem */index.json | Get-FileHash | Select-Object Path, Hash
+& $env:ACORN_BIN --offline intake apply --config intake.json --batch-id $confirmationBatch
+```
+
+Run the last command again for each attempt, **without** `--yes` and without output redirection:
+
+- Press Enter with No selected. Expect cancellation, nonzero exit, and unchanged indexes.
+- Repeat with Escape, then Ctrl+C. Expect cancellation and unchanged indexes each time.
+- Repeat, select Yes with Tab/arrows or `y`, and confirm. Expect the reviewed changes and no duplicate entries on replay.
+
+After each cancellation, compare hashes with `$before` (no output means unchanged):
+
+```powershell
+Compare-Object $before (Get-ChildItem */index.json | Get-FileHash | Select-Object Path, Hash) -Property Path, Hash
+```
+
+After approving apply, exercise the personnel candidate using this command, repeating it for each cancellation and then approval:
+
+```powershell
+& $env:ACORN_BIN --offline intake run --index watershed-sensing/index.json --interactive
+```
+
+No skips a candidate; Escape/Ctrl+C or declining the final write must leave the index unchanged and create no new backup. Capture fresh hashes before these attempts. Approve the candidate and final write to verify the retained archived source and exact-byte backup. `--force` and automated redirected-input rejection do not substitute for this interactive check. Return to the repository when finished:
+
+```powershell
+Pop-Location
+```
+
+## 15. Completion and cleanup
 
 ### CLEANUP-01 — Display the artifacts for review
 
@@ -1101,6 +1225,9 @@ Write-Host "[PASS] Removed disposable acceptance workspace: $resolved" -Foregrou
 A release candidate is acceptable when:
 
 - every applicable test in sections 1–8 and 13 passes;
+- INTAKE-01–09 pass against the exact release candidate, including PDF content and visual inspection, whenever intake/reporting is in release scope;
+- INTAKE-11 passes on an interactive terminal, and INTAKE-10 passes before claiming a live SharePoint-to-report demonstration;
+- skipped PDF/live/interactive checks remain visible as outstanding; unsupported standalone general updates and direct SharePoint OAuth download are excluded explicitly or block a demo that requires them;
 - PDF and PowerPoint artifacts pass visual inspection on at least one supported workstation;
 - watch and TUI behavior pass on an interactive terminal build;
 - connected tests pass in an environment authorized for network access;

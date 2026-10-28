@@ -8,14 +8,15 @@ use acorn::io::{jsonc_parse_value, FromPath};
 use acorn::io::{Executor, Platform, Remote};
 use acorn_analysis as analyzer;
 use acorn_analysis::readability::ReadabilityType;
-use acorn_core::util::MimeType;
+use acorn_core::{time::Day, util::MimeType};
 use acorn_schema::{
     enrichment::Provider,
     standard::{zon, Standard},
+    validation::rules,
     OneOrMany, OneOrManyCodec,
 };
 use color_eyre::eyre::{self, eyre};
-use jiff::SignedDuration;
+use jiff::{tz::TimeZone, SignedDuration, Timestamp};
 use serde_json;
 use serde_json::Value;
 use serde_norway;
@@ -240,6 +241,49 @@ pub(crate) fn parse_readability(s: &str) -> Result<ReadabilityType, String> {
              ari, cli, fkgl, fres, gfi, lix, smog"
         )),
     }
+}
+fn current_report_year() -> i16 {
+    Timestamp::now().to_zoned(TimeZone::UTC).year()
+}
+fn expand_report_bound(value: &str, year: i16, upper: bool) -> Result<String, String> {
+    match Day::parse(value) {
+        | Some(short) => short
+            .bounds(year)
+            .filter(|(start, _)| rules::date_only(&start.to_string()).is_ok())
+            .map(|(start, end)| format!("{}T00:00:00Z", if upper { end } else { start }))
+            .ok_or_else(report_bound_error),
+        | None => parse_report_bound(value),
+    }
+}
+fn report_bound_error() -> String {
+    "expected a valid YYYY-MM-DD date, DDMMM or MMM in the current UTC year, or an RFC 3339 timestamp with an explicit UTC offset".to_string()
+}
+/// Parse a report bound, retaining short dates for resolution against one UTC year.
+pub(crate) fn parse_report_bound(value: &str) -> Result<String, String> {
+    match Day::parse(value) {
+        | Some(short) => expand_report_bound(value, current_report_year(), false).map(|_| match short {
+            | Day::Date { day, month } => format!("{day:02}{month}"),
+            | Day::Month(month) => month.to_string(),
+        }),
+        | None => {
+            let timestamp = match rules::date_only(value).is_ok() {
+                | true => format!("{value}T00:00:00Z"),
+                | false => value.to_string(),
+            };
+            rules::parse_timestamp(&timestamp).map(|_| timestamp).map_err(|_| report_bound_error())
+        }
+    }
+}
+/// Resolve short report bounds using one UTC year and infer a full month when needed.
+pub(crate) fn resolve_report_bounds(from: Option<&str>, through: Option<&str>, year: i16) -> Result<(Option<String>, String), String> {
+    let through_input = match (through, from) {
+        | (None, Some(value)) if matches!(Day::parse(value), Some(Day::Month(_))) => Ok(value),
+        | (None, _) => Err("--through is required unless --from is a month abbreviation".to_string()),
+        | (Some(value), _) => Ok(value),
+    };
+    from.map(|value| expand_report_bound(value, year, false))
+        .transpose()
+        .and_then(|from| through_input.and_then(|value| expand_report_bound(value, year, true).map(|through| (from, through))))
 }
 /// Parse an SSH URI used to target a remote Docker daemon.
 pub(crate) fn parse_ssh_remote(value: &str) -> Result<Remote, String> {

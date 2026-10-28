@@ -104,12 +104,22 @@ fn test_country_rule() {
 }
 #[test]
 fn test_date_validation() {
-    ["2000-01-01", "2025-06-04", "1950-12-28"]
+    ["1950-01-01", "2000-02-29", "2024-02-29", "2025-06-04", "2029-12-31"]
         .into_iter()
         .for_each(|value| assert!(rules::date(value).is_ok(), "expected valid date: {value}"));
-    ["1949-01-02", "01-02-2023", "1234", "foo", "42", "2025/06/04"]
-        .into_iter()
-        .for_each(|value| assert!(rules::date(value).is_err(), "expected invalid date: {value}"));
+    [
+        "1949-01-02",
+        "2026-02-29",
+        "2026-04-31",
+        "2030-01-01",
+        "01-02-2023",
+        "1234",
+        "foo",
+        "42",
+        "2025/06/04",
+    ]
+    .into_iter()
+    .for_each(|value| assert!(rules::date(value).is_err(), "expected invalid date: {value}"));
     ["2000", "2025", "1950", "0999"]
         .into_iter()
         .for_each(|value| assert!(rules::year(value).is_ok(), "expected valid year: {value}"));

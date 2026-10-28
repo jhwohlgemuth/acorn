@@ -1,7 +1,7 @@
 use self::osti::{DoeLab, OrganizationRole as OstiOrganizationRole, SearchView as OstiSearchView};
 use super::parse::{
     parse_check_category, parse_check_format, parse_enrichment_provider, parse_exec_format, parse_exec_hook, parse_executor, parse_mcpb_platform,
-    parse_readability, parse_ssh_remote, parse_standard, parse_watch_duration,
+    parse_readability, parse_report_bound, parse_ssh_remote, parse_standard, parse_watch_duration,
 };
 use super::DownloadCommands;
 use acorn::analyzer::host::{context, discovery::CitationFormat};
@@ -1407,15 +1407,15 @@ pub(crate) struct Report {
     /// Write one local PDF containing the title, selected projects, and final legend.
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) combine: bool,
-    /// Explicit inclusive lower bound for local or recovery runs.
-    #[arg(long, value_name = "TIMESTAMP", help_heading = "OPTIONS")]
+    /// Inclusive lower bound: YYYY-MM-DD, DDMMM, MMM, or RFC 3339 timestamp with an offset.
+    #[arg(long, value_name = "DATE|DDMMM|MMM|TIMESTAMP", value_parser = parse_report_bound, help_heading = "OPTIONS")]
     pub(crate) from: Option<String>,
     /// Show the full date and time in report PDFs instead of month and day.
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) full_timestamp: bool,
-    /// Fixed exclusive reporting upper bound shared by every project.
-    #[arg(long, env = "ACORN_REPORT_THROUGH", value_name = "TIMESTAMP", help_heading = "OPTIONS")]
-    pub(crate) through: String,
+    /// Exclusive upper bound; MMM includes its final day. Defaults to the end of --from MMM.
+    #[arg(long, env = "ACORN_REPORT_THROUGH", required_unless_present = "from", value_name = "DATE|DDMMM|MMM|TIMESTAMP", value_parser = parse_report_bound, help_heading = "OPTIONS")]
+    pub(crate) through: Option<String>,
     /// Repository checkout root containing configured project paths.
     #[arg(long, default_value = ".", value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
     pub(crate) root: PathBuf,
