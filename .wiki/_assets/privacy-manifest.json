@@ -176,7 +176,7 @@
     {
       "path": "features/manual-jsonl-ingestion-graduation/_assets/build-demo-pdf.py",
       "historical_original_sha256": "9ca914590b1baa4be80fce4b49b8e0a1f0073100ef6ad12e79c87801bda66626",
-      "sanitized_sha256": "bbe45a758a9aa84d7ded65a78a0d2cc73b02216c08bb0dd3f9f7dff74b99457d"
+      "sanitized_sha256": "100ab5cffc574fda15adda54f235a5fa4d5b64e68bc69e62d817c5dd5c6b81d2"
     },
     {
       "path": "features/manual-jsonl-ingestion-graduation/_assets/candidates.json",
@@ -211,7 +211,7 @@
     {
       "path": "features/manual-jsonl-ingestion-graduation/_assets/demo-walkthrough.pdf",
       "historical_original_sha256": "1e868bdf6d210058cccb25fe1f5c5def2a64efab4d5ed3fdc712cf9cddd1fab9",
-      "sanitized_sha256": "1e3c82907323d6653d066da8ce78ce938ec3b40ebd3f4d7300836042d34ab0a9"
+      "sanitized_sha256": "907fdc695443a5d0b2c2f3fd03d7d75937ddeb640c143ee581c947b3e4580022"
     },
     {
       "path": "features/manual-jsonl-ingestion-graduation/_assets/form-prepared.png",
@@ -371,7 +371,7 @@
     {
       "path": "features/manual-jsonl-ingestion-graduation/walkthrough.md",
       "historical_original_sha256": null,
-      "sanitized_sha256": "5496aa542e40cde3b8716ba35ba17a069a88cb659d2811ed7673988273f86c0c"
+      "sanitized_sha256": "3743ee75cea1529ba48d98517b9bdbbc60d160033b2eb7cedc190b2bbb5a5716"
     },
     {
       "path": "features/model-acquisition-hardening.md",
@@ -1051,7 +1051,7 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/build-workflow-guides.py",
       "historical_original_sha256": "19d7b2a2c9f2aea625a785ac11e3f0bbe8279a34e91e5911effc78280790150f",
-      "sanitized_sha256": "334388238e2eac9ce62f15a2aef85a0a4068f240b805c35a5e477d8df4de73ae"
+      "sanitized_sha256": "ec908ef5f0e6168cf9506086184244cd52b2fea631c6b79974bd186eaae22556"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/catalog-after-reported-credential-update.png",
@@ -1441,7 +1441,7 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/teams-example.png",
       "historical_original_sha256": "5d2b95ba16e21961426d4e34e2eb3cb1d19affce1641adaed384f6cf377e2cec",
-      "sanitized_sha256": "e9a99ebf4fa0df577399ef00dd28ac3964009026d831f9a0756a5acfb850d779"
+      "sanitized_sha256": "42b3b34a3f33b56852fea62f188a3e1c508b3f0061e023c9aded2a08ebfc055f"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/visual-hierarchy/README.md",
@@ -1506,22 +1506,22 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/workflow.html",
       "historical_original_sha256": null,
-      "sanitized_sha256": "4cc3a5fcf8e809eb93d07c3cab7e8efe7c02bed3f08b648e5be3e89826c59706"
+      "sanitized_sha256": "84b40dc1f03a7f38d0ce21b7589208491c702799d18d64a5f4201e32ce981d5c"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/workflow.pikchr",
       "historical_original_sha256": null,
-      "sanitized_sha256": "fe2a0e185b48d328c8e83d777f57d8a70c99d6365854a4178254a7395081bf96"
+      "sanitized_sha256": "1ea44d76c7984e99db63e9cac2830e2990847454ec5f4935629a7fa3ff0e0d5e"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/workflow.png",
       "historical_original_sha256": null,
-      "sanitized_sha256": "f051f0d56b7cf565474242f0c0834b0888423f868d1c7344f6c49e716e72714f"
+      "sanitized_sha256": "41faf4f6cdbd556b793cf5e4beb6ef2ab658a5e48f3e6e04b4c3686de9aee1c7"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/workflow.svg",
       "historical_original_sha256": null,
-      "sanitized_sha256": "a1fa7f2b8bc60466018f3f9a42d9223e96cc21cff0bee7c4c8e91cd2982bb8db"
+      "sanitized_sha256": "05b7a1656cba69471da5743210e901cf89c720cd6ecc3f60fb625e0cbbf9e474"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/original-screen.pa.yaml",
@@ -2699,6 +2699,16 @@
       "sanitized_sha256": "28d3726659ad7fc69b1fe815dab94d95d826d46e0dbb875554a37eeeeca58339"
     },
     {
+      "path": "features/powerapps-jsonl-intake/_assets/sharepoint/first-load/README.md",
+      "historical_original_sha256": null,
+      "sanitized_sha256": "383227e065ce196cd38d8116b8a093307248c8223b817c4fcc37ec63883b2c31"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/sharepoint/first-load/connection-consent-redacted.png",
+      "historical_original_sha256": null,
+      "sanitized_sha256": "339fb8d7e1a957ce1edc98efbcf6d98ce8e3e24cf8230041940d163d865460e2"
+    },
+    {
       "path": "features/powerapps-jsonl-intake/_assets/sharepoint/form-patches.json",
       "historical_original_sha256": null,
       "sanitized_sha256": "1d44578e57382f08fd78c320d68d218f8efedeb39029e5ff109ae0be7c589b75"
@@ -3836,12 +3846,12 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/sponsor-highlights-developer-guide.pdf",
       "historical_original_sha256": "db26706c02cd78ef17cc473aa185d961ba882be22f4e734205a49c289d71d010",
-      "sanitized_sha256": "abe7348fb91230ad609a2963c8fb14a67b4da5bf8ab784ce0b36daa16e7ca39b"
+      "sanitized_sha256": "f5d3a6616c56af1a810b3a7962ac7c4dfa284b5af7e8f2c3a384d01b8dc5d0c6"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/sponsor-highlights-user-reviewer-guide.pdf",
       "historical_original_sha256": "78a3936ccb551bbba9de068ff1af30ead58c5d5179adb077ae96f5496460691a",
-      "sanitized_sha256": "4e38d39290364b47db0f132d870245ff91b343ee819534877c66b8032c285de7"
+      "sanitized_sha256": "5670dd36f5d93969fcdd5839614f5969fd80787928ee68c6c4ad8212c2879a34"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/storage-unavailable-preview-feedback.png",
@@ -4076,7 +4086,7 @@
     {
       "path": "features/powerapps-jsonl-intake/notification-walkthrough.md",
       "historical_original_sha256": "9994fa40c0c7a24d44de5f19c4c5af19e0a9001fa98528f616aeda5c58277f81",
-      "sanitized_sha256": "fbec521de9442be636c1b7aed4dcbb611a64fc2e283a8a8a6aa758b3118ab978"
+      "sanitized_sha256": "3742cdb682558bc506dc35a7b042da63b44259eeda3a9e3ae649f51a9c2c7d4b"
     },
     {
       "path": "features/powerapps-jsonl-intake/pilot-runbook.md",
@@ -4121,7 +4131,7 @@
     {
       "path": "features/sharepoint-jsonl-download/index.md",
       "historical_original_sha256": "879f3cb2a105436da08080aa54f448451502013d1e235d6834a4152ad4d33336",
-      "sanitized_sha256": "3ffd3e98a933b5be3741a7a41f585e3c8fbda44ade3bb8b76026875a427f1ac4"
+      "sanitized_sha256": "de10709cd41d5b7135a1a60a21e49f1ab8ce5e7397a289806cf46c730cb74b5a"
     },
     {
       "path": "features/slm-sidecars.md",
@@ -4346,7 +4356,7 @@
     {
       "path": "parallel-execution.md",
       "historical_original_sha256": "c183822a254e61c7815fc95ddd445aa1d5173222b630d80357d5b62d48ca52bb",
-      "sanitized_sha256": "a4f4f6a885a026b7e5103c2772b7309c29a1681e18e2eb4e6380b6ac1d8ba2fb"
+      "sanitized_sha256": "522cf896976e571d734f1d11f1ea342e5547ee60b9f5f7219087e5cc0e115aba"
     },
     {
       "path": "plan-network.md",
@@ -4511,6 +4521,29 @@
     "pdf_visual_review": "All five retained PDFs; rebuilt guides 21, 15 and 12 pages; two historical reports retained unchanged",
     "new_ocr_run": false
   },
-  "current_file_count": 888,
-  "initial_sanitization_changed_file_count": 288
+  "current_file_count": 890,
+  "initial_sanitization_changed_file_count": 288,
+  "first_load_guide_update": {
+    "date": "2026-10-27",
+    "user_guide_pages": 22,
+    "consent_page": 2,
+    "visual_review": "New consent page at full reading size and all user-guide pages in contact sheets; Teams preview remains the notification example.",
+    "privacy_review": "PDF text/metadata and new screenshot OCR contain no restricted account labels. Both account addresses are permanently masked; browser/profile details cropped out. No original screenshot included.",
+    "new_screenshot_ocr": true,
+    "all_image_ocr": false,
+    "live_systems_changed": false,
+    "popup_shadow_review": "Added a soft vector drop shadow behind the unchanged redacted screenshot; rebuilt and visually checked page 2."
+  },
+  "workflow_tag_update": {
+    "date": "2026-10-27",
+    "change": "NEW badge sits on the upper-left edge of Submit highlight in the shared workflow map.",
+    "visual_review": "Rendered and checked user/reviewer page 3, developer page 2, and demo walkthrough page 2; label clears text and arrows."
+  },
+  "guide_date_only_update": {
+    "date": "2026-10-27",
+    "change": "Report command examples use date-only --from and --through bounds; explanations specify midnight UTC and exclusive upper bound.",
+    "pdf_scan": "All five retained wiki PDFs scanned; no timestamp-valued --from or --through examples remain.",
+    "visual_review": "Developer page 7 and demo page 5 checked at reading size; demo map remains page 2 and uses the current workflow diagram.",
+    "live_systems_changed": false
+  }
 }

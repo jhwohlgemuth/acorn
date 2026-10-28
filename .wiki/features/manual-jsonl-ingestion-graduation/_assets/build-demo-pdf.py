@@ -145,7 +145,8 @@ def main():
     doc.build(story, onFirstPage=page, onLaterPages=page)
     reader = PdfReader(buffer)
     guide = PdfReader(ASSETS.parents[1] / "powerapps-jsonl-intake/_assets/sponsor-highlights-user-reviewer-guide.pdf")
-    pages = [reader.pages[0], guide.pages[1], *reader.pages[1:]]
+    workflow = next(current for current in guide.pages if "From highlight to reviewed report" in current.extract_text())
+    pages = [reader.pages[0], workflow, *reader.pages[1:]]
     writer = PdfWriter()
     for number, current in enumerate(pages, 1):
         width, height = float(current.mediabox.width), float(current.mediabox.height)

@@ -69,10 +69,10 @@ acorn --offline intake apply --config intake.json --batch-id <batch-ID>
 **4. Generate the combined local PDF.**
 
 ```sh
-acorn --offline report --config report.json --from 2026-10-26T00:00:00Z --through 2026-10-27T00:00:00Z --dry-run --combine
+acorn --offline report --config report.json --from 2026-10-26 --through 2026-10-27 --dry-run --combine
 ```
 
-Open `.acorn/reports/report.pdf` inside the demo directory. The default root is the current directory; the default selection includes every folder in `report.json` (only `acorn` here); the default output is `.acorn/reports`. Combined mode does not require `--commit`. Keep the explicit window to reproduce the three-row demo; `--through` has no time default, and omitting `--from` includes older history. The shorter commands change the output location from the historical `report/` directory, not the intended content.
+Open `.acorn/reports/report.pdf` inside the demo directory. The default root is the current directory; the default selection includes every folder in `report.json` (only `acorn` here); the default output is `.acorn/reports`. Combined mode does not require `--commit`. Dates mean midnight UTC. `--from` includes October 26; `--through` excludes October 27. Keep this window to reproduce the three-row demo. `--through` is required unless supplied by `ACORN_REPORT_THROUGH`; omitting `--from` includes older history. The shorter commands change the output location from the historical `report/` directory, not the intended content.
 
 PDF rendering uses cached or discoverable Chrome/Chromium by default. If discovery fails, set `CHROME_PATH` to your installed browser before running; offline mode cannot download it. Intake currently requires explicit `--config`, `--source` and batch selectors; those have no defaults to remove. These commands do not publish, send callbacks/messages, drain the SharePoint list, or graduate entries. Graduation is optional work after ingestion, not a prerequisite for this report.
 

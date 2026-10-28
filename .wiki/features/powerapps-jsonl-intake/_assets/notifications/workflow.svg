@@ -55,4 +55,6 @@
 <path d="M448.56,488.16L448.56,532.8" style="fill:none;stroke-width:2.16;stroke:rgb(80,106,112);stroke-dasharray:7.2,7.2;" />
 <polygon points="1024.56,538.56 1020.24,527.04 1028.88,527.04" style="fill:rgb(80,106,112)" />
 <path d="M1024.56,488.16L1024.56,532.8" style="fill:none;stroke-width:2.16;stroke:rgb(80,106,112);stroke-dasharray:7.2,7.2;" />
+<path d="M32.1741,188.414L94.0941,188.414A8.64 8.64 0 0 0 102.734 179.774L102.734,162.494A8.64 8.64 0 0 0 94.0941 153.854L32.1741,153.854A8.64 8.64 0 0 0 23.5341 162.494L23.5341,179.774A8.64 8.64 0 0 0 32.1741 188.414Z" style="fill:rgb(0,102,44);stroke-width:0;stroke:rgb(255,255,255);" />
+<text x="63.1341" y="171.134" text-anchor="middle" font-weight="bold" fill="rgb(255,255,255)" font-size="92%" dominant-baseline="central">NEW</text>
 </svg>

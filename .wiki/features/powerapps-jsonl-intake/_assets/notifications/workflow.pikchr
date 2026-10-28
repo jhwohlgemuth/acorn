@@ -23,3 +23,4 @@ arrow from P.e to F.w thick color 0x00662C
 N: box "OWNER-TRIGGERED MILESTONES" bold "Teams: workspace created / no report changes" "Email: review requested / report ready / actionable failure" wid 7.8in ht 0.85in rad 0.08in fill 0xF3F0FF thickness 0 at A+(1in,-1.15in)
 arrow from A.s to (A.x,N.n.y) dashed color 0x506A70
 arrow from F.s to (F.x,N.n.y) dashed color 0x506A70
+box "NEW" bold small wid 0.55in ht 0.24in rad 0.06in fill 0x00662C color 0xFFFFFF thickness 0 at S.nw+(0.4in,0)

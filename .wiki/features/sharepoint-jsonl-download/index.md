@@ -32,7 +32,7 @@ Preserve the documented **stage -> inspect -> apply -> report** workflow in the 
 
 SharePoint-aware planning review: October 26, 2026 against `58c22da4` plus the current working tree. Earlier capture evidence was recorded against `ca774b01`. CodeGraph inspection of `crates/acorn-cli/src/commands/intake/source.rs` confirms local files and GitLab HTTP(S) file URLs are supported; HTTP(S) inputs currently enter the GitLab parser. Remote capture rejects offline mode, bounds the source to 10 MiB, pins GitLab commit provenance, and stores snapshots beneath the intake configuration's `.acorn/intake/sources/` directory. There is no live SharePoint/Graph authentication or download adapter; SPD-03 has only inactive, compiling module seams. The existing global `--clear-cache` clears application/database/download cache and must retain that separate meaning.
 
-October 27 implementation evidence: the frozen contract and synthetic fixtures are in the [SharePoint intake capture guide](../../../docs/src/cli-reference/commands/sharepoint-intake.md). Feature-gated host auth and Graph/SharePoint seams compile on macOS without exposing a CLI route. Focused host tests, the SharePoint library check, portable WASM check and existing GitLab capture/offline-review regression passed. The lockfile advisory count remains six, matching the prior baseline. Linux cross-compilation on this macOS host stopped before Rust code checking because the cross C compiler is absent; target-specific dependency trees show only the selected native backend. [SPD-01's sanitized evidence](_assets/auth-evidence.json) records the missing approved public-client registration; no Graph request was made.
+October 27 implementation evidence: the frozen contract and synthetic fixtures are in the [SharePoint intake capture guide](../../../docs/src/cli-reference/commands/sharepoint-intake.md). Feature-gated host auth and Graph/SharePoint seams compile on macOS without exposing a CLI route. Focused host tests, the SharePoint library check, portable WASM check and existing GitLab capture/offline-review regression passed. The lockfile advisory count remains six, matching the prior baseline. Linux cross-compilation on this macOS host stopped before Rust code checking because the cross C compiler is absent. The current working tree removes the four pre-staged keyring dependencies and three empty platform modules after `cargo-shear` rejected them; `make check-dependencies` and all 24 `acorn-host --features auth` tests pass. The selected versions and features remain requirements for SPD-24/05/14/15, to be restored with code that uses them. [SPD-01's sanitized evidence](_assets/auth-evidence.json) records the missing approved public-client registration; no Graph request was made.
 
 October 27 fixture implementation against `bde5df3f` plus the current working tree: ACRE now parses and validates ordered `auth.profiles` and exact SharePoint `auth.sources` in JSON, JSONC and YAML. The test-only CLI resolver exercises selection of a validated host profile without invoking project hooks or database setup; SPD-09 or SPD-21 must make it a production module when adding its first caller. The host profile pins Entra authority and grant endpoints; its OIDC verifier checks signed ID tokens against trusted discovery/JWKS with bounded metadata requests. The device grant uses library polling with a private code handle, typed redacted failures, cancellation and an outer monotonic deadline. `cargo test -p acorn-host --features auth auth::tests --offline` passed 16 tests covering grant success, pending, slow-down, denial, expiry, provider errors, rate limiting, URL safety, signature and claim failures. `cargo test -p acorn-lib --features auth test_auth_ --offline` passed focused ACRE tests, and `cargo test -p acorn-cli --no-default-features --features auth io::tests::auth --offline` passed two resolver tests. Focused Clippy checks for all three crates and the planning wiki validator passed. No CLI auth route, protected cache adapter, live tenant sign-in or Graph capture is claimed; those remain separate phases.
 
@@ -161,7 +161,7 @@ For repeatable tests: use an isolated ACORN test profile/namespace; inspect -> d
 
 ## Dependency selection and wiring
 
-The selected OAuth/OIDC, keyring and target-specific store versions, features, licenses, MSRVs, runtime costs and rejected HTTP adapters are recorded in the [SharePoint intake capture contract](../../../docs/src/cli-reference/commands/sharepoint-intake.md#dependency-decision-and-validation). The optional host and provider feature paths compile on macOS; the portable WASM path excludes native stores. Linux and Windows still require target/native acceptance in their later phases. No all-backends keyring facade or second OAuth HTTP stack was added.
+The selected OAuth/OIDC, keyring and target-specific store versions, features, licenses, MSRVs, runtime costs and rejected HTTP adapters are recorded in the [SharePoint intake capture contract](../../../docs/src/cli-reference/commands/sharepoint-intake.md#dependency-decision-and-validation). `oauth2` and `openidconnect` remain in use. The native-store dependencies are deferred until their implementation phases: SPD-24 restores `keyring-core` 1.0.1 for the shared store interface; SPD-05 restores `apple-native-keyring-store` 1.0.2 with only `keychain` on macOS; SPD-14 restores `windows-native-keyring-store` 1.1.0 with defaults disabled on Windows; SPD-15 restores `zbus-secret-service-keyring-store` 1.0.1 with only `rt-tokio-crypto-rust` on Linux. Add each optional dependency to the host `auth` feature and update `Cargo.lock` only when production code uses it. Keep target-specific dependencies out of the portable/WASM path and run `make check-dependencies` after each manifest change. Linux and Windows still require target/native acceptance in their later phases. No all-backends keyring facade or second OAuth HTTP stack was added.
 
 ## Interactive sign-in and code presentation
 
@@ -238,7 +238,7 @@ The full cross-platform CLI download release and SPD retirement require all thre
 
 # Execution phases
 
-New files below are proposed ownership boundaries, not files claimed to exist. Each phase gets at most five active hours; external consent/host waiting is not active work. Register leaf modules before their implementation so each slice compiles and tests independently. If dependency evaluation or a security defect needs more time, create a new bounded phase before expanding the write set. Every handoff updates this plan and its portfolio links; evidence belongs in durable documentation, with sanitized supporting files in this plan's `_assets/` only when needed.
+New files below are proposed ownership boundaries, not files claimed to exist. Each phase gets at most five active hours; external consent/host waiting is not active work. Register each leaf module and its dependency with the implementation that uses them so each slice compiles and passes the dependency gate independently. If dependency evaluation or a security defect needs more time, create a new bounded phase before expanding the write set. Every handoff updates this plan and its portfolio links; evidence belongs in durable documentation, with sanitized supporting files in this plan's `_assets/` only when needed.
 
 ## SPD-01 — Prove approved read-only tenant access
 
@@ -256,10 +256,10 @@ New files below are proposed ownership boundaries, not files claimed to exist. E
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: The resolved profile policy and verified identity contract are landed; cache seams are available.
-- Exact write set: `crates/acorn-host/src/auth/cache/mod.rs`, `crates/acorn-host/src/auth/cache/coordination.rs`; `tests/fixtures/oauth2/cache/lifecycle/`.
+- Exact write set: `Cargo.toml`, `Cargo.lock`, `crates/acorn-host/Cargo.toml`, `crates/acorn-host/src/auth/cache/mod.rs`, `crates/acorn-host/src/auth/cache/coordination.rs`; `tests/fixtures/oauth2/cache/lifecycle/`.
 - Primary integration lock: Host credential cache lifecycle
-- Outcome: A cache-aware token acquisition service using injected grant/refresh and store interfaces: preferred/required/disabled policy, identity namespacing, minimal non-secret identity index, refresh rotation, per-identity coordination and generation tombstones shared by all stores/grants. No native backend or grant protocol implementation in this phase. Define late-completion behavior for blocking store calls and safe metadata writes with protected paths.
-- Focused validation: Fake-store tests for concurrent refreshes, cancellation, lock timeout/recovery, stale generation, shared profile aliases, no plaintext fallback, disabled read/write behavior, malformed metadata, path redirection and bounded index enumeration.
+- Outcome: A cache-aware token acquisition service using injected grant/refresh and store interfaces: preferred/required/disabled policy, identity namespacing, minimal non-secret identity index, refresh rotation, per-identity coordination and generation tombstones shared by all stores/grants. Restore and use `keyring-core` 1.0.1 in the shared store interface. No native backend or grant protocol implementation in this phase. Define late-completion behavior for blocking store calls and safe metadata writes with protected paths.
+- Focused validation: Fake-store tests for concurrent refreshes, cancellation, lock timeout/recovery, stale generation, shared profile aliases, no plaintext fallback, disabled read/write behavior, malformed metadata, path redirection and bounded index enumeration; `make check-dependencies`.
 - Handoff: Stable cache lifecycle for SPD-05/14/15; SPD-20 later composes explicit clear and binds both grant paths. Any additional locking dependency returns to the manifest owner.
 
 ## SPD-04 — Implement reusable interactive OAuth sign-in
@@ -277,33 +277,33 @@ New files below are proposed ownership boundaries, not files claimed to exist. E
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SPD-24 shared cache contract; target wiring is available.
-- Exact write set: `crates/acorn-host/src/auth/cache/macos.rs`; `tests/fixtures/oauth2/cache/macos/`; macOS cache section of `docs/src/cli-reference/commands/sharepoint-intake.md`.
+- Prerequisites: SPD-24 shared cache contract; restore target wiring with the adapter.
+- Exact write set: `Cargo.toml`, `Cargo.lock`, `crates/acorn-host/Cargo.toml`, `crates/acorn-host/src/auth/cache/mod.rs`, `crates/acorn-host/src/auth/cache/macos.rs`; `tests/fixtures/oauth2/cache/macos/`; macOS cache section of `docs/src/cli-reference/commands/sharepoint-intake.md`.
 - Primary integration lock: Host OAuth authentication
-- Outcome: Implement non-synchronizing macOS Keychain entries against the shared lifecycle and typed failure contract. Preserve profile/account isolation, supported replace/remove behavior and explicit prompt/locked-store handling. No plaintext fallback or shared coordination rewrite.
-- Focused validation: Mock locked/missing/denied store, account separation, replacement/removal, payload bounds, malformed entries, prompt cancellation, secret redaction and target gating. Native Keychain and real OAuth acceptance belong to SPD-16.
+- Outcome: Restore and use `apple-native-keyring-store` 1.0.2 with only `keychain` in a macOS-targeted dependency and host `auth` feature. Implement non-synchronizing macOS Keychain entries against the shared lifecycle and typed failure contract. Preserve profile/account isolation, supported replace/remove behavior and explicit prompt/locked-store handling. No plaintext fallback or shared coordination rewrite.
+- Focused validation: Mock locked/missing/denied store, account separation, replacement/removal, payload bounds, malformed entries, prompt cancellation, secret redaction and target gating; `make check-dependencies`. Native Keychain and real OAuth acceptance belong to SPD-16.
 - Handoff: Focused macOS adapter evidence for SPD-16; Windows/Linux leaves independently consume SPD-24.
 
 ## SPD-14 — Implement Windows Credential Manager caching
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SPD-24 shared cache contract; target wiring is available.
-- Exact write set: `crates/acorn-host/src/auth/cache/windows.rs`; `tests/fixtures/oauth2/cache/windows/`.
+- Prerequisites: SPD-24 shared cache contract; restore target wiring with the adapter.
+- Exact write set: `Cargo.toml`, `Cargo.lock`, `crates/acorn-host/Cargo.toml`, `crates/acorn-host/src/auth/cache/mod.rs`, `crates/acorn-host/src/auth/cache/windows.rs`; `tests/fixtures/oauth2/cache/windows/`.
 - Primary integration lock: Windows credential cache leaf
-- Outcome: User-scoped generic credentials with non-roaming local persistence, versioned namespacing, replace/remove semantics and typed unavailable/profile/permission/size failures. Consume shared coordination and policy behavior without changing OAuth protocol code.
-- Focused validation: Mock store tests and Windows-target compilation; missing and corrupt entries, credential size boundaries without truncation, account/identity collisions, update/delete and error redaction. No dependency/root edits outside the SPD-03 wiring.
+- Outcome: Restore and use `windows-native-keyring-store` 1.1.0 with defaults disabled in a Windows-targeted dependency and host `auth` feature. Implement user-scoped generic credentials with non-roaming local persistence, versioned namespacing, replace/remove semantics and typed unavailable/profile/permission/size failures. Consume shared coordination and policy behavior without changing OAuth protocol code.
+- Focused validation: Mock store tests and Windows-target compilation; missing and corrupt entries, credential size boundaries without truncation, account/identity collisions, update/delete and error redaction; `make check-dependencies`.
 - Handoff: Testable Windows adapter; SPD-17 owns native proof, and compilation alone is not acceptance.
 
 ## SPD-15 — Implement Linux Secret Service caching
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: SPD-24 shared cache contract; target wiring is available.
-- Exact write set: `crates/acorn-host/src/auth/cache/linux.rs`; `tests/fixtures/oauth2/cache/linux/`.
+- Prerequisites: SPD-24 shared cache contract; restore target wiring with the adapter.
+- Exact write set: `Cargo.toml`, `Cargo.lock`, `crates/acorn-host/Cargo.toml`, `crates/acorn-host/src/auth/cache/mod.rs`, `crates/acorn-host/src/auth/cache/linux.rs`; `tests/fixtures/oauth2/cache/linux/`.
 - Primary integration lock: Linux credential cache leaf
-- Outcome: Persistent user Secret Service collection support with bounded D-Bus access, explicit unlock/denial behavior and the shared persistence policy. Missing service, locked collection, SSH/headless context and session-only storage produce accurate capabilities or errors.
-- Focused validation: Mock service/collection/prompt responses, unavailable bus, cancelled unlock, timeout, malformed entry, replace/remove and redaction; Linux-target compilation and no-default-feature checks.
+- Outcome: Restore and use `zbus-secret-service-keyring-store` 1.0.1 with only `rt-tokio-crypto-rust` in a Linux-targeted dependency and host `auth` feature. Implement persistent user Secret Service collection support with bounded D-Bus access, explicit unlock/denial behavior and the shared persistence policy. Missing service, locked collection, SSH/headless context and session-only storage produce accurate capabilities or errors.
+- Focused validation: Mock service/collection/prompt responses, unavailable bus, cancelled unlock, timeout, malformed entry, replace/remove and redaction; Linux-target compilation, no-default-feature checks and `make check-dependencies`.
 - Handoff: Testable Linux adapter; SPD-18 owns native persistence proof. Do not auto-install or unlock a user's service or claim support for untested store implementations.
 
 ## SPD-06 — Resolve the configured SharePoint document

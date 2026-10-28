@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Build the two current guides from retained evidence."""
+import argparse
 import html
 import os
 import re
@@ -115,6 +116,29 @@ def start(c):
     top=paragraph(c,link('Open the SharePoint form',SP_APP),54,top,size=21)
     top=grid(c,[['Step','What happens'],['1 // Submit or correct','For new work, complete the form and submit once. For a correction, use My Submissions > Edit selected > Save correction.'],['2 // Confirm','JSONL ready confirms the individual receipt file. Teams notifies the owner and submitter; self-submissions skip the duplicate notice.'],['3 // Collect','The five-minute exporter rebuilds logbook.jsonl from the stored list receipts. Operators check freshness before downloading.'],['4 // Review and report','Stage the downloaded rows, inspect the latest content, confirm apply and generate a new local report. Email is reserved for important milestones.']],top,widths=(220,752),size=17)
     paragraph(c,'This guide follows the active SharePoint workflow. Appendix A preserves the paused GitLab connector reference. Retry each pending save with its same receipt ID. A correction gets a new linked ID; original records remain unchanged.',54,top,size=16)
+
+
+def first_load(c):
+    paragraph(c,'On first load, Power Apps may ask: <b>Allow Sponsor Highlights - SharePoint Pilot to access your data?</b> This is the expected connection-consent step before using the form.',54,156,size=17)
+    popup=ImageReader(str(ASSETS/'sharepoint/first-load/connection-consent-redacted.png'))
+    popup_width,popup_height=popup.getSize()
+    height=590*popup_height/popup_width
+    c.saveState()
+    c.setFillColor(HexColor('#163C47'))
+    c.setFillAlpha(0.012)
+    for layer in range(12,0,-1):
+        spread=layer*0.6
+        c.roundRect(54-spread,H-222-height-4-spread,590+2*spread,height+2*spread,spread+2,fill=1,stroke=0)
+    c.restoreState()
+    picture(c,ASSETS/'sharepoint/first-load/connection-consent-redacted.png',54,222,590,355)
+    paragraph(c,'First-load dialog. Account addresses removed; surrounding browser/profile details cropped out.',54,582,590,size=11)
+    top=paragraph(c,'Why these connections are needed',675,222,351,size=19,bold=True)
+    top=paragraph(c,'<b>SharePoint</b> supports the project catalog, saved highlights and corrections, and JSONL receipt/export files.',675,top,351,size=16)
+    top=paragraph(c,'<b>Microsoft Teams</b> supports save confirmations to the submitter and operator through Power Automate.',675,top,351,size=16)
+    paragraph(c,'The two services shown match this app\'s documented workflow. Use your ORNL work account if Microsoft asks you to sign in.',675,top,351,size=16)
+    top=paragraph(c,'<b>What to do:</b> open the form from the trusted ORNL link in this guide, check the app name and the two services shown, then select <b>Allow</b>. Wait for the form to finish loading.',54,625,size=16)
+    paragraph(c,'Allow authorizes the displayed connections; it does not submit a highlight. If the app name or services differ, or a connection reports an error, ask the app owner before continuing.',54,top,size=14)
+    paragraph(c,'Microsoft reference: '+link('Canvas-app connection consent','https://learn.microsoft.com/en-us/power-apps/maker/canvas-apps/connections-list#connection-consent-dialog')+'.',54,724,size=11)
 
 
 def projects(c):
@@ -279,8 +303,8 @@ def local_handoff(c):
         'acorn --offline intake inspect --config intake.json --batch-id BATCH_ID\n'
         'acorn --offline intake apply --config intake.json --batch-id BATCH_ID\n'
         '# 4. Generate the combined local PDF.\n'
-        'acorn --offline report --config report.json \\\n  --from 2026-10-26T00:00:00Z --through 2026-10-27T00:00:00Z \\\n  --dry-run --combine',top,13)
-    top=paragraph(c,'Open .acorn/reports/report.pdf. Defaults use the current directory and all configured projects (only acorn here). Combined mode needs no commit. Keep the fixed date window; --through has no time default. Set CHROME_PATH only if browser discovery fails.',54,top,size=14)
+        'acorn --offline report --config report.json \\\n  --from 2026-10-26 --through 2026-10-27 \\\n  --dry-run --combine',top,13)
+    top=paragraph(c,'Open .acorn/reports/report.pdf. Defaults use the current directory and all configured projects (only acorn here). Combined mode needs no commit. Dates mean midnight UTC: --from is inclusive; --through is exclusive. Set CHROME_PATH only if browser discovery fails.',54,top,size=14)
     paragraph(c,'Direct SharePoint URLs remain planned; download the file first. Local reporting sends no messages or callbacks; optional graduation is separate.',54,top,size=14)
 
 
@@ -375,10 +399,13 @@ def build(filename, pages, audience):
 
 
 def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--user-only',action='store_true',help='Rebuild only the user/reviewer PDF and its Teams preview')
+    args=parser.parse_args()
     render_diagram()
     render_diagram('correction-history')
     common=[('Submit and review with SharePoint','Start here',start),('From highlight to reviewed report','Workflow map',diagram)]
-    user_pages=common+[
+    user_pages=[common[0],('Allow the expected connections','First load',first_load),common[1]]+[
         ('Load the correct project list','Contributor // 01',projects),('Complete the form fields','Contributor // 02',fields),
         ('Choose the date and category','Form controls',field_menus),('Choose status and optional event type','Form controls',status_menus),
         ('Write, review and submit once','Contributor // 03',write_highlight),('Read the SharePoint confirmation','SharePoint receipt',sp_receipt),
@@ -403,15 +430,17 @@ def main():
         ('Verify the GitLab commit and replay','Appendix A // Persistence evidence',gl_persistence),
         ('Restore and operate the GitLab route','Appendix A // Restoration',gl_restore)]
     user=build('sponsor-highlights-user-reviewer-guide.pdf',user_pages,'User and reviewer guide')
-    dev=build('sponsor-highlights-developer-guide.pdf',dev_pages,'Developer and operations guide')
+    dev=None if args.user_only else build('sponsor-highlights-developer-guide.pdf',dev_pages,'Developer and operations guide')
     with tempfile.TemporaryDirectory(prefix='pa-fonts-') as name:
         font_config=Path(name)/'fonts.conf'
         font_config.write_text('<fontconfig><dir>/System/Library/Fonts</dir><dir>/Library/Fonts</dir>'
                                f'<cachedir>{name}/cache</cachedir></fontconfig>')
-        subprocess.run([str(RUNTIME/'bin/override/pdftoppm'),'-f','12','-singlefile','-scale-to','1600','-png',
+        teams_page=next(i for i,(_,_,draw) in enumerate(user_pages,1) if draw is teams_mock)
+        subprocess.run([str(RUNTIME/'bin/override/pdftoppm'),'-f',str(teams_page),'-singlefile','-scale-to','1600','-png',
                         str(user),str(ASSETS/'notifications/teams-example')],check=True,
                        env={**os.environ,'FONTCONFIG_FILE':str(font_config)})
-    print(user);print(dev)
+    print(user)
+    if dev: print(dev)
 
 
 if __name__=='__main__':main()
