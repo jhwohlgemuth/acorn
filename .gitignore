@@ -11,5 +11,8 @@
 /output
 target/
 /tmp
+/config.toml
+/builds
+.runner_system_id
 ~$reference.pptx
 data.zip

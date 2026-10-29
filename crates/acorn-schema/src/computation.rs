@@ -7,6 +7,7 @@ use crate::hardware::Memory;
 use crate::research_activity::aspect::data::Data;
 use crate::validation::{Validate, ValidationReport};
 use crate::OneOrMany;
+use acorn_core::big_o::Expression;
 use acorn_core::prelude::alloc::{format, String, Vec};
 use acorn_core::time::Milliseconds;
 use acorn_core::validation::ValidationError;
@@ -293,16 +294,48 @@ impl AlgorithmComplexity {
                     | ComplexityBound::Space(expression) => ("space", expression),
                     | ComplexityBound::Time(expression) => ("time", expression),
                 };
-                let report = if expression.trim().is_empty() {
-                    report.merge(
-                        "",
-                        ValidationReport::from_error(
-                            format!("bounds[{index}]"),
-                            ValidationError::new("nonempty").with_message("Complexity expression cannot be empty"),
+                let (report, parsed) = if expression.trim().is_empty() {
+                    (
+                        report.merge(
+                            "",
+                            ValidationReport::from_error(
+                                format!("bounds[{index}]"),
+                                ValidationError::new("nonempty").with_message("Complexity expression cannot be empty"),
+                            ),
                         ),
+                        None,
                     )
                 } else {
-                    report
+                    match Expression::parse(expression) {
+                        | Ok(parsed) => (report, Some(parsed)),
+                        | Err(error) => (
+                            report.merge(
+                                "",
+                                ValidationReport::from_error(
+                                    format!("bounds[{index}]"),
+                                    ValidationError::new("syntax").with_message(format!("Invalid complexity expression: {error}")),
+                                ),
+                            ),
+                            None,
+                        ),
+                    }
+                };
+                let report = match (&self.variables, parsed) {
+                    | (Some(variables), Some(parsed)) => {
+                        parsed
+                            .variables()
+                            .filter(|variable| !variables.contains_key(*variable))
+                            .fold(report, |report, variable| {
+                                report.merge(
+                                    "",
+                                    ValidationReport::from_error(
+                                        format!("bounds[{index}]"),
+                                        ValidationError::new("reference").with_message(format!("Complexity variable `{variable}` is not defined")),
+                                    ),
+                                )
+                            })
+                    }
+                    | _ => report,
                 };
                 if self.bounds.iter().take(index).any(|earlier| {
                     matches!(

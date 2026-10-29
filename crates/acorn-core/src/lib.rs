@@ -2,6 +2,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
+#[cfg(feature = "alloc")]
+pub mod big_o;
 pub mod error;
 mod location;
 pub mod options;

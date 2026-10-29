@@ -29,7 +29,7 @@ Run the shipped Needle 3 workflow on Windows x86_64, Linux x86_64, and Linux ARM
 - Needle process startup uses the compact ACORN tool projection, private loopback transport, bounded startup/request times, isolated sessions, output limits, telemetry opt-out, and child cleanup. Tool calls remain subject to confidence, policy, typed argument validation, offline context, and round limits.
 - The checked-in comparison harness records policy, correctness, latency, memory, and installed-byte gates for the pinned Needle 2/3 inputs. macOS ARM64 passes the stricter real-engine comparison, online/offline version inference, and download/checksum path.
 - Oklahoma's Linux x86_64 real-engine run passed verified acquisition, online and cached offline inference, tool handoff, policy withholding, offline network rejection, normal shutdown, and host-observed SIGTERM/SIGINT child cleanup. The [Needle guide](../../docs/src/inference/needle.md) records the 2026-10-21 platform result. Dante reports `linux/aarch64` and remains available for Linux ARM64 validation.
-- The manual `validate-needle-windows-amd64` job and `scripts/needle/validate-windows-x86_64.ps1` now prepare pinned Windows x86_64 acquisition, inference, policy, offline, and normal-cleanup evidence. GitLab CI lint and 25 focused Needle tests pass. GitLab runner 55601 is tagged `windows` but reports `linux/amd64`; it has not run a job and does not establish native Windows execution. The job therefore requires a native Windows x86_64 shell runner tagged `windows-x86_64` before Windows validation can start.
+- The manual `validate-needle-windows-amd64` job and `scripts/needle/validate-windows-x86_64.ps1` now prepare pinned Windows x86_64 acquisition, inference, policy, offline, and normal-cleanup evidence. GitLab CI lint and 25 focused Needle tests pass. Runner 55601 remains `linux/amd64` and cannot supply this evidence. NDL-02 stays blocked on GSR-02: runner 55645 cannot finish a tagged job.
 - Formatting, lint, WASM, book, workspace, focused Needle, help, shell, packaging, and macOS real-engine validation have accepted results. `make doc` and local PowerShell syntax validation retain unrelated environment/baseline failures already documented outside this remaining host gate.
 
 # Dependencies and coordination
@@ -84,7 +84,7 @@ Delete this plan after all three host validations pass, then remove its migratio
 - Primary integration lock: Needle host matrix
 - Outcome: Run the manual Windows job, verify native Ctrl+C cancellation and child/session cleanup, and record the pinned acquisition, inference, policy, offline, and process evidence.
 - Focused validation: Run `validate-needle-windows-amd64` on the native host and retain its JSON report plus the cancellation observation.
-- Handoff: Runner 55601 is currently `linux/amd64`, so it cannot supply the required native Windows evidence. After GSR-02 verifies a native runner with the job tag, run the job, complete the Ctrl+C cleanup check, record results in the Needle guide, then remove NDL-02.
+- Handoff: Blocked on GSR-02. Runner 55645 can check out a tagged job, but job 4483744 was canceled and its final status update returned 403. Do not start `validate-needle-windows-amd64` until that smoke job finishes.
 
 ## NDL-05 — Validate Linux ARM64
 

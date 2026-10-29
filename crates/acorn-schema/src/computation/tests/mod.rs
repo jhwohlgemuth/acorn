@@ -10,6 +10,44 @@ const PROFILE_ID: &str = "00000000-0000-4000-8000-000000000004";
 const SAMPLE_ID: &str = "00000000-0000-4000-8000-000000000005";
 
 #[test]
+fn test_complexity_bounds_round_trip_and_validate() {
+    let value = json!({
+        "case": "worst",
+        "bounds": [{"time": "O(n log n)"}, {"space": "O(n)"}],
+        "variables": {"n": "number of records"}
+    });
+    let complexity: AlgorithmComplexity = serde_json::from_value(value.clone()).expect("parse complexity");
+    complexity.validate().expect("validate complexity");
+    assert_eq!(serde_json::to_value(complexity).expect("serialize complexity"), value);
+
+    let without_variables: AlgorithmComplexity =
+        serde_json::from_value(json!({"bounds": {"time": "O(n)"}})).expect("parse complexity without variables");
+    without_variables.validate().expect("allow omitted variables map");
+}
+#[test]
+fn test_complexity_validation_rejects_notation_references_empty_and_duplicates() {
+    let complexity: AlgorithmComplexity = serde_json::from_value(json!({
+        "bounds": [
+            {"time": "O(n / m)"},
+            {"space": "O(n)"},
+            {"time": ""}
+        ],
+        "variables": {"m": "number of batches"}
+    }))
+    .expect("parse invalid complexity");
+    let report = complexity.validate().expect_err("reject invalid complexity");
+    let issues: Vec<_> = report.iter().map(|issue| (issue.path.as_str(), issue.error.code.as_str())).collect();
+    assert_eq!(
+        issues,
+        [
+            ("bounds[0]", "syntax"),
+            ("bounds[1]", "reference"),
+            ("bounds[2]", "nonempty"),
+            ("bounds[2]", "duplicate")
+        ]
+    );
+}
+#[test]
 fn test_duplicate_stages_and_profiles_are_rejected() {
     let computation: Computation = serde_json::from_value(json!({
         "identifier": COMPUTATION_ID,

@@ -17,9 +17,10 @@ Give ACORN one grammar for Big-O notation in research-activity metadata and Rust
 
 # Current evidence
 
-- The schema has `AlgorithmComplexity { case: Option<ComplexityCase>, bounds: OneOrMany<ComplexityBound>, variables: Option<BTreeMap<String, String>> }`. `ComplexityCase` records `worst`, `average`, `amortized`, or `best` for all bounds in an entry; `ComplexityBound::{Space, Time}` each carry a `String`. Validation currently rejects empty and duplicate resource bounds, but does not parse notation or inspect variable references. Phase COM-02 must recheck the accepted schema baseline before editing it.
+- `acorn-core::big_o::BigOExpression` now provides the alloc-only bounded parser, owned typed tree, preserved source notation, lexical variable discovery, and stable `ParseErrorKind` plus byte offset needed by schema and macro consumers. The minimal core path remains independent of `alloc`.
+- The schema has `AlgorithmComplexity { case: Option<ComplexityCase>, bounds: OneOrMany<ComplexityBound>, variables: Option<BTreeMap<String, String>> }`. `ComplexityCase` records `worst`, `average`, `amortized`, or `best` for all bounds in an entry; `ComplexityBound::{Space, Time}` each retain their source `String`. Validation now parses nonempty bounds, reports malformed notation with `syntax`, checks identifiers against a supplied variables map with `reference`, and retains the existing `nonempty` and `duplicate` rules at `bounds[index]`. An omitted variables map remains valid.
 - The computation guide shows `O(n log n)` and `O(n)` as strings. Execution profiles record concrete workload sizes and durations independently of the declared expressions.
-- `acorn-core` has `core`, `alloc`, and `std` feature paths. `acorn-schema` already uses `alloc` in its minimal build and depends on both `acorn-core` and the separate `acorn-macros` proc-macro crate. Its direct `acorn-core` dependency currently has no features enabled, so schema integration must explicitly enable `acorn-core/alloc`. `acorn-macros` does not currently depend on `acorn-core`, so an alloc-only dependency can share the parser without a cycle.
+- `acorn-core` has `core`, `alloc`, and `std` feature paths. `acorn-schema` explicitly enables `acorn-core/alloc` on its direct dependency, so the shared parser is available in minimal schema builds. `acorn-macros` does not currently depend on `acorn-core`, so COM-03 can add an alloc-only dependency without a cycle.
 - `make check-portable` checks the minimal and alloc-only crate paths; `make check-wasm` checks `wasm32-unknown-unknown`. Existing macro tests use `trybuild` for compile failures.
 
 # Decisions and boundaries
@@ -32,9 +33,8 @@ Give ACORN one grammar for Big-O notation in research-activity metadata and Rust
 
 # Dependencies and coordination
 
-- COM-01 has no implementation prerequisite. COM-02 and COM-03 consume its parser API. COM-04 follows both integrations.
-- COM-02 requires the pending `ComplexityBound` shape to be accepted in its checkout. If it changes before implementation, update this plan's exact contract and write set rather than imposing the current working-tree shape.
-- COM-02 and COM-03 serialize their manifest edits through the workspace-graph lock. COM-01 and COM-04 serialize crate-root registration and public re-exports through the library-roots lock. COM-02 also coordinates computation schema files with other schema owners. Other schema, macro, and portable-codec work may proceed on disjoint files.
+- COM-03 consumes the landed parser API. COM-04 follows the remaining macro integration; schema validation is landed.
+- COM-03 serializes its manifest edit through the workspace-graph lock. COM-04 serializes public re-exports through the library-roots lock. Other schema, macro, and portable-codec work may proceed on disjoint files.
 - This plan is independent of empirical complexity inference, execution-profile fitting, and the `big_o` dependency decision.
 
 # Validation
@@ -55,33 +55,11 @@ Give ACORN one grammar for Big-O notation in research-activity metadata and Rust
 
 # Execution phases
 
-## COM-01 — Land the portable parser
+## COM-03 — Add the compile-time literal macro
 
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none
-- Exact write set: `crates/acorn-core/src/big_o.rs` (create), `crates/acorn-core/src/lib.rs`, `crates/acorn-core/tests/big_o.rs` (create)
-- Primary integration lock: library roots
-- Outcome: Public alloc-only typed expression parser, bounded grammar, variable extraction, and located errors.
-- Focused validation: `cargo test -p acorn-core --no-default-features --features alloc --test big_o`; `cargo check -p acorn-core --no-default-features`; `cargo check -p acorn-core --no-default-features --features alloc --target wasm32-unknown-unknown`.
-- Handoff: Remove COM-01; record the accepted parser API and grammar in rustdoc for schema and macro consumers.
-
-## COM-02 — Validate computation bounds with the parser
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: COM-01 and an accepted checkout containing the `ComplexityBound` enum
-- Exact write set: `crates/acorn-schema/Cargo.toml`, `crates/acorn-schema/src/computation.rs`, `crates/acorn-schema/src/computation/tests/mod.rs`, `docs/src/concepts/aspect/computation.md`
-- Primary integration lock: workspace graph
-- Outcome: Parse each bound during validation and check identifiers against an optional variables map while preserving the JSON shape and existing bound rules.
-- Focused validation: Focused computation schema cases; `cargo check -p acorn-schema --no-default-features`; `cargo check -p acorn-schema --no-default-features --features alloc`; and the schema WASM check.
-- Handoff: Remove COM-02; document accepted and rejected JSON examples and exact validation paths.
-
-## COM-03 — Add the compile-time literal macro
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: COM-01
 - Exact write set: `crates/acorn-macros/Cargo.toml`, `crates/acorn-macros/src/lib.rs`, `crates/acorn-macros/src/big_o.rs` (create), `crates/acorn-macros/tests/big_o_compile.rs` (create), `crates/acorn-macros/tests/ui/big-o-invalid-syntax.rs` (create), `crates/acorn-macros/tests/ui/big-o-invalid-syntax.stderr` (create), `crates/acorn-macros/tests/ui/big-o-nonliteral.rs` (create), `crates/acorn-macros/tests/ui/big-o-nonliteral.stderr` (create), `Cargo.lock`
 - Primary integration lock: workspace graph
 - Outcome: Public `acorn_macros::bigo!` uses the core parser at compile time and emits the original string literal.
@@ -92,7 +70,7 @@ Give ACORN one grammar for Big-O notation in research-activity metadata and Rust
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: COM-02, COM-03
+- Prerequisites: COM-03
 - Exact write set: `crates/acorn-schema/src/lib.rs`, `docs/src/packages/acorn-schema.md`, `.wiki/features/portable-big-o-notation.md`, `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
 - Primary integration lock: library roots
 - Outcome: Re-export `bigo!` from `acorn-schema`, document Rust and JSON use together, run integration and portability gates, and retire this plan when acceptance passes.
