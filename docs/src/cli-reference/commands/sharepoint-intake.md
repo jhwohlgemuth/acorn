@@ -39,7 +39,7 @@ auth:
       resource: graph
       host: example.sharepoint.com
       sitePath: /sites/ResearchEnablement
-      libraryPath: /Sponsor Highlights JSONL Pilot
+      libraryPath: /Sponsor Highlights Exports
       itemPath: logbook.jsonl
 ```
 

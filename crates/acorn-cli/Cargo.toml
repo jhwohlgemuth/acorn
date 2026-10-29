@@ -20,15 +20,15 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 acorn-analysis = { workspace = true, features = ["analysis", "exec"] }
-acorn-cmd = { version = "0.5.1", path = "../acorn-cmd", features = ["shell-lint"] }
-acorn-core = { version = "0.5.1", path = "../acorn-core" }
-acorn-diff = { version = "0.5.1", path = "../acorn-diff" }
-acorn-host = { version = "0.5.1", path = "../acorn-host", default-features = false, features = ["fs", "terminal"] }
-acorn-lib = { version = "0.5.1", path = "../acorn-lib", default-features = false, features = ["acp", "agentic", "analysis", "diagnostics", "exec", "mcp-client", "needle", "powerpoint", "swhid-compute"] }
-acorn-schema = { version = "0.5.1", path = "../acorn-schema" }
+acorn-cmd = { version = "0.5.2", path = "../acorn-cmd", features = ["shell-lint"] }
+acorn-core = { version = "0.5.2", path = "../acorn-core" }
+acorn-diff = { version = "0.5.2", path = "../acorn-diff" }
+acorn-host = { version = "0.5.2", path = "../acorn-host", default-features = false, features = ["fs", "terminal"] }
+acorn-lib = { version = "0.5.2", path = "../acorn-lib", default-features = false, features = ["acp", "agentic", "analysis", "diagnostics", "exec", "mcp-client", "needle", "powerpoint", "swhid-compute"] }
+acorn-schema = { version = "0.5.2", path = "../acorn-schema" }
 acorn-server = { workspace = true }
 acorn-service = { workspace = true, features = ["std"] }
-acorn-tui = { version = "0.5.1", path = "../acorn-tui", optional = true }
+acorn-tui = { version = "0.5.2", path = "../acorn-tui", optional = true }
 arboard = { workspace = true }
 bon = { workspace = true }
 jiff = { workspace = true, features = ["std"] }

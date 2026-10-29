@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "acorn-analysis"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "acorn-core",
  "acorn-macros",
@@ -28,7 +28,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-cli"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "acorn-analysis",
  "acorn-cmd",
@@ -96,7 +96,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-cmd"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "acorn-macros",
  "command-group",
@@ -110,7 +110,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-core"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "aho-corasick",
  "anydoc",
@@ -141,7 +141,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-diff"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "json-patch",
  "proptest",
@@ -161,7 +161,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-host"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "acorn-cmd",
  "acorn-core",
@@ -190,7 +190,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-lib"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "acorn-analysis",
  "acorn-cmd",
@@ -286,7 +286,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-macros"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -297,7 +297,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-schema"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "acorn-core",
  "acorn-macros",
@@ -346,7 +346,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-server"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "acorn-analysis",
  "acorn-core",
@@ -373,7 +373,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-service"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "acorn-analysis",
  "acorn-core",
@@ -387,7 +387,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-tui"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "acorn-analysis",
  "acorn-host",
@@ -405,7 +405,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-wasm"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "acorn-analysis",
  "acorn-core",

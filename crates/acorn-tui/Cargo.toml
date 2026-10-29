@@ -16,9 +16,9 @@ path = "src/main.rs"
 
 [dependencies]
 acorn-analysis = { workspace = true, features = ["analysis"] }
-acorn-host = { version = "0.5.1", path = "../acorn-host", default-features = false, features = ["fs", "terminal"] }
-acorn-lib = { version = "0.5.1", path = "../acorn-lib", default-features = false, features = ["analysis", "diagnostics"] }
-acorn-schema = { version = "0.5.1", path = "../acorn-schema" }
+acorn-host = { version = "0.5.2", path = "../acorn-host", default-features = false, features = ["fs", "terminal"] }
+acorn-lib = { version = "0.5.2", path = "../acorn-lib", default-features = false, features = ["analysis", "diagnostics"] }
+acorn-schema = { version = "0.5.2", path = "../acorn-schema" }
 color-eyre = { workspace = true }
 crossterm = "0.28"
 jiff = { workspace = true, features = ["std"] }

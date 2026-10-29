@@ -10,8 +10,8 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-acorn-core = { version = "0.5.1", path = "../acorn-core", default-features = false }
-acorn-macros = { version = "0.5.1", path = "../acorn-macros" }
+acorn-core = { version = "0.5.2", path = "../acorn-core", default-features = false }
+acorn-macros = { version = "0.5.2", path = "../acorn-macros" }
 bon = { workspace = true }
 convert_case = { version = "0.11.0", default-features = false }
 derive_more = { workspace = true }

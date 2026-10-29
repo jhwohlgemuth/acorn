@@ -18,8 +18,8 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 acorn-analysis = { workspace = true, default-features = false, features = ["alloc"] }
 acorn-core = { workspace = true, default-features = false, features = ["alloc"] }
-acorn-diff = { version = "0.5.1", path = "../acorn-diff", default-features = false, features = ["alloc"] }
-acorn-schema = { version = "0.5.1", path = "../acorn-schema", default-features = false, features = ["wasm"] }
+acorn-diff = { version = "0.5.2", path = "../acorn-diff", default-features = false, features = ["alloc"] }
+acorn-schema = { version = "0.5.2", path = "../acorn-schema", default-features = false, features = ["wasm"] }
 acorn-service = { workspace = true, default-features = false, features = ["alloc"] }
 eserde = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
