@@ -80,7 +80,7 @@ def evaluate(expression, context):
                     'convertTimeZone': lambda x, _a, _b: parse_date(x).astimezone(ZoneInfo('America/New_York')).isoformat(),
                     'empty': lambda x: not x, 'equals': lambda a, b: a == b,
                     'first': lambda x: x[0] if x else None,
-                    'formatDateTime': lambda x, fmt: parse_date(x).strftime({'yyyy-MM': '%Y-%m'}[fmt]),
+                    'formatDateTime': lambda x, fmt: parse_date(x).strftime({'yyyy-MM': '%Y-%m', 'MMMM yyyy': '%B %Y'}[fmt]),
                     'if': lambda cond, a, b: a if cond else b, 'int': int,
                     'item': lambda: context['item'], 'items': lambda name: context['items'][name],
                     'join': lambda values, separator: separator.join(values),
@@ -194,11 +194,24 @@ class CoverageTests(unittest.TestCase):
         for now, expected in [('2026-11-01T03:59:59Z', '2026-10'), ('2026-11-01T04:00:00Z', '2026-11')]:
             self.assertEqual(evaluate(WORK['Current_month_COV']['inputs'], {'now': now}), expected)
         changed = MONTH['Upsert_month_COV']['else']['actions']['Month_changed_COV']['expression']
-        context = {'outputs': {'Month_key_COV': '2026-10', 'Current_month_COV': '2026-11'}, 'body': {'Read_month_COV': [{'IsCurrentMonth': True, 'HighlightCount': 0, 'ProjectsSubmitted': 0}], 'Month_receipts_COV': [], 'Month_item_ids_COV': [], 'Month_links_COV': [], 'Covered_roster_COV': []}}
+        context = {'outputs': {'Month_key_COV': '2026-10', 'Month_label_COV': 'October 2026', 'Current_month_COV': '2026-11'}, 'body': {'Read_month_COV': [{'MonthLabel': 'October 2026', 'IsCurrentMonth': True, 'HighlightCount': 0, 'ProjectsSubmitted': 0}], 'Month_receipts_COV': [], 'Month_item_ids_COV': [], 'Month_links_COV': [], 'Covered_roster_COV': []}}
         self.assertTrue(evaluate_condition(changed, context))
         self.assertFalse(evaluate(MONTH['Month_values_COV']['inputs']['IsCurrentMonth'], context))
         context['body']['Read_month_COV'][0]['IsCurrentMonth'] = False
         self.assertFalse(evaluate_condition(changed, context))
+
+    def test_month_label_is_full_name_while_keys_remain_sortable(self):
+        context = {'outputs': {'Month_key_COV': '2026-10'}}
+        self.assertEqual(evaluate(MONTH['Month_label_COV']['inputs'], context), 'October 2026')
+        context['outputs']['Month_label_COV'] = 'October 2026'
+        month_values = MONTH['Month_values_COV']['inputs']
+        project_values = PROJECT['Project_values_COV']['inputs']
+        self.assertEqual(evaluate(month_values['Title'], context), '2026-10')
+        self.assertEqual(evaluate(month_values['MonthLabel'], context), 'October 2026')
+        self.assertEqual(evaluate(project_values['MonthKey'], context), '2026-10')
+        self.assertEqual(evaluate(project_values['MonthLabel'], context), 'October 2026')
+        self.assertIn('[$MonthLabel]', json.dumps(month_formatter()))
+        self.assertIn('[$MonthLabel]', json.dumps(project_formatter()))
 
     def test_no_receipts_still_yields_zero_coverage(self):
         self.assertEqual(apply_query(PROJECT['Project_receipts_COV'], [], {'items': {'For_project_COV': {'id': 'alpha'}}}), [])
@@ -249,8 +262,8 @@ class CoverageTests(unittest.TestCase):
 
     def test_submission_link_backfill_and_repair_without_count_change(self):
         condition = PROJECT['Upsert_project_COV']['else']['actions']['Project_changed_COV']['expression']
-        row = {'HighlightCount': 1, 'Title': 'Alpha'}
-        context = {'items': {'For_project_COV': {'name': 'Alpha'}}, 'body': {'Read_project_COV': [row], 'Project_receipts_COV': [{}], 'Project_item_ids_COV': ['7'], 'Project_links_COV': []}}
+        row = {'HighlightCount': 1, 'Title': 'Alpha', 'MonthLabel': 'October 2026'}
+        context = {'outputs': {'Month_label_COV': 'October 2026'}, 'items': {'For_project_COV': {'name': 'Alpha'}}, 'body': {'Read_project_COV': [row], 'Project_receipts_COV': [{}], 'Project_item_ids_COV': ['7'], 'Project_links_COV': []}}
         self.assertTrue(evaluate_condition(condition, context))
         row['ReceiptItemIds'] = '8'
         self.assertTrue(evaluate_condition(condition, context))
@@ -270,8 +283,8 @@ class CoverageTests(unittest.TestCase):
 
     def test_summary_updates_repair_tooltips_without_changing_counts(self):
         condition = PROJECT['Upsert_project_COV']['else']['actions']['Project_changed_COV']['expression']
-        row = {'HighlightCount': 1, 'Title': 'Alpha', 'ReceiptItemIds': '7', 'ReceiptLinks': '7|Old summary'}
-        context = {'items': {'For_project_COV': {'name': 'Alpha'}}, 'body': {'Read_project_COV': [row], 'Project_receipts_COV': [{}], 'Project_item_ids_COV': ['7'], 'Project_links_COV': ['7|New summary']}}
+        row = {'HighlightCount': 1, 'Title': 'Alpha', 'MonthLabel': 'October 2026', 'ReceiptItemIds': '7', 'ReceiptLinks': '7|Old summary'}
+        context = {'outputs': {'Month_label_COV': 'October 2026'}, 'items': {'For_project_COV': {'name': 'Alpha'}}, 'body': {'Read_project_COV': [row], 'Project_receipts_COV': [{}], 'Project_item_ids_COV': ['7'], 'Project_links_COV': ['7|New summary']}}
         self.assertTrue(evaluate_condition(condition, context))
         row['ReceiptLinks'] = '7|New summary'
         self.assertFalse(evaluate_condition(condition, context))

@@ -145,6 +145,107 @@
           ]
         }
       },
+      "List_0_MonthLabel": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields?$filter=InternalName eq 'MonthLabel'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_0_unique_month": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_0_MonthLabel_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_0_MonthLabel')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_0_MonthLabel_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_0_MonthLabel')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_0_MonthLabel_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"MonthLabel\\\" StaticName=\\\"MonthLabel\\\" DisplayName=\\\"MonthLabel\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_0_MonthLabel_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_0_MonthLabel": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
       "List_0_ExpectedProjects": {
         "type": "OpenApiConnection",
         "inputs": {
@@ -168,7 +269,7 @@
           }
         },
         "runAfter": {
-          "List_0_unique_month": [
+          "List_0_MonthLabel_ensure": [
             "Succeeded"
           ]
         }
@@ -1458,6 +1559,107 @@
           ]
         }
       },
+      "List_1_MonthLabel": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields?$filter=InternalName eq 'MonthLabel'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_1_MonthKey_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_1_MonthLabel_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_1_MonthLabel')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_1_MonthLabel_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_1_MonthLabel')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_1_MonthLabel_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"MonthLabel\\\" StaticName=\\\"MonthLabel\\\" DisplayName=\\\"MonthLabel\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_1_MonthLabel_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_1_MonthLabel": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
       "List_1_ProjectId": {
         "type": "OpenApiConnection",
         "inputs": {
@@ -1481,7 +1683,7 @@
           }
         },
         "runAfter": {
-          "List_1_MonthKey_ensure": [
+          "List_1_MonthLabel_ensure": [
             "Succeeded"
           ]
         }

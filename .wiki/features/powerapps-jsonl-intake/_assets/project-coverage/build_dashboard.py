@@ -69,8 +69,8 @@ def list_uri(title):
 def provision():
     actions = {}
     schemas = {
-        MONTHS: [('ExpectedProjects', 'Note'), ('ProjectsExpected', 'Number'), ('ProjectsSubmitted', 'Number'), ('HighlightCount', 'Number'), ('GeneralCount', 'Number'), ('IsCurrentMonth', 'Boolean'), ('RefreshedAt', 'DateTime'), ('RosterBasis', 'Text'), ('ReceiptItemIds', 'Note'), ('ReceiptLinks', 'Note')],
-        COVERAGE: [('CoverageKey', 'Text'), ('MonthKey', 'Text'), ('ProjectId', 'Note'), ('HighlightCount', 'Number'), ('FirstReceived', 'DateTime'), ('LastReceived', 'DateTime'), ('RefreshedAt', 'DateTime'), ('ReceiptItemIds', 'Note'), ('ReceiptLinks', 'Note')]}
+        MONTHS: [('MonthLabel', 'Text'), ('ExpectedProjects', 'Note'), ('ProjectsExpected', 'Number'), ('ProjectsSubmitted', 'Number'), ('HighlightCount', 'Number'), ('GeneralCount', 'Number'), ('IsCurrentMonth', 'Boolean'), ('RefreshedAt', 'DateTime'), ('RosterBasis', 'Text'), ('ReceiptItemIds', 'Note'), ('ReceiptLinks', 'Note')],
+        COVERAGE: [('CoverageKey', 'Text'), ('MonthKey', 'Text'), ('MonthLabel', 'Text'), ('ProjectId', 'Note'), ('HighlightCount', 'Number'), ('FirstReceived', 'DateTime'), ('LastReceived', 'DateTime'), ('RefreshedAt', 'DateTime'), ('ReceiptItemIds', 'Note'), ('ReceiptLinks', 'Note')]}
     previous = None
     for n, (title, fields) in enumerate(schemas.items()):
         prefix = f'List_{n}'
@@ -124,7 +124,8 @@ def refresh():
         'Month_count_COV': compose("@add(add(mul(sub(int(substring(outputs('Current_month_COV'),0,4)),int(substring(outputs('Start_month_COV'),0,4))),12),sub(int(substring(outputs('Current_month_COV'),5,2)),int(substring(outputs('Start_month_COV'),5,2)))),1)", 'Start_month_COV')}
     per_month = {
         'Month_key_COV': compose("@formatDateTime(addToTime(concat(outputs('Start_month_COV'),'-01T00:00:00Z'),items('For_month_COV'),'Month'),'yyyy-MM')"),
-        'Read_month_COV': query("@body('Read_first_month_COV')?['value']", "@equals(item()?['Title'],outputs('Month_key_COV'))", 'Month_key_COV'),
+        'Month_label_COV': compose("@formatDateTime(concat(outputs('Month_key_COV'),'-01T00:00:00Z'),'MMMM yyyy')", 'Month_key_COV'),
+        'Read_month_COV': query("@body('Read_first_month_COV')?['value']", "@equals(item()?['Title'],outputs('Month_key_COV'))", 'Month_label_COV'),
         'Month_roster_COV': compose("@if(empty(body('Read_month_COV')),body('Roster_COV'),json(first(body('Read_month_COV'))?['ExpectedProjects']))", 'Read_month_COV'),
         'Month_receipts_COV': query("@body('Originals_COV')", "@equals(formatDateTime(convertTimeZone(item()?['created'],'UTC','Eastern Standard Time'),'yyyy-MM'),outputs('Month_key_COV'))", 'Month_roster_COV'),
         'General_COV': query("@body('Month_receipts_COV')", "@equals(item()?['project'],'general')", 'Month_receipts_COV'),
@@ -134,7 +135,7 @@ def refresh():
         'Project_receipts_COV': query("@body('Month_receipts_COV')", "@equals(item()?['project'],items('For_project_COV')?['id'])"),
         'Coverage_key_COV': compose("@concat(outputs('Month_key_COV'),'|',string(items('For_project_COV')?['catalogId']))", 'Project_receipts_COV'),
         'Read_project_COV': query("@body('Read_coverage_COV')?['value']", "@equals(item()?['CoverageKey'],outputs('Coverage_key_COV'))", 'Coverage_key_COV')}
-    fields = {'Title': "@items('For_project_COV')?['name']", 'CoverageKey': "@outputs('Coverage_key_COV')", 'MonthKey': "@outputs('Month_key_COV')", 'ProjectId': "@items('For_project_COV')?['id']", 'HighlightCount': "@length(body('Project_receipts_COV'))", 'FirstReceived': "@if(empty(body('Project_receipts_COV')),null,first(body('Project_receipts_COV'))?['created'])", 'LastReceived': "@if(empty(body('Project_receipts_COV')),null,last(body('Project_receipts_COV'))?['created'])", 'RefreshedAt': '@utcNow()'}
+    fields = {'Title': "@items('For_project_COV')?['name']", 'CoverageKey': "@outputs('Coverage_key_COV')", 'MonthKey': "@outputs('Month_key_COV')", 'MonthLabel': "@outputs('Month_label_COV')", 'ProjectId': "@items('For_project_COV')?['id']", 'HighlightCount': "@length(body('Project_receipts_COV'))", 'FirstReceived': "@if(empty(body('Project_receipts_COV')),null,first(body('Project_receipts_COV'))?['created'])", 'LastReceived': "@if(empty(body('Project_receipts_COV')),null,last(body('Project_receipts_COV'))?['created'])", 'RefreshedAt': '@utcNow()'}
     project['Project_item_ids_COV'] = {'type': 'Select', 'inputs': {'from': "@body('Project_receipts_COV')", 'select': "@item()?['itemId']"}, 'runAfter': after('Read_project_COV')}
     fields['ReceiptItemIds'] = "@join(body('Project_item_ids_COV'),';')"
     project['Project_links_COV'] = {'type': 'Select', 'inputs': {'from': "@body('Project_receipts_COV')", 'select': "@concat(item()?['itemId'],'|',replace(replace(replace(coalesce(item()?['summary'],'Summary unavailable'),'%','%25'),';','%3B'),'|','%7C'))"}, 'runAfter': after('Project_item_ids_COV')}
@@ -147,11 +148,12 @@ def refresh():
     project['Upsert_project_COV']['else']['actions'] = {'Project_changed_COV': condition(
         {'or': [{'not': {'equals': ["@first(body('Read_project_COV'))?['HighlightCount']", "@length(body('Project_receipts_COV'))"]}},
                 {'not': {'equals': ["@first(body('Read_project_COV'))?['Title']", "@items('For_project_COV')?['name']"]}},
+                {'not': {'equals': ["@first(body('Read_project_COV'))?['MonthLabel']", "@outputs('Month_label_COV')"]}},
                 {'not': {'equals': ["@coalesce(first(body('Read_project_COV'))?['ReceiptItemIds'],string(null))", fields['ReceiptItemIds']]}},
                 {'not': {'equals': ["@coalesce(first(body('Read_project_COV'))?['ReceiptLinks'],string(null))", fields['ReceiptLinks']]}}]},
         project['Upsert_project_COV']['else']['actions'])}
     per_month['For_project_COV'] = {'type': 'Foreach', 'foreach': "@outputs('Month_roster_COV')", 'actions': project, 'runAfter': after('Covered_roster_COV'), 'runtimeConfiguration': {'concurrency': {'repetitions': 1}}}
-    month_values = {'Title': "@outputs('Month_key_COV')", 'ExpectedProjects': "@string(outputs('Month_roster_COV'))", 'ProjectsExpected': "@length(outputs('Month_roster_COV'))", 'ProjectsSubmitted': "@length(body('Covered_roster_COV'))", 'HighlightCount': "@length(body('Month_receipts_COV'))", 'GeneralCount': "@length(body('General_COV'))", 'IsCurrentMonth': "@equals(outputs('Month_key_COV'),outputs('Current_month_COV'))", 'RefreshedAt': '@utcNow()', 'RosterBasis': "@if(empty(body('Read_month_COV')),if(equals(outputs('Month_key_COV'),outputs('Current_month_COV')),'Catalog snapshot at first refresh','Historical backfill using catalog at dashboard setup'),first(body('Read_month_COV'))?['RosterBasis'])"}
+    month_values = {'Title': "@outputs('Month_key_COV')", 'MonthLabel': "@outputs('Month_label_COV')", 'ExpectedProjects': "@string(outputs('Month_roster_COV'))", 'ProjectsExpected': "@length(outputs('Month_roster_COV'))", 'ProjectsSubmitted': "@length(body('Covered_roster_COV'))", 'HighlightCount': "@length(body('Month_receipts_COV'))", 'GeneralCount': "@length(body('General_COV'))", 'IsCurrentMonth': "@equals(outputs('Month_key_COV'),outputs('Current_month_COV'))", 'RefreshedAt': '@utcNow()', 'RosterBasis': "@if(empty(body('Read_month_COV')),if(equals(outputs('Month_key_COV'),outputs('Current_month_COV')),'Catalog snapshot at first refresh','Historical backfill using catalog at dashboard setup'),first(body('Read_month_COV'))?['RosterBasis'])"}
     per_month['Month_item_ids_COV'] = {'type': 'Select', 'inputs': {'from': "@body('Month_receipts_COV')", 'select': "@item()?['itemId']"}, 'runAfter': after('For_project_COV')}
     month_values['ReceiptItemIds'] = "@join(body('Month_item_ids_COV'),';')"
     per_month['Month_links_COV'] = {'type': 'Select', 'inputs': {'from': "@body('Month_receipts_COV')", 'select': "@concat(item()?['itemId'],'|',replace(replace(replace(coalesce(item()?['summary'],'Summary unavailable'),'%','%25'),';','%3B'),'|','%7C'))"}, 'runAfter': after('Month_item_ids_COV')}
@@ -163,6 +165,7 @@ def refresh():
     per_month['Upsert_month_COV']['else']['actions'] = {'Month_changed_COV': condition(
         {'or': [{'equals': ["@outputs('Month_key_COV')", "@outputs('Current_month_COV')"]},
                 {'equals': ["@first(body('Read_month_COV'))?['IsCurrentMonth']", True]},
+                {'not': {'equals': ["@first(body('Read_month_COV'))?['MonthLabel']", "@outputs('Month_label_COV')"]}},
                 {'not': {'equals': ["@first(body('Read_month_COV'))?['HighlightCount']", "@length(body('Month_receipts_COV'))"]}},
                 {'not': {'equals': ["@first(body('Read_month_COV'))?['ProjectsSubmitted']", "@length(body('Covered_roster_COV'))"]}},
                 {'not': {'equals': ["@coalesce(first(body('Read_month_COV'))?['ReceiptItemIds'],string(null))", month_values['ReceiptItemIds']]}},

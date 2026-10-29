@@ -353,6 +353,15 @@
                     "inputs": "@formatDateTime(addToTime(concat(outputs('Start_month_COV'),'-01T00:00:00Z'),items('For_month_COV'),'Month'),'yyyy-MM')",
                     "runAfter": {}
                   },
+                  "Month_label_COV": {
+                    "type": "Compose",
+                    "inputs": "@formatDateTime(concat(outputs('Month_key_COV'),'-01T00:00:00Z'),'MMMM yyyy')",
+                    "runAfter": {
+                      "Month_key_COV": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
                   "Read_month_COV": {
                     "type": "Query",
                     "inputs": {
@@ -360,7 +369,7 @@
                       "where": "@equals(item()?['Title'],outputs('Month_key_COV'))"
                     },
                     "runAfter": {
-                      "Month_key_COV": [
+                      "Month_label_COV": [
                         "Succeeded"
                       ]
                     }
@@ -485,6 +494,7 @@
                           "Title": "@items('For_project_COV')?['name']",
                           "CoverageKey": "@outputs('Coverage_key_COV')",
                           "MonthKey": "@outputs('Month_key_COV')",
+                          "MonthLabel": "@outputs('Month_label_COV')",
                           "ProjectId": "@items('For_project_COV')?['id']",
                           "HighlightCount": "@length(body('Project_receipts_COV'))",
                           "FirstReceived": "@if(empty(body('Project_receipts_COV')),null,first(body('Project_receipts_COV'))?['created'])",
@@ -553,6 +563,14 @@
                                       "equals": [
                                         "@first(body('Read_project_COV'))?['Title']",
                                         "@items('For_project_COV')?['name']"
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "not": {
+                                      "equals": [
+                                        "@first(body('Read_project_COV'))?['MonthLabel']",
+                                        "@outputs('Month_label_COV')"
                                       ]
                                     }
                                   },
@@ -656,6 +674,7 @@
                     "type": "Compose",
                     "inputs": {
                       "Title": "@outputs('Month_key_COV')",
+                      "MonthLabel": "@outputs('Month_label_COV')",
                       "ExpectedProjects": "@string(outputs('Month_roster_COV'))",
                       "ProjectsExpected": "@length(outputs('Month_roster_COV'))",
                       "ProjectsSubmitted": "@length(body('Covered_roster_COV'))",
@@ -725,6 +744,14 @@
                                   "@first(body('Read_month_COV'))?['IsCurrentMonth']",
                                   true
                                 ]
+                              },
+                              {
+                                "not": {
+                                  "equals": [
+                                    "@first(body('Read_month_COV'))?['MonthLabel']",
+                                    "@outputs('Month_label_COV')"
+                                  ]
+                                }
                               },
                               {
                                 "not": {

@@ -20,7 +20,7 @@
     "children": [
       {
         "elmType": "div",
-        "txtContent": "[$Title]",
+        "txtContent": "[$MonthLabel]",
         "style": {
           "font-size": "24px",
           "font-weight": "700",
