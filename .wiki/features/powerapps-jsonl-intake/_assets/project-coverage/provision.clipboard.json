@@ -1,0 +1,2171 @@
+{
+  "id": "5c9c49bb-15b5-5ecf-b4eb-5b2f6fbbfb31",
+  "brandColor": "#8C6CFF",
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "connectionName": "shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "tier": "NotSpecified",
+      "apiName": "sharepointonline",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": true
+    }
+  },
+  "connectorDisplayName": "Control",
+  "isTrigger": false,
+  "operationName": "Provision_coverage",
+  "operationDefinition": {
+    "type": "Scope",
+    "actions": {
+      "List_0": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')?$select=Id",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {}
+      },
+      "List_0_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_0')?['statusCode']",
+            404
+          ]
+        },
+        "actions": {
+          "List_0_create": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "HttpRequest",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                "parameters/method": "POST",
+                "parameters/uri": "_api/web/lists",
+                "parameters/headers": {
+                  "Accept": "application/json;odata=nometadata",
+                  "Content-Type": "application/json;odata=nometadata"
+                },
+                "parameters/body": "{\"BaseTemplate\": 100, \"Description\": \"Derived project coverage; intake receipts remain authoritative.\", \"Title\": \"Sponsor Highlights Months\"}"
+              },
+              "authentication": "@parameters('$authentication')",
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_0_readable": {
+              "type": "If",
+              "expression": {
+                "equals": [
+                  "@outputs('List_0')?['statusCode']",
+                  200
+                ]
+              },
+              "actions": {},
+              "else": {
+                "actions": {
+                  "List_0_stop": {
+                    "type": "Terminate",
+                    "inputs": {
+                      "runStatus": "Failed",
+                      "runError": {
+                        "code": "CoverageIncomplete",
+                        "message": "Cannot verify dashboard list access."
+                      }
+                    },
+                    "runAfter": {}
+                  }
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_0": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_0_unique_month": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields/getbyinternalnameortitle('Title')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata",
+              "IF-MATCH": "*",
+              "X-HTTP-Method": "MERGE"
+            },
+            "parameters/body": "{\"Indexed\": true, \"EnforceUniqueValues\": true}"
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_0_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_0_ExpectedProjects": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields?$filter=InternalName eq 'ExpectedProjects'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_0_unique_month": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_0_ExpectedProjects_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_0_ExpectedProjects')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_0_ExpectedProjects_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_0_ExpectedProjects')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_0_ExpectedProjects_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"Note\\\" Name=\\\"ExpectedProjects\\\" StaticName=\\\"ExpectedProjects\\\" DisplayName=\\\"ExpectedProjects\\\" RichText=\\\"FALSE\\\" NumLines=\\\"6\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_0_ExpectedProjects_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_0_ExpectedProjects": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_0_ProjectsExpected": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields?$filter=InternalName eq 'ProjectsExpected'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_0_ExpectedProjects_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_0_ProjectsExpected_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_0_ProjectsExpected')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_0_ProjectsExpected_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_0_ProjectsExpected')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_0_ProjectsExpected_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"ProjectsExpected\\\" StaticName=\\\"ProjectsExpected\\\" DisplayName=\\\"ProjectsExpected\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_0_ProjectsExpected_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_0_ProjectsExpected": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_0_ProjectsSubmitted": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields?$filter=InternalName eq 'ProjectsSubmitted'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_0_ProjectsExpected_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_0_ProjectsSubmitted_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_0_ProjectsSubmitted')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_0_ProjectsSubmitted_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_0_ProjectsSubmitted')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_0_ProjectsSubmitted_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"ProjectsSubmitted\\\" StaticName=\\\"ProjectsSubmitted\\\" DisplayName=\\\"ProjectsSubmitted\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_0_ProjectsSubmitted_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_0_ProjectsSubmitted": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_0_HighlightCount": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields?$filter=InternalName eq 'HighlightCount'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_0_ProjectsSubmitted_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_0_HighlightCount_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_0_HighlightCount')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_0_HighlightCount_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_0_HighlightCount')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_0_HighlightCount_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"HighlightCount\\\" StaticName=\\\"HighlightCount\\\" DisplayName=\\\"HighlightCount\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_0_HighlightCount_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_0_HighlightCount": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_0_GeneralCount": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields?$filter=InternalName eq 'GeneralCount'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_0_HighlightCount_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_0_GeneralCount_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_0_GeneralCount')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_0_GeneralCount_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_0_GeneralCount')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_0_GeneralCount_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"GeneralCount\\\" StaticName=\\\"GeneralCount\\\" DisplayName=\\\"GeneralCount\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_0_GeneralCount_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_0_GeneralCount": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_0_IsCurrentMonth": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields?$filter=InternalName eq 'IsCurrentMonth'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_0_GeneralCount_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_0_IsCurrentMonth_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_0_IsCurrentMonth')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_0_IsCurrentMonth_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_0_IsCurrentMonth')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_0_IsCurrentMonth_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"Boolean\\\" Name=\\\"IsCurrentMonth\\\" StaticName=\\\"IsCurrentMonth\\\" DisplayName=\\\"IsCurrentMonth\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_0_IsCurrentMonth_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_0_IsCurrentMonth": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_0_RefreshedAt": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields?$filter=InternalName eq 'RefreshedAt'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_0_IsCurrentMonth_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_0_RefreshedAt_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_0_RefreshedAt')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_0_RefreshedAt_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_0_RefreshedAt')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_0_RefreshedAt_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"DateTime\\\" Name=\\\"RefreshedAt\\\" StaticName=\\\"RefreshedAt\\\" DisplayName=\\\"RefreshedAt\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_0_RefreshedAt_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_0_RefreshedAt": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_0_RosterBasis": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields?$filter=InternalName eq 'RosterBasis'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_0_RefreshedAt_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_0_RosterBasis_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_0_RosterBasis')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_0_RosterBasis_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_0_RosterBasis')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_0_RosterBasis_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"RosterBasis\\\" StaticName=\\\"RosterBasis\\\" DisplayName=\\\"RosterBasis\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_0_RosterBasis_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_0_RosterBasis": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_0_ReceiptItemIds": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields?$filter=InternalName eq 'ReceiptItemIds'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_0_RosterBasis_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_0_ReceiptItemIds_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_0_ReceiptItemIds')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_0_ReceiptItemIds_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_0_ReceiptItemIds')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_0_ReceiptItemIds_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"Note\\\" Name=\\\"ReceiptItemIds\\\" StaticName=\\\"ReceiptItemIds\\\" DisplayName=\\\"ReceiptItemIds\\\" RichText=\\\"FALSE\\\" NumLines=\\\"6\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_0_ReceiptItemIds_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_0_ReceiptItemIds": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_0_ReceiptLinks": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields?$filter=InternalName eq 'ReceiptLinks'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_0_ReceiptItemIds_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_0_ReceiptLinks_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_0_ReceiptLinks')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_0_ReceiptLinks_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_0_ReceiptLinks')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_0_ReceiptLinks_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"Note\\\" Name=\\\"ReceiptLinks\\\" StaticName=\\\"ReceiptLinks\\\" DisplayName=\\\"ReceiptLinks\\\" RichText=\\\"FALSE\\\" NumLines=\\\"6\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_0_ReceiptLinks_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_0_ReceiptLinks": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_1": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')?$select=Id",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_0_ReceiptLinks_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_1_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_1')?['statusCode']",
+            404
+          ]
+        },
+        "actions": {
+          "List_1_create": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "HttpRequest",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                "parameters/method": "POST",
+                "parameters/uri": "_api/web/lists",
+                "parameters/headers": {
+                  "Accept": "application/json;odata=nometadata",
+                  "Content-Type": "application/json;odata=nometadata"
+                },
+                "parameters/body": "{\"BaseTemplate\": 100, \"Description\": \"Derived project coverage; intake receipts remain authoritative.\", \"Title\": \"Sponsor Highlights Coverage\"}"
+              },
+              "authentication": "@parameters('$authentication')",
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_1_readable": {
+              "type": "If",
+              "expression": {
+                "equals": [
+                  "@outputs('List_1')?['statusCode']",
+                  200
+                ]
+              },
+              "actions": {},
+              "else": {
+                "actions": {
+                  "List_1_stop": {
+                    "type": "Terminate",
+                    "inputs": {
+                      "runStatus": "Failed",
+                      "runError": {
+                        "code": "CoverageIncomplete",
+                        "message": "Cannot verify dashboard list access."
+                      }
+                    },
+                    "runAfter": {}
+                  }
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_1": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_1_CoverageKey": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields?$filter=InternalName eq 'CoverageKey'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_1_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_1_CoverageKey_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_1_CoverageKey')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_1_CoverageKey_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_1_CoverageKey')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_1_CoverageKey_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"CoverageKey\\\" StaticName=\\\"CoverageKey\\\" DisplayName=\\\"CoverageKey\\\" Indexed=\\\"TRUE\\\" EnforceUniqueValues=\\\"TRUE\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_1_CoverageKey_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_1_CoverageKey": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_1_MonthKey": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields?$filter=InternalName eq 'MonthKey'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_1_CoverageKey_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_1_MonthKey_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_1_MonthKey')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_1_MonthKey_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_1_MonthKey')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_1_MonthKey_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"MonthKey\\\" StaticName=\\\"MonthKey\\\" DisplayName=\\\"MonthKey\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_1_MonthKey_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_1_MonthKey": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_1_ProjectId": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields?$filter=InternalName eq 'ProjectId'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_1_MonthKey_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_1_ProjectId_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_1_ProjectId')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_1_ProjectId_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_1_ProjectId')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_1_ProjectId_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"Note\\\" Name=\\\"ProjectId\\\" StaticName=\\\"ProjectId\\\" DisplayName=\\\"ProjectId\\\" RichText=\\\"FALSE\\\" NumLines=\\\"6\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_1_ProjectId_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_1_ProjectId": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_1_HighlightCount": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields?$filter=InternalName eq 'HighlightCount'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_1_ProjectId_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_1_HighlightCount_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_1_HighlightCount')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_1_HighlightCount_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_1_HighlightCount')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_1_HighlightCount_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"HighlightCount\\\" StaticName=\\\"HighlightCount\\\" DisplayName=\\\"HighlightCount\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_1_HighlightCount_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_1_HighlightCount": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_1_FirstReceived": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields?$filter=InternalName eq 'FirstReceived'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_1_HighlightCount_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_1_FirstReceived_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_1_FirstReceived')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_1_FirstReceived_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_1_FirstReceived')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_1_FirstReceived_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"DateTime\\\" Name=\\\"FirstReceived\\\" StaticName=\\\"FirstReceived\\\" DisplayName=\\\"FirstReceived\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_1_FirstReceived_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_1_FirstReceived": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_1_LastReceived": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields?$filter=InternalName eq 'LastReceived'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_1_FirstReceived_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_1_LastReceived_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_1_LastReceived')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_1_LastReceived_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_1_LastReceived')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_1_LastReceived_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"DateTime\\\" Name=\\\"LastReceived\\\" StaticName=\\\"LastReceived\\\" DisplayName=\\\"LastReceived\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_1_LastReceived_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_1_LastReceived": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_1_RefreshedAt": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields?$filter=InternalName eq 'RefreshedAt'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_1_LastReceived_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_1_RefreshedAt_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_1_RefreshedAt')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_1_RefreshedAt_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_1_RefreshedAt')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_1_RefreshedAt_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"DateTime\\\" Name=\\\"RefreshedAt\\\" StaticName=\\\"RefreshedAt\\\" DisplayName=\\\"RefreshedAt\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_1_RefreshedAt_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_1_RefreshedAt": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_1_ReceiptItemIds": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields?$filter=InternalName eq 'ReceiptItemIds'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_1_RefreshedAt_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_1_ReceiptItemIds_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_1_ReceiptItemIds')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_1_ReceiptItemIds_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_1_ReceiptItemIds')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_1_ReceiptItemIds_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"Note\\\" Name=\\\"ReceiptItemIds\\\" StaticName=\\\"ReceiptItemIds\\\" DisplayName=\\\"ReceiptItemIds\\\" RichText=\\\"FALSE\\\" NumLines=\\\"6\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_1_ReceiptItemIds_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_1_ReceiptItemIds": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      },
+      "List_1_ReceiptLinks": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields?$filter=InternalName eq 'ReceiptLinks'&$select=InternalName",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "List_1_ReceiptItemIds_ensure": [
+            "Succeeded"
+          ]
+        }
+      },
+      "List_1_ReceiptLinks_ensure": {
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@outputs('List_1_ReceiptLinks')?['statusCode']",
+            200
+          ]
+        },
+        "actions": {
+          "List_1_ReceiptLinks_missing": {
+            "type": "If",
+            "expression": {
+              "equals": [
+                "@length(body('List_1_ReceiptLinks')?['value'])",
+                0
+              ]
+            },
+            "actions": {
+              "List_1_ReceiptLinks_create": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/fields/createfieldasxml",
+                    "parameters/headers": {
+                      "Accept": "application/json;odata=nometadata",
+                      "Content-Type": "application/json;odata=nometadata"
+                    },
+                    "parameters/body": "{\"parameters\": {\"SchemaXml\": \"<Field Type=\\\"Note\\\" Name=\\\"ReceiptLinks\\\" StaticName=\\\"ReceiptLinks\\\" DisplayName=\\\"ReceiptLinks\\\" RichText=\\\"FALSE\\\" NumLines=\\\"6\\\"/>\", \"Options\": 0}}"
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {
+            "List_1_ReceiptLinks_stop": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Cannot verify dashboard column."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "List_1_ReceiptLinks": [
+            "Succeeded",
+            "Failed",
+            "TimedOut"
+          ]
+        }
+      }
+    },
+    "runAfter": {}
+  }
+}

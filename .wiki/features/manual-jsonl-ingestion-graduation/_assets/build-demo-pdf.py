@@ -108,7 +108,7 @@ def main():
         ("04", "Report", "Generate one combined local PDF; graduation is optional"),
     ]:
         story += [Paragraph(number + " // " + title, styles["Section"]), Paragraph(detail, styles["Body"])]
-    story += [Spacer(1, 15), Paragraph("The following map shows the active SharePoint capture route. New-save Teams notices are automatic and best effort. Later review/report messages use the owner-triggered callback. The retained full rehearsal uses the GitLab fixture.", styles["Caption"]), PageBreak(),
+    story += [Spacer(1, 15), Paragraph("The map labels user, developer/reviewer, and automated steps. Developers run every ACORN command. New-save Teams notices are automatic and best effort; later milestone notices use the owner-triggered callback. The retained rehearsal uses the GitLab fixture.", styles["Caption"]), PageBreak(),
               Paragraph("Demo scope and evidence", styles["Section"])]
     source_text = SOURCE.read_text()
     current_text, appendix_text = source_text.split("## Appendix A — Retained GitLab rehearsal", 1)
@@ -141,7 +141,7 @@ def main():
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=(612, 792), leftMargin=54, rightMargin=54,
                             topMargin=54, bottomMargin=51, title="Sponsor Highlights - Demo Walkthrough",
-                            author="ACORN / ORNL pilot", subject="Recorded cloud capture, live local review and reporting")
+                            author="ACORN / ORNL", subject="Recorded cloud capture, live local review and reporting")
     doc.build(story, onFirstPage=page, onLaterPages=page)
     reader = PdfReader(buffer)
     guide = PdfReader(ASSETS.parents[1] / "powerapps-jsonl-intake/_assets/sponsor-highlights-user-reviewer-guide.pdf")
@@ -156,12 +156,12 @@ def main():
         footer.rect(0, 0, width, 45, fill=1, stroke=0)
         footer.setFillColor(INK)
         footer.setFont("Helvetica", 8)
-        footer.drawString(54, 28, "ACORN / ORNL PILOT  |  TEST ONLY  |  SANITIZED COPY")
+        footer.drawString(54, 28, "ACORN / ORNL  |  TEST ONLY  |  SANITIZED COPY")
         footer.drawRightString(width - 54, 28, f"{number} / {len(pages)}")
         footer.save()
         current.merge_page(PdfReader(overlay).pages[0])
         writer.add_page(current)
-    writer.add_metadata({"/Title": "Sponsor Highlights - Demo Walkthrough", "/Author": "ACORN / ORNL pilot"})
+    writer.add_metadata({"/Title": "Sponsor Highlights - Demo Walkthrough", "/Author": "ACORN / ORNL"})
     with OUTPUT.open("wb") as output:
         writer.write(output)
 

@@ -36,12 +36,12 @@ Desktop and 360 × 800 phone previews were visually checked. Studio formula and 
 
 Current layout source: `_assets/final-intake.pa.yaml`. Pre-change source: `_assets/before-visual-polish.pa.yaml`. Screenshots: `_assets/visual-polish-published-header.png`, `_assets/visual-polish-published-footer.png`, `_assets/visual-polish-phone-top.png`, and `_assets/visual-polish-phone-bottom.png`. The PDF guides retain their earlier screenshots as dated evidence.
 
-## Retained GitLab pilot (paused October 27)
+## Retained GitLab workflow (paused October 27)
 
 - App: `15ae605b-585b-49f5-a413-2b091f919a35`, environment `221f44a6-1468-ea4e-b93d-cd52f1723079` (the user's developer environment).
 - [Open Sponsor Highlights](https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/15ae605b-585b-49f5-a413-2b091f919a35).
 - GitLab project `22464`, `main`, `.acorn/intake/logbook.jsonl`, as selected by the user.
-- Intake flow `ff4a134b-5fd3-4465-ab19-0325c2f2bf1b`, **ACORN Logbook GitLab JSONL Intake (Draft)**, is **Off**. The existing name is retained to preserve the canvas binding; it now contains the saved `Persist submission v3` scope.
+- Intake flow `ff4a134b-5fd3-4465-ab19-0325c2f2bf1b`, **ACORN Logbook GitLab Intake (Draft)**, is **Off**. The existing name is retained to preserve the canvas binding; it now contains the saved `Persist submission v3` scope.
 - Catalog flow `cd27888f-dd74-4675-9dd1-abc246ba56d5`, **ACORN Project Catalog**, is **Off**.
 - Both use the user's existing protected **ACORN GitLab Logbook** API-key connection. No credential value was read, copied, or embedded in source or the app.
 
@@ -289,7 +289,7 @@ Two identical requests for `acorn-test-concurrent-notification-20261024` were la
 Power Automate reports trigger-concurrency throttling after the simultaneous test. Concurrency one is intentional: retain it to serialize the non-idempotent notification action. The two requests completed successfully. Do not apply the portal suggestion to disable concurrency control without implementing an atomic per-channel delivery claim.
 
 
-### Remaining pilot release gates
+### Remaining release gates
 
 - PA-02 is closed with intermittent GitLab connectivity recorded as a known limitation. Complete the remaining [PA-15 boundaries](boundary-acceptance.md) and PA-16 concurrent creator/writer acceptance when permitted connector calls can complete. Exact summary appends passed in both environments on October 25; exact detail persistence then hit network-range 403. Do not change network controls or rotate working credentials to evade that denial.
 - Finish PA-17 restore acceptance using the native v6 intake/catalog/app and separate callback/table archives. Both catalogs passed after restoration; app-driven write/replay and ORNL callback/table restoration remain unaccepted. See [restore readiness](restore-target-readiness.md).

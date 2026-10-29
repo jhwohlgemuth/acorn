@@ -1,6 +1,6 @@
 # PA-23 aggregate acceptance evidence
 
-All native runs target `PA26 TEST ONLY SharePoint Logbook Export` (`28cba548-c862-484c-b838-ea21eaf52630`), PA19 TEST ONLY Receipts and PA19 TEST ONLY JSONL in the Jason environment. The operational exporter remains On at its October 26, 14:57 revision; `operational-readonly-state.txt` records the read-only check.
+All native runs target `PA26 TEST ONLY SharePoint Logbook Export` (`28cba548-c862-484c-b838-ea21eaf52630`), PA19 TEST ONLY Receipts and PA19 TEST ONLY Exports in the Jason environment. The operational exporter remains On at its October 26, 14:57 revision; `operational-readonly-state.txt` records the read-only check.
 
 The builders create Power Automate clipboard definitions locally. They do not call SharePoint. Native test runs are manually started once, and the test flow is turned Off immediately so recurrence cannot seed duplicate fixtures. Seeding definitions are not release components and must not be blindly resubmitted: SharePoint batches are nontransactional and UUIDs are unique.
 

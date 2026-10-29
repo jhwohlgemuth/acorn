@@ -1,0 +1,669 @@
+{
+  "id": "6dadd204-0520-573c-b844-89ac934894e6",
+  "brandColor": "#8C6CFF",
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "connectionName": "shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "tier": "NotSpecified",
+      "apiName": "sharepointonline",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": true
+    }
+  },
+  "connectorDisplayName": "Control",
+  "isTrigger": false,
+  "operationName": "Configure_coverage_views",
+  "operationDefinition": {
+    "type": "Scope",
+    "actions": {
+      "Months_view": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/DefaultView",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata",
+              "IF-MATCH": "*",
+              "X-HTTP-Method": "MERGE"
+            },
+            "parameters/body": "{\"CustomFormatter\": \"{\\\"$schema\\\": \\\"https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json\\\", \\\"hideSelection\\\": true, \\\"hideColumnHeader\\\": true, \\\"rowFormatter\\\": {\\\"elmType\\\": \\\"div\\\", \\\"style\\\": {\\\"display\\\": \\\"flex\\\", \\\"flex-direction\\\": \\\"column\\\", \\\"align-items\\\": \\\"stretch\\\", \\\"text-align\\\": \\\"left\\\", \\\"padding\\\": \\\"22px\\\", \\\"margin\\\": \\\"8px 0\\\", \\\"border-radius\\\": \\\"12px\\\", \\\"background-color\\\": \\\"#F2F7F5\\\", \\\"border-left\\\": \\\"5px solid #00785B\\\", \\\"width\\\": \\\"100%\\\", \\\"box-sizing\\\": \\\"border-box\\\"}, \\\"children\\\": [{\\\"elmType\\\": \\\"div\\\", \\\"txtContent\\\": \\\"[$Title]\\\", \\\"style\\\": {\\\"font-size\\\": \\\"24px\\\", \\\"font-weight\\\": \\\"700\\\", \\\"color\\\": \\\"#004C54\\\"}}, {\\\"elmType\\\": \\\"div\\\", \\\"txtContent\\\": \\\"=if([$ProjectsExpected] == 0, 'No expected projects configured', if([$ProjectsSubmitted] == [$ProjectsExpected], 'All projects covered', toString([$ProjectsExpected]-[$ProjectsSubmitted]) + ' projects awaiting highlights'))\\\", \\\"style\\\": {\\\"font-size\\\": \\\"18px\\\", \\\"font-weight\\\": \\\"600\\\", \\\"margin-top\\\": \\\"8px\\\", \\\"color\\\": \\\"#183C43\\\"}}, {\\\"elmType\\\": \\\"div\\\", \\\"txtContent\\\": \\\"=toString([$ProjectsSubmitted]) + ' of ' + toString([$ProjectsExpected]) + ' projects submitted'\\\", \\\"style\\\": {\\\"margin-top\\\": \\\"5px\\\"}}, {\\\"elmType\\\": \\\"div\\\", \\\"style\\\": {\\\"width\\\": \\\"100%\\\", \\\"height\\\": \\\"12px\\\", \\\"background-color\\\": \\\"#DCE5E2\\\", \\\"border-radius\\\": \\\"6px\\\", \\\"margin-top\\\": \\\"12px\\\"}, \\\"children\\\": [{\\\"elmType\\\": \\\"div\\\", \\\"style\\\": {\\\"height\\\": \\\"12px\\\", \\\"background-color\\\": \\\"#00785B\\\", \\\"border-radius\\\": \\\"6px\\\", \\\"width\\\": \\\"=if([$ProjectsExpected] == 0, '0%', toString(100*[$ProjectsSubmitted]/[$ProjectsExpected]) + '%')\\\"}}]}, {\\\"elmType\\\": \\\"div\\\", \\\"txtContent\\\": \\\"=toString([$HighlightCount]) + ' highlights \\\\u00b7 ' + toString([$GeneralCount]) + ' report-wide updates included'\\\", \\\"style\\\": {\\\"margin-top\\\": \\\"12px\\\", \\\"color\\\": \\\"#405D63\\\"}}, {\\\"elmType\\\": \\\"a\\\", \\\"txtContent\\\": \\\"View projects for this month \\\\u2192\\\", \\\"style\\\": {\\\"display\\\": \\\"inline-block\\\", \\\"margin-top\\\": \\\"12px\\\", \\\"font-weight\\\": \\\"600\\\", \\\"color\\\": \\\"#00674F\\\"}, \\\"attributes\\\": {\\\"href\\\": \\\"='https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Coverage/AllItems.aspx?FilterField1=MonthKey\\\\u0026FilterValue1=' + [$Title]\\\", \\\"target\\\": \\\"_self\\\"}}, {\\\"elmType\\\": \\\"div\\\", \\\"style\\\": {\\\"display\\\": \\\"=if([$ReceiptLinks] == '', 'none', 'flex')\\\", \\\"flex-direction\\\": \\\"column\\\", \\\"width\\\": \\\"100%\\\", \\\"margin-top\\\": \\\"12px\\\"}, \\\"children\\\": [{\\\"elmType\\\": \\\"div\\\", \\\"txtContent\\\": \\\"View submissions \\\\u00b7 reviewers\\\", \\\"style\\\": {\\\"font-size\\\": \\\"12px\\\", \\\"font-weight\\\": \\\"600\\\", \\\"color\\\": \\\"#526A70\\\", \\\"margin-bottom\\\": \\\"4px\\\"}}, {\\\"elmType\\\": \\\"div\\\", \\\"style\\\": {\\\"display\\\": \\\"flex\\\", \\\"flex-wrap\\\": \\\"wrap\\\", \\\"max-height\\\": \\\"140px\\\", \\\"overflow-y\\\": \\\"auto\\\"}, \\\"children\\\": [{\\\"elmType\\\": \\\"a\\\", \\\"txtContent\\\": \\\"='Submission #' + substring([$receipt],0,indexOf([$receipt],'|'))\\\", \\\"style\\\": {\\\"color\\\": \\\"#00674F\\\", \\\"font-size\\\": \\\"13px\\\", \\\"font-weight\\\": \\\"600\\\", \\\"padding\\\": \\\"5px 9px\\\", \\\"margin\\\": \\\"3px 6px 3px 0\\\", \\\"border\\\": \\\"1px solid #AEC8BF\\\", \\\"border-radius\\\": \\\"6px\\\", \\\"background-color\\\": \\\"#FFFFFF\\\", \\\"text-decoration\\\": \\\"none\\\"}, \\\"attributes\\\": {\\\"href\\\": \\\"='https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/DispForm.aspx?ID=' + substring([$receipt],0,indexOf([$receipt],'|'))\\\", \\\"target\\\": \\\"_blank\\\", \\\"title\\\": \\\"=replaceAll(replaceAll(replaceAll(substring([$receipt],indexOf([$receipt],'|')+1,indexOf([$receipt]+'|END','|END')),'%7C','|'),'%3B',';'),'%25','%')\\\"}, \\\"forEach\\\": \\\"receipt in split([$ReceiptLinks],';')\\\"}]}, {\\\"elmType\\\": \\\"div\\\", \\\"txtContent\\\": \\\"Hover for the original summary. Opening the full receipt requires reviewer access.\\\", \\\"style\\\": {\\\"font-size\\\": \\\"11px\\\", \\\"color\\\": \\\"#526A70\\\", \\\"margin-top\\\": \\\"4px\\\"}}]}, {\\\"elmType\\\": \\\"div\\\", \\\"txtContent\\\": \\\"=if([$IsCurrentMonth] \\\\u0026\\\\u0026 Number(@now)-Number([$RefreshedAt]) \\\\u003e 900000,'Refresh overdue \\\\u2014 last successful refresh: ','Refreshed: ') + toLocaleString([$RefreshedAt])\\\", \\\"style\\\": {\\\"font-size\\\": \\\"12px\\\", \\\"margin-top\\\": \\\"12px\\\", \\\"color\\\": \\\"=if([$IsCurrentMonth] \\\\u0026\\\\u0026 Number(@now)-Number([$RefreshedAt]) \\\\u003e 900000, '#9A3412', '#526A70')\\\"}}, {\\\"elmType\\\": \\\"div\\\", \\\"txtContent\\\": \\\"[$RosterBasis]\\\", \\\"style\\\": {\\\"font-size\\\": \\\"12px\\\", \\\"color\\\": \\\"#526A70\\\", \\\"margin-top\\\": \\\"4px\\\"}}]}}\", \"ViewQuery\": \"<OrderBy><FieldRef Name=\\\"Title\\\" Ascending=\\\"FALSE\\\"/></OrderBy>\", \"RowLimit\": 100, \"Paged\": true}"
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {}
+      },
+      "Months_clear_fields": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/DefaultView/ViewFields/RemoveAllViewFields",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Months_view": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Months_field_Title": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/DefaultView/ViewFields/AddViewField('Title')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Months_clear_fields": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Months_field_ProjectsExpected": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/DefaultView/ViewFields/AddViewField('ProjectsExpected')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Months_field_Title": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Months_field_ProjectsSubmitted": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/DefaultView/ViewFields/AddViewField('ProjectsSubmitted')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Months_field_ProjectsExpected": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Months_field_HighlightCount": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/DefaultView/ViewFields/AddViewField('HighlightCount')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Months_field_ProjectsSubmitted": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Months_field_GeneralCount": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/DefaultView/ViewFields/AddViewField('GeneralCount')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Months_field_HighlightCount": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Months_field_IsCurrentMonth": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/DefaultView/ViewFields/AddViewField('IsCurrentMonth')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Months_field_GeneralCount": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Months_field_RefreshedAt": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/DefaultView/ViewFields/AddViewField('RefreshedAt')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Months_field_IsCurrentMonth": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Months_field_RosterBasis": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/DefaultView/ViewFields/AddViewField('RosterBasis')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Months_field_RefreshedAt": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Months_field_ReceiptItemIds": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/DefaultView/ViewFields/AddViewField('ReceiptItemIds')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Months_field_RosterBasis": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Months_field_ReceiptLinks": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/DefaultView/ViewFields/AddViewField('ReceiptLinks')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Months_field_ReceiptItemIds": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Projects_view": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/DefaultView",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata",
+              "IF-MATCH": "*",
+              "X-HTTP-Method": "MERGE"
+            },
+            "parameters/body": "{\"CustomFormatter\": \"{\\\"$schema\\\": \\\"https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json\\\", \\\"hideSelection\\\": true, \\\"hideColumnHeader\\\": true, \\\"rowFormatter\\\": {\\\"elmType\\\": \\\"div\\\", \\\"style\\\": {\\\"display\\\": \\\"flex\\\", \\\"flex-wrap\\\": \\\"wrap\\\", \\\"align-items\\\": \\\"center\\\", \\\"justify-content\\\": \\\"space-between\\\", \\\"padding\\\": \\\"16px 20px\\\", \\\"margin\\\": \\\"5px 0\\\", \\\"border-radius\\\": \\\"10px\\\", \\\"background-color\\\": \\\"=if([$HighlightCount] \\\\u003e 0, '#EDF6F0', '#FFF7E7')\\\", \\\"width\\\": \\\"100%\\\", \\\"box-sizing\\\": \\\"border-box\\\"}, \\\"children\\\": [{\\\"elmType\\\": \\\"div\\\", \\\"style\\\": {\\\"display\\\": \\\"flex\\\", \\\"flex-direction\\\": \\\"column\\\", \\\"min-width\\\": \\\"180px\\\", \\\"flex-grow\\\": \\\"1\\\"}, \\\"children\\\": [{\\\"elmType\\\": \\\"div\\\", \\\"txtContent\\\": \\\"[$Title]\\\", \\\"style\\\": {\\\"font-size\\\": \\\"18px\\\", \\\"font-weight\\\": \\\"600\\\", \\\"color\\\": \\\"#183C43\\\"}}, {\\\"elmType\\\": \\\"div\\\", \\\"txtContent\\\": \\\"[$MonthKey]\\\", \\\"style\\\": {\\\"font-size\\\": \\\"12px\\\", \\\"color\\\": \\\"#526A70\\\", \\\"margin-top\\\": \\\"4px\\\"}}]}, {\\\"elmType\\\": \\\"div\\\", \\\"txtContent\\\": \\\"=if([$HighlightCount] \\\\u003e 0, '\\\\u2713 Submitted \\\\u00b7 ' + toString([$HighlightCount]), 'Awaiting highlight')\\\", \\\"style\\\": {\\\"font-size\\\": \\\"15px\\\", \\\"font-weight\\\": \\\"600\\\", \\\"color\\\": \\\"=if([$HighlightCount] \\\\u003e 0, '#00662C', '#805A0B')\\\"}}, {\\\"elmType\\\": \\\"div\\\", \\\"style\\\": {\\\"display\\\": \\\"=if([$ReceiptLinks] == '', 'none', 'flex')\\\", \\\"flex-direction\\\": \\\"column\\\", \\\"width\\\": \\\"100%\\\", \\\"margin-top\\\": \\\"12px\\\"}, \\\"children\\\": [{\\\"elmType\\\": \\\"div\\\", \\\"txtContent\\\": \\\"View submissions \\\\u00b7 reviewers\\\", \\\"style\\\": {\\\"font-size\\\": \\\"12px\\\", \\\"font-weight\\\": \\\"600\\\", \\\"color\\\": \\\"#526A70\\\", \\\"margin-bottom\\\": \\\"4px\\\"}}, {\\\"elmType\\\": \\\"div\\\", \\\"style\\\": {\\\"display\\\": \\\"flex\\\", \\\"flex-wrap\\\": \\\"wrap\\\", \\\"max-height\\\": \\\"140px\\\", \\\"overflow-y\\\": \\\"auto\\\"}, \\\"children\\\": [{\\\"elmType\\\": \\\"a\\\", \\\"txtContent\\\": \\\"='Submission #' + substring([$receipt],0,indexOf([$receipt],'|'))\\\", \\\"style\\\": {\\\"color\\\": \\\"#00674F\\\", \\\"font-size\\\": \\\"13px\\\", \\\"font-weight\\\": \\\"600\\\", \\\"padding\\\": \\\"5px 9px\\\", \\\"margin\\\": \\\"3px 6px 3px 0\\\", \\\"border\\\": \\\"1px solid #AEC8BF\\\", \\\"border-radius\\\": \\\"6px\\\", \\\"background-color\\\": \\\"#FFFFFF\\\", \\\"text-decoration\\\": \\\"none\\\"}, \\\"attributes\\\": {\\\"href\\\": \\\"='https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/DispForm.aspx?ID=' + substring([$receipt],0,indexOf([$receipt],'|'))\\\", \\\"target\\\": \\\"_blank\\\", \\\"title\\\": \\\"=replaceAll(replaceAll(replaceAll(substring([$receipt],indexOf([$receipt],'|')+1,indexOf([$receipt]+'|END','|END')),'%7C','|'),'%3B',';'),'%25','%')\\\"}, \\\"forEach\\\": \\\"receipt in split([$ReceiptLinks],';')\\\"}]}, {\\\"elmType\\\": \\\"div\\\", \\\"txtContent\\\": \\\"Hover for the original summary. Opening the full receipt requires reviewer access.\\\", \\\"style\\\": {\\\"font-size\\\": \\\"11px\\\", \\\"color\\\": \\\"#526A70\\\", \\\"margin-top\\\": \\\"4px\\\"}}]}, {\\\"elmType\\\": \\\"div\\\", \\\"txtContent\\\": \\\"='Updated: ' + toLocaleString([$RefreshedAt])\\\", \\\"style\\\": {\\\"width\\\": \\\"100%\\\", \\\"font-size\\\": \\\"12px\\\", \\\"margin-top\\\": \\\"7px\\\", \\\"color\\\": \\\"#526A70\\\"}}]}}\", \"ViewQuery\": \"<OrderBy><FieldRef Name=\\\"MonthKey\\\" Ascending=\\\"FALSE\\\"/><FieldRef Name=\\\"Title\\\"/></OrderBy>\", \"RowLimit\": 100, \"Paged\": true}"
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Months_field_ReceiptLinks": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Projects_clear_fields": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/DefaultView/ViewFields/RemoveAllViewFields",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Projects_view": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Projects_field_Title": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/DefaultView/ViewFields/AddViewField('Title')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Projects_clear_fields": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Projects_field_MonthKey": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/DefaultView/ViewFields/AddViewField('MonthKey')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Projects_field_Title": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Projects_field_ProjectId": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/DefaultView/ViewFields/AddViewField('ProjectId')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Projects_field_MonthKey": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Projects_field_HighlightCount": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/DefaultView/ViewFields/AddViewField('HighlightCount')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Projects_field_ProjectId": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Projects_field_FirstReceived": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/DefaultView/ViewFields/AddViewField('FirstReceived')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Projects_field_HighlightCount": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Projects_field_LastReceived": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/DefaultView/ViewFields/AddViewField('LastReceived')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Projects_field_FirstReceived": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Projects_field_RefreshedAt": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/DefaultView/ViewFields/AddViewField('RefreshedAt')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Projects_field_LastReceived": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Projects_field_ReceiptItemIds": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/DefaultView/ViewFields/AddViewField('ReceiptItemIds')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Projects_field_RefreshedAt": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Projects_field_ReceiptLinks": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/DefaultView/ViewFields/AddViewField('ReceiptLinks')",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Projects_field_ReceiptItemIds": [
+            "Succeeded"
+          ]
+        }
+      }
+    },
+    "runAfter": {}
+  }
+}

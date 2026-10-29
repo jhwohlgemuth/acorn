@@ -27,7 +27,7 @@
             LayoutMinWidth: =0
             OnSelect: =
             Size: =If(Parent.Width < 600, 24, 32)
-            Text: '=If(varDisposition = "exported", "Highlight saved · JSONL ready", varDisposition = "received", "Highlight received · export pending", varDisposition = "rejected", "Highlight needs a correction", varDisposition = "conflict", "Receipt needs review", "Your highlight needs attention")    '
+            Text: '=If(varDisposition = "exported", "Highlight saved · Export ready", varDisposition = "received", "Highlight received · export pending", varDisposition = "rejected", "Highlight needs a correction", varDisposition = "conflict", "Receipt needs review", "Your highlight needs attention")    '
             Width: =Min(640, Parent.Width - 48)
       - SubmissionResultMessage:
           Control: Label@2.5.1
@@ -54,7 +54,7 @@
             LayoutMinWidth: =0
             OnSelect: =
             Size: =12
-            Text: '="Receipt ID" & Char(10) & varPendingId & If(varDisposition = "exported", Char(10) & "SharePoint receipt and JSONL export confirmed", "")    '
+            Text: '="Receipt ID" & Char(10) & varPendingId & If(varDisposition = "exported", Char(10) & "SharePoint receipt and export confirmed", "")    '
             Visible: =!IsBlank(varPendingId)
             Width: =Min(640, Parent.Width - 48)
       - SubmissionResultBack:

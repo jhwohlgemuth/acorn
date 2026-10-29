@@ -1,0 +1,132 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json",
+  "hideSelection": true,
+  "hideColumnHeader": true,
+  "rowFormatter": {
+    "elmType": "div",
+    "style": {
+      "display": "flex",
+      "flex-wrap": "wrap",
+      "align-items": "center",
+      "justify-content": "space-between",
+      "padding": "16px 20px",
+      "margin": "5px 0",
+      "border-radius": "10px",
+      "background-color": "=if([$HighlightCount] > 0, '#EDF6F0', '#FFF7E7')",
+      "width": "100%",
+      "box-sizing": "border-box"
+    },
+    "children": [
+      {
+        "elmType": "div",
+        "style": {
+          "display": "flex",
+          "flex-direction": "column",
+          "min-width": "180px",
+          "flex-grow": "1"
+        },
+        "children": [
+          {
+            "elmType": "div",
+            "txtContent": "[$Title]",
+            "style": {
+              "font-size": "18px",
+              "font-weight": "600",
+              "color": "#183C43"
+            }
+          },
+          {
+            "elmType": "div",
+            "txtContent": "[$MonthKey]",
+            "style": {
+              "font-size": "12px",
+              "color": "#526A70",
+              "margin-top": "4px"
+            }
+          }
+        ]
+      },
+      {
+        "elmType": "div",
+        "txtContent": "=if([$HighlightCount] > 0, '\u2713 Submitted \u00b7 ' + toString([$HighlightCount]), 'Awaiting highlight')",
+        "style": {
+          "font-size": "15px",
+          "font-weight": "600",
+          "color": "=if([$HighlightCount] > 0, '#00662C', '#805A0B')"
+        }
+      },
+      {
+        "elmType": "div",
+        "style": {
+          "display": "=if([$ReceiptLinks] == '', 'none', 'flex')",
+          "flex-direction": "column",
+          "width": "100%",
+          "margin-top": "12px"
+        },
+        "children": [
+          {
+            "elmType": "div",
+            "txtContent": "View submissions \u00b7 reviewers",
+            "style": {
+              "font-size": "12px",
+              "font-weight": "600",
+              "color": "#526A70",
+              "margin-bottom": "4px"
+            }
+          },
+          {
+            "elmType": "div",
+            "style": {
+              "display": "flex",
+              "flex-wrap": "wrap",
+              "max-height": "140px",
+              "overflow-y": "auto"
+            },
+            "children": [
+              {
+                "elmType": "a",
+                "txtContent": "='Submission #' + substring([$receipt],0,indexOf([$receipt],'|'))",
+                "style": {
+                  "color": "#00674F",
+                  "font-size": "13px",
+                  "font-weight": "600",
+                  "padding": "5px 9px",
+                  "margin": "3px 6px 3px 0",
+                  "border": "1px solid #AEC8BF",
+                  "border-radius": "6px",
+                  "background-color": "#FFFFFF",
+                  "text-decoration": "none"
+                },
+                "attributes": {
+                  "href": "='https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/DispForm.aspx?ID=' + substring([$receipt],0,indexOf([$receipt],'|'))",
+                  "target": "_blank",
+                  "title": "=replaceAll(replaceAll(replaceAll(substring([$receipt],indexOf([$receipt],'|')+1,indexOf([$receipt]+'|END','|END')),'%7C','|'),'%3B',';'),'%25','%')"
+                },
+                "forEach": "receipt in split([$ReceiptLinks],';')"
+              }
+            ]
+          },
+          {
+            "elmType": "div",
+            "txtContent": "Hover for the original summary. Opening the full receipt requires reviewer access.",
+            "style": {
+              "font-size": "11px",
+              "color": "#526A70",
+              "margin-top": "4px"
+            }
+          }
+        ]
+      },
+      {
+        "elmType": "div",
+        "txtContent": "='Updated: ' + toLocaleString([$RefreshedAt])",
+        "style": {
+          "width": "100%",
+          "font-size": "12px",
+          "margin-top": "7px",
+          "color": "#526A70"
+        }
+      }
+    ]
+  }
+}

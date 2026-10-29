@@ -1,6 +1,6 @@
 ---
 type: Note
-title: "SharePoint standard-connector pilot"
+title: "SharePoint standard-connector workflow"
 description: "Current SharePoint default, submission editing and dated deployment acceptance evidence."
 ---
 
@@ -18,13 +18,13 @@ Created in that site:
 
 | Component | Location | State |
 |---|---|---|
-| Intake list | [Sponsor Highlights Intake Pilot](https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/AllItems.aspx) | TEST ONLY receipts from manual and published-app acceptance; list ID `a904a6c6-5dd0-427b-9575-8167c4c0c412` |
-| Project catalog | [Sponsor Highlights Projects Pilot](https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Projects%20Pilot/AllItems.aspx) | 13 project rows plus the reserved general destination; list ID `88dfa78d-a62f-4e0f-aae5-0d5ea52758ed` |
-| JSONL library | [Sponsor Highlights JSONL Pilot](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/Forms/AllItems.aspx) | Receipt-named JSONL files; exact readback passed in manual and app-driven runs |
+| Intake list | [Sponsor Highlights Intake](https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/AllItems.aspx) | TEST ONLY receipts from manual and published-app acceptance; list ID `a904a6c6-5dd0-427b-9575-8167c4c0c412` |
+| Project catalog | [Sponsor Highlights Projects](https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Projects%20Pilot/AllItems.aspx) | 13 project rows plus the reserved general destination; list ID `88dfa78d-a62f-4e0f-aae5-0d5ea52758ed` |
+| JSONL library | [Sponsor Highlights Exports](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/Forms/AllItems.aspx) | Receipt-named JSONL files; exact readback passed in manual and app-driven runs |
 
-The original Sponsor Highlights app, GitLab intake/catalog bindings and operational logbook are unchanged. Native Save As created and published [Sponsor Highlights - SharePoint Pilot](https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/163f110f-7f8a-401c-894e-0786b2c018a4), app ID `163f110f-7f8a-401c-894e-0786b2c018a4`, in Wohlgemuth, Jason. Its GitLab intake/catalog bindings were removed after switching formulas to the two SharePoint pilot flows. Studio reports no formula or data-source errors. Owner-context app submissions passed; the later PA22 participant and PA25 cutover records supersede this initial checkpoint.
+The original Sponsor Highlights app, GitLab intake/catalog bindings and operational logbook are unchanged. Native Save As created and published [Sponsor Highlights - SharePoint](https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/163f110f-7f8a-401c-894e-0786b2c018a4), app ID `163f110f-7f8a-401c-894e-0786b2c018a4`, in Wohlgemuth, Jason. Its GitLab intake/catalog bindings were removed after switching formulas to the two SharePoint pilot flows. Studio reports no formula or data-source errors. Owner-context app submissions passed; the later PA22 participant and PA25 cutover records supersede this initial checkpoint.
 
-Solution **ACORN SharePoint Pilot** (`0fafd397-64d1-f111-a05c-001dd8062052`) was created with the two pilot flows and SharePoint connection reference `cr1d0_sharedsharepointonline_0c871`. This registers the flows for selection in Studio; it does not add Dataverse data actions to the intake. The subsequent Teams action uses existing **Microsoft Teams Default-52fd4**, under `owner@example.invalid`; the connection credentials were not changed. The app uses `SponsorHighlightSharePointPending` for browser recovery, separate from the original GitLab key. It distinguishes a received SharePoint receipt from a confirmed JSONL export; a pending export retains the UUID and offers a safe retry. [Form formula changes](_assets/sharepoint/form-patches.json) were compared with the live [layout](_assets/sharepoint/layout.pa.yaml) and [result panel](_assets/sharepoint/result-panel.pa.yaml). No original GitLab bindings, commit fields, queued states or original storage key remain in those captured controls. The app and both flows are included in the October 27 [native package backup and accepted isolated restore](_assets/sharepoint/backup/README.md); the separate repaired-exporter package and data snapshots complete this recovery set.
+Solution **ACORN SharePoint** (`0fafd397-64d1-f111-a05c-001dd8062052`) was created with the two pilot flows and SharePoint connection reference `cr1d0_sharedsharepointonline_0c871`. This registers the flows for selection in Studio; it does not add Dataverse data actions to the intake. The subsequent Teams action uses existing **Microsoft Teams Default-52fd4**, under `owner@example.invalid`; the connection credentials were not changed. The app uses `SponsorHighlightSharePointPending` for browser recovery, separate from the original GitLab key. It distinguishes a received SharePoint receipt from a confirmed JSONL export; a pending export retains the UUID and offers a safe retry. [Form formula changes](_assets/sharepoint/form-patches.json) were compared with the live [layout](_assets/sharepoint/layout.pa.yaml) and [result panel](_assets/sharepoint/result-panel.pa.yaml). No original GitLab bindings, commit fields, queued states or original storage key remain in those captured controls. The app and both flows are included in the October 27 [native package backup and accepted isolated restore](_assets/sharepoint/backup/README.md); the separate repaired-exporter package and data snapshots complete this recovery set.
 
 The owner's October 26 confirmation resolves DH's original access report as a missing premium entitlement for the GitLab custom connector. [Access resolution](intake-access-decisions.md#original-participant-licensing-issue-resolved) records that conclusion. No DH-specific retest is pending; PA-22 acceptance below verifies this SharePoint app with the approved standard-license participant.
 
@@ -50,7 +50,7 @@ Export must decode A followed by B and preserve the exact original JSON bytes, t
 
 The catalog is seeded from the retained [October 25 response](_assets/solution-export/pa18-ornl-catalog-response.json), revision `03ff5836289447034f40f2a4898c155441e6cb66`. It is a recorded configuration snapshot, not a fresh repository scan. All 13 rows have `Title`, `ProjectId` and `SourceRevision`; display labels currently equal IDs. Future catalog maintenance is explicit until a separate synchronization path is accepted.
 
-`ACORN SharePoint Pilot Catalog` is saved in Wohlgemuth, Jason (`221f44a6-1468-ea4e-b93d-cd52f1723079`), flow ID `6f8a4ab5-dd66-4904-9f5d-f307519ab4d5`. Its only external connector is standard SharePoint, using connection reference `shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104` under the existing ORNL account. No credential values are stored here.
+`ACORN SharePoint Catalog` is saved in Wohlgemuth, Jason (`221f44a6-1468-ea4e-b93d-cd52f1723079`), flow ID `6f8a4ab5-dd66-4904-9f5d-f307519ab4d5`. Its only external connector is standard SharePoint, using connection reference `shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104` under the existing ORNL account. No credential values are stored here.
 
 The native flow uses Power Apps V2, Get items, Select and Respond to a Power App or flow. Get items orders by Title, requests 1,001 entries and enables pagination to 1,001. The response text output `catalogjson` contains `{source: "sharepoint", projects: [{id, label}]}`. More than 1,000 results produces an empty catalog with `error: "catalog_limit"`; the app must treat that as failure. Overflow behavior is authored but not yet exercised with a large fixture.
 
@@ -62,7 +62,7 @@ Manual run `08584085728203907521416207681CU22` succeeded at 17:01:05 UTC on Octo
 
 # Intake implementation and acceptance
 
-`ACORN SharePoint Pilot Intake` is saved in the same environment, flow ID `64679e9c-ae76-4263-b8fa-8832835516ca`. It uses the existing SharePoint and Teams connections and no GitLab connector. After Teams was added, the designer checker reported zero errors and eight connection-refresh advisories. The app binding was subsequently refreshed, republished and successfully exercised. The response is intentionally retained for confirmed receipt feedback.
+`ACORN SharePoint Intake` is saved in the same environment, flow ID `64679e9c-ae76-4263-b8fa-8832835516ca`. It uses the existing SharePoint and Teams connections and no GitLab connector. After Teams was added, the designer checker reported zero errors and eight connection-refresh advisories. The app binding was subsequently refreshed, republished and successfully exercised. The response is intentionally retained for confirmed receipt feedback.
 
 October 26 owner-run acceptance used non-sensitive receipt `5e505b15-5f25-4ae7-8e13-7b4df6f6715e` with Unicode and escaped newlines:
 
@@ -79,7 +79,7 @@ Remaining acceptance includes catalog overflow, payload size boundaries, concurr
 
 # Published-app acceptance and notifications
 
-The published pilot loaded all 13 projects through the SharePoint catalog. App-driven run `08584085698401694139777770661CU04` created receipt `02b7231b-47e0-4034-b49b-0b6e594548e0`, confirmed its export, and displayed **Highlight saved · JSONL ready**. A full page reload restored the same UUID, confirmation and frozen form fields. Starting a new highlight cleared only the pilot recovery slot and reloaded the catalog. The [saved list envelope](_assets/sharepoint/app-submission.json) independently retains the submitted Unicode details. This is page-reload evidence; it does not repeat full browser-restart or denied-storage acceptance for the new app.
+The published pilot loaded all 13 projects through the SharePoint catalog. App-driven run `08584085698401694139777770661CU04` created receipt `02b7231b-47e0-4034-b49b-0b6e594548e0`, confirmed its export, and displayed **Highlight saved · Export ready**. A full page reload restored the same UUID, confirmation and frozen form fields. Starting a new highlight cleared only the pilot recovery slot and reloaded the catalog. The [saved list envelope](_assets/sharepoint/app-submission.json) independently retains the submitted Unicode details. This is page-reload evidence; it does not repeat full browser-restart or denied-storage acceptance for the new app.
 
 After adding Teams, the intake binding was refreshed and the pilot app republished. App-driven run `08584085694369117892624466851CU16` created receipt `64b836e0-016f-4493-9894-a6fe79acc8de`. Receipt creation, JSONL creation/readback, export status, response, and **Post SharePoint update to Teams** all succeeded. See [action outcomes](_assets/sharepoint/teams-app-run-evidence.txt) and [native Teams action](_assets/sharepoint/teams-action-native.json). This proves connector execution; it does not establish that a recipient read the message.
 
@@ -96,7 +96,7 @@ PA-19 storage/catalog and PA-20 validated intake/exact export are accepted below
 
 # Combined logbook export
 
-The SharePoint list is the collection source of truth. [Download the combined logbook](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/logbook.jsonl), rather than assembling individual receipt files. `ACORN SharePoint Pilot Logbook Export` (`51efa5f9-6e69-4d75-a53b-2c2965fd51bd`) runs every five minutes in Wohlgemuth, Jason with trigger concurrency one, using the existing standard SharePoint connection. It does not change either intake flow, app bindings, permissions or notifications.
+The SharePoint list is the collection source of truth. [Download the combined logbook](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/logbook.jsonl), rather than assembling individual receipt files. `ACORN SharePoint Logbook Export` (`51efa5f9-6e69-4d75-a53b-2c2965fd51bd`) runs every five minutes in Wohlgemuth, Jason with trigger concurrency one, using the existing standard SharePoint connection. It does not change either intake flow, app bindings, permissions or notifications.
 
 Each run captures the highest list item ID, retrieves rows through that cutoff in ascending ID order, decodes the original payload, validates receipt/project identity and rejects literal newlines. It joins exact original JSON strings with LF and adds the final LF. It rebuilds the snapshot rather than appending concurrently. New arrivals after the cutoff are collected on the next run. Normal intake does not modify prior payloads; this is not a transactional snapshot against manual list edits or deletion.
 
@@ -108,7 +108,7 @@ October 26 evidence: initial run `08584085656857537345648662769CU31` succeeded; 
 
 # October 26 live demonstration and local report
 
-At the owner's request, three new explicitly synthetic highlights were submitted through the published SharePoint app. Each displayed **Highlight saved · JSONL ready**, and each intake run's **Post SharePoint update to Teams** action succeeded. No routine email was expected or sent by intake. The examples cover Data/Completed, Software/In progress and Collaboration/Upcoming, all routed to `acorn`.
+At the owner's request, three new explicitly synthetic highlights were submitted through the published SharePoint app. Each displayed **Highlight saved · Export ready**, and each intake run's **Post SharePoint update to Teams** action succeeded. No routine email was expected or sent by intake. The examples cover Data/Completed, Software/In progress and Collaboration/Upcoming, all routed to `acorn`.
 
 | Example | Receipt | Intake run |
 | --- | --- | --- |
@@ -138,7 +138,7 @@ PA-19 accepted against separate copies in Research Enablement, using the existin
 | --- | --- |
 | PA19 TEST ONLY Receipts | `fcae092f-c899-4254-bf13-1108997a0a77` |
 | PA19 TEST ONLY Projects | `40f2847e-3698-4ae6-b84b-7e42002c84eb` |
-| PA19 TEST ONLY JSONL | `03074b27-a5e9-4c22-8fd4-0bd991a11a79` |
+| PA19 TEST ONLY Exports | `03074b27-a5e9-4c22-8fd4-0bd991a11a79` |
 | PA19 TEST ONLY SharePoint Catalog | `d696dacf-9ed1-f111-a05c-001dd8062052` |
 
 The lists/library copied the corresponding pilot schemas without copying their content. Each inherits the parent site's Research Enablement Members (Edit), Owners (Full Control) and Visitors (Read) roles. No permissions were changed. Limited-access users are reported by SharePoint; inheritance inspection does not prove every intended contributor can access the site or app.
@@ -182,7 +182,7 @@ Isolation changes were limited to four recovery-key references (`SponsorHighligh
 
 | App-driven case | Accepted evidence |
 | --- | --- |
-| Pending export, reload and same-payload replay | Initial run `08584085417102234312362972660CU22` saved receipt `1fa33754-c8f8-472b-94d7-125ea1c4effb` (list item 7) while file creation targeted the deliberately absent test folder. The app displayed **Highlight received · export pending**. Reload retained the UUID, fields and pending-export state. After restoring the normal test folder, Retry JSONL export invoked `08584085416185671699426701564CU26`: receipt creation was skipped, exact receipt/file checks passed, and the app displayed **Highlight saved · JSONL ready** with the same UUID. |
+| Pending export, reload and same-payload replay | Initial run `08584085417102234312362972660CU22` saved receipt `1fa33754-c8f8-472b-94d7-125ea1c4effb` (list item 7) while file creation targeted the deliberately absent test folder. The app displayed **Highlight received · export pending**. Reload retained the UUID, fields and pending-export state. After restoring the normal test folder, Retry export invoked `08584085416185671699426701564CU26`: receipt creation was skipped, exact receipt/file checks passed, and the app displayed **Highlight saved · Export ready** with the same UUID. |
 | Independent exact bytes | Reopened list payload was exactly 555 UTF-8 bytes. The independently downloaded file was that payload plus one LF: 556 bytes, SHA-256 `5e76ce56e45f0da059b05b3d70b6e2af873e624d9060eb4dbf286f2d29f7d67f`. One receipt existed for the UUID. |
 | Unconfirmed submission and pending reload | With only the PA20 test intake Off, a second synthetic app submission retained UUID `8ec06581-ab13-496d-a78b-2657427f9c57` and displayed the honest unconfirmed-save warning. Reload recovered the same pending UUID and fields. |
 | Conflict panel and no overwrite | After re-enabling the test intake, a manual fixture run `08584085413982458168014730572CU25` created a different valid payload under that pending UUID (item 8). The app's unchanged pending payload then retried in run `08584085413623242930149204480CU14`. Conflict SP succeeded; receipt creation and export actions were skipped. The app displayed **Receipt needs review**. Reopened stored payload matched the seed exactly; no existing receipt was edited to create this scenario. |
@@ -242,7 +242,7 @@ Native app/catalog/intake import and repaired-exporter import succeeded as Creat
 
 Data recovery run `08584084988987057788111161650CU11` captured six source receipts through ID 6 at `2026-10-27T13:33:07.6422780Z` and 13 projects through ID 13. It saved snapshots, read the files back, restored the new lists and reconstructed receipt files from the original base64 payload plus LF. Exact raw payload/catalog comparisons and per-file readback passed. The source CSV receipt view omits payload/UUID fields and is schema evidence only; the full JSON snapshots are the data backup. Unique required/indexed SubmissionId, list/library schemas, inherited permissions and version policies were checked. The temporary restore helper was then removed.
 
-The published app loaded all 13 projects and submitted synthetic UUID `1a62b98e-d1a8-4a07-8c3e-637a30fa0912`. Initial run `08584084985288185970481774653CU07` and two same-ID retries (`08584084983294172829344955027CU08`, `08584084982181280781070725475CU21`) succeeded, leaving seven list rows. The final app displayed **Highlight saved · JSONL ready** for that UUID. Earlier pending feedback exposed the stale copied export-URL allowlist; the corrected published test app accepted the explicit test-library receipt URL. No operational formula was changed.
+The published app loaded all 13 projects and submitted synthetic UUID `1a62b98e-d1a8-4a07-8c3e-637a30fa0912`. Initial run `08584084985288185970481774653CU07` and two same-ID retries (`08584084983294172829344955027CU08`, `08584084982181280781070725475CU21`) succeeded, leaving seven list rows. The final app displayed **Highlight saved · Export ready** for that UUID. Earlier pending feedback exposed the stale copied export-URL allowlist; the corrected published test app accepted the explicit test-library receipt URL. No operational formula was changed.
 
 Restored exporter runs `08584084984876807975605268255CU05` and `08584084984855685264494248586CU09` succeeded. The independently downloaded collected file contains exactly the original six rows followed by the new 552-byte receipt: **7 rows, 3,965 bytes**, SHA-256 `6c1feba07ac7bfcf1b17980cb6352384802034a3f01986de915cb749d130f262`. [Data validation](_assets/sharepoint/backup/data-recovery-validation.json), [aggregate validation](_assets/sharepoint/backup/aggregate-recovery-validation.json), [native audit](_assets/sharepoint/backup/native-package-audit.json) and the [app screenshot](_assets/sharepoint/backup/restored-app-success.png) preserve the proof.
 

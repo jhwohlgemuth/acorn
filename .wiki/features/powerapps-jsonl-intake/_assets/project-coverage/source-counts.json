@@ -1,0 +1,16 @@
+{
+  "observedAt": "2026-10-28T19:06:04.207Z",
+  "source": "SharePoint intake list visible rows; Created and CorrectionParentId columns",
+  "receiptRows": 20,
+  "originals": 17,
+  "corrections": 3,
+  "month": "2026-10",
+  "projects": {
+    "acorn": 10,
+    "building-damage-indicators": 1,
+    "general": 3,
+    "gravity": 1,
+    "myriad": 1,
+    "planetsense": 1
+  }
+}

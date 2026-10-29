@@ -49,7 +49,7 @@ Reviewed all 33 executable plans and two coordination records, with focused curr
 | PA15 TEST ONLY Boundary Acceptance (both environments) | Both | Retained Off for unfinished PA-15/16 matrices. |
 | PA17 TEST ONLY Native Intake (both) and Native Callback (Jason) | Both/Jason | Retained Off for unfinished restore acceptance. Native catalogs remain On for app/catalog checks. |
 | PA17 native readiness/restore/backup solutions and operational intake solution | Both | Retained: dependency containers, native restore acceptance or operational recovery. Names containing TEST ONLY do not make unfinished acceptance resources disposable. |
-| SharePoint app, three flows and ACORN SharePoint Pilot solution | Wohlgemuth, Jason | Retained enabled and unchanged; PA-19–24 acceptance is incomplete. |
+| SharePoint app, three flows and ACORN SharePoint solution | Wohlgemuth, Jason | Retained enabled and unchanged; PA-19–24 acceptance is incomplete. |
 
 The Jason inventory has 10 flows after removal of the legacy notification flow. ORNL has four after deletion: PA15 boundary Off, PA17 intake Off, PA17 catalog On and unrelated Test On. The operational GitLab intake/catalog and SharePoint intake/catalog/combined exporter remain enabled. No app bindings, connections, credentials, list/library records, callback rows, recipient settings or operational JSONL bytes were changed by cleanup.
 
@@ -82,7 +82,7 @@ Validation passed: planning metadata and dependencies, 593 Markdown file targets
 
 # October 26 PA-26 test cleanup
 
-Retain **PA26 TEST ONLY SharePoint Logbook Export** (`28cba548-c862-484c-b838-ea21eaf52630`) **Off** for PA-23. Its temporary ten-case fault scope was removed after acceptance; the repaired export scope and serialized trigger remain. Ten small `pa26-385beb282f-*.jsonl` files and the filtered synthetic combined logbook remain in PA19 TEST ONLY JSONL as reproducible evidence. Do not include them in real reporting or treat the test filter as a release configuration. Local stale harness capture and generated Python caches were removed. The operational exporter remains On and unchanged; [acceptance and final state](sharepoint-pilot.md#october-26-isolated-exporter-repair-acceptance-pa-26) record the evidence. PA-26 was pruned; PA-23 retains aggregate validation.
+Retain **PA26 TEST ONLY SharePoint Logbook Export** (`28cba548-c862-484c-b838-ea21eaf52630`) **Off** for PA-23. Its temporary ten-case fault scope was removed after acceptance; the repaired export scope and serialized trigger remain. Ten small `pa26-385beb282f-*.jsonl` files and the filtered synthetic combined logbook remain in PA19 TEST ONLY Exports as reproducible evidence. Do not include them in real reporting or treat the test filter as a release configuration. Local stale harness capture and generated Python caches were removed. The operational exporter remains On and unchanged; [acceptance and final state](sharepoint-pilot.md#october-26-isolated-exporter-repair-acceptance-pa-26) record the evidence. PA-26 was pruned; PA-23 retains aggregate validation.
 
 
 ### October 27 aggregate acceptance cleanup
@@ -102,7 +102,7 @@ Retained the three native backup ZIPs, full current-row snapshots, schemas/setti
 | PA24 TEST ONLY SharePoint Logbook Export | `654d13ea-c549-42a8-a4c6-d1e48f5ec02d` | Off; accepted repaired revision, isolated destinations |
 | PA24 TEST ONLY Receipts | `13fa719a-32ae-45de-b444-95d3a33e8048` | Seven synthetic receipts including same-ID retry evidence |
 | PA24 TEST ONLY Projects | `c482b248-39fb-45f8-833e-26baf05cc15c` | Thirteen restored catalog rows |
-| PA24 TEST ONLY JSONL | `905b083e-e909-4eef-a496-166a2b2bc8d7` | Restored receipt files, collected output and recovery snapshots |
+| PA24 TEST ONLY Exports | `905b083e-e909-4eef-a496-166a2b2bc8d7` | Restored receipt files, collected output and recovery snapshots |
 
 No operational components were disabled, deleted or rebound. These named recovery fixtures are retained deliberately; no further cleanup authorization was inferred from PA-24 acceptance.
 

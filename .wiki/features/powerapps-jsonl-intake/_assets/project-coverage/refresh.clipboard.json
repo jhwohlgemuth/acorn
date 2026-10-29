@@ -1,0 +1,860 @@
+{
+  "id": "dbbbf35e-4de5-5e9e-9943-36b483390547",
+  "brandColor": "#8C6CFF",
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "connectionName": "shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "tier": "NotSpecified",
+      "apiName": "sharepointonline",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": true
+    }
+  },
+  "connectorDisplayName": "Control",
+  "isTrigger": false,
+  "operationName": "Refresh_project_coverage",
+  "operationDefinition": {
+    "type": "Scope",
+    "actions": {
+      "Read_receipts_COV": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "table": "a904a6c6-5dd0-427b-9575-8167c4c0c412",
+            "$orderby": "ID asc",
+            "$top": 5001
+          },
+          "authentication": "@parameters('$authentication')"
+        },
+        "runAfter": {},
+        "runtimeConfiguration": {
+          "paginationPolicy": {
+            "minimumItemCount": 5001
+          },
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Read_catalog_COV": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "table": "88dfa78d-a62f-4e0f-aae5-0d5ea52758ed",
+            "$orderby": "ID asc",
+            "$top": 5001
+          },
+          "authentication": "@parameters('$authentication')"
+        },
+        "runAfter": {
+          "Read_receipts_COV": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "paginationPolicy": {
+            "minimumItemCount": 5001
+          },
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Read_first_month_COV": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/items?$orderby=Title asc&$top=5001",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Read_catalog_COV": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Read_coverage_COV": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/items?$top=5001",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata",
+              "Content-Type": "application/json;odata=nometadata"
+            }
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Read_first_month_COV": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Decode_receipts_COV": {
+        "type": "Select",
+        "inputs": {
+          "from": "@body('Read_receipts_COV')?['value']",
+          "select": {
+            "created": "@item()?['Created']",
+            "id": "@item()?['SubmissionId']",
+            "itemId": "@string(item()?['ID'])",
+            "project": "@item()?['ProjectId']",
+            "revision": "@json(base64ToString(concat(item()?['PayloadBase64A'],coalesce(item()?['PayloadBase64B'],string(null)))))?['revision']",
+            "payloadId": "@json(base64ToString(concat(item()?['PayloadBase64A'],coalesce(item()?['PayloadBase64B'],string(null)))))?['submissionId']",
+            "payloadProject": "@json(base64ToString(concat(item()?['PayloadBase64A'],coalesce(item()?['PayloadBase64B'],string(null)))))?['projectId']",
+            "summary": "@json(base64ToString(concat(item()?['PayloadBase64A'],coalesce(item()?['PayloadBase64B'],string(null)))))?['entry']?['summary']",
+            "parent": "@item()?['CorrectionParentId']"
+          }
+        },
+        "runAfter": {
+          "Read_coverage_COV": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Invalid_receipts_COV": {
+        "type": "Query",
+        "inputs": {
+          "from": "@body('Decode_receipts_COV')",
+          "where": "@or(empty(item()?['id']),empty(item()?['project']),empty(item()?['created']),not(equals(item()?['id'],item()?['payloadId'])),not(equals(item()?['project'],item()?['payloadProject'])),not(equals(coalesce(item()?['parent'],string(null)),coalesce(item()?['revision']?['supersedesSubmissionId'],string(null)))))"
+        },
+        "runAfter": {
+          "Decode_receipts_COV": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Bounded_valid_input_COV": {
+        "type": "If",
+        "expression": {
+          "and": [
+            {
+              "lessOrEquals": [
+                "@length(body('Read_receipts_COV')?['value'])",
+                5000
+              ]
+            },
+            {
+              "lessOrEquals": [
+                "@length(body('Read_catalog_COV')?['value'])",
+                5000
+              ]
+            },
+            {
+              "equals": [
+                "@length(body('Invalid_receipts_COV'))",
+                0
+              ]
+            },
+            {
+              "lessOrEquals": [
+                "@length(body('Read_first_month_COV')?['value'])",
+                120
+              ]
+            },
+            {
+              "lessOrEquals": [
+                "@length(body('Read_coverage_COV')?['value'])",
+                5000
+              ]
+            },
+            {
+              "equals": [
+                "@empty(body('Read_first_month_COV')?['odata.nextLink'])",
+                true
+              ]
+            },
+            {
+              "equals": [
+                "@empty(body('Read_coverage_COV')?['odata.nextLink'])",
+                true
+              ]
+            }
+          ]
+        },
+        "actions": {
+          "Originals_COV": {
+            "type": "Query",
+            "inputs": {
+              "from": "@body('Decode_receipts_COV')",
+              "where": "@empty(item()?['revision'])"
+            },
+            "runAfter": {}
+          },
+          "Projects_COV": {
+            "type": "Query",
+            "inputs": {
+              "from": "@body('Read_catalog_COV')?['value']",
+              "where": "@and(not(empty(item()?['ProjectId'])),not(equals(item()?['ProjectId'],'general')))"
+            },
+            "runAfter": {
+              "Originals_COV": [
+                "Succeeded"
+              ]
+            }
+          },
+          "Roster_COV": {
+            "type": "Select",
+            "inputs": {
+              "from": "@body('Projects_COV')",
+              "select": {
+                "catalogId": "@item()?['ID']",
+                "id": "@item()?['ProjectId']",
+                "name": "@item()?['Title']"
+              }
+            },
+            "runAfter": {
+              "Projects_COV": [
+                "Succeeded"
+              ]
+            }
+          },
+          "Current_month_COV": {
+            "type": "Compose",
+            "inputs": "@formatDateTime(convertTimeZone(utcNow(),'UTC','Eastern Standard Time'),'yyyy-MM')",
+            "runAfter": {
+              "Roster_COV": [
+                "Succeeded"
+              ]
+            }
+          },
+          "Initial_start_COV": {
+            "type": "Compose",
+            "inputs": "@formatDateTime(addToTime(concat(outputs('Current_month_COV'),'-01T00:00:00Z'),-11,'Month'),'yyyy-MM')",
+            "runAfter": {
+              "Current_month_COV": [
+                "Succeeded"
+              ]
+            }
+          },
+          "Receipt_start_COV": {
+            "type": "Compose",
+            "inputs": "@if(empty(body('Originals_COV')),outputs('Initial_start_COV'),formatDateTime(convertTimeZone(first(body('Originals_COV'))?['created'],'UTC','Eastern Standard Time'),'yyyy-MM'))",
+            "runAfter": {
+              "Initial_start_COV": [
+                "Succeeded"
+              ]
+            }
+          },
+          "Retained_start_COV": {
+            "type": "Compose",
+            "inputs": "@if(empty(body('Read_first_month_COV')?['value']),outputs('Initial_start_COV'),first(body('Read_first_month_COV')?['value'])?['Title'])",
+            "runAfter": {
+              "Receipt_start_COV": [
+                "Succeeded"
+              ]
+            }
+          },
+          "Earlier_start_COV": {
+            "type": "Compose",
+            "inputs": "@if(less(outputs('Receipt_start_COV'),outputs('Retained_start_COV')),outputs('Receipt_start_COV'),outputs('Retained_start_COV'))",
+            "runAfter": {
+              "Retained_start_COV": [
+                "Succeeded"
+              ]
+            }
+          },
+          "Start_month_COV": {
+            "type": "Compose",
+            "inputs": "@if(less(outputs('Earlier_start_COV'),outputs('Initial_start_COV')),outputs('Earlier_start_COV'),outputs('Initial_start_COV'))",
+            "runAfter": {
+              "Earlier_start_COV": [
+                "Succeeded"
+              ]
+            }
+          },
+          "Month_count_COV": {
+            "type": "Compose",
+            "inputs": "@add(add(mul(sub(int(substring(outputs('Current_month_COV'),0,4)),int(substring(outputs('Start_month_COV'),0,4))),12),sub(int(substring(outputs('Current_month_COV'),5,2)),int(substring(outputs('Start_month_COV'),5,2)))),1)",
+            "runAfter": {
+              "Start_month_COV": [
+                "Succeeded"
+              ]
+            }
+          },
+          "Bound_months_COV": {
+            "type": "If",
+            "expression": {
+              "and": [
+                {
+                  "greater": [
+                    "@outputs('Month_count_COV')",
+                    0
+                  ]
+                },
+                {
+                  "lessOrEquals": [
+                    "@outputs('Month_count_COV')",
+                    120
+                  ]
+                }
+              ]
+            },
+            "actions": {
+              "For_month_COV": {
+                "type": "Foreach",
+                "foreach": "@range(0,outputs('Month_count_COV'))",
+                "actions": {
+                  "Month_key_COV": {
+                    "type": "Compose",
+                    "inputs": "@formatDateTime(addToTime(concat(outputs('Start_month_COV'),'-01T00:00:00Z'),items('For_month_COV'),'Month'),'yyyy-MM')",
+                    "runAfter": {}
+                  },
+                  "Read_month_COV": {
+                    "type": "Query",
+                    "inputs": {
+                      "from": "@body('Read_first_month_COV')?['value']",
+                      "where": "@equals(item()?['Title'],outputs('Month_key_COV'))"
+                    },
+                    "runAfter": {
+                      "Month_key_COV": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Month_roster_COV": {
+                    "type": "Compose",
+                    "inputs": "@if(empty(body('Read_month_COV')),body('Roster_COV'),json(first(body('Read_month_COV'))?['ExpectedProjects']))",
+                    "runAfter": {
+                      "Read_month_COV": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Month_receipts_COV": {
+                    "type": "Query",
+                    "inputs": {
+                      "from": "@body('Originals_COV')",
+                      "where": "@equals(formatDateTime(convertTimeZone(item()?['created'],'UTC','Eastern Standard Time'),'yyyy-MM'),outputs('Month_key_COV'))"
+                    },
+                    "runAfter": {
+                      "Month_roster_COV": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "General_COV": {
+                    "type": "Query",
+                    "inputs": {
+                      "from": "@body('Month_receipts_COV')",
+                      "where": "@equals(item()?['project'],'general')"
+                    },
+                    "runAfter": {
+                      "Month_receipts_COV": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Submitted_project_ids_COV": {
+                    "type": "Select",
+                    "inputs": {
+                      "from": "@body('Month_receipts_COV')",
+                      "select": "@item()?['project']"
+                    },
+                    "runAfter": {
+                      "General_COV": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Covered_roster_COV": {
+                    "type": "Query",
+                    "inputs": {
+                      "from": "@outputs('Month_roster_COV')",
+                      "where": "@contains(body('Submitted_project_ids_COV'),item()?['id'])"
+                    },
+                    "runAfter": {
+                      "Submitted_project_ids_COV": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "For_project_COV": {
+                    "type": "Foreach",
+                    "foreach": "@outputs('Month_roster_COV')",
+                    "actions": {
+                      "Project_receipts_COV": {
+                        "type": "Query",
+                        "inputs": {
+                          "from": "@body('Month_receipts_COV')",
+                          "where": "@equals(item()?['project'],items('For_project_COV')?['id'])"
+                        },
+                        "runAfter": {}
+                      },
+                      "Coverage_key_COV": {
+                        "type": "Compose",
+                        "inputs": "@concat(outputs('Month_key_COV'),'|',string(items('For_project_COV')?['catalogId']))",
+                        "runAfter": {
+                          "Project_receipts_COV": [
+                            "Succeeded"
+                          ]
+                        }
+                      },
+                      "Read_project_COV": {
+                        "type": "Query",
+                        "inputs": {
+                          "from": "@body('Read_coverage_COV')?['value']",
+                          "where": "@equals(item()?['CoverageKey'],outputs('Coverage_key_COV'))"
+                        },
+                        "runAfter": {
+                          "Coverage_key_COV": [
+                            "Succeeded"
+                          ]
+                        }
+                      },
+                      "Project_item_ids_COV": {
+                        "type": "Select",
+                        "inputs": {
+                          "from": "@body('Project_receipts_COV')",
+                          "select": "@item()?['itemId']"
+                        },
+                        "runAfter": {
+                          "Read_project_COV": [
+                            "Succeeded"
+                          ]
+                        }
+                      },
+                      "Project_links_COV": {
+                        "type": "Select",
+                        "inputs": {
+                          "from": "@body('Project_receipts_COV')",
+                          "select": "@concat(item()?['itemId'],'|',replace(replace(replace(coalesce(item()?['summary'],'Summary unavailable'),'%','%25'),';','%3B'),'|','%7C'))"
+                        },
+                        "runAfter": {
+                          "Project_item_ids_COV": [
+                            "Succeeded"
+                          ]
+                        }
+                      },
+                      "Project_values_COV": {
+                        "type": "Compose",
+                        "inputs": {
+                          "Title": "@items('For_project_COV')?['name']",
+                          "CoverageKey": "@outputs('Coverage_key_COV')",
+                          "MonthKey": "@outputs('Month_key_COV')",
+                          "ProjectId": "@items('For_project_COV')?['id']",
+                          "HighlightCount": "@length(body('Project_receipts_COV'))",
+                          "FirstReceived": "@if(empty(body('Project_receipts_COV')),null,first(body('Project_receipts_COV'))?['created'])",
+                          "LastReceived": "@if(empty(body('Project_receipts_COV')),null,last(body('Project_receipts_COV'))?['created'])",
+                          "RefreshedAt": "@utcNow()",
+                          "ReceiptItemIds": "@join(body('Project_item_ids_COV'),';')",
+                          "ReceiptLinks": "@join(body('Project_links_COV'),';')"
+                        },
+                        "runAfter": {
+                          "Project_links_COV": [
+                            "Succeeded"
+                          ]
+                        }
+                      },
+                      "Upsert_project_COV": {
+                        "type": "If",
+                        "expression": {
+                          "equals": [
+                            "@length(body('Read_project_COV'))",
+                            0
+                          ]
+                        },
+                        "actions": {
+                          "Create_project_COV": {
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "host": {
+                                "connectionName": "shared_sharepointonline",
+                                "operationId": "HttpRequest",
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                              },
+                              "parameters": {
+                                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                "parameters/method": "POST",
+                                "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/items",
+                                "parameters/headers": {
+                                  "Accept": "application/json;odata=nometadata",
+                                  "Content-Type": "application/json;odata=nometadata"
+                                },
+                                "parameters/body": "@string(outputs('Project_values_COV'))"
+                              },
+                              "authentication": "@parameters('$authentication')",
+                              "retryPolicy": {
+                                "type": "none"
+                              }
+                            },
+                            "runAfter": {}
+                          }
+                        },
+                        "else": {
+                          "actions": {
+                            "Project_changed_COV": {
+                              "type": "If",
+                              "expression": {
+                                "or": [
+                                  {
+                                    "not": {
+                                      "equals": [
+                                        "@first(body('Read_project_COV'))?['HighlightCount']",
+                                        "@length(body('Project_receipts_COV'))"
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "not": {
+                                      "equals": [
+                                        "@first(body('Read_project_COV'))?['Title']",
+                                        "@items('For_project_COV')?['name']"
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "not": {
+                                      "equals": [
+                                        "@coalesce(first(body('Read_project_COV'))?['ReceiptItemIds'],string(null))",
+                                        "@join(body('Project_item_ids_COV'),';')"
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "not": {
+                                      "equals": [
+                                        "@coalesce(first(body('Read_project_COV'))?['ReceiptLinks'],string(null))",
+                                        "@join(body('Project_links_COV'),';')"
+                                      ]
+                                    }
+                                  }
+                                ]
+                              },
+                              "actions": {
+                                "Update_project_COV": {
+                                  "type": "OpenApiConnection",
+                                  "inputs": {
+                                    "host": {
+                                      "connectionName": "shared_sharepointonline",
+                                      "operationId": "HttpRequest",
+                                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                                    },
+                                    "parameters": {
+                                      "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                      "parameters/method": "POST",
+                                      "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Coverage')/items(@{first(body('Read_project_COV'))?['Id']})",
+                                      "parameters/headers": {
+                                        "Accept": "application/json;odata=nometadata",
+                                        "Content-Type": "application/json;odata=nometadata",
+                                        "IF-MATCH": "*",
+                                        "X-HTTP-Method": "MERGE"
+                                      },
+                                      "parameters/body": "@string(outputs('Project_values_COV'))"
+                                    },
+                                    "authentication": "@parameters('$authentication')",
+                                    "retryPolicy": {
+                                      "type": "none"
+                                    }
+                                  },
+                                  "runAfter": {}
+                                }
+                              },
+                              "else": {
+                                "actions": {}
+                              },
+                              "runAfter": {}
+                            }
+                          }
+                        },
+                        "runAfter": {
+                          "Project_values_COV": [
+                            "Succeeded"
+                          ]
+                        }
+                      }
+                    },
+                    "runAfter": {
+                      "Covered_roster_COV": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "concurrency": {
+                        "repetitions": 1
+                      }
+                    }
+                  },
+                  "Month_item_ids_COV": {
+                    "type": "Select",
+                    "inputs": {
+                      "from": "@body('Month_receipts_COV')",
+                      "select": "@item()?['itemId']"
+                    },
+                    "runAfter": {
+                      "For_project_COV": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Month_links_COV": {
+                    "type": "Select",
+                    "inputs": {
+                      "from": "@body('Month_receipts_COV')",
+                      "select": "@concat(item()?['itemId'],'|',replace(replace(replace(coalesce(item()?['summary'],'Summary unavailable'),'%','%25'),';','%3B'),'|','%7C'))"
+                    },
+                    "runAfter": {
+                      "Month_item_ids_COV": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Month_values_COV": {
+                    "type": "Compose",
+                    "inputs": {
+                      "Title": "@outputs('Month_key_COV')",
+                      "ExpectedProjects": "@string(outputs('Month_roster_COV'))",
+                      "ProjectsExpected": "@length(outputs('Month_roster_COV'))",
+                      "ProjectsSubmitted": "@length(body('Covered_roster_COV'))",
+                      "HighlightCount": "@length(body('Month_receipts_COV'))",
+                      "GeneralCount": "@length(body('General_COV'))",
+                      "IsCurrentMonth": "@equals(outputs('Month_key_COV'),outputs('Current_month_COV'))",
+                      "RefreshedAt": "@utcNow()",
+                      "RosterBasis": "@if(empty(body('Read_month_COV')),if(equals(outputs('Month_key_COV'),outputs('Current_month_COV')),'Catalog snapshot at first refresh','Historical backfill using catalog at dashboard setup'),first(body('Read_month_COV'))?['RosterBasis'])",
+                      "ReceiptItemIds": "@join(body('Month_item_ids_COV'),';')",
+                      "ReceiptLinks": "@join(body('Month_links_COV'),';')"
+                    },
+                    "runAfter": {
+                      "Month_links_COV": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Upsert_month_COV": {
+                    "type": "If",
+                    "expression": {
+                      "equals": [
+                        "@length(body('Read_month_COV'))",
+                        0
+                      ]
+                    },
+                    "actions": {
+                      "Create_month_COV": {
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "host": {
+                            "connectionName": "shared_sharepointonline",
+                            "operationId": "HttpRequest",
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                          },
+                          "parameters": {
+                            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                            "parameters/method": "POST",
+                            "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/items",
+                            "parameters/headers": {
+                              "Accept": "application/json;odata=nometadata",
+                              "Content-Type": "application/json;odata=nometadata"
+                            },
+                            "parameters/body": "@string(outputs('Month_values_COV'))"
+                          },
+                          "authentication": "@parameters('$authentication')",
+                          "retryPolicy": {
+                            "type": "none"
+                          }
+                        },
+                        "runAfter": {}
+                      }
+                    },
+                    "else": {
+                      "actions": {
+                        "Month_changed_COV": {
+                          "type": "If",
+                          "expression": {
+                            "or": [
+                              {
+                                "equals": [
+                                  "@outputs('Month_key_COV')",
+                                  "@outputs('Current_month_COV')"
+                                ]
+                              },
+                              {
+                                "equals": [
+                                  "@first(body('Read_month_COV'))?['IsCurrentMonth']",
+                                  true
+                                ]
+                              },
+                              {
+                                "not": {
+                                  "equals": [
+                                    "@first(body('Read_month_COV'))?['HighlightCount']",
+                                    "@length(body('Month_receipts_COV'))"
+                                  ]
+                                }
+                              },
+                              {
+                                "not": {
+                                  "equals": [
+                                    "@first(body('Read_month_COV'))?['ProjectsSubmitted']",
+                                    "@length(body('Covered_roster_COV'))"
+                                  ]
+                                }
+                              },
+                              {
+                                "not": {
+                                  "equals": [
+                                    "@coalesce(first(body('Read_month_COV'))?['ReceiptItemIds'],string(null))",
+                                    "@join(body('Month_item_ids_COV'),';')"
+                                  ]
+                                }
+                              },
+                              {
+                                "not": {
+                                  "equals": [
+                                    "@coalesce(first(body('Read_month_COV'))?['ReceiptLinks'],string(null))",
+                                    "@join(body('Month_links_COV'),';')"
+                                  ]
+                                }
+                              }
+                            ]
+                          },
+                          "actions": {
+                            "Update_month_COV": {
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "host": {
+                                  "connectionName": "shared_sharepointonline",
+                                  "operationId": "HttpRequest",
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                                },
+                                "parameters": {
+                                  "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                  "parameters/method": "POST",
+                                  "parameters/uri": "_api/web/lists/getbytitle('Sponsor Highlights Months')/items(@{first(body('Read_month_COV'))?['Id']})",
+                                  "parameters/headers": {
+                                    "Accept": "application/json;odata=nometadata",
+                                    "Content-Type": "application/json;odata=nometadata",
+                                    "IF-MATCH": "*",
+                                    "X-HTTP-Method": "MERGE"
+                                  },
+                                  "parameters/body": "@string(outputs('Month_values_COV'))"
+                                },
+                                "authentication": "@parameters('$authentication')",
+                                "retryPolicy": {
+                                  "type": "none"
+                                }
+                              },
+                              "runAfter": {}
+                            }
+                          },
+                          "else": {
+                            "actions": {}
+                          },
+                          "runAfter": {}
+                        }
+                      }
+                    },
+                    "runAfter": {
+                      "Month_values_COV": [
+                        "Succeeded"
+                      ]
+                    }
+                  }
+                },
+                "runAfter": {},
+                "runtimeConfiguration": {
+                  "concurrency": {
+                    "repetitions": 1
+                  }
+                }
+              }
+            },
+            "else": {
+              "actions": {
+                "Stop_months_COV": {
+                  "type": "Terminate",
+                  "inputs": {
+                    "runStatus": "Failed",
+                    "runError": {
+                      "code": "CoverageIncomplete",
+                      "message": "Month range is invalid or exceeds ten years."
+                    }
+                  },
+                  "runAfter": {}
+                }
+              }
+            },
+            "runAfter": {
+              "Month_count_COV": [
+                "Succeeded"
+              ]
+            }
+          }
+        },
+        "else": {
+          "actions": {
+            "Stop_input_COV": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CoverageIncomplete",
+                  "message": "Invalid or truncated source. Dashboard refresh stopped; inspect last refreshed timestamps."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "Invalid_receipts_COV": [
+            "Succeeded"
+          ]
+        }
+      }
+    },
+    "runAfter": {}
+  }
+}

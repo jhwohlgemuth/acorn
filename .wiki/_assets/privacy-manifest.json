@@ -96,7 +96,7 @@
     {
       "path": "features/index.md",
       "historical_original_sha256": "b740ed8ea7d8b02a74d090b025cf6ce05f70641c8cc18e85cd9e0c4a6a075655",
-      "sanitized_sha256": "1df82ac876c9a655a174bd142186e2182a1184ea4e0634b2d1caae27ff8710ff"
+      "sanitized_sha256": "a0fe406d03c8d63f490242f0d612bf4adbf136691c9e7879e274adf82424d797"
     },
     {
       "path": "features/interactive-metadata-chat.md",
@@ -176,7 +176,7 @@
     {
       "path": "features/manual-jsonl-ingestion-graduation/_assets/build-demo-pdf.py",
       "historical_original_sha256": "9ca914590b1baa4be80fce4b49b8e0a1f0073100ef6ad12e79c87801bda66626",
-      "sanitized_sha256": "100ab5cffc574fda15adda54f235a5fa4d5b64e68bc69e62d817c5dd5c6b81d2"
+      "sanitized_sha256": "1df64495ed0798e8d461d577259af088df966cd69b32a534527fd27c2a00cf80"
     },
     {
       "path": "features/manual-jsonl-ingestion-graduation/_assets/candidates.json",
@@ -211,7 +211,7 @@
     {
       "path": "features/manual-jsonl-ingestion-graduation/_assets/demo-walkthrough.pdf",
       "historical_original_sha256": "1e868bdf6d210058cccb25fe1f5c5def2a64efab4d5ed3fdc712cf9cddd1fab9",
-      "sanitized_sha256": "907fdc695443a5d0b2c2f3fd03d7d75937ddeb640c143ee581c947b3e4580022"
+      "sanitized_sha256": "a7ec338c8469bed67b9f6f7ab97846a526be084f6260c279a54162b9e8c4500d"
     },
     {
       "path": "features/manual-jsonl-ingestion-graduation/_assets/form-prepared.png",
@@ -1051,7 +1051,7 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/build-workflow-guides.py",
       "historical_original_sha256": "19d7b2a2c9f2aea625a785ac11e3f0bbe8279a34e91e5911effc78280790150f",
-      "sanitized_sha256": "ec908ef5f0e6168cf9506086184244cd52b2fea631c6b79974bd186eaae22556"
+      "sanitized_sha256": "dc616823924a3da0901ef0672f23b9e7e886843943101d407f84505c17164af4"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/catalog-after-reported-credential-update.png",
@@ -1321,22 +1321,22 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/correction-history.html",
       "historical_original_sha256": null,
-      "sanitized_sha256": "f27334cb131e9bb2c05dc21a576a792fefd95c383676caed2d5fe2320e74e0ba"
+      "sanitized_sha256": "aab47425200a8386a1c69363848b0e853f9bb5bdf8fd90da56c1bf0fd559b7b8"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/correction-history.pikchr",
       "historical_original_sha256": null,
-      "sanitized_sha256": "971d1a6348d7f9c7faedcbcd1463c197a1237a3679c15bbbd5bc1b7b6fd181ae"
+      "sanitized_sha256": "a58b9f1b13cdcf2c8d30b32fa46e9802769c3cf9f0cd0a086b98f9a554b66176"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/correction-history.png",
       "historical_original_sha256": null,
-      "sanitized_sha256": "f861e395cbdbc55c9ce6888fc1043a672dc66de36daf460295f04f9302055225"
+      "sanitized_sha256": "9d6df87a4d77a1f9958859307bbbdb1abfb9607cfd2b2b3b174a46e90a6051f8"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/correction-history.svg",
       "historical_original_sha256": null,
-      "sanitized_sha256": "e88d165ef46c13103c17886c079c31ccb1e221a93340f84d4cd9f5d8c965d415"
+      "sanitized_sha256": "b4a7ce5fa68edb5d23d30d9aec6fbbbd133f1919602c6abbcd188ae0b926fd7d"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/flow-checker.png",
@@ -1441,7 +1441,7 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/teams-example.png",
       "historical_original_sha256": "5d2b95ba16e21961426d4e34e2eb3cb1d19affce1641adaed384f6cf377e2cec",
-      "sanitized_sha256": "42b3b34a3f33b56852fea62f188a3e1c508b3f0061e023c9aded2a08ebfc055f"
+      "sanitized_sha256": "d7fc09fbcacd80a6f1522d3a9b80b68643af4d27b33c55fa301a0dced919fa9d"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/visual-hierarchy/README.md",
@@ -1486,7 +1486,7 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/visual-hierarchy/owner-message.html",
       "historical_original_sha256": null,
-      "sanitized_sha256": "ff3376a2ae5a0c46917a5bf6cfc2681cd40cfbde5b61be59fccc213c07c35ad0"
+      "sanitized_sha256": "60797b44bc234e56d4f2bb8417eaab29fb6ea9879fb9bfd595e701206564afba"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/visual-hierarchy/style-message.py",
@@ -1501,27 +1501,27 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/visual-hierarchy/submitter-message.html",
       "historical_original_sha256": null,
-      "sanitized_sha256": "ec7ef3bd0f51034e4802b45d9529eb73040a010cb8131ddbf11e3e62c47df758"
+      "sanitized_sha256": "9307a915c01238b0fa3c692f85624688bfdb34fb9c494976ff10eeb5480184da"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/workflow.html",
       "historical_original_sha256": null,
-      "sanitized_sha256": "84b40dc1f03a7f38d0ce21b7589208491c702799d18d64a5f4201e32ce981d5c"
+      "sanitized_sha256": "de80a616bcf6142cb5ba3ecb9d01de8aa6c8778d8e7a1f2c53a4b93363761e46"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/workflow.pikchr",
       "historical_original_sha256": null,
-      "sanitized_sha256": "1ea44d76c7984e99db63e9cac2830e2990847454ec5f4935629a7fa3ff0e0d5e"
+      "sanitized_sha256": "e8c360c3e861df45b1a753bb2ca6f8b42648fd4ea760123c4563a9615e46b8ad"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/workflow.png",
       "historical_original_sha256": null,
-      "sanitized_sha256": "41faf4f6cdbd556b793cf5e4beb6ef2ab658a5e48f3e6e04b4c3686de9aee1c7"
+      "sanitized_sha256": "c5a9b0c3d14820964786ee8bca9f60e98717ac7627199461d95218ef2bbf28a0"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/notifications/workflow.svg",
       "historical_original_sha256": null,
-      "sanitized_sha256": "05b7a1656cba69471da5743210e901cf89c720cd6ecc3f60fb625e0cbbf9e474"
+      "sanitized_sha256": "611ca234f12d616dcc8e99e8b98fd9cf8317fd0da0a44a75387352370ff3b30d"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/original-screen.pa.yaml",
@@ -1686,7 +1686,7 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/sharepoint/aggregate-tests/README.md",
       "historical_original_sha256": null,
-      "sanitized_sha256": "ca79f7efac147de97a61564a6fa6649916119e68d22d5307b995d6974fee2f70"
+      "sanitized_sha256": "aafdbad33f1b4f1ea16708a53753ca4a46e04152ba68e9b81dca3b2e5d1e1f90"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/sharepoint/aggregate-tests/accepted-isolated-exporter.clipboard.json",
@@ -1896,7 +1896,7 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/sharepoint/backup/README.md",
       "historical_original_sha256": "6897554ec36a786c1b8199fdaabe11208a9676cb0ca62acf37a295146303b853",
-      "sanitized_sha256": "5547c938dda164f54208f8f3257bc5b7d8ca8f91df686e1a434d8944d818f97e"
+      "sanitized_sha256": "2677080b0df2b36715b7045f990e9c173f8061fcec201bb23896d12a74ade68a"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/sharepoint/backup/Receipts-snapshot.json",
@@ -2366,7 +2366,7 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/sharepoint/cutover/README.md",
       "historical_original_sha256": "7ca6547cd02ed8aae5a9b38e102c949566c94e636a02f1e94863577e7bf54b1b",
-      "sanitized_sha256": "ac28a96694f0a054a3322138339f15901f427e3c6d17b8555ea2c4ff18586afc"
+      "sanitized_sha256": "d1a2a94d687d6caceaf506d70dab82c993d23cc0f2b8a487a3898d3c229b96be"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/sharepoint/cutover/app-change-audit.json",
@@ -2586,7 +2586,7 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/sharepoint/export-failure-tests/README.md",
       "historical_original_sha256": null,
-      "sanitized_sha256": "987ceab2057346e83b3ee1b72375e60ce1136316b04cca2c43898b66fa5ece66"
+      "sanitized_sha256": "0116100afe5419acf9398cdc02b4673dc375969851907b6fb5eab4a266e74021"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/sharepoint/export-failure-tests/build_native_tests.py",
@@ -2721,7 +2721,12 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/sharepoint/layout.pa.yaml",
       "historical_original_sha256": null,
-      "sanitized_sha256": "4f95afe897d4a021bb11ec871fd4fd7524fdd770ded3d607848f5fab62f7e416"
+      "sanitized_sha256": "57755a01e133803ac772bb025230b6be3548e1bc55581878ffa0916dc3662796"
+    },
+    {
+      "path": "features/powerapps-jsonl-intake/_assets/sharepoint/naming-confirmation.png",
+      "historical_original_sha256": null,
+      "sanitized_sha256": "6cab40aa9df06b71b8b1b5bc59226cc28b43a27a0dec98372d632e0bc170c260"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/sharepoint/pa21-20261026/app-bindings.png",
@@ -2986,7 +2991,7 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/sharepoint/result-panel.pa.yaml",
       "historical_original_sha256": null,
-      "sanitized_sha256": "232418cc1b974b2f781b61be1ce54de1efc8c9870b3e662fe97fe688bccb0a2b"
+      "sanitized_sha256": "f096cce4a4ce0eaf96efbfbb476cdac094ea84048a37f18eb02437923529d419"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/sharepoint/submission-editing/README.md",
@@ -3026,7 +3031,7 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/sharepoint/submission-editing/correction-message.html",
       "historical_original_sha256": null,
-      "sanitized_sha256": "a63c0cb21f9b0bbb2b34a79e15b70acaf9b4ac9b6776eb0f3bfcc3dfc515dc0e"
+      "sanitized_sha256": "6b01fdc5fb9dbf4eec03833c409e381fe859cba4a4a45df351e79ad35f52c6e5"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/sharepoint/submission-editing/history-button.pa.yaml",
@@ -3081,7 +3086,7 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/sharepoint/submission-editing/production-control-properties.json",
       "historical_original_sha256": null,
-      "sanitized_sha256": "7435cb8c5355f9bbe37ae82c0cacf93176eb1866b02f779d1d56e333d3387830"
+      "sanitized_sha256": "d976028e649f38e1963a2fd97c6e4a20cdc2f540e636b6c344de09b7f07f8748"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/sharepoint/submission-editing/production-history-button.pa.yaml",
@@ -3846,12 +3851,12 @@
     {
       "path": "features/powerapps-jsonl-intake/_assets/sponsor-highlights-developer-guide.pdf",
       "historical_original_sha256": "db26706c02cd78ef17cc473aa185d961ba882be22f4e734205a49c289d71d010",
-      "sanitized_sha256": "f5d3a6616c56af1a810b3a7962ac7c4dfa284b5af7e8f2c3a384d01b8dc5d0c6"
+      "sanitized_sha256": "833ea91d3062e30113b0e1359983d4412c6c42b9c30d17fcb35303b6263d9b5a"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/sponsor-highlights-user-reviewer-guide.pdf",
       "historical_original_sha256": "78a3936ccb551bbba9de068ff1af30ead58c5d5179adb077ae96f5496460691a",
-      "sanitized_sha256": "5670dd36f5d93969fcdd5839614f5969fd80787928ee68c6c4ad8212c2879a34"
+      "sanitized_sha256": "706c012bbf35d487ddd6c27995c5ad15d150a93e164af4228d82f143a9a3ae14"
     },
     {
       "path": "features/powerapps-jsonl-intake/_assets/storage-unavailable-preview-feedback.png",
@@ -4066,7 +4071,7 @@
     {
       "path": "features/powerapps-jsonl-intake/browser-recovery-acceptance.md",
       "historical_original_sha256": null,
-      "sanitized_sha256": "b9fc39b6eb4af336047b2c4c525661fd3e298d9cda440f7a83d7b85c198028ac"
+      "sanitized_sha256": "3a5cc7149e0d33fec54f45974c9ead906efed2b72e77c1494ced454b5bc285f8"
     },
     {
       "path": "features/powerapps-jsonl-intake/contributor-access.md",
@@ -4074,24 +4079,29 @@
       "sanitized_sha256": "6e0296795b5c7ec1c2026164cd01c12ae1d7a06e7771cded3f90cedc1f041e10"
     },
     {
+      "path": "features/powerapps-jsonl-intake/highlights-hub.md",
+      "historical_original_sha256": null,
+      "sanitized_sha256": "55cdf108ccc914acd01d4a7ebefceb9671d805e4a4545b4afe4b5269eca76243"
+    },
+    {
       "path": "features/powerapps-jsonl-intake/index.md",
       "historical_original_sha256": "86da8a19d5215224a56ffe6a901af17fca02c42de1d5dae32bb8097280481ea6",
-      "sanitized_sha256": "14bc594f38791303ce0cd3380f4d4332b37adb217034bc21f6937dcc4f983497"
+      "sanitized_sha256": "e5f9f09b7fd7e959e9b02ab177963defc4ccb8a5b9a9d72abd7e35720d3261aa"
     },
     {
       "path": "features/powerapps-jsonl-intake/intake-access-decisions.md",
       "historical_original_sha256": null,
-      "sanitized_sha256": "54ec4d0711d7060a302211d359b42a6734e9913c6d0af3093dff0dfba1c6ba39"
+      "sanitized_sha256": "f7c91db6bf6c439b084f7180090bf3e761b619a763aea8fa76e3e93de7d5edab"
     },
     {
       "path": "features/powerapps-jsonl-intake/notification-walkthrough.md",
       "historical_original_sha256": "9994fa40c0c7a24d44de5f19c4c5af19e0a9001fa98528f616aeda5c58277f81",
-      "sanitized_sha256": "3742cdb682558bc506dc35a7b042da63b44259eeda3a9e3ae649f51a9c2c7d4b"
+      "sanitized_sha256": "58aef662351afe3e4d9d44ee9ec3de0d8ae35dca19d7837574a14e242709381e"
     },
     {
       "path": "features/powerapps-jsonl-intake/pilot-runbook.md",
       "historical_original_sha256": "63fadbe2a5f0341d8da82224e1cbe92973b7c11203b87c6dd2289fecaaebfdbe",
-      "sanitized_sha256": "634f650dc2aa211615c7cc16338050a53f60ef6d2b23813878f8bee390dd053e"
+      "sanitized_sha256": "8f8402dc7dbb6ddecf31036cc4abe7722da56db010e642241bd0558929f20e6b"
     },
     {
       "path": "features/powerapps-jsonl-intake/restore-target-readiness.md",
@@ -4101,7 +4111,7 @@
     {
       "path": "features/powerapps-jsonl-intake/sharepoint-pilot.md",
       "historical_original_sha256": "e58b68153681e963b6e03ea14f8cb4a3f20a2f56414b829a20f39016df196833",
-      "sanitized_sha256": "c9a0ae8bcc76603641435bf24dc7d773aff05c0f2832c5b5a8c93279d5398da5"
+      "sanitized_sha256": "929e1710809140f564a28acbd58f916967a32aa44bfcce3d4a3c4643de485c1b"
     },
     {
       "path": "features/powerapps-jsonl-intake/source-bundle-readme.md",
@@ -4111,7 +4121,7 @@
     {
       "path": "features/powerapps-jsonl-intake/test-artifact-cleanup.md",
       "historical_original_sha256": null,
-      "sanitized_sha256": "dcce75ac3da18b362f4ac6169e559b6f257abe312efdb94d77d400ae9bbc1195"
+      "sanitized_sha256": "e07578ec49c0d50f10d312de595470c81c5cdd63657ea289661734258a90b9f8"
     },
     {
       "path": "features/powerapps-jsonl-intake/write-failure-acceptance.md",
@@ -4336,7 +4346,7 @@
     {
       "path": "index.md",
       "historical_original_sha256": "e9bc9c7fd4d699c788f7ad0412908f158e3775fa4c89ecb3b4d289f6df7a3b95",
-      "sanitized_sha256": "7dee29eb7f6588fa3af61fa2c94c4bdf760a55d43f670f2e91ceac971dd68ce5"
+      "sanitized_sha256": "b900bb52a81699f0da712cfb2472625c75669eaed25e7868ccd7f350d7e80f74"
     },
     {
       "path": "migrations/index.md",
@@ -4356,12 +4366,12 @@
     {
       "path": "parallel-execution.md",
       "historical_original_sha256": "c183822a254e61c7815fc95ddd445aa1d5173222b630d80357d5b62d48ca52bb",
-      "sanitized_sha256": "522cf896976e571d734f1d11f1ea342e5547ee60b9f5f7219087e5cc0e115aba"
+      "sanitized_sha256": "4fd31c375f9ccc16e103ff097757f22140cb22c5015b8ace6abd0239de58735b"
     },
     {
       "path": "plan-network.md",
       "historical_original_sha256": "40e24f683b45161b2b96963abb724c0e797f39a92b5fdb509e826e8069640a59",
-      "sanitized_sha256": "9401c37a913bff118bab43d2463e00459b906f5d6ba6279a54b241f91e0ccbd8"
+      "sanitized_sha256": "d4a6db1d114229f49095e7ae2c732b397d8929da5528632d7e46ece8db782a69"
     },
     {
       "path": "privacy.md",
@@ -4535,15 +4545,27 @@
     "popup_shadow_review": "Added a soft vector drop shadow behind the unchanged redacted screenshot; rebuilt and visually checked page 2."
   },
   "workflow_tag_update": {
-    "date": "2026-10-27",
-    "change": "NEW badge sits on the upper-left edge of Submit highlight in the shared workflow map.",
-    "visual_review": "Rendered and checked user/reviewer page 3, developer page 2, and demo walkthrough page 2; label clears text and arrows."
+    "date": "2026-10-28",
+    "change": "NEW uses a larger yellow oval with a dark outline and bold text on the upper-left edge; role labels retain their rectangular design.",
+    "visual_review": "All three rebuilt PDF workflow maps rendered and checked; no overlap or clipping."
   },
   "guide_date_only_update": {
     "date": "2026-10-27",
     "change": "Report command examples use date-only --from and --through bounds; explanations specify midnight UTC and exclusive upper bound.",
     "pdf_scan": "All five retained wiki PDFs scanned; no timestamp-valued --from or --through examples remain.",
     "visual_review": "Developer page 7 and demo page 5 checked at reading size; demo map remains page 2 and uses the current workflow diagram.",
+    "live_systems_changed": false
+  },
+  "workflow_role_update": {
+    "date": "2026-10-28",
+    "change": "Role badges and matching colors distinguish USER, AUTOMATED, DEV / REVIEWER, and DEVELOPER. All ACORN steps belong to the developer. Automated collection and manual download are distinguished.",
+    "instances": [
+      "user/reviewer guide page 3",
+      "developer guide page 2",
+      "demo walkthrough page 2",
+      "workflow Pikchr/SVG/PNG/HTML"
+    ],
+    "visual_review": "All three rebuilt PDF maps rendered and checked; role tags, NEW badge and arrowheads remain readable.",
     "live_systems_changed": false
   }
 }

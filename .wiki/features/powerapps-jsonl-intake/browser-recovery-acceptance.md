@@ -20,7 +20,7 @@ The user uploaded the package and Power Apps successfully imported all three res
 | --- | --- | --- |
 | PA14 TEST ONLY Sponsor Highlights | `62ef8e08-4253-4fd8-91e1-a7c0a13d7fd3` | Rebound to both test flows, saved and published; simulated panels exercised |
 | PA14 TEST ONLY ACORN Project Catalog | `8fdddd79-52e5-4576-bd95-19c3ffb40be7` | On; no connections; trigger plus one static catalog response |
-| PA14 TEST ONLY ACORN Logbook GitLab JSONL Intake (Draft) | `7364dc72-5b4b-45aa-9dea-c95dc91614be` | On; no connections; trigger plus one simulated response; checker reported zero errors |
+| PA14 TEST ONLY ACORN Logbook GitLab Intake (Draft) | `7364dc72-5b4b-45aa-9dea-c95dc91614be` | On; no connections; trigger plus one simulated response; checker reported zero errors |
 
 A direct simulated-intake run with synthetic UUID `d674aaf7-daf0-47ef-a657-5f77616de291` and `[conflict]` marker succeeded: run `08584087123323260219671440510CU30`, 107 ms. Both trigger and response actions succeeded. Secure input/output settings conceal the response payload in run history, so this proves execution of the isolated fixture, not the app's conflict-panel behavior or a real GitLab receipt.
 

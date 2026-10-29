@@ -33,7 +33,7 @@ All storage is under `https://ornl.sharepoint.com/sites/ResearchEnablement`.
 | Deployed older exporter | `51efa5f9-6e69-4d75-a53b-2c2965fd51bd` | Not imported |
 | Receipt list | `a904a6c6-5dd0-427b-9575-8167c4c0c412` | `13fa719a-32ae-45de-b444-95d3a33e8048` — PA24 TEST ONLY Receipts |
 | Project list | `88dfa78d-a62f-4e0f-aae5-0d5ea52758ed` | `c482b248-39fb-45f8-833e-26baf05cc15c` — PA24 TEST ONLY Projects |
-| JSONL library | `684bc3a4-751e-4ded-b118-7dbc568e5621` | `905b083e-e909-4eef-a496-166a2b2bc8d7` — PA24 TEST ONLY JSONL |
+| JSONL library | `684bc3a4-751e-4ded-b118-7dbc568e5621` | `905b083e-e909-4eef-a496-166a2b2bc8d7` — PA24 TEST ONLY Exports |
 
 Existing SharePoint connection `shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104` was selected without credential changes. The native intake package also references Teams connection `shared-teams-101f8962-eebf-41cd-ba5a-8ff380c0b050`; the restored test intake's notification action was removed before use. No Teams/email message was sent by this exercise.
 

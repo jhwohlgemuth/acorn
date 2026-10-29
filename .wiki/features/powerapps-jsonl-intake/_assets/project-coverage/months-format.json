@@ -1,0 +1,172 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json",
+  "hideSelection": true,
+  "hideColumnHeader": true,
+  "rowFormatter": {
+    "elmType": "div",
+    "style": {
+      "display": "flex",
+      "flex-direction": "column",
+      "align-items": "stretch",
+      "text-align": "left",
+      "padding": "22px",
+      "margin": "8px 0",
+      "border-radius": "12px",
+      "background-color": "#F2F7F5",
+      "border-left": "5px solid #00785B",
+      "width": "100%",
+      "box-sizing": "border-box"
+    },
+    "children": [
+      {
+        "elmType": "div",
+        "txtContent": "[$Title]",
+        "style": {
+          "font-size": "24px",
+          "font-weight": "700",
+          "color": "#004C54"
+        }
+      },
+      {
+        "elmType": "div",
+        "txtContent": "=if([$ProjectsExpected] == 0, 'No expected projects configured', if([$ProjectsSubmitted] == [$ProjectsExpected], 'All projects covered', toString([$ProjectsExpected]-[$ProjectsSubmitted]) + ' projects awaiting highlights'))",
+        "style": {
+          "font-size": "18px",
+          "font-weight": "600",
+          "margin-top": "8px",
+          "color": "#183C43"
+        }
+      },
+      {
+        "elmType": "div",
+        "txtContent": "=toString([$ProjectsSubmitted]) + ' of ' + toString([$ProjectsExpected]) + ' projects submitted'",
+        "style": {
+          "margin-top": "5px"
+        }
+      },
+      {
+        "elmType": "div",
+        "style": {
+          "width": "100%",
+          "height": "12px",
+          "background-color": "#DCE5E2",
+          "border-radius": "6px",
+          "margin-top": "12px"
+        },
+        "children": [
+          {
+            "elmType": "div",
+            "style": {
+              "height": "12px",
+              "background-color": "#00785B",
+              "border-radius": "6px",
+              "width": "=if([$ProjectsExpected] == 0, '0%', toString(100*[$ProjectsSubmitted]/[$ProjectsExpected]) + '%')"
+            }
+          }
+        ]
+      },
+      {
+        "elmType": "div",
+        "txtContent": "=toString([$HighlightCount]) + ' highlights \u00b7 ' + toString([$GeneralCount]) + ' report-wide updates included'",
+        "style": {
+          "margin-top": "12px",
+          "color": "#405D63"
+        }
+      },
+      {
+        "elmType": "a",
+        "txtContent": "View projects for this month \u2192",
+        "style": {
+          "display": "inline-block",
+          "margin-top": "12px",
+          "font-weight": "600",
+          "color": "#00674F"
+        },
+        "attributes": {
+          "href": "='https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Coverage/AllItems.aspx?FilterField1=MonthKey&FilterValue1=' + [$Title]",
+          "target": "_self"
+        }
+      },
+      {
+        "elmType": "div",
+        "style": {
+          "display": "=if([$ReceiptLinks] == '', 'none', 'flex')",
+          "flex-direction": "column",
+          "width": "100%",
+          "margin-top": "12px"
+        },
+        "children": [
+          {
+            "elmType": "div",
+            "txtContent": "View submissions \u00b7 reviewers",
+            "style": {
+              "font-size": "12px",
+              "font-weight": "600",
+              "color": "#526A70",
+              "margin-bottom": "4px"
+            }
+          },
+          {
+            "elmType": "div",
+            "style": {
+              "display": "flex",
+              "flex-wrap": "wrap",
+              "max-height": "140px",
+              "overflow-y": "auto"
+            },
+            "children": [
+              {
+                "elmType": "a",
+                "txtContent": "='Submission #' + substring([$receipt],0,indexOf([$receipt],'|'))",
+                "style": {
+                  "color": "#00674F",
+                  "font-size": "13px",
+                  "font-weight": "600",
+                  "padding": "5px 9px",
+                  "margin": "3px 6px 3px 0",
+                  "border": "1px solid #AEC8BF",
+                  "border-radius": "6px",
+                  "background-color": "#FFFFFF",
+                  "text-decoration": "none"
+                },
+                "attributes": {
+                  "href": "='https://ornl.sharepoint.com/sites/ResearchEnablement/Lists/Sponsor%20Highlights%20Intake%20Pilot/DispForm.aspx?ID=' + substring([$receipt],0,indexOf([$receipt],'|'))",
+                  "target": "_blank",
+                  "title": "=replaceAll(replaceAll(replaceAll(substring([$receipt],indexOf([$receipt],'|')+1,indexOf([$receipt]+'|END','|END')),'%7C','|'),'%3B',';'),'%25','%')"
+                },
+                "forEach": "receipt in split([$ReceiptLinks],';')"
+              }
+            ]
+          },
+          {
+            "elmType": "div",
+            "txtContent": "Hover for the original summary. Opening the full receipt requires reviewer access.",
+            "style": {
+              "font-size": "11px",
+              "color": "#526A70",
+              "margin-top": "4px"
+            }
+          }
+        ]
+      },
+      {
+        "elmType": "div",
+        "txtContent": "=if([$IsCurrentMonth] && Number(@now)-Number([$RefreshedAt]) > 900000,'Refresh overdue \u2014 last successful refresh: ','Refreshed: ') + toLocaleString([$RefreshedAt])",
+        "style": {
+          "font-size": "12px",
+          "margin-top": "12px",
+          "color": "=if([$IsCurrentMonth] && Number(@now)-Number([$RefreshedAt]) > 900000, '#9A3412', '#526A70')"
+        }
+      },
+      {
+        "elmType": "div",
+        "txtContent": "[$RosterBasis]",
+        "style": {
+          "font-size": "12px",
+          "color": "#526A70",
+          "margin-top": "4px"
+        }
+      }
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 ---
 type: Plan
-title: "PowerApp and Power Automate JSONL intake"
-description: "Finish standalone general reporting, approved shared deployment and independent GitLab acceptance; the SharePoint pilot and submission editing are accepted."
+title: "PowerApp and Power Automate highlight intake"
+description: "Complete standalone general reporting, shared deployment and independent GitLab acceptance."
 difficulty: medium
 impact: critical
 package: [workspace]
@@ -22,7 +22,11 @@ Preserve the separate GitLab pilot Off for low-effort restoration and its unfini
 
 The [report-placement update](_assets/sharepoint/report-placement/README.md) puts placement first and routes title-page updates to a separate `general` receipt destination. Standalone general-logbook reporting remains PA-29; the reviewed local correction contract is accepted with full workspace tests and a four-receipt/two-entry CLI acceptance run. [Submission-editing evidence](_assets/sharepoint/submission-editing/README.md) records the accepted isolated app/flow tests. Published editing is accepted for the owner and standard-license contributor: private history, correction save, owner/contributor Teams confirmation and exact collected export passed. PA-31 is complete and pruned; [participant evidence](_assets/sharepoint/submission-editing/participant-acceptance.json) preserves the result.
 
-Supporting material: [pilot runbook](pilot-runbook.md), [notification walkthrough](notification-walkthrough.md), and [source bundle](source-bundle-readme.md). Form sources, PDFs and acceptance files are in `_assets/`.
+The [monthly project coverage dashboard](project-coverage.md) is published and refreshing every five minutes. Current/history counts, correction exclusion, repeated refresh and desktop/mobile views passed. The current month stays visible; previous months open from a collapsed history section. On October 28, the owner relayed successful contributor-account access to both October and September project views. PA-32 and PA-33 are accepted and pruned; dashboard-only page/list Read grants are verified. Populated month/project cards also link to the original counted submissions; opening those links requires existing reviewer access. The owner approved sharing original summaries with all dashboard viewers through label tooltips; raw intake/export grants remain unchanged.
+
+The published [Sponsor Highlights entry hub](highlights-hub.md) links the form, coverage dashboard, guide library and reviewer resources. Existing dashboard contributors have approved page/library Read grants; contributor-account verification and the owner's deferred PDF uploads remain.
+
+Supporting material: [operating runbook](pilot-runbook.md), [notification walkthrough](notification-walkthrough.md), and [source bundle](source-bundle-readme.md). Form sources, PDFs and acceptance files are in `_assets/`.
 
 # Current evidence
 
@@ -37,7 +41,7 @@ October 27 PA-25 deployment is accepted in the existing Jason pilot. The publish
 
 The original DH access investigation is resolved by the owner's October 26 confirmation: he lacked a premium entitlement required by the GitLab custom connector. No DH-specific check remains. See the [licensing resolution](intake-access-decisions.md#original-participant-licensing-issue-resolved). PA-22 acceptance covers the separate SharePoint route with the approved standard-license participant; it does not establish access to the original premium app.
 
-Durable evidence: [SharePoint native backup and restore](_assets/sharepoint/backup/README.md), [SharePoint pilot](sharepoint-pilot.md), [GitLab boundaries](boundary-acceptance.md), [access decision](intake-access-decisions.md#known-limitation-and-pa-02-closure), [native restore handoff](_assets/solution-export/PA17-RESTORE-HANDOFF.md), [browser recovery](browser-recovery-acceptance.md), [write failure](write-failure-acceptance.md), [notification routing](notification-walkthrough.md), and [manual demo](../manual-jsonl-ingestion-graduation/walkthrough.md). These records preserve dated runs and limitations without keeping completed phases here.
+Durable evidence: [SharePoint native backup and restore](_assets/sharepoint/backup/README.md), [SharePoint workflow](sharepoint-pilot.md), [GitLab boundaries](boundary-acceptance.md), [access decision](intake-access-decisions.md#known-limitation-and-pa-02-closure), [native restore handoff](_assets/solution-export/PA17-RESTORE-HANDOFF.md), [browser recovery](browser-recovery-acceptance.md), [write failure](write-failure-acceptance.md), [notification routing](notification-walkthrough.md), and [manual demo](../manual-jsonl-ingestion-graduation/walkthrough.md). These records preserve dated runs and limitations without keeping completed phases here.
 
 The October 26 [cleanup record](test-artifact-cleanup.md#october-26-portfolio-and-inventory-review) records removed prototypes/drafts and retained dependencies. PA-15/17 test copies remain needed; their GitLab write-capable test flows are Off. Current PDFs cover both branches and remain available in `_assets/`. The combined SharePoint file is a collected logbook; individual receipt files remain separate evidence. Direct SharePoint URL ingestion is not implemented: download the file before local CLI ingestion. The separate [SharePoint CLI download plan](../sharepoint-jsonl-download/index.md) owns reusable OAuth 2.0/Entra authentication with macOS/Windows/Linux credential caching and Graph file capture, with SharePoint URI intake and verified local snapshots as the first consumer. It adds ACRE `auth.profiles`/`auth.sources`, first-declared-profile defaults, `--device` and protected OS caching. It does not replace the recorded participant access/licensing evidence or the accepted producer completeness checks, and requires no operational app/flow changes.
 
@@ -52,7 +56,7 @@ October 24 acceptance constraint: perform PA-14/17 and PA-02/15/16 testing only 
 The two storage contracts differ:
 
 - GitLab conditionally creates/appends an inbox while preserving previous bytes and proving the immutable commit. Retry uses the same UUID/payload; unavailable proof remains unresolved.
-- SharePoint stores one immutable list receipt per UUID and one individual JSONL receipt file. The five-minute exporter rebuilds a collected snapshot through a captured item-ID cutoff. It does not append to or drain the list. The app's JSONL-ready panel confirms the individual receipt file, not inclusion in the latest combined snapshot. New arrivals after the cutoff wait for a later run.
+- SharePoint stores one immutable list receipt per UUID and one individual JSONL receipt file. The five-minute exporter rebuilds a collected snapshot through a captured item-ID cutoff. It does not append to or drain the list. The app's export-ready panel confirms the individual receipt file, not inclusion in the latest combined snapshot. New arrivals after the cutoff wait for a later run.
 
 The collected file is a retained history, not a work queue. Applying a downloaded batch does not delete list rows, remove exported lines, mark remote receipts processed or acknowledge anything to the producer. Repeated downloads must preserve UUIDs and exact bytes so existing local replay/conflict checks can work; use the same local intake state/destinations. A fresh local workspace is not evidence that old submissions were already applied elsewhere. Do not delete older list rows to evade the export cap. The current 5,000-row/10 MiB bounds remain operational limits until a separately approved retention/scale design exists. Operators check combined-file freshness and exporter run history before downloading; no automated combined-export failure alert is currently evidenced, and a fresh app confirmation alone cannot establish a fresh collected file.
 
@@ -116,7 +120,7 @@ Inspect route-specific evidence: SharePoint list UUID/payload, individual receip
 - Focused validation: Inspect exported app, flows, connector and connection references; verify no secret values; perform import validation in an authorized disposable target when available, otherwise record the export as partial evidence and keep PA-17 open until restore verification is accepted.
 - Handoff: Record export version, hashes and restore result. A source ZIP alone does not satisfy this phase.
 
-## PA-12 — Move the accepted pilot to an approved shared environment
+## PA-12 — Move the accepted workflow to an approved shared environment
 
 - Status: blocked
 - Budget: 5 active hours maximum
