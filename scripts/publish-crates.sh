@@ -27,6 +27,7 @@ crates=(
     acorn-wasm
     acorn-tui
     acorn-cli
+    acorn-daemon
 )
 
 cargo xtask check-release-crates "${crates[@]}"
