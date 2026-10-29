@@ -21,7 +21,6 @@ acorn-schema = { workspace = true, features = ["std"] }
 acorn-service = { workspace = true, features = ["std"] }
 clap = { version = "4.4.2", features = ["derive"] }
 directories = { workspace = true }
-serde = { workspace = true, features = ["std"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt", "signal"] }
 tracing = { workspace = true }
