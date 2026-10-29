@@ -39,10 +39,14 @@ use acorn_schema::{
     validation::{is_identifier, Validate, ValidationReport},
     OneOrMany,
 };
+use acorn_service::{JobId, JobSchedule, WorkflowAction};
 use alloc::collections::{BTreeMap, BTreeSet};
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
-use core::iter::once;
+use core::{
+    iter::once,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+};
 #[cfg(not(feature = "exec"))]
 use feature_configuration::ScriptManifestSource;
 #[cfg(not(feature = "agentic"))]
@@ -368,6 +372,10 @@ pub struct ApplicationConfiguration {
     #[eserde(compat)]
     #[serde(default)]
     pub config: Option<sync::Config>,
+    /// Persistent daemon listeners, jobs, and TLS paths.
+    #[eserde(compat)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub daemon: Option<DaemonConfiguration>,
     /// Shared destination registry for intake and reporting routing
     #[eserde(compat)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -423,6 +431,90 @@ pub struct ApplicationConfiguration {
     #[eserde(compat)]
     #[serde(default)]
     pub scripts: Option<OneOrMany<Entry>>,
+}
+/// Listener addresses for the persistent daemon.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct DaemonBindConfiguration {
+    /// Optional typed gRPC listener address.
+    #[serde(default = "default_daemon_grpc_bind")]
+    pub grpc: Option<SocketAddr>,
+    /// Optional JSON-RPC listener address.
+    #[serde(default = "default_daemon_rpc_bind")]
+    pub rpc: Option<SocketAddr>,
+}
+/// Persistent daemon configuration embedded in ACRE.
+#[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct DaemonConfiguration {
+    /// Protocol listener addresses; explicit `null` values disable a protocol.
+    #[serde(default)]
+    pub bind: DaemonBindConfiguration,
+    /// Fixed ACORN jobs in deterministic source order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub jobs: Vec<DaemonJobConfiguration>,
+    /// Optional paired TLS paths for non-loopback listeners.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tls: Option<DaemonTlsConfiguration>,
+}
+/// Configuration for one fixed persistent daemon job.
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct DaemonJobConfiguration {
+    /// Stable job identifier.
+    pub id: JobId,
+    /// Portable project-relative input location.
+    pub input: Location,
+    /// Registered workflow action.
+    pub kind: WorkflowAction,
+    /// Absolute project root resolved by the daemon host.
+    pub root: PathBuf,
+    /// File-change and/or fixed-interval schedule.
+    pub triggers: JobSchedule,
+}
+/// Paired certificate-chain and private-key paths for the persistent daemon.
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct DaemonTlsConfiguration {
+    /// PEM certificate-chain path.
+    pub cert: PathBuf,
+    /// PEM private-key path.
+    pub key: PathBuf,
+}
+impl Default for DaemonBindConfiguration {
+    fn default() -> Self {
+        Self {
+            grpc: default_daemon_grpc_bind(),
+            rpc: default_daemon_rpc_bind(),
+        }
+    }
+}
+impl Validate for DaemonJobConfiguration {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        let input: &str = (&self.input).into();
+        ValidationReport::new()
+            .merge(
+                "input",
+                match input == "-" || !self.input.is_canonical_repository_path() {
+                    | true => ValidationReport::from_error(
+                        "",
+                        ValidationError::new("repository_path").with_message("Daemon job input must be a canonical project-relative path"),
+                    ),
+                    | false => ValidationReport::new(),
+                },
+            )
+            .merge(
+                "root",
+                match self.root.is_absolute() {
+                    | true => ValidationReport::new(),
+                    | false => ValidationReport::from_error(
+                        "",
+                        ValidationError::new("absolute_path").with_message("Daemon job root must be an absolute path"),
+                    ),
+                },
+            )
+            .finish()
+    }
 }
 /// Command defaults stored in application configuration.
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -1578,6 +1670,12 @@ impl Default for ScriptOptions {
     fn default() -> Self {
         Self { enabled: true }
     }
+}
+fn default_daemon_grpc_bind() -> Option<SocketAddr> {
+    Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 50051))
+}
+fn default_daemon_rpc_bind() -> Option<SocketAddr> {
+    Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 8001))
 }
 fn default_intake_branch() -> String {
     DEFAULT_INTAKE_BRANCH.to_string()

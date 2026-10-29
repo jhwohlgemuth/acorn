@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/acorn-analysis", "crates/acorn-cli", "crates/acorn-cmd", "crates/acorn-core", "crates/acorn-diff", "crates/acorn-host", "crates/acorn-lib", "crates/acorn-macros", "crates/acorn-schema", "crates/acorn-server", "crates/acorn-service", "crates/acorn-tui", "crates/acorn-wasm", "tests/downstream-host", "xtask"]
+members = ["crates/acorn-analysis", "crates/acorn-cli", "crates/acorn-cmd", "crates/acorn-core", "crates/acorn-daemon", "crates/acorn-diff", "crates/acorn-host", "crates/acorn-lib", "crates/acorn-macros", "crates/acorn-schema", "crates/acorn-server", "crates/acorn-service", "crates/acorn-tui", "crates/acorn-wasm", "tests/downstream-host", "xtask"]
 resolver = "2"
 
 [workspace.package]

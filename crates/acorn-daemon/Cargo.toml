@@ -1,0 +1,34 @@
+[package]
+name = "acorn-daemon"
+version.workspace = true
+edition = "2021"
+rust-version.workspace = true
+authors.workspace = true
+description = "Persistent host process for ACORN APIs and configured jobs"
+documentation.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "acornd"
+path = "src/main.rs"
+
+[dependencies]
+acorn-core = { workspace = true, features = ["std"] }
+acorn-host = { version = "0.5.3", path = "../acorn-host", features = ["fs"] }
+acorn-lib = { version = "0.5.3", path = "../acorn-lib", default-features = false, features = ["analysis"] }
+acorn-schema = { workspace = true, features = ["std"] }
+acorn-service = { workspace = true, features = ["std"] }
+clap = { version = "4.4.2", features = ["derive"] }
+directories = { workspace = true }
+serde = { workspace = true, features = ["std"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt", "signal"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["fmt"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

@@ -4,6 +4,7 @@ extern crate alloc;
 
 pub mod client;
 pub mod error;
+pub mod job;
 pub mod model;
 pub mod operation;
 pub mod registry;
@@ -13,6 +14,7 @@ pub mod service;
 pub use acorn_schema::vocabulary::VocabularyFuzzyMode;
 pub use client::ServiceClient;
 pub use error::{ServiceError, ServiceErrorKind, ServiceResult};
+pub use job::{CoalescingState, CoalescingTransitionError, JobId, JobSchedule, JobTrigger, RunState};
 pub use model::{
     CheckReadabilityRequest, CheckReadabilityResponse, Diagnostic, FileChange, FileChangeKind, ProcessRepositoryRequest, ProcessRepositoryResponse,
     RepositoryFileInput, ValidateResearchActivityRequest, ValidateResearchActivityResponse, ValidateStandardRequest, WorkflowAction,

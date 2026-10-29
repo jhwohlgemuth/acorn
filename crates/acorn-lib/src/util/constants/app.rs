@@ -45,6 +45,8 @@ pub const COMPACT_LOGO: [&str; 6] = [
     "██║  ██║╚██████╗╚██████╔╝██║  ██║██║ ╚████║",
     "╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝",
 ];
+/// Stable cache and data namespace for the persistent daemon.
+pub const DAEMON_NAMESPACE: &str = "daemon";
 /// Default cache TTL in seconds (1 month = 30 days)
 pub const DEFAULT_CACHE_TTL_SECONDS: u64 = 30 * 24 * 60 * 60;
 /// Default CiteAs API domain.

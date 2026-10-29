@@ -23,8 +23,9 @@ use acorn_schema::{
     validation::{Validate, ValidationReport},
 };
 pub use application::{
-    AcreSchemaVersion, ApplicationConfiguration, ApplicationOptions, BucketReference, CrosswalkOptions, Destination, Folder, FolderOptions,
-    FolderRegistry, Hook, ResolvedFolder, ScriptOptions, VariableReferences, WhitelistLookup,
+    AcreSchemaVersion, ApplicationConfiguration, ApplicationOptions, BucketReference, CrosswalkOptions, DaemonBindConfiguration, DaemonConfiguration,
+    DaemonJobConfiguration, DaemonTlsConfiguration, Destination, Folder, FolderOptions, FolderRegistry, Hook, ResolvedFolder, ScriptOptions,
+    VariableReferences, WhitelistLookup,
 };
 
 pub use application::{SCRIPT_OPTION_ROOTS, UNGOVERNED_ROOT_ATTRIBUTES};

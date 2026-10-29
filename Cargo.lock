@@ -140,6 +140,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "acorn-daemon"
+version = "0.5.3"
+dependencies = [
+ "acorn-core",
+ "acorn-host",
+ "acorn-lib",
+ "acorn-schema",
+ "acorn-service",
+ "clap",
+ "directories",
+ "serde",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "acorn-diff"
 version = "0.5.3"
 dependencies = [

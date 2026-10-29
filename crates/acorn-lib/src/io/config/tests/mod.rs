@@ -28,6 +28,7 @@ use acorn_core::{options::CommonRuntime, Location, OneOrMany, Repository};
 use acorn_host::fs::{FsError, SafePath};
 use acorn_schema::hardware::memory::Memory;
 use acorn_schema::validation::Validate;
+use acorn_service::WorkflowAction;
 use alloc::collections::BTreeSet;
 use fancy_regex::Regex;
 use secrecy::ExposeSecret;
@@ -326,6 +327,31 @@ fn test_acre_options_scripts_owns_both_root_attributes() {
     assert!(serde_json::to_value(empty_object).expect("serialize options")["options"]["scripts"].is_object());
 }
 #[test]
+fn test_acre_parses_daemon_configuration() {
+    let configuration = ApplicationConfiguration::parse(
+        r#"{
+            "schemaVersion": "2.0.0",
+            "daemon": {
+                "bind": {"grpc": null, "rpc": "127.0.0.1:9001"},
+                "jobs": [{
+                    "id": "daily-check",
+                    "input": "input.json",
+                    "kind": "check",
+                    "root": "/project",
+                    "triggers": {"everySeconds": 60}
+                }]
+            }
+        }"#,
+    )
+    .expect("parse embedded daemon configuration");
+    let daemon = configuration.daemon.expect("daemon section");
+    assert_eq!(daemon.bind.grpc, None);
+    assert_eq!(daemon.bind.rpc, Some("127.0.0.1:9001".parse().expect("RPC fixture address")));
+    assert_eq!(daemon.jobs[0].kind, WorkflowAction::Check);
+    assert_eq!(daemon.jobs[0].triggers.every_seconds(), Some(Seconds::new(60)));
+    assert!(ApplicationConfiguration::parse(r#"{"daemon":{"bind":{"jsonRpc":"127.0.0.1:9001"}}}"#).is_err());
+}
+#[test]
 fn test_acre_power_automate_intake_defaults_and_validation() {
     let minimal = ApplicationConfiguration::parse(
         r#"{"options":{"powerAutomate":{"callback_destination":"pilot-flow","gitlab_project":"42","package":"artifacts"}}}"#,
@@ -417,9 +443,18 @@ fn test_acre_schema_has_human_title_and_feature_independent_fields() {
     let schema = serde_json::to_value(schemars::schema_for!(ApplicationConfiguration)).unwrap();
     assert_eq!(schema["title"], "Application Configuration for Research Enablement");
     let properties = schema["properties"].as_object().expect("schema properties");
-    ["folders", "mcp", "options", "schemaVersion", "scriptManifest", "variables", "workflow"]
-        .into_iter()
-        .for_each(|name| assert!(properties.contains_key(name), "missing {name}"));
+    [
+        "daemon",
+        "folders",
+        "mcp",
+        "options",
+        "schemaVersion",
+        "scriptManifest",
+        "variables",
+        "workflow",
+    ]
+    .into_iter()
+    .for_each(|name| assert!(properties.contains_key(name), "missing {name}"));
     let bucket_properties = schema["$defs"]["Bucket"]["properties"].as_object().expect("bucket schema properties");
     assert!(bucket_properties.contains_key("source"));
     assert!(!bucket_properties.contains_key("codeRepository"));

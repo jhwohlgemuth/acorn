@@ -78,7 +78,7 @@ pub enum Month {
 #[serde(transparent)]
 pub struct Milliseconds(u64);
 /// Non-negative second quantity used at serialized duration boundaries.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Display, Eq, JsonSchema, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Display, Eq, Hash, JsonSchema, Ord, PartialEq, PartialOrd, Serialize)]
 #[display("{_0}")]
 #[serde(transparent)]
 pub struct Seconds(u64);
