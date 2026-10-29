@@ -79,6 +79,24 @@ Open [ACORN Callback Receipt Validation](https://make.gov.powerautomate.us/envir
 
 For exact retry, keep the same ID and JSON bytes. Sent skips delivery. A changed payload conflicts. For Sending/unknown state, inspect the recorded attempt and the Teams chat or Outlook Sent Items before reconciliation; never reset Pending solely because a connector timed out. Preserve the original destination and attempt. External acknowledgement, sender lost-response recovery, and Vergil restart acceptance remain unproven.
 
+## Owner's calendar invite flow
+
+[ACORN Calendar Invite](https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/c034a899-52b1-4b67-8b6a-678db699684d/details) is a separate, owner-run instant flow for scheduling a review meeting. It is On, owned by Jason, shared with no run-only users, and associated with no app. It does not participate in SharePoint intake, JSONL export, or milestone callbacks.
+
+Choose **Run** only when the meeting is ready to schedule. Enter **Subject**, **Start local**, **End local**, **Time zone**, **Required attendees**, and **Agenda**. Use `YYYY-MM-DDTHH:mm:ss` for the local start and end, a Windows time-zone name such as `Eastern Standard Time`, and semicolon-separated email addresses for required attendees. Keep the agenda non-sensitive; include an accessible review link when available. The flow creates an event in Jason's primary Outlook calendar, which sends invitations to the required attendees.
+
+The trigger runs one instance at a time. The Outlook action has automatic retries disabled and secure inputs/outputs enabled. There is no event identity ledger: a second manual run can create another event. If the first run's result is uncertain, inspect its run history and the organizer calendar before running it again. The saved flow passed Flow checker with zero errors and zero warnings on October 29, 2026; it has not been run, so delivery to an attendee remains unverified.
+
+## Automatic monthly highlight deadline invite
+
+[ACORN Monthly Highlight Deadline Invite](https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/089c120d-b14c-49f8-838d-8a169fbeb21a/details) is a separate automated flow, On and owned by Jason. A new item in the operational **Sponsor Highlights Intake** SharePoint list triggers it. The flow reads the saved submission payload for `submittedAt` and uses the receipt's `ProjectId` and verified `SubmitterEmail`; it does not ask the owner to re-enter either value.
+
+For the first original highlight of each project in each Eastern-time calendar month, the flow creates one all-day Outlook event on that month's second Friday and invites the submitter. A correction saved before the deadline also qualifies if its `rootSubmissionId` identifies that first original and no matching event exists yet. The subject is `ACORN highlights due: <project ID> (<YYYY-MM>)`; the body says to submit highlights and complete reviews before that Friday. The event spans local midnight Friday to local midnight Saturday, is marked free, and does not request a response. `general` submissions, later original highlights and their corrections, and receipts processed on or after the second Friday are skipped. A skipped month is not shifted to the next month. Eligibility uses the receipt's actual `submittedAt` month, not the editable highlight date.
+
+The trigger runs one instance at a time. Before creating an event, the flow checks Jason's calendar on the deadline date for the matching subject. The Outlook create action has automatic retries disabled, and submission and lookup data have secure inputs/outputs. This calendar check reduces duplicate invites but is not an atomic event identity ledger; an uncertain create result still requires checking the organizer calendar before retrying. The receipt lookup reads at most 5,000 items and fails closed at that limit, so the lookup must be narrowed or replaced with a keyed ledger before the intake list reaches 5,000 receipts.
+
+The saved flow passed Flow checker with zero errors and zero warnings after the correction rule was updated on October 29, 2026. The second-Friday calculation was checked for October 2026 through February 2027. Two October 29 receipt runs succeeded without sending an event because the deadline had passed. No qualifying run or attendee delivery has yet been observed. Monitor the first qualifying run and its resulting calendar event before treating delivery as proven.
+
 ## Dated acceptance
 
 | Test | Evidence | Outcome |

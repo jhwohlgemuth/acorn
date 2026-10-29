@@ -108,7 +108,7 @@ def main():
         ("04", "Report", "Generate one combined local PDF; graduation is optional"),
     ]:
         story += [Paragraph(number + " // " + title, styles["Section"]), Paragraph(detail, styles["Body"])]
-    story += [Spacer(1, 15), Paragraph("The map labels user, developer/reviewer, and automated steps. Developers run every ACORN command. New-save Teams notices are automatic and best effort; later milestone notices use the owner-triggered callback. The retained rehearsal uses the GitLab fixture.", styles["Caption"]), PageBreak(),
+    story += [Spacer(1, 15), Paragraph("The map labels user, developer/reviewer, and automated steps. Developers run every ACORN command. New-save Teams notices and monthly calendar reminders for the first highlight or its pre-deadline correction use separate automatic flows; later milestone notices use the owner-triggered callback. The retained rehearsal uses the GitLab fixture.", styles["Caption"]), PageBreak(),
               Paragraph("Demo scope and evidence", styles["Section"])]
     source_text = SOURCE.read_text()
     current_text, appendix_text = source_text.split("## Appendix A — Retained GitLab rehearsal", 1)

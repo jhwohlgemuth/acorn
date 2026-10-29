@@ -7,10 +7,12 @@ SL: box "Keep every receipt" bold "Receipt export + Teams" "Logbook: every 5 min
 SD: box "Download exports" bold "All originals + corrections" "Check export freshness" same fill 0xFFF4D6 at SL+(2.7in,0)
 E: box "My submissions" bold "Edit selected" "Latest confirmed highlight" same fill 0xE8F1FB at S+(0,1.15in)
 C: box "Save correction" bold "New receipt ID" "Links original + previous" same fill 0xE8F1FB at SL+(0,1.15in)
+K: box "Calendar reminder" bold "First original or its correction" "All day: second Friday" same fill 0xE7F3E9 at SD+(0,1.15in)
 arrow from E.e to C.w thick color 0x00662C
 arrow from C.s to SL.n+(0,0.12in) thick color 0x00662C
 arrow from S.e to SL.w thick color 0x00662C
 arrow from SL.e to SD.w thick color 0x00662C
+arrow from SL.ne to (SL.ne.x+0.25in,SL.ne.y) then to (SL.ne.x+0.25in,K.y) then to K.w thick color 0x00662C
 Join: line from SD.e right 0.3in then down 0.65in color 0x00662C
 R: box "Stage + inspect" bold "Review latest content" wid 1.8in ht 0.75in rad 0.08in fill 0xF3F0FF thickness 0 at S+(0,-1.45in)
 A: box "Apply" bold "Confirm changes" same fill 0xF3F0FF at R+(2in,0)
@@ -28,6 +30,7 @@ box "USER" bold small wid 0.7in ht 0.24in rad 0.06in fill 0x205795 color 0xFFFFF
 box "USER" bold small wid 0.7in ht 0.24in rad 0.06in fill 0x205795 color 0xFFFFFF thickness 0 at E.n
 box "USER" bold small wid 0.7in ht 0.24in rad 0.06in fill 0x205795 color 0xFFFFFF thickness 0 at C.n
 box "AUTOMATED" bold small wid 1.2in ht 0.24in rad 0.06in fill 0x00662C color 0xFFFFFF thickness 0 at SL.n
+box "AUTOMATED" bold small wid 1.2in ht 0.24in rad 0.06in fill 0x00662C color 0xFFFFFF thickness 0 at K.n
 box "DEV / REVIEWER" bold small wid 1.65in ht 0.24in rad 0.06in fill 0x805A0B color 0xFFFFFF thickness 0 at SD.n
 box "DEVELOPER" bold small wid 1.25in ht 0.24in rad 0.06in fill 0x62408A color 0xFFFFFF thickness 0 at R.n
 box "DEVELOPER" bold small wid 1.25in ht 0.24in rad 0.06in fill 0x62408A color 0xFFFFFF thickness 0 at A.n

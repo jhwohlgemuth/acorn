@@ -86,7 +86,7 @@ def header(c, title, section, number, total, audience):
     paragraph(c,title,73,58,920,29,'#FFFFFF',True)
     c.setStrokeColor(HexColor('#C4D9DB'));c.line(54,47,1026,47)
     c.setFillColor(HexColor('#526A70'));c.setFont('Helvetica',10)
-    c.drawString(54,29,f'ACORN / ORNL  //  {audience}  //  OCT 28, 2026  //  SANITIZED')
+    c.drawString(54,29,f'ACORN / ORNL  //  {audience}  //  OCT 29, 2026  //  SANITIZED')
     c.drawRightString(1026,29,f'{number:02} / {total:02}')
 
 
@@ -97,7 +97,7 @@ def link(label, url):
 def diagram(c):
     paragraph(c,'Users submit and correct highlights. Developers run every ACORN command. Role tags identify each step.',54,153,size=17)
     picture(c,ASSETS/'notifications/workflow.png',85,192,910,465)
-    paragraph(c,'AUTOMATED = Power Automate; DEV / REVIEWER = developer or reviewer. Green arrows show the saved-data path; dashed arrows show owner-triggered notices. Teams follows verified export, best effort. ACORN commands send no messages; corrections do not alter existing reports.',54,676,size=14)
+    paragraph(c,'AUTOMATED = Power Automate; DEV / REVIEWER = developer or reviewer. Green arrows show saved data and the first-highlight calendar branch; dashed arrows show owner-triggered notices. Teams follows verified export, best effort. ACORN commands send no messages.',54,676,size=14)
 
 
 def branch_overview(c):
@@ -234,6 +234,18 @@ def notifications(c):
     paragraph(c,'SharePoint notification limitation: an export that first succeeds on a later retry does not send the initial new-receipt notice. Delivery is best effort. Local CLI commands do not invoke these callbacks; Vergil automation remains separate work.',54,top,size=16)
 
 
+def calendar_reminder(c):
+    top=paragraph(c,'The first original project highlight saved each Eastern-time month can schedule one all-day Outlook reminder for that month\'s second Friday. A correction of that first highlight can also qualify before the deadline if no reminder exists. The invitation goes to the verified email on the eligible receipt, with the project ID in the subject.',54,156)
+    top=grid(c,[['Case','What the calendar flow does'],
+        ['First original before Friday','Creates a free, all-day reminder on the second Friday. Submit highlights and complete reviews before that day. No response is requested.'],
+        ['Correction of first highlight','Before Friday, can send if no matching reminder exists. The correction must link to that project-month\'s first original.'],
+        ['Later highlight or correction','Skips the invite when linked to a later original.'],
+        ['Receipt on or after Friday','Skips that month; it does not move the deadline to the next month.'],
+        ['General update','Skips the project reminder.']],top,widths=(280,692),size=16)
+    top=paragraph(c,'The receipt\'s actual submission time sets the month and deadline; changing the form\'s highlight date does not change eligibility. The flow checks the organizer calendar for a matching event before sending. This reduces duplicates but is not an event identity ledger.',54,top,size=15)
+    paragraph(c,'The flow was On with zero checker errors or warnings on October 29, 2026. No qualifying run or attendee delivery had been observed at publication. The reminder is separate from Teams save confirmation and owner-triggered milestone messages.',54,top,size=15,color=GREEN)
+
+
 def reviewer(c):
     top=paragraph(c,'The form collects submissions; it does not provide an approval screen. The owner supplies the proposed changes and review location.',54,156)
     for title,body in [('1 // Check the evidence','Match the project and receipt. Review date, category, status, placement, summary and details against the underlying work.'),('2 // Inspect the local proposal','Stage the downloaded originals and corrections together. Inspect the latest content and linked history, then confirm apply. Conflicts require operator review.'),('3 // Confirm optional promotion','Graduation may add a contributor or other supported metadata. Use the interactive run --index mode for per-entry Yes / No selection and a separate final confirmation.'),('4 // Review the report','A local PDF is a preview, not publication. Follow the supplied review process before merging changes or releasing a report.')]:
@@ -322,6 +334,17 @@ def delivery(c):
     paragraph(c,'Manual callback: exact Webhook ID + Event JSON. Unique claim; frozen payload and destination; Pending > Sending > Sent; concurrency one. Sent replay skips. Uncertain Sending holds for reconciliation against the recorded attempt. Never reset solely because a send timed out.',54,top,size=14)
 
 
+def calendar_operations(c):
+    top=grid(c,[['Control','Current monthly invite flow'],
+        ['Flow','ACORN Monthly Highlight Deadline Invite; automated SharePoint new-item trigger on Sponsor Highlights Intake. Separate from the manual calendar flow and milestone callback.'],
+        ['Inputs','Receipt ProjectId and verified SubmitterEmail; submittedAt and correction root are decoded from the saved payload. General updates are excluded.'],
+        ['Date','Actual submission month is computed in Eastern time; the editable highlight date is not used. The event is all day on its second Friday. Receipts processed on or after Friday are skipped.'],
+        ['First highlight','Serialized trigger reads receipts in ID order and selects the first original for the project-month. A correction with that root can qualify before Friday; later originals and their corrections do not invite.'],
+        ['Duplicate check','Searches the organizer calendar on the deadline date for the exact project-month subject before Create event (V4). Outlook create retries are disabled.']],156,widths=(235,737),size=14)
+    top=paragraph(c,'Operational ceiling: the receipt lookup reads at most 5,000 rows and fails closed at that count. Narrow the lookup or add a keyed event ledger before the list reaches that size. A calendar search is best effort, not an atomic delivery claim; inspect an uncertain create result before retrying.',54,top,size=15)
+    paragraph(c,'Flow: '+link('Open monthly deadline invite',f'https://make.gov.powerautomate.us/environments/{ENV}/flows/089c120d-b14c-49f8-838d-8a169fbeb21a/details')+'. On and checker-clean October 29, 2026; no first qualifying run or attendee delivery observed yet.',54,top,size=14,color=GREEN)
+
+
 def operations(c):
     top=grid(c,[['Area','Current acceptance and operating action'],['SharePoint default','PA-19 through PA-28 SharePoint work is accepted. Published app keeps its ID, audience, submission formulas and recovery key. Eight-row collected download preserves the prior seven rows exactly.'],['Rollback SharePoint','Dated sanitized native copies in cutover/ and backup/ predate correction controls. Keep current editing sources separately. Restore approved settings and revalidate an isolated import; historical hashes describe originals. Never blindly overwrite an uncertain write.'],['Editing acceptance','Published editing passed owner and standard-license contributor checks: private history, correction save and Teams confirmation. The 18-row aggregate preserves original and correction bytes; local review/apply also passed.'],['Remaining rollout','Deployment stays in Wohlgemuth, Jason for owner and participant. PA-12 owns shared environment, groups and notification migration. Monitor exporter history and file freshness; no automatic exporter-failure alert is implemented.']],156,widths=(245,727),size=14)
     paragraph(c,'Keep pending receipts in their original browser slot and reconcile the same UUID. Never create a duplicate to work around uncertainty. Teams/email are notifications; exact stored receipts and reviewed indexes are the evidence.',54,top,size=15)
@@ -377,7 +400,12 @@ def render_diagram(stem='workflow'):
         (folder/f'{stem}.svg').write_text(svg)
         js="const sharp=require(process.argv[1]); sharp(process.argv[2],{density:220}).flatten({background:'#ffffff'}).png().toFile(process.argv[3]);"
         subprocess.run([str(RUNTIME/'node/bin/node'),'-e',js,str(RUNTIME/'node/node_modules/sharp'),str(folder/f'{stem}.svg'),str(folder/f'{stem}.png')],check=True)
-        (folder/f'{stem}.html').write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>SharePoint workflow</title><style>body{font-family:Arial;color:#163c47;max-width:1100px;margin:30px auto}svg{width:100%;height:auto}@media print{@page{size:landscape}}</style><h1>Sponsor Highlights // SharePoint workflow</h1>'+svg+'<p>Users submit and correct highlights. Developers run every ACORN command: stage, inspect, apply, optional run --index, and report. Developer/reviewer steps cover downloading JSONL and owner-triggered milestones. Power Automate handles receipt/export and Teams work automatically. New originals and corrections retain separate immutable receipts. Existing reports remain unchanged. Dashed links indicate owner-triggered milestones; local CLI commands send no messages.</p><p>ACORN / ORNL // October 27, 2026</p></html>')
+        description=('Users submit and correct highlights. Developers run every ACORN command: stage, inspect, apply, optional run --index, and report. Developer/reviewer steps cover downloading JSONL and owner-triggered milestones. Power Automate handles receipt/export and Teams work automatically. ')
+        if stem=='workflow':
+            description+='The first original project highlight or its pre-deadline correction can trigger a second-Friday all-day calendar reminder. '
+        description+='New originals and corrections retain separate immutable receipts. Existing reports remain unchanged. Dashed links indicate owner-triggered milestones; local CLI commands send no messages.'
+        date='October 29, 2026' if stem=='workflow' else 'October 27, 2026'
+        (folder/f'{stem}.html').write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>SharePoint workflow</title><style>body{font-family:Arial;color:#163c47;max-width:1100px;margin:30px auto}svg{width:100%;height:auto}@media print{@page{size:landscape}}</style><h1>Sponsor Highlights // SharePoint workflow</h1>'+svg+'<p>'+description+'</p><p>ACORN / ORNL // '+date+'</p></html>')
 
 
 def build(filename, pages, audience):
@@ -412,6 +440,7 @@ def main():
         ('Recover without creating a duplicate','SharePoint recovery',recovery),
         ('Distinguish an uncertain result from a conflict','SharePoint recovery evidence',recovery_panels),('Use the form on a small screen','Responsive layout',mobile),
         ('Recognize the saved-highlight notice','Illustrative Teams messages',teams_mock),('Know when Teams and email are used','Notifications',notifications),
+        ('Know when the calendar reminder is sent','Calendar deadline',calendar_reminder),
         ('Review before applying or publishing','Reviewer',reviewer),('Access and help','Reference',support),
         ('Correct a confirmed highlight','Contributor // Editing',editing),
         ('From correction history to current content','Correction workflow',correction_history),
@@ -423,7 +452,7 @@ def main():
         ('Locate the deployed SharePoint components','Developer // Inventory',components),('Understand the SharePoint project catalog','Developer // Catalog',catalogs),
         ('Preserve the SharePoint storage contract','SharePoint storage',sp_contract),('Read SharePoint run evidence','SharePoint acceptance',sp_run),
         ('Bring downloaded highlights into local review','Local workflow',local_handoff),('Use the current graduation commands','Local workflow',graduation),
-        ('Operate notifications independently of storage','Teams and email',delivery),('Separate proven behavior from release gates','Operations and backup',operations),
+        ('Operate notifications independently of storage','Teams and email',delivery),('Operate the monthly calendar invite','Calendar deadline',calendar_operations),('Separate proven behavior from release gates','Operations and backup',operations),
         ('Find the live app and retained evidence','Reference',references),
         ('Preserve correction history during intake','Correction workflow',correction_history),
         ('Locate the retained GitLab components','Appendix A // Paused connector',gl_inventory),

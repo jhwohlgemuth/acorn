@@ -1,6 +1,6 @@
 # Sponsor Highlights: demo without Vergil
 
-Updated October 27, 2026. **SharePoint is the active default; GitLab intake and catalog flows are Off.** The contributor/reviewer and developer guides cover the published form, immutable corrections and notifications. Historical screenshots and acceptance records retain their dates; they are not fresh cloud runs.
+Updated October 29, 2026. **SharePoint is the active default; GitLab intake and catalog flows are Off.** The contributor/reviewer and developer guides cover the published form, immutable corrections, notifications and monthly calendar reminders. Historical screenshots and acceptance records retain their dates; they are not fresh cloud runs.
 
 ## Start here
 
@@ -83,6 +83,8 @@ The [original evidence and report](../powerapps-jsonl-intake/sharepoint-pilot.md
 A newly saved and verified SharePoint original or correction sends best-effort Teams confirmation to the owner and submitter; a self-submission skips the duplicate notice. History reads and exact replays send no notice. If export first succeeds only on a later retry, the initial notice is not resent. No routine submission email is sent.
 
 Later milestones use the separate owner-triggered receiver: Teams for workspace created or no report changes; email for review requested, report ready or actionable failure. Local CLI commands do not invoke this receiver. Corrections do not change an existing PDF; generate and review a new report. The page 2 map shows the active route and this manual milestone boundary. See [notification routing](../powerapps-jsonl-intake/notification-walkthrough.md).
+
+The separate [monthly calendar invite flow](../powerapps-jsonl-intake/notification-walkthrough.md#automatic-monthly-highlight-deadline-invite) is On. The first original project highlight saved before its month's second Friday in Eastern time can send the verified submitter a one-time, all-day reminder on that Friday. A correction of that first highlight can also qualify before the deadline if no matching reminder exists. The event asks for highlights and reviews to be completed beforehand. Later highlights and their corrections, general updates and receipts processed on or after the deadline skip the invite. The actual submission time sets the month; editing the highlight date does not. The flow checks the organizer calendar for a matching event, but this is not an atomic identity ledger. No qualifying run or attendee delivery had been observed when this guide was updated; do not present the dated demo report as proof of invite delivery.
 
 ## Day-of fallback and boundaries
 
