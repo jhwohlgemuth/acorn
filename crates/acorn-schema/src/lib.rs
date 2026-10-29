@@ -10,6 +10,7 @@
 #![allow(unused_imports)]
 
 extern crate alloc;
+pub use acorn_macros::bigo;
 macro_rules! schema_error {
     ($($arg:tt)*) => {
         acorn_core::AcornError::new(::alloc::format!($($arg)*))

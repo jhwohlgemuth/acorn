@@ -378,7 +378,8 @@ impl<'input> Parser<'input> {
     }
     fn at_log_keyword(&self) -> bool {
         let keyword_end = self.position.saturating_add(3);
-        let is_log = self.input
+        let is_log = self
+            .input
             .as_bytes()
             .get(self.position..)
             .is_some_and(|remaining| remaining.starts_with(b"log"));

@@ -131,7 +131,7 @@ fn test_expand_validate_uses_only_portable_paths() {
     assert!(!tokens.contains("tokio"));
     assert!(!tokens.contains("async_trait"));
     assert!(!tokens.contains("Box :: pin"));
-    assert!(tokens.contains(":: acorn :: validation"));
+    assert!(tokens.contains(":: acorn_core :: validation"));
     assert!(tokens.contains("validate_async"));
     assert!(tokens.contains("validate_value") && tokens.contains("await"));
 }

@@ -1238,9 +1238,10 @@ where
         }
     }
     fn with_indent(&self, spaces: usize) -> String {
+        let prefix = " ".repeat(spaces);
         self.to_string()
             .lines()
-            .map(|line| " ".repeat(spaces) + line.trim_start())
+            .map(|line| format!("{prefix}{}", line.trim_start()))
             .collect::<Vec<_>>()
             .join(LINE_SEPARATOR)
     }
@@ -1248,7 +1249,7 @@ where
         let prefix = " ".repeat(spaces);
         self.to_string()
             .lines()
-            .map(|line| prefix.clone() + line)
+            .map(|line| format!("{prefix}{line}"))
             .collect::<Vec<_>>()
             .join(LINE_SEPARATOR)
     }

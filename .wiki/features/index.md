@@ -14,7 +14,6 @@
 
 ## Planned
 
-- [Portable Big-O notation parser and literal macro](portable-big-o-notation.md) - Share an alloc-only parser between computation-bound validation and a compile-time checked `bigo!` literal.
 
 
 - [Headless CI SharePoint JSONL download](sharepoint-headless-ci-download/index.md) - Follow SPD-26 shared functionality and acceptance on any one native OS with GitLab OIDC federation, ACRE workload profiles and read-only unattended capture/staging; seven bounded phases require approved app-only access and isolated live acceptance. No user credential cache or automatic apply/reporting.

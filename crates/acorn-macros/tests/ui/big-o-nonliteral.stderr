@@ -1,0 +1,5 @@
+error: expected string literal
+ --> tests/ui/big-o-nonliteral.rs:3:29
+  |
+3 | const INVALID: &str = bigo!(concat!("O(", "n)"));
+  |                             ^^^^^^

@@ -56,7 +56,7 @@ Plans within a lane normally serialize. Different lanes still check secondary lo
 
 | Lane | Plans | Primary surface and rule |
 |---|---|---|
-| Portable boundaries | [Big-O notation](features/portable-big-o-notation.md), [diff](refactors/acorn-diff-resource-and-api-hardening.md), [ZON](refactors/zon-codec-hardening.md) | The Big-O parser and schema validation are landed. COM-03 owns the macro and its manifest, and COM-04 owns the public re-export. Portable leaves may run separately; manifests, package roots, and CI integration serialize. |
+| Portable boundaries | [diff](refactors/acorn-diff-resource-and-api-hardening.md), [ZON](refactors/zon-codec-hardening.md) | Portable leaves may run separately; manifests, package roots, and CI integration serialize. |
 | Metadata standards | [dPID](features/dpid-research-object-support.md), [structured enrichment](refactors/core/research-activity-enrichment-integration.md) | Standard/schema work serializes shared schema roots and observes each active phase's exact write set. |
 | API contract | [shared API client](refactors/api/shared-client-contract.md) | Contract slices land endpoint/request -> invocation -> resolved config -> response/error/health -> OpenAPI/RAiD. Provider files may shard after each contract freezes. |
 | ACRE formats | [RON configuration](features/acre-ron-configuration.md) | RON-01 owns dependency/format registration; RON-02/03 serialize configuration roots; RON-04/05 serialize CLI discovery, help, and formatting; RON-06 owns final documentation and gates. Coordinate exact files with API configuration, export core utilities, and CLI composition. No change to daemon configuration or generic RAD/export formats. |

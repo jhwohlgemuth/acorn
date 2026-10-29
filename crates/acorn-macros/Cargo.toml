@@ -11,6 +11,7 @@ documentation.workspace = true
 proc-macro = true
 
 [dependencies]
+acorn-core = { version = "0.5.3", path = "../acorn-core", default-features = false, features = ["alloc"] }
 proc-macro2 = "1.0"
 proc-macro-crate = "3.5"
 quote = "1.0"

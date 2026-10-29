@@ -306,6 +306,7 @@ dependencies = [
 name = "acorn-macros"
 version = "0.5.3"
 dependencies = [
+ "acorn-core",
  "proc-macro-crate",
  "proc-macro2",
  "quote",

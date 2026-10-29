@@ -1,4 +1,4 @@
-extern crate self as acorn;
+extern crate self as acorn_core;
 
 use acorn_macros::Validate;
 

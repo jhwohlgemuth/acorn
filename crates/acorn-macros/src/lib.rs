@@ -7,9 +7,27 @@ use syn::{
     PathArguments, Token, Type,
 };
 
+mod big_o;
 mod command;
 
+use big_o::expand_bigo;
 use command::expand_cmd_sh_words;
+/// Validate a Big-O string literal at compile time and return it unchanged.
+///
+/// The notation is checked by the same parser used for computation schema bounds.
+/// This checks syntax, not whether an algorithm has the stated complexity.
+///
+/// ```
+/// use acorn_macros::bigo;
+///
+/// const TIME: &str = bigo!("O(n log n)");
+/// assert_eq!(TIME, "O(n log n)");
+/// ```
+#[proc_macro]
+pub fn bigo(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as LitStr);
+    expand_bigo(&input).unwrap_or_else(|why| why.to_compile_error()).into()
+}
 #[derive(Clone)]
 enum ValidationRule {
     Required(RuleOptions),

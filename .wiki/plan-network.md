@@ -23,7 +23,6 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 - [Shared API client contract](refactors/api/shared-client-contract.md) prepares `acorn-api`; endpoint, request, resolved configuration, invocation, error, and provider policy move together only after its acceptance gates pass. API-14 migrates provider environment discovery after API-06 freezes the resolved configuration contract.
 - [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) prepares `acorn-export` by producing one pure projection and fallible in-memory transformations.
 - [CLI composition boundary](refactors/core/cli-composition-boundary.md) follows the stable service/server request and error contracts. Command leaves may normalize earlier only when they avoid shared CLI roots; CLI-11 closes the plan after accepted startup and exit behavior.
-- [Portable Big-O notation](features/portable-big-o-notation.md) has landed its alloc-only parser and schema validation. COM-03 adds macro expansion against that parser, then COM-04 exposes and verifies the complete capability. This work is independent of empirical fitting and serializes macro manifest and public re-export edits with their owners.
 - [Portable diff hardening](refactors/acorn-diff-resource-and-api-hardening.md) and [ZON codec hardening](refactors/zon-codec-hardening.md) are independent portable leaves.
 
 ### Configuration formats
@@ -87,12 +86,12 @@ SharePoint SPD-13 consumes the landed interactive Confirm/Spin controls; it does
 
 | Surface | Plans that serialize |
 |---|---|
-| Workspace manifests and lockfile | model acquisition, Cosmos, gather extraction, CEL, ask adapters, SLM, Miri/Creusot wiring, ACRE RON, Big-O COM-03 |
+| Workspace manifests and lockfile | model acquisition, Cosmos, gather extraction, CEL, ask adapters, SLM, Miri/Creusot wiring, ACRE RON |
 | Analyzer results, check orchestration, and module indexes | CEL, gather inference, structured enrichment, diff, interactive metadata chat, CLI coverage, ACRE RON check discovery |
 | `io/api/mod.rs`, configuration roots, endpoint snapshots | shared API contract, dPID, Cosmos, model acquisition, ACRE RON, later SharePoint configuration integration |
 | `io/mcp/client.rs`, outbound client tests and documentation | outbound MCP client interface; the landed feature graph and manifest boundary remain fixed |
 | Host OAuth capability and ACRE auth profiles | SPD owns the initial contract; headless HCI-02/03 extend it after SPD-26 acceptance, coordinating with API/configuration owners and remaining SPD validation |
-| Research-activity/PID schema roots | dPID, structured enrichment, PID verification, sponsor highlights clarity, Big-O COM-04 |
+| Research-activity/PID schema roots | dPID, structured enrichment, PID verification, sponsor highlights clarity |
 | Intake source routing and snapshot persistence | SharePoint download SPD-08/09 and subsequent headless HCI-04; sponsor highlights HIL-19 and CLI composition coordinate exact intake files; existing local/GitLab behavior must remain intact |
 | Logbook graduation persistence, MCP apply/list, and GitLab automation | sponsor highlights clarity owns target-specific graduation; manual JSONL commands already reuse the existing contract; HIL-19 owns their future target-specific adapter; Vergil automation consumes it for the external pilot |
 | `io/{archive,oci}.rs`, `io/model/gguf/`, and model planner | model acquisition, SLM/Needle artifact work |

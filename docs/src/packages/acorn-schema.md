@@ -30,3 +30,15 @@ The alloc-capable `acorn_schema::standard::zon` module encodes and decodes the J
 The portable `acorn_schema::standard::dublin_core` module models the current DCMI terms, legacy element namespace, DCMI type vocabulary, and DCAM terms as a normalized RDF graph. Its local codecs cover native graph JSON and YAML, JSON-LD, RDF/XML, and Turtle. See [Dublin Core](../concepts/dublin-core.md) for the data model, safety boundaries, and crosswalk behavior.
 
 Local PID validation checks parsed structure and, for ISBNs, ISNIs, ORCIDs, and RORs, the implemented check digit. It does not confirm registration with an external authority.
+
+## Computation complexity
+
+Use `bigo!` to check a Big-O string literal during compilation:
+
+```rust
+use acorn_schema::{bigo, computation::ComplexityBound};
+
+let bound = ComplexityBound::Time(bigo!("O(n log n)").into());
+```
+
+The same grammar validates complexity strings in research activity JSON. For example, `{"case":"worst","bounds":[{"time":"O(n log n)"}],"variables":{"n":"number of records"}}` describes a computation bound. Validation checks notation and, when a variables map is supplied, its referenced names; it does not prove the claimed complexity or infer it from measurements.

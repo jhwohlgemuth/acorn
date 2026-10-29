@@ -1,0 +1,5 @@
+error: invalid Big-O notation: expected uppercase O(...) notation at byte 0
+ --> tests/ui/big-o-invalid-syntax.rs:3:29
+  |
+3 | const INVALID: &str = bigo!("o(n)");
+  |                             ^^^^^^

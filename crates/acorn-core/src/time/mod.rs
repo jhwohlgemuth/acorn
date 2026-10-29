@@ -110,7 +110,7 @@ impl Day {
                 let end = match self {
                     | Self::Date { .. } => Some(start),
                     | Self::Month(_) if month == 12 => year.checked_add(1).and_then(|year| Date::new(year, 1, 1).ok()),
-                    | Self::Month(_) => Date::new(year, (month + 1) as i8, 1).ok(),
+                    | Self::Month(_) => month.checked_add(1).and_then(|next_month| Date::new(year, next_month as i8, 1).ok()),
                 };
                 end.map(|end| (start, end))
             })
