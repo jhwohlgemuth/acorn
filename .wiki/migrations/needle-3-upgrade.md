@@ -1,7 +1,7 @@
 ---
 type: Plan
 title: "Needle 2 to Needle 3 upgrade"
-description: "Validate the shipped Needle 3 engine, weights, protocol, and policy on Windows x86_64 and Linux ARM64 release hosts."
+description: "Validate the shipped Needle 3 engine, weights, protocol, and policy on Windows x86_64."
 difficulty: medium
 impact: high
 package: [workspace, acorn-lib, acorn-cli]
@@ -15,7 +15,7 @@ phase_budget_hours: 5
 
 - **Update:** the existing Needle comparison harness only if a host exposes a reproducible defect, and `docs/src/inference/needle.md` with verified platform results.
 - **Create:** no production module. Add only narrowly scoped host-job configuration or regression fixtures required by an observed failure.
-- **Delete:** this plan and its index/network/lane entries after the two remaining release-host validations pass.
+- **Delete:** this plan and its index/network/lane entries after Windows x86_64 validation passes.
 
 # Goal
 
@@ -28,21 +28,21 @@ Run the shipped Needle 3 workflow on Windows x86_64, Linux x86_64, and Linux ARM
 - `io/sidecar/needle/` validates a Kitfile-versioned ModelKit manifest, separate engine/model/license assets, sidecar identity and protocol, safe paths, sizes, hashes, symlink containment, and platform selection before startup.
 - Needle process startup uses the compact ACORN tool projection, private loopback transport, bounded startup/request times, isolated sessions, output limits, telemetry opt-out, and child cleanup. Tool calls remain subject to confidence, policy, typed argument validation, offline context, and round limits.
 - The checked-in comparison harness records policy, correctness, latency, memory, and installed-byte gates for the pinned Needle 2/3 inputs. macOS ARM64 passes the stricter real-engine comparison, online/offline version inference, and download/checksum path.
-- Oklahoma's Linux x86_64 real-engine run passed verified acquisition, online and cached offline inference, tool handoff, policy withholding, offline network rejection, normal shutdown, and host-observed SIGTERM/SIGINT child cleanup. The [Needle guide](../../docs/src/inference/needle.md) records the 2026-10-21 platform result. Dante reports `linux/aarch64` and remains available for Linux ARM64 validation.
+- Oklahoma's Linux x86_64 and Dante's Linux ARM64 real-engine runs passed verified acquisition, online and cached offline inference, tool handoff, policy withholding, offline network rejection, normal shutdown, and host-observed SIGTERM/SIGINT child cleanup. The [Needle guide](../../docs/src/inference/needle.md) records both platform results.
 - The manual `validate-needle-windows-amd64` job and `scripts/needle/validate-windows-x86_64.ps1` now prepare pinned Windows x86_64 acquisition, inference, policy, offline, and normal-cleanup evidence. GitLab CI lint and 25 focused Needle tests pass. Runner 55601 remains `linux/amd64` and cannot supply this evidence. NDL-02 stays blocked on GSR-02: runner 55645 cannot finish a tagged job.
 - Formatting, lint, WASM, book, workspace, focused Needle, help, shell, packaging, and macOS real-engine validation have accepted results. `make doc` and local PowerShell syntax validation retain unrelated environment/baseline failures already documented outside this remaining host gate.
 
 # Dependencies and coordination
 
 - Lane: Agent tools and sidecars in the [parallel execution guide](../parallel-execution.md).
-- NDL-02 depends on [GitLab shell runner readiness](../testing/gitlab-shell-runner-readiness.md) GSR-02; Linux ARM64 validation remains independent.
+- NDL-02 depends on [GitLab shell runner readiness](../testing/gitlab-shell-runner-readiness.md) GSR-02.
 - Serialize edits to shared sidecar roots, manifests, OCI materialization, CLI roots, generated help, `.gitlab-ci.yml`, and `Makefile`.
 - [SLM sidecars](../features/slm-sidecars.md) may proceed independently because the shared ModelKit contract is already available; only shared CI/build locks require coordination.
 - [Deterministic and assisted gather extraction](../features/gather-extraction.md) owns any user-facing extraction adapter. Embedding, search, and fine-tuning remain outside this migration.
 
 # Remaining release-host validation
 
-For Windows x86_64 and Linux ARM64, use the Windows GitLab job or Linux Docker context:
+For Windows x86_64, use the Windows GitLab job:
 
 1. Download the pinned runner, model, and license through the normal verified asset path and confirm exact size and SHA-256 values.
 2. Start the real engine with the shipped flags and compact tool catalog; verify telemetry opt-out, private loopback binding, startup timeout, and session isolation.
@@ -54,18 +54,18 @@ Do not change the shared protocol, loosen confidence or policy gates, replace im
 
 # Validation
 
-- The two remaining platform validations use the repository’s documented real-engine inference path and pinned artifacts rather than synthetic protocol fixtures alone. Linux ARM64 may run directly on Dante; that run counts as final platform evidence without a CI rerun. Windows x86_64 uses the prepared GitLab job.
+- Windows x86_64 validation uses the repository’s documented real-engine inference path and pinned artifacts rather than synthetic protocol fixtures alone. Linux ARM64 passed directly on Dante without a CI rerun.
 - Combined host evidence proves verified acquisition, startup, bounded inference, policy enforcement, offline behavior, cancellation, and child cleanup. The Windows job produces the repeatable smoke report; NDL-02 adds the native Ctrl+C observation.
 - The prepared job passed GitLab CI lint and focused Needle tests. NDL-02 still requires native PowerShell execution and the affected platform job; NDL-06 runs `make lint` and `make test` after host evidence is complete.
 - Documentation names platforms that actually ran the real-engine inference and does not infer runtime support from artifact availability.
 
 # Acceptance criteria
 
-- Real-engine smoke validation passes on Windows x86_64, Linux x86_64, and Linux ARM64 with the pinned Needle 3 engine and weights. Linux direct-context runs count without CI reruns, and durable documentation records the verified matrix.
+- Real-engine smoke validation passes on Windows x86_64 with the pinned Needle 3 engine and weights, completing the documented release-host matrix.
 
 # Completion handling
 
-Delete this plan after all three host validations pass, then remove its migration-index, plan-network, and parallel-execution entries. Keep the pinned contract, platform matrix, measured results, rollback guidance, and operational details in code, tests, inference documentation, and release history.
+Delete this plan after Windows x86_64 validation passes, then remove its migration-index, plan-network, and parallel-execution entries. Keep the pinned contract, platform matrix, measured results, rollback guidance, and operational details in code, tests, inference documentation, and release history.
 
 # Related plans
 
@@ -86,22 +86,11 @@ Delete this plan after all three host validations pass, then remove its migratio
 - Focused validation: Run `validate-needle-windows-amd64` on the native host and retain its JSON report plus the cancellation observation.
 - Handoff: Blocked on GSR-02. Runner 55645 can check out a tagged job, but job 4483744 was canceled and its final status update returned 403. Do not start `validate-needle-windows-amd64` until that smoke job finishes.
 
-## NDL-05 — Validate Linux ARM64
-
-- Status: in-progress
-- Budget: 5 active hours maximum
-- Prerequisites: schedulable Dante Linux ARM64 Docker context and GitLab runner
-- Exact write set: Dante Docker context, `docs/src/inference/needle.md`
-- Primary integration lock: Needle host matrix
-- Outcome: Run the real-engine smoke directly on Dante and record the verified Linux ARM64 contract. This evidence satisfies the platform gate without a later GitLab CI rerun.
-- Focused validation: Run the documented real-engine inference path on Dante's Linux ARM64 Docker context.
-- Handoff: Dante reports `linux/aarch64` through both its configured SSH alias and Docker context. Three additional native image-build attempts successfully installed ARM64 system dependencies but each Docker-over-SSH stream disconnected as Rust toolchain installation began. No completed ARM64 image was retained and no ARM64 inference ran. Vergil remains unavailable because SSH host-key verification fails and `ssh-askpass` is absent. NDL-05 remains active pending a stable Docker connection or corrected Vergil host-key access; then complete the real-engine checks and record platform evidence.
-
 ## NDL-06 — Publish the verified matrix and retire
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: NDL-02, NDL-05
+- Prerequisites: NDL-02
 - Exact write set: `docs/src/inference/needle.md`, `.wiki/index.md`, `.wiki/migrations/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/migrations/needle-3-upgrade.md`
 - Primary integration lock: inference documentation
 - Outcome: Consolidate the four-platform matrix, run final gates, and remove the migration plan.
