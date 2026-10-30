@@ -108,6 +108,7 @@ pub mod document;
 pub mod download;
 mod email;
 pub mod enrichment;
+pub mod export;
 pub mod fingerprint;
 pub mod http;
 pub mod mcp;
@@ -690,14 +691,6 @@ impl From<&str> for Executor {
         }
     }
 }
-impl<'de> Deserialize<'de> for Executor {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        String::deserialize(deserializer).map(|value| Self::from(value.as_str()))
-    }
-}
 impl JsonSchema for Executor {
     fn inline_schema() -> bool {
         true
@@ -718,6 +711,14 @@ impl Serialize for Executor {
         S: serde::Serializer,
     {
         serializer.serialize_str(self.as_ref())
+    }
+}
+impl<'de> Deserialize<'de> for Executor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).map(|value| Self::from(value.as_str()))
     }
 }
 impl FileExtension for MimeType {
@@ -742,11 +743,6 @@ impl FromPath for MimeType {
         P: AsRef<Path> + ?Sized,
     {
         MimeType::from(value.as_ref().display().to_string())
-    }
-}
-impl From<Executor> for std::ffi::OsString {
-    fn from(value: Executor) -> Self {
-        Self::from(value.to_string())
     }
 }
 impl PathConversion for Path {
@@ -947,6 +943,11 @@ impl FromCommand for SemanticVersion {
                     | Ok(_) | Err(_) => None,
                 })
         })?
+    }
+}
+impl From<Executor> for std::ffi::OsString {
+    fn from(value: Executor) -> Self {
+        Self::from(value.to_string())
     }
 }
 impl FileExtension for String {

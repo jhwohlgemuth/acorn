@@ -7,6 +7,7 @@ pub mod alloc;
 pub mod assets;
 pub mod constants;
 pub mod core;
+pub mod interpolation;
 pub mod math;
 pub mod portable;
 pub mod types;

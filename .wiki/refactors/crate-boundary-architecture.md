@@ -19,7 +19,7 @@ Coordinate the remaining extraction from `acorn-lib` into portable domains, adap
 - `acorn-core`, `acorn-schema`, `acorn-analysis`, `acorn-cmd`, `acorn-host`, `acorn-service`, and `acorn-server` exist under `crates/`. Portable values, schema codecs, analysis data, command execution, initial native capabilities, application policy, and protocol listeners have distinct owners.
 - `acorn-lib` still combines analyzer host execution, provider clients, persistence, export, and workflows. Its broad `std` feature enables unrelated native capabilities.
 - The outbound MCP client still combines service policy with native child-process and HTTP transports; extraction must preserve its landed contract.
-- The [shared API client](api/shared-client-contract.md) and [export pipeline](core/export-pipeline-hardening.md) plans prepare contracts for `acorn-api` and `acorn-export`. Neither creates those target packages. The [acornd plan](../features/acornd-service.md) owns an initial `acorn-store` adapter for daemon history; it does not extract existing `acorn-lib` persistence.
+- The [shared API client](api/shared-client-contract.md) plan prepares `acorn-api`. The [export pipeline](core/export-pipeline-hardening.md) has landed a portable replacement contract and `ExportContext`, while renderer migration and fallible OOXML work remain before `acorn-export` extraction. Neither plan creates its target package. The [acornd plan](../features/acornd-service.md) owns an initial `acorn-store` adapter for daemon history; it does not extract existing `acorn-lib` persistence.
 
 # Target package graph
 

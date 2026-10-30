@@ -21,7 +21,7 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 - [Outbound MCP client embedder interface](refactors/api/outbound-mcp-client-interface.md) has landed direct server-map construction and bounded caller-driven cancellation. Its remaining phases document the public interface and record portable/WASM validation.
 
 - [Shared API client contract](refactors/api/shared-client-contract.md) prepares `acorn-api`; endpoint, request, resolved configuration, invocation, error, and provider policy move together only after its acceptance gates pass. API-14 migrates provider environment discovery after API-06 freezes the resolved configuration contract.
-- [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) prepares `acorn-export` by producing one pure projection and fallible in-memory transformations.
+- [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) has landed the portable replacement plan and pure export projection. EXP-04 and EXP-05 can independently migrate HTML and PowerPoint; fallible in-memory OOXML transforms still precede `acorn-export` extraction.
 - [CLI composition boundary](refactors/core/cli-composition-boundary.md) follows the stable service/server request and error contracts. Command leaves may normalize earlier only when they avoid shared CLI roots; CLI-11 closes the plan after accepted startup and exit behavior.
 - [Portable diff hardening](refactors/acorn-diff-resource-and-api-hardening.md) and [ZON codec hardening](refactors/zon-codec-hardening.md) are independent portable leaves.
 
@@ -44,7 +44,7 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 - [Azure Cosmos bucket downloads](features/azure-cosmos-buckets.md) consumes the shared API policy and landed bucket-source/transfer contracts. It does not extend the repository enum or local database backend.
 - [dPID research-object support](features/dpid-research-object-support.md) lands portable parser and RO-Crate slices before resolver, gather, persistence, and CLI integration.
 - [Structured research-activity enrichment](refactors/core/research-activity-enrichment-integration.md) and dPID serialize on research-activity schema and standards roots.
-- [Database-backed artifact generation](features/database-backed-artifact-generation.md) follows the export-context portion of the export plan and uses the existing canonical database/revision contract.
+- [Database-backed artifact generation](features/database-backed-artifact-generation.md) can consume the landed export context and existing canonical database/revision contract. Its final validation still depends on EXP-10.
 
 ### Gather, inference, and agent tools
 

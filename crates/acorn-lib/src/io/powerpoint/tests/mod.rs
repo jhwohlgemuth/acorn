@@ -20,6 +20,43 @@ fn fixtures_dir() -> PathBuf {
 }
 
 #[test]
+fn test_add_slide_to_presentation_xml_appends_slide_id() {
+    let xml = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst><p:sldSz cx="12192000" cy="6858000"/></p:presentation>"#;
+    let result = add_slide_to_presentation_xml(xml, 257, 2).unwrap();
+    assert!(result.contains(r#"<p:sldId id="256" r:id="rId1"/>"#));
+    assert!(result.contains(r#"<p:sldId id="257" r:id="rId2"/>"#));
+    assert!(result.contains(r#"<p:sldSz cx="12192000" cy="6858000"/>"#));
+    assert!(validate_xml_well_formed(&result));
+}
+#[test]
+fn test_add_slide_to_presentation_xml_rejects_malformed_xml() {
+    let result = add_slide_to_presentation_xml("<p:presentation><p:sldIdLst>", 257, 2);
+    assert!(result.is_err());
+}
+#[test]
+fn test_ensure_png_content_type_adds_missing_default() {
+    let xml = r#"<Types xmlns="content-types"><Default Extension="xml" ContentType="application/xml"/></Types>"#;
+    let result = ensure_png_content_type(xml).unwrap();
+    assert!(result.contains(r#"<Default Extension="png" ContentType="image/png"/>"#));
+    assert!(validate_xml_well_formed(&result));
+}
+#[test]
+fn test_ensure_png_content_type_preserves_existing_default() {
+    let xml = r#"<Types xmlns="content-types"><Default Extension="png" ContentType="image/png"></Default></Types>"#;
+    let result = ensure_png_content_type(xml).unwrap();
+    assert_eq!(result.matches(r#"Extension="png""#).count(), 1);
+}
+#[test]
+fn test_ensure_png_content_type_rejects_missing_types_root() {
+    let xml = r#"<Other><Default Extension="png" ContentType="image/png"/></Other>"#;
+    assert!(ensure_png_content_type(xml).is_err());
+}
+#[test]
+fn test_escape_xml_text() {
+    let result = escape_xml_text(r#"AT&T <alpha> "quoted""#);
+    assert_eq!(result, "AT&amp;T &lt;alpha&gt; &quot;quoted&quot;");
+}
+#[test]
 fn test_parse() {
     let paragraph = r#"
 <a:p>
@@ -135,6 +172,8 @@ fn test_parse() {
     println!("{}", prettify_xml(&text));
 }
 #[test]
+fn test_print_xml_rel() {}
+#[test]
 fn test_read_xml_rel() {
     let path = fixtures_dir().join("presentation.xml.rels");
     let result = read_xml_rel(path);
@@ -145,53 +184,9 @@ fn test_read_xml_rel() {
     }
 }
 #[test]
-fn test_print_xml_rel() {}
-#[test]
-fn test_replace_placeholder_with_string() {
-    let content = "{{ title }}";
-    // let result = replace_placeholder_with_string(content, "title", "test");
-    let result = content.replace_placeholder_with_string("title", "test");
-    assert_eq!(result, "test");
-    let content = "{{title}}";
-    let result = content.replace_placeholder_with_string("title", "test");
-    assert_eq!(result, "test");
-    let content = "{{title}} {{ title }}";
-    let result = content.replace_placeholder_with_string("title", "test");
-    assert_eq!(result, "test test");
-}
-#[test]
-fn test_replace_placeholder_with_bullets() {
-    let path = fixtures_dir().join("slide.xml");
-    match read_file(path) {
-        | Ok(content) => {
-            let values = to_string(vec!["FOO", "BAR", "BAZ"]);
-            let result = content.replace_placeholder_with_bullets("achievement", values);
-            assert!(result.contains("FOO"));
-            assert!(result.contains("BAR"));
-            assert!(result.contains("BAZ"));
-            assert!(!result.contains("achievement"));
-        }
-        | Err(_) => {}
-    }
-}
-#[test]
-fn test_escape_xml_text() {
-    let result = escape_xml_text(r#"AT&T <alpha> "quoted""#);
-    assert_eq!(result, "AT&amp;T &lt;alpha&gt; &quot;quoted&quot;");
-}
-#[test]
-fn test_add_slide_to_presentation_xml_appends_slide_id() {
-    let xml = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst><p:sldSz cx="12192000" cy="6858000"/></p:presentation>"#;
-    let result = add_slide_to_presentation_xml(xml, 257, 2).unwrap();
-    assert!(result.contains(r#"<p:sldId id="256" r:id="rId1"/>"#));
-    assert!(result.contains(r#"<p:sldId id="257" r:id="rId2"/>"#));
-    assert!(result.contains(r#"<p:sldSz cx="12192000" cy="6858000"/>"#));
-    assert!(validate_xml_well_formed(&result));
-}
-#[test]
-fn test_add_slide_to_presentation_xml_rejects_malformed_xml() {
-    let result = add_slide_to_presentation_xml("<p:presentation><p:sldIdLst>", 257, 2);
-    assert!(result.is_err());
+fn test_replace_aspect_placeholders_with_picture_skips_slides_without_placeholder() {
+    let result = replace_aspect_placeholders_with_picture("<p:sld><p:cSld/></p:sld>", "rId4").unwrap();
+    assert!(result.is_none());
 }
 #[test]
 fn test_replace_aspect_placeholders_with_picture_uses_shape_bounds() {
@@ -209,27 +204,28 @@ fn test_replace_aspect_placeholders_with_picture_uses_shape_bounds() {
     assert!(validate_xml_well_formed(&result));
 }
 #[test]
-fn test_replace_aspect_placeholders_with_picture_skips_slides_without_placeholder() {
-    let result = replace_aspect_placeholders_with_picture("<p:sld><p:cSld/></p:sld>", "rId4").unwrap();
-    assert!(result.is_none());
-}
-#[test]
-fn test_ensure_png_content_type_adds_missing_default() {
-    let xml = r#"<Types xmlns="content-types"><Default Extension="xml" ContentType="application/xml"/></Types>"#;
-    let result = ensure_png_content_type(xml).unwrap();
-    assert!(result.contains(r#"<Default Extension="png" ContentType="image/png"/>"#));
+fn test_replace_placeholder_with_bullets() {
+    let path = fixtures_dir().join("slide.xml");
+    let content = read_file(path).expect("slide fixture must be readable");
+    let values = to_string(vec!["FOO &", "<BAR>", "BAZ"]);
+    let result = content.replace_placeholder_with_bullets("achievement", values);
+    let positions = ["FOO &amp;", "&lt;BAR&gt;", "BAZ"].map(|value| result.find(value).expect("escaped bullet must be present"));
+    assert!(positions[0] < positions[1] && positions[1] < positions[2]);
+    assert!(!result.contains("{{ achievement }}"));
     assert!(validate_xml_well_formed(&result));
 }
 #[test]
-fn test_ensure_png_content_type_preserves_existing_default() {
-    let xml = r#"<Types xmlns="content-types"><Default Extension="png" ContentType="image/png"></Default></Types>"#;
-    let result = ensure_png_content_type(xml).unwrap();
-    assert_eq!(result.matches(r#"Extension="png""#).count(), 1);
-}
-#[test]
-fn test_ensure_png_content_type_rejects_missing_types_root() {
-    let xml = r#"<Other><Default Extension="png" ContentType="image/png"/></Other>"#;
-    assert!(ensure_png_content_type(xml).is_err());
+fn test_replace_placeholder_with_string() {
+    let content = "{{ title }}";
+    // let result = replace_placeholder_with_string(content, "title", "test");
+    let result = content.replace_placeholder_with_string("title", "test");
+    assert_eq!(result, "test");
+    let content = "{{title}}";
+    let result = content.replace_placeholder_with_string("title", "test");
+    assert_eq!(result, "test");
+    let content = "{{title}} {{ title }}";
+    let result = content.replace_placeholder_with_string("title", "test");
+    assert_eq!(result, "test test");
 }
 #[test]
 fn test_update_relationship_target_matches_previous_replacement_intent() {

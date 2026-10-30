@@ -2,7 +2,7 @@
 use super::MimeType;
 use super::{
     detect_json, escape_ntriples_literal, stable_deduplicate, Checksum, ChecksumAlgorithm, ParseOptions, ParseOptionsExt, SemanticVersion,
-    StringConversion, StringExt,
+    StringConversion, StringExt, StringInterpolation,
 };
 use crate::prelude::alloc::{String, ToString};
 use crate::util::constants::app::EXEC_HEADER_PREFIX;
@@ -162,4 +162,13 @@ fn test_string_ext_vectors_trim_compact_and_detect_numeric_values() {
     let owned = vec![" alpha ".to_string(), String::new(), " 42 ".to_string()].trim_and_compact();
     assert_eq!(owned, vec!["alpha".to_string(), "42".to_string()]);
     assert!(owned.is_numeric());
+}
+#[test]
+fn test_string_interpolation_replaces_contiguous_scalar_placeholders() {
+    assert_eq!(
+        "{{title}} {{ title }} {{  title  }}".replace_placeholder_with_string("title", "Value"),
+        "Value Value Value"
+    );
+    assert_eq!("before {{ title }} after".replace_placeholder_with_string("title", ""), "before  after");
+    assert_eq!("{{ other }}".replace_placeholder_with_string("title", "Value"), "{{ other }}");
 }
