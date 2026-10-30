@@ -120,3 +120,35 @@ Removed 20 local artifacts: obsolete source/demo distribution ZIPs and their man
 The three current guides now describe active SharePoint capture, standard-license contributor acceptance, immutable editing, Teams to owner/submitter, milestone-only email and the new navigation row. GitLab-only rehearsal material is at the end in an appendix. They explicitly retain PA-29's standalone general-reporting limitation. Sanitized fixtures and archives are never represented as current exact-byte originals.
 
 Validation: wiki structure passed; local Markdown file links and heading anchors resolve; all five retained PDFs were rendered and visually reviewed. Three current guides were rebuilt (user/reviewer: 21 pages; developer: 15; demo: 12); the two three-page historical reports were inspected without rewriting. Recursive text/PDF/encoded-field privacy and archive-integrity checks passed. Native imports, external release claims and product test suites were not rerun.
+
+## October 30 GitLab pilot repository cleanup
+
+Scanned the current `main` archive of pilot project `22464` (29 files) and removed the unedited GitLab starter `README.md`, which contained only GitLab setup instructions and had no references from the remaining repository files. The recoverable deletion is [commit `8d2a3519`](https://code.ornl.gov/research-enablement/experiments/power-automate/-/commit/8d2a351908eb76f5ac824c6ce47eba659c270c8e); the refreshed tree no longer lists the file.
+
+Retained `.acorn/intake/logbook.jsonl` and the PA-17 isolated acceptance fixture. The twelve project directories, their index records and media remain catalog sources; `.acorn.jsonc` names them, and `NGA-PROJECTS.md` records their provenance and catalog-refresh behavior. No intake bytes, project records, config or folders changed.
+
+## October 30 Power Platform cleanup
+
+After the owner confirmed permanent deletion, removed ten completed or duplicate flows and four completed test apps from the **Wohlgemuth, Jason** environment. The products warned that these deletions cannot be undone. The live flow inventory fell from 24 to 14, and the app inventory from seven to three. The final lists retain the enabled SharePoint intake, catalog, editing, export, coverage and deadline flows, the disabled GitLab intake/catalog rollback route, the original GitLab app, the published SharePoint app, and PA-15/17 acceptance components.
+
+| Deleted flow | ID |
+| --- | --- |
+| ACORN Monthly Project Coverage — disabled duplicate | `14bc86f9-d7c0-4bd1-9fe2-8d5d287a0251` |
+| ACORN TEST ONLY Participant Notification | `861f6bdf-4c38-4fa8-902f-b1b0eb277678` |
+| PA19 TEST ONLY SharePoint Catalog | `8073dd58-4425-aa06-5069-d1d1d25cf8bb` |
+| PA20 TEST ONLY SharePoint Intake | `18f2f371-c1f3-7142-1e22-4cb3357d93c6` |
+| PA24 TEST ONLY SharePoint Catalog | `b17d36d1-738c-4743-8a53-920258af0eeb` |
+| PA24 TEST ONLY SharePoint Intake | `726caf67-bcc4-4c21-ba22-9a66e46cb57a` |
+| PA24 TEST ONLY SharePoint Logbook Export | `654d13ea-c549-42a8-a4c6-d1e48f5ec02d` |
+| PA26 TEST ONLY SharePoint Logbook Export | `28cba548-c862-484c-b838-ea21eaf52630` |
+| PA28 TEST ONLY SharePoint Catalog | `27693a53-d857-b948-c978-13e716385018` |
+| PA31 TEST ONLY SharePoint Submission Editing | `72a40304-df9c-e6fc-12d3-8b15d34725eb` |
+
+| Deleted app | Historical ID |
+| --- | --- |
+| PA21 TEST ONLY Sponsor Highlights SharePoint | `eb6ed2fe-2855-48bb-a439-b6bbd95099b8` |
+| PA24 TEST ONLY Sponsor Highlights SharePoint | `ff6b367e-27d8-42f6-9809-62834d6b9ef5` |
+| PA28 TEST ONLY Sponsor Highlights SharePoint | `de4cfeaf-7944-4342-bd84-efc6ea99b3ef` |
+| PA31 TEST ONLY Sponsor Highlights Editing | ID not captured before deletion |
+
+No solution qualified for removal. The Jason inventory retains the operational ACORN SharePoint and Sponsor Highlights Intake solutions, three PA-17 recovery/restore solutions, and the two platform defaults. ORNL Personal Productivity retains its PA-15/17 flows, PA-17 app and solution; unrelated tenant items were outside this cleanup. Synthetic SharePoint test lists/libraries, native backup packages, acceptance records, credentials and connections were not deleted. No test flow was run and no submission or notification was sent during cleanup.

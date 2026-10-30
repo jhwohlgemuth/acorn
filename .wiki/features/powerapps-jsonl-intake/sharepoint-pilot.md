@@ -8,7 +8,9 @@ description: "Current SharePoint default, submission editing and dated deploymen
 
 # Current deployment
 
-**October 27 current state:** SharePoint is the approved default for owner/participant. PA25 installed the accepted exporter and catalog feedback in the existing published app/flows. The live smoke submission, Teams action and exact eight-row collected download passed. Both GitLab flows are Off with components and credentials retained. [Current deployment, evidence and rollback](_assets/sharepoint/cutover/README.md). Dated checkpoints below describe their state at the time.
+**October 27 deployment checkpoint:** SharePoint is the approved default for owner/participant. PA25 installed the accepted exporter and catalog feedback in the existing published app/flows. The live smoke submission, Teams action and exact eight-row collected download passed. Both GitLab flows are Off with components and credentials retained. [Current deployment, evidence and rollback](_assets/sharepoint/cutover/README.md). Dated checkpoints below describe their state at the time.
+
+On October 30, the completed SharePoint TEST ONLY flows and apps described in dated checkpoints below were deleted; [the cleanup inventory](test-artifact-cleanup.md#october-30-power-platform-cleanup) names them. Operational components and PA-15/17 acceptance copies remain.
 
 The operational app now also binds the standard SharePoint history/correction flow. **My Submissions → Edit selected → Save correction** is published. Owner-context original/correction saves, Teams delivery, exact rows in a 15-row scheduled aggregate and local review/apply passed. Standard-license contributor correction, private-history visibility and Teams confirmation also passed; the 18-row aggregate preserves the linked receipts exactly. PA-31 is accepted. My Submissions now occupies its own centered row between the banner and form, verified in the published player and a phone preview. See [editing evidence](_assets/sharepoint/submission-editing/README.md) and [notification appearance](_assets/notifications/visual-hierarchy/README.md).
 

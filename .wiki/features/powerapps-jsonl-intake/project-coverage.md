@@ -4,7 +4,7 @@ title: "Monthly project coverage dashboard"
 description: "Dashboard contract, prepared source, deployment handoff and live acceptance boundaries."
 ---
 
-# Current state — October 28, 2026
+# Current state — October 30, 2026
 
 **Published and refreshing.** [Monthly Project Coverage](https://ornl.sharepoint.com/sites/ResearchEnablement/SitePages/Monthly-Project-Coverage.aspx) shows the current month immediately and eleven preceding months inside a **Previous months** section that starts collapsed. Cards use full month names such as **October 2026**; the sortable/filterable list keys remain `YYYY-MM`. Green progress bars show expected-project coverage; month links open green submitted and amber awaiting project cards. Desktop and SharePoint mobile preview were inspected. List editing controls, comments and unrelated page recommendations are hidden on the dashboard.
 
@@ -13,7 +13,7 @@ The initial independent receipt-list check found **20 rows: 17 originals and 3 c
 | Verified resource | Current state |
 | --- | --- |
 | Dashboard flow `87f168d5-5a4f-4d70-a434-a7189514e19e` | **On**, five-minute recurrence, trigger concurrency one. Final saved definition contains only Recurrence and `Refresh_project_coverage`; provisioning and view-configuration scopes were removed after their accepted runs. |
-| Duplicate flow `14bc86f9-d7c0-4bd1-9fe2-8d5d287a0251` | Off. It is not a dashboard dependency; retain Off pending authorized cleanup. |
+| Duplicate flow `14bc86f9-d7c0-4bd1-9fe2-8d5d287a0251` | Deleted October 30 after confirming the enabled flow above remains. |
 | Months list `af93f6ad-3bd4-426b-91e4-0ab479484eee` | Twelve unique months, November 2025–October 2026; full-name `MonthLabel`, stable `YYYY-MM` key, saved roster, coverage totals, original/general counts and refresh timestamp. |
 | Coverage list `afdd1164-2589-4366-a415-270daf4efd3c` | Project/month summaries with the same full-name `MonthLabel`. October and September links each displayed all thirteen expected projects. Unique month/catalog-item keys prevent duplicate summaries. |
 | Page item | `SitePages` list `184fd8d0-ef24-41e8-b221-98f362cb101c`, item 2; published October 28. |

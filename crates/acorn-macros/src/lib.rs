@@ -7,9 +7,11 @@ use syn::{
     PathArguments, Token, Type,
 };
 
+#[cfg(feature = "bigo")]
 mod big_o;
 mod command;
 
+#[cfg(feature = "bigo")]
 use big_o::expand_bigo;
 use command::expand_cmd_sh_words;
 /// Validate a Big-O string literal at compile time and return it unchanged.
@@ -23,6 +25,7 @@ use command::expand_cmd_sh_words;
 /// const TIME: &str = bigo!("O(n log n)");
 /// assert_eq!(TIME, "O(n log n)");
 /// ```
+#[cfg(feature = "bigo")]
 #[proc_macro]
 pub fn bigo(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as LitStr);
