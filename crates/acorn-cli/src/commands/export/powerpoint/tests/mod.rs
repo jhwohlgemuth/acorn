@@ -5,7 +5,7 @@
     clippy::indexing_slicing,
     clippy::arithmetic_side_effects
 )]
-use super::{add_aspect_chart, add_slide, copy_image, create, prepare_destination};
+use super::{add_aspect_chart, add_slide, copy_image, create, prepare_destination, IMAGE_RELATIONSHIP};
 use crate::{
     assets::draft_placeholder_bytes,
     cli::CommandOptions,
@@ -26,7 +26,9 @@ fn setup_image_relationship(root: &Path) {
     write_slide_fixture(
         root,
         "ppt/slides/_rels/slide1.xml.rels",
-        &format!(r#"<Relationships xmlns="{relationships}"><Relationship Id="rId1" Type="image" Target="../media/00.png"/></Relationships>"#),
+        &format!(
+            r#"<Relationships xmlns="{relationships}"><Relationship Id="rId1" Type="{IMAGE_RELATIONSHIP}" Target="../media/00.png"/></Relationships>"#
+        ),
     );
     create_dir_all(root.join("ppt/media")).unwrap();
 }
@@ -73,6 +75,22 @@ fn write_slide_fixture(root: &Path, fragment: &str, content: &str) {
 }
 
 #[test]
+fn test_add_aspect_chart_does_not_write_when_content_types_are_malformed() {
+    let root = temp_test_dir("powerpoint-aspect-invalid-types");
+    let _cleanup = TestCleanup::new(root.clone());
+    setup_slide_fixture(&root);
+    let slide_path = root.join("ppt/slides/slide1.xml");
+    let relationships_path = root.join("ppt/slides/_rels/slide1.xml.rels");
+    write_file(root.join("[Content_Types].xml"), "<Other/>".to_string()).unwrap();
+    let slide_before = read(&slide_path).unwrap();
+    let relationships_before = read(&relationships_path).unwrap();
+    let context = ExportContext::project(&ResearchActivity::default()).unwrap();
+    assert!(add_aspect_chart(1, &context, b"chart", &root).is_err());
+    assert_eq!(read(slide_path).unwrap(), slide_before);
+    assert_eq!(read(relationships_path).unwrap(), relationships_before);
+    assert!(!root.join(format!("ppt/media/{}-aspect.png", context.identifier)).exists());
+}
+#[test]
 fn test_add_aspect_chart_packages_image_and_picture() {
     let root = temp_test_dir("powerpoint-aspect-chart");
     let _cleanup = TestCleanup::new(root.clone());
@@ -105,6 +123,18 @@ fn test_add_slide_copies_parts_and_updates_relationships() {
     assert!(notes_relationships.contains("../slides/slide2.xml"));
     assert!(presentation_relationships.contains("slides/slide2.xml"));
     assert!(presentation.contains("rId2"));
+}
+#[test]
+fn test_add_slide_does_not_write_when_presentation_is_malformed() {
+    let root = temp_test_dir("powerpoint-add-slide-invalid-presentation");
+    let _cleanup = TestCleanup::new(root.clone());
+    setup_slide_fixture(&root);
+    let relationships_path = root.join("ppt/_rels/presentation.xml.rels");
+    let relationships_before = read(&relationships_path).unwrap();
+    write_file(root.join("ppt/presentation.xml"), "<p:presentation>".to_string()).unwrap();
+    assert!(add_slide(2, &root).is_err());
+    assert!(!root.join("ppt/slides/slide2.xml").exists());
+    assert_eq!(read(relationships_path).unwrap(), relationships_before);
 }
 #[test]
 fn test_add_slide_rejects_missing_source_part() {
@@ -152,8 +182,25 @@ fn test_copy_image_reports_missing_authored_media() {
         )
         .build();
     let context = ExportContext::project(&data).expect("authored image projection should succeed");
+    let relationships_path = root.join("ppt/slides/_rels/slide1.xml.rels");
+    let relationships_before = read(&relationships_path).unwrap();
     let error = copy_image(1, &context, &root.join("index.json"), &root).expect_err("authored media should remain strict");
     assert!(error.to_string().contains("Failed to copy image"));
+    assert_eq!(read(relationships_path).unwrap(), relationships_before);
+}
+#[test]
+fn test_copy_image_requires_image_relationship_type() {
+    let root = temp_test_dir("powerpoint-wrong-image-relationship");
+    let _cleanup = TestCleanup::new(root.clone());
+    setup_image_relationship(&root);
+    let relationships_path = root.join("ppt/slides/_rels/slide1.xml.rels");
+    write_file(
+        &relationships_path,
+        r#"<Relationships xmlns="relationships"><Relationship Id="rId1" Type="notes" Target="../media/00.png"/></Relationships>"#.to_string(),
+    )
+    .unwrap();
+    let context = ExportContext::project(&ResearchActivity::default()).unwrap();
+    assert!(copy_image(1, &context, &root.join("index.json"), &root).is_err());
 }
 #[test]
 fn test_copy_image_uses_draft_placeholder_when_media_is_absent() {
@@ -169,6 +216,33 @@ fn test_copy_image_uses_draft_placeholder_when_media_is_absent() {
     assert_eq!(media, draft_placeholder_bytes().expect("embedded placeholder"));
     let relationships = read_text(root.join("ppt/slides/_rels/slide1.xml.rels")).unwrap();
     assert!(relationships.contains(&format!("../media/{}.png", data.meta.identifier)));
+}
+#[test]
+fn test_create_preserves_existing_output_on_late_media_failure() {
+    let root = temp_test_dir("powerpoint-existing-output");
+    let _cleanup = TestCleanup::new(root.clone());
+    let input = root.join("index.json");
+    let data = ResearchActivity::init()
+        .meta(
+            acorn_schema::research_activity::ResearchActivityMetadata::init()
+                .media(vec![MediaObject::Image(
+                    ImageObject::init().caption(String::new()).content_url("missing.png".to_string()).build(),
+                )])
+                .build(),
+        )
+        .build();
+    write_file(&input, serde_json::to_string(&data).unwrap()).unwrap();
+    let name = root.file_name().unwrap().to_string_lossy();
+    let output = root.join(format!("{name}.pptx"));
+    write_file(&output, "existing artifact".to_string()).unwrap();
+    let reference = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/data/highlight/reference.pptx");
+    let options = CommandOptions::init()
+        .path(input.clone())
+        .output(root.clone())
+        .reference(reference)
+        .build();
+    assert!(create([input], Some(Arc::new(options)), Arc::new(vec![None])).is_err());
+    assert_eq!(read(&output).unwrap(), b"existing artifact");
 }
 #[test]
 fn test_create_rejects_non_draft_without_sections() {

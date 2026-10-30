@@ -2,7 +2,7 @@
 okf_version: "0.1"
 type: Plan
 title: Harden the shared export and OOXML pipeline
-description: Replace regex OOXML interpolation with fallible parser-backed transforms, stage PowerPoint mutation atomically, and fuzz the pure transforms.
+description: Fuzz the fallible OOXML transforms, inspect generated presentations, and close export hardening.
 difficulty: high
 impact: critical
 package: [acorn-lib, acorn-cli, acorn-fuzz]
@@ -21,26 +21,23 @@ Give HTML and PowerPoint export one immutable `ResearchActivity` projection and 
 - HTML and PowerPoint project once per activity through `ExportContext`, accept sectionless drafts, and use the same embedded 1920 x 1280 placeholder when no image was authored.
 - An authored but unreadable image is already a hard PowerPoint error.
 - HTML renders projected scalars, ordered lists, contact, identifier, and image choice. PowerPoint interpolation reads `ReplacementPlan`; CLI media copying and chart naming use the same context's image choice and identifier.
-- Scalar interpolation uses `acorn_core::util::StringInterpolation`, while bullet interpolation uses regex paragraph discovery, reparses partial XML, and silently preserves stale content after several failures.
-- Focused core tests now pin contiguous scalar placeholders with whitespace, repetition, absent names, and empty values. PowerPoint tests pin ordered, XML-escaped bullets and reject an unreadable fixture instead of silently passing.
+- Focused core tests pin contiguous scalar placeholders with whitespace, repetition, absent names, and empty values. PowerPoint tests pin ordered, XML-escaped bullets and reject unreadable authored media.
 - `cargo test -p acorn-core --lib test_string_interpolation_replaces_contiguous_scalar_placeholders`, `cargo test -p acorn-lib --features powerpoint --lib test_replace_placeholder_with`, and the alloc-only `acorn-core` check pass.
-- Legacy PowerPoint scalar interpolation still treats replacement text as a regex substitution and does not handle placeholders split across OOXML runs; EXP-06 moves that adapter to the portable contract.
 - `acorn-core::util::interpolation` provides ordered raw `Absent`/`Scalar`/`List` values and literal scalar substitution. `io::export::ExportContext` projects the current presentation fields, raw lists, contact, identifier, and authored/fallback image choice without file access. Four focused tests for each module, the alloc-only core check, and focused library Clippy pass.
-- HTML renders each list item as an escaped node and escapes projected scalar, contact, caption, and authored URL text before Percy serialization. PowerPoint still resolves an authored image relative to the source file and uses regex paragraph discovery for bullets.
-- Seven HTML template tests pass with default features and with only `pdf` enabled. Seventeen library PowerPoint tests, eight CLI PowerPoint helper tests, and `test_export_powerpoint_format` pass with the checked-in reference PPTX fixture. The CLI tests include rejection of a non-draft activity without sections and hard failure for unreadable authored media.
-- The slide fixture's `technical` placeholder remains stale under the legacy bullet adapter, while its `achievement` paragraph is transformed. EXP-06 must cover this fixture with parser-backed interpolation.
-- Slide-list, relationship, content-type, and ASPECT mutations use `quick_xml` and have deterministic tests. Interpolation still returns `()` and logs read/write failures.
+- HTML renders each list item as an escaped node and escapes projected scalar, contact, caption, and authored URL text before Percy serialization.
+- PowerPoint interpolation now parses XML events, replaces scalar and list tokens across text runs, preserves unrelated run and paragraph events, and reports part-qualified read, parse, and write failures through `create`. The previously stale `technical` fixture token is replaced.
+- Slide, relationship, content-type, and ASPECT transforms use `quick_xml`. Slide copies, image replacement, and ASPECT insertion prepare and validate dependent bytes before writing into the private extracted tree. Image lookup uses relationship type, and the shared ZIP writer stages final artifact publication.
+- Twenty-one library PowerPoint tests, thirteen CLI PowerPoint helper tests, and the end-to-end `test_export_powerpoint_format` pass. Failure tests cover malformed XML and relationships, read/write errors, unchanged dependent parts, and preservation of an existing output after a late media failure.
 - Existing fuzz targets cover schemas and repositories, not OOXML.
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-lib/src/io/powerpoint/{mod,ooxml}.rs`, PowerPoint command composition, dedicated tests/fixtures, `fuzz/Cargo.toml`, and fuzz-smoke wiring.
-- **Create:** parser-backed interpolation transforms and focused OOXML fuzz targets/corpora.
-- **Delete:** regex-based OOXML selection, silent interpolation failure paths, and ad hoc mutations after parity tests.
+- **Update:** `fuzz/Cargo.toml`, fuzz-smoke wiring, validation fixtures, and export documentation.
+- **Create:** focused OOXML fuzz targets and seed corpora.
 
 # Dependencies
 
-The replacement contract and context are consumed by both renderers. EXP-06 owns the next library and CLI PowerPoint interpolation changes. Parser-backed transforms still precede `acorn-export` extraction. Fuzzing begins after the pure transform signatures stabilize. Shared manifests, export dispatch, snapshots, and CI/build files are integration locks.
+The replacement contract and context are consumed by both renderers. EXP-08 fuzzing and EXP-09 visual inspection are the next independent phases before `acorn-export` extraction. Shared manifests, export dispatch, snapshots, and CI/build files remain integration locks.
 
 # Decisions
 
@@ -55,56 +52,26 @@ The replacement contract and context are consumed by both renderers. EXP-06 owns
 
 # Implementation sequence
 
-1. Replace regex interpolation, return errors from all interpolation I/O, select image relationships by relationship type, and stage mutations atomically.
-2. Add slide-list, relationship, content-type, ASPECT, and interpolation fuzz targets with bounded seed runs.
-3. Inspect generated presentations in PowerPoint or LibreOffice and record the no-repair result.
+1. Add slide-list, relationship, content-type, ASPECT, and interpolation fuzz targets with bounded seed runs.
+2. Inspect generated presentations in PowerPoint or LibreOffice and record the no-repair result.
 
 # Validation
 
-- Renderer parity tests cover populated records, sectionless drafts, authored/fallback images, unreadable authored files, and output escaping.
-- OOXML tests cover split runs, namespace prefixes, malformed paragraphs, duplicate slide lists, missing relationships, unsupported layouts, and failures after staging.
 - Each fuzz target builds, runs a bounded session over seeds, and turns every discovered failure into a minimized deterministic regression.
-- Run focused schema/core/export tests, the end-to-end PPTX test, no-default CLI tests, Clippy, lint, the full suite, and visual application inspection.
+- Run focused schema/core/export tests, the end-to-end PPTX test, no-default CLI tests, Clippy, lint, the full suite, and visual application inspection before closing the plan.
 
 # Acceptance criteria
 
-- Scalar and list replacements use one portable plan with explicit absence, empty, repetition, and literal-value semantics; adapters escape for their output formats.
-- Placeholders split across PowerPoint runs are transformed without regex-based XML selection.
-- Malformed templates and every read, parse, serialization, relationship, and write failure reach the caller with the affected part identified.
-- Mutations are validated before commit and cannot leave a usable partial export.
-- Sectionless drafts and authored/fallback media retain their documented behavior.
 - Bounded fuzz runs find no panic or invariant violation, and all regression artifacts are retained as deterministic tests.
 - Generated presentations open without a repair prompt, and the boundary is ready to move into `acorn-export`.
 
 # Execution phases
 
-## EXP-06 — Replace regex interpolation with event parsing
+## EXP-08 — Add bounded OOXML fuzz targets
 
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none
-- Exact write set: `crates/acorn-lib/src/io/powerpoint/interpolation.rs`, `crates/acorn-lib/src/io/powerpoint/mod.rs`, `crates/acorn-lib/src/io/powerpoint/tests/mod.rs`, `crates/acorn-cli/src/commands/export/powerpoint/mod.rs`, `crates/acorn-cli/src/commands/export/powerpoint/tests/mod.rs`
-- Primary integration lock: OOXML interpolation
-- Outcome: Transform scalar and list placeholders split across runs and return part-qualified errors.
-- Focused validation: Run interpolation tests for the stale `technical` fixture, split runs, namespaces, properties, malformed XML, and I/O failure; run CLI PowerPoint helper tests to prove errors reach the caller.
-- Handoff: Remove EXP-06 and pass fallible transforms to EXP-07.
-
-## EXP-07 — Stage OOXML mutations atomically
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: EXP-06
-- Exact write set: `crates/acorn-lib/src/io/powerpoint/mod.rs`, `crates/acorn-lib/src/io/powerpoint/tests/mod.rs`, `crates/acorn-cli/src/commands/export/powerpoint/mod.rs`, `crates/acorn-cli/src/commands/export/powerpoint/tests/mod.rs`
-- Primary integration lock: OOXML archive mutation
-- Outcome: Validate slide, relationship, media, content-type, and ASPECT changes before publication.
-- Focused validation: Run failure-injection tests proving no usable partial export.
-- Handoff: Remove EXP-07 and expose pure transforms to fuzzing.
-
-## EXP-08 — Add bounded OOXML fuzz targets
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: EXP-06, EXP-07
 - Exact write set: `fuzz/fuzz_targets/powerpoint.rs`, `fuzz/Cargo.toml`
 - Primary integration lock: fuzz manifest
 - Outcome: Cover interpolation, slide lists, relationships, content types, and ASPECT mutations with bounded invariants.
@@ -113,9 +80,9 @@ The replacement contract and context are consumed by both renderers. EXP-06 owns
 
 ## EXP-09 — Verify generated presentations visually
 
-- Status: planned
+- Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: EXP-07
+- Prerequisites: none
 - Exact write set: `tests/fixtures/export/reproducible.json`, `.wiki/refactors/core/export-pipeline-hardening.md`
 - Primary integration lock: renderer validation
 - Outcome: Prove representative generated presentations open without repair and preserve expected layout.

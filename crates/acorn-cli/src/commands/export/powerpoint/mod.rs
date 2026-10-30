@@ -11,11 +11,11 @@ use acorn::{
             interpolate_values,
             ooxml::{
                 add_slide_to_presentation_xml, ensure_png_content_type, replace_aspect_placeholders_with_picture, update_relationship_target,
-                validate_xml_well_formed, Relationship, Relationships,
+                validate_xml_well_formed, Relationship,
             },
             read_xml_rel,
         },
-        write_file, ApiResult, ArchiveCandidate, ArchiveExtraction, InputOutput,
+        ApiResult, ArchiveCandidate, ArchiveExtraction, InputOutput,
     },
     util::StringConversion,
 };
@@ -30,7 +30,7 @@ use itertools::izip;
 use nanoid::nanoid;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use std::{
-    fs::{copy, create_dir_all, write},
+    fs::{create_dir_all, read, write},
     path::{Path, PathBuf},
 };
 use tracing::error;
@@ -46,71 +46,54 @@ fn add_aspect_chart(index: usize, context: &ExportContext, chart: &[u8], destina
         .and_then(|path| path.materialize_under(destination).map_err(Into::into))
         .and_then(|media_path| {
             read_text(&slide_path)
-                .map_err(|why| eyre!("Failed to read PowerPoint slide at {} — {why}", slide_path.to_absolute_path()))
+                .map_err(|why| eyre!("Failed to read PowerPoint part at {} — {why}", slide_path.display()))
                 .and_then(|slide_xml| {
-                    read_xml_rel(relationships_path.clone())
-                        .ok_or_else(|| {
-                            eyre!(
-                                "Failed to read PowerPoint slide relationships at {}",
-                                relationships_path.to_absolute_path()
-                            )
-                        })
-                        .map(|relationships| (slide_xml, relationships))
-                })
-                .and_then(|(slide_xml, relationships)| {
-                    let revision = relationships.largest_revision_identifier().unwrap_or(0).saturating_add(1);
-                    let relationship_id = format!("rId{revision}");
-                    replace_aspect_placeholders_with_picture(&slide_xml, &relationship_id).and_then(|updated| match updated {
-                        | Some(updated_slide) => {
-                            let relationship = Relationship::init()
-                                .id(relationship_id)
-                                .relationship_type(IMAGE_RELATIONSHIP.to_string())
-                                .target(format!("../media/{media_name}"))
-                                .build();
-                            relationships
-                                .add_relationship(relationship)
-                                .to_string()
-                                .map_err(|why| eyre!("Failed to serialize ASPECT chart relationship — {why}"))
-                                .and_then(|xml| {
-                                    write_file(&relationships_path, xml).map_err(|why| {
-                                        eyre!(
-                                            "Failed to write ASPECT chart relationship at {} — {why}",
-                                            relationships_path.to_absolute_path()
-                                        )
-                                    })
-                                })
-                                .and_then(|_| {
-                                    write_file(&slide_path, updated_slide)
-                                        .map_err(|why| eyre!("Failed to write ASPECT chart picture at {} — {why}", slide_path.to_absolute_path()))
-                                })
-                                .and_then(|_| {
-                                    read_text(&content_types_path).map_err(|why| {
-                                        eyre!(
-                                            "Failed to read PowerPoint content types at {} — {why}",
-                                            content_types_path.to_absolute_path()
-                                        )
-                                    })
-                                })
-                                .and_then(|xml| ensure_png_content_type(&xml))
-                                .and_then(|xml| {
-                                    write_file(&content_types_path, xml).map_err(|why| {
-                                        eyre!(
-                                            "Failed to write PowerPoint content types at {} — {why}",
-                                            content_types_path.to_absolute_path()
-                                        )
-                                    })
-                                })
-                                .and_then(|_| {
-                                    write(&media_path, chart)
-                                        .map_err(|why| eyre!("Failed to write ASPECT chart image at {} — {why}", media_path.to_absolute_path()))
-                                })
-                        }
-                        | None => Ok(()),
+                    read_xml_rel(relationships_path.clone()).and_then(|relationships| {
+                        let revision = relationships.largest_revision_identifier().unwrap_or(0).saturating_add(1);
+                        let relationship_id = format!("rId{revision}");
+                        replace_aspect_placeholders_with_picture(&slide_xml, &relationship_id)
+                            .map_err(|why| eyre!("Failed to transform PowerPoint part at {} — {why}", slide_path.display()))
+                            .and_then(|updated| match updated {
+                                | Some(updated_slide) => {
+                                    let relationship = Relationship::init()
+                                        .id(relationship_id)
+                                        .relationship_type(IMAGE_RELATIONSHIP.to_string())
+                                        .target(format!("../media/{media_name}"))
+                                        .build();
+                                    relationships
+                                        .add_relationship(relationship)
+                                        .to_string()
+                                        .map_err(|why| eyre!("Failed to serialize PowerPoint part at {} — {why}", relationships_path.display()))
+                                        .and_then(|updated_relationships| {
+                                            read_text(&content_types_path)
+                                                .map_err(|why| eyre!("Failed to read PowerPoint part at {} — {why}", content_types_path.display()))
+                                                .and_then(|content_types| {
+                                                    ensure_png_content_type(&content_types).map_err(|why| {
+                                                        eyre!("Failed to transform PowerPoint part at {} — {why}", content_types_path.display())
+                                                    })
+                                                })
+                                                .and_then(|updated_content_types| {
+                                                    [
+                                                        staged_xml(relationships_path, updated_relationships),
+                                                        staged_xml(slide_path, updated_slide),
+                                                        staged_xml(content_types_path, updated_content_types),
+                                                    ]
+                                                    .into_iter()
+                                                    .collect::<ApiResult<Vec<_>>>()
+                                                    .and_then(|mut parts| {
+                                                        parts.push((media_path, chart.to_vec()));
+                                                        write_staged(parts)
+                                                    })
+                                                })
+                                        })
+                                }
+                                | None => Ok(()),
+                            })
                     })
                 })
         })
 }
-fn add_slide(slide_number: usize, reference_extract_path: &Path) -> ApiResult<()> {
+fn add_slide(slide_number: usize, root: &Path) -> ApiResult<()> {
     fn slide_paths(slide_number: usize, root: &Path) -> Vec<PathBuf> {
         [
             format!("ppt/slides/slide{slide_number}.xml"),
@@ -119,157 +102,114 @@ fn add_slide(slide_number: usize, reference_extract_path: &Path) -> ApiResult<()
             format!("ppt/notesSlides/_rels/notesSlide{slide_number}.xml.rels"),
         ]
         .iter()
-        .map(|x| root.join(x))
-        .collect::<Vec<PathBuf>>()
+        .map(|fragment| root.join(fragment))
+        .collect()
     }
-    let new_slide_paths = slide_paths(slide_number, reference_extract_path);
-    if new_slide_paths.iter().all(|x| x.exists()) {
-        return Ok(());
-    }
-    let relationship_replacements = [
-        None,
-        Some(("../notesSlides/notesSlide1.xml", format!("../notesSlides/notesSlide{slide_number}.xml"))),
-        None,
-        Some(("../slides/slide1.xml", format!("../slides/slide{slide_number}.xml"))),
-    ];
-    izip!(slide_paths(1, reference_extract_path), new_slide_paths, relationship_replacements)
-        .map(|(first_slide_path, new_slide_path, replacement)| {
-            read_text(&first_slide_path)
-                .map_err(|why| eyre!("Failed to read PowerPoint part at {} — {why}", first_slide_path.to_absolute_path()))
-                .and_then(|content| match replacement {
-                    | Some((current_target, target)) => update_relationship_target(&content, current_target, &target),
-                    | None => Ok(content),
-                })
-                .and_then(|content| match validate_xml_well_formed(&content) {
-                    | true => Ok(content),
-                    | false => Err(eyre!(
-                        "Malformed OOXML content while copying PowerPoint part to {}",
-                        new_slide_path.to_absolute_path()
-                    )),
-                })
-                .and_then(|content| {
-                    write_file(&new_slide_path, content)
-                        .map_err(|why| eyre!("Failed to write PowerPoint part at {} — {why}", new_slide_path.to_absolute_path()))
-                })
-        })
-        .collect::<ApiResult<Vec<_>>>()
-        .and_then(|_| {
-            let presentation_xml_rels_path = reference_extract_path.join("ppt/_rels/presentation.xml.rels");
-            read_xml_rel(presentation_xml_rels_path.clone())
-                .ok_or_else(|| {
-                    eyre!(
-                        "Failed to read PowerPoint presentation relationships at {}",
-                        presentation_xml_rels_path.to_absolute_path()
-                    )
-                })
-                .and_then(|presentation_xml_rels| {
-                    let new_slide_revision_identifier = presentation_xml_rels.largest_revision_identifier().unwrap_or(0).saturating_add(1);
-                    let new_slide_relationship = Relationship::init()
-                        .id(format!("rId{new_slide_revision_identifier}"))
-                        .target(format!("slides/slide{slide_number}.xml"))
-                        .build();
-                    presentation_xml_rels
-                        .add_relationship(new_slide_relationship)
-                        .to_string()
-                        .map_err(|why| eyre!("Failed to serialize PowerPoint presentation relationships — {why}"))
-                        .and_then(|updated| {
-                            write_file(&presentation_xml_rels_path, updated).map_err(|why| {
-                                eyre!(
-                                    "Failed to write PowerPoint presentation relationships at {} — {why}",
-                                    presentation_xml_rels_path.to_absolute_path()
-                                )
-                            })
+    let destination_paths = slide_paths(slide_number, root);
+    match destination_paths.iter().filter(|path| path.exists()).count() {
+        | count if count == destination_paths.len() => Ok(()),
+        | count if count > 0 => Err(eyre!("PowerPoint slide {slide_number} has incomplete existing parts")),
+        | _ => {
+            let replacements = [
+                None,
+                Some(("../notesSlides/notesSlide1.xml", format!("../notesSlides/notesSlide{slide_number}.xml"))),
+                None,
+                Some(("../slides/slide1.xml", format!("../slides/slide{slide_number}.xml"))),
+            ];
+            izip!(slide_paths(1, root), destination_paths, replacements)
+                .map(|(source, destination, replacement)| {
+                    read_text(&source)
+                        .map_err(|why| eyre!("Failed to read PowerPoint part at {} — {why}", source.display()))
+                        .and_then(|content| match replacement {
+                            | Some((old, new)) => update_relationship_target(&content, old, &new)
+                                .map_err(|why| eyre!("Failed to transform PowerPoint part at {} — {why}", source.display())),
+                            | None => Ok(content),
                         })
-                        .map(|_| new_slide_revision_identifier)
+                        .and_then(|updated| staged_xml(destination, updated))
                 })
-        })
-        .and_then(|new_slide_revision_identifier| {
-            let presentation_xml_path = reference_extract_path.join("ppt/presentation.xml");
-            read_text(&presentation_xml_path)
-                .map_err(|why| {
-                    eyre!(
-                        "Failed to read PowerPoint presentation XML at {} — {why}",
-                        presentation_xml_path.to_absolute_path()
-                    )
-                })
-                .and_then(|presentation_xml| {
-                    let new_slide_element_identifier = nanoid!(4, &['1', '2', '3', '4', '5', '6', '7', '8', '9'])
-                        .parse::<u32>()
-                        .unwrap_or(new_slide_revision_identifier.saturating_add(255));
-                    add_slide_to_presentation_xml(&presentation_xml, new_slide_element_identifier, new_slide_revision_identifier)
-                })
-                .and_then(|updated| {
-                    write_file(&presentation_xml_path, updated).map_err(|why| {
-                        eyre!(
-                            "Failed to write PowerPoint presentation XML at {} — {why}",
-                            presentation_xml_path.to_absolute_path()
-                        )
+                .collect::<ApiResult<Vec<_>>>()
+                .and_then(|mut staged| {
+                    let relationships_path = root.join("ppt/_rels/presentation.xml.rels");
+                    read_xml_rel(relationships_path.clone()).and_then(|relationships| {
+                        let revision = relationships.largest_revision_identifier().unwrap_or(0).saturating_add(1);
+                        let relationship = Relationship::init()
+                            .id(format!("rId{revision}"))
+                            .target(format!("slides/slide{slide_number}.xml"))
+                            .build();
+                        relationships
+                            .add_relationship(relationship)
+                            .to_string()
+                            .map_err(|why| eyre!("Failed to serialize PowerPoint part at {} — {why}", relationships_path.display()))
+                            .and_then(|updated| staged_xml(relationships_path, updated))
+                            .and_then(|part| {
+                                staged.push(part);
+                                let presentation_path = root.join("ppt/presentation.xml");
+                                read_text(&presentation_path)
+                                    .map_err(|why| eyre!("Failed to read PowerPoint part at {} — {why}", presentation_path.display()))
+                                    .and_then(|presentation| {
+                                        let slide_id = nanoid!(4, &['1', '2', '3', '4', '5', '6', '7', '8', '9'])
+                                            .parse::<u32>()
+                                            .unwrap_or(revision.saturating_add(255));
+                                        add_slide_to_presentation_xml(&presentation, slide_id, revision)
+                                            .map_err(|why| eyre!("Failed to transform PowerPoint part at {} — {why}", presentation_path.display()))
+                                    })
+                                    .and_then(|updated| staged_xml(presentation_path, updated))
+                                    .map(|part| {
+                                        staged.push(part);
+                                        staged
+                                    })
+                            })
                     })
                 })
-        })
+                .and_then(write_staged)
+        }
+    }
 }
 fn copy_image(index: usize, context: &ExportContext, source: &Path, destination: &Path) -> ApiResult<u64> {
-    let xml_rels_path = destination.join(format!("ppt/slides/_rels/slide{index}.xml.rels"));
-    read_xml_rel(xml_rels_path.clone())
-        .map(|Relationships { relationship, .. }| relationship)
-        .ok_or_else(|| {
-            let path = xml_rels_path.to_absolute_path();
-            error!(path, "=> {} Read PowerPoint slide relationships", Label::fail());
-            eyre!("Failed to read PowerPoint slide relationships at {path}")
-        })
-        .and_then(|relationships| {
-            relationships
-                .into_iter()
-                .find(|x| MimeType::from(x.target.as_str()) == MimeType::Png)
-                .map(|x| x.target)
-                .ok_or_else(|| {
-                    let path = xml_rels_path.to_absolute_path();
-                    error!(path, "=> {} Find slide image relationship", Label::fail());
-                    eyre!("No PNG image relationship found in PowerPoint slide at {path}")
-                })
-        })
-        .and_then(|target| {
-            let parent = source
-                .parent()
-                .map(Path::to_path_buf)
-                .and_then(|value| value.canonicalize().ok())
-                .unwrap_or_else(|| PathBuf::from("."));
-            let name = &context.identifier;
-            let mime = match &context.image_source {
-                | ImageSource::Authored(url) => MimeType::from(url.as_str()),
-                | ImageSource::DraftFallback => MimeType::Png,
-            };
-            let extension = match mime {
-                | MimeType::Unknown(_) => MimeType::Png.file_type(),
-                | mime => mime.file_type(),
-            };
-            SafePath::new(format!("ppt/media/{name}.{extension}"))
-                .map_err(Into::<color_eyre::Report>::into)
-                .and_then(|path| path.materialize_under(destination).map_err(Into::into))
-                .and_then(|to| {
-                    read_text(xml_rels_path.clone())
-                        .map_err(|why| eyre!("Failed to read slide relationship XML — {why}"))
-                        .and_then(|content| update_relationship_target(&content, &target, &format!("../media/{name}.{extension}")))
-                        .and_then(|updated| {
-                            write_file(xml_rels_path.clone(), updated).map_err(|why| {
-                                error!(
-                                    path = xml_rels_path.to_absolute_path(),
-                                    "=> {} Write slide relationship XML — {why}",
-                                    Label::fail()
-                                );
-                                eyre!("Failed to write slide relationship XML — {why}")
-                            })
+    let relationships_path = destination.join(format!("ppt/slides/_rels/slide{index}.xml.rels"));
+    read_xml_rel(relationships_path.clone()).and_then(|relationships| {
+        relationships
+            .relationship
+            .iter()
+            .find(|relationship| relationship.relationship_type == IMAGE_RELATIONSHIP)
+            .map(|relationship| relationship.target.as_str())
+            .ok_or_else(|| eyre!("No image relationship found in PowerPoint part at {}", relationships_path.display()))
+            .and_then(|target| {
+                let mime = match &context.image_source {
+                    | ImageSource::Authored(url) => MimeType::from(url.as_str()),
+                    | ImageSource::DraftFallback => MimeType::Png,
+                };
+                let extension = match mime {
+                    | MimeType::Unknown(_) => MimeType::Png.file_type(),
+                    | mime => mime.file_type(),
+                };
+                SafePath::new(format!("ppt/media/{}.{extension}", context.identifier))
+                    .map_err(Into::<color_eyre::Report>::into)
+                    .and_then(|path| path.materialize_under(destination).map_err(Into::into))
+                    .and_then(|media_path| {
+                        let media = match &context.image_source {
+                            | ImageSource::Authored(url) => {
+                                let parent = source.parent().unwrap_or_else(|| Path::new("."));
+                                read(parent.join(url)).map_err(|why| eyre!("Failed to copy image for {} — {why}", media_path.display()))
+                            }
+                            | ImageSource::DraftFallback => draft_placeholder_bytes(),
+                        };
+                        media.and_then(|media| {
+                            read_text(&relationships_path)
+                                .map_err(|why| eyre!("Failed to read PowerPoint part at {} — {why}", relationships_path.display()))
+                                .and_then(|relationship_xml| {
+                                    update_relationship_target(&relationship_xml, target, &format!("../media/{}.{extension}", context.identifier))
+                                        .map_err(|why| eyre!("Failed to transform PowerPoint part at {} — {why}", relationships_path.display()))
+                                })
+                                .and_then(|updated| staged_xml(relationships_path, updated))
+                                .and_then(|relationship| {
+                                    let size = media.len() as u64;
+                                    write_staged(vec![relationship, (media_path, media)]).map(|()| size)
+                                })
                         })
-                        .and_then(|_| match &context.image_source {
-                            | ImageSource::Authored(url) => copy(parent.join(url), to).map_err(|why| eyre!("Failed to copy image — {why}")),
-                            | ImageSource::DraftFallback => draft_placeholder_bytes().and_then(|bytes| {
-                                write(to, &bytes)
-                                    .map(|_| bytes.len() as u64)
-                                    .map_err(|why| eyre!("Failed to write draft placeholder image — {why}"))
-                            }),
-                        })
-                })
-        })
+                    })
+            })
+    })
 }
 /// Create PowerPoint presentation from Research Activity data
 pub fn create(
@@ -280,121 +220,117 @@ pub fn create(
     let options = options.unwrap_or_default();
     let CommandOptions { output, path, reference, .. } = options.as_ref();
     let paths: Arc<Vec<PathBuf>> = Arc::new(paths.into_iter().collect());
-    let research_activity_data: Vec<ResearchActivity> = paths
+    let research_activity_data = paths
         .iter()
-        .filter_map(|path| match ResearchActivity::read(path.clone()) {
-            | Ok(value) => Some(value.format_with(Some(path.clone()))),
-            | Err(why) => {
-                error!(
-                    path = path.to_absolute_path(),
-                    "=> {} Read data for PowerPoint export - {why}",
-                    Label::fail(),
-                );
-                None
-            }
+        .map(|path| {
+            ResearchActivity::read(path.clone())
+                .map(|value| value.format_with(Some(path.clone())))
+                .map_err(|why| eyre!("Failed to read research activity at {} — {why}", path.display()))
         })
-        .collect();
-    path.clone()
-        .ok_or_else(|| eyre!("Missing path for PowerPoint export — a path or reference must be provided"))
-        .map(|path_from_options| {
-            let parent = if path_from_options.is_dir() {
-                path_from_options
-            } else {
-                path_from_options
-                    .parent()
-                    .map(|p| p.canonicalize().unwrap_or_else(|_| PathBuf::from(".")))
-                    .unwrap_or_else(|| PathBuf::from("."))
-            };
-            match reference {
-                | Some(ref value) => {
-                    if value.as_path().is_absolute() {
-                        value.to_path_buf()
-                    } else {
-                        parent.join(value).to_path_buf()
+        .collect::<ApiResult<Vec<ResearchActivity>>>();
+    research_activity_data.and_then(|research_activity_data| {
+        path.clone()
+            .ok_or_else(|| eyre!("Missing path for PowerPoint export — a path or reference must be provided"))
+            .map(|path_from_options| {
+                let parent = if path_from_options.is_dir() {
+                    path_from_options
+                } else {
+                    path_from_options
+                        .parent()
+                        .map(|p| p.canonicalize().unwrap_or_else(|_| PathBuf::from(".")))
+                        .unwrap_or_else(|| PathBuf::from("."))
+                };
+                match reference {
+                    | Some(ref value) => {
+                        if value.as_path().is_absolute() {
+                            value.to_path_buf()
+                        } else {
+                            parent.join(value).to_path_buf()
+                        }
                     }
+                    | None => parent.join("reference.pptx"),
                 }
-                | None => parent.join("reference.pptx"),
-            }
-        })
-        .and_then(|reference_path| {
-            ArchiveCandidate::from(reference_path.clone())
-                .extract_zip(None)
-                .map(Arc::new)
-                .map_err(|_| {
-                    error!(path = reference_path.to_absolute_path(), "=> {} Extract reference", Label::fail());
-                    eyre!("Failed to extract PowerPoint reference at {reference_path:?}")
-                })
-        })
-        .and_then(move |reference_extract_path| {
-            research_activity_data
-                .iter()
-                .enumerate()
-                .map(|(index, _)| add_slide(index.saturating_add(1), &reference_extract_path))
-                .collect::<ApiResult<Vec<_>>>()
-                .and_then(|_| {
-                    let reference_extract_path_for_workers = Arc::clone(&reference_extract_path);
-                    izip!(research_activity_data, paths.iter().cloned())
-                        .collect::<Vec<_>>()
-                        .into_par_iter()
-                        .enumerate()
-                        .map(move |(index, (data, index_path))| {
-                            let reference_extract_path = Arc::clone(&reference_extract_path_for_workers);
-                            let slide_number = index.saturating_add(1);
-                            ExportContext::project(&data)
-                                .map_err(|why| eyre!("Failed to project research activity for slide {slide_number} — {why}"))
-                                .and_then(|context| {
-                                    let fragments = [
-                                        format!("ppt/slides/slide{slide_number}.xml"),
-                                        format!("ppt/notesSlides/notesSlide{slide_number}.xml"),
-                                        format!("ppt/slides/_rels/slide{slide_number}.xml.rels"),
-                                    ];
-                                    fragments
-                                        .iter()
-                                        .map(|fragment| reference_extract_path.join(fragment))
-                                        .for_each(|path| interpolate_values(path, &context));
-                                    copy_image(slide_number, &context, &index_path, &reference_extract_path)
-                                        .map(|_| ())
-                                        .inspect_err(|why| {
-                                            error!(
-                                                path = index_path.to_absolute_path(),
-                                                "=> {} Copy image for slide {slide_number} — {why}",
-                                                Label::fail()
-                                            )
-                                        })
-                                        .and_then(|_| match aspect_charts.get(index) {
-                                            | Some(Some(chart)) => add_aspect_chart(slide_number, &context, chart, &reference_extract_path)
-                                                .inspect_err(|why| {
-                                                    error!(
-                                                        path = index_path.to_absolute_path(),
-                                                        "=> {} Add ASPECT chart to slide {slide_number} — {why}",
-                                                        Label::fail()
-                                                    );
-                                                }),
-                                            | _ => Ok(()),
-                                        })
-                                })
-                        })
-                        .collect::<ApiResult<Vec<_>>>()
-                        .and_then(|_| {
-                            let count = paths.len();
-                            let folder = if count == 1 {
-                                match paths.first() {
-                                    | Some(p) => match p.parent() {
-                                        | Some(parent_dir) => parent_dir.canonicalize().unwrap_or_else(|_| PathBuf::from(".")),
+            })
+            .and_then(|reference_path| {
+                ArchiveCandidate::from(reference_path.clone())
+                    .extract_zip(None)
+                    .map(Arc::new)
+                    .map_err(|why| {
+                        error!(path = reference_path.to_absolute_path(), "=> {} Extract reference", Label::fail());
+                        eyre!("Failed to extract PowerPoint reference at {reference_path:?} — {why}")
+                    })
+            })
+            .and_then(move |reference_extract_path| {
+                research_activity_data
+                    .iter()
+                    .enumerate()
+                    .map(|(index, _)| add_slide(index.saturating_add(1), &reference_extract_path))
+                    .collect::<ApiResult<Vec<_>>>()
+                    .and_then(|_| {
+                        let reference_extract_path_for_workers = Arc::clone(&reference_extract_path);
+                        izip!(research_activity_data, paths.iter().cloned())
+                            .collect::<Vec<_>>()
+                            .into_par_iter()
+                            .enumerate()
+                            .map(move |(index, (data, index_path))| {
+                                let reference_extract_path = Arc::clone(&reference_extract_path_for_workers);
+                                let slide_number = index.saturating_add(1);
+                                ExportContext::project(&data)
+                                    .map_err(|why| eyre!("Failed to project research activity for slide {slide_number} — {why}"))
+                                    .and_then(|context| {
+                                        let fragments = [
+                                            format!("ppt/slides/slide{slide_number}.xml"),
+                                            format!("ppt/notesSlides/notesSlide{slide_number}.xml"),
+                                            format!("ppt/slides/_rels/slide{slide_number}.xml.rels"),
+                                        ];
+                                        fragments
+                                            .iter()
+                                            .map(|fragment| reference_extract_path.join(fragment))
+                                            .try_for_each(|part| interpolate_values(part, &context))
+                                            .and_then(|_| copy_image(slide_number, &context, &index_path, &reference_extract_path))
+                                            .map(|_| ())
+                                            .inspect_err(|why| {
+                                                error!(
+                                                    path = index_path.to_absolute_path(),
+                                                    "=> {} Copy image for slide {slide_number} — {why}",
+                                                    Label::fail()
+                                                )
+                                            })
+                                            .and_then(|_| match aspect_charts.get(index) {
+                                                | Some(Some(chart)) => add_aspect_chart(slide_number, &context, chart, &reference_extract_path)
+                                                    .inspect_err(|why| {
+                                                        error!(
+                                                            path = index_path.to_absolute_path(),
+                                                            "=> {} Add ASPECT chart to slide {slide_number} — {why}",
+                                                            Label::fail()
+                                                        );
+                                                    }),
+                                                | _ => Ok(()),
+                                            })
+                                    })
+                            })
+                            .collect::<ApiResult<Vec<_>>>()
+                            .and_then(|_| {
+                                let count = paths.len();
+                                let folder = if count == 1 {
+                                    match paths.first() {
+                                        | Some(p) => match p.parent() {
+                                            | Some(parent_dir) => parent_dir.canonicalize().unwrap_or_else(|_| PathBuf::from(".")),
+                                            | None => PathBuf::from("."),
+                                        },
                                         | None => PathBuf::from("."),
-                                    },
-                                    | None => PathBuf::from("."),
-                                }
-                            } else {
-                                path.clone().unwrap_or_else(|| PathBuf::from("."))
-                            };
-                            let folder_name = folder.file_name_with_parent();
-                            validate_ooxml_files(&reference_extract_path, count)
-                                .and_then(|_| prepare_destination(output, &folder_name))
-                                .and_then(|destination| archive(reference_extract_path.as_ref().clone(), Some(destination), MimeType::Zip))
-                        })
-                })
-        })
+                                    }
+                                } else {
+                                    path.clone().unwrap_or_else(|| PathBuf::from("."))
+                                };
+                                let folder_name = folder.file_name_with_parent();
+                                validate_ooxml_files(&reference_extract_path, count)
+                                    .and_then(|_| prepare_destination(output, &folder_name))
+                                    .and_then(|destination| archive(reference_extract_path.as_ref().clone(), Some(destination), MimeType::Zip))
+                            })
+                    })
+            })
+    })
 }
 fn prepare_destination(output: &Option<PathBuf>, name: &str) -> ApiResult<PathBuf> {
     match output {
@@ -406,6 +342,11 @@ fn prepare_destination(output: &Option<PathBuf>, name: &str) -> ApiResult<PathBu
         },
         | None => Err(eyre!("Missing output directory")),
     }
+}
+fn staged_xml(path: PathBuf, content: String) -> ApiResult<(PathBuf, Vec<u8>)> {
+    validate_xml_well_formed(&content)
+        .then(|| (path.clone(), content.into_bytes()))
+        .ok_or_else(|| eyre!("Malformed PowerPoint part at {}", path.display()))
 }
 fn validate_ooxml_files(reference_extract_path: &Path, count: usize) -> ApiResult<()> {
     let presentation_targets = ["ppt/presentation.xml", "ppt/_rels/presentation.xml.rels"]
@@ -431,6 +372,11 @@ fn validate_ooxml_files(reference_extract_path: &Path, count: usize) -> ApiResul
         )),
         | None => Ok(()),
     }
+}
+fn write_staged(parts: Vec<(PathBuf, Vec<u8>)>) -> ApiResult<()> {
+    parts
+        .into_iter()
+        .try_for_each(|(path, content)| write(&path, content).map_err(|why| eyre!("Failed to write PowerPoint part at {} — {why}", path.display())))
 }
 
 #[cfg(test)]

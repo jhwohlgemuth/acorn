@@ -3,10 +3,7 @@
 //! Data structures for modeling [`OOXML`].
 //!
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
-use crate::{
-    io::{read_file, ApiResult},
-    util::StringConversion,
-};
+use crate::io::{read_file, ApiResult};
 use acorn_host::terminal::Label;
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
@@ -18,7 +15,7 @@ use quick_xml::{
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::path::PathBuf;
-use tracing::{debug, error};
+use tracing::error;
 
 const XML_DECLARATION: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>";
 /// Trait for working with OOXML data structures
@@ -216,18 +213,21 @@ pub struct Line {
     #[serde(rename = "$value")]
     line_fill: LineFill,
 }
-/// Struct for parsing OOXML relationships from .rel files
-#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "PascalCase")]
-#[builder(start_fn = init)]
-pub struct Relationships {
-    /// List of relationships
-    #[builder(default = vec![])]
-    pub relationship: Vec<Relationship>,
-    /// XML Namespace
-    #[builder(default = "http://schemas.openxmlformats.org/package/2006/relationships".to_string())]
-    #[serde(rename = "@xmlns")]
-    pub namespace: String,
+#[derive(Clone, Copy)]
+struct PicturePlacement {
+    shape_identifier: u32,
+    x: u64,
+    y: u64,
+    width: u64,
+    height: u64,
+}
+/// Root element of a PowerPoint `presentation.xml` document.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename = "p:presentation")]
+pub struct Presentation {
+    /// Slide identifier list.
+    #[serde(rename = "p:sldIdLst")]
+    pub slide_id_list: Option<SlideIdList>,
 }
 /// Relationships describe references from parts to other internal resources in the package or to external resources
 ///
@@ -251,20 +251,18 @@ pub struct Relationship {
     #[serde(rename = "@TargetMode")]
     pub target_mode: Option<String>,
 }
-/// Root element of a PowerPoint `presentation.xml` document.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename = "p:presentation")]
-pub struct Presentation {
-    /// Slide identifier list.
-    #[serde(rename = "p:sldIdLst")]
-    pub slide_id_list: Option<SlideIdList>,
-}
-/// List of PowerPoint slide identifiers.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SlideIdList {
-    /// Slide identifiers.
-    #[serde(rename = "p:sldId")]
-    pub slide_ids: Vec<SlideId>,
+/// Struct for parsing OOXML relationships from .rel files
+#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "PascalCase")]
+#[builder(start_fn = init)]
+pub struct Relationships {
+    /// List of relationships
+    #[builder(default = vec![])]
+    pub relationship: Vec<Relationship>,
+    /// XML Namespace
+    #[builder(default = "http://schemas.openxmlformats.org/package/2006/relationships".to_string())]
+    #[serde(rename = "@xmlns")]
+    pub namespace: String,
 }
 /// PowerPoint slide identifier entry.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -275,6 +273,13 @@ pub struct SlideId {
     /// Relationship identifier.
     #[serde(rename = "@r:id")]
     pub relationship_id: String,
+}
+/// List of PowerPoint slide identifiers.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SlideIdList {
+    /// Slide identifiers.
+    #[serde(rename = "p:sldId")]
+    pub slide_ids: Vec<SlideId>,
 }
 /// OOXML Text Character Properties (`a:rPr`)
 ///
@@ -458,168 +463,6 @@ pub struct UnderlineFollowsText {}
 /// See <https://www.datypic.com/sc/ooxml/e-a_uLn-1.html>
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct UnderlineStroke {}
-impl XmlRels for Vec<Relationship> {
-    fn largest_revision_identifier(&self) -> Option<u32> {
-        self.revision_identifiers().iter().max().cloned()
-    }
-    fn revision_identifiers(&self) -> Vec<u32> {
-        self.clone()
-            .iter()
-            .filter_map(|x| x.id.clone().trim_start_matches("rId").to_string().parse::<u32>().ok())
-            .collect::<Vec<u32>>()
-    }
-}
-impl Default for Relationships {
-    fn default() -> Self {
-        Self::init().build()
-    }
-}
-impl fmt::Display for Relationships {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.to_string() {
-            | Ok(xml) => write!(f, "{}", xml),
-            | Err(e) => write!(f, "Error serializing Relationships: {}", e),
-        }
-    }
-}
-impl Relationships {
-    /// Add a relationship
-    pub fn add_relationship(&self, value: Relationship) -> Relationships {
-        let Relationships { relationship, .. } = self;
-        let updated = relationship.clone().into_iter().chain(once(value)).collect::<Vec<_>>();
-        Relationships::init().relationship(updated).build()
-    }
-    /// Get largest revision identifier among relationships
-    pub fn largest_revision_identifier(&self) -> Option<u32> {
-        self.relationship.largest_revision_identifier()
-    }
-    /// Convert to XML string using quick_xml serialization
-    pub fn to_string(&self) -> Result<String, quick_xml::de::DeError> {
-        let xml = quick_xml::se::to_string(self).map_err(|e| quick_xml::de::DeError::Custom(e.to_string()))?;
-        Ok(format!("{}{}", XML_DECLARATION, xml))
-    }
-}
-fn is_png_content_type(element: &BytesStart<'_>) -> ApiResult<bool> {
-    element.attributes().try_fold(false, |found, attribute| {
-        attribute
-            .map(|attribute| found || (attribute.key.as_ref() == b"Extension" && attribute.value.as_ref().eq_ignore_ascii_case(b"png")))
-            .map_err(|why| eyre!("Failed to read OOXML content-type attribute — {why}"))
-    })
-}
-fn contains_content_types_root(xml: &str) -> ApiResult<bool> {
-    let mut reader = Reader::from_str(xml);
-    loop {
-        match reader.read_event() {
-            | Ok(Event::Start(element)) if element.name().local_name().as_ref() == b"Types" => break Ok(true),
-            | Ok(Event::Eof) => break Ok(false),
-            | Ok(_) => {}
-            | Err(why) => break Err(eyre!("Failed to parse OOXML content-types document — {why}")),
-        }
-    }
-}
-fn contains_png_content_type(xml: &str) -> ApiResult<bool> {
-    let mut reader = Reader::from_str(xml);
-    loop {
-        match reader.read_event() {
-            | Ok(Event::Start(element) | Event::Empty(element)) if element.name().local_name().as_ref() == b"Default" => {
-                match is_png_content_type(&element) {
-                    | Ok(true) => break Ok(true),
-                    | Ok(false) => {}
-                    | Err(why) => break Err(why),
-                }
-            }
-            | Ok(Event::Eof) => break Ok(false),
-            | Ok(_) => {}
-            | Err(why) => break Err(eyre!("Failed to parse OOXML content-types document — {why}")),
-        }
-    }
-}
-fn add_png_content_type(xml: &str) -> ApiResult<String> {
-    let mut reader = Reader::from_str(xml);
-    let mut writer = Writer::new(Vec::new());
-    loop {
-        match reader.read_event() {
-            | Ok(Event::End(end)) if end.name().local_name().as_ref() == b"Types" => {
-                let name = from_utf8(end.name().as_ref())
-                    .map_err(|why| eyre!("OOXML content-types root is not UTF-8 — {why}"))
-                    .and_then(|name| {
-                        name.strip_suffix("Types")
-                            .map(|prefix| format!("{prefix}Default"))
-                            .ok_or_else(|| eyre!("OOXML content-types document has no Types root"))
-                    });
-                match name.and_then(|name| {
-                    let mut content_type = BytesStart::new(name);
-                    content_type.push_attribute(("Extension", "png"));
-                    content_type.push_attribute(("ContentType", "image/png"));
-                    writer
-                        .write_event(Event::Empty(content_type))
-                        .and_then(|_| writer.write_event(Event::End(end)))
-                        .map_err(|why| eyre!("Failed to add PNG OOXML content type — {why}"))
-                        .and_then(|_| {
-                            String::from_utf8(writer.into_inner()).map_err(|why| eyre!("OOXML content-types document is not UTF-8 — {why}"))
-                        })
-                }) {
-                    | Ok(value) => break Ok(value),
-                    | Err(why) => break Err(why),
-                }
-            }
-            | Ok(Event::Eof) => break Err(eyre!("OOXML content-types document has no Types root")),
-            | Ok(event) => match writer.write_event(event.into_owned()) {
-                | Ok(_) => {}
-                | Err(why) => break Err(eyre!("Failed to write OOXML content-types document — {why}")),
-            },
-            | Err(why) => break Err(eyre!("Failed to parse OOXML content-types document — {why}")),
-        }
-    }
-}
-/// Ensure an OOXML content-types document declares PNG media.
-pub fn ensure_png_content_type(xml: &str) -> ApiResult<String> {
-    contains_content_types_root(xml).and_then(|has_root| {
-        if has_root {
-            contains_png_content_type(xml).and_then(|has_png| if has_png { Ok(xml.to_string()) } else { add_png_content_type(xml) })
-        } else {
-            Err(eyre!("OOXML content-types document has no Types root"))
-        }
-    })
-}
-#[derive(Clone, Copy)]
-struct PicturePlacement {
-    shape_identifier: u32,
-    x: u64,
-    y: u64,
-    width: u64,
-    height: u64,
-}
-fn unsigned_attribute(element: &BytesStart<'_>, name: &[u8]) -> ApiResult<Option<u64>> {
-    element
-        .attributes()
-        .find_map(|attribute| match attribute {
-            | Ok(attribute) if attribute.key.as_ref() == name => Some(
-                from_utf8(attribute.value.as_ref())
-                    .map_err(|why| eyre!("PowerPoint shape attribute is not UTF-8 — {why}"))
-                    .and_then(|value| {
-                        value
-                            .parse::<u64>()
-                            .map_err(|why| eyre!("PowerPoint shape attribute is not unsigned — {why}"))
-                    }),
-            ),
-            | Ok(_) => None,
-            | Err(why) => Some(Err(eyre!("Failed to read PowerPoint shape attribute — {why}"))),
-        })
-        .transpose()
-}
-fn event_unsigned_attribute(events: &[Event<'static>], element_name: &[u8], attribute_name: &[u8]) -> ApiResult<Option<u64>> {
-    events
-        .iter()
-        .find_map(|event| match event {
-            | Event::Start(element) | Event::Empty(element) if element.name().as_ref() == element_name => {
-                Some(unsigned_attribute(element, attribute_name))
-            }
-            | _ => None,
-        })
-        .transpose()
-        .map(Option::flatten)
-}
 impl PicturePlacement {
     fn is_aspect_placeholder(events: &[Event<'static>]) -> bool {
         events
@@ -685,6 +528,215 @@ impl TryFrom<&[Event<'static>]> for PicturePlacement {
             })
     }
 }
+impl Default for Relationships {
+    fn default() -> Self {
+        Self::init().build()
+    }
+}
+impl fmt::Display for Relationships {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.to_string() {
+            | Ok(xml) => write!(f, "{}", xml),
+            | Err(e) => write!(f, "Error serializing Relationships: {}", e),
+        }
+    }
+}
+impl Relationships {
+    /// Add a relationship
+    pub fn add_relationship(&self, value: Relationship) -> Relationships {
+        let Relationships { relationship, .. } = self;
+        let updated = relationship.clone().into_iter().chain(once(value)).collect::<Vec<_>>();
+        Relationships::init().relationship(updated).build()
+    }
+    /// Get largest revision identifier among relationships
+    pub fn largest_revision_identifier(&self) -> Option<u32> {
+        self.relationship.largest_revision_identifier()
+    }
+    /// Convert to XML string using quick_xml serialization
+    pub fn to_string(&self) -> Result<String, quick_xml::de::DeError> {
+        quick_xml::se::to_string(self)
+            .map_err(|e| quick_xml::de::DeError::Custom(e.to_string()))
+            .map(|xml| format!("{}{}", XML_DECLARATION, xml))
+    }
+}
+impl XmlRels for Vec<Relationship> {
+    fn largest_revision_identifier(&self) -> Option<u32> {
+        self.revision_identifiers().iter().max().cloned()
+    }
+    fn revision_identifiers(&self) -> Vec<u32> {
+        self.clone()
+            .iter()
+            .filter_map(|x| x.id.clone().trim_start_matches("rId").to_string().parse::<u32>().ok())
+            .collect::<Vec<u32>>()
+    }
+}
+fn add_png_content_type(xml: &str) -> ApiResult<String> {
+    let mut reader = Reader::from_str(xml);
+    let mut writer = Writer::new(Vec::new());
+    loop {
+        match reader.read_event() {
+            | Ok(Event::End(end)) if end.name().local_name().as_ref() == b"Types" => {
+                let name = from_utf8(end.name().as_ref())
+                    .map_err(|why| eyre!("OOXML content-types root is not UTF-8 — {why}"))
+                    .and_then(|name| {
+                        name.strip_suffix("Types")
+                            .map(|prefix| format!("{prefix}Default"))
+                            .ok_or_else(|| eyre!("OOXML content-types document has no Types root"))
+                    });
+                match name.and_then(|name| {
+                    let mut content_type = BytesStart::new(name);
+                    content_type.push_attribute(("Extension", "png"));
+                    content_type.push_attribute(("ContentType", "image/png"));
+                    writer
+                        .write_event(Event::Empty(content_type))
+                        .and_then(|_| writer.write_event(Event::End(end)))
+                        .map_err(|why| eyre!("Failed to add PNG OOXML content type — {why}"))
+                        .and_then(|_| {
+                            String::from_utf8(writer.into_inner()).map_err(|why| eyre!("OOXML content-types document is not UTF-8 — {why}"))
+                        })
+                }) {
+                    | Ok(value) => break Ok(value),
+                    | Err(why) => break Err(why),
+                }
+            }
+            | Ok(Event::Eof) => break Err(eyre!("OOXML content-types document has no Types root")),
+            | Ok(event) => match writer.write_event(event.into_owned()) {
+                | Ok(_) => {}
+                | Err(why) => break Err(eyre!("Failed to write OOXML content-types document — {why}")),
+            },
+            | Err(why) => break Err(eyre!("Failed to parse OOXML content-types document — {why}")),
+        }
+    }
+}
+/// Add a slide identifier to a PowerPoint `presentation.xml` document.
+pub fn add_slide_to_presentation_xml(xml: &str, slide_identifier: u32, revision_identifier: u32) -> ApiResult<String> {
+    let mut reader = Reader::from_str(xml);
+    let mut writer = Writer::new(Vec::new());
+    let mut found_slide_list = false;
+    loop {
+        match reader.read_event() {
+            | Ok(Event::End(end)) if end.name().as_ref() == b"p:sldIdLst" => {
+                found_slide_list = true;
+                let mut slide = BytesStart::new("p:sldId");
+                let id = slide_identifier.to_string();
+                let relationship_id = format!("rId{revision_identifier}");
+                slide.push_attribute(("id", id.as_str()));
+                slide.push_attribute(("r:id", relationship_id.as_str()));
+                match writer.write_event(Event::Empty(slide)).and_then(|_| writer.write_event(Event::End(end))) {
+                    | Ok(_) => {}
+                    | Err(why) => break Err(eyre!("Failed to write presentation slide identifier — {why}")),
+                }
+            }
+            | Ok(Event::Eof) if found_slide_list => {
+                let output = writer.into_inner();
+                match String::from_utf8(output) {
+                    | Ok(value) => break Ok(value),
+                    | Err(why) => break Err(eyre!("Failed to decode presentation.xml as UTF-8 — {why}")),
+                }
+            }
+            | Ok(Event::Eof) => break Err(eyre!("Missing p:sldIdLst in presentation.xml")),
+            | Ok(event) => match writer.write_event(event) {
+                | Ok(_) => {}
+                | Err(why) => break Err(eyre!("Failed to write presentation.xml event — {why}")),
+            },
+            | Err(why) => break Err(eyre!("Failed to parse presentation.xml at byte {} — {why}", reader.buffer_position())),
+        }
+    }
+}
+fn contains_content_types_root(xml: &str) -> ApiResult<bool> {
+    let mut reader = Reader::from_str(xml);
+    loop {
+        match reader.read_event() {
+            | Ok(Event::Start(element)) if element.name().local_name().as_ref() == b"Types" => break Ok(true),
+            | Ok(Event::Eof) => break Ok(false),
+            | Ok(_) => {}
+            | Err(why) => break Err(eyre!("Failed to parse OOXML content-types document — {why}")),
+        }
+    }
+}
+fn contains_png_content_type(xml: &str) -> ApiResult<bool> {
+    let mut reader = Reader::from_str(xml);
+    loop {
+        match reader.read_event() {
+            | Ok(Event::Start(element) | Event::Empty(element)) if element.name().local_name().as_ref() == b"Default" => {
+                match is_png_content_type(&element) {
+                    | Ok(true) => break Ok(true),
+                    | Ok(false) => {}
+                    | Err(why) => break Err(why),
+                }
+            }
+            | Ok(Event::Eof) => break Ok(false),
+            | Ok(_) => {}
+            | Err(why) => break Err(eyre!("Failed to parse OOXML content-types document — {why}")),
+        }
+    }
+}
+/// Ensure an OOXML content-types document declares PNG media.
+pub fn ensure_png_content_type(xml: &str) -> ApiResult<String> {
+    contains_content_types_root(xml).and_then(|has_root| {
+        if has_root {
+            contains_png_content_type(xml).and_then(|has_png| if has_png { Ok(xml.to_string()) } else { add_png_content_type(xml) })
+        } else {
+            Err(eyre!("OOXML content-types document has no Types root"))
+        }
+    })
+}
+fn event_unsigned_attribute(events: &[Event<'static>], element_name: &[u8], attribute_name: &[u8]) -> ApiResult<Option<u64>> {
+    events
+        .iter()
+        .find_map(|event| match event {
+            | Event::Start(element) | Event::Empty(element) if element.name().as_ref() == element_name => {
+                Some(unsigned_attribute(element, attribute_name))
+            }
+            | _ => None,
+        })
+        .transpose()
+        .map(Option::flatten)
+}
+fn is_png_content_type(element: &BytesStart<'_>) -> ApiResult<bool> {
+    element.attributes().try_fold(false, |found, attribute| {
+        attribute
+            .map(|attribute| found || (attribute.key.as_ref() == b"Extension" && attribute.value.as_ref().eq_ignore_ascii_case(b"png")))
+            .map_err(|why| eyre!("Failed to read OOXML content-type attribute — {why}"))
+    })
+}
+/// Prettify XML
+pub fn prettify_xml(xml: &str) -> String {
+    let mut reader = Reader::from_str(xml);
+    let mut writer = Writer::new_with_indent(Vec::new(), b' ', 2);
+    loop {
+        match reader.read_event() {
+            | Ok(Event::Eof) => break,
+            | Ok(event) => match writer.write_event(event) {
+                | Ok(_) => {}
+                | Err(why) => {
+                    error!("=> {} Cannot write XML event — {why}", Label::fail());
+                    break;
+                }
+            },
+            | Err(why) => {
+                error!("=> {} Error at XML position {} — {why}", Label::fail(), reader.buffer_position());
+                break;
+            }
+        }
+    }
+    let output = writer.into_inner();
+    match from_utf8(&output) {
+        | Ok(value) => value.to_string(),
+        | Err(why) => {
+            error!("=> {} Cannot decode prettified XML as UTF-8 — {why}", Label::fail());
+            String::new()
+        }
+    }
+}
+/// Read OOXML relationships, retaining the part path in errors.
+pub fn read_xml_rel(path: PathBuf) -> ApiResult<Relationships> {
+    read_file(&path)
+        .map_err(|why| eyre!("Failed to read relationships at {} — {why}", path.display()))
+        .and_then(|content| {
+            quick_xml::de::from_str::<Relationships>(&content).map_err(|why| eyre!("Failed to parse relationships at {} — {why}", path.display()))
+        })
+}
 /// Replace each `{{ aspect }}` slide shape with an image at the same bounds.
 pub fn replace_aspect_placeholders_with_picture(xml: &str, relationship_id: &str) -> ApiResult<Option<String>> {
     let mut reader = Reader::from_str(xml);
@@ -747,40 +799,23 @@ pub fn replace_aspect_placeholders_with_picture(xml: &str, relationship_id: &str
         }
     }
 }
-/// Add a slide identifier to a PowerPoint `presentation.xml` document.
-pub fn add_slide_to_presentation_xml(xml: &str, slide_identifier: u32, revision_identifier: u32) -> ApiResult<String> {
-    let mut reader = Reader::from_str(xml);
-    let mut writer = Writer::new(Vec::new());
-    let mut found_slide_list = false;
-    loop {
-        match reader.read_event() {
-            | Ok(Event::End(end)) if end.name().as_ref() == b"p:sldIdLst" => {
-                found_slide_list = true;
-                let mut slide = BytesStart::new("p:sldId");
-                let id = slide_identifier.to_string();
-                let relationship_id = format!("rId{revision_identifier}");
-                slide.push_attribute(("id", id.as_str()));
-                slide.push_attribute(("r:id", relationship_id.as_str()));
-                match writer.write_event(Event::Empty(slide)).and_then(|_| writer.write_event(Event::End(end))) {
-                    | Ok(_) => {}
-                    | Err(why) => break Err(eyre!("Failed to write presentation slide identifier — {why}")),
-                }
-            }
-            | Ok(Event::Eof) if found_slide_list => {
-                let output = writer.into_inner();
-                match String::from_utf8(output) {
-                    | Ok(value) => break Ok(value),
-                    | Err(why) => break Err(eyre!("Failed to decode presentation.xml as UTF-8 — {why}")),
-                }
-            }
-            | Ok(Event::Eof) => break Err(eyre!("Missing p:sldIdLst in presentation.xml")),
-            | Ok(event) => match writer.write_event(event) {
-                | Ok(_) => {}
-                | Err(why) => break Err(eyre!("Failed to write presentation.xml event — {why}")),
-            },
-            | Err(why) => break Err(eyre!("Failed to parse presentation.xml at byte {} — {why}", reader.buffer_position())),
-        }
-    }
+fn unsigned_attribute(element: &BytesStart<'_>, name: &[u8]) -> ApiResult<Option<u64>> {
+    element
+        .attributes()
+        .find_map(|attribute| match attribute {
+            | Ok(attribute) if attribute.key.as_ref() == name => Some(
+                from_utf8(attribute.value.as_ref())
+                    .map_err(|why| eyre!("PowerPoint shape attribute is not UTF-8 — {why}"))
+                    .and_then(|value| {
+                        value
+                            .parse::<u64>()
+                            .map_err(|why| eyre!("PowerPoint shape attribute is not unsigned — {why}"))
+                    }),
+            ),
+            | Ok(_) => None,
+            | Err(why) => Some(Err(eyre!("Failed to read PowerPoint shape attribute — {why}"))),
+        })
+        .transpose()
 }
 /// Replace a relationship target, returning an error when the current target is absent.
 pub fn update_relationship_target(content: &str, current_target: &str, target: &str) -> ApiResult<String> {
@@ -829,55 +864,6 @@ pub fn validate_xml_well_formed(content: &str) -> bool {
                     | Err(_) => break false,
                 }
             }
-        }
-    }
-}
-/// Prettify XML
-pub fn prettify_xml(xml: &str) -> String {
-    let mut reader = Reader::from_str(xml);
-    let mut writer = Writer::new_with_indent(Vec::new(), b' ', 2);
-    loop {
-        match reader.read_event() {
-            | Ok(Event::Eof) => break,
-            | Ok(event) => match writer.write_event(event) {
-                | Ok(_) => {}
-                | Err(why) => {
-                    error!("=> {} Cannot write XML event — {why}", Label::fail());
-                    break;
-                }
-            },
-            | Err(why) => {
-                error!("=> {} Error at XML position {} — {why}", Label::fail(), reader.buffer_position());
-                break;
-            }
-        }
-    }
-    let output = writer.into_inner();
-    match from_utf8(&output) {
-        | Ok(value) => value.to_string(),
-        | Err(why) => {
-            error!("=> {} Cannot decode prettified XML as UTF-8 — {why}", Label::fail());
-            String::new()
-        }
-    }
-}
-/// Read OOXML relationships XML file.
-pub fn read_xml_rel(path: PathBuf) -> Option<Relationships> {
-    match read_file(&path) {
-        | Ok(content) => {
-            let parsed = quick_xml::de::from_str::<Relationships>(&content);
-            debug!("=> {} Relationships = {:#?}", Label::using(), parsed);
-            match parsed {
-                | Ok(value) => Some(value),
-                | Err(why) => {
-                    error!(path = path.to_absolute_path(), "=> {} Cannot parse relationships - {why}", Label::fail());
-                    None
-                }
-            }
-        }
-        | Err(why) => {
-            error!(path = path.to_absolute_path(), "=> {} Cannot read xml.rels file - {why}", Label::fail());
-            None
         }
     }
 }
