@@ -357,6 +357,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             }),
         },
         | Some(Commands::Infer(arguments)) => match &arguments.command {
+            | Some(InferCommands::Run(_)) if arguments.interactive => Err(eyre!("--interactive is available on ask/infer, not infer run")),
             | Some(InferCommands::Run(arguments)) => with_runtime(infer::prompt::run(arguments, offline)),
             | None => with_runtime(infer::run(arguments, offline)),
         },

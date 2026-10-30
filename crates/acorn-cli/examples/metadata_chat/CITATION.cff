@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: If you use this dataset, please cite this file.
+title: Wetland Sensor Atlas
+type: dataset
+authors:
+  - given-names: Maya
+    family-names: Chen
+    affiliation: Field Ecology Lab
+  - given-names: Luis
+    family-names: Ortiz
+    affiliation: Data Systems Group
+identifiers:
+  - type: doi
+    value: 10.5555/wetland.2025
+    description: First public dataset release
+version: 1.1.0
+date-released: 2025-04-12
+license: CC-BY-4.0
+keywords:
+  - wetlands
+  - sensors
+  - biodiversity
+abstract: >-
+  A sample dataset that joins water-level sensor readings with
+  field observations from two wetland survey sites.

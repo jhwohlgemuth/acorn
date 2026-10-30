@@ -3,7 +3,7 @@ use crate::{
     cli::arguments::{AcpAgentKind, Infer, InferenceArgs, InferenceBackendKind, InferenceEndpointMode},
     io::{read_stdin, write_stdout},
 };
-use acorn::util::constants::app::{APPLICATION, DEFAULT_NEEDLE_MAX_ROUNDS};
+use acorn::util::constants::app::{APPLICATION, DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, DEFAULT_NEEDLE_MAX_ROUNDS};
 use acorn::{
     agent::{InferenceBackend, InferenceCapabilities, InferenceFuture, InferencePermissionPolicy, InferenceRequest, InferenceResult},
     analyzer::{
@@ -35,9 +35,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::env::current_dir;
 
-#[cfg(test)]
 mod chat;
-#[cfg(test)]
 mod metadata;
 pub(crate) mod prompt;
 
@@ -165,6 +163,9 @@ impl From<&Backend> for InferenceCapabilities {
         }
     }
 }
+fn default_threshold() -> Noul {
+    DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD
+}
 fn resolve_prompt<ReadStdin>(prompt: Option<&str>, read: ReadStdin) -> ApiResult<String>
 where
     ReadStdin: FnOnce() -> Option<String>,
@@ -215,13 +216,15 @@ fn routing_registry(offline: bool) -> ApiResult<ToolRegistry> {
 }
 /// Run one bounded Needle inference request and print its native result as JSON.
 pub(crate) async fn run(arguments: &Infer, offline: bool) -> ApiResult<()> {
-    if arguments.prompt.is_some() && read_stdin().is_some_and(|piped| !piped.trim().is_empty()) {
+    if arguments.interactive {
+        chat::run(arguments, offline).await
+    } else if arguments.prompt.is_some() && read_stdin().is_some_and(|piped| !piped.trim().is_empty()) {
         Err(eyre!("Provide a positional prompt or piped input, not both"))
     } else if arguments.route {
         run_routed(arguments, offline).await
     } else {
         tokio::select! {
-            result = run_inference(arguments.prompt.as_deref(), arguments.custom_location.as_deref(), arguments.threshold, arguments.max_rounds, offline) => result,
+            result = run_inference(arguments.prompt.as_deref(), arguments.custom_location.as_deref(), arguments.threshold.unwrap_or_else(default_threshold), arguments.max_rounds.unwrap_or(DEFAULT_NEEDLE_MAX_ROUNDS), offline) => result,
             signal = shutdown_signal() => signal.and(Err(eyre!("Needle inference cancelled"))),
         }
     }
@@ -247,7 +250,7 @@ async fn run_inference(prompt: Option<&str>, custom_location: Option<&str>, thre
     }
 }
 async fn run_routed(arguments: &Infer, offline: bool) -> ApiResult<()> {
-    let prepared = if arguments.max_rounds != DEFAULT_NEEDLE_MAX_ROUNDS {
+    let prepared = if arguments.max_rounds.is_some() {
         Err(eyre!("--max-rounds applies only to the legacy Needle loop"))
     } else {
         resolve_prompt(arguments.prompt.as_deref(), read_stdin)
@@ -315,7 +318,7 @@ async fn run_routed(arguments: &Infer, offline: bool) -> ApiResult<()> {
             match Needle::start_with_scoped_registry(arguments.custom_location.as_deref(), offline, registry, scope).await {
                 | Err(why) => Err(why),
                 | Ok(sidecar) => sidecar
-                    .with_confidence_threshold(arguments.threshold)
+                    .with_confidence_threshold(arguments.threshold.unwrap_or_else(default_threshold))
                     .route_once(prompt, context)
                     .await
                     .and_then(|result| {

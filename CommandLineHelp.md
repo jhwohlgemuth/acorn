@@ -863,6 +863,12 @@ Run bounded inference through Needle or a configured prompt backend
     Use a local or private-registry ModelKit
     $> acorn infer "Validate this" --custom-location oci://harbor.example/acorn/needle@sha256:...
 
+    Review metadata
+    $> acorn ask -i "Check CITATION.cff for missing identifiers and inconsistent author details"
+
+    Try chat
+    $> cargo run --example metadata_chat
+
     Preview a hydrated prompt without starting a backend
     $> acorn infer run summarize activity.json --dry-run
 
@@ -889,20 +895,50 @@ Run bounded inference through Needle or a configured prompt backend
 
 ###### **Options:**
 
-* `--route` — Select one terminal native capability instead of the legacy tool loop
-* `--route-preview` — Show a grounded route and validated arguments without invoking its handler
-* `--capability <ID>` — Narrow the router catalog to one namespaced capability ID
-* `--input-json <JSON>` — Exact caller-supplied JSON object for the selected operation
-* `--binding <ID>` — Explicit configured executor binding ID
-* `--apply` — Grant one exact mutating operation using the supplied capability, binding, arguments, and destination
-* `--destination <PATH>` — Exact output destination for an authorized apply operation
-* `--custom-location <LOCATION>` — ModelKit directory, file:// URI, HTTP(S) manifest URI, or digest-pinned oci:// reference
-* `--threshold <0..1>` — Minimum calibrated confidence required before executing a tool
+* `-i`, `--interactive` — Keep a grounded, persistent conversation in the current terminal
+* `-b`, `--backend <BACKEND>` — Inference backend; CLI overrides `ACORN_INFERENCE_BACKEND`, then defaults to `acp`
 
-  Default value: `0.8`
-* `--max-rounds <N>` — Maximum number of Needle tool-selection rounds
+  Default value: `acp`
 
-  Default value: `8`
+  Possible values:
+  - `acp`:
+    Run a local Agent Client Protocol process
+  - `openai`:
+    Call an OpenAI-compatible HTTP endpoint
+
+* `-a`, `--agent <AGENT>` — ACP agent identifier; defaults to `opencode`
+
+  Possible values:
+  - `opencode`:
+    Run OpenCode's native ACP server
+  - `codex`:
+    Run the Codex ACP adapter
+
+* `-E`, `--agent-executable <PATH>` — Explicit ACP agent executable
+* `-W`, `--working-directory <PATH>` — ACP session working directory
+* `-m`, `--model <MODEL>` — Model selector; required for OpenAI-compatible inference
+* `-u`, `--base-url <URL>` — OpenAI-compatible base URL; overrides `OPENAI_SERVER_HOST`
+* `-e`, `--endpoint-mode <MODE>` — OpenAI-compatible endpoint shape
+
+  Possible values:
+  - `chat-completions`:
+    Use `POST /v1/chat/completions`
+  - `responses`:
+    Use `POST /v1/responses`
+
+* `-T`, `--timeout <DURATION>` — Maximum inference duration
+
+  Default value: `30s`
+* `-r`, `--route` — Select one terminal native capability instead of the legacy tool loop
+* `-R`, `--route-preview` — Show a grounded route and validated arguments without invoking its handler
+* `-c`, `--capability <ID>` — Narrow the router catalog to one namespaced capability ID
+* `-j`, `--input-json <JSON>` — Exact caller-supplied JSON object for the selected operation
+* `-B`, `--binding <ID>` — Explicit configured executor binding ID
+* `-A`, `--apply` — Grant one exact mutating operation using the supplied capability, binding, arguments, and destination
+* `-d`, `--destination <PATH>` — Exact output destination for an authorized apply operation
+* `-L`, `--custom-location <LOCATION>` — ModelKit directory, file:// URI, HTTP(S) manifest URI, or digest-pinned oci:// reference
+* `-t`, `--threshold <0..1>` — Minimum calibrated confidence required before executing a tool (default: 0.8)
+* `-n`, `--max-rounds <N>` — Maximum number of Needle tool-selection rounds (default: 8)
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 

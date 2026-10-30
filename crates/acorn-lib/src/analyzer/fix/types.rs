@@ -361,6 +361,19 @@ impl From<&str> for DiscoveryCategory {
         }
     }
 }
+impl Fix {
+    /// Identify a proposed single document change that can be reviewed before a reversible write.
+    pub fn is_reviewable_document_change(&self) -> bool {
+        let proposed = self.status.is_proposed();
+        let document_change = matches!(self.actions.as_slice(), [FixAction::DocumentChange { .. }]);
+        let effects = FixEffects {
+            filesystem_write: true,
+            reversible: true,
+            ..FixEffects::default()
+        };
+        proposed && document_change && self.effects == effects
+    }
+}
 impl FixEffects {
     pub(super) const fn combine(self, other: Self) -> Self {
         Self {

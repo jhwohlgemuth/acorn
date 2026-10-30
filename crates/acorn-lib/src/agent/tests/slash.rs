@@ -7,6 +7,8 @@ fn test_chat_paths_and_context_restrictions() {
         Ok(SlashCommand::Open("a folder/data.json".into()))
     );
     assert_eq!(SlashCommand::parse("/exit", SlashContext::Chat), Ok(SlashCommand::Exit));
+    assert_eq!(SlashCommand::parse("/fix", SlashContext::Chat), Ok(SlashCommand::Fix));
+    assert!(SlashCommand::parse("/fix now", SlashContext::Chat).is_err());
     assert!(SlashCommand::parse("/process repository-quality", SlashContext::Chat).is_err());
     assert!(SlashCommand::parse("/open", SlashContext::Chat).is_err());
 }

@@ -8,9 +8,7 @@ use acorn::analyzer::host::{context, discovery::CitationFormat};
 use acorn::io::config::application::Hook;
 use acorn::io::swhid::CalculationKind;
 use acorn::io::{Executor, Platform, Remote};
-use acorn::util::constants::app::{
-    DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_SEARCH_LIMIT, DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, DEFAULT_NEEDLE_MAX_ROUNDS,
-};
+use acorn::util::constants::app::{DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_SEARCH_LIMIT};
 use acorn::util::constants::env::{CHROME_PATH, MINIMUM_DOWNLOAD_COUNT, SEARCH_LIMIT};
 use acorn_analysis::{readability::ReadabilityType, CheckCategory};
 use acorn_core::{time::Milliseconds, util::MimeType, validation::ValidationError, Noul};
@@ -1200,38 +1198,79 @@ pub(crate) struct Infer {
     /// Prompt used to select and invoke ACORN tools
     #[arg(required = false, value_name = "PROMPT")]
     pub(crate) prompt: Option<String>,
+    /// Keep a grounded, persistent conversation in the current terminal.
+    #[arg(short = 'i', long, conflicts_with = "route", help_heading = "FLAGS")]
+    pub(crate) interactive: bool,
+    #[command(flatten)]
+    pub(crate) inference: InferInferenceArgs,
     /// Select one terminal native capability instead of the legacy tool loop
-    #[arg(long, help_heading = "ROUTING")]
+    #[arg(short = 'r', long, help_heading = "ROUTING")]
     pub(crate) route: bool,
     /// Show a grounded route and validated arguments without invoking its handler
-    #[arg(long, requires = "route", conflicts_with = "apply", help_heading = "ROUTING")]
+    #[arg(short = 'R', long, requires = "route", conflicts_with = "apply", help_heading = "ROUTING")]
     pub(crate) route_preview: bool,
     /// Narrow the router catalog to one namespaced capability ID
-    #[arg(long, requires = "route", value_name = "ID", help_heading = "ROUTING")]
+    #[arg(short = 'c', long, requires = "route", value_name = "ID", help_heading = "ROUTING")]
     pub(crate) capability: Option<String>,
     /// Exact caller-supplied JSON object for the selected operation
-    #[arg(long, requires = "route", value_name = "JSON", help_heading = "ROUTING")]
+    #[arg(short = 'j', long, requires = "route", value_name = "JSON", help_heading = "ROUTING")]
     pub(crate) input_json: Option<String>,
     /// Explicit configured executor binding ID
-    #[arg(long, requires = "route", value_name = "ID", help_heading = "ROUTING")]
+    #[arg(short = 'B', long, requires = "route", value_name = "ID", help_heading = "ROUTING")]
     pub(crate) binding: Option<String>,
     /// Grant one exact mutating operation using the supplied capability, binding, arguments, and destination
-    #[arg(long, requires_all = ["route", "capability", "binding", "input_json", "destination"], help_heading = "ROUTING")]
+    #[arg(short = 'A', long, requires_all = ["route", "capability", "binding", "input_json", "destination"], help_heading = "ROUTING")]
     pub(crate) apply: bool,
     /// Exact output destination for an authorized apply operation
-    #[arg(long, requires = "apply", value_name = "PATH", help_heading = "ROUTING")]
+    #[arg(short = 'd', long, requires = "apply", value_name = "PATH", help_heading = "ROUTING")]
     pub(crate) destination: Option<String>,
     /// ModelKit directory, file:// URI, HTTP(S) manifest URI, or digest-pinned oci:// reference
-    #[arg(long, value_name = "LOCATION", help_heading = "OPTIONS")]
+    #[arg(short = 'L', long, value_name = "LOCATION", help_heading = "OPTIONS")]
     pub(crate) custom_location: Option<String>,
-    /// Minimum calibrated confidence required before executing a tool
-    #[arg(long, default_value_t = DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, value_name = "0..1", help_heading = "OPTIONS")]
-    pub(crate) threshold: Noul,
-    /// Maximum number of Needle tool-selection rounds
-    #[arg(long, default_value_t = DEFAULT_NEEDLE_MAX_ROUNDS, value_name = "N", help_heading = "OPTIONS")]
-    pub(crate) max_rounds: usize,
+    /// Minimum calibrated confidence required before executing a tool (default: 0.8)
+    #[arg(short = 't', long, value_name = "0..1", help_heading = "OPTIONS")]
+    pub(crate) threshold: Option<Noul>,
+    /// Maximum number of Needle tool-selection rounds (default: 8)
+    #[arg(short = 'n', long, value_name = "N", help_heading = "OPTIONS")]
+    pub(crate) max_rounds: Option<usize>,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
+}
+/// Backend selectors for the top-level `infer` and `ask` commands.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct InferInferenceArgs {
+    /// Inference backend; CLI overrides `ACORN_INFERENCE_BACKEND`, then defaults to `acp`
+    #[arg(
+        short = 'b',
+        long,
+        env = "ACORN_INFERENCE_BACKEND",
+        default_value = "acp",
+        value_enum,
+        value_name = "BACKEND",
+        help_heading = "INFERENCE"
+    )]
+    pub(crate) backend: InferenceBackendKind,
+    /// ACP agent identifier; defaults to `opencode`
+    #[arg(short = 'a', long, value_enum, value_name = "AGENT", help_heading = "INFERENCE")]
+    pub(crate) agent: Option<AcpAgentKind>,
+    /// Explicit ACP agent executable
+    #[arg(short = 'E', long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "INFERENCE")]
+    pub(crate) agent_executable: Option<PathBuf>,
+    /// ACP session working directory
+    #[arg(short = 'W', long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "INFERENCE")]
+    pub(crate) working_directory: Option<PathBuf>,
+    /// Model selector; required for OpenAI-compatible inference
+    #[arg(short = 'm', long, value_name = "MODEL", help_heading = "INFERENCE")]
+    pub(crate) model: Option<String>,
+    /// OpenAI-compatible base URL; overrides `OPENAI_SERVER_HOST`
+    #[arg(short = 'u', long, value_name = "URL", help_heading = "INFERENCE")]
+    pub(crate) base_url: Option<String>,
+    /// OpenAI-compatible endpoint shape
+    #[arg(short = 'e', long, value_enum, value_name = "MODE", help_heading = "INFERENCE")]
+    pub(crate) endpoint_mode: Option<InferenceEndpointMode>,
+    /// Maximum inference duration
+    #[arg(short = 'T', long, default_value = "30s", value_parser = parse_watch_duration, value_name = "DURATION", help_heading = "INFERENCE")]
+    pub(crate) timeout: SignedDuration,
 }
 /// Options shared by inference-enabled CLI commands.
 #[derive(Builder, Clone, Debug, Args)]
@@ -1783,6 +1822,20 @@ impl Validate for InferenceArgs {
             }
         }
         report.finish()
+    }
+}
+impl InferInferenceArgs {
+    pub(crate) fn shared(&self) -> InferenceArgs {
+        InferenceArgs {
+            backend: self.backend,
+            agent: self.agent,
+            agent_executable: self.agent_executable.clone(),
+            working_directory: self.working_directory.clone(),
+            model: self.model.clone(),
+            base_url: self.base_url.clone(),
+            endpoint_mode: self.endpoint_mode,
+            timeout: self.timeout,
+        }
     }
 }
 impl From<&FileFormat> for MimeType {

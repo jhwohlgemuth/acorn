@@ -203,6 +203,24 @@ impl FixPreview {
     }
 }
 impl FixPreviewTarget {
+    /// Render a validated unified diff for explicit review before applying a document fix.
+    pub fn reviewed_diff(&self) -> ApiResult<String> {
+        let before = DiffInput {
+            content: &self.original,
+            label: &self.target,
+            media_type: self.source_format.clone(),
+        };
+        let after = DiffInput {
+            content: &self.proposed,
+            label: &self.target,
+            media_type: self.source_format.clone(),
+        };
+        match SemanticDiff::compare(&before, &after, DiffFormat::Unified, Some(self.standard)) {
+            | Ok(SemanticDiff::Unified(diff)) if !diff.is_empty() => Ok(diff),
+            | Ok(_) => Err(eyre!("Proposed fix has no visible diff")),
+            | Err(why) => Err(eyre!(why)),
+        }
+    }
     fn json_patch(self, diagnostics: &mut Vec<FixPreviewDiagnostic>) -> Option<JsonPatchTarget> {
         let before_label = format!("a/{}", self.target);
         let after_label = format!("b/{}", self.target);

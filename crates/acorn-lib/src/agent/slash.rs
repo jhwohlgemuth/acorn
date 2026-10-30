@@ -4,6 +4,14 @@ use core::fmt;
 
 const COMMANDS: &[(SlashContext, SlashSuggestion)] = &[
     (
+        SlashContext::Chat,
+        SlashSuggestion {
+            id: SlashCommandId::Check,
+            name: "/check",
+            description: "Refresh the attached metadata check",
+        },
+    ),
+    (
         SlashContext::Dashboard,
         SlashSuggestion {
             id: SlashCommandId::Check,
@@ -41,6 +49,14 @@ const COMMANDS: &[(SlashContext, SlashSuggestion)] = &[
             id: SlashCommandId::Exit,
             name: "/exit",
             description: "Leave the conversation",
+        },
+    ),
+    (
+        SlashContext::Chat,
+        SlashSuggestion {
+            id: SlashCommandId::Fix,
+            name: "/fix",
+            description: "Review proposed document fixes",
         },
     ),
     (
@@ -135,6 +151,8 @@ pub enum SlashCommand {
     Doctor,
     /// Leave the current interactive interface.
     Exit,
+    /// Review proposed fixes for the attached metadata.
+    Fix,
     /// Open the TUI identifier gathering screen.
     Gather,
     /// Graduate the named accepted entries.
@@ -161,6 +179,8 @@ pub enum SlashCommandId {
     Doctor,
     /// Leave the current interactive interface.
     Exit,
+    /// Review document fixes in chat.
+    Fix,
     /// Open the TUI identifier gathering screen.
     Gather,
     /// Graduate accepted logbook entries in GitLab.
@@ -250,6 +270,7 @@ fn parse_command(command: &str, context: SlashContext) -> Result<SlashCommand, S
             | "clear" if arguments.is_empty() => Ok(SlashCommand::Clear),
             | "doctor" if arguments.is_empty() => Ok(SlashCommand::Doctor),
             | "exit" | "quit" if arguments.is_empty() => Ok(SlashCommand::Exit),
+            | "fix" if arguments.is_empty() => Ok(SlashCommand::Fix),
             | "gather" | "harvest" if arguments.is_empty() => Ok(SlashCommand::Gather),
             | "graduate" => {
                 let mut identifiers = arguments.split_whitespace().map(str::to_string).collect::<Vec<_>>();

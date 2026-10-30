@@ -186,6 +186,12 @@ pub enum Commands {
     ///     Use a local or private-registry ModelKit
     ///     $> acorn infer "Validate this" --custom-location oci://harbor.example/acorn/needle@sha256:...
     ///
+    ///     Review metadata
+    ///     $> acorn ask -i "Check CITATION.cff for missing identifiers and inconsistent author details"
+    ///
+    ///     Try chat
+    ///     $> cargo run --example metadata_chat
+    ///
     ///     Preview a hydrated prompt without starting a backend
     ///     $> acorn infer run summarize activity.json --dry-run
     ///
@@ -496,32 +502,6 @@ pub enum IntakeCommands {
         yes: bool,
     },
 }
-/// Select local graduation or the existing GitLab worker and its execution mode.
-#[derive(Args, Debug, Default)]
-#[group(skip)]
-pub struct IntakeRunArguments {
-    /// Accept a reviewed entry; repeat for multiple entries. Requires the preview digest.
-    #[arg(long, requires_all = ["index", "expected_digest"], conflicts_with = "force")]
-    pub accept: Vec<String>,
-    /// Explicit ACRE configuration for the GitLab worker; mutually exclusive with --index.
-    #[arg(long, required_unless_present = "index", conflicts_with_all = ["accept", "dry_run", "expected_digest", "force", "index", "interactive"], value_hint = ValueHint::FilePath)]
-    pub config: Option<PathBuf>,
-    /// Preview local graduation without writing, even when combined with --force or --interactive.
-    #[arg(long, requires = "index")]
-    pub dry_run: bool,
-    /// Require the exact SHA-256 digest from a previous preview, including when using --force.
-    #[arg(long, requires = "index")]
-    pub expected_digest: Option<String>,
-    /// Accept every eligible local graduation without prompting; preserves validation and backups.
-    #[arg(long, requires = "index", conflicts_with_all = ["accept", "interactive"])]
-    pub force: bool,
-    /// Local JSON, JSONC, YAML, or ZONF index to graduate; mutually exclusive with --config.
-    #[arg(long, required_unless_present = "config", conflicts_with = "config", value_hint = ValueHint::FilePath)]
-    pub index: Option<PathBuf>,
-    /// Select local promotions with Yes / No buttons and confirm the final write.
-    #[arg(long, requires = "index", conflicts_with = "force")]
-    pub interactive: bool,
-}
 #[derive(Clone, Debug, Subcommand)]
 #[command(long_about = None)]
 pub enum McpCommands {
@@ -739,6 +719,32 @@ pub struct CommandOptions {
     /// Number of threads used for parallel processing
     #[builder(default = 10)]
     pub threads: usize,
+}
+/// Select local graduation or the existing GitLab worker and its execution mode.
+#[derive(Args, Debug, Default)]
+#[group(skip)]
+pub struct IntakeRunArguments {
+    /// Accept a reviewed entry; repeat for multiple entries. Requires the preview digest.
+    #[arg(long, requires_all = ["index", "expected_digest"], conflicts_with = "force")]
+    pub accept: Vec<String>,
+    /// Explicit ACRE configuration for the GitLab worker; mutually exclusive with --index.
+    #[arg(long, required_unless_present = "index", conflicts_with_all = ["accept", "dry_run", "expected_digest", "force", "index", "interactive"], value_hint = ValueHint::FilePath)]
+    pub config: Option<PathBuf>,
+    /// Preview local graduation without writing, even when combined with --force or --interactive.
+    #[arg(long, requires = "index")]
+    pub dry_run: bool,
+    /// Require the exact SHA-256 digest from a previous preview, including when using --force.
+    #[arg(long, requires = "index")]
+    pub expected_digest: Option<String>,
+    /// Accept every eligible local graduation without prompting; preserves validation and backups.
+    #[arg(long, requires = "index", conflicts_with_all = ["accept", "interactive"])]
+    pub force: bool,
+    /// Local JSON, JSONC, YAML, or ZONF index to graduate; mutually exclusive with --config.
+    #[arg(long, required_unless_present = "config", conflicts_with = "config", value_hint = ValueHint::FilePath)]
+    pub index: Option<PathBuf>,
+    /// Select local promotions with Yes / No buttons and confirm the final write.
+    #[arg(long, requires = "index", conflicts_with = "force")]
+    pub interactive: bool,
 }
 /// Runtime watch configuration.
 #[derive(Clone, Copy, Debug)]

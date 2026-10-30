@@ -11,8 +11,8 @@
 
 use crate::cli::arguments::osti::DoeLab;
 use crate::cli::arguments::{
-    AcpAgentKind, CheckOutputFormat, DiffOutputFormat, FileFormat, FuzzyMode, InferenceBackendKind, SimilarityMethod, SimilarityPreprocessing,
-    SyncTarget,
+    AcpAgentKind, CheckOutputFormat, DiffOutputFormat, FileFormat, FuzzyMode, InferenceBackendKind, InferenceEndpointMode, SimilarityMethod,
+    SimilarityPreprocessing, SyncTarget,
 };
 use crate::cli::parse::{infer_standard_from_content, resolve_report_bounds};
 use crate::cli::{
@@ -43,6 +43,25 @@ fn has_suffix(path: &Path, suffix: &str) -> bool {
     path.to_string_lossy().replace('\\', "/").ends_with(suffix)
 }
 
+#[test]
+fn test_ask_interactive_parser_keeps_backend_and_explicit_needle_flags() {
+    let parsed = Arguments::try_parse_from(["acorn", "ask", "--interactive", "Inspect this", "--backend", "openai", "--model", "local"])
+        .expect("interactive ask");
+    match parsed.command {
+        | Some(Commands::Infer(arguments)) => {
+            assert!(arguments.interactive);
+            assert_eq!(arguments.prompt.as_deref(), Some("Inspect this"));
+            assert_eq!(arguments.inference.backend, InferenceBackendKind::Openai);
+            assert_eq!(arguments.inference.model.as_deref(), Some("local"));
+            assert_eq!(arguments.threshold, None);
+            assert_eq!(arguments.max_rounds, None);
+        }
+        | other => panic!("unexpected command: {other:?}"),
+    }
+    let explicit = Arguments::try_parse_from(["acorn", "infer", "--interactive", "--max-rounds", "3"]).expect("explicit Needle flag");
+    assert!(matches!(explicit.command, Some(Commands::Infer(arguments)) if arguments.max_rounds == Some(3)));
+    assert!(Arguments::try_parse_from(["acorn", "ask", "--interactive", "--route"]).is_err());
+}
 #[test]
 fn test_bot_identifier_from_ci_project_id_env() {
     let _guard = ENV_LOCK.lock().unwrap_or_else(|why| why.into_inner());
@@ -1260,6 +1279,70 @@ fn test_infer_run_data_sources() {
     assert!(Arguments::try_parse_from(["acorn", "infer", "run", "summarize", "--paste"]).is_err());
 }
 #[test]
+fn test_infer_short_options_and_check_branch_remain_distinct() {
+    let chat = Arguments::try_parse_from([
+        "acorn",
+        "ask",
+        "-i",
+        "-b",
+        "openai",
+        "-a",
+        "codex",
+        "-E",
+        "/bin/agent",
+        "-W",
+        ".",
+        "-m",
+        "local",
+        "-u",
+        "http://localhost:8080",
+        "-e",
+        "responses",
+        "-T",
+        "5s",
+    ])
+    .expect("parse short chat options");
+    let Some(Commands::Infer(chat)) = chat.command else {
+        panic!("expected infer command");
+    };
+    assert!(chat.interactive);
+    assert_eq!(chat.inference.backend, InferenceBackendKind::Openai);
+    assert_eq!(chat.inference.agent, Some(AcpAgentKind::Codex));
+    assert_eq!(chat.inference.agent_executable.as_deref(), Some(std::path::Path::new("/bin/agent")));
+    assert_eq!(chat.inference.working_directory.as_deref(), Some(std::path::Path::new(".")));
+    assert_eq!(chat.inference.model.as_deref(), Some("local"));
+    assert_eq!(chat.inference.base_url.as_deref(), Some("http://localhost:8080"));
+    assert_eq!(chat.inference.endpoint_mode, Some(InferenceEndpointMode::Responses));
+    assert_eq!(chat.inference.timeout, jiff::SignedDuration::from_secs(5));
+    let preview = Arguments::try_parse_from(["acorn", "infer", "-r", "-R", "-c", "acorn.check", "-j", "{}", "-B", "native:acorn.check"])
+        .expect("parse short route preview");
+    assert!(
+        matches!(preview.command, Some(Commands::Infer(arguments)) if arguments.route && arguments.route_preview && arguments.capability.as_deref() == Some("acorn.check") && arguments.input_json.as_deref() == Some("{}") && arguments.binding.as_deref() == Some("native:acorn.check"))
+    );
+    let apply = Arguments::try_parse_from([
+        "acorn",
+        "infer",
+        "-r",
+        "-A",
+        "-c",
+        "acorn.check",
+        "-j",
+        "{}",
+        "-B",
+        "binding",
+        "-d",
+        "out.json",
+    ])
+    .expect("parse short route apply");
+    assert!(matches!(apply.command, Some(Commands::Infer(arguments)) if arguments.apply && arguments.destination.as_deref() == Some("out.json")));
+    let needle = Arguments::try_parse_from(["acorn", "infer", "-L", "file:///model", "-t", "0.8", "-n", "4"]).expect("parse short Needle options");
+    assert!(
+        matches!(needle.command, Some(Commands::Infer(arguments)) if arguments.custom_location.as_deref() == Some("file:///model") && arguments.threshold == Noul::new(0.8).ok() && arguments.max_rounds == Some(4))
+    );
+    let check = Arguments::try_parse_from(["acorn", "check", "-b", "main"]).expect("check branch short option");
+    assert!(matches!(check.command, Some(Commands::Check(arguments)) if arguments.branch.as_deref() == Some("main")));
+}
+#[test]
 fn test_json_lines_standard_inference_rejects_mixed_records_with_line() {
     let content = concat!(
         "{\"id\":\"10.5072/one\",\"type\":\"dois\",\"attributes\":{}}\n",
@@ -1879,8 +1962,8 @@ fn test_tools_export_and_needle_custom_location_arguments() {
             assert!(arguments.command.is_none());
             assert_eq!(arguments.prompt.as_deref(), Some("validate this"));
             assert_eq!(arguments.custom_location.as_deref(), Some("oci://harbor.example/acorn/needle@sha256:abc"));
-            assert_eq!(arguments.threshold, Noul::new(0.9).expect("valid unit value"));
-            assert_eq!(arguments.max_rounds, 4);
+            assert_eq!(arguments.threshold, Some(Noul::new(0.9).expect("valid unit value")));
+            assert_eq!(arguments.max_rounds, Some(4));
         }
         | other => panic!("unexpected command: {other:?}"),
     }
