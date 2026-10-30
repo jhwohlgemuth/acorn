@@ -21,7 +21,7 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 - [Outbound MCP client embedder interface](refactors/api/outbound-mcp-client-interface.md) has landed direct server-map construction and bounded caller-driven cancellation. Its remaining phases document the public interface and record portable/WASM validation.
 
 - [Shared API client contract](refactors/api/shared-client-contract.md) prepares `acorn-api`; endpoint, request, resolved configuration, invocation, error, and provider policy move together only after its acceptance gates pass. API-14 migrates provider environment discovery after API-06 freezes the resolved configuration contract.
-- [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) has landed the portable replacement plan and pure export projection. EXP-04 and EXP-05 can independently migrate HTML and PowerPoint; fallible in-memory OOXML transforms still precede `acorn-export` extraction.
+- [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) has landed the portable replacement plan and adopted the pure export projection in HTML and PowerPoint. EXP-06 next owns library and CLI PowerPoint interpolation; fallible in-memory OOXML transforms still precede `acorn-export` extraction.
 - [CLI composition boundary](refactors/core/cli-composition-boundary.md) follows the stable service/server request and error contracts. Command leaves may normalize earlier only when they avoid shared CLI roots; CLI-11 closes the plan after accepted startup and exit behavior.
 - [Portable diff hardening](refactors/acorn-diff-resource-and-api-hardening.md) and [ZON codec hardening](refactors/zon-codec-hardening.md) are independent portable leaves.
 

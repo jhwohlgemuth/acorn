@@ -27,6 +27,13 @@ impl ReplacementPlan {
     pub fn iter(&self) -> impl Iterator<Item = (&str, &ReplacementValue)> {
         self.values.iter().map(|(name, value)| (name.as_str(), value))
     }
+    /// Borrow list items, or an empty slice when the name is absent or names a scalar.
+    pub fn list(&self, name: &str) -> &[String] {
+        match self.get(name) {
+            | Some(ReplacementValue::List(values)) => values,
+            | _ => &[],
+        }
+    }
     /// Collect named values, with the last value winning for a repeated name.
     pub fn new(values: impl IntoIterator<Item = (String, ReplacementValue)>) -> Self {
         Self {
@@ -57,6 +64,23 @@ impl ReplacementPlan {
         }
         output.push_str(remaining);
         output
+    }
+    /// Borrow a scalar, or an empty string when the name is absent or names a list.
+    pub fn scalar(&self, name: &str) -> &str {
+        match self.get(name) {
+            | Some(ReplacementValue::Scalar(value)) => value,
+            | _ => "",
+        }
+    }
+}
+impl From<String> for ReplacementValue {
+    fn from(value: String) -> Self {
+        Self::Scalar(value)
+    }
+}
+impl From<Vec<String>> for ReplacementValue {
+    fn from(values: Vec<String>) -> Self {
+        Self::List(values)
     }
 }
 

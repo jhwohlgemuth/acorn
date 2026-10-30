@@ -6,6 +6,7 @@ use crate::{assets::draft_placeholder_bytes, cli::CommandOptions};
 use acorn::{
     io::{
         archive,
+        export::{ExportContext, ImageSource},
         powerpoint::{
             interpolate_values,
             ooxml::{
@@ -35,11 +36,11 @@ use std::{
 use tracing::error;
 
 const IMAGE_RELATIONSHIP: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
-fn add_aspect_chart(index: usize, data: &ResearchActivity, chart: &[u8], destination: &Path) -> ApiResult<()> {
+fn add_aspect_chart(index: usize, context: &ExportContext, chart: &[u8], destination: &Path) -> ApiResult<()> {
     let slide_path = destination.join(format!("ppt/slides/slide{index}.xml"));
     let relationships_path = destination.join(format!("ppt/slides/_rels/slide{index}.xml.rels"));
     let content_types_path = destination.join("[Content_Types].xml");
-    let media_name = format!("{}-aspect.png", data.meta.identifier);
+    let media_name = format!("{}-aspect.png", context.identifier);
     SafePath::new(format!("ppt/media/{media_name}"))
         .map_err(Into::<color_eyre::Report>::into)
         .and_then(|path| path.materialize_under(destination).map_err(Into::into))
@@ -207,7 +208,7 @@ fn add_slide(slide_number: usize, reference_extract_path: &Path) -> ApiResult<()
                 })
         })
 }
-fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination: &Path) -> ApiResult<u64> {
+fn copy_image(index: usize, context: &ExportContext, source: &Path, destination: &Path) -> ApiResult<u64> {
     let xml_rels_path = destination.join(format!("ppt/slides/_rels/slide{index}.xml.rels"));
     read_xml_rel(xml_rels_path.clone())
         .map(|Relationships { relationship, .. }| relationship)
@@ -219,7 +220,7 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
         .and_then(|relationships| {
             relationships
                 .into_iter()
-                .find(|x| x.target.ends_with("png"))
+                .find(|x| MimeType::from(x.target.as_str()) == MimeType::Png)
                 .map(|x| x.target)
                 .ok_or_else(|| {
                     let path = xml_rels_path.to_absolute_path();
@@ -228,20 +229,20 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
                 })
         })
         .and_then(|target| {
-            let ResearchActivity { meta, .. } = data;
             let parent = source
                 .parent()
                 .map(Path::to_path_buf)
                 .and_then(|value| value.canonicalize().ok())
                 .unwrap_or_else(|| PathBuf::from("."));
-            let image_url = data.authored_image_url();
-            let name = meta.clone().identifier;
-            let extension = image_url
-                .as_ref()
-                .and_then(|url| Path::new(url).extension())
-                .and_then(|extension| extension.to_str())
-                .map(str::to_string)
-                .unwrap_or_else(|| "png".to_string());
+            let name = &context.identifier;
+            let mime = match &context.image_source {
+                | ImageSource::Authored(url) => MimeType::from(url.as_str()),
+                | ImageSource::DraftFallback => MimeType::Png,
+            };
+            let extension = match mime {
+                | MimeType::Unknown(_) => MimeType::Png.file_type(),
+                | mime => mime.file_type(),
+            };
             SafePath::new(format!("ppt/media/{name}.{extension}"))
                 .map_err(Into::<color_eyre::Report>::into)
                 .and_then(|path| path.materialize_under(destination).map_err(Into::into))
@@ -259,9 +260,9 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
                                 eyre!("Failed to write slide relationship XML — {why}")
                             })
                         })
-                        .and_then(|_| match image_url {
-                            | Some(image_url) => copy(parent.join(image_url), to).map_err(|why| eyre!("Failed to copy image — {why}")),
-                            | None => draft_placeholder_bytes().and_then(|bytes| {
+                        .and_then(|_| match &context.image_source {
+                            | ImageSource::Authored(url) => copy(parent.join(url), to).map_err(|why| eyre!("Failed to copy image — {why}")),
+                            | ImageSource::DraftFallback => draft_placeholder_bytes().and_then(|bytes| {
                                 write(to, &bytes)
                                     .map(|_| bytes.len() as u64)
                                     .map_err(|why| eyre!("Failed to write draft placeholder image — {why}"))
@@ -339,33 +340,38 @@ pub fn create(
                         .map(move |(index, (data, index_path))| {
                             let reference_extract_path = Arc::clone(&reference_extract_path_for_workers);
                             let slide_number = index.saturating_add(1);
-                            let fragments = [
-                                format!("ppt/slides/slide{slide_number}.xml"),
-                                format!("ppt/notesSlides/notesSlide{slide_number}.xml"),
-                                format!("ppt/slides/_rels/slide{slide_number}.xml.rels"),
-                            ];
-                            fragments
-                                .iter()
-                                .map(|fragment| reference_extract_path.join(fragment))
-                                .for_each(|path| interpolate_values(path, &data));
-                            copy_image(slide_number, &data, &index_path, &reference_extract_path)
-                                .map(|_| ())
-                                .inspect_err(|why| {
-                                    error!(
-                                        path = index_path.to_absolute_path(),
-                                        "=> {} Copy image for slide {slide_number} — {why}",
-                                        Label::fail()
-                                    )
-                                })
-                                .and_then(|_| match aspect_charts.get(index) {
-                                    | Some(Some(chart)) => add_aspect_chart(slide_number, &data, chart, &reference_extract_path).inspect_err(|why| {
-                                        error!(
-                                            path = index_path.to_absolute_path(),
-                                            "=> {} Add ASPECT chart to slide {slide_number} — {why}",
-                                            Label::fail()
-                                        );
-                                    }),
-                                    | _ => Ok(()),
+                            ExportContext::project(&data)
+                                .map_err(|why| eyre!("Failed to project research activity for slide {slide_number} — {why}"))
+                                .and_then(|context| {
+                                    let fragments = [
+                                        format!("ppt/slides/slide{slide_number}.xml"),
+                                        format!("ppt/notesSlides/notesSlide{slide_number}.xml"),
+                                        format!("ppt/slides/_rels/slide{slide_number}.xml.rels"),
+                                    ];
+                                    fragments
+                                        .iter()
+                                        .map(|fragment| reference_extract_path.join(fragment))
+                                        .for_each(|path| interpolate_values(path, &context));
+                                    copy_image(slide_number, &context, &index_path, &reference_extract_path)
+                                        .map(|_| ())
+                                        .inspect_err(|why| {
+                                            error!(
+                                                path = index_path.to_absolute_path(),
+                                                "=> {} Copy image for slide {slide_number} — {why}",
+                                                Label::fail()
+                                            )
+                                        })
+                                        .and_then(|_| match aspect_charts.get(index) {
+                                            | Some(Some(chart)) => add_aspect_chart(slide_number, &context, chart, &reference_extract_path)
+                                                .inspect_err(|why| {
+                                                    error!(
+                                                        path = index_path.to_absolute_path(),
+                                                        "=> {} Add ASPECT chart to slide {slide_number} — {why}",
+                                                        Label::fail()
+                                                    );
+                                                }),
+                                            | _ => Ok(()),
+                                        })
                                 })
                         })
                         .collect::<ApiResult<Vec<_>>>()
@@ -391,10 +397,9 @@ pub fn create(
         })
 }
 fn prepare_destination(output: &Option<PathBuf>, name: &str) -> ApiResult<PathBuf> {
-    const EXTENSION: &str = "pptx";
     match output {
         | Some(ref value) => match create_dir_all(value.clone()) {
-            | Ok(_) => SafePath::new(PathBuf::from(name).with_extension(EXTENSION))
+            | Ok(_) => SafePath::new(PathBuf::from(name).with_extension(MimeType::Powerpoint.file_type()))
                 .map_err(Into::<color_eyre::Report>::into)
                 .and_then(|path| path.materialize_under(value).map_err(Into::into)),
             | Err(why) => Err(eyre!("Failed to create output directory for PowerPoint export — {why}")),

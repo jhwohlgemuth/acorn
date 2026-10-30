@@ -1,9 +1,13 @@
+#[cfg(feature = "std")]
+use crate::ContactPoint;
 use crate::{
     research_activity::LogbookEntry,
     types::{OneOrMany, OneOrManyCodec},
     validation::Validate,
 };
 use acorn_core::util::MimeType;
+#[cfg(feature = "std")]
+use percy_dom::prelude::View;
 use proptest::{
     prelude::*,
     test_runner::{Config as ProptestConfig, FileFailurePersistence},
@@ -85,4 +89,21 @@ fn json_lines_serialize_rejects_empty_batches() {
 fn json_lines_serialize_writes_one_record_for_single_values() {
     let value = OneOrMany::One(json!({ "id": 1 }));
     assert_eq!(value.encode(MimeType::JsonLines).expect("serialize one record"), "{\"id\":1}\n");
+}
+#[cfg(feature = "std")]
+#[test]
+fn test_contact_view_escapes_rendered_fields() {
+    let contact = ContactPoint {
+        email: "a&b@example.com".to_string(),
+        family_name: "Lovelace & Co".to_string(),
+        given_name: "Ada <Test>".to_string(),
+        job_title: "Lead > Scientist".to_string(),
+        telephone: "<555>".to_string(),
+        ..ContactPoint::default()
+    };
+    let html = contact.render().to_string();
+    assert!(html.contains("Ada &lt;Test&gt; Lovelace &amp; Co"));
+    assert!(html.contains("Lead &gt; Scientist"));
+    assert!(html.contains("a&amp;b@example.com"));
+    assert!(html.contains("&lt;555&gt;"));
 }

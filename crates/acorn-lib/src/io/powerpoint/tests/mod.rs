@@ -10,9 +10,11 @@ use super::ooxml::{
     add_slide_to_presentation_xml, ensure_png_content_type, replace_aspect_placeholders_with_picture, update_relationship_target,
     validate_xml_well_formed, Relationships,
 };
+use crate::io::export::ExportContext;
 use crate::io::powerpoint::*;
 use crate::io::read_file;
 use acorn_core::util::to_string;
+use acorn_schema::research_activity::{ResearchActivity, Sections};
 use std::path::PathBuf;
 
 fn fixtures_dir() -> PathBuf {
@@ -55,6 +57,29 @@ fn test_ensure_png_content_type_rejects_missing_types_root() {
 fn test_escape_xml_text() {
     let result = escape_xml_text(r#"AT&T <alpha> "quoted""#);
     assert_eq!(result, "AT&amp;T &lt;alpha&gt; &quot;quoted&quot;");
+}
+#[test]
+fn test_interpolate_values_uses_projected_scalars_and_lists() {
+    let activity = ResearchActivity {
+        sections: Some(Sections {
+            achievement: Some(vec!["first &".to_string(), "<second>".to_string()]),
+            ..Sections::default()
+        }),
+        title: "A & <B>".to_string(),
+        ..ResearchActivity::default()
+    };
+    let context = ExportContext::project(&activity).expect("draft projection should succeed");
+    let directory = tempfile::tempdir().expect("temporary PowerPoint part directory");
+    let part = directory.path().join("slide.xml");
+    std::fs::copy(fixtures_dir().join("slide.xml"), &part).expect("copy slide fixture");
+    interpolate_values(part.clone(), &context);
+    let xml = read_file(part).expect("read interpolated slide");
+    let first = xml.find("first &amp;").expect("first escaped bullet");
+    let second = xml.find("&lt;second&gt;").expect("second escaped bullet");
+    assert!(first < second);
+    assert!(xml.contains("A &amp; &lt;B&gt;"));
+    assert!(!xml.contains("{{ title }}"));
+    assert!(!xml.contains("{{ achievement }}"));
 }
 #[test]
 fn test_parse() {

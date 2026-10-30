@@ -23,6 +23,8 @@ use derive_more::Display;
 #[cfg(feature = "std")]
 use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
 use petgraph::graph::Graph;
+#[cfg(feature = "std")]
+use quick_xml::escape::escape;
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -708,13 +710,13 @@ impl View for ContactPoint {
                 <div>
                     <span class="label">Contact</span>
                     <span class="spacer"> </span>
-                    <span class="name">{ format!("{} {}", given_name, family_name) }</span>
+                    <span class="name">{ escape(format!("{} {}", given_name, family_name)).into_owned() }</span>
                     <span class="spacer">|</span>
-                    <span class="title">{ role }</span>
+                    <span class="title">{ escape(role).into_owned() }</span>
                     <span class="spacer">|</span>
-                    <span class="email">{ email }</span>
+                    <span class="email">{ escape(email).into_owned() }</span>
                     <span class="spacer">|</span>
-                    <span class="phone">{ telephone }</span>
+                    <span class="phone">{ escape(telephone).into_owned() }</span>
                 </div>
             </section>
         }

@@ -34,6 +34,9 @@ fn test_sectionless_draft_projects_empty_values_and_fallback_image() {
     assert_eq!(context.image_source, ImageSource::DraftFallback);
     assert_eq!(context.replacements.get("mission"), Some(&ReplacementValue::Scalar(String::new())));
     assert_eq!(context.replacements.get("technical"), Some(&ReplacementValue::List(Vec::new())));
+    assert_eq!(context.replacements.scalar("mission"), "");
+    assert_eq!(context.replacements.scalar("technical"), "");
+    assert_eq!(context.replacements.scalar("missing"), "");
     assert_eq!(context.identifier, activity.meta.identifier);
 }
 #[test]
@@ -58,4 +61,5 @@ fn test_sections_project_raw_ordered_lists_and_scalars() {
         context.replacements.get("challenge"),
         Some(&ReplacementValue::Scalar("A deliberate challenge".to_string()))
     );
+    assert_eq!(context.replacements.scalar("challenge"), "A deliberate challenge");
 }

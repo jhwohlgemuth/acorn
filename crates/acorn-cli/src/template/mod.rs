@@ -1,11 +1,14 @@
 use crate::assets::{Image, DRAFT_PLACEHOLDER_ASSET};
 use acorn::{
-    io::ApiResult,
+    io::{
+        export::{ExportContext, ImageSource},
+        ApiResult,
+    },
     util::constants::app::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER},
 };
 use acorn_core::util::MimeType;
 use acorn_host::terminal::Label;
-use acorn_schema::{research_activity::ResearchActivity, ContactPoint};
+use acorn_schema::research_activity::ResearchActivity;
 use color_eyre::eyre::eyre;
 use core::str::from_utf8;
 use data_encoding::BASE64;
@@ -15,11 +18,17 @@ use fast_qr::{
     qr::QRBuilder,
 };
 use percy_dom::prelude::{html, IterableNodes, VirtualNode};
+use quick_xml::escape::escape;
 use rust_embed::{Embed, EmbeddedFile};
 use tracing::error;
 
-pub trait Convert {
+pub trait Converter {
     fn to_html(&self, aspect_chart: Option<&[u8]>) -> ApiResult<VirtualNode>;
+}
+/// Render a projected activity with media supplied by the host.
+pub trait Renderer<'a> {
+    /// Render the projected activity as HTML.
+    fn render(&self, aspect_chart: Option<&'a [u8]>) -> ApiResult<VirtualNode>;
 }
 /// Target artifact branding available when exporting research activity data using acorn
 ///
@@ -87,6 +96,116 @@ impl DataUri {
         }
     }
 }
+impl<'a> Renderer<'a> for ExportContext<ResearchActivity> {
+    fn render(&self, aspect_chart: Option<&'a [u8]>) -> ApiResult<VirtualNode> {
+        let approach = self
+            .replacements
+            .list("technical")
+            .iter()
+            .map(|item| html! { <li>{ escape(item).into_owned() }</li> })
+            .collect::<Vec<_>>();
+        let areas = self
+            .replacements
+            .list("areas")
+            .iter()
+            .map(|item| html! { <li>{ escape(item).into_owned() }</li> })
+            .collect::<Vec<_>>();
+        let impact = self
+            .replacements
+            .list("impact")
+            .iter()
+            .map(|item| html! { <li>{ escape(item).into_owned() }</li> })
+            .collect::<Vec<_>>();
+        let label = match self.contact.affiliation.as_deref() {
+            | Some(affiliation) => TargetLabel::from_organization(affiliation),
+            | None => TargetLabel::default(),
+        };
+        let head = HtmlHead { stylesheet: "project.css" };
+        let footer = HtmlFooter { label };
+        let folder = label.folder();
+        let path = format!("fact-sheet/{folder}/header.jpg");
+        let caption = escape(self.replacements.scalar("caption")).into_owned();
+        let graphic_alt = match &self.image_source {
+            | ImageSource::Authored(_) => caption.to_string(),
+            | ImageSource::DraftFallback => "Draft image placeholder; recommended dimensions 1920 by 1280 pixels".to_string(),
+        };
+        let graphic = match &self.image_source {
+            | ImageSource::Authored(url) => Ok(escape(url).into_owned()),
+            | ImageSource::DraftFallback => DataUri::from_asset(DRAFT_PLACEHOLDER_ASSET),
+        };
+        let aspect_chart = aspect_chart.map(|bytes| DataUri::from_bytes(bytes, MimeType::Svg));
+        let qrcode = match generate_qr_code(&format!("{}/{}", BASE_URL, self.identifier)) {
+            | Some(bytes) => DataUri::from_bytes(&bytes, MimeType::Png),
+            | None => {
+                error!("=> {} Failed to generate QR code", Label::fail());
+                String::new()
+            }
+        };
+        head.render()
+            .and_then(|head| graphic.map(|graphic| (head, graphic)))
+            .and_then(|(head, graphic)| footer.render().map(|footer| (head, graphic, footer)))
+            .and_then(|(head, graphic, footer)| DataUri::from_asset(&path).map(|header| (head, graphic, footer, header)))
+            .and_then(|(head, graphic, footer, header)| DataUri::from_asset(ORNL_LEAF_LOGO).map(|logo| (head, graphic, footer, header, logo)))
+            .map(|(head, graphic, footer, header, logo)| {
+                let header_style = format!("background-image: url({header});");
+                html! {
+                    <html>
+                        { head }
+                        <body>
+                            <header style={ header_style }>
+                                <div class="wrapper">
+                                    <img id="logo" src={ logo } height="76px"/>
+                                    <div id="ornl-header">{ "Oak Ridge National Laboratory" }</div>
+                                    <div id="title">{ escape(self.replacements.scalar("title")).into_owned() }</div>
+                                    <div id="subtitle">{ escape(self.replacements.scalar("subtitle")).into_owned() }</div>
+                                </div>
+                            </header>
+                            <div class="main">
+                                <main>
+                                    <section>
+                                        <p>{ escape(self.replacements.scalar("mission")).into_owned() }</p>
+                                    </section>
+                                    <section>
+                                        <h3>{ "Challenge" }</h3>
+                                        <p>{ escape(self.replacements.scalar("challenge")).into_owned() }</p>
+                                    </section>
+                                    <section>
+                                        <h3>{ "Approach" }</h3>
+                                        <ul>{ approach }</ul>
+                                    </section>
+                                    <section>
+                                        <h3>{ "Impact" }</h3>
+                                        <ul>{ impact }</ul>
+                                    </section>
+                                </main>
+                                <aside>
+                                    <div class="graphic">
+                                        <img src={ graphic } alt={ graphic_alt }/>
+                                    </div>
+                                    <div class="caption">{ caption }</div>
+                                    <div class="research-focus">
+                                        <h3>{ "Research Focus" }</h3>
+                                        <p>{ escape(self.replacements.scalar("focus")).into_owned() }</p>
+                                        <ul>{ areas }</ul>
+                                    </div>
+                                    <div class="codes">
+                                        {
+                                            aspect_chart.map(|chart| html! {
+                                                <img class="aspect-chart" src={ chart } alt="ASPECT rose chart"/>
+                                            })
+                                        }
+                                        <img class="qrcode" src={ qrcode } alt="Research activity QR code"/>
+                                    </div>
+                                </aside>
+                            </div>
+                            { self.contact.clone() }
+                            { footer }
+                        </body>
+                    </html>
+                }
+            })
+    }
+}
 impl HtmlFooter {
     fn render(&self) -> ApiResult<VirtualNode> {
         let path = format!("fact-sheet/{}/footer.jpg", self.label.folder());
@@ -134,120 +253,9 @@ impl HtmlHead<'_> {
             })
     }
 }
-impl Convert for ResearchActivity {
+impl Converter for ResearchActivity {
     fn to_html(&self, aspect_chart: Option<&[u8]>) -> ApiResult<VirtualNode> {
-        let ResearchActivity {
-            meta,
-            title,
-            subtitle,
-            contact,
-            ..
-        } = self;
-        let ContactPoint { affiliation, .. } = contact;
-        let approach = self
-            .sections
-            .as_ref()
-            .map(|sections| sections.approach.join("</li><li>"))
-            .unwrap_or_default();
-        let areas = self
-            .sections
-            .as_ref()
-            .map(|sections| sections.research.areas.join("</li><li>"))
-            .unwrap_or_default();
-        let challenge = self.sections.as_ref().map(|sections| sections.challenge.clone()).unwrap_or_default();
-        let focus = self.sections.as_ref().map(|sections| sections.research.focus.clone()).unwrap_or_default();
-        let impact = self
-            .sections
-            .as_ref()
-            .map(|sections| sections.impact.join("</li><li>"))
-            .unwrap_or_default();
-        let mission = self.sections.as_ref().map(|sections| sections.mission.clone()).unwrap_or_default();
-        let label = match affiliation {
-            | Some(affiliation) => TargetLabel::from_organization(affiliation),
-            | None => TargetLabel::default(),
-        };
-        let head = HtmlHead { stylesheet: "project.css" };
-        let footer = HtmlFooter { label };
-        let folder = label.folder();
-        let path = format!("fact-sheet/{folder}/header.jpg");
-        let caption = meta.clone().first_image_caption();
-        let authored_graphic = self.authored_image_url();
-        let graphic_alt = match authored_graphic.is_some() {
-            | true => caption.clone(),
-            | false => "Draft image placeholder; recommended dimensions 1920 by 1280 pixels".to_string(),
-        };
-        let graphic = authored_graphic.map_or_else(|| DataUri::from_asset(DRAFT_PLACEHOLDER_ASSET), Ok);
-        let aspect_chart = aspect_chart.map(|bytes| DataUri::from_bytes(bytes, MimeType::Svg));
-        let qrcode = match generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)) {
-            | Some(bytes) => DataUri::from_bytes(&bytes, MimeType::Png),
-            | None => {
-                error!("=> {} Failed to generate QR code", Label::fail());
-                String::new()
-            }
-        };
-        head.render()
-            .and_then(|head| graphic.map(|graphic| (head, graphic)))
-            .and_then(|(head, graphic)| footer.render().map(|footer| (head, graphic, footer)))
-            .and_then(|(head, graphic, footer)| DataUri::from_asset(&path).map(|header| (head, graphic, footer, header)))
-            .and_then(|(head, graphic, footer, header)| DataUri::from_asset(ORNL_LEAF_LOGO).map(|logo| (head, graphic, footer, header, logo)))
-            .map(|(head, graphic, footer, header, logo)| {
-                let header_style = format!("background-image: url({header});");
-                html! {
-                    <html>
-                        { head }
-                        <body>
-                            <header style={ header_style }>
-                                <div class="wrapper">
-                                    <img id="logo" src={ logo } height="76px"/>
-                                    <div id="ornl-header">{ "Oak Ridge National Laboratory" }</div>
-                                    <div id="title">{ title }</div>
-                                    <div id="subtitle">{ subtitle.clone().unwrap_or_else(|| "".to_string()) }</div>
-                                </div>
-                            </header>
-                            <div class="main">
-                                <main>
-                                    <section>
-                                        <p>{ mission }</p>
-                                    </section>
-                                    <section>
-                                        <h3>{ "Challenge" }</h3>
-                                        <p>{ challenge }</p>
-                                    </section>
-                                    <section>
-                                        <h3>{ "Approach" }</h3>
-                                        <ul><li>{ approach }</li></ul>
-                                    </section>
-                                    <section>
-                                        <h3>{ "Impact" }</h3>
-                                        <ul><li>{ impact }</li></ul>
-                                    </section>
-                                </main>
-                                <aside>
-                                    <div class="graphic">
-                                        <img src={ graphic } alt={ graphic_alt }/>
-                                    </div>
-                                    <div class="caption">{ caption }</div>
-                                    <div class="research-focus">
-                                        <h3>{ "Research Focus" }</h3>
-                                        <p>{ focus }</p>
-                                        <ul><li>{ areas }</li></ul>
-                                    </div>
-                                    <div class="codes">
-                                        {
-                                            aspect_chart.map(|chart| html! {
-                                                <img class="aspect-chart" src={ chart } alt="ASPECT rose chart"/>
-                                            })
-                                        }
-                                        <img class="qrcode" src={ qrcode } alt="Research activity QR code"/>
-                                    </div>
-                                </aside>
-                            </div>
-                            { self.clone().contact }
-                            { footer }
-                        </body>
-                    </html>
-                }
-            })
+        ExportContext::project(self).and_then(|context| context.render(aspect_chart))
     }
 }
 impl Style {
@@ -307,14 +315,14 @@ fn generate_qr_code(text: &str) -> Option<Vec<u8>> {
             return None;
         }
     };
-    match ImageBuilder::default()
+    let image = ImageBuilder::default()
         .shape(Shape::RoundedSquare)
         .background_color(COLOR_TRANSPARENT)
         .module_color(COLOR_PRIMARY)
         .margin(0)
         .fit_width(125)
-        .to_bytes(&code)
-    {
+        .to_bytes(&code);
+    match image {
         | Ok(bytes) => Some(bytes),
         | Err(why) => {
             error!(?why, "=> {} Render QR code image", Label::fail());
@@ -322,6 +330,5 @@ fn generate_qr_code(text: &str) -> Option<Vec<u8>> {
         }
     }
 }
-
 #[cfg(test)]
 mod tests;

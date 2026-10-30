@@ -1,7 +1,7 @@
 //! PDF export helpers
 //!
 //! This module renders Research Activity data to HTML and uses Chromium to generate a PDF output file.
-use crate::{cli::CommandOptions, io::chromium_cache_dir, template::Convert};
+use crate::{cli::CommandOptions, io::chromium_cache_dir, template::Converter};
 use acorn::{
     io::{chart::ChartOptions, ApiResult, InputOutput},
     util::{constants::app::CHROME_VERSION, StringConversion},
