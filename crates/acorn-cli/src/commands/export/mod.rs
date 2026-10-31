@@ -59,7 +59,7 @@ use tracing::{debug, info};
 pub(crate) mod html;
 #[cfg(feature = "pdf")]
 pub(crate) mod pdf;
-mod powerpoint;
+pub(crate) mod powerpoint;
 pub(crate) mod updates;
 
 trait ExportHandler {

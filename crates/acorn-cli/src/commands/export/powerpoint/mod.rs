@@ -93,7 +93,7 @@ fn add_aspect_chart(index: usize, context: &ExportContext, chart: &[u8], destina
                 })
         })
 }
-fn add_slide(slide_number: usize, root: &Path) -> ApiResult<()> {
+pub(crate) fn add_slide(slide_number: usize, root: &Path) -> ApiResult<()> {
     fn slide_paths(slide_number: usize, root: &Path) -> Vec<PathBuf> {
         [
             format!("ppt/slides/slide{slide_number}.xml"),
@@ -165,7 +165,7 @@ fn add_slide(slide_number: usize, root: &Path) -> ApiResult<()> {
         }
     }
 }
-fn copy_image(index: usize, context: &ExportContext, source: &Path, destination: &Path) -> ApiResult<u64> {
+pub(crate) fn copy_image(index: usize, context: &ExportContext, source: &Path, destination: &Path) -> ApiResult<u64> {
     let relationships_path = destination.join(format!("ppt/slides/_rels/slide{index}.xml.rels"));
     read_xml_rel(relationships_path.clone()).and_then(|relationships| {
         relationships
@@ -348,7 +348,7 @@ fn staged_xml(path: PathBuf, content: String) -> ApiResult<(PathBuf, Vec<u8>)> {
         .then(|| (path.clone(), content.into_bytes()))
         .ok_or_else(|| eyre!("Malformed PowerPoint part at {}", path.display()))
 }
-fn validate_ooxml_files(reference_extract_path: &Path, count: usize) -> ApiResult<()> {
+pub(crate) fn validate_ooxml_files(reference_extract_path: &Path, count: usize) -> ApiResult<()> {
     let presentation_targets = ["ppt/presentation.xml", "ppt/_rels/presentation.xml.rels"]
         .iter()
         .map(|fragment| reference_extract_path.join(fragment));

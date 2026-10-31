@@ -1,4 +1,5 @@
 //! Scheduled bounded artifact creation and immutable package publication.
+use self::powerpoint::PowerPointReporter;
 #[cfg(feature = "pdf")]
 use crate::commands::export::{html, pdf};
 use crate::{
@@ -34,47 +35,14 @@ use jiff::{SignedDuration, Timestamp};
 use serde::Serialize;
 use std::fs::{create_dir_all, read, write};
 use std::path::{Path, PathBuf};
-use strum::EnumIs;
 
-#[allow(dead_code)] // REP-03 wires the composed slide data into the renderer.
 mod powerpoint;
 
-#[derive(Clone, Copy, Debug, EnumIs, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ReportSelection {
     Pdf,
     Powerpoint,
     Both,
-}
-impl ReportSelection {
-    fn lower_bound(self, explicit: Option<&str>, previous: Option<&ReportManifest>, replay: bool) -> Option<String> {
-        explicit.map(str::to_string).or_else(|| match (self, replay) {
-            | (Self::Pdf | Self::Both, true) => previous.and_then(|manifest| manifest.from.clone()),
-            | (Self::Pdf | Self::Both, false) => previous.map(|manifest| manifest.through.clone()),
-            | (Self::Powerpoint, _) => None,
-        })
-    }
-}
-impl TryFrom<Vec<ReportFormat>> for ReportSelection {
-    type Error = color_eyre::Report;
-
-    fn try_from(formats: Vec<ReportFormat>) -> Result<Self, Self::Error> {
-        match formats.as_slice() {
-            | [] | [ReportFormat::Pdf] => Ok(Self::Pdf),
-            | [ReportFormat::Powerpoint] => Ok(Self::Powerpoint),
-            | [ReportFormat::Pdf, ReportFormat::Powerpoint] | [ReportFormat::Powerpoint, ReportFormat::Pdf] => Ok(Self::Both),
-            | _ => Err(eyre!("Report formats must contain each of pdf and powerpoint at most once")),
-        }
-    }
-}
-
-#[allow(dead_code)] // REP-03 uses this when opening the selected reference.
-fn report_reference_path(reference: Option<&Path>, index_path: &Path) -> PathBuf {
-    let parent = index_path.parent().unwrap_or_else(|| Path::new("."));
-    match reference {
-        | Some(path) if path.is_absolute() => path.to_path_buf(),
-        | Some(path) => parent.join(path),
-        | None => parent.join("reference.pptx"),
-    }
 }
 
 /// Machine-readable outcome for one configured project.
@@ -88,6 +56,7 @@ pub(crate) struct ProjectReportResult {
     through: String,
     version: Option<String>,
 }
+
 impl Report {
     fn through(&self) -> &str {
         self.through.as_deref().unwrap_or_default()
@@ -214,7 +183,74 @@ impl Report {
             | Err(why) => Err(why),
         }
     }
+    fn report_deck(&self, folder: &Folder, commit: &str, from: Option<&str>) -> ApiResult<Option<PathBuf>> {
+        folder.source_path(&self.root).and_then(|(relative_path, index_path)| {
+            prepare_project(self, commit, &folder.id, &relative_path, from).and_then(|(_, updates, project_output)| {
+                ResearchActivity::read(&index_path)
+                    .map_err(|why| eyre!("Read report source for project '{}' — {why}", folder.id))
+                    .and_then(|activity| {
+                        let reference = report_reference_path(self.reference.as_deref(), &index_path);
+                        activity
+                            .render(&updates, &index_path, &reference, &project_output.join("report.pptx"))
+                            .map_err(|why| eyre!("Render PowerPoint for project '{}' using {} — {why}", folder.id, reference.display()))
+                    })
+            })
+        })
+    }
+    fn report_commit(&self) -> ApiResult<&str> {
+        self.commit
+            .as_deref()
+            .filter(|commit| !commit.trim().is_empty())
+            .ok_or_else(|| eyre!("Report source commit is required"))
+    }
+    fn run_local_decks(&self, selected: Vec<Folder>) -> ApiResult<()> {
+        self.report_commit().and_then(|commit| {
+            let results = selected
+                .into_iter()
+                .map(|folder| {
+                    let result = self.report_deck(&folder, commit, self.from.as_deref());
+                    let (status, error) = match result {
+                        | Ok(Some(_)) => ("created", None),
+                        | Ok(None) => ("no-changes", None),
+                        | Err(why) => ("failed", Some(why.to_string())),
+                    };
+                    ProjectReportResult {
+                        error,
+                        project_id: folder.id,
+                        status: status.to_string(),
+                        through: self.through().to_string(),
+                        version: None,
+                    }
+                })
+                .collect::<Vec<_>>();
+            print_results(&results, "PowerPoint")
+        })
+    }
 }
+
+impl ReportSelection {
+    fn lower_bound(self, explicit: Option<&str>, previous: Option<&ReportManifest>, replay: bool) -> Option<String> {
+        explicit.map(str::to_string).or_else(|| match (self, replay) {
+            | (Self::Pdf | Self::Both, true) => previous.and_then(|manifest| manifest.from.clone()),
+            | (Self::Pdf | Self::Both, false) => previous.map(|manifest| manifest.through.clone()),
+            | (Self::Powerpoint, _) => None,
+        })
+    }
+}
+
+impl TryFrom<Vec<ReportFormat>> for ReportSelection {
+    type Error = color_eyre::Report;
+
+    fn try_from(formats: Vec<ReportFormat>) -> Result<Self, Self::Error> {
+        match formats.as_slice() {
+            | [] | [ReportFormat::Pdf] => Ok(Self::Pdf),
+            | [ReportFormat::Powerpoint] => Ok(Self::Powerpoint),
+            | [ReportFormat::Pdf, ReportFormat::Powerpoint] | [ReportFormat::Powerpoint, ReportFormat::Pdf] => Ok(Self::Both),
+            | _ => Err(eyre!("Report formats must contain each of pdf and powerpoint at most once")),
+        }
+    }
+}
+
 async fn deliver_callbacks(queue: &OperationQueue, config: &PowerAutomateConfig, routing: &FolderRegistry) -> ApiResult<()> {
     let callback_worker = CallbackWorker::new(
         queue.clone(),
@@ -231,6 +267,7 @@ async fn deliver_callbacks(queue: &OperationQueue, config: &PowerAutomateConfig,
         }
     }
 }
+
 fn enqueue_manifest_event(queue: &OperationQueue, config: &PowerAutomateConfig, project_id: &str, manifest: &ReportManifest) -> ApiResult<()> {
     let event = match manifest.status {
         | ReportStatus::Published => ArtifactEvent::ArtifactReady {
@@ -246,6 +283,7 @@ fn enqueue_manifest_event(queue: &OperationQueue, config: &PowerAutomateConfig, 
     };
     event.enqueue(queue, &config.callback_destination, &manifest.version).map(|_| ())
 }
+
 fn prepare(arguments: &Report, offline: bool) -> ApiResult<(PowerAutomateConfig, FolderRegistry, String, Vec<Folder>)> {
     ApplicationConfiguration::load(&arguments.config)
         .and_then(|configuration| {
@@ -295,6 +333,7 @@ fn prepare(arguments: &Report, offline: bool) -> ApiResult<(PowerAutomateConfig,
             }
         })
 }
+
 fn prepare_combined(arguments: &Report) -> ApiResult<Vec<Folder>> {
     ApplicationConfiguration::load(&arguments.config)
         .and_then(|configuration| {
@@ -316,6 +355,7 @@ fn prepare_combined(arguments: &Report) -> ApiResult<Vec<Folder>> {
             }
         })
 }
+
 fn prepare_project(
     arguments: &Report,
     commit: &str,
@@ -352,6 +392,25 @@ fn prepare_project(
                 .map(|()| (window, updates, project_output))
         })
 }
+
+fn print_results(results: &[ProjectReportResult], artifact: &str) -> ApiResult<()> {
+    serde_json::to_string_pretty(results)
+        .map_err(|why| eyre!("Failed to encode report results — {why}"))
+        .and_then(|output| {
+            println!("{output}");
+            let failed = results.iter().filter_map(|result| result.error.as_ref()).collect::<Vec<_>>();
+            if failed.is_empty() {
+                Ok(())
+            } else {
+                Err(eyre!(
+                    "{} {artifact} project report(s) failed — {}",
+                    failed.len(),
+                    failed.into_iter().cloned().collect::<Vec<_>>().join("; ")
+                ))
+            }
+        })
+}
+
 async fn publish_manifest(
     arguments: &Report,
     config: &PowerAutomateConfig,
@@ -369,12 +428,14 @@ async fn publish_manifest(
         },
     }
 }
+
 fn replay_manifest(arguments: &Report, config: &PowerAutomateConfig, queue: &OperationQueue, manifest: ReportManifest) -> ApiResult<ReportManifest> {
     match arguments.dry_run {
         | true => Ok(manifest),
         | false => enqueue_manifest_event(queue, config, &manifest.project_id, &manifest).map(|()| manifest),
     }
 }
+
 async fn report_project(
     arguments: &Report,
     config: &PowerAutomateConfig,
@@ -443,15 +504,22 @@ async fn report_project(
         | Err(why) => Err(why),
     }
 }
+
+fn report_reference_path(reference: Option<&Path>, index_path: &Path) -> PathBuf {
+    let parent = index_path.parent().unwrap_or_else(|| Path::new("."));
+    match reference {
+        | Some(path) if path.is_absolute() => path.to_path_buf(),
+        | Some(path) => parent.join(path),
+        | None => parent.join("reference.pptx"),
+    }
+}
+
 /// Run bounded reporting for every selected project and fail after independent projects finish.
 pub(crate) async fn run(arguments: &Report, offline: bool) -> ApiResult<()> {
     let year = Timestamp::now().to_zoned(jiff::tz::TimeZone::UTC).year();
     match ReportSelection::try_from(arguments.formats.clone()) {
         | Err(why) => Err(why),
-        | Ok(selection) if selection.is_powerpoint() || selection.is_both() => {
-            Err(eyre!("PowerPoint reporting is not available until the report renderer is integrated"))
-        }
-        | Ok(_) => match resolve_report_bounds(arguments.from.as_deref(), arguments.through.as_deref(), year) {
+        | Ok(selection) => match resolve_report_bounds(arguments.from.as_deref(), arguments.through.as_deref(), year) {
             | Err(why) => Err(eyre!(why)),
             | Ok((from, through)) => {
                 let normalized = Report {
@@ -460,12 +528,35 @@ pub(crate) async fn run(arguments: &Report, offline: bool) -> ApiResult<()> {
                     ..arguments.clone()
                 };
                 let arguments = &normalized;
-                match arguments.combine {
-                    | true => match prepare_combined(arguments) {
+                match (arguments.combine, selection) {
+                    | (true, ReportSelection::Pdf) => match prepare_combined(arguments) {
                         | Ok(selected) => arguments.write_combined_pdf(&selected, offline).await,
                         | Err(why) => Err(why),
                     },
-                    | false => match prepare(arguments, offline) {
+                    | (true, ReportSelection::Powerpoint) => match prepare_combined(arguments) {
+                        | Ok(selected) => arguments.run_local_decks(selected),
+                        | Err(why) => Err(why),
+                    },
+                    | (true, ReportSelection::Both) => match prepare_combined(arguments) {
+                        | Ok(selected) => match arguments.report_commit() {
+                            | Ok(_) => {
+                                let pdf = arguments.write_combined_pdf(&selected, offline).await;
+                                let decks = arguments.run_local_decks(selected);
+                                match (pdf, decks) {
+                                    | (Ok(()), Ok(())) => Ok(()),
+                                    | (Err(why), Ok(())) | (Ok(()), Err(why)) => Err(why),
+                                    | (Err(pdf), Err(decks)) => Err(eyre!("Combined PDF failed: {pdf}; PowerPoint decks failed: {decks}")),
+                                }
+                            }
+                            | Err(why) => Err(why),
+                        },
+                        | Err(why) => Err(why),
+                    },
+                    | (false, ReportSelection::Powerpoint) => match prepare_combined(arguments) {
+                        | Ok(selected) => arguments.run_local_decks(selected),
+                        | Err(why) => Err(why),
+                    },
+                    | (false, ReportSelection::Pdf | ReportSelection::Both) => match prepare(arguments, offline) {
                         | Ok((automation, routing, commit, selected)) => match arguments.write_title_page(&selected, offline).await {
                             | Ok(()) => {
                                 #[cfg(feature = "pdf")]
@@ -473,7 +564,7 @@ pub(crate) async fn run(arguments: &Report, offline: bool) -> ApiResult<()> {
                                 #[cfg(not(feature = "pdf"))]
                                 let legend: ApiResult<()> = Ok(());
                                 match legend {
-                                    | Ok(()) => run_selected(arguments, &automation, &routing, &commit, selected, offline).await,
+                                    | Ok(()) => run_selected(arguments, &automation, &routing, &commit, selected, selection, offline).await,
                                     | Err(why) => Err(why),
                                 }
                             }
@@ -486,34 +577,53 @@ pub(crate) async fn run(arguments: &Report, offline: bool) -> ApiResult<()> {
         },
     }
 }
+
 async fn run_selected(
     arguments: &Report,
     automation: &PowerAutomateConfig,
     routing: &FolderRegistry,
     commit: &str,
     selected: Vec<Folder>,
+    selection: ReportSelection,
     offline: bool,
 ) -> ApiResult<()> {
     let options = gitlab::Options::from_env().with_identifier(automation.gitlab_project.clone());
     let queue = OperationQueue::configured();
     let mut results = Vec::new();
     for folder in selected {
-        let result = match folder.source_path(&arguments.root) {
+        let pdf_result = match folder.source_path(&arguments.root) {
             | Ok((path, _)) => {
                 let project_options = options.clone().with_path(path).with_project_id(folder.id.clone());
                 report_project(arguments, automation, &project_options, &queue, commit, offline).await
             }
             | Err(why) => Err(why),
         };
-        match result {
-            | Ok(manifest) => results.push(
-                ProjectReportResult::init()
-                    .project_id(folder.id)
-                    .status(manifest.status.to_string())
-                    .through(manifest.through)
-                    .version(manifest.version)
-                    .build(),
-            ),
+        match pdf_result {
+            | Ok(manifest) => {
+                let deck = match selection {
+                    | ReportSelection::Both => arguments.report_deck(&folder, commit, manifest.from.as_deref()).map(|_| ()),
+                    | _ => Ok(()),
+                };
+                match deck {
+                    | Ok(()) => results.push(
+                        ProjectReportResult::init()
+                            .project_id(folder.id)
+                            .status(manifest.status.to_string())
+                            .through(manifest.through)
+                            .version(manifest.version)
+                            .build(),
+                    ),
+                    | Err(why) => results.push(
+                        ProjectReportResult::init()
+                            .error(why.to_string())
+                            .project_id(folder.id)
+                            .status("powerpoint-failed")
+                            .through(manifest.through)
+                            .version(manifest.version)
+                            .build(),
+                    ),
+                }
+            }
             | Err(why) => {
                 let message = why.to_string();
                 if !arguments.dry_run {
@@ -560,6 +670,7 @@ async fn run_selected(
         | Err(why) => Err(why),
     }
 }
+
 #[allow(clippy::too_many_arguments)]
 fn write_manifest(
     arguments: &Report,

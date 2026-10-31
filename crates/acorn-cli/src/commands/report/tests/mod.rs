@@ -38,6 +38,7 @@ fn arguments(projects: Vec<String>) -> Report {
         verbose: Verbosity::default(),
     }
 }
+
 fn report_fixture_arguments() -> Report {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/report");
     let mut arguments = arguments(Vec::new());
@@ -48,6 +49,55 @@ fn report_fixture_arguments() -> Report {
     arguments
 }
 
+#[tokio::test]
+async fn test_both_formats_keep_pdf_mode_and_local_project_deck_when_chrome_is_configured() {
+    let Some(chrome_path) = std::env::var_os("ACORN_TEST_CHROME_PATH").map(PathBuf::from) else {
+        return;
+    };
+    let directory = tempfile::tempdir().expect("report output");
+    for combine in [false, true] {
+        let mut arguments = report_fixture_arguments();
+        arguments.chrome_path = Some(chrome_path.clone());
+        arguments.combine = combine;
+        arguments.formats = vec![ReportFormat::Pdf, ReportFormat::Powerpoint];
+        arguments.from = Some("2026-10-28T00:00:00Z".to_string());
+        arguments.output = directory.path().join(if combine { "combined" } else { "separate" });
+        arguments.projects = vec!["watershed-sensing".to_string()];
+        arguments.reference = Some(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/export/reference.pptx"));
+        run(&arguments, true).await.expect("both report formats");
+        let project_output = arguments.output.join("watershed-sensing/20261101T000000Z-0123456789ab");
+        assert!(project_output.join("report.pptx").exists());
+        if combine {
+            assert!(arguments.output.join("report.pdf").exists());
+            assert!(!project_output.join("manifest.json").exists());
+        } else {
+            assert!(project_output.join("report.pdf").exists());
+            assert!(project_output.join("manifest.json").exists());
+        }
+    }
+}
+#[tokio::test]
+async fn test_combined_powerpoint_selection_keeps_separate_project_decks() {
+    let directory = tempfile::tempdir().expect("report output");
+    let mut arguments = report_fixture_arguments();
+    arguments.combine = true;
+    arguments.dry_run = false;
+    arguments.formats = vec![ReportFormat::Powerpoint];
+    arguments.from = Some("2026-10-02T00:00:00Z".to_string());
+    arguments.job_id = None;
+    arguments.output = directory.path().join("reports");
+    arguments.pipeline_id = None;
+    arguments.projects = vec!["grid-resilience".to_string(), "watershed-sensing".to_string()];
+    arguments.reference = Some(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/export/reference.pptx"));
+    arguments.through = Some("2026-10-04T00:00:00Z".to_string());
+    run(&arguments, true).await.expect("separate local decks");
+    for project in &arguments.projects {
+        let output = arguments.output.join(project).join("20261004T000000Z-0123456789ab");
+        assert!(output.join("report.pptx").exists(), "deck for {project}");
+        assert!(!output.join("manifest.json").exists(), "no publication for {project}");
+    }
+    assert!(!arguments.output.join("report.pdf").exists());
+}
 #[tokio::test]
 async fn test_general_title_page_writes_pdf_when_chrome_is_configured() {
     let Some(chrome_path) = std::env::var_os("ACORN_TEST_CHROME_PATH").map(std::path::PathBuf::from) else {
@@ -220,7 +270,20 @@ async fn test_local_jsonl_apply_updates_report_source_and_renders_when_configure
     assert!(extracted.status.success());
     assert!(String::from_utf8_lossy(&extracted.stdout).contains("Ran pilot calibration with \"quoted\" notes"));
 }
-
+#[tokio::test]
+async fn test_powerpoint_selection_skips_empty_window() {
+    let directory = tempfile::tempdir().expect("report output");
+    let mut arguments = report_fixture_arguments();
+    arguments.formats = vec![ReportFormat::Powerpoint];
+    arguments.from = Some("2026-10-30T00:00:00Z".to_string());
+    arguments.output = directory.path().join("reports");
+    arguments.projects = vec!["watershed-sensing".to_string()];
+    run(&arguments, true).await.expect("empty window");
+    assert!(!arguments
+        .output
+        .join("watershed-sensing/20261101T000000Z-0123456789ab/report.pptx")
+        .exists());
+}
 #[test]
 fn test_prepare_accepts_offline_dry_run_and_project_selection() {
     let prepared = prepare(&arguments(vec!["pilot".to_string()]), true).expect("prepared report");
@@ -360,16 +423,6 @@ async fn test_report_project_with_entries_writes_pdf_when_chrome_is_configured()
     }
 }
 #[test]
-fn test_report_selection_rejects_duplicate_formats() {
-    assert_eq!(ReportSelection::try_from(vec![]).expect("legacy default"), ReportSelection::Pdf);
-    assert_eq!(
-        ReportSelection::try_from(vec![ReportFormat::Powerpoint, ReportFormat::Pdf]).expect("both formats"),
-        ReportSelection::Both
-    );
-    assert!(ReportSelection::try_from(vec![ReportFormat::Pdf, ReportFormat::Pdf]).is_err());
-    assert!(ReportSelection::try_from(vec![ReportFormat::Powerpoint, ReportFormat::Powerpoint]).is_err());
-}
-#[test]
 fn test_report_reference_resolves_beside_project_index() {
     let index = std::path::Path::new("/projects/alpha/index.json");
     assert_eq!(report_reference_path(None, index), std::path::Path::new("/projects/alpha/reference.pptx"));
@@ -382,13 +435,33 @@ fn test_report_reference_resolves_beside_project_index() {
         std::path::Path::new("/shared/theme.pptx")
     );
 }
-#[tokio::test]
-async fn test_report_selection_rejects_powerpoint_before_writing() {
-    let mut arguments = arguments(Vec::new());
-    arguments.formats = vec![ReportFormat::Powerpoint];
-    let error = run(&arguments, true).await.expect_err("renderer is not integrated");
-    assert!(error.to_string().contains("PowerPoint reporting is not available"));
-    assert!(!arguments.output.exists());
+#[test]
+fn test_report_selection_rejects_duplicate_formats() {
+    assert_eq!(ReportSelection::try_from(vec![]).expect("legacy default"), ReportSelection::Pdf);
+    assert_eq!(
+        ReportSelection::try_from(vec![ReportFormat::Powerpoint, ReportFormat::Pdf]).expect("both formats"),
+        ReportSelection::Both
+    );
+    assert!(ReportSelection::try_from(vec![ReportFormat::Pdf, ReportFormat::Pdf]).is_err());
+    assert!(ReportSelection::try_from(vec![ReportFormat::Powerpoint, ReportFormat::Powerpoint]).is_err());
 }
-#[path = "tests/powerpoint.rs"]
+#[tokio::test]
+async fn test_report_selection_writes_local_powerpoint_without_publication() {
+    let directory = tempfile::tempdir().expect("report output");
+    let mut arguments = report_fixture_arguments();
+    arguments.output = directory.path().join("reports");
+    arguments.formats = vec![ReportFormat::Powerpoint];
+    arguments.projects = vec!["watershed-sensing".to_string()];
+    arguments.from = Some("2026-10-28T00:00:00Z".to_string());
+    arguments.reference = Some(PathBuf::from("../../export/reference.pptx"));
+    arguments.dry_run = false;
+    arguments.job_id = None;
+    arguments.pipeline_id = None;
+    run(&arguments, true).await.expect("local PowerPoint run");
+    let project_output = arguments.output.join("watershed-sensing/20261101T000000Z-0123456789ab");
+    assert!(project_output.join("report.pptx").exists());
+    assert!(!project_output.join("manifest.json").exists());
+    assert!(!project_output.join("report.pdf").exists());
+}
+
 mod powerpoint;

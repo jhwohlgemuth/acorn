@@ -18,7 +18,7 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 
 ### Reporting and artifacts
 
-- [Category-based logbook presentations](features/logbook-category-presentations.md) has report format parsing and category slide composition in place, while PowerPoint requests explicitly report that rendering is pending. REP-03 establishes a category layout and renders one local PPTX per project; REP-04 integrates outputs while preserving the existing PDF-only package/callback contract and keeping `--combine` PDF-only; REP-05 closes documentation and gates. It reuses the hardened PowerPoint OOXML/template path and does not wait for database-backed artifact generation or change intake/graduation. Coordinate report dispatch and template ownership with grouped separators and sponsor highlights.
+- [Category-based logbook presentations](features/logbook-category-presentations.md) has PDF, PowerPoint, and both-format dispatch with local category decks; PDF-only package/callback behavior and PDF-only `--combine` semantics remain intact. REP-05 owns documentation and final gates. Database-backed artifact generation and intake/graduation remain independent. Coordinate final report documentation and validation with grouped separators and sponsor highlights.
 
 ### Portable and extraction boundaries
 

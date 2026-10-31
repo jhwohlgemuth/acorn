@@ -24,10 +24,11 @@ Let operators use `acorn report` to generate PDF, PowerPoint, or both from the s
 - The report command is also a publication workflow: per-project reporting publishes a PDF plus `ReportManifest` through GitLab and can enqueue callbacks. The current manifest has a single PDF checksum and the package API accepts an optional PDF payload. The `--combine` branch generates one local PDF and bypasses per-project publication/callback processing.
 - With `--from` omitted, normal per-project PDF reporting can derive its lower bound from the previous GitLab manifest's `through` value, and can replay that manifest when its upper bound is unchanged. The manifest also records its original `from` value. Combined PDF does not read previous manifests.
 - `crates/acorn-cli/src/commands/export/powerpoint/` creates a multi-slide presentation from one RAD input per slide, accepts a reference path through export options, adds slides from an OOXML template, and validates the package before publication. It currently does not compose logbook entries by category.
-- The retained PowerPoint fixture has one slide template with named fields including `title`, `subtitle`, `achievement`, and a `notes` field on its notes slide. Category rendering needs a documented mapping into these fields and must reject a reference lacking the required fields.
+- The retained PowerPoint fixture has one slide template with named fields including `title`, `subtitle`, `achievement`, and a `notes` field on its notes slide. The category renderer maps project/window content to those fields, expands the update area, and rejects missing fields or content beyond its verified capacity.
 - Latest baseline commit `678846941e63a3c06f62e240a4167f0b08e4d721` hardens `add_slide_to_presentation_xml` to reject malformed transformed XML, adds a regression test, and adds a bounded PowerPoint OOXML fuzz target covering slide-list mutation and other transforms. The shared renderer contract is now a usable dependency; category rendering should reuse these APIs and avoid rebuilding slide-list mutation logic.
-- Report format parsing, duplicate rejection, project-relative reference resolution, and the temporary explicit PowerPoint unsupported-mode error are implemented in `acorn-cli`; PDF-only dispatch remains unchanged. `report/powerpoint.rs` now composes category-ordered, newest-first slide inputs with project context, source IDs, and available authored image URL. `LogbookCategory` derives iteration in schema order, and the schema's shared 1,200-character summary limit applies per entry. Focused report and composition tests pass.
-- The retained reference's `achievement` text box is about 0.67 inches tall. Valid categories can contain more text than that box can display; REP-03 must establish a category layout and verify rendered capacity before enabling PowerPoint output.
+- Report format parsing and dispatch now support PDF, PowerPoint, and both. PowerPoint-only runs remain local without GitLab publication; combined mode keeps one local PDF and project decks. Normal PDF publication and its callbacks remain unchanged, and a deck failure after PDF success does not enqueue a PDF failure event.
+- `report/powerpoint.rs` composes category-ordered, newest-first slide inputs with project context, source IDs, and available authored image URL. The shared 1,200-character logbook summary limit applies per entry. The renderer reuses hardened OOXML slide insertion, image copying, interpolation, validation, and staged archive publication; it rejects overfull category content and preserves an earlier deck on failure. A six-slide fixture deck was opened and inspected in LibreOffice, including its dense Software slide.
+- Focused report tests, malformed-template and preservation tests, `cargo clippy -p acorn-cli --all-targets --all-features -- -D warnings`, and a Chrome-backed PDF plus PPTX run in both normal and combined modes pass. REP-05 owns user documentation and final validation gates.
 - SharePoint intake emits JSONL receipts; local intake provides stage/inspect/apply and explicit graduation. This plan starts from the accepted local project `index.json` snapshot after those operator-controlled steps. It does not alter PA flows, ingest JSONL, or graduate entries.
 - The existing [database-backed artifact generation](database-backed-artifact-generation.md) plan owns direct current/revision database source selection. This capability remains file/index-backed and does not wait for database artifact selection.
 
@@ -64,13 +65,8 @@ Let operators use `acorn report` to generate PDF, PowerPoint, or both from the s
 
 # Validation
 
-- Focused tests prove default PDF compatibility; PDF, PowerPoint, and both-format selection; invalid/duplicate formats; and that `--combine` changes only PDF output while PPTX remains one deck per project. Cover omitted `--from` with and without a previous manifest, including unchanged-through replay.
-- Publication tests prove PDF-selected runs preserve current package/manifest/callback behavior, PowerPoint-only runs stay local, and combined mode remains local for PDF while still producing project decks. A PPTX failure after a successful PDF must not send a false PDF-failure callback.
-- Date-bound tests cover inclusive lower/exclusive upper timestamps, month shorthand, empty windows, and entries exactly on each boundary, using `ReportingWindow` behavior.
-- Composition tests cover category grouping/order, multiple entries in a category, omission of empty categories, graduated and ungraduated entries, project-specific context, safe text interpolation, and source-ID traceability.
-- Template tests cover omitted/default and explicit relative/absolute templates, malformed/missing templates, and no partial artifact replacement after failure.
-- Generate a representative deck from a retained fixture; inspect slide count, OOXML package validity, rendered slide images, long text, graphics, and visual layout before accepting renderer work.
-- Run focused report and PowerPoint tests in each phase. The final integration phase runs the repository's required full validation gates after all feature phases are stable.
+- Document format selection, date bounds, project deck paths, template requirements, and PDF-only `--combine` and publication behavior.
+- Run the repository's final lint, test, documentation, and portability gates after shared implementations are stable; recheck representative PDF and PPTX output.
 
 # Acceptance criteria
 
@@ -88,34 +84,12 @@ Let operators use `acorn report` to generate PDF, PowerPoint, or both from the s
 
 # Execution phases
 
-## REP-03 — Render one PowerPoint per project from a reference template
+## REP-05 — Document and close report presentation support
 
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none
-- Exact write set: `crates/acorn-cli/src/commands/report/powerpoint.rs`, `crates/acorn-cli/src/commands/report/tests/powerpoint.rs`, `crates/acorn-cli/src/commands/export/powerpoint/`
-- Primary integration lock: PowerPoint OOXML renderer
-- Outcome: Render all category inputs for one project into one valid multi-slide PPTX, using the explicit reference or `reference.pptx` beside the project index. Establish a category layout with verified content capacity because the retained achievement box is too shallow for full updates. Reuse the hardened `acorn-lib` OOXML slide-list and transform APIs; stage OOXML changes and destination writes so failures preserve an existing valid output.
-- Focused validation: Fixture tests for generated slide count/content, malformed/missing template, malformed slide-list regression, package relationships/content types, preservation on late failure, and per-project template resolution; run the bounded PowerPoint fuzz smoke gate when available; render and visually inspect representative output.
-- Handoff: Expose a report-facing renderer that accepts typed project data, window identity, template, and destination.
-
-## REP-04 — Integrate multi-format report artifacts and PDF-only combine
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: REP-03
-- Exact write set: `crates/acorn-cli/src/commands/report/mod.rs`, `crates/acorn-cli/src/commands/report/tests.rs`, `crates/acorn-cli/src/commands/report/powerpoint.rs`
-- Primary integration lock: report artifact dispatch
-- Outcome: Dispatch selected formats from the same resolved projects and mode-specific reporting window. Preserve PDF publication when selected, keep PowerPoint local, suppress package/callback publication in PowerPoint-only mode, and retain local combined-PDF behavior while generating one project deck independently of `--combine`. Keep PDF success callbacks accurate if a local deck fails.
-- Focused validation: End-to-end local fixture runs for PDF-only, PowerPoint-only, both, combine with each selection, multiple projects, no matching entries, a custom template, and omitted `--from` with prior/unchanged manifests; assert artifact counts, package/manifest/callback behavior, and report-window metadata.
-- Handoff: Freeze artifact names and behavior for documentation and release validation.
-
-## REP-05 — Document and close report presentation support
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: REP-04
-- Exact write set: `docs/src/cli-reference/commands/report.md` (new), `docs/src/cli-reference/commands/README.md`, `docs/src/SUMMARY.md`, `crates/acorn-cli/src/commands/report/tests.rs`, `.wiki/features/logbook-category-presentations.md`, `.wiki/index.md`, `.wiki/features/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
+- Exact write set: `docs/src/cli-reference/commands/report.md` (new), `docs/src/cli-reference/commands/README.md`, `docs/src/SUMMARY.md`, `crates/acorn-cli/src/commands/report/tests/mod.rs`, `.wiki/features/logbook-category-presentations.md`, `.wiki/index.md`, `.wiki/features/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
 - Primary integration lock: report release documentation
 - Outcome: Document date-range selection, format combinations, custom template behavior, output structure, and the PDF-only meaning of `--combine`; reconcile plan indexes and retire this plan after acceptance.
 - Focused validation: Build the relevant book/docs target; run report and PowerPoint focused tests, then serialize and pass `make lint`, `make test`, and required portability gates after shared implementations are stable; inspect final PPTX output visually.
