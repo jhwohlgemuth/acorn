@@ -163,7 +163,7 @@ Record the Podman client/server versions, machine provider, host architecture, a
 # Dependencies and coordination
 
 - Lane: Build/CI/performance in the [parallel execution guide](../parallel-execution.md).
-- POD-11 is blocked on [GitLab shell runner readiness](../testing/gitlab-shell-runner-readiness.md) GSR-02. Runner 55645 cannot finish a tagged job. Podman, GNU Make, Git Bash/MSYS2, and a supported machine provider remain separate prerequisites.
+- POD-11 remains planned and cannot start until [GitLab shell runner readiness](../testing/gitlab-shell-runner-readiness.md) GSR-02 passes. Runner 55645 cannot finish a tagged job. Podman, GNU Make, Git Bash/MSYS2, and a supported machine provider remain separate prerequisites.
 - Take the CI/build entry-point lock for `Makefile` and any `.gitlab-ci.yml` wiring. Do not overlap with runner-pool, portability-gate, Miri, Creusot, fuzz, Needle host-validation, SLM runner, or other Makefile integration work.
 - [Runner-pool isolation](../refactors/ci-runner-pools.md) remains independent operationally, but any Makefile or CI edits serialize. This plan does not change the GitLab Runner executor.
 - [Remote container creation](../refactors/core/remote-create-container-targets.md) retains user-selectable Docker and Podman behavior. Do not use this migration to change CLI defaults, remote endpoint semantics, sockets, or rollback behavior.
@@ -191,7 +191,7 @@ After the platform and registry acceptance matrix passes, delete this plan and r
 
 ## POD-01 — Add Podman preflight and static contract
 
-- Status: ready
+- Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: none
 - Exact write set: `Makefile`, `CONTRIBUTING.md`
@@ -301,7 +301,7 @@ After the platform and registry acceptance matrix passes, delete this plan and r
 
 ## POD-11 — Validate Windows AMD64
 
-- Status: blocked
+- Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: POD-04, GSR-02. GSR-02 is blocked: runner 55645 cannot finish a tagged job.
 - Exact write set: Windows 11 Podman machine and Git Bash/MSYS2 workflow, `CONTRIBUTING.md`
