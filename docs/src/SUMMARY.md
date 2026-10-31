@@ -61,6 +61,7 @@
   - [Native commands](./packages/acorn-cmd.md)
   - [Native host adapters](./packages/acorn-host.md)
   - [Rust core library](./packages/acorn-lib.md)
+  - [Export pipeline](./packages/acorn-export.md)
   - [Protobuf and gRPC](./packages/grpc.md)
   - [MCP client](./packages/mcp-client.md)
   - [Rhai exec](./packages/exec.md)

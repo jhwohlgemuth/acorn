@@ -193,6 +193,7 @@ fuzz-smoke:
     - cargo "+${NIGHTLY_TOOLCHAIN}" --version
     - rm -rf fuzz/artifacts
     - timeout --foreground --kill-after=30 180 cargo "+${NIGHTLY_TOOLCHAIN}" fuzz run --fuzz-dir fuzz location_repository fuzz/corpus/location_repository -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1
+    - timeout --foreground --kill-after=30 180 cargo "+${NIGHTLY_TOOLCHAIN}" fuzz run --fuzz-dir fuzz powerpoint fuzz/corpus/powerpoint -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1
     - timeout --foreground --kill-after=30 180 cargo "+${NIGHTLY_TOOLCHAIN}" fuzz run --fuzz-dir fuzz research_activity fuzz/corpus/research_activity -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1
 
 test-portability:

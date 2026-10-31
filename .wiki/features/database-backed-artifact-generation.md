@@ -148,7 +148,7 @@ The implemented canonical database contract supplies typed lookup, revision iden
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: DBA-07, DBA-08, EXP-10
+- Prerequisites: DBA-07, DBA-08
 - Exact write set: `tests/fixtures/database/export/manifest.json`, `docs/src/cli-reference/commands/export.md`, `.wiki/index.md`, `.wiki/features/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/features/database-backed-artifact-generation.md`
 - Primary integration lock: renderer validation
 - Outcome: Cover standards and binary renderers, run full gates, and remove the plan.

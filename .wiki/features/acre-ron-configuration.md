@@ -54,7 +54,7 @@ Reviewed on 2026-10-25 against `7a7c15f2` and the current worktree. Existing IID
 
 There is no prerequisite implementation plan. RON-01 through RON-06 land in order. Claim the exact files for the active phase before starting; no phase authorizes edits to adjacent subsystems.
 
-- Serialize manifest changes with every workspace-graph owner and core format changes with the [export pipeline](../refactors/core/export-pipeline-hardening.md) owner when it touches `acorn-core/src/util/`.
+- Serialize manifest changes with every workspace-graph owner, including core format changes that touch `acorn-core/src/util/`.
 - Serialize ACRE roots with [shared API configuration](../refactors/api/shared-client-contract.md), model configuration, and other active configuration work. These are ownership constraints, not dependencies on those plans finishing.
 - Serialize CLI discovery, parser/help changes, and formatter integration with [CLI composition](../refactors/core/cli-composition-boundary.md) and [interactive format](interactive-metadata-chat.md). Avoid expanding shared export discovery to all `.ron` files.
 - The [acornd plan](acornd-service.md) owns a separate daemon configuration and requires no RON change. Preserve its current plan and index entries.

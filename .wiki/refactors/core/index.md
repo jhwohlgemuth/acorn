@@ -3,7 +3,6 @@
 ## In Progress
 
 - [Remote create container targets](remote-create-container-targets.md) - Add preflight, rollback, cleanup, and live validation for remote container creation.
-- [Shared export and OOXML pipeline](export-pipeline-hardening.md) - Add bounded OOXML fuzz coverage and verify generated presentations visually.
 
 ## Planned
 

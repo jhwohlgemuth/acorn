@@ -19,7 +19,7 @@ Coordinate the remaining extraction from `acorn-lib` into portable domains, adap
 - `acorn-core`, `acorn-schema`, `acorn-analysis`, `acorn-cmd`, `acorn-host`, `acorn-service`, and `acorn-server` exist under `crates/`. Portable values, schema codecs, analysis data, command execution, initial native capabilities, application policy, and protocol listeners have distinct owners.
 - `acorn-lib` still combines analyzer host execution, provider clients, persistence, export, and workflows. Its broad `std` feature enables unrelated native capabilities.
 - The outbound MCP client still combines service policy with native child-process and HTTP transports; extraction must preserve its landed contract.
-- The [shared API client](api/shared-client-contract.md) plan prepares `acorn-api`. The [export pipeline](core/export-pipeline-hardening.md) has landed a portable replacement contract, `ExportContext`, renderer migration, and fallible OOXML mutation; fuzzing and visual inspection remain before `acorn-export` extraction. Neither plan creates its target package. The [acornd plan](../features/acornd-service.md) owns an initial `acorn-store` adapter for daemon history; it does not extract existing `acorn-lib` persistence.
+- The [shared API client](api/shared-client-contract.md) plan prepares `acorn-api` without creating its target package. The [acornd plan](../features/acornd-service.md) owns an initial `acorn-store` adapter for daemon history; it does not extract existing `acorn-lib` persistence.
 
 # Target package graph
 
@@ -91,12 +91,12 @@ Individual schemas, providers, commands, doctor checks, and generic utility coll
 
 # Coordination boundaries
 
-This record owns package direction, not implementation files or phases. The [shared API client plan](api/shared-client-contract.md) prepares `acorn-api`; the [export pipeline plan](core/export-pipeline-hardening.md) prepares `acorn-export`; the [CLI composition plan](core/cli-composition-boundary.md) owns interface cutover; the [acornd plan](../features/acornd-service.md) owns its daemon package and initial store adapter. Create a separate atomic extraction plan for remaining `acorn-lib` persistence with current evidence, exact write sets, one primary lock per phase, and five-hour outcomes when its prerequisite contract lands.
+This record owns package direction, not implementation files or phases. The [shared API client plan](api/shared-client-contract.md) prepares `acorn-api`; the [CLI composition plan](core/cli-composition-boundary.md) owns interface cutover; the [acornd plan](../features/acornd-service.md) owns its daemon package and initial store adapter. Create a separate atomic extraction plan for remaining `acorn-lib` persistence with current evidence, exact write sets, one primary lock per phase, and five-hour outcomes when its prerequisite contract lands.
 
 # Plan dependencies
 
 - **Satisfied prerequisite:** the implemented portability matrix proves the analyzer boundary in-tree; that result does not itself authorize package extraction.
-- **Boundary inputs:** the analyzer/service/server extraction, `acorn-cmd`, and initial `acorn-host` boundaries are implemented; the [shared API client contract](api/shared-client-contract.md) prepares `acorn-api`; the [shared export and OOXML pipeline](core/export-pipeline-hardening.md) prepares `acorn-export`. The [acornd plan](../features/acornd-service.md) creates a narrow `acorn-store` package; extraction of existing persistence is still unassigned.
+- **Boundary inputs:** the analyzer/service/server extraction, `acorn-cmd`, and initial `acorn-host` boundaries are implemented; the [shared API client contract](api/shared-client-contract.md) prepares `acorn-api`. The [acornd plan](../features/acornd-service.md) creates a narrow `acorn-store` package; extraction of existing persistence is still unassigned.
 - **Downstream:** the implemented portability matrix expands with each accepted extraction. Browser adapters or consumer-owned host ports require a concrete alternate implementation and a new atomic plan.
 - The complete ordering and shared-file collision map is maintained in the [plan dependency network](../plan-network.md).
 
@@ -122,7 +122,6 @@ This architecture record is coordination-only. Before assigning extraction work,
 # Active child plans
 
 - [Shared API client contract](api/shared-client-contract.md) stabilizes endpoint, request, response, error, and provider mechanics before a separate `acorn-api` extraction plan.
-- [Shared export and OOXML pipeline](core/export-pipeline-hardening.md) establishes pure in-memory transformations before a separate `acorn-export` extraction plan.
 - [CLI composition boundary](core/cli-composition-boundary.md) keeps parsing and presentation at the interface root.
 - [Installable acornd service](../features/acornd-service.md) composes the server with native job execution and creates the initial `acorn-store` history adapter without moving unrelated database code.
 - [Structured research-activity enrichment](core/research-activity-enrichment-integration.md) owns its schema/service seam.
@@ -144,5 +143,4 @@ Each future package extraction must name the exact current modules and their tar
 
 # Related plans
 
-- [Shared export and OOXML pipeline](core/export-pipeline-hardening.md)
 - [Shared API client contract](api/shared-client-contract.md)

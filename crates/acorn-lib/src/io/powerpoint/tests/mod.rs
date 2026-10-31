@@ -33,6 +33,11 @@ fn test_add_slide_to_presentation_xml_appends_slide_id() {
     assert!(validate_xml_well_formed(&result));
 }
 #[test]
+fn test_add_slide_to_presentation_xml_rejects_fuzz_regression() {
+    let result = add_slide_to_presentation_xml("<p:presentation><p:sldIdLst></p:sldIdLst>", 257, 2);
+    assert!(result.is_err());
+}
+#[test]
 fn test_add_slide_to_presentation_xml_rejects_malformed_xml() {
     let result = add_slide_to_presentation_xml("<p:presentation><p:sldIdLst>", 257, 2);
     assert!(result.is_err());

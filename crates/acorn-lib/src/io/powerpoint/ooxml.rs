@@ -629,10 +629,13 @@ pub fn add_slide_to_presentation_xml(xml: &str, slide_identifier: u32, revision_
             }
             | Ok(Event::Eof) if found_slide_list => {
                 let output = writer.into_inner();
-                match String::from_utf8(output) {
-                    | Ok(value) => break Ok(value),
-                    | Err(why) => break Err(eyre!("Failed to decode presentation.xml as UTF-8 — {why}")),
-                }
+                break String::from_utf8(output)
+                    .map_err(|why| eyre!("Failed to decode presentation.xml as UTF-8 — {why}"))
+                    .and_then(|value| {
+                        validate_xml_well_formed(&value)
+                            .then_some(value)
+                            .ok_or_else(|| eyre!("Transformed presentation.xml is malformed"))
+                    });
             }
             | Ok(Event::Eof) => break Err(eyre!("Missing p:sldIdLst in presentation.xml")),
             | Ok(event) => match writer.write_event(event) {

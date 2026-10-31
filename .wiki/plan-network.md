@@ -18,10 +18,12 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 
 ### Portable and extraction boundaries
 
+- [Category-based logbook presentations](features/logbook-category-presentations.md) reuses the existing report project resolution, `ReportingWindow`, accepted `index.json` snapshots, and PowerPoint OOXML/template path. REP-01 freezes report formats/template syntax; REP-02 composes deterministic category slides; REP-03 renders one PPTX per project; REP-04 integrates outputs while keeping `--combine` PDF-only; REP-05 closes documentation and gates. It does not wait for database-backed artifact generation or change intake/graduation. Coordinate the report dispatch and template lock with grouped separators and sponsor highlights.
+
+
 - [Outbound MCP client embedder interface](refactors/api/outbound-mcp-client-interface.md) has landed direct server-map construction and bounded caller-driven cancellation. Its remaining phases document the public interface and record portable/WASM validation.
 
 - [Shared API client contract](refactors/api/shared-client-contract.md) prepares `acorn-api`; endpoint, request, resolved configuration, invocation, error, and provider policy move together only after its acceptance gates pass. API-14 migrates provider environment discovery after API-06 freezes the resolved configuration contract.
-- [Shared export and OOXML pipeline](refactors/core/export-pipeline-hardening.md) has landed the portable replacement plan, shared projection, parser-backed PowerPoint interpolation, and staged OOXML mutations. EXP-08 fuzzing and EXP-09 visual inspection are next before `acorn-export` extraction.
 - [CLI composition boundary](refactors/core/cli-composition-boundary.md) follows the stable service/server request and error contracts. Command leaves may normalize earlier only when they avoid shared CLI roots; CLI-11 closes the plan after accepted startup and exit behavior.
 - [Portable diff hardening](refactors/acorn-diff-resource-and-api-hardening.md) and [ZON codec hardening](refactors/zon-codec-hardening.md) are independent portable leaves.
 
@@ -44,7 +46,7 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 - [Azure Cosmos bucket downloads](features/azure-cosmos-buckets.md) consumes the shared API policy and landed bucket-source/transfer contracts. It does not extend the repository enum or local database backend.
 - [dPID research-object support](features/dpid-research-object-support.md) lands portable parser and RO-Crate slices before resolver, gather, persistence, and CLI integration.
 - [Structured research-activity enrichment](refactors/core/research-activity-enrichment-integration.md) and dPID serialize on research-activity schema and standards roots.
-- [Database-backed artifact generation](features/database-backed-artifact-generation.md) can consume the landed export context and existing canonical database/revision contract. Its final validation still depends on EXP-10.
+- [Database-backed artifact generation](features/database-backed-artifact-generation.md) can consume the landed export contract and existing canonical database/revision contract.
 
 ### Gather, inference, and agent tools
 
@@ -98,7 +100,7 @@ SharePoint SPD-13 consumes the landed interactive Confirm/Spin controls; it does
 | Tool registry, Needle startup/catalog, inference dispatch | router/parity, Needle validation, CLI composition, interactive metadata chat; adapter leaves consume the frozen binding contract |
 | CLI parser, `main.rs`, generated help | CLI composition, dPID, gather, CEL, remote create, ask adapters, interactive metadata chat, SLM, ACRE RON, sponsor highlights clarity HIL-03/HIL-19; manual JSONL API work is complete |
 | Enrichment candidates and format workflow | structured enrichment, interactive metadata chat; IMC-11 consumes the landed decision contract after IMC-10 |
-| Export dispatch/templates/PowerPoint | export pipeline, database-backed artifacts, grouped report separators, sponsor highlights clarity |
+| Export dispatch/templates/PowerPoint | export pipeline, database-backed artifacts, category-based logbook presentations, grouped report separators, sponsor highlights clarity |
 | `Makefile` and `.gitlab-ci.yml` | runner pools, Podman, SLM, Needle, PID verification, export fuzzing, coverage throughput |
 | Developer test and coverage workflow (`Makefile` test targets, `.config/nextest.toml`, `[profile.coverage]`) | Coverage throughput and CLI coverage serialize; slow-test gating and coverage scoping must preserve other plans' acceptance tests. |
 

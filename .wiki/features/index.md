@@ -14,6 +14,8 @@
 
 ## Planned
 
+- [Category-based logbook presentations](logbook-category-presentations.md) - Add PDF, PowerPoint, or both to `acorn report` for the same date range, grouping accepted project logbook entries into category slides and supporting an optional reference template; `--combine` remains PDF-only.
+
 
 
 - [Headless CI SharePoint JSONL download](sharepoint-headless-ci-download/index.md) - Follow SPD-26 shared functionality and acceptance on any one native OS with GitLab OIDC federation, ACRE workload profiles and read-only unattended capture/staging; seven bounded phases require approved app-only access and isolated live acceptance. No user credential cache or automatic apply/reporting.

@@ -8,7 +8,6 @@
 
 - [GitLab CI test runners](ci-runner-pools.md) - Finish specialized routing, isolated storage, concurrency, and deployment validation for the partially configured runner pools.
 - [Shared API client contract](api/shared-client-contract.md) - Finish the reusable API boundary before provider extraction.
-- [Shared export and OOXML pipeline](core/export-pipeline-hardening.md) - Add bounded OOXML fuzz coverage and inspect generated presentations after parser-backed PowerPoint mutation landed.
 
 ## Planned groups and independent work
 
