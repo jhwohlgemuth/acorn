@@ -14,7 +14,7 @@
 
 ## Planned
 
-- [Category-based logbook presentations](logbook-category-presentations.md) - Add PDF, PowerPoint, or both to `acorn report` for the same date range, grouping accepted project logbook entries into category slides and supporting an optional reference template; `--combine` remains PDF-only.
+- [Category-based logbook presentations](logbook-category-presentations.md) - Add PDF, PowerPoint, or both to `acorn report` for the same date range, grouping accepted project logbook entries into local category slides and supporting an optional reference template; `--combine` remains PDF-only and GitLab publication remains PDF-only.
 
 
 

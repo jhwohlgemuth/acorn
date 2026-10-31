@@ -2,7 +2,10 @@
 #[cfg(feature = "pdf")]
 use crate::commands::export::{html, pdf};
 use crate::{
-    cli::{arguments::Report, parse::resolve_report_bounds},
+    cli::{
+        arguments::{Report, ReportFormat},
+        parse::resolve_report_bounds,
+    },
     commands::export::updates::LogbookUpdatesExport,
 };
 use acorn::io::{
@@ -30,6 +33,49 @@ use core::cmp::Reverse;
 use jiff::{SignedDuration, Timestamp};
 use serde::Serialize;
 use std::fs::{create_dir_all, read, write};
+use std::path::{Path, PathBuf};
+use strum::EnumIs;
+
+#[allow(dead_code)] // REP-03 wires the composed slide data into the renderer.
+mod powerpoint;
+
+#[derive(Clone, Copy, Debug, EnumIs, Eq, PartialEq)]
+enum ReportSelection {
+    Pdf,
+    Powerpoint,
+    Both,
+}
+impl ReportSelection {
+    fn lower_bound(self, explicit: Option<&str>, previous: Option<&ReportManifest>, replay: bool) -> Option<String> {
+        explicit.map(str::to_string).or_else(|| match (self, replay) {
+            | (Self::Pdf | Self::Both, true) => previous.and_then(|manifest| manifest.from.clone()),
+            | (Self::Pdf | Self::Both, false) => previous.map(|manifest| manifest.through.clone()),
+            | (Self::Powerpoint, _) => None,
+        })
+    }
+}
+impl TryFrom<Vec<ReportFormat>> for ReportSelection {
+    type Error = color_eyre::Report;
+
+    fn try_from(formats: Vec<ReportFormat>) -> Result<Self, Self::Error> {
+        match formats.as_slice() {
+            | [] | [ReportFormat::Pdf] => Ok(Self::Pdf),
+            | [ReportFormat::Powerpoint] => Ok(Self::Powerpoint),
+            | [ReportFormat::Pdf, ReportFormat::Powerpoint] | [ReportFormat::Powerpoint, ReportFormat::Pdf] => Ok(Self::Both),
+            | _ => Err(eyre!("Report formats must contain each of pdf and powerpoint at most once")),
+        }
+    }
+}
+
+#[allow(dead_code)] // REP-03 uses this when opening the selected reference.
+fn report_reference_path(reference: Option<&Path>, index_path: &Path) -> PathBuf {
+    let parent = index_path.parent().unwrap_or_else(|| Path::new("."));
+    match reference {
+        | Some(path) if path.is_absolute() => path.to_path_buf(),
+        | Some(path) => parent.join(path),
+        | None => parent.join("reference.pptx"),
+    }
+}
 
 /// Machine-readable outcome for one configured project.
 #[derive(Builder, Clone, Debug, Serialize)]
@@ -354,7 +400,7 @@ async fn report_project(
                     replay_manifest(arguments, config, queue, manifest)
                 }
                 | Ok(previous) => {
-                    let from = arguments.from.clone().or_else(|| previous.map(|manifest| manifest.through));
+                    let from = ReportSelection::Pdf.lower_bound(arguments.from.as_deref(), previous.as_ref(), false);
                     match prepare_project(arguments, commit, project_id, relative_path, from.as_deref()) {
                         | Ok((window, updates, project_output)) => {
                             let pdf_path = project_output.join("report.pdf");
@@ -400,33 +446,43 @@ async fn report_project(
 /// Run bounded reporting for every selected project and fail after independent projects finish.
 pub(crate) async fn run(arguments: &Report, offline: bool) -> ApiResult<()> {
     let year = Timestamp::now().to_zoned(jiff::tz::TimeZone::UTC).year();
-    let (from, through) = resolve_report_bounds(arguments.from.as_deref(), arguments.through.as_deref(), year).map_err(|why| eyre!(why))?;
-    let normalized = Report {
-        from,
-        through: Some(through),
-        ..arguments.clone()
-    };
-    let arguments = &normalized;
-    match arguments.combine {
-        | true => match prepare_combined(arguments) {
-            | Ok(selected) => arguments.write_combined_pdf(&selected, offline).await,
-            | Err(why) => Err(why),
-        },
-        | false => match prepare(arguments, offline) {
-            | Ok((automation, routing, commit, selected)) => match arguments.write_title_page(&selected, offline).await {
-                | Ok(()) => {
-                    #[cfg(feature = "pdf")]
-                    let legend = arguments.write_legend_page(offline).await;
-                    #[cfg(not(feature = "pdf"))]
-                    let legend: ApiResult<()> = Ok(());
-                    match legend {
-                        | Ok(()) => run_selected(arguments, &automation, &routing, &commit, selected, offline).await,
+    match ReportSelection::try_from(arguments.formats.clone()) {
+        | Err(why) => Err(why),
+        | Ok(selection) if selection.is_powerpoint() || selection.is_both() => {
+            Err(eyre!("PowerPoint reporting is not available until the report renderer is integrated"))
+        }
+        | Ok(_) => match resolve_report_bounds(arguments.from.as_deref(), arguments.through.as_deref(), year) {
+            | Err(why) => Err(eyre!(why)),
+            | Ok((from, through)) => {
+                let normalized = Report {
+                    from,
+                    through: Some(through),
+                    ..arguments.clone()
+                };
+                let arguments = &normalized;
+                match arguments.combine {
+                    | true => match prepare_combined(arguments) {
+                        | Ok(selected) => arguments.write_combined_pdf(&selected, offline).await,
                         | Err(why) => Err(why),
-                    }
+                    },
+                    | false => match prepare(arguments, offline) {
+                        | Ok((automation, routing, commit, selected)) => match arguments.write_title_page(&selected, offline).await {
+                            | Ok(()) => {
+                                #[cfg(feature = "pdf")]
+                                let legend = arguments.write_legend_page(offline).await;
+                                #[cfg(not(feature = "pdf"))]
+                                let legend: ApiResult<()> = Ok(());
+                                match legend {
+                                    | Ok(()) => run_selected(arguments, &automation, &routing, &commit, selected, offline).await,
+                                    | Err(why) => Err(why),
+                                }
+                            }
+                            | Err(why) => Err(why),
+                        },
+                        | Err(why) => Err(why),
+                    },
                 }
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
+            }
         },
     }
 }

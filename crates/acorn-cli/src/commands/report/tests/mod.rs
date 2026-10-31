@@ -26,11 +26,13 @@ fn arguments(projects: Vec<String>) -> Report {
         config: Some(config),
         dry_run: true,
         from: None,
+        formats: vec![ReportFormat::Pdf],
         full_timestamp: false,
         job_id: Some("200".to_string()),
         output: directory.join("reports"),
         pipeline_id: Some("100".to_string()),
         projects,
+        reference: None,
         root: directory,
         through: Some("2026-10-01T00:00:00Z".to_string()),
         verbose: Verbosity::default(),
@@ -143,11 +145,13 @@ async fn test_local_jsonl_apply_updates_report_source_and_renders_when_configure
         config: Some(report_config),
         dry_run: true,
         from: Some("2026-10-01T00:00:00Z".to_string()),
+        formats: vec![ReportFormat::Pdf],
         full_timestamp: false,
         job_id: None,
         output: root.join("reports"),
         pipeline_id: None,
         projects: vec!["acorn".to_string()],
+        reference: None,
         root: root.to_path_buf(),
         through: Some("2026-11-01T00:00:00Z".to_string()),
         verbose: Verbosity::default(),
@@ -216,6 +220,7 @@ async fn test_local_jsonl_apply_updates_report_source_and_renders_when_configure
     assert!(extracted.status.success());
     assert!(String::from_utf8_lossy(&extracted.stdout).contains("Ran pilot calibration with \"quoted\" notes"));
 }
+
 #[test]
 fn test_prepare_accepts_offline_dry_run_and_project_selection() {
     let prepared = prepare(&arguments(vec!["pilot".to_string()]), true).expect("prepared report");
@@ -301,6 +306,12 @@ async fn test_report_project_no_change_writes_only_manifest() {
         .expect("no-change report");
     assert_eq!(manifest.status, ReportStatus::NoChanges);
     assert!(manifest.entry_identifiers.is_empty());
+    assert_eq!(
+        ReportSelection::Both.lower_bound(None, Some(&manifest), false),
+        Some(manifest.through.clone())
+    );
+    assert_eq!(ReportSelection::Both.lower_bound(None, Some(&manifest), true), manifest.from);
+    assert_eq!(ReportSelection::Powerpoint.lower_bound(None, Some(&manifest), false), None);
     let output = arguments.output.join("pilot/20261001T000000Z-0123456789ab");
     assert!(output.join("manifest.json").is_file());
     assert!(!output.join("report.pdf").exists());
@@ -348,3 +359,36 @@ async fn test_report_project_with_entries_writes_pdf_when_chrome_is_configured()
         assert!(pdf.len() > 1_000);
     }
 }
+#[test]
+fn test_report_selection_rejects_duplicate_formats() {
+    assert_eq!(ReportSelection::try_from(vec![]).expect("legacy default"), ReportSelection::Pdf);
+    assert_eq!(
+        ReportSelection::try_from(vec![ReportFormat::Powerpoint, ReportFormat::Pdf]).expect("both formats"),
+        ReportSelection::Both
+    );
+    assert!(ReportSelection::try_from(vec![ReportFormat::Pdf, ReportFormat::Pdf]).is_err());
+    assert!(ReportSelection::try_from(vec![ReportFormat::Powerpoint, ReportFormat::Powerpoint]).is_err());
+}
+#[test]
+fn test_report_reference_resolves_beside_project_index() {
+    let index = std::path::Path::new("/projects/alpha/index.json");
+    assert_eq!(report_reference_path(None, index), std::path::Path::new("/projects/alpha/reference.pptx"));
+    assert_eq!(
+        report_reference_path(Some(std::path::Path::new("theme.pptx")), index),
+        std::path::Path::new("/projects/alpha/theme.pptx")
+    );
+    assert_eq!(
+        report_reference_path(Some(std::path::Path::new("/shared/theme.pptx")), index),
+        std::path::Path::new("/shared/theme.pptx")
+    );
+}
+#[tokio::test]
+async fn test_report_selection_rejects_powerpoint_before_writing() {
+    let mut arguments = arguments(Vec::new());
+    arguments.formats = vec![ReportFormat::Powerpoint];
+    let error = run(&arguments, true).await.expect_err("renderer is not integrated");
+    assert!(error.to_string().contains("PowerPoint reporting is not available"));
+    assert!(!arguments.output.exists());
+}
+#[path = "tests/powerpoint.rs"]
+mod powerpoint;

@@ -1555,6 +1555,16 @@ Generate bounded artifacts and publish immutable GitLab packages
 * `--commit <SHA>` — Exact merged default-branch commit used as report input
 * `--combine` — Write one local PDF containing the title, selected projects, and final legend
 * `--from <DATE|DDMMM|MMM|TIMESTAMP>` — Inclusive lower bound: YYYY-MM-DD, DDMMM, MMM, or RFC 3339 timestamp with an offset
+* `--format <FORMATS>` — Generate PDF, PowerPoint, or both; repeat or separate values with commas
+
+  Default value: `pdf`
+
+  Possible values:
+  - `pdf`:
+    PDF report and its existing publication flow
+  - `powerpoint`:
+    Local PowerPoint presentation
+
 * `--full-timestamp` — Show the full date and time in report PDFs instead of month and day
 * `--through <DATE|DDMMM|MMM|TIMESTAMP>` — Exclusive upper bound; MMM includes its final day. Defaults to the end of --from MMM
 * `--root <PATH>` — Repository checkout root containing configured project paths
@@ -1564,6 +1574,7 @@ Generate bounded artifacts and publish immutable GitLab packages
 
   Default value: `.acorn/reports`
 * `--project <ID>` — Restrict reporting to selected configured project identifiers
+* `--reference <PATH>` — PowerPoint reference template, relative to each selected project index
 * `--pipeline-id <ID>` — GitLab pipeline identifier recorded in the manifest
 * `--job-id <ID>` — GitLab job identifier recorded in the manifest
 * `--chrome-path <PATH>` — Path to Chromium executable used for PDF rendering

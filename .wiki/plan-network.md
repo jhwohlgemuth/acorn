@@ -16,9 +16,11 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 
 ## Direct edges
 
-### Portable and extraction boundaries
+### Reporting and artifacts
 
-- [Category-based logbook presentations](features/logbook-category-presentations.md) reuses the existing report project resolution, `ReportingWindow`, accepted `index.json` snapshots, and PowerPoint OOXML/template path. REP-01 freezes report formats/template syntax; REP-02 composes deterministic category slides; REP-03 renders one PPTX per project; REP-04 integrates outputs while keeping `--combine` PDF-only; REP-05 closes documentation and gates. It does not wait for database-backed artifact generation or change intake/graduation. Coordinate the report dispatch and template lock with grouped separators and sponsor highlights.
+- [Category-based logbook presentations](features/logbook-category-presentations.md) has report format parsing and category slide composition in place, while PowerPoint requests explicitly report that rendering is pending. REP-03 establishes a category layout and renders one local PPTX per project; REP-04 integrates outputs while preserving the existing PDF-only package/callback contract and keeping `--combine` PDF-only; REP-05 closes documentation and gates. It reuses the hardened PowerPoint OOXML/template path and does not wait for database-backed artifact generation or change intake/graduation. Coordinate report dispatch and template ownership with grouped separators and sponsor highlights.
+
+### Portable and extraction boundaries
 
 
 - [Outbound MCP client embedder interface](refactors/api/outbound-mcp-client-interface.md) has landed direct server-map construction and bounded caller-driven cancellation. Its remaining phases document the public interface and record portable/WASM validation.

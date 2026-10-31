@@ -15,6 +15,10 @@ use serde::{Deserialize, Serialize};
 use serde_trim::{option_string_trim, string_trim};
 use serde_with::skip_serializing_none;
 use sophia::api::ns::Namespace;
+use strum::EnumIter;
+
+/// Maximum number of characters in one accepted logbook summary.
+pub const MAX_LOGBOOK_SUMMARY_CHARACTERS: usize = 1200;
 
 /// Supported canonical destination for a logbook graduation.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -26,7 +30,7 @@ pub enum GraduationTarget {
     Contributors,
 }
 /// Subject category for a logbook entry.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, EnumIter, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum LogbookCategory {
     /// Project administration and governance developments.
@@ -196,7 +200,7 @@ pub struct LogbookEntry {
     #[validate(nested)]
     pub discovery: Option<LogbookDiscovery>,
     /// Description of the development. Aim for a few hundred characters; allow longer context when needed.
-    #[validate(nonempty, length(max = 1200))]
+    #[validate(nonempty, length(max = "MAX_LOGBOOK_SUMMARY_CHARACTERS"))]
     #[serde(deserialize_with = "string_trim")]
     pub summary: String,
     /// Supporting statements.

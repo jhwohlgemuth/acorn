@@ -11,8 +11,8 @@
 
 use crate::cli::arguments::osti::DoeLab;
 use crate::cli::arguments::{
-    AcpAgentKind, CheckOutputFormat, DiffOutputFormat, FileFormat, FuzzyMode, InferenceBackendKind, InferenceEndpointMode, SimilarityMethod,
-    SimilarityPreprocessing, SyncTarget,
+    AcpAgentKind, CheckOutputFormat, DiffOutputFormat, FileFormat, FuzzyMode, InferenceBackendKind, InferenceEndpointMode, ReportFormat,
+    SimilarityMethod, SimilarityPreprocessing, SyncTarget,
 };
 use crate::cli::parse::{infer_standard_from_content, resolve_report_bounds};
 use crate::cli::{
@@ -2009,6 +2009,39 @@ fn test_what_if_aliases_dry_run_flags() {
     assert!(Arguments::try_parse_from(["acorn", "link", "--what-if"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "import", "spec", "--what-if"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "sync", "--what-if"]).is_ok());
+}
+#[test]
+fn test_report_formats_and_reference_parse() {
+    let parse = |args: Vec<&str>| match Arguments::try_parse_from(args).expect("parse report format").command {
+        | Some(Commands::Report(report)) => report,
+        | _ => panic!("expected report command"),
+    };
+    let default = parse(vec!["acorn", "report", "--through", "2026-11-01"]);
+    assert_eq!(default.formats, vec![ReportFormat::Pdf]);
+    let both = parse(vec![
+        "acorn",
+        "report",
+        "--through",
+        "2026-11-01",
+        "--format",
+        "pdf,powerpoint",
+        "--reference",
+        "theme.pptx",
+    ]);
+    assert_eq!(both.formats, vec![ReportFormat::Pdf, ReportFormat::Powerpoint]);
+    assert_eq!(both.reference.as_deref(), Some(std::path::Path::new("theme.pptx")));
+    let repeated = parse(vec![
+        "acorn",
+        "report",
+        "--through",
+        "2026-11-01",
+        "--format",
+        "powerpoint",
+        "--format",
+        "pdf",
+    ]);
+    assert_eq!(repeated.formats, vec![ReportFormat::Powerpoint, ReportFormat::Pdf]);
+    assert!(Arguments::try_parse_from(["acorn", "report", "--through", "2026-11-01", "--format", "pptx"]).is_err());
 }
 mod relocated_arguments_bot_tests {
     use super::super::arguments::bot::{Common, EventSource};
