@@ -39,6 +39,8 @@ mod chat;
 mod metadata;
 pub(crate) mod prompt;
 
+const OLLAMA_LOCAL_URL: &str = "http://localhost:11434";
+
 #[derive(Debug)]
 enum Backend {
     Acp(acp::Client),
@@ -79,7 +81,7 @@ impl ConfiguredInference {
                 .map_err(|_| eyre!("--timeout is too large"))
                 .and_then(|timeout| match arguments.backend {
                     | InferenceBackendKind::Acp => Self::acp(arguments, offline, timeout),
-                    | InferenceBackendKind::Openai => Self::openai(arguments, offline, timeout),
+                    | InferenceBackendKind::Ollama | InferenceBackendKind::Openai => Self::openai(arguments, offline, timeout),
                 })
         })
     }
@@ -132,27 +134,50 @@ impl ConfiguredInference {
         })
     }
     fn openai(arguments: &InferenceArgs, offline: bool, timeout: Milliseconds) -> Result<Self> {
+        let ollama = arguments.backend == InferenceBackendKind::Ollama;
+        let backend_name = if ollama { "ollama" } else { "openai" };
         arguments
             .model
             .as_ref()
             .filter(|model| !model.trim().is_empty())
-            .ok_or_else(|| eyre!("--model is required with --backend openai"))
+            .ok_or_else(|| eyre!("--model is required with --backend {backend_name}"))
             .map(|model| {
-                let options = arguments
-                    .base_url
-                    .as_ref()
-                    .map_or_else(Options::from_env, |base_url| Options::from_env().with_domain(base_url));
-                let mode = match arguments.endpoint_mode.unwrap_or_default() {
-                    | InferenceEndpointMode::ChatCompletions => EndpointMode::ChatCompletions,
-                    | InferenceEndpointMode::Responses => EndpointMode::Responses,
+                let options = endpoint_options(arguments);
+                let mode = endpoint_mode(arguments);
+                let client = if ollama {
+                    OpenAiClient::ollama(options, mode, model)
+                } else {
+                    OpenAiClient::new(options, mode, model)
                 };
                 Self {
                     agent: None,
-                    backend: Backend::OpenAi(OpenAiClient::new(options, mode, model).with_offline(offline)),
+                    backend: Backend::OpenAi(client.with_offline(offline)),
                     model: Some(model.clone()),
                     timeout,
                 }
             })
+    }
+}
+fn endpoint_mode(arguments: &InferenceArgs) -> EndpointMode {
+    match arguments.endpoint_mode.unwrap_or(if arguments.backend == InferenceBackendKind::Ollama {
+        InferenceEndpointMode::ChatCompletions
+    } else {
+        InferenceEndpointMode::Responses
+    }) {
+        | InferenceEndpointMode::ChatCompletions => EndpointMode::ChatCompletions,
+        | InferenceEndpointMode::Responses => EndpointMode::Responses,
+    }
+}
+fn endpoint_options(arguments: &InferenceArgs) -> Options {
+    match arguments.backend {
+        | InferenceBackendKind::Ollama => match arguments.base_url.as_deref() {
+            | Some(base_url) => Options::from_env().with_domain(base_url),
+            | None => Options::default().with_domain(OLLAMA_LOCAL_URL),
+        },
+        | _ => match arguments.base_url.as_deref() {
+            | Some(base_url) => Options::from_env().with_domain(base_url),
+            | None => Options::from_env(),
+        },
     }
 }
 impl From<&Backend> for InferenceCapabilities {

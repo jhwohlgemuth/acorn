@@ -293,6 +293,8 @@ pub(crate) enum InferenceBackendKind {
     /// Run a local Agent Client Protocol process.
     #[default]
     Acp,
+    /// Call an Ollama server through its OpenAI-compatible HTTP API.
+    Ollama,
     /// Call an OpenAI-compatible HTTP endpoint.
     Openai,
 }
@@ -1803,17 +1805,17 @@ impl Validate for InferenceArgs {
                 if self.base_url.is_some() {
                     report.add(
                         "baseUrl",
-                        ValidationError::new("backend").with_message("--base-url is only valid with --backend openai"),
+                        ValidationError::new("backend").with_message("--base-url is only valid with --backend openai or ollama"),
                     );
                 }
                 if self.endpoint_mode.is_some() {
                     report.add(
                         "endpointMode",
-                        ValidationError::new("backend").with_message("--endpoint-mode is only valid with --backend openai"),
+                        ValidationError::new("backend").with_message("--endpoint-mode is only valid with --backend openai or ollama"),
                     );
                 }
             }
-            | InferenceBackendKind::Openai => {
+            | InferenceBackendKind::Ollama | InferenceBackendKind::Openai => {
                 [
                     ("agent", "--agent", self.agent.is_some()),
                     ("agentExecutable", "--agent-executable", self.agent_executable.is_some()),
@@ -1830,7 +1832,13 @@ impl Validate for InferenceArgs {
                 if self.model.as_ref().is_none_or(|model| model.trim().is_empty()) {
                     report.add(
                         "model",
-                        ValidationError::new("required").with_message("--model is required with --backend openai"),
+                        ValidationError::new("required").with_message(format!(
+                            "--model is required with --backend {}",
+                            match self.backend {
+                                | InferenceBackendKind::Ollama => "ollama",
+                                | _ => "openai",
+                            }
+                        )),
                     );
                 }
             }

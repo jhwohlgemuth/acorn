@@ -79,6 +79,8 @@ pub enum InferenceError {
 #[derive(Clone, With)]
 pub struct Client {
     #[with(skip)]
+    backend_name: &'static str,
+    #[with(skip)]
     capabilities: InferenceCapabilities,
     #[with(skip)]
     mode: EndpointMode,
@@ -132,6 +134,7 @@ impl Client {
     /// Create a client with an explicit endpoint mode and default model.
     pub fn new(options: Options, mode: EndpointMode, model: impl Into<String>) -> Self {
         Self {
+            backend_name: "openai",
             capabilities: InferenceCapabilities {
                 attachments: false,
                 mutating_tools: false,
@@ -143,6 +146,13 @@ impl Client {
             model: model.into(),
             offline: false,
             options,
+        }
+    }
+    /// Create an Ollama client through its OpenAI-compatible endpoint.
+    pub fn ollama(options: Options, mode: EndpointMode, model: impl Into<String>) -> Self {
+        Self {
+            backend_name: "ollama",
+            ..Self::new(options, mode, model)
         }
     }
     /// Run one checked OpenAI-compatible inference request.
@@ -161,7 +171,12 @@ impl Client {
                         match tokio::time::timeout(timeout, self.mode.invoke(&options, validated.loopback, MAX_RESPONSE_BYTES)).await {
                             | Err(_) => Err(InferenceError::Timeout(timeout)),
                             | Ok(Err(why)) => Err(InferenceError::Transport(why.to_string())),
-                            | Ok(Ok(response)) => response.decode(self.mode, request.response_schema.as_ref(), &validated.model),
+                            | Ok(Ok(response)) => response
+                                .decode(self.mode, request.response_schema.as_ref(), &validated.model)
+                                .map(|mut result| {
+                                    result.provenance.backend = self.backend_name.to_string();
+                                    result
+                                }),
                         }
                     }
                 },

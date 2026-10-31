@@ -57,7 +57,7 @@ HTTP and HTTPS inputs are downloaded to a temporary file and checked using conte
 
 ## Bounded fix suggestions
 
-`--suggest-fixes` analyzes the input once and sends normalized failing checks to the selected inference backend. Suggestions are reviewable data only; this command never builds or executes a fix plan. ACP through OpenCode is the default, while `--backend openai --model MODEL` selects an OpenAI-compatible endpoint. Use `--output json` for a single object containing normalized checks and the grouped fix report. Suggestion mode cannot be combined with `--watch`, and check failures retain their normal exit status.
+`--suggest-fixes` analyzes the input once and sends normalized failing checks to the selected inference backend. Suggestions are reviewable data only; this command never builds or executes a fix plan. ACP through OpenCode is the default. Use `--backend ollama --model MODEL` for a local Ollama server, or `--backend openai --model MODEL` for another OpenAI-compatible endpoint. Use `--output json` for a single object containing normalized checks and the grouped fix report. Suggestion mode cannot be combined with `--watch`, and check failures retain their normal exit status.
 
 ACORN recognizes `.md` and `.markdown` research activity files by their `schema: acorn/research-activity` YAML frontmatter discriminator. Legacy Markdown previously exported by ACORN is also accepted. Ordinary Markdown remains plain text and is not selected by RAD directory discovery.
 

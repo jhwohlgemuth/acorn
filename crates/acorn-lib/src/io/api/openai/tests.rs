@@ -210,6 +210,42 @@ async fn test_endpoint_modes_return_equivalent_normalized_results() {
     server.stop().await.expect("stop test server");
 }
 #[tokio::test]
+async fn test_ollama_client_uses_chat_endpoint_and_reports_ollama_provenance() {
+    let (server, state) = server().await;
+    let client = Client::ollama(
+        Options::default().with_domain(&server.base_url),
+        EndpointMode::ChatCompletions,
+        "local-model",
+    );
+    let result = client.infer_checked(&request("local prompt")).await.expect("Ollama-compatible inference");
+    assert_eq!(result.provenance.backend, "ollama");
+    assert_eq!(result.text, "same response");
+    let recorded = {
+        let requests = state.requests.lock().unwrap_or_else(PoisonError::into_inner);
+        assert_eq!(requests.len(), 1);
+        requests.first().cloned().expect("one chat request")
+    };
+    assert_eq!(recorded.0, EndpointMode::ChatCompletions);
+    assert_eq!(recorded.1.pointer("/messages/0/content"), Some(&json!("local prompt")));
+    assert_eq!(recorded.1.get("model"), Some(&json!("local-model")));
+    server.stop().await.expect("stop test server");
+}
+#[tokio::test]
+async fn test_ollama_fix_suggestions_keep_ollama_provenance() {
+    let (server, _) = server().await;
+    let client = Client::ollama(
+        Options::default().with_domain(&server.base_url),
+        EndpointMode::ChatCompletions,
+        "local-model",
+    );
+    let report = vec![fix_reference()]
+        .suggest(&client, &FixOptions::default())
+        .await
+        .expect("Ollama fix suggestions");
+    assert_eq!(report.fixes().first().map(|fix| fix.provenance.backend.as_str()), Some("ollama"));
+    server.stop().await.expect("stop test server");
+}
+#[tokio::test]
 async fn test_endpoint_modes_return_equivalent_validated_fix_reports() {
     let (server, _) = server().await;
     let reference = fix_reference();

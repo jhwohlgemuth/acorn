@@ -8,6 +8,7 @@
 use crate::geonames::{CodeFormat, Country, GeonamesParser};
 use crate::research_activity::aspect::Maturity;
 use crate::research_activity::*;
+use crate::software::{Software, SOFTWARE};
 use crate::standard::dcat::{Agent, Catalog, ConformsTo, ContactPoint, DataService, Dataset, Distribution, DocumentRef, Publisher};
 use crate::util::Constant;
 use crate::validation::Validate;
@@ -26,6 +27,17 @@ fn test_classification() {
     assert!(ClassificationLevel::Unclassified < ClassificationLevel::Confidential);
     assert!(ClassificationLevel::Confidential < ClassificationLevel::Secret);
     assert!(ClassificationLevel::Secret < ClassificationLevel::TopSecret);
+}
+#[test]
+fn test_codex_identities_round_trip() {
+    assert_eq!(Software::from("Codex"), Software::Codex);
+    assert_eq!(Software::Codex.to_string(), "Codex");
+    assert_eq!(Software::Codex.command(), "codex");
+    assert!(SOFTWARE.contains(&Software::Codex));
+    assert_eq!(Software::from("Codex ACP"), Software::CodexAcp);
+    assert_eq!(Software::CodexAcp.to_string(), "Codex ACP");
+    assert_eq!(Software::CodexAcp.command(), "codex-acp");
+    assert!(SOFTWARE.contains(&Software::CodexAcp));
 }
 #[test]
 fn test_contact_formatting_preserves_unresolved_supplied_organizations() {
@@ -445,6 +457,13 @@ fn test_metadata_formatting_applies_selected_fuzzy_policy() {
         .format_with_vocabulary_report(vocabulary::VocabularyFuzzyMode::Off)
         .expect("exact-only vocabulary format");
     assert_eq!(off.value.keywords, ["automatin", "unknown-value"]);
+}
+#[test]
+fn test_ollama_identity_is_in_doctor_software_inventory() {
+    assert_eq!(Software::from("Ollama"), Software::Ollama);
+    assert_eq!(Software::Ollama.to_string(), "Ollama");
+    assert_eq!(Software::Ollama.command(), "ollama");
+    assert!(SOFTWARE.contains(&Software::Ollama));
 }
 #[test]
 fn test_organization() {

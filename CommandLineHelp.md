@@ -262,6 +262,8 @@ Perform static analysis on research activity data and apply standardized best pr
   Possible values:
   - `acp`:
     Run a local Agent Client Protocol process
+  - `ollama`:
+    Call an Ollama server through its OpenAI-compatible HTTP API
   - `openai`:
     Call an OpenAI-compatible HTTP endpoint
 
@@ -903,6 +905,8 @@ Run bounded inference through Needle or a configured prompt backend
   Possible values:
   - `acp`:
     Run a local Agent Client Protocol process
+  - `ollama`:
+    Call an Ollama server through its OpenAI-compatible HTTP API
   - `openai`:
     Call an OpenAI-compatible HTTP endpoint
 
@@ -988,6 +992,8 @@ Hydrate and run an embedded prompt or local Rhai script
   Possible values:
   - `acp`:
     Run a local Agent Client Protocol process
+  - `ollama`:
+    Call an Ollama server through its OpenAI-compatible HTTP API
   - `openai`:
     Call an OpenAI-compatible HTTP endpoint
 

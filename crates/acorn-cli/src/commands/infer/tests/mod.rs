@@ -1,13 +1,19 @@
 use super::{
-    resolve_prompt, routing_registry, run_routed, structured_input, Backend, ConfiguredInference, InferenceArgs, InferenceBackendKind, Milliseconds,
+    endpoint_mode, endpoint_options, resolve_prompt, routing_registry, run_routed, structured_input, Backend, ConfiguredInference, InferenceArgs,
+    InferenceBackendKind, Milliseconds,
 };
-use crate::cli::arguments::AcpAgentKind;
+use crate::cli::arguments::{AcpAgentKind, InferenceEndpointMode};
 use crate::cli::{Arguments, Commands};
+use acorn::io::api::{openai::EndpointMode, Configuration};
 use acorn_core::time::UnitOfTime;
 use acorn_schema::software::Software;
 use clap::Parser;
 use core::cell::Cell;
 use std::path::PathBuf;
+
+mod chat;
+mod metadata;
+mod prompt;
 
 fn arguments(backend: InferenceBackendKind) -> InferenceArgs {
     InferenceArgs::init().backend(backend).working_directory(PathBuf::from(".")).build()
@@ -43,6 +49,35 @@ fn test_openai_requires_a_model_and_rejects_acp_flags() {
         .model("model".to_string())
         .build();
     assert!(ConfiguredInference::from_args(&configured, false).is_ok());
+}
+#[test]
+fn test_ollama_selector_uses_local_chat_defaults_and_explicit_overrides() {
+    let missing = InferenceArgs::init().backend(InferenceBackendKind::Ollama).build();
+    assert!(ConfiguredInference::from_args(&missing, false)
+        .expect_err("Ollama needs an explicit model")
+        .to_string()
+        .contains("--model is required with --backend ollama"));
+    let defaults = InferenceArgs::init()
+        .backend(InferenceBackendKind::Ollama)
+        .model("local-model".to_string())
+        .build();
+    assert_eq!(endpoint_options(&defaults).domain(), "http://localhost:11434");
+    assert_eq!(endpoint_mode(&defaults), EndpointMode::ChatCompletions);
+    assert!(ConfiguredInference::from_args(&defaults, true).is_ok());
+    let overrides = InferenceArgs::init()
+        .backend(InferenceBackendKind::Ollama)
+        .model("remote-model".to_string())
+        .base_url("https://ollama.example.org".to_string())
+        .endpoint_mode(InferenceEndpointMode::Responses)
+        .build();
+    assert_eq!(endpoint_options(&overrides).domain(), "https://ollama.example.org");
+    assert_eq!(endpoint_mode(&overrides), EndpointMode::Responses);
+    let invalid = InferenceArgs::init()
+        .backend(InferenceBackendKind::Ollama)
+        .model("local-model".to_string())
+        .agent(AcpAgentKind::Codex)
+        .build();
+    assert!(ConfiguredInference::from_args(&invalid, false).is_err());
 }
 #[test]
 fn test_resolve_prompt_prefers_the_argument() {
@@ -103,6 +138,3 @@ async fn test_routed_request_rejects_unknown_scope_before_starting_needle() {
     let error = run_routed(&arguments, true).await.expect_err("unknown capability");
     assert!(error.to_string().contains("Unknown capability scope"));
 }
-mod chat;
-mod metadata;
-mod prompt;

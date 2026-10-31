@@ -6,7 +6,7 @@ use acorn_core::{
 };
 use core::fmt;
 /// Software probed by ACORN host diagnostics.
-pub const SOFTWARE: [Software; 12] = [
+pub const SOFTWARE: [Software; 13] = [
     Software::Acorn,
     Software::Chromium,
     Software::Codex,
@@ -16,6 +16,7 @@ pub const SOFTWARE: [Software; 12] = [
     Software::Npm,
     Software::Npx,
     Software::OpenCode,
+    Software::Ollama,
     Software::Oras,
     Software::Pandoc,
     Software::Vale,
@@ -41,6 +42,8 @@ pub enum Software {
     Npx,
     /// OpenCode.
     OpenCode,
+    /// Ollama model server CLI.
+    Ollama,
     /// ORAS.
     Oras,
     /// Pandoc.
@@ -72,6 +75,7 @@ impl fmt::Display for Software {
             | Self::Npm => "npm",
             | Self::Npx => "npx",
             | Self::OpenCode => "OpenCode",
+            | Self::Ollama => "Ollama",
             | Self::Oras => "ORAS",
             | Self::Pandoc => "Pandoc",
             | Self::Unknown => "unknown",
@@ -91,6 +95,7 @@ impl From<&str> for Software {
             | "npm" => Self::Npm,
             | "npx" => Self::Npx,
             | "OpenCode" => Self::OpenCode,
+            | "Ollama" => Self::Ollama,
             | "ORAS" => Self::Oras,
             | "Pandoc" => Self::Pandoc,
             | "Vale" => Self::Vale,
@@ -111,6 +116,7 @@ impl Software {
             | Self::Npm => "npm",
             | Self::Npx => "npx",
             | Self::OpenCode => "opencode",
+            | Self::Ollama => "ollama",
             | Self::Oras => "oras",
             | Self::Pandoc => "pandoc",
             | Self::Unknown => "",
@@ -126,22 +132,5 @@ impl SoftwareSnapshot {
             path,
             version,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_codex_identities_round_trip() {
-        assert_eq!(Software::from("Codex"), Software::Codex);
-        assert_eq!(Software::Codex.to_string(), "Codex");
-        assert_eq!(Software::Codex.command(), "codex");
-        assert!(SOFTWARE.contains(&Software::Codex));
-        assert_eq!(Software::from("Codex ACP"), Software::CodexAcp);
-        assert_eq!(Software::CodexAcp.to_string(), "Codex ACP");
-        assert_eq!(Software::CodexAcp.command(), "codex-acp");
-        assert!(SOFTWARE.contains(&Software::CodexAcp));
     }
 }

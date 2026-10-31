@@ -1233,6 +1233,31 @@ fn test_infer_run_backend_precedence_and_full_flags() {
     });
 }
 #[test]
+fn test_ollama_backend_parses_for_run_and_interactive_ask() {
+    let run = Arguments::try_parse_from(["acorn", "infer", "run", "summarize", "--backend", "ollama", "--model", "local-model"])
+        .expect("parse Ollama prompt run");
+    assert!(matches!(
+        run.command,
+        Some(Commands::Infer(arguments))
+            if matches!(arguments.command, Some(InferCommands::Run(ref run)) if run.inference.backend == InferenceBackendKind::Ollama)
+    ));
+    let ask = Arguments::try_parse_from([
+        "acorn",
+        "ask",
+        "--interactive",
+        "Inspect this",
+        "--backend",
+        "ollama",
+        "--model",
+        "local-model",
+    ])
+    .expect("parse Ollama interactive ask");
+    assert!(matches!(
+        ask.command,
+        Some(Commands::Infer(arguments)) if arguments.interactive && arguments.inference.backend == InferenceBackendKind::Ollama
+    ));
+}
+#[test]
 fn test_infer_run_data_sources() {
     let inline = Arguments::try_parse_from(["acorn", "infer", "run", "summarize", "--data", r#"{"text":"hello"}"#]).expect("parse inline JSON data");
     match inline.command {

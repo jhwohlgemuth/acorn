@@ -18,6 +18,7 @@ acorn infer run summarize input.json --agent codex
 acorn infer run ./crates/acorn-cli/examples/prompts/summary.rhai --data '{"text":"Research notes"}' --dry-run
 acorn infer run ./crates/acorn-cli/examples/prompts/title.rhai --data '{"description":"A study of local water quality"}' --agent codex
 acorn infer run summarize --backend openai --model qwen3 --base-url http://localhost:8080
+acorn infer run summarize --backend ollama --model gemma4
 ```
 
 ## Embedded prompts
@@ -65,9 +66,10 @@ The prompt data block defaults to canonical ZON; use `--format json` for trouble
 Backend precedence is an explicit `--backend`, then `ACORN_INFERENCE_BACKEND`, then `acp`. ACORN does not fall back if the selected backend fails.
 
 - ACP uses `opencode acp` by default. Select `--agent codex` to use Codex through an installed `codex-acp` adapter. `--agent-executable`, `--working-directory`, and optional `--model` customize either agent session; ACORN does not install adapters or fall back between them.
+- Ollama uses its [OpenAI-compatible Chat Completions API](https://docs.ollama.com/api/openai-compatibility) at `http://localhost:11434/v1/chat/completions` by default. Select `--backend ollama --model MODEL` with a model already available to your Ollama server. `--base-url` selects another server and `--endpoint-mode responses` opts into its Responses API. The Ollama selector ignores `OPENAI_SERVER_HOST`; it does not start Ollama or download a model.
 - OpenAI-compatible inference requires `--model`. `--base-url` overrides `OPENAI_SERVER_HOST`, `--endpoint-mode` selects `responses` or `chat-completions`, and `OPENAI_API_KEY` is the only credential source.
 
-Both backends use a 30-second default timeout. ACP tool mutation stays denied by policy.
+All backends use a 30-second default timeout. ACP tool mutation stays denied by policy. Local Ollama needs no credential; an explicit remote server uses the existing HTTPS and `OPENAI_API_KEY` rules.
 
 #### Codex through ACP
 

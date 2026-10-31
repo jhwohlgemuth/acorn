@@ -14,7 +14,7 @@ acorn doctor --check system,memory,network
 acorn doctor --report > acorn-doctor.json
 ```
 
-Doctor reports use the same discovery-record JSON schema as the interactive Doctor screen. The software probes cover ACORN, Chromium, Codex, Codex ACP, Git, Node.js, npm, npx, OpenCode, ORAS, Pandoc, and Vale.
+Doctor reports use the same discovery-record JSON schema as the interactive Doctor screen. The software probes cover ACORN, Chromium, Codex, Codex ACP, Git, Node.js, npm, npx, OpenCode, Ollama, ORAS, Pandoc, and Vale.
 
 If `Codex ACP` is reported as missing, install its executable globally and rerun the software check:
 
