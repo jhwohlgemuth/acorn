@@ -22,6 +22,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 pub use types::{BatchApplyStatus, BatchInspectionStatus, BatchLineStatus, BatchProjectApplyStatus, BatchProjectState};
 
+/// Standalone general-logbook storage and report selection.
+pub mod general;
 mod manifest;
 mod preflight;
 mod stage;
@@ -83,6 +85,15 @@ pub struct StageSummary {
     pub rejected: Vec<StageRejection>,
 }
 impl ApplicationConfiguration {
+    pub(super) fn local_destination(&self, config_path: &Path, registry: &FolderRegistry, folder_id: &str) -> ApiResult<PathBuf> {
+        match folder_id {
+            | "general" => self
+                .general_logbook()
+                .ok_or_else(|| eyre!("General logbook is not configured"))
+                .and_then(|general| general::destination(general, config_path)),
+            | _ => registry.local_destination(folder_id),
+        }
+    }
     /// Load a local intake configuration and its canonical file path.
     pub fn load_local_intake(path: &Path) -> ApiResult<(Self, PathBuf)> {
         Self::load_with_path(&Some(path.to_path_buf())).and_then(|(config, resolved)| {
@@ -113,7 +124,10 @@ impl ApplicationConfiguration {
                         let mut outcomes = Vec::new();
                         let mut failure = None;
                         for project in manifest.projects.clone() {
-                            let current = read_file_snapshot(&project.destination, MAX_INDEX_BYTES).map(|(_, text, _)| text);
+                            let current = match project.project_id.as_str() {
+                                | "general" => general::read_content(&project.destination),
+                                | _ => read_file_snapshot(&project.destination, MAX_INDEX_BYTES).map(|(_, text, _)| text),
+                            };
                             let result = current.and_then(|text| {
                                 let digest = digest_text(&text);
                                 match (digest == project.final_digest, digest == project.base_digest) {

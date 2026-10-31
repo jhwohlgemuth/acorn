@@ -1,6 +1,7 @@
 //! Local JSONL batch admission and per-project proposal folding.
 use super::super::revisions::RevisionHistory;
 use super::super::{form::FormAdmission, Submission};
+use super::general;
 use super::manifest::{secure_directory, BatchLine, BatchManifest, BatchProject, BatchSummary, PriorRecordLookup};
 use super::types::BatchLineStatus;
 use super::{digest_text, ApplicationConfiguration, FolderRegistry, LogbookProposal, ProcessRepositoryResponse, MAX_INBOX_BYTES, MAX_INDEX_BYTES};
@@ -16,6 +17,7 @@ use std::path::{Path, PathBuf};
 
 #[derive(Builder)]
 struct StageContext<'a> {
+    config: &'a ApplicationConfiguration,
     config_path: &'a Path,
     registry: &'a FolderRegistry,
     prior: &'a PriorRecordLookup,
@@ -57,6 +59,7 @@ impl BatchSummary {
                                     prior.revision_history(lines.iter().map(|line| line.raw.as_str())).and_then(|history| {
                                         let registry = config.registry();
                                         let mut context = StageContext::builder()
+                                            .config(&config)
                                             .config_path(&resolved_config)
                                             .registry(&registry)
                                             .prior(&prior)
@@ -100,29 +103,35 @@ impl JsonlLine {
                 | Some(previous) if previous != &digest => Err(eyre!("Submission UUID conflicts with another line in this batch")),
                 | Some(_) => context
                     .history
-                    .admit(&submission, context.registry, &|name| env::var(name).ok())
+                    .admit(&submission, context.registry, context.config.general_logbook(), &|name| {
+                        env::var(name).ok()
+                    })
                     .and_then(|admission| {
                         context
-                            .registry
-                            .local_destination(&admission.folder_id)
+                            .config
+                            .local_destination(context.config_path, context.registry, &admission.folder_id)
                             .map(|_| (Some(admission), BatchLineStatus::Replayed))
                     }),
                 | None => {
                     context.seen.insert(id.clone(), digest.clone());
                     context
                         .history
-                        .admit(&submission, context.registry, &|name| env::var(name).ok())
+                        .admit(&submission, context.registry, context.config.general_logbook(), &|name| {
+                            env::var(name).ok()
+                        })
                         .and_then(|admission| {
-                            context.registry.local_destination(&admission.folder_id).and_then(|destination| {
-                                context
-                                    .prior
-                                    .prior_submission(context.config_path, &id, &digest, &destination)
-                                    .and_then(|replayed| match replayed {
-                                        | true => Ok((Some(admission), BatchLineStatus::Replayed)),
-                                        | false => fold_project(&mut context.projects, &destination, &admission)
-                                            .map(|()| (Some(admission), BatchLineStatus::Accepted)),
-                                    })
-                            })
+                            context
+                                .config
+                                .local_destination(context.config_path, context.registry, &admission.folder_id)
+                                .and_then(|destination| {
+                                    context.prior.prior_submission(context.config_path, &id, &digest, &destination).and_then(
+                                        |replayed| match replayed {
+                                            | true => Ok((Some(admission), BatchLineStatus::Replayed)),
+                                            | false => fold_project(&mut context.projects, &destination, &admission)
+                                                .map(|()| (Some(admission), BatchLineStatus::Accepted)),
+                                        },
+                                    )
+                                })
                         })
                 }
             }
@@ -156,9 +165,33 @@ fn fold_project(projects: &mut BTreeMap<PathBuf, BatchProject>, destination: &Pa
         | false => {
             let base = match projects.get(destination) {
                 | Some(project) => Ok(project.proposed_content.clone()),
+                | None if admission.folder_id == "general" => general::read_content(destination),
                 | None => read_file_snapshot(destination, MAX_INDEX_BYTES).map(|(_, text, _)| text),
             };
             base.and_then(|base| {
+                if admission.folder_id == "general" {
+                    return general::propose(&base, &admission.entry, admission.replaces.as_ref()).map(|proposed| {
+                        match projects.get_mut(destination) {
+                            | Some(project) => {
+                                project.proposed_content = proposed.clone();
+                                project.final_digest = digest_text(&proposed);
+                            }
+                            | None => {
+                                projects.insert(
+                                    destination.to_path_buf(),
+                                    BatchProject::builder()
+                                        .project_id("general")
+                                        .destination(destination.to_path_buf())
+                                        .base_digest(digest_text(&base))
+                                        .final_digest(digest_text(&proposed))
+                                        .base_content(base)
+                                        .proposed_content(proposed)
+                                        .build(),
+                                );
+                            }
+                        }
+                    });
+                }
                 destination
                     .file_name()
                     .and_then(|name| name.to_str())

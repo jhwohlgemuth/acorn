@@ -1,7 +1,7 @@
 ---
 type: Plan
 title: "PowerApp and Power Automate highlight intake"
-description: "Complete standalone general reporting, shared deployment and independent GitLab acceptance."
+description: "Complete shared deployment and independent GitLab acceptance after standalone general reporting."
 difficulty: medium
 impact: critical
 package: [workspace]
@@ -20,7 +20,7 @@ Operate the accepted SharePoint default for the approved contributors and operat
 
 Preserve the separate GitLab pilot Off for low-effort restoration and its unfinished route-specific acceptance. The owner approved SharePoint cutover October 27; native backup, catalog feedback and exporter repairs are installed. Wider shared deployment remains PA-12.
 
-The [report-placement update](_assets/sharepoint/report-placement/README.md) puts placement first and routes title-page updates to a separate `general` receipt destination. Standalone general-logbook reporting remains PA-29; the reviewed local correction contract is accepted with full workspace tests and a four-receipt/two-entry CLI acceptance run. [Submission-editing evidence](_assets/sharepoint/submission-editing/README.md) records the accepted isolated app/flow tests. Published editing is accepted for the owner and standard-license contributor: private history, correction save, owner/contributor Teams confirmation and exact collected export passed. PA-31 is complete and pruned; [participant evidence](_assets/sharepoint/submission-editing/participant-acceptance.json) preserves the result.
+The [report-placement update](_assets/sharepoint/report-placement/README.md) puts placement first and routes title-page updates to a separate `general` receipt destination. PA-29 local intake and reporting now use an independent `options.generalLogbook` path and contributor allowlist; a mixed batch and general-only combined PDF passed focused acceptance. The reviewed local correction contract is accepted with full workspace tests and a four-receipt/two-entry CLI acceptance run. [Submission-editing evidence](_assets/sharepoint/submission-editing/README.md) records the accepted isolated app/flow tests. Published editing is accepted for the owner and standard-license contributor: private history, correction save, owner/contributor Teams confirmation and exact collected export passed. PA-31 is complete and pruned; [participant evidence](_assets/sharepoint/submission-editing/participant-acceptance.json) preserves the result.
 
 The [monthly project coverage dashboard](project-coverage.md) is published and refreshing every five minutes. Current/history counts, correction exclusion, repeated refresh and desktop/mobile views passed. The current month stays visible; previous months open from a collapsed history section. On October 28, the owner relayed successful contributor-account access to both October and September project views. PA-32 and PA-33 are accepted and pruned; dashboard-only page/list Read grants are verified. Populated month/project cards also link to the original counted submissions; opening those links requires existing reviewer access. The owner approved sharing original summaries with all dashboard viewers through label tooltips; raw intake/export grants remain unchanged.
 
@@ -29,6 +29,8 @@ The published [Sponsor Highlights entry hub](highlights-hub.md) links the form, 
 Supporting material: [operating runbook](pilot-runbook.md), [notification walkthrough](notification-walkthrough.md), and [source bundle](source-bundle-readme.md). Form sources, PDFs and acceptance files are in `_assets/`.
 
 # Current evidence
+
+October 31 PA-29 local acceptance: `options.generalLogbook` names a safe relative JSON path and an explicit contributor allowlist independently of GitLab configuration. A mixed project/general batch staged to separate destinations, inspected both, created the general logbook on first apply, and replayed without duplication. General correction and UUID-conflict tests passed; missing configuration, false or absent `global`, and unauthorized submitters were rejected. The general-only combined PDF test rendered with Chrome and extracted the accepted title-page text once; a later `from` bound excluded it. The focused local suite passed 25 tests. No synthetic content was published.
 
 October 27 PA-25 deployment is accepted in the existing Jason pilot. The published SharePoint app retains its ID, approved owner/participant audience, owner-backed connections, submission bindings and recovery key. PA28 catalog response and seven canvas properties are installed, as is the accepted PA23/26/27 exporter. A live synthetic submission and Teams action succeeded; the downloaded eight-row aggregate preserves the earlier seven rows exactly. Both GitLab intake/catalog flows are verified Off, with components and credentials retained. [Cutover evidence and rollback](_assets/sharepoint/cutover/README.md) preserve native before/after apps, readback comparisons, run IDs and hashes.
 
@@ -130,15 +132,3 @@ Inspect route-specific evidence: SharePoint list UUID/payload, individual receip
 - Outcome: Deploy the accepted app/flows and switch future notifications from Jason to the approved shared destination.
 - Focused validation: Verify catalog and route-specific persistence/replay under intended user permissions: SharePoint receipt plus collected export, or GitLab append/commit; verify notification deduplication; preserve old receipt recipients and rollback; a new Teams channel has its own delivery state.
 - Handoff: Preserve destination IDs and protected reference names; prune only after target acceptance. This is outside the current pilot MVP.
-
-## PA-29 — Support general updates without a project index
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: owner decision recorded: general updates have no associated project/index; retain the current envelope routing key `general` for compatibility
-- Exact write set: `crates/acorn-lib/src/io/api/powerautomate/config.rs`, `crates/acorn-lib/src/io/api/powerautomate/local/`, adjacent intake tests; `crates/acorn-cli/src/commands/report/` and its focused tests; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/report-placement/`
-- Primary integration lock: standalone general-logbook intake/report contract
-- Outcome: Admit general receipts into a standalone logbook and include their accepted entries on the combined report title page without creating a ResearchActivity index or requiring project contact metadata.
-- Contract: Keep existing project destinations unchanged. Define explicit general storage and contributor authorization in intake configuration; do not treat an unknown project as general. Require `global: true` for the reserved route, preserve immutable receipt IDs/digests and stage/inspect/apply semantics, and disallow project-field graduation from a general entry. Do not silently drop or reassign general rows in mixed batches.
-- Focused validation: A mixed project/general batch stages to separate destinations, inspect clearly distinguishes them, apply is atomic/replay-safe under existing guarantees, and a combined local PDF includes each general entry once on the title page. Cover absent general configuration, unauthorized submitter, false/missing global flag, conflicting replay and report-window filtering. Preserve existing project-only tests and offline behavior. Do not publish synthetic content.
-- Handoff: Record supported configuration and local report evidence; prune after acceptance. SharePoint form routing, individual JSONL export and recovery are already verified. The earlier synthetic project-backed index test is not standalone acceptance; GitLab connector activation is unnecessary.

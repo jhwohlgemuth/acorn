@@ -12,7 +12,7 @@ use crate::{
 use acorn::io::{
     api::{
         gitlab::{self, Package, PackageLifecycle, PackageOptions, ReportManifest, ReportStatus},
-        powerautomate::{PowerAutomateCallbackResolver, PowerAutomateConfig},
+        powerautomate::{local::general, PowerAutomateCallbackResolver, PowerAutomateConfig},
         webhooks::{
             store::{CallbackWorker, OperationQueue},
             ArtifactEvent, WebhookRuntime,
@@ -25,7 +25,7 @@ use acorn::io::{
 };
 use acorn_host::fs::SafePath;
 use acorn_schema::{
-    research_activity::{LogbookUpdates, ReportingWindow, ResearchActivity},
+    research_activity::{LogbookEntry, LogbookUpdates, ReportingWindow, ResearchActivity},
     validation::Validate,
 };
 use bon::Builder;
@@ -80,10 +80,20 @@ impl Report {
                     .map(|updates| (window, updates))
             })
     }
-    fn title_updates(window: &ReportingWindow, projects: &[LogbookUpdates]) -> LogbookUpdates {
+    fn general_entries(&self, window: &ReportingWindow) -> ApiResult<Vec<LogbookEntry>> {
+        self.config.as_ref().map_or(Ok(Vec::new()), |path| {
+            ApplicationConfiguration::load_local_intake(path).and_then(|(config, resolved)| {
+                config.general_logbook().map_or(Ok(Vec::new()), |setting| {
+                    general::destination(setting, &resolved).and_then(|path| general::entries_within(&path, window))
+                })
+            })
+        })
+    }
+    fn title_updates(window: &ReportingWindow, projects: &[LogbookUpdates], general: Vec<LogbookEntry>) -> LogbookUpdates {
         let mut entries = projects
             .iter()
             .flat_map(|project| project.entries.iter().filter(|entry| entry.global).cloned())
+            .chain(general)
             .collect::<Vec<_>>();
         entries.sort_by_cached_key(|entry| Reverse(entry.timestamp.parse::<Timestamp>().ok()));
         LogbookUpdates {
@@ -99,13 +109,17 @@ impl Report {
         }
     }
     fn global_updates(&self, selected: &[Folder]) -> ApiResult<LogbookUpdates> {
-        self.selected_updates(selected)
-            .map(|(window, projects)| Self::title_updates(&window, &projects))
+        self.selected_updates(selected).and_then(|(window, projects)| {
+            self.general_entries(&window)
+                .map(|general| Self::title_updates(&window, &projects, general))
+        })
     }
     #[cfg(feature = "pdf")]
     async fn write_combined_pdf(&self, selected: &[Folder], offline: bool) -> ApiResult<()> {
         let content = self.selected_updates(selected).and_then(|(window, projects)| {
-            let title = Self::title_updates(&window, &projects);
+            let title = self
+                .general_entries(&window)
+                .map(|general| Self::title_updates(&window, &projects, general))?;
             let projects = projects
                 .into_iter()
                 .map(|updates| LogbookUpdates {
@@ -349,7 +363,9 @@ fn prepare_combined(arguments: &Report) -> ApiResult<Vec<Folder>> {
                 .filter(|folder| arguments.projects.is_empty() || arguments.projects.contains(&folder.id))
                 .cloned()
                 .collect::<Vec<_>>();
-            match selected.is_empty() {
+            let general_only = configuration.general_logbook().is_some()
+                && (arguments.projects.is_empty() || arguments.projects.iter().any(|project| project == "general"));
+            match selected.is_empty() && !general_only {
                 | true => Err(eyre!("No configured folders matched the report selection")),
                 | false => Ok(selected),
             }

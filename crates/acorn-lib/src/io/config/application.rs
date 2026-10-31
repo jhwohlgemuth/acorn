@@ -15,7 +15,7 @@ use crate::{
         mcp::config::McpServerConfiguration,
         read_file, sync,
         sync::ConfigExt,
-        write_file, ApiResult, CstRootNode, CstValue, FromPath, InputOutput,
+        write_file, ApiResult, CstRootNode, CstValue, EmailAddress, FromPath, InputOutput,
     },
     util::{
         constants::app::{
@@ -526,6 +526,9 @@ pub struct ApplicationOptions {
     /// Shared destination resolution for folder paths.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub folders: Option<FolderOptions>,
+    /// Standalone local logbook for report-wide intake.
+    #[serde(default, rename = "generalLogbook", skip_serializing_if = "Option::is_none")]
+    pub general_logbook: Option<GeneralLogbookConfig>,
     /// Deployment-owned PowerAutomate form intake and callback configuration.
     #[serde(default, rename = "powerAutomate", skip_serializing_if = "Option::is_none")]
     #[schemars(with = "Option<feature_configuration::PowerAutomateConfig>")]
@@ -533,6 +536,33 @@ pub struct ApplicationOptions {
     /// Options governing both root `scripts` and root `scriptManifest`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scripts: Option<ScriptOptions>,
+}
+/// Local storage and explicit contributor access for report-wide submissions.
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct GeneralLogbookConfig {
+    /// Local JSON path, relative to the ACRE configuration file.
+    pub path: String,
+    /// Email addresses allowed to submit report-wide updates.
+    pub members: Vec<EmailAddress>,
+}
+impl Validate for GeneralLogbookConfig {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        let mut report = ValidationReport::new();
+        if SafePath::new(&self.path).is_err() || !self.path.ends_with(".json") {
+            report.add(
+                "path",
+                ValidationError::new("path").with_message("General logbook path must be a safe relative JSON path"),
+            );
+        }
+        if self.members.is_empty() {
+            report.add(
+                "members",
+                ValidationError::new("required").with_message("General logbook requires explicit contributor email addresses"),
+            );
+        }
+        report.finish()
+    }
 }
 /// Local identity defaults required by metadata imports.
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -870,6 +900,10 @@ impl ApplicationConfiguration {
     pub fn power_automate(&self) -> Option<&PowerAutomateConfig> {
         self.options.as_ref().and_then(|options| options.power_automate.as_ref())
     }
+    /// Return standalone report-wide intake settings, when configured.
+    pub fn general_logbook(&self) -> Option<&GeneralLogbookConfig> {
+        self.options.as_ref().and_then(|options| options.general_logbook.as_ref())
+    }
     /// Return the routing snapshot consumed by intake and reporting services.
     pub fn registry(&self) -> FolderRegistry {
         FolderRegistry {
@@ -1200,6 +1234,11 @@ impl Validate for ApplicationConfiguration {
     fn validate(&self) -> Result<(), ValidationReport> {
         let entries = self.scripts.as_deref().unwrap_or_default();
         let mut report = ValidationReport::new();
+        if let Some(general) = self.general_logbook() {
+            if let Err(errors) = general.validate() {
+                report.append_prefixed("options.generalLogbook", errors);
+            }
+        }
         if let Some(auth) = &self.auth {
             if let Err(errors) = auth.validate() {
                 report.append_prefixed("auth", errors);

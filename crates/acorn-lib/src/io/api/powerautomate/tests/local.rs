@@ -4,7 +4,7 @@ use super::super::local::{
 };
 use crate::io::config::ApplicationConfiguration;
 use crate::io::ApiResult;
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::research_activity::{Logbook, ResearchActivity};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -90,6 +90,89 @@ fn setup(destination: &str) -> (tempfile::TempDir, PathBuf, PathBuf, PathBuf) {
 }
 fn stage(config_path: &Path, inbox_path: &Path) -> ApiResult<StageSummary> {
     ApplicationConfiguration::load_local_intake(config_path).and_then(|(configuration, path)| configuration.stage(&path, inbox_path))
+}
+fn general_row(id: &str) -> String {
+    let mut row: serde_json::Value = serde_json::from_str(LINE.lines().next().unwrap()).unwrap();
+    row["submissionId"] = id.into();
+    row["projectId"] = "general".into();
+    row["entry"]["global"] = true.into();
+    serde_json::to_string(&row).unwrap()
+}
+fn configure_general(config: &Path) -> PathBuf {
+    let mut document: serde_json::Value = serde_json::from_slice(&fs::read(config).unwrap()).unwrap();
+    document["options"] = serde_json::json!({"generalLogbook": {
+        "path": "general/logbook.json", "members": ["scientist@example.org"]
+    }});
+    fs::write(config, serde_json::to_vec(&document).unwrap()).unwrap();
+    config.parent().unwrap().join("general/logbook.json")
+}
+#[test]
+fn test_batch_mixed_general_and_project_creates_standalone_logbook() {
+    let (_directory, config, inbox, index) = setup("local");
+    let general = configure_general(&config);
+    let project = fs::read_to_string(&inbox).unwrap();
+    let row = general_row("22222222-2222-4222-8222-222222222222");
+    fs::write(&inbox, format!("{project}{row}\n")).unwrap();
+    let staged = BatchSummary::stage(&config, &inbox).unwrap();
+    assert_eq!((staged.accepted, staged.rejected), (2, 0));
+    assert!(!general.exists());
+    let inspection = BatchInspection::inspect(&config, &staged.batch_id).unwrap();
+    assert_eq!(inspection.projects.len(), 2);
+    assert!(inspection.projects.iter().any(|project| project.project_id == "general"));
+    assert_eq!(apply_batch(&config, &staged.batch_id).unwrap().status, BatchApplyStatus::Complete);
+    let logbook: Logbook = serde_json::from_slice(&fs::read(&general).unwrap()).unwrap();
+    assert_eq!(logbook.entries.len(), 1);
+    assert!(logbook.entries[0].global);
+    let activity: ResearchActivity = serde_json::from_slice(&fs::read(&index).unwrap()).unwrap();
+    assert_eq!(activity.logbook.unwrap().entries.len(), 1);
+    assert_eq!(apply_batch(&config, &staged.batch_id).unwrap().status, BatchApplyStatus::Complete);
+}
+#[test]
+fn test_batch_general_rejects_missing_configuration_and_false_global() {
+    let (_directory, config, inbox, _index) = setup("local");
+    let row = general_row("22222222-2222-4222-8222-222222222222");
+    fs::write(&inbox, format!("{row}\n")).unwrap();
+    assert_eq!(BatchSummary::stage(&config, &inbox).unwrap().rejected, 1);
+    configure_general(&config);
+    let mut invalid: serde_json::Value = serde_json::from_str(&row).unwrap();
+    invalid["entry"]["global"] = false.into();
+    fs::write(&inbox, format!("{}\n", serde_json::to_string(&invalid).unwrap())).unwrap();
+    assert_eq!(BatchSummary::stage(&config, &inbox).unwrap().rejected, 1);
+    invalid["entry"].as_object_mut().expect("entry object").remove("global");
+    fs::write(&inbox, format!("{}\n", serde_json::to_string(&invalid).unwrap())).unwrap();
+    assert_eq!(BatchSummary::stage(&config, &inbox).unwrap().rejected, 1);
+}
+#[test]
+fn test_batch_general_correction_replays_and_rejects_conflicts() {
+    let (_directory, config, inbox, _index) = setup("local");
+    let general = configure_general(&config);
+    let original = general_row("22222222-2222-4222-8222-222222222222");
+    fs::write(&inbox, format!("{original}\n")).unwrap();
+    let first = BatchSummary::stage(&config, &inbox).unwrap();
+    assert_eq!(apply_batch(&config, &first.batch_id).unwrap().status, BatchApplyStatus::Complete);
+    let revised = correction(&original, "33333333-3333-4333-8333-333333333333");
+    fs::write(&inbox, format!("{revised}\n")).unwrap();
+    let second = BatchSummary::stage(&config, &inbox).unwrap();
+    assert_eq!((second.accepted, second.rejected), (1, 0));
+    assert_eq!(apply_batch(&config, &second.batch_id).unwrap().status, BatchApplyStatus::Complete);
+    let logbook: Logbook = serde_json::from_slice(&fs::read(&general).unwrap()).unwrap();
+    assert_eq!(logbook.entries.len(), 1);
+    assert_eq!(logbook.entries[0].summary, "Corrected synthetic highlight");
+    assert_eq!(apply_batch(&config, &second.batch_id).unwrap().status, BatchApplyStatus::Complete);
+    let mut conflict: serde_json::Value = serde_json::from_str(&original).unwrap();
+    conflict["entry"]["summary"] = "Conflicting replacement".into();
+    fs::write(&inbox, format!("{}\n", serde_json::to_string(&conflict).unwrap())).unwrap();
+    assert_eq!(BatchSummary::stage(&config, &inbox).unwrap().rejected, 1);
+}
+#[test]
+fn test_batch_general_rejects_unauthorized_submitter() {
+    let (_directory, config, inbox, _index) = setup("local");
+    let general = configure_general(&config);
+    let mut row: serde_json::Value = serde_json::from_str(&general_row("22222222-2222-4222-8222-222222222222")).unwrap();
+    row["submitter"]["email"] = "other@example.org".into();
+    fs::write(&inbox, format!("{}\n", serde_json::to_string(&row).unwrap())).unwrap();
+    assert_eq!(BatchSummary::stage(&config, &inbox).unwrap().rejected, 1);
+    assert!(!general.exists());
 }
 
 #[test]

@@ -1,5 +1,6 @@
 //! Reviewable, resumable batches for standalone local JSONL intake.
 use super::super::{revisions::RevisionHistory, Submission, SubmissionRevision};
+use super::general;
 use super::types::{BatchApplyStatus, BatchInspectionStatus, BatchLineStatus, BatchProjectApplyStatus, BatchProjectState};
 use super::{digest_text, ApplicationConfiguration, Destination, FolderRegistry, Proposal, MAX_INDEX_BYTES};
 use crate::io::{read_file_snapshot, sync_parent_directory, ApiResult};
@@ -184,16 +185,19 @@ impl BatchInspection {
                     | true => {
                         let mut inspection = manifest.inspection();
                         inspection.projects.iter_mut().for_each(|project| {
-                            project.state = read_file_snapshot(&project.destination, MAX_INDEX_BYTES)
-                                .map(|(_, text, _)| digest_text(&text))
-                                .map_or_else(
-                                    |_| BatchProjectState::Changed,
-                                    |digest| match (digest == project.final_digest, digest == project.base_digest) {
-                                        | (true, _) => BatchProjectState::Final,
-                                        | (false, true) => BatchProjectState::Base,
-                                        | _ => BatchProjectState::Changed,
-                                    },
-                                );
+                            project.state = match project.project_id.as_str() {
+                                | "general" => general::read_content(&project.destination),
+                                | _ => read_file_snapshot(&project.destination, MAX_INDEX_BYTES).map(|(_, text, _)| text),
+                            }
+                            .map(|text| digest_text(&text))
+                            .map_or_else(
+                                |_| BatchProjectState::Changed,
+                                |digest| match (digest == project.final_digest, digest == project.base_digest) {
+                                    | (true, _) => BatchProjectState::Final,
+                                    | (false, true) => BatchProjectState::Base,
+                                    | _ => BatchProjectState::Changed,
+                                },
+                            );
                             project.applied = project.state == BatchProjectState::Final;
                         });
                         inspection.status = match () {
@@ -332,6 +336,13 @@ impl BatchProject {
         projects
             .iter()
             .map(|project| {
+                if project.project_id == "general" {
+                    let parent = project
+                        .destination
+                        .parent()
+                        .ok_or_else(|| eyre!("General logbook has no parent directory"))?;
+                    create_dir_all(parent).map_err(|why| eyre!("Cannot create general logbook directory — {why}"))?;
+                }
                 let lock_path = project.destination.with_extension("json.acorn-intake.lock");
                 OpenOptions::new()
                     .write(true)
@@ -440,8 +451,11 @@ impl PriorRecordLookup {
                         .find(|project| line.project_id.as_deref() == Some(project.project_id.as_str()));
                     let applied = project.is_some_and(|project| {
                         project.applied
-                            || read_file_snapshot(&project.destination, MAX_INDEX_BYTES)
-                                .is_ok_and(|(_, text, _)| digest_text(&text) == project.final_digest)
+                            || match project.project_id.as_str() {
+                                | "general" => general::read_content(&project.destination),
+                                | _ => read_file_snapshot(&project.destination, MAX_INDEX_BYTES).map(|(_, text, _)| text),
+                            }
+                            .is_ok_and(|text| digest_text(&text) == project.final_digest)
                     });
                     match records.get_mut(id) {
                         | Some(record)

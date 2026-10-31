@@ -1,6 +1,6 @@
 //! Pure correction-chain validation for reviewed local batches.
 use super::{form::FormAdmission, Submission};
-use crate::io::config::application::FolderRegistry;
+use crate::io::config::application::{FolderRegistry, GeneralLogbookConfig};
 use crate::io::ApiResult;
 use acorn_schema::validation::{rules, Validate};
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -31,10 +31,11 @@ impl RevisionHistory {
         &self,
         submission: &Submission,
         registry: &FolderRegistry,
+        general: Option<&GeneralLogbookConfig>,
         lookup: &dyn Fn(&str) -> Option<String>,
     ) -> ApiResult<FormAdmission> {
         match &submission.revision {
-            | None => submission.admit(registry, lookup, None),
+            | None => submission.admit_local(registry, general, lookup),
             | Some(_) if self.conflicts.contains(&submission.submission_id.to_ascii_lowercase()) => {
                 Err(eyre!("Conflicting receipt bytes for submission UUID"))
             }
@@ -98,7 +99,7 @@ impl RevisionHistory {
                                     submission_id: root.submission_id.clone(),
                                     ..receipt.clone()
                                 }
-                                .admit(registry, lookup, None)
+                                .admit_local(registry, general, lookup)
                             };
                             self.records
                                 .get(&revision.supersedes_submission_id.to_ascii_lowercase())

@@ -48,6 +48,58 @@ fn report_fixture_arguments() -> Report {
     arguments.through = Some("2026-11-01T00:00:00Z".to_string());
     arguments
 }
+#[tokio::test]
+async fn test_general_only_combined_selection_and_window() {
+    let mut arguments = arguments(Vec::new());
+    let mut entry = ResearchActivity::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/report/watershed-sensing/index.json"))
+        .expect("report fixture")
+        .logbook
+        .expect("fixture logbook")
+        .entries
+        .into_iter()
+        .next()
+        .expect("fixture entry");
+    entry.project_id = "general".to_string();
+    entry.global = true;
+    entry.timestamp = "2026-10-05T00:00:00Z".to_string();
+    entry.summary = "Standalone general report acceptance".to_string();
+    let logbook = Logbook::init().entries(vec![entry]).build();
+    write(
+        arguments.root.join("general.json"),
+        serde_json::to_vec(&logbook).expect("general logbook"),
+    )
+    .expect("general logbook file");
+    write(
+        arguments.config.as_ref().expect("report config"),
+        serde_json::to_vec(&serde_json::json!({
+            "schemaVersion": "2.0.0",
+            "options": {"generalLogbook": {"path": "general.json", "members": ["scientist@example.org"]}}
+        }))
+        .expect("general configuration"),
+    )
+    .expect("general configuration file");
+    arguments.combine = true;
+    arguments.from = Some("2026-10-01T00:00:00Z".to_string());
+    arguments.through = Some("2026-11-01T00:00:00Z".to_string());
+    let selected = prepare_combined(&arguments).expect("general-only report selection");
+    assert!(selected.is_empty());
+    assert_eq!(arguments.global_updates(&selected).expect("title updates").entries.len(), 1);
+    if let Some(chrome_path) = std::env::var_os("ACORN_TEST_CHROME_PATH").map(PathBuf::from) {
+        arguments.chrome_path = Some(chrome_path);
+        arguments.write_combined_pdf(&selected, true).await.expect("general-only combined PDF");
+        let pdf = arguments.output.join("report.pdf");
+        let extracted = Command::new("pdftotext")
+            .arg(&pdf)
+            .arg("-")
+            .output()
+            .expect("extract general report text");
+        assert!(extracted.status.success());
+        let text = String::from_utf8_lossy(&extracted.stdout);
+        assert_eq!(text.matches("Standalone general report acceptance").count(), 1);
+    }
+    arguments.from = Some("2026-10-06T00:00:00Z".to_string());
+    assert!(arguments.global_updates(&selected).expect("filtered title updates").entries.is_empty());
+}
 
 #[tokio::test]
 async fn test_both_formats_keep_pdf_mode_and_local_project_deck_when_chrome_is_configured() {

@@ -1,6 +1,6 @@
 //! Strict PowerAutomate form envelope.
 use crate::io::api::webhooks::store::EnqueueStatus;
-use crate::io::config::application::FolderRegistry;
+use crate::io::config::application::{FolderRegistry, GeneralLogbookConfig};
 use crate::io::{ApiResult, EmailAddress};
 use acorn_core::prelude::{String, Vec};
 use acorn_schema::research_activity::{LogbookCategory, LogbookDiscovery, LogbookEntry, LogbookEntryOrigin, LogbookEventType, LogbookState};
@@ -169,39 +169,65 @@ impl Submission {
                             .transpose()
                             .map(|_| ())
                     })
-                    .and_then(|()| {
-                        let identifier = self
-                            .entry
-                            .identifier
-                            .clone()
-                            .unwrap_or_else(|| format!("form-{}", self.submission_id.to_ascii_lowercase()).to_case(Case::Kebab));
-                        let entry = LogbookEntry::init()
-                            .archived(self.entry.archived)
-                            .category(self.entry.category)
-                            .maybe_classification(self.entry.classification.clone())
-                            .maybe_discovery(self.entry.discovery.clone())
-                            .maybe_event_type(self.entry.event_type)
-                            .global(self.entry.global)
-                            .identifier(identifier)
-                            .maybe_items(self.entry.items.clone())
-                            .origin(self.entry.origin)
-                            .project_id(&folder_id)
-                            .state(self.entry.state)
-                            .summary(self.entry.summary.trim())
-                            .timestamp(self.entry.timestamp.trim())
-                            .build();
-                        entry
-                            .validate()
-                            .map_err(|why| eyre!("Invalid normalized PowerAutomate logbook entry — {why}"))
-                            .map(|()| FormAdmission {
-                                folder_id,
-                                entry,
-                                operation_key: self.operation_key(),
-                                replaces: None,
-                            })
-                    })
+                    .and_then(|()| self.normalized_admission(folder_id))
             }),
         }
+    }
+    pub(crate) fn admit_local(
+        &self,
+        routing: &FolderRegistry,
+        general: Option<&GeneralLogbookConfig>,
+        lookup: &dyn Fn(&str) -> Option<String>,
+    ) -> ApiResult<FormAdmission> {
+        match self.project_id.as_str() {
+            | "general" => general.ok_or_else(|| eyre!("General logbook is not configured")).and_then(|general| {
+                self.validate()
+                    .map_err(|why| eyre!("Invalid PowerAutomate form submission — {why}"))
+                    .and_then(|()| match self.entry.global && !self.entry.archived {
+                        | true => Ok(()),
+                        | false => Err(eyre!("General submissions require global: true and archived: false")),
+                    })
+                    .and_then(|()| {
+                        let email = self.submitter.email.as_str();
+                        match general.members.iter().any(|member| member.as_str().eq_ignore_ascii_case(email)) {
+                            | true => self.normalized_admission("general".to_string()),
+                            | false => Err(eyre!("Submitter is not authorized for the general logbook")),
+                        }
+                    })
+            }),
+            | _ => self.admit(routing, lookup, None),
+        }
+    }
+    fn normalized_admission(&self, folder_id: String) -> ApiResult<FormAdmission> {
+        let identifier = self
+            .entry
+            .identifier
+            .clone()
+            .unwrap_or_else(|| format!("form-{}", self.submission_id.to_ascii_lowercase()).to_case(Case::Kebab));
+        let entry = LogbookEntry::init()
+            .archived(self.entry.archived)
+            .category(self.entry.category)
+            .maybe_classification(self.entry.classification.clone())
+            .maybe_discovery(self.entry.discovery.clone())
+            .maybe_event_type(self.entry.event_type)
+            .global(self.entry.global)
+            .identifier(identifier)
+            .maybe_items(self.entry.items.clone())
+            .origin(self.entry.origin)
+            .project_id(&folder_id)
+            .state(self.entry.state)
+            .summary(self.entry.summary.trim())
+            .timestamp(self.entry.timestamp.trim())
+            .build();
+        entry
+            .validate()
+            .map_err(|why| eyre!("Invalid normalized PowerAutomate logbook entry — {why}"))
+            .map(|()| FormAdmission {
+                folder_id,
+                entry,
+                operation_key: self.operation_key(),
+                replaces: None,
+            })
     }
     /// Convert authorized form fields into a manual, active logbook entry.
     pub fn entry(&self, routing: &FolderRegistry) -> ApiResult<LogbookEntry> {

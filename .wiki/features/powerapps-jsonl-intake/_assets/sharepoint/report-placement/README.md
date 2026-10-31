@@ -21,9 +21,22 @@ The SharePoint project catalog contains `General updates` / `general` with sourc
 
 ## Standalone general reporting requirement
 
-The owner clarified that general updates have **no associated project/index**. The internal envelope destination `general` is a routing key, not a research project. Do not create `general/index.json`, copy another project's contact metadata or route general updates into acorn. No experimental repository file or production CLI configuration was changed.
+The owner clarified that general updates have **no associated project/index**. The internal envelope destination `general` is a routing key, not a research project. Do not create `general/index.json`, copy another project's contact metadata or route general updates into acorn. The earlier synthetic index test remains project-backed evidence only.
 
-Current local intake resolves destinations through research-activity indexes, which require contact metadata. The synthetic index test above proves the existing project-backed path only; it does not satisfy standalone general reporting. PA-29 tracks a separate general logbook and title-page report integration without a project/index dependency. Until that exists, retain general receipts in SharePoint/JSONL and report the CLI limitation explicitly; do not silently drop or reassign them.
+For local batch intake, configure a standalone JSON logbook and its explicit contributor allowlist in the ACRE file. The path is relative to that file; ACORN creates the logbook on the first accepted batch apply:
+
+```json
+{
+  "options": {
+    "generalLogbook": {
+      "path": "general/logbook.json",
+      "members": ["approved.contributor@example.org"]
+    }
+  }
+}
+```
+
+Merge this block into the existing configuration; it does not require GitLab settings. The local `intake stage --batch`, `inspect`, and confirmed `apply` path accepts `projectId: "general"` only with `entry.global: true` and an allowlisted submitter. Corrections preserve the original receipt chain. The general logbook contains entries only; it has no ResearchActivity contact or project metadata. Combined local reports read it into the title page using the report window, including when no project folder is selected. An unknown project ID is never treated as `general`.
 
 ![Published general-update form; submitter text redacted](published-general.png)
 
@@ -31,7 +44,7 @@ Current local intake resolves destinations through research-activity indexes, wh
 
 The immutable correction workflow is now published and accepted for the owner and a standard-license contributor. Use **My Submissions → Edit selected → Save correction**. History is caller-filtered; project and placement remain fixed. Each correction creates a new linked receipt, retaining earlier bytes in the list and collected JSONL. Local batch review/apply folds accepted revisions into the latest logical entry. Existing reports are unchanged. See [editing acceptance and current source](../submission-editing/README.md).
 
-Pending or uncertain submissions must retry the frozen UUID and payload. Do not overwrite stored payload columns or create a new receipt merely to retry. Standalone reporting for the `general` route remains PA-29.
+Pending or uncertain submissions must retry the frozen UUID and payload. Do not overwrite stored payload columns or create a new receipt merely to retry. Published reports are unchanged until an operator reviews and applies the collected JSONL locally.
 
 ## Wording refinement
 

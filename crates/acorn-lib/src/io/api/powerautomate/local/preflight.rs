@@ -1,5 +1,6 @@
 //! Revalidate every staged line and project before writing a local batch.
 use super::super::revisions::RevisionHistory;
+use super::general;
 use super::manifest::{batch_directory, BatchLine, BatchManifest, BatchProject, PriorRecordLookup};
 use super::types::BatchLineStatus;
 use super::{
@@ -18,6 +19,7 @@ type LineContext<'a> = (
     &'a JsonlLine,
     &'a BatchManifest,
     &'a Path,
+    &'a ApplicationConfiguration,
     &'a FolderRegistry,
     &'a PriorRecordLookup,
     &'a RevisionHistory,
@@ -27,7 +29,7 @@ pub(super) trait Preflight<Context> {
     fn preflight(&self, context: Context) -> ApiResult<()>;
 }
 impl<'a> Preflight<LineContext<'a>> for BatchLine {
-    fn preflight(&self, (source, manifest, config_path, registry, prior, history, seen): LineContext<'a>) -> ApiResult<()> {
+    fn preflight(&self, (source, manifest, config_path, config, registry, prior, history, seen): LineContext<'a>) -> ApiResult<()> {
         let stored = self;
         match () {
             | _ if source.line != stored.line || source.raw != stored.raw || source.digest != stored.digest => {
@@ -39,37 +41,42 @@ impl<'a> Preflight<LineContext<'a>> for BatchLine {
             | _ => serde_json::from_str::<Submission>(&stored.raw)
                 .map_err(|_| eyre!("Invalid staged submission"))
                 .and_then(|submission| {
-                    history.admit(&submission, registry, &|name| env::var(name).ok()).and_then(|admission| {
-                        registry.local_destination(&admission.folder_id).and_then(|destination| {
-                            let entry_matches = stored.entry.as_ref().and_then(|entry| serde_json::to_value(entry).ok())
-                                == serde_json::to_value(&admission.entry).ok();
-                            let predecessor_matches = serde_json::to_value(&stored.replaces).ok() == serde_json::to_value(&admission.replaces).ok();
-                            let id = submission.submission_id.to_ascii_lowercase();
-                            let earlier = seen.insert(id.clone(), stored.digest.clone());
-                            let prior_matches = match (stored.status, earlier.is_none()) {
-                                | (BatchLineStatus::Replayed, true) => prior.prior_submission(config_path, &id, &stored.digest, &destination),
-                                | _ => Ok(true),
-                            };
-                            prior_matches.and_then(|prior_matches| {
-                                let duplicate_changed = earlier.as_ref().is_some_and(|digest| digest != &stored.digest)
-                                    || (stored.status == BatchLineStatus::Accepted && earlier.is_some());
-                                let identity_changed = stored.submission_id.as_deref() != Some(id.as_str())
-                                    || stored.operation_key.as_deref() != Some(admission.operation_key.as_str())
-                                    || stored.project_id.as_deref() != Some(admission.folder_id.as_str());
-                                let project_missing = stored.status == BatchLineStatus::Accepted
-                                    && !manifest
-                                        .projects
-                                        .iter()
-                                        .any(|project| project.project_id == admission.folder_id && project.destination == destination);
-                                let status_changed = duplicate_changed || identity_changed || project_missing;
-                                let admission_matches = prior_matches && entry_matches && predecessor_matches && !status_changed;
-                                match admission_matches {
-                                    | true => Ok(()),
-                                    | false => Err(eyre!("Batch admission or route changed; restage")),
-                                }
-                            })
+                    history
+                        .admit(&submission, registry, config.general_logbook(), &|name| env::var(name).ok())
+                        .and_then(|admission| {
+                            config
+                                .local_destination(config_path, registry, &admission.folder_id)
+                                .and_then(|destination| {
+                                    let entry_matches = stored.entry.as_ref().and_then(|entry| serde_json::to_value(entry).ok())
+                                        == serde_json::to_value(&admission.entry).ok();
+                                    let predecessor_matches =
+                                        serde_json::to_value(&stored.replaces).ok() == serde_json::to_value(&admission.replaces).ok();
+                                    let id = submission.submission_id.to_ascii_lowercase();
+                                    let earlier = seen.insert(id.clone(), stored.digest.clone());
+                                    let prior_matches = match (stored.status, earlier.is_none()) {
+                                        | (BatchLineStatus::Replayed, true) => prior.prior_submission(config_path, &id, &stored.digest, &destination),
+                                        | _ => Ok(true),
+                                    };
+                                    prior_matches.and_then(|prior_matches| {
+                                        let duplicate_changed = earlier.as_ref().is_some_and(|digest| digest != &stored.digest)
+                                            || (stored.status == BatchLineStatus::Accepted && earlier.is_some());
+                                        let identity_changed = stored.submission_id.as_deref() != Some(id.as_str())
+                                            || stored.operation_key.as_deref() != Some(admission.operation_key.as_str())
+                                            || stored.project_id.as_deref() != Some(admission.folder_id.as_str());
+                                        let project_missing = stored.status == BatchLineStatus::Accepted
+                                            && !manifest
+                                                .projects
+                                                .iter()
+                                                .any(|project| project.project_id == admission.folder_id && project.destination == destination);
+                                        let status_changed = duplicate_changed || identity_changed || project_missing;
+                                        let admission_matches = prior_matches && entry_matches && predecessor_matches && !status_changed;
+                                        match admission_matches {
+                                            | true => Ok(()),
+                                            | false => Err(eyre!("Batch admission or route changed; restage")),
+                                        }
+                                    })
+                                })
                         })
-                    })
                 }),
         }
     }
@@ -99,7 +106,7 @@ impl<'a> Preflight<BatchContext<'a>> for BatchManifest {
                                             .iter()
                                             .zip(&manifest.lines)
                                             .try_for_each(|(source, stored)| {
-                                                stored.preflight((source, manifest, config_path, &registry, &prior, &history, &mut seen))
+                                                stored.preflight((source, manifest, config_path, config, &registry, &prior, &history, &mut seen))
                                             })
                                             .and_then(|()| manifest.projects.iter().try_for_each(|project| project.preflight(manifest)))
                                     })
@@ -139,11 +146,18 @@ impl Preflight<&BatchManifest> for BatchProject {
                                     .build()
                             })
                         })
-                        .and_then(ProcessRepositoryResponse::try_from)
-                        .map(|response| response.files.first().map_or(content, |change| change.content.clone()))
+                        .and_then(|proposal| match project.project_id.as_str() {
+                            | "general" => general::propose(&content, &proposal.entry, proposal.replaces.as_ref()),
+                            | _ => ProcessRepositoryResponse::try_from(proposal)
+                                .map(|response| response.files.first().map_or(content, |change| change.content.clone())),
+                        })
                 })
                 .and_then(|rebuilt| match rebuilt == project.proposed_content {
-                    | true => read_file_snapshot(&project.destination, MAX_INDEX_BYTES).and_then(|(_, current, _)| {
+                    | true => match project.project_id.as_str() {
+                        | "general" => general::read_content(&project.destination),
+                        | _ => read_file_snapshot(&project.destination, MAX_INDEX_BYTES).map(|(_, current, _)| current),
+                    }
+                    .and_then(|current| {
                         let current_digest = digest_text(&current);
                         match current_digest == project.base_digest || current_digest == project.final_digest {
                             | true => Ok(()),
