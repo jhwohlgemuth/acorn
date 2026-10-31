@@ -13,6 +13,7 @@
 - [📥 Intake](./intake.md)
 - [🕸️ Link](./link.md)
 - [🔌 MCP](./mcp.md)
+- [📊 Report](./report.md)
 - [📡 Serve](./serve.md)
 - [🧩 Skill](./skill.md)
 - [🧬 SWHID](./swhid.md)

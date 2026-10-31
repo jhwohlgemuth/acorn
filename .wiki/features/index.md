@@ -14,9 +14,6 @@
 
 ## Planned
 
-- [Category-based logbook presentations](logbook-category-presentations.md) - Document and run final gates for PDF, PowerPoint, and both-format reporting with local category decks; `--combine` and GitLab publication remain PDF-only.
-
-
 - [Headless CI SharePoint JSONL download](sharepoint-headless-ci-download/index.md) - Follow SPD-26 shared functionality and acceptance on any one native OS with GitLab OIDC federation, ACRE workload profiles and read-only unattended capture/staging; seven bounded phases require approved app-only access and isolated live acceptance. No user credential cache or automatic apply/reporting.
 
 - [Installable acornd background service](acornd-service.md) - Build on the landed portable job and strict daemon configuration contracts to serve existing APIs and configured check/gather jobs from a persistent local or SSH-managed service; SQLite history and composable server lifecycle are ready, and release requires signed paired binaries plus live host acceptance.

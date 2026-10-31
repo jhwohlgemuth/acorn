@@ -16,10 +16,6 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 
 ## Direct edges
 
-### Reporting and artifacts
-
-- [Category-based logbook presentations](features/logbook-category-presentations.md) has PDF, PowerPoint, and both-format dispatch with local category decks; PDF-only package/callback behavior and PDF-only `--combine` semantics remain intact. REP-05 owns documentation and final gates. Database-backed artifact generation and intake/graduation remain independent. Coordinate final report documentation and validation with grouped separators and sponsor highlights.
-
 ### Portable and extraction boundaries
 
 

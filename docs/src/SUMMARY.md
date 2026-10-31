@@ -44,6 +44,7 @@
     - [intake](./cli-reference/commands/intake.md)
     - [link](./cli-reference/commands/link.md)
     - [mcp](./cli-reference/commands/mcp.md)
+    - [report](./cli-reference/commands/report.md)
     - [serve](./cli-reference/commands/serve.md)
     - [skill](./cli-reference/commands/skill.md)
     - [swhid](./cli-reference/commands/swhid.md)
