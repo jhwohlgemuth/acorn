@@ -6,7 +6,7 @@ difficulty: medium
 impact: medium
 package: [acorn-core, acorn-lib, acorn-cli]
 tags: [feature, acre, configuration, ron, serialization]
-status: planned
+status: in-progress
 execution: phased
 phase_budget_hours: 5
 ---
@@ -28,13 +28,13 @@ The intended authoring form is a RON map:
 
 # Current evidence
 
-Reviewed on 2026-10-25 against `7a7c15f2` and the current worktree. Existing IID edits and the separate acornd planning changes are outside this implementation's ownership. This is a source and documentation review; no RON implementation or compatibility tests have run.
+RON-01 and RON-02 were implemented on 2026-11-01 against `59d73ffa` and the current worktree. Existing IID edits and the separate acornd planning changes remain outside this implementation's ownership.
 
-- [`ApplicationConfiguration`](../../crates/acorn-lib/src/io/config/application.rs) owns parsing, extension-based reads/writes, discovery, `render`, model-update previews, and the `DocumentCodec` implementation. Each format dispatch currently accepts only JSON, JSONC, or YAML. Changing only `read` would leave encoding and `sync_and_update` incomplete.
-- `AcreSchemaVersion` serializes its enum variant as `"2.0.0"`. Configuration also contains `OneOrMany`, untagged shorthand values, tagged MCP transports, and custom deserializers. Direct RON serialization of the Rust structs would expose a different representation and encounter RON identifier/Serde constraints.
+- RON 0.12.2 is pinned as an optional `acorn-lib` dependency enabled only by `analysis`. Feature-tree checks keep it absent from default, no-default, `mcp-client`, and `acp` selections. [`MimeType::Ron`](../../crates/acorn-core/src/util/alloc.rs) maps `.ron` to the ACORN-convention label `application/ron` without joining repository-file allowlists.
+- [`ApplicationConfiguration::parse_ron`](../../crates/acorn-lib/src/io/config/application.rs) and `to_ron` use a private string-keyed data-tree adapter. The corpus covers every top-level ACRE section, aliases, defaulting, `OneOrMany`, tagged MCP transports, workflow/script values, explicit null, nested duplicates, numeric loss, schema paths, trailing content, recursion limits, canonical output, and typed round trips under `analysis` and `analysis,exec`.
+- [`ApplicationConfiguration`](../../crates/acorn-lib/src/io/config/application.rs) still routes extension-based reads/writes, discovery, `render`, model-update previews, and `DocumentCodec` through JSON, JSONC, or YAML only. RON-03 owns those library lifecycle connections.
 - [`DEFAULT_CONFIG_FILENAMES`](../../crates/acorn-lib/src/util/constants/app.rs) orders `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, and `.acorn.yml`. Configuration tests explicitly pin that list and its precedence.
 - [`StandardHostExt::from_path`](../../crates/acorn-lib/src/analyzer/host/service/mod.rs) recognizes the same four exact ACRE names. Custom filenames require an explicit standard. ACRE uses schema checks without prose, link, or crosswalk analysis.
-- [`MimeType`](../../crates/acorn-core/src/util/alloc.rs) has no RON variant; the workspace manifests and lockfile have no `ron` dependency. The full `acorn-lib::io::config` surface is enabled by `analysis`; default and narrow MCP/ACP builds need no RON parser.
 - [`parse_check_format`](../../crates/acorn-cli/src/cli/parse.rs) lacks `ron`. CLI path discovery shares an extension list with other commands, including export, so globally adding RON there would broaden unrelated input discovery.
 - [`format/acre.rs`](../../crates/acorn-cli/src/commands/format/acre.rs) has its own canonical-name list and uses source-preserving JSON/YAML formatters. [`ACRE_SPEC.md`](../../ACRE_SPEC.md) and the book currently document only the three existing formats.
 - RON 0.12.2 documents comments, trailing commas, and map syntax, but limits tagged/untagged/flattened Serde representations and does not guarantee arbitrary round trips through `ron::Value`. This supports using an ACRE data adapter instead of changing shared schema types. [RON documentation](https://docs.rs/ron/0.12.2/ron/#limitations)
@@ -52,7 +52,7 @@ Reviewed on 2026-10-25 against `7a7c15f2` and the current worktree. Existing IID
 
 # Dependencies and ownership
 
-There is no prerequisite implementation plan. RON-01 through RON-06 land in order. Claim the exact files for the active phase before starting; no phase authorizes edits to adjacent subsystems.
+There is no prerequisite implementation plan. RON-01 and RON-02 are landed; RON-03 through RON-06 land in order. Claim the exact files for the active phase before starting; no phase authorizes edits to adjacent subsystems.
 
 - Serialize manifest changes with every workspace-graph owner, including core format changes that touch `acorn-core/src/util/`.
 - Serialize ACRE roots with [shared API configuration](../refactors/api/shared-client-contract.md), model configuration, and other active configuration work. These are ownership constraints, not dependencies on those plans finishing.
@@ -74,33 +74,11 @@ There is no prerequisite implementation plan. RON-01 through RON-06 land in orde
 
 # Execution phases
 
-## RON-01 — Register the dependency and format identifier
+## RON-03 — Complete configuration loading and persistence
 
 - Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: workspace graph and core utility files available for exclusive edits.
-- Exact write set: `Cargo.toml`, `Cargo.lock`, `crates/acorn-lib/Cargo.toml`, `crates/acorn-core/src/util/alloc.rs`, `crates/acorn-core/src/util/alloc/tests.rs`.
-- Primary integration lock: Workspace graph
-- Outcome: Add the optional analysis-only dependency and a tested `MimeType::Ron` extension/string representation. Document its media-type label as an ACORN convention, without claiming registration. Leave repository-file and generic document-format allowlists unchanged.
-- Focused validation: `cargo test -p acorn-core --features std mime_type`; `cargo check -p acorn-lib --features analysis`; inspect `cargo tree` for default, no-default, `mcp-client`, and `acp` feature selections.
-- Handoff: Freeze the dependency/features and format identifier; RON-02 can use them without manifest edits.
-
-## RON-02 — Implement and prove the ACRE RON adapter
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: RON-01.
-- Exact write set: `crates/acorn-lib/src/io/config/mod.rs`, `crates/acorn-lib/src/io/config/application.rs`, new `crates/acorn-lib/src/io/config/ron.rs`, `crates/acorn-lib/src/io/config/tests/mod.rs`, new `crates/acorn-lib/src/io/config/tests/ron.rs`, new `tests/fixtures/config/ron/equivalent.json`, new `tests/fixtures/config/ron/equivalent.ron`.
-- Primary integration lock: API/config roots
-- Outcome: Provide documented explicit RON parsing/serialization methods backed by the private data adapter. Prove existing schema compatibility and duplicate/numeric/error handling without enabling filesystem discovery. Use existing schema deserialization and validation; do not change shared enum or union representations.
-- Focused validation: `cargo test -p acorn-lib --features analysis io::config`; run the RON corpus with `--features analysis,exec` for script/workflow representations. Compare normalized typed values and field-path errors across formats.
-- Handoff: Preserve the supported RON representation and parser limitations in tests/rustdoc. If any ACRE field cannot round-trip, retain this phase and add a bounded repair before RON-03.
-
-## RON-03 — Complete configuration loading and persistence
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: RON-02 compatibility corpus passes.
+- Prerequisites: API/config root files available for exclusive edits.
 - Exact write set: `crates/acorn-lib/src/io/config/application.rs`, `crates/acorn-lib/src/util/constants/app.rs`, `crates/acorn-lib/src/io/config/tests/mod.rs`, `crates/acorn-lib/src/io/config/tests/ron.rs`.
 - Primary integration lock: API/config roots
 - Outcome: Append the canonical name, route extension-based reads/writes, codec operations and preview rendering through the adapter, and preserve model-update and load-with-path behavior. Library consumers can use RON without CLI discovery changes.

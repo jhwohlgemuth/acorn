@@ -1,0 +1,156 @@
+{
+  "schemaVersion": "2.0.0",
+  "auth": {
+    "profiles": {
+      "research": {
+        "provider": "entra",
+        "tenantId": "00000000-0000-0000-0000-000000000001",
+        "clientId": "00000000-0000-0000-0000-000000000002",
+        "cloud": "public",
+        "resources": {
+          "graph": {
+            "audience": "https://graph.microsoft.com",
+            "scopes": ["Files.Read"]
+          }
+        },
+        "defaultResource": "graph"
+      }
+    },
+    "sources": []
+  },
+  "buckets": [
+    "./science",
+    {
+      "name": "reviewed",
+      "codeRepository": {
+        "provider": "gitlab",
+        "id": 42,
+        "location": "https://gitlab.example/research/reviewed"
+      }
+    }
+  ],
+  "config": {},
+  "daemon": { "bind": { "grpc": null, "rpc": null } },
+  "folders": [
+    {
+      "id": "pilot",
+      "aliases": "science",
+      "bucket": 0,
+      "members": ["scientist@example.org"],
+      "path": "pilot/index.json",
+      "variables": { "members": "ACORN_PILOT_MEMBERS" }
+    }
+  ],
+  "members": "office@example.org",
+  "variables": {
+    "members": "ACORN_MEMBERS",
+    "custom": { "catalog": "ACORN_CATALOG" }
+  },
+  "endpoints": [
+    {
+      "name": "catalog",
+      "domain": "example.org",
+      "resources": [
+        { "name": "search", "method": "get", "template": "/search?q={{ query }}" }
+      ]
+    }
+  ],
+  "mcp": {
+    "research": {
+      "transport": {
+        "type": "child-process",
+        "command": "research-mcp",
+        "args": ["serve"]
+      },
+      "allowed": {
+        "resolve": {
+          "effects": ["network-read"],
+          "timeout": 20,
+          "max_output": "256KB"
+        }
+      }
+    }
+  },
+  "executors": [
+    {
+      "id": "mcp:resolve",
+      "capabilityId": "acorn.resolve",
+      "executor": {
+        "type": "mcp",
+        "server": "research",
+        "tool": "resolve"
+      }
+    }
+  ],
+  "models": [
+    "acme/research-model",
+    {
+      "name": "local-model",
+      "source": { "provider": "git", "location": "file:./models/research.gguf" },
+      "auth": "none",
+      "quantization": ["Q4_K_M", "Q5_K_M"],
+      "copy": true
+    }
+  ],
+  "options": {
+    "crosswalk": {
+      "contact": "contacts/default.yaml",
+      "localIdentifier": "imported-record"
+    },
+    "folders": { "root": "file:///tmp/acorn/" },
+    "scripts": { "enabled": true }
+  },
+  "registries": {
+    "research": {
+      "kind": "oci",
+      "endpoint": "https://registry.example.org",
+      "credentialEnv": "ACORN_REGISTRY_TOKEN"
+    }
+  },
+  "runners": [
+    {
+      "description": "Research runner",
+      "type": "group",
+      "repository": {
+        "provider": "gitlab",
+        "id": 42,
+        "location": "https://gitlab.example/research"
+      },
+      "run_untagged": true,
+      "tags": ["research"]
+    }
+  ],
+  "whitelist": {
+    "buckets": ["science", "reviewed"],
+    "models": "acme/research-model"
+  },
+  "workflow": {
+    "allow-forks": false,
+    "workflows": {
+      "repository-quality": {
+        "actions": ["validate"],
+        "effects": ["note"],
+        "formats": ["json"],
+        "outputs": { "mode": "source-and-artifacts" },
+        "paths": ["**/*.json"]
+      }
+    }
+  },
+  "scriptManifest": {
+    "version": "0.2.0",
+    "scripts": [
+      {
+        "version": "0.2.0",
+        "id": "quality",
+        "digest": "sha256:0123456789abcdef",
+        "entry": "run",
+        "hooks": ["check"],
+        "capabilities": { "mutation": false },
+        "limits": { "maxCalls": 2, "maxOperations": 1000, "maxRuntime": 100 }
+      }
+    ]
+  },
+  "scripts": [
+    { "id": "quality", "path": "quality.rhai", "hooks": ["check"] }
+  ]
+}

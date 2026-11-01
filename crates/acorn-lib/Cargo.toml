@@ -74,6 +74,7 @@ polars-error = { version = "0.53.0", default-features = false, optional = true }
 quick-xml = { workspace = true, features = ["serialize"] }
 rayon = { workspace = true, optional = true }
 rmcp = { workspace = true, optional = true }
+ron = { workspace = true, features = ["integer128", "std"], optional = true }
 reqwest = { version = "0.13.2", features = ["blocking", "rustls", "json"], default-features = false, optional = true }
 resvg = { version = "0.45.1", optional = true }
 ring = { version = "0.17.14", default-features = false, optional = true }
@@ -194,6 +195,7 @@ analysis = [
   "dep:indexmap",
   "dep:polars-error",
   "dep:rayon",
+  "dep:ron",
   "dep:rust-ini",
   "dep:same-file",
 ]

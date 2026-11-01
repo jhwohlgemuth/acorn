@@ -1628,3 +1628,5 @@ fn test_with_models_keeps_unique_identifiers() {
         .collect::<Vec<_>>();
     assert_eq!(identifiers, vec!["acme/existing", "acme/added"]);
 }
+
+mod ron;

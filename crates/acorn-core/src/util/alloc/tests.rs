@@ -38,6 +38,7 @@ fn test_mime_type_from_resolves_file_type_names_and_aliases() {
     assert_eq!(MimeType::from("markdown"), MimeType::Markdown);
     assert_eq!(MimeType::from("activity.ndjson"), MimeType::JsonLines);
     assert_eq!(MimeType::from("powerpoint"), MimeType::Powerpoint);
+    assert_eq!(MimeType::from("settings.RON"), MimeType::Ron);
     assert_eq!(MimeType::from("zon"), MimeType::Zon);
     assert_eq!(MimeType::JsonLines.file_type(), "jsonl");
     assert_eq!(MimeType::JsonLines.to_string(), "application/x-ndjson");
@@ -46,6 +47,9 @@ fn test_mime_type_from_resolves_file_type_names_and_aliases() {
         r#""json-lines""#
     );
     assert!(!MimeType::JsonLines.is_repository_file());
+    assert_eq!(MimeType::Ron.file_type(), "ron");
+    assert_eq!(MimeType::Ron.to_string(), "application/ron");
+    assert!(!MimeType::Ron.is_repository_file());
 }
 #[test]
 fn test_mime_type_infers_rhai_from_abi_header() {

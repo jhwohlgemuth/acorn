@@ -11,7 +11,7 @@ use crate::io::api::powerautomate::PowerAutomateConfig;
 use crate::{
     io::{
         api::Endpoint,
-        config::{bucket, Bucket, ModelEntry, RegistryProfile, RunnerDetails, SourceInput},
+        config::{bucket, ron, Bucket, ModelEntry, RegistryProfile, RunnerDetails, SourceInput},
         mcp::{config::McpServerConfiguration, ExecutorBindingConfiguration},
         read_file, sync,
         sync::ConfigExt,
@@ -881,6 +881,24 @@ impl ApplicationConfiguration {
             }
         }
     }
+    /// Parse ACRE configuration from its supported RON map representation.
+    /// ### Note
+    /// RON maps must use string keys and JSON-compatible scalar values.
+    /// The unit value `()` represents JSON null. Named structs, enum constructors, byte strings, and integers outside the JSON integer range are unsupported.
+    pub fn parse_ron(content: impl AsRef<str>) -> ApiResult<Self> {
+        ron::parse(content.as_ref())
+            .map_err(|why| eyre!("Failed to parse ACRE RON configuration — {why}"))
+            .and_then(|value| serde_json::to_string(&value).map_err(|why| eyre!("Failed to adapt ACRE RON data — {why}")))
+            .and_then(|json| {
+                Self::parse_json(json).map_err(|errors| {
+                    let details = errors
+                        .iter()
+                        .map(|error| format!("{}: {}", error.path().map_or("root".into(), |path| path.to_string()), error.message()))
+                        .collect::<Vec<_>>();
+                    eyre!("Failed to deserialize ACRE RON configuration.\n{}", details.join("\n"))
+                })
+            })
+    }
     fn parse_json(content: impl AsRef<str>) -> Result<Self, eserde::DeserializationErrors> {
         eserde::json::from_str(content.as_ref())
     }
@@ -899,6 +917,15 @@ impl ApplicationConfiguration {
     }
     fn parse_yaml(content: impl AsRef<str>) -> serde_norway::Result<Self> {
         serde_norway::from_str(content.as_ref())
+    }
+    /// Serialize this configuration as a canonical RON map.
+    ///
+    /// Output uses string-keyed maps, two-space indentation, LF newlines, stable key ordering, and one final newline.
+    /// Comments and source layout are not retained.
+    pub fn to_ron(&self) -> ApiResult<String> {
+        serde_json::to_value(self)
+            .map_err(|why| eyre!("Failed to adapt ACRE configuration to RON — {why}"))
+            .and_then(|value| ron::serialize(&value).map_err(|why| eyre!("Failed to serialize ACRE RON configuration — {why}")))
     }
     /// Return the configured PowerAutomate integration settings.
     pub fn power_automate(&self) -> Option<&PowerAutomateConfig> {

@@ -451,6 +451,11 @@ pub enum MimeType {
     /// Rhai script.
     #[display("text/x-rhai")]
     Rhai,
+    /// Rusty Object Notation (RON).
+    ///
+    /// `application/ron` is an ACORN convention, not a registered media type.
+    #[display("application/ron")]
+    Ron,
     /// Rust Source Code (RS)
     #[display("text/rust")]
     Rust,
@@ -701,6 +706,7 @@ impl From<&str> for MimeType {
             | "prompt" => MimeType::Prompt,
             | "rdf" | "rdfxml" => MimeType::RdfXml,
             | "rhai" => MimeType::Rhai,
+            | "ron" => MimeType::Ron,
             | "rtf" => MimeType::Rtf,
             | "rs" => MimeType::Rust,
             | "safetensors" => MimeType::Safetensors,
@@ -866,6 +872,7 @@ impl MimeType {
             | MimeType::Prompt => "prompt",
             | MimeType::RdfXml => "rdf",
             | MimeType::Rhai => "rhai",
+            | MimeType::Ron => "ron",
             | MimeType::Rtf => "rtf",
             | MimeType::Rust => "rs",
             | MimeType::Safetensors => "safetensors",

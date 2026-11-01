@@ -5,6 +5,7 @@
 //! The ACORN configuration file configures what buckets should be downloaded, readability analysis, <span title="Large Language Model">LLM</span> settings, and more.
 pub mod application;
 pub mod bucket;
+mod ron;
 pub mod transfer;
 use crate::{
     io::{
