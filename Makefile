@@ -1,6 +1,7 @@
 #!make
 -include .env
 ACP_AGENT ?= opencode
+TEST_OLLAMA_BASE_URL ?= http://localhost:11434
 
 setup: ## Install the Rust toolchain and project development dependencies.
 	@rustup update stable
@@ -253,6 +254,10 @@ test-acp: ## Run interoperability tests for ACP_AGENT=opencode|codex.
 test-ci: lint ## Run the CI-style test workflow.
 	@XDG_CACHE_HOME=$(CURDIR)/.cache cargo test --lib --bins --tests
 	@XDG_CACHE_HOME=$(CURDIR)/.cache cargo test --lib --bins --tests --no-default-features
+
+test-ollama: ## Run configured Ollama interoperability tests.
+	@test -n "$(TEST_OLLAMA_MODEL)" || (echo "TEST_OLLAMA_MODEL must be set in .env or the make environment"; exit 2)
+	@ACORN_TEST_OLLAMA=1 ACORN_TEST_OLLAMA_BASE_URL="$(TEST_OLLAMA_BASE_URL)" ACORN_TEST_OLLAMA_MODEL="$(TEST_OLLAMA_MODEL)" cargo nextest run -p acorn-lib --test ollama_interoperability --no-default-features --features analysis --run-ignored only --success-output final
 
 test-openai: ## Run configured OpenAI-compatible interoperability tests.
 	@test -n "$(TEST_OPENAI_BASE_URL)" || (echo "TEST_OPENAI_BASE_URL must be set in .env or the make environment"; exit 2)
@@ -553,6 +558,7 @@ TASKS = \
 	test \
 	test-acp \
 	test-ci \
+	test-ollama \
 	test-openai \
 	test-webmcp \
 	test-webmcp-package \
