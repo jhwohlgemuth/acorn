@@ -148,7 +148,7 @@ The [native routing plan](../../features/needle-router-native-parity.md) owns ca
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: CLI-01, MCP-02
+- Prerequisites: CLI-01
 - Exact write set: `crates/acorn-cli/src/commands/exec/mod.rs`, `crates/acorn-cli/src/commands/mcp.rs`
 - Primary integration lock: CLI command signatures
 - Outcome: Separate configuration loading, request normalization, execution, and presentation.
