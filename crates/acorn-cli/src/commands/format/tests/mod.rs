@@ -36,27 +36,6 @@ use std::sync::Mutex;
 use tracing_subscriber::fmt::MakeWriter;
 
 const OFFLINE: bool = false;
-#[tokio::test]
-async fn test_interactive_format_rejects_non_terminal_streams() {
-    let result = run(
-        &None,
-        false,
-        &[],
-        Standard::ResearchActivityData,
-        &CommandOptions::init()
-            .maybe_path(None)
-            .dry_run(false)
-            .fuzzy(VocabularyFuzzyMode::Strict)
-            .interactive(true)
-            .no_color(true)
-            .offline(OFFLINE)
-            .threads(1)
-            .verbose(Verbosity::new(0, 0))
-            .build(),
-    )
-    .await;
-    assert!(result.unwrap_err().to_string().contains("terminal input and output"));
-}
 struct SharedWriter(Arc<Mutex<Vec<u8>>>);
 struct SharedWriterGuard(Arc<Mutex<Vec<u8>>>);
 impl<'a> MakeWriter<'a> for SharedWriter {

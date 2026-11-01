@@ -1,5 +1,6 @@
-use super::write_formatted_content;
+use super::{format_diff, write_formatted_content};
 use crate::cli::{resolve_paths, CommandOptions};
+use crate::io::interactive::Viewport;
 use acorn::io::{config::application::ApplicationConfiguration, FromPath, InputOutput};
 use acorn_core::util::MimeType;
 use acorn_schema::{enrichment::Provider, validation::Validate};
@@ -50,7 +51,7 @@ impl Format for ApplicationConfiguration {
             })
     }
 }
-fn format_file(path: &Path, options: &CommandOptions) -> Result<(), Report> {
+fn format_file(path: &Path, options: &CommandOptions) -> Result<String, Report> {
     ApplicationConfiguration::read(path.to_path_buf())
         .map_err(|why| eyre!("Read ACRE configuration — {why}"))
         .and_then(|configuration| {
@@ -59,13 +60,26 @@ fn format_file(path: &Path, options: &CommandOptions) -> Result<(), Report> {
                 .map(|source| (configuration, source))
         })
         .and_then(|(configuration, source)| configuration.format(path, &source).map(|formatted| (source, formatted)))
-        .and_then(|(source, formatted)| write_formatted_content(path, options, &source, &formatted).map(|_| ()))
+        .and_then(|(source, formatted)| {
+            let feedback = match source == formatted {
+                | true => format!("No format changes for {}", path.display()),
+                | false if options.dry_run => {
+                    format!(
+                        "Dry run: {}\n{}",
+                        path.display(),
+                        format_diff(&source, &formatted, path, !options.no_color)
+                    )
+                }
+                | false => format!("Formatted {}", path.display()),
+            };
+            write_formatted_content(path, options, &source, &formatted).map(|_| feedback)
+        })
 }
 async fn format_paths(path: &Option<PathBuf>, options: &CommandOptions) -> Result<(), Report> {
     let explicit_file = path.as_ref().is_some_and(|candidate| candidate.is_file());
     resolve_paths(path, options).await.and_then(|paths| {
-        paths
-            .par_iter()
+        let selected = paths
+            .iter()
             .filter(|candidate| {
                 explicit_file
                     || candidate
@@ -73,7 +87,30 @@ async fn format_paths(path: &Option<PathBuf>, options: &CommandOptions) -> Resul
                         .and_then(|name| name.to_str())
                         .is_some_and(|name| FILE_NAMES.contains(&name))
             })
-            .try_for_each(|candidate| format_file(candidate, options))
+            .collect::<Vec<_>>();
+        let viewport = match options.interactive {
+            | true => Viewport::open().map(Some),
+            | false => Ok(None),
+        };
+        viewport.and_then(|mut viewport| {
+            viewport
+                .as_mut()
+                .map_or(Ok(()), |viewport| viewport.push("Formatting ACRE configuration"))
+                .and_then(|()| {
+                    let results = selected.par_iter().map(|path| format_file(path, options)).collect::<Vec<_>>();
+                    viewport
+                        .as_mut()
+                        .map_or(Ok(()), |viewport| {
+                            selected.iter().zip(&results).try_for_each(|(path, result)| {
+                                viewport.push(match result {
+                                    | Ok(feedback) => feedback.clone(),
+                                    | Err(why) => format!("{}: failed — {why}", path.display()),
+                                })
+                            })
+                        })
+                        .and_then(|()| results.into_iter().collect::<Result<Vec<_>, _>>().map(|_| ()))
+                })
+        })
     })
 }
 pub(super) async fn run(

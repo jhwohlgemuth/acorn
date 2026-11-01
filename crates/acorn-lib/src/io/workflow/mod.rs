@@ -18,7 +18,9 @@ use crate::{
     fail,
     io::{
         enrichment::{vocabulary_decisions, Enrich},
-        read_file, ApiResult, FromPath, InputOutput,
+        read_file,
+        vocabulary::write_vocabulary_report_audits,
+        ApiResult, FromPath, InputOutput,
     },
     util::{constants::app::MAX_ENRICHMENT_CANDIDATES, print_changes_with_color, StringConversion},
     LocationExt, With,
@@ -27,21 +29,22 @@ use acorn_core::{
     options::{CommonRuntime, RuntimeOptions},
     prelude::{Box, String, Vec},
     util::MimeType,
+    validation::ValidationError,
     Location,
 };
 use acorn_host::terminal::Label;
 use acorn_schema::{
     enrichment::Provider,
-    validation::Validate,
+    validation::{Validate, ValidationReport},
     vocabulary::{VocabularyFormat, VocabularyKind, VocabularyReport},
 };
 use color_eyre::eyre::eyre;
 use core::marker::PhantomData;
 use futures::stream::{self, StreamExt, TryStreamExt};
 use owo_colors::OwoColorize;
-#[cfg(feature = "exec")]
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 #[cfg(feature = "exec")]
 use std::path::Path;
 use std::path::PathBuf;
@@ -413,6 +416,17 @@ impl EnrichmentDecision {
             | _ => Err(eyre!("Invalid enrichment decision or candidate identities")),
         }
     }
+    /// Describe the source, field, origin, and reason for this unresolved decision.
+    pub fn summary(&self) -> String {
+        let Self {
+            source,
+            field,
+            origin,
+            reason,
+            ..
+        } = self;
+        format!("{source}: {field} ({:?}) — {reason}", origin)
+    }
     /// Check that a choice belongs to this decision and its source value is unchanged.
     pub fn validate_selection(&self, selection: &EnrichmentSelection, current: &str) -> ApiResult<Option<&EnrichmentCandidate>> {
         match selection {
@@ -443,6 +457,84 @@ impl<T> Plan<T> {
                     | Change::Check(_) => change,
                 })
                 .collect(),
+        }
+    }
+}
+impl<T> Plan<T>
+where
+    T: DeserializeOwned + InputOutput + Serialize + Validate,
+{
+    /// Apply the first pending decision for a planned document after checking its source.
+    pub fn apply_decision(&mut self, change_index: usize, selection: EnrichmentSelection) -> ApiResult<()> {
+        match self.changes.get_mut(change_index) {
+            | Some(Change::Document {
+                changed,
+                content,
+                data,
+                decisions,
+                linked,
+                original,
+                source,
+                ..
+            }) => source
+                .local_path()
+                .ok_or_else(|| eyre!("Reviewed source is not a local file — {source}"))
+                .and_then(|path| {
+                    read_file(path.clone()).and_then(|current| match current == *original {
+                        | true => Ok(path),
+                        | false => Err(eyre!("Source changed during interactive review — {source}")),
+                    })
+                })
+                .and_then(|path| {
+                    decisions
+                        .first()
+                        .cloned()
+                        .ok_or_else(|| eyre!("No enrichment decision remains for {source}"))
+                        .and_then(|decision| match decision.source == *source {
+                            | true => Ok(decision),
+                            | false => Err(eyre!("Enrichment decision targets a different source")),
+                        })
+                        .and_then(|decision| {
+                            serde_json::to_value(data.as_ref())
+                                .map_err(|why| eyre!("Serialize review data — {why}"))
+                                .and_then(|mut value| {
+                                    select_value(&mut value, &decision, &selection).and_then(|selected| match selected {
+                                        | false => Ok(None),
+                                        | true => serde_json::from_value::<T>(value)
+                                            .map_err(|why| eyre!("Selected enrichment value is invalid — {why}"))
+                                            .and_then(|replacement| {
+                                                replacement
+                                                    .validate()
+                                                    .map_err(|why| eyre!("Selected enrichment value failed validation — {why}"))
+                                                    .and_then(|()| {
+                                                        replacement.serialize_as(&MimeType::from_path(&path)).and_then(|content| {
+                                                            match linked.as_ref() {
+                                                                | Some(artifact) => replacement.linked_content().map(|linked| {
+                                                                    linked.map(|content| Artifact {
+                                                                        path: artifact.path.clone(),
+                                                                        content,
+                                                                    })
+                                                                }),
+                                                                | None => Ok(None),
+                                                            }
+                                                            .map(|linked| Some((replacement, content, linked)))
+                                                        })
+                                                    })
+                                            }),
+                                    })
+                                })
+                        })
+                        .map(|replacement| {
+                            if let Some((replacement, reviewed_content, reviewed_linked)) = replacement {
+                                **data = replacement;
+                                *changed = *original != reviewed_content;
+                                *content = reviewed_content;
+                                *linked = reviewed_linked;
+                            }
+                            decisions.remove(0);
+                        })
+                }),
+            | _ => Err(eyre!("No planned document exists at index {change_index}")),
         }
     }
 }
@@ -568,7 +660,9 @@ where
     where
         T: DeserializeOwned,
     {
-        self.evaluate_script_hooks(configuration, project_root, hooks, origin, explicit_configuration, options.common.offline)
+        self.validate()
+            .map_err(|why| eyre!("Workflow source validation failed — {why}"))
+            .and_then(|()| self.evaluate_script_hooks(configuration, project_root, hooks, origin, explicit_configuration, options.common.offline))
             .and_then(|plan| plan.apply_enriched(options))
     }
     /// Render and apply an enrichment plan, reporting provider conflicts and failures.
@@ -597,6 +691,37 @@ where
                     | false => Err(eyre!("Enrichment completed with {} provider failure(s)", failures.len())),
                 }
             })
+    }
+}
+impl<T> Validate for Plan<T> {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        self.changes
+            .iter()
+            .enumerate()
+            .fold(ValidationReport::new(), |mut report, (index, change)| {
+                match change {
+                    | Change::Document { original, source, .. } => {
+                        let current = source
+                            .local_path()
+                            .ok_or_else(|| eyre!("Workflow source is not an available local file: {source}"))
+                            .and_then(read_file);
+                        let issue = match current {
+                            | Ok(current) if current == *original => None,
+                            | Ok(_) => {
+                                Some(ValidationError::new("stale-source").with_message(format!("Workflow source changed after planning: {source}")))
+                            }
+                            | Err(why) => Some(ValidationError::new("source-unavailable").with_message(why.to_string())),
+                        };
+                        if let Some(issue) = issue {
+                            report.add(format!("changes[{index}].source"), issue);
+                        }
+                    }
+                    #[cfg(feature = "analysis")]
+                    | Change::Check(_) => {}
+                }
+                report
+            })
+            .finish()
     }
 }
 impl<T> Default for Workflow<T> {
@@ -639,89 +764,95 @@ where
     }
     /// Apply a previously prepared plan
     pub fn apply(plan: Plan<T>, options: Options) -> ApiResult<Report> {
-        let report = Report {
-            #[cfg(feature = "exec")]
-            audits: plan.audits.clone(),
-            processed: plan.changes.len(),
-            changed: plan.changes.iter().filter(|change| change.is_changed()).count(),
-            linked: plan.changes.iter().filter(|change| change.has_linked_artifact()).count(),
-            ..Report::default()
-        };
-        let vocabulary_audits = plan
-            .changes
-            .iter()
-            .filter_map(|change| match change {
-                | Change::Document {
-                    changed: true,
-                    content,
-                    original,
-                    source,
-                    vocabulary_reports,
-                    ..
-                } if !vocabulary_reports.is_empty() => Some((source.to_string(), original.clone(), content.clone(), vocabulary_reports.clone())),
-                | _ => None,
-            })
-            .collect::<Vec<_>>();
-        let vocabulary_rollbacks = plan
-            .changes
-            .iter()
-            .filter_map(|change| match change {
-                | Change::Document {
-                    changed: true,
-                    original,
-                    source,
-                    vocabulary_reports,
-                    ..
-                } if !vocabulary_reports.is_empty() => source.local_path().map(|path| Artifact {
-                    content: original.clone(),
-                    path,
-                }),
-                | _ => None,
-            })
-            .collect::<Vec<_>>();
-        match options.common.dry_run {
-            | true => Ok(report),
-            | false => plan
-                .changes
-                .into_iter()
-                .try_fold(plan.additional, |mut files, change| match change {
-                    | Change::Document {
-                        source,
-                        content,
-                        changed,
-                        linked,
-                        ..
-                    } => match changed {
-                        | true => source
-                            .local_path()
-                            .ok_or_else(|| eyre!("Workflow source is not an available local file: {source}"))
-                            .map(|path| files.push(Artifact { path, content })),
-                        | false => Ok(()),
-                    }
-                    .map(|()| {
-                        files.extend(linked);
-                        files
-                    }),
-                    #[cfg(feature = "analysis")]
-                    | Change::Check(_) => Err(eyre!("A check must be resolved into a document change before it can be applied")),
-                })
-                .and_then(|files| transaction::Artifacts::from(files).apply())
-                .and_then(|written| {
-                    crate::io::vocabulary::write_vocabulary_report_audits(
-                        vocabulary_audits
-                            .iter()
-                            .map(|(source, before, after, reports)| (source.as_str(), before.as_str(), after.as_str(), reports.as_slice())),
-                    )
-                    .map_err(|why| eyre!(why))
-                    .map(|_| Report { written, ..report })
-                    .or_else(|audit_error| {
-                        Artifacts::from(vocabulary_rollbacks.clone())
-                            .apply()
-                            .map_err(|rollback_error| eyre!("{audit_error}; rollback failed — {rollback_error}"))
-                            .and_then(|_| Err(audit_error))
+        plan.validate()
+            .map_err(|why| eyre!("Workflow source validation failed — {why}"))
+            .and_then(|()| {
+                let report = Report {
+                    #[cfg(feature = "exec")]
+                    audits: plan.audits.clone(),
+                    processed: plan.changes.len(),
+                    changed: plan.changes.iter().filter(|change| change.is_changed()).count(),
+                    linked: plan.changes.iter().filter(|change| change.has_linked_artifact()).count(),
+                    ..Report::default()
+                };
+                let vocabulary_audits = plan
+                    .changes
+                    .iter()
+                    .filter_map(|change| match change {
+                        | Change::Document {
+                            changed: true,
+                            content,
+                            original,
+                            source,
+                            vocabulary_reports,
+                            ..
+                        } if !vocabulary_reports.is_empty() => {
+                            Some((source.to_string(), original.clone(), content.clone(), vocabulary_reports.clone()))
+                        }
+                        | _ => None,
                     })
-                }),
-        }
+                    .collect::<Vec<_>>();
+                let vocabulary_rollbacks = plan
+                    .changes
+                    .iter()
+                    .filter_map(|change| match change {
+                        | Change::Document {
+                            changed: true,
+                            original,
+                            source,
+                            vocabulary_reports,
+                            ..
+                        } if !vocabulary_reports.is_empty() => source.local_path().map(|path| Artifact {
+                            content: original.clone(),
+                            path,
+                        }),
+                        | _ => None,
+                    })
+                    .collect::<Vec<_>>();
+                match options.common.dry_run {
+                    | true => Ok(report),
+                    | false => plan
+                        .changes
+                        .into_iter()
+                        .try_fold(plan.additional, |mut files, change| match change {
+                            | Change::Document {
+                                source,
+                                content,
+                                changed,
+                                linked,
+                                ..
+                            } => match changed {
+                                | true => source
+                                    .local_path()
+                                    .ok_or_else(|| eyre!("Workflow source is not an available local file: {source}"))
+                                    .map(|path| files.push(Artifact { path, content })),
+                                | false => Ok(()),
+                            }
+                            .map(|()| {
+                                files.extend(linked);
+                                files
+                            }),
+                            #[cfg(feature = "analysis")]
+                            | Change::Check(_) => Err(eyre!("A check must be resolved into a document change before it can be applied")),
+                        })
+                        .and_then(|files| transaction::Artifacts::from(files).apply())
+                        .and_then(|written| {
+                            write_vocabulary_report_audits(
+                                vocabulary_audits
+                                    .iter()
+                                    .map(|(source, before, after, reports)| (source.as_str(), before.as_str(), after.as_str(), reports.as_slice())),
+                            )
+                            .map_err(|why| eyre!(why))
+                            .map(|_| Report { written, ..report })
+                            .or_else(|audit_error| {
+                                Artifacts::from(vocabulary_rollbacks.clone())
+                                    .apply()
+                                    .map_err(|rollback_error| eyre!("{audit_error}; rollback failed — {rollback_error}"))
+                                    .and_then(|_| Err(audit_error))
+                            })
+                        }),
+                }
+            })
     }
     /// Plan and apply processing for all sources
     pub async fn run(
@@ -858,6 +989,53 @@ impl Default for WorkflowExtension {
             show_changes: false,
         }
     }
+}
+fn select_value(value: &mut Value, decision: &EnrichmentDecision, selection: &EnrichmentSelection) -> ApiResult<bool> {
+    let segments = decision.field.replace(['.', '['], "/").replace(']', "");
+    let mut segments = segments.split('/').collect::<Vec<_>>();
+    let leaf = segments.pop().unwrap_or_default();
+    let parent = match segments.is_empty() {
+        | true => String::new(),
+        | false => format!("/{}", segments.join("/")),
+    };
+    value
+        .pointer_mut(&parent)
+        .ok_or_else(|| eyre!("Enrichment field parent is unavailable: {}", decision.field))
+        .and_then(|parent| {
+            let current = match parent {
+                | Value::String(current) if leaf == "0" => current.as_str(),
+                | Value::Array(values) => leaf
+                    .parse::<usize>()
+                    .ok()
+                    .and_then(|index| values.get(index))
+                    .and_then(Value::as_str)
+                    .unwrap_or_default(),
+                | _ => parent.get(leaf).and_then(Value::as_str).unwrap_or_default(),
+            };
+            decision.validate_selection(selection, current).and_then(|candidate| match candidate {
+                | None => Ok(false),
+                | Some(candidate) => match parent {
+                    | Value::String(current) if leaf == "0" => {
+                        *current = candidate.key.value.clone();
+                        Ok(true)
+                    }
+                    | Value::Object(fields) => {
+                        fields.insert(leaf.to_string(), Value::String(candidate.key.value.clone()));
+                        Ok(true)
+                    }
+                    | Value::Array(values) => leaf
+                        .parse::<usize>()
+                        .ok()
+                        .and_then(|index| values.get_mut(index))
+                        .ok_or_else(|| eyre!("Enrichment array field is unavailable: {}", decision.field))
+                        .map(|field| {
+                            *field = Value::String(candidate.key.value.clone());
+                            true
+                        }),
+                    | _ => Err(eyre!("Enrichment field parent is not a record or array: {}", decision.field)),
+                },
+            })
+        })
 }
 #[cfg(test)]
 mod tests;

@@ -134,6 +134,59 @@ fn source_file() -> (tempfile::TempDir, Location) {
     (temporary, source)
 }
 
+#[tokio::test]
+async fn test_apply_decision_applies_choice_and_rejects_stale_source() {
+    let (_temporary, source) = source_file();
+    let path = source.local_path().expect("local source");
+    let options = options(
+        CommonRuntime::default(),
+        WorkflowExtension {
+            enrich: true,
+            ..WorkflowExtension::default()
+        },
+    );
+    let before = fs::read_to_string(&path).expect("original source");
+    let mut plan = Workflow::<ResearchActivity>::plan(core::slice::from_ref(&source), options.clone(), Some(&DecisionEnrichment))
+        .await
+        .expect("plan with choice");
+    let choice = plan
+        .changes
+        .first()
+        .expect("planned document")
+        .decisions()
+        .first()
+        .expect("pending decision")
+        .candidates
+        .first()
+        .expect("candidate")
+        .key
+        .clone();
+    let mut invalid = plan.clone();
+    let mut foreign = choice.clone();
+    foreign.value = "unoffered value".to_string();
+    assert!(invalid.apply_decision(0, EnrichmentSelection::Choose(foreign)).is_err());
+    assert_eq!(invalid.changes.first().expect("planned document").decisions().len(), 1);
+    let mut skipped = plan.clone();
+    skipped.apply_decision(0, EnrichmentSelection::Skip).expect("skip choice");
+    assert!(skipped.changes.first().expect("planned document").decisions().is_empty());
+    plan.apply_decision(0, EnrichmentSelection::Choose(choice)).expect("apply choice");
+    assert!(plan.changes.first().expect("planned document").decisions().is_empty());
+    assert_eq!(
+        plan.changes.first().expect("planned document").data().expect("reviewed data").title,
+        "Suggested title"
+    );
+    assert_eq!(fs::read_to_string(&path).expect("source remains unchanged"), before);
+    let mut stale = Workflow::<ResearchActivity>::plan(core::slice::from_ref(&source), options.clone(), Some(&DecisionEnrichment))
+        .await
+        .expect("new plan");
+    fs::write(&path, "{}").expect("change source");
+    assert!(stale.apply_decision(0, EnrichmentSelection::Skip).is_err());
+    let validation = stale.validate().expect_err("stale source should fail plan validation");
+    let issue = validation.iter().next().expect("stale source issue");
+    assert_eq!(issue.path, "changes[0].source");
+    assert_eq!(issue.error.code, "stale-source");
+    assert!(Workflow::<ResearchActivity>::apply(stale, options).is_err());
+}
 #[cfg(feature = "analysis")]
 #[test]
 fn test_change_preserves_check_for_future_fix_resolution() {
@@ -638,7 +691,7 @@ async fn test_workflow_plans_vocabulary_choices_without_applying_them() {
         ..ResearchActivity::default()
     };
     activity.write_json(source.local_path().expect("local path")).expect("write activity");
-    let plan = Workflow::<ResearchActivity>::plan(
+    let mut plan = Workflow::<ResearchActivity>::plan(
         core::slice::from_ref(&source),
         options(
             CommonRuntime::default(),
@@ -661,6 +714,15 @@ async fn test_workflow_plans_vocabulary_choices_without_applying_them() {
         .expect("partner choice");
     assert_eq!(decision.original, "OSU");
     assert_eq!(
+        serde_json::to_value(change.data().expect("planned data"))
+            .expect("serialized data")
+            .pointer("/meta/partners")
+            .cloned(),
+        Some(serde_json::Value::Array(vec![serde_json::Value::String("OSU".to_string())]))
+    );
+    let selected = decision.candidates.first().expect("partner candidate").key.clone();
+    let selected_value = selected.value.clone();
+    assert_eq!(
         ResearchActivity::read(source.local_path().expect("source path"))
             .expect("source after plan")
             .meta
@@ -668,6 +730,40 @@ async fn test_workflow_plans_vocabulary_choices_without_applying_them() {
             .unwrap()
             .into_vec(),
         vec!["OSU".to_string()]
+    );
+    while plan
+        .changes
+        .first()
+        .expect("planned change")
+        .decisions()
+        .first()
+        .expect("partner choice remains")
+        .field
+        != "meta.partners[0]"
+    {
+        plan.apply_decision(0, EnrichmentSelection::Skip).expect("skip preceding choice");
+    }
+    plan.apply_decision(0, EnrichmentSelection::Choose(selected))
+        .expect("review partner choice");
+    assert!(plan
+        .changes
+        .first()
+        .expect("reviewed change")
+        .decisions()
+        .iter()
+        .all(|decision| decision.field != "meta.partners[0]"));
+    assert_eq!(
+        plan.changes
+            .first()
+            .expect("reviewed change")
+            .data()
+            .expect("reviewed data")
+            .meta
+            .partners
+            .clone()
+            .expect("reviewed partners")
+            .into_vec(),
+        vec![selected_value]
     );
 }
 #[tokio::test]

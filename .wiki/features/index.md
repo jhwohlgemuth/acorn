@@ -4,7 +4,7 @@
 
 ## In progress
 
-- [Interactive metadata chat and terminal prompts](interactive-metadata-chat.md) - Complete inline multi-turn `ask`, durable transcripts, Gum-like Confirm buttons within reusable terminal controls, and interactive enrichment feedback for `format`.
+- [Interactive metadata chat and terminal prompts](interactive-metadata-chat.md) - Inline multi-turn `ask`, durable transcripts, reusable terminal controls, and interactive format review are in place; the TUI consumer seam and release validation remain.
 
 - [SharePoint JSONL download for ACORN intake](sharepoint-jsonl-download/index.md) - Complete reusable OAuth 2.0/Entra browser/device authorization with ACRE auth profiles, verified account identity, scoped cache inspection/reset, cross-platform protected caching, existing Confirm controls and Graph file capture, consumed by SharePoint direct-URL intake and offline review; approved CLI tenant access is unverified, and it requires no operational app/flow changes.
 

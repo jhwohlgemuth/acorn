@@ -7,7 +7,6 @@ impact: high
 package: [acorn-lib, acorn-cli, acorn-schema]
 tags: [feature, ask, metadata, chat, terminal, enrichment]
 status: in-progress
-priority: next
 execution: phased
 phase_budget_hours: 5
 ---
@@ -20,7 +19,7 @@ The first usable interface is separate from `acorn tui`. The later chat-controll
 
 # Current evidence
 
-Implementation queue update on 2026-11-01: IMC is designated next, with ADP after IMC-10/11. The format parser and dispatch now accept `--interactive`; terminal validation and temporary rejection of enriched and configured-hook modes are implemented. IMC-10 remains in progress until inline deterministic feedback, generated help, and focused validation pass. IMC-11 remains planned and must add typed selection, source revalidation, and workflow application before enriched modes are enabled.
+Implementation queue update on 2026-11-01: ADP-08 is next after the interactive format handoff. `format --interactive` now renders plain and ACRE feedback inline, reviews typed enrichment and vocabulary choices with Skip, revalidates sources, and applies the reviewed workflow through configured hooks and the existing artifact transaction. Focused CLI/workflow tests, a PTY smoke run with a configured hook and vocabulary choices, and the generated help contract pass. IMC-12 is the next IMC phase after the ADP handoff.
 
 Checked on 2026-10-29 against the current implementation:
 
@@ -41,7 +40,7 @@ Checked on 2026-10-29 against the current implementation:
 - **Owned here:** inline terminal controls, chat state and transcript storage, metadata attachment and analysis presentation, grounded conversational replies, reviewable fix application, typed uncertain-enrichment feedback, and interactive formatting.
 - **Consumed, not replaced:** existing analysis, fix, workflow transaction, inference backend, and routed capability contracts. `infer` without `--interactive`, `infer run`, and the separate TUI remain available.
 - No remaining phase depends on generic external adapter release or model-profile availability.
-- Serialize IMC-10 with the CLI parser/help lock and IMC-10/11 with structured enrichment or format work on their exact library and command files. ADP-09 and other inference-command work must still coordinate shared roots. The TUI screen itself remains a later separate outcome.
+- Coordinate IMC-12 with chat-controller work on its exact files. ADP-09 and other inference-command work must still coordinate shared roots. The TUI screen itself remains a later separate outcome.
 
 # Experience and contracts
 
@@ -77,33 +76,11 @@ Checked on 2026-10-29 against the current implementation:
 
 # Execution phases
 
-## IMC-10 — Add interactive formatting for deterministic paths
-
-- Status: in-progress
-- Budget: 5 active hours maximum
-- Prerequisites: claim the CLI contract lock
-- Exact write set: `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/cli/tests/mod.rs`, `crates/acorn-cli/src/commands/mod.rs`, `crates/acorn-cli/src/commands/format/mod.rs`, `crates/acorn-cli/src/commands/format/acre.rs`, `crates/acorn-cli/src/commands/format/tests/mod.rs`, `CommandLineHelp.md`
-- Primary integration lock: CLI format contract
-- Outcome: Add `format --interactive`, TTY validation, and the reusable renderer to plain/ACRE formatting; deterministic changes continue through existing writes. Keep enriched/hook runs explicitly unavailable in this intermediate phase.
-- Focused validation: Parser, file/folder formatting, no-change, dry run, non-TTY, and non-interactive regression tests.
-- Handoff: Record the new flag contract and the enriched-mode prerequisite; remove IMC-10.
-
-## IMC-11 — Review enrichment in the full format workflow
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: IMC-10
-- Exact write set: `crates/acorn-cli/src/commands/format/mod.rs`, `crates/acorn-cli/src/commands/format/tests/mod.rs`, `crates/acorn-lib/src/io/workflow/mod.rs`, `crates/acorn-lib/src/io/workflow/tests/mod.rs`
-- Primary integration lock: format workflow application
-- Outcome: Resolve candidate choices per file before applying one validated plan; preserve configured hooks, companion artifacts, deterministic writes, and transaction rollback.
-- Focused validation: Mixed accept/skip, missing candidates, changed source, enrich+hook, companion output, dry run, provider failure, and rollback fixtures.
-- Handoff: Record all supported interactive format modes and artifact behavior; remove IMC-11.
-
 ## IMC-12 — Prove the future TUI consumer seam
 
-- Status: planned
+- Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: IMC-11
+- Prerequisites: the landed interactive format workflow
 - Exact write set: `crates/acorn-lib/src/agent/chat/mod.rs`, `crates/acorn-lib/src/agent/chat/tests.rs`, `docs/src/inference/README.md`
 - Primary integration lock: chat controller interface
 - Outcome: Stabilize UI-neutral action/event snapshots and a headless second consumer; document how a future `acorn-tui` screen will render them without sharing terminal drawing code.
