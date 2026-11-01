@@ -22,7 +22,7 @@
 - [Sponsor highlights clarity](sponsor-highlights-clarity.md) - Add evidence-backed mission value, a consistent project synopsis, reviewed ASPECT graduation across schema, local CLI and other adapters, accessibility checks, and an approved distribution pilot.
 - [Grouped report separators](grouped-report-separators.md) - Extend the existing local --combine PDF with ordered project groups and full-page office dividers; keep individual report publication unchanged.
 - [RON support for ACRE configuration](acre-ron-configuration.md) - Add `.acorn.ron` loading, checking, persistence, and canonical formatting with the existing ACRE data model and discovery precedence.
-- [Generic ask executor adapters](ask-executor-adapters.md) - Add configured MCP, ACP, endpoint, and local-sidecar bindings after router contracts land; release follows native parity.
+- [Generic ask executor adapters](ask-executor-adapters.md) - Explicit binding configuration has landed; bind existing MCP, ACP, OpenAI-compatible/Ollama, and sidecar transports to routed capabilities before release.
 - [Swift SLM capability profile](swift-slm-profile.md) - Release Tongue, Redact, and Title after licensing, host, artifact, and quality gates.
 - [Julia decision sidecar profile](julia-decision-sidecar.md) - Release advisory Choice and Noul decisions after independent parity and quality gates.
 - [Release-gated Beam inference integration](beam-inference-integration.md) - Verify released serving contracts, then evaluate an explicitly configured hosted or operator-owned endpoint independently of local SLM sidecars.

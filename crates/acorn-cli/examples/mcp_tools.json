@@ -1,0 +1,15 @@
+{
+  "mcp": {
+    "local-acorn": {
+      "transport": { "type": "child-process", "command": "acorn", "args": ["serve", "mcp"] },
+      "allowed": { "acorn.version": {} }
+    }
+  },
+  "executors": [
+    {
+      "id": "mcp:version",
+      "capabilityId": "acorn.version",
+      "executor": { "type": "mcp", "server": "local-acorn", "tool": "acorn.version" }
+    }
+  ]
+}

@@ -12,7 +12,7 @@ use crate::{
     io::{
         api::Endpoint,
         config::{bucket, Bucket, ModelEntry, RegistryProfile, RunnerDetails, SourceInput},
-        mcp::config::McpServerConfiguration,
+        mcp::{config::McpServerConfiguration, ExecutorBindingConfiguration},
         read_file, sync,
         sync::ConfigExt,
         write_file, ApiResult, CstRootNode, CstValue, EmailAddress, FromPath, InputOutput,
@@ -396,6 +396,10 @@ pub struct ApplicationConfiguration {
     #[eserde(compat)]
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub mcp: BTreeMap<String, McpServerConfiguration>,
+    /// Explicit capability-to-executor declarations; these never start providers during parsing.
+    #[eserde(compat)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub executors: Vec<ExecutorBindingConfiguration>,
     /// List of models to download — bare IDs/paths or detailed download entries
     #[eserde(compat)]
     #[serde(default)]
@@ -1301,6 +1305,23 @@ impl Validate for ApplicationConfiguration {
             if let Err(errors) = server.validate() {
                 report.append_prefixed(&format!("mcp.{name}"), errors);
             }
+        });
+        self.executors.iter().enumerate().for_each(|(index, binding)| {
+            if let Err(errors) = binding.validate() {
+                report.append_prefixed(&format!("executors[{index}]"), errors);
+            }
+            if let Err(errors) = binding.validate_references(&self.mcp, self.endpoints.as_ref()) {
+                report.append_prefixed(&format!("executors[{index}]"), errors);
+            }
+        });
+        self.executors.iter().enumerate().fold(HashSet::new(), |mut ids, (index, binding)| {
+            if !ids.insert(binding.id.as_str()) {
+                report.add(
+                    format!("executors[{index}].id"),
+                    ValidationError::new("duplicate").with_message(format!("Duplicate executor binding ID '{}'", binding.id)),
+                );
+            }
+            ids
         });
         self.options
             .as_ref()

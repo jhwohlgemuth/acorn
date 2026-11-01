@@ -6,4 +6,5 @@
 
 ## Planned
 
+- [Mise development-tool integration](mise-toolchain-integration.md) — Use one locked, multiplatform tool inventory for local Make workflows and CI while preserving `rust-toolchain.toml` as the stable Rust contract.
 - [Podman-only Makefile migration](podman-makefile.md) — Replace Docker CLI and Buildx recipes with Podman-native build, run, publication, and multi-architecture manifest workflows across Linux, macOS, and Windows.

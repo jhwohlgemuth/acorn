@@ -7,5 +7,6 @@ fn version() -> SemanticVersion {
 
 mod analysis;
 mod capability;
+mod configuration;
 mod execution;
 mod input;

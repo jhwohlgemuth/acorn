@@ -1333,6 +1333,53 @@ mcp:
     .is_err());
 }
 #[test]
+fn test_executor_bindings_validate_references_duplicates_and_round_trip() {
+    let json = r#"{
+        "mcp": {"research": {"transport": {"type": "child-process", "command": "research-mcp"}, "allowed": {"resolve": {}}}},
+        "endpoints": [{"name": "local-model", "domain": "localhost:11434", "resources": []}],
+        "executors": [
+            {"id": "mcp:resolve", "capabilityId": "acorn.resolve", "executor": {"type": "mcp", "server": "research", "tool": "resolve"}},
+            {"id": "acp:summary", "capabilityId": "acorn.summary", "executor": {"type": "acp", "profile": "codex"}},
+            {"id": "endpoint:summary", "capabilityId": "acorn.summary", "executor": {"type": "endpoint", "endpoint": "local-model", "model": "llama", "data_policy": "local-only"}},
+            {"id": "sidecar:summary", "capabilityId": "acorn.summary", "executor": {"type": "sidecar", "profile": "summary"}}
+        ]
+    }"#;
+    let config = ApplicationConfiguration::parse(json).expect("executor configuration");
+    assert_eq!(config.executors.len(), 4);
+    assert!(config.validate().is_ok(), "{:?}", config.validate());
+    let serialized = serde_json::to_string(&config).expect("serialize configuration");
+    let round_trip: ApplicationConfiguration = serde_json::from_str(&serialized).expect("parse round trip");
+    assert_eq!(round_trip.executors, config.executors);
+
+    for invalid in [
+        json.replace("\"research\", \"tool\"", "\"missing\", \"tool\""),
+        json.replace("\"tool\": \"resolve\"", "\"tool\": \"other\""),
+        json.replace("\"profile\": \"codex\"", "\"profile\": \"untrusted\""),
+        json.replace("\"endpoint\": \"local-model\"", "\"endpoint\": \"missing\""),
+        json.replace(
+            "\"resources\": []}",
+            "\"resources\": []}, {\"name\": \"local-model\", \"domain\": \"localhost:11435\", \"resources\": []}",
+        ),
+        json.replace("\"id\": \"sidecar:summary\"", "\"id\": \"mcp:resolve\""),
+    ] {
+        let config = ApplicationConfiguration::parse(&invalid).expect("parse invalid reference");
+        assert!(config.validate().is_err(), "accepted invalid binding: {invalid}");
+    }
+}
+#[test]
+fn test_executor_bindings_validate_yaml_and_jsonc_without_provider_startup() {
+    let jsonc = r#"{
+        // The profile is resolved only when a route is composed.
+        "executors": [{"id": "sidecar:summary", "capabilityId": "acorn.summary", "executor": {"type": "sidecar", "profile": "summary"}}]
+    }"#;
+    let yaml = "executors:\n  - id: sidecar:summary\n    capabilityId: acorn.summary\n    executor:\n      type: sidecar\n      profile: summary\n";
+    let from_jsonc = ApplicationConfiguration::parse(jsonc).expect("JSONC executor config");
+    let from_yaml: ApplicationConfiguration = serde_norway::from_str(yaml).expect("YAML executor config");
+    assert_eq!(from_jsonc.executors, from_yaml.executors);
+    assert!(from_jsonc.validate().is_ok());
+    assert!(from_yaml.validate().is_ok());
+}
+#[test]
 fn test_model_update_preserves_jsonc_comments_and_dry_run() {
     let directory = temp_resolve_dir("sync-acorn-config");
     create_dir_all(&directory).unwrap();
