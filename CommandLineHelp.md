@@ -1056,6 +1056,7 @@ Formats supported metadata standards in place (inherently includes some elements
 * `--config <PATH>` — Path to application configuration containing Rhai quality gates
 * `-d`, `--dry-run` [alias: `what-if`] — Run format without making changes to target file(s). Will print a diff of changes
 * `--enrich` — Enrich metadata after formatting it
+* `--interactive` — Review uncertain formatting decisions in an inline terminal session
 * `--fuzzy <MODE>` — Controlled-vocabulary fuzzy matching profile
 
   Default value: `strict`

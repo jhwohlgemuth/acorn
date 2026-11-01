@@ -51,6 +51,8 @@ Do not assign these documents as implementation work:
 
 ## Work lanes
 
+The current exclusive sequence claims the CLI format contract for IMC-10, then format workflow application for IMC-11. ADP-08 claims the workspace graph after the IMC handoff. No concurrent owner is assigned to these exact write sets.
+
 Plans within a lane normally serialize. Different lanes still check secondary locks above.
 
 | Lane | Plans | Primary surface and rule |

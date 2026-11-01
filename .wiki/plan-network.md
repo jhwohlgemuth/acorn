@@ -8,6 +8,8 @@ okf_version: "0.1"
 
 This map records implementation dependencies among the active plans. Portfolio rank is maintained in the [planning index](index.md); dependency order can override rank when a prerequisite contract is not ready.
 
+The designated implementation order is IMC-10 -> IMC-11 -> ADP-08. ADP's release dependency on PAR-16 remains unchanged.
+
 Executable detail lives in each plan's `# Execution phases` section. Cross-plan edges name stable phase IDs; completed phases are pruned without renumbering unfinished phases. A plan-level edge is not permission to start every phase in that plan.
 
 ## Boundary coordination

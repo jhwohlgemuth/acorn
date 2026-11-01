@@ -27,6 +27,8 @@ SharePoint is the accepted default. Contributor access, recovery, exporter repai
 
 Non-PA plans retain substantive work. Source spot-checks confirm coverage targets still force clean builds; grouped report separators and native cache adapters are not implemented. Native release-host checks still require their named hosts. Existing uncommitted implementation work is preserved; module stubs do not count as completed behavior.
 
+The next implementation sequence is [IMC](features/interactive-metadata-chat.md) IMC-10 then IMC-11, followed by [ADP](features/ask-executor-adapters.md) ADP-08. This is a scheduling designation; the portfolio ranking below still reflects impact and remaining difficulty. IMC owns the CLI format contract and workflow application locks until its two phases are validated.
+
 The [current guides and retained recovery sources](features/powerapps-jsonl-intake/source-bundle-readme.md) supersede old source/demo distribution ZIPs and redundant PDF extracts. Historical acceptance and native archives remain subject to [sanitization limits](privacy.md). The [cleanup record](features/powerapps-jsonl-intake/test-artifact-cleanup.md#october-30-power-platform-cleanup) identifies the completed test flows/apps removed October 30 and the retained PA-15/17 dependencies.
 
 Ranking uses impact first, then remaining difficulty, with user/architecture value and readiness as tie-breakers. “Quality” rates the plan rather than the proposed feature:

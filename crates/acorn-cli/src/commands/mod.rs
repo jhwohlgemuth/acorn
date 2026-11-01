@@ -371,6 +371,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 ignore,
                 dry_run,
                 enrich,
+                interactive,
                 fuzzy,
                 no_color,
                 provider,
@@ -379,25 +380,23 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 verbose,
             } = arguments.as_ref();
             initialize_database_with_policy(config, true).await?;
-            format::run(
-                path,
-                branch,
-                commit,
-                filter,
-                ignore,
-                application_config,
-                *dry_run,
-                *enrich,
-                (*fuzzy).into(),
-                *no_color,
-                provider,
-                merge_request,
-                *standard,
-                threads,
-                verbose,
-                offline,
-            )
-            .await
+            let options = CommandOptions::init()
+                .maybe_path(path.clone())
+                .maybe_branch(branch.clone())
+                .maybe_commit(commit.clone())
+                .maybe_filter(filter.clone())
+                .maybe_ignore(ignore.clone())
+                .merge_request(*merge_request)
+                .offline(offline)
+                .dry_run(*dry_run)
+                .fuzzy((*fuzzy).into())
+                .interactive(*interactive)
+                .no_color(*no_color)
+                .verbose(*verbose)
+                .quiet(verbose.is_silent())
+                .threads(threads)
+                .build();
+            format::run(application_config, *enrich, provider, *standard, &options).await
         }),
         | Some(Commands::Gather(arguments)) => with_runtime(async {
             let arguments::Gather {

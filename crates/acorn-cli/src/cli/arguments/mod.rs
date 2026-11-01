@@ -1038,6 +1038,9 @@ pub(crate) struct Format {
     /// Enrich metadata after formatting it.
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) enrich: bool,
+    /// Review uncertain formatting decisions in an inline terminal session.
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) interactive: bool,
     /// Controlled-vocabulary fuzzy matching profile.
     #[arg(long, value_enum, default_value_t, value_name = "MODE", help_heading = "OPTIONS")]
     pub(crate) fuzzy: FuzzyMode,

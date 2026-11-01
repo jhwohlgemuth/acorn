@@ -7,7 +7,6 @@ impact: critical
 package: [workspace]
 tags: [powerapps, powerautomate, gitlab, sharepoint, jsonl, intake]
 status: in-progress
-priority: next
 execution: phased
 phase_budget_hours: 5
 ---

@@ -36,6 +36,27 @@ use std::sync::Mutex;
 use tracing_subscriber::fmt::MakeWriter;
 
 const OFFLINE: bool = false;
+#[tokio::test]
+async fn test_interactive_format_rejects_non_terminal_streams() {
+    let result = run(
+        &None,
+        false,
+        &[],
+        Standard::ResearchActivityData,
+        &CommandOptions::init()
+            .maybe_path(None)
+            .dry_run(false)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(true)
+            .no_color(true)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
+    )
+    .await;
+    assert!(result.unwrap_err().to_string().contains("terminal input and output"));
+}
 struct SharedWriter(Arc<Mutex<Vec<u8>>>);
 struct SharedWriterGuard(Arc<Mutex<Vec<u8>>>);
 impl<'a> MakeWriter<'a> for SharedWriter {
@@ -86,22 +107,20 @@ async fn test_configured_format_gate_prevents_write() -> Result<()> {
     let config = temp_dir.join(".acorn.json");
     fs::write(&config, r#"{"scripts":[{"path":"quality","hooks":["format"]}]}"#)?;
     let result = run(
-        &Some(dest_file.clone()),
-        &None,
-        &None,
-        &None,
-        &None,
         &Some(config),
         false,
-        false,
-        VocabularyFuzzyMode::Strict,
-        true,
         &[],
-        &false,
         Standard::ResearchActivityData,
-        1,
-        &Verbosity::new(0, 0),
-        OFFLINE,
+        &CommandOptions::init()
+            .maybe_path(Some(dest_file.clone()))
+            .dry_run(false)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(true)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
     )
     .await;
     assert!(result.is_err(), "error finding must block the format proposal");
@@ -118,22 +137,20 @@ async fn test_configured_format_missing_path_prevents_write() {
     copy(&source, &dest_file).expect("copy format fixture");
     let original = fs::read_to_string(&dest_file).expect("read original fixture");
     let result = run(
-        &Some(dest_file.clone()),
-        &None,
-        &None,
-        &None,
-        &None,
         &Some(temp_dir.join("missing.json")),
         false,
-        false,
-        VocabularyFuzzyMode::Strict,
-        true,
         &[],
-        &false,
         Standard::ResearchActivityData,
-        1,
-        &Verbosity::new(0, 0),
-        OFFLINE,
+        &CommandOptions::init()
+            .maybe_path(Some(dest_file.clone()))
+            .dry_run(false)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(true)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
     )
     .await;
     assert!(
@@ -154,22 +171,20 @@ async fn test_configured_format_requires_exec_feature() {
     let config = temp_dir.join(".acorn.json");
     fs::write(&config, "{}").expect("write application configuration");
     let result = run(
-        &Some(dest_file.clone()),
-        &None,
-        &None,
-        &None,
-        &None,
         &Some(config),
         false,
-        false,
-        VocabularyFuzzyMode::Strict,
-        true,
         &[],
-        &false,
         Standard::ResearchActivityData,
-        1,
-        &Verbosity::new(0, 0),
-        OFFLINE,
+        &CommandOptions::init()
+            .maybe_path(Some(dest_file.clone()))
+            .dry_run(false)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(true)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
     )
     .await;
     assert!(
@@ -188,22 +203,20 @@ async fn test_format_acre_directory_only_formats_canonical_names() -> Result<()>
     fs::write(&canonical, content)?;
     fs::write(&custom, content)?;
     let result = run(
-        &Some(temp_dir),
-        &None,
-        &None,
-        &None,
-        &None,
         &None,
         false,
-        false,
-        VocabularyFuzzyMode::Strict,
-        true,
         &[],
-        &false,
         Standard::ApplicationConfigurationResearchEnablement,
-        1,
-        &Verbosity::new(0, 0),
-        OFFLINE,
+        &CommandOptions::init()
+            .maybe_path(Some(temp_dir))
+            .dry_run(false)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(true)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
     )
     .await;
     assert!(result.is_ok(), "ACRE directory formatting should succeed: {result:?}");
@@ -221,22 +234,20 @@ async fn test_format_acre_jsonc_preserves_comments_trailing_commas_and_legacy_ve
         "{\r\n// keep this comment\r\n\"scripts\":[\r\n{\r\n\"path\":\"quality\",\r\n\"hooks\":[\r\n\"format\",\r\n],\r\n},\r\n],\r\n}\r\n",
     )?;
     let result = run(
-        &Some(path.clone()),
-        &None,
-        &None,
-        &None,
-        &None,
         &None,
         false,
-        false,
-        VocabularyFuzzyMode::Strict,
-        true,
         &[],
-        &false,
         Standard::ApplicationConfigurationResearchEnablement,
-        1,
-        &Verbosity::new(0, 0),
-        OFFLINE,
+        &CommandOptions::init()
+            .maybe_path(Some(path.clone()))
+            .dry_run(false)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(true)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
     )
     .await;
     assert!(result.is_ok(), "ACRE JSONC formatting should succeed: {result:?}");
@@ -257,22 +268,20 @@ async fn test_format_acre_rejects_workflow_options_without_loading_config() -> R
     fs::write(&path, "schemaVersion: 2.0.0\n")?;
     let missing = temp_dir.join("missing.json");
     let result = run(
-        &Some(path),
-        &None,
-        &None,
-        &None,
-        &None,
         &Some(missing),
         false,
-        false,
-        VocabularyFuzzyMode::Strict,
-        true,
         &[],
-        &false,
         Standard::ApplicationConfigurationResearchEnablement,
-        1,
-        &Verbosity::new(0, 0),
-        OFFLINE,
+        &CommandOptions::init()
+            .maybe_path(Some(path))
+            .dry_run(false)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(true)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
     )
     .await;
     assert!(result.is_err_and(|why| why.to_string().contains("--config is not supported")));
@@ -285,22 +294,20 @@ async fn test_format_acre_yaml_preserves_comments_and_legacy_version_omission() 
     let path = temp_dir.join(".acorn.yml");
     fs::write(&path, "# keep this comment\r\nscripts:\r\n- path: quality\r\n  hooks: [format]\r\n")?;
     let result = run(
-        &Some(path.clone()),
-        &None,
-        &None,
-        &None,
-        &None,
         &None,
         false,
-        false,
-        VocabularyFuzzyMode::Strict,
-        true,
         &[],
-        &false,
         Standard::ApplicationConfigurationResearchEnablement,
-        1,
-        &Verbosity::new(0, 0),
-        OFFLINE,
+        &CommandOptions::init()
+            .maybe_path(Some(path.clone()))
+            .dry_run(false)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(true)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
     )
     .await;
     assert!(result.is_ok(), "ACRE YAML formatting should succeed: {result:?}");
@@ -332,42 +339,38 @@ async fn test_format_dispatches_cff_and_rejects_unsupported_provider() {
     };
     fs::write(&path, serde_norway::to_string(&cff).expect("serialize CFF")).expect("write CFF");
     let formatted = run(
-        &Some(path.clone()),
-        &None,
-        &None,
-        &None,
-        &None,
         &None,
         false,
-        false,
-        VocabularyFuzzyMode::Strict,
-        true,
         &[],
-        &false,
         Standard::CitationFileFormat,
-        1,
-        &Verbosity::new(0, 0),
-        OFFLINE,
+        &CommandOptions::init()
+            .maybe_path(Some(path.clone()))
+            .dry_run(false)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(true)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
     )
     .await;
     assert!(formatted.is_ok(), "CFF formatting should use the selected standard");
     let unsupported = run(
-        &Some(path),
         &None,
-        &None,
-        &None,
-        &None,
-        &None,
-        true,
-        true,
-        VocabularyFuzzyMode::Strict,
         true,
         &[Provider::Ror],
-        &false,
         Standard::CitationFileFormat,
-        1,
-        &Verbosity::new(0, 0),
-        OFFLINE,
+        &CommandOptions::init()
+            .maybe_path(Some(path))
+            .dry_run(true)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(true)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
     )
     .await;
     assert!(unsupported.is_err_and(|why| why.to_string().contains("Only the ORCID provider")));
@@ -382,22 +385,20 @@ async fn test_format_dry_run() -> Result<()> {
     let original = fs::read_to_string(&dest_file)?;
     let path = Some(dest_file.clone());
     let result = run(
-        &path,
         &None,
-        &None,
-        &None,
-        &None,
-        &None,
-        true,
-        false,
-        VocabularyFuzzyMode::Strict,
         false,
         &[],
-        &false,
         Standard::ResearchActivityData,
-        1,
-        &Verbosity::new(0, 0),
-        OFFLINE,
+        &CommandOptions::init()
+            .maybe_path(path.clone())
+            .dry_run(true)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(false)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
     )
     .await;
     assert!(result.is_ok(), "Format dry run should succeed");
@@ -414,22 +415,20 @@ async fn test_format_dublin_core_turtle() -> Result<()> {
         "@prefix dcterms: <http://purl.org/dc/terms/> .\n<https://example.org/work> dcterms:subject \"metadata\" ; dcterms:title \"Example\" .\n",
     )?;
     run(
-        &Some(source.clone()),
-        &None,
-        &None,
-        &None,
-        &None,
         &None,
         false,
-        false,
-        VocabularyFuzzyMode::Strict,
-        true,
         &[],
-        &false,
         Standard::DublinCore,
-        1,
-        &Verbosity::new(0, 0),
-        OFFLINE,
+        &CommandOptions::init()
+            .maybe_path(Some(source.clone()))
+            .dry_run(false)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(true)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
     )
     .await?;
     let formatted = fs::read_to_string(source)?;
@@ -446,22 +445,20 @@ async fn test_format_enrich_dry_run_does_not_write() -> Result<()> {
     let original = serde_json::to_string_pretty(&data)?;
     fs::write(&dest_file, &original)?;
     let result = run(
-        &Some(dest_file.clone()),
         &None,
-        &None,
-        &None,
-        &None,
-        &None,
-        true,
-        true,
-        VocabularyFuzzyMode::Strict,
         true,
         &[Provider::Ror],
-        &false,
         Standard::ResearchActivityData,
-        1,
-        &Verbosity::new(0, 0),
-        OFFLINE,
+        &CommandOptions::init()
+            .maybe_path(Some(dest_file.clone()))
+            .dry_run(true)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(true)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
     )
     .await;
     assert!(result.is_ok(), "Enriched dry run should succeed");
@@ -477,22 +474,20 @@ async fn test_format_enrich_offline_fails_without_writing() -> Result<()> {
     copy(&source, &dest_file)?;
     let original = fs::read_to_string(&dest_file)?;
     let result = run(
-        &Some(dest_file.clone()),
         &None,
-        &None,
-        &None,
-        &None,
-        &None,
-        false,
         true,
-        VocabularyFuzzyMode::Strict,
-        false,
         &[Provider::Ror],
-        &false,
         Standard::ResearchActivityData,
-        1,
-        &Verbosity::new(0, 0),
-        true,
+        &CommandOptions::init()
+            .maybe_path(Some(dest_file.clone()))
+            .dry_run(false)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(false)
+            .offline(true)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
     )
     .await;
     assert!(result.is_err(), "Offline enrichment should fail");
@@ -545,22 +540,20 @@ async fn test_format_multiple_files() -> Result<()> {
     }
     let path = Some(temp_dir);
     let result = run(
-        &path,
         &None,
-        &None,
-        &None,
-        &None,
-        &None,
-        false,
-        false,
-        VocabularyFuzzyMode::Strict,
         false,
         &[],
-        &false,
         Standard::ResearchActivityData,
-        1,
-        &Verbosity::new(0, 0),
-        OFFLINE,
+        &CommandOptions::init()
+            .maybe_path(path.clone())
+            .dry_run(false)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(false)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
     )
     .await;
     assert!(result.is_ok(), "Format multiple files should succeed");
@@ -580,22 +573,20 @@ async fn test_format_no_changes_needed() -> Result<()> {
     fs::set_permissions(&dest_file, read_only_permissions)?;
     let path = Some(dest_file.clone());
     let result = run(
-        &path,
         &None,
-        &None,
-        &None,
-        &None,
-        &None,
-        false,
-        false,
-        VocabularyFuzzyMode::Strict,
         false,
         &[],
-        &false,
         Standard::ResearchActivityData,
-        1,
-        &Verbosity::new(0, 0),
-        OFFLINE,
+        &CommandOptions::init()
+            .maybe_path(path.clone())
+            .dry_run(false)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(false)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
     )
     .await;
     fs::set_permissions(dest_file, original_permissions)?;
@@ -612,22 +603,20 @@ async fn test_format_with_changes() -> Result<()> {
     copy(&source, &dest_file)?;
     let path = Some(dest_file.clone());
     let result = run(
-        &path,
         &None,
-        &None,
-        &None,
-        &None,
-        &None,
-        false,
-        false,
-        VocabularyFuzzyMode::Strict,
         false,
         &[],
-        &false,
         Standard::ResearchActivityData,
-        1,
-        &Verbosity::new(0, 0),
-        OFFLINE,
+        &CommandOptions::init()
+            .maybe_path(path.clone())
+            .dry_run(false)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(false)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
     )
     .await;
     assert!(result.is_ok(), "Format with changes should succeed");
@@ -645,22 +634,20 @@ async fn test_format_zonf_with_changes() -> Result<()> {
     let destination = temp_dir.join("index.zonf");
     fs::write(&destination, zon::encode(&activity)?)?;
     let result = run(
-        &Some(destination.clone()),
         &None,
-        &None,
-        &None,
-        &None,
-        &None,
-        false,
-        false,
-        VocabularyFuzzyMode::Strict,
         false,
         &[],
-        &false,
         Standard::ResearchActivityData,
-        1,
-        &Verbosity::new(0, 0),
-        OFFLINE,
+        &CommandOptions::init()
+            .maybe_path(Some(destination.clone()))
+            .dry_run(false)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(false)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build(),
     )
     .await;
     assert!(result.is_ok(), "Format ZON with changes should succeed");

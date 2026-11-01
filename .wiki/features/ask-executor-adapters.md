@@ -25,6 +25,8 @@ Evidence checked against the worktree on 2026-10-31:
 
 # Dependencies and boundaries
 
+Implementation scheduling on 2026-11-01 places ADP-08 after IMC-10 and IMC-11. This is a queue order for shared CLI and workflow ownership, not a new technical dependency; ADP-08 remains ready.
+
 ADP-08 can consume the landed configuration contract; ADP-09 can consume the landed CLI route syntax after ADP-08. The four adapter leaves may proceed after ADP-08 while native capability phases continue, but ADP-06 waits for PAR-16 before evaluating heterogeneous selection. MCP, ACP, OpenAI-compatible endpoint, and local sidecar adapters use their existing service contracts and do not change those providers' policy. Direct Ollama inference is an available endpoint transport, not a routed binding. The [parallel guide](../parallel-execution.md) serializes shared registry, CLI, manifest, and documentation roots.
 
 # Validation and acceptance criteria

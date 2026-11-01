@@ -36,6 +36,11 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 static ENV_LOCK: Mutex<()> = Mutex::new(());
+#[test]
+fn test_format_interactive_parser() {
+    let parsed = Arguments::try_parse_from(["acorn", "format", "--interactive", "--dry-run"]).expect("interactive format");
+    assert!(matches!(parsed.command, Some(Commands::Format(arguments)) if arguments.interactive && arguments.dry_run));
+}
 fn fixture_content_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/filter")
 }

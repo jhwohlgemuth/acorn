@@ -7,6 +7,7 @@ impact: high
 package: [acorn-lib, acorn-cli, acorn-schema]
 tags: [feature, ask, metadata, chat, terminal, enrichment]
 status: in-progress
+priority: next
 execution: phased
 phase_budget_hours: 5
 ---
@@ -18,6 +19,8 @@ Make `acorn ask --interactive` a multi-turn conversation for understanding, chec
 The first usable interface is separate from `acorn tui`. The later chat-controller phase leaves a UI-neutral event contract that a future TUI screen can consume; it does not add that screen.
 
 # Current evidence
+
+Implementation queue update on 2026-11-01: IMC is designated next, with ADP after IMC-10/11. The format parser and dispatch now accept `--interactive`; terminal validation and temporary rejection of enriched and configured-hook modes are implemented. IMC-10 remains in progress until inline deterministic feedback, generated help, and focused validation pass. IMC-11 remains planned and must add typed selection, source revalidation, and workflow application before enriched modes are enabled.
 
 Checked on 2026-10-29 against the current implementation:
 
@@ -76,10 +79,10 @@ Checked on 2026-10-29 against the current implementation:
 
 ## IMC-10 — Add interactive formatting for deterministic paths
 
-- Status: ready
+- Status: in-progress
 - Budget: 5 active hours maximum
 - Prerequisites: claim the CLI contract lock
-- Exact write set: `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/cli/tests/mod.rs`, `crates/acorn-cli/src/commands/mod.rs`, `crates/acorn-cli/src/commands/format/mod.rs`, `crates/acorn-cli/src/commands/format/acre.rs`, `crates/acorn-cli/src/commands/format/tests/mod.rs`, `CommandLineHelp.md`
+- Exact write set: `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/cli/tests/mod.rs`, `crates/acorn-cli/src/commands/mod.rs`, `crates/acorn-cli/src/commands/format/mod.rs`, `crates/acorn-cli/src/commands/format/acre.rs`, `crates/acorn-cli/src/commands/format/tests/mod.rs`, `CommandLineHelp.md`
 - Primary integration lock: CLI format contract
 - Outcome: Add `format --interactive`, TTY validation, and the reusable renderer to plain/ACRE formatting; deterministic changes continue through existing writes. Keep enriched/hook runs explicitly unavailable in this intermediate phase.
 - Focused validation: Parser, file/folder formatting, no-change, dry run, non-TTY, and non-interactive regression tests.

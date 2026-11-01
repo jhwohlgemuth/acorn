@@ -704,7 +704,7 @@ pub struct CommandOptions {
     /// Minimum number of downloads required for a GGUF fallback repository
     #[builder(default = DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT)]
     pub minimum_download_count: u64,
-    /// Flag used to select a GGUF fallback repository interactively
+    /// Enable interactive behavior for commands that support it.
     #[builder(default)]
     pub interactive: bool,
     /// Flag used to suppress output

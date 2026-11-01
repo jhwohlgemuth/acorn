@@ -28,15 +28,16 @@ use acorn_schema::{
     standard::Standard,
     standard::{cff::Cff, datacite, dublin_core::DublinCoreDocument, invenio},
     validation::Validate,
-    vocabulary::{VocabularyFuzzyMode, VocabularyReport},
+    vocabulary::VocabularyReport,
 };
-use clap_verbosity_flag::{log::Level, Verbosity};
+use clap_verbosity_flag::log::Level;
 use color_eyre::eyre::{eyre, Report, Result};
 use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     fs::{read_to_string, write},
+    io::{self, IsTerminal},
     path::{Path, PathBuf},
 };
 use strum::IntoEnumIterator;
@@ -159,65 +160,50 @@ where
                 })
         })
 }
-#[allow(clippy::too_many_arguments)]
-pub async fn run(
-    path: &Option<PathBuf>,
-    branch: &Option<String>,
-    commit: &Option<String>,
-    filter: &Option<String>,
-    ignore: &Option<String>,
+pub async fn run(config: &Option<PathBuf>, enrich: bool, providers: &[Provider], standard: Standard, options: &CommandOptions) -> Result<(), Report> {
+    match (
+        options.interactive && !(io::stdin().is_terminal() && io::stdout().is_terminal()),
+        options.interactive && enrich,
+    ) {
+        | (true, _) => Err(eyre!("--interactive requires terminal input and output")),
+        | (false, true) => Err(eyre!("--interactive with --enrich requires the reviewed format workflow")),
+        | (false, false) => run_validated(config, enrich, providers, standard, options).await,
+    }
+}
+async fn run_validated(
     config: &Option<PathBuf>,
-    dry_run: bool,
     enrich: bool,
-    fuzzy: VocabularyFuzzyMode,
-    no_color: bool,
     providers: &[Provider],
-    merge_request: &bool,
     standard: Standard,
-    threads: usize,
-    verbose: &Verbosity,
-    offline: bool,
+    options: &CommandOptions,
 ) -> Result<(), Report> {
-    let options = CommandOptions::init()
-        .maybe_branch(branch.clone())
-        .maybe_commit(commit.clone())
-        .maybe_filter(filter.clone())
-        .maybe_ignore(ignore.clone())
-        .merge_request(*merge_request)
-        .offline(offline)
-        .dry_run(dry_run)
-        .fuzzy(fuzzy)
-        .no_color(no_color)
-        .verbose(*verbose)
-        .quiet(verbose.is_silent())
-        .threads(threads)
-        .build();
-    preflight!(&options);
+    preflight!(options);
     match standard {
-        | Standard::ApplicationConfigurationResearchEnablement => acre::run(path, &options, config, enrich, providers).await,
-        | _ => match enrich && offline {
+        | Standard::ApplicationConfigurationResearchEnablement => acre::run(&options.path, options, config, enrich, providers).await,
+        | _ => match enrich && options.offline {
             | true => Err(eyre!("--enrich cannot be used with --offline")),
             | false => match ApplicationConfiguration::load_with_path(config) {
                 | Err(why) => Err(why),
                 | Ok((configuration, resolved)) => {
                     let root = ApplicationConfiguration::root(&resolved);
                     let standard_options = StandardOptions {
-                        command: &options,
+                        command: options,
                         configuration: &configuration,
                         enrich,
                         explicit_configuration: config.is_some(),
-                        path,
+                        path: &options.path,
                         providers,
                         root: &root,
                         standard,
                     };
-                    match standard {
-                        | Standard::CitationFileFormat => run_as::<Cff>(standard_options).await,
-                        | Standard::Datacite => run_as::<datacite::Record>(standard_options).await,
-                        | Standard::DublinCore => run_format_only::<DublinCoreDocument>(standard_options).await,
-                        | Standard::Invenio => run_as::<invenio::Record>(standard_options).await,
-                        | Standard::ResearchActivityData => run_as::<ResearchActivity>(standard_options).await,
-                        | _ => Err(eyre!("Formatting is not supported for the {standard} standard")),
+                    match (options.interactive && configuration.has_hook(Hook::Format), standard) {
+                        | (true, _) => Err(eyre!("--interactive with format hooks requires the reviewed format workflow")),
+                        | (false, Standard::CitationFileFormat) => run_as::<Cff>(standard_options).await,
+                        | (false, Standard::Datacite) => run_as::<datacite::Record>(standard_options).await,
+                        | (false, Standard::DublinCore) => run_format_only::<DublinCoreDocument>(standard_options).await,
+                        | (false, Standard::Invenio) => run_as::<invenio::Record>(standard_options).await,
+                        | (false, Standard::ResearchActivityData) => run_as::<ResearchActivity>(standard_options).await,
+                        | (false, _) => Err(eyre!("Formatting is not supported for the {standard} standard")),
                     }
                 }
             },
