@@ -212,15 +212,65 @@ pub enum Topology {
     #[display("{}", _0)]
     Other(String),
 }
+/// Logical gates used for fault-tolerant execution.
+#[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
+#[display(
+    "operation: {operation}, duration: {duration:?}, resource cost: {resource_cost:?}"
+)]
+pub struct LogicalGate {
+    pub operation: String,
+    pub duration: Option<f64>,
+    pub resource_cost: Option<String>,
+}
+/// Logical error rates per operation.
+#[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
+#[display(
+    "operation: {operation}, error rate: {error_rate}, protection level: {protection_level:?}"
+)]
+pub struct LogicalErrorRate {
+    pub operation: String,
+    pub error_rate: f64,
+    pub protection_level: Option<String>,
+}
+/// Fault-tolerance protocol implementation specifics.
+#[derive(Builder,Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
+#[builder(start_fn = init)]
+#[display(
+    "syndrome extraction: {syndrome_extraction:?}, decoder: {decoder:?}, logical operations: {logical_operations:?}, noise assumptions: {noise_assumptions:?}"
+)]
+pub struct ProtocolSpecifics {
+    pub syndrome_extraction: Option<String>,
+    pub decoder: Option<String>,
+    pub logical_operations: Option<String>,
+    pub noise_assumptions: Option<String>,
+}
 /// Fault tolerance implemented by a quantum processor configuration.
 #[derive(Builder, Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct FaultTolerance {
-    /// Name of the code or technique in use.
+    /// Error-correcting code family or construction, such as the surface code.
     pub code: String,
-    /// Ratio of physical qubits allocated to each logical qubit, when known.
-    pub physical_to_logical_ratio: Option<u32>,
+
+    /// Fault-tolerant implementation details, such as syndrome extraction,
+    /// decoder, lattice surgery, and noise assumptions.
+    pub protocol_specifics: Option<ProtocolSpecifics>,
+
+    /// Number of usable logical qubits.
+    pub logical_qubit_capacity: u32,
+
+    /// Supported logical operations and their costs, such as gate time
+    /// and resource requirements.
+    pub logical_gate_set: Vec<LogicalGate>,
+
+    /// Logical error rates, recorded by operation and protection level.
+    pub logical_error_rates: Vec<LogicalErrorRate>,
+
+    /// Duration of one complete error-correction cycle.
+    pub logical_cycle_time: f64,
+
+    /// Physical qubits required per logical qubit at a stated target error rate.
+    pub physical_qubits_per_logical_qubit: Option<f64>,
 }
 /// Configured quantum processing resources for a hardware requirement or platform.
 #[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
