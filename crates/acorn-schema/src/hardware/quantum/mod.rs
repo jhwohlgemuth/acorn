@@ -2,6 +2,7 @@
 use super::vendor::Vendor;
 use crate::OneOrMany;
 use acorn_core::prelude::alloc::String;
+use acorn_core::time::Nanoseconds;
 use bon::Builder;
 use derive_more::Display;
 use schemars::JsonSchema;
@@ -214,26 +215,22 @@ pub enum Topology {
 }
 /// Logical gates used for fault-tolerant execution.
 #[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
-#[display(
-    "operation: {operation}, duration: {duration:?}, resource cost: {resource_cost:?}"
-)]
+#[display("operation: {operation}, duration: {duration:?}, resource cost: {resource_cost:?}")]
 pub struct LogicalGate {
     pub operation: String,
-    pub duration: Option<f64>,
+    pub duration: Option<Nanoseconds>,
     pub resource_cost: Option<String>,
 }
 /// Logical error rates per operation.
 #[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
-#[display(
-    "operation: {operation}, error rate: {error_rate}, protection level: {protection_level:?}"
-)]
+#[display("operation: {operation}, error rate: {error_rate}, protection level: {protection_level:?}")]
 pub struct LogicalErrorRate {
     pub operation: String,
     pub error_rate: f64,
     pub protection_level: Option<String>,
 }
 /// Fault-tolerance protocol implementation specifics.
-#[derive(Builder,Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
+#[derive(Builder, Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
 #[builder(start_fn = init)]
 #[display(
     "syndrome extraction: {syndrome_extraction:?}, decoder: {decoder:?}, logical operations: {logical_operations:?}, noise assumptions: {noise_assumptions:?}"
@@ -260,7 +257,7 @@ pub struct FaultTolerance {
     /// Logical error rates, recorded by operation and protection level.
     pub logical_error_rates: Vec<LogicalErrorRate>,
     /// Duration of one complete error-correction cycle.
-    pub logical_cycle_time: f64,
+    pub logical_cycle_time: Nanoseconds,
     /// Physical qubits required per logical qubit at a stated target error rate.
     pub physical_qubits_per_logical_qubit: Option<f64>,
 }

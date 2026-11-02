@@ -29,6 +29,14 @@ fn test_millisecond_conversion_rejects_negative_values() {
     );
 }
 #[test]
+fn test_microsecond_and_nanosecond_conversions() {
+    assert_eq!(Nanoseconds::from(Microseconds::new(42)), Nanoseconds::new(42_000));
+    assert_eq!(Microseconds::from(Nanoseconds::new(42_999)), Microseconds::new(42));
+    assert_eq!(Microseconds::from(Milliseconds::new(2)), Microseconds::new(2_000));
+    assert_eq!(Milliseconds::from(Microseconds::new(2_999)), Milliseconds::new(2));
+    assert_eq!(Nanoseconds::from(Microseconds::new(u64::MAX)), Nanoseconds::new(u64::MAX));
+}
+#[test]
 fn test_month_abbreviations_round_trip_and_reject_unknown_values() {
     for (input, month, number) in [
         ("jan", Month::Jan, 1),

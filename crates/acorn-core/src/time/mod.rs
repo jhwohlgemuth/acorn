@@ -77,6 +77,16 @@ pub enum Month {
 #[display("{_0}")]
 #[serde(transparent)]
 pub struct Milliseconds(u64);
+/// Non-negative microsecond quantity used at serialized duration boundaries.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Display, Eq, JsonSchema, Ord, PartialEq, PartialOrd, Serialize)]
+#[display("{_0}")]
+#[serde(transparent)]
+pub struct Microseconds(u64);
+/// Non-negative nanosecond quantity used at serialized duration boundaries.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Display, Eq, JsonSchema, Ord, PartialEq, PartialOrd, Serialize)]
+#[display("{_0}")]
+#[serde(transparent)]
+pub struct Nanoseconds(u64);
 /// Non-negative second quantity used at serialized duration boundaries.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Display, Eq, Hash, JsonSchema, Ord, PartialEq, PartialOrd, Serialize)]
 #[display("{_0}")]
@@ -161,6 +171,16 @@ impl From<Milliseconds> for Duration {
         Self::from_millis(value.get())
     }
 }
+impl From<Microseconds> for Duration {
+    fn from(value: Microseconds) -> Self {
+        Self::from_micros(value.get())
+    }
+}
+impl From<Nanoseconds> for Duration {
+    fn from(value: Nanoseconds) -> Self {
+        Self::from_nanos(value.get())
+    }
+}
 impl From<Seconds> for Duration {
     fn from(value: Seconds) -> Self {
         Self::from_secs(value.get())
@@ -169,6 +189,26 @@ impl From<Seconds> for Duration {
 impl From<Seconds> for Milliseconds {
     fn from(value: Seconds) -> Self {
         Self::new(value.get().saturating_mul(1_000))
+    }
+}
+impl From<Milliseconds> for Microseconds {
+    fn from(value: Milliseconds) -> Self {
+        Self::new(value.get().saturating_mul(1_000))
+    }
+}
+impl From<Microseconds> for Milliseconds {
+    fn from(value: Microseconds) -> Self {
+        Self::new(value.get() / 1_000)
+    }
+}
+impl From<Microseconds> for Nanoseconds {
+    fn from(value: Microseconds) -> Self {
+        Self::new(value.get().saturating_mul(1_000))
+    }
+}
+impl From<Nanoseconds> for Microseconds {
+    fn from(value: Nanoseconds) -> Self {
+        Self::new(value.get() / 1_000)
     }
 }
 impl From<u64> for Milliseconds {
@@ -183,6 +223,32 @@ impl TryFrom<SignedDuration> for Milliseconds {
     }
 }
 impl UnitOfTime for Milliseconds {
+    fn new(value: u64) -> Self {
+        Self(value)
+    }
+    fn get(self) -> u64 {
+        self.0
+    }
+}
+impl From<u64> for Microseconds {
+    fn from(value: u64) -> Self {
+        Self::new(value)
+    }
+}
+impl UnitOfTime for Microseconds {
+    fn new(value: u64) -> Self {
+        Self(value)
+    }
+    fn get(self) -> u64 {
+        self.0
+    }
+}
+impl From<u64> for Nanoseconds {
+    fn from(value: u64) -> Self {
+        Self::new(value)
+    }
+}
+impl UnitOfTime for Nanoseconds {
     fn new(value: u64) -> Self {
         Self(value)
     }
@@ -216,6 +282,16 @@ impl UnitOfTime for Seconds {
 }
 impl From<Milliseconds> for u64 {
     fn from(value: Milliseconds) -> Self {
+        value.get()
+    }
+}
+impl From<Microseconds> for u64 {
+    fn from(value: Microseconds) -> Self {
+        value.get()
+    }
+}
+impl From<Nanoseconds> for u64 {
+    fn from(value: Nanoseconds) -> Self {
         value.get()
     }
 }
