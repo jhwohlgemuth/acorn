@@ -18,53 +18,35 @@ Extend the [native capability router](needle-router-native-parity.md) with expli
 
 # Current evidence
 
-Evidence checked on 2026-11-01 against `da1d04be` and the current worktree:
+Evidence checked on 2026-11-01 against `746fca0d` and the current worktree:
 
 - `ToolRegistry` has versioned capability and binding definitions, deterministic selection, typed one-terminal execution, and focused registry/execution tests. Routed `ask`/`infer --route` currently registers native `acorn.version` and local `acorn.check`; interactive metadata chat also invokes the native check binding. Native parity still gates the heterogeneous release.
-- The outbound MCP client provides configured allowlists, discovery, calls, policy checks, cancellation, and bounded cleanup. Direct `infer run` has ACP and OpenAI-compatible backends; Ollama now uses the existing OpenAI-compatible client with local chat defaults and distinct provenance. These direct paths do not register capability bindings.
+- The outbound MCP client provides configured allowlists, discovery, calls, policy checks, cancellation, and bounded cleanup. Direct `infer run` and the new routed adapters share the existing ACP and OpenAI-compatible backends; Ollama uses local chat defaults and distinct provenance.
 - `ApplicationConfiguration.executors` stores explicit, non-secret capability/binding IDs and tagged MCP, trusted ACP, named endpoint, or sidecar selectors. Validation rejects duplicate or malformed IDs, unallowlisted MCP tools, unknown endpoint names, unsupported executor kinds, and untrusted ACP profiles. JSON, JSONC, and YAML parsing and JSON round trips have focused tests. Parsing performs no provider discovery.
 - `ToolRegistry` now admits provider-declared runtime JSON Schemas through the same canonical contract checks as typed bindings. It rejects invalid schemas, conflicting capability contracts, duplicate binding IDs, and version/schema/effect mismatches while preserving deterministic selection. Cooperative capability handlers receive caller cancellation and get a four-second bounded cleanup window; native handlers retain drop cancellation.
 - `ToolRegistry::register_mcp_bindings` constructs the outbound client from only explicitly referenced MCP server configurations and tool allowlists, discovers each selected server once, and registers only the exact configured tools. Configured IDs and local effect policy remain authoritative; server descriptions and annotations are ignored for routing policy. Calls retain `McpClientBackend` policy and limits, require declared structured output, map `is_error` to tool failure, never fall back, and finish client cleanup on cancellation. Fake-backend adapter tests and existing client pagination/cursor tests pass.
 - Routed CLI startup still builds only native `acorn.version` and local `acorn.check`, has no `--config` field on `Infer`, and hard-codes `allow_remote: false`. Existing `ApplicationConfiguration::load(&None)` provides project discovery without new CLI syntax. ADP-09 must load and validate that configuration without contacting or starting providers, then compose the landed adapter registrations.
 - The optional `slm` feature now compiles the shared sidecar root and an empty `sidecar::slm` namespace independently of `needle`; the CLI forwards the opt-in feature. Minimal `slm`, existing `needle`, combined `needle,slm`, and CLI `slm` checks pass, and the default library dependency tree remains unchanged.
+- ACP bindings register only configured Codex/OpenCode profiles with the shared typed embedded-prompt task contract, selected model, deny-mutation policy, normalized final result, and response-schema validation. Endpoint bindings reuse that contract with an explicitly named ACRE endpoint/model, local-only or allow-remote policy, offline-safe loopback selection, and distinct Ollama provenance when the endpoint is named `ollama`. Registration starts no agent and contacts no endpoint. Unsupported input fields and invalid response schemas are rejected before inference; refusals, incomplete results, and malformed outputs fail without fallback.
+- Focused routed tests cover ACP and endpoint cancellation, policy, model selection, binding preference, malformed results, and a real loopback Ollama-compatible HTTP call. Existing ACP fake-agent tests cover permission denial, unavailable models, and timeout. The endpoint adapter also passes with `agentic` without `acp`; ACP registration remains gated on `acp`. Strict library Clippy and formatting checks pass.
 
 # Dependencies and boundaries
 
-Implementation scheduling on 2026-11-01 places ADP-03 next after the optional sidecar feature and configured MCP adapter handoffs. This is a queue order for shared ownership, not a technical dependency.
+Implementation scheduling on 2026-11-01 places ADP-05 next after the ACP and endpoint adapter handoffs. This is a queue order for shared ownership, not a technical dependency.
 
-ADP-03 through ADP-05 may proceed while native capability phases continue. ADP-09 composes the landed MCP adapter and those remaining adapter contracts through the existing CLI route syntax; it cannot precede them because configuration contains selectors rather than executable handlers or capability schemas. ADP-06 waits for ADP-09 and PAR-16 before evaluating heterogeneous selection. MCP, ACP, OpenAI-compatible endpoint, and local sidecar adapters use their existing service contracts and do not change those providers' policy. Direct Ollama inference is an available endpoint transport, not a routed binding. The [parallel guide](../parallel-execution.md) serializes shared registry, CLI, manifest, and documentation roots.
+The common inference contract accepts an embedded prompt asset and object render data, then returns final text, optional validated structured output, usage, and secret-free provenance. Configured binding IDs and capability IDs remain explicit. Provider-advertised structured-output support is not treated as proof of conformance.
+
+ADP-05 may proceed while native capability phases continue. ADP-09 composes the landed MCP, ACP, and endpoint adapters with the remaining sidecar contract through the existing CLI route syntax; it cannot precede ADP-05 because configuration contains a sidecar selector rather than an executable handler. ADP-06 waits for ADP-09 and PAR-16 before evaluating heterogeneous selection. Adapters use their existing service contracts and do not change those providers' policy. The [parallel guide](../parallel-execution.md) serializes shared registry, CLI, manifest, and documentation roots.
 
 # Validation and acceptance criteria
 
-Validate each adapter with a fake configured provider, unavailable and denied routes, bounded cancellation, and secret-free provenance. Cover local Ollama and remote OpenAI-compatible endpoint policy separately. Release the generic router only when the heterogeneous selection matrix passes and documentation describes explicit configuration and failure behavior; real Swift and Julia profiles retain their own release gates.
+Validate the remaining sidecar adapter with a deterministic fixture provider, unavailable and denied routes, bounded cancellation, and secret-free provenance. Release the generic router only when the heterogeneous selection matrix passes and documentation describes explicit configuration and failure behavior; real Swift and Julia profiles retain their own release gates.
 
 # Execution phases
 
-## ADP-03 — Adapt trusted ACP agent capabilities
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: None
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/acp.rs`, `crates/acorn-lib/src/io/mcp/tools/tests/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/tests/acp.rs`
-- Primary integration lock: Ask capability routing
-- Outcome: Bind named tasks to trusted ACP profiles through InferenceBackend and prompt hydration; preserve deny-mutation policy, configured model/agent, schema support, and provenance. Do not grant arbitrary agent authority.
-- Focused validation: Fake sessions for capability mismatch, permission requests, selected model, refusal, timeout/cancellation cleanup, malformed structured output, and final result mapping.
-- Handoff: Remove ADP-03 after preserving contract/evidence in code, tests, and documentation.
-
-## ADP-04 — Adapt configured inference endpoints
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: None
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/inference.rs`, `crates/acorn-lib/src/io/mcp/tools/tests/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/tests/inference.rs`
-- Primary integration lock: Ask capability routing
-- Outcome: Bind named tasks to the existing OpenAI-compatible `InferenceBackend`, including explicitly configured Ollama endpoints, with a configured endpoint/model, data policy, and validated outputs. Reuse the direct backends without a new provider SDK or implicit fallback.
-- Focused validation: Mock refusal/failure, malformed output, unsupported schema/attachments, remote offline rejection versus allowed local Ollama, cancellation, provenance, and binding preference.
-- Handoff: Remove ADP-04 after preserving contract/evidence in code, tests, and documentation.
-
 ## ADP-05 — Prove reusable local sidecar registration
 
-- Status: planned
+- Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: None
 - Exact write set: `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/sidecar.rs`, `crates/acorn-lib/src/io/mcp/tools/tests/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/tests/sidecar.rs`
@@ -77,7 +59,7 @@ Validate each adapter with a fake configured provider, unavailable and denied ro
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ADP-03, ADP-04, ADP-05, and the landed CLI route syntax
+- Prerequisites: ADP-05 and the landed CLI route syntax
 - Exact write set: `crates/acorn-cli/src/commands/infer/mod.rs`, `crates/acorn-cli/src/commands/infer/tests/mod.rs`
 - Primary integration lock: CLI contract
 - Outcome: Load and validate discovered ACRE configuration, compose the native registry with only its explicitly configured adapter bindings, and derive remote eligibility from the frozen adapter/configuration policy without changing CLI syntax or provider transports. Registry construction performs no unselected-provider discovery, startup, or inference.

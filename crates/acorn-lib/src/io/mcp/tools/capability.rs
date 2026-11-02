@@ -301,7 +301,6 @@ impl ToolRegistry {
                 }
             })
     }
-    #[cfg(feature = "mcp-client")]
     pub(super) fn register_dynamic_capability(self, definition: CapabilityDefinition) -> ApiResult<Self> {
         match self.capabilities.iter().find(|entry| entry.definition.id == definition.id) {
             | Some(entry) if entry.definition == definition => Ok(self),

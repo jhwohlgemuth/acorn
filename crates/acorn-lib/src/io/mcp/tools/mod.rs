@@ -1,15 +1,25 @@
 //! Runtime registration and execution for ACORN agent MCP tools
 
+#[cfg(feature = "agentic")]
+use crate::agent::{
+    HydratedPrompt, InferenceBackend, InferenceFinishReason, InferencePermissionPolicy, InferenceProvenance, InferenceRequest, InferenceResult,
+    InferenceUsage, PromptContext, PromptHydrator,
+};
 use crate::error::ApiResult;
 use crate::io::database::schema::Table;
 use crate::io::database::{Database, LogbookGraduationPersistence};
 use crate::io::enrichment::{Enrich, Pipeline};
+use crate::io::mcp::ExecutorBindingConfiguration;
 #[cfg(feature = "analysis")]
 use acorn_analysis::StandardCrosswalk;
 use acorn_core::prelude::{Box, String, Vec};
+use acorn_core::util::SemanticVersion;
 use acorn_core::util::{MarkdownSupport, MimeType};
 use acorn_core::Location;
+use acorn_schema::agent::tools::ToolEffects;
 use acorn_schema::agent::tools::{ToolDefinition, ToolExposure, ToolResult};
+#[cfg(feature = "agentic")]
+use acorn_schema::agent::{PromptFileAsset, PromptTemplateConfiguration};
 use acorn_schema::research_activity::{GraduationCandidates, ResearchActivity};
 #[cfg(feature = "analysis")]
 use acorn_schema::standard::{crosswalk::CrosswalkStandard, Standard};
@@ -30,14 +40,16 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+#[cfg(feature = "acp")]
+mod acp;
 mod capability;
 mod execution;
+mod inference;
 mod input;
 #[cfg(feature = "mcp-client")]
 mod mcp;
 mod native;
 mod needle;
-#[cfg(feature = "mcp-client")]
 type ToolCancellation<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
 type ToolFuture = Pin<Box<dyn Future<Output = ApiResult<Value>> + Send>>;
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -101,6 +113,28 @@ struct FormatAndEnrichOutput {
 struct HandlerCall {
     cancellation: Option<tokio::sync::oneshot::Sender<()>>,
     future: ToolFuture,
+}
+struct InferenceBindingOptions {
+    agent: Option<String>,
+    model: Option<String>,
+    kind: BindingKind,
+    availability: BindingAvailability,
+    offline_safe: bool,
+}
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct InferenceTaskInput {
+    asset: String,
+    data: Value,
+    response_schema: Option<Value>,
+}
+#[derive(Debug, JsonSchema, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct InferenceTaskOutput {
+    text: String,
+    structured: Option<Value>,
+    provenance: InferenceProvenance,
+    usage: Option<InferenceUsage>,
 }
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -200,7 +234,6 @@ impl From<LogbookGraduationPersistence> for ApplyLogbookGraduationOutput {
     }
 }
 impl CapabilityHandler {
-    #[cfg(feature = "mcp-client")]
     fn cancellable<F>(handler: F) -> Self
     where
         F: Fn(Value, ToolCancellation<'static>) -> ToolFuture + Send + Sync + 'static,
@@ -281,6 +314,37 @@ impl FormatAndEnrichInput {
             })
     }
 }
+impl InferenceTaskInput {
+    fn hydrate(&self) -> ApiResult<HydratedPrompt> {
+        let asset = PromptFileAsset::from(self.asset.as_str());
+        match (asset, self.data.is_object()) {
+            | (PromptFileAsset::Script(_) | PromptFileAsset::Unknown(_), _) => Err(eyre!("Routed inference requires a known embedded prompt asset")),
+            | (_, false) => Err(eyre!("Routed inference prompt data must be an object")),
+            | (asset, true) => {
+                let context = PromptContext {
+                    config: PromptTemplateConfiguration::default(),
+                    data: &self.data,
+                };
+                PromptHydrator::hydrate(asset, &context)
+            }
+        }
+    }
+}
+impl TryFrom<InferenceResult> for InferenceTaskOutput {
+    type Error = Report;
+
+    fn try_from(result: InferenceResult) -> Result<Self, Self::Error> {
+        match (result.finish_reason, result.text.trim().is_empty()) {
+            | (InferenceFinishReason::Stop, false) => Ok(Self {
+                text: result.text,
+                structured: result.structured,
+                provenance: result.provenance,
+                usage: result.usage,
+            }),
+            | _ => Err(eyre!("Inference did not produce a complete final result")),
+        }
+    }
+}
 impl Tool<Unregistered> {
     fn new(definition: ToolDefinition) -> Self {
         Self {
@@ -347,6 +411,91 @@ impl ToolHandler {
 impl fmt::Debug for ToolRegistry {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.debug_struct("ToolRegistry").field("definitions", &self.definitions()).finish()
+    }
+}
+impl ToolRegistry {
+    fn register_inference_binding(
+        self,
+        configured: &ExecutorBindingConfiguration,
+        backend: Arc<dyn InferenceBackend>,
+        options: InferenceBindingOptions,
+    ) -> ApiResult<Self> {
+        configured
+            .validate()
+            .map_err(|why| eyre!("Invalid inference binding '{}' — {why}", configured.id))
+            .and_then(|()| {
+                let effects = ToolEffects {
+                    read_only: true,
+                    destructive: false,
+                    idempotent: false,
+                    open_world: true,
+                };
+                let version = SemanticVersion::from((1, 0, 0));
+                let capability = CapabilityDefinition::new::<InferenceTaskInput, InferenceTaskOutput>(
+                    &configured.capability_id,
+                    version,
+                    "Run one explicitly configured inference task.",
+                    effects,
+                );
+                let binding = BindingDefinition::new::<InferenceTaskInput, InferenceTaskOutput>(
+                    &configured.id,
+                    &configured.capability_id,
+                    version,
+                    options.kind,
+                    effects,
+                    options.availability,
+                );
+                let binding = if options.offline_safe { binding.with_offline_support() } else { binding };
+                let handler = CapabilityHandler::cancellable(move |arguments, cancellation| {
+                    let backend = backend.clone();
+                    let agent = options.agent.clone();
+                    let model = options.model.clone();
+                    Box::pin(async move {
+                        let prepared = serde_json::from_value::<InferenceTaskInput>(arguments)
+                            .map_err(|why| eyre!("Invalid inference task input — {why}"))
+                            .and_then(|input| input.hydrate().map(|prompt| (input, prompt)))
+                            .and_then(|(input, prompt)| {
+                                input
+                                    .response_schema
+                                    .as_ref()
+                                    .map(jsonschema::validator_for)
+                                    .transpose()
+                                    .map_err(|why| eyre!("Invalid inference response schema — {why}"))
+                                    .map(|validator| (input, prompt, validator))
+                            });
+                        match prepared {
+                            | Err(why) => Err(why),
+                            | Ok((input, prompt, response_validator)) => {
+                                let request = InferenceRequest {
+                                    agent,
+                                    model,
+                                    permission_policy: InferencePermissionPolicy::DenyMutation,
+                                    prompt,
+                                    response_schema: input.response_schema,
+                                    timeout: 120_000.into(),
+                                };
+                                let result = tokio::select! {
+                                    _ = cancellation => Err(eyre!("Inference task cancelled")),
+                                    result = backend.infer(&request) => result,
+                                };
+                                result
+                                    .and_then(InferenceTaskOutput::try_from)
+                                    .and_then(|output| match response_validator.as_ref() {
+                                        | Some(validator) if !output.structured.as_ref().is_some_and(|value| validator.is_valid(value)) => {
+                                            Err(eyre!("Inference result failed the declared response schema"))
+                                        }
+                                        | _ => Ok(output),
+                                    })
+                                    .and_then(|output| {
+                                        serde_json::to_value(output).map_err(|why| eyre!("Failed to serialize inference result — {why}"))
+                                    })
+                            }
+                        }
+                    })
+                });
+                self.register_dynamic_capability(capability)
+                    .and_then(|registry| registry.register_dynamic_binding(binding, handler))
+            })
     }
 }
 impl ToolRegistry {
@@ -633,5 +782,6 @@ fn standard_from(standard: CrosswalkStandard) -> Standard {
         | CrosswalkStandard::Invenio => Standard::Invenio,
     }
 }
+
 #[cfg(test)]
 mod tests;
