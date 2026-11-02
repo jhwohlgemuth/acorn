@@ -148,6 +148,20 @@ pub enum Technology {
     Superconducting,
     /// Trapped ions carry the quantum state.
     TrappedIon,
+    // Spin states in semiconducturs carry the quantum state.
+    Spin,
+    // Topological states carry the quantum state.
+    Topological,
+    // Nitrogen-Vacancy (NV) centers carry the quantum state.
+    NitrogenVacancyCenters,
+    // Atoms in molecules via nuclear magnetic resonance carry the quantum state.
+    NuclearMagneticResonance,
+    // Engineered molecular spins carry the quantum state.
+    Molecular,
+    // Coherent oscillator pair states carry the quantum state.
+    Bosonic,
+    // Gottesman-Kitaev-Preskill continuous-variable modes carry the quantum state.
+    GKP,
     /// Another physical mechanism.
     Other(String),
 }
