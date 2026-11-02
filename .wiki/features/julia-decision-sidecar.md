@@ -198,7 +198,7 @@ Measure cold/warm latency, p50/p95, peak process-tree RSS, installed/download by
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ADP-05, JUL-10
+- Prerequisites: JUL-10
 - Exact write set: `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/needle.rs`, `crates/acorn-lib/src/io/mcp/tests/server.rs`
 - Primary integration lock: Ask capability routing
 - Outcome: Register Julia decisions behind `acorn ask` with explicit backend identity; Needle selects Julia and the sidecar returns the final advisory result.

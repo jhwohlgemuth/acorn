@@ -14,11 +14,13 @@ use acorn::{
         acp::{self, AgentProfile, Codex, OpenCode},
         api::{
             openai::{Client as OpenAiClient, EndpointMode, Options},
+            operation::InvocationContext,
             Configuration,
         },
+        config::ApplicationConfiguration,
         mcp::{
-            BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, CapabilitySelectionContext, ExecutionContext,
-            MutationAuthority, ToolRegistry,
+            BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, CapabilitySelectionContext, EndpointDataPolicy,
+            ExecutionContext, ExecutorConfiguration, MutationAuthority, ToolRegistry,
         },
         sidecar::{needle::Needle, Sidecar},
         ApiResult,
@@ -202,7 +204,7 @@ where
         .filter(|value| !value.is_empty())
         .ok_or_else(|| eyre!("Provide a prompt argument or pipe a prompt through standard input"))
 }
-fn routing_registry(offline: bool) -> ApiResult<ToolRegistry> {
+fn native_routing_registry(offline: bool) -> ApiResult<ToolRegistry> {
     let effects = ToolEffects {
         read_only: true,
         destructive: false,
@@ -237,6 +239,32 @@ fn routing_registry(offline: bool) -> ApiResult<ToolRegistry> {
             current_dir()
                 .map_err(Into::into)
                 .and_then(|root| registry.register_analysis_capability(root, offline))
+        })
+}
+async fn routing_registry(configuration: &ApplicationConfiguration, offline: bool) -> ApiResult<ToolRegistry> {
+    let prepared = native_routing_registry(offline)
+        .and_then(|registry| registry.register_unavailable_sidecar_bindings(&configuration.executors))
+        .and_then(|registry| registry.register_endpoint_bindings(configuration, offline))
+        .and_then(|registry| {
+            current_dir()
+                .map_err(Into::into)
+                .and_then(|root| registry.register_acp_bindings(configuration, root, offline))
+        });
+    match prepared {
+        | Err(why) => Err(why),
+        | Ok(registry) if offline => Ok(registry),
+        | Ok(registry) => registry.register_mcp_bindings(configuration, InvocationContext::default()).await,
+    }
+}
+fn remote_allowed(configuration: &ApplicationConfiguration, offline: bool) -> bool {
+    !offline
+        && configuration.executors.iter().any(|binding| match binding.executor {
+            | ExecutorConfiguration::Mcp { .. }
+            | ExecutorConfiguration::Endpoint {
+                data_policy: EndpointDataPolicy::AllowRemote,
+                ..
+            } => true,
+            | _ => false,
         })
 }
 /// Run one bounded Needle inference request and print its native result as JSON.
@@ -275,65 +303,73 @@ async fn run_inference(prompt: Option<&str>, custom_location: Option<&str>, thre
     }
 }
 async fn run_routed(arguments: &Infer, offline: bool) -> ApiResult<()> {
-    let prepared = if arguments.max_rounds.is_some() {
+    let input = if arguments.max_rounds.is_some() {
         Err(eyre!("--max-rounds applies only to the legacy Needle loop"))
     } else {
         resolve_prompt(arguments.prompt.as_deref(), read_stdin)
             .and_then(|prompt| structured_input(arguments.input_json.as_deref()).map(|caller_arguments| (prompt, caller_arguments)))
-            .and_then(|(prompt, caller_arguments)| routing_registry(offline).map(|registry| (prompt, caller_arguments, registry)))
-            .and_then(|(prompt, caller_arguments, registry)| {
-                let scope = arguments.capability.as_ref().map(|id| vec![id.clone()]);
-                registry
-                    .capability_catalog(
-                        scope.as_deref(),
-                        CapabilitySelectionContext {
-                            offline,
-                            allow_remote: false,
-                        },
-                    )
-                    .map(|_| (prompt, caller_arguments, registry, scope))
-            })
-            .and_then(|(prompt, caller_arguments, registry, scope)| {
-                let mutation = if arguments.apply {
-                    let grant = (
-                        arguments.capability.as_ref(),
-                        arguments.binding.as_ref(),
-                        caller_arguments.as_ref(),
-                        arguments.destination.as_ref(),
-                    );
-                    match grant {
-                        | (Some(capability_id), Some(binding_id), Some(arguments_value), Some(destination)) => {
-                            if arguments_value["destination"] == destination.as_str() {
-                                Ok(Some(MutationAuthority {
-                                    capability_id: capability_id.clone(),
-                                    binding_id: binding_id.clone(),
-                                    arguments: arguments_value.clone(),
-                                    destination: destination.clone(),
-                                }))
-                            } else {
-                                Err(eyre!("--destination must exactly match --input-json destination"))
-                            }
-                        }
-                        | _ => Err(eyre!("--apply requires --capability, --binding, --input-json, and --destination")),
-                    }
-                } else {
-                    Ok(None)
-                };
-                mutation.map(|mutation| (prompt, caller_arguments, registry, scope, mutation))
-            })
     };
+    let prepared = match input {
+        | Err(why) => Err(why),
+        | Ok((prompt, caller_arguments)) => {
+            let configured = ApplicationConfiguration::load(&None).and_then(|configuration| {
+                configuration
+                    .validate()
+                    .map_err(|why| eyre!("Invalid routing configuration — {why}"))
+                    .map(|()| configuration)
+            });
+            match configured {
+                | Err(why) => Err(why),
+                | Ok(configuration) => routing_registry(&configuration, offline)
+                    .await
+                    .map(|registry| (prompt, caller_arguments, registry, remote_allowed(&configuration, offline))),
+            }
+        }
+    };
+    let prepared = prepared
+        .and_then(|(prompt, caller_arguments, registry, allow_remote)| {
+            let scope = arguments.capability.as_ref().map(|id| vec![id.clone()]);
+            registry
+                .capability_catalog(scope.as_deref(), CapabilitySelectionContext { offline, allow_remote })
+                .map(|_| (prompt, caller_arguments, registry, scope, allow_remote))
+        })
+        .and_then(|(prompt, caller_arguments, registry, scope, allow_remote)| {
+            let mutation = if arguments.apply {
+                let grant = (
+                    arguments.capability.as_ref(),
+                    arguments.binding.as_ref(),
+                    caller_arguments.as_ref(),
+                    arguments.destination.as_ref(),
+                );
+                match grant {
+                    | (Some(capability_id), Some(binding_id), Some(arguments_value), Some(destination)) => {
+                        if arguments_value["destination"] == destination.as_str() {
+                            Ok(Some(MutationAuthority {
+                                capability_id: capability_id.clone(),
+                                binding_id: binding_id.clone(),
+                                arguments: arguments_value.clone(),
+                                destination: destination.clone(),
+                            }))
+                        } else {
+                            Err(eyre!("--destination must exactly match --input-json destination"))
+                        }
+                    }
+                    | _ => Err(eyre!("--apply requires --capability, --binding, --input-json, and --destination")),
+                }
+            } else {
+                Ok(None)
+            };
+            mutation.map(|mutation| (prompt, caller_arguments, registry, scope, mutation, allow_remote))
+        });
     match prepared {
         | Err(why) => Err(why),
-        | Ok((prompt, caller_arguments, registry, scope, mutation)) => {
+        | Ok((prompt, caller_arguments, registry, scope, mutation, allow_remote)) => {
             let prompt = match caller_arguments.as_ref() {
                 | Some(value) => format!("{prompt}\n\nCaller-supplied structured arguments (copy exactly): {value}"),
                 | None => prompt,
             };
             let context = ExecutionContext {
-                selection: CapabilitySelectionContext {
-                    offline,
-                    allow_remote: false,
-                },
+                selection: CapabilitySelectionContext { offline, allow_remote },
                 preview: arguments.route_preview,
                 binding_override: arguments.binding.clone(),
                 caller_arguments,

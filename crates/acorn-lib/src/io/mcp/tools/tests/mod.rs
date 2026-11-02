@@ -15,3 +15,5 @@ mod inference;
 mod input;
 #[cfg(feature = "mcp-client")]
 mod mcp;
+#[cfg(any(feature = "needle", feature = "slm"))]
+mod sidecar;

@@ -50,6 +50,8 @@ mod input;
 mod mcp;
 mod native;
 mod needle;
+#[cfg(any(feature = "needle", feature = "slm"))]
+mod sidecar;
 type ToolCancellation<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
 type ToolFuture = Pin<Box<dyn Future<Output = ApiResult<Value>> + Send>>;
 #[derive(Debug, Deserialize, JsonSchema)]
