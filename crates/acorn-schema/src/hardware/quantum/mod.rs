@@ -238,7 +238,7 @@ pub struct LogicalErrorRate {
 #[display(
     "syndrome extraction: {syndrome_extraction:?}, decoder: {decoder:?}, logical operations: {logical_operations:?}, noise assumptions: {noise_assumptions:?}"
 )]
-pub struct ProtocolSpecifics {
+pub struct ProtocolDetails {
     pub syndrome_extraction: Option<String>,
     pub decoder: Option<String>,
     pub logical_operations: Option<String>,
@@ -251,24 +251,16 @@ pub struct ProtocolSpecifics {
 pub struct FaultTolerance {
     /// Error-correcting code family or construction, such as the surface code.
     pub code: String,
-
-    /// Fault-tolerant implementation details, such as syndrome extraction,
-    /// decoder, lattice surgery, and noise assumptions.
-    pub protocol_specifics: Option<ProtocolSpecifics>,
-
+    /// Fault-tolerant implementation details, such as syndrome extraction, decoder, lattice surgery, and noise assumptions.
+    pub protocol_details: Option<ProtocolDetails>,
     /// Number of usable logical qubits.
     pub logical_qubit_capacity: u32,
-
-    /// Supported logical operations and their costs, such as gate time
-    /// and resource requirements.
+    /// Supported logical operations and their costs, such as gate time and resource requirements.
     pub logical_gate_set: Vec<LogicalGate>,
-
     /// Logical error rates, recorded by operation and protection level.
     pub logical_error_rates: Vec<LogicalErrorRate>,
-
     /// Duration of one complete error-correction cycle.
     pub logical_cycle_time: f64,
-
     /// Physical qubits required per logical qubit at a stated target error rate.
     pub physical_qubits_per_logical_qubit: Option<f64>,
 }
