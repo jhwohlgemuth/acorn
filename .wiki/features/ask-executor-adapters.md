@@ -18,7 +18,7 @@ Extend the [native capability router](needle-router-native-parity.md) with expli
 
 # Current evidence
 
-Evidence checked on 2026-11-01 against `746fca0d` and the current worktree:
+Evidence checked on 2026-11-01 against `ee76cad9` and the current worktree:
 
 - `ToolRegistry` has versioned capability and binding definitions, deterministic selection, typed one-terminal execution, and focused registry/execution tests. Routed `ask`/`infer --route` currently registers native `acorn.version` and local `acorn.check`; interactive metadata chat also invokes the native check binding. Native parity still gates the heterogeneous release.
 - The outbound MCP client provides configured allowlists, discovery, calls, policy checks, cancellation, and bounded cleanup. Direct `infer run` and the new routed adapters share the existing ACP and OpenAI-compatible backends; Ollama uses local chat defaults and distinct provenance.
@@ -29,6 +29,8 @@ Evidence checked on 2026-11-01 against `746fca0d` and the current worktree:
 - The optional `slm` feature now compiles the shared sidecar root and an empty `sidecar::slm` namespace independently of `needle`; the CLI forwards the opt-in feature. Minimal `slm`, existing `needle`, combined `needle,slm`, and CLI `slm` checks pass, and the default library dependency tree remains unchanged.
 - ACP bindings register only configured Codex/OpenCode profiles with the shared typed embedded-prompt task contract, selected model, deny-mutation policy, normalized final result, and response-schema validation. Endpoint bindings reuse that contract with an explicitly named ACRE endpoint/model, local-only or allow-remote policy, offline-safe loopback selection, and distinct Ollama provenance when the endpoint is named `ollama`. Registration starts no agent and contacts no endpoint. Unsupported input fields and invalid response schemas are rejected before inference; refusals, incomplete results, and malformed outputs fail without fallback.
 - Focused routed tests cover ACP and endpoint cancellation, policy, model selection, binding preference, malformed results, and a real loopback Ollama-compatible HTTP call. Existing ACP fake-agent tests cover permission denial, unavailable models, and timeout. The endpoint adapter also passes with `agentic` without `acp`; ACP registration remains gated on `acp`. Strict library Clippy and formatting checks pass.
+- `Sidecar::start` calls `resolve_assets`, which may acquire or replace official assets. Routed registration therefore needs an installed-asset readiness path that does not call `start` or `resolve_official` with downloads enabled. The `slm` namespace currently has no concrete profile; generic fixture registration can prove ADP-05, while ADP-09 must keep unimplemented configured profiles visibly unavailable.
+- MCP registration discovers tools on explicitly selected configured servers. CLI configuration loading and validation can remain free of provider calls; selected MCP discovery is the adapter-declared readiness work allowed during registry construction.
 
 # Dependencies and boundaries
 
@@ -51,8 +53,8 @@ Validate the remaining sidecar adapter with a deterministic fixture provider, un
 - Prerequisites: None
 - Exact write set: `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/sidecar.rs`, `crates/acorn-lib/src/io/mcp/tools/tests/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/tests/sidecar.rs`
 - Primary integration lock: Ask capability routing
-- Outcome: Adapt SidecarAssets/Sidecar into registered handlers with verified installed assets, target availability, bounded lifecycle, and typed final output. Use deterministic fixture runners; real SLMs remain model-profile work.
-- Focused validation: Readiness, input/output contracts, missing/altered assets, unsupported hosts, timeout/cancellation/process cleanup, exactly one invocation, and no implicit acquisition.
+- Outcome: Adapt SidecarAssets/Sidecar into registered handlers with verified installed assets, target availability, bounded lifecycle, and typed final output. Expose a reusable named-profile registration contract for CLI composition; use deterministic fixture runners, while real SLMs remain model-profile work. Readiness must not invoke the acquisition-capable `Sidecar::start` path.
+- Focused validation: Readiness without network or cache mutation, input/output contracts, missing/altered assets, unsupported hosts, timeout/cancellation/process cleanup, exactly one invocation, and no implicit acquisition. Verify the adapter under the opt-in sidecar feature as well as the default build.
 - Handoff: Remove ADP-05 after preserving contract/evidence in code, tests, and documentation.
 
 ## ADP-09 — Compose configured bindings at the CLI
@@ -62,8 +64,8 @@ Validate the remaining sidecar adapter with a deterministic fixture provider, un
 - Prerequisites: ADP-05 and the landed CLI route syntax
 - Exact write set: `crates/acorn-cli/src/commands/infer/mod.rs`, `crates/acorn-cli/src/commands/infer/tests/mod.rs`
 - Primary integration lock: CLI contract
-- Outcome: Load and validate discovered ACRE configuration, compose the native registry with only its explicitly configured adapter bindings, and derive remote eligibility from the frozen adapter/configuration policy without changing CLI syntax or provider transports. Registry construction performs no unselected-provider discovery, startup, or inference.
-- Focused validation: Configured composition across all four adapter kinds, missing/default configuration, unavailable providers, offline and remote-policy denial, duplicate/unknown contracts, and proof that startup performs no provider call beyond adapter-declared readiness work.
+- Outcome: Load and validate discovered ACRE configuration, compose the native registry with only its explicitly configured adapter bindings, and derive remote eligibility from the frozen adapter/configuration policy without changing CLI syntax or provider transports. Configuration loading performs no provider contact. Registry construction may discover configured MCP tools but performs no unselected-provider discovery, sidecar acquisition, agent startup, or inference. Until a concrete SLM profile lands, an unimplemented sidecar selector remains an explicit unavailable binding.
+- Focused validation: Configured composition across native, MCP, ACP, and endpoint bindings plus explicit unavailable sidecar selectors; missing/default configuration, unavailable providers, offline and remote-policy denial, duplicate/unknown contracts, and proof that startup performs no provider call beyond selected MCP discovery and adapter-declared local readiness work.
 - Handoff: Remove ADP-09, preserve the composition contract in focused CLI tests, and release the CLI contract lock.
 
 ## ADP-06 — Validate heterogeneous executor selection

@@ -9,7 +9,7 @@ setup: ## Install the Rust toolchain and project development dependencies.
 	@rustup target add $(TARGETS)
 
 help: ## Show the available development tasks.
-	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target> [VERSION=x.y.z] [ACP_AGENT=opencode|codex] [BENCH_ARGS=\"...\"] [BENCH_BASELINE=x.y.z] [BENCH_HISTORY=...] [WASM_PACK_BUILD_ARGS=\"...\"] [FUZZ_CRASH=path]\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target> [VERSION=x.y.z] [ACP_AGENT=opencode|codex] [BENCH_ARGS=\"...\"] [BENCH_BASELINE=x.y.z] [BENCH_HISTORY=...] [CI_JOB=<id|name>] [CI_PIPELINE=<id>] [CI_REF=<branch|tag>] [RELEASE_REF=<branch|tag>] [TAG=vX.Y.Z] [WASM_PACK_BUILD_ARGS=\"...\"] [FUZZ_CRASH=path]\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 audit: ## Run dependency and security audits for the project.
 	@cargo +nightly udeps
@@ -114,6 +114,12 @@ changelog: ## Generate the changelog from git tags and metadata.
 changelog-release: ## Generate the latest release changelog entry.
 	@git pull origin main --tags
 	@git-cliff --output CHANGELOG.md --gitlab-token ${GITLAB_TOKEN} --latest
+
+ci-retry: ## Retry a GitLab CI job, selecting interactively unless CI_JOB is set.
+	@glab ci retry $(if $(CI_JOB),"$(CI_JOB)") $(if $(CI_PIPELINE),--pipeline-id "$(CI_PIPELINE)",$(if $(CI_REF),--branch "$(CI_REF)"))
+
+ci-watch: ## Watch the latest GitLab CI pipeline for CI_REF or the current branch.
+	@glab ci status $(if $(CI_REF),--branch "$(CI_REF)") --live
 
 check: check-dependencies check-portable check-host ## Run the full validation suite for the project.
 
@@ -305,6 +311,21 @@ check-version: ## Validate the workspace version metadata.
 release-version: ## Bump the release version and verify it.
 	@cargo xtask release-version $(VERSION)
 	@$(MAKE) check-release-crates check-version
+
+release-download: ## Download TAG release assets into the release-artifacts directory.
+	@glab release download "$(TAG)" --dir release-artifacts
+
+release-list: ## List recent GitLab releases.
+	@glab release list --per-page 10
+
+release-retry: ## Retry a job in the latest RELEASE_REF pipeline.
+	@$(MAKE) ci-retry CI_JOB="$(CI_JOB)" CI_PIPELINE="$(CI_PIPELINE)" CI_REF="$(RELEASE_REF)"
+
+release-view: ## Show the GitLab release and assets for TAG.
+	@glab release view "$(TAG)"
+
+release-watch: ## Watch the latest RELEASE_REF pipeline used to publish a release.
+	@$(MAKE) ci-watch CI_REF="$(RELEASE_REF)"
 
 acorn-clean: ## Remove ACORN Docker images from the local registry.
 	@docker rmi -f acorn:$(VERSION)
@@ -527,6 +548,11 @@ BENCH_BASELINE = $(VERSION)
 BENCH_OUTPUT = $(ARTIFACT_TARGET_DIR)/benchmark-results
 BENCH_HISTORY =
 CARGO_SHEAR_VERSION = 1.14.0
+CI_JOB =
+CI_PIPELINE =
+CI_REF =
+RELEASE_REF ?= main
+TAG ?= v$(VERSION)
 WASM_PACK_BUILD_ARGS =
 TASKS = \
 	audit \
@@ -538,6 +564,8 @@ TASKS = \
 	release-checksums \
 	changelog \
 	changelog-release \
+	ci-retry \
+	ci-watch \
 	clean \
 	cover \
 	doc \
@@ -566,7 +594,12 @@ TASKS = \
 	check-release-crates \
 	check-wasm \
 	version \
+	release-download \
+	release-list \
+	release-retry \
 	release-version \
+	release-view \
+	release-watch \
 	check-version \
 	acorn-clean \
 	acorn-build-in-image \
