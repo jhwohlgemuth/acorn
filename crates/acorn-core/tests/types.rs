@@ -1,10 +1,12 @@
 //! Integration tests for portable value types.
 #![allow(clippy::expect_used, missing_docs)]
 extern crate alloc;
+use acorn_core::util::MimeType;
 use acorn_core::{Noul, NoulError, OneOrMany, ThisOrThat};
 use alloc::collections::BTreeSet;
 use schemars::schema_for;
 use serde_json::json;
+use std::path::Path;
 
 #[test]
 fn test_noul_common_conversions_preserve_values() {
@@ -55,6 +57,24 @@ fn test_one_or_many_preserves_shape_and_iteration_order() {
     assert_eq!(many.iter().copied().collect::<Vec<_>>(), vec![2, 3]);
     assert_eq!(many.map(|value| value * 2).into_vec(), vec![4, 6]);
 }
+#[test]
+fn test_supported_metadata_path_accepts_known_formats_and_kitfile() {
+    for path in [
+        "metadata.json",
+        "metadata.jsonc",
+        "README.md",
+        "paper.pdf",
+        "metadata.yaml",
+        "metadata.zonf",
+        "Kitfile",
+    ] {
+        assert!(MimeType::is_supported_metadata_path(Path::new(path)), "{path}");
+    }
+    for path in ["data.csv", "photo.png", "notes.txt"] {
+        assert!(!MimeType::is_supported_metadata_path(Path::new(path)), "{path}");
+    }
+}
+
 #[test]
 fn test_this_or_that_maps_both_values_in_position_order() {
     let mut positions = Vec::new();

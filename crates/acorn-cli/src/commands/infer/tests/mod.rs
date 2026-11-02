@@ -1,6 +1,6 @@
 use super::{
     endpoint_mode, endpoint_options, native_routing_registry, remote_allowed, resolve_prompt, routing_registry, run_routed, structured_input,
-    Backend, ConfiguredInference, InferenceArgs, InferenceBackendKind, Milliseconds,
+    Backend, ConfiguredInference, FixOptions, InferenceArgs, InferenceBackendKind, Milliseconds,
 };
 use crate::cli::arguments::{AcpAgentKind, InferenceEndpointMode};
 use crate::cli::{Arguments, Commands};
@@ -47,14 +47,12 @@ fn test_acp_selects_codex_profile_and_executable_override() {
     ));
 }
 #[test]
-fn test_openai_requires_a_model_and_rejects_acp_flags() {
-    let missing = ConfiguredInference::from_args(&arguments(InferenceBackendKind::Openai), false);
-    assert!(missing.is_err());
-    let configured = InferenceArgs::init()
-        .backend(InferenceBackendKind::Openai)
-        .model("model".to_string())
-        .build();
-    assert!(ConfiguredInference::from_args(&configured, false).is_ok());
+fn test_configured_fix_options_conversion_preserves_backend_defaults() {
+    let configured = ConfiguredInference::from_args(&arguments(InferenceBackendKind::Acp), true).expect("configure ACP");
+    let borrowed = FixOptions::from(&configured);
+    let owned = FixOptions::from(configured);
+    assert_eq!(borrowed, owned);
+    assert_eq!(owned.timeout, Milliseconds::new(30_000));
 }
 #[test]
 fn test_ollama_selector_uses_local_chat_defaults_and_explicit_overrides() {
@@ -84,6 +82,26 @@ fn test_ollama_selector_uses_local_chat_defaults_and_explicit_overrides() {
         .agent(AcpAgentKind::Codex)
         .build();
     assert!(ConfiguredInference::from_args(&invalid, false).is_err());
+}
+#[test]
+fn test_openai_requires_a_model_and_rejects_acp_flags() {
+    let missing = ConfiguredInference::from_args(&arguments(InferenceBackendKind::Openai), false);
+    assert!(missing.is_err());
+    let configured = InferenceArgs::init()
+        .backend(InferenceBackendKind::Openai)
+        .model("model".to_string())
+        .build();
+    assert!(ConfiguredInference::from_args(&configured, false).is_ok());
+}
+#[test]
+fn test_remote_eligibility_requires_explicit_policy_and_online_mode() {
+    let configuration = ApplicationConfiguration::parse(json!({
+        "endpoints":[{"name":"remote","domain":"example.org","scheme":"https","resources":[]}],
+        "executors":[{"id":"endpoint:remote","capabilityId":"acorn.remote","executor":{"type":"endpoint","endpoint":"remote","model":"fixture","data_policy":"allow-remote"}}]
+    }).to_string()).expect("remote endpoint configuration");
+    assert!(remote_allowed(&configuration, false));
+    assert!(!remote_allowed(&configuration, true));
+    assert!(!remote_allowed(&ApplicationConfiguration::default(), false));
 }
 #[test]
 fn test_resolve_prompt_prefers_the_argument() {
@@ -117,6 +135,7 @@ fn test_routed_input_and_default_registry_contract() {
         .expect("catalog");
     assert!(catalog.contains("acorn.version"));
     assert!(catalog.contains("acorn.check"));
+    assert!(catalog.contains("acorn.diff"));
 }
 #[tokio::test]
 async fn test_routed_registry_composes_configured_local_bindings() {
@@ -132,7 +151,13 @@ async fn test_routed_registry_composes_configured_local_bindings() {
         .to_string(),
     )
     .expect("configured adapters");
-    let registry = routing_registry(&configuration, false).await.expect("compose configured bindings");
+    let registry = routing_registry(&configuration, false, &InferenceArgs::default())
+        .await
+        .expect("compose configured bindings");
+    let catalog = registry
+        .capability_catalog(None, acorn::io::mcp::CapabilitySelectionContext::default())
+        .expect("bounded configured catalog");
+    assert!(catalog.contains("acorn.check_fixes"));
     assert!(registry
         .select_capability_binding("acorn.summary", Some("acp:summary"), None, Default::default())
         .is_ok());
@@ -176,23 +201,13 @@ async fn test_routed_registry_skips_mcp_discovery_offline() {
         )]),
         ..ApplicationConfiguration::default()
     };
-    let registry = routing_registry(&configuration, true)
+    let registry = routing_registry(&configuration, true, &InferenceArgs::default())
         .await
         .expect("offline registry skips MCP discovery");
     assert!(registry
         .select_capability_binding("acorn.version", None, None, Default::default())
         .is_ok());
     assert!(!remote_allowed(&configuration, true));
-}
-#[test]
-fn test_remote_eligibility_requires_explicit_policy_and_online_mode() {
-    let configuration = ApplicationConfiguration::parse(json!({
-        "endpoints":[{"name":"remote","domain":"example.org","scheme":"https","resources":[]}],
-        "executors":[{"id":"endpoint:remote","capabilityId":"acorn.remote","executor":{"type":"endpoint","endpoint":"remote","model":"fixture","data_policy":"allow-remote"}}]
-    }).to_string()).expect("remote endpoint configuration");
-    assert!(remote_allowed(&configuration, false));
-    assert!(!remote_allowed(&configuration, true));
-    assert!(!remote_allowed(&ApplicationConfiguration::default(), false));
 }
 #[tokio::test]
 async fn test_routed_request_rejects_legacy_round_limit() {

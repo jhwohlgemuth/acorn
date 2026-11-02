@@ -641,6 +641,25 @@ impl AsRef<std::ffi::OsStr> for MimeType {
         std::ffi::OsStr::new(self.file_type_ref())
     }
 }
+#[cfg(feature = "std")]
+impl From<anydoc::Format> for MimeType {
+    fn from(value: anydoc::Format) -> Self {
+        match value {
+            | anydoc::Format::Csv => Self::Csv,
+            | anydoc::Format::Doc => Self::Doc,
+            | anydoc::Format::Docx => Self::Docx,
+            | anydoc::Format::Epub => Self::Epub,
+            | anydoc::Format::Excel => Self::Excel,
+            | anydoc::Format::Odp => Self::Odp,
+            | anydoc::Format::Ods => Self::Ods,
+            | anydoc::Format::Odt => Self::Odt,
+            | anydoc::Format::Pdf => Self::Pdf,
+            | anydoc::Format::Ppt => Self::Ppt,
+            | anydoc::Format::Pptx => Self::Powerpoint,
+            | anydoc::Format::Rtf => Self::Rtf,
+        }
+    }
+}
 impl From<&str> for MimeType {
     /// Returns a `MimeType` value based on the file extension of the given file name.
     ///
@@ -733,25 +752,6 @@ impl From<&String> for MimeType {
         Self::from(value.as_str())
     }
 }
-#[cfg(feature = "std")]
-impl From<anydoc::Format> for MimeType {
-    fn from(value: anydoc::Format) -> Self {
-        match value {
-            | anydoc::Format::Csv => Self::Csv,
-            | anydoc::Format::Doc => Self::Doc,
-            | anydoc::Format::Docx => Self::Docx,
-            | anydoc::Format::Epub => Self::Epub,
-            | anydoc::Format::Excel => Self::Excel,
-            | anydoc::Format::Odp => Self::Odp,
-            | anydoc::Format::Ods => Self::Ods,
-            | anydoc::Format::Odt => Self::Odt,
-            | anydoc::Format::Pdf => Self::Pdf,
-            | anydoc::Format::Ppt => Self::Ppt,
-            | anydoc::Format::Pptx => Self::Powerpoint,
-            | anydoc::Format::Rtf => Self::Rtf,
-        }
-    }
-}
 impl From<String> for MimeType {
     fn from(value: String) -> Self {
         Self::from(value.as_str())
@@ -768,6 +768,18 @@ impl FromStr for MimeType {
     }
 }
 impl MimeType {
+    /// Return whether a path can be analyzed as a metadata check input.
+    #[cfg(feature = "std")]
+    pub fn is_supported_metadata_path(path: &Path) -> bool {
+        let media_type = Self::from(path.to_string_lossy().as_ref());
+        media_type.is_json()
+            || media_type.is_jsonc()
+            || media_type.is_markdown()
+            || media_type.is_pdf()
+            || media_type.is_yaml()
+            || media_type.is_zon()
+            || path.file_name().is_some_and(|name| name == "Kitfile")
+    }
     /// Resolve a textual MIME type from a path, falling back to content inference.
     #[cfg(feature = "std")]
     pub fn from_path_or_content(path: &Path, content: &str) -> Self {
@@ -911,33 +923,6 @@ impl ParseOptionsExt for ParseOptions {
             allow_hexadecimal_numbers: false,
             allow_unary_plus_numbers: false,
         }
-    }
-}
-#[cfg(feature = "std")]
-impl StringConversion for &Path {
-    fn file_name_with_parent(&self) -> String {
-        <Path as StringConversion>::file_name_with_parent(self)
-    }
-    fn normalized(&self) -> String {
-        <Path as StringConversion>::normalized(self)
-    }
-    fn percent_encode(&self) -> String {
-        <Path as StringConversion>::percent_encode(self)
-    }
-    fn sluggify(&self) -> String {
-        <Path as StringConversion>::sluggify(self)
-    }
-    fn to_absolute_path(&self) -> String {
-        <Path as StringConversion>::to_absolute_path(self)
-    }
-    fn to_ascii_alphanumeric(&self) -> String {
-        <Path as StringConversion>::to_ascii_alphanumeric(self)
-    }
-    fn to_cross_platform_path(&self) -> String {
-        <Path as StringConversion>::to_cross_platform_path(self)
-    }
-    fn truncate_utf8(&self, max_bytes: usize) -> String {
-        <Path as StringConversion>::truncate_utf8(self, max_bytes)
     }
 }
 #[cfg(feature = "std")]
@@ -1098,38 +1083,6 @@ impl MarkdownSupport for str {
         self.to_string()
     }
 }
-impl StringConversion for &str {
-    #[cfg(feature = "std")]
-    fn file_name_with_parent(&self) -> String {
-        <str as StringConversion>::file_name_with_parent(self)
-    }
-    fn normalized(&self) -> String {
-        <str as StringConversion>::normalized(self)
-    }
-    fn percent_encode(&self) -> String {
-        <str as StringConversion>::percent_encode(self)
-    }
-    fn sluggify(&self) -> String {
-        <str as StringConversion>::sluggify(self)
-    }
-    #[cfg(feature = "std")]
-    fn to_absolute_path(&self) -> String {
-        <str as StringConversion>::to_absolute_path(self)
-    }
-    fn to_ascii_alphanumeric(&self) -> String {
-        <str as StringConversion>::to_ascii_alphanumeric(self)
-    }
-    fn to_complete_date(&self) -> Option<&str> {
-        <str as StringConversion>::to_complete_date(self)
-    }
-    #[cfg(feature = "std")]
-    fn to_cross_platform_path(&self) -> String {
-        <str as StringConversion>::to_cross_platform_path(self)
-    }
-    fn truncate_utf8(&self, max_bytes: usize) -> String {
-        <str as StringConversion>::truncate_utf8(self, max_bytes)
-    }
-}
 impl StringConversion for str {
     #[cfg(feature = "std")]
     fn file_name_with_parent(&self) -> String {
@@ -1234,6 +1187,65 @@ impl StringExt for String {
         self.as_str().is_numeric()
     }
 }
+#[cfg(feature = "std")]
+impl StringConversion for &Path {
+    fn file_name_with_parent(&self) -> String {
+        <Path as StringConversion>::file_name_with_parent(self)
+    }
+    fn normalized(&self) -> String {
+        <Path as StringConversion>::normalized(self)
+    }
+    fn percent_encode(&self) -> String {
+        <Path as StringConversion>::percent_encode(self)
+    }
+    fn sluggify(&self) -> String {
+        <Path as StringConversion>::sluggify(self)
+    }
+    fn to_absolute_path(&self) -> String {
+        <Path as StringConversion>::to_absolute_path(self)
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        <Path as StringConversion>::to_ascii_alphanumeric(self)
+    }
+    fn to_cross_platform_path(&self) -> String {
+        <Path as StringConversion>::to_cross_platform_path(self)
+    }
+    fn truncate_utf8(&self, max_bytes: usize) -> String {
+        <Path as StringConversion>::truncate_utf8(self, max_bytes)
+    }
+}
+impl StringConversion for &str {
+    #[cfg(feature = "std")]
+    fn file_name_with_parent(&self) -> String {
+        <str as StringConversion>::file_name_with_parent(self)
+    }
+    fn normalized(&self) -> String {
+        <str as StringConversion>::normalized(self)
+    }
+    fn percent_encode(&self) -> String {
+        <str as StringConversion>::percent_encode(self)
+    }
+    fn sluggify(&self) -> String {
+        <str as StringConversion>::sluggify(self)
+    }
+    #[cfg(feature = "std")]
+    fn to_absolute_path(&self) -> String {
+        <str as StringConversion>::to_absolute_path(self)
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        <str as StringConversion>::to_ascii_alphanumeric(self)
+    }
+    fn to_complete_date(&self) -> Option<&str> {
+        <str as StringConversion>::to_complete_date(self)
+    }
+    #[cfg(feature = "std")]
+    fn to_cross_platform_path(&self) -> String {
+        <str as StringConversion>::to_cross_platform_path(self)
+    }
+    fn truncate_utf8(&self, max_bytes: usize) -> String {
+        <str as StringConversion>::truncate_utf8(self, max_bytes)
+    }
+}
 impl<T: AsRef<str>> StringInterpolation<T> for T
 where
     T: ToString,
@@ -1273,18 +1285,6 @@ where
             .collect::<Vec<_>>()
     }
 }
-impl<P: AsRef<str>> MarkdownSupport for Vec<P> {
-    fn to_markdown(&self) -> String {
-        if self.is_empty() {
-            "[]".to_string()
-        } else {
-            self.iter()
-                .map(|x| format!("{LINE_SEPARATOR}- {}", x.as_ref()))
-                .collect::<Vec<String>>()
-                .join("")
-        }
-    }
-}
 impl StringExt for Vec<&str> {
     fn is_numeric(&self) -> bool {
         self.iter().any(|value| value.is_numeric())
@@ -1302,6 +1302,18 @@ impl StringExt for Vec<String> {
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
             .collect()
+    }
+}
+impl<P: AsRef<str>> MarkdownSupport for Vec<P> {
+    fn to_markdown(&self) -> String {
+        if self.is_empty() {
+            "[]".to_string()
+        } else {
+            self.iter()
+                .map(|x| format!("{LINE_SEPARATOR}- {}", x.as_ref()))
+                .collect::<Vec<String>>()
+                .join("")
+        }
     }
 }
 /// Decode a base32 Crockford string into a u128 value.

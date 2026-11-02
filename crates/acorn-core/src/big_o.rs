@@ -15,7 +15,6 @@ pub const MAX_INPUT_BYTES: usize = 256;
 pub const MAX_NESTING_DEPTH: usize = 16;
 /// Maximum number of expression and exponent nodes in the parsed tree.
 pub const MAX_PARSED_NODES: usize = 64;
-
 /// A positive exponent in a Big-O expression.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Exponent {

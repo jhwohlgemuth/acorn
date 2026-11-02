@@ -8,8 +8,10 @@ fn version() -> SemanticVersion {
 #[cfg(feature = "acp")]
 mod acp;
 mod analysis;
+mod analysis_fix;
 mod capability;
 mod configuration;
+mod diff;
 mod execution;
 mod inference;
 mod input;

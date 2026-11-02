@@ -30,6 +30,7 @@ use acorn_core::util::SemanticVersion;
 use acorn_core::{time::Milliseconds, Noul};
 use acorn_schema::agent::tools::ToolEffects;
 use acorn_schema::validation::Validate;
+use alloc::sync::Arc;
 use color_eyre::eyre::{eyre, Result};
 use core::time::Duration;
 use schemars::JsonSchema;
@@ -101,17 +102,7 @@ impl ConfiguredInference {
     }
     /// Generate bounded proposals from one already-computed analysis report.
     pub(crate) async fn suggest_fixes(&self, report: &AnalysisReport) -> Result<FixReport> {
-        report
-            .suggest_fixes(
-                &self.backend,
-                &FixOptions {
-                    agent: self.agent.clone(),
-                    model: self.model.clone(),
-                    timeout: self.timeout,
-                    ..FixOptions::default()
-                },
-            )
-            .await
+        report.suggest_fixes(self, &FixOptions::from(self)).await
     }
     fn acp(arguments: &InferenceArgs, offline: bool, timeout: Milliseconds) -> Result<Self> {
         let working_directory = arguments
@@ -160,6 +151,45 @@ impl ConfiguredInference {
             })
     }
 }
+impl InferenceBackend for ConfiguredInference {
+    fn capabilities(&self) -> InferenceCapabilities {
+        self.backend.capabilities()
+    }
+    fn infer<'a>(&'a self, request: &'a InferenceRequest) -> InferenceFuture<'a> {
+        self.backend.infer(request)
+    }
+}
+impl From<&ConfiguredInference> for FixOptions {
+    fn from(configured: &ConfiguredInference) -> Self {
+        Self {
+            agent: configured.agent.clone(),
+            model: configured.model.clone(),
+            timeout: configured.timeout,
+            ..Self::default()
+        }
+    }
+}
+impl From<ConfiguredInference> for FixOptions {
+    fn from(configured: ConfiguredInference) -> Self {
+        Self {
+            agent: configured.agent,
+            model: configured.model,
+            timeout: configured.timeout,
+            ..Self::default()
+        }
+    }
+}
+impl From<&Backend> for InferenceCapabilities {
+    fn from(value: &Backend) -> Self {
+        match value {
+            | Backend::Acp(client) => client.capabilities(),
+            | Backend::OpenAi(client) => client.capabilities(),
+        }
+    }
+}
+fn default_threshold() -> Noul {
+    DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD
+}
 fn endpoint_mode(arguments: &InferenceArgs) -> EndpointMode {
     match arguments.endpoint_mode.unwrap_or(if arguments.backend == InferenceBackendKind::Ollama {
         InferenceEndpointMode::ChatCompletions
@@ -181,28 +211,6 @@ fn endpoint_options(arguments: &InferenceArgs) -> Options {
             | None => Options::from_env(),
         },
     }
-}
-impl From<&Backend> for InferenceCapabilities {
-    fn from(value: &Backend) -> Self {
-        match value {
-            | Backend::Acp(client) => client.capabilities(),
-            | Backend::OpenAi(client) => client.capabilities(),
-        }
-    }
-}
-fn default_threshold() -> Noul {
-    DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD
-}
-fn resolve_prompt<ReadStdin>(prompt: Option<&str>, read: ReadStdin) -> ApiResult<String>
-where
-    ReadStdin: FnOnce() -> Option<String>,
-{
-    prompt
-        .map(str::to_string)
-        .or_else(read)
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| eyre!("Provide a prompt argument or pipe a prompt through standard input"))
 }
 fn native_routing_registry(offline: bool) -> ApiResult<ToolRegistry> {
     let effects = ToolEffects {
@@ -236,25 +244,12 @@ fn native_routing_registry(offline: bool) -> ApiResult<ToolRegistry> {
             )
         })
         .and_then(|registry| {
-            current_dir()
-                .map_err(Into::into)
-                .and_then(|root| registry.register_analysis_capability(root, offline))
+            current_dir().map_err(Into::into).and_then(|root| {
+                registry
+                    .register_analysis_capability(root.clone(), offline)
+                    .and_then(|registry| registry.register_diff_capability(root))
+            })
         })
-}
-async fn routing_registry(configuration: &ApplicationConfiguration, offline: bool) -> ApiResult<ToolRegistry> {
-    let prepared = native_routing_registry(offline)
-        .and_then(|registry| registry.register_unavailable_sidecar_bindings(&configuration.executors))
-        .and_then(|registry| registry.register_endpoint_bindings(configuration, offline))
-        .and_then(|registry| {
-            current_dir()
-                .map_err(Into::into)
-                .and_then(|root| registry.register_acp_bindings(configuration, root, offline))
-        });
-    match prepared {
-        | Err(why) => Err(why),
-        | Ok(registry) if offline => Ok(registry),
-        | Ok(registry) => registry.register_mcp_bindings(configuration, InvocationContext::default()).await,
-    }
 }
 fn remote_allowed(configuration: &ApplicationConfiguration, offline: bool) -> bool {
     !offline
@@ -266,6 +261,41 @@ fn remote_allowed(configuration: &ApplicationConfiguration, offline: bool) -> bo
             } => true,
             | _ => false,
         })
+}
+fn resolve_prompt<ReadStdin>(prompt: Option<&str>, read: ReadStdin) -> ApiResult<String>
+where
+    ReadStdin: FnOnce() -> Option<String>,
+{
+    prompt
+        .map(str::to_string)
+        .or_else(read)
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| eyre!("Provide a prompt argument or pipe a prompt through standard input"))
+}
+async fn routing_registry(configuration: &ApplicationConfiguration, offline: bool, inference: &InferenceArgs) -> ApiResult<ToolRegistry> {
+    let prepared = ConfiguredInference::from_args(inference, offline).and_then(|configured| {
+        let fix_options = FixOptions::from(&configured);
+        let configured = Arc::new(configured);
+        native_routing_registry(offline)
+            .and_then(|registry| {
+                current_dir()
+                    .map_err(Into::into)
+                    .and_then(|root| registry.register_analysis_fixes_capability(root, offline, Arc::clone(&configured), fix_options))
+            })
+            .and_then(|registry| registry.register_unavailable_sidecar_bindings(&configuration.executors))
+            .and_then(|registry| registry.register_endpoint_bindings(configuration, offline))
+            .and_then(|registry| {
+                current_dir()
+                    .map_err(Into::into)
+                    .and_then(|root| registry.register_acp_bindings(configuration, root, offline))
+            })
+    });
+    match prepared {
+        | Err(why) => Err(why),
+        | Ok(registry) if offline => Ok(registry),
+        | Ok(registry) => registry.register_mcp_bindings(configuration, InvocationContext::default()).await,
+    }
 }
 /// Run one bounded Needle inference request and print its native result as JSON.
 pub(crate) async fn run(arguments: &Infer, offline: bool) -> ApiResult<()> {
@@ -320,7 +350,7 @@ async fn run_routed(arguments: &Infer, offline: bool) -> ApiResult<()> {
             });
             match configured {
                 | Err(why) => Err(why),
-                | Ok(configuration) => routing_registry(&configuration, offline)
+                | Ok(configuration) => routing_registry(&configuration, offline, &arguments.inference.shared())
                     .await
                     .map(|registry| (prompt, caller_arguments, registry, remote_allowed(&configuration, offline))),
             }

@@ -10,7 +10,7 @@ use std::fs;
 use std::path::{Component, Path, PathBuf};
 
 /// Caller-supplied text or one local path form.
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, strum::EnumIs)]
 #[serde(rename_all = "kebab-case", tag = "kind", content = "value")]
 pub enum InputReference {
     /// Verbatim text input.
@@ -19,6 +19,16 @@ pub enum InputReference {
     File(PathBuf),
     /// A recursively discovered local directory.
     Directory(PathBuf),
+    /// Explicit HTTP(S) source, subject to the caller's network policy.
+    Url(String),
+    /// Files changed on an explicitly selected Git branch.
+    GitBranch(String),
+    /// Files changed in an explicitly selected Git commit.
+    GitCommit(String),
+    /// Paths declared by the configured GitLab merge request environment.
+    GitMergeRequest,
+    /// Explicit OCI model artifact reference.
+    Oci(String),
 }
 /// Destination boundary used to propose, then revalidate, artifact writes.
 #[derive(Clone, Debug)]
@@ -225,6 +235,11 @@ impl RoutedInputPolicy {
                     Err(eyre!("Directory input must be a directory"))
                 }
             }),
+            | InputReference::Url(_)
+            | InputReference::GitBranch(_)
+            | InputReference::GitCommit(_)
+            | InputReference::GitMergeRequest
+            | InputReference::Oci(_) => Err(eyre!("This input reference requires a dedicated native source adapter")),
         }
     }
     fn resolve_path(&self, requested: &Path) -> ApiResult<PathBuf> {

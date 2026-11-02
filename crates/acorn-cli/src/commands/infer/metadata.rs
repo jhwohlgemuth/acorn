@@ -114,7 +114,10 @@ pub(super) async fn analyze_metadata_target(root: &Path, source: &Location, stan
                         let request = AnalysisInput {
                             input: InputReference::File(file.path),
                             standard,
+                            format: None,
                             skip: Vec::new(),
+                            filter: Vec::new(),
+                            ignore: Vec::new(),
                             disable_website_checks: offline,
                         };
                         match serde_json::to_value(request) {

@@ -644,6 +644,22 @@ fn test_set_comparison_uses_deduplicated_words() {
     });
 }
 #[test]
+fn test_similarity_selectors_parse_canonical_names_and_aliases() {
+    assert_eq!(SimilarityMethod::try_from("levenshtein"), Ok(SimilarityMethod::Levenshtein));
+    assert_eq!(SimilarityMethod::try_from("osa"), Ok(SimilarityMethod::OptimalStringAlignment));
+    assert_eq!(SimilarityMethod::try_from("dice"), Ok(SimilarityMethod::SorensenDice));
+    assert_eq!(
+        SimilarityMethod::try_from("unknown"),
+        Err("Unknown similarity method: unknown".to_string())
+    );
+    assert_eq!(SimilarityPreprocessing::try_from("case-fold"), Ok(SimilarityPreprocessing::CaseFold));
+    assert_eq!(SimilarityPreprocessing::try_from("raw"), Ok(SimilarityPreprocessing::Raw));
+    assert_eq!(
+        SimilarityPreprocessing::try_from("unknown"),
+        Err("Unknown similarity preprocessing: unknown".to_string())
+    );
+}
+#[test]
 fn test_soft_tfidf_normalization_is_l2_bounded() {
     let limits = SimilarityLimits::default();
     let left = tokens(&["alpha"]);

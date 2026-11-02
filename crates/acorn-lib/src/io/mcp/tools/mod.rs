@@ -34,7 +34,10 @@ use core::future::Future;
 use core::pin::Pin;
 pub use execution::{ArtifactReference, ExecutionContext, ExecutionOutcome, ExecutionProvenance, MutationAuthority, RoutedExecution};
 pub use input::{ArtifactPolicy, InputFailure, InputLimits, InputReference, ResolvedInput, ResolvedInputFile, RoutedInputPolicy};
-pub use native::{AnalysisBatchOutput, AnalysisCategoryOutput, AnalysisCategoryStatus, AnalysisFinding, AnalysisInput, AnalysisOutput};
+pub use native::{
+    AnalysisBatchOutput, AnalysisCategoryOutput, AnalysisCategoryStatus, AnalysisFinding, AnalysisFixDifference, AnalysisFixInput, AnalysisFixOutput,
+    AnalysisInput, AnalysisOutput, DiffOperand, DiffOperation, DiffOperationInput, DiffOperationOutput,
+};
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};

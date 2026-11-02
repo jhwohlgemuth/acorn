@@ -28,19 +28,19 @@ def note_page() -> BytesIO:
     canvas.setFont("Helvetica-Bold", 24)
     canvas.drawString(48, 744, "Example report")
     canvas.setFont("Helvetica", 12)
-    canvas.drawString(48, 718, "Workflow update  |  October 29, 2026")
+    canvas.drawString(48, 718, "Workflow update  |  November 2, 2026")
     style = ParagraphStyle("copy", fontName="Helvetica", fontSize=12, leading=18, textColor=INK)
     paragraphs = (
         "The next three pages are the retained October 26, 2026, TEST ONLY SharePoint report. "
         "They remain a dated example of reviewed local reporting, not evidence of a calendar invitation.",
         "A separate automated flow is now On. The first original project highlight saved "
-        "before its month's second Friday in Eastern time can invite the verified submitter "
+        "before its month's first Friday in Eastern time can invite the verified submitter "
         "to a free, all-day Outlook reminder. A pre-deadline correction of that first highlight "
         "can also qualify if no matching reminder exists. Highlights and reviews are due beforehand.",
         "Later highlights and their corrections, general updates, and receipts processed on or "
         "after that Friday skip the invite. The actual submission time sets the month; editing "
         "the highlight date does not. The calendar duplicate check is not an atomic identity ledger.",
-        "The flow passed its checker with zero errors and warnings on October 29. No qualifying "
+        "The flow passed its checker with zero errors and warnings on November 2. No qualifying "
         "run or attendee delivery had been observed when this note was issued.",
     )
     top = 646

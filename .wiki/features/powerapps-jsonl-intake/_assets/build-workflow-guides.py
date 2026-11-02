@@ -86,7 +86,7 @@ def header(c, title, section, number, total, audience):
     paragraph(c,title,73,58,920,29,'#FFFFFF',True)
     c.setStrokeColor(HexColor('#C4D9DB'));c.line(54,47,1026,47)
     c.setFillColor(HexColor('#526A70'));c.setFont('Helvetica',10)
-    c.drawString(54,29,f'ACORN / ORNL  //  {audience}  //  OCT 29, 2026  //  SANITIZED')
+    c.drawString(54,29,f'ACORN / ORNL  //  {audience}  //  NOV 2, 2026  //  SANITIZED')
     c.drawRightString(1026,29,f'{number:02} / {total:02}')
 
 
@@ -235,15 +235,15 @@ def notifications(c):
 
 
 def calendar_reminder(c):
-    top=paragraph(c,'The first original project highlight saved each Eastern-time month can schedule one all-day Outlook reminder for that month\'s second Friday. A correction of that first highlight can also qualify before the deadline if no reminder exists. The invitation goes to the verified email on the eligible receipt, with the project ID in the subject.',54,156)
+    top=paragraph(c,'The first original project highlight saved each Eastern-time month can schedule one all-day Outlook reminder for that month\'s first Friday. A correction of that first highlight can also qualify before the deadline if no reminder exists. The invitation goes to the verified email on the eligible receipt, with the project ID in the subject.',54,156)
     top=grid(c,[['Case','What the calendar flow does'],
-        ['First original before Friday','Creates a free, all-day reminder on the second Friday. Submit highlights and complete reviews before that day. No response is requested.'],
+        ['First original before Friday','Creates a free, all-day reminder on the first Friday. Submit highlights and complete reviews before that day. No response is requested.'],
         ['Correction of first highlight','Before Friday, can send if no matching reminder exists. The correction must link to that project-month\'s first original.'],
         ['Later highlight or correction','Skips the invite when linked to a later original.'],
         ['Receipt on or after Friday','Skips that month; it does not move the deadline to the next month.'],
         ['General update','Skips the project reminder.']],top,widths=(280,692),size=16)
     top=paragraph(c,'The receipt\'s actual submission time sets the month and deadline; changing the form\'s highlight date does not change eligibility. The flow checks the organizer calendar for a matching event before sending. This reduces duplicates but is not an event identity ledger.',54,top,size=15)
-    paragraph(c,'The flow was On with zero checker errors or warnings on October 29, 2026. No qualifying run or attendee delivery had been observed at publication. The reminder is separate from Teams save confirmation and owner-triggered milestone messages.',54,top,size=15,color=GREEN)
+    paragraph(c,'The flow was On with zero checker errors or warnings on November 2, 2026. No qualifying run or attendee delivery had been observed at publication. The reminder is separate from Teams save confirmation and owner-triggered milestone messages.',54,top,size=15,color=GREEN)
 
 
 def reviewer(c):
@@ -338,11 +338,11 @@ def calendar_operations(c):
     top=grid(c,[['Control','Current monthly invite flow'],
         ['Flow','ACORN Monthly Highlight Deadline Invite; automated SharePoint new-item trigger on Sponsor Highlights Intake. Separate from the manual calendar flow and milestone callback.'],
         ['Inputs','Receipt ProjectId and verified SubmitterEmail; submittedAt and correction root are decoded from the saved payload. General updates are excluded.'],
-        ['Date','Actual submission month is computed in Eastern time; the editable highlight date is not used. The event is all day on its second Friday. Receipts processed on or after Friday are skipped.'],
+        ['Date','Actual submission month is computed in Eastern time; the editable highlight date is not used. The event is all day on its first Friday. Receipts processed on or after Friday are skipped.'],
         ['First highlight','Serialized trigger reads receipts in ID order and selects the first original for the project-month. A correction with that root can qualify before Friday; later originals and their corrections do not invite.'],
         ['Duplicate check','Searches the organizer calendar on the deadline date for the exact project-month subject before Create event (V4). Outlook create retries are disabled.']],156,widths=(235,737),size=14)
     top=paragraph(c,'Operational ceiling: the receipt lookup reads at most 5,000 rows and fails closed at that count. Narrow the lookup or add a keyed event ledger before the list reaches that size. A calendar search is best effort, not an atomic delivery claim; inspect an uncertain create result before retrying.',54,top,size=15)
-    paragraph(c,'Flow: '+link('Open monthly deadline invite',f'https://make.gov.powerautomate.us/environments/{ENV}/flows/089c120d-b14c-49f8-838d-8a169fbeb21a/details')+'. On and checker-clean October 29, 2026; no first qualifying run or attendee delivery observed yet.',54,top,size=14,color=GREEN)
+    paragraph(c,'Flow: '+link('Open monthly deadline invite',f'https://make.gov.powerautomate.us/environments/{ENV}/flows/089c120d-b14c-49f8-838d-8a169fbeb21a/details')+'. On and checker-clean November 2, 2026; no first qualifying run or attendee delivery observed yet.',54,top,size=14,color=GREEN)
 
 
 def operations(c):
@@ -402,9 +402,9 @@ def render_diagram(stem='workflow'):
         subprocess.run([str(RUNTIME/'node/bin/node'),'-e',js,str(RUNTIME/'node/node_modules/sharp'),str(folder/f'{stem}.svg'),str(folder/f'{stem}.png')],check=True)
         description=('Users submit and correct highlights. Developers run every ACORN command: stage, inspect, apply, optional run --index, and report. Developer/reviewer steps cover downloading JSONL and owner-triggered milestones. Power Automate handles receipt/export and Teams work automatically. ')
         if stem=='workflow':
-            description+='The first original project highlight or its pre-deadline correction can trigger a second-Friday all-day calendar reminder. '
+            description+='The first original project highlight or its pre-deadline correction can trigger a first-Friday all-day calendar reminder. '
         description+='New originals and corrections retain separate immutable receipts. Existing reports remain unchanged. Dashed links indicate owner-triggered milestones; local CLI commands send no messages.'
-        date='October 29, 2026' if stem=='workflow' else 'October 27, 2026'
+        date='November 2, 2026' if stem=='workflow' else 'October 27, 2026'
         (folder/f'{stem}.html').write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>SharePoint workflow</title><style>body{font-family:Arial;color:#163c47;max-width:1100px;margin:30px auto}svg{width:100%;height:auto}@media print{@page{size:landscape}}</style><h1>Sponsor Highlights // SharePoint workflow</h1>'+svg+'<p>'+description+'</p><p>ACORN / ORNL // '+date+'</p></html>')
 
 

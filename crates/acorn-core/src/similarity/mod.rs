@@ -38,7 +38,10 @@
 //! assert_eq!(comparison.score, SimilarityScore::new(4.0 / 7.0)?);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
-use crate::{prelude::String, Noul};
+use crate::{
+    prelude::{format, String},
+    Noul,
+};
 use core::fmt;
 use serde::Serialize;
 
@@ -237,6 +240,10 @@ pub enum SimilarityMethod {
 #[serde(rename_all = "kebab-case")]
 #[strum(serialize_all = "kebab-case")]
 pub enum SimilarityPreprocessing {
+    /// Preserve the original scalar sequence.
+    /// Before: `"Straße"`; after: `"Straße"`.
+    #[default]
+    Raw,
     /// Apply full, locale-independent Unicode case folding without normalization.
     /// Before: `"Straße"`; after: `"strasse"`.
     CaseFold,
@@ -249,10 +256,6 @@ pub enum SimilarityPreprocessing {
     /// Apply Unicode compatibility normalization form KC.
     /// Before: `"①"`; after: `"1"`.
     Nfkc,
-    /// Preserve the original scalar sequence.
-    /// Before: `"Straße"`; after: `"Straße"`.
-    #[default]
-    Raw,
 }
 /// Stable interpretation of a normalized similarity score.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
@@ -448,6 +451,50 @@ impl SimilarityLimits {
                 limit: self.max_work_units,
                 required,
             }),
+        }
+    }
+}
+impl TryFrom<&str> for SimilarityMethod {
+    type Error = String;
+    fn try_from(name: &str) -> Result<Self, Self::Error> {
+        match name {
+            | "absolute-difference" => Ok(Self::AbsoluteDifference),
+            | "cologne-phonetic" => Ok(Self::ColognePhonetic),
+            | "cosine" => Ok(Self::Cosine),
+            | "damerau-levenshtein" => Ok(Self::DamerauLevenshtein),
+            | "exact" => Ok(Self::Exact),
+            | "extended-jaccard" => Ok(Self::ExtendedJaccard),
+            | "hamming" => Ok(Self::Hamming),
+            | "jaccard" => Ok(Self::Jaccard),
+            | "jaro" => Ok(Self::Jaro),
+            | "jaro-winkler" => Ok(Self::JaroWinkler),
+            | "levenshtein" => Ok(Self::Levenshtein),
+            | "metaphone" => Ok(Self::Metaphone),
+            | "monge-elkan" => Ok(Self::MongeElkan),
+            | "optimal-string-alignment" | "osa" => Ok(Self::OptimalStringAlignment),
+            | "overlap" => Ok(Self::Overlap),
+            | "percentage-difference" => Ok(Self::PercentageDifference),
+            | "prefix" => Ok(Self::Prefix),
+            | "soft-tfidf" => Ok(Self::SoftTfidf),
+            | "sorensen-dice" | "dice" => Ok(Self::SorensenDice),
+            | "soundex" => Ok(Self::Soundex),
+            | "suffix" => Ok(Self::Suffix),
+            | "tfidf-cosine" => Ok(Self::TfidfCosine),
+            | "weighted-levenshtein" => Ok(Self::WeightedLevenshtein),
+            | _ => Err(format!("Unknown similarity method: {name}")),
+        }
+    }
+}
+impl TryFrom<&str> for SimilarityPreprocessing {
+    type Error = String;
+    fn try_from(name: &str) -> Result<Self, Self::Error> {
+        match name {
+            | "case-fold" => Ok(Self::CaseFold),
+            | "lowercase" => Ok(Self::Lowercase),
+            | "nfc" => Ok(Self::Nfc),
+            | "nfkc" => Ok(Self::Nfkc),
+            | "raw" => Ok(Self::Raw),
+            | _ => Err(format!("Unknown similarity preprocessing: {name}")),
         }
     }
 }

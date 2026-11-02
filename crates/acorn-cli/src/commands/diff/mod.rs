@@ -173,7 +173,7 @@ fn run_semantic(arguments: &arguments::Diff) -> Void {
                     media_type: after_media,
                 };
                 SemanticDiff::compare(&before_input, &after_input, format, arguments.standard)
-                    .map_err(|error| eyre!(error))
+                    .map_err(|why| eyre!(why))
                     .and_then(WriteSemanticDiff::write)
             })
         })
@@ -183,7 +183,7 @@ fn run_similarity(arguments: &arguments::Diff, method: arguments::SimilarityMeth
     validate_similarity_arguments(arguments, method)
         .and_then(|()| similarity_operands(arguments))
         .and_then(|(left, right)| similarity_options(arguments, method).map(|options| (left, right, options)))
-        .and_then(|(left, right, options)| compare(&left, &right, options).map_err(|error| eyre!(error)))
+        .and_then(|(left, right, options)| compare(&left, &right, options).map_err(|why| eyre!(why)))
         .and_then(|comparison| comparison.write(arguments.format.unwrap_or(DiffOutputFormat::Text)))
 }
 fn similarity_limits(arguments: &arguments::Diff) -> Result<SimilarityLimits, Report> {

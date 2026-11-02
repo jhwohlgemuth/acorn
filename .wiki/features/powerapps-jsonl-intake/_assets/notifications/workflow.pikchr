@@ -7,7 +7,7 @@ SL: box "Keep every receipt" bold "Receipt export + Teams" "Logbook: every 5 min
 SD: box "Download exports" bold "All originals + corrections" "Check export freshness" same fill 0xFFF4D6 at SL+(2.7in,0)
 E: box "My submissions" bold "Edit selected" "Latest confirmed highlight" same fill 0xE8F1FB at S+(0,1.15in)
 C: box "Save correction" bold "New receipt ID" "Links original + previous" same fill 0xE8F1FB at SL+(0,1.15in)
-K: box "Calendar reminder" bold "First original or its correction" "All day: second Friday" same fill 0xE7F3E9 at SD+(0,1.15in)
+K: box "Calendar reminder" bold "First original or its correction" "All day: first Friday" same fill 0xE7F3E9 at SD+(0,1.15in)
 arrow from E.e to C.w thick color 0x00662C
 arrow from C.s to SL.n+(0,0.12in) thick color 0x00662C
 arrow from S.e to SL.w thick color 0x00662C

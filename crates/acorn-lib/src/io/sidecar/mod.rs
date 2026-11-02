@@ -31,8 +31,6 @@ use std::{
 
 #[cfg(feature = "needle")]
 pub mod needle;
-#[cfg(feature = "slm")]
-pub mod slm;
 
 /// Read-only view of a supporting asset in an official sidecar distribution.
 pub trait DistributionAsset: Send {

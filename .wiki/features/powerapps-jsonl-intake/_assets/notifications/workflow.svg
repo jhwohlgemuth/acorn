@@ -21,7 +21,7 @@
 <path d="M791.28,134.64L1085.04,134.64A11.52 11.52 0 0 0 1096.56 123.12L1096.56,30.96A11.52 11.52 0 0 0 1085.04 19.44L791.28,19.44A11.52 11.52 0 0 0 779.76 30.96L779.76,123.12A11.52 11.52 0 0 0 791.28 134.64Z" style="fill:rgb(231,243,233);stroke-width:0;stroke:rgb(24,60,67);" />
 <text x="938.16" y="53.856" text-anchor="middle" font-weight="bold" fill="rgb(24,60,67)" font-size="115%" dominant-baseline="central">Calendar reminder</text>
 <text x="938.16" y="77.04" text-anchor="middle" fill="rgb(24,60,67)" font-size="115%" dominant-baseline="central">First original or its correction</text>
-<text x="938.16" y="100.224" text-anchor="middle" fill="rgb(24,60,67)" font-size="115%" dominant-baseline="central">All day: second Friday</text>
+<text x="938.16" y="100.224" text-anchor="middle" fill="rgb(24,60,67)" font-size="115%" dominant-baseline="central">All day: first Friday</text>
 <polygon points="390.96,77.04 373.68,83.52 373.68,70.56" style="fill:rgb(0,102,44)" />
 <path d="M318.96,77.04L382.32,77.04" style="fill:none;stroke-width:3.24;stroke:rgb(0,102,44);" />
 <polygon points="549.36,167.76 542.88,150.48 555.84,150.48" style="fill:rgb(0,102,44)" />
