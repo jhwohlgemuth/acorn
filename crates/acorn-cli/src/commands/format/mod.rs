@@ -12,14 +12,15 @@ use acorn::{
     io::{
         config::application::{ApplicationConfiguration, Hook},
         enrichment::{EnrichmentMetadata, Pipeline},
+        mcp::normalize_metadata_file,
         slice_path,
         vocabulary::write_vocabulary_report_audits,
         workflow::{self, Change, EnrichmentSelection, Workflow, WorkflowExtension},
-        FromPath, InputOutput,
+        InputOutput,
     },
     util::{constants::app::DISPLAY_PATH_CHARACTER_COUNT, StringConversion},
 };
-use acorn_core::{options::CommonRuntime, util::MimeType, Location};
+use acorn_core::{options::CommonRuntime, Location};
 use acorn_diff::unified_diff;
 use acorn_host::terminal::Label;
 use acorn_schema::{
@@ -36,7 +37,7 @@ use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
-    fs::{read_to_string, write},
+    fs::write,
     io::{self, IsTerminal},
     path::{Path, PathBuf},
 };
@@ -150,61 +151,36 @@ fn format_file<T>(path: &Path, options: &CommandOptions) -> Result<FormatResult,
 where
     T: InputOutput + Serialize,
 {
-    read_to_string(path)
-        .map_err(|why| eyre!("Read original metadata — {why}"))
-        .and_then(|original| T::read(path.to_path_buf()).map(|data| (data, original)))
+    normalize_metadata_file::<T>(path, options.fuzzy)
         .map_err(|why| {
             if !options.interactive {
                 fail!("Read metadata — {why}");
             }
             eyre!("Read metadata — {why}")
         })
-        .and_then(|(data, original)| {
-            let mime = MimeType::from_path(path);
-            data.serialize_as(&mime)
-                .map_err(|why| {
-                    if !options.interactive {
-                        fail!("Serialize original content — {why}");
-                    }
-                    eyre!("Serialize original content — {why}")
-                })
-                .and_then(|old_content| {
-                    let formatted = data.format_with_vocabulary_report(options.fuzzy, Some(path.to_path_buf()));
-                    formatted
-                        .value
-                        .serialize_as(&mime)
-                        .map_err(|why| {
-                            if !options.interactive {
-                                fail!("Serialize formatted content — {why}");
-                            }
-                            eyre!("Serialize formatted content — {why}")
-                        })
-                        .map(|new_content| (old_content, new_content, formatted.reports, original))
-                })
-                .and_then(|(old_content, new_content, reports, original)| {
-                    let feedback = match old_content == new_content {
-                        | true => format!("No format changes for {}", path.display()),
-                        | false if options.dry_run => format!(
-                            "Dry run: {}\n{}",
-                            path.display(),
-                            format_diff(&old_content, &new_content, path, !options.no_color)
-                        ),
-                        | false => format!("Formatted {}", path.display()),
-                    };
-                    write_formatted_content(path, options, &old_content, &new_content).map(|applied| FormatResult {
-                        audit: match applied {
-                            | false => None,
-                            | true => Some(VocabularyAudit {
-                                after: new_content,
-                                before: original,
-                                path: path.to_path_buf(),
-                                reports,
-                                source: path.display().to_string(),
-                            }),
-                        },
-                        feedback,
-                    })
-                })
+        .and_then(|normalized| {
+            let feedback = match normalized.before == normalized.content {
+                | true => format!("No format changes for {}", path.display()),
+                | false if options.dry_run => format!(
+                    "Dry run: {}\n{}",
+                    path.display(),
+                    format_diff(&normalized.before, &normalized.content, path, !options.no_color)
+                ),
+                | false => format!("Formatted {}", path.display()),
+            };
+            write_formatted_content(path, options, &normalized.before, &normalized.content).map(|applied| FormatResult {
+                audit: match applied {
+                    | false => None,
+                    | true => Some(VocabularyAudit {
+                        after: normalized.content,
+                        before: normalized.original,
+                        path: path.to_path_buf(),
+                        reports: normalized.reports,
+                        source: path.display().to_string(),
+                    }),
+                },
+                feedback,
+            })
         })
 }
 pub async fn run(config: &Option<PathBuf>, enrich: bool, providers: &[Provider], standard: Standard, options: &CommandOptions) -> Result<(), Report> {
@@ -336,7 +312,15 @@ where
         .build();
     match resolve_paths(path, options).await {
         | Ok(paths) => {
-            let sources = paths.iter().map(|path| Location::from(&path.display().to_string())).collect::<Vec<_>>();
+            let canonical = paths
+                .iter()
+                .map(|path| path.canonicalize())
+                .collect::<std::io::Result<Vec<_>>>()
+                .map_err(|why| eyre!("Resolve formatting inputs — {why}"))?;
+            let sources = canonical
+                .iter()
+                .map(|path| Location::from(&path.display().to_string()))
+                .collect::<Vec<_>>();
             let viewport = match options.interactive {
                 | true => Viewport::open().map(Some),
                 | false => Ok(None),

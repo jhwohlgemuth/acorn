@@ -13,6 +13,8 @@ mod capability;
 mod configuration;
 mod diff;
 mod execution;
+mod format;
+mod gather;
 mod inference;
 mod input;
 #[cfg(feature = "mcp-client")]

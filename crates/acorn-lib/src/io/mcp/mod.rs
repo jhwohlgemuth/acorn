@@ -4,11 +4,14 @@ pub use configuration::{EndpointDataPolicy, ExecutorBindingConfiguration, Execut
 pub use server::{run, Server};
 #[cfg(feature = "agentic")]
 pub use tools::{
-    AnalysisBatchOutput, AnalysisCategoryOutput, AnalysisCategoryStatus, AnalysisFinding, AnalysisFixDifference, AnalysisFixInput, AnalysisFixOutput,
-    AnalysisInput, AnalysisOutput, ArtifactPolicy, ArtifactReference, BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition,
-    CapabilityError, CapabilitySelectionContext, DiffOperand, DiffOperation, DiffOperationInput, DiffOperationOutput, ExecutionContext,
-    ExecutionOutcome, ExecutionProvenance, InputFailure, InputLimits, InputReference, MutationAuthority, ResolvedInput, ResolvedInputFile,
-    RoutedExecution, RoutedInputPolicy, SelectedBinding, ToolCallContext, ToolRegistry,
+    format_acre, normalize_metadata_file, AnalysisBatchOutput, AnalysisCategoryOutput, AnalysisCategoryStatus, AnalysisFinding,
+    AnalysisFixDifference, AnalysisFixInput, AnalysisFixOutput, AnalysisInput, AnalysisOutput, ArtifactPolicy, ArtifactReference,
+    BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, CapabilityError, CapabilitySelectionContext, CrosswalkApplyInput,
+    CrosswalkApplyOutput, CrosswalkFormat, CrosswalkPreviewInput, CrosswalkPreviewOutput, DiffOperand, DiffOperation, DiffOperationInput,
+    DiffOperationOutput, ExecutionContext, ExecutionOutcome, ExecutionProvenance, FormatApplyInput, FormatApplyOutput, FormatChange,
+    FormatNormalization, FormatPreviewInput, FormatPreviewOutput, FormatStandard, GatherDiscovery, GatherInput, GatherOutput, GatherReportInput,
+    GatherReportOutput, InputFailure, InputLimits, InputReference, MutationAuthority, ResolvedInput, ResolvedInputFile, RoutedExecution,
+    RoutedInputPolicy, SelectedBinding, ToolCallContext, ToolRegistry,
 };
 
 #[cfg(feature = "agentic")]

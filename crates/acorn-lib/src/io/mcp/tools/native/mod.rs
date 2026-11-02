@@ -4,6 +4,13 @@ pub use analysis::{
     AnalysisInput, AnalysisOutput,
 };
 pub use diff::{DiffOperand, DiffOperation, DiffOperationInput, DiffOperationOutput};
+pub use format::{
+    format_acre, normalize_metadata_file, CrosswalkApplyInput, CrosswalkApplyOutput, CrosswalkFormat, CrosswalkPreviewInput, CrosswalkPreviewOutput,
+    FormatApplyInput, FormatApplyOutput, FormatChange, FormatNormalization, FormatPreviewInput, FormatPreviewOutput, FormatStandard,
+};
+pub use gather::{GatherDiscovery, GatherInput, GatherOutput, GatherReportInput, GatherReportOutput};
 
 mod analysis;
 mod diff;
+mod format;
+mod gather;

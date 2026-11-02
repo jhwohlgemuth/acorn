@@ -42,8 +42,6 @@ data-encoding = { workspace = true }
 derive_more = { workspace = true }
 directories = { workspace = true }
 dotenvy = { workspace = true }
-dprint-core = { workspace = true }
-dprint-plugin-json = { workspace = true }
 exitcode = { version = "1.1.2", default-features = false }
 fast_qr = { version = "0.13.0", features = ["image"], optional = true }
 futures = { workspace = true }
@@ -54,7 +52,6 @@ notify = { workspace = true }
 notify-debouncer-mini = { workspace = true }
 owo-colors = { workspace = true }
 percy-dom = { version = "0.10.0", optional = true }
-pretty_yaml = { workspace = true }
 quick-xml = { workspace = true }
 rayon = { workspace = true }
 ring = "0.17.14"

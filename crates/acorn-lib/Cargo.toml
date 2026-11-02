@@ -50,6 +50,8 @@ convert_case = { version = "0.11.0", default-features = false }
 data-encoding = { workspace = true }
 derive_more = { workspace = true }
 directories = { workspace = true, optional = true }
+dprint-core = { workspace = true, optional = true }
+dprint-plugin-json = { workspace = true, optional = true }
 dotenvy = { workspace = true, optional = true }
 duckdb = { workspace = true, features = ["bundled"], default-features = false, optional = true }
 fancy-regex = { workspace = true }
@@ -71,6 +73,7 @@ owo-colors = { workspace = true, optional = true }
 pdf-inspector = { workspace = true, optional = true }
 polars = { version = "0.53.0", features = ["fmt_no_tty", "rows"], default-features = false, optional = true }
 polars-error = { version = "0.53.0", default-features = false, optional = true }
+pretty_yaml = { workspace = true, optional = true }
 quick-xml = { workspace = true, features = ["serialize"] }
 rayon = { workspace = true, optional = true }
 rmcp = { workspace = true, optional = true }
@@ -169,7 +172,7 @@ progress = ["std", "dep:indicatif", "dep:console", "dep:owo-colors", "dep:comfy-
 cli = ["std", "dep:directories", "dep:dotenvy", "dep:which", "dep:is_executable", "dep:glob", "dep:arboard"]
 db = ["std", "dep:rusqlite"]
 unicode = ["std", "console/std"]
-agentic = ["analysis", "dep:axum", "dep:rmcp", "dep:tempfile", "dep:tower", "rmcp/server", "rmcp/transport-io"]
+agentic = ["analysis", "dep:axum", "dep:dprint-core", "dep:dprint-plugin-json", "dep:pretty_yaml", "dep:rmcp", "dep:tempfile", "dep:tower", "rmcp/server", "rmcp/transport-io"]
 analysis = [
   "dep:acorn-analysis",
   "dep:acorn-service",

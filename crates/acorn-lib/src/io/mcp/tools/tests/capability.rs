@@ -8,6 +8,10 @@ use serde::{Deserialize, Serialize};
 struct Input {
     value: String,
 }
+#[derive(Debug, Deserialize, JsonSchema)]
+struct NamedInput {
+    description: String,
+}
 #[derive(Debug, JsonSchema, Serialize)]
 struct OtherOutput {
     count: usize,
@@ -86,6 +90,38 @@ fn test_catalog_is_deterministic_and_requires_explicit_narrowing_when_oversized(
     assert!(!scoped.contains("acorn.long"));
     assert!(registry.capability_catalog(Some(&["acorn.missing".to_string()]), context).is_err());
     assert!(registry.capability_catalog(Some(&[]), context).is_err());
+}
+#[test]
+fn test_catalog_projection_preserves_named_properties() {
+    let registry = ToolRegistry::default()
+        .register_capability(CapabilityDefinition::new::<NamedInput, Output>(
+            "acorn.named",
+            version(),
+            "Named input",
+            effects(),
+        ))
+        .expect("capability")
+        .register_capability_binding::<NamedInput, Output, _, _>(
+            BindingDefinition::new::<NamedInput, Output>(
+                "native:named",
+                "acorn.named",
+                version(),
+                BindingKind::Native,
+                effects(),
+                BindingAvailability::Ready,
+            ),
+            |input| async move { Ok(Output { value: input.description }) },
+        )
+        .expect("binding");
+    let catalog = registry.capability_catalog(None, CapabilitySelectionContext::default()).expect("catalog");
+    let value: serde_json::Value = serde_json::from_str(&catalog).expect("JSON catalog");
+    assert_eq!(
+        value
+            .get(0)
+            .and_then(|entry| entry.pointer("/parameters/properties/description/type"))
+            .and_then(serde_json::Value::as_str),
+        Some("string")
+    );
 }
 #[test]
 fn test_compatible_implementations_select_deterministically() {

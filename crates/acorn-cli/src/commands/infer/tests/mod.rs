@@ -136,6 +136,9 @@ fn test_routed_input_and_default_registry_contract() {
     assert!(catalog.contains("acorn.version"));
     assert!(catalog.contains("acorn.check"));
     assert!(catalog.contains("acorn.diff"));
+    assert!(catalog.contains("acorn.gather"));
+    assert!(catalog.contains("acorn.format_preview"));
+    assert!(catalog.contains("acorn.crosswalk_preview"));
 }
 #[tokio::test]
 async fn test_routed_registry_composes_configured_local_bindings() {

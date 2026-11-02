@@ -35,8 +35,11 @@ use core::pin::Pin;
 pub use execution::{ArtifactReference, ExecutionContext, ExecutionOutcome, ExecutionProvenance, MutationAuthority, RoutedExecution};
 pub use input::{ArtifactPolicy, InputFailure, InputLimits, InputReference, ResolvedInput, ResolvedInputFile, RoutedInputPolicy};
 pub use native::{
-    AnalysisBatchOutput, AnalysisCategoryOutput, AnalysisCategoryStatus, AnalysisFinding, AnalysisFixDifference, AnalysisFixInput, AnalysisFixOutput,
-    AnalysisInput, AnalysisOutput, DiffOperand, DiffOperation, DiffOperationInput, DiffOperationOutput,
+    format_acre, normalize_metadata_file, AnalysisBatchOutput, AnalysisCategoryOutput, AnalysisCategoryStatus, AnalysisFinding,
+    AnalysisFixDifference, AnalysisFixInput, AnalysisFixOutput, AnalysisInput, AnalysisOutput, CrosswalkApplyInput, CrosswalkApplyOutput,
+    CrosswalkFormat, CrosswalkPreviewInput, CrosswalkPreviewOutput, DiffOperand, DiffOperation, DiffOperationInput, DiffOperationOutput,
+    FormatApplyInput, FormatApplyOutput, FormatChange, FormatNormalization, FormatPreviewInput, FormatPreviewOutput, FormatStandard, GatherDiscovery,
+    GatherInput, GatherOutput, GatherReportInput, GatherReportOutput,
 };
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;

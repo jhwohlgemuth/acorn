@@ -38,7 +38,7 @@ Local evidence checked through 2026-11-02:
 - `io/mcp/client.rs` exposes `McpClientBackend`, configured discovery/calls, allowlists, context, cancellation, and bounded cleanup. A protocol-successful result can still contain `is_error`.
 - `agent/mod.rs` supplies `InferenceBackend`, typed requests/results, capabilities, provenance, and `InferencePermissionPolicy::DenyMutation`; ACP and OpenAI-compatible implementations exist. ACP mutation remains unsupported in this plan.
 - Analysis has reusable services in `analyzer/host/service/mod.rs`. Other CLI leaves sometimes combine parsing, operation, and presentation; extract only the operation seam required for parity, coordinating with the CLI composition plan.
-- The PAR-00 [inventory](../../tests/fixtures/routing/parity.json) freezes 72 CLI behavior rows: 46 bounded and 26 explicit exclusions. The [capability parity guide](../../docs/src/inference/capability-parity.md) records the current 12/46 bounded and 12/72 total evidence and extraction seams.
+- The PAR-00 [inventory](../../tests/fixtures/routing/parity.json) freezes 72 CLI behavior rows: 46 bounded and 26 explicit exclusions. The [capability parity guide](../../docs/src/inference/capability-parity.md) records the current 20/46 bounded and 20/72 total evidence and extraction seams.
 - Needle now accepts a caller-owned `ToolRegistry`, filters its catalog by offline and exposure policy, and keeps the default startup path. Focused `needle` tests cover injected handlers, MCP isolation, compact deterministic catalogs, and exact custom catalog validation.
 - The routing corpus now has 50 labeled nonexecution cases across forbidden, negated, ungrounded, missing-input, and ambiguous requests. Each class has five calibration and five held-out prompts, all linked to inventory rows with zero expected effects.
 - The corpus also has 50 grounded read-only cases covering check, diff, gather, doctor, SWHID, and bounded script checks. Expected capability IDs and existing fixture paths are recorded with an even calibration/held-out split.
@@ -50,6 +50,8 @@ Local evidence checked through 2026-11-02:
 - Shared native input policy now resolves bounded text, file, and directory references under a canonical root, rejects traversal and escaping symlinks, sorts batches, and reports per-entry failures. Artifact policy validates exact destinations, collision and overwrite authority without writing. Four focused input tests pass; `native.rs` is the leaf module root for subsequent operations.
 - The `acorn.check` v1 native binding calls `analyze_paths` and returns standard-specific category statuses and structured findings. It accepts bounded local, HTTP(S), Git branch/commit, GitLab merge-request, and OCI selections; filters and offline policy are checked. The configured `acorn.check_fixes` binding uses the shared `AnalysisReport::suggest_fixes` service and produces nonexecuting unified previews. Eleven focused library tests and eight direct CLI equivalence tests pass, including a positive configured fix proposal and preview with an unchanged source file. The eight PAR-02 inventory rows have passing evidence.
 - The `acorn.diff` v1 native binding shares semantic diff and similarity operations with the direct CLI. Three focused library tests and four direct CLI equivalence tests pass across unified output, JSON Patch, file similarity, and literal similarity. The four PAR-03 inventory rows have passing evidence.
+- Bounded native gather routes now extract the same discovery records as the direct command from text, files, directories, and permitted HTTP(S) documents. Separate local/remote read and authorized report-write routes preserve source provenance; report artifacts use the CLI JSON serializer. Focused library and direct CLI tests cover duplicate PIDs, bounds, offline rejection, remote selection, report shape, and exact write authority. The four PAR-04 inventory rows have passing evidence.
+- Native format preview/apply and crosswalk preview/apply routes use the shared input and artifact policies. The CLI and native plain format path share one normalization function, and ACRE shares one syntax-preserving formatter; enrichment uses the existing provider pipeline. Focused tests cover six supported standards, provider/offline policy, loss warnings, preview/no-write behavior, authorized writes, and direct CLI equivalence. Catalog projection retains canonical execution schemas while omitting redundant schema prose from Needle input; the default catalog stays below 32 KiB. The four PAR-05 inventory rows have passing evidence.
 - Shared sidecar asset/distribution contracts exist. The four planned SLM adapters remain unimplemented; their external gates do not block native parity or generic adapters.
 
 # Shared framework contract
@@ -85,8 +87,8 @@ All mandatory bounded scenarios must pass before heterogeneous router release. A
 | Existing registry/logbook | Preserve tools and explicit graduation policy; separate schema validation from analysis | Landed registry contract |
 | Check | Existing analysis categories, findings, offline and unavailable-category behavior | PAR-02 |
 | Diff/similarity | Existing semantic diff/patch and pairwise metrics | PAR-03 |
-| Gather | Existing PID extraction from text/documents/permitted URLs | PAR-04 |
-| Format/crosswalk | Supported standards, normalization/enrichment, loss warnings, preview/apply | PAR-05 |
+| Gather | Existing PID extraction from text/documents/permitted URLs | Landed |
+| Format/crosswalk | Supported standards, normalization/enrichment, loss warnings, preview/apply | Landed |
 | Linked data | Existing transformation and authorized output | PAR-06 |
 | SWHID | Current calculate/verify over permitted inputs | PAR-07 |
 | Doctor | Structured diagnostics/readiness; no automatic repair | PAR-08 |
@@ -109,7 +111,7 @@ Registry/adapter leaves initially live under `crates/acorn-lib/src/io/mcp/tools/
 Scheduling order:
 
 1. The caller-owned Needle registry, frozen 200-case corpus, versioned capability/binding contract, terminal execution, opt-in CLI route syntax, bounded native input policy, and check/fix/diff bindings have landed.
-2. PAR-04 through PAR-14 native capability coverage; PAR-15 real Needle routing; PAR-16 native parity release.
+2. PAR-06 through PAR-14 native capability coverage; PAR-15 real Needle routing; PAR-16 native parity release.
 3. The [generic adapter plan](ask-executor-adapters.md) may consume the landed registry, execution, and CLI contracts. Its heterogeneous release waits for PAR-16. Swift and Julia profiles consume its registration contract independently.
 
 Each phase has at most five active hours and an exact product write set. Reconcile this plan and its four index/network/lane files after each phase. The frozen inventory records operation seams. Split a missing reusable seam into a bounded extraction phase before its adapter begins if the named leaf cannot complete both within five active hours; a cross-crate rewrite cannot hide inside a registration phase.
@@ -132,28 +134,6 @@ All registered native operations should support the same typed execution contrac
 Generic adapter implementation consumes the frozen registry and execution contracts; generic release follows native parity. The Swift and Julia profiles use its reusable sidecar registration contract. Serialize shared registry, Needle, CLI, and documentation roots with the [parallel guide](../parallel-execution.md).
 
 # Execution phases
-
-## PAR-04 — Expose current gather operations
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: the landed bounded native input policy; operation seam recorded in the frozen parity inventory; coordinate the owning command plan
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/gather.rs`, `crates/acorn-lib/src/io/mcp/tools/native/gather_tests.rs`, `crates/acorn-cli/src/commands/gather/mod.rs`, `crates/acorn-cli/src/commands/gather/registry_tests.rs`
-- Primary integration lock: Native capability parity
-- Outcome: Current PID extraction from text/documents/permitted URLs and its provenance; no future extraction feature. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
-- Focused validation: Input types, offline rejection, duplicates, bounds, and matching extracted identifiers. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
-- Handoff: Remove PAR-04 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
-
-## PAR-05 — Align format and crosswalk behavior
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: the landed bounded native input policy; operation seam recorded in the frozen parity inventory; coordinate the owning command plan
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/format.rs`, `crates/acorn-lib/src/io/mcp/tools/native/format_tests.rs`, `crates/acorn-cli/src/commands/format/mod.rs`, `crates/acorn-cli/src/commands/format/registry_tests.rs`
-- Primary integration lock: Native capability parity
-- Outcome: Supported standards, normalization/enrichment, loss warnings, preview and authorized output. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
-- Focused validation: Format/standard matrix, offline enrichment, field-loss warnings, preview/apply, and invalid-input no-write. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
-- Handoff: Remove PAR-05 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
 
 ## PAR-06 — Expose linked-data operations
 
@@ -258,7 +238,7 @@ Generic adapter implementation consumes the frozen registry and execution contra
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: PAR-04 through PAR-14; pinned Needle runner installed on a supported host
+- Prerequisites: PAR-06 through PAR-14; pinned Needle runner installed on a supported host
 - Exact write set: `crates/acorn-lib/src/io/mcp/tools/needle.rs`, `crates/acorn-lib/src/io/sidecar/needle/mod.rs`, `crates/acorn-lib/src/io/sidecar/needle/assets.rs`, `crates/acorn-lib/src/io/sidecar/needle/tests/mod.rs`, `tests/fixtures/routing/results.json`, `docs/src/inference/routing-evaluation.md`
 - Primary integration lock: Needle routing evaluation
 - Outcome: Enforce catalog budgets/cache invalidation and score the frozen corpus against the actual native catalog. Add measured deterministic scoping only if needed.

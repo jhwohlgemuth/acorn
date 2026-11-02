@@ -247,7 +247,9 @@ fn native_routing_registry(offline: bool) -> ApiResult<ToolRegistry> {
             current_dir().map_err(Into::into).and_then(|root| {
                 registry
                     .register_analysis_capability(root.clone(), offline)
-                    .and_then(|registry| registry.register_diff_capability(root))
+                    .and_then(|registry| registry.register_diff_capability(root.clone()))
+                    .and_then(|registry| registry.register_gather_capabilities(root.clone(), offline))
+                    .and_then(|registry| registry.register_format_capabilities(root, offline))
             })
         })
 }

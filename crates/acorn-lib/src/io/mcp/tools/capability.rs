@@ -468,7 +468,7 @@ impl ToolRegistry {
                 .map(|entry| NeedleToolDefinition {
                     name: entry.definition.id.clone(),
                     description: entry.definition.description.clone(),
-                    parameters: entry.definition.input_schema.clone(),
+                    parameters: catalog_schema(&entry.definition.input_schema, false),
                     triggers: Vec::new(),
                 })
                 .collect::<Vec<_>>();
@@ -484,9 +484,49 @@ impl ToolRegistry {
         })
     }
 }
+fn catalog_schema(schema: &Value, named_schemas: bool) -> Value {
+    match schema {
+        | Value::Object(fields) => Value::Object(
+            fields
+                .iter()
+                .filter(|(key, _)| named_schemas || !matches!(key.as_str(), "$schema" | "title" | "description"))
+                .map(|(key, value)| {
+                    let projected = match key.as_str() {
+                        | "properties" | "patternProperties" | "$defs" | "definitions" | "dependentSchemas" => catalog_schema(value, true),
+                        | "const" | "default" | "enum" | "examples" => value.clone(),
+                        | _ => catalog_schema(value, false),
+                    };
+                    (key.clone(), projected)
+                })
+                .collect(),
+        ),
+        | Value::Array(values) => Value::Array(values.iter().map(|value| catalog_schema(value, false)).collect()),
+        | value => value.clone(),
+    }
+}
 fn schema<T: JsonSchema>() -> Value {
     serde_json::to_value(schema_for!(T)).unwrap_or_else(|_| serde_json::json!({ "type": "object" }))
 }
 fn valid_id(id: &str) -> bool {
     id.len() <= 128 && id.split(':').all(is_identifier)
+}
+#[cfg(test)]
+mod catalog_projection_tests {
+    use super::catalog_schema;
+    use serde_json::json;
+
+    #[test]
+    fn test_catalog_projection_keeps_literal_defaults() {
+        let schema = json!({
+            "type": "object",
+            "title": "Input",
+            "default": { "description": "literal", "title": "value" },
+            "properties": { "description": { "type": "string", "description": "field prose" } }
+        });
+        let projected = catalog_schema(&schema, false);
+        assert_eq!(projected.pointer("/default/description"), Some(&json!("literal")));
+        assert_eq!(projected.pointer("/default/title"), Some(&json!("value")));
+        assert_eq!(projected.pointer("/properties/description/type"), Some(&json!("string")));
+        assert!(projected.pointer("/properties/description/description").is_none());
+    }
 }

@@ -809,7 +809,12 @@ async fn resolve_paths_with_extensions(
                         | Some(x) => x.clone(),
                         | None => PathBuf::from("."),
                     };
-                    (files_all(value.clone(), extensions), Some(value))
+                    let files = if value.is_file() {
+                        vec![value.clone()]
+                    } else {
+                        files_all(value.clone(), extensions)
+                    };
+                    (files, Some(value))
                 }
             },
         }
