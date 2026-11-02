@@ -1,6 +1,6 @@
 //! Versioned capability contracts and deterministic executor selection.
 
-use super::{ToolHandler, ToolRegistry};
+use super::{CapabilityHandler, ToolHandler, ToolRegistry};
 use crate::error::ApiResult;
 use acorn_core::prelude::{String, Vec};
 use acorn_core::util::SemanticVersion;
@@ -55,6 +55,9 @@ pub enum CapabilityError {
     /// A binding identifier is already registered.
     #[error("Duplicate binding ID '{0}'")]
     DuplicateBinding(String),
+    /// A capability identifier is already registered with another contract.
+    #[error("Capability '{0}' is already registered with a different contract")]
+    ConflictingCapability(String),
     /// A capability identifier is already registered.
     #[error("Duplicate capability ID '{0}'")]
     DuplicateCapability(String),
@@ -160,7 +163,7 @@ pub struct CapabilitySelectionContext {
 #[derive(Clone)]
 struct RegisteredBinding {
     definition: BindingDefinition,
-    handler: ToolHandler,
+    handler: CapabilityHandler,
 }
 /// Resolved capability and one eligible executor binding.
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -252,14 +255,27 @@ impl Validate for CapabilityDefinition {
                 ValidationError::new("invalid").with_message("Capability requires an object input schema"),
             );
         }
+        if jsonschema::validator_for(&self.input_schema).is_err() {
+            report.add(
+                "input_schema",
+                ValidationError::new("invalid").with_message("Capability input schema must be valid JSON Schema"),
+            );
+        }
+        if jsonschema::validator_for(&self.output_schema).is_err() {
+            report.add(
+                "output_schema",
+                ValidationError::new("invalid").with_message("Capability output schema must be valid JSON Schema"),
+            );
+        }
         report.finish()
     }
 }
 impl ToolRegistry {
+    #[cfg(feature = "needle")]
     pub(crate) fn has_capabilities(&self) -> bool {
         !self.capabilities.is_empty()
     }
-    pub(super) fn current_handler(&self, selected: &SelectedBinding, context: CapabilitySelectionContext) -> Option<ToolHandler> {
+    pub(super) fn current_handler(&self, selected: &SelectedBinding, context: CapabilitySelectionContext) -> Option<CapabilityHandler> {
         self.capabilities
             .iter()
             .find(|entry| entry.definition == selected.capability)
@@ -285,14 +301,36 @@ impl ToolRegistry {
                 }
             })
     }
+    #[cfg(feature = "mcp-client")]
+    pub(super) fn register_dynamic_capability(self, definition: CapabilityDefinition) -> ApiResult<Self> {
+        match self.capabilities.iter().find(|entry| entry.definition.id == definition.id) {
+            | Some(entry) if entry.definition == definition => Ok(self),
+            | Some(_) => Err(CapabilityError::ConflictingCapability(definition.id).into()),
+            | None => self.register_capability(definition),
+        }
+    }
     /// Add one typed executor after checking its version, schemas, and effects.
-    pub fn register_capability_binding<I, O, F, Fut>(mut self, definition: BindingDefinition, handler: F) -> ApiResult<Self>
+    pub fn register_capability_binding<I, O, F, Fut>(self, definition: BindingDefinition, handler: F) -> ApiResult<Self>
     where
         I: DeserializeOwned + JsonSchema + Send + 'static,
         O: Serialize + JsonSchema + 'static,
         F: Fn(I) -> Fut + Send + Sync + 'static,
         Fut: Future<Output = ApiResult<O>> + Send + 'static,
     {
+        let matches_types = definition.input_schema == schema::<I>() && definition.output_schema == schema::<O>();
+        match matches_types {
+            | false => Err(CapabilityError::MismatchedContract {
+                binding: definition.id.clone(),
+                capability: definition.capability_id.clone(),
+            }
+            .into()),
+            | true => {
+                let handler = ToolHandler::new::<I, O, F, Fut>(definition.id.clone(), Arc::new(handler));
+                self.register_dynamic_binding(definition, handler.into())
+            }
+        }
+    }
+    pub(super) fn register_dynamic_binding(mut self, definition: BindingDefinition, handler: CapabilityHandler) -> ApiResult<Self> {
         let duplicate = self
             .capabilities
             .iter()
@@ -313,9 +351,7 @@ impl ToolRegistry {
                     let matches_contract = definition.version == canonical.version
                         && definition.input_schema == canonical.input_schema
                         && definition.output_schema == canonical.output_schema
-                        && definition.effects == canonical.effects
-                        && definition.input_schema == schema::<I>()
-                        && definition.output_schema == schema::<O>();
+                        && definition.effects == canonical.effects;
                     if !matches_contract {
                         Err(CapabilityError::MismatchedContract {
                             binding: definition.id.clone(),
@@ -323,7 +359,6 @@ impl ToolRegistry {
                         }
                         .into())
                     } else {
-                        let handler = ToolHandler::new::<I, O, F, Fut>(definition.id.clone(), Arc::new(handler));
                         entry.bindings.push(RegisteredBinding { definition, handler });
                         entry.bindings.sort_by(|left, right| left.definition.id.cmp(&right.definition.id));
                         Ok(())

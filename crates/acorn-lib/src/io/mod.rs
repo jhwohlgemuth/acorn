@@ -116,7 +116,7 @@ pub mod model;
 pub mod oci;
 #[cfg(feature = "powerpoint")]
 pub mod powerpoint;
-#[cfg(feature = "needle")]
+#[cfg(any(feature = "needle", feature = "slm"))]
 pub mod sidecar;
 pub mod source;
 #[cfg(feature = "swhid-compute")]

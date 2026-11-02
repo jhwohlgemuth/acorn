@@ -84,6 +84,7 @@ auth = ["acorn-lib/auth", "acorn-host/auth"]
 chart = ["acorn-lib/chart"]
 duckdb = ["acorn-lib/duckdb"]
 pdf = ["dep:chromiumoxide", "dep:percy-dom", "dep:fast_qr", "chart"]
+slm = ["acorn-lib/slm"]
 tui = ["dep:acorn-tui"]
 exec = ["acorn-lib/exec", "dep:rhai"]
 

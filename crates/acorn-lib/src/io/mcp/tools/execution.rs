@@ -1,14 +1,17 @@
 //! One terminal capability invocation with caller-bound authority.
-use super::{CapabilitySelectionContext, SelectedBinding, ToolRegistry};
+use super::{CapabilitySelectionContext, HandlerCall, SelectedBinding, ToolRegistry};
 use crate::util::constants::app::DEFAULT_JSON_RPC_MAX_BODY_BYTES;
 use acorn_core::prelude::{String, Vec};
 use acorn_core::util::SemanticVersion;
 use acorn_schema::hardware::Memory;
 use core::future::{self, Future};
 use core::pin::Pin;
+use core::time::Duration;
 use serde::Serialize;
 use serde_json::Value;
 use std::time::Instant;
+
+const COOPERATIVE_CLEANUP_TIMEOUT: Duration = Duration::from_secs(4);
 
 /// Terminal outcome of one routed operation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -65,7 +68,7 @@ pub struct ExecutionContext {
     pub max_output: Memory,
     /// Optional caller deadline.
     pub deadline: Option<Instant>,
-    /// Optional cancellation future; dropping the handler future requests cooperative cleanup.
+    /// Optional cancellation future; cooperative handlers receive the signal and finish bounded cleanup.
     pub cancellation: Option<Pin<Box<dyn Future<Output = ()> + Send>>>,
 }
 /// Secret-free identity of the selected operation and implementation.
@@ -183,12 +186,18 @@ impl ToolRegistry {
                         | None => future::pending::<()>().await,
                     }
                 };
-                let call = handler.call(arguments);
+                let mut call = handler.start(arguments);
                 tokio::select! {
                     biased;
-                    _ = cancellation => RoutedExecution::new(selected, ExecutionOutcome::Cancelled, true),
-                    _ = deadline => RoutedExecution::new(selected, ExecutionOutcome::TimedOut, true),
-                    result = call => match result {
+                    _ = cancellation => {
+                        cancel_call(&mut call).await;
+                        RoutedExecution::new(selected, ExecutionOutcome::Cancelled, true)
+                    },
+                    _ = deadline => {
+                        cancel_call(&mut call).await;
+                        RoutedExecution::new(selected, ExecutionOutcome::TimedOut, true)
+                    },
+                    result = call.future.as_mut() => match result {
                         Err(_) => RoutedExecution::new(selected, ExecutionOutcome::ToolFailed, true),
                         Ok(value) => {
                             let output_size = serde_json::to_vec(&value).map_or(usize::MAX, |encoded| encoded.len());
@@ -220,6 +229,12 @@ fn artifacts(value: &Value) -> Vec<ArtifactReference> {
         .filter(|uri| !uri.is_empty() && uri.len() <= 1024)
         .map(|uri| ArtifactReference { uri: uri.to_string() })
         .collect()
+}
+async fn cancel_call(call: &mut HandlerCall) {
+    if let Some(cancellation) = call.cancellation.take() {
+        let _ = cancellation.send(());
+        let _ = tokio::time::timeout(COOPERATIVE_CLEANUP_TIMEOUT, call.future.as_mut()).await;
+    }
 }
 fn valid_schema(schema: &Value, value: &Value) -> bool {
     jsonschema::validator_for(schema).is_ok_and(|validator| validator.is_valid(value))

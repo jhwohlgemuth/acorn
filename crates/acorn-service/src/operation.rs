@@ -1,5 +1,6 @@
 //! Portable operation provenance and effect policy.
 use acorn_core::prelude::{String, ToString};
+use acorn_schema::agent::tools::ToolEffects;
 pub use acorn_schema::hardware::Memory;
 use core::fmt;
 use schemars::JsonSchema;
@@ -137,6 +138,16 @@ impl fmt::Display for OperationPolicyError {
             | Self::MutationApprovalRequired => formatter.write_str("Operation requires mutation approval"),
             | Self::Offline => formatter.write_str("Operation is unavailable while offline"),
             | Self::UnavailableEffect => formatter.write_str("Operation declares an unavailable effect"),
+        }
+    }
+}
+impl From<OperationEffects> for ToolEffects {
+    fn from(effects: OperationEffects) -> Self {
+        Self {
+            read_only: !(effects.destructive || effects.filesystem_write || effects.mutation),
+            destructive: effects.destructive,
+            idempotent: false,
+            open_world: true,
         }
     }
 }

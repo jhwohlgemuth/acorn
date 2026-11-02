@@ -50,7 +50,7 @@ The following retained upstream evidence was checked on 2026-09-22; it is model-
 
 ## Rust and CLI files
 
-- **Update:** `crates/acorn-lib/Cargo.toml` and `crates/acorn-lib/src/io/mod.rs` to consume ADP-08's opt-in `slm` feature/module wiring and add only the concrete profile registrations. Extend `crates/acorn-lib/src/io/sidecar/mod.rs` only when a second concrete implementation proves another lifecycle primitive is shared.
+- **Update:** Add only the concrete profile registrations through the landed opt-in `slm` feature/module wiring. Extend `crates/acorn-lib/src/io/sidecar/mod.rs` only when a second concrete implementation proves another lifecycle primitive is shared.
 - **Create:** `crates/acorn-lib/src/io/sidecar/slm/{mod,assets,process,protocol,language,redact,title}.rs` with concrete `LanguageSidecar`, `RedactSidecar`, and `TitleSidecar` implementations. Each sidecar implements `SidecarAssets` for acquisition and `Sidecar` for its typed request, result, and process lifecycle. Keep capability-specific result types and validation explicit; register typed handlers in the existing tools registry; do not introduce a parallel registry or erase capability contracts behind `serde_json::Value`.
 - **Update:** the existing CLI inference/download command modules, CLI argument definitions, and dispatch roots to compose configured executor bindings and explicit model downloads. Regenerate `CommandLineHelp.md` once under the CLI integration lock.
 - **Create:** `tests/fixtures/slm/{language,redact,title}/` and `docs/src/inference/slm.md`; update `docs/src/SUMMARY.md`.
@@ -227,7 +227,7 @@ Legal, host, and artifact feasibility work may proceed independently of native p
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ADP-08, SLM-11
+- Prerequisites: SLM-11
 - Exact write set: `crates/acorn-lib/Cargo.toml`, `crates/acorn-lib/src/io/mod.rs`, `crates/acorn-lib/src/io/sidecar/slm/assets.rs`, `crates/acorn-lib/src/io/sidecar/slm/mod.rs`, `crates/acorn-lib/src/io/tests/mod.rs`
 - Primary integration lock: library feature graph
 - Outcome: Consume the existing opt-in `slm` wiring and pin validated Swift capability/platform assets without predicting checksums.

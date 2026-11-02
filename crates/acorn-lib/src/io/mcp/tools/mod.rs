@@ -33,8 +33,12 @@ use serde_json::Value;
 mod capability;
 mod execution;
 mod input;
+#[cfg(feature = "mcp-client")]
+mod mcp;
 mod native;
 mod needle;
+#[cfg(feature = "mcp-client")]
+type ToolCancellation<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
 type ToolFuture = Pin<Box<dyn Future<Output = ApiResult<Value>> + Send>>;
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -50,6 +54,8 @@ struct ApplyLogbookGraduationOutput {
     research_activity_iid: String,
     revision_iid: String,
 }
+#[derive(Clone)]
+struct CapabilityHandler(Arc<dyn Fn(Value) -> HandlerCall + Send + Sync>);
 #[cfg(feature = "analysis")]
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -91,6 +97,10 @@ struct FormatAndEnrichOutput {
     activity: ResearchActivity,
     conflicts: Vec<String>,
     failures: Vec<String>,
+}
+struct HandlerCall {
+    cancellation: Option<tokio::sync::oneshot::Sender<()>>,
+    future: ToolFuture,
 }
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -187,6 +197,35 @@ impl From<LogbookGraduationPersistence> for ApplyLogbookGraduationOutput {
             research_activity_iid: persisted.research_activity_iid,
             revision_iid: persisted.revision_iid,
         }
+    }
+}
+impl CapabilityHandler {
+    #[cfg(feature = "mcp-client")]
+    fn cancellable<F>(handler: F) -> Self
+    where
+        F: Fn(Value, ToolCancellation<'static>) -> ToolFuture + Send + Sync + 'static,
+    {
+        Self(Arc::new(move |arguments| {
+            let (sender, receiver) = tokio::sync::oneshot::channel();
+            let cancellation = Box::pin(async move {
+                let _ = receiver.await;
+            });
+            HandlerCall {
+                cancellation: Some(sender),
+                future: handler(arguments, cancellation),
+            }
+        }))
+    }
+    fn start(&self, arguments: Value) -> HandlerCall {
+        (self.0)(arguments)
+    }
+}
+impl From<ToolHandler> for CapabilityHandler {
+    fn from(handler: ToolHandler) -> Self {
+        Self(Arc::new(move |arguments| HandlerCall {
+            cancellation: None,
+            future: handler.call(arguments),
+        }))
     }
 }
 #[cfg(feature = "analysis")]

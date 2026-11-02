@@ -182,6 +182,16 @@ fn test_equally_preferred_remote_bindings_are_ambiguous() {
     );
 }
 #[test]
+fn test_runtime_schemas_must_be_valid_json_schema() {
+    let mut definition = CapabilityDefinition::new::<Input, Output>("acorn.runtime", version(), "Runtime schema", effects());
+    definition.output_schema = serde_json::json!({"type": 7});
+    assert!(ToolRegistry::default()
+        .register_capability(definition)
+        .expect_err("invalid runtime schema")
+        .to_string()
+        .contains("output schema"));
+}
+#[test]
 fn test_unavailable_and_remote_bindings_do_not_fall_back_from_explicit_choice() {
     let registry = register(
         register(registry(), binding("native:sample", BindingKind::Native, BindingAvailability::Ready)),

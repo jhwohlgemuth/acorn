@@ -95,7 +95,7 @@ All mandatory bounded scenarios must pass before heterogeneous router release. A
 | Sync | Current target configuration preview/apply | PAR-12 |
 | Report | Existing artifact generation and explicit publication | PAR-13 |
 | Script checks | Existing check/check-safe; no unrestricted automation | PAR-14 |
-| Prompt/MCP commands | Preserve direct commands; heterogeneous release follows native parity | ADP-02 through ADP-04 |
+| Prompt/MCP commands | Preserve direct commands; the configured MCP adapter is landed and heterogeneous release follows native parity | ADP-03 through ADP-04 |
 
 Exclude interactive TUI/clipboard UX, persistent servers, infrastructure/secret creation, automatic repair, and unrestricted automation from the bounded milestone. Keep them visible in the total CLI inventory. Unsupported flags/scenarios need explicit entries rather than disappearing from the denominator. Native-handler equivalence tests require no model weights; real Needle routing is a separate gate.
 

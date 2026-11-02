@@ -10,3 +10,5 @@ mod capability;
 mod configuration;
 mod execution;
 mod input;
+#[cfg(feature = "mcp-client")]
+mod mcp;

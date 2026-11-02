@@ -99,6 +99,57 @@ async fn test_cancellation_timeout_and_output_limit_do_not_retry() {
     );
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
+#[cfg(feature = "mcp-client")]
+#[tokio::test]
+async fn test_cooperative_handler_finishes_cleanup_before_cancellation_returns() {
+    let cleaned = Arc::new(AtomicUsize::new(0));
+    let cleaned_in_handler = cleaned.clone();
+    let effect = effects(true);
+    let capability = CapabilityDefinition::new::<Input, Output>("acorn.cooperative", version(), "Cooperative check", effect);
+    let binding = BindingDefinition::new::<Input, Output>(
+        "remote:cooperative",
+        "acorn.cooperative",
+        version(),
+        BindingKind::Remote,
+        effect,
+        BindingAvailability::Ready,
+    );
+    let handler = CapabilityHandler::cancellable(move |_arguments, cancellation| {
+        let cleaned = cleaned_in_handler.clone();
+        Box::pin(async move {
+            cancellation.await;
+            cleaned.fetch_add(1, Ordering::SeqCst);
+            Err(color_eyre::eyre::eyre!("cancelled after cleanup"))
+        })
+    });
+    let registry = ToolRegistry::default()
+        .register_capability(capability)
+        .expect("capability")
+        .register_dynamic_binding(binding, handler)
+        .expect("binding");
+    let selected = registry
+        .select_capability_binding(
+            "acorn.cooperative",
+            None,
+            None,
+            CapabilitySelectionContext {
+                offline: false,
+                allow_remote: true,
+            },
+        )
+        .expect("selection");
+    let context = ExecutionContext {
+        cancellation: Some(Box::pin(tokio::time::sleep(Duration::from_millis(5)))),
+        selection: CapabilitySelectionContext {
+            offline: false,
+            allow_remote: true,
+        },
+        ..grounded()
+    };
+    let result = registry.execute_selected(&selected, json!({"value":"safe"}), context).await;
+    assert_eq!(result.outcome, ExecutionOutcome::Cancelled);
+    assert_eq!(cleaned.load(Ordering::SeqCst), 1);
+}
 #[tokio::test]
 async fn test_denial_and_invalid_input_never_call_handler() {
     let calls = Arc::new(AtomicUsize::new(0));

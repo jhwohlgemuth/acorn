@@ -19,7 +19,7 @@ The first usable interface is separate from `acorn tui`. The later chat-controll
 
 # Current evidence
 
-Implementation queue update on 2026-11-01: ADP-08 is next after the interactive format handoff. `format --interactive` now renders plain and ACRE feedback inline, reviews typed enrichment and vocabulary choices with Skip, revalidates sources, and applies the reviewed workflow through configured hooks and the existing artifact transaction. Focused CLI/workflow tests, a PTY smoke run with a configured hook and vocabulary choices, and the generated help contract pass. IMC-12 is the next IMC phase after the ADP handoff.
+Implementation queue update on 2026-11-01: the optional sidecar feature and configured MCP adapter handoffs are complete, with ADP-03 next. `format --interactive` now renders plain and ACRE feedback inline, reviews typed enrichment and vocabulary choices with Skip, revalidates sources, and applies the reviewed workflow through configured hooks and the existing artifact transaction. Focused CLI/workflow tests, a PTY smoke run with a configured hook and vocabulary choices, and the generated help contract pass. IMC-12 is the next IMC phase after the ADP handoff.
 
 Checked on 2026-10-29 against the current implementation:
 

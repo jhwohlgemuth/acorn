@@ -12,6 +12,7 @@
 - [Needle routing and native capability parity](needle-router-native-parity.md) - Bring bounded native ACORN workflows behind `acorn ask` with measured parity.
 - [PowerApp and Power Automate highlight intake](powerapps-jsonl-intake/index.md) - SharePoint is the accepted default, including contributor access, browser recovery, collected export, native restore and immutable submission editing. GitLab intake/catalog remain Off. PA-32 is accepted and pruned: monthly coverage/history is published, a serialized five-minute refresh is On, counts match original receipts, and desktop/mobile views passed. Populated month/project cards link to counted original submissions using existing reviewer access. Contributor-account October/September navigation is accepted and PA-33 is pruned; dashboard/page/list Read grants are verified; Entra groups remain deferred; PA-29 standalone general-logbook intake/reporting passed local acceptance and is pruned; PA-12 waits for shared-target/group/capacity approval. Independent GitLab PA-15–17 retain isolated acceptance blockers; OAuth download and Vergil are separate.
 - [RON support for ACRE configuration](acre-ron-configuration.md) - Dependency/format registration and the private data adapter are landed; complete configuration lifecycle, CLI discovery, canonical formatting, and final documentation remain.
+- [Generic ask executor adapters](ask-executor-adapters.md) - Optional sidecar feature wiring and configured MCP adaptation are landed; bind ACP next, then OpenAI-compatible/Ollama and sidecar transports before release.
 
 ## Planned
 
@@ -22,7 +23,6 @@
 
 - [Sponsor highlights clarity](sponsor-highlights-clarity.md) - Add evidence-backed mission value, a consistent project synopsis, reviewed ASPECT graduation across schema, local CLI and other adapters, accessibility checks, and an approved distribution pilot.
 - [Grouped report separators](grouped-report-separators.md) - Extend the existing local --combine PDF with ordered project groups and full-page office dividers; keep individual report publication unchanged.
-- [Generic ask executor adapters](ask-executor-adapters.md) - Explicit binding configuration has landed; bind existing MCP, ACP, OpenAI-compatible/Ollama, and sidecar transports to routed capabilities before release.
 - [Swift SLM capability profile](swift-slm-profile.md) - Release Tongue, Redact, and Title after licensing, host, artifact, and quality gates.
 - [Julia decision sidecar profile](julia-decision-sidecar.md) - Release advisory Choice and Noul decisions after independent parity and quality gates.
 - [Release-gated Beam inference integration](beam-inference-integration.md) - Verify released serving contracts, then evaluate an explicitly configured hosted or operator-owned endpoint independently of local SLM sidecars.

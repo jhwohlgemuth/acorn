@@ -226,6 +226,7 @@ mcp-client = [
 needle = ["agentic", "dep:acorn-cmd"]
 exec = ["analysis", "acorn-analysis/exec", "dep:cap-std", "dep:rhai"]
 shell-lint = ["analysis", "acorn-cmd/shell-lint"]
+slm = ["analysis"]
 swhid-compute = ["analysis", "dep:acorn-cmd", "dep:swhid"]
 
 [lints]

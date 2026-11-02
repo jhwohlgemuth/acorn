@@ -121,7 +121,7 @@ Measure cold/warm latency, p50/p95, peak process-tree RSS, installed/download by
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ADP-08, JUL-02
+- Prerequisites: JUL-02
 - Exact write set: `crates/acorn-lib/src/io/sidecar/slm/mod.rs`, `crates/acorn-lib/src/io/sidecar/slm/decision.rs`, `crates/acorn-lib/src/io/sidecar/slm/decision/tests.rs`
 - Primary integration lock: shared sidecar root
 - Outcome: Model criteria, validated probability, complement, threshold answer/abstention, and policy revision explicitly.
