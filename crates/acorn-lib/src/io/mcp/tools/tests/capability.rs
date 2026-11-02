@@ -1,5 +1,7 @@
 use super::*;
-use crate::io::mcp::tools::capability::{BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, CapabilitySelectionContext};
+use crate::io::mcp::tools::capability::{
+    catalog_schema, BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, CapabilitySelectionContext,
+};
 use acorn_schema::agent::tools::ToolEffects;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -90,6 +92,20 @@ fn test_catalog_is_deterministic_and_requires_explicit_narrowing_when_oversized(
     assert!(!scoped.contains("acorn.long"));
     assert!(registry.capability_catalog(Some(&["acorn.missing".to_string()]), context).is_err());
     assert!(registry.capability_catalog(Some(&[]), context).is_err());
+}
+#[test]
+fn test_catalog_projection_keeps_literal_defaults() {
+    let schema = serde_json::json!({
+        "type": "object",
+        "title": "Input",
+        "default": { "description": "literal", "title": "value" },
+        "properties": { "description": { "type": "string", "description": "field prose" } }
+    });
+    let projected = catalog_schema(&schema, false);
+    assert_eq!(projected.pointer("/default/description"), Some(&serde_json::json!("literal")));
+    assert_eq!(projected.pointer("/default/title"), Some(&serde_json::json!("value")));
+    assert_eq!(projected.pointer("/properties/description/type"), Some(&serde_json::json!("string")));
+    assert!(projected.pointer("/properties/description/description").is_none());
 }
 #[test]
 fn test_catalog_projection_preserves_named_properties() {

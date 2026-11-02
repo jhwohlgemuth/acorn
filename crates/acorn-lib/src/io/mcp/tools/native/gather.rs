@@ -74,92 +74,107 @@ impl GatherInput {
     }
     async fn gather_with_report(self, root: &Path, offline: bool) -> ApiResult<(GatherOutput, Report)> {
         let limits = InputLimits::default();
-        let policy = RoutedInputPolicy::new(root, limits.clone())?;
-        let (documents, failures) = match &self.input {
-            | InputReference::Url(url) => {
-                if offline {
-                    return Err(eyre!("Remote gather input is unavailable in offline mode"));
+        let selected = match RoutedInputPolicy::new(root, limits.clone()) {
+            | Ok(policy) => match &self.input {
+                | InputReference::Url(_) if offline => Err(eyre!("Remote gather input is unavailable in offline mode")),
+                | InputReference::Url(url) if !(url.starts_with("https://") || url.starts_with("http://")) => {
+                    Err(eyre!("Gather URL must use HTTP or HTTPS"))
                 }
-                if !(url.starts_with("https://") || url.starts_with("http://")) {
-                    return Err(eyre!("Gather URL must use HTTP or HTTPS"));
-                }
-                let bytes = Source::read_bytes(url, false).await?;
-                if limits.max_total.can_contain(bytes.len() as u64) != Some(true) {
-                    return Err(eyre!("Remote gather input exceeds the byte limit"));
-                }
-                (vec![SourceDocument::from_bytes(&bytes, url)?], Vec::new())
-            }
-            | InputReference::Text(text) => {
-                policy.resolve(&self.input)?;
-                (
-                    vec![SourceDocument::init().content(text.clone()).format("text").source("<text:1>").build()],
-                    Vec::new(),
-                )
-            }
-            | InputReference::File(_) | InputReference::Directory(_) => {
-                let resolved = policy.resolve(&self.input)?;
-                let mut documents = Vec::new();
-                let mut failures = resolved.failures;
-                for file in resolved.files {
-                    let source = match &self.input {
-                        | InputReference::File(path) => path.display().to_string(),
-                        | _ => file.path.display().to_string(),
-                    };
-                    let loaded = fs::read(&file.path)
-                        .map_err(|why| eyre!("Read gather source {} — {why}", file.path.display()))
-                        .and_then(|bytes| {
-                            if limits.max_total.can_contain(bytes.len() as u64) != Some(true) {
-                                Err(eyre!("Gather source exceeds the byte limit"))
-                            } else {
-                                SourceDocument::from_bytes(&bytes, &source)
-                            }
-                        });
-                    match loaded {
-                        | Ok(document) => documents.push(document),
-                        | Err(_) if matches!(self.input, InputReference::Directory(_)) => failures.push(InputFailure {
-                            path: file.path,
-                            reason: "document conversion failed".to_string(),
-                        }),
-                        | Err(why) => return Err(why),
+                | InputReference::Url(url) => Source::read_bytes(url, false).await.and_then(|bytes| {
+                    if limits.max_total.can_contain(bytes.len() as u64) == Some(true) {
+                        SourceDocument::from_bytes(&bytes, url).map(|document| (vec![document], Vec::new()))
+                    } else {
+                        Err(eyre!("Remote gather input exceeds the byte limit"))
                     }
-                }
-                (documents, failures)
-            }
-            | _ => return Err(eyre!("Gather supports text, local files, directories, and HTTP(S) URLs")),
-        };
-        let inputs = documents.len();
-        let records = Records::from(documents);
-        let discoveries = records
-            .iter()
-            .filter_map(|record| match record {
-                | Record::Discovery {
-                    identifier,
-                    identifier_type,
-                    source,
-                    source_format,
-                    ..
-                } => Some(GatherDiscovery {
-                    identifier: identifier.clone(),
-                    identifier_type: identifier_type.to_string(),
-                    source: source.clone(),
-                    source_format: source_format.clone(),
                 }),
-                | _ => None,
-            })
-            .collect();
-        Ok((GatherOutput { discoveries, failures }, Report::new(&[], records, inputs)))
+                | InputReference::Text(text) => policy.resolve(&self.input).map(|_| {
+                    (
+                        vec![SourceDocument::init().content(text.clone()).format("text").source("<text:1>").build()],
+                        Vec::new(),
+                    )
+                }),
+                | InputReference::File(_) | InputReference::Directory(_) => policy.resolve(&self.input).and_then(|resolved| {
+                    resolved
+                        .files
+                        .into_iter()
+                        .try_fold((Vec::new(), resolved.failures), |(mut documents, mut failures), file| {
+                            let source = match &self.input {
+                                | InputReference::File(path) => path.display().to_string(),
+                                | _ => file.path.display().to_string(),
+                            };
+                            let loaded = fs::read(&file.path)
+                                .map_err(|why| eyre!("Read gather source {} — {why}", file.path.display()))
+                                .and_then(|bytes| {
+                                    if limits.max_total.can_contain(bytes.len() as u64) == Some(true) {
+                                        SourceDocument::from_bytes(&bytes, &source)
+                                    } else {
+                                        Err(eyre!("Gather source exceeds the byte limit"))
+                                    }
+                                });
+                            match loaded {
+                                | Ok(document) => {
+                                    documents.push(document);
+                                    Ok((documents, failures))
+                                }
+                                | Err(_) if matches!(self.input, InputReference::Directory(_)) => {
+                                    failures.push(InputFailure {
+                                        path: file.path,
+                                        reason: "document conversion failed".to_string(),
+                                    });
+                                    Ok((documents, failures))
+                                }
+                                | Err(why) => Err(why),
+                            }
+                        })
+                }),
+                | _ => Err(eyre!("Gather supports text, local files, directories, and HTTP(S) URLs")),
+            },
+            | Err(why) => Err(why),
+        };
+        selected.map(|(documents, failures)| {
+            let inputs = documents.len();
+            let records = Records::from(documents);
+            let discoveries = records
+                .iter()
+                .filter_map(|record| match record {
+                    | Record::Discovery {
+                        identifier,
+                        identifier_type,
+                        source,
+                        source_format,
+                        ..
+                    } => Some(GatherDiscovery {
+                        identifier: identifier.clone(),
+                        identifier_type: identifier_type.to_string(),
+                        source: source.clone(),
+                        source_format: source_format.clone(),
+                    }),
+                    | _ => None,
+                })
+                .collect();
+            (GatherOutput { discoveries, failures }, Report::new(&[], records, inputs))
+        })
     }
 }
 impl GatherReportInput {
     /// Extract and write one report after checking the exact destination.
     pub async fn write(self, root: &Path, offline: bool) -> ApiResult<GatherReportOutput> {
-        let policy = ArtifactPolicy::new(root, true, self.overwrite)?;
-        policy.destination(&self.destination, &[])?;
-        let (report, cli_report) = GatherInput { input: self.input }.gather_with_report(root, offline).await?;
-        let content = cli_report.serialize(OutputFormat::Json)?;
-        let destination = policy.destination(&self.destination, &[])?;
-        fs::write(&destination, content).map_err(|why| eyre!("Write gather report {} — {why}", destination.display()))?;
-        Ok(GatherReportOutput { destination, report })
+        let policy = ArtifactPolicy::new(root, true, self.overwrite).and_then(|policy| policy.destination(&self.destination, &[]).map(|_| policy));
+        match policy {
+            | Ok(policy) => GatherInput { input: self.input }
+                .gather_with_report(root, offline)
+                .await
+                .and_then(|(report, cli_report)| {
+                    cli_report.serialize(OutputFormat::Json).and_then(|content| {
+                        policy.destination(&self.destination, &[]).and_then(|destination| {
+                            fs::write(&destination, content)
+                                .map_err(|why| eyre!("Write gather report {} — {why}", destination.display()))
+                                .map(|()| GatherReportOutput { destination, report })
+                        })
+                    })
+                }),
+            | Err(why) => Err(why),
+        }
     }
 }
 impl ToolRegistry {
@@ -187,112 +202,130 @@ impl ToolRegistry {
             version,
             "Discover PIDs in confirmed text or local documents.",
             read,
-        ))?
-        .register_capability_binding::<GatherInput, GatherOutput, _, _>(
-            BindingDefinition::new::<GatherInput, GatherOutput>(
-                format!("native:{APPLICATION}.gather"),
-                format!("{APPLICATION}.gather"),
-                version,
-                BindingKind::Native,
-                read,
-                BindingAvailability::Ready,
-            )
-            .with_offline_support(),
-            move |input| {
-                let root = local_root.clone();
-                async move {
-                    if matches!(input.input, InputReference::Url(_)) {
-                        return Err(eyre!("Use the remote gather capability for URLs"));
+        ))
+        .and_then(|registry| {
+            registry.register_capability_binding::<GatherInput, GatherOutput, _, _>(
+                BindingDefinition::new::<GatherInput, GatherOutput>(
+                    format!("native:{APPLICATION}.gather"),
+                    format!("{APPLICATION}.gather"),
+                    version,
+                    BindingKind::Native,
+                    read,
+                    BindingAvailability::Ready,
+                )
+                .with_offline_support(),
+                move |input| {
+                    let root = local_root.clone();
+                    async move {
+                        if matches!(input.input, InputReference::Url(_)) {
+                            Err(eyre!("Use the remote gather capability for URLs"))
+                        } else {
+                            input.gather(&root, offline).await
+                        }
                     }
-                    input.gather(&root, offline).await
-                }
-            },
-        )?
-        .register_capability(CapabilityDefinition::new::<GatherInput, GatherOutput>(
-            format!("{APPLICATION}.gather_url"),
-            version,
-            "Discover PIDs from one permitted HTTP(S) document.",
-            remote,
-        ))?
-        .register_capability_binding::<GatherInput, GatherOutput, _, _>(
-            BindingDefinition::new::<GatherInput, GatherOutput>(
-                format!("native:{APPLICATION}.gather_url"),
+                },
+            )
+        })
+        .and_then(|registry| {
+            registry.register_capability(CapabilityDefinition::new::<GatherInput, GatherOutput>(
                 format!("{APPLICATION}.gather_url"),
                 version,
-                BindingKind::Native,
+                "Discover PIDs from one permitted HTTP(S) document.",
                 remote,
-                BindingAvailability::Ready,
-            ),
-            move |input| {
-                let root = remote_root.clone();
-                async move {
-                    if !matches!(input.input, InputReference::Url(_)) {
-                        return Err(eyre!("Remote gather requires a URL"));
+            ))
+        })
+        .and_then(|registry| {
+            registry.register_capability_binding::<GatherInput, GatherOutput, _, _>(
+                BindingDefinition::new::<GatherInput, GatherOutput>(
+                    format!("native:{APPLICATION}.gather_url"),
+                    format!("{APPLICATION}.gather_url"),
+                    version,
+                    BindingKind::Native,
+                    remote,
+                    BindingAvailability::Ready,
+                ),
+                move |input| {
+                    let root = remote_root.clone();
+                    async move {
+                        if matches!(input.input, InputReference::Url(_)) {
+                            input.gather(&root, offline).await
+                        } else {
+                            Err(eyre!("Remote gather requires a URL"))
+                        }
                     }
-                    input.gather(&root, offline).await
-                }
-            },
-        )?
-        .register_capability(CapabilityDefinition::new::<GatherReportInput, GatherReportOutput>(
-            format!("{APPLICATION}.gather_report"),
-            version,
-            "Write one explicitly authorized PID extraction report.",
-            write,
-        ))?
-        .register_capability_binding::<GatherReportInput, GatherReportOutput, _, _>(
-            BindingDefinition::new::<GatherReportInput, GatherReportOutput>(
-                format!("native:{APPLICATION}.gather_report"),
+                },
+            )
+        })
+        .and_then(|registry| {
+            registry.register_capability(CapabilityDefinition::new::<GatherReportInput, GatherReportOutput>(
                 format!("{APPLICATION}.gather_report"),
                 version,
-                BindingKind::Native,
+                "Write one explicitly authorized PID extraction report.",
                 write,
-                BindingAvailability::Ready,
-            )
-            .with_offline_support(),
-            move |input| {
-                let root = report_root.clone();
-                async move {
-                    if matches!(input.input, InputReference::Url(_)) {
-                        return Err(eyre!("Use the remote gather report capability for URLs"));
+            ))
+        })
+        .and_then(|registry| {
+            registry.register_capability_binding::<GatherReportInput, GatherReportOutput, _, _>(
+                BindingDefinition::new::<GatherReportInput, GatherReportOutput>(
+                    format!("native:{APPLICATION}.gather_report"),
+                    format!("{APPLICATION}.gather_report"),
+                    version,
+                    BindingKind::Native,
+                    write,
+                    BindingAvailability::Ready,
+                )
+                .with_offline_support(),
+                move |input| {
+                    let root = report_root.clone();
+                    async move {
+                        if matches!(input.input, InputReference::Url(_)) {
+                            Err(eyre!("Use the remote gather report capability for URLs"))
+                        } else {
+                            input.write(&root, offline).await
+                        }
                     }
-                    input.write(&root, offline).await
-                }
-            },
-        )?
-        .register_capability(CapabilityDefinition::new::<GatherReportInput, GatherReportOutput>(
-            format!("{APPLICATION}.gather_url_report"),
-            version,
-            "Write one explicitly authorized PID report from a permitted HTTP(S) source.",
-            ToolEffects {
-                read_only: false,
-                destructive: true,
-                open_world: true,
-                ..read
-            },
-        ))?
-        .register_capability_binding::<GatherReportInput, GatherReportOutput, _, _>(
-            BindingDefinition::new::<GatherReportInput, GatherReportOutput>(
-                format!("native:{APPLICATION}.gather_url_report"),
+                },
+            )
+        })
+        .and_then(|registry| {
+            registry.register_capability(CapabilityDefinition::new::<GatherReportInput, GatherReportOutput>(
                 format!("{APPLICATION}.gather_url_report"),
                 version,
-                BindingKind::Native,
+                "Write one explicitly authorized PID report from a permitted HTTP(S) source.",
                 ToolEffects {
                     read_only: false,
                     destructive: true,
                     open_world: true,
                     ..read
                 },
-                BindingAvailability::Ready,
-            ),
-            move |input| {
-                let root = root.clone();
-                async move {
-                    if !matches!(input.input, InputReference::Url(_)) {
-                        return Err(eyre!("Remote gather report requires a URL"));
+            ))
+        })
+        .and_then(|registry| {
+            registry.register_capability_binding::<GatherReportInput, GatherReportOutput, _, _>(
+                BindingDefinition::new::<GatherReportInput, GatherReportOutput>(
+                    format!("native:{APPLICATION}.gather_url_report"),
+                    format!("{APPLICATION}.gather_url_report"),
+                    version,
+                    BindingKind::Native,
+                    ToolEffects {
+                        read_only: false,
+                        destructive: true,
+                        open_world: true,
+                        ..read
+                    },
+                    BindingAvailability::Ready,
+                ),
+                move |input| {
+                    let root = root.clone();
+                    async move {
+                        if matches!(input.input, InputReference::Url(_)) {
+                            input.write(&root, offline).await
+                        } else {
+                            Err(eyre!("Remote gather report requires a URL"))
+                        }
                     }
-                    input.write(&root, offline).await
-                }
-            },
-        )
+                },
+            )
+        })
     }
 }

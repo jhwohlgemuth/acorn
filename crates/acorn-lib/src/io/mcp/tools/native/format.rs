@@ -27,7 +27,7 @@ use dprint_plugin_json::{
 use pretty_yaml::{config::FormatOptions, format_text as format_yaml};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::fs;
+use std::fs::{self, read_to_string};
 use std::path::{Path, PathBuf};
 use strum::IntoEnumIterator;
 
@@ -193,12 +193,18 @@ pub struct FormatPreviewOutput {
 impl CrosswalkApplyInput {
     /// Convert and write after revalidating the exact output path.
     pub fn apply(self, root: &Path) -> ApiResult<CrosswalkApplyOutput> {
-        let policy = ArtifactPolicy::new(root, true, self.overwrite)?;
-        policy.destination(&self.destination, &[])?;
-        let conversion = self.input.preview(root)?;
-        let destination = policy.destination(&self.destination, &[])?;
-        fs::write(&destination, &conversion.content).map_err(|why| eyre!("Write crosswalk output {} — {why}", destination.display()))?;
-        Ok(CrosswalkApplyOutput { destination, conversion })
+        ArtifactPolicy::new(root, true, self.overwrite).and_then(|policy| {
+            policy
+                .destination(&self.destination, &[])
+                .and_then(|_| self.input.preview(root))
+                .and_then(|conversion| {
+                    policy.destination(&self.destination, &[]).and_then(|destination| {
+                        fs::write(&destination, &conversion.content)
+                            .map_err(|why| eyre!("Write crosswalk output {} — {why}", destination.display()))
+                            .map(|()| CrosswalkApplyOutput { destination, conversion })
+                    })
+                })
+        })
     }
 }
 impl TryFrom<MimeType> for CrosswalkFormat {
@@ -218,126 +224,163 @@ impl TryFrom<MimeType> for CrosswalkFormat {
 impl CrosswalkPreviewInput {
     /// Convert one bounded value using the existing standards crosswalk and loss report.
     pub fn preview(self, root: &Path) -> ApiResult<CrosswalkPreviewOutput> {
-        let policy = RoutedInputPolicy::new(root, InputLimits::default())?;
-        let resolved = policy.resolve(&self.input)?;
-        let (content, inferred) = match (resolved.text, resolved.files.as_slice()) {
-            | (Some(text), []) => (text, None),
-            | (None, [file]) => (
-                fs::read_to_string(&file.path).map_err(|why| eyre!("Read crosswalk input {} — {why}", file.path.display()))?,
-                Some(CrosswalkFormat::try_from(MimeType::from_path(&file.path))?),
-            ),
-            | _ => return Err(eyre!("Crosswalk requires one literal or local file")),
-        };
-        if InputLimits::default().max_total.can_contain(content.len() as u64) != Some(true) {
-            return Err(eyre!("Crosswalk input exceeds the byte limit"));
-        }
-        let output = CrosswalkOutput::try_from(CrosswalkInput {
-            content,
-            source: self.source,
-            target: self.target,
-            input_format: self.input_format.or(inferred).map(Into::into),
-            output_format: self.output_format.map(Into::into),
-        })?;
-        Ok(CrosswalkPreviewOutput {
-            content: output.content,
-            warnings: output.warnings,
-        })
+        RoutedInputPolicy::new(root, InputLimits::default())
+            .and_then(|policy| policy.resolve(&self.input))
+            .and_then(|resolved| match (resolved.text, resolved.files.as_slice()) {
+                | (Some(text), []) => Ok((text, None)),
+                | (None, [file]) => read_to_string(&file.path)
+                    .map_err(|why| eyre!("Read crosswalk input {} — {why}", file.path.display()))
+                    .and_then(|content| CrosswalkFormat::try_from(MimeType::from_path(&file.path)).map(|format| (content, Some(format)))),
+                | _ => Err(eyre!("Crosswalk requires one literal or local file")),
+            })
+            .and_then(|(content, inferred)| {
+                if InputLimits::default().max_total.can_contain(content.len() as u64) == Some(true) {
+                    CrosswalkOutput::try_from(CrosswalkInput {
+                        content,
+                        source: self.source,
+                        target: self.target,
+                        input_format: self.input_format.or(inferred).map(Into::into),
+                        output_format: self.output_format.map(Into::into),
+                    })
+                    .map(|output| CrosswalkPreviewOutput {
+                        content: output.content,
+                        warnings: output.warnings,
+                    })
+                } else {
+                    Err(eyre!("Crosswalk input exceeds the byte limit"))
+                }
+            })
     }
 }
 impl FormatApplyInput {
     /// Apply one reviewed normalization after revalidating its destination.
     pub async fn apply(self, root: &Path, offline: bool) -> ApiResult<FormatApplyOutput> {
-        if !matches!(self.input.input, InputReference::File(_)) {
-            return Err(eyre!("Format apply requires one explicit source file"));
+        let policy = match self.input.input {
+            | InputReference::File(_) => ArtifactPolicy::new(root, true, self.overwrite),
+            | _ => Err(eyre!("Format apply requires one explicit source file")),
         }
-        let policy = ArtifactPolicy::new(root, true, self.overwrite)?;
-        policy.destination(&self.destination, &[])?;
-        let mut preview = self.input.preview(root, offline).await?;
-        let change = preview.changes.pop().ok_or_else(|| eyre!("No metadata file was formatted"))?;
-        let destination = policy.destination(&self.destination, core::slice::from_ref(&change.source))?;
-        let applied = !change.diff.is_empty() || destination != change.source;
-        if applied {
-            fs::write(&destination, &change.content).map_err(|why| eyre!("Write formatted metadata {} — {why}", destination.display()))?;
+        .and_then(|policy| policy.destination(&self.destination, &[]).map(|_| policy));
+        match policy {
+            | Ok(policy) => self.input.preview(root, offline).await.and_then(|mut preview| {
+                preview
+                    .changes
+                    .pop()
+                    .ok_or_else(|| eyre!("No metadata file was formatted"))
+                    .and_then(|change| {
+                        policy
+                            .destination(&self.destination, core::slice::from_ref(&change.source))
+                            .and_then(|destination| {
+                                let applied = !change.diff.is_empty() || destination != change.source;
+                                let write = if applied {
+                                    fs::write(&destination, &change.content)
+                                        .map_err(|why| eyre!("Write formatted metadata {} — {why}", destination.display()))
+                                } else {
+                                    Ok(())
+                                };
+                                write.map(|()| FormatApplyOutput {
+                                    destination,
+                                    applied,
+                                    change,
+                                })
+                            })
+                    })
+            }),
+            | Err(why) => Err(why),
         }
-        Ok(FormatApplyOutput {
-            destination,
-            applied,
-            change,
-        })
     }
 }
 impl FormatPreviewInput {
     /// Normalize bounded local metadata through the same format trait as the CLI.
     pub async fn preview(self, root: &Path, offline: bool) -> ApiResult<FormatPreviewOutput> {
-        if !self.enrich && !self.providers.is_empty() {
-            return Err(eyre!("Providers require enrichment"));
+        let validated = match (self.enrich, self.providers.is_empty(), offline) {
+            | (false, false, _) => Err(eyre!("Providers require enrichment")),
+            | (true, _, true) => Err(eyre!("Enrichment is unavailable in offline mode")),
+            | _ => RoutedInputPolicy::new(root, InputLimits::default()).and_then(|policy| policy.resolve(&self.input)),
         }
-        if self.enrich && offline {
-            return Err(eyre!("Enrichment is unavailable in offline mode"));
-        }
-        let policy = RoutedInputPolicy::new(root, InputLimits::default())?;
-        let resolved = policy.resolve(&self.input)?;
-        if resolved.files.is_empty() || resolved.text.is_some() {
-            return Err(eyre!("Formatting requires a local file or directory"));
-        }
-        let mut changes = Vec::new();
-        let mut failures = resolved.failures;
-        for file in resolved.files {
-            if matches!(self.input, InputReference::Directory(_)) && !selected_directory_format_file(&file.path, self.standard) {
-                continue;
+        .and_then(|resolved| {
+            if resolved.files.is_empty() || resolved.text.is_some() {
+                Err(eyre!("Formatting requires a local file or directory"))
+            } else {
+                Ok(resolved)
             }
-            let result = self.preview_file(&file.path).await;
-            match result {
-                | Ok(change) => changes.push(change),
-                | Err(_) if matches!(self.input, InputReference::Directory(_)) => failures.push(InputFailure {
-                    path: file.path,
-                    reason: "metadata formatting failed".to_string(),
-                }),
-                | Err(why) => return Err(why),
+        });
+        match validated {
+            | Ok(resolved) => {
+                let mut output = Ok(FormatPreviewOutput {
+                    changes: Vec::new(),
+                    failures: resolved.failures,
+                });
+                for file in resolved.files {
+                    if !matches!(self.input, InputReference::Directory(_)) || selected_directory_format_file(&file.path, self.standard) {
+                        output = match output {
+                            | Ok(mut preview) => match self.preview_file(&file.path).await {
+                                | Ok(change) => {
+                                    preview.changes.push(change);
+                                    Ok(preview)
+                                }
+                                | Err(_) if matches!(self.input, InputReference::Directory(_)) => {
+                                    preview.failures.push(InputFailure {
+                                        path: file.path,
+                                        reason: "metadata formatting failed".to_string(),
+                                    });
+                                    Ok(preview)
+                                }
+                                | Err(why) => Err(why),
+                            },
+                            | Err(why) => Err(why),
+                        };
+                    }
+                }
+                output
             }
+            | Err(why) => Err(why),
         }
-        Ok(FormatPreviewOutput { changes, failures })
     }
     async fn preview_file(&self, path: &Path) -> ApiResult<FormatChange> {
-        let original = fs::read_to_string(path).map_err(|why| eyre!("Read format input {} — {why}", path.display()))?;
-        if InputLimits::default().max_total.can_contain(original.len() as u64) != Some(true) {
-            return Err(eyre!("Format input exceeds the byte limit"));
+        match read_to_string(path).map_err(|why| eyre!("Read format input {} — {why}", path.display())) {
+            | Ok(original) if InputLimits::default().max_total.can_contain(original.len() as u64) == Some(true) => {
+                let formatted = match self.standard {
+                    | FormatStandard::ApplicationConfigurationResearchEnablement if !self.enrich => {
+                        format_acre(path, &original).map(|content| (original.clone(), content, Vec::new(), Vec::new(), Vec::new()))
+                    }
+                    | FormatStandard::CitationFileFormat => format_metadata::<Cff>(path, self).await,
+                    | FormatStandard::Datacite => format_metadata::<datacite::Record>(path, self).await,
+                    | FormatStandard::DublinCore if !self.enrich => {
+                        normalize_metadata_file::<DublinCoreDocument>(path, self.fuzzy).map(|normalized| {
+                            (
+                                normalized.before,
+                                normalized.content,
+                                normalized.reports.iter().map(|report| format!("{report:?}")).collect(),
+                                Vec::new(),
+                                Vec::new(),
+                            )
+                        })
+                    }
+                    | FormatStandard::Invenio => format_metadata::<invenio::Record>(path, self).await,
+                    | FormatStandard::ResearchActivityData => format_metadata::<ResearchActivity>(path, self).await,
+                    | _ => Err(eyre!("Formatting is unsupported for the selected standard or enrichment mode")),
+                };
+                formatted.map(|(before, content, warnings, conflicts, failures)| {
+                    let diff_before = if self.enrich { &original } else { &before };
+                    let diff = if diff_before == &content {
+                        String::new()
+                    } else {
+                        unified_diff(diff_before, &content, &format!("a/{}", path.display()), &format!("b/{}", path.display()))
+                    };
+                    FormatChange {
+                        source: path.to_path_buf(),
+                        original,
+                        content,
+                        diff,
+                        warnings,
+                        conflicts,
+                        failures,
+                    }
+                })
+            }
+            | Ok(_) => Err(eyre!("Format input exceeds the byte limit")),
+            | Err(why) => Err(why),
         }
-        let (before, content, warnings, conflicts, failures) = match self.standard {
-            | FormatStandard::ApplicationConfigurationResearchEnablement if !self.enrich => {
-                (original.clone(), format_acre(path, &original)?, Vec::new(), Vec::new(), Vec::new())
-            }
-            | FormatStandard::CitationFileFormat => format_metadata::<Cff>(path, self).await?,
-            | FormatStandard::Datacite => format_metadata::<datacite::Record>(path, self).await?,
-            | FormatStandard::DublinCore if !self.enrich => {
-                let normalized = normalize_metadata_file::<DublinCoreDocument>(path, self.fuzzy)?;
-                (
-                    normalized.before,
-                    normalized.content,
-                    normalized.reports.iter().map(|report| format!("{report:?}")).collect(),
-                    Vec::new(),
-                    Vec::new(),
-                )
-            }
-            | FormatStandard::Invenio => format_metadata::<invenio::Record>(path, self).await?,
-            | FormatStandard::ResearchActivityData => format_metadata::<ResearchActivity>(path, self).await?,
-            | _ => return Err(eyre!("Formatting is unsupported for the selected standard or enrichment mode")),
-        };
-        let diff_before = if self.enrich { &original } else { &before };
-        let diff = if diff_before == &content {
-            String::new()
-        } else {
-            unified_diff(diff_before, &content, &format!("a/{}", path.display()), &format!("b/{}", path.display()))
-        };
-        Ok(FormatChange {
-            source: path.to_path_buf(),
-            original,
-            content,
-            diff,
-            warnings,
-            conflicts,
-            failures,
-        })
     }
 }
 impl From<CrosswalkFormat> for MimeType {
@@ -384,235 +427,289 @@ impl ToolRegistry {
             version,
             "Preview bounded metadata normalization.",
             read,
-        ))?
-        .register_capability_binding::<FormatPreviewInput, FormatPreviewOutput, _, _>(
-            BindingDefinition::new::<FormatPreviewInput, FormatPreviewOutput>(
-                format!("native:{APPLICATION}.format_preview"),
-                format!("{APPLICATION}.format_preview"),
-                version,
-                BindingKind::Native,
-                read,
-                BindingAvailability::Ready,
-            )
-            .with_offline_support(),
-            move |input: FormatPreviewInput| {
-                let root = preview_root.clone();
-                async move {
-                    if input.enrich {
-                        return Err(eyre!("Use format_enrich_preview for provider access"));
+        ))
+        .and_then(|registry| {
+            registry.register_capability_binding::<FormatPreviewInput, FormatPreviewOutput, _, _>(
+                BindingDefinition::new::<FormatPreviewInput, FormatPreviewOutput>(
+                    format!("native:{APPLICATION}.format_preview"),
+                    format!("{APPLICATION}.format_preview"),
+                    version,
+                    BindingKind::Native,
+                    read,
+                    BindingAvailability::Ready,
+                )
+                .with_offline_support(),
+                move |input: FormatPreviewInput| {
+                    let root = preview_root.clone();
+                    async move {
+                        if input.enrich {
+                            Err(eyre!("Use format_enrich_preview for provider access"))
+                        } else {
+                            input.preview(&root, offline).await
+                        }
                     }
-                    input.preview(&root, offline).await
-                }
-            },
-        )?
-        .register_capability(CapabilityDefinition::new::<FormatApplyInput, FormatApplyOutput>(
-            format!("{APPLICATION}.format_apply"),
-            version,
-            "Write one authorized normalized metadata file.",
-            write,
-        ))?
-        .register_capability_binding::<FormatApplyInput, FormatApplyOutput, _, _>(
-            BindingDefinition::new::<FormatApplyInput, FormatApplyOutput>(
-                format!("native:{APPLICATION}.format_apply"),
+                },
+            )
+        })
+        .and_then(|registry| {
+            registry.register_capability(CapabilityDefinition::new::<FormatApplyInput, FormatApplyOutput>(
                 format!("{APPLICATION}.format_apply"),
                 version,
-                BindingKind::Native,
+                "Write one authorized normalized metadata file.",
                 write,
-                BindingAvailability::Ready,
-            )
-            .with_offline_support(),
-            move |input: FormatApplyInput| {
-                let root = apply_root.clone();
-                async move {
-                    if input.input.enrich {
-                        return Err(eyre!("Use format_enrich_apply for provider access"));
+            ))
+        })
+        .and_then(|registry| {
+            registry.register_capability_binding::<FormatApplyInput, FormatApplyOutput, _, _>(
+                BindingDefinition::new::<FormatApplyInput, FormatApplyOutput>(
+                    format!("native:{APPLICATION}.format_apply"),
+                    format!("{APPLICATION}.format_apply"),
+                    version,
+                    BindingKind::Native,
+                    write,
+                    BindingAvailability::Ready,
+                )
+                .with_offline_support(),
+                move |input: FormatApplyInput| {
+                    let root = apply_root.clone();
+                    async move {
+                        if input.input.enrich {
+                            Err(eyre!("Use format_enrich_apply for provider access"))
+                        } else {
+                            input.apply(&root, offline).await
+                        }
                     }
-                    input.apply(&root, offline).await
-                }
-            },
-        )?
-        .register_capability(CapabilityDefinition::new::<FormatPreviewInput, FormatPreviewOutput>(
-            format!("{APPLICATION}.format_enrich_preview"),
-            version,
-            "Preview metadata normalization with provider enrichment.",
-            enrich_read,
-        ))?
-        .register_capability_binding::<FormatPreviewInput, FormatPreviewOutput, _, _>(
-            BindingDefinition::new::<FormatPreviewInput, FormatPreviewOutput>(
-                format!("native:{APPLICATION}.format_enrich_preview"),
+                },
+            )
+        })
+        .and_then(|registry| {
+            registry.register_capability(CapabilityDefinition::new::<FormatPreviewInput, FormatPreviewOutput>(
                 format!("{APPLICATION}.format_enrich_preview"),
                 version,
-                BindingKind::Native,
+                "Preview metadata normalization with provider enrichment.",
                 enrich_read,
-                BindingAvailability::Ready,
-            ),
-            move |input: FormatPreviewInput| {
-                let root = enrich_preview_root.clone();
-                async move {
-                    if !input.enrich {
-                        return Err(eyre!("Enrichment route requires enrich=true"));
+            ))
+        })
+        .and_then(|registry| {
+            registry.register_capability_binding::<FormatPreviewInput, FormatPreviewOutput, _, _>(
+                BindingDefinition::new::<FormatPreviewInput, FormatPreviewOutput>(
+                    format!("native:{APPLICATION}.format_enrich_preview"),
+                    format!("{APPLICATION}.format_enrich_preview"),
+                    version,
+                    BindingKind::Native,
+                    enrich_read,
+                    BindingAvailability::Ready,
+                ),
+                move |input: FormatPreviewInput| {
+                    let root = enrich_preview_root.clone();
+                    async move {
+                        if input.enrich {
+                            input.preview(&root, offline).await
+                        } else {
+                            Err(eyre!("Enrichment route requires enrich=true"))
+                        }
                     }
-                    input.preview(&root, offline).await
-                }
-            },
-        )?
-        .register_capability(CapabilityDefinition::new::<FormatApplyInput, FormatApplyOutput>(
-            format!("{APPLICATION}.format_enrich_apply"),
-            version,
-            "Write one authorized enriched metadata file.",
-            enrich_write,
-        ))?
-        .register_capability_binding::<FormatApplyInput, FormatApplyOutput, _, _>(
-            BindingDefinition::new::<FormatApplyInput, FormatApplyOutput>(
-                format!("native:{APPLICATION}.format_enrich_apply"),
+                },
+            )
+        })
+        .and_then(|registry| {
+            registry.register_capability(CapabilityDefinition::new::<FormatApplyInput, FormatApplyOutput>(
                 format!("{APPLICATION}.format_enrich_apply"),
                 version,
-                BindingKind::Native,
+                "Write one authorized enriched metadata file.",
                 enrich_write,
-                BindingAvailability::Ready,
-            ),
-            move |input: FormatApplyInput| {
-                let root = enrich_apply_root.clone();
-                async move {
-                    if !input.input.enrich {
-                        return Err(eyre!("Enrichment route requires enrich=true"));
+            ))
+        })
+        .and_then(|registry| {
+            registry.register_capability_binding::<FormatApplyInput, FormatApplyOutput, _, _>(
+                BindingDefinition::new::<FormatApplyInput, FormatApplyOutput>(
+                    format!("native:{APPLICATION}.format_enrich_apply"),
+                    format!("{APPLICATION}.format_enrich_apply"),
+                    version,
+                    BindingKind::Native,
+                    enrich_write,
+                    BindingAvailability::Ready,
+                ),
+                move |input: FormatApplyInput| {
+                    let root = enrich_apply_root.clone();
+                    async move {
+                        if input.input.enrich {
+                            input.apply(&root, offline).await
+                        } else {
+                            Err(eyre!("Enrichment route requires enrich=true"))
+                        }
                     }
-                    input.apply(&root, offline).await
-                }
-            },
-        )?
-        .register_capability(CapabilityDefinition::new::<CrosswalkPreviewInput, CrosswalkPreviewOutput>(
-            format!("{APPLICATION}.crosswalk_preview"),
-            version,
-            "Preview bounded standards conversion with field-loss warnings.",
-            read,
-        ))?
-        .register_capability_binding::<CrosswalkPreviewInput, CrosswalkPreviewOutput, _, _>(
-            BindingDefinition::new::<CrosswalkPreviewInput, CrosswalkPreviewOutput>(
-                format!("native:{APPLICATION}.crosswalk_preview"),
+                },
+            )
+        })
+        .and_then(|registry| {
+            registry.register_capability(CapabilityDefinition::new::<CrosswalkPreviewInput, CrosswalkPreviewOutput>(
                 format!("{APPLICATION}.crosswalk_preview"),
                 version,
-                BindingKind::Native,
+                "Preview bounded standards conversion with field-loss warnings.",
                 read,
-                BindingAvailability::Ready,
+            ))
+        })
+        .and_then(|registry| {
+            registry.register_capability_binding::<CrosswalkPreviewInput, CrosswalkPreviewOutput, _, _>(
+                BindingDefinition::new::<CrosswalkPreviewInput, CrosswalkPreviewOutput>(
+                    format!("native:{APPLICATION}.crosswalk_preview"),
+                    format!("{APPLICATION}.crosswalk_preview"),
+                    version,
+                    BindingKind::Native,
+                    read,
+                    BindingAvailability::Ready,
+                )
+                .with_offline_support(),
+                move |input| {
+                    let root = crosswalk_root.clone();
+                    async move { input.preview(&root) }
+                },
             )
-            .with_offline_support(),
-            move |input| {
-                let root = crosswalk_root.clone();
-                async move { input.preview(&root) }
-            },
-        )?
-        .register_capability(CapabilityDefinition::new::<CrosswalkApplyInput, CrosswalkApplyOutput>(
-            format!("{APPLICATION}.crosswalk_apply"),
-            version,
-            "Write one authorized standards conversion with loss warnings.",
-            write,
-        ))?
-        .register_capability_binding::<CrosswalkApplyInput, CrosswalkApplyOutput, _, _>(
-            BindingDefinition::new::<CrosswalkApplyInput, CrosswalkApplyOutput>(
-                format!("native:{APPLICATION}.crosswalk_apply"),
+        })
+        .and_then(|registry| {
+            registry.register_capability(CapabilityDefinition::new::<CrosswalkApplyInput, CrosswalkApplyOutput>(
                 format!("{APPLICATION}.crosswalk_apply"),
                 version,
-                BindingKind::Native,
+                "Write one authorized standards conversion with loss warnings.",
                 write,
-                BindingAvailability::Ready,
+            ))
+        })
+        .and_then(|registry| {
+            registry.register_capability_binding::<CrosswalkApplyInput, CrosswalkApplyOutput, _, _>(
+                BindingDefinition::new::<CrosswalkApplyInput, CrosswalkApplyOutput>(
+                    format!("native:{APPLICATION}.crosswalk_apply"),
+                    format!("{APPLICATION}.crosswalk_apply"),
+                    version,
+                    BindingKind::Native,
+                    write,
+                    BindingAvailability::Ready,
+                )
+                .with_offline_support(),
+                move |input| {
+                    let root = root.clone();
+                    async move { input.apply(&root) }
+                },
             )
-            .with_offline_support(),
-            move |input| {
-                let root = root.clone();
-                async move { input.apply(&root) }
-            },
-        )
+        })
     }
 }
 /// Validate and format ACRE content while retaining comments and trailing commas.
 pub fn format_acre(path: &Path, original: &str) -> ApiResult<String> {
-    ApplicationConfiguration::read(path.to_path_buf())?
-        .validate()
-        .map_err(|why| eyre!("Validate ACRE configuration — {why}"))?;
-    match MimeType::from_path(path) {
-        | MimeType::Json | MimeType::Jsonc => {
-            let configuration = ConfigurationBuilder::new()
-                .use_tabs(false)
-                .indent_width(2)
-                .new_line_kind(NewLineKind::LineFeed)
-                .eof_new_line(EofNewLineKind::Always)
-                .package_json_apply_conventions(false)
-                .trailing_commas(TrailingCommaKind::Maintain)
-                .build();
-            format_json(path, original, &configuration)
-                .map(|content| content.unwrap_or_else(|| original.to_string()))
-                .map_err(|why| eyre!("Format ACRE JSON/JSONC — {why}"))
-        }
-        | MimeType::Yaml => format_yaml(original, &FormatOptions::default())
-            .map(|content| if content.ends_with('\n') { content } else { format!("{content}\n") })
-            .map_err(|why| eyre!("Format ACRE YAML — {why}")),
-        | _ => Err(eyre!("ACRE formatting supports JSON, JSONC, YAML, and YML files")),
-    }
+    ApplicationConfiguration::read(path.to_path_buf())
+        .and_then(|configuration| configuration.validate().map_err(|why| eyre!("Validate ACRE configuration — {why}")))
+        .and_then(|()| match MimeType::from_path(path) {
+            | MimeType::Json | MimeType::Jsonc => {
+                let configuration = ConfigurationBuilder::new()
+                    .use_tabs(false)
+                    .indent_width(2)
+                    .new_line_kind(NewLineKind::LineFeed)
+                    .eof_new_line(EofNewLineKind::Always)
+                    .package_json_apply_conventions(false)
+                    .trailing_commas(TrailingCommaKind::Maintain)
+                    .build();
+                format_json(path, original, &configuration)
+                    .map(|content| content.unwrap_or_else(|| original.to_string()))
+                    .map_err(|why| eyre!("Format ACRE JSON/JSONC — {why}"))
+            }
+            | MimeType::Yaml => format_yaml(original, &FormatOptions::default())
+                .map(|content| if content.ends_with('\n') { content } else { format!("{content}\n") })
+                .map_err(|why| eyre!("Format ACRE YAML — {why}")),
+            | _ => Err(eyre!("ACRE formatting supports JSON, JSONC, YAML, and YML files")),
+        })
 }
 async fn format_metadata<T>(path: &Path, input: &FormatPreviewInput) -> ApiResult<(String, String, Vec<String>, Vec<String>, Vec<String>)>
 where
     T: Clone + DeserializeOwned + EnrichmentMetadata + InputOutput + Send + Serialize + Sync + Validate + 'static,
 {
-    let normalized = normalize_metadata_file::<T>(path, input.fuzzy)?;
-    if InputLimits::default().max_total.can_contain(normalized.original.len() as u64) != Some(true) {
-        return Err(eyre!("Format input exceeds the byte limit"));
-    }
-    let warnings = normalized.reports.iter().map(|report| format!("{report:?}")).collect();
-    let (content, conflicts, failures) = if input.enrich {
-        let data = T::read(path.to_path_buf())?.format_with_vocabulary(input.fuzzy, Some(path.to_path_buf()));
-        let providers = if input.providers.is_empty() {
-            if input.standard == FormatStandard::ResearchActivityData {
-                Provider::iter().collect()
-            } else {
-                vec![Provider::Orcid]
-            }
+    let normalized = normalize_metadata_file::<T>(path, input.fuzzy).and_then(|normalized| {
+        if InputLimits::default().max_total.can_contain(normalized.original.len() as u64) == Some(true) {
+            Ok(normalized)
         } else {
-            input.providers.clone()
-        };
-        if input.standard != FormatStandard::ResearchActivityData && providers.iter().any(|provider| *provider != Provider::Orcid) {
-            return Err(eyre!("Only ORCID enrichment is supported for this standard"));
+            Err(eyre!("Format input exceeds the byte limit"))
         }
-        let result = Pipeline::new(providers)
-            .enrich((Location::from(&path.display().to_string()), data))
-            .await?;
-        let content = result
-            .data
-            .format_with_vocabulary(input.fuzzy, Some(path.to_path_buf()))
-            .serialize_as(&MimeType::from_path(path))?;
-        (content, result.conflicts, result.failures)
-    } else {
-        (normalized.content, Vec::new(), Vec::new())
-    };
-    Ok((normalized.before, content, warnings, conflicts, failures))
+    });
+    match normalized {
+        | Ok(normalized) if input.enrich => {
+            let providers = if input.providers.is_empty() {
+                if input.standard == FormatStandard::ResearchActivityData {
+                    Provider::iter().collect()
+                } else {
+                    vec![Provider::Orcid]
+                }
+            } else {
+                input.providers.clone()
+            };
+            if input.standard != FormatStandard::ResearchActivityData && providers.iter().any(|provider| *provider != Provider::Orcid) {
+                Err(eyre!("Only ORCID enrichment is supported for this standard"))
+            } else {
+                match T::read(path.to_path_buf()) {
+                    | Ok(data) => {
+                        let data = data.format_with_vocabulary(input.fuzzy, Some(path.to_path_buf()));
+                        Pipeline::new(providers)
+                            .enrich((Location::from(&path.display().to_string()), data))
+                            .await
+                            .and_then(|result| {
+                                result
+                                    .data
+                                    .format_with_vocabulary(input.fuzzy, Some(path.to_path_buf()))
+                                    .serialize_as(&MimeType::from_path(path))
+                                    .map(|content| {
+                                        (
+                                            normalized.before,
+                                            content,
+                                            normalized.reports.iter().map(|report| format!("{report:?}")).collect(),
+                                            result.conflicts,
+                                            result.failures,
+                                        )
+                                    })
+                            })
+                    }
+                    | Err(why) => Err(why),
+                }
+            }
+        }
+        | Ok(normalized) => Ok((
+            normalized.before,
+            normalized.content,
+            normalized.reports.iter().map(|report| format!("{report:?}")).collect(),
+            Vec::new(),
+            Vec::new(),
+        )),
+        | Err(why) => Err(why),
+    }
 }
 /// Parse and normalize one local metadata file without writing it.
 pub fn normalize_metadata_file<T>(path: &Path, fuzzy: VocabularyFuzzyMode) -> ApiResult<FormatNormalization>
 where
     T: InputOutput + Serialize,
 {
-    let original = fs::read_to_string(path).map_err(|why| eyre!("Read original metadata — {why}"))?;
-    let data = T::read(path.to_path_buf())?;
-    let mime = MimeType::from_path(path);
-    let before = data.serialize_as(&mime)?;
-    let formatted = data.format_with_vocabulary_report(fuzzy, Some(path.to_path_buf()));
-    let content = formatted.value.serialize_as(&mime)?;
-    Ok(FormatNormalization {
-        original,
-        before,
-        content,
-        reports: formatted.reports,
-    })
+    read_to_string(path)
+        .map_err(|why| eyre!("Read original metadata — {why}"))
+        .and_then(|original| {
+            T::read(path.to_path_buf()).and_then(|data| {
+                let mime = MimeType::from_path(path);
+                data.serialize_as(&mime).and_then(|before| {
+                    let formatted = data.format_with_vocabulary_report(fuzzy, Some(path.to_path_buf()));
+                    formatted.value.serialize_as(&mime).map(|content| FormatNormalization {
+                        original,
+                        before,
+                        content,
+                        reports: formatted.reports,
+                    })
+                })
+            })
+        })
 }
 fn selected_directory_format_file(path: &Path, standard: FormatStandard) -> bool {
-    if standard == FormatStandard::ApplicationConfigurationResearchEnablement {
-        return path
+    match standard {
+        | FormatStandard::ApplicationConfigurationResearchEnablement => path
             .file_name()
             .and_then(|name| name.to_str())
-            .is_some_and(|name| matches!(name, ".acorn.json" | ".acorn.jsonc" | ".acorn.yaml" | ".acorn.yml"));
+            .is_some_and(|name| matches!(name, ".acorn.json" | ".acorn.jsonc" | ".acorn.yaml" | ".acorn.yml")),
+        | _ => {
+            let ext = MimeType::from_path(path);
+            ext.is_json() || ext.is_jsonc() || ext.is_markdown() || ext.is_pdf() || ext.is_yaml() || ext.is_zon()
+        }
     }
-    matches!(
-        MimeType::from_path(path),
-        MimeType::Json | MimeType::Jsonc | MimeType::Markdown | MimeType::Pdf | MimeType::Yaml | MimeType::Zon
-    )
 }

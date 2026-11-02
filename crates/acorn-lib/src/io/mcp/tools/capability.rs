@@ -484,7 +484,7 @@ impl ToolRegistry {
         })
     }
 }
-fn catalog_schema(schema: &Value, named_schemas: bool) -> Value {
+pub(super) fn catalog_schema(schema: &Value, named_schemas: bool) -> Value {
     match schema {
         | Value::Object(fields) => Value::Object(
             fields
@@ -509,24 +509,4 @@ fn schema<T: JsonSchema>() -> Value {
 }
 fn valid_id(id: &str) -> bool {
     id.len() <= 128 && id.split(':').all(is_identifier)
-}
-#[cfg(test)]
-mod catalog_projection_tests {
-    use super::catalog_schema;
-    use serde_json::json;
-
-    #[test]
-    fn test_catalog_projection_keeps_literal_defaults() {
-        let schema = json!({
-            "type": "object",
-            "title": "Input",
-            "default": { "description": "literal", "title": "value" },
-            "properties": { "description": { "type": "string", "description": "field prose" } }
-        });
-        let projected = catalog_schema(&schema, false);
-        assert_eq!(projected.pointer("/default/description"), Some(&json!("literal")));
-        assert_eq!(projected.pointer("/default/title"), Some(&json!("value")));
-        assert_eq!(projected.pointer("/properties/description/type"), Some(&json!("string")));
-        assert!(projected.pointer("/properties/description/description").is_none());
-    }
 }
