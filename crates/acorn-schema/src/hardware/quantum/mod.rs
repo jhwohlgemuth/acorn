@@ -1,7 +1,7 @@
 //! Quantum computing paradigms and hardware definitions
 use super::vendor::Vendor;
 use crate::OneOrMany;
-use acorn_core::prelude::alloc::String;
+use acorn_core::prelude::alloc::{String, Vec};
 use acorn_core::time::Nanoseconds;
 use bon::Builder;
 use derive_more::Display;

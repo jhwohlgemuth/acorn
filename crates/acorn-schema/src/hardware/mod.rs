@@ -9,7 +9,7 @@ use crate::util::constants::gpu::{
 };
 use crate::validation::{Validate, ValidationReport};
 use crate::OneOrMany;
-use acorn_core::prelude::alloc::{format, String, ToString, Vec};
+use acorn_core::prelude::alloc::{format, Box, String, ToString, Vec};
 use acorn_core::util::{contains_any, contains_any_with_prefix};
 use derive_more::Display;
 use schemars::JsonSchema;
