@@ -123,7 +123,7 @@ fn test_resource_vendor() {
         vendor: Some(Vendor::Intel),
     };
     assert_eq!(cpu.vendor(), Some(Vendor::Intel));
-    let quantum = Resource::Quantum(QuantumResource::init().count(1).model(super::Model::Heron).build());
+    let quantum = Resource::Quantum(Box::new(QuantumResource::init().count(1).model(super::Model::Heron).build()));
     assert_eq!(quantum.vendor(), Some(Vendor::IBM));
     let other = Resource::Other("custom".to_string());
     assert_eq!(other.vendor(), None);

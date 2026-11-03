@@ -1,3 +1,5 @@
+#![cfg(feature = "bigo")]
+
 use acorn_macros::bigo;
 
 #[test]

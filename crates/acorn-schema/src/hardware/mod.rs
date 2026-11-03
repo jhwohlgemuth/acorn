@@ -1099,7 +1099,7 @@ pub enum Resource {
         vendor: Option<Vendor>,
     },
     /// Quantum computing (e.g., NISQ, etc.)
-    Quantum(QuantumResource),
+    Quantum(Box<QuantumResource>),
     /// Sensor hardware for data acquisition and measurement
     Sensor {
         /// Number of sensors required (if applicable)
@@ -1615,7 +1615,7 @@ impl<'de> Deserialize<'de> for Resource {
                         synapses: None,
                         vendor: None,
                     }),
-                    | "Quantum" | "quantum" => Ok(Resource::Quantum(QuantumResource::init().count(1).build())),
+                    | "Quantum" | "quantum" => Ok(Resource::Quantum(Box::new(QuantumResource::init().count(1).build()))),
                     | "Sensor" | "sensor" => Ok(Resource::Sensor {
                         count: Some(1),
                         modality: None,
@@ -1855,7 +1855,7 @@ impl<'de> Deserialize<'de> for Resource {
                             }
                             let next_value_result: Result<F, M::Error> = map.next_value();
                             match next_value_result {
-                                | Ok(f) => Ok(Resource::Quantum(
+                                | Ok(f) => Ok(Resource::Quantum(Box::new(
                                     QuantumResource::init()
                                         .maybe_count(f.count)
                                         .maybe_model(f.model)
@@ -1866,7 +1866,7 @@ impl<'de> Deserialize<'de> for Resource {
                                         .maybe_topology(f.topology)
                                         .maybe_vendor(f.vendor)
                                         .build(),
-                                )),
+                                ))),
                                 | Err(why) => Err(why),
                             }
                         }

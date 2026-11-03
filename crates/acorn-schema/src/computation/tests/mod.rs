@@ -142,7 +142,7 @@ fn test_quantum_hardware_dimensions_are_independent() {
             {"type": "physical", "count": 133}, {"type": "logical", "count": 2}
         ], "fault_tolerance": {
             "code": "surface", "logicalQubitCapacity": 2, "logicalGateSet": [],
-            "logicalErrorRates": [], "logicalCycleTime": 1.0,
+            "logicalErrorRates": [], "logicalCycleTime": 1,
             "physicalQubitsPerLogicalQubit": 50.0
         }
     }});
@@ -152,6 +152,7 @@ fn test_quantum_hardware_dimensions_are_independent() {
     assert_eq!(serialized.pointer("/Quantum/qubits/0/count"), Some(&json!(133)));
     assert_eq!(serialized.pointer("/Quantum/qubits/1/count"), Some(&json!(2)));
     assert_eq!(serialized.pointer("/Quantum/fault_tolerance/code"), Some(&json!("surface")));
+    assert_eq!(serialized.pointer("/Quantum/fault_tolerance/logicalCycleTime"), Some(&json!(1)));
     assert_eq!(
         serialized.pointer("/Quantum/fault_tolerance/physicalQubitsPerLogicalQubit"),
         Some(&json!(50.0))
