@@ -12,6 +12,7 @@ use acorn::io::{
     api::huggingface,
     config::{ApplicationConfiguration, ModelEntry},
     database::{schema::Table, Database, Operations, PersistStatus},
+    model::metadata::resolve_import_metadata,
     sync, ApiResult, ModelSelectorsExt, Source,
 };
 use acorn_core::{
@@ -19,7 +20,7 @@ use acorn_core::{
     util::suffix,
 };
 use acorn_host::terminal::Label;
-use acorn_schema::agent::{ModelSelectors, Weights};
+use acorn_schema::agent::ModelSelectors;
 use color_eyre::eyre::eyre;
 use futures::future::join_all;
 use itertools::Itertools;
@@ -27,12 +28,86 @@ use owo_colors::OwoColorize;
 use std::path::PathBuf;
 use tracing::{error, info, warn};
 
+struct ModelImportOptions {
+    no_local_database: bool,
+    offline: bool,
+    no_fallback: bool,
+    search_limit: usize,
+    minimum_download_count: u64,
+    interactive: bool,
+    quiet: bool,
+    database_path: Option<PathBuf>,
+}
 /// Import model metadata into the local database
 pub(crate) struct Request<'a> {
     pub(crate) arguments: &'a ImportModel,
     pub(crate) database_path: &'a Option<PathBuf>,
     pub(crate) no_local_database: bool,
     pub(crate) offline: bool,
+}
+impl ModelDownloadPlan {
+    async fn import(self, options: &ModelImportOptions) -> ApiResult<String> {
+        let is_huggingface_repository = match &self.selector {
+            | Source::Remote { identifier, .. } => !identifier.starts_with("http://") && !identifier.starts_with("https://"),
+            | _ => false,
+        };
+        match &self.selector {
+            | Source::Remote { identifier, .. } if is_huggingface_repository && !options.offline => {
+                let huggingface_options = huggingface::Options::init()
+                    .domain(&self.domain)
+                    .identifier(identifier)
+                    .revision(self.revision.clone())
+                    .interactive(options.interactive)
+                    .no_fallback(options.no_fallback)
+                    .quiet(options.quiet)
+                    .search_limit(options.search_limit)
+                    .minimum_download_count(options.minimum_download_count)
+                    .build();
+                #[cfg(feature = "tui")]
+                let huggingface_options = huggingface::Options {
+                    selector: run_gguf_picker,
+                    ..huggingface_options
+                };
+                match resolve_import_metadata(&huggingface_options, options.offline).await {
+                    | Ok(resolution) => {
+                        let (requested, resolved, weights) = resolution.into_parts();
+                        if options.no_local_database {
+                            if !options.quiet {
+                                let count = weights.0.len();
+                                info!(
+                                    "=> {} Resolved {count} GGUF file{} for '{requested}' without database persistence",
+                                    Label::run(),
+                                    suffix(count),
+                                );
+                            }
+                            Ok(resolved)
+                        } else {
+                            weights.persist(&requested, options.database_path.clone()).map(|_| resolved)
+                        }
+                    }
+                    | Err(why) => Err(why),
+                }
+            }
+            | Source::Remote { identifier, .. } if options.offline => Err(eyre!("Offline mode cannot import remote model metadata: {identifier}")),
+            | _ => Err(eyre!("Model metadata import supports only Hugging Face repository identifiers")),
+        }
+    }
+}
+pub(super) fn collect_imported(results: Vec<ApiResult<String>>, best_effort: bool) -> ApiResult<Vec<String>> {
+    match best_effort {
+        | true => Ok(results
+            .into_iter()
+            .filter_map(|result| match result {
+                | Ok(identifier) => Some(identifier),
+                | Err(why) => {
+                    let reason = format!("({why})");
+                    warn!("=> {} Could not import model metadata {}", Label::skip(), reason.dimmed());
+                    None
+                }
+            })
+            .collect()),
+        | false => results.into_iter().collect(),
+    }
 }
 pub async fn execute(request: Request<'_>) -> Void {
     let Request {
@@ -143,81 +218,5 @@ pub async fn execute(request: Request<'_>) -> Void {
             error!("=> {} Read model list file — {why}", Label::fail());
             Err(why)
         }
-    }
-}
-struct ModelImportOptions {
-    no_local_database: bool,
-    offline: bool,
-    no_fallback: bool,
-    search_limit: usize,
-    minimum_download_count: u64,
-    interactive: bool,
-    quiet: bool,
-    database_path: Option<PathBuf>,
-}
-impl ModelDownloadPlan {
-    async fn import(self, options: &ModelImportOptions) -> ApiResult<String> {
-        let is_huggingface_repository = match &self.selector {
-            | Source::Remote { identifier, .. } => !identifier.starts_with("http://") && !identifier.starts_with("https://"),
-            | _ => false,
-        };
-        match &self.selector {
-            | Source::Remote { identifier, .. } if is_huggingface_repository && !options.offline => {
-                let huggingface_options = huggingface::Options::init()
-                    .domain(&self.domain)
-                    .identifier(identifier)
-                    .revision(self.revision.clone())
-                    .interactive(options.interactive)
-                    .no_fallback(options.no_fallback)
-                    .quiet(options.quiet)
-                    .search_limit(options.search_limit)
-                    .minimum_download_count(options.minimum_download_count)
-                    .build();
-                #[cfg(feature = "tui")]
-                let huggingface_options = huggingface::Options {
-                    selector: run_gguf_picker,
-                    ..huggingface_options
-                };
-                match huggingface::HuggingFaceRepositoryFiles::resolve(&huggingface_options).await {
-                    | Ok(resolution) => {
-                        let (requested, resolved, weights) = resolution.map(Weights::from).into_parts();
-                        if weights.0.is_empty() {
-                            Err(eyre!("No GGUF model files found for '{requested}'"))
-                        } else if options.no_local_database {
-                            if !options.quiet {
-                                let count = weights.0.len();
-                                info!(
-                                    "=> {} Resolved {count} GGUF file{} for '{requested}' without database persistence",
-                                    Label::run(),
-                                    suffix(count),
-                                );
-                            }
-                            Ok(resolved)
-                        } else {
-                            weights.persist(&requested, options.database_path.clone()).map(|_| resolved)
-                        }
-                    }
-                    | Err(why) => Err(why),
-                }
-            }
-            | Source::Remote { identifier, .. } if options.offline => Err(eyre!("Offline mode cannot import remote model metadata: {identifier}")),
-            | _ => Err(eyre!("Model metadata import supports only Hugging Face repository identifiers")),
-        }
-    }
-}
-pub(super) fn collect_imported(results: Vec<ApiResult<String>>, best_effort: bool) -> ApiResult<Vec<String>> {
-    match best_effort {
-        | true => Ok(results
-            .into_iter()
-            .filter_map(|result| match result {
-                | Ok(identifier) => Some(identifier),
-                | Err(why) => {
-                    let reason = format!("({why})");
-                    warn!("=> {} Could not import model metadata {}", Label::skip(), reason.dimmed());
-                    None
-                }
-            })
-            .collect()),
-        | false => results.into_iter().collect(),
     }
 }

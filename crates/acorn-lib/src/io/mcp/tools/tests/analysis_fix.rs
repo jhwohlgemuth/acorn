@@ -86,11 +86,11 @@ async fn test_configured_fix_proposal_builds_reviewable_diff_without_writing() {
         .first()
         .is_some_and(|difference| difference.unified.contains("valid@example.org")));
     let registry = ToolRegistry::default()
-        .register_analysis_fixes_capability(root.path().to_path_buf(), true, Arc::new(backend), options)
+        .register_analysis_fixes_capability(root.path(), true, Arc::new(backend), options)
         .expect("registered fixes");
     let selected = registry
         .select_capability_binding(
-            "acorn.check_fixes",
+            "acorn.check::fixes",
             None,
             None,
             CapabilitySelectionContext {

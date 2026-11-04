@@ -6,6 +6,7 @@ use alloc::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 pub(in crate::io) mod gguf;
+pub mod metadata;
 
 /// Read a model's context length using the metadata or materialization context it requires.
 pub trait ContextLength<Context = ()> {

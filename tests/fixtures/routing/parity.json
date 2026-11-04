@@ -331,28 +331,28 @@
       "outputs_artifacts": "downloaded files and status",
       "effects": "network-write",
       "requirements": "Configured network and credentials when the input or effect is remote; supported host features otherwise",
-      "registry_binding": "none",
+      "registry_binding": "acorn.download::bucket via the direct bucket transfer operation",
       "phase": "PAR-11",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in PAR-11",
+      "equivalence": "download_registry::test_bucket_archive_matches_direct_download; native download tests cover exact authority, offline config, and containment",
       "exclusion": null,
       "scope": "bounded",
-      "operation_seam": "extract acquisition planner operation in PAR-11"
+      "operation_seam": "shared acorn-lib::io::config::bucket::download_sources; direct command delegates"
     },
     {
       "id": "download.model",
       "command": "download model",
       "behavior": "model acquisition",
-      "owner": "crates/acorn-cli/src/commands/download/mod.rs",
+      "owner": "crates/acorn-cli/src/commands/download/model/mod.rs",
       "input_forms_options": "model selector/config and output policy",
       "outputs_artifacts": "resolved model files and status",
       "effects": "network-write",
       "requirements": "Configured network and credentials when the input or effect is remote; supported host features otherwise",
-      "registry_binding": "none",
-      "phase": "PAR-11",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in PAR-11",
+      "registry_binding": "acorn.download::model via the direct model resolver and transfer operation",
+      "phase": "PAR-28",
+      "equivalence": "download model registry tests compare local and mocked HTTP acquisition with the direct command; native model tests cover exact authority, cancellation, overwrite, containment, and no-write preview",
       "exclusion": null,
       "scope": "bounded",
-      "operation_seam": "extract acquisition planner operation in PAR-11"
+      "operation_seam": "existing model resolver and transfer service; share selection plan in PAR-28"
     },
     {
       "id": "download.needle",
@@ -363,28 +363,28 @@
       "outputs_artifacts": "engine/model/license assets",
       "effects": "network-write",
       "requirements": "Configured network and credentials when the input or effect is remote; supported host features otherwise",
-      "registry_binding": "none",
-      "phase": "PAR-11",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in PAR-11",
+      "registry_binding": "acorn.download::needle::status and acorn.download::needle when the needle feature is enabled",
+      "phase": "PAR-29",
+      "equivalence": "download_registry::test_pinned_needle_status_and_cached_acquisition_match_direct_command; native Needle tests cover pinned cache verification, offline behavior, exact mutation authority, and destination rejection",
       "exclusion": null,
       "scope": "bounded",
-      "operation_seam": "extract acquisition planner operation in PAR-11"
+      "operation_seam": "shared SidecarAssets::resolve_assets pinned official resolver, with offline status and exact cache destination validation"
     },
     {
       "id": "download.preview",
       "command": "download model --dry-run",
       "behavior": "model acquisition preview",
-      "owner": "crates/acorn-cli/src/commands/download/mod.rs",
+      "owner": "crates/acorn-cli/src/commands/download/model/mod.rs",
       "input_forms_options": "model selector and output policy",
       "outputs_artifacts": "resolution plan without writes",
       "effects": "network-read",
       "requirements": "Configured network and credentials when the input or effect is remote; supported host features otherwise",
-      "registry_binding": "none",
-      "phase": "PAR-11",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in PAR-11",
+      "registry_binding": "acorn.download::model::preview via the direct model selection planner",
+      "phase": "PAR-28",
+      "equivalence": "download model registry tests compare local and mocked HTTP previews with the direct command; native tests cover no-write preview and offline remote rejection",
       "exclusion": null,
       "scope": "bounded",
-      "operation_seam": "extract acquisition planner operation in PAR-11"
+      "operation_seam": "existing model resolver and dry-run planner; share selection plan in PAR-28"
     },
     {
       "id": "exec.automation",
@@ -411,12 +411,12 @@
       "outputs_artifacts": "findings",
       "effects": "read",
       "requirements": "Supported local host features",
-      "registry_binding": "none",
-      "phase": "PAR-14",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in PAR-14",
+      "registry_binding": "acorn.exec::check when the exec feature is enabled",
+      "phase": "PAR-30",
+      "equivalence": "exec_registry::test_direct_script_findings_match_native_check; native script tests cover bounded input, exact findings, read-only execution, and unchanged source",
       "exclusion": null,
       "scope": "bounded",
-      "operation_seam": "existing acorn-cmd operations; CLI presentation to separate in PAR-14"
+      "operation_seam": "shared acorn-lib::exec::config::Resolved::check restricted evaluator"
     },
     {
       "id": "exec.check_safe",
@@ -427,12 +427,12 @@
       "outputs_artifacts": "source diagnostics",
       "effects": "read",
       "requirements": "Supported local host features",
-      "registry_binding": "none",
+      "registry_binding": "acorn.exec::check::safe when the exec feature is enabled",
       "phase": "PAR-14",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in PAR-14",
+      "equivalence": "exec_registry::test_static_script_and_manifest_match_direct_commands; native static tests cover invalid source and path containment",
       "exclusion": null,
       "scope": "bounded",
-      "operation_seam": "existing acorn-cmd operations; CLI presentation to separate in PAR-14"
+      "operation_seam": "shared acorn-lib::exec::config::Resolved::direct static trust and compile operation"
     },
     {
       "id": "exec.hook",
@@ -443,12 +443,12 @@
       "outputs_artifacts": "findings without apply",
       "effects": "read",
       "requirements": "Supported local host features",
-      "registry_binding": "none",
-      "phase": "PAR-14",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in PAR-14",
+      "registry_binding": "acorn.exec::hook::check when the exec feature is enabled",
+      "phase": "PAR-31",
+      "equivalence": "exec_registry::test_manifest_authorized_hook_matches_direct_command; native hook tests cover digest authorization, bounded capabilities, offline denial, and unchanged input",
       "exclusion": null,
       "scope": "bounded",
-      "operation_seam": "existing acorn-cmd operations; CLI presentation to separate in PAR-14"
+      "operation_seam": "shared acorn-lib::exec::hooks::check_hook_with_manifest evaluator and capability validation"
     },
     {
       "id": "exec.manifest",
@@ -459,12 +459,12 @@
       "outputs_artifacts": "validation diagnostics",
       "effects": "read",
       "requirements": "Supported local host features",
-      "registry_binding": "none",
+      "registry_binding": "acorn.exec::manifest::check when the exec feature is enabled",
       "phase": "PAR-14",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in PAR-14",
+      "equivalence": "exec_registry::test_static_script_and_manifest_match_direct_commands; native static tests cover bounded manifest and path containment",
       "exclusion": null,
       "scope": "bounded",
-      "operation_seam": "existing acorn-cmd operations; CLI presentation to separate in PAR-14"
+      "operation_seam": "shared acorn-lib::exec::manifest::ScriptManifest::read validation operation"
     },
     {
       "id": "export.bag",
@@ -507,12 +507,12 @@
       "outputs_artifacts": "planned output without writes",
       "effects": "read",
       "requirements": "Supported local host features",
-      "registry_binding": "acorn.export_research_activity_data covers a narrower RAD operation",
-      "phase": "PAR-09",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in PAR-09",
+      "registry_binding": "acorn.export::preview and acorn.export::updates::preview",
+      "phase": "PAR-25",
+      "equivalence": "Focused direct CLI and native previews cover archives, documents, graphs, PDF, PowerPoint, and updates without artifacts; native tests enforce bounded inputs",
       "exclusion": null,
       "scope": "bounded",
-      "operation_seam": "extract command orchestration over existing renderers in PAR-09"
+      "operation_seam": "shared export destination, crosswalk, and updates projection operations"
     },
     {
       "id": "export.render",
@@ -523,12 +523,12 @@
       "outputs_artifacts": "PDF, PPTX, DOCX, or text artifact",
       "effects": "write",
       "requirements": "Supported local host features",
-      "registry_binding": "acorn.export_research_activity_data covers a narrower RAD operation",
-      "phase": "PAR-09",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in PAR-09",
+      "registry_binding": "acorn.export::render, acorn.export::crosswalk, acorn.export::document, acorn.export::batch, and acorn.export::bag",
+      "phase": "PAR-25",
+      "equivalence": "Focused direct CLI and native tests compare text and graph bytes, PowerPoint OOXML parts, valid PDF artifacts, denied default writes, exact destinations, and source preservation",
       "exclusion": null,
       "scope": "bounded",
-      "operation_seam": "extract command orchestration over existing renderers in PAR-09"
+      "operation_seam": "shared PDF session, PowerPoint renderer, updates projection and HTML, RAD codec, and structured crosswalk"
     },
     {
       "id": "export.schema",
@@ -536,15 +536,15 @@
       "behavior": "schema export",
       "owner": "crates/acorn-cli/src/commands/export/mod.rs",
       "input_forms_options": "selected schema and JSON/YAML output",
-      "outputs_artifacts": "schema artifact",
-      "effects": "write",
+      "outputs_artifacts": "JSON/YAML schema text on stdout",
+      "effects": "read",
       "requirements": "Supported local host features",
-      "registry_binding": "none",
+      "registry_binding": "acorn.export::schema",
       "phase": "PAR-09",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in PAR-09",
+      "equivalence": "Focused direct CLI and native schema tests cover JSON/YAML text, modeled standards, invalid formats, and no artifact",
       "exclusion": null,
       "scope": "bounded",
-      "operation_seam": "extract command orchestration over existing renderers in PAR-09"
+      "operation_seam": "shared io::export::schema_text"
     },
     {
       "id": "format.acre",
@@ -726,33 +726,33 @@
       "id": "import.model",
       "command": "import model",
       "behavior": "model import",
-      "owner": "crates/acorn-cli/src/commands/import/mod.rs",
-      "input_forms_options": "model source and apply policy",
-      "outputs_artifacts": "preview or persisted model",
+      "owner": "crates/acorn-cli/src/commands/import/model.rs",
+      "input_forms_options": "explicit Hugging Face repository identifier, metadata preview, and exact local database authority",
+      "outputs_artifacts": "resolved GGUF metadata summary or persisted model metadata record",
       "effects": "write",
-      "requirements": "Supported local host features",
-      "registry_binding": "none",
-      "phase": "PAR-10",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in PAR-10",
+      "requirements": "Hugging Face metadata endpoint for online resolution; supported local database host features for apply",
+      "registry_binding": "acorn.import::model::preview and acorn.import::model::apply via shared metadata resolver",
+      "phase": "PAR-26",
+      "equivalence": "import_registry::model_metadata_preview_and_persistence_match_direct_command; native tests cover mocked metadata, offline failure, bounded identifier, no preview write, denied apply, exact database authority, and no model-weight request",
       "exclusion": null,
       "scope": "bounded",
-      "operation_seam": "extract command operation in PAR-10"
+      "operation_seam": "shared io::model::metadata::resolve_import_metadata and existing WeightsExt::persist; direct command delegates"
     },
     {
       "id": "import.spec",
       "command": "import spec",
       "behavior": "specification import",
-      "owner": "crates/acorn-cli/src/commands/import/mod.rs",
-      "input_forms_options": "specification source and apply policy",
-      "outputs_artifacts": "preview or persisted specification",
+      "owner": "crates/acorn-cli/src/commands/import/spec.rs",
+      "input_forms_options": "OpenAPI source, endpoint name/domain/root, and exact output policy",
+      "outputs_artifacts": "endpoint JSON preview or artifact",
       "effects": "write",
       "requirements": "Supported local host features",
-      "registry_binding": "none",
+      "registry_binding": "acorn.import::spec::preview and acorn.import::spec::apply",
       "phase": "PAR-10",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in PAR-10",
+      "equivalence": "Focused native and direct CLI tests cover local and mocked HTTP sources, no-write preview, exact-authority JSON artifact, invalid input, offline rejection, and source preservation",
       "exclusion": null,
       "scope": "bounded",
-      "operation_seam": "extract command operation in PAR-10"
+      "operation_seam": "shared io::api::openapi::endpoint_from_openapi projection"
     },
     {
       "id": "infer.ask",
@@ -763,9 +763,9 @@
       "outputs_artifacts": "Needle JSON result",
       "effects": "conditional",
       "requirements": "Supported local host features",
-      "registry_binding": "legacy Needle one-shot route",
-      "phase": "RTR-03",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in RTR-03",
+      "registry_binding": "legacy Needle one-shot route over the shared Needle service",
+      "phase": "PAR-32",
+      "equivalence": "Pinned offline Needle test compares direct ask JSON and shared service results for a grounded version request, missing prompt rejection, and no working-directory artifact",
       "exclusion": null,
       "scope": "bounded",
       "operation_seam": "existing Needle route; RTR-03 composes caller registry"
@@ -939,12 +939,12 @@
       "outputs_artifacts": "PDFs and manifests",
       "effects": "write",
       "requirements": "Supported local host features",
-      "registry_binding": "none",
+      "registry_binding": "acorn.report::local through the shared report project and manifest operations",
       "phase": "PAR-13",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in PAR-13",
+      "equivalence": "report registry tests compare direct and native PDF and manifest artifacts; native report tests cover exact destination authority and no publication by default",
       "exclusion": null,
       "scope": "bounded",
-      "operation_seam": "extract artifact/publication operation in PAR-13"
+      "operation_seam": "shared ReportProjectRequest and ReportManifestRequest operations; direct command delegates"
     },
     {
       "id": "report.publish",
@@ -955,12 +955,12 @@
       "outputs_artifacts": "immutable package and receipt",
       "effects": "network-write",
       "requirements": "Configured network and credentials when the input or effect is remote; supported host features otherwise",
-      "registry_binding": "none",
+      "registry_binding": "acorn.report::publish through the direct report project workflow and immutable GitLab PackageLifecycle",
       "phase": "PAR-13",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in PAR-13",
+      "equivalence": "native report tests require exact publication authority and reject offline selection; GitLab package tests cover mocked ordered publication, checksum validation, no-change ledgers, and identical-content retries",
       "exclusion": null,
       "scope": "bounded",
-      "operation_seam": "extract artifact/publication operation in PAR-13"
+      "operation_seam": "shared ReportProjectRequest, ReportManifestRequest, and PackageLifecycle operations; direct command delegates"
     },
     {
       "id": "serve.bot",
@@ -1115,12 +1115,12 @@
       "outputs_artifacts": "updated target config",
       "effects": "write",
       "requirements": "Supported local host features",
-      "registry_binding": "none",
+      "registry_binding": "acorn.sync::apply over the shared configuration renderer and coordinated commit",
       "phase": "PAR-12",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in PAR-12",
+      "equivalence": "commands::sync::registry_tests::test_opencode_sync_preview_and_apply_match_direct_command; native tests cover four target previews, exact authority, source preservation, traversal and overwrite rejection",
       "exclusion": null,
       "scope": "bounded",
-      "operation_seam": "extract target configuration operation in PAR-12"
+      "operation_seam": "shared io::sync::ConfigExt::plan and apply_plan; direct command delegates through ConfigExt::sync"
     },
     {
       "id": "sync.preview",
@@ -1131,12 +1131,12 @@
       "outputs_artifacts": "proposed target changes",
       "effects": "read",
       "requirements": "Supported local host features",
-      "registry_binding": "none",
+      "registry_binding": "acorn.sync::preview over the shared configuration renderer",
       "phase": "PAR-12",
-      "equivalence": "Pending focused CLI/service-to-registry equivalence in PAR-12",
+      "equivalence": "commands::sync::registry_tests::test_opencode_sync_preview_and_apply_match_direct_command; native tests cover all four targets, unchanged results, bounded model paths, and no preview writes",
       "exclusion": null,
       "scope": "bounded",
-      "operation_seam": "extract target configuration operation in PAR-12"
+      "operation_seam": "shared io::sync::ConfigExt::plan; direct dry-run uses the same rendered output"
     },
     {
       "id": "tui.screen",

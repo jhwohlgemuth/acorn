@@ -5,12 +5,13 @@
     clippy::indexing_slicing,
     clippy::arithmetic_side_effects
 )]
-use super::{add_aspect_chart, add_slide, copy_image, create, prepare_destination, IMAGE_RELATIONSHIP};
+use super::{add_slide, create};
 use crate::{
     assets::draft_placeholder_bytes,
     cli::CommandOptions,
     test::util::{temp_test_dir, TestCleanup},
 };
+use acorn::io::export::powerpoint::{self, add_aspect_chart, prepare_destination, IMAGE_RELATIONSHIP};
 use acorn::io::{export::ExportContext, write_file};
 use acorn_core::prelude::Arc;
 use acorn_host::fs::read_text;
@@ -21,6 +22,9 @@ use std::{
     path::Path,
 };
 
+fn copy_image(index: usize, context: &ExportContext, source: &Path, destination: &Path) -> acorn::io::ApiResult<u64> {
+    draft_placeholder_bytes().and_then(|fallback| powerpoint::copy_image(index, context, source, destination, &fallback))
+}
 fn setup_image_relationship(root: &Path) {
     let relationships = "http://schemas.openxmlformats.org/package/2006/relationships";
     write_slide_fixture(

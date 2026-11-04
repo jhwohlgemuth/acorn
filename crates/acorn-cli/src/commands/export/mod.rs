@@ -8,14 +8,17 @@ use crate::{
 };
 #[cfg(feature = "chart")]
 use acorn::io::chart::ChartOptions;
+#[cfg(feature = "pdf")]
+use acorn::io::export::pdf_destination;
 use acorn::{
     fail,
     io::{
         adapter::Batch,
         bagit::{Bag, BagInfo, Save},
         config::application::ApplicationConfiguration,
-        create_progress_bar, current_date, finish_progress_bar, folder_size, sidecar, with_progress, write_file, ApiFuture, ApiResult, FromPath,
-        InputOutput, ProgressType,
+        create_progress_bar, current_date,
+        export::{bag_destination, StandardSchema},
+        finish_progress_bar, folder_size, sidecar, with_progress, write_file, ApiFuture, ApiResult, FromPath, InputOutput, ProgressType,
     },
     skip,
     util::{print_values_as_table, StringConversion},
@@ -30,15 +33,11 @@ use acorn_core::{
 use acorn_host::{fs::read_text, terminal::Label};
 use acorn_schema::{
     codec::DocumentCodec,
-    modelkit::kitfile,
-    pid::raid::Metadata,
     research_activity::ResearchActivity,
     standard::{
-        cff, ckan,
         crosswalk::{Conversion, CrosswalkError, DublinCoreImportOptions},
-        datacite, dcat,
         dublin_core::DublinCoreDocument,
-        huwise, invenio, text, Standard,
+        Standard,
     },
     ContactPoint,
 };
@@ -48,7 +47,6 @@ use color_eyre::eyre::eyre;
 use core::iter::once;
 use nanoid::nanoid;
 use owo_colors::OwoColorize;
-use schemars::{schema_for, JsonSchema};
 use std::{
     fs::{create_dir_all, remove_dir_all, remove_file, rename},
     path::{Path, PathBuf},
@@ -128,19 +126,12 @@ impl ExportHandler for BagExportHandler {
         Box::pin(async move {
             match (request.path, request.output) {
                 | (Some(path), Some(destination)) => {
-                    let inferred = match MimeType::from(destination.to_string_lossy().as_ref()) {
-                        | format @ (MimeType::Gzip | MimeType::SevenZip | MimeType::Tar | MimeType::Zip) => Some(format),
-                        | _ => None,
-                    };
                     let explicit = request.archive_format.map(MimeType::from);
-                    match explicit.is_some() && inferred.is_some() && explicit != inferred {
-                        | true => Err(eyre!("--archive-format conflicts with the output archive suffix")),
-                        | false => {
-                            let archive_format = explicit.or(inferred.clone()).unwrap_or(MimeType::Zip);
-                            let archive_destination = match inferred.is_some() {
-                                | true => destination,
-                                | false => destination.with_extension(archive_format.clone().file_type()),
-                            };
+                    bag_destination(&destination, explicit).and_then(|(archive_destination, archive_format)| {
+                        if request.dry_run {
+                            info!("=> {} Would write BagIt archive {}", Label::dry_run(), archive_destination.display());
+                            Ok(())
+                        } else {
                             let staging = archive_destination
                                 .parent()
                                 .unwrap_or_else(|| Path::new("."))
@@ -160,7 +151,7 @@ impl ExportHandler for BagExportHandler {
                             };
                             result.and(cleanup)
                         }
-                    }
+                    })
                 }
                 | (None, _) => Err(eyre!("Missing input path for bag export")),
                 | (_, None) => Err(eyre!("Missing output directory for bag export")),
@@ -178,6 +169,7 @@ impl ExportHandler for CffExportHandler {
                 "cff",
                 |p, ext| p.with_file_name("CITATION").with_extension(ext),
                 request.progress_type,
+                request.dry_run,
             )
             .await
         })
@@ -244,6 +236,14 @@ impl ExportHandler for PdfExportHandler {
             #[cfg(feature = "pdf")]
             {
                 match resolve_paths(&request.path, &request.options).await {
+                    | Ok(paths) if request.dry_run => paths.into_iter().try_for_each(|path| {
+                        request
+                            .output
+                            .as_deref()
+                            .ok_or_else(|| eyre!("Missing output directory for PDF export"))
+                            .and_then(|output| pdf_destination(&path, output))
+                            .map(|destination| info!("=> {} Would write PDF {}", Label::dry_run(), destination.display()))
+                    }),
                     | Ok(paths) => match pdf::initialize_page(request.options.offline, request.chrome_path.as_deref()).await {
                         | Ok(session) => {
                             let page = session.page();
@@ -293,6 +293,26 @@ impl ExportHandler for PowerPointExportHandler {
     fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a> {
         Box::pin(async move {
             match resolve_paths(&request.path, &request.options).await {
+                | Ok(paths) if request.dry_run => match request.output.as_deref() {
+                    | Some(output) => {
+                        let names = match request.combine {
+                            | true => request.path.as_ref().into_iter().collect::<Vec<_>>(),
+                            | false => paths.iter().collect::<Vec<_>>(),
+                        };
+                        names.into_iter().for_each(|source| {
+                            let folder = match source.is_dir() {
+                                | true => source.as_path(),
+                                | false => source.parent().unwrap_or_else(|| Path::new(".")),
+                            };
+                            let path = PathBuf::from(folder.file_name_with_parent());
+                            let pptx = MimeType::Powerpoint.file_type();
+                            let destination = output.join(path.with_extension(pptx));
+                            info!("=> {} Would write PowerPoint {}", Label::dry_run(), destination.display());
+                        });
+                        Ok(())
+                    }
+                    | None => Err(eyre!("Missing output directory for PowerPoint export")),
+                },
                 | Ok(paths) => {
                     let options = CommandOptions::init()
                         .maybe_path(request.path.clone())
@@ -381,6 +401,7 @@ impl ExportHandler for StructuredExportHandler {
                 &extension,
                 |p, ext| p.with_extension(ext),
                 request.progress_type,
+                request.dry_run,
             )
             .await
         })
@@ -473,6 +494,7 @@ async fn export_as_format(
     extension: &str,
     output_path: fn(&PathBuf, &str) -> PathBuf,
     progress_type: ProgressType,
+    dry_run: bool,
 ) -> ApiResult<()> {
     let threads = options.threads;
     let resolved = match format.is_batch() {
@@ -500,17 +522,23 @@ async fn export_as_format(
                     let ext = ext.clone();
                     async move {
                         let output = output_path(&item, &ext);
-                        match format.is_batch() {
-                            | true => ResearchActivity::batch_read(&item).and_then(|data| data.batch_write(output)),
-                            | false => match ResearchActivity::read(&item) {
-                                | Ok(data) => match data.write(output) {
-                                    | Ok(_) => Ok(()),
-                                    | Err(_) => Err(eyre!("Failed to write output file")),
+                        match dry_run {
+                            | true => {
+                                info!("  {} would write {}", Label::fmt_skip("DRYRUN"), output.display());
+                                Ok(())
+                            }
+                            | false => match format.is_batch() {
+                                | true => ResearchActivity::batch_read(&item).and_then(|data| data.batch_write(output)),
+                                | false => match ResearchActivity::read(&item) {
+                                    | Ok(data) => match data.write(output) {
+                                        | Ok(_) => Ok(()),
+                                        | Err(_) => Err(eyre!("Failed to write output file")),
+                                    },
+                                    | Err(why) => {
+                                        fail!("Read research activity data — {why}");
+                                        Err(eyre!("Read research activity data — {why}"))
+                                    }
                                 },
-                                | Err(why) => {
-                                    fail!("Read research activity data — {why}");
-                                    Err(eyre!("Read research activity data — {why}"))
-                                }
                             },
                         }
                     }
@@ -697,29 +725,7 @@ async fn export_as_format_crosswalk(
 }
 /// Serialize the selected modeled standard as deterministic JSON or YAML schema text.
 pub(crate) fn export_schema(standard: Standard, format: &FileFormat) -> ApiResult<String> {
-    fn serialize<T: JsonSchema>(format: &FileFormat) -> ApiResult<String> {
-        let schema = schema_for!(T);
-        match format {
-            | FileFormat::Json => serde_json::to_string_pretty(&schema).map_err(|why| eyre!("Serialize JSON schema — {why}")),
-            | FileFormat::Yaml => serde_norway::to_string(&schema).map_err(|why| eyre!("Serialize YAML schema — {why}")),
-            | _ => Err(eyre!("Schema export supports only JSON or YAML output")),
-        }
-    }
-    match standard {
-        | Standard::ApplicationConfigurationResearchEnablement => serialize::<ApplicationConfiguration>(format),
-        | Standard::CitationFileFormat => serialize::<cff::Cff>(format),
-        | Standard::Ckan => serialize::<ckan::Package>(format),
-        | Standard::Datacite => serialize::<datacite::Record>(format),
-        | Standard::Dcat => serialize::<dcat::Dataset>(format),
-        | Standard::Document | Standard::Text => serialize::<text::Text>(format),
-        | Standard::DublinCore => serialize::<DublinCoreDocument>(format),
-        | Standard::Huwise => serialize::<huwise::Dataset>(format),
-        | Standard::Invenio => serialize::<invenio::Record>(format),
-        | Standard::Kitfile | Standard::ModelKit => serialize::<kitfile::Kitfile>(format),
-        | Standard::Oci => Err(eyre!("OCI checking has no single generated schema")),
-        | Standard::Raid => serialize::<Metadata>(format),
-        | Standard::ResearchActivityData => serialize::<ResearchActivity>(format),
-    }
+    standard.schema(&MimeType::from(format))
 }
 #[allow(clippy::too_many_arguments)]
 #[cfg_attr(not(test), allow(dead_code))]

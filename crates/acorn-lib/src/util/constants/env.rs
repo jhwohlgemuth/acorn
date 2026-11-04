@@ -1,7 +1,3 @@
-/// ACRE variable reference naming the environment variable holding the PowerAutomate callback URL.
-pub const POWER_AUTOMATE_CALLBACK_URL: &str = "power_automate.callback_url";
-/// ACRE variable reference naming the environment variable holding the PowerAutomate inbound shared secret.
-pub const POWER_AUTOMATE_INBOUND_SECRET: &str = "power_automate.inbound_secret";
 /// Environment variable name for cache TTL override.
 pub const CACHE_TTL: &str = "ACORN_CACHE_TTL";
 /// Environment variable used to select a Chrome or Chromium executable for PDF export.
@@ -36,6 +32,8 @@ pub const HUGGINGFACE_CACHE_LOCATIONS: [&str; 5] = [
     "$XDG_CACHE_HOME/huggingface/hub",
     "~/.cache/huggingface/hub",
 ];
+/// Environment variable overriding the Hugging Face API endpoint.
+pub const HUGGINGFACE_ENDPOINT: &str = "HF_ENDPOINT";
 /// Environment variable names used to resolve Hugging Face API tokens.
 pub const HUGGINGFACE_TOKEN_VARIABLE_NAMES: [&str; 3] = ["HF_TOKEN", "HF_API_TOKEN", "HUGGINGFACE_HUB_TOKEN"];
 /// Optional environment variable reserved by the shared API options contract for ISNI.
@@ -60,6 +58,10 @@ pub const OPENALEX_API_KEY: &str = "OPENALEX_API_KEY";
 pub const ORCID_API_TOKEN: &str = "ORCID_API_TOKEN";
 /// Environment variable overriding the ORCID API host.
 pub const ORCID_SERVER_HOST: &str = "ORCID_SERVER_HOST";
+/// ACRE variable reference naming the environment variable holding the PowerAutomate callback URL.
+pub const POWER_AUTOMATE_CALLBACK_URL: &str = "power_automate.callback_url";
+/// ACRE variable reference naming the environment variable holding the PowerAutomate inbound shared secret.
+pub const POWER_AUTOMATE_INBOUND_SECRET: &str = "power_automate.inbound_secret";
 /// Environment variable containing a RAiD API token.
 pub const RAID_API_TOKEN: &str = "RAID_API_TOKEN";
 /// Environment variable overriding the RAiD API host.

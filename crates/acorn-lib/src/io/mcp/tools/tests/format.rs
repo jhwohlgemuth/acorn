@@ -149,15 +149,13 @@ async fn test_registered_format_apply_requires_exact_destination_grant() {
         include_str!("../../../../../../../tests/fixtures/CITATION.cff"),
     )
     .expect("fixture");
-    let registry = ToolRegistry::default()
-        .register_format_capabilities(root.path().to_path_buf(), true)
-        .expect("registry");
+    let registry = ToolRegistry::default().register_format_capabilities(root.path(), true).expect("registry");
     let selection = CapabilitySelectionContext {
         offline: true,
         allow_remote: false,
     };
     let selected = registry
-        .select_capability_binding("acorn.format_apply", None, None, selection)
+        .select_capability_binding("acorn.format::apply", None, None, selection)
         .expect("selection");
     let arguments = json!({
         "input": {"input":{"kind":"file","value":"CITATION.cff"},"standard":"citation-file-format"},
@@ -184,8 +182,8 @@ async fn test_registered_format_apply_requires_exact_destination_grant() {
                 grounded: true,
                 selection,
                 mutation: Some(MutationAuthority {
-                    capability_id: "acorn.format_apply".into(),
-                    binding_id: "native:acorn.format_apply".into(),
+                    capability_id: "acorn.format::apply".into(),
+                    binding_id: "native:acorn.format::apply".into(),
                     arguments,
                     destination: "out.cff".into(),
                 }),
@@ -206,15 +204,13 @@ async fn test_registered_format_preview_matches_direct_result() {
     .expect("fixture");
     let input = cff_input();
     let expected = serde_json::to_value(input.clone().preview(root.path(), true).await.expect("direct")).expect("json");
-    let registry = ToolRegistry::default()
-        .register_format_capabilities(root.path().to_path_buf(), true)
-        .expect("registry");
+    let registry = ToolRegistry::default().register_format_capabilities(root.path(), true).expect("registry");
     let selection = CapabilitySelectionContext {
         offline: true,
         allow_remote: false,
     };
     let selected = registry
-        .select_capability_binding("acorn.format_preview", None, None, selection)
+        .select_capability_binding("acorn.format::preview", None, None, selection)
         .expect("selection");
     let actual = registry
         .execute_selected(

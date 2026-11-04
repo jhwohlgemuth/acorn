@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 3,
   "inventory": "parity.json",
   "cases": [
     {
@@ -1543,7 +1543,7 @@
       ],
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.script-check",
+        "capability_id": "acorn.exec::check::safe",
         "execute": true,
         "effects": [
           "read"
@@ -1562,7 +1562,7 @@
       ],
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.script-check",
+        "capability_id": "acorn.exec::check",
         "execute": true,
         "effects": [
           "read"
@@ -1585,7 +1585,7 @@
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.format",
+        "capability_id": "acorn.format::preview",
         "execute": true,
         "effects": [
           "read"
@@ -1609,7 +1609,7 @@
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.format",
+        "capability_id": "acorn.format::preview",
         "execute": true,
         "effects": [
           "read"
@@ -1633,7 +1633,7 @@
       },
       "expected": {
         "outcome": "permission-required",
-        "capability_id": "acorn.format",
+        "capability_id": "acorn.format::apply",
         "execute": false,
         "effects": [],
         "artifacts": []
@@ -1655,7 +1655,7 @@
       },
       "expected": {
         "outcome": "permission-required",
-        "capability_id": "acorn.format",
+        "capability_id": "acorn.format::apply",
         "execute": false,
         "effects": [],
         "artifacts": []
@@ -1677,7 +1677,7 @@
       },
       "expected": {
         "outcome": "permission-required",
-        "capability_id": "acorn.format",
+        "capability_id": "acorn.format::enrich::apply",
         "execute": false,
         "effects": [],
         "artifacts": []
@@ -1694,12 +1694,12 @@
       ],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.format",
+        "operation": "acorn.format::apply",
         "destination": "$CASE_TMP/formatted.json"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.format",
+        "capability_id": "acorn.format::apply",
         "execute": true,
         "effects": [
           "write"
@@ -1720,12 +1720,12 @@
       ],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.format",
+        "operation": "acorn.format::apply",
         "destination": "$CASE_TMP/acre.json"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.format",
+        "capability_id": "acorn.format::apply",
         "execute": true,
         "effects": [
           "write"
@@ -1746,12 +1746,12 @@
       ],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.format",
+        "operation": "acorn.format::enrich::apply",
         "destination": "$CASE_TMP/enriched.json"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.format",
+        "capability_id": "acorn.format::enrich::apply",
         "execute": true,
         "effects": [
           "write"
@@ -1777,7 +1777,7 @@
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.link",
+        "capability_id": "acorn.link::preview",
         "execute": true,
         "effects": [
           "read"
@@ -1801,7 +1801,7 @@
       },
       "expected": {
         "outcome": "permission-required",
-        "capability_id": "acorn.link",
+        "capability_id": "acorn.link::apply",
         "execute": false,
         "effects": [],
         "artifacts": []
@@ -1823,7 +1823,7 @@
       },
       "expected": {
         "outcome": "permission-required",
-        "capability_id": "acorn.link",
+        "capability_id": "acorn.link::apply",
         "execute": false,
         "effects": [],
         "artifacts": []
@@ -1840,12 +1840,12 @@
       ],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.link",
+        "operation": "acorn.link::apply",
         "destination": "$CASE_TMP/linked.json"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.link",
+        "capability_id": "acorn.link::apply",
         "execute": true,
         "effects": [
           "write"
@@ -1866,12 +1866,12 @@
       ],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.link",
+        "operation": "acorn.link::apply",
         "destination": "$CASE_TMP/linked-rad.json"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.link",
+        "capability_id": "acorn.link::apply",
         "execute": true,
         "effects": [
           "write"
@@ -1892,12 +1892,12 @@
       ],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.link",
+        "operation": "acorn.link::apply",
         "destination": "$CASE_TMP/linked-reviewed.json"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.link",
+        "capability_id": "acorn.link::apply",
         "execute": true,
         "effects": [
           "write"
@@ -1923,7 +1923,7 @@
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.export",
+        "capability_id": "acorn.export::preview",
         "execute": true,
         "effects": [
           "read"
@@ -1947,7 +1947,7 @@
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.export",
+        "capability_id": "acorn.export::preview",
         "execute": true,
         "effects": [
           "read"
@@ -1971,7 +1971,7 @@
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.export",
+        "capability_id": "acorn.export::preview",
         "execute": true,
         "effects": [
           "read"
@@ -1995,7 +1995,7 @@
       },
       "expected": {
         "outcome": "permission-required",
-        "capability_id": "acorn.export",
+        "capability_id": "acorn.export::render",
         "execute": false,
         "effects": [],
         "artifacts": []
@@ -2017,7 +2017,7 @@
       },
       "expected": {
         "outcome": "permission-required",
-        "capability_id": "acorn.export",
+        "capability_id": "acorn.export::bag",
         "execute": false,
         "effects": [],
         "artifacts": []
@@ -2037,7 +2037,7 @@
       },
       "expected": {
         "outcome": "permission-required",
-        "capability_id": "acorn.export",
+        "capability_id": "acorn.export::batch",
         "execute": false,
         "effects": [],
         "artifacts": []
@@ -2054,12 +2054,12 @@
       ],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.export",
+        "operation": "acorn.export::render",
         "destination": "$CASE_TMP/project-approved.pdf"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.export",
+        "capability_id": "acorn.export::render",
         "execute": true,
         "effects": [
           "write"
@@ -2080,12 +2080,12 @@
       ],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.export",
+        "operation": "acorn.export::render",
         "destination": "$CASE_TMP/highlight.pptx"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.export",
+        "capability_id": "acorn.export::render",
         "execute": true,
         "effects": [
           "write"
@@ -2106,12 +2106,12 @@
       ],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.export",
+        "operation": "acorn.export::bag",
         "destination": "$CASE_TMP/approved-bag.zip"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.export",
+        "capability_id": "acorn.export::bag",
         "execute": true,
         "effects": [
           "write"
@@ -2124,25 +2124,23 @@
     {
       "id": "EFFECT-024",
       "split": "held-out",
-      "class": "apply",
+      "class": "preview",
       "inventory_id": "export.schema",
-      "prompt": "Export the RAD JSON schema to $CASE_TMP/rad-schema.json.",
+      "prompt": "Show the RAD JSON schema.",
       "input_refs": [],
       "caller_policy": {
-        "allow_mutation": true,
-        "operation": "acorn.export",
-        "destination": "$CASE_TMP/rad-schema.json"
+        "allow_mutation": false,
+        "operation": null,
+        "destination": null
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.export",
+        "capability_id": "acorn.export::schema",
         "execute": true,
         "effects": [
-          "write"
+          "read"
         ],
-        "artifacts": [
-          "$CASE_TMP/rad-schema.json"
-        ]
+        "artifacts": []
       }
     },
     {
@@ -2150,9 +2148,9 @@
       "split": "calibration",
       "class": "preview",
       "inventory_id": "import.spec",
-      "prompt": "Preview importing the specification at tests/fixtures/schema/dcat.json.",
+      "prompt": "Preview an endpoint template named example::api for api.example.com from tests/fixtures/routing/openapi.yaml.",
       "input_refs": [
-        "tests/fixtures/schema/dcat.json"
+        "tests/fixtures/routing/openapi.yaml"
       ],
       "caller_policy": {
         "allow_mutation": false,
@@ -2161,7 +2159,7 @@
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.import",
+        "capability_id": "acorn.import::spec::preview",
         "execute": true,
         "effects": [
           "read"
@@ -2174,10 +2172,8 @@
       "split": "held-out",
       "class": "preview",
       "inventory_id": "import.model",
-      "prompt": "Inspect the model import from tests/fixtures/needle/modelkit-v3.json without applying it.",
-      "input_refs": [
-        "tests/fixtures/needle/modelkit-v3.json"
-      ],
+      "prompt": "Preview Hugging Face metadata import for acme/tiny-gguf without persisting it.",
+      "input_refs": [],
       "caller_policy": {
         "allow_mutation": false,
         "operation": null,
@@ -2185,7 +2181,7 @@
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.import",
+        "capability_id": "acorn.import::model::preview",
         "execute": true,
         "effects": [
           "read"
@@ -2198,9 +2194,9 @@
       "split": "calibration",
       "class": "denied",
       "inventory_id": "import.spec",
-      "prompt": "Persist tests/fixtures/schema/huwise.json as an installed specification.",
+      "prompt": "Write an endpoint template from tests/fixtures/routing/openapi.yaml for api.example.com without authorization.",
       "input_refs": [
-        "tests/fixtures/schema/huwise.json"
+        "tests/fixtures/routing/openapi.yaml"
       ],
       "caller_policy": {
         "allow_mutation": false,
@@ -2209,7 +2205,7 @@
       },
       "expected": {
         "outcome": "permission-required",
-        "capability_id": "acorn.import",
+        "capability_id": "acorn.import::spec::apply",
         "execute": false,
         "effects": [],
         "artifacts": []
@@ -2220,10 +2216,8 @@
       "split": "held-out",
       "class": "denied",
       "inventory_id": "import.model",
-      "prompt": "Install the model described in tests/fixtures/needle/modelkit-v3.json.",
-      "input_refs": [
-        "tests/fixtures/needle/modelkit-v3.json"
-      ],
+      "prompt": "Persist Hugging Face metadata for acme/tiny-gguf without authorization.",
+      "input_refs": [],
       "caller_policy": {
         "allow_mutation": false,
         "operation": null,
@@ -2231,7 +2225,7 @@
       },
       "expected": {
         "outcome": "permission-required",
-        "capability_id": "acorn.import",
+        "capability_id": "acorn.import::model::apply",
         "execute": false,
         "effects": [],
         "artifacts": []
@@ -2242,24 +2236,24 @@
       "split": "calibration",
       "class": "apply",
       "inventory_id": "import.spec",
-      "prompt": "Import tests/fixtures/schema/invenio.json into $CASE_TMP/spec-store-approved.",
+      "prompt": "Import an example::api endpoint template for api.example.com from tests/fixtures/routing/openapi.yaml into $CASE_TMP/endpoint-approved.json.",
       "input_refs": [
-        "tests/fixtures/schema/invenio.json"
+        "tests/fixtures/routing/openapi.yaml"
       ],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.import",
-        "destination": "$CASE_TMP/spec-store-approved"
+        "operation": "acorn.import::spec::apply",
+        "destination": "$CASE_TMP/endpoint-approved.json"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.import",
+        "capability_id": "acorn.import::spec::apply",
         "execute": true,
         "effects": [
           "write"
         ],
         "artifacts": [
-          "$CASE_TMP/spec-store-approved"
+          "$CASE_TMP/endpoint-approved.json"
         ]
       }
     },
@@ -2268,24 +2262,22 @@
       "split": "held-out",
       "class": "apply",
       "inventory_id": "import.model",
-      "prompt": "Install tests/fixtures/needle/modelkit-v3.json into $CASE_TMP/model-store-approved.",
-      "input_refs": [
-        "tests/fixtures/needle/modelkit-v3.json"
-      ],
+      "prompt": "Persist Hugging Face metadata for acme/tiny-gguf in $CASE_TMP/model-metadata-approved.sqlite.",
+      "input_refs": [],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.import",
-        "destination": "$CASE_TMP/model-store-approved"
+        "operation": "acorn.import::model::apply",
+        "destination": "$CASE_TMP/model-metadata-approved.sqlite"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.import",
+        "capability_id": "acorn.import::model::apply",
         "execute": true,
         "effects": [
           "write"
         ],
         "artifacts": [
-          "$CASE_TMP/model-store-approved"
+          "$CASE_TMP/model-metadata-approved.sqlite"
         ]
       }
     },
@@ -2305,7 +2297,7 @@
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.download",
+        "capability_id": "acorn.download::model::preview",
         "execute": true,
         "effects": [
           "network-read"
@@ -2329,7 +2321,7 @@
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.download",
+        "capability_id": "acorn.download::model::preview",
         "execute": true,
         "effects": [
           "network-read"
@@ -2351,7 +2343,7 @@
       },
       "expected": {
         "outcome": "permission-required",
-        "capability_id": "acorn.download",
+        "capability_id": "acorn.download::bucket",
         "execute": false,
         "effects": [],
         "artifacts": []
@@ -2371,7 +2363,7 @@
       },
       "expected": {
         "outcome": "permission-required",
-        "capability_id": "acorn.download",
+        "capability_id": "acorn.download::model",
         "execute": false,
         "effects": [],
         "artifacts": []
@@ -2386,12 +2378,12 @@
       "input_refs": [],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.download",
+        "operation": "acorn.download::bucket",
         "destination": "$CASE_TMP/bucket-approved"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.download",
+        "capability_id": "acorn.download::bucket",
         "execute": true,
         "effects": [
           "network-write"
@@ -2412,12 +2404,12 @@
       ],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.download",
+        "operation": "acorn.download::model",
         "destination": "$CASE_TMP/models-approved"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.download",
+        "capability_id": "acorn.download::model",
         "execute": true,
         "effects": [
           "network-write"
@@ -2443,7 +2435,7 @@
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.sync",
+        "capability_id": "acorn.sync::preview",
         "execute": true,
         "effects": [
           "read"
@@ -2467,7 +2459,7 @@
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.sync",
+        "capability_id": "acorn.sync::preview",
         "execute": true,
         "effects": [
           "read"
@@ -2491,7 +2483,7 @@
       },
       "expected": {
         "outcome": "permission-required",
-        "capability_id": "acorn.sync",
+        "capability_id": "acorn.sync::apply",
         "execute": false,
         "effects": [],
         "artifacts": []
@@ -2511,7 +2503,7 @@
       },
       "expected": {
         "outcome": "permission-required",
-        "capability_id": "acorn.sync",
+        "capability_id": "acorn.sync::apply",
         "execute": false,
         "effects": [],
         "artifacts": []
@@ -2526,12 +2518,12 @@
       "input_refs": [],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.sync",
+        "operation": "acorn.sync::apply",
         "destination": "$CASE_TMP/opencode-approved.json"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.sync",
+        "capability_id": "acorn.sync::apply",
         "execute": true,
         "effects": [
           "write"
@@ -2550,12 +2542,12 @@
       "input_refs": [],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.sync",
+        "operation": "acorn.sync::apply",
         "destination": "$CASE_TMP/vscode-approved.json"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.sync",
+        "capability_id": "acorn.sync::apply",
         "execute": true,
         "effects": [
           "write"
@@ -2576,12 +2568,12 @@
       ],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.report",
+        "operation": "acorn.report::local",
         "destination": "$CASE_TMP/reports-a"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.report",
+        "capability_id": "acorn.report::local",
         "execute": true,
         "effects": [
           "write"
@@ -2602,12 +2594,12 @@
       ],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.report",
+        "operation": "acorn.report::local",
         "destination": "$CASE_TMP/reports-b"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.report",
+        "capability_id": "acorn.report::local",
         "execute": true,
         "effects": [
           "write"
@@ -2633,7 +2625,7 @@
       },
       "expected": {
         "outcome": "permission-required",
-        "capability_id": "acorn.report",
+        "capability_id": "acorn.report::publish",
         "execute": false,
         "effects": [],
         "artifacts": []
@@ -2655,7 +2647,7 @@
       },
       "expected": {
         "outcome": "permission-required",
-        "capability_id": "acorn.report",
+        "capability_id": "acorn.report::publish",
         "execute": false,
         "effects": [],
         "artifacts": []
@@ -2672,12 +2664,12 @@
       ],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.report",
+        "operation": "acorn.report::publish",
         "destination": "gitlab:report-package"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.report",
+        "capability_id": "acorn.report::publish",
         "execute": true,
         "effects": [
           "network-write"
@@ -2698,12 +2690,12 @@
       ],
       "caller_policy": {
         "allow_mutation": true,
-        "operation": "acorn.report",
+        "operation": "acorn.report::publish",
         "destination": "gitlab:report-package"
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.report",
+        "capability_id": "acorn.report::publish",
         "execute": true,
         "effects": [
           "network-write"
@@ -2730,7 +2722,7 @@
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.script-check",
+        "capability_id": "acorn.exec::check",
         "execute": true,
         "effects": [
           "read"
@@ -2754,7 +2746,7 @@
       },
       "expected": {
         "outcome": "invalid-input",
-        "capability_id": "acorn.script-check",
+        "capability_id": "acorn.exec::manifest::check",
         "execute": true,
         "effects": [],
         "artifacts": []
@@ -2782,7 +2774,7 @@
       "expected": {
         "outcome": "completed",
         "capability_id": "acorn.check",
-        "binding_id": "native:check",
+        "binding_id": "native:acorn.check",
         "execute": true,
         "effects": [
           "read"
@@ -2839,7 +2831,7 @@
       "expected": {
         "outcome": "completed",
         "capability_id": "acorn.gather",
-        "binding_id": "native:gather",
+        "binding_id": "native:acorn.gather",
         "execute": true,
         "effects": [
           "read"
@@ -2895,7 +2887,7 @@
       "expected": {
         "outcome": "completed",
         "capability_id": "acorn.swhid",
-        "binding_id": "native:swhid",
+        "binding_id": "native:acorn.swhid",
         "execute": true,
         "effects": [
           "read"
@@ -3131,7 +3123,7 @@
       },
       "expected": {
         "outcome": "unavailable",
-        "capability_id": "acorn.export",
+        "capability_id": "acorn.export::render",
         "binding_id": null,
         "execute": false,
         "effects": []
@@ -3142,7 +3134,7 @@
       "split": "held-out",
       "class": "availability",
       "inventory_id": "import.model",
-      "prompt": "Inspect model import when the ModelKit reader is disabled.",
+      "prompt": "Preview Hugging Face metadata import for acme/tiny-gguf when no metadata resolver is available.",
       "input_refs": [],
       "route_context": {
         "offline": false,
@@ -3151,7 +3143,7 @@
       },
       "expected": {
         "outcome": "unavailable",
-        "capability_id": "acorn.import",
+        "capability_id": "acorn.import::model::preview",
         "binding_id": null,
         "execute": false,
         "effects": []
@@ -3171,7 +3163,7 @@
       },
       "expected": {
         "outcome": "unavailable",
-        "capability_id": "acorn.download",
+        "capability_id": "acorn.download::needle::status",
         "binding_id": null,
         "execute": false,
         "effects": []
@@ -3191,7 +3183,7 @@
       },
       "expected": {
         "outcome": "unavailable",
-        "capability_id": "acorn.sync",
+        "capability_id": "acorn.sync::preview",
         "binding_id": null,
         "execute": false,
         "effects": []
@@ -3211,7 +3203,7 @@
       },
       "expected": {
         "outcome": "unavailable",
-        "capability_id": "acorn.report",
+        "capability_id": "acorn.report::local",
         "binding_id": null,
         "execute": false,
         "effects": []
@@ -3231,7 +3223,7 @@
       },
       "expected": {
         "outcome": "unavailable",
-        "capability_id": "acorn.script-check",
+        "capability_id": "acorn.exec::check::safe",
         "binding_id": null,
         "execute": false,
         "effects": []
@@ -3275,7 +3267,7 @@
       },
       "expected": {
         "outcome": "unavailable",
-        "capability_id": "acorn.gather",
+        "capability_id": "acorn.gather::url",
         "binding_id": null,
         "execute": false,
         "effects": []
@@ -3297,7 +3289,7 @@
       },
       "expected": {
         "outcome": "unavailable",
-        "capability_id": "acorn.download",
+        "capability_id": "acorn.download::model::preview",
         "binding_id": null,
         "execute": false,
         "effects": []
@@ -3319,7 +3311,7 @@
       },
       "expected": {
         "outcome": "unavailable",
-        "capability_id": "acorn.download",
+        "capability_id": "acorn.download::model",
         "binding_id": null,
         "execute": false,
         "effects": []
@@ -3341,7 +3333,7 @@
       },
       "expected": {
         "outcome": "unavailable",
-        "capability_id": "acorn.report",
+        "capability_id": "acorn.report::publish",
         "binding_id": null,
         "execute": false,
         "effects": []
@@ -3366,7 +3358,7 @@
       "expected": {
         "outcome": "completed",
         "capability_id": "acorn.check",
-        "binding_id": "native:check",
+        "binding_id": "native:acorn.check",
         "execute": true,
         "effects": [
           "read"
@@ -3390,7 +3382,7 @@
       "expected": {
         "outcome": "completed",
         "capability_id": "acorn.diff",
-        "binding_id": "native:diff",
+        "binding_id": "native:acorn.diff",
         "execute": true,
         "effects": [
           "read"
@@ -3416,7 +3408,7 @@
       "expected": {
         "outcome": "completed",
         "capability_id": "acorn.swhid",
-        "binding_id": "native:swhid",
+        "binding_id": "native:acorn.swhid",
         "execute": true,
         "effects": [
           "read"
@@ -3440,7 +3432,7 @@
       "expected": {
         "outcome": "completed",
         "capability_id": "acorn.doctor",
-        "binding_id": "native:doctor",
+        "binding_id": "native:acorn.doctor",
         "execute": true,
         "effects": [
           "read"
@@ -3463,8 +3455,8 @@
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.export",
-        "binding_id": "native:export",
+        "capability_id": "acorn.export::schema",
+        "binding_id": "native:acorn.export::schema",
         "execute": true,
         "effects": [
           "read"
@@ -3491,7 +3483,7 @@
       "expected": {
         "outcome": "completed",
         "capability_id": "acorn.check",
-        "binding_id": "native:check",
+        "binding_id": "native:acorn.check",
         "execute": true,
         "effects": [
           "read"
@@ -3543,7 +3535,7 @@
       "expected": {
         "outcome": "completed",
         "capability_id": "acorn.gather",
-        "binding_id": "native:gather",
+        "binding_id": "native:acorn.gather",
         "execute": true,
         "effects": [
           "read"
@@ -3570,7 +3562,7 @@
       "expected": {
         "outcome": "completed",
         "capability_id": "acorn.doctor",
-        "binding_id": "native:doctor",
+        "binding_id": "native:acorn.doctor",
         "execute": true,
         "effects": [
           "read"
@@ -3740,7 +3732,7 @@
       "expected": {
         "outcome": "completed",
         "capability_id": "acorn.check",
-        "binding_id": "native:check",
+        "binding_id": "native:acorn.check",
         "execute": true,
         "effects": [
           "read"
@@ -3764,7 +3756,7 @@
       "expected": {
         "outcome": "completed",
         "capability_id": "acorn.check",
-        "binding_id": "native:check",
+        "binding_id": "native:acorn.check",
         "execute": true,
         "effects": [
           "read"
@@ -3788,7 +3780,7 @@
       "expected": {
         "outcome": "transport-failed",
         "capability_id": "acorn.check",
-        "binding_id": "native:check",
+        "binding_id": "native:acorn.check",
         "execute": true,
         "effects": [
           "network-read"
@@ -3812,7 +3804,7 @@
       "expected": {
         "outcome": "completed",
         "capability_id": "acorn.check",
-        "binding_id": "native:check",
+        "binding_id": "native:acorn.check",
         "execute": true,
         "effects": [
           "read"
@@ -3839,7 +3831,7 @@
       "expected": {
         "outcome": "completed",
         "capability_id": "acorn.check",
-        "binding_id": "native:check",
+        "binding_id": "native:acorn.check",
         "execute": true,
         "effects": [
           "read"
@@ -3865,7 +3857,7 @@
       },
       "expected": {
         "outcome": "needs-input",
-        "capability_id": "acorn.script-check",
+        "capability_id": "acorn.exec::hook::check",
         "binding_id": null,
         "execute": false,
         "effects": []
@@ -3887,8 +3879,8 @@
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.script-check",
-        "binding_id": "native:script-check",
+        "capability_id": "acorn.exec::hook::check",
+        "binding_id": "native:acorn.exec::hook::check",
         "execute": true,
         "effects": [
           "read"
@@ -3918,7 +3910,7 @@
       "expected": {
         "outcome": "completed",
         "capability_id": "acorn.gather",
-        "binding_id": "native:gather",
+        "binding_id": "native:acorn.gather",
         "execute": true,
         "effects": [
           "read"
@@ -3942,7 +3934,7 @@
       "expected": {
         "outcome": "completed",
         "capability_id": "acorn.gather",
-        "binding_id": "native:gather",
+        "binding_id": "native:acorn.gather",
         "execute": true,
         "effects": [
           "read"
@@ -3965,8 +3957,8 @@
       },
       "expected": {
         "outcome": "completed",
-        "capability_id": "acorn.download",
-        "binding_id": "native:download",
+        "capability_id": "acorn.download::needle::status",
+        "binding_id": "native:acorn.download::needle::status",
         "execute": true,
         "effects": [
           "read"

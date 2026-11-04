@@ -10,7 +10,7 @@ use acorn::{
         vale::{Vale, ValeConfig},
     },
     io::{
-        config::{ApplicationConfiguration, BucketExtension, BucketOptions, TransferPolicy},
+        config::{bucket::Sources, ApplicationConfiguration, BucketExtension, BucketOptions},
         database::{
             schema::{ActivityRow, Table},
             Database, Operations,
@@ -28,7 +28,6 @@ use acorn_core::{
 use acorn_host::terminal::Label;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
-use futures::{future, stream, StreamExt, TryStreamExt};
 use jiff::Timestamp;
 use owo_colors::OwoColorize;
 use std::path::PathBuf;
@@ -157,25 +156,10 @@ pub async fn run(
         })
         .maybe_output(output.clone())
         .build();
-    let shared = &options;
     let sources = ApplicationConfiguration::sources(config, url);
-    let empty = sources.as_ref().map(|sources| sources.is_empty()).unwrap_or_default();
-    let result = match empty {
-        | true => Err(eyre!("No download URL or configuration file found")),
-        | false => match sources {
-            | Ok(sources) => {
-                stream::iter(sources)
-                    .then(|source| async move {
-                        match source.resolve(archive_format.map(MimeType::from), offline).await {
-                            | Ok(bucket) => bucket.transfer(shared, TransferPolicy::Download).await,
-                            | Err(why) => Err(why),
-                        }
-                    })
-                    .try_fold(0_usize, |total, count| future::ready(Ok(total.saturating_add(count))))
-                    .await
-            }
-            | Err(why) => Err(why),
-        },
+    let result = match sources {
+        | Ok(sources) => Sources::from(sources).download(&options, archive_format.map(MimeType::from)).await,
+        | Err(why) => Err(why),
     };
     match result {
         | Ok(total) => finish_transfer(total, &options),

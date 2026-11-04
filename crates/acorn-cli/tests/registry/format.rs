@@ -11,7 +11,7 @@ use tempfile::tempdir;
 fn test_direct_acre_format_matches_native_formatter() {
     let root = tempdir().expect("temporary root");
     let path = root.path().join(".acorn.jsonc");
-    let original = include_str!("../../../tests/fixtures/config/basic.jsonc");
+    let original = include_str!("../../../../tests/fixtures/config/basic.jsonc");
     fs::write(&path, original).expect("fixture");
     let expected = format_acre(&path, original).expect("native ACRE formatting");
     let output = Command::cargo_bin("acorn")
@@ -27,7 +27,7 @@ fn test_direct_acre_format_matches_native_formatter() {
 fn test_direct_cff_format_matches_native_formatter() {
     let root = tempdir().expect("temporary root");
     let path = root.path().join("CITATION.cff");
-    let original = include_str!("../../../tests/fixtures/CITATION.cff");
+    let original = include_str!("../../../../tests/fixtures/CITATION.cff");
     fs::write(&path, original).expect("fixture");
     let normalized = normalize_metadata_file::<Cff>(&path, VocabularyFuzzyMode::Strict).expect("native formatting");
     let output = Command::cargo_bin("acorn")
@@ -48,7 +48,7 @@ fn test_direct_cff_format_matches_native_formatter() {
 async fn test_direct_enriched_format_matches_native_preview() {
     let root = tempdir().expect("temporary root");
     let path = root.path().join("CITATION.cff");
-    let original = include_str!("../../../tests/fixtures/CITATION.cff")
+    let original = include_str!("../../../../tests/fixtures/CITATION.cff")
         .lines()
         .filter(|line| !line.trim_start().starts_with("orcid:"))
         .collect::<Vec<_>>()
@@ -79,7 +79,7 @@ async fn test_direct_enriched_format_matches_native_preview() {
 async fn test_direct_format_preview_matches_native_diff_without_writing() {
     let root = tempdir().expect("temporary root");
     let path = root.path().join(".acorn.jsonc");
-    let original = format!("\n{}", include_str!("../../../tests/fixtures/config/basic.jsonc"));
+    let original = format!("\n{}", include_str!("../../../../tests/fixtures/config/basic.jsonc"));
     fs::write(&path, &original).expect("fixture");
     let native = FormatPreviewInput {
         input: InputReference::File(PathBuf::from(".acorn.jsonc")),

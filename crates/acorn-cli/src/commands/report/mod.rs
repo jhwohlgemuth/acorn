@@ -21,30 +21,34 @@ use acorn::io::{
     },
     config::application::{ApplicationConfiguration, Folder, FolderRegistry},
     http::ReqwestHttpService,
+    mcp::{ArtifactPolicy, InputLimits, InputReference, ReportInput, ReportManifestRequest, ReportOutput, ReportProjectRequest, RoutedInputPolicy},
     ApiResult, InputOutput,
 };
-use acorn_host::fs::SafePath;
 use acorn_schema::{
     research_activity::{LogbookEntry, LogbookUpdates, ReportingWindow, ResearchActivity},
     validation::Validate,
 };
 use bon::Builder;
+use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;
 use core::cmp::Reverse;
 use jiff::{SignedDuration, Timestamp};
 use serde::Serialize;
-use std::fs::{create_dir_all, read, write};
+use std::fs::{create_dir_all, read};
 use std::path::{Path, PathBuf};
 
 mod powerpoint;
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ReportSelection {
     Pdf,
     Powerpoint,
     Both,
 }
-
+struct GeneratedProjectReport {
+    manifest: ReportManifest,
+    pdf_written: bool,
+    manifest_written: bool,
+}
 /// Machine-readable outcome for one configured project.
 #[derive(Builder, Clone, Debug, Serialize)]
 #[builder(start_fn = init, on(String, into))]
@@ -56,7 +60,6 @@ pub(crate) struct ProjectReportResult {
     through: String,
     version: Option<String>,
 }
-
 impl Report {
     fn through(&self) -> &str {
         self.through.as_deref().unwrap_or_default()
@@ -117,18 +120,18 @@ impl Report {
     #[cfg(feature = "pdf")]
     async fn write_combined_pdf(&self, selected: &[Folder], offline: bool) -> ApiResult<()> {
         let content = self.selected_updates(selected).and_then(|(window, projects)| {
-            let title = self
-                .general_entries(&window)
-                .map(|general| Self::title_updates(&window, &projects, general))?;
-            let projects = projects
-                .into_iter()
-                .map(|updates| LogbookUpdates {
-                    entries: updates.entries.into_iter().filter(|entry| !entry.global).collect(),
-                    ..updates
-                })
-                .filter(|updates| !updates.entries.is_empty())
-                .collect::<Vec<_>>();
-            html::combined_html(&title, &projects, self.full_timestamp)
+            self.general_entries(&window).and_then(|general| {
+                let title = Self::title_updates(&window, &projects, general);
+                let projects = projects
+                    .into_iter()
+                    .map(|updates| LogbookUpdates {
+                        entries: updates.entries.into_iter().filter(|entry| !entry.global).collect(),
+                        ..updates
+                    })
+                    .filter(|updates| !updates.entries.is_empty())
+                    .collect::<Vec<_>>();
+                html::combined_html(&title, &projects, self.full_timestamp)
+            })
         });
         let content = content.and_then(|content| {
             create_dir_all(&self.output)
@@ -152,7 +155,7 @@ impl Report {
     async fn write_combined_pdf(&self, _selected: &[Folder], _offline: bool) -> ApiResult<()> {
         Err(eyre!("Combined report export requires the 'pdf' feature. Rebuild with --features pdf"))
     }
-    async fn write_title_page(&self, selected: &[Folder], offline: bool) -> ApiResult<()> {
+    async fn write_title_page(&self, selected: &[Folder], allowed_root: Option<&Path>, offline: bool) -> ApiResult<bool> {
         let updates = self.global_updates(selected).and_then(|updates| match updates.entries.is_empty() {
             | true => Ok(None),
             | false => create_dir_all(&self.output)
@@ -160,8 +163,8 @@ impl Report {
                 .map(|()| Some(updates)),
         });
         match updates {
-            | Ok(Some(updates)) => {
-                updates
+            | Ok(Some(updates)) => match validate_report_artifact(allowed_root, &self.output.join("title-page.pdf")) {
+                | Ok(()) => updates
                     .write_title_pdf(
                         &self.output.join("title-page.pdf"),
                         offline,
@@ -169,15 +172,18 @@ impl Report {
                         self.full_timestamp,
                     )
                     .await
-            }
-            | Ok(None) => Ok(()),
+                    .map(|()| true),
+                | Err(why) => Err(why),
+            },
+            | Ok(None) => Ok(false),
             | Err(why) => Err(why),
         }
     }
     #[cfg(feature = "pdf")]
-    async fn write_legend_page(&self, offline: bool) -> ApiResult<()> {
+    async fn write_legend_page(&self, allowed_root: Option<&Path>, offline: bool) -> ApiResult<()> {
         let content = create_dir_all(&self.output)
             .map_err(|why| eyre!("Create report output directory — {why}"))
+            .and_then(|()| validate_report_artifact(allowed_root, &self.output.join("legend-page.pdf")))
             .and_then(|()| html::legend_html());
         match content {
             | Ok(content) => match pdf::initialize_page(offline, self.chrome_path.as_deref()).await {
@@ -241,7 +247,6 @@ impl Report {
         })
     }
 }
-
 impl ReportSelection {
     fn lower_bound(self, explicit: Option<&str>, previous: Option<&ReportManifest>, replay: bool) -> Option<String> {
         explicit.map(str::to_string).or_else(|| match (self, replay) {
@@ -251,7 +256,6 @@ impl ReportSelection {
         })
     }
 }
-
 impl TryFrom<Vec<ReportFormat>> for ReportSelection {
     type Error = color_eyre::Report;
 
@@ -264,7 +268,6 @@ impl TryFrom<Vec<ReportFormat>> for ReportSelection {
         }
     }
 }
-
 async fn deliver_callbacks(queue: &OperationQueue, config: &PowerAutomateConfig, routing: &FolderRegistry) -> ApiResult<()> {
     let callback_worker = CallbackWorker::new(
         queue.clone(),
@@ -281,7 +284,6 @@ async fn deliver_callbacks(queue: &OperationQueue, config: &PowerAutomateConfig,
         }
     }
 }
-
 fn enqueue_manifest_event(queue: &OperationQueue, config: &PowerAutomateConfig, project_id: &str, manifest: &ReportManifest) -> ApiResult<()> {
     let event = match manifest.status {
         | ReportStatus::Published => ArtifactEvent::ArtifactReady {
@@ -297,7 +299,143 @@ fn enqueue_manifest_event(queue: &OperationQueue, config: &PowerAutomateConfig, 
     };
     event.enqueue(queue, &config.callback_destination, &manifest.version).map(|_| ())
 }
-
+/// Run one validated native report request through the direct per-project workflow.
+pub(crate) async fn execute_routed(
+    input: ReportInput,
+    root: PathBuf,
+    destination: PathBuf,
+    publish: bool,
+    offline: bool,
+    chrome_path: Option<PathBuf>,
+) -> ApiResult<ReportOutput> {
+    let year = Timestamp::now().to_zoned(jiff::tz::TimeZone::UTC).year();
+    let normalized = resolve_report_bounds(input.from.as_deref(), Some(&input.through), year).map_err(|why| eyre!(why));
+    match normalized {
+        | Ok((from, through)) => {
+            let overwrite = input.overwrite;
+            let arguments = Report::init()
+                .maybe_chrome_path(chrome_path)
+                .combine(false)
+                .commit(input.commit)
+                .config(input.config)
+                .dry_run(!publish)
+                .maybe_from(from)
+                .formats(vec![ReportFormat::Pdf])
+                .full_timestamp(input.full_timestamp)
+                .maybe_job_id(input.job_id)
+                .output(destination.clone())
+                .maybe_pipeline_id(input.pipeline_id)
+                .projects(vec![input.project_id])
+                .root(root)
+                .through(through)
+                .verbose(Verbosity::default())
+                .build();
+            let prepared = prepare(&arguments, offline)
+                .and_then(|(automation, _routing, commit, selected)| match selected.as_slice() {
+                    | [folder] => folder.source_path(&arguments.root).and_then(|(path, source)| {
+                        source
+                            .canonicalize()
+                            .map_err(|why| eyre!("Resolve report source — {why}"))
+                            .and_then(|source| {
+                                RoutedInputPolicy::new(&arguments.root, InputLimits::default())
+                                    .and_then(|policy| policy.resolve(&InputReference::File(source)))
+                            })
+                            .and_then(|resolved| match resolved.files.as_slice() {
+                                | [_] if resolved.failures.is_empty() => Ok((automation, commit, folder.clone(), path)),
+                                | _ => Err(eyre!("Report source must be one file within the permitted root")),
+                            })
+                    }),
+                    | _ => Err(eyre!("Report selection must resolve to one configured project")),
+                })
+                .and_then(|(automation, commit, folder, path)| {
+                    let selected_commit = commit.chars().filter(char::is_ascii_hexdigit).take(12).collect::<String>();
+                    let selected_through = arguments.through().replace([':', '-'], "");
+                    let project_output = destination.join(&folder.id).join(format!("{selected_through}-{selected_commit}"));
+                    ArtifactPolicy::new(&arguments.root, true, overwrite).and_then(|policy| {
+                        [
+                            destination.join("title-page.pdf"),
+                            destination.join("legend-page.pdf"),
+                            project_output.join("report.pdf"),
+                            project_output.join("manifest.json"),
+                        ]
+                        .iter()
+                        .try_for_each(|artifact| {
+                            artifact
+                                .strip_prefix(&arguments.root)
+                                .map_err(|why| eyre!("Report artifact lies outside the permitted root — {why}"))
+                                .and_then(|relative| policy.destination(relative, &[]).map(|_| ()))
+                        })
+                        .map(|()| (automation, commit, folder, path))
+                    })
+                });
+            match prepared {
+                | Ok((automation, commit, folder, path)) => {
+                    let project_id = folder.id.clone();
+                    let options = gitlab::Options::from_env()
+                        .with_identifier(automation.gitlab_project.clone())
+                        .with_path(path)
+                        .with_project_id(project_id.clone());
+                    let queue = OperationQueue::configured();
+                    let title = arguments.write_title_page(&[folder], Some(&arguments.root), offline).await;
+                    #[cfg(feature = "pdf")]
+                    let ancillary = match title {
+                        | Ok(title_written) => arguments
+                            .write_legend_page(Some(&arguments.root), offline)
+                            .await
+                            .map(|()| (title_written, true)),
+                        | Err(why) => Err(why),
+                    };
+                    #[cfg(not(feature = "pdf"))]
+                    let ancillary = title.map(|title_written| (title_written, false));
+                    let generated = match ancillary {
+                        | Ok((title_written, legend_written)) => {
+                            report_project(&arguments, &automation, &options, &queue, &commit, Some(&arguments.root), offline)
+                                .await
+                                .map(|project| (project, title_written, legend_written))
+                        }
+                        | Err(why) => Err(why),
+                    };
+                    let delivered = match (generated, publish) {
+                        | (Ok(result), false) => Ok(result),
+                        | (Ok(result), true) => {
+                            let routing = ApplicationConfiguration::load(&arguments.config).map(|configuration| configuration.registry());
+                            match routing {
+                                | Ok(routing) => deliver_callbacks(&queue, &automation, &routing).await.map(|()| result),
+                                | Err(why) => Err(why),
+                            }
+                        }
+                        | (Err(why), _) => Err(why),
+                    };
+                    delivered.map(|(project, title_written, legend_written)| {
+                        let manifest = project.manifest;
+                        let commit = commit.chars().filter(char::is_ascii_hexdigit).take(12).collect::<String>();
+                        let through = manifest.through.replace([':', '-'], "");
+                        let project_output = destination.join(&project_id).join(format!("{through}-{commit}"));
+                        let artifacts = [
+                            (title_written, destination.join("title-page.pdf")),
+                            (legend_written, destination.join("legend-page.pdf")),
+                            (project.pdf_written, project_output.join("report.pdf")),
+                            (project.manifest_written, project_output.join("manifest.json")),
+                        ]
+                        .into_iter()
+                        .filter_map(|(written, path)| written.then_some(path))
+                        .map(|path| path.display().to_string())
+                        .collect();
+                        ReportOutput {
+                            project_id,
+                            status: manifest.status,
+                            version: manifest.version,
+                            artifacts,
+                            destination,
+                        }
+                    })
+                }
+                | Err(why) => Err(why),
+            }
+        }
+        | Err(why) => Err(why),
+    }
+}
 fn prepare(arguments: &Report, offline: bool) -> ApiResult<(PowerAutomateConfig, FolderRegistry, String, Vec<Folder>)> {
     ApplicationConfiguration::load(&arguments.config)
         .and_then(|configuration| {
@@ -347,7 +485,6 @@ fn prepare(arguments: &Report, offline: bool) -> ApiResult<(PowerAutomateConfig,
             }
         })
 }
-
 fn prepare_combined(arguments: &Report) -> ApiResult<Vec<Folder>> {
     ApplicationConfiguration::load(&arguments.config)
         .and_then(|configuration| {
@@ -371,7 +508,6 @@ fn prepare_combined(arguments: &Report) -> ApiResult<Vec<Folder>> {
             }
         })
 }
-
 fn prepare_project(
     arguments: &Report,
     commit: &str,
@@ -379,36 +515,18 @@ fn prepare_project(
     relative_path: &str,
     from: Option<&str>,
 ) -> ApiResult<(ReportingWindow, LogbookUpdates, std::path::PathBuf)> {
-    ReportingWindow::new(from, arguments.through())
-        .map_err(|why| eyre!(why))
-        .and_then(|window| {
-            SafePath::new(relative_path)
-                .map_err(|why| eyre!(why))
-                .and_then(|path| path.materialize_under(&arguments.root).map_err(Into::into))
-                .and_then(|path| ResearchActivity::read(path).map_err(|why| eyre!("Read report source for project '{project_id}' — {why}")))
-                .and_then(|activity| activity.updates_within(&window).map_err(|why| eyre!(why)))
-                .map(|updates| {
-                    let entries = updates.entries.into_iter().filter(|entry| !entry.global).collect();
-                    (window, LogbookUpdates { entries, ..updates })
-                })
-        })
-        .and_then(|(window, updates)| {
-            SafePath::new(project_id)
-                .map_err(|why| eyre!(why))
-                .and_then(|project| project.materialize_under(&arguments.output).map_err(Into::into))
-                .map(|project_output| {
-                    let commit = commit.chars().filter(char::is_ascii_hexdigit).take(12).collect::<String>();
-                    let through = window.right.replace([':', '-'], "");
-                    (window, updates, project_output.join(format!("{through}-{commit}")))
-                })
-        })
-        .and_then(|(window, updates, project_output)| {
-            create_dir_all(&project_output)
-                .map_err(|why| eyre!("Create report output directory {} — {why}", project_output.display()))
-                .map(|()| (window, updates, project_output))
-        })
+    ReportProjectRequest {
+        commit,
+        from,
+        output: &arguments.output,
+        project_id,
+        relative_path,
+        root: &arguments.root,
+        through: arguments.through(),
+    }
+    .prepare()
+    .map(|prepared| (prepared.window, prepared.updates, prepared.output))
 }
-
 fn print_results(results: &[ProjectReportResult], artifact: &str) -> ApiResult<()> {
     serde_json::to_string_pretty(results)
         .map_err(|why| eyre!("Failed to encode report results — {why}"))
@@ -426,7 +544,6 @@ fn print_results(results: &[ProjectReportResult], artifact: &str) -> ApiResult<(
             }
         })
 }
-
 async fn publish_manifest(
     arguments: &Report,
     config: &PowerAutomateConfig,
@@ -444,22 +561,21 @@ async fn publish_manifest(
         },
     }
 }
-
 fn replay_manifest(arguments: &Report, config: &PowerAutomateConfig, queue: &OperationQueue, manifest: ReportManifest) -> ApiResult<ReportManifest> {
     match arguments.dry_run {
         | true => Ok(manifest),
         | false => enqueue_manifest_event(queue, config, &manifest.project_id, &manifest).map(|()| manifest),
     }
 }
-
 async fn report_project(
     arguments: &Report,
     config: &PowerAutomateConfig,
     options: &gitlab::Options,
     queue: &OperationQueue,
     commit: &str,
+    allowed_root: Option<&Path>,
     offline: bool,
-) -> ApiResult<ReportManifest> {
+) -> ApiResult<GeneratedProjectReport> {
     let package = options
         .project_id()
         .and_then(|project_id| options.path().map(|path| (project_id, path)))
@@ -474,7 +590,11 @@ async fn report_project(
             };
             match previous {
                 | Ok(Some(manifest)) if arguments.from.is_none() && manifest.through == arguments.through() => {
-                    replay_manifest(arguments, config, queue, manifest)
+                    replay_manifest(arguments, config, queue, manifest).map(|manifest| GeneratedProjectReport {
+                        manifest,
+                        pdf_written: false,
+                        manifest_written: false,
+                    })
                 }
                 | Ok(previous) => {
                     let from = ReportSelection::Pdf.lower_bound(arguments.from.as_deref(), previous.as_ref(), false);
@@ -483,10 +603,13 @@ async fn report_project(
                             let pdf_path = project_output.join("report.pdf");
                             let pdf = match updates.entries.is_empty() {
                                 | true => Ok(None),
-                                | false => updates
-                                    .write_pdf(&pdf_path, offline, arguments.chrome_path.as_deref(), arguments.full_timestamp)
-                                    .await
-                                    .and_then(|()| read(&pdf_path).map(Some).map_err(|why| eyre!("Read generated report PDF — {why}"))),
+                                | false => match validate_report_artifact(allowed_root, &pdf_path) {
+                                    | Ok(()) => updates
+                                        .write_pdf(&pdf_path, offline, arguments.chrome_path.as_deref(), arguments.full_timestamp)
+                                        .await
+                                        .and_then(|()| read(&pdf_path).map(Some).map_err(|why| eyre!("Read generated report PDF — {why}"))),
+                                    | Err(why) => Err(why),
+                                },
                             };
                             match pdf {
                                 | Ok(pdf) => {
@@ -500,11 +623,16 @@ async fn report_project(
                                         &updates,
                                         &project_output,
                                         pdf.as_deref(),
+                                        allowed_root,
                                     );
                                     match manifest {
-                                        | Ok(manifest) => {
-                                            publish_manifest(arguments, config, &package, queue, project_id, manifest, pdf.as_deref()).await
-                                        }
+                                        | Ok(manifest) => publish_manifest(arguments, config, &package, queue, project_id, manifest, pdf.as_deref())
+                                            .await
+                                            .map(|manifest| GeneratedProjectReport {
+                                                manifest,
+                                                pdf_written: pdf.is_some(),
+                                                manifest_written: true,
+                                            }),
                                         | Err(why) => Err(why),
                                     }
                                 }
@@ -520,7 +648,6 @@ async fn report_project(
         | Err(why) => Err(why),
     }
 }
-
 fn report_reference_path(reference: Option<&Path>, index_path: &Path) -> PathBuf {
     let parent = index_path.parent().unwrap_or_else(|| Path::new("."));
     match reference {
@@ -529,7 +656,6 @@ fn report_reference_path(reference: Option<&Path>, index_path: &Path) -> PathBuf
         | None => parent.join("reference.pptx"),
     }
 }
-
 /// Run bounded reporting for every selected project and fail after independent projects finish.
 pub(crate) async fn run(arguments: &Report, offline: bool) -> ApiResult<()> {
     let year = Timestamp::now().to_zoned(jiff::tz::TimeZone::UTC).year();
@@ -573,10 +699,10 @@ pub(crate) async fn run(arguments: &Report, offline: bool) -> ApiResult<()> {
                         | Err(why) => Err(why),
                     },
                     | (false, ReportSelection::Pdf | ReportSelection::Both) => match prepare(arguments, offline) {
-                        | Ok((automation, routing, commit, selected)) => match arguments.write_title_page(&selected, offline).await {
-                            | Ok(()) => {
+                        | Ok((automation, routing, commit, selected)) => match arguments.write_title_page(&selected, None, offline).await {
+                            | Ok(_) => {
                                 #[cfg(feature = "pdf")]
-                                let legend = arguments.write_legend_page(offline).await;
+                                let legend = arguments.write_legend_page(None, offline).await;
                                 #[cfg(not(feature = "pdf"))]
                                 let legend: ApiResult<()> = Ok(());
                                 match legend {
@@ -593,7 +719,6 @@ pub(crate) async fn run(arguments: &Report, offline: bool) -> ApiResult<()> {
         },
     }
 }
-
 async fn run_selected(
     arguments: &Report,
     automation: &PowerAutomateConfig,
@@ -610,12 +735,12 @@ async fn run_selected(
         let pdf_result = match folder.source_path(&arguments.root) {
             | Ok((path, _)) => {
                 let project_options = options.clone().with_path(path).with_project_id(folder.id.clone());
-                report_project(arguments, automation, &project_options, &queue, commit, offline).await
+                report_project(arguments, automation, &project_options, &queue, commit, None, offline).await
             }
             | Err(why) => Err(why),
         };
         match pdf_result {
-            | Ok(manifest) => {
+            | Ok(GeneratedProjectReport { manifest, .. }) => {
                 let deck = match selection {
                     | ReportSelection::Both => arguments.report_deck(&folder, commit, manifest.from.as_deref()).map(|_| ()),
                     | _ => Ok(()),
@@ -686,7 +811,14 @@ async fn run_selected(
         | Err(why) => Err(why),
     }
 }
-
+fn validate_report_artifact(allowed_root: Option<&Path>, artifact: &Path) -> ApiResult<()> {
+    allowed_root.map_or(Ok(()), |root| {
+        artifact
+            .strip_prefix(root)
+            .map_err(|why| eyre!("Report artifact lies outside the permitted root — {why}"))
+            .and_then(|relative| ArtifactPolicy::new(root, true, true).and_then(|policy| policy.destination(relative, &[]).map(|_| ())))
+    })
+}
 #[allow(clippy::too_many_arguments)]
 fn write_manifest(
     arguments: &Report,
@@ -698,40 +830,21 @@ fn write_manifest(
     updates: &LogbookUpdates,
     project_output: &std::path::Path,
     pdf: Option<&[u8]>,
+    allowed_root: Option<&Path>,
 ) -> ApiResult<ReportManifest> {
-    let entry_identifiers = updates.entries.iter().map(|entry| entry.identifier.clone()).collect::<Vec<_>>();
-    ReportManifest::new(
-        config.package.clone(),
-        project_id.to_string(),
-        commit.to_string(),
+    ReportManifestRequest {
+        allowed_root,
+        commit,
+        job_id: arguments.job_id.as_deref().unwrap_or("local"),
+        output: project_output,
+        package_name: &config.package,
+        package,
+        pipeline_id: arguments.pipeline_id.as_deref().unwrap_or("local"),
+        project_id,
+        updates,
         window,
-        entry_identifiers,
-        arguments.pipeline_id.clone().unwrap_or_else(|| "local".to_string()),
-        arguments.job_id.clone().unwrap_or_else(|| "local".to_string()),
-        pdf,
-        String::new(),
-    )
-    .and_then(|draft| {
-        let file_name = match draft.status {
-            | ReportStatus::Published => "report.pdf",
-            | ReportStatus::NoChanges => "manifest.json",
-        };
-        package
-            .url(&draft.version, file_name)
-            .map(|authenticated_url| ReportManifest { authenticated_url, ..draft })
-    })
-    .and_then(|manifest| {
-        let manifest_path = project_output.join("manifest.json");
-        serde_json::to_vec_pretty(&manifest)
-            .map_err(|why| eyre!("Encode report manifest — {why}"))
-            .map(|mut bytes| {
-                bytes.push(b'\n');
-                bytes
-            })
-            .and_then(|bytes| write(&manifest_path, bytes).map_err(|why| eyre!("Write report manifest {} — {why}", manifest_path.display())))
-            .map(|()| manifest)
-    })
+    }
+    .write(pdf)
 }
-
 #[cfg(test)]
 mod tests;

@@ -6,6 +6,8 @@
     clippy::arithmetic_side_effects
 )]
 use super::*;
+
+mod registry;
 use crate::test::util::{temp_test_dir, TestCleanup};
 use acorn::io::database::schema::{ModelRow, Table};
 use acorn::io::database::{Database, Operations};

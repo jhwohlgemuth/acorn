@@ -20,6 +20,7 @@ use std::path::PathBuf;
 mod chat;
 mod metadata;
 mod prompt;
+mod routing_scope;
 
 fn arguments(backend: InferenceBackendKind) -> InferenceArgs {
     InferenceArgs::init().backend(backend).working_directory(PathBuf::from(".")).build()
@@ -130,15 +131,41 @@ fn test_routed_input_and_default_registry_contract() {
     assert!(structured_input(Some("[]")).is_err());
     assert!(structured_input(Some("{")).is_err());
     let registry = native_routing_registry(true).expect("route registry");
-    let catalog = registry
-        .capability_catalog(None, acorn::io::mcp::CapabilitySelectionContext::default())
-        .expect("catalog");
+    let context = acorn::io::mcp::CapabilitySelectionContext::default();
+    assert!(registry.capability_catalog(None, context).is_err());
+    let scope = [
+        "acorn.version",
+        "acorn.check",
+        "acorn.diff",
+        "acorn.gather",
+        "acorn.format::preview",
+        "acorn.crosswalk::preview",
+        "acorn.doctor",
+        "acorn.export::schema",
+        "acorn.export::batch",
+        "acorn.export::bag",
+        "acorn.export::document",
+        "acorn.export::preview",
+        "acorn.import::spec::preview",
+        "acorn.import::spec::apply",
+    ]
+    .map(str::to_string);
+    let catalog = registry.capability_catalog(Some(&scope), context).expect("scoped catalog");
     assert!(catalog.contains("acorn.version"));
     assert!(catalog.contains("acorn.check"));
     assert!(catalog.contains("acorn.diff"));
     assert!(catalog.contains("acorn.gather"));
-    assert!(catalog.contains("acorn.format_preview"));
-    assert!(catalog.contains("acorn.crosswalk_preview"));
+    assert!(catalog.contains("acorn.format::preview"));
+    assert!(catalog.contains("acorn.crosswalk::preview"));
+    assert!(catalog.contains("acorn.doctor"));
+    assert!(catalog.contains("acorn.export::schema"));
+    assert!(catalog.contains("acorn.export::batch"));
+    assert!(catalog.contains("acorn.export::bag"));
+    assert!(catalog.contains("acorn.export::document"));
+    assert!(catalog.contains("acorn.export::preview"));
+    assert!(catalog.contains("acorn.import::spec::preview"));
+    assert!(catalog.contains("acorn.import::spec::apply"));
+    assert!(catalog.len() <= 32 * 1024);
 }
 #[tokio::test]
 async fn test_routed_registry_composes_configured_local_bindings() {
@@ -157,10 +184,11 @@ async fn test_routed_registry_composes_configured_local_bindings() {
     let registry = routing_registry(&configuration, false, &InferenceArgs::default())
         .await
         .expect("compose configured bindings");
+    let scope = ["acorn.check::fixes", "acorn.summary"].map(str::to_string);
     let catalog = registry
-        .capability_catalog(None, acorn::io::mcp::CapabilitySelectionContext::default())
+        .capability_catalog(Some(&scope), acorn::io::mcp::CapabilitySelectionContext::default())
         .expect("bounded configured catalog");
-    assert!(catalog.contains("acorn.check_fixes"));
+    assert!(catalog.contains("acorn.check::fixes"));
     assert!(registry
         .select_capability_binding("acorn.summary", Some("acp:summary"), None, Default::default())
         .is_ok());

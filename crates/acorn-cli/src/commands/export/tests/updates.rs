@@ -1,5 +1,10 @@
-use super::super::html::{display_timestamp, legend_html, LogbookEntryRender, LogbookUpdatesHtml};
+use super::super::html::{assets, legend_html, LogbookUpdatesHtml};
+use acorn::io::export::updates::{
+    self,
+    html::{self, LogbookEntryRender},
+};
 use acorn_schema::research_activity::{LogbookEntry, LogbookUpdates};
+use std::path::PathBuf;
 
 #[test]
 fn test_legend_page_covers_all_statuses_and_category_icons() {
@@ -13,8 +18,8 @@ fn test_legend_page_covers_all_statuses_and_category_icons() {
 #[test]
 fn test_pdf_timestamp_display() {
     let value = "2026-10-13T14:30:00Z";
-    assert_eq!(display_timestamp(value, false), "October 13");
-    assert_eq!(display_timestamp(value, true), "October 13, 2026 at 14:30 UTC");
+    assert_eq!(html::display_timestamp(value, false), "October 13");
+    assert_eq!(html::display_timestamp(value, true), "October 13, 2026 at 14:30 UTC");
 }
 #[test]
 fn test_project_page_places_credits_before_status_groups() {
@@ -87,19 +92,36 @@ fn test_report_period_omits_exclusive_label() {
         through: Some("2026-11-01T00:00:00Z".to_string()),
         entries: Vec::new(),
     };
-    assert_eq!(updates.report_period(false), "01OCT - 01NOV");
+    assert_eq!(html::LogbookUpdatesHtml::report_period(&updates, false), "01OCT - 01NOV");
     assert_eq!(
-        updates.report_period(true),
+        html::LogbookUpdatesHtml::report_period(&updates, true),
         "October 1, 2026 at 00:00 UTC - November 1, 2026 at 00:00 UTC"
     );
     assert_eq!(
-        LogbookUpdates {
-            since: "full-history".to_string(),
-            ..updates
-        }
-        .report_period(false),
+        html::LogbookUpdatesHtml::report_period(
+            &LogbookUpdates {
+                since: "full-history".to_string(),
+                ..updates
+            },
+            false
+        ),
         "Through 01NOV"
     );
+}
+#[test]
+fn test_shared_updates_html_matches_cli_adapter() {
+    let source = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/report/materials-discovery/index.json");
+    let projection = updates::render_updates(&source, "2026-10-01T00:00:00Z").expect("updates projection");
+    let embedded = assets().expect("embedded report assets");
+    assert_eq!(
+        projection.to_html(false).expect("CLI updates HTML"),
+        html::LogbookUpdatesHtml::to_html(&projection, false, &embedded)
+    );
+    assert_eq!(
+        projection.to_title_html(true).expect("CLI title HTML"),
+        html::LogbookUpdatesHtml::to_title_html(&projection, true, &embedded)
+    );
+    assert_eq!(legend_html().expect("CLI legend HTML"), updates::html::legend_html(&embedded));
 }
 #[test]
 fn test_title_page_contains_the_header_logo_only() {

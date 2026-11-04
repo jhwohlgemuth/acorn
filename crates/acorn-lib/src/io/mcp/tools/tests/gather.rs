@@ -60,15 +60,13 @@ async fn test_gather_matches_command_discovery_and_deduplicates_per_source() {
 #[tokio::test]
 async fn test_gather_report_requires_exact_mutation_grant() {
     let root = tempdir().expect("temporary root");
-    let registry = ToolRegistry::default()
-        .register_gather_capabilities(root.path().to_path_buf(), true)
-        .expect("registry");
+    let registry = ToolRegistry::default().register_gather_capabilities(root.path(), true).expect("registry");
     let selection = CapabilitySelectionContext {
         offline: true,
         allow_remote: false,
     };
     let selected = registry
-        .select_capability_binding("acorn.gather_report", None, None, selection)
+        .select_capability_binding("acorn.gather::report", None, None, selection)
         .expect("selection");
     let arguments = json!({"input":{"kind":"text","value":"10.1234/example"},"destination":"report.json"});
     let context = ExecutionContext {
@@ -83,8 +81,8 @@ async fn test_gather_report_requires_exact_mutation_grant() {
         grounded: true,
         selection,
         mutation: Some(MutationAuthority {
-            capability_id: "acorn.gather_report".into(),
-            binding_id: "native:acorn.gather_report".into(),
+            capability_id: "acorn.gather::report".into(),
+            binding_id: "native:acorn.gather::report".into(),
             arguments: arguments.clone(),
             destination: "report.json".into(),
         }),
@@ -112,11 +110,11 @@ async fn test_gather_url_uses_remote_selection_and_preserves_provenance() {
     });
     let url = format!("http://{address}/source.txt");
     let registry = ToolRegistry::default()
-        .register_gather_capabilities(root.path().to_path_buf(), false)
+        .register_gather_capabilities(root.path(), false)
         .expect("registry");
     assert!(registry
         .select_capability_binding(
-            "acorn.gather_url",
+            "acorn.gather::url",
             None,
             None,
             CapabilitySelectionContext {
@@ -130,7 +128,7 @@ async fn test_gather_url_uses_remote_selection_and_preserves_provenance() {
         allow_remote: true,
     };
     let selected = registry
-        .select_capability_binding("acorn.gather_url", None, None, selection)
+        .select_capability_binding("acorn.gather::url", None, None, selection)
         .expect("remote selection");
     let output = registry
         .execute_selected(

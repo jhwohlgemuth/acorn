@@ -1,9 +1,20 @@
 //! Local inference commands
 use crate::{
+    assets::draft_placeholder_bytes,
     cli::arguments::{AcpAgentKind, Infer, InferenceArgs, InferenceBackendKind, InferenceEndpointMode},
+    commands::{download::model::ModelDownloadInputExt, report},
     io::{read_stdin, write_stdout},
 };
-use acorn::util::constants::app::{APPLICATION, DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, DEFAULT_NEEDLE_MAX_ROUNDS};
+#[cfg(feature = "pdf")]
+use crate::{commands::export::html, template::Converter};
+#[cfg(feature = "chart")]
+use acorn::io::chart::ChartOptions;
+#[cfg(not(feature = "pdf"))]
+use acorn::io::export::updates::html::ReportHtmlAssets;
+use acorn::util::constants::{
+    app::{APPLICATION, DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, DEFAULT_NEEDLE_MAX_ROUNDS},
+    env::HUGGINGFACE_ENDPOINT,
+};
 use acorn::{
     agent::{InferenceBackend, InferenceCapabilities, InferenceFuture, InferencePermissionPolicy, InferenceRequest, InferenceResult},
     analyzer::{
@@ -20,7 +31,7 @@ use acorn::{
         config::ApplicationConfiguration,
         mcp::{
             BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, CapabilitySelectionContext, EndpointDataPolicy,
-            ExecutionContext, ExecutorConfiguration, MutationAuthority, ToolRegistry,
+            ExecutionContext, ExecutorConfiguration, ExportRenderServices, MutationAuthority, ToolRegistry,
         },
         sidecar::{needle::Needle, Sidecar},
         ApiResult,
@@ -29,6 +40,7 @@ use acorn::{
 use acorn_core::util::SemanticVersion;
 use acorn_core::{time::Milliseconds, Noul};
 use acorn_schema::agent::tools::ToolEffects;
+use acorn_schema::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use acorn_schema::validation::Validate;
 use alloc::sync::Arc;
 use color_eyre::eyre::{eyre, Result};
@@ -36,14 +48,17 @@ use core::time::Duration;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::env::current_dir;
+use std::env::{self, current_dir};
 
 mod chat;
 mod metadata;
 pub(crate) mod prompt;
-
 const OLLAMA_LOCAL_URL: &str = "http://localhost:11434";
-
+trait ExportRenderServicesExt {
+    fn configured() -> ApiResult<Self>
+    where
+        Self: Sized;
+}
 #[derive(Debug)]
 enum Backend {
     Acp(acp::Client),
@@ -159,6 +174,48 @@ impl InferenceBackend for ConfiguredInference {
         self.backend.infer(request)
     }
 }
+impl ExportRenderServicesExt for ExportRenderServices {
+    fn configured() -> ApiResult<Self> {
+        #[cfg(feature = "pdf")]
+        let assets = html::assets();
+        #[cfg(not(feature = "pdf"))]
+        let assets: ApiResult<ReportHtmlAssets> = Ok(ReportHtmlAssets::default());
+        assets.and_then(|assets| {
+            draft_placeholder_bytes().map(|placeholder| {
+                Self::new(
+                    |activity, _source| {
+                        #[cfg(feature = "pdf")]
+                        {
+                            ChartOptions::init()
+                                .file_type("svg")
+                                .build()
+                                .render(activity.aspect.as_ref())
+                                .and_then(|chart| activity.to_html(chart.as_deref()).map(|content| content.to_string()))
+                        }
+                        #[cfg(not(feature = "pdf"))]
+                        {
+                            let _ = activity;
+                            Err(eyre!("PDF export requires the 'pdf' feature"))
+                        }
+                    },
+                    |activity| {
+                        #[cfg(feature = "chart")]
+                        {
+                            ChartOptions::init().file_type("png").build().render(activity.aspect.as_ref())
+                        }
+                        #[cfg(not(feature = "chart"))]
+                        {
+                            let _ = activity;
+                            Ok(None)
+                        }
+                    },
+                    assets,
+                    placeholder,
+                )
+            })
+        })
+    }
+}
 impl From<&ConfiguredInference> for FixOptions {
     fn from(configured: &ConfiguredInference) -> Self {
         Self {
@@ -219,6 +276,10 @@ fn native_routing_registry(offline: bool) -> ApiResult<ToolRegistry> {
         idempotent: true,
         open_world: false,
     };
+    let model_domain = env::var(HUGGINGFACE_ENDPOINT)
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| DEFAULT_HUGGINGFACE_DOMAIN.to_string());
     ToolRegistry::default()
         .register_capability(CapabilityDefinition::new::<VersionInput, VersionOutput>(
             format!("{APPLICATION}.version"),
@@ -245,11 +306,56 @@ fn native_routing_registry(offline: bool) -> ApiResult<ToolRegistry> {
         })
         .and_then(|registry| {
             current_dir().map_err(Into::into).and_then(|root| {
-                registry
-                    .register_analysis_capability(root.clone(), offline)
-                    .and_then(|registry| registry.register_diff_capability(root.clone()))
-                    .and_then(|registry| registry.register_gather_capabilities(root.clone(), offline))
-                    .and_then(|registry| registry.register_format_capabilities(root, offline))
+                let registry = registry
+                    .register_analysis_capability(&root, offline)
+                    .and_then(|registry| registry.register_diff_capability(&root))
+                    .and_then(|registry| registry.register_gather_capabilities(&root, offline))
+                    .and_then(|registry| registry.register_format_capabilities(&root, offline))
+                    .and_then(|registry| registry.register_link_capabilities(&root))
+                    .and_then(|registry| registry.register_swhid_capability(&root))
+                    .and_then(ToolRegistry::register_doctor_capability)
+                    .and_then(ToolRegistry::register_export_schema_capability)
+                    .and_then(|registry| registry.register_export_batch_capability(&root))
+                    .and_then(|registry| registry.register_export_crosswalk_capability(&root))
+                    .and_then(|registry| registry.register_export_bag_capability(&root))
+                    .and_then(|registry| registry.register_export_document_capability(&root))
+                    .and_then(|registry| registry.register_export_preview_capability(&root))
+                    .and_then(|registry| registry.register_export_updates_preview_capability(&root))
+                    .and_then(|registry| {
+                        ExportRenderServices::configured().and_then(|services| registry.register_export_render_capability(&root, offline, services))
+                    })
+                    .and_then(|registry| registry.register_import_spec_preview_capability(&root, offline))
+                    .and_then(|registry| registry.register_import_spec_apply_capability(&root, offline))
+                    .and_then(|registry| registry.register_import_model_preview_capability(model_domain.clone(), offline))
+                    .and_then(|registry| registry.register_import_model_apply_capability(&root, model_domain.clone(), offline))
+                    .and_then(|registry| registry.register_sync_preview_capability(&root))
+                    .and_then(|registry| registry.register_sync_apply_capability(&root))
+                    .and_then(|registry| {
+                        registry.register_report_capabilities(&root, offline, move |input, root, destination, publish| {
+                            let chrome_path = env::var_os("CHROME_PATH").map(std::path::PathBuf::from);
+                            async move { report::execute_routed(input, root, destination, publish, offline, chrome_path).await }
+                        })
+                    })
+                    .and_then(|registry| registry.register_download_bucket_capability(&root, offline))
+                    .and_then(|registry| {
+                        registry.register_download_model_capabilities(&root, offline, move |input, root, destination, preview| async move {
+                            input.execute_routed(root, destination, preview, offline).await
+                        })
+                    })
+                    .and_then(ToolRegistry::register_download_needle_status_capability)
+                    .and_then(|registry| registry.register_download_needle_capability(offline));
+                #[cfg(feature = "exec")]
+                {
+                    registry
+                        .and_then(|registry| registry.register_exec_check_safe_capability(&root))
+                        .and_then(|registry| registry.register_exec_manifest_check_capability(&root))
+                        .and_then(|registry| registry.register_exec_check_capability(&root))
+                        .and_then(|registry| registry.register_exec_hook_check_capability(&root, offline))
+                }
+                #[cfg(not(feature = "exec"))]
+                {
+                    registry
+                }
             })
         })
 }
@@ -360,10 +466,26 @@ async fn run_routed(arguments: &Infer, offline: bool) -> ApiResult<()> {
     };
     let prepared = prepared
         .and_then(|(prompt, caller_arguments, registry, allow_remote)| {
-            let scope = arguments.capability.as_ref().map(|id| vec![id.clone()]);
-            registry
-                .capability_catalog(scope.as_deref(), CapabilitySelectionContext { offline, allow_remote })
-                .map(|_| (prompt, caller_arguments, registry, scope, allow_remote))
+            let selection = CapabilitySelectionContext {
+                offline,
+                allow_remote: false,
+            };
+            let scope = match arguments.capability.as_ref() {
+                | Some(id) => {
+                    let scope = vec![id.clone()];
+                    registry.capability_catalog(Some(&scope), selection).map(|_| Some(scope))
+                }
+                | None => registry.scope_for_prompt(&prompt, selection).map(|scoped| {
+                    tracing::debug!(
+                        catalog_bytes = ?scoped.bytes,
+                        unscoped_bytes = ?scoped.unscoped_bytes,
+                        omitted = scoped.omitted,
+                        "Needle prompt scope"
+                    );
+                    scoped.ids
+                }),
+            };
+            scope.map(|scope| (prompt, caller_arguments, registry, scope, allow_remote))
         })
         .and_then(|(prompt, caller_arguments, registry, scope, allow_remote)| {
             let mutation = if arguments.apply {

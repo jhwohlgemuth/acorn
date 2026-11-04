@@ -2,6 +2,7 @@
 use super::super::{
     BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, InputLimits, InputReference, RoutedInputPolicy, ToolRegistry,
 };
+use super::NativeEffect;
 use crate::analyzer::diff::{DiffFormat, DiffInput, SemanticDiff};
 use crate::error::ApiResult;
 use acorn_core::prelude::String;
@@ -281,13 +282,9 @@ impl Validate for SimilarityRequestOptions {
 }
 impl ToolRegistry {
     /// Register bounded semantic diff and similarity as native capabilities.
-    pub fn register_diff_capability(self, root: PathBuf) -> ApiResult<Self> {
-        let effects = ToolEffects {
-            read_only: true,
-            destructive: false,
-            idempotent: true,
-            open_world: false,
-        };
+    pub fn register_diff_capability(self, root: impl AsRef<Path>) -> ApiResult<Self> {
+        let root = root.as_ref().to_path_buf();
+        let effects = ToolEffects::from(NativeEffect::LocalRead);
         let version = SemanticVersion::from((1, 0, 0));
         self.register_capability(CapabilityDefinition::new::<DiffOperationInput, DiffOperationOutput>(
             format!("{APPLICATION}.diff"),

@@ -3,6 +3,7 @@ use super::super::{
     BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, InputFailure, InputLimits, InputReference, RoutedInputPolicy,
     ToolRegistry,
 };
+use super::NativeEffect;
 use crate::agent::InferenceBackend;
 use crate::analyzer::host::context::{AnalysisContext, AnalysisOptions, ExecutionExtension, ExecutionOptions, ReportExtension, ReportOptions};
 use crate::analyzer::host::oci::analyze as analyze_oci;
@@ -298,12 +299,8 @@ impl AnalysisInput {
         let invalid_skip = skip
             .iter()
             .any(|name| !CheckCategory::iter().any(|category| category.to_string() == *name));
-        match (
-            invalid_skip,
-            self.format.is_some() && !self.input.is_text(),
-            self.input.is_oci(),
-            self.standard,
-        ) {
+        let invalid_format = self.format.is_some() && !self.input.is_text();
+        match (invalid_skip, invalid_format, self.input.is_oci(), self.standard) {
             | (true, _, _, _) => Err(eyre!("Unknown check category in skip selection")),
             | (_, true, _, _) => Err(eyre!("An explicit check format requires supplied text")),
             | (_, _, false, Some(Standard::Oci)) => Err(eyre!("OCI artifact checks require an explicit OCI reference")),
@@ -488,13 +485,9 @@ impl InputReference {
 }
 impl ToolRegistry {
     /// Register the full local analysis service as a versioned native capability.
-    pub fn register_analysis_capability(self, root: PathBuf, offline: bool) -> ApiResult<Self> {
-        let effects = ToolEffects {
-            read_only: true,
-            destructive: false,
-            idempotent: true,
-            open_world: true,
-        };
+    pub fn register_analysis_capability(self, root: impl AsRef<Path>, offline: bool) -> ApiResult<Self> {
+        let root = root.as_ref().to_path_buf();
+        let effects = ToolEffects::from(NativeEffect::RemoteRead);
         let binding = BindingDefinition::new::<AnalysisInput, AnalysisOutput>(
             format!("native:{APPLICATION}.check"),
             format!("{APPLICATION}.check"),
@@ -518,26 +511,22 @@ impl ToolRegistry {
         })
     }
     /// Register inference-backed, nonexecuting check proposals and previews.
-    pub fn register_analysis_fixes_capability<B>(self, root: PathBuf, offline: bool, backend: Arc<B>, options: FixOptions) -> ApiResult<Self>
+    pub fn register_analysis_fixes_capability<B>(self, root: impl AsRef<Path>, offline: bool, backend: Arc<B>, options: FixOptions) -> ApiResult<Self>
     where
         B: InferenceBackend + Sync + 'static,
     {
-        let effects = ToolEffects {
-            read_only: true,
-            destructive: false,
-            idempotent: true,
-            open_world: true,
-        };
+        let root = root.as_ref().to_path_buf();
+        let effects = ToolEffects::from(NativeEffect::RemoteRead);
         let version = SemanticVersion::from((1, 0, 0));
         self.register_capability(CapabilityDefinition::new::<AnalysisFixInput, AnalysisFixOutput>(
-            format!("{APPLICATION}.check_fixes"),
+            format!("{APPLICATION}.check::fixes"),
             version,
             "Analyze confirmed metadata and return bounded fix proposals with nonexecuting previews.",
             effects,
         ))
         .and_then(|registry| {
-            let id = format!("native:{APPLICATION}.check_fixes");
-            let capability_id = format!("{APPLICATION}.check_fixes");
+            let id = format!("native:{APPLICATION}.check::fixes");
+            let capability_id = format!("{APPLICATION}.check::fixes");
             let definition = BindingDefinition::new::<AnalysisFixInput, AnalysisFixOutput>(
                 id,
                 capability_id,
@@ -546,12 +535,15 @@ impl ToolRegistry {
                 effects,
                 BindingAvailability::Ready,
             );
-            registry.register_capability_binding::<AnalysisFixInput, AnalysisFixOutput, _, _>(definition.with_offline_support(), move |input| {
-                let root = root.clone();
-                let backend = Arc::clone(&backend);
-                let options = options.clone();
-                async move { input.analyze(&root, offline, backend.as_ref(), &options).await }
-            })
+            registry.register_capability_binding::<AnalysisFixInput, AnalysisFixOutput, _, _>(
+                if offline { definition.with_offline_support() } else { definition },
+                move |input| {
+                    let root = root.clone();
+                    let backend = Arc::clone(&backend);
+                    let options = options.clone();
+                    async move { input.analyze(&root, offline, backend.as_ref(), &options).await }
+                },
+            )
         })
     }
 }

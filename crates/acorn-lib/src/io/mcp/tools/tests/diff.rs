@@ -16,9 +16,7 @@ async fn test_registered_diff_matches_direct_result_without_effects() {
     });
     let direct: DiffOperationInput = serde_json::from_value(arguments.clone()).expect("typed input");
     let expected = serde_json::to_value(direct.compare(root.path()).expect("direct comparison")).expect("output JSON");
-    let registry = ToolRegistry::default()
-        .register_diff_capability(root.path().to_path_buf())
-        .expect("registered diff");
+    let registry = ToolRegistry::default().register_diff_capability(root.path()).expect("registered diff");
     let selected = registry
         .select_capability_binding(
             "acorn.diff",

@@ -71,7 +71,7 @@ pub(super) async fn analyze_metadata_target(root: &Path, source: &Location, stan
             })
             .and_then(|(files, unsupported, other_standard, failures)| {
                 ToolRegistry::default()
-                    .register_analysis_capability(root.to_path_buf(), offline)
+                    .register_analysis_capability(root, offline)
                     .map(|registry| (files, unsupported, other_standard, failures, registry))
             })
             .and_then(|(files, unsupported, other_standard, failures, registry)| {

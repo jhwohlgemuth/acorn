@@ -15,6 +15,10 @@ version.workspace = true
 name = "acorn"
 path = "src/main.rs"
 
+[[test]]
+name = "registry"
+path = "tests/registry/mod.rs"
+
 [badges]
 maintenance = { status = "actively-developed" }
 
@@ -80,7 +84,7 @@ default = ["pdf", "tui"]
 auth = ["acorn-lib/auth", "acorn-host/auth"]
 chart = ["acorn-lib/chart"]
 duckdb = ["acorn-lib/duckdb"]
-pdf = ["dep:chromiumoxide", "dep:percy-dom", "dep:fast_qr", "chart"]
+pdf = ["acorn-lib/pdf", "dep:chromiumoxide", "dep:percy-dom", "dep:fast_qr", "chart"]
 slm = ["acorn-lib/slm"]
 tui = ["dep:acorn-tui"]
 exec = ["acorn-lib/exec", "dep:rhai"]

@@ -16,7 +16,7 @@
 #[cfg(feature = "std")]
 use super::constants::app::{EXEC_HEADER_PREFIX, MAX_EXEC_BYTES, SUPPORTED_EXEC_VERSION};
 use super::constants::{CROCKFORD_BASE32_ALPHABET, LINE_SEPARATOR};
-use crate::error::AcornError;
+use crate::error::{AcornError, AcornResult};
 use crate::prelude::alloc::{format, vec, HashMap, HashSet, String, ToString, Vec};
 use crate::validation::ValidationError;
 use ::alloc::collections::BTreeSet;
@@ -768,6 +768,13 @@ impl FromStr for MimeType {
     }
 }
 impl MimeType {
+    /// Require this MIME type to be one of the formats supported by an operation.
+    pub fn ensure_supported(&self, supported: &[Self], operation: &str) -> AcornResult<()> {
+        match supported.contains(self) {
+            | true => Ok(()),
+            | false => Err(AcornError::new(format!("{operation} does not support {}", self.file_type()))),
+        }
+    }
     /// Return whether a path can be analyzed as a metadata check input.
     #[cfg(feature = "std")]
     pub fn is_supported_metadata_path(path: &Path) -> bool {
@@ -819,6 +826,10 @@ impl MimeType {
                 })
             })
             .or_else(|| is_rhai_source(bytes).then_some(Self::Rhai))
+    }
+    /// Return whether this MIME type is an archive format supported by export operations.
+    pub fn is_archive(&self) -> bool {
+        matches!(self, Self::Gzip | Self::SevenZip | Self::Tar | Self::Zip)
     }
     /// Return whether this file type is accepted as OCI model content.
     pub fn is_model_resource(&self) -> bool {

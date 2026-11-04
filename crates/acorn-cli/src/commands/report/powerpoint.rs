@@ -1,8 +1,9 @@
 //! Category slide inputs for project logbook presentations.
-use crate::commands::export::powerpoint::{add_slide, copy_image, validate_ooxml_files};
+use crate::assets::draft_placeholder_bytes;
+use crate::commands::export::powerpoint::{add_slide, validate_ooxml_files};
 use acorn::io::{
     archive,
-    export::ExportContext,
+    export::{powerpoint, ExportContext},
     powerpoint::{interpolate_values, ooxml::validate_xml_well_formed},
     ApiResult, ArchiveCandidate, ArchiveExtraction,
 };
@@ -137,7 +138,11 @@ impl PowerPointReporter for ResearchActivity {
                                         ]
                                         .into_iter()
                                         .try_for_each(|path| interpolate_values(path, &context))
-                                        .and_then(|()| copy_image(number, &context, index_path, &root).map(|_| ()))
+                                        .and_then(|()| {
+                                            draft_placeholder_bytes().and_then(|fallback| {
+                                                powerpoint::copy_image(number, &context, index_path, &root, &fallback).map(|_| ())
+                                            })
+                                        })
                                     })
                                 })
                             })
@@ -151,11 +156,10 @@ impl PowerPointReporter for ResearchActivity {
 }
 
 fn category_layout(xml: &str) -> ApiResult<String> {
-    if !validate_xml_well_formed(xml)
-        || !["{{ title }}", "{{ subtitle }}", "{{ achievement }}"]
-            .iter()
-            .all(|token| xml.contains(token))
-    {
+    let has_placeholders = ["{{ title }}", "{{ subtitle }}", "{{ achievement }}"]
+        .iter()
+        .all(|token| xml.contains(token));
+    if !validate_xml_well_formed(xml) || !has_placeholders {
         Err(eyre!(
             "PowerPoint reference slide is malformed or lacks title, subtitle, or achievement placeholders"
         ))

@@ -3,6 +3,7 @@ use super::super::{
     ArtifactPolicy, BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, CrosswalkInput, CrosswalkOutput, InputFailure,
     InputLimits, InputReference, RoutedInputPolicy, ToolRegistry,
 };
+use super::NativeEffect;
 use crate::error::ApiResult;
 use crate::io::config::application::ApplicationConfiguration;
 use crate::io::enrichment::{Enrich, EnrichmentMetadata, Pipeline};
@@ -397,14 +398,10 @@ impl From<CrosswalkFormat> for MimeType {
 }
 impl ToolRegistry {
     /// Register format preview, authorized apply, and loss-aware crosswalk capabilities.
-    pub fn register_format_capabilities(self, root: PathBuf, offline: bool) -> ApiResult<Self> {
+    pub fn register_format_capabilities(self, root: impl AsRef<Path>, offline: bool) -> ApiResult<Self> {
+        let root = root.as_ref().to_path_buf();
         let version = SemanticVersion::from((1, 0, 0));
-        let read = ToolEffects {
-            read_only: true,
-            destructive: false,
-            idempotent: true,
-            open_world: false,
-        };
+        let read = ToolEffects::from(NativeEffect::LocalRead);
         let write = ToolEffects {
             read_only: false,
             destructive: true,
@@ -423,7 +420,7 @@ impl ToolRegistry {
         let enrich_apply_root = root.clone();
         let crosswalk_root = root.clone();
         self.register_capability(CapabilityDefinition::new::<FormatPreviewInput, FormatPreviewOutput>(
-            format!("{APPLICATION}.format_preview"),
+            format!("{APPLICATION}.format::preview"),
             version,
             "Preview bounded metadata normalization.",
             read,
@@ -431,8 +428,8 @@ impl ToolRegistry {
         .and_then(|registry| {
             registry.register_capability_binding::<FormatPreviewInput, FormatPreviewOutput, _, _>(
                 BindingDefinition::new::<FormatPreviewInput, FormatPreviewOutput>(
-                    format!("native:{APPLICATION}.format_preview"),
-                    format!("{APPLICATION}.format_preview"),
+                    format!("native:{APPLICATION}.format::preview"),
+                    format!("{APPLICATION}.format::preview"),
                     version,
                     BindingKind::Native,
                     read,
@@ -453,7 +450,7 @@ impl ToolRegistry {
         })
         .and_then(|registry| {
             registry.register_capability(CapabilityDefinition::new::<FormatApplyInput, FormatApplyOutput>(
-                format!("{APPLICATION}.format_apply"),
+                format!("{APPLICATION}.format::apply"),
                 version,
                 "Write one authorized normalized metadata file.",
                 write,
@@ -462,8 +459,8 @@ impl ToolRegistry {
         .and_then(|registry| {
             registry.register_capability_binding::<FormatApplyInput, FormatApplyOutput, _, _>(
                 BindingDefinition::new::<FormatApplyInput, FormatApplyOutput>(
-                    format!("native:{APPLICATION}.format_apply"),
-                    format!("{APPLICATION}.format_apply"),
+                    format!("native:{APPLICATION}.format::apply"),
+                    format!("{APPLICATION}.format::apply"),
                     version,
                     BindingKind::Native,
                     write,
@@ -484,7 +481,7 @@ impl ToolRegistry {
         })
         .and_then(|registry| {
             registry.register_capability(CapabilityDefinition::new::<FormatPreviewInput, FormatPreviewOutput>(
-                format!("{APPLICATION}.format_enrich_preview"),
+                format!("{APPLICATION}.format::enrich::preview"),
                 version,
                 "Preview metadata normalization with provider enrichment.",
                 enrich_read,
@@ -493,8 +490,8 @@ impl ToolRegistry {
         .and_then(|registry| {
             registry.register_capability_binding::<FormatPreviewInput, FormatPreviewOutput, _, _>(
                 BindingDefinition::new::<FormatPreviewInput, FormatPreviewOutput>(
-                    format!("native:{APPLICATION}.format_enrich_preview"),
-                    format!("{APPLICATION}.format_enrich_preview"),
+                    format!("native:{APPLICATION}.format::enrich::preview"),
+                    format!("{APPLICATION}.format::enrich::preview"),
                     version,
                     BindingKind::Native,
                     enrich_read,
@@ -514,7 +511,7 @@ impl ToolRegistry {
         })
         .and_then(|registry| {
             registry.register_capability(CapabilityDefinition::new::<FormatApplyInput, FormatApplyOutput>(
-                format!("{APPLICATION}.format_enrich_apply"),
+                format!("{APPLICATION}.format::enrich::apply"),
                 version,
                 "Write one authorized enriched metadata file.",
                 enrich_write,
@@ -523,8 +520,8 @@ impl ToolRegistry {
         .and_then(|registry| {
             registry.register_capability_binding::<FormatApplyInput, FormatApplyOutput, _, _>(
                 BindingDefinition::new::<FormatApplyInput, FormatApplyOutput>(
-                    format!("native:{APPLICATION}.format_enrich_apply"),
-                    format!("{APPLICATION}.format_enrich_apply"),
+                    format!("native:{APPLICATION}.format::enrich::apply"),
+                    format!("{APPLICATION}.format::enrich::apply"),
                     version,
                     BindingKind::Native,
                     enrich_write,
@@ -544,7 +541,7 @@ impl ToolRegistry {
         })
         .and_then(|registry| {
             registry.register_capability(CapabilityDefinition::new::<CrosswalkPreviewInput, CrosswalkPreviewOutput>(
-                format!("{APPLICATION}.crosswalk_preview"),
+                format!("{APPLICATION}.crosswalk::preview"),
                 version,
                 "Preview bounded standards conversion with field-loss warnings.",
                 read,
@@ -553,8 +550,8 @@ impl ToolRegistry {
         .and_then(|registry| {
             registry.register_capability_binding::<CrosswalkPreviewInput, CrosswalkPreviewOutput, _, _>(
                 BindingDefinition::new::<CrosswalkPreviewInput, CrosswalkPreviewOutput>(
-                    format!("native:{APPLICATION}.crosswalk_preview"),
-                    format!("{APPLICATION}.crosswalk_preview"),
+                    format!("native:{APPLICATION}.crosswalk::preview"),
+                    format!("{APPLICATION}.crosswalk::preview"),
                     version,
                     BindingKind::Native,
                     read,
@@ -569,7 +566,7 @@ impl ToolRegistry {
         })
         .and_then(|registry| {
             registry.register_capability(CapabilityDefinition::new::<CrosswalkApplyInput, CrosswalkApplyOutput>(
-                format!("{APPLICATION}.crosswalk_apply"),
+                format!("{APPLICATION}.crosswalk::apply"),
                 version,
                 "Write one authorized standards conversion with loss warnings.",
                 write,
@@ -578,8 +575,8 @@ impl ToolRegistry {
         .and_then(|registry| {
             registry.register_capability_binding::<CrosswalkApplyInput, CrosswalkApplyOutput, _, _>(
                 BindingDefinition::new::<CrosswalkApplyInput, CrosswalkApplyOutput>(
-                    format!("native:{APPLICATION}.crosswalk_apply"),
-                    format!("{APPLICATION}.crosswalk_apply"),
+                    format!("native:{APPLICATION}.crosswalk::apply"),
+                    format!("{APPLICATION}.crosswalk::apply"),
                     version,
                     BindingKind::Native,
                     write,

@@ -34,7 +34,6 @@ pub mod goose;
 pub mod llama_swap;
 pub mod opencode;
 pub mod vscode;
-
 /// Top-level synchronization configuration section.
 ///
 /// Added to `ApplicationConfiguration` as the optional `config` field.
@@ -56,10 +55,12 @@ pub type Config = SyncConfig<goose::Inner, llama_swap::Inner, opencode::Inner, v
 pub trait ConfigExt {
     /// Resolve the model directory from a CLI override, configuration, or the user default.
     fn resolve_models_dir(&self, override_directory: Option<&Path>) -> ApiResult<PathBuf>;
+    /// Render selected target changes without modifying any configuration file.
+    fn plan(&self, options: Options<'_>) -> ApiResult<Vec<RenderedOutput>>;
     /// Synchronize all selected configuration targets.
     fn sync(&self, options: Options<'_>) -> ApiResult<()>;
 }
-trait ConfigPrivate: Sized {
+pub(crate) trait ConfigPrivate: Sized {
     fn commit(outputs: &[RenderedOutput]) -> ApiResult<Vec<PathBuf>>;
     fn is_empty(&self) -> bool;
     fn models_for_sync(&self, options: &Options<'_>) -> ApiResult<Vec<ModelDetails>>;
@@ -160,8 +161,9 @@ pub struct Options<'a> {
     /// Models directory override used to resolve model entries.
     pub models_dir: Option<&'a Path>,
 }
+/// One target configuration change proposed by the shared synchronization renderer.
 #[derive(Clone, Debug)]
-pub(crate) struct RenderedOutput {
+pub struct RenderedOutput {
     target: &'static str,
     path: PathBuf,
     before: String,
@@ -191,6 +193,37 @@ impl ConfigExt for Config {
             .map_or_else(|| home_directory(DEFAULT_MODELS_DIRECTORY), Ok)
     }
     fn sync(&self, options: Options<'_>) -> ApiResult<()> {
+        self.plan(options)
+            .and_then(|outputs| match options.dry_run {
+                | true => {
+                    outputs.iter().for_each(|output| {
+                        let path = output.path.display().to_string();
+                        match (output.before == output.content, options.no_color) {
+                            | (true, true) => info!("=> {} No changes for {path}", Label::CAUTION),
+                            | (true, false) => info!("=> {} No changes for {}", Label::CAUTION, path.cyan()),
+                            | (false, _) => {
+                                match options.no_color {
+                                    | true => println!("\n{path}"),
+                                    | false => println!("\n{}", path.cyan().bold()),
+                                }
+                                text_diff_changes_with_color(&output.before, &output.content, !options.no_color)
+                                    .iter()
+                                    .for_each(|(_, line)| print!("{line}"));
+                            }
+                        }
+                    });
+                    info!("=> {} Dry run complete — no files were modified", Label::pass());
+                    Ok(Vec::new())
+                }
+                | false => Config::commit(&outputs),
+            })
+            .map(|paths| {
+                paths
+                    .iter()
+                    .for_each(|path| info!("=> {} Updated {}", Label::pass(), path.display().cyan()));
+            })
+    }
+    fn plan(&self, options: Options<'_>) -> ApiResult<Vec<RenderedOutput>> {
         let selected = self.selected(&options);
         selected.models_for_sync(&options).and_then(|models| {
             let options = Options { models: &models, ..options };
@@ -228,11 +261,11 @@ impl ConfigExt for Config {
                 .and_then(|()| match (selected.is_empty(), options.models.is_empty(), options.mcp) {
                     | (true, _, _) => {
                         info!("{} No eligible synchronization targets detected — nothing to synchronize", Label::CAUTION);
-                        Ok(())
+                        Ok(Vec::new())
                     }
                     | (_, true, false) => {
                         info!("{} No models resolved — nothing to synchronize", Label::CAUTION);
-                        Ok(())
+                        Ok(Vec::new())
                     }
                     | _ => [
                         selected
@@ -261,35 +294,7 @@ impl ConfigExt for Config {
                     ]
                     .into_iter()
                     .flatten()
-                    .collect::<ApiResult<Vec<_>>>()
-                    .and_then(|outputs| match options.dry_run {
-                        | true => {
-                            outputs.iter().for_each(|output| {
-                                let path = output.path.display().to_string();
-                                match (output.before == output.content, options.no_color) {
-                                    | (true, true) => info!("=> {} No changes for {path}", Label::CAUTION),
-                                    | (true, false) => info!("=> {} No changes for {}", Label::CAUTION, path.cyan()),
-                                    | (false, _) => {
-                                        match options.no_color {
-                                            | true => println!("\n{path}"),
-                                            | false => println!("\n{}", path.cyan().bold()),
-                                        }
-                                        text_diff_changes_with_color(&output.before, &output.content, !options.no_color)
-                                            .iter()
-                                            .for_each(|(_, line)| print!("{line}"));
-                                    }
-                                }
-                            });
-                            info!("=> {} Dry run complete — no files were modified", Label::pass());
-                            Ok(Vec::new())
-                        }
-                        | false => Self::commit(&outputs),
-                    })
-                    .map(|paths| {
-                        paths
-                            .iter()
-                            .for_each(|path| info!("=> {} Updated {}", Label::pass(), path.display().cyan()));
-                    }),
+                    .collect::<ApiResult<Vec<_>>>(),
                 })
         })
     }
@@ -583,6 +588,26 @@ impl TryFrom<&ModelEntry> for ModelRequest {
     }
 }
 impl RenderedOutput {
+    /// Target application name.
+    pub fn target(&self) -> &str {
+        self.target
+    }
+    /// Exact target configuration path.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+    /// Existing configuration text.
+    pub fn before(&self) -> &str {
+        &self.before
+    }
+    /// Proposed configuration text.
+    pub fn content(&self) -> &str {
+        &self.content
+    }
+    /// Whether applying the plan would change this target.
+    pub fn changed(&self) -> bool {
+        self.before != self.content
+    }
     fn backup_path(&self) -> PathBuf {
         PathBuf::from(format!("{}.acorn-sync-backup", self.path.display()))
     }
@@ -786,6 +811,5 @@ pub fn resolve_gguf(models_directory: &str, model_name: &str, filter: Option<&[S
 fn select_target<T: SyncTarget>(config: Option<&T>, requested: bool, explicit: bool, force: bool) -> Option<T> {
     ((requested || !explicit) && (command_exists(T::COMMAND) || (requested && force))).then(|| config.cloned().unwrap_or_default())
 }
-
 #[cfg(test)]
 mod tests;

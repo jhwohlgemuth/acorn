@@ -11,12 +11,15 @@ use acorn_cmd::{args, cmd};
 use acorn_schema::pid::{swhid::ObjectType, SWHID};
 use color_eyre::eyre::{eyre, WrapErr};
 use core::str::FromStr;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::{fs::read, path::Path};
 
 /// Object source used for SWHID calculation
 /// ### Note
 /// This is distinct from repository API entry types because it also models local-path inference and SWHID-specific Git object traversal.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum CalculationKind {
     /// Infer content or directory from the local path
     #[default]

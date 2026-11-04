@@ -15,9 +15,10 @@
 //! Tests run in offline mode; PDF visual snapshots remain ignored because they launch an external browser and renderer.
 use crate::cli::arguments::{FileFormat, Target};
 #[cfg(feature = "pdf")]
-use crate::commands::export::pdf::{browser_executable, configured_browser_executable};
+use crate::commands::export::pdf::browser_executable;
 use crate::commands::export::{export_schema, run, run_with_import_context, tools, CrosswalkImportOptions};
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
+use acorn::io::export::pdf::configured_browser_executable;
 #[cfg(feature = "pdf")]
 use acorn::util::constants::env::CHROME_PATH;
 use acorn_core::util::MimeType;
@@ -51,6 +52,8 @@ use std::process::Command;
 #[cfg(feature = "pdf")]
 use which::which;
 
+#[cfg(feature = "pdf")]
+mod updates;
 const OFFLINE: bool = true;
 #[cfg(feature = "pdf")]
 static PDF_VISUAL_TEST_LOCK: Mutex<()> = Mutex::new(());
@@ -1041,11 +1044,7 @@ async fn test_export_powerpoint_format() -> Result<()> {
     copy(source_dir.join("00.png"), test_data_dir.join("00.png"))?;
     let reference_source = fixture_path("data/highlight/reference.pptx");
     let reference_dest = test_data_dir.join("reference.pptx");
-    if reference_source.exists() {
-        copy(&reference_source, &reference_dest)?;
-    } else {
-        return Ok(());
-    }
+    copy(&reference_source, &reference_dest)?;
     let output_dir = temp_dir.join("output");
     create_dir_all(&output_dir)?;
     let result = run(
@@ -1327,6 +1326,3 @@ fn test_schema_export_rejects_unmodeled_and_artifact_formats() {
     assert!(oci.to_string().contains("OCI checking has no single generated schema"));
     assert!(export_schema(Standard::ResearchActivityData, &FileFormat::Pdf).is_err());
 }
-
-#[cfg(feature = "pdf")]
-mod updates;

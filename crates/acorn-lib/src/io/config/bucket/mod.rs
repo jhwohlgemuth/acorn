@@ -80,6 +80,9 @@ pub struct ResolvedBucket {
     /// Dropping this directory before the transfer would delete the payload, so callers transfer through this type rather than extracting the bare bucket.
     _temporary: Option<TemporaryDirectory>,
 }
+/// Explicit bucket sources resolved and downloaded as one transfer batch.
+#[derive(Clone, Debug, Default)]
+pub struct Sources(Vec<SourceInput>);
 impl Bucket {
     /// Resolves and verifies a local or remote BagIt archive as a payload bucket.
     ///
@@ -259,6 +262,33 @@ impl SourceInput {
                     },
                     | _ => Err(eyre!("Source does not exist or has an unsupported format: {source}")),
                 }
+            }
+        }
+    }
+}
+impl From<Vec<SourceInput>> for Sources {
+    fn from(value: Vec<SourceInput>) -> Self {
+        Self(value)
+    }
+}
+impl Sources {
+    /// Resolve and download these sources through the direct command's transfer policy.
+    pub async fn download(self, options: &BucketOptions, format: Option<MimeType>) -> ApiResult<usize> {
+        match self.0.is_empty() {
+            | true => Err(eyre!("No download URL or configuration file found")),
+            | false => {
+                stream::iter(self.0)
+                    .then(|source| {
+                        let format = format.clone();
+                        async move {
+                            match source.resolve(format, options.common.offline).await {
+                                | Ok(bucket) => bucket.transfer(options, TransferPolicy::Download).await,
+                                | Err(why) => Err(why),
+                            }
+                        }
+                    })
+                    .try_fold(0_usize, |total, count| future::ready(Ok(total.saturating_add(count))))
+                    .await
             }
         }
     }

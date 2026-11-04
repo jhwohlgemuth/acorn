@@ -3,6 +3,7 @@ use super::super::{
     ArtifactPolicy, BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, InputFailure, InputLimits, InputReference,
     RoutedInputPolicy, ToolRegistry,
 };
+use super::NativeEffect;
 use crate::analyzer::host::context::OutputFormat;
 use crate::analyzer::host::discovery::{Record, Records, Report};
 use crate::error::ApiResult;
@@ -179,14 +180,10 @@ impl GatherReportInput {
 }
 impl ToolRegistry {
     /// Register bounded local, remote, and report-writing gather operations.
-    pub fn register_gather_capabilities(self, root: PathBuf, offline: bool) -> ApiResult<Self> {
+    pub fn register_gather_capabilities(self, root: impl AsRef<Path>, offline: bool) -> ApiResult<Self> {
+        let root = root.as_ref().to_path_buf();
         let version = SemanticVersion::from((1, 0, 0));
-        let read = ToolEffects {
-            read_only: true,
-            destructive: false,
-            idempotent: true,
-            open_world: false,
-        };
+        let read = ToolEffects::from(NativeEffect::LocalRead);
         let remote = ToolEffects { open_world: true, ..read };
         let write = ToolEffects {
             read_only: false,
@@ -228,7 +225,7 @@ impl ToolRegistry {
         })
         .and_then(|registry| {
             registry.register_capability(CapabilityDefinition::new::<GatherInput, GatherOutput>(
-                format!("{APPLICATION}.gather_url"),
+                format!("{APPLICATION}.gather::url"),
                 version,
                 "Discover PIDs from one permitted HTTP(S) document.",
                 remote,
@@ -237,8 +234,8 @@ impl ToolRegistry {
         .and_then(|registry| {
             registry.register_capability_binding::<GatherInput, GatherOutput, _, _>(
                 BindingDefinition::new::<GatherInput, GatherOutput>(
-                    format!("native:{APPLICATION}.gather_url"),
-                    format!("{APPLICATION}.gather_url"),
+                    format!("native:{APPLICATION}.gather::url"),
+                    format!("{APPLICATION}.gather::url"),
                     version,
                     BindingKind::Native,
                     remote,
@@ -258,7 +255,7 @@ impl ToolRegistry {
         })
         .and_then(|registry| {
             registry.register_capability(CapabilityDefinition::new::<GatherReportInput, GatherReportOutput>(
-                format!("{APPLICATION}.gather_report"),
+                format!("{APPLICATION}.gather::report"),
                 version,
                 "Write one explicitly authorized PID extraction report.",
                 write,
@@ -267,8 +264,8 @@ impl ToolRegistry {
         .and_then(|registry| {
             registry.register_capability_binding::<GatherReportInput, GatherReportOutput, _, _>(
                 BindingDefinition::new::<GatherReportInput, GatherReportOutput>(
-                    format!("native:{APPLICATION}.gather_report"),
-                    format!("{APPLICATION}.gather_report"),
+                    format!("native:{APPLICATION}.gather::report"),
+                    format!("{APPLICATION}.gather::report"),
                     version,
                     BindingKind::Native,
                     write,
@@ -289,7 +286,7 @@ impl ToolRegistry {
         })
         .and_then(|registry| {
             registry.register_capability(CapabilityDefinition::new::<GatherReportInput, GatherReportOutput>(
-                format!("{APPLICATION}.gather_url_report"),
+                format!("{APPLICATION}.gather::url::report"),
                 version,
                 "Write one explicitly authorized PID report from a permitted HTTP(S) source.",
                 ToolEffects {
@@ -303,8 +300,8 @@ impl ToolRegistry {
         .and_then(|registry| {
             registry.register_capability_binding::<GatherReportInput, GatherReportOutput, _, _>(
                 BindingDefinition::new::<GatherReportInput, GatherReportOutput>(
-                    format!("native:{APPLICATION}.gather_url_report"),
-                    format!("{APPLICATION}.gather_url_report"),
+                    format!("native:{APPLICATION}.gather::url::report"),
+                    format!("{APPLICATION}.gather::url::report"),
                     version,
                     BindingKind::Native,
                     ToolEffects {

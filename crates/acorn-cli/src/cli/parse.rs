@@ -3,10 +3,7 @@
 //! that existed solely to derive `ValueEnum`.
 use acorn::io::config::application::Hook;
 use acorn::io::ApiResult;
-#[cfg(feature = "exec")]
-use acorn::io::{jsonc_parse_value, FromPath};
 use acorn::io::{Executor, Platform, Remote};
-use acorn_analysis as analyzer;
 use acorn_analysis::readability::ReadabilityType;
 use acorn_core::{time::Day, util::MimeType};
 use acorn_schema::{
@@ -23,6 +20,19 @@ use serde_norway;
 use std::path::Path;
 use strum::VariantNames;
 
+fn current_report_year() -> i16 {
+    Timestamp::now().to_zoned(TimeZone::UTC).year()
+}
+fn expand_report_bound(value: &str, year: i16, upper: bool) -> Result<String, String> {
+    match Day::parse(value) {
+        | Some(short) => short
+            .bounds(year)
+            .filter(|(start, _)| rules::date_only(&start.to_string()).is_ok())
+            .map(|(start, end)| format!("{}T00:00:00Z", if upper { end } else { start }))
+            .ok_or_else(report_bound_error),
+        | None => parse_report_bound(value),
+    }
+}
 fn infer_json_lines_standard(path: &Path, content: &str) -> ApiResult<Standard> {
     OneOrMany::<Value>::parse(content, MimeType::JsonLines)
         .map_err(|why| {
@@ -137,16 +147,16 @@ fn infer_standard_from_value(path: &Path, root: Value) -> ApiResult<Standard> {
         )),
     }
 }
-/// Parse a CLI check-category name into an `analyzer::CheckCategory` variant.
-pub(crate) fn parse_check_category(s: &str) -> Result<analyzer::CheckCategory, String> {
-    analyzer::CheckCategory::VARIANTS
+/// Parse a CLI check-category name into an `acorn_analysis::CheckCategory` variant.
+pub(crate) fn parse_check_category(s: &str) -> Result<acorn_analysis::CheckCategory, String> {
+    acorn_analysis::CheckCategory::VARIANTS
         .iter()
         .find(|variant| variant.eq_ignore_ascii_case(s))
-        .map(|_| analyzer::CheckCategory::from(s))
+        .map(|_| acorn_analysis::CheckCategory::from(s))
         .ok_or_else(|| {
             format!(
                 "unknown check category '{s}' — expected one of: {}",
-                analyzer::CheckCategory::VARIANTS.join(", ")
+                acorn_analysis::CheckCategory::VARIANTS.join(", ")
             )
         })
 }
@@ -205,17 +215,6 @@ pub(crate) fn parse_executor(s: &str) -> Result<Executor, String> {
         )),
     }
 }
-/// Parse one executable-hook input according to its path.
-#[cfg(feature = "exec")]
-pub(crate) fn parse_hook_input(path: &Path, content: &str) -> ApiResult<Value> {
-    match MimeType::from_path(path) {
-        | MimeType::Json | MimeType::Jsonc => jsonc_parse_value(content),
-        | MimeType::Cff | MimeType::Yaml => {
-            serde_norway::from_str(content).map_err(|why| eyre!("Failed to parse hook input `{}` — {why}", path.display()))
-        }
-        | _ => Ok(Value::String(content.to_string())),
-    }
-}
 /// Parse an MCP Bundle target platform, including the 64-bit Windows target.
 pub(crate) fn parse_mcpb_platform(value: &str) -> Result<Platform, String> {
     match value {
@@ -242,22 +241,6 @@ pub(crate) fn parse_readability(s: &str) -> Result<ReadabilityType, String> {
         )),
     }
 }
-fn current_report_year() -> i16 {
-    Timestamp::now().to_zoned(TimeZone::UTC).year()
-}
-fn expand_report_bound(value: &str, year: i16, upper: bool) -> Result<String, String> {
-    match Day::parse(value) {
-        | Some(short) => short
-            .bounds(year)
-            .filter(|(start, _)| rules::date_only(&start.to_string()).is_ok())
-            .map(|(start, end)| format!("{}T00:00:00Z", if upper { end } else { start }))
-            .ok_or_else(report_bound_error),
-        | None => parse_report_bound(value),
-    }
-}
-fn report_bound_error() -> String {
-    "expected a valid YYYY-MM-DD date, DDMMM or MMM in the current UTC year, or an RFC 3339 timestamp with an explicit UTC offset".to_string()
-}
 /// Parse a report bound, retaining short dates for resolution against one UTC year.
 pub(crate) fn parse_report_bound(value: &str) -> Result<String, String> {
     match Day::parse(value) {
@@ -273,17 +256,6 @@ pub(crate) fn parse_report_bound(value: &str) -> Result<String, String> {
             rules::parse_timestamp(&timestamp).map(|_| timestamp).map_err(|_| report_bound_error())
         }
     }
-}
-/// Resolve short report bounds using one UTC year and infer a full month when needed.
-pub(crate) fn resolve_report_bounds(from: Option<&str>, through: Option<&str>, year: i16) -> Result<(Option<String>, String), String> {
-    let through_input = match (through, from) {
-        | (None, Some(value)) if matches!(Day::parse(value), Some(Day::Month(_))) => Ok(value),
-        | (None, _) => Err("--through is required unless --from is a month abbreviation".to_string()),
-        | (Some(value), _) => Ok(value),
-    };
-    from.map(|value| expand_report_bound(value, year, false))
-        .transpose()
-        .and_then(|from| through_input.and_then(|value| expand_report_bound(value, year, true).map(|through| (from, through))))
 }
 /// Parse an SSH URI used to target a remote Docker daemon.
 pub(crate) fn parse_ssh_remote(value: &str) -> Result<Remote, String> {
@@ -320,6 +292,20 @@ pub(crate) fn parse_watch_duration(value: &str) -> Result<SignedDuration, String
             .then_some(duration)
             .ok_or_else(|| "duration must be greater than zero".to_string())
     })
+}
+fn report_bound_error() -> String {
+    "expected a valid YYYY-MM-DD date, DDMMM or MMM in the current UTC year, or an RFC 3339 timestamp with an explicit UTC offset".to_string()
+}
+/// Resolve short report bounds using one UTC year and infer a full month when needed.
+pub(crate) fn resolve_report_bounds(from: Option<&str>, through: Option<&str>, year: i16) -> Result<(Option<String>, String), String> {
+    let through_input = match (through, from) {
+        | (None, Some(value)) if matches!(Day::parse(value), Some(Day::Month(_))) => Ok(value),
+        | (None, _) => Err("--through is required unless --from is a month abbreviation".to_string()),
+        | (Some(value), _) => Ok(value),
+    };
+    from.map(|value| expand_report_bound(value, year, false))
+        .transpose()
+        .and_then(|from| through_input.and_then(|value| expand_report_bound(value, year, true).map(|through| (from, through))))
 }
 fn unknown_standard(path: &Path, index: Option<usize>, line: Option<usize>) -> eyre::Report {
     let location = match (index, line) {

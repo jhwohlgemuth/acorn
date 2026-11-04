@@ -100,12 +100,12 @@ async fn test_direct_directory_filters_match_native_selection() {
     let root = tempfile::tempdir().expect("temporary input directory");
     std::fs::write(
         root.path().join("bad.json"),
-        include_str!("../../../tests/fixtures/data/invalid_project_a/index.json"),
+        include_str!("../../../../tests/fixtures/data/invalid_project_a/index.json"),
     )
     .expect("invalid metadata");
     std::fs::write(
         root.path().join("good.json"),
-        include_str!("../../../tests/fixtures/data/valid_project/index.json"),
+        include_str!("../../../../tests/fixtures/data/valid_project/index.json"),
     )
     .expect("valid metadata");
     let native = AnalysisInput {
@@ -384,7 +384,7 @@ async fn test_direct_git_branch_findings_match_native_selection() {
     git(&["checkout", "-b", "feature"]);
     std::fs::write(
         root.path().join("metadata.json"),
-        include_str!("../../../tests/fixtures/data/invalid_project_a/index.json"),
+        include_str!("../../../../tests/fixtures/data/invalid_project_a/index.json"),
     )
     .expect("metadata file");
     git(&["add", "metadata.json"]);
@@ -452,7 +452,7 @@ fn test_direct_merge_request_findings_match_native_selection() {
     let root = tempfile::tempdir().expect("temporary merge request root");
     std::fs::write(
         root.path().join("metadata.json"),
-        include_str!("../../../tests/fixtures/data/invalid_project_a/index.json"),
+        include_str!("../../../../tests/fixtures/data/invalid_project_a/index.json"),
     )
     .expect("metadata file");
     let listener = SyncTcpListener::bind("127.0.0.1:0").expect("loopback GitLab API");
@@ -621,7 +621,7 @@ fn test_direct_oci_findings_match_native_analysis_without_layer_pull() {
 #[tokio::test]
 async fn test_direct_piped_json_findings_match_native_text_input() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let content = include_str!("../../../tests/fixtures/data/invalid_project_a/index.json");
+    let content = include_str!("../../../../tests/fixtures/data/invalid_project_a/index.json");
     let native = AnalysisInput {
         input: InputReference::Text(content.to_string()),
         standard: None,
@@ -686,7 +686,7 @@ async fn test_direct_remote_findings_match_native_analysis() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let listener = TcpListener::bind("127.0.0.1:0").await.expect("loopback listener");
     let address = listener.local_addr().expect("loopback address");
-    let content = include_str!("../../../tests/fixtures/CITATION.cff");
+    let content = include_str!("../../../../tests/fixtures/CITATION.cff");
     let response = format!(
         "HTTP/1.1 200 OK\r\nContent-Type: text/yaml\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{content}",
         content.len()

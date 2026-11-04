@@ -5,8 +5,11 @@ use acorn_host::fs::file_checksum;
 use acorn_schema::research_activity::{Logbook, LogbookEntry};
 use clap_verbosity_flag::Verbosity;
 use std::env::temp_dir;
+use std::fs::write;
 use std::process::Command;
 
+mod powerpoint;
+mod registry;
 fn arguments(projects: Vec<String>) -> Report {
     let directory = temp_dir().join(format!("acorn-report-command-{}", nanoid::nanoid!()));
     create_dir_all(&directory).expect("report test directory");
@@ -38,7 +41,6 @@ fn arguments(projects: Vec<String>) -> Report {
         verbose: Verbosity::default(),
     }
 }
-
 fn report_fixture_arguments() -> Report {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/report");
     let mut arguments = arguments(Vec::new());
@@ -47,6 +49,54 @@ fn report_fixture_arguments() -> Report {
     arguments.root = root;
     arguments.through = Some("2026-11-01T00:00:00Z".to_string());
     arguments
+}
+#[tokio::test]
+async fn test_both_formats_keep_pdf_mode_and_local_project_deck_when_chrome_is_configured() {
+    if let Some(chrome_path) = std::env::var_os("ACORN_TEST_CHROME_PATH").map(PathBuf::from) {
+        let directory = tempfile::tempdir().expect("report output");
+        for combine in [false, true] {
+            let mut arguments = report_fixture_arguments();
+            arguments.chrome_path = Some(chrome_path.clone());
+            arguments.combine = combine;
+            arguments.formats = vec![ReportFormat::Pdf, ReportFormat::Powerpoint];
+            arguments.from = Some("2026-10-28T00:00:00Z".to_string());
+            arguments.output = directory.path().join(if combine { "combined" } else { "separate" });
+            arguments.projects = vec!["watershed-sensing".to_string()];
+            arguments.reference = Some(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/export/reference.pptx"));
+            run(&arguments, true).await.expect("both report formats");
+            let project_output = arguments.output.join("watershed-sensing/20261101T000000Z-0123456789ab");
+            assert!(project_output.join("report.pptx").exists());
+            if combine {
+                assert!(arguments.output.join("report.pdf").exists());
+                assert!(!project_output.join("manifest.json").exists());
+            } else {
+                assert!(project_output.join("report.pdf").exists());
+                assert!(project_output.join("manifest.json").exists());
+            }
+        }
+    }
+}
+#[tokio::test]
+async fn test_combined_powerpoint_selection_keeps_separate_project_decks() {
+    let directory = tempfile::tempdir().expect("report output");
+    let mut arguments = report_fixture_arguments();
+    arguments.combine = true;
+    arguments.dry_run = false;
+    arguments.formats = vec![ReportFormat::Powerpoint];
+    arguments.from = Some("2026-10-02T00:00:00Z".to_string());
+    arguments.job_id = None;
+    arguments.output = directory.path().join("reports");
+    arguments.pipeline_id = None;
+    arguments.projects = vec!["grid-resilience".to_string(), "watershed-sensing".to_string()];
+    arguments.reference = Some(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/export/reference.pptx"));
+    arguments.through = Some("2026-10-04T00:00:00Z".to_string());
+    run(&arguments, true).await.expect("separate local decks");
+    for project in &arguments.projects {
+        let output = arguments.output.join(project).join("20261004T000000Z-0123456789ab");
+        assert!(output.join("report.pptx").exists(), "deck for {project}");
+        assert!(!output.join("manifest.json").exists(), "no publication for {project}");
+    }
+    assert!(!arguments.output.join("report.pdf").exists());
 }
 #[tokio::test]
 async fn test_general_only_combined_selection_and_window() {
@@ -100,75 +150,24 @@ async fn test_general_only_combined_selection_and_window() {
     arguments.from = Some("2026-10-06T00:00:00Z".to_string());
     assert!(arguments.global_updates(&selected).expect("filtered title updates").entries.is_empty());
 }
-
-#[tokio::test]
-async fn test_both_formats_keep_pdf_mode_and_local_project_deck_when_chrome_is_configured() {
-    let Some(chrome_path) = std::env::var_os("ACORN_TEST_CHROME_PATH").map(PathBuf::from) else {
-        return;
-    };
-    let directory = tempfile::tempdir().expect("report output");
-    for combine in [false, true] {
-        let mut arguments = report_fixture_arguments();
-        arguments.chrome_path = Some(chrome_path.clone());
-        arguments.combine = combine;
-        arguments.formats = vec![ReportFormat::Pdf, ReportFormat::Powerpoint];
-        arguments.from = Some("2026-10-28T00:00:00Z".to_string());
-        arguments.output = directory.path().join(if combine { "combined" } else { "separate" });
-        arguments.projects = vec!["watershed-sensing".to_string()];
-        arguments.reference = Some(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/export/reference.pptx"));
-        run(&arguments, true).await.expect("both report formats");
-        let project_output = arguments.output.join("watershed-sensing/20261101T000000Z-0123456789ab");
-        assert!(project_output.join("report.pptx").exists());
-        if combine {
-            assert!(arguments.output.join("report.pdf").exists());
-            assert!(!project_output.join("manifest.json").exists());
-        } else {
-            assert!(project_output.join("report.pdf").exists());
-            assert!(project_output.join("manifest.json").exists());
-        }
-    }
-}
-#[tokio::test]
-async fn test_combined_powerpoint_selection_keeps_separate_project_decks() {
-    let directory = tempfile::tempdir().expect("report output");
-    let mut arguments = report_fixture_arguments();
-    arguments.combine = true;
-    arguments.dry_run = false;
-    arguments.formats = vec![ReportFormat::Powerpoint];
-    arguments.from = Some("2026-10-02T00:00:00Z".to_string());
-    arguments.job_id = None;
-    arguments.output = directory.path().join("reports");
-    arguments.pipeline_id = None;
-    arguments.projects = vec!["grid-resilience".to_string(), "watershed-sensing".to_string()];
-    arguments.reference = Some(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/export/reference.pptx"));
-    arguments.through = Some("2026-10-04T00:00:00Z".to_string());
-    run(&arguments, true).await.expect("separate local decks");
-    for project in &arguments.projects {
-        let output = arguments.output.join(project).join("20261004T000000Z-0123456789ab");
-        assert!(output.join("report.pptx").exists(), "deck for {project}");
-        assert!(!output.join("manifest.json").exists(), "no publication for {project}");
-    }
-    assert!(!arguments.output.join("report.pdf").exists());
-}
 #[tokio::test]
 async fn test_general_title_page_writes_pdf_when_chrome_is_configured() {
-    let Some(chrome_path) = std::env::var_os("ACORN_TEST_CHROME_PATH").map(std::path::PathBuf::from) else {
-        return;
-    };
-    let directory = tempfile::tempdir().expect("scratch directory");
-    let mut arguments = report_fixture_arguments();
-    arguments.chrome_path = Some(chrome_path);
-    arguments.output = directory.path().join("reports");
-    let (_, _, _, selected) = prepare(&arguments, true).expect("report fixture configuration");
-    arguments.write_title_page(&selected, true).await.expect("title page");
-    let pdf = arguments.output.join("title-page.pdf");
-    assert!(read(&pdf).expect("title PDF").starts_with(b"%PDF"));
-    let extracted = Command::new("pdftotext").arg(&pdf).arg("-").output().expect("extract title text");
-    assert!(extracted.status.success());
-    let text = String::from_utf8_lossy(&extracted.stdout);
-    assert!(text.contains("Project Activity Highlights"));
-    assert!(text.contains("General updates"));
-    assert!(text.contains("Ordered replacement compute hardware"));
+    if let Some(chrome_path) = std::env::var_os("ACORN_TEST_CHROME_PATH").map(std::path::PathBuf::from) {
+        let directory = tempfile::tempdir().expect("scratch directory");
+        let mut arguments = report_fixture_arguments();
+        arguments.chrome_path = Some(chrome_path);
+        arguments.output = directory.path().join("reports");
+        let (_, _, _, selected) = prepare(&arguments, true).expect("report fixture configuration");
+        arguments.write_title_page(&selected, None, true).await.expect("title page");
+        let pdf = arguments.output.join("title-page.pdf");
+        assert!(read(&pdf).expect("title PDF").starts_with(b"%PDF"));
+        let extracted = Command::new("pdftotext").arg(&pdf).arg("-").output().expect("extract title text");
+        assert!(extracted.status.success());
+        let text = String::from_utf8_lossy(&extracted.stdout);
+        assert!(text.contains("Project Activity Highlights"));
+        assert!(text.contains("General updates"));
+        assert!(text.contains("Ordered replacement compute hardware"));
+    }
 }
 #[test]
 fn test_global_entries_are_selected_from_project_fixtures() {
@@ -265,9 +264,10 @@ async fn test_local_jsonl_apply_updates_report_source_and_renders_when_configure
         .with_path("acorn/index.json")
         .with_project_id("acorn");
     let queue = OperationQueue::from(root.join("report-operations.sqlite"));
-    let baseline = report_project(&arguments, &config, &options, &queue, &baseline_commit, true)
+    let baseline = report_project(&arguments, &config, &options, &queue, &baseline_commit, None, true)
         .await
-        .expect("baseline report");
+        .expect("baseline report")
+        .manifest;
     assert_eq!(baseline.status, ReportStatus::NoChanges);
     assert!(baseline.entry_identifiers.is_empty());
     let (local_configuration, local_config_path) = ApplicationConfiguration::load_local_intake(&local_config).expect("local intake configuration");
@@ -295,32 +295,32 @@ async fn test_local_jsonl_apply_updates_report_source_and_renders_when_configure
         prepare_project(&arguments, "1111111111111111", "acorn", "acorn/index.json", arguments.from.as_deref()).expect("updated report selection");
     assert_eq!(selected_updates.entries.len(), 1);
     assert_eq!(selected_updates.entries.first().expect("selected entry").identifier, entry_id);
-    let Some(_) = arguments.chrome_path.as_ref() else {
-        return;
-    };
-    arguments.commit = Some("1111111111111111".to_string());
-    let (_, _, updated_commit, _) = prepare(&arguments, true).expect("updated report configuration");
-    let manifest = report_project(&arguments, &config, &options, &queue, &updated_commit, true)
-        .await
-        .expect("updated report");
-    assert_eq!(manifest.status, ReportStatus::Published);
-    assert_eq!(manifest.entry_identifiers, vec![entry_id]);
-    assert_eq!(manifest.project_id, "acorn");
-    assert_eq!(manifest.source_commit, updated_commit);
-    let report_directory = arguments.output.join("acorn/20261101T000000Z-111111111111");
-    let pdf_path = report_directory.join("report.pdf");
-    let pdf = read(&pdf_path).expect("report PDF");
-    assert!(pdf.starts_with(b"%PDF"));
-    assert_eq!(
-        manifest.checksum.as_deref(),
-        Some(file_checksum(&pdf_path, None).expect("PDF checksum").checksum_value.as_str())
-    );
-    let stored: ReportManifest =
-        serde_json::from_slice(&read(report_directory.join("manifest.json")).expect("stored manifest")).expect("parse stored manifest");
-    assert_eq!(stored, manifest);
-    let extracted = Command::new("pdftotext").arg(&pdf_path).arg("-").output().expect("extract PDF text");
-    assert!(extracted.status.success());
-    assert!(String::from_utf8_lossy(&extracted.stdout).contains("Ran pilot calibration with \"quoted\" notes"));
+    if arguments.chrome_path.is_some() {
+        arguments.commit = Some("1111111111111111".to_string());
+        let (_, _, updated_commit, _) = prepare(&arguments, true).expect("updated report configuration");
+        let manifest = report_project(&arguments, &config, &options, &queue, &updated_commit, None, true)
+            .await
+            .expect("updated report")
+            .manifest;
+        assert_eq!(manifest.status, ReportStatus::Published);
+        assert_eq!(manifest.entry_identifiers, vec![entry_id]);
+        assert_eq!(manifest.project_id, "acorn");
+        assert_eq!(manifest.source_commit, updated_commit);
+        let report_directory = arguments.output.join("acorn/20261101T000000Z-111111111111");
+        let pdf_path = report_directory.join("report.pdf");
+        let pdf = read(&pdf_path).expect("report PDF");
+        assert!(pdf.starts_with(b"%PDF"));
+        assert_eq!(
+            manifest.checksum.as_deref(),
+            Some(file_checksum(&pdf_path, None).expect("PDF checksum").checksum_value.as_str())
+        );
+        let stored: ReportManifest =
+            serde_json::from_slice(&read(report_directory.join("manifest.json")).expect("stored manifest")).expect("parse stored manifest");
+        assert_eq!(stored, manifest);
+        let extracted = Command::new("pdftotext").arg(&pdf_path).arg("-").output().expect("extract PDF text");
+        assert!(extracted.status.success());
+        assert!(String::from_utf8_lossy(&extracted.stdout).contains("Ran pilot calibration with \"quoted\" notes"));
+    }
 }
 #[tokio::test]
 async fn test_powerpoint_selection_skips_empty_window() {
@@ -416,9 +416,10 @@ async fn test_report_project_no_change_writes_only_manifest() {
         .with_path("pilot/index.json")
         .with_project_id("pilot");
     let queue = OperationQueue::from(temp_dir().join(format!("acorn-report-no-change-{}.db", nanoid::nanoid!())));
-    let manifest = report_project(&arguments, &config, &options, &queue, &commit, true)
+    let manifest = report_project(&arguments, &config, &options, &queue, &commit, None, true)
         .await
-        .expect("no-change report");
+        .expect("no-change report")
+        .manifest;
     assert_eq!(manifest.status, ReportStatus::NoChanges);
     assert!(manifest.entry_identifiers.is_empty());
     assert_eq!(
@@ -464,9 +465,10 @@ async fn test_report_project_with_entries_writes_pdf_when_chrome_is_configured()
             .with_path("pilot/index.json")
             .with_project_id("pilot");
         let queue = OperationQueue::from(temp_dir().join(format!("acorn-report-pdf-{}.db", nanoid::nanoid!())));
-        let manifest = report_project(&arguments, &config, &options, &queue, &commit, true)
+        let manifest = report_project(&arguments, &config, &options, &queue, &commit, None, true)
             .await
-            .expect("published report");
+            .expect("published report")
+            .manifest;
         assert_eq!(manifest.status, ReportStatus::Published);
         let output = arguments.output.join("pilot/20261001T000000Z-0123456789ab/report.pdf");
         let pdf = read(output).expect("report PDF");
@@ -515,5 +517,3 @@ async fn test_report_selection_writes_local_powerpoint_without_publication() {
     assert!(!project_output.join("manifest.json").exists());
     assert!(!project_output.join("report.pdf").exists());
 }
-
-mod powerpoint;

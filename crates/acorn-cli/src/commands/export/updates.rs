@@ -8,16 +8,16 @@ use crate::cli::{
     arguments::{FileFormat, Target},
     resolve_paths,
 };
-use acorn::io::{zip_entries, ApiResult, InputOutput};
-use acorn_core::util::MarkdownSupport;
-use acorn_host::fs::SafePath;
-use acorn_schema::research_activity::{LogbookUpdates, ResearchActivity};
+use acorn::io::{export::updates, ApiResult};
+use acorn_core::util::MimeType;
+use acorn_host::terminal::Label;
+use acorn_schema::research_activity::LogbookUpdates;
 use color_eyre::eyre::eyre;
-use quick_xml::escape::escape;
 use std::{
-    fs::{create_dir_all, write},
+    fs::create_dir_all,
     path::{Path, PathBuf},
 };
+use tracing::info;
 
 pub(crate) trait LogbookUpdatesExport {
     fn artifact_path(&self, output: &Path, extension: &str) -> ApiResult<PathBuf>;
@@ -27,28 +27,10 @@ pub(crate) trait LogbookUpdatesExport {
 }
 impl LogbookUpdatesExport for LogbookUpdates {
     fn artifact_path(&self, output: &Path, extension: &str) -> ApiResult<PathBuf> {
-        let since = self.since.replace(':', "-");
-        SafePath::new(format!("{}-updates-{since}.{extension}", self.identifier))
-            .map_err(Into::<color_eyre::Report>::into)
-            .and_then(|path| path.materialize_under(output).map_err(Into::into))
+        updates::updates_artifact_path(self, output, extension)
     }
     fn write_docx(&self, path: &Path) -> ApiResult<()> {
-        let paragraphs = self
-            .to_markdown()
-            .lines()
-            .map(|line| format!("<w:p><w:r><w:t xml:space=\"preserve\">{}</w:t></w:r></w:p>", escape(line)))
-            .collect::<String>();
-        let document = format!(
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:body>{paragraphs}<w:sectPr/></w:body></w:document>"
-        );
-        let content_types = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/></Types>";
-        let relationships = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/></Relationships>";
-        zip_entries(&[
-            ("[Content_Types].xml", content_types.as_bytes()),
-            ("_rels/.rels", relationships.as_bytes()),
-            ("word/document.xml", document.as_bytes()),
-        ])
-        .and_then(|bytes| write(path, bytes).map_err(|why| eyre!("Failed to write DOCX updates {} — {why}", path.display())))
+        updates::write_docx_updates(self, path)
     }
     #[cfg(feature = "pdf")]
     async fn write_pdf(&self, output_path: &Path, offline: bool, chrome_path: Option<&Path>, full_timestamp: bool) -> ApiResult<()> {
@@ -72,30 +54,47 @@ pub(super) async fn export(request: ExportRequest) -> ApiResult<()> {
         | (Target::Updates, Some(since), FileFormat::Docx | FileFormat::Markdown | FileFormat::Pdf) => {
             match resolve_paths(&request.path, &request.options).await {
                 | Ok(paths) => match request.output.clone() {
-                    | Some(output) => match create_dir_all(&output) {
-                        | Ok(()) => match request.format {
-                            | FileFormat::Docx => paths
-                                .into_iter()
-                                .map(|path| {
-                                    render(&path, since)
-                                        .and_then(|updates| updates.artifact_path(&output, "docx").and_then(|path| updates.write_docx(&path)))
-                                })
-                                .collect::<ApiResult<Vec<_>>>()
-                                .map(|_| ()),
-                            | FileFormat::Markdown => paths
-                                .into_iter()
-                                .map(|path| {
-                                    render(&path, since).and_then(|updates| {
-                                        updates.artifact_path(&output, "md").and_then(|path| {
-                                            write(path, updates.to_markdown()).map_err(|why| eyre!("Failed to write Markdown updates — {why}"))
-                                        })
+                    | Some(output) if request.dry_run => {
+                        let extension = MimeType::from(&request.format).file_type();
+                        paths
+                            .into_iter()
+                            .map(|path| {
+                                render(&path, since).and_then(|updates| {
+                                    updates.artifact_path(&output, &extension).map(|destination| {
+                                        info!("=> {} Would write updates artifact {}", Label::dry_run(), destination.display());
                                     })
                                 })
-                                .collect::<ApiResult<Vec<_>>>()
-                                .map(|_| ()),
-                            | FileFormat::Pdf => export_pdf(paths, &output, since, &request).await,
-                            | _ => Err(eyre!("Updates export supports only pdf, markdown, and docx formats")),
-                        },
+                            })
+                            .collect::<ApiResult<Vec<_>>>()
+                            .map(|_| ())
+                    }
+                    | Some(output) => match create_dir_all(&output) {
+                        | Ok(()) => {
+                            let extension = MimeType::from(&request.format).file_type();
+                            match request.format {
+                                | FileFormat::Docx => paths
+                                    .into_iter()
+                                    .map(|path| {
+                                        render(&path, since)
+                                            .and_then(|updates| updates.artifact_path(&output, &extension).and_then(|path| updates.write_docx(&path)))
+                                    })
+                                    .collect::<ApiResult<Vec<_>>>()
+                                    .map(|_| ()),
+                                | FileFormat::Markdown => paths
+                                    .into_iter()
+                                    .map(|path| {
+                                        render(&path, since).and_then(|updates| {
+                                            updates
+                                                .artifact_path(&output, &extension)
+                                                .and_then(|path| updates::write_markdown_updates(&updates, &path))
+                                        })
+                                    })
+                                    .collect::<ApiResult<Vec<_>>>()
+                                    .map(|_| ()),
+                                | FileFormat::Pdf => export_pdf(paths, &output, since, &request).await,
+                                | _ => Err(eyre!("Updates export supports only pdf, markdown, and docx formats")),
+                            }
+                        }
                         | Err(why) => Err(eyre!("Failed to create updates output directory {} — {why}", output.display())),
                     },
                     | None => Err(eyre!("Updates export requires an output directory")),
@@ -144,9 +143,7 @@ async fn export_pdf(_paths: Vec<PathBuf>, _output: &Path, _since: &str, _request
     Err(eyre!("PDF export requires the 'pdf' feature. Rebuild with --features pdf"))
 }
 fn render(path: &Path, since: &str) -> ApiResult<LogbookUpdates> {
-    ResearchActivity::read(path.to_path_buf())
-        .map_err(|why| eyre!("Read research activity data for updates — {why}"))
-        .and_then(|activity| activity.updates_since(since).map_err(|why| eyre!(why)))
+    updates::render_updates(path, since)
 }
 #[cfg(feature = "pdf")]
 async fn write_html_pdf(content: ApiResult<String>, output_path: &Path, offline: bool, chrome_path: Option<&Path>) -> ApiResult<()> {

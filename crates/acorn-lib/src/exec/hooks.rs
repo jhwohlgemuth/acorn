@@ -1,17 +1,22 @@
 //! Typed workflow-hook evaluation and audit records.
 use super::capability::{FileProposal, InvocationCapability};
 use super::config::Resolved;
-use super::manifest::ScriptAuthorization;
+use super::manifest::{ScriptAuthorization, ScriptManifest, ScriptManifestSource};
 use super::result::RhaiExt;
 use super::runtime::{RhaiRuntime, Runtime};
 use crate::analyzer::Check;
+use crate::io::config::application::Hook;
 use crate::io::workflow::WorkflowAction;
-use crate::io::{ApiResult, Bytes};
+use crate::io::{jsonc_parse_value, ApiResult, Bytes, FromPath};
 use acorn_core::prelude::{String, Vec};
+use acorn_core::util::MimeType;
+use acorn_host::fs::read_text;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use jiff::Timestamp;
 use serde::Serialize;
+use serde_json::Value;
+use std::path::Path;
 use tracing::debug;
 
 /// Secret-redacted provenance for one executable hook invocation.
@@ -65,6 +70,61 @@ pub struct HookOptions<'a> {
     /// Whether network access is disabled for this invocation.
     #[builder(default)]
     pub offline: bool,
+}
+impl HookExecution {
+    /// Evaluate one directly selected script under one validated manifest authorization.
+    pub fn check(script: &Path, manifest: &str, hook: Hook, input: &Path, offline: bool) -> ApiResult<Self> {
+        let source = Path::new(manifest);
+        let resolved_manifest = match source.is_file() {
+            | true => ScriptManifest::read(source).map(|manifest| (manifest, source.display().to_string())),
+            | false => ScriptManifestSource::Path(manifest.to_string())
+                .resolve(true)
+                .map(|resolved| (resolved.manifest, resolved.source)),
+        };
+        resolved_manifest.and_then(|(manifest, manifest_source)| Self::check_with_manifest(script, &manifest, &manifest_source, hook, input, offline))
+    }
+    /// Evaluate a directly selected script using an already validated manifest snapshot.
+    pub fn check_with_manifest(
+        script: &Path,
+        manifest: &ScriptManifest,
+        manifest_source: &str,
+        hook: Hook,
+        input: &Path,
+        offline: bool,
+    ) -> ApiResult<Self> {
+        Resolved::direct(script).and_then(|mut resolved| {
+            let action = WorkflowAction::from(hook);
+            let authorizations = manifest
+                .scripts
+                .iter()
+                .filter(|authorization| authorization.digest == resolved.digest && authorization.hooks.iter().any(|candidate| candidate == &action))
+                .collect::<Vec<_>>();
+            match authorizations.as_slice() {
+                | [authorization] => {
+                    resolved.entry.id = Some(authorization.id.clone());
+                    read_text(input)
+                        .map_err(|why| eyre!("Failed to read input `{}` — {why}", input.display()))
+                        .and_then(|content| parse_hook_input(input, &content))
+                        .and_then(|document| {
+                            resolved.evaluate_hook(
+                                &input.display().to_string(),
+                                &document,
+                                HookOptions::init()
+                                    .maybe_authorization(Some(authorization))
+                                    .hook(action)
+                                    .maybe_manifest_source(Some(manifest_source))
+                                    .offline(offline)
+                                    .build(),
+                            )
+                        })
+                }
+                | [] => Err(eyre!("manifest has no authorization matching the script digest and `{action}` hook")),
+                | _ => Err(eyre!(
+                    "manifest has multiple authorizations matching the script digest and `{action}` hook"
+                )),
+            }
+        })
+    }
 }
 impl Resolved {
     /// Evaluate one typed workflow hook with an optional manifest capability broker.
@@ -154,4 +214,14 @@ fn hook_context<T: Serialize>(source: &str, data: &T, document_index: usize, hoo
             context.insert("index".into(), rhai::Dynamic::from(i64::try_from(document_index).unwrap_or(i64::MAX)));
             context
         })
+}
+/// Parse one executable-hook input according to the direct command's file-format policy.
+pub fn parse_hook_input(path: &Path, content: &str) -> ApiResult<Value> {
+    match MimeType::from_path(path) {
+        | MimeType::Json | MimeType::Jsonc => jsonc_parse_value(content),
+        | MimeType::Cff | MimeType::Yaml => {
+            serde_norway::from_str(content).map_err(|why| eyre!("Failed to parse hook input `{}` — {why}", path.display()))
+        }
+        | _ => Ok(Value::String(content.to_string())),
+    }
 }

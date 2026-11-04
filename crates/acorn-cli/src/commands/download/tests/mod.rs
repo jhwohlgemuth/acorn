@@ -9,6 +9,7 @@
     clippy::arithmetic_side_effects
 )]
 extern crate alloc;
+mod registry;
 use crate::{
     cli::arguments::{ArchiveType, Download, DownloadModel, Import, ModelResolutionArgs, ModelSourceArgs, ModelSyncArgs, OutputFormat, SyncTarget},
     test::{

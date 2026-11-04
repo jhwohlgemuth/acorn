@@ -1,16 +1,29 @@
 use crate::cli::Void;
-use acorn::io::{
-    api::{openapi::import_resources_from_openapi, Authentication, Endpoint, Secret},
-    write_file, Source,
-};
-use acorn_core::OneOrMany;
+use acorn::io::{api::Endpoint, write_file, Source};
 use acorn_host::terminal::Label;
-use acorn_schema::agent::AuthenticationScheme;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Result};
 use owo_colors::OwoColorize;
 use std::path::PathBuf;
 
+// TODO: Need to add ability to get certain attributes from associated spec when not passed explicitly
+pub(super) fn endpoint_from_import(
+    name: &Option<String>,
+    domain: &Option<String>,
+    root: &Option<String>,
+    auth_token: &Option<String>,
+    spec: &str,
+) -> Result<Endpoint> {
+    required_value(name, "name").and_then(|name| {
+        required_value(domain, "domain").and_then(|domain| Endpoint::from_openapi(spec, name, domain, root.as_deref(), auth_token.as_deref()))
+    })
+}
+fn required_value<'a>(value: &'a Option<String>, name: &str) -> Result<&'a str> {
+    value
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| eyre!("Missing required spec {name}"))
+}
 /// Import an API specification into an ACORN endpoint template object.
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
@@ -39,33 +52,4 @@ pub async fn run(
                 Ok(())
             }
         })
-}
-fn required_value<'a>(value: &'a Option<String>, name: &str) -> Result<&'a str> {
-    value
-        .as_deref()
-        .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| eyre!("Missing required spec {name}"))
-}
-// TODO: Need to add ability to get certain attributes from associated spec when not passed explicitly
-pub(super) fn endpoint_from_import(
-    name: &Option<String>,
-    domain: &Option<String>,
-    root: &Option<String>,
-    auth_token: &Option<String>,
-    spec: &str,
-) -> Result<Endpoint> {
-    let name = required_value(name, "name")?;
-    let domain = required_value(domain, "domain")?;
-    import_resources_from_openapi(spec).map(|resources| {
-        Endpoint::at("")
-            .name(name.to_string())
-            .maybe_root(root.clone())
-            .maybe_authentication(auth_token.as_ref().map(|token| Authentication {
-                token: Some(Secret::from(token.clone())),
-                scheme: AuthenticationScheme::Bearer,
-            }))
-            .resources(OneOrMany::Many(resources))
-            .build()
-            .with_domain(domain)
-    })
 }

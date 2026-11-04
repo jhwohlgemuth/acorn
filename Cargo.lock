@@ -224,6 +224,7 @@ dependencies = [
  "bat",
  "bon",
  "cap-std",
+ "chromiumoxide",
  "color-eyre",
  "comfy-table",
  "console 0.16.3",

@@ -9,6 +9,8 @@ fn test_artifact_policy_requires_write_authority_and_rejects_collisions() {
     fs::write(&existing, "original").expect("existing");
     let denied = ArtifactPolicy::new(root.path(), false, false).expect("denied policy");
     assert!(denied.destination(Path::new("new.json"), &[]).is_err());
+    assert!(denied.prepare_destination(Path::new("nested/new.json"), &[]).is_err());
+    assert!(!root.path().join("nested").exists());
     let allowed = ArtifactPolicy::new(root.path(), true, false).expect("allowed policy");
     assert!(allowed.destination(Path::new("../outside.json"), &[]).is_err());
     assert!(allowed.destination(Path::new("existing.json"), &[]).is_err());
@@ -63,6 +65,10 @@ fn test_symlinks_cannot_escape_input_or_output_roots() {
     let output = ArtifactPolicy::new(root.path(), true, false).expect("artifact policy");
     assert!(output.destination(Path::new("escape/created.json"), &[]).is_err());
     assert!(!outside.path().join("created.json").exists());
+    symlink(outside.path().join("missing.json"), root.path().join("dangling.json")).expect("dangling artifact symlink");
+    let overwrite = ArtifactPolicy::new(root.path(), true, true).expect("overwrite policy");
+    assert!(overwrite.destination(Path::new("dangling.json"), &[]).is_err());
+    assert!(!outside.path().join("missing.json").exists());
 }
 #[test]
 fn test_text_and_file_inputs_are_bounded_and_contained() {

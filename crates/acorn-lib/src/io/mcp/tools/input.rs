@@ -6,7 +6,8 @@ use acorn_schema::hardware::Memory;
 use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::fs;
+use std::fs::{self, create_dir_all, symlink_metadata};
+use std::io::ErrorKind;
 use std::path::{Component, Path, PathBuf};
 
 /// Caller-supplied text or one local path form.
@@ -102,48 +103,58 @@ impl ArtifactPolicy {
         match (self.allow_write, SafePath::new(relative)) {
             | (false, _) => Err(eyre!("Artifact write policy is not enabled")),
             | (true, Err(_)) => Err(eyre!("Artifact destination contains traversal or unsupported components")),
-            | (true, Ok(relative)) => {
-                let destination = self.root.join(relative.as_path());
+            | (true, Ok(relative)) => self.checked_destination(&relative, sources),
+        }
+    }
+    /// Create a validated destination's parent and revalidate the path before writing.
+    pub fn prepare_destination(&self, relative: &Path, sources: &[PathBuf]) -> ApiResult<PathBuf> {
+        match (self.allow_write, SafePath::new(relative)) {
+            | (false, _) => Err(eyre!("Artifact write policy is not enabled")),
+            | (true, Err(_)) => Err(eyre!("Artifact destination contains traversal or unsupported components")),
+            | (true, Ok(relative)) => self.checked_destination(&relative, sources).and_then(|destination| {
                 destination
                     .parent()
                     .ok_or_else(|| eyre!("Artifact destination has no parent"))
-                    .and_then(|parent| {
-                        core::iter::successors(Some(parent), |ancestor| ancestor.parent())
-                            .find(|ancestor| ancestor.exists())
-                            .ok_or_else(|| eyre!("Artifact destination has no existing ancestor"))
-                    })
-                    .and_then(|ancestor| {
-                        ancestor
-                            .canonicalize()
-                            .map_err(|why| eyre!("Cannot resolve artifact destination parent — {why}"))
-                    })
-                    .and_then(|canonical_ancestor| {
-                        if !canonical_ancestor.starts_with(&self.root) {
-                            Err(eyre!("Artifact destination escapes the permitted root"))
-                        } else if destination.exists() {
-                            destination
-                                .canonicalize()
-                                .map_err(|why| eyre!("Cannot resolve artifact destination — {why}"))
-                                .and_then(|canonical| {
-                                    if canonical.starts_with(&self.root) && self.allow_overwrite {
-                                        Ok(())
-                                    } else {
-                                        Err(eyre!("Artifact destination collides with an existing path"))
-                                    }
-                                })
-                        } else {
-                            Ok(())
-                        }
-                    })
-                    .and_then(|()| {
-                        if sources.iter().any(|source| source == &destination) && !self.allow_overwrite {
-                            Err(eyre!("Artifact destination collides with an input"))
-                        } else {
-                            Ok(destination)
-                        }
-                    })
-            }
+                    .and_then(|parent| create_dir_all(parent).map_err(|why| eyre!("Create artifact destination parent — {why}")))
+                    .and_then(|()| self.checked_destination(&relative, sources))
+            }),
         }
+    }
+    fn checked_destination(&self, relative: &SafePath, sources: &[PathBuf]) -> ApiResult<PathBuf> {
+        relative
+            .materialize_under(&self.root)
+            .map_err(|why| eyre!("Artifact destination is unsafe — {why}"))
+            .and_then(|destination| {
+                let existing = symlink_metadata(&destination).map(|_| true).or_else(|why| match why.kind() {
+                    | ErrorKind::NotFound => Ok(false),
+                    | _ => Err(eyre!("Cannot inspect artifact destination — {why}")),
+                })?;
+                match existing {
+                    | true => destination
+                        .canonicalize()
+                        .map_err(|why| eyre!("Cannot resolve artifact destination — {why}"))
+                        .and_then(|canonical| match canonical.starts_with(&self.root) && self.allow_overwrite {
+                            | true => Ok(()),
+                            | false => Err(eyre!("Artifact destination collides with an existing path")),
+                        }),
+                    | false => Ok(()),
+                }
+                .and_then(|()| {
+                    sources
+                        .iter()
+                        .try_for_each(|source| match source == &destination {
+                            | true => Err(eyre!("Artifact destination collides with an input")),
+                            | false if existing => same_file::is_same_file(source, &destination)
+                                .map_err(|why| eyre!("Compare artifact and input identities — {why}"))
+                                .and_then(|same| match same {
+                                    | true => Err(eyre!("Artifact destination aliases an input")),
+                                    | false => Ok(()),
+                                }),
+                            | false => Ok(()),
+                        })
+                        .map(|()| destination)
+                })
+            })
     }
 }
 impl Default for InputLimits {
@@ -242,7 +253,7 @@ impl RoutedInputPolicy {
             | InputReference::Oci(_) => Err(eyre!("This input reference requires a dedicated native source adapter")),
         }
     }
-    fn resolve_path(&self, requested: &Path) -> ApiResult<PathBuf> {
+    pub(super) fn resolve_path(&self, requested: &Path) -> ApiResult<PathBuf> {
         if requested.components().any(|component| matches!(component, Component::ParentDir)) {
             Err(eyre!("Input path contains traversal"))
         } else {
@@ -287,7 +298,7 @@ impl RoutedInputPolicy {
                 }
                 entries.sort();
                 for path in entries {
-                    let metadata = match fs::symlink_metadata(&path) {
+                    let metadata = match symlink_metadata(&path) {
                         | Ok(metadata) => metadata,
                         | Err(_) => {
                             output.failures.push(InputFailure {

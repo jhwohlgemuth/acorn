@@ -26,7 +26,8 @@ use acorn_schema::standard::{crosswalk::CrosswalkStandard, Standard};
 use acorn_schema::validation::Validate;
 use alloc::sync::Arc;
 pub use capability::{
-    BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, CapabilityError, CapabilitySelectionContext, SelectedBinding,
+    BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, CapabilityError, CapabilitySelectionContext, ScopedCatalog,
+    SelectedBinding,
 };
 use color_eyre::eyre::{eyre, Report};
 use core::fmt;
@@ -39,8 +40,29 @@ pub use native::{
     AnalysisFixDifference, AnalysisFixInput, AnalysisFixOutput, AnalysisInput, AnalysisOutput, CrosswalkApplyInput, CrosswalkApplyOutput,
     CrosswalkFormat, CrosswalkPreviewInput, CrosswalkPreviewOutput, DiffOperand, DiffOperation, DiffOperationInput, DiffOperationOutput,
     FormatApplyInput, FormatApplyOutput, FormatChange, FormatNormalization, FormatPreviewInput, FormatPreviewOutput, FormatStandard, GatherDiscovery,
-    GatherInput, GatherOutput, GatherReportInput, GatherReportOutput,
+    GatherInput, GatherOutput, GatherReportInput, GatherReportOutput, LinkApplyInput, LinkApplyOutput, LinkPreviewInput, LinkPreviewOutput,
 };
+pub use native::{BucketDownloadInput, BucketDownloadOutput, ModelDownloadInput, ModelDownloadOutput};
+#[cfg(feature = "diagnostics")]
+pub use native::{DoctorFinding, DoctorInput, DoctorOutput};
+pub use native::{
+    ExportBagInput, ExportBagOutput, ExportBatchInput, ExportBatchOutput, ExportCrosswalkInput, ExportDocumentInput, ExportDocumentOutput,
+    ExportPreviewInput, ExportPreviewOutput, ExportRenderInput, ExportRenderOutput, ExportRenderServices, ExportSchemaInput, ExportSchemaOutput,
+    ExportUpdatesPreviewInput,
+};
+pub use native::{ModelImportApplyInput, ModelImportApplyOutput, ModelImportInput, ModelImportPreviewOutput};
+#[cfg(feature = "needle")]
+pub use native::{NeedleAcquireInput, NeedleAcquireOutput, NeedleStatusInput, NeedleStatusOutput};
+pub use native::{PreparedProjectReport, ReportInput, ReportManifestRequest, ReportOutput, ReportProjectRequest};
+#[cfg(feature = "exec")]
+pub use native::{
+    ScriptCheckInput, ScriptCheckOutput, ScriptFileProposal, ScriptFinding, ScriptHookInput, ScriptHookOutput, ScriptManifestInput,
+    ScriptManifestOutput, ScriptSafeDiagnostic, ScriptSafeInput, ScriptSafeOutput,
+};
+pub use native::{SpecImportApplyInput, SpecImportApplyOutput, SpecImportInput, SpecImportPreviewOutput};
+#[cfg(feature = "swhid-compute")]
+pub use native::{SwhidInput, SwhidOutput};
+pub use native::{SyncInput, SyncOutput, SyncTargetKind};
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};

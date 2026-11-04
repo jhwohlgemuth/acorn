@@ -19,7 +19,11 @@ use acorn::{
         ApiResult, Source, SourceAction,
     },
     util::{
-        constants::{app::DEFAULT_HUGGINGFACE_MODEL_REVISION, oci::OCI_PREFIX},
+        constants::{
+            app::{DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_MODEL_REVISION, DEFAULT_HUGGINGFACE_SEARCH_LIMIT},
+            env::HUGGINGFACE_ENDPOINT,
+            oci::OCI_PREFIX,
+        },
         StringConversion,
     },
 };
@@ -67,18 +71,23 @@ pub(crate) enum ModelDownloadError {
     OfflineRemoteModels(String),
     NoModelsFound,
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Builder, Clone, Copy, Debug)]
+#[builder(start_fn = init)]
 pub(crate) struct DownloadOptions {
+    #[builder(default)]
     pub(crate) offline: bool,
+    #[builder(default = DEFAULT_HUGGINGFACE_SEARCH_LIMIT)]
     pub(crate) limit: usize,
+    #[builder(default = DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT)]
     pub(crate) minimum_download_count: u64,
+    #[builder(default)]
     pub(crate) interactive: bool,
 }
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init)]
 pub(crate) struct ModelDownloadPlan {
     pub(crate) selector: Source,
-    #[builder(default = first_env_var(&["HF_ENDPOINT"]).unwrap_or_else(|| DEFAULT_HUGGINGFACE_DOMAIN.to_string()))]
+    #[builder(default = first_env_var(&[HUGGINGFACE_ENDPOINT]).unwrap_or_else(|| DEFAULT_HUGGINGFACE_DOMAIN.to_string()))]
     pub(crate) domain: String,
     #[builder(default = String::from(DEFAULT_HUGGINGFACE_MODEL_REVISION))]
     pub(crate) revision: String,

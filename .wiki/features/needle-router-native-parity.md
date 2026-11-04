@@ -38,20 +38,43 @@ Local evidence checked through 2026-11-02:
 - `io/mcp/client.rs` exposes `McpClientBackend`, configured discovery/calls, allowlists, context, cancellation, and bounded cleanup. A protocol-successful result can still contain `is_error`.
 - `agent/mod.rs` supplies `InferenceBackend`, typed requests/results, capabilities, provenance, and `InferencePermissionPolicy::DenyMutation`; ACP and OpenAI-compatible implementations exist. ACP mutation remains unsupported in this plan.
 - Analysis has reusable services in `analyzer/host/service/mod.rs`. Other CLI leaves sometimes combine parsing, operation, and presentation; extract only the operation seam required for parity, coordinating with the CLI composition plan.
-- The PAR-00 [inventory](../../tests/fixtures/routing/parity.json) freezes 72 CLI behavior rows: 46 bounded and 26 explicit exclusions. The [capability parity guide](../../docs/src/inference/capability-parity.md) records the current 20/46 bounded and 20/72 total evidence and extraction seams.
+- The PAR-00 [inventory](../../tests/fixtures/routing/parity.json) freezes 72 CLI behavior rows: 46 bounded and 26 explicit exclusions. The [capability parity guide](../../docs/src/inference/capability-parity.md) records the current 46/46 bounded and 46/72 total evidence and extraction seams, including the versioned export baseline corrections.
 - Needle now accepts a caller-owned `ToolRegistry`, filters its catalog by offline and exposure policy, and keeps the default startup path. Focused `needle` tests cover injected handlers, MCP isolation, compact deterministic catalogs, and exact custom catalog validation.
 - The routing corpus now has 50 labeled nonexecution cases across forbidden, negated, ungrounded, missing-input, and ambiguous requests. Each class has five calibration and five held-out prompts, all linked to inventory rows with zero expected effects.
 - The corpus also has 50 grounded read-only cases covering check, diff, gather, doctor, SWHID, and bounded script checks. Expected capability IDs and existing fixture paths are recorded with an even calibration/held-out split.
 - The corpus now includes 50 effect and artifact cases across format, link, export, import, download, sync, report, and script checks. Each captures preview or exact caller apply policy, expected effects, and artifact references; denied apply requests expect no execution. PAR-21 completes selection boundaries before the freeze.
 - The corpus has 200 unique prompts with 100 calibration and 100 held-out labels. The final 50 cover explicit binding, availability, offline policy, equivalent binding, and remaining mandatory input forms; every bounded inventory row is referenced. PAR-17 audited the split, safety nonexecution, references, input paths, and expected authority, then recorded file hashes in the parity guide. The corpus is frozen before router scoring.
+- Corpus revision 3 corrects generic capability, caller-policy, and native binding IDs to registered IDs before real Needle scoring. Prompts, case IDs, splits, and effect expectations remain fixed; the 200 cases retain a 100/100 split. Its SHA-256 is `d87c85d47df150fdb3aeaf18a90e5f8a403778eeac5d6f0ba62883cdb8045596`.
 - `ToolRegistry` now owns versioned capability definitions and typed executor bindings. It rejects duplicate IDs and schema/effect/version mismatches, records availability reasons, resolves explicit/preferred/native/local/remote bindings deterministically, and serializes only eligible capabilities under the 32-KiB catalog cap. Five focused library tests pass with the `needle` feature.
 - Routed execution now rechecks a selected binding, grounding, schema, offline policy, exact operation/argument/destination authority, limits, deadline, and cancellation before one handler call. It returns typed outcomes, bounded artifact references, and credential-free provenance; cancellation drops the handler future and marks effects as possibly started. Needle has a separate one-completion terminal route while its legacy inference loop remains available. Six focused executor tests and the terminal Needle response test pass.
 - `ask`/`infer --route` now compose a caller-owned registry with a first native version capability. Exact JSON input, capability scope, binding override, route preview, and destination-bound apply flags are frozen. The default one-shot path and `infer run` remain available while native leaves are added. Focused route and inference regression tests, catalog checks, and regenerated command help pass.
-- Shared native input policy now resolves bounded text, file, and directory references under a canonical root, rejects traversal and escaping symlinks, sorts batches, and reports per-entry failures. Artifact policy validates exact destinations, collision and overwrite authority without writing. Four focused input tests pass; `native.rs` is the leaf module root for subsequent operations.
+- Shared native input policy now resolves bounded text, file, and directory references under a canonical root, rejects traversal and escaping symlinks, sorts batches, and reports per-entry failures. Artifact policy validates exact destinations, collision and overwrite authority without writing. Four focused input tests pass; `native/mod.rs` is the leaf module root for subsequent operations.
 - The `acorn.check` v1 native binding calls `analyze_paths` and returns standard-specific category statuses and structured findings. It accepts bounded local, HTTP(S), Git branch/commit, GitLab merge-request, and OCI selections; filters and offline policy are checked. The configured `acorn.check_fixes` binding uses the shared `AnalysisReport::suggest_fixes` service and produces nonexecuting unified previews. Eleven focused library tests and eight direct CLI equivalence tests pass, including a positive configured fix proposal and preview with an unchanged source file. The eight PAR-02 inventory rows have passing evidence.
 - The `acorn.diff` v1 native binding shares semantic diff and similarity operations with the direct CLI. Three focused library tests and four direct CLI equivalence tests pass across unified output, JSON Patch, file similarity, and literal similarity. The four PAR-03 inventory rows have passing evidence.
 - Bounded native gather routes now extract the same discovery records as the direct command from text, files, directories, and permitted HTTP(S) documents. Separate local/remote read and authorized report-write routes preserve source provenance; report artifacts use the CLI JSON serializer. Focused library and direct CLI tests cover duplicate PIDs, bounds, offline rejection, remote selection, report shape, and exact write authority. The four PAR-04 inventory rows have passing evidence.
 - Native format preview/apply and crosswalk preview/apply routes use the shared input and artifact policies. The CLI and native plain format path share one normalization function, and ACRE shares one syntax-preserving formatter; enrichment uses the existing provider pipeline. Focused tests cover six supported standards, provider/offline policy, loss warnings, preview/no-write behavior, authorized writes, and direct CLI equivalence. Catalog projection retains canonical execution schemas while omitting redundant schema prose from Needle input; the default catalog stays below 32 KiB. The four PAR-05 inventory rows have passing evidence.
+- Native linked-data preview and exact companion-artifact apply reuse the `ResearchActivity` projection already called by the direct link workflow. Focused library tests cover bounded input, invalid schema, denied/default writes, exact authorization, and unchanged source content; direct CLI equivalence covers dry run and output bytes. The `link.transform` row now has passing evidence without bypassing configured link hooks.
+- Native SWHID calculation and verification use the direct command's `io::swhid` operation with bounded local paths. Focused tests cover local file/directory identifiers, expected identifier matching and mismatch, and traversal rejection; direct CLI equivalence covers content, directory, revision, and successful verification. The four PAR-07 inventory rows have passing evidence.
+- Native bucket download uses the direct command's shared source resolution and transfer operation. Focused tests cover exact mutation authority, verified local BagIt transfer, offline configured remote denial, path containment, and byte-identical direct CLI output; `download.bucket` has passing evidence.
+- Native model preview and explicit acquisition use the direct command's model selector planner and transfer operation. Focused tests compare local copy and mocked HTTP bytes with the direct CLI, reject offline remote selection, and prove no-write preview, exact output authority, cancellation, overwrite policy, and containment. The `download.model` and `download.preview` rows have passing evidence.
+- Feature-gated native static script and hook-manifest checks reuse `Resolved::direct` and `ScriptManifest::read`. Focused library and direct CLI tests cover valid and invalid script sources, exact JSON status, manifest summary, local path containment, read-only effects, and zero artifacts. `exec.check_safe` and `exec.manifest` have passing evidence; evaluated checks remain separate.
+- The feature-gated `acorn.exec_check` and `acorn.exec_hook_check` routes reuse shared restricted evaluators with bounded local script and input files. Focused tests compare direct command findings and failure counts, confirm unchanged inputs, require digest authorization, reject offline network capabilities, and return zero applied artifacts. Both rows have passing evidence.
+- The read-only `acorn.doctor` native binding uses `Records::diagnose_host` and returns the same structured JSON array as `doctor --report`. Focused library and direct CLI tests cover category selection, report fields, unknown categories, rejected repair input, and zero artifacts. The `doctor.report` row has passing evidence; automatic repair remains excluded.
+- Schema export now uses one `io::export::schema_text` operation from the direct CLI and the read-only native binding. Focused tests cover every modeled standard in JSON and YAML, unsupported formats, exact CLI output, and no artifact. The `export.schema` row has passing evidence after correcting its baseline to stdout text; the original and revised inventory/corpus hashes remain in the parity guide.
+- PAR-09 has a bounded, exact-authority JSONL batch binding over `ResearchActivity::batch_read`, `Batch::batch_write`, and the shared `StandardCrosswalk` conversion. Library tests prove denied/default writes and source preservation; direct CLI tests prove byte-identical plain and selected crosswalk JSONL output. The `export.batch` row has passing evidence.
+- The BagIt binding delegates to the existing `Bag::save_as` and verification service. A focused test proves default write denial, source preservation, staging outside the source, and ZIP/TAR/TAR.GZ/7z outputs; a direct CLI test proves byte-identical ZIP archives. The `export.bag` row has passing evidence.
+- PAR-25 closes `export.preview` and `export.render` with read-only archive, document, graph, PowerPoint, and updates previews and exact-authority render/crosswalk bindings. Focused tests compare direct CLI text and graph bytes, PowerPoint parts, valid PDFs, denied writes, and unchanged source files. Direct PowerPoint and updates `--dry-run` now leave no artifacts.
+- The unscoped native catalog is over Needle's 32-KiB input limit after export registrations. PAR-15 now selects a deterministic prompt shortlist under 22 KiB. Its first 200-case real Needle preview failed the selection gate: 163 tool failures, 0/75 accepted correct previews in each split, and 73/75 calibration versus 71/75 held-out shortlist retention under the initial online-built registry. The [evaluation](../../docs/src/inference/routing-evaluation.md) records the limitations and diagnostic replays. Complex tool schemas can exhaust Needle's call budget even with a single capability; a bounded repair precedes a valid rerun.
+- OpenAPI specification import now has read-only preview and exact-authority apply bindings over a shared endpoint projection. Focused tests cover local and mocked HTTP input, invalid specifications, offline rejection, bounded paths, denied writes, matching direct CLI JSON, and unchanged source files. The `import.spec` row has passing evidence.
+- Hugging Face metadata import now shares one GGUF resolver between the direct CLI and native preview/apply routes. A loopback fixture verifies matching metadata count and persisted database weights, offline denial, exact database authority, and no model-weight requests. The six import corpus prompts now use real endpoint and metadata semantics; corpus revision 3 retains 200 unique cases and a 100/100 split.
+- Configuration synchronization now exposes the shared target renderer as a structured preview and uses the same coordinated commit as the direct CLI. Focused tests compare OpenCode direct and native configuration text, preview Goose, llama-swap, and VS Code, require exact destination authority, and preserve model files. The two sync rows have passing evidence.
+- The legacy one-shot `ask` row has focused direct-command and shared Needle service equivalence on the pinned offline runner, including structured version results, missing prompt rejection, and no working-directory artifacts.
+- PDF rendering has a feature-gated shared Chromium session and HTML-to-PDF operation in `acorn-lib`; direct and native exports delegate to it. Focused tests render valid direct and native PDFs with the configured Chrome executable, verify source preservation, and reject an invalid executable.
+- PowerPoint reference-deck rendering now lives in `acorn-lib` with explicit source, output, chart, and fallback-image inputs. The direct command delegates to it; report slides reuse its staged OOXML helpers. A focused test compares direct and shared slide parts, verifies a two-input deck, and preserves the source. The existing 13 PowerPoint helper tests and the 10-test export registry suite pass.
+- Since-filtered updates projection, artifact naming, DOCX, and Markdown generation now live in `acorn-lib`; the direct command delegates to them. Focused direct/shared tests compare exact artifact bytes for both formats, cover a missing logbook and invalid timestamps, and preserve source bytes. The shared HTML/PDF seam consumes this projection.
+- Updates HTML page composition now lives in `acorn-lib` with explicit embedded assets supplied by the CLI adapter. Shared and CLI project, title, and legend HTML match; the direct command and shared Chromium renderer produce valid updates PDFs. The 12-test export registry suite, eight updates HTML tests, strict library Clippy, and no-default CLI check pass.
+- Pinned Needle cache status and explicit acquisition use the same verified asset resolver as `download needle`. Focused tests prove read-only offline status, exact cache destination authority, alternate destination rejection, and direct CLI runner equivalence. The local macOS ARM64 cache contains the pinned runner for eventual PAR-15 scoring.
+- Native report generation and publication use the direct command's shared project projection and manifest writer, Chromium PDF renderer, immutable GitLab package service, and callback queue. Focused tests compare direct/native project and legend PDFs, manifest fields, exact local and publication authority, and offline rejection; mocked package tests cover ordered publication, checksum checks, no-change ledgers, and identical-content retries. The `report.local` and `report.publish` rows have passing evidence.
 - Shared sidecar asset/distribution contracts exist. The four planned SLM adapters remain unimplemented; their external gates do not block native parity or generic adapters.
 
 # Shared framework contract
@@ -89,15 +112,15 @@ All mandatory bounded scenarios must pass before heterogeneous router release. A
 | Diff/similarity | Existing semantic diff/patch and pairwise metrics | PAR-03 |
 | Gather | Existing PID extraction from text/documents/permitted URLs | Landed |
 | Format/crosswalk | Supported standards, normalization/enrichment, loss warnings, preview/apply | Landed |
-| Linked data | Existing transformation and authorized output | PAR-06 |
-| SWHID | Current calculate/verify over permitted inputs | PAR-07 |
-| Doctor | Structured diagnostics/readiness; no automatic repair | PAR-08 |
-| Export | Existing formats/targets, bounded batches, artifact output | PAR-09 |
-| Import | Current spec/model import, preview and explicit apply | PAR-10 |
-| Download | Existing bucket/model/Needle acquisition/status, explicitly requested | PAR-11 |
-| Sync | Current target configuration preview/apply | PAR-12 |
-| Report | Existing artifact generation and explicit publication | PAR-13 |
-| Script checks | Existing check/check-safe; no unrestricted automation | PAR-14 |
+| Linked data | Existing transformation and authorized output | Landed |
+| SWHID | Current calculate/verify over permitted inputs | Landed |
+| Doctor | Structured diagnostics/readiness; no automatic repair | Landed |
+| Export | Existing formats/targets, bounded batches, artifact output | Landed |
+| Import | OpenAPI and Hugging Face metadata preview and explicit apply landed | Landed |
+| Download | Bucket, model, and pinned Needle acquisition/status landed | Landed |
+| Sync | Local target configuration preview and exact apply landed | Landed |
+| Report | Existing artifact generation and explicit publication landed | Landed |
+| Script checks | Static, direct, and manifest-authorized hook checks landed | Landed |
 | Prompt/MCP commands | Preserve direct commands; configured MCP, ACP, and endpoint adapters are landed, and heterogeneous release follows native parity | ADP-05 and ADP-09 |
 
 Exclude interactive TUI/clipboard UX, persistent servers, infrastructure/secret creation, automatic repair, and unrestricted automation from the bounded milestone. Keep them visible in the total CLI inventory. Unsupported flags/scenarios need explicit entries rather than disappearing from the denominator. Native-handler equivalence tests require no model weights; real Needle routing is a separate gate.
@@ -111,7 +134,7 @@ Registry/adapter leaves initially live under `crates/acorn-lib/src/io/mcp/tools/
 Scheduling order:
 
 1. The caller-owned Needle registry, frozen 200-case corpus, versioned capability/binding contract, terminal execution, opt-in CLI route syntax, bounded native input policy, and check/fix/diff bindings have landed.
-2. PAR-06 through PAR-14 native capability coverage; PAR-15 real Needle routing; PAR-16 native parity release.
+2. PAR-34 repairs the failed model-facing routing and harness; PAR-15 reruns real Needle routing on corpus revision 3; PAR-16 validates the native parity release.
 3. The [generic adapter plan](ask-executor-adapters.md) may consume the landed registry, execution, and CLI contracts. Its heterogeneous release waits for PAR-16. Swift and Julia profiles consume its registration contract independently.
 
 Each phase has at most five active hours and an exact product write set. Reconcile this plan and its four index/network/lane files after each phase. The frozen inventory records operation seams. Split a missing reusable seam into a bounded extraction phase before its adapter begins if the named leaf cannot complete both within five active hours; a cross-crate rewrite cannot hide inside a registration phase.
@@ -135,111 +158,23 @@ Generic adapter implementation consumes the frozen registry and execution contra
 
 # Execution phases
 
-## PAR-06 — Expose linked-data operations
+## PAR-34 — Repair model-facing routing and corpus harness
 
-- Status: planned
+- Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: the landed bounded native input policy; operation seam recorded in the frozen parity inventory; coordinate the owning command plan
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/link.rs`, `crates/acorn-lib/src/io/mcp/tools/native/link_tests.rs`, `crates/acorn-cli/src/commands/link/mod.rs`, `crates/acorn-cli/src/commands/link/registry_tests.rs`
-- Primary integration lock: Native capability parity
-- Outcome: Existing linked-data transformation with typed output and destination policy. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
-- Focused validation: Transformation fixtures, repeated operation behavior, preview/apply, and schema failures. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
-- Handoff: Remove PAR-06 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
-
-## PAR-07 — Expose SWHID calculate and verify
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: the landed bounded native input policy; operation seam recorded in the frozen parity inventory; coordinate the owning command plan
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/swhid.rs`, `crates/acorn-lib/src/io/mcp/tools/native/swhid_tests.rs`, `crates/acorn-cli/src/commands/swhid/mod.rs`, `crates/acorn-cli/src/commands/swhid/registry_tests.rs`
-- Primary integration lock: Native capability parity
-- Outcome: Current local object calculation/verification through existing library behavior. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
-- Focused validation: File/directory/revision fixtures, mismatches, permitted paths, and stable identifiers. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
-- Handoff: Remove PAR-07 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
-
-## PAR-08 — Expose structured diagnostics
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: the landed bounded native input policy; operation seam recorded in the frozen parity inventory; coordinate the owning command plan
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/doctor.rs`, `crates/acorn-lib/src/io/mcp/tools/native/doctor_tests.rs`, `crates/acorn-cli/src/commands/doctor/mod.rs`, `crates/acorn-cli/src/commands/doctor/registry_tests.rs`
-- Primary integration lock: Native capability parity
-- Outcome: Report-only diagnostics and readiness; keep automatic repair unavailable. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
-- Focused validation: Platform/dependency fixtures, missing tools, no mutations, redaction, and matching report data. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
-- Handoff: Remove PAR-08 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
-
-## PAR-09 — Align exports and artifact results
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: the landed bounded native input policy; operation seam recorded in the frozen parity inventory; coordinate the owning command plan
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/export.rs`, `crates/acorn-lib/src/io/mcp/tools/native/export_tests.rs`, `crates/acorn-cli/src/commands/export/mod.rs`, `crates/acorn-cli/src/commands/export/registry_tests.rs`
-- Primary integration lock: Native capability parity
-- Outcome: Existing formats/targets and bounded batch inputs through shared renderers; preserve update export. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
-- Focused validation: Format/target fixtures, output bytes/artifacts, failed renderers, and authorized destinations. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
-- Handoff: Remove PAR-09 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
-
-## PAR-10 — Expose bounded imports
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: the landed bounded native input policy; operation seam recorded in the frozen parity inventory; coordinate the owning command plan
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/import.rs`, `crates/acorn-lib/src/io/mcp/tools/native/import_tests.rs`, `crates/acorn-cli/src/commands/import/mod.rs`, `crates/acorn-cli/src/commands/import/registry_tests.rs`
-- Primary integration lock: Native capability parity
-- Outcome: Current spec/model import previews and explicit apply using existing services. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
-- Focused validation: Local/remote inputs, invalid specs, offline behavior, persistence policy, and preview/apply equivalence. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
-- Handoff: Remove PAR-10 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
-
-## PAR-11 — Expose explicit downloads and status
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: the landed bounded native input policy; operation seam recorded in the frozen parity inventory; coordinate the owning command plan
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/download.rs`, `crates/acorn-lib/src/io/mcp/tools/native/download_tests.rs`, `crates/acorn-cli/src/commands/download/mod.rs`, `crates/acorn-cli/src/commands/download/registry_tests.rs`
-- Primary integration lock: Native capability parity
-- Outcome: Existing bucket/model/Needle acquisition/status through current planners; only explicit acquisition requests. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
-- Focused validation: Dry-run/cache/status, offline/missing cache, clobber policy, cancellation, and no inference-triggered downloads. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
-- Handoff: Remove PAR-11 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
-
-## PAR-12 — Expose configuration synchronization
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: the landed bounded native input policy; operation seam recorded in the frozen parity inventory; coordinate the owning command plan
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/sync.rs`, `crates/acorn-lib/src/io/mcp/tools/native/sync_tests.rs`, `crates/acorn-cli/src/commands/sync/mod.rs`, `crates/acorn-cli/src/commands/sync/registry_tests.rs`
-- Primary integration lock: Native capability parity
-- Outcome: Current target selection, configuration previews, and explicit apply. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
-- Focused validation: Supported targets, unchanged configuration, proposed diffs, exact apply policy, and CLI equivalence. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
-- Handoff: Remove PAR-12 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
-
-## PAR-13 — Expose reporting and explicit publication
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: the landed bounded native input policy; operation seam recorded in the frozen parity inventory; coordinate the owning command plan
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/report.rs`, `crates/acorn-lib/src/io/mcp/tools/native/report_tests.rs`, `crates/acorn-cli/src/commands/report/mod.rs`, `crates/acorn-cli/src/commands/report/registry_tests.rs`
-- Primary integration lock: Native capability parity
-- Outcome: Existing report artifact generation and publication through current destination/credential policy. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
-- Focused validation: Deterministic artifacts, denied/default publish, authorized mock publication, retries, and secret-free results. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
-- Handoff: Remove PAR-13 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
-
-## PAR-14 — Expose constrained script checking
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: the landed bounded native input policy; operation seam recorded in the frozen parity inventory; coordinate the owning command plan
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native.rs`, `crates/acorn-lib/src/io/mcp/tools/native/script.rs`, `crates/acorn-lib/src/io/mcp/tools/native/script_tests.rs`, `crates/acorn-cli/src/commands/exec/mod.rs`, `crates/acorn-cli/src/commands/exec/registry_tests.rs`
-- Primary integration lock: Native capability parity
-- Outcome: Current check/check-safe behavior; do not register unrestricted automation. Extract only the required operation into the named library leaf and delegate from the CLI; register the named tests in the owning module.
-- Focused validation: Static/evaluation fixtures, forbidden operations, fuel/size bounds, and matching findings. Run focused library and CLI equivalence tests plus catalog-budget/default-startup regressions without model downloads.
-- Handoff: Remove PAR-14 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
+- Prerequisites: First PAR-15 measurement and diagnostic evidence
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/capability.rs`, `crates/acorn-lib/src/io/mcp/tools/needle.rs`, `crates/acorn-lib/src/io/sidecar/needle/mod.rs`, `crates/acorn-lib/src/io/sidecar/needle/process.rs`, `crates/acorn-cli/src/commands/infer/mod.rs`, `crates/acorn-cli/src/commands/infer/tests/mod.rs`, `crates/acorn-cli/src/commands/infer/tests/routing_scope.rs`, `tests/fixtures/routing/results.json`, `docs/src/inference/routing-evaluation.md`
+- Primary integration lock: Needle routing evaluation
+- Outcome: Preserve canonical validation while making complex native tool calls fit the pinned runner; apply each case's offline, caller-policy, and binding context in the measurement harness.
+- Focused validation: Single-capability check and doctor replays, calibration selection and shortlist recall, response-error capture, negative-case execution safety, no artifact writes, and strict Clippy.
+- Handoff: Remove PAR-34 after the repaired harness and model-facing catalog pass focused calibration; keep PAR-15's held-out gate separate.
 
 ## PAR-15 — Prove routing at near-parity catalog size
 
-- Status: planned
+- Status: waiting-on-validation
 - Budget: 5 active hours maximum
-- Prerequisites: PAR-06 through PAR-14; pinned Needle runner installed on a supported host
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/needle.rs`, `crates/acorn-lib/src/io/sidecar/needle/mod.rs`, `crates/acorn-lib/src/io/sidecar/needle/assets.rs`, `crates/acorn-lib/src/io/sidecar/needle/tests/mod.rs`, `tests/fixtures/routing/results.json`, `docs/src/inference/routing-evaluation.md`
+- Prerequisites: PAR-34 repair accepted; pinned Needle runner installed on a supported host
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/capability.rs`, `crates/acorn-lib/src/io/mcp/tools/needle.rs`, `crates/acorn-lib/src/io/sidecar/needle/mod.rs`, `crates/acorn-lib/src/io/sidecar/needle/assets.rs`, `crates/acorn-lib/src/io/sidecar/needle/tests/mod.rs`, `crates/acorn-cli/src/commands/infer/mod.rs`, `crates/acorn-cli/src/commands/infer/tests/mod.rs`, `tests/fixtures/routing/cases.json`, `tests/fixtures/routing/results.json`, `docs/src/inference/capability-parity.md`, `docs/src/inference/routing-evaluation.md`
 - Primary integration lock: Needle routing evaluation
 - Outcome: Enforce catalog budgets/cache invalidation and score the frozen corpus against the actual native catalog. Add measured deterministic scoping only if needed.
 - Focused validation: Declared routing gates, no silent truncation, retained-candidate recall, negative-case nonexecution, abstention, latency, and index/schema cache isolation.

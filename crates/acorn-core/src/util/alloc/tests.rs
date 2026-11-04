@@ -32,6 +32,18 @@ fn test_escape_ntriples_literal_escapes_string_delimiters_and_controls() {
     assert_eq!(escape_ntriples_literal("a\\b\"c\n\r\t"), "a\\\\b\\\"c\\n\\r\\t");
 }
 #[test]
+fn test_mime_type_ensure_supported_accepts_only_declared_formats() {
+    let supported = [MimeType::Json, MimeType::Yaml];
+    assert!(MimeType::Json.ensure_supported(&supported, "Schema export").is_ok());
+    assert_eq!(
+        MimeType::Pdf
+            .ensure_supported(&supported, "Schema export")
+            .expect_err("PDF should be rejected")
+            .to_string(),
+        "Schema export does not support pdf"
+    );
+}
+#[test]
 fn test_mime_type_from_resolves_file_type_names_and_aliases() {
     assert_eq!(MimeType::from("json"), MimeType::Json);
     assert_eq!(MimeType::from("activity.JSONL"), MimeType::JsonLines);
@@ -50,6 +62,13 @@ fn test_mime_type_from_resolves_file_type_names_and_aliases() {
     assert_eq!(MimeType::Ron.file_type(), "ron");
     assert_eq!(MimeType::Ron.to_string(), "application/ron");
     assert!(!MimeType::Ron.is_repository_file());
+}
+#[test]
+fn test_mime_type_identifies_archive_formats() {
+    [MimeType::Gzip, MimeType::SevenZip, MimeType::Tar, MimeType::Zip]
+        .iter()
+        .for_each(|format| assert!(format.is_archive()));
+    assert!(!MimeType::Json.is_archive());
 }
 #[test]
 fn test_mime_type_infers_rhai_from_abi_header() {

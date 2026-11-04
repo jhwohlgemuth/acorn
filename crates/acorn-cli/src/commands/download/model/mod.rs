@@ -1,7 +1,7 @@
 //! Model download command orchestration and execution.
 pub mod plan;
 
-use self::plan::{resolve_plans, DownloadOptions, ModelDownloadError, ModelDownloadPlan, ModelDownloadPlans};
+use self::plan::{resolve_plans, DownloadOptions, ModelDownloadError, ModelDownloadPlan, ModelDownloadPlans, ResolvedModelDownload};
 use super::log_activity;
 use crate::cli::{
     arguments::{DownloadModel, ModelResolutionArgs, ModelSourceArgs, ModelSyncArgs, OutputFormat},
@@ -11,10 +11,15 @@ use acorn::{
     io::{
         config::{ApplicationConfiguration, ModelEntry},
         download::{DownloadItem, DownloadItems},
-        first_env_var, home_directory, sync, ApiResult, ModelSelectorsExt, Source, SourceAction,
+        first_env_var, home_directory,
+        mcp::{ModelDownloadInput, ModelDownloadOutput},
+        sync, ApiResult, ModelSelectorsExt, Source, SourceAction,
     },
     util::{
-        constants::{app::DEFAULT_MODELS_DIRECTORY, env::MODEL_WHITELIST},
+        constants::{
+            app::{DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_SEARCH_LIMIT, DEFAULT_MODELS_DIRECTORY},
+            env::MODEL_WHITELIST,
+        },
         StringConversion,
     },
 };
@@ -33,9 +38,21 @@ use fluent_uri::Uri;
 use futures::{stream, StreamExt, TryStreamExt};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
-use std::{fs::create_dir_all, path::PathBuf};
+use std::{
+    fs::create_dir_all,
+    path::{Path, PathBuf},
+};
 use tracing::{error, info};
 
+/// Routed model download operations owned by the CLI host.
+pub(crate) trait ModelDownloadInputExt {
+    /// Run the direct model selection and transfer path for a validated routed request.
+    async fn execute_routed(self, root: PathBuf, destination: PathBuf, preview: bool, offline: bool) -> ApiResult<ModelDownloadOutput>;
+    /// Resolve routed selectors into bounded model downloads.
+    async fn resolve_routed_models(&self, root: &Path, offline: bool) -> ApiResult<Vec<ResolvedModelDownload>>;
+    /// Use configured entries only when the request has no explicit selectors.
+    fn entries(&self, configured: Vec<ModelEntry>) -> Vec<ModelEntry>;
+}
 /// Download model weights with optional persisted-metadata constraints.
 pub(crate) struct Request<'a> {
     pub(crate) arguments: &'a DownloadModel,
@@ -45,6 +62,165 @@ pub(crate) struct Request<'a> {
     pub(crate) no_local_database: bool,
 }
 pub(crate) struct Whitelist(pub(crate) Vec<String>);
+impl ModelDownloadInputExt for ModelDownloadInput {
+    async fn execute_routed(self, root: PathBuf, destination: PathBuf, preview: bool, offline: bool) -> ApiResult<ModelDownloadOutput> {
+        match self.resolve_routed_models(&root, offline).await {
+            | Ok(models) if preview => {
+                let model_ids = models.into_iter().filter_map(|model| ModelDetails::from(model).id).collect();
+                Ok(ModelDownloadOutput {
+                    model_ids,
+                    destination,
+                    artifacts: Vec::new(),
+                })
+            }
+            | Ok(models) => {
+                let mut model_ids = Vec::new();
+                let mut failures = 0usize;
+                for model in models {
+                    let plan = model.plan();
+                    let validated = match &plan.selector {
+                        | Source::Local { path, .. } => bounded_model_path(&root, path).map(|_| ()),
+                        | _ => Ok(()),
+                    };
+                    let filter = merge(&plan.filter, Some(&self.filter));
+                    let ignore = merge(&plan.ignore, Some(&self.ignore));
+                    let action = match &plan.selector {
+                        | Source::Local { action, .. } => *action,
+                        | _ => plan.action,
+                    };
+                    let options = CommandOptions::init()
+                        .selector(plan.selector.clone())
+                        .maybe_action(action)
+                        .output(destination.clone())
+                        .offline(offline)
+                        .no_local_database(true)
+                        .no_fallback(false)
+                        .search_limit(DEFAULT_HUGGINGFACE_SEARCH_LIMIT)
+                        .minimum_download_count(DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT)
+                        .interactive(false)
+                        .quiet(true)
+                        .maybe_filter(regex_join(&filter))
+                        .maybe_ignore(regex_join(&ignore))
+                        .build();
+                    let result = match validated {
+                        | Ok(()) => model.execute(options).await,
+                        | Err(why) => Err(why),
+                    };
+                    match result {
+                        | Ok(details) => model_ids.extend(details.id),
+                        | Err(why) => {
+                            failures = failures.saturating_add(1);
+                            error!("=> {} Download model '{}' — {why}", Label::fail(), plan.name());
+                        }
+                    }
+                }
+                match failures {
+                    | 0 => Ok(ModelDownloadOutput {
+                        model_ids,
+                        artifacts: vec![destination.display().to_string()],
+                        destination,
+                    }),
+                    | _ => Err(eyre!("Failed to download {failures} model{}", suffix(failures))),
+                }
+            }
+            | Err(why) => Err(why),
+        }
+    }
+    async fn resolve_routed_models(&self, root: &Path, offline: bool) -> ApiResult<Vec<ResolvedModelDownload>> {
+        match ModelSelectors::from(self.models.as_slice()).resolve(&self.model_file, offline).await {
+            | Ok(selectors) => {
+                let configured = ApplicationConfiguration::load(&self.config).and_then(|configuration| {
+                    let (entries, configured_whitelist) = configuration.model_entries_and_whitelist();
+                    configuration.registry_lookup().map(|profiles| (entries, configured_whitelist, profiles))
+                });
+                match configured {
+                    | Err(why) => Err(eyre!("Read model configuration — {why}")),
+                    | Ok((configured_entries, configured_whitelist, profiles)) => {
+                        let entries = self.entries(configured_entries);
+                        match Whitelist::prioritized(&self.whitelist, configured_whitelist, offline).await {
+                            | Err(why) => Err(eyre!("Resolve model whitelist — {why}")),
+                            | Ok(whitelist) => {
+                                let allowed = whitelist
+                                    .0
+                                    .iter()
+                                    .map(|value| value.trim().to_string())
+                                    .filter(|value| !value.is_empty())
+                                    .collect::<HashSet<_>>();
+                                let action = SourceAction::from_options(self.copy, self.symlink);
+                                let planned = resolve_plans(&selectors, &entries, &profiles, action, &None, true, offline).await;
+                                match planned {
+                                    | Err(why) => Err(eyre!("Resolve model plans — {why}")),
+                                    | Ok(planned) => {
+                                        let filtered = planned
+                                            .into_iter()
+                                            .map(|mut plan| {
+                                                let bounded = match &plan.selector {
+                                                    | Source::Local { path, .. } => bounded_model_path(root, path).map(Some),
+                                                    | _ => Ok(None),
+                                                };
+                                                bounded.map(|path| {
+                                                    if let (Some(bounded), Source::Local { path, .. }) = (path, &mut plan.selector) {
+                                                        *path = bounded;
+                                                    }
+                                                    plan
+                                                })
+                                            })
+                                            .collect::<ApiResult<Vec<_>>>()
+                                            .and_then(|planned| ModelDownloadPlans(planned).filter(&self.filter, &self.ignore));
+                                        match filtered {
+                                            | Err(why) => Err(eyre!("Filter model plans — {why}")),
+                                            | Ok(plans) => {
+                                                let futures = stream::iter(plans.0.into_iter().sorted_by_key(|plan| plan.selector.identifier()))
+                                                    .then(|plan| async {
+                                                        plan.matches(&allowed, offline).await.map(|matches| matches.then_some(plan))
+                                                    });
+                                                match futures.try_collect::<Vec<_>>().await {
+                                                    | Err(why) => Err(eyre!("Validate model whitelist — {why}")),
+                                                    | Ok(filtered) => {
+                                                        let filtered = filtered.into_iter().flatten().collect::<Vec<_>>();
+                                                        let constrained = ModelDownloadPlans(filtered).constrain(
+                                                            &[],
+                                                            &self.filter,
+                                                            &self.ignore,
+                                                            true,
+                                                            &None,
+                                                            &None,
+                                                        );
+                                                        let empty = constrained.0.is_empty();
+                                                        let offline_remote = offline && constrained.0.iter().any(ModelDownloadPlan::is_remote);
+                                                        match (empty, offline_remote) {
+                                                            | (true, _) => Err(eyre!("No models found")),
+                                                            | (_, true) => Err(eyre!("Offline mode cannot download remote models")),
+                                                            | (false, false) => {
+                                                                let options = DownloadOptions::init().offline(offline).build();
+                                                                let resolved = constrained.resolve(options).await;
+                                                                match resolved.is_empty() {
+                                                                    | true => Err(eyre!("No models found")),
+                                                                    | false => Ok(resolved),
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            | Err(why) => Err(eyre!("Read model selectors — {why}")),
+        }
+    }
+    fn entries(&self, configured: Vec<ModelEntry>) -> Vec<ModelEntry> {
+        match self.models.is_empty() && self.model_file.is_none() {
+            | true => configured,
+            | false => Vec::new(),
+        }
+    }
+}
 impl From<&[String]> for Whitelist {
     fn from(values: &[String]) -> Self {
         Self(values.to_vec())
@@ -104,6 +280,20 @@ impl Whitelist {
             },
         }
     }
+}
+fn bounded_model_path(root: &Path, path: &Path) -> ApiResult<PathBuf> {
+    root.canonicalize()
+        .map_err(|why| eyre!("Resolve permitted model root — {why}"))
+        .and_then(|base| {
+            let selected = if path.is_absolute() { path.to_path_buf() } else { base.join(path) };
+            selected
+                .canonicalize()
+                .map_err(|why| eyre!("Resolve local model source {} — {why}", selected.display()))
+                .and_then(|canonical| match canonical.starts_with(&base) && canonical.is_file() {
+                    | true => Ok(canonical),
+                    | false => Err(eyre!("Local model source must be a file within the permitted root")),
+                })
+        })
 }
 async fn download_remote_model(options: CommandOptions) -> ApiResult<String> {
     let CommandOptions {

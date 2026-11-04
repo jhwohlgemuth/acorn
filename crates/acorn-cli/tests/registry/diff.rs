@@ -9,7 +9,7 @@ use tempfile::tempdir;
 #[test]
 fn test_direct_json_patch_matches_native_operation() {
     let root = tempdir().expect("temporary root");
-    let original = include_str!("../../../tests/fixtures/CITATION.cff");
+    let original = include_str!("../../../../tests/fixtures/CITATION.cff");
     fs::write(root.path().join("before.cff"), original).expect("original file");
     fs::write(root.path().join("after.cff"), original.replace("title: ACORN", "title: Revised ACORN")).expect("revised file");
     let expected = DiffOperationInput {
@@ -87,7 +87,7 @@ fn test_direct_similarity_values_match_native_operation() {
 #[test]
 fn test_direct_unified_diff_matches_native_operation() {
     let root = tempdir().expect("temporary root");
-    let original = include_str!("../../../tests/fixtures/CITATION.cff");
+    let original = include_str!("../../../../tests/fixtures/CITATION.cff");
     fs::write(root.path().join("before.cff"), original).expect("original file");
     fs::write(root.path().join("after.cff"), original.replace("title: ACORN", "title: Revised ACORN")).expect("revised file");
     let expected = DiffOperationInput {

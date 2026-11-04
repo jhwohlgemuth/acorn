@@ -1,18 +1,41 @@
 //! OpenAPI resource import helpers for ACORN API templates.
-use super::Resource;
+use super::{Authentication, Endpoint, Resource, Secret};
 use crate::io::ApiResult;
 use acorn_core::prelude::HashSet;
+use acorn_core::OneOrMany;
+use acorn_schema::agent::AuthenticationScheme;
 use color_eyre::eyre::eyre;
 use convert_case::{Case, Casing};
 use itertools::Itertools;
 use serde_norway::Value;
 
+impl Endpoint {
+    /// Project one OpenAPI document into an ACORN endpoint template.
+    /// ### Note
+    /// The bearer token is caller-owned configuration and must never be supplied through an untrusted routing argument.
+    pub fn from_openapi(spec: &str, name: &str, domain: &str, root: Option<&str>, auth_token: Option<&str>) -> ApiResult<Self> {
+        match name.trim().is_empty() || domain.trim().is_empty() {
+            | true => Err(eyre!("OpenAPI endpoint name and domain are required")),
+            | false => import_resources_from_openapi(spec).map(|resources| {
+                let authentication = auth_token.map(|token| Authentication {
+                    token: Some(Secret::from(token.to_string())),
+                    scheme: AuthenticationScheme::Bearer,
+                });
+                Self::at("")
+                    .name(name.to_string())
+                    .maybe_root(root.map(str::to_string))
+                    .maybe_authentication(authentication)
+                    .resources(OneOrMany::Many(resources))
+                    .build()
+                    .with_domain(domain)
+            }),
+        }
+    }
+}
 //TODO: Whole module needs refinement/refactoring
 /// Parse an OpenAPI document and generate ACORN `Resource` entries.
-///
-/// This first pass imports endpoint interface metadata only (name, method,
-/// and URL template) so generated items can be dropped into
-/// `application.json` endpoint resources.
+/// ### Note
+/// This first pass imports endpoint interface metadata only (name, method, and URL template) so generated items can be dropped into `application.json` endpoint resources.
 pub fn import_resources_from_openapi(spec: &str) -> ApiResult<Vec<Resource>> {
     match serde_norway::from_str::<Value>(spec).map_err(|why| eyre!("Failed to parse OpenAPI YAML: {why}")) {
         | Ok(document) => import_resources_from_value(&document),
@@ -49,19 +72,6 @@ fn import_resources_from_value(document: &Value) -> ApiResult<Vec<Resource>> {
         | None => Err(eyre!("OpenAPI document is missing a valid paths mapping")),
     }
 }
-fn operation_resource_seed<'a>(path: &'a str, method: Option<&'a str>, operation: &'a Value) -> Option<(String, &'a str, Option<&'a str>)> {
-    method
-        .map(str::to_ascii_lowercase)
-        .filter(|value| matches!(value.as_str(), "delete" | "get" | "patch" | "post" | "put"))
-        .map(|value| (value, path, operation_id(operation)))
-}
-fn operation_id(operation: &Value) -> Option<&str> {
-    operation.as_mapping().and_then(|mapping| {
-        mapping
-            .iter()
-            .find_map(|(key, value)| key.as_str().filter(|field| *field == "operationId").and_then(|_| value.as_str()))
-    })
-}
 fn normalize_token(value: &str) -> String {
     let compacted = value
         .chars()
@@ -95,6 +105,19 @@ fn operation_fallback_name(method: &str, path: &str) -> String {
         .collect::<Vec<String>>();
     let joined = if tokens.is_empty() { String::from("root") } else { tokens.join("-") };
     format!("{joined}-{method}")
+}
+fn operation_id(operation: &Value) -> Option<&str> {
+    operation.as_mapping().and_then(|mapping| {
+        mapping
+            .iter()
+            .find_map(|(key, value)| key.as_str().filter(|field| *field == "operationId").and_then(|_| value.as_str()))
+    })
+}
+fn operation_resource_seed<'a>(path: &'a str, method: Option<&'a str>, operation: &'a Value) -> Option<(String, &'a str, Option<&'a str>)> {
+    method
+        .map(str::to_ascii_lowercase)
+        .filter(|value| matches!(value.as_str(), "delete" | "get" | "patch" | "post" | "put"))
+        .map(|value| (value, path, operation_id(operation)))
 }
 fn resource_name(operation_id: Option<&str>, method: &str, path: &str) -> String {
     match operation_id {

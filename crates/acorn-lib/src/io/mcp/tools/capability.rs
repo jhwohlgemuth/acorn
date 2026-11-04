@@ -3,10 +3,13 @@
 use super::{CapabilityHandler, ToolHandler, ToolRegistry};
 use crate::error::ApiResult;
 use acorn_core::prelude::{String, Vec};
+use acorn_core::util::constants::app::APPLICATION;
 use acorn_core::util::SemanticVersion;
 use acorn_core::validation::ValidationError;
 use acorn_schema::agent::tools::{NeedleToolDefinition, ToolEffects};
+use acorn_schema::hardware::memory::Memory;
 use acorn_schema::validation::{is_identifier, Validate, ValidationReport};
+use alloc::collections::BTreeSet;
 use alloc::sync::Arc;
 use core::future::Future;
 use schemars::{schema_for, JsonSchema};
@@ -17,6 +20,7 @@ use thiserror::Error;
 
 /// Maximum serialized catalog size accepted by Needle.
 pub const MAX_CAPABILITY_CATALOG_BYTES: usize = 32 * 1024;
+const MAX_PROMPT_CATALOG_BYTES: usize = 22 * 1024;
 /// Readiness established outside registration, with a reason for unavailable bindings.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(tag = "status", rename_all = "kebab-case")]
@@ -109,12 +113,32 @@ pub enum CapabilityError {
     #[error("Unknown capability scope '{0}'")]
     UnknownScope(String),
 }
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum Family {
+    Check,
+    Diff,
+    Doctor,
+    Download,
+    Exec,
+    Export,
+    Format,
+    Gather,
+    Import,
+    Link,
+    Report,
+    Swhid,
+    Sync,
+    Unknown,
+}
 /// One implementation of a capability contract.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct BindingDefinition {
     /// Stable configured binding identifier.
+    ///
+    /// The current convention is `<modifier>:<namespace>.<operation>[::<scope>...]`, for example `native:acorn.export::render`.
+    /// The modifier identifies the executor binding; the corresponding capability ID omits it.
     pub id: String,
-    /// Capability implemented by this binding.
+    /// Capability implemented by this binding, using `<namespace>.<operation>[::<scope>...]` (for example, `acorn.export::render`).
     pub capability_id: String,
     /// Contract version implemented by this binding.
     pub version: SemanticVersion,
@@ -134,7 +158,8 @@ pub struct BindingDefinition {
 /// A stable, versioned operation independent of its executor.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct CapabilityDefinition {
-    /// Namespaced capability identifier.
+    /// Namespaced capability identifier using
+    /// `<namespace>.<operation>[::<scope>...]` (for example, `acorn.export::render`).
     pub id: String,
     /// Contract version; bindings must declare this exact version.
     pub version: SemanticVersion,
@@ -152,6 +177,7 @@ pub(super) struct CapabilityEntry {
     definition: CapabilityDefinition,
     bindings: Vec<RegisteredBinding>,
 }
+struct CapabilityIdentifier<'a>(&'a str);
 /// Caller constraints used when resolving a compatible binding.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct CapabilitySelectionContext {
@@ -164,6 +190,18 @@ pub struct CapabilitySelectionContext {
 struct RegisteredBinding {
     definition: BindingDefinition,
     handler: CapabilityHandler,
+}
+/// Deterministic prompt-scoped catalog and its measured retention.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ScopedCatalog {
+    /// Explicit retained capability IDs, or `None` when the full catalog fits.
+    pub ids: Option<Vec<String>>,
+    /// Serialized bytes sent to Needle.
+    pub bytes: Memory,
+    /// Number of capabilities omitted to respect the catalog limit.
+    pub omitted: usize,
+    /// Serialized bytes before prompt scoping.
+    pub unscoped_bytes: Memory,
 }
 /// Resolved capability and one eligible executor binding.
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -234,7 +272,7 @@ impl CapabilityDefinition {
 impl Validate for CapabilityDefinition {
     fn validate(&self) -> Result<(), ValidationReport> {
         let mut report = ValidationReport::new();
-        if !valid_id(&self.id) || !self.id.contains('.') {
+        if CapabilityIdentifier(&self.id).validate().is_err() || !self.id.contains('.') {
             report.add("id", ValidationError::new("invalid").with_message("Capability requires a namespaced ID"));
         }
         if self.version == SemanticVersion::default() {
@@ -268,6 +306,130 @@ impl Validate for CapabilityDefinition {
             );
         }
         report.finish()
+    }
+}
+impl Validate for CapabilityIdentifier<'_> {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        let mut report = ValidationReport::new();
+        let scoped = match self.0.split_once(':') {
+            | Some((prefix, scoped)) if !scoped.starts_with(':') => is_identifier(prefix) && scoped.split("::").all(is_identifier),
+            | _ => self.0.split("::").all(is_identifier),
+        };
+        if self.0.len() > 128 || !scoped {
+            report.add("id", ValidationError::new("invalid").with_message("Identifier is malformed"));
+        }
+        report.finish()
+    }
+}
+impl Family {
+    fn group(self) -> usize {
+        match self {
+            | Self::Check | Self::Diff | Self::Doctor => 0,
+            | Self::Exec | Self::Gather | Self::Swhid => 1,
+            | Self::Export => 2,
+            | Self::Format | Self::Link => 3,
+            | Self::Download | Self::Import => 4,
+            | Self::Report | Self::Sync => 5,
+            | Self::Unknown => 6,
+        }
+    }
+    fn keyword(self) -> &'static str {
+        match self {
+            | Self::Check => "check",
+            | Self::Diff => "diff",
+            | Self::Doctor => "doctor",
+            | Self::Download => "download",
+            | Self::Exec => "exec",
+            | Self::Export => "export",
+            | Self::Format => "format",
+            | Self::Gather => "gather",
+            | Self::Import => "import",
+            | Self::Link => "link",
+            | Self::Report => "report",
+            | Self::Swhid => "swhid",
+            | Self::Sync => "sync",
+            | Self::Unknown => "",
+        }
+    }
+    fn prompt_score(self, definition: &CapabilityDefinition, words: &BTreeSet<String>) -> usize {
+        let name = definition.id.split('.').nth(1).unwrap_or_default();
+        let family = self.keyword();
+        let aliases: &[&str] = match self {
+            | Self::Check => &["analyze", "inspect", "validate", "validation", "quality", "findings"],
+            | Self::Diff => &[
+                "compare",
+                "difference",
+                "jaccard",
+                "jaro",
+                "levenshtein",
+                "similarity",
+                "patch",
+                "cosine",
+                "dice",
+            ],
+            | Self::Doctor => &["diagnostic", "diagnostics", "readiness", "memory", "gpu"],
+            | Self::Download => &["acquire", "fetch", "weights", "bucket"],
+            | Self::Exec => &["script", "rhai", "hook", "manifest"],
+            | Self::Export => &["render", "pdf", "powerpoint", "archive", "bagit", "jsonl"],
+            | Self::Format => &["normalize", "normalization", "enrich", "formatter", "crosswalk"],
+            | Self::Gather => &["extract", "identifier", "identifiers", "pid", "doi", "orcid", "rrid"],
+            | Self::Import => &["persist", "endpoint", "hugging", "metadata"],
+            | Self::Link => &["linked", "context", "jsonld"],
+            | Self::Report => &["publish", "publication", "highlights", "logbook"],
+            | Self::Swhid => &["hash", "revision", "identifier"],
+            | Self::Sync => &["opencode", "vscode", "goose", "configuration", "editor"],
+            | Self::Unknown => &[],
+        };
+        let family_score: usize = match (words.contains(family), aliases.iter().any(|alias| words.contains(*alias))) {
+            | (true, _) => 200,
+            | (false, true) if self == Self::Exec => 260,
+            | (false, true) => 120,
+            | (false, false) => 0,
+        };
+        let name_score = name
+            .split(|character: char| !character.is_ascii_alphanumeric())
+            .filter(|part| words.contains(*part))
+            .count()
+            .saturating_mul(35);
+        let description_score = definition
+            .description
+            .to_ascii_lowercase()
+            .split(|character: char| !character.is_ascii_alphanumeric())
+            .filter(|word| word.len() >= 4 && words.contains(*word))
+            .count()
+            .saturating_mul(3);
+        family_score.saturating_add(name_score).saturating_add(description_score)
+    }
+}
+impl From<&str> for Family {
+    fn from(id: &str) -> Self {
+        let scoped = id.split_once(':').map_or(id, |(_, scoped)| scoped);
+        match scoped.split('.').nth(1).unwrap_or_default().split(['_', ':']).next().unwrap_or_default() {
+            | "check" => Self::Check,
+            | "diff" => Self::Diff,
+            | "doctor" => Self::Doctor,
+            | "download" => Self::Download,
+            | "exec" => Self::Exec,
+            | "export" => Self::Export,
+            | "format" => Self::Format,
+            | "gather" => Self::Gather,
+            | "import" => Self::Import,
+            | "link" => Self::Link,
+            | "report" => Self::Report,
+            | "swhid" => Self::Swhid,
+            | "sync" => Self::Sync,
+            | _ => Self::Unknown,
+        }
+    }
+}
+impl From<&String> for Family {
+    fn from(id: &String) -> Self {
+        Self::from(id.as_str())
+    }
+}
+impl From<String> for Family {
+    fn from(id: String) -> Self {
+        Self::from(id.as_str())
     }
 }
 impl ToolRegistry {
@@ -335,7 +497,7 @@ impl ToolRegistry {
             .iter()
             .flat_map(|entry| &entry.bindings)
             .any(|binding| binding.definition.id == definition.id);
-        if !valid_id(&definition.id) || !valid_id(&definition.capability_id) {
+        if CapabilityIdentifier(&definition.id).validate().is_err() || CapabilityIdentifier(&definition.capability_id).validate().is_err() {
             Err(CapabilityError::InvalidBindingId.into())
         } else if duplicate {
             Err(CapabilityError::DuplicateBinding(definition.id).into())
@@ -436,6 +598,117 @@ impl ToolRegistry {
     /// Serialize an explicitly scoped capability catalog within Needle's byte cap.
     /// Binding alternatives are deduplicated behind their capability contract.
     pub fn capability_catalog(&self, scope: Option<&[String]>, context: CapabilitySelectionContext) -> ApiResult<String> {
+        self.serialize_capability_catalog(scope, context)
+            .and_then(|serialized| match serialized.len() <= MAX_CAPABILITY_CATALOG_BYTES {
+                | true => Ok(serialized),
+                | false => Err(CapabilityError::CatalogTooLarge.into()),
+            })
+    }
+    /// Choose a deterministic prompt shortlist when the eligible catalog exceeds Needle's limit.
+    pub fn scope_for_prompt(&self, prompt: &str, context: CapabilitySelectionContext) -> ApiResult<ScopedCatalog> {
+        self.serialize_capability_catalog(None, context).and_then(|unscoped| {
+            let unscoped_bytes = unscoped.len();
+            match unscoped_bytes <= MAX_PROMPT_CATALOG_BYTES {
+                | true => Ok(ScopedCatalog {
+                    ids: None,
+                    bytes: Memory::from(unscoped_bytes as u64),
+                    omitted: 0,
+                    unscoped_bytes: Memory::from(unscoped_bytes as u64),
+                }),
+                | false => {
+                    let words = prompt
+                        .to_ascii_lowercase()
+                        .split(|character: char| !character.is_ascii_alphanumeric())
+                        .filter(|word| !word.is_empty())
+                        .map(str::to_string)
+                        .collect::<BTreeSet<_>>();
+                    let mut ranked = self
+                        .capabilities
+                        .iter()
+                        .filter(|entry| {
+                            entry
+                                .bindings
+                                .iter()
+                                .any(|binding| binding.definition.availability.reason(&binding.definition, context).is_none())
+                        })
+                        .map(|entry| {
+                            (
+                                Family::from(&entry.definition.id).prompt_score(&entry.definition, &words),
+                                entry.definition.id.clone(),
+                            )
+                        })
+                        .collect::<Vec<_>>();
+                    ranked.sort_by(|left, right| right.0.cmp(&left.0).then_with(|| left.1.cmp(&right.1)));
+                    let groups = ranked
+                        .iter()
+                        .map(|(_, id)| Family::from(id).group())
+                        .fold(Vec::<usize>::new(), |mut groups, group| {
+                            if !groups.contains(&group) {
+                                groups.push(group);
+                            }
+                            groups
+                        })
+                        .into_iter()
+                        .take(2)
+                        .collect::<Vec<_>>();
+                    let mut grouped = ranked
+                        .iter()
+                        .filter(|(_, id)| groups.contains(&Family::from(id).group()))
+                        .map(|(_, id)| id.clone())
+                        .collect::<Vec<_>>();
+                    grouped.extend(
+                        [format!("{APPLICATION}.check"), format!("{APPLICATION}.export::bag")]
+                            .into_iter()
+                            .filter_map(|id| {
+                                ranked
+                                    .iter()
+                                    .find(|(_, available)| available == &id)
+                                    .map(|(_, available)| available.clone())
+                            }),
+                    );
+                    grouped.sort();
+                    grouped.dedup();
+                    let outside_group = ranked.len().saturating_sub(grouped.len());
+                    self.serialize_capability_catalog(Some(&grouped), context)
+                        .and_then(|catalog| match catalog.len() <= MAX_PROMPT_CATALOG_BYTES {
+                            | true => Ok(ScopedCatalog {
+                                ids: Some(grouped.clone()),
+                                bytes: Memory::from(catalog.len() as u64),
+                                omitted: outside_group,
+                                unscoped_bytes: Memory::from(unscoped_bytes as u64),
+                            }),
+                            | false => ranked
+                                .into_iter()
+                                .filter(|(_, id)| groups.contains(&Family::from(id).group()))
+                                .try_fold((Vec::<String>::new(), 0_usize, 2_usize), |(ids, omitted, bytes), (_, id)| {
+                                    let mut candidate = ids.clone();
+                                    candidate.push(id);
+                                    self.serialize_capability_catalog(Some(&candidate), context).map(|candidate_catalog| {
+                                        match candidate_catalog.len() <= MAX_PROMPT_CATALOG_BYTES {
+                                            | true => (candidate, omitted, candidate_catalog.len()),
+                                            | false => (ids, omitted.saturating_add(1), bytes),
+                                        }
+                                    })
+                                })
+                                .and_then(|(ids, omitted, bytes)| match ids.is_empty() {
+                                    | true => Err(CapabilityError::CatalogTooLarge.into()),
+                                    | false => Ok(ScopedCatalog {
+                                        ids: Some({
+                                            let mut ids = ids;
+                                            ids.sort();
+                                            ids
+                                        }),
+                                        bytes: Memory::from(bytes as u64),
+                                        omitted: omitted.saturating_add(outside_group),
+                                        unscoped_bytes: Memory::from(unscoped_bytes as u64),
+                                    }),
+                                }),
+                        })
+                }
+            }
+        })
+    }
+    fn serialize_capability_catalog(&self, scope: Option<&[String]>, context: CapabilitySelectionContext) -> ApiResult<String> {
         let valid_scope = match scope {
             | Some([]) => Err(CapabilityError::EmptyScope.into()),
             | Some(ids) => ids
@@ -472,15 +745,7 @@ impl ToolRegistry {
                     triggers: Vec::new(),
                 })
                 .collect::<Vec<_>>();
-            serde_json::to_string(&definitions)
-                .map_err(|why| CapabilityError::CatalogSerialization(why.to_string()).into())
-                .and_then(|serialized| {
-                    if serialized.len() > MAX_CAPABILITY_CATALOG_BYTES {
-                        Err(CapabilityError::CatalogTooLarge.into())
-                    } else {
-                        Ok(serialized)
-                    }
-                })
+            serde_json::to_string(&definitions).map_err(|why| CapabilityError::CatalogSerialization(why.to_string()).into())
         })
     }
 }
@@ -506,7 +771,4 @@ pub(super) fn catalog_schema(schema: &Value, named_schemas: bool) -> Value {
 }
 fn schema<T: JsonSchema>() -> Value {
     serde_json::to_value(schema_for!(T)).unwrap_or_else(|_| serde_json::json!({ "type": "object" }))
-}
-fn valid_id(id: &str) -> bool {
-    id.len() <= 128 && id.split(':').all(is_identifier)
 }
