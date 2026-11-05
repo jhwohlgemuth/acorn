@@ -4,11 +4,13 @@ Updated November 2, 2026. **SharePoint is the active default; GitLab intake and 
 
 ## Start here
 
-- [Presentation walkthrough](_assets/demo-walkthrough.pdf)
-- [User and reviewer guide](../powerapps-jsonl-intake/_assets/sponsor-highlights-user-reviewer-guide.pdf)
-- [Developer guide](../powerapps-jsonl-intake/_assets/sponsor-highlights-developer-guide.pdf)
-- [SharePoint demo report](../powerapps-jsonl-intake/_assets/sharepoint/demo-20261026/sharepoint-demo-report.pdf)
+- [Presentation walkthrough](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20Guides/demo_walkthrough.pdf)
+- [User and reviewer guide](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20Guides/sponsor_highlights_user_guide.pdf)
+- [Developer guide](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20Guides/sponsor_highlights_developer_guide.pdf)
+- [SharePoint example report](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20Guides/example_report.pdf)
 - [CLI guide](../../../docs/src/cli-reference/commands/intake.md)
+
+The SharePoint guide library is authoritative for the reader-facing PDFs. The repository retains only dated evidence, fixtures and reproducible workflow sources.
 
 The manual MVP is accepted: browser download → stage → inspect → confirmed apply → combined local PDF. Standard-license contributor access, recovery, collected-export boundaries, native restore, deployed exporter repair and contributor editing are accepted. Wider shared rollout remains PA-12; standalone reporting for the separate `general` destination remains PA-29. Direct CLI OAuth download and Vergil are separate unfinished plans.
 

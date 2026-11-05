@@ -12,21 +12,22 @@ The page reuses the report/dashboard teal-and-green geometric banner, without an
 
 # PDF library
 
-[Sponsor Highlights Guides](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20Guides/Forms/AllItems.aspx) is a dedicated document library, ID `7ae2f775-f82a-4cb5-9c29-8eb26d42a031`. The owner will upload the PDFs later; the page links to the library, not nonexistent files.
+[Sponsor Highlights Guides](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20Guides/Forms/AllItems.aspx) is the authoritative document library, ID `7ae2f775-f82a-4cb5-9c29-8eb26d42a031`. The page links to the library and the repository does not retain duplicate current-guide PDFs.
 
-Upload these current sources without renaming them:
+Current publications:
 
-- [User and reviewer guide](_assets/sponsor-highlights-user-reviewer-guide.pdf)
-- [Developer guide](_assets/sponsor-highlights-developer-guide.pdf)
-- [Demo walkthrough](../manual-jsonl-ingestion-graduation/_assets/demo-walkthrough.pdf)
+- [User and reviewer guide](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20Guides/sponsor_highlights_user_guide.pdf)
+- [Developer guide](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20Guides/sponsor_highlights_developer_guide.pdf)
+- [Demo walkthrough](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20Guides/demo_walkthrough.pdf)
+- [Example report](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20Guides/example_report.pdf)
 
-Replace each existing file when publishing a revised guide so its SharePoint URL remains stable. Keep backups, credentials, payload fixtures and unreviewed reports out of this reader-facing library.
+Replace each existing file when publishing a revised guide so its SharePoint URL remains stable. Keep backups, credentials, payload fixtures and unreviewed reports out of this reader-facing library. Repository `_assets/` remain for dated implementation, acceptance and recovery evidence only.
 
 # Access and acceptance
 
 On October 28, the owner explicitly approved Read access for the existing four dashboard contributors on this page and guide library only. The guide library has unique permissions with its existing owner/member/visitor grants retained; all four direct Read grants were verified after reloading. The hub page (Site Pages item 3) returned **Access granted** for the same four resolved recipients with **Can view** selected and notification emails disabled. Raw submissions, exports and whole-site membership were not expanded.
 
-The published page, banner, site-navigation link and guide-library destination were inspected in the owner session. The October 28 visual redesign was published and all six rendered link destinations were checked against their intended URLs. The final design separates primary action cards from supporting links and replaces the earlier purple filled buttons. Contributor-account access to the new hub and library still needs a participant check; earlier dashboard access checks do not establish this. PDFs remain pending the owner's deferred upload.
+The published page, banner, site-navigation link and guide-library destination were inspected in the owner session. The October 28 visual redesign was published and all six rendered link destinations were checked against their intended URLs. The final design separates primary action cards from supporting links and replaces the earlier purple filled buttons. Contributor-account access to the new hub and library still needs a participant check; earlier dashboard access checks do not establish this. The library currently contains the user guide, developer guide, demo walkthrough and example report.
 
 ![Published Sponsor Highlights hub](_assets/project-coverage/highlights-hub.png)
 

@@ -16,6 +16,8 @@
 
 ## Planned
 
+- [Power Automate Teams workflow bot](powerautomate-teams-bot/index.md) - Package a Workflows-authored Teams assistant as solution-aware flows with Dataverse sessions, requests, jobs, idempotent effects and receipts. The owner-only summarize request/reply slice is repaired and accepted; remaining phases decide the supported Teams interaction surface, then add ALM, durable routing, centralized responses, bounded capabilities, recovery and governed pilot release. The Sponsor Highlights intake and Vergil automation plans retain their own systems.
+
 - [Headless CI SharePoint JSONL download](sharepoint-headless-ci-download/index.md) - Follow SPD-26 shared functionality and acceptance on any one native OS with GitLab OIDC federation, ACRE workload profiles and read-only unattended capture/staging; seven bounded phases require approved app-only access and isolated live acceptance. No user credential cache or automatic apply/reporting.
 
 - [Installable acornd background service](acornd-service.md) - Build on the landed portable job and strict daemon configuration contracts to serve existing APIs and configured check/gather jobs from a persistent local or SSH-managed service; SQLite history and composable server lifecycle are ready, and release requires signed paired binaries plus live host acceptance.

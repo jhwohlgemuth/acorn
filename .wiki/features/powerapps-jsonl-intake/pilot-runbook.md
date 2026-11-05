@@ -2,7 +2,7 @@
 
 > **Sanitized copy:** Account labels and related assets have been redacted. Historical checksums and import results describe the originals; see [privacy and reuse limits](../../privacy.md).
 
-Plan assets now live in local `_assets/` folders. Historical PDFs, screenshots and execution records retain their original paths; the links and commands in this walkthrough use the current layout.
+Reader-facing guide PDFs live only in the SharePoint guide library. Local `_assets/` folders retain dated implementation, acceptance and recovery evidence; the links and commands in this walkthrough use the current layout.
 
 Updated October 27, 2026 after the approved SharePoint cutover and reversible GitLab pause.
 
@@ -22,7 +22,7 @@ Controlled LandScan submission `82a8dd58-8c60-4ec5-abf5-cb251ab9e033` added exac
 
 ## Next-week demo
 
-The [demo packet](../manual-jsonl-ingestion-graduation/walkthrough.md) follows one real, synthetic personnel submission through the form receipt, immutable JSONL commit, local stage/inspect/apply, reviewed contributor graduation and a local PDF. [Open the illustrated walkthrough](../manual-jsonl-ingestion-graduation/_assets/demo-walkthrough.pdf) or [the resulting report](../manual-jsonl-ingestion-graduation/_assets/demo-report.pdf). Both guides retain that demo addendum; the current notification updates precede it.
+The [demo packet](../manual-jsonl-ingestion-graduation/walkthrough.md) follows one real, synthetic personnel submission through the form receipt, immutable JSONL commit, local stage/inspect/apply, reviewed contributor graduation and a local PDF. [Open the illustrated walkthrough](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20Guides/demo_walkthrough.pdf) or [the published example report](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20Guides/example_report.pdf). Both publications retain that demo addendum; the current notification updates precede it.
 
 Submission `4313fcfc-0201-441e-8bda-c77718a31dcf` appended exactly one line at `3090aa5714b4c6ff59c5dd0b6ecba999f918caa2`. At that rehearsal, the remote inbox contained six TEST ONLY lines. Exact replay reached Queued replay. The frozen sixth line and the full immutable snapshot are preserved byte-for-byte with SHA-256 hashes. The [isolated failed-commit test](write-failure-acceptance.md) also verified a single unresolved response with success confirmation skipped. All eleven local rehearsal steps passed; `make lint` passed and `make test` passed 2,670 tests (17 skipped). These results do not authorize production handback or establish reliable cloud egress.
 
