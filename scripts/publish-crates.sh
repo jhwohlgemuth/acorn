@@ -14,8 +14,8 @@ case "${1:-}" in
 esac
 
 crates=(
-    acorn-macros
     acorn-core
+    acorn-macros
     acorn-diff
     acorn-cmd
     acorn-host

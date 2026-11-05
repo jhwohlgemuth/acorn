@@ -2,7 +2,7 @@ mod benchmark_history;
 
 use serde::Deserialize;
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -11,13 +11,18 @@ use toml_edit::{value, DocumentMut};
 const WORKSPACE_MANIFEST: &str = "Cargo.toml";
 
 #[derive(Deserialize)]
+struct CargoDependency {
+    kind: Option<String>,
+    name: String,
+}
+#[derive(Deserialize)]
 struct CargoMetadata {
     packages: Vec<CargoPackage>,
     workspace_members: BTreeSet<String>,
 }
-
 #[derive(Deserialize)]
 struct CargoPackage {
+    dependencies: Vec<CargoDependency>,
     id: String,
     name: String,
     publish: Option<Vec<String>>,
@@ -95,7 +100,7 @@ fn get_workspace_version(doc: &DocumentMut) -> Result<String, String> {
         .ok_or_else(|| "could not find [workspace.package].version in Cargo.toml".to_string())?;
     Ok(v.trim_matches('"').to_string())
 }
-fn get_crates_io_workspace_packages() -> Result<BTreeSet<String>, String> {
+fn get_crates_io_workspace_packages() -> Result<BTreeMap<String, BTreeSet<String>>, String> {
     let output = Command::new("cargo")
         .args(["metadata", "--format-version", "1", "--no-deps"])
         .output()
@@ -104,7 +109,7 @@ fn get_crates_io_workspace_packages() -> Result<BTreeSet<String>, String> {
         return Err(format!("cargo metadata failed: {}", String::from_utf8_lossy(&output.stderr).trim()));
     }
     let metadata = serde_json::from_slice::<CargoMetadata>(&output.stdout).map_err(|e| format!("failed to parse cargo metadata: {e}"))?;
-    Ok(metadata
+    let packages = metadata
         .packages
         .into_iter()
         .filter(|package| metadata.workspace_members.contains(&package.id))
@@ -114,7 +119,20 @@ fn get_crates_io_workspace_packages() -> Result<BTreeSet<String>, String> {
                 .as_ref()
                 .is_none_or(|registries| registries.iter().any(|registry| registry == "crates-io"))
         })
-        .map(|package| package.name)
+        .collect::<Vec<_>>();
+    let package_names = packages.iter().map(|package| package.name.clone()).collect::<BTreeSet<_>>();
+    Ok(packages
+        .into_iter()
+        .map(|package| {
+            let dependencies = package
+                .dependencies
+                .into_iter()
+                .filter(|dependency| dependency.kind.as_deref() != Some("dev"))
+                .map(|dependency| dependency.name)
+                .filter(|dependency| package_names.contains(dependency))
+                .collect();
+            (package.name, dependencies)
+        })
         .collect())
 }
 fn set_workspace_version(doc: &mut DocumentMut, version: &str) {
@@ -323,9 +341,36 @@ fn cmd_check_version() -> Result<(), String> {
 }
 fn cmd_check_release_crates(release_crates: &[String]) -> Result<(), String> {
     let expected = get_crates_io_workspace_packages()?;
-    validate_release_crates(release_crates, &expected)?;
-    println!("Release list includes all {} crates.io workspace crates ✓", expected.len());
+    let package_names = expected.keys().cloned().collect();
+    validate_release_crates(release_crates, &package_names)?;
+    validate_release_order(release_crates, &expected)?;
+    println!(
+        "Release list includes all {} crates.io workspace crates in dependency order ✓",
+        expected.len()
+    );
     Ok(())
+}
+fn validate_release_order(release_crates: &[String], dependencies: &BTreeMap<String, BTreeSet<String>>) -> Result<(), String> {
+    let positions = release_crates
+        .iter()
+        .enumerate()
+        .map(|(position, package)| (package.as_str(), position))
+        .collect::<BTreeMap<_, _>>();
+    let positions = &positions;
+    let violations = dependencies
+        .iter()
+        .flat_map(move |(package, dependencies)| {
+            dependencies.iter().filter_map(move |dependency| {
+                let package_position = positions.get(package.as_str())?;
+                let dependency_position = positions.get(dependency.as_str())?;
+                (package_position < dependency_position).then(|| format!("{package} must follow {dependency}"))
+            })
+        })
+        .collect::<Vec<_>>();
+    match violations.is_empty() {
+        | true => Ok(()),
+        | false => Err(format!("release crate list is not dependency ordered ({})", violations.join("; "))),
+    }
 }
 fn validate_release_crates(release_crates: &[String], expected: &BTreeSet<String>) -> Result<(), String> {
     let configured = release_crates.iter().cloned().collect::<BTreeSet<_>>();
@@ -405,6 +450,28 @@ acorn-cmd = { version = "0.6.0", path = "../acorn-cmd" }
         let expected = BTreeSet::from(["acorn-core".to_string(), "acorn-host".to_string()]);
         let release_crates = ["acorn-core".to_string(), "acorn-host".to_string()];
         assert!(validate_release_crates(&release_crates, &expected).is_ok());
+    }
+    #[test]
+    fn test_release_crates_accepts_dependency_order() {
+        let dependencies = BTreeMap::from([
+            ("acorn-core".to_string(), BTreeSet::new()),
+            ("acorn-macros".to_string(), BTreeSet::from(["acorn-core".to_string()])),
+        ]);
+        let release_crates = ["acorn-core".to_string(), "acorn-macros".to_string()];
+        assert!(validate_release_order(&release_crates, &dependencies).is_ok());
+    }
+    #[test]
+    fn test_release_crates_rejects_dependency_order_violation() {
+        let dependencies = BTreeMap::from([
+            ("acorn-core".to_string(), BTreeSet::new()),
+            ("acorn-macros".to_string(), BTreeSet::from(["acorn-core".to_string()])),
+        ]);
+        let release_crates = ["acorn-macros".to_string(), "acorn-core".to_string()];
+        let error = validate_release_order(&release_crates, &dependencies).expect_err("dependency order violation should fail");
+        assert_eq!(
+            error,
+            "release crate list is not dependency ordered (acorn-macros must follow acorn-core)"
+        );
     }
     #[test]
     fn test_release_crates_reports_list_mismatches() {
