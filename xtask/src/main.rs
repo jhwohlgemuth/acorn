@@ -23,9 +23,16 @@ struct CargoPackage {
     publish: Option<Vec<String>>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum DependencyTable {
+    Package,
+    Workspace,
+}
+
 struct InternalDep {
     manifest: PathBuf,
     name: String,
+    table: DependencyTable,
 }
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -113,13 +120,38 @@ fn get_crates_io_workspace_packages() -> Result<BTreeSet<String>, String> {
 fn set_workspace_version(doc: &mut DocumentMut, version: &str) {
     doc["workspace"]["package"]["version"] = value(version);
 }
-fn get_dep_version(doc: &DocumentMut, name: &str) -> Option<String> {
-    let entry = doc.get("dependencies")?.get(name)?;
+fn get_dep_version(doc: &DocumentMut, dep: &InternalDep) -> Option<String> {
+    let entry = match dep.table {
+        | DependencyTable::Package => doc.get("dependencies")?.get(&dep.name)?,
+        | DependencyTable::Workspace => doc.get("workspace")?.get("dependencies")?.get(&dep.name)?,
+    };
     if let Some(table) = entry.as_inline_table() {
         table.get("version").and_then(|v| v.as_str()).map(String::from)
     } else {
         entry.as_str().map(String::from)
     }
+}
+fn internal_dependencies(doc: &DocumentMut, manifest: &Path, package_names: &BTreeSet<String>, table: DependencyTable) -> Vec<InternalDep> {
+    let dependencies = match table {
+        | DependencyTable::Package => doc.get("dependencies").and_then(|item| item.as_table()),
+        | DependencyTable::Workspace => doc
+            .get("workspace")
+            .and_then(|workspace| workspace.get("dependencies"))
+            .and_then(|item| item.as_table()),
+    };
+    dependencies
+        .into_iter()
+        .flat_map(toml_edit::Table::iter)
+        .filter_map(|(name, dependency)| {
+            let inline = dependency.as_inline_table()?;
+            let package_name = inline.get("package").and_then(|value| value.as_str()).unwrap_or(name);
+            (inline.contains_key("path") && inline.contains_key("version") && package_names.contains(package_name)).then(|| InternalDep {
+                manifest: manifest.to_path_buf(),
+                name: name.to_string(),
+                table,
+            })
+        })
+        .collect()
 }
 fn get_internal_deps(root_doc: &DocumentMut, workspace_root: &Path) -> Result<Vec<InternalDep>, String> {
     let manifests = root_doc["workspace"]["members"]
@@ -140,32 +172,35 @@ fn get_internal_deps(root_doc: &DocumentMut, workspace_root: &Path) -> Result<Ve
             })
         })
         .collect::<Result<BTreeSet<_>, _>>()?;
-    manifests.into_iter().try_fold(Vec::new(), |mut internal_deps, manifest| {
+    let internal_deps = internal_dependencies(
+        root_doc,
+        &workspace_root.join(WORKSPACE_MANIFEST),
+        &package_names,
+        DependencyTable::Workspace,
+    );
+    manifests.into_iter().try_fold(internal_deps, |mut internal_deps, manifest| {
         let doc = read_toml(&manifest)?;
-        if let Some(dependencies) = doc.get("dependencies").and_then(|item| item.as_table()) {
-            internal_deps.extend(dependencies.iter().filter_map(|(name, dependency)| {
-                let inline = dependency.as_inline_table()?;
-                let package_name = inline.get("package").and_then(|value| value.as_str()).unwrap_or(name);
-                (inline.contains_key("path") && inline.contains_key("version") && package_names.contains(package_name)).then(|| InternalDep {
-                    manifest: manifest.clone(),
-                    name: name.to_string(),
-                })
-            }));
-        }
+        internal_deps.extend(internal_dependencies(&doc, &manifest, &package_names, DependencyTable::Package));
         Ok(internal_deps)
     })
 }
-fn set_dep_version(doc: &mut DocumentMut, name: &str, version: &str) -> Result<(), String> {
-    let deps = doc
-        .get_mut("dependencies")
-        .ok_or_else(|| "no [dependencies] table in manifest".to_string())?;
-    let dep = deps
+fn set_dep_version(doc: &mut DocumentMut, dep: &InternalDep, version: &str) -> Result<(), String> {
+    let name = &dep.name;
+    let (deps, table_name) = match dep.table {
+        | DependencyTable::Package => (doc.get_mut("dependencies"), "dependencies"),
+        | DependencyTable::Workspace => (
+            doc.get_mut("workspace").and_then(|workspace| workspace.get_mut("dependencies")),
+            "workspace.dependencies",
+        ),
+    };
+    let deps = deps.ok_or_else(|| format!("no [{table_name}] table in manifest"))?;
+    let dependency = deps
         .get_mut(name)
-        .ok_or_else(|| format!("dependency '{name}' not found in [dependencies]"))?;
-    if dep.get("version").is_some() {
-        dep["version"] = value(version);
-    } else if dep.as_str().is_some() {
-        *dep = value(version);
+        .ok_or_else(|| format!("dependency '{name}' not found in [{table_name}]"))?;
+    if dependency.get("version").is_some() {
+        dependency["version"] = value(version);
+    } else if dependency.as_str().is_some() {
+        *dependency = value(version);
     } else {
         return Err(format!("unexpected format for dependency '{name}': expected string or inline table"));
     }
@@ -221,12 +256,12 @@ fn cmd_release_version(version_arg: &str) -> Result<(), String> {
     println!("  ✓ updated [workspace.package].version in Cargo.toml");
     for dep in internal_deps {
         let mut doc = read_toml(&dep.manifest)?;
-        match get_dep_version(&doc, &dep.name) {
+        match get_dep_version(&doc, &dep) {
             | Some(dep_ver) if dep_ver == version => {
                 println!("  ✓ {m}:{d} already at {version}", m = dep.manifest.display(), d = dep.name);
             }
             | Some(dep_ver) => {
-                set_dep_version(&mut doc, &dep.name, version)?;
+                set_dep_version(&mut doc, &dep, version)?;
                 write_toml(&dep.manifest, &doc)?;
                 println!("  ✓ {m}:{d} {dep_ver} → {version}", m = dep.manifest.display(), d = dep.name);
             }
@@ -259,7 +294,7 @@ fn cmd_check_version() -> Result<(), String> {
     let mut all_ok = true;
     for dep in internal_deps {
         let doc = read_toml(&dep.manifest)?;
-        match get_dep_version(&doc, &dep.name) {
+        match get_dep_version(&doc, &dep) {
             | Some(ver) if ver == workspace_version => {
                 println!("  ✓ {m}:{d} = {ver}", m = dep.manifest.display(), d = dep.name);
             }
@@ -337,6 +372,17 @@ mod tests {
         assert!(internal_deps
             .iter()
             .any(|dep| { dep.manifest.ends_with("crates/acorn-cli/Cargo.toml") && dep.name == "acorn-cmd" }));
+    }
+    #[test]
+    fn test_internal_deps_include_workspace_dependencies() {
+        let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("xtask should be inside the workspace");
+        let root_doc = read_toml(workspace_root.join(WORKSPACE_MANIFEST)).expect("workspace manifest should parse");
+        let internal_deps = get_internal_deps(&root_doc, workspace_root).expect("internal dependencies should resolve");
+        assert!(internal_deps.iter().any(|dep| {
+            dep.manifest == workspace_root.join(WORKSPACE_MANIFEST) && dep.name == "acorn-core" && dep.table == DependencyTable::Workspace
+        }));
     }
 
     #[test]
