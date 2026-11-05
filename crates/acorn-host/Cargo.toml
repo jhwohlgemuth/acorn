@@ -10,8 +10,8 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-acorn-cmd = { version = "0.6.0", path = "../acorn-cmd", default-features = false, optional = true }
-acorn-core = { version = "0.6.0", path = "../acorn-core", default-features = false, features = ["alloc"] }
+acorn-cmd = { workspace = true, default-features = false, optional = true }
+acorn-core = { workspace = true, default-features = false, features = ["alloc"] }
 async-trait = { workspace = true, optional = true }
 chrono = { version = "0.4.41", default-features = false, features = ["clock"], optional = true }
 data-encoding = { workspace = true, optional = true }

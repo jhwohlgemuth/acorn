@@ -18,6 +18,7 @@ use crate::cli::arguments::{FileFormat, Target};
 use crate::commands::export::pdf::browser_executable;
 use crate::commands::export::{export_schema, run, run_with_import_context, tools, CrosswalkImportOptions};
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
+#[cfg(feature = "pdf")]
 use acorn::io::export::pdf::configured_browser_executable;
 #[cfg(feature = "pdf")]
 use acorn::util::constants::env::CHROME_PATH;

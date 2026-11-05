@@ -363,18 +363,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_internal_deps_include_acorn_cmd() {
-        let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .expect("xtask should be inside the workspace");
-        let root_doc = read_toml(workspace_root.join(WORKSPACE_MANIFEST)).expect("workspace manifest should parse");
-        let internal_deps = get_internal_deps(&root_doc, workspace_root).expect("internal dependencies should resolve");
-        assert!(internal_deps
-            .iter()
-            .any(|dep| { dep.manifest.ends_with("crates/acorn-cli/Cargo.toml") && dep.name == "acorn-cmd" }));
+    fn test_internal_dependencies_include_package_dependency() {
+        let doc = r#"[dependencies]
+acorn-cmd = { version = "0.6.0", path = "../acorn-cmd" }
+"#
+        .parse::<DocumentMut>()
+        .expect("package manifest should parse");
+        let packages = BTreeSet::from(["acorn-cmd".to_string()]);
+        let dependencies = internal_dependencies(&doc, Path::new("crate/Cargo.toml"), &packages, DependencyTable::Package);
+        assert_eq!(dependencies.len(), 1, "one internal package dependency should be found");
+        let dependency = dependencies.first().expect("internal package dependency");
+        assert_eq!(dependency.manifest, Path::new("crate/Cargo.toml"));
+        assert_eq!(dependency.name, "acorn-cmd");
+        assert_eq!(dependency.table, DependencyTable::Package);
     }
     #[test]
-    fn test_internal_deps_include_workspace_dependencies() {
+    fn test_internal_dependencies_include_workspace_dependencies() {
         let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .expect("xtask should be inside the workspace");
@@ -384,14 +388,24 @@ mod tests {
             dep.manifest == workspace_root.join(WORKSPACE_MANIFEST) && dep.name == "acorn-core" && dep.table == DependencyTable::Workspace
         }));
     }
-
+    #[test]
+    fn test_repository_internal_dependencies_use_workspace_table() {
+        let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("xtask should be inside the workspace");
+        let root_doc = read_toml(workspace_root.join(WORKSPACE_MANIFEST)).expect("workspace manifest should parse");
+        let internal_deps = get_internal_deps(&root_doc, workspace_root).expect("internal dependencies should resolve");
+        assert!(
+            internal_deps.iter().all(|dependency| dependency.table == DependencyTable::Workspace),
+            "all versioned internal dependencies should be centralized in [workspace.dependencies]"
+        );
+    }
     #[test]
     fn test_release_crates_accepts_complete_list() {
         let expected = BTreeSet::from(["acorn-core".to_string(), "acorn-host".to_string()]);
         let release_crates = ["acorn-core".to_string(), "acorn-host".to_string()];
         assert!(validate_release_crates(&release_crates, &expected).is_ok());
     }
-
     #[test]
     fn test_release_crates_reports_list_mismatches() {
         let expected = BTreeSet::from(["acorn-core".to_string(), "acorn-host".to_string()]);

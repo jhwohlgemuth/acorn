@@ -5,13 +5,24 @@ use crate::io::mcp::ToolRegistry;
 use crate::io::Bytes;
 use serde_json::json;
 use std::fs;
-use std::path::PathBuf;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
 use tempfile::tempdir;
+
+#[cfg(not(unix))]
+fn secure_file(_path: &Path) {}
+#[cfg(unix)]
+fn secure_file(path: &Path) {
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600)).expect("secure script fixture permissions");
+}
 
 #[tokio::test]
 async fn test_direct_script_check_returns_findings_without_artifacts() {
     let root = tempdir().expect("script root");
-    fs::copy(crate::test::utils::fixture_path("exec/valid.rhai"), root.path().join("valid.rhai")).expect("copy valid script");
+    let script = root.path().join("valid.rhai");
+    fs::copy(crate::test::utils::fixture_path("exec/valid.rhai"), &script).expect("copy valid script");
+    secure_file(&script);
     fs::write(root.path().join("input.txt"), "hello").expect("input document");
     let registry = ToolRegistry::default()
         .register_exec_check_capability(root.path())
@@ -53,6 +64,7 @@ async fn test_hook_check_requires_digest_authorization_and_applies_no_proposals(
     let root = tempdir().expect("hook root");
     let script = root.path().join("valid.rhai");
     fs::copy(crate::test::utils::fixture_path("exec/valid.rhai"), &script).expect("copy valid script");
+    secure_file(&script);
     fs::write(root.path().join("input.txt"), "hello").expect("input document");
     let source = fs::read_to_string(&script).expect("script source");
     let digest = Bytes::from(&source).digest();
@@ -63,7 +75,9 @@ async fn test_hook_check_requires_digest_authorization_and_applies_no_proposals(
             "hooks":["check"],"capabilities":{"read":null,"write":null,"network":null}
         }]
     });
-    fs::write(root.path().join("manifest.json"), serde_json::to_vec(&manifest).expect("manifest JSON")).expect("write manifest");
+    let manifest_path = root.path().join("manifest.json");
+    fs::write(&manifest_path, serde_json::to_vec(&manifest).expect("manifest JSON")).expect("write manifest");
+    secure_file(&manifest_path);
     let registry = ToolRegistry::default()
         .register_exec_hook_check_capability(root.path(), true)
         .expect("register hook check");
@@ -152,13 +166,15 @@ async fn test_hook_check_requires_digest_authorization_and_applies_no_proposals(
 #[tokio::test]
 async fn test_static_script_routes_are_read_only_and_bounded() {
     let root = tempdir().expect("script root");
-    fs::copy(crate::test::utils::fixture_path("exec/valid.rhai"), root.path().join("valid.rhai")).expect("copy valid script");
-    fs::copy(
-        crate::test::utils::fixture_path("exec/invalid_no_header.rhai"),
-        root.path().join("invalid.rhai"),
-    )
-    .expect("copy invalid script");
-    fs::write(root.path().join("manifest.json"), r#"{"version":"1.0.0","scripts":[]}"#).expect("manifest");
+    let valid_script = root.path().join("valid.rhai");
+    fs::copy(crate::test::utils::fixture_path("exec/valid.rhai"), &valid_script).expect("copy valid script");
+    secure_file(&valid_script);
+    let invalid_script = root.path().join("invalid.rhai");
+    fs::copy(crate::test::utils::fixture_path("exec/invalid_no_header.rhai"), &invalid_script).expect("copy invalid script");
+    secure_file(&invalid_script);
+    let manifest_path = root.path().join("manifest.json");
+    fs::write(&manifest_path, r#"{"version":"1.0.0","scripts":[]}"#).expect("manifest");
+    secure_file(&manifest_path);
     let registry = ToolRegistry::default()
         .register_exec_check_safe_capability(root.path())
         .and_then(|registry| registry.register_exec_manifest_check_capability(root.path()))

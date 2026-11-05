@@ -1,4 +1,6 @@
 //! Direct CLI equivalence for native export operations.
+#[cfg(feature = "chart")]
+use acorn::io::chart::ChartOptions;
 #[cfg(feature = "pdf")]
 use acorn::io::export::pdf::{initialize_page, render_html_to_pdf, PdfMargins};
 #[cfg(feature = "pdf")]
@@ -8,7 +10,6 @@ use acorn::io::mcp::{
     ExportSchemaInput, ExportUpdatesPreviewInput,
 };
 use acorn::io::{
-    chart::ChartOptions,
     export::{powerpoint, updates},
     ArchiveCandidate, ArchiveExtraction, InputOutput,
 };
@@ -23,7 +24,7 @@ use tempfile::tempdir;
 fn render_services() -> ExportRenderServices {
     ExportRenderServices::new(
         |_, _| Ok("<html><body><h1>Native fact sheet</h1><img src=\"00.png\"></body></html>".to_string()),
-        |activity| ChartOptions::init().file_type("png").build().render(activity.aspect.as_ref()),
+        render_chart,
         updates::html::ReportHtmlAssets {
             color_logo: String::new(),
             white_logo: String::new(),
@@ -34,6 +35,14 @@ fn render_services() -> ExportRenderServices {
         },
         Vec::new(),
     )
+}
+#[cfg(feature = "chart")]
+fn render_chart(activity: &ResearchActivity) -> color_eyre::eyre::Result<Option<Vec<u8>>> {
+    ChartOptions::init().file_type("png").build().render(activity.aspect.as_ref())
+}
+#[cfg(not(feature = "chart"))]
+fn render_chart(_activity: &ResearchActivity) -> color_eyre::eyre::Result<Option<Vec<u8>>> {
+    Ok(None)
 }
 #[test]
 fn test_bag_and_pdf_dry_runs_match_read_only_previews() {
@@ -215,7 +224,7 @@ fn test_direct_and_shared_powerpoint_parts_match() {
         .expect("direct PowerPoint command");
     assert!(direct.status.success(), "{}", String::from_utf8_lossy(&direct.stderr));
     let data = ResearchActivity::read(&source).expect("research activity");
-    let chart = ChartOptions::default().render(data.aspect.as_ref()).expect("ASPECT chart");
+    let chart = render_chart(&data).expect("ASPECT chart");
     let shared_path = powerpoint::render(
         vec![source.clone()],
         &source,

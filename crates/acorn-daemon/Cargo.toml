@@ -15,8 +15,8 @@ path = "src/main.rs"
 
 [dependencies]
 acorn-core = { workspace = true, features = ["std"] }
-acorn-host = { version = "0.6.0", path = "../acorn-host", features = ["fs"] }
-acorn-lib = { version = "0.6.0", path = "../acorn-lib", default-features = false, features = ["analysis"] }
+acorn-host = { workspace = true, features = ["fs"] }
+acorn-lib = { workspace = true, features = ["analysis"] }
 acorn-schema = { workspace = true, features = ["std"] }
 acorn-service = { workspace = true, features = ["std"] }
 clap = { version = "4.4.2", features = ["derive"] }

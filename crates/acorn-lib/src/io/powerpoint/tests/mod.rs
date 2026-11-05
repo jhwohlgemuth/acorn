@@ -15,8 +15,6 @@ use crate::io::powerpoint::*;
 use crate::io::read_file;
 use acorn_core::util::interpolation::{ReplacementPlan, ReplacementValue};
 use acorn_schema::research_activity::{ResearchActivity, Sections};
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
 fn fixtures_dir() -> PathBuf {
@@ -67,18 +65,14 @@ fn test_interpolate_values_reports_missing_part() {
     let error = interpolate_values(path, &context).expect_err("missing part must fail");
     assert!(error.to_string().contains("acorn-powerpoint-part.xml"));
 }
-#[cfg(unix)]
 #[test]
 fn test_interpolate_values_reports_write_failure() {
     let context = ExportContext::project(&ResearchActivity::default()).expect("draft projection");
     let directory = tempfile::tempdir().expect("temporary PowerPoint part directory");
     let path = directory.path().join("readonly.xml");
     std::fs::write(&path, "<a:p><a:r><a:t>{{ title }}</a:t></a:r></a:p>").expect("write part");
-    let permissions = std::fs::Permissions::from_mode(0o444);
-    std::fs::set_permissions(&path, permissions).expect("make part read only");
-    let result = interpolate_values(path.clone(), &context);
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).expect("restore part permissions");
-    let error = result.expect_err("read only part must fail");
+    let error = interpolate_values_with_writer(path.clone(), &context, |_, _| Err(color_eyre::eyre::eyre!("simulated write failure")))
+        .expect_err("write failure must propagate");
     assert!(error.to_string().contains("readonly.xml"));
 }
 #[test]

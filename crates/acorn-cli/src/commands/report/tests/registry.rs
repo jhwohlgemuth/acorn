@@ -3,6 +3,7 @@ use acorn::io::mcp::ReportInput;
 #[cfg(unix)]
 use std::os::unix::fs::symlink;
 
+#[cfg(feature = "pdf")]
 #[tokio::test]
 async fn test_native_local_manifest_matches_direct_project_report() {
     let chrome = std::env::var_os("CHROME_PATH").map(PathBuf::from).or_else(|| {

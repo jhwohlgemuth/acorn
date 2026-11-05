@@ -52,10 +52,16 @@ broken_intra_doc_links = "forbid"
 
 [workspace.dependencies]
 acorn-analysis = { version = "0.6.0", path = "crates/acorn-analysis", default-features = false }
+acorn-cmd = { version = "0.6.0", path = "crates/acorn-cmd", default-features = false }
 acorn-core = { version = "0.6.0", path = "crates/acorn-core", default-features = false }
+acorn-diff = { version = "0.6.0", path = "crates/acorn-diff", default-features = false }
+acorn-host = { version = "0.6.0", path = "crates/acorn-host", default-features = false }
+acorn-lib = { version = "0.6.0", path = "crates/acorn-lib", default-features = false }
+acorn-macros = { version = "0.6.0", path = "crates/acorn-macros", default-features = false }
 acorn-schema = { version = "0.6.0", path = "crates/acorn-schema", default-features = false }
-acorn-server = { version = "0.6.0", path = "crates/acorn-server" }
+acorn-server = { version = "0.6.0", path = "crates/acorn-server", default-features = false }
 acorn-service = { version = "0.6.0", path = "crates/acorn-service", default-features = false }
+acorn-tui = { version = "0.6.0", path = "crates/acorn-tui", default-features = false }
 agent-client-protocol = { version = "=2.2.0", default-features = false }
 anydoc = { version = "0.1.6", default-features = false }
 infer = { version = "0.22.0", default-features = false }
