@@ -1,6 +1,6 @@
 # 🧠 Infer
 
-`acorn infer` provides two bounded inference modes. A prompt argument or piped text uses the managed [Needle sidecar](../../inference/needle.md) to select and invoke ACORN tools. The `run` subcommand hydrates an embedded prompt asset or local Rhai script and optionally sends it to ACP or an OpenAI-compatible endpoint. `ask` is an alias for `infer`.
+`acorn infer` has three paths. A prompt argument or piped text uses the managed [Needle sidecar](../../inference/needle.md) and its legacy tool loop. `--route` opts into native capability routing. The `run` subcommand hydrates an embedded prompt asset or local Rhai script and optionally sends it to ACP or an OpenAI-compatible endpoint. `ask` is an alias for `infer`.
 
 ```sh
 acorn infer "Validate this research activity"
@@ -20,6 +20,18 @@ acorn infer run ./crates/acorn-cli/examples/prompts/title.rhai --data '{"descrip
 acorn infer run summarize --backend openai --model qwen3 --base-url http://localhost:8080
 acorn infer run summarize --backend ollama --model gemma4
 ```
+
+## Native capability routing
+
+`--route` opts into the native capability registry. Without `--capability`, it only previews Needle's choice and never invokes a handler. When Needle returns a call, its name appears in `response.function_calls`; the outcome may be `needs-input` or `withheld`. The pinned runner selected 44 of 75 supported calibration capabilities correctly, below the required 95% gate. Use a direct ACORN command when you need a reliable operation choice. See the [routing evaluation](../../inference/routing-evaluation.md) for the measured limits.
+
+```sh
+acorn infer "Return the running ACORN version" --route
+acorn infer "Return the running ACORN version" --route --capability acorn.version --input-json '{}'
+acorn infer "Return the running ACORN version" --route --capability acorn.version --input-json '{}' --route-preview
+```
+
+An explicit `--capability` limits the catalog to that ID. A handler can run only when you also supply exact `--input-json` and the confidence, grounding, schema, binding, and policy checks pass. `--route-preview` keeps an explicit route in preview mode. Mutating operations additionally require `--apply`, `--binding`, and `--destination`; the destination must match the JSON arguments exactly. Keep the default confidence threshold while the selection gate is open.
 
 ## Embedded prompts
 

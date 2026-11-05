@@ -1,7 +1,6 @@
 use super::*;
-use crate::io::mcp::tools::capability::{
-    catalog_schema, BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, CapabilitySelectionContext,
-};
+use crate::io::mcp::tools::capability::{BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, CapabilitySelectionContext};
+use crate::io::mcp::tools::needle::{model_catalog_schema, Family};
 use acorn_schema::agent::tools::ToolEffects;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -94,18 +93,88 @@ fn test_catalog_is_deterministic_and_requires_explicit_narrowing_when_oversized(
     assert!(registry.capability_catalog(Some(&[]), context).is_err());
 }
 #[test]
-fn test_catalog_projection_keeps_literal_defaults() {
+fn test_catalog_preserves_native_union_argument_shapes() {
+    let root = tempfile::tempdir().expect("root");
+    let registry = ToolRegistry::default()
+        .register_diff_capability(root.path())
+        .and_then(|registry| registry.register_gather_capabilities(root.path(), true))
+        .expect("native registry");
+    let context = CapabilitySelectionContext {
+        offline: true,
+        allow_remote: false,
+    };
+    let catalog: Value = serde_json::from_str(&registry.capability_catalog(None, context).expect("catalog")).expect("JSON catalog");
+    for (capability, valid, invalid) in [
+        (
+            "acorn.diff",
+            serde_json::json!({
+                "before":{"kind":"text","value":"before"},
+                "after":{"kind":"file","value":"after.json"},
+                "operation":{"kind":"similarity","method":"jaccard"}
+            }),
+            serde_json::json!({"before":"before","after":"after","operation":"similarity"}),
+        ),
+        (
+            "acorn.gather",
+            serde_json::json!({"input":{"kind":"directory","value":"data"}}),
+            serde_json::json!({"input":"data"}),
+        ),
+    ] {
+        let parameters = &catalog
+            .as_array()
+            .expect("tools")
+            .iter()
+            .find(|tool| tool["name"] == capability)
+            .expect("tool")["parameters"];
+        let advertised = jsonschema::validator_for(parameters).expect("advertised schema");
+        let selected = registry.select_capability_binding(capability, None, None, context).expect("binding");
+        let canonical = jsonschema::validator_for(&selected.capability.input_schema).expect("canonical schema");
+        assert!(advertised.is_valid(&valid), "{capability}: {valid}");
+        assert!(canonical.is_valid(&valid), "{capability}: {valid}");
+        assert!(!advertised.is_valid(&invalid), "{capability}: {invalid}");
+        assert!(!canonical.is_valid(&invalid), "{capability}: {invalid}");
+        let mut wrong_tag = valid;
+        let field = if capability == "acorn.diff" { "operation" } else { "input" };
+        *wrong_tag.pointer_mut(&format!("/{field}/kind")).expect("discriminator") = serde_json::json!("invalid");
+        assert!(!advertised.is_valid(&wrong_tag), "{capability}: discriminator");
+    }
+}
+#[test]
+fn test_catalog_projection_preserves_references_and_discriminators() {
     let schema = serde_json::json!({
         "type": "object",
-        "title": "Input",
-        "default": { "description": "literal", "title": "value" },
-        "properties": { "description": { "type": "string", "description": "field prose" } }
+        "$defs": {"Nested": {
+            "description": "type prose",
+            "anyOf": [
+                {"type":"null"},
+                {"type":"object","properties":{
+                    "description":{"type":"string","description":"field prose"},
+                    "kind":{"const":"nested"},
+                    "value":{"oneOf":[{"type":"integer","minimum":1},{"const":{"title":"literal","description":"data"}}]}
+                },"required":["kind","value"],"additionalProperties":false}
+            ]
+        }},
+        "properties": { "nested": { "$ref": "#/$defs/Nested" } },
+        "required": ["nested"]
     });
-    let projected = catalog_schema(&schema, false);
-    assert_eq!(projected.pointer("/default/description"), Some(&serde_json::json!("literal")));
-    assert_eq!(projected.pointer("/default/title"), Some(&serde_json::json!("value")));
-    assert_eq!(projected.pointer("/properties/description/type"), Some(&serde_json::json!("string")));
-    assert!(projected.pointer("/properties/description/description").is_none());
+    let projected = model_catalog_schema(&schema);
+    let mut expected = schema.clone();
+    expected
+        .pointer_mut("/$defs/Nested")
+        .and_then(Value::as_object_mut)
+        .expect("definition")
+        .remove("description");
+    expected
+        .pointer_mut("/$defs/Nested/anyOf/1/properties/description")
+        .and_then(Value::as_object_mut)
+        .expect("property")
+        .remove("description");
+    assert_eq!(projected, expected);
+    assert!(jsonschema::validator_for(&projected)
+        .expect("projected schema")
+        .is_valid(&serde_json::json!({
+            "nested":{"kind":"nested","value":{"title":"literal","description":"data"}}
+        })));
 }
 #[test]
 fn test_catalog_projection_preserves_named_properties() {
@@ -242,6 +311,11 @@ fn test_runtime_schemas_must_be_valid_json_schema() {
         .expect_err("invalid runtime schema")
         .to_string()
         .contains("output schema"));
+}
+#[test]
+fn test_scoped_capability_ids_keep_their_family() {
+    assert_eq!(Family::from("acorn.format::apply"), Family::Format);
+    assert_eq!(Family::from("provider:acorn.format::apply"), Family::Format);
 }
 #[test]
 fn test_unavailable_and_remote_bindings_do_not_fall_back_from_explicit_choice() {

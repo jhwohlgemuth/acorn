@@ -2,10 +2,12 @@
 
 ACORN can publish a conservative tool catalog through two local interfaces:
 
-- a managed [Needle sidecar](needle.md) for small, offline tool-selection loops; and
+- a managed [Needle sidecar](needle.md) for local inference and opt-in native route previews; and
 - `acorn serve mcp`, a standard-input/standard-output Model Context Protocol server for external agents.
 
 Both interfaces are projections of the same registry and invoke the same handlers. A tool being described to a model does not grant extra authority: ACORN still enforces its exposure and execution policy at dispatch time.
+
+Native Needle routing is still experimental. Unscoped `--route` requests only preview a capability choice. Execution requires an explicit capability and caller-supplied JSON; the current [routing evaluation](routing-evaluation.md) remains below its 95% selection gate.
 
 For direct inference APIs, embedded prompt instructions remain Markdown and the complete caller data object is appended once as canonical ZON. Local Rhai prompt scripts can build the complete prompt body from the merged data instead. Library callers can explicitly choose pretty JSON for troubleshooting. This is model-facing text only: ACP still uses JSON-RPC and OpenAI-compatible endpoints still use JSON request envelopes.
 

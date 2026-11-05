@@ -524,7 +524,7 @@ async fn run_routed(arguments: &Infer, offline: bool) -> ApiResult<()> {
             };
             let context = ExecutionContext {
                 selection: CapabilitySelectionContext { offline, allow_remote },
-                preview: arguments.route_preview,
+                preview: arguments.route_preview || arguments.capability.is_none(),
                 binding_override: arguments.binding.clone(),
                 caller_arguments,
                 mutation,

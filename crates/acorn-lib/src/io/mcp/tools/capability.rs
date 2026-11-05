@@ -3,13 +3,11 @@
 use super::{CapabilityHandler, ToolHandler, ToolRegistry};
 use crate::error::ApiResult;
 use acorn_core::prelude::{String, Vec};
-use acorn_core::util::constants::app::APPLICATION;
 use acorn_core::util::SemanticVersion;
 use acorn_core::validation::ValidationError;
-use acorn_schema::agent::tools::{NeedleToolDefinition, ToolEffects};
+use acorn_schema::agent::tools::ToolEffects;
 use acorn_schema::hardware::memory::Memory;
 use acorn_schema::validation::{is_identifier, Validate, ValidationReport};
-use alloc::collections::BTreeSet;
 use alloc::sync::Arc;
 use core::future::Future;
 use schemars::{schema_for, JsonSchema};
@@ -18,9 +16,8 @@ use serde::Serialize;
 use serde_json::Value;
 use thiserror::Error;
 
-/// Maximum serialized catalog size accepted by Needle.
+/// Maximum serialized sidecar capability catalog size.
 pub const MAX_CAPABILITY_CATALOG_BYTES: usize = 32 * 1024;
-const MAX_PROMPT_CATALOG_BYTES: usize = 22 * 1024;
 /// Readiness established outside registration, with a reason for unavailable bindings.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(tag = "status", rename_all = "kebab-case")]
@@ -53,8 +50,8 @@ pub enum CapabilityError {
     /// Serialization of the capability catalog failed.
     #[error("Failed to serialize capability catalog — {0}")]
     CatalogSerialization(String),
-    /// The catalog exceeds Needle's bounded input.
-    #[error("Capability catalog exceeds the {MAX_CAPABILITY_CATALOG_BYTES}-byte Needle limit; narrow the explicit capability scope")]
+    /// The catalog exceeds the sidecar's bounded input.
+    #[error("Capability catalog exceeds the {MAX_CAPABILITY_CATALOG_BYTES}-byte sidecar limit; narrow the explicit capability scope")]
     CatalogTooLarge,
     /// A binding identifier is already registered.
     #[error("Duplicate binding ID '{0}'")]
@@ -113,23 +110,6 @@ pub enum CapabilityError {
     #[error("Unknown capability scope '{0}'")]
     UnknownScope(String),
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum Family {
-    Check,
-    Diff,
-    Doctor,
-    Download,
-    Exec,
-    Export,
-    Format,
-    Gather,
-    Import,
-    Link,
-    Report,
-    Swhid,
-    Sync,
-    Unknown,
-}
 /// One implementation of a capability contract.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct BindingDefinition {
@@ -174,8 +154,8 @@ pub struct CapabilityDefinition {
 }
 #[derive(Clone)]
 pub(super) struct CapabilityEntry {
-    definition: CapabilityDefinition,
-    bindings: Vec<RegisteredBinding>,
+    pub(super) definition: CapabilityDefinition,
+    pub(super) bindings: Vec<RegisteredBinding>,
 }
 struct CapabilityIdentifier<'a>(&'a str);
 /// Caller constraints used when resolving a compatible binding.
@@ -187,16 +167,16 @@ pub struct CapabilitySelectionContext {
     pub allow_remote: bool,
 }
 #[derive(Clone)]
-struct RegisteredBinding {
-    definition: BindingDefinition,
-    handler: CapabilityHandler,
+pub(super) struct RegisteredBinding {
+    pub(super) definition: BindingDefinition,
+    pub(super) handler: CapabilityHandler,
 }
 /// Deterministic prompt-scoped catalog and its measured retention.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScopedCatalog {
     /// Explicit retained capability IDs, or `None` when the full catalog fits.
     pub ids: Option<Vec<String>>,
-    /// Serialized bytes sent to Needle.
+    /// Serialized bytes sent to the selected sidecar.
     pub bytes: Memory,
     /// Number of capabilities omitted to respect the catalog limit.
     pub omitted: usize,
@@ -212,7 +192,7 @@ pub struct SelectedBinding {
     pub binding: BindingDefinition,
 }
 impl BindingAvailability {
-    fn reason(&self, binding: &BindingDefinition, context: CapabilitySelectionContext) -> Option<String> {
+    pub(super) fn reason(&self, binding: &BindingDefinition, context: CapabilitySelectionContext) -> Option<String> {
         match self {
             | Self::Unavailable { reason } => Some(reason.clone()),
             | Self::Ready if binding.kind == BindingKind::Remote && context.offline => Some("offline policy denies remote bindings".to_string()),
@@ -321,122 +301,7 @@ impl Validate for CapabilityIdentifier<'_> {
         report.finish()
     }
 }
-impl Family {
-    fn group(self) -> usize {
-        match self {
-            | Self::Check | Self::Diff | Self::Doctor => 0,
-            | Self::Exec | Self::Gather | Self::Swhid => 1,
-            | Self::Export => 2,
-            | Self::Format | Self::Link => 3,
-            | Self::Download | Self::Import => 4,
-            | Self::Report | Self::Sync => 5,
-            | Self::Unknown => 6,
-        }
-    }
-    fn keyword(self) -> &'static str {
-        match self {
-            | Self::Check => "check",
-            | Self::Diff => "diff",
-            | Self::Doctor => "doctor",
-            | Self::Download => "download",
-            | Self::Exec => "exec",
-            | Self::Export => "export",
-            | Self::Format => "format",
-            | Self::Gather => "gather",
-            | Self::Import => "import",
-            | Self::Link => "link",
-            | Self::Report => "report",
-            | Self::Swhid => "swhid",
-            | Self::Sync => "sync",
-            | Self::Unknown => "",
-        }
-    }
-    fn prompt_score(self, definition: &CapabilityDefinition, words: &BTreeSet<String>) -> usize {
-        let name = definition.id.split('.').nth(1).unwrap_or_default();
-        let family = self.keyword();
-        let aliases: &[&str] = match self {
-            | Self::Check => &["analyze", "inspect", "validate", "validation", "quality", "findings"],
-            | Self::Diff => &[
-                "compare",
-                "difference",
-                "jaccard",
-                "jaro",
-                "levenshtein",
-                "similarity",
-                "patch",
-                "cosine",
-                "dice",
-            ],
-            | Self::Doctor => &["diagnostic", "diagnostics", "readiness", "memory", "gpu"],
-            | Self::Download => &["acquire", "fetch", "weights", "bucket"],
-            | Self::Exec => &["script", "rhai", "hook", "manifest"],
-            | Self::Export => &["render", "pdf", "powerpoint", "archive", "bagit", "jsonl"],
-            | Self::Format => &["normalize", "normalization", "enrich", "formatter", "crosswalk"],
-            | Self::Gather => &["extract", "identifier", "identifiers", "pid", "doi", "orcid", "rrid"],
-            | Self::Import => &["persist", "endpoint", "hugging", "metadata"],
-            | Self::Link => &["linked", "context", "jsonld"],
-            | Self::Report => &["publish", "publication", "highlights", "logbook"],
-            | Self::Swhid => &["hash", "revision", "identifier"],
-            | Self::Sync => &["opencode", "vscode", "goose", "configuration", "editor"],
-            | Self::Unknown => &[],
-        };
-        let family_score: usize = match (words.contains(family), aliases.iter().any(|alias| words.contains(*alias))) {
-            | (true, _) => 200,
-            | (false, true) if self == Self::Exec => 260,
-            | (false, true) => 120,
-            | (false, false) => 0,
-        };
-        let name_score = name
-            .split(|character: char| !character.is_ascii_alphanumeric())
-            .filter(|part| words.contains(*part))
-            .count()
-            .saturating_mul(35);
-        let description_score = definition
-            .description
-            .to_ascii_lowercase()
-            .split(|character: char| !character.is_ascii_alphanumeric())
-            .filter(|word| word.len() >= 4 && words.contains(*word))
-            .count()
-            .saturating_mul(3);
-        family_score.saturating_add(name_score).saturating_add(description_score)
-    }
-}
-impl From<&str> for Family {
-    fn from(id: &str) -> Self {
-        let scoped = id.split_once(':').map_or(id, |(_, scoped)| scoped);
-        match scoped.split('.').nth(1).unwrap_or_default().split(['_', ':']).next().unwrap_or_default() {
-            | "check" => Self::Check,
-            | "diff" => Self::Diff,
-            | "doctor" => Self::Doctor,
-            | "download" => Self::Download,
-            | "exec" => Self::Exec,
-            | "export" => Self::Export,
-            | "format" => Self::Format,
-            | "gather" => Self::Gather,
-            | "import" => Self::Import,
-            | "link" => Self::Link,
-            | "report" => Self::Report,
-            | "swhid" => Self::Swhid,
-            | "sync" => Self::Sync,
-            | _ => Self::Unknown,
-        }
-    }
-}
-impl From<&String> for Family {
-    fn from(id: &String) -> Self {
-        Self::from(id.as_str())
-    }
-}
-impl From<String> for Family {
-    fn from(id: String) -> Self {
-        Self::from(id.as_str())
-    }
-}
 impl ToolRegistry {
-    #[cfg(feature = "needle")]
-    pub(crate) fn has_capabilities(&self) -> bool {
-        !self.capabilities.is_empty()
-    }
     pub(super) fn current_handler(&self, selected: &SelectedBinding, context: CapabilitySelectionContext) -> Option<CapabilityHandler> {
         self.capabilities
             .iter()
@@ -594,179 +459,6 @@ impl ToolRegistry {
                     }
                 }
             })
-    }
-    /// Serialize an explicitly scoped capability catalog within Needle's byte cap.
-    /// Binding alternatives are deduplicated behind their capability contract.
-    pub fn capability_catalog(&self, scope: Option<&[String]>, context: CapabilitySelectionContext) -> ApiResult<String> {
-        self.serialize_capability_catalog(scope, context)
-            .and_then(|serialized| match serialized.len() <= MAX_CAPABILITY_CATALOG_BYTES {
-                | true => Ok(serialized),
-                | false => Err(CapabilityError::CatalogTooLarge.into()),
-            })
-    }
-    /// Choose a deterministic prompt shortlist when the eligible catalog exceeds Needle's limit.
-    pub fn scope_for_prompt(&self, prompt: &str, context: CapabilitySelectionContext) -> ApiResult<ScopedCatalog> {
-        self.serialize_capability_catalog(None, context).and_then(|unscoped| {
-            let unscoped_bytes = unscoped.len();
-            match unscoped_bytes <= MAX_PROMPT_CATALOG_BYTES {
-                | true => Ok(ScopedCatalog {
-                    ids: None,
-                    bytes: Memory::from(unscoped_bytes as u64),
-                    omitted: 0,
-                    unscoped_bytes: Memory::from(unscoped_bytes as u64),
-                }),
-                | false => {
-                    let words = prompt
-                        .to_ascii_lowercase()
-                        .split(|character: char| !character.is_ascii_alphanumeric())
-                        .filter(|word| !word.is_empty())
-                        .map(str::to_string)
-                        .collect::<BTreeSet<_>>();
-                    let mut ranked = self
-                        .capabilities
-                        .iter()
-                        .filter(|entry| {
-                            entry
-                                .bindings
-                                .iter()
-                                .any(|binding| binding.definition.availability.reason(&binding.definition, context).is_none())
-                        })
-                        .map(|entry| {
-                            (
-                                Family::from(&entry.definition.id).prompt_score(&entry.definition, &words),
-                                entry.definition.id.clone(),
-                            )
-                        })
-                        .collect::<Vec<_>>();
-                    ranked.sort_by(|left, right| right.0.cmp(&left.0).then_with(|| left.1.cmp(&right.1)));
-                    let groups = ranked
-                        .iter()
-                        .map(|(_, id)| Family::from(id).group())
-                        .fold(Vec::<usize>::new(), |mut groups, group| {
-                            if !groups.contains(&group) {
-                                groups.push(group);
-                            }
-                            groups
-                        })
-                        .into_iter()
-                        .take(2)
-                        .collect::<Vec<_>>();
-                    let mut grouped = ranked
-                        .iter()
-                        .filter(|(_, id)| groups.contains(&Family::from(id).group()))
-                        .map(|(_, id)| id.clone())
-                        .collect::<Vec<_>>();
-                    grouped.extend(
-                        [format!("{APPLICATION}.check"), format!("{APPLICATION}.export::bag")]
-                            .into_iter()
-                            .filter_map(|id| {
-                                ranked
-                                    .iter()
-                                    .find(|(_, available)| available == &id)
-                                    .map(|(_, available)| available.clone())
-                            }),
-                    );
-                    grouped.sort();
-                    grouped.dedup();
-                    let outside_group = ranked.len().saturating_sub(grouped.len());
-                    self.serialize_capability_catalog(Some(&grouped), context)
-                        .and_then(|catalog| match catalog.len() <= MAX_PROMPT_CATALOG_BYTES {
-                            | true => Ok(ScopedCatalog {
-                                ids: Some(grouped.clone()),
-                                bytes: Memory::from(catalog.len() as u64),
-                                omitted: outside_group,
-                                unscoped_bytes: Memory::from(unscoped_bytes as u64),
-                            }),
-                            | false => ranked
-                                .into_iter()
-                                .filter(|(_, id)| groups.contains(&Family::from(id).group()))
-                                .try_fold((Vec::<String>::new(), 0_usize, 2_usize), |(ids, omitted, bytes), (_, id)| {
-                                    let mut candidate = ids.clone();
-                                    candidate.push(id);
-                                    self.serialize_capability_catalog(Some(&candidate), context).map(|candidate_catalog| {
-                                        match candidate_catalog.len() <= MAX_PROMPT_CATALOG_BYTES {
-                                            | true => (candidate, omitted, candidate_catalog.len()),
-                                            | false => (ids, omitted.saturating_add(1), bytes),
-                                        }
-                                    })
-                                })
-                                .and_then(|(ids, omitted, bytes)| match ids.is_empty() {
-                                    | true => Err(CapabilityError::CatalogTooLarge.into()),
-                                    | false => Ok(ScopedCatalog {
-                                        ids: Some({
-                                            let mut ids = ids;
-                                            ids.sort();
-                                            ids
-                                        }),
-                                        bytes: Memory::from(bytes as u64),
-                                        omitted: omitted.saturating_add(outside_group),
-                                        unscoped_bytes: Memory::from(unscoped_bytes as u64),
-                                    }),
-                                }),
-                        })
-                }
-            }
-        })
-    }
-    fn serialize_capability_catalog(&self, scope: Option<&[String]>, context: CapabilitySelectionContext) -> ApiResult<String> {
-        let valid_scope = match scope {
-            | Some([]) => Err(CapabilityError::EmptyScope.into()),
-            | Some(ids) => ids
-                .iter()
-                .try_for_each(|id| match self.capabilities.iter().find(|entry| &entry.definition.id == id) {
-                    | None => Err(CapabilityError::UnknownScope(id.clone()).into()),
-                    | Some(entry)
-                        if !entry
-                            .bindings
-                            .iter()
-                            .any(|binding| binding.definition.availability.reason(&binding.definition, context).is_none()) =>
-                    {
-                        Err(CapabilityError::UnavailableScope(id.clone()).into())
-                    }
-                    | Some(_) => Ok(()),
-                }),
-            | None => Ok(()),
-        };
-        valid_scope.and_then(|()| {
-            let definitions = self
-                .capabilities
-                .iter()
-                .filter(|entry| {
-                    scope.is_none_or(|ids| ids.contains(&entry.definition.id))
-                        && entry
-                            .bindings
-                            .iter()
-                            .any(|binding| binding.definition.availability.reason(&binding.definition, context).is_none())
-                })
-                .map(|entry| NeedleToolDefinition {
-                    name: entry.definition.id.clone(),
-                    description: entry.definition.description.clone(),
-                    parameters: catalog_schema(&entry.definition.input_schema, false),
-                    triggers: Vec::new(),
-                })
-                .collect::<Vec<_>>();
-            serde_json::to_string(&definitions).map_err(|why| CapabilityError::CatalogSerialization(why.to_string()).into())
-        })
-    }
-}
-pub(super) fn catalog_schema(schema: &Value, named_schemas: bool) -> Value {
-    match schema {
-        | Value::Object(fields) => Value::Object(
-            fields
-                .iter()
-                .filter(|(key, _)| named_schemas || !matches!(key.as_str(), "$schema" | "title" | "description"))
-                .map(|(key, value)| {
-                    let projected = match key.as_str() {
-                        | "properties" | "patternProperties" | "$defs" | "definitions" | "dependentSchemas" => catalog_schema(value, true),
-                        | "const" | "default" | "enum" | "examples" => value.clone(),
-                        | _ => catalog_schema(value, false),
-                    };
-                    (key.clone(), projected)
-                })
-                .collect(),
-        ),
-        | Value::Array(values) => Value::Array(values.iter().map(|value| catalog_schema(value, false)).collect()),
-        | value => value.clone(),
     }
 }
 fn schema<T: JsonSchema>() -> Value {

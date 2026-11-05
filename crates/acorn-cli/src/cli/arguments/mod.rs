@@ -1216,16 +1216,16 @@ pub(crate) struct Infer {
     pub(crate) interactive: bool,
     #[command(flatten)]
     pub(crate) inference: InferInferenceArgs,
-    /// Select one terminal native capability instead of the legacy tool loop
+    /// Select one terminal native capability; unscoped requests preview only
     #[arg(short = 'r', long, help_heading = "ROUTING")]
     pub(crate) route: bool,
-    /// Show a grounded route and validated arguments without invoking its handler
+    /// Preview a route without invoking its handler (implied when unscoped)
     #[arg(short = 'R', long, requires = "route", conflicts_with = "apply", help_heading = "ROUTING")]
     pub(crate) route_preview: bool,
-    /// Narrow the router catalog to one namespaced capability ID
+    /// Select one capability ID; required to run a routed handler
     #[arg(short = 'c', long, requires = "route", value_name = "ID", help_heading = "ROUTING")]
     pub(crate) capability: Option<String>,
-    /// Exact caller-supplied JSON object for the selected operation
+    /// Exact caller-supplied JSON object; required to run a routed handler
     #[arg(short = 'j', long, requires = "route", value_name = "JSON", help_heading = "ROUTING")]
     pub(crate) input_json: Option<String>,
     /// Explicit configured executor binding ID

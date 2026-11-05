@@ -54,6 +54,7 @@
   - [Human acceptance test plan](./cli-reference/acceptance-test-plan.md)
 - [🧰 Local inference and tools](./inference/README.md)
   - [Needle sidecar](./inference/needle.md)
+  - [Native routing evaluation](./inference/routing-evaluation.md)
 - [Packages](./packages/README.md)
   - [Portable diffs](./packages/acorn-diff.md)
   - [Rust schemas](./packages/acorn-schema.md)

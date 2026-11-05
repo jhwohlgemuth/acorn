@@ -28,15 +28,35 @@ The command prints the engine path. The adjacent cache directory also contains `
 acorn --offline infer "Return the running ACORN version"
 ```
 
-ACORN executes calls only when Needle returns a successful `call` response with finite calibrated confidence at or above the configured threshold. Calls are not executed when Needle reports negation, ungrounded arguments, or unusable confidence, and an unknown response type or a failed response is a failure. `suppressed_calls` remain diagnostic and are never executed.
+In the legacy inference loop, ACORN executes calls only when Needle returns a successful `call` response with finite calibrated confidence at or above the configured threshold. Calls are withheld when Needle reports negation, ungrounded arguments, or unusable confidence. The opt-in native route has the additional restrictions below. `suppressed_calls` remain diagnostic and are never executed.
 
-Withholding is an abstention rather than a failure, so `acorn infer` still prints the native response and exits successfully. The `withheld` field of the result reports why execution was declined, and `results` stays empty because nothing ran:
+## How tool selection works
+
+```pikchr
+{{#include _assets/needle-tool-selection.pikchr}}
+```
+
+ACORN first filters the native capability registry by availability and the caller's policy. It uses the prompt to make a bounded, deterministic family shortlist, then sends names and descriptions to Needle for one capability choice. The route catalog does not ask Needle to construct canonical arguments. ACORN checks the returned choice against the confidence and grounding rules and returns `needs-input` unless the caller supplied exact structured JSON. Caller JSON is validated against the canonical capability schema before a preview or one handler execution. A declined call returns a withholding reason without running a handler. The editable diagram source is [`needle-tool-selection.pikchr`](_assets/needle-tool-selection.pikchr).
+
+Native Needle routing is experimental and opt-in. Unscoped `--route` requests are preview-only. To run a handler, provide an explicit `--capability` and exact `--input-json`; use the direct command when accuracy matters. The pinned runner currently selects only 44 of 75 supported calibration capabilities correctly; it has not passed the required 95% gate. Keep the normal confidence threshold and do not use a lower threshold to compensate for wrong capability choices.
+
+```console
+acorn infer "Return the running ACORN version" --route
+acorn infer "Return the running ACORN version" --route --capability acorn.version --input-json '{}'
+acorn infer "Return the running ACORN version" --route --capability acorn.version --input-json '{}' --route-preview
+```
+
+The first command returns a route preview without running a handler. The second can run the explicit capability after validation; the third forces a preview. Mutating routes also require `--apply`, an explicit `--binding`, and a `--destination` that exactly matches the caller JSON. The [CLI reference](../cli-reference/commands/infer.md#native-capability-routing) lists the interface.
+
+Path and URL components can help rank candidates, but cannot determine an exclusive family. The full capability catalog retains unions, discriminator values, and validation constraints. Check inputs retain their source kind, such as `{"input":{"kind":"directory","value":"data"}}`, through native argument validation and execution.
+
+For native `--route`, the `outcome` field reports `needs-input`, `withheld`, or a later execution result. The `response` retains Needle's original choice; `selected` and `execution` are absent when no binding was selected. For legacy `acorn infer` without `--route`, withholding is an abstention: ACORN prints the native response, sets `withheld`, and leaves `results` empty:
 
 ```json
 "withheld": { "reason": "confidence", "confidence": 0.1137, "threshold": 0.8 }
 ```
 
-Lower `--threshold` to let Needle act on a call it is unsure about.
+The legacy loop accepts `--max-rounds`. Raise `--threshold` to require stronger confidence there:
 
 ```console
 acorn infer "Validate this research activity" \

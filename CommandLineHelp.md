@@ -933,10 +933,10 @@ Run bounded inference through Needle or a configured prompt backend
 * `-T`, `--timeout <DURATION>` — Maximum inference duration
 
   Default value: `30s`
-* `-r`, `--route` — Select one terminal native capability instead of the legacy tool loop
-* `-R`, `--route-preview` — Show a grounded route and validated arguments without invoking its handler
-* `-c`, `--capability <ID>` — Narrow the router catalog to one namespaced capability ID
-* `-j`, `--input-json <JSON>` — Exact caller-supplied JSON object for the selected operation
+* `-r`, `--route` — Select one terminal native capability; unscoped requests preview only
+* `-R`, `--route-preview` — Preview a route without invoking its handler (implied when unscoped)
+* `-c`, `--capability <ID>` — Select one capability ID; required to run a routed handler
+* `-j`, `--input-json <JSON>` — Exact caller-supplied JSON object; required to run a routed handler
 * `-B`, `--binding <ID>` — Explicit configured executor binding ID
 * `-A`, `--apply` — Grant one exact mutating operation using the supplied capability, binding, arguments, and destination
 * `-d`, `--destination <PATH>` — Exact output destination for an authorized apply operation

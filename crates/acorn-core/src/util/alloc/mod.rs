@@ -134,6 +134,19 @@ pub trait StringConversion {
     fn file_name_with_parent(&self) -> String;
     /// Collapse whitespace and convert text to lowercase.
     fn normalized(&self) -> String;
+    /// Extract standalone lowercase words while excluding path and dotted tokens.
+    fn words(&self) -> Vec<String> {
+        let normalized = self.normalized();
+        normalized
+            .split_whitespace()
+            .filter(|word| !word.contains(['/', '\\']))
+            .map(|word| word.trim_matches(|character: char| !character.is_ascii_alphanumeric()))
+            .filter(|word| !word.contains('.'))
+            .flat_map(|word| word.split(|character: char| !character.is_ascii_alphanumeric()))
+            .filter(|word| !word.is_empty())
+            .map(str::to_string)
+            .collect()
+    }
     /// Percent-encode the string for use in a URL component.
     fn percent_encode(&self) -> String;
     /// Convert non-alphanumeric runs to hyphens and lowercase ASCII letters.

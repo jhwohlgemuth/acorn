@@ -10,6 +10,11 @@ use jsonc_parser::parse_to_serde_value;
 use serde_json::Value;
 
 #[test]
+fn test_words_excludes_paths_and_dotted_tokens() {
+    assert_eq!("Check the metadata in export/index.json".words(), vec!["check", "the", "metadata", "in"]);
+    assert_eq!("Export, then review!".words(), vec!["export", "then", "review"]);
+}
+#[test]
 fn test_checksum_from_parses_borrowed_and_owned_values() {
     let checksum = Checksum::from("SHA512:abc123");
     assert_eq!(checksum.algorithm, ChecksumAlgorithm::Sha512);

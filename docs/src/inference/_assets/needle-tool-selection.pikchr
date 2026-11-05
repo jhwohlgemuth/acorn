@@ -1,0 +1,30 @@
+scale = 0.9
+fontscale = 1.3
+color = 0x183C43
+box wid 7.35in ht 5.85in fill white thickness 0 at (2.4in,-2.1in)
+P: box "Request a task" bold "Prompt + caller context" wid 1.95in ht 0.8in rad 0.08in fill 0xE8F1FB thickness 0 at (0,0)
+E: box "Filter capabilities" bold "Policy + availability" same fill 0xE7F3E9 at P+(2.4in,0)
+S: box "Shortlist families" bold "Deterministic ranking" same fill 0xE7F3E9 at E+(2.4in,0)
+N: box "Choose a capability" bold "Needle tool call" same fill 0xE7F3E9 at S+(0,-1.4in)
+G: box "Check the call" bold "Confidence + grounding" same fill 0xE7F3E9 at E+(0,-1.4in)
+W: box "Return without execution" bold "Needs input / withheld" same fill 0xE7F3E9 at P+(0,-1.4in)
+B: box "Validate exact input" bold "Select eligible binding" same fill 0xE7F3E9 at E+(0,-2.8in)
+H: box "Preview or run" bold "Explicit scope to execute" same fill 0xE7F3E9 at P+(0,-2.8in)
+R: box "Return the result" bold "Outcome + tool output" same fill 0xE8F1FB at P+(0,-4.2in)
+arrow from P.e to E.w thick color 0x00662C
+arrow from E.e to S.w thick color 0x00662C
+arrow from S.s to N.n+(0,0.12in) thick color 0x00662C
+arrow from N.w to G.e thick color 0x00662C
+arrow from G.w to W.e thick color 0x00662C
+arrow from G.s to B.n+(0,0.12in) thick color 0x00662C
+arrow from B.w to H.e thick color 0x00662C
+arrow from H.s to R.n+(0,0.12in) thick color 0x00662C
+box "CALLER" bold small wid 0.8in ht 0.24in rad 0.06in fill 0x205795 color 0xFFFFFF thickness 0 at P.n
+box "ACORN" bold small wid 0.82in ht 0.24in rad 0.06in fill 0x00662C color 0xFFFFFF thickness 0 at E.n
+box "ACORN" bold small wid 0.82in ht 0.24in rad 0.06in fill 0x00662C color 0xFFFFFF thickness 0 at S.n
+box "NEEDLE" bold small wid 0.9in ht 0.24in rad 0.06in fill 0x00662C color 0xFFFFFF thickness 0 at N.n
+box "ACORN" bold small wid 0.82in ht 0.24in rad 0.06in fill 0x00662C color 0xFFFFFF thickness 0 at G.n
+box "ACORN" bold small wid 0.82in ht 0.24in rad 0.06in fill 0x00662C color 0xFFFFFF thickness 0 at W.n
+box "ACORN" bold small wid 0.82in ht 0.24in rad 0.06in fill 0x00662C color 0xFFFFFF thickness 0 at B.n
+box "ACORN" bold small wid 0.82in ht 0.24in rad 0.06in fill 0x00662C color 0xFFFFFF thickness 0 at H.n
+box "CALLER" bold small wid 0.8in ht 0.24in rad 0.06in fill 0x205795 color 0xFFFFFF thickness 0 at R.n

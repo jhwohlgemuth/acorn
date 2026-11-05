@@ -2,7 +2,8 @@ use super::{assets, write_tools, InferenceResult, Needle, WithheldExecution};
 use crate::io::api::needle::CompleteResponse;
 use crate::io::file_checksum;
 use crate::io::mcp::{
-    BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, ExecutionContext, ExecutionOutcome, ToolCallContext, ToolRegistry,
+    AnalysisInput, BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, ExecutionContext, ExecutionOutcome, InputLimits,
+    RoutedInputPolicy, ToolCallContext, ToolRegistry,
 };
 use crate::io::sidecar::{
     modelkit_download_items, ModelKitAsset, ModelKitFile, ModelKitManifest, ModelKitSidecar, ResolvedAssets, Sidecar, SidecarAssets,
@@ -159,7 +160,7 @@ fn test_execution_gate_abstains_instead_of_failing() {
     let noul = |value: f64| Noul::new(value).expect("valid unit value");
     let gate = |confidence: Option<f64>, response_type: &str, validation: serde_json::Value| {
         response(confidence, response_type, validation)
-            .execution_gate(threshold)
+            .execution_gate(threshold, false)
             .map_err(|why| why.to_string())
     };
     assert_eq!(gate(Some(0.8), "call", safe.clone()), Ok(Ok(())));
@@ -627,9 +628,22 @@ async fn test_routed_response_executes_one_terminal_binding() {
     };
     let one = serde_json::json!([{"name":"acorn.terminal","arguments":{"value":7}}]);
     let threshold = Noul::new(0.8).expect("threshold");
-    let routed = Needle::execute_route_response(&registry, response(one.clone(), false), threshold, ExecutionContext::default())
+    let no_caller = Needle::execute_route_response(&registry, response(one.clone(), false), threshold, ExecutionContext::default())
         .await
-        .expect("route");
+        .expect("selection only");
+    assert_eq!(no_caller.outcome, ExecutionOutcome::NeedsInput);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    let routed = Needle::execute_route_response(
+        &registry,
+        response(one.clone(), false),
+        threshold,
+        ExecutionContext {
+            caller_arguments: Some(serde_json::json!({"value":7})),
+            ..ExecutionContext::default()
+        },
+    )
+    .await
+    .expect("route");
     assert_eq!(routed.outcome, ExecutionOutcome::Completed);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
     let preview = Needle::execute_route_response(
@@ -638,6 +652,7 @@ async fn test_routed_response_executes_one_terminal_binding() {
         threshold,
         ExecutionContext {
             preview: true,
+            caller_arguments: Some(serde_json::json!({"value":7})),
             ..ExecutionContext::default()
         },
     )
@@ -662,6 +677,125 @@ async fn test_routed_response_executes_one_terminal_binding() {
         .expect("route");
     assert_eq!(withheld.outcome, ExecutionOutcome::Withheld);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
+    let mut ungrounded = response(serde_json::json!([{"name":"acorn.terminal","arguments":{"value":8}}]), false);
+    ungrounded
+        .validation
+        .as_mut()
+        .expect("validation")
+        .ungrounded
+        .push("acorn_terminal.value".to_string());
+    let missing_grounding = Needle::execute_route_response(&registry, ungrounded.clone(), threshold, ExecutionContext::default())
+        .await
+        .expect("ungrounded route");
+    assert_eq!(missing_grounding.outcome, ExecutionOutcome::Withheld);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    let caller = Needle::execute_route_response(
+        &registry,
+        ungrounded,
+        threshold,
+        ExecutionContext {
+            caller_arguments: Some(serde_json::json!({"value":9})),
+            ..ExecutionContext::default()
+        },
+    )
+    .await
+    .expect("caller-grounded route");
+    assert_eq!(caller.outcome, ExecutionOutcome::Completed);
+    assert_eq!(
+        caller.execution.as_ref().and_then(|execution| execution.content.as_ref()),
+        Some(&serde_json::json!({"value":9}))
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    let negated = Needle::execute_route_response(
+        &registry,
+        response(serde_json::json!([{"name":"acorn.terminal","arguments":{"value":8}}]), true),
+        threshold,
+        ExecutionContext {
+            caller_arguments: Some(serde_json::json!({"value":9})),
+            ..ExecutionContext::default()
+        },
+    )
+    .await
+    .expect("negated caller route");
+    assert_eq!(negated.outcome, ExecutionOutcome::Withheld);
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+}
+#[tokio::test]
+async fn test_check_model_arguments_preserve_directory_input() {
+    let root = tempfile::tempdir().expect("root");
+    std::fs::create_dir(root.path().join("data")).expect("directory");
+    std::fs::write(root.path().join("data/index.json"), "{}").expect("input file");
+    let policy = RoutedInputPolicy::new(root.path(), InputLimits::default()).expect("input policy");
+    let effects = ToolEffects {
+        read_only: true,
+        destructive: false,
+        idempotent: true,
+        open_world: false,
+    };
+    let version = acorn_core::util::SemanticVersion::from((1, 0, 0));
+    let registry = ToolRegistry::default()
+        .register_capability(CapabilityDefinition::new::<AnalysisInput, TerminalOutput>(
+            "acorn.check",
+            version,
+            "Check",
+            effects,
+        ))
+        .expect("capability")
+        .register_capability_binding::<AnalysisInput, TerminalOutput, _, _>(
+            BindingDefinition::new::<AnalysisInput, TerminalOutput>(
+                "native:acorn.check",
+                "acorn.check",
+                version,
+                BindingKind::Native,
+                effects,
+                BindingAvailability::Ready,
+            ),
+            move |input| {
+                let policy = policy.clone();
+                async move {
+                    policy.resolve(&input.input).map(|resolved| TerminalOutput {
+                        value: resolved.files.len() as u64,
+                    })
+                }
+            },
+        )
+        .expect("binding");
+    let response: CompleteResponse = serde_json::from_value(serde_json::json!({
+        "type":"call", "success":true, "confidence":0.99,
+        "function_calls":[{"name":"acorn.check","arguments":{"input":{"kind":"directory","value":"data"}}}],
+        "validation":{"ungrounded":[],"negation":false}
+    }))
+    .expect("response");
+    let catalog: Value =
+        serde_json::from_str(&registry.active_catalog(ToolCallContext::needle(false), None).expect("catalog")).expect("JSON catalog");
+    let validator = jsonschema::validator_for(catalog.pointer("/0/parameters").expect("parameters")).expect("advertised schema");
+    assert!(validator.is_valid(&response.function_calls.first().expect("model call").arguments));
+    assert!(!validator.is_valid(&serde_json::json!({"input":"data"})));
+    let selected = registry
+        .select_capability_binding("acorn.check", None, None, Default::default())
+        .expect("check binding");
+    let canonical = jsonschema::validator_for(&selected.capability.input_schema).expect("canonical schema");
+    for kind in ["directory", "file", "git-branch", "git-commit", "oci", "text", "url"] {
+        let arguments = serde_json::json!({"input":{"kind":kind,"value":"source"}});
+        assert!(validator.is_valid(&arguments), "advertised {kind}");
+        assert!(canonical.is_valid(&arguments), "canonical {kind}");
+    }
+    let routed = Needle::execute_route_response(
+        &registry,
+        response,
+        Noul::new(0.8).expect("threshold"),
+        ExecutionContext {
+            caller_arguments: Some(serde_json::json!({"input":{"kind":"directory","value":"data"}})),
+            ..ExecutionContext::default()
+        },
+    )
+    .await
+    .expect("directory route");
+    assert_eq!(routed.outcome, ExecutionOutcome::Completed);
+    assert_eq!(
+        routed.execution.as_ref().and_then(|execution| execution.content.as_ref()),
+        Some(&serde_json::json!({"value":1}))
+    );
 }
 #[tokio::test]
 async fn test_sidecar_asset_resolution_applies_shared_offline_policy() {

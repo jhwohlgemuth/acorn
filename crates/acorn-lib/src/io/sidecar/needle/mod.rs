@@ -88,7 +88,7 @@ pub struct RoutedInference {
     pub withheld: Option<WithheldExecution>,
 }
 impl CompleteResponse {
-    fn execution_gate(&self, threshold: Noul) -> ApiResult<Result<(), WithheldExecution>> {
+    fn execution_gate(&self, threshold: Noul, caller_grounded: bool) -> ApiResult<Result<(), WithheldExecution>> {
         let valid_type = self.response_type.is_call();
         let confidence = self
             .confidence
@@ -97,7 +97,7 @@ impl CompleteResponse {
         match (valid_type, self.validation.as_ref(), confidence) {
             | (false, _, _) => Err(eyre!("Needle response type '{}' cannot contain function calls", self.response_type)),
             | (_, Some(validation), _) if validation.negation => Ok(Err(WithheldExecution::Negation)),
-            | (_, Some(validation), _) if !validation.ungrounded.is_empty() => Ok(Err(WithheldExecution::Ungrounded {
+            | (_, Some(validation), _) if !caller_grounded && !validation.ungrounded.is_empty() => Ok(Err(WithheldExecution::Ungrounded {
                 fields: validation.ungrounded.clone(),
             })),
             | (_, _, Ok(confidence)) if confidence < threshold => Ok(Err(WithheldExecution::Confidence { confidence, threshold })),
@@ -118,7 +118,10 @@ impl CompleteResponse {
 impl Needle {
     /// Resolve verified assets and start Needle with a caller-owned tool registry.
     pub async fn start_with_registry(custom_location: Option<&str>, offline: bool, registry: ToolRegistry) -> ApiResult<Self> {
-        Self::start_with_scoped_registry(custom_location, offline, registry, None).await
+        match Self::resolve_assets(custom_location, offline, true).await {
+            | Ok(assets) => Self::start_with_assets_and_registry(assets, offline, registry, None, false).await,
+            | Err(why) => Err(why),
+        }
     }
     /// Start Needle with a caller-owned registry and an optional explicit capability scope.
     pub async fn start_with_scoped_registry(
@@ -128,7 +131,7 @@ impl Needle {
         scope: Option<Vec<String>>,
     ) -> ApiResult<Self> {
         match Self::resolve_assets(custom_location, offline, true).await {
-            | Ok(assets) => Self::start_with_assets_and_registry(assets, offline, registry, scope).await,
+            | Ok(assets) => Self::start_with_assets_and_registry(assets, offline, registry, scope, true).await,
             | Err(why) => Err(why),
         }
     }
@@ -137,9 +140,20 @@ impl Needle {
         offline: bool,
         registry: ToolRegistry,
         scope: Option<Vec<String>>,
+        selection_only: bool,
     ) -> ApiResult<Self> {
         let context = ToolCallContext::needle(offline);
-        let catalog = registry.active_catalog(context, scope.as_deref());
+        let catalog = if selection_only {
+            registry.selection_catalog(
+                scope.as_deref(),
+                CapabilitySelectionContext {
+                    offline,
+                    allow_remote: false,
+                },
+            )
+        } else {
+            registry.active_catalog(context, scope.as_deref())
+        };
         let start = match catalog {
             | Ok(catalog) => serde_json::from_str::<Vec<NeedleToolDefinition>>(&catalog)
                 .map_err(|why| eyre!("Invalid active Needle catalog — {why}"))
@@ -222,31 +236,32 @@ impl Needle {
         if !response.success || response.error.is_some() {
             Ok(base(ExecutionOutcome::ToolFailed, None))
         } else if let [call] = response.function_calls.as_slice() {
-            if context.caller_arguments.as_ref().is_some_and(|arguments| arguments != &call.arguments) {
-                Ok(base(ExecutionOutcome::Withheld, None))
-            } else {
-                match response.execution_gate(threshold) {
-                    | Err(_) => Ok(base(ExecutionOutcome::InvalidInput, None)),
-                    | Ok(Err(withheld)) => Ok(base(ExecutionOutcome::Withheld, Some(withheld))),
-                    | Ok(Ok(())) => {
-                        let selection = registry.select_capability_binding(
-                            &call.name,
-                            context.binding_override.as_deref(),
-                            context.binding_preference.as_deref(),
-                            context.selection,
-                        );
-                        match selection {
-                            | Err(why) => Ok(base(
-                                if matches!(why.downcast_ref::<CapabilityError>(), Some(CapabilityError::AmbiguousBindings(_))) {
-                                    ExecutionOutcome::NeedsInput
-                                } else {
-                                    ExecutionOutcome::Unavailable
-                                },
-                                None,
-                            )),
-                            | Ok(selected) => {
+            let caller_grounded = context.caller_arguments.is_some();
+            let arguments = context.caller_arguments.clone().unwrap_or_else(|| call.arguments.clone());
+            match response.execution_gate(threshold, caller_grounded) {
+                | Err(_) => Ok(base(ExecutionOutcome::InvalidInput, None)),
+                | Ok(Err(withheld)) => Ok(base(ExecutionOutcome::Withheld, Some(withheld))),
+                | Ok(Ok(())) => {
+                    let selection = registry.select_capability_binding(
+                        &call.name,
+                        context.binding_override.as_deref(),
+                        context.binding_preference.as_deref(),
+                        context.selection,
+                    );
+                    match selection {
+                        | Err(why) => Ok(base(
+                            if matches!(why.downcast_ref::<CapabilityError>(), Some(CapabilityError::AmbiguousBindings(_))) {
+                                ExecutionOutcome::NeedsInput
+                            } else {
+                                ExecutionOutcome::Unavailable
+                            },
+                            None,
+                        )),
+                        | Ok(selected) => match caller_grounded {
+                            | false => Ok(base(ExecutionOutcome::NeedsInput, None)),
+                            | true => {
                                 context.grounded = true;
-                                let execution = registry.execute_selected(&selected, call.arguments.clone(), context).await;
+                                let execution = registry.execute_selected(&selected, arguments, context).await;
                                 Ok(RoutedInference::init()
                                     .response(response)
                                     .outcome(execution.outcome)
@@ -254,7 +269,7 @@ impl Needle {
                                     .execution(execution)
                                     .build())
                             }
-                        }
+                        },
                     }
                 }
             }
@@ -278,7 +293,7 @@ impl Sidecar for Needle {
 
     async fn start_with_assets(resolved: ResolvedAssets, offline: bool) -> ApiResult<Self> {
         match ToolRegistry::acorn() {
-            | Ok(registry) => Self::start_with_assets_and_registry(resolved, offline, registry, None).await,
+            | Ok(registry) => Self::start_with_assets_and_registry(resolved, offline, registry, None, false).await,
             | Err(why) => Err(why),
         }
     }
@@ -303,7 +318,7 @@ impl Sidecar for Needle {
                         withheld: None,
                     })
                 }
-                | Ok(response) => match response.execution_gate(self.confidence_threshold) {
+                | Ok(response) => match response.execution_gate(self.confidence_threshold, false) {
                     | Ok(Ok(())) => {
                         let called = stream::iter(response.function_calls.iter())
                             .then(|call| {

@@ -13,7 +13,7 @@ phase_budget_hours: 5
 
 # Goal
 
-Make `acorn ask --interactive` a multi-turn conversation for understanding, checking, and fixing metadata across the standards supported by `acorn check`. Keep its terminal interaction inline at the row where the command starts. Save each conversation in ACORN's standard platform data directory. Provide reusable Choose, Confirm, and Spin controls for other CLI commands, with `acorn format --interactive` as the first additional consumer.
+Make `acorn ask --interactive` a multi-turn conversation for understanding, checking, and fixing metadata across the standards supported by `acorn check`. Keep its terminal interaction inline at the row where the command starts. Save each conversation in ACORN's standard platform data directory. Provide reusable Choose, multi-select Choose, Confirm, and Spin controls for other CLI commands, with `acorn format --interactive` as the first additional consumer.
 
 The first usable interface is separate from `acorn tui`. The later chat-controller phase leaves a UI-neutral event contract that a future TUI screen can consume; it does not add that screen.
 
@@ -34,6 +34,7 @@ Checked on 2026-10-29 against the current implementation:
 - `acorn-lib::agent::slash` defines typed command names, aliases, argument parsing, and context-specific suggestions shared by chat, the TUI dashboard, and GitLab. GitLab still requires `/acorn` and retains its existing note authorization and operation paths. Focused CLI, chat-driver, fix-plan, and slash tests pass; a PTY smoke run exercised `/help` and clean `/exit` with a saved transcript.
 - Enrichment results and workflow document changes carry typed decisions with a five-choice bound, explicit skip, stale-source validation, and distinct external-provider or embedded-vocabulary origins. Ambiguous ORCID matches can provide choices for CFF, DataCite, Invenio, and RAD; ambiguous ROR and complete ambiguous or unmatched vocabulary reports can provide choices for RAD. Missing or incomplete evidence retains diagnostics without a choice. Passive formatting still writes only deterministic results.
 - The requested visual and key behavior is modeled on [Gum Choose, Confirm, and Spin](https://github.com/charmbracelet/gum#commands), especially its two-button confirmation. This is an ACORN-native Rust implementation, not a Gum process dependency.
+- A reusable multi-select control remains to be built. Match the cursor, selected checkmark, unselected marker, and pink selection color in the [user-supplied Gum Choose animation](../_assets/gum-choose-multi-reference.gif). The saved GIF is a visual reference, not a runtime dependency.
 
 # Boundaries and dependencies
 
@@ -57,6 +58,7 @@ Checked on 2026-10-29 against the current implementation:
 
 - Own a bounded viewport starting at the command's cursor row. Reserve space once, redraw only that region, keep chat history scrollable inside it, and restore the cursor, raw mode, and colors on normal exit, error, or interruption. Handle terminal resize and narrow widths without leaving fragments. Do not enter the alternate screen or let spinner/log output move the interaction downward.
 - The reusable controls are CLI presentation functions with typed outcomes: Choose returns one selected item or cancellation, Confirm returns yes/no/cancellation, and Spin runs while a supplied asynchronous operation is pending. Choose supports arrow keys, `j`/`k`, Enter, and Escape, with scrolling. Confirm presents the question above two adjacent, filled **Yes** and **No** buttons when width allows, like the supplied Gum animation: the focused button has a bright magenta/pink background and high-contrast text; the other has a muted dark background. Narrow terminals stack or compact both choices without hiding either. Moving focus updates both buttons in place. Write approval starts with No focused, so Enter cannot approve by default; arrows/Tab change focus, `y`/`n` select directly, Enter selects the focused button, and Escape cancels. Spin stops on completion, failure, or cancellation.
+- Add a bounded multi-select Choose control with a typed list of selected items or cancellation. Arrow keys and `j`/`k` move the cursor; Space toggles the focused item; Enter commits the selected items in their original display order; Escape cancels without returning a partial selection. Match the [Gum Choose multi-select reference](../_assets/gum-choose-multi-reference.gif): `>` marks the cursor, a colored checkmark marks selected items, and a plain marker shows unselected items. Enforce a caller-supplied selection limit, including the two-item example in the GIF, without silently dropping an extra choice. Retain readable markers without color and keep the list inside the existing inline viewport on resize.
 - Use shape/text as well as color to identify focus and outcome; in no-color mode, retain two distinct button shapes and a visible focus marker. Honor the existing no-color setting and terminals without true color. A cancelled prompt never implies consent. The renderer owns terminal output while active; operations return structured events instead of printing over the viewport.
 
 ## History and changes
@@ -69,6 +71,7 @@ Checked on 2026-10-29 against the current implementation:
 # Validation and acceptance
 
 - PTY validation proves the chat remains in its original inline region through multiple turns, long responses, spinner updates, resize, cancellation, and failures. Confirm renders the adjacent filled buttons and visible focus change in color, limited-color, and no-color modes, including narrow terminals; Escape and default Enter never approve a write. Terminal state is restored after interruption.
+- Multi-select tests prove cursor movement, toggle and untoggle, the selection limit, original-order output, Enter with no selections, Escape cancellation, scrolling, narrow resize, and color/no-color markers without terminal fragments.
 - Fixtures cover each local check-supported metadata standard, mixed-standard folders, ambiguous detection, unsupported inputs, offline operation, and a model response that mentions an unconfirmed path. Check findings and explanations retain source/field references. No model or provider call occurs for a deterministic command that does not need it.
 - Fake ACP/endpoint tests cover bounded multi-turn context, refusal, timeout, transport failure, offline rejection, invalid action requests, and transcript write failures. Full history remains readable after context trimming and `/clear`; each invocation starts a new session.
 - Fix tests cover accepted and declined diffs, stale files, invalid replacement, per-target authorization, and failed write/rollback. Format tests cover deterministic auto-apply, ambiguous candidate choice/skip, absent candidates, mixed batches, enrichment, configured hooks, companion artifacts, dry run, and non-interactive regression.
@@ -87,11 +90,22 @@ Checked on 2026-10-29 against the current implementation:
 - Focused validation: Headless consumer drives attach, check, prompt, decision, clear, and cancel events without `crossterm` or CLI dependencies.
 - Handoff: Record the frozen consumer contract and remaining TUI screen work outside this plan; remove IMC-12.
 
+## IMC-14 — Add a reusable multi-select terminal control
+
+- Status: ready
+- Budget: 5 active hours maximum
+- Prerequisites: the landed inline Choose control
+- Exact write set: `crates/acorn-cli/src/io/interactive/mod.rs`, `crates/acorn-cli/src/io/interactive/tests.rs`
+- Primary integration lock: inline terminal controls
+- Outcome: Add a bounded, cancellable multi-select interface for caller input in the existing viewport, visually matching the saved Gum Choose reference while returning typed selections in display order.
+- Focused validation: Renderer and PTY tests cover Space toggling, selection limit, Enter and Escape, scrolling, resize, and color/no-color rendering; existing single-select Choose behavior remains intact.
+- Handoff: Record the reusable API and its keyboard contract for future command consumers; remove IMC-14 after focused validation.
+
 ## IMC-13 — Document, validate, and retire
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: IMC-12
+- Prerequisites: IMC-12 and IMC-14
 - Exact write set: `docs/src/cli-reference/commands/infer.md`, `docs/src/cli-reference/commands/format.md`, `CommandLineHelp.md`, `.wiki/features/interactive-metadata-chat.md`, `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
 - Primary integration lock: interactive chat release gate
 - Outcome: Publish chat keys, transcript location, supported standards and format behavior; complete acceptance evidence and retire this active plan.

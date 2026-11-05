@@ -1,5 +1,6 @@
 //! Direct one-shot ask equivalence with the shared Needle service.
 use acorn::io::{
+    mcp::NeedleStatusOutput,
     sidecar::needle::{InferenceResult, Needle},
     sidecar::Sidecar,
 };
@@ -9,6 +10,7 @@ use tempfile::tempdir;
 
 #[tokio::test]
 async fn test_legacy_ask_matches_pinned_needle_service() {
+    let status = NeedleStatusOutput::inspect().await.expect("pinned cache status");
     let root = tempdir().expect("isolated ask directory");
     let prompt = "What is the ACORN version?";
     let direct = Command::new(env!("CARGO_BIN_EXE_acorn"))
@@ -17,7 +19,10 @@ async fn test_legacy_ask_matches_pinned_needle_service() {
         .stdin(Stdio::null())
         .output()
         .expect("direct ask command");
-    assert!(direct.status.success(), "{}", String::from_utf8_lossy(&direct.stderr));
+    assert_eq!(direct.status.success(), status.ready, "{}", String::from_utf8_lossy(&direct.stderr));
+    if !status.ready {
+        return;
+    }
     let direct: InferenceResult = serde_json::from_slice(&direct.stdout).expect("direct Needle JSON");
     let shared = Needle::start(None, true)
         .await
