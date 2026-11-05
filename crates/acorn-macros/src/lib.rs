@@ -18,6 +18,7 @@ use command::expand_cmd_sh_words;
 ///
 /// The notation is checked by the same parser used for computation schema bounds.
 /// This checks syntax, not whether an algorithm has the stated complexity.
+/// Canonical notation also accepts division, rational powers, `polylog(x)`, `W_out(x)`, and logarithms with a named base such as `log_a(x)`.
 ///
 /// ```
 /// use acorn_macros::bigo;
@@ -1290,6 +1291,7 @@ fn parse_rule(meta: &Meta, inside_each: bool) -> syn::Result<ValidationRule> {
     } else {
         let supported_pid = ["ark", "arxiv", "doi", "handle", "isbn", "isni", "orcid", "patent", "raid", "ror", "swhid"];
         let supported_scalar = [
+            "bigo",
             "camelCase",
             "camelcase",
             "commit",

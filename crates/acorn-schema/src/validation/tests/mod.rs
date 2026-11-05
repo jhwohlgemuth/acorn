@@ -10,6 +10,13 @@ use serde::Serialize;
 mod custom;
 
 #[derive(Serialize, Validate)]
+struct BigORules {
+    #[validate(bigo)]
+    bound: String,
+    #[validate(each(bigo(code = "complexity", message = "invalid bound")))]
+    bounds: Vec<String>,
+}
+#[derive(Serialize, Validate)]
 struct AlternativeRules {
     #[validate(or(url, email))]
     value: String,
@@ -354,6 +361,62 @@ async fn test_async_validation_propagates_through_nested_and_blanket_implementat
         .map(|issue| issue.path)
         .collect::<Vec<_>>();
     assert_eq!(paths, ["[0][0].value"]);
+}
+#[test]
+fn test_bigo_builtin_rule_preserves_function_diagnostics() {
+    for (notation, message, offset) in [
+        ("O(log_1(n))", "Invalid Big-O expression: expected expression at byte 6", 6),
+        ("O(log_2n(n))", "Invalid Big-O expression: expected expression at byte 6", 6),
+        (
+            "O(polylog(n-m))",
+            "Invalid Big-O expression: unexpected token in Big-O expression at byte 11",
+            11,
+        ),
+        (
+            "O(W_out(n,m))",
+            "Invalid Big-O expression: unexpected token in Big-O expression at byte 9",
+            9,
+        ),
+        (
+            "O(log_a(n-m))",
+            "Invalid Big-O expression: unexpected token in Big-O expression at byte 9",
+            9,
+        ),
+        ("O(W_out(n", "Invalid Big-O expression: unexpected end of Big-O expression at byte 9", 9),
+    ] {
+        let error = rules::bigo(notation).expect_err("invalid function notation");
+        assert_eq!(error.code.as_str(), "bigo", "{notation}");
+        assert_eq!(error.message.as_deref(), Some(message), "{notation}");
+        assert_eq!(error.params.get("offset").and_then(serde_json::Value::as_u64), Some(offset), "{notation}");
+    }
+}
+#[test]
+fn test_bigo_builtin_rule_reports_parser_location_and_overrides() {
+    let valid = BigORules {
+        bound: "O(n^2)".to_string(),
+        bounds: vec!["O(P^(1/2)+W_out(P))".to_string()],
+    };
+    assert!(valid.validate().is_ok());
+    let report = BigORules {
+        bound: "O(n^0)".to_string(),
+        bounds: vec!["O(n)".to_string(), "O(n - m)".to_string()],
+    }
+    .validate()
+    .expect_err("invalid notation");
+    let issues = report.iter().collect::<Vec<_>>();
+    assert_eq!(issues.iter().map(|issue| issue.path.as_str()).collect::<Vec<_>>(), ["bound", "bounds[1]"]);
+    assert_eq!(
+        issues.iter().map(|issue| issue.error.code.as_str()).collect::<Vec<_>>(),
+        ["bigo", "complexity"]
+    );
+    assert_eq!(
+        issues
+            .first()
+            .and_then(|issue| issue.error.params.get("offset"))
+            .and_then(serde_json::Value::as_u64),
+        Some(4)
+    );
+    assert_eq!(issues.get(1).and_then(|issue| issue.error.message.as_deref()), Some("invalid bound"));
 }
 #[test]
 fn test_date_only_rule_checks_calendar_and_year_range() {

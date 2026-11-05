@@ -25,10 +25,37 @@ fn test_complexity_bounds_round_trip_and_validate() {
     without_variables.validate().expect("allow omitted variables map");
 }
 #[test]
+fn test_complexity_log_prefixed_variable_references() {
+    for (notation, variables) in [
+        ("O(log_count)", json!({"log_count": "count"})),
+        ("O(n*log_count)", json!({"n": "input size", "log_count": "count"})),
+        ("O(log_log_a(n))", json!({"n": "input size", "log_a": "logarithm base"})),
+    ] {
+        let complexity: AlgorithmComplexity = serde_json::from_value(json!({
+            "bounds": {"time": notation},
+            "variables": variables
+        }))
+        .expect("parse complexity");
+        complexity.validate().expect("preserve declared symbol names");
+    }
+    let complexity: AlgorithmComplexity = serde_json::from_value(json!({
+        "bounds": {"time": "O(log_log_a(n))"},
+        "variables": {"n": "input size", "a": "different base"}
+    }))
+    .expect("parse complexity");
+    let report = complexity.validate().expect_err("actual base is undeclared");
+    let issues = report.iter().collect::<Vec<_>>();
+    assert_eq!(issues.len(), 1);
+    let issue = issues.first().expect("base reference issue");
+    assert_eq!(issue.path, "bounds[0]");
+    assert_eq!(issue.error.code, "reference");
+    assert!(issue.error.message.as_deref().is_some_and(|message| message.contains("`log_a`")));
+}
+#[test]
 fn test_complexity_validation_rejects_notation_references_empty_and_duplicates() {
     let complexity: AlgorithmComplexity = serde_json::from_value(json!({
         "bounds": [
-            {"time": "O(n / m)"},
+            {"time": "O(n - m)"},
             {"space": "O(n)"},
             {"time": ""}
         ],

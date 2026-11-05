@@ -26,7 +26,7 @@
 //! | `range(min = ..., max = ...)` | Constrain an ordered numeric value. |
 //! | `contains(pattern = ...)` | Require a string or collection pattern. |
 //! | `date`, `date_only`, `timestamp`, `year` | Validate supported calendar representations. |
-//! | `email`, `json`, `numeric`, `url`, `nonempty`, `version`, `zon` | Validate common scalar text. |
+//! | `bigo`, `email`, `json`, `numeric`, `url`, `nonempty`, `version`, `zon` | Validate common scalar text. |
 //! | `ark`, `arxiv`, `doi`, `handle`, `isbn`, `isni`, `orcid`, `patent`, `raid`, `ror`, `swhid` | Delegate persistent identifiers to canonical schema validators. |
 //! | `phone`, `commit`, `latitude`, `longitude`, `state`, `kebabcase`, `camelCase`, `snake_case` | Validate ACORN scalar shapes. |
 //! | `custom(function = "path")` | Call a synchronous scalar validator. |
@@ -202,6 +202,7 @@ pub mod rules {
     use crate::pid::{Patent, PersistentIdentifierConvert};
     use crate::util::constants::{RE_FAKE_PHONE, RE_PHONE, RE_UNIX_EPOCH};
     use crate::util::Constant;
+    use acorn_core::big_o::Expression;
     use acorn_core::prelude::alloc::{format, ToString};
     use acorn_core::util::SemanticVersion;
     pub use acorn_core::validation::digest;
@@ -222,6 +223,14 @@ pub mod rules {
     /// Validate an arXiv identifier with ACORN's canonical parser.
     pub fn arxiv(value: &str) -> Result<(), ValidationError> {
         identifier(value.is_arxiv(), "arXiv")
+    }
+    /// Validate Big-O notation with the parser used by [`acorn_macros::bigo`].
+    pub fn bigo(value: &str) -> Result<(), ValidationError> {
+        Expression::parse(value).map(|_| ()).map_err(|error| {
+            let mut issue = ValidationError::new("bigo").with_message(format!("Invalid Big-O expression: {error}"));
+            issue.add_param("offset".into(), &error.offset());
+            issue
+        })
     }
     /// Validate camelCase text.
     pub fn camelcase(value: &str) -> Result<(), ValidationError> {

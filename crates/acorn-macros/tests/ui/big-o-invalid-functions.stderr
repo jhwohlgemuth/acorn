@@ -1,0 +1,17 @@
+error: invalid Big-O notation: expected expression at byte 6
+ --> tests/ui/big-o-invalid-functions.rs:4:19
+  |
+4 |     let _ = bigo!("O(log_1(n))");
+  |                   ^^^^^^^^^^^^^
+
+error: invalid Big-O notation: unexpected token in Big-O expression at byte 11
+ --> tests/ui/big-o-invalid-functions.rs:5:19
+  |
+5 |     let _ = bigo!("O(polylog(n-m))");
+  |                   ^^^^^^^^^^^^^^^^^
+
+error: invalid Big-O notation: unexpected end of Big-O expression at byte 9
+ --> tests/ui/big-o-invalid-functions.rs:6:19
+  |
+6 |     let _ = bigo!("O(W_out(n");
+  |                   ^^^^^^^^^^^

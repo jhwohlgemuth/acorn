@@ -1,13 +1,16 @@
 //! Bounded parsing for portable Big-O notation.
 //!
 //! The parser recognizes uppercase `O(...)` expressions containing positive integer
-//! constants, ASCII identifiers, addition, explicit or adjacent multiplication,
-//! grouping, positive integer or identifier exponents, and `log` expressions.
+//! constants, ASCII identifiers, addition, multiplication, division, grouping,
+//! positive integer, rational, or named exponents, and logarithmic or output-work functions.
 //! It validates notation only; it does not prove a mathematical bound or infer one from measurements.
 use crate::prelude::alloc::{vec, Box, String, ToString, Vec};
 use alloc::collections::BTreeSet;
 use core::fmt;
 use core::str::FromStr;
+
+mod compare;
+pub use compare::{compare_growth, Asymptotic, Dominance, GrowthAssumptions, SymbolGrowth};
 
 /// Maximum accepted notation length in bytes.
 pub const MAX_INPUT_BYTES: usize = 256;
@@ -20,8 +23,12 @@ pub const MAX_PARSED_NODES: usize = 64;
 pub enum Exponent {
     /// A positive integer exponent.
     Integer(u64),
+    /// A positive rational exponent.
+    Rational(u64, u64),
     /// An exponent named by an ASCII identifier.
     Variable(String),
+    /// The difference of two named exponents.
+    Difference(String, String),
 }
 /// Stable category for a Big-O parse failure.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -60,10 +67,23 @@ pub enum Term {
     Add(Vec<Term>),
     /// A positive integer constant.
     Constant(u64),
+    /// A quotient of two expressions.
+    Divide(Box<Term>, Box<Term>),
     /// A logarithm of an expression.
     Log(Box<Term>),
+    /// A logarithm with a named base.
+    LogBase {
+        /// Name of the fixed base.
+        base: String,
+        /// Expression inside the logarithm.
+        argument: Box<Term>,
+    },
     /// A product, in source order.
     Multiply(Vec<Term>),
+    /// A polylogarithm with an unspecified fixed positive exponent.
+    Polylog(Box<Term>),
+    /// Output work assumed to grow linearly with its argument.
+    OutputWork(Box<Term>),
     /// A base raised to a positive integer or named exponent.
     Power {
         /// Expression being raised.
@@ -97,6 +117,9 @@ impl Expression {
     ///
     /// Whitespace is ignored around tokens. Identifiers begin with an ASCII letter or underscore and continue with ASCII letters, digits, or underscores.
     /// The word `log` is reserved. `log n` is shorthand for one identifier only; write `log(n^2)` or `(log n)^2` when an exponent is intended.
+    /// Rational powers use `^(numerator/denominator)`; named exponent differences use `^(left-right)`.
+    /// The recognized functions are `log`, `log_<base>`, `polylog`, and `W_out`.
+    /// Named logarithm bases follow the identifier grammar; numeric bases are not supported.
     pub fn parse(notation: &str) -> Result<Self, ParseError> {
         Parser::new(notation).parse()
     }
@@ -238,8 +261,21 @@ impl<'input> Parser<'input> {
             let mut parsed = Ok(());
             while parsed.is_ok() {
                 self.skip_whitespace();
-                let explicit = self.consume_byte(b'*');
-                if explicit || self.starts_primary() {
+                let divided = self.consume_byte(b'/');
+                let explicit = !divided && self.consume_byte(b'*');
+                if divided {
+                    let numerator = if terms.len() == 1 {
+                        Ok(terms.remove(0))
+                    } else {
+                        self.node(self.position, Term::Multiply(core::mem::take(&mut terms)))
+                    };
+                    parsed = numerator.and_then(|numerator| {
+                        self.parse_power(depth).and_then(|denominator| {
+                            self.node(self.position, Term::Divide(Box::new(numerator), Box::new(denominator)))
+                                .map(|quotient| terms = vec![quotient])
+                        })
+                    });
+                } else if explicit || self.starts_primary() {
                     parsed = self.parse_power(depth).map(|term| terms.push(term));
                 } else {
                     break;
@@ -265,6 +301,7 @@ impl<'input> Parser<'input> {
             } else {
                 self.skip_whitespace();
                 let exponent = match self.peek_byte() {
+                    | Some(b'(') => self.parse_grouped_exponent(),
                     | Some(byte) if byte.is_ascii_digit() => self.parse_positive_integer(ParseErrorKind::InvalidExponent).map(Exponent::Integer),
                     | Some(byte) if is_identifier_start(byte) => Ok(Exponent::Variable(self.parse_identifier())),
                     | _ => Err(ParseError::new(ParseErrorKind::InvalidExponent, self.position)),
@@ -306,10 +343,42 @@ impl<'input> Parser<'input> {
                 .parse_positive_integer(ParseErrorKind::InvalidInteger)
                 .and_then(|value| self.node(offset, Term::Constant(value)))
                 .map(|term| (term, false)),
+            | Some(byte) if is_identifier_start(byte) && self.at_function("polylog") => {
+                self.advance("polylog".len());
+                self.parse_function_argument(depth, offset)
+                    .and_then(|argument| self.node(offset, Term::Polylog(Box::new(argument))))
+                    .map(|term| (term, false))
+            }
+            | Some(byte) if is_identifier_start(byte) && self.at_function("W_out") => {
+                self.advance("W_out".len());
+                self.parse_function_argument(depth, offset)
+                    .and_then(|argument| self.node(offset, Term::OutputWork(Box::new(argument))))
+                    .map(|term| (term, false))
+            }
             | Some(byte) if is_identifier_start(byte) && self.at_log_keyword() => self.parse_log(depth),
             | Some(byte) if is_identifier_start(byte) => {
                 let identifier = self.parse_identifier();
-                self.node(offset, Term::Variable(identifier)).map(|term| (term, false))
+                self.skip_whitespace();
+                match identifier.strip_prefix("log_") {
+                    | Some(base) if self.peek_byte() == Some(b'(') => {
+                        if !base.as_bytes().first().copied().is_some_and(is_identifier_start) {
+                            Err(ParseError::new(ParseErrorKind::ExpectedExpression, offset.saturating_add("log_".len())))
+                        } else {
+                            self.parse_function_argument(depth, offset)
+                                .and_then(|argument| {
+                                    self.node(
+                                        offset,
+                                        Term::LogBase {
+                                            base: base.to_string(),
+                                            argument: Box::new(argument),
+                                        },
+                                    )
+                                })
+                                .map(|term| (term, false))
+                        }
+                    }
+                    | _ => self.node(offset, Term::Variable(identifier)).map(|term| (term, false)),
+                }
             }
             | Some(_) => Err(ParseError::new(ParseErrorKind::ExpectedExpression, offset)),
             | None => Err(ParseError::new(ParseErrorKind::UnexpectedEnd, offset)),
@@ -350,6 +419,71 @@ impl<'input> Parser<'input> {
             self.advance(1);
         }
         self.input.get(start..self.position).unwrap_or_default().to_string()
+    }
+    fn parse_grouped_exponent(&mut self) -> Result<Exponent, ParseError> {
+        let offset = self.position;
+        self.advance(1);
+        self.skip_whitespace();
+        let first = match self.peek_byte() {
+            | Some(byte) if byte.is_ascii_digit() => self.parse_positive_integer(ParseErrorKind::InvalidExponent).map(Exponent::Integer),
+            | Some(byte) if is_identifier_start(byte) => Ok(Exponent::Variable(self.parse_identifier())),
+            | _ => Err(ParseError::new(ParseErrorKind::InvalidExponent, offset)),
+        };
+        first.and_then(|first| {
+            self.skip_whitespace();
+            let exponent = match (first, self.peek_byte()) {
+                | (Exponent::Integer(numerator), Some(b'/')) => {
+                    self.advance(1);
+                    self.skip_whitespace();
+                    self.parse_positive_integer(ParseErrorKind::InvalidExponent)
+                        .map(|denominator| Exponent::Rational(numerator, denominator))
+                }
+                | (Exponent::Variable(left), Some(b'-')) => {
+                    self.advance(1);
+                    self.skip_whitespace();
+                    match self.peek_byte() {
+                        | Some(byte) if is_identifier_start(byte) => Ok(Exponent::Difference(left, self.parse_identifier())),
+                        | _ => Err(ParseError::new(ParseErrorKind::InvalidExponent, self.position)),
+                    }
+                }
+                | (exponent, _) => Ok(exponent),
+            };
+            exponent.and_then(|exponent| {
+                self.skip_whitespace();
+                self.consume_byte(b')')
+                    .then_some(exponent)
+                    .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidExponent, self.position))
+            })
+        })
+    }
+    fn at_function(&self, name: &str) -> bool {
+        self.input
+            .get(self.position..)
+            .and_then(|remaining| remaining.strip_prefix(name))
+            .is_some_and(|suffix| {
+                suffix
+                    .trim_start_matches(|character: char| character.is_ascii_whitespace())
+                    .starts_with('(')
+            })
+    }
+    fn parse_function_argument(&mut self, depth: usize, offset: usize) -> Result<Term, ParseError> {
+        self.skip_whitespace();
+        if self.consume_byte(b'(') {
+            next_depth(depth, offset)
+                .and_then(|nested_depth| self.parse_addition(nested_depth))
+                .and_then(|argument| {
+                    self.skip_whitespace();
+                    if self.position == self.input.len() {
+                        Err(ParseError::new(ParseErrorKind::UnexpectedEnd, self.position))
+                    } else if !self.consume_byte(b')') {
+                        Err(ParseError::new(ParseErrorKind::UnexpectedToken, self.position))
+                    } else {
+                        Ok(argument)
+                    }
+                })
+        } else {
+            Err(ParseError::new(ParseErrorKind::ExpectedExpression, self.position))
+        }
     }
     fn parse_positive_integer(&mut self, kind: ParseErrorKind) -> Result<u64, ParseError> {
         let start = self.position;
@@ -413,11 +547,26 @@ fn collect_variables(term: &Term, variables: &mut BTreeSet<String>) {
     match term {
         | Term::Add(terms) | Term::Multiply(terms) => terms.iter().for_each(|term| collect_variables(term, variables)),
         | Term::Constant(_) => {}
-        | Term::Log(argument) => collect_variables(argument, variables),
+        | Term::Divide(numerator, denominator) => {
+            collect_variables(numerator, variables);
+            collect_variables(denominator, variables);
+        }
+        | Term::Log(argument) | Term::Polylog(argument) | Term::OutputWork(argument) => collect_variables(argument, variables),
+        | Term::LogBase { base, argument } => {
+            variables.insert(base.clone());
+            collect_variables(argument, variables);
+        }
         | Term::Power { base, exponent } => {
             collect_variables(base, variables);
-            if let Exponent::Variable(variable) = exponent {
-                variables.insert(variable.clone());
+            match exponent {
+                | Exponent::Integer(_) | Exponent::Rational(_, _) => {}
+                | Exponent::Variable(variable) => {
+                    variables.insert(variable.clone());
+                }
+                | Exponent::Difference(left, right) => {
+                    variables.insert(left.clone());
+                    variables.insert(right.clone());
+                }
             }
         }
         | Term::Variable(variable) => {

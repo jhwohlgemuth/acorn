@@ -42,3 +42,5 @@ let bound = ComplexityBound::Time(bigo!("O(n log n)").into());
 ```
 
 The same grammar validates complexity strings in research activity JSON. For example, `{"case":"worst","bounds":[{"time":"O(n log n)"}],"variables":{"n":"number of records"}}` describes a computation bound. Validation checks notation and, when a variables map is supplied, its referenced names; it does not prove the claimed complexity or infer it from measurements.
+
+The `#[validate(bigo)]` scalar rule uses the same parser for schema fields. Canonical notation supports explicit products, division, rational powers such as `P^(1/2)`, `polylog(P)`, `W_out(P)`, and named-base logarithms such as `log_a(P)`. For comparisons, `acorn_core::big_o::compare_growth` takes a `ThisOrThat` pair of parsed expressions and explicit assumptions about each symbol. It returns `Undetermined` when the assumptions or supported proof rules cannot establish an ordering.
