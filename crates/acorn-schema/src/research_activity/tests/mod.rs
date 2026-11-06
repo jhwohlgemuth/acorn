@@ -24,8 +24,9 @@ use std::path::PathBuf;
 fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures")
 }
+
 fn logbook_entry(identifier: &str, timestamp: &str) -> LogbookEntry {
-    LogbookEntry::init()
+    ActivityEntry::init()
         .identifier(identifier)
         .project_id("example-project")
         .timestamp(timestamp)
@@ -33,6 +34,7 @@ fn logbook_entry(identifier: &str, timestamp: &str) -> LogbookEntry {
         .state("in-progress")
         .summary("Doe, Jane")
         .build()
+        .into()
 }
 
 #[test]
@@ -761,7 +763,7 @@ fn test_is_attribute_publication_identifier() {
 }
 #[test]
 fn test_logbook_classification_is_constrained_and_graduates_to_activity_metadata() {
-    let classification_entry = LogbookEntry::init()
+    let classification_entry = ActivityEntry::init()
         .identifier("classification-raised")
         .project_id("example-project")
         .timestamp("2026-09-05T12:00:00Z")
@@ -770,7 +772,8 @@ fn test_logbook_classification_is_constrained_and_graduates_to_activity_metadata
         .event_type("other")
         .state("completed")
         .summary("Raised the activity classification")
-        .build();
+        .build()
+        .into();
     let activity = ResearchActivity {
         meta: ResearchActivityMetadata {
             classification: Some(ClassificationLevel::Confidential),
@@ -788,10 +791,10 @@ fn test_logbook_classification_is_constrained_and_graduates_to_activity_metadata
         .graduate(&["classification-raised".to_string()])
         .expect("classification graduation");
     assert_eq!(graduated.meta.classification, Some(ClassificationLevel::Secret));
-    assert!(graduated.logbook.as_ref().expect("logbook").entries[0].archived);
+    assert!(graduated.logbook.as_ref().expect("logbook").entries[0].archived());
     assert!(graduated.validate().is_ok());
 
-    let invalid_entry = LogbookEntry::init()
+    let invalid_entry = ActivityEntry::init()
         .identifier("misclassified-event")
         .project_id("example-project")
         .timestamp("2026-09-05T12:00:00Z")
@@ -872,7 +875,7 @@ fn test_logbook_discovered_identifier_truncation_trims_separator() {
 #[test]
 fn test_logbook_entry_project_id_requires_kebab_case() {
     let mut entry = logbook_entry("invalid-project-id", "2026-09-01T08:00:00-04:00");
-    entry.project_id = "Example Project".to_string();
+    entry.activity_mut().expect("activity").project_id = "Example Project".to_string();
     let report = entry.validate().expect_err("project identifier should require kebab-case");
     let issues = report.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n");
     assert!(issues.contains("project_id: Provide ID in kebab-case format"), "{issues}");
@@ -880,11 +883,11 @@ fn test_logbook_entry_project_id_requires_kebab_case() {
 #[test]
 fn test_logbook_global_entry_defaults_and_roundtrips() {
     let entry = logbook_entry("global-example", "2026-10-05T14:30:00Z");
-    assert!(!entry.global);
+    assert!(!entry.global());
     let mut value = serde_json::to_value(entry).expect("serialize logbook entry");
     value["global"] = serde_json::json!(true);
     let global: LogbookEntry = serde_json::from_value(value).expect("parse global logbook entry");
-    assert!(global.global);
+    assert!(global.global());
     assert!(global.validate().is_ok());
 }
 #[test]
@@ -902,8 +905,8 @@ fn test_logbook_graduation_archives_without_deleting_or_duplicating() {
     let graduated = activity.graduate(&["new-contributor".to_string()]).expect("graduation should succeed");
     assert_eq!(graduated.meta.contributors.as_ref().expect("contributors")[0].name, "Doe, Jane");
     let retained = &graduated.logbook.as_ref().expect("logbook").entries[0];
-    assert!(retained.archived);
-    assert_eq!(retained.state, LogbookState::Completed);
+    assert!(retained.archived());
+    assert_eq!(retained.activity().expect("activity").state, LogbookState::Completed);
     assert!(GraduationCandidates::from(graduated).0.is_empty());
 }
 #[test]
@@ -916,13 +919,13 @@ fn test_logbook_json_markdown_and_yaml_preserve_entry_order_and_defaults() {
         .build();
     let json = serde_json::to_string(&logbook).expect("serialize JSON");
     let parsed: Logbook = serde_json::from_str(&json).expect("parse JSON");
-    assert_eq!(parsed.entries[0].identifier, "first");
-    assert_eq!(parsed.entries[0].origin, LogbookEntryOrigin::Manual);
+    assert_eq!(parsed.entries[0].identifier(), "first");
+    assert_eq!(parsed.entries[0].activity().expect("activity").origin, LogbookEntryOrigin::Manual);
     let markdown = logbook.to_markdown();
     assert!(markdown.contains("## 2026-09-01T12:00:00Z — InProgress"));
     let yaml = serde_norway::to_string(&logbook).expect("serialize YAML");
     let parsed: Logbook = serde_norway::from_str(&yaml).expect("parse YAML");
-    assert_eq!(parsed.entries[1].identifier, "second");
+    assert_eq!(parsed.entries[1].identifier(), "second");
 }
 #[test]
 fn test_logbook_serializes_as_last_rad_attribute() {
@@ -988,7 +991,7 @@ fn test_logbook_string_conversions_are_case_insensitive_with_safe_defaults() {
 }
 #[test]
 fn test_logbook_summary_length_allows_extended_reporting() {
-    let entry = LogbookEntry::init()
+    let entry = ActivityEntry::init()
         .identifier("extended-reporting")
         .project_id("example-project")
         .timestamp("2026-09-05T12:00:00Z")
@@ -997,7 +1000,7 @@ fn test_logbook_summary_length_allows_extended_reporting() {
         .summary("x".repeat(1200))
         .build();
     assert!(entry.validate().is_ok());
-    assert!(LogbookEntry {
+    assert!(ActivityEntry {
         summary: "x".repeat(1201),
         ..entry
     }
@@ -1054,12 +1057,12 @@ fn test_logbook_updates_filter_by_instant_and_sort_newest_first() {
     let all = activity.logbook.as_ref().expect("logbook").entries_all().expect("valid entry timestamps");
     let updates = activity.updates_since("2026-09-01T12:00:00Z").expect("valid since timestamp");
     assert_eq!(
-        all.iter().map(|entry| entry.identifier.as_str()).collect::<Vec<_>>(),
+        all.iter().map(LogbookEntry::identifier).collect::<Vec<_>>(),
         ["newer", "same-instant", "older"]
     );
     assert_eq!(updates.entries.len(), 2);
-    assert_eq!(updates.entries[0].identifier, "newer");
-    assert_eq!(updates.entries[1].identifier, "same-instant");
+    assert_eq!(updates.entries[0].identifier(), "newer");
+    assert_eq!(updates.entries[1].identifier(), "same-instant");
     assert!(activity.updates_since("2026-09-01").is_err());
 }
 #[test]
@@ -1091,7 +1094,7 @@ fn test_logbook_updates_use_half_open_reporting_window() {
     let window = ReportingWindow::new(Some("2026-03-08T06:00:00Z"), "2026-04-01T00:00:00Z").expect("valid window");
     let updates = activity.updates_within(&window).expect("bounded updates");
     assert_eq!(
-        updates.entries.iter().map(|entry| entry.identifier.as_str()).collect::<Vec<_>>(),
+        updates.entries.iter().map(LogbookEntry::identifier).collect::<Vec<_>>(),
         ["inside", "at-lower"]
     );
     assert_eq!(updates.through.as_deref(), Some("2026-04-01T00:00:00Z"));
@@ -1100,7 +1103,7 @@ fn test_logbook_updates_use_half_open_reporting_window() {
 }
 #[test]
 fn test_logbook_validation_reports_origin_timestamp_and_duplicate_contracts() {
-    let discovered = LogbookEntry::init()
+    let discovered = ActivityEntry::init()
         .identifier("discovered")
         .project_id("example-project")
         .timestamp("2026-09-01")
@@ -1108,7 +1111,8 @@ fn test_logbook_validation_reports_origin_timestamp_and_duplicate_contracts() {
         .state("upcoming")
         .origin(LogbookEntryOrigin::Discovered)
         .summary(" ")
-        .build();
+        .build()
+        .into();
     let logbook = Logbook::init().entries(vec![discovered]).build();
     let report = logbook.validate().expect_err("invalid logbook");
     let issues = report.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n");
@@ -1752,6 +1756,54 @@ fn test_research_output_roundtrip_and_validation() {
     let parsed: ResearchActivityMetadata = serde_json::from_str(&serialized).expect("research output metadata should deserialize");
     assert!(parsed.validate().is_ok());
     assert_eq!(parsed.outputs.expect("outputs should be retained").len(), 1);
+}
+#[test]
+fn test_status_update_uses_logbook_range_when_submitted_after_period() {
+    let window = ReportingWindow::new(Some("2026-07-01T00:00:00Z"), "2026-08-01T00:00:00Z").expect("valid window");
+    let update = StatusUpdateEntry {
+        identifier: "july-status".to_string(),
+        project_id: "example-project".to_string(),
+        timestamp: "2026-08-05T12:00:00Z".to_string(),
+        range: None,
+        summary: "Submitted Phase 1 deliverables".to_string(),
+        significance: "Improves operational readiness".to_string(),
+        health: ProjectHealth::AtRisk { reason: None },
+        evidence: Some("Technical report submitted".to_string()),
+        risk: Some(ProjectRisk {
+            kind: RiskDependencyType::Data,
+            explanation: "NTM data preparation is needed".to_string(),
+        }),
+    };
+    let activity = ResearchActivity {
+        logbook: Some(
+            Logbook::init()
+                .range(window.clone())
+                .entries(vec![LogbookEntry::StatusUpdate(update)])
+                .build(),
+        ),
+        ..ResearchActivity::default()
+    };
+    assert!(activity.validate().is_ok());
+    let updates = activity.updates_within(&window).expect("status update in July report");
+    assert_eq!(updates.entries.len(), 1);
+    assert!(matches!(&updates.entries[0], LogbookEntry::StatusUpdate(update) if update.range.as_ref() == Some(&window)));
+    assert!(ProjectHealth::AtRisk {
+        reason: Some(" ".to_string())
+    }
+    .validate()
+    .is_err());
+    assert_eq!(ProjectHealth::AtRisk { reason: None }.to_string(), "At risk");
+    let mut unbounded = activity.clone();
+    unbounded.logbook.as_mut().expect("logbook").range.as_mut().expect("range").left = None;
+    assert!(unbounded.validate().is_err());
+    let mut entry_range = activity;
+    let logbook = entry_range.logbook.as_mut().expect("logbook");
+    logbook.range = None;
+    if let LogbookEntry::StatusUpdate(update) = &mut logbook.entries[0] {
+        update.range = Some(ReportingWindow::new(None, "2026-08-01T00:00:00Z").expect("unbounded window"));
+    }
+    assert!(entry_range.validate().is_err());
+    assert!(serde_json::from_str::<ProjectHealth>(r#"{"status":"at-risk","reasn":"blocked"}"#).is_err());
 }
 #[test]
 fn test_to_prose() {

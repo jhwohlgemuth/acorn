@@ -23,6 +23,7 @@ fn intake(branch: &str, max_file: Memory, max_record: Memory) -> PowerAutomateIn
         max_record,
     }
 }
+
 async fn read_from(content: Option<String>, intake: &PowerAutomateIntake) -> crate::io::ApiResult<crate::io::api::gitlab::jsonl::Snapshot> {
     let server = snapshot_server(content).await;
     let options = Options::with_token("test").domain(&server.base_url).identifier("30").build();
@@ -30,6 +31,7 @@ async fn read_from(content: Option<String>, intake: &PowerAutomateIntake) -> cra
     server.stop().await.unwrap();
     snapshot
 }
+
 async fn snapshot_server(content: Option<String>) -> TestServer {
     let router = Router::new()
         .route(
@@ -61,9 +63,11 @@ async fn snapshot_server(content: Option<String>) -> TestServer {
         );
     TestServer::start(router).await.unwrap()
 }
+
 fn standard_intake() -> PowerAutomateIntake {
     intake("pilot", Memory::mb(10), Memory::kb(64))
 }
+
 #[test]
 fn test_empty_file_yields_no_lines() {
     let snapshot = split_snapshot("", &Memory::kb(64)).unwrap();
@@ -108,7 +112,7 @@ async fn test_manual_review_worker_graduates_an_authorized_note_once() {
         let branch = snapshot.merge_requests[0]["source_branch"].as_str().unwrap().to_string();
         let content = snapshot.content.get(&(branch.clone(), "acorn/index.json".to_string())).unwrap();
         let activity: acorn_schema::research_activity::ResearchActivity = serde_json::from_str(content).unwrap();
-        (branch, activity.logbook.unwrap().entries[0].identifier.clone())
+        (branch, activity.logbook.unwrap().entries[0].identifier().to_string())
     };
     let delivery = WebhookDelivery {
         delivery_id: "manual-graduation-note".to_string(),
@@ -133,7 +137,7 @@ async fn test_manual_review_worker_graduates_an_authorized_note_once() {
         let snapshot = state.lock().unwrap();
         let content = snapshot.content.get(&(branch, "acorn/index.json".to_string())).unwrap();
         let activity: acorn_schema::research_activity::ResearchActivity = serde_json::from_str(content).unwrap();
-        assert!(activity.logbook.unwrap().entries[0].archived);
+        assert!(activity.logbook.unwrap().entries[0].archived());
         assert_eq!(snapshot.merge_requests.len(), 1);
         assert_eq!(snapshot.review_writes.len(), 2);
     }
@@ -270,7 +274,11 @@ async fn test_single_and_mixed_inbox_publish_only_selected_review_indexes() {
             let content = state_before_replay.content.get(&(branch, path)).unwrap();
             let activity: acorn_schema::research_activity::ResearchActivity = serde_json::from_str(content).unwrap();
             let logbook = activity.logbook.unwrap();
-            let published = logbook.entries.iter().find(|entry| entry.identifier == shared.entry.identifier).unwrap();
+            let published = logbook
+                .entries
+                .iter()
+                .find(|entry| entry.identifier() == shared.entry.identifier())
+                .unwrap();
             assert_eq!(serde_json::to_value(published).unwrap(), serde_json::to_value(&shared.entry).unwrap());
             assert!(queue.intake_admission(&shared.operation_key).unwrap().is_some());
         }

@@ -3,6 +3,7 @@ use super::*;
 use acorn::io::{archive, ArchiveCandidate, ArchiveExtraction};
 use acorn_core::util::MimeType;
 use acorn_schema::research_activity::logbook::MAX_LOGBOOK_SUMMARY_CHARACTERS;
+use acorn_schema::research_activity::{LogbookEntry, ProjectHealth, StatusUpdateEntry};
 
 fn pptx_part(root: &Path, part: &str) -> String {
     std::fs::read_to_string(root.join(part)).expect("PowerPoint part")
@@ -20,7 +21,7 @@ fn selected_project() -> (ResearchActivity, LogbookUpdates, PathBuf) {
     let mut updates = activity.updates_within(&window).expect("selected entries");
     updates.entries.retain(|entry| {
         matches!(
-            entry.identifier.as_str(),
+            entry.identifier(),
             "watershed-dataset-release" | "watershed-sampling-protocol" | "watershed-sensor-calibration"
         )
     });
@@ -49,7 +50,7 @@ fn test_composition_groups_entries_in_schema_order() {
     let mut updates = activity.updates_within(&window).expect("selected entries");
     updates.entries.retain(|entry| {
         matches!(
-            entry.identifier.as_str(),
+            entry.identifier(),
             "watershed-dataset-release" | "watershed-sampling-protocol" | "watershed-sensor-calibration"
         )
     });
@@ -57,9 +58,9 @@ fn test_composition_groups_entries_in_schema_order() {
     assert_eq!(
         slides.iter().map(|slide| slide.category).collect::<Vec<_>>(),
         [
-            acorn_schema::research_activity::LogbookCategory::Data,
-            acorn_schema::research_activity::LogbookCategory::Method,
-            acorn_schema::research_activity::LogbookCategory::Research,
+            Some(acorn_schema::research_activity::LogbookCategory::Data),
+            Some(acorn_schema::research_activity::LogbookCategory::Method),
+            Some(acorn_schema::research_activity::LogbookCategory::Research),
         ]
     );
     assert!(slides.iter().all(|slide| slide.project_id == updates.identifier));
@@ -77,30 +78,31 @@ fn test_composition_preserves_entry_order_and_archived_sources() {
     let mut updates = activity.updates_within(&window).expect("selected entries");
     updates
         .entries
-        .retain(|entry| matches!(entry.identifier.as_str(), "watershed-dataset-release" | "watershed-sensing-additional-01"));
+        .retain(|entry| matches!(entry.identifier(), "watershed-dataset-release" | "watershed-sensing-additional-01"));
     for entry in &mut updates.entries {
-        entry.archived = true;
-        entry.items = None;
-        entry.summary = "<reviewed & accepted>".to_string();
+        entry.activity_mut().expect("activity").archived = true;
+        entry.activity_mut().expect("activity").items = None;
+        entry.activity_mut().expect("activity").summary = "<reviewed & accepted>".to_string();
     }
-    let expected_ids = updates
-        .entries
-        .iter()
-        .map(|entry| entry.identifier.as_str())
-        .collect::<Vec<_>>()
-        .join(", ");
+    let expected_ids = updates.entries.iter().map(|entry| entry.identifier()).collect::<Vec<_>>().join(", ");
     let slides = activity.compose(&updates).expect("compose archived entries");
     assert_eq!(slides.len(), 1);
     let slide = slides.first().expect("data slide");
     assert_eq!(slide.notes, expected_ids);
     assert_eq!(slide.achievement.matches("<reviewed & accepted>").count(), 2);
-    updates.entries.first_mut().expect("first entry").global = true;
+    updates.entries.first_mut().expect("first entry").activity_mut().expect("activity").global = true;
     let slides = activity.compose(&updates).expect("exclude general entry");
     assert_eq!(
         slides.first().expect("remaining data slide").notes,
-        updates.entries.last().expect("remaining entry").identifier
+        updates.entries.last().expect("remaining entry").identifier()
     );
-    updates.entries.last_mut().expect("remaining entry").project_id = "different-project".to_string();
+    updates
+        .entries
+        .last_mut()
+        .expect("remaining entry")
+        .activity_mut()
+        .expect("activity")
+        .project_id = "different-project".to_string();
     assert!(activity.compose(&updates).expect("exclude other project").is_empty());
 }
 #[test]
@@ -110,8 +112,8 @@ fn test_composition_rejects_overlong_source_summary() {
     let window = ReportingWindow::new(arguments.from.as_deref(), arguments.through()).expect("report window");
     let mut updates = activity.updates_within(&window).expect("selected entries");
     let entry = updates.entries.first_mut().expect("fixture entry");
-    let identifier = entry.identifier.clone();
-    entry.summary = "x".repeat(MAX_LOGBOOK_SUMMARY_CHARACTERS + 1);
+    let identifier = entry.identifier().to_string();
+    entry.activity_mut().expect("activity").summary = "x".repeat(MAX_LOGBOOK_SUMMARY_CHARACTERS + 1);
     let error = activity.compose(&updates).expect_err("overlong summary must fail");
     assert!(error.to_string().contains(&identifier));
     assert!(error
@@ -178,7 +180,13 @@ fn test_renderer_rejects_overfull_category_without_replacing_deck() {
     let destination = output.path().join("report.pptx");
     activity.render(&updates, &index, &reference_fixture(), &destination).expect("first deck");
     let previous = read(&destination).expect("previous deck");
-    updates.entries.first_mut().expect("selected entry").summary = "word ".repeat(230);
+    updates
+        .entries
+        .first_mut()
+        .expect("selected entry")
+        .activity_mut()
+        .expect("activity")
+        .summary = "word ".repeat(230);
     let failure = activity
         .render(&updates, &index, &reference_fixture(), &destination)
         .expect_err("category exceeds slide capacity");
@@ -196,4 +204,24 @@ fn test_renderer_skips_project_with_no_selected_entries() {
         .expect("empty project")
         .is_none());
     assert!(!destination.exists());
+}
+#[test]
+fn test_status_update_gets_a_distinct_powerpoint_slide() {
+    let (activity, mut updates, _) = selected_project();
+    updates.entries.push(LogbookEntry::StatusUpdate(StatusUpdateEntry {
+        identifier: "monthly-status".to_string(),
+        project_id: updates.identifier.clone(),
+        timestamp: "2026-10-05T12:00:00Z".to_string(),
+        range: None,
+        summary: "Submitted Phase 1 deliverables".to_string(),
+        significance: "Improves operational readiness".to_string(),
+        health: ProjectHealth::OnTrack,
+        evidence: Some("Technical report submitted".to_string()),
+        risk: None,
+    }));
+    let slides = activity.compose(&updates).expect("compose status update");
+    let status = slides.last().expect("status slide");
+    assert_eq!(status.category, None);
+    assert!(status.subtitle.starts_with("Project status"));
+    assert!(status.achievement.contains("Leadership significance: Improves operational readiness"));
 }

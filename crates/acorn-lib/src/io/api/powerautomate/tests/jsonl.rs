@@ -31,6 +31,7 @@ async fn admit(
     .await
     .unwrap()
 }
+
 fn configuration() -> ApplicationConfiguration {
     serde_json::from_value(serde_json::json!({
         "folders": [{"id":"pilot", "aliases":["folder-name"], "members":["Scientist@Example.org"]},
@@ -40,6 +41,7 @@ fn configuration() -> ApplicationConfiguration {
     }))
     .unwrap()
 }
+
 fn multi_configuration() -> ApplicationConfiguration {
     serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -47,9 +49,11 @@ fn multi_configuration() -> ApplicationConfiguration {
     )))
     .unwrap()
 }
+
 fn queue() -> OperationQueue {
     OperationQueue::from(temp_dir().join(format!("acorn-jsonl-{}.db", nanoid::nanoid!())))
 }
+
 fn raw(selector: &str, uuid: &str) -> String {
     let form = Submission {
         project_id: selector.to_string(),
@@ -58,11 +62,13 @@ fn raw(selector: &str, uuid: &str) -> String {
     };
     serde_json::to_string(&form).unwrap()
 }
+
 async fn server() -> TestServer {
     TestServer::start(Router::new().route("/api/v4/projects/42/packages", get(|| async { Json(serde_json::json!([])) })))
         .await
         .unwrap()
 }
+
 fn snapshot(content: &str, commit: &str) -> Snapshot {
     Snapshot {
         content: content.to_string(),
@@ -85,8 +91,8 @@ async fn test_admission_canonicalizes_alias_and_retains_exact_evidence() {
     assert_eq!(outcome.selector.as_deref(), Some("folder-name"));
     assert_eq!(outcome.raw, content.trim_end_matches('\n'));
     let admitted: AdmittedSubmission = serde_json::from_str(outcome.admission.as_ref().unwrap()).unwrap();
-    assert_eq!(admitted.entry.project_id, "pilot");
-    assert_eq!(admitted.entry.identifier, "form-123-e-4567-e-89-b-12-d-3-a-456-426614174000");
+    assert_eq!(admitted.entry.project_id(), "pilot");
+    assert_eq!(admitted.entry.identifier(), "form-123-e-4567-e-89-b-12-d-3-a-456-426614174000");
     assert_eq!(admitted.path, "pilot/index.json");
     assert!(admitted.branch.starts_with("acorn/powerautomate/pilot/"));
     assert_eq!(queue.counts().unwrap().queued, 1);
@@ -148,14 +154,14 @@ async fn test_admission_preserves_shared_entry_fields_and_notification() {
     );
     assert_eq!(outcome.operation_key.as_deref(), Some(shared.operation_key.as_str()));
     assert_eq!(shared.operation_key, "powerautomate:form:v1:123e4567-e89b-12d3-a456-426614174000");
-    assert_eq!(admitted.entry.identifier, "reviewed-classification");
-    assert_eq!(admitted.entry.summary, "Reviewed classification ✓");
-    assert_eq!(admitted.entry.timestamp, "2026-09-18T12:00:00Z");
+    assert_eq!(admitted.entry.identifier(), "reviewed-classification");
+    assert_eq!(admitted.entry.summary(), "Reviewed classification ✓");
+    assert_eq!(admitted.entry.timestamp(), "2026-09-18T12:00:00Z");
     assert_eq!(
-        admitted.entry.items,
+        admitted.entry.activity().expect("activity").items,
         Some(vec!["Tagged v1".to_string(), "Accepted provenance".to_string()])
     );
-    assert!(admitted.entry.archived && admitted.entry.global);
+    assert!(admitted.entry.archived() && admitted.entry.global());
     assert_eq!(outcome.raw, content.trim_end_matches('\n'));
     let operation = queue.claim_next(SignedDuration::from_secs(60)).unwrap().unwrap();
     assert_eq!(operation.operation_key(), shared.operation_key);
@@ -240,8 +246,8 @@ async fn test_cutoff_rejection_is_inspectable_and_not_queued() {
     let result = admit(&content, "first", &configuration(), &queue, &options).await;
     assert!(result[0].as_ref().unwrap().rejection.as_ref().unwrap().contains("predates"));
     let admitted: AdmittedSubmission = serde_json::from_str(result[1].as_ref().unwrap().admission.as_ref().unwrap()).unwrap();
-    assert_eq!(admitted.entry.project_id, "pilot");
-    assert_eq!(admitted.entry.timestamp, "2026-10-01T00:00:00Z");
+    assert_eq!(admitted.entry.project_id(), "pilot");
+    assert_eq!(admitted.entry.timestamp(), "2026-10-01T00:00:00Z");
     assert_eq!(queue.counts().unwrap().queued, 1);
     server.stop().await.unwrap();
 }
@@ -306,7 +312,7 @@ async fn test_mixed_fixture_admits_only_its_canonical_routes() {
         .map(|outcome| {
             let outcome = outcome.as_ref().unwrap();
             let admitted: AdmittedSubmission = serde_json::from_str(outcome.admission.as_ref().unwrap()).unwrap();
-            (outcome.selector.clone().unwrap(), admitted.entry.project_id, admitted.path)
+            (outcome.selector.clone().unwrap(), admitted.entry.project_id().to_string(), admitted.path)
         })
         .collect::<Vec<_>>();
     assert_eq!(

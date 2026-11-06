@@ -17,14 +17,15 @@ async fn test_native_local_manifest_matches_direct_project_report() {
         let activity = ResearchActivity {
             logbook: Some(
                 Logbook::init()
-                    .entries(vec![LogbookEntry::init()
+                    .entries(vec![acorn_schema::research_activity::ActivityEntry::init()
                         .category("software")
                         .identifier("release")
                         .project_id("pilot")
                         .state("completed")
                         .summary("Released the pilot")
                         .timestamp("2026-09-18T12:00:00Z")
-                        .build()])
+                        .build()
+                        .into()])
                     .build(),
             ),
             ..ResearchActivity::default()

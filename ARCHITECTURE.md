@@ -79,6 +79,7 @@ Code should import from the narrowest prelude that matches its behavior: `prelud
 `acorn-lib` currently contains these boundaries:
 
 - Schema models, crosswalks, codecs, and allocation-compatible validation are owned by `acorn-schema`; `acorn-lib` retains their host adapters and services.
+- The portable `LogbookEntry` schema distinguishes dated activities from project status updates. A status update carries significance, health, optional evidence and risk, and an entry-specific or logbook-level reporting range. Power Automate intake normalizes both variants, while report adapters render them separately; only activities can be graduated into canonical metadata.
 - `analyzer/`: native context, discovery, trusted fix execution, Vale execution, path services, tabular export, and terminal rendering. Portable check/result models, FAIR calculations, and readability scoring are owned by `acorn-analysis`.
 - `io/`: native adapters and services for APIs, databases, documents, archives, downloads, synchronization, source handling, workflows, and PowerPoint.
 - `enrichment.rs`: enrichment contracts and transformations shared by schema and service work.

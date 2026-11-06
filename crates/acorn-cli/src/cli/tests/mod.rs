@@ -35,15 +35,40 @@ use std::fs::{create_dir_all, write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-static ENV_LOCK: Mutex<()> = Mutex::new(());
-#[test]
-fn test_format_interactive_parser() {
-    let parsed = Arguments::try_parse_from(["acorn", "format", "--interactive", "--dry-run"]).expect("interactive format");
-    assert!(matches!(parsed.command, Some(Commands::Format(arguments)) if arguments.interactive && arguments.dry_run));
+mod relocated_arguments_bot_tests {
+    use super::super::arguments::bot::{Common, EventSource};
+
+    fn common(bind: Option<&str>, port: Option<u16>) -> Common {
+        Common {
+            identifier: "123".to_string(),
+            bind: bind.map(String::from),
+            port,
+            after: None,
+            poll_interval: 10,
+            runtime: None,
+            event_source: EventSource::Poll,
+            public_url: None,
+            register_webhook: false,
+            config: None,
+        }
+    }
+
+    #[test]
+    fn test_bind_address_uses_default_host_with_port() {
+        assert_eq!(common(None, Some(8080)).bind_address(), "localhost:8080");
+        assert_eq!(common(Some("0.0.0.0"), Some(8080)).bind_address(), "0.0.0.0:8080");
+        assert_eq!(common(Some("0.0.0.0"), None).bind_address(), "0.0.0.0:3000");
+        assert_eq!(common(Some("0.0.0.0:9000"), Some(8080)).bind_address(), "0.0.0.0:8080");
+        assert_eq!(common(None, None).bind_address_if_configured(), None);
+    }
 }
+
+static ENV_LOCK: Mutex<()> = Mutex::new(());
+
 fn fixture_content_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/filter")
 }
+
 fn has_suffix(path: &Path, suffix: &str) -> bool {
     path.to_string_lossy().replace('\\', "/").ends_with(suffix)
 }
@@ -937,6 +962,11 @@ fn test_filter_paths_by_pattern_returns_empty_for_invalid_regex() {
     assert!(filtered.is_err());
 }
 #[test]
+fn test_format_interactive_parser() {
+    let parsed = Arguments::try_parse_from(["acorn", "format", "--interactive", "--dry-run"]).expect("interactive format");
+    assert!(matches!(parsed.command, Some(Commands::Format(arguments)) if arguments.interactive && arguments.dry_run));
+}
+#[test]
 fn test_fuzzy_profiles_parse_for_check_format_and_gather() {
     let check = Arguments::try_parse_from(["acorn", "check", "--fuzzy", "strict"]).unwrap();
     match check.command {
@@ -1238,31 +1268,6 @@ fn test_infer_run_backend_precedence_and_full_flags() {
     });
 }
 #[test]
-fn test_ollama_backend_parses_for_run_and_interactive_ask() {
-    let run = Arguments::try_parse_from(["acorn", "infer", "run", "summarize", "--backend", "ollama", "--model", "local-model"])
-        .expect("parse Ollama prompt run");
-    assert!(matches!(
-        run.command,
-        Some(Commands::Infer(arguments))
-            if matches!(arguments.command, Some(InferCommands::Run(ref run)) if run.inference.backend == InferenceBackendKind::Ollama)
-    ));
-    let ask = Arguments::try_parse_from([
-        "acorn",
-        "ask",
-        "--interactive",
-        "Inspect this",
-        "--backend",
-        "ollama",
-        "--model",
-        "local-model",
-    ])
-    .expect("parse Ollama interactive ask");
-    assert!(matches!(
-        ask.command,
-        Some(Commands::Infer(arguments)) if arguments.interactive && arguments.inference.backend == InferenceBackendKind::Ollama
-    ));
-}
-#[test]
 fn test_infer_run_data_sources() {
     let inline = Arguments::try_parse_from(["acorn", "infer", "run", "summarize", "--data", r#"{"text":"hello"}"#]).expect("parse inline JSON data");
     match inline.command {
@@ -1502,13 +1507,38 @@ fn test_oci_standard_is_rejected_outside_check_and_schema_export() {
     });
 }
 #[test]
+fn test_ollama_backend_parses_for_run_and_interactive_ask() {
+    let run = Arguments::try_parse_from(["acorn", "infer", "run", "summarize", "--backend", "ollama", "--model", "local-model"])
+        .expect("parse Ollama prompt run");
+    assert!(matches!(
+        run.command,
+        Some(Commands::Infer(arguments))
+            if matches!(arguments.command, Some(InferCommands::Run(ref run)) if run.inference.backend == InferenceBackendKind::Ollama)
+    ));
+    let ask = Arguments::try_parse_from([
+        "acorn",
+        "ask",
+        "--interactive",
+        "Inspect this",
+        "--backend",
+        "ollama",
+        "--model",
+        "local-model",
+    ])
+    .expect("parse Ollama interactive ask");
+    assert!(matches!(
+        ask.command,
+        Some(Commands::Infer(arguments)) if arguments.interactive && arguments.inference.backend == InferenceBackendKind::Ollama
+    ));
+}
+#[test]
 fn test_paste_rejects_watch_mode() {
     let arguments = Arguments::try_parse_from(["acorn", "--watch", "check", "--paste"]).expect("parse before watch validation");
     assert!(crate::commands::validate_watch_arguments(&arguments).is_err());
 }
 #[test]
 fn test_report_command_date_bounds_preserve_half_open_window() {
-    use acorn_schema::research_activity::{Logbook, LogbookEntry, ReportingWindow, ResearchActivity};
+    use acorn_schema::research_activity::{Logbook, ReportingWindow, ResearchActivity};
     let parsed = Arguments::try_parse_from(["acorn", "report", "--from", "2024-02-29", "--through", "2024-03-01"]).expect("date-only report bounds");
     let Some(Commands::Report(arguments)) = parsed.command else {
         panic!("expected report command");
@@ -1524,7 +1554,7 @@ fn test_report_command_date_bounds_preserve_half_open_window() {
     ]
     .into_iter()
     .map(|(id, timestamp)| {
-        LogbookEntry::init()
+        acorn_schema::research_activity::ActivityEntry::init()
             .identifier(id)
             .project_id("example")
             .timestamp(timestamp)
@@ -1532,6 +1562,7 @@ fn test_report_command_date_bounds_preserve_half_open_window() {
             .state("completed")
             .summary("Boundary test")
             .build()
+            .into()
     })
     .collect::<Vec<_>>();
     let activity = ResearchActivity {
@@ -1540,7 +1571,7 @@ fn test_report_command_date_bounds_preserve_half_open_window() {
     };
     let updates = activity.updates_within(&window).expect("bounded updates");
     assert_eq!(
-        updates.entries.iter().map(|entry| entry.identifier.as_str()).collect::<Vec<_>>(),
+        updates.entries.iter().map(|entry| entry.identifier()).collect::<Vec<_>>(),
         ["inside", "lower"]
     );
 }
@@ -1673,6 +1704,39 @@ fn test_report_command_short_dates_validate_day_and_month() {
     for value in ["00JAN", "32OCT", "1JAN", "JANU"] {
         assert!(Arguments::try_parse_from(["acorn", "report", "--from", value, "--through", "DEC"]).is_err());
     }
+}
+#[test]
+fn test_report_formats_and_reference_parse() {
+    let parse = |args: Vec<&str>| match Arguments::try_parse_from(args).expect("parse report format").command {
+        | Some(Commands::Report(report)) => report,
+        | _ => panic!("expected report command"),
+    };
+    let default = parse(vec!["acorn", "report", "--through", "2026-11-01"]);
+    assert_eq!(default.formats, vec![ReportFormat::Pdf]);
+    let both = parse(vec![
+        "acorn",
+        "report",
+        "--through",
+        "2026-11-01",
+        "--format",
+        "pdf,powerpoint",
+        "--reference",
+        "theme.pptx",
+    ]);
+    assert_eq!(both.formats, vec![ReportFormat::Pdf, ReportFormat::Powerpoint]);
+    assert_eq!(both.reference.as_deref(), Some(std::path::Path::new("theme.pptx")));
+    let repeated = parse(vec![
+        "acorn",
+        "report",
+        "--through",
+        "2026-11-01",
+        "--format",
+        "powerpoint",
+        "--format",
+        "pdf",
+    ]);
+    assert_eq!(repeated.formats, vec![ReportFormat::Powerpoint, ReportFormat::Pdf]);
+    assert!(Arguments::try_parse_from(["acorn", "report", "--through", "2026-11-01", "--format", "pptx"]).is_err());
 }
 #[test]
 fn test_resolve_export_paths_discovers_json_lines_without_broadening_defaults() {
@@ -2039,64 +2103,4 @@ fn test_what_if_aliases_dry_run_flags() {
     assert!(Arguments::try_parse_from(["acorn", "link", "--what-if"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "import", "spec", "--what-if"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "sync", "--what-if"]).is_ok());
-}
-#[test]
-fn test_report_formats_and_reference_parse() {
-    let parse = |args: Vec<&str>| match Arguments::try_parse_from(args).expect("parse report format").command {
-        | Some(Commands::Report(report)) => report,
-        | _ => panic!("expected report command"),
-    };
-    let default = parse(vec!["acorn", "report", "--through", "2026-11-01"]);
-    assert_eq!(default.formats, vec![ReportFormat::Pdf]);
-    let both = parse(vec![
-        "acorn",
-        "report",
-        "--through",
-        "2026-11-01",
-        "--format",
-        "pdf,powerpoint",
-        "--reference",
-        "theme.pptx",
-    ]);
-    assert_eq!(both.formats, vec![ReportFormat::Pdf, ReportFormat::Powerpoint]);
-    assert_eq!(both.reference.as_deref(), Some(std::path::Path::new("theme.pptx")));
-    let repeated = parse(vec![
-        "acorn",
-        "report",
-        "--through",
-        "2026-11-01",
-        "--format",
-        "powerpoint",
-        "--format",
-        "pdf",
-    ]);
-    assert_eq!(repeated.formats, vec![ReportFormat::Powerpoint, ReportFormat::Pdf]);
-    assert!(Arguments::try_parse_from(["acorn", "report", "--through", "2026-11-01", "--format", "pptx"]).is_err());
-}
-mod relocated_arguments_bot_tests {
-    use super::super::arguments::bot::{Common, EventSource};
-
-    fn common(bind: Option<&str>, port: Option<u16>) -> Common {
-        Common {
-            identifier: "123".to_string(),
-            bind: bind.map(String::from),
-            port,
-            after: None,
-            poll_interval: 10,
-            runtime: None,
-            event_source: EventSource::Poll,
-            public_url: None,
-            register_webhook: false,
-            config: None,
-        }
-    }
-
-    #[test]
-    fn test_bind_address_uses_default_host_with_port() {
-        assert_eq!(common(None, Some(8080)).bind_address(), "localhost:8080");
-        assert_eq!(common(Some("0.0.0.0"), Some(8080)).bind_address(), "0.0.0.0:8080");
-        assert_eq!(common(Some("0.0.0.0"), None).bind_address(), "0.0.0.0:3000");
-        assert_eq!(common(Some("0.0.0.0:9000"), Some(8080)).bind_address(), "0.0.0.0:8080");
-        assert_eq!(common(None, None).bind_address_if_configured(), None);
-    }
 }

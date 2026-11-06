@@ -2,7 +2,7 @@ use super::*;
 use acorn_schema::research_activity::LogbookEntry;
 
 fn entry(identifier: &str, summary: &str) -> LogbookEntry {
-    LogbookEntry::init()
+    acorn_schema::research_activity::ActivityEntry::init()
         .identifier(identifier)
         .project_id("pilot")
         .timestamp("2026-09-18T12:00:00Z")
@@ -10,7 +10,9 @@ fn entry(identifier: &str, summary: &str) -> LogbookEntry {
         .state("completed")
         .summary(summary)
         .build()
+        .into()
 }
+
 fn proposal(content: String, entry: LogbookEntry) -> LogbookProposal {
     LogbookProposal {
         replaces: None,
@@ -20,6 +22,7 @@ fn proposal(content: String, entry: LogbookEntry) -> LogbookProposal {
         path: "pilot/index.json".to_string(),
     }
 }
+
 #[test]
 fn test_logbook_proposal_appends_replays_and_rejects_conflicts() {
     let content = serde_json::to_string_pretty(&ResearchActivity::default()).expect("serialize fixture");
@@ -36,7 +39,7 @@ fn test_logbook_proposal_appends_replays_and_rejects_conflicts() {
             .expect("logbook")
             .entries
             .iter()
-            .map(|entry| entry.identifier.as_str())
+            .map(|entry| entry.identifier())
             .collect::<Vec<_>>(),
         ["form-123", "form-124"]
     );

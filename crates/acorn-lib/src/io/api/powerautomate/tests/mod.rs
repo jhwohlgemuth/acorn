@@ -20,18 +20,24 @@ use jiff::Timestamp;
 use std::env::temp_dir;
 use tower::ServiceExt;
 
+mod jsonl;
+
+mod local;
+
 impl FolderRegistry {
     /// Return the routing registry derived from the shared fixture document.
     fn fixture() -> Self {
         document().registry()
     }
 }
+
 impl PowerAutomateConfig {
     /// Return the PowerAutomate options carried by the shared fixture document.
     fn fixture() -> Self {
         document().power_automate().cloned().expect("PowerAutomate options")
     }
 }
+
 fn document() -> ApplicationConfiguration {
     serde_json::from_value(serde_json::json!({
         "folders": [{
@@ -55,12 +61,14 @@ fn document() -> ApplicationConfiguration {
     }))
     .expect("valid configuration fixture")
 }
+
 fn intake_headers(delivery_id: &str) -> HeaderMap {
     let mut headers = HeaderMap::new();
     headers.insert("x-acorn-delivery-id", HeaderValue::from_str(delivery_id).expect("delivery header"));
     headers.insert("x-acorn-webhook-secret", HeaderValue::from_static("test-secret"));
     headers
 }
+
 fn logbook_fixture() -> Logbook {
     serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -68,6 +76,7 @@ fn logbook_fixture() -> Logbook {
     )))
     .expect("valid PowerAutomate logbook fixture")
 }
+
 fn submission() -> Submission {
     serde_json::from_value(serde_json::json!({
         "submissionId": "123e4567-e89b-12d3-a456-426614174000",
@@ -154,7 +163,7 @@ fn test_flow_is_authenticated_durable_duplicate_safe_and_reportable() {
             .entries
             .first()
             .expect("form entry")
-            .project_id,
+            .project_id(),
         "pilot"
     );
     let window = ReportingWindow::new(None, "2026-10-01T00:00:00Z").expect("reporting window");
@@ -164,7 +173,7 @@ fn test_flow_is_authenticated_durable_duplicate_safe_and_reportable() {
         "pilot",
         "0123456789abcdef",
         &window,
-        updates.entries.iter().map(|entry| entry.identifier.clone()).collect(),
+        updates.entries.iter().map(|entry| entry.identifier().to_string()).collect(),
         "100",
         "200",
         Some(b"%PDF-1.7 report"),
@@ -188,7 +197,7 @@ fn test_form_admission_canonicalizes_alias_with_caller_lookup() {
     let admitted = alias.admit(&registry, &lookup, Some("2026-09-18T12:00:00Z")).expect("alias admission");
     let direct = canonical.admit(&registry, &lookup, None).expect("canonical admission");
     assert_eq!(admitted.folder_id, "pilot");
-    assert_eq!(admitted.entry.project_id, "pilot");
+    assert_eq!(admitted.entry.project_id(), "pilot");
     assert_eq!(
         serde_json::to_value(&admitted.entry).unwrap(),
         serde_json::to_value(&direct.entry).unwrap()
@@ -197,18 +206,23 @@ fn test_form_admission_canonicalizes_alias_with_caller_lookup() {
     assert!(alias.admit(&registry, &|_| None, None).is_err());
     assert!(alias.admit(&registry, &lookup, Some("2026-09-18T12:00:01Z")).is_err());
     assert!(alias.admit(&registry, &lookup, Some("invalid")).is_err());
-    alias.entry.summary = " ".to_string();
+    if let form::FormEntry::Activity(entry) = &mut alias.entry {
+        entry.summary = " ".to_string();
+    }
     assert!(alias.admit(&registry, &lookup, None).is_err());
 }
 #[test]
 fn test_form_conversion_forces_effect_fields_and_rejects_late_entries() {
     let submission = submission();
     let entry = submission.entry(&FolderRegistry::fixture()).expect("authorized form");
-    assert_eq!(entry.identifier, "form-123-e-4567-e-89-b-12-d-3-a-456-426614174000");
-    assert_eq!(entry.origin, acorn_schema::research_activity::LogbookEntryOrigin::Manual);
-    assert_eq!(entry.project_id, "pilot");
-    assert!(!entry.archived);
-    assert!(entry.discovery.is_none());
+    assert_eq!(entry.identifier(), "form-123-e-4567-e-89-b-12-d-3-a-456-426614174000");
+    assert_eq!(
+        entry.activity().expect("activity").origin,
+        acorn_schema::research_activity::LogbookEntryOrigin::Manual
+    );
+    assert_eq!(entry.project_id(), "pilot");
+    assert!(!entry.archived());
+    assert!(entry.activity().expect("activity").discovery.is_none());
     assert!(submission.entry_after(&FolderRegistry::fixture(), Some("2026-09-18T12:00:01Z")).is_err());
 }
 #[test]
@@ -227,12 +241,10 @@ fn test_form_payload_is_strict_and_authorized() {
             "archived": true
         }
     });
-    assert!(
-        serde_json::from_value::<Submission>(extra.clone())
-            .expect("supported report field")
-            .entry
-            .archived
-    );
+    assert!(serde_json::from_value::<Submission>(extra.clone())
+        .expect("supported report field")
+        .entry
+        .archived());
     extra["entry"]["unknownField"] = serde_json::json!(true);
     assert!(serde_json::from_value::<Submission>(extra).is_err());
     let mut unauthorized = submission();
@@ -243,14 +255,15 @@ fn test_form_payload_is_strict_and_authorized() {
 fn test_logbook_fixture_graduates_a_project_routed_entry() {
     let mut logbook = logbook_fixture();
     logbook.entries.push(
-        LogbookEntry::init()
+        acorn_schema::research_activity::ActivityEntry::init()
             .category("personnel")
             .identifier("powerautomate-new-contributor")
             .project_id("fullmetal-alchemist")
             .state("in-progress")
             .summary("Example Contributor")
             .timestamp("2026-03-31T00:00:00Z")
-            .build(),
+            .build()
+            .into(),
     );
     let activity = ResearchActivity {
         logbook: Some(logbook),
@@ -262,12 +275,12 @@ fn test_logbook_fixture_graduates_a_project_routed_entry() {
     let entries = &graduated.logbook.as_ref().expect("graduated logbook").entries;
     let entry = entries
         .iter()
-        .find(|entry| entry.identifier == "powerautomate-new-contributor")
+        .find(|entry| entry.identifier() == "powerautomate-new-contributor")
         .expect("graduated entry");
-    assert!(entry.archived);
-    assert_eq!(entry.project_id, "fullmetal-alchemist");
-    assert_eq!(entry.state, LogbookState::Completed);
-    assert_eq!(entries.iter().filter(|entry| entry.archived).count(), 1);
+    assert!(entry.archived());
+    assert_eq!(entry.project_id(), "fullmetal-alchemist");
+    assert_eq!(entry.activity().expect("activity").state, LogbookState::Completed);
+    assert_eq!(entries.iter().filter(|entry| entry.archived()).count(), 1);
     assert_eq!(
         graduated
             .meta
@@ -285,7 +298,7 @@ fn test_logbook_fixture_preserves_project_routing() {
     logbook.validate().expect("valid PowerAutomate logbook fixture");
     assert_eq!(logbook.entries.len(), 22);
     assert_eq!(
-        logbook.entries.iter().map(|entry| entry.project_id.as_str()).collect::<BTreeSet<_>>(),
+        logbook.entries.iter().map(|entry| entry.project_id()).collect::<BTreeSet<_>>(),
         BTreeSet::from([
             "akira",
             "alchemy",
@@ -408,5 +421,31 @@ async fn test_router_accepts_authenticated_form_and_returns_canonical_receipt() 
     );
     assert_eq!(queue.counts().expect("queue counts").queued, 1);
 }
-mod jsonl;
-mod local;
+#[test]
+fn test_status_form_uses_submission_range_and_preserves_health() {
+    let mut value = serde_json::to_value(submission()).expect("existing form");
+    value["range"] = serde_json::json!({"left": "2026-07-01T00:00:00Z", "right": "2026-08-01T00:00:00Z"});
+    value["entry"] = serde_json::json!({
+        "timestamp": "2026-08-05T12:00:00Z",
+        "summary": "Submitted Phase 1 deliverables",
+        "significance": "Improves operational readiness",
+        "health": {"status": "at-risk", "reason": null},
+        "risk": {"kind": "data", "explanation": "NTM data preparation is needed"}
+    });
+    let submission: form::Submission = serde_json::from_value(value).expect("status form");
+    let entry = submission.entry(&FolderRegistry::fixture()).expect("authorized status form");
+    assert!(
+        matches!(entry, LogbookEntry::StatusUpdate(update) if update.range.is_some() && matches!(update.health, acorn_schema::research_activity::ProjectHealth::AtRisk { reason: None }))
+    );
+    assert!(submission.entry_after(&FolderRegistry::fixture(), Some("2026-08-01T00:00:00Z")).is_err());
+    assert!(submission.entry_after(&FolderRegistry::fixture(), Some("2026-07-01T00:00:00Z")).is_ok());
+    let mut entry_range = submission.clone();
+    entry_range.range = None;
+    if let form::FormEntry::StatusUpdate(update) = &mut entry_range.entry {
+        update.range = submission.range.clone();
+    }
+    assert!(entry_range.entry_after(&FolderRegistry::fixture(), Some("2026-08-01T00:00:00Z")).is_err());
+    let mut unbounded = submission;
+    unbounded.range.as_mut().expect("submission range").left = None;
+    assert!(unbounded.entry(&FolderRegistry::fixture()).is_err());
+}

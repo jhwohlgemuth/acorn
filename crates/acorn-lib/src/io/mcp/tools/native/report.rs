@@ -20,8 +20,10 @@ use std::path::{Path, PathBuf};
 
 /// Maximum byte length accepted for report identifiers and commits.
 const MAX_REPORT_IDENTIFIER_BYTES: usize = 128;
+
 /// Maximum byte length accepted for report window timestamps.
 const MAX_REPORT_TIMESTAMP_BYTES: usize = 64;
+
 /// Prepared project entries and exact artifact directory.
 pub struct PreparedProjectReport {
     /// Filtered local project updates.
@@ -31,6 +33,7 @@ pub struct PreparedProjectReport {
     /// Normalized reporting window.
     pub window: ReportingWindow,
 }
+
 /// One configured project report request under a bounded checkout root.
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -58,6 +61,7 @@ pub struct ReportInput {
     #[serde(default)]
     pub overwrite: bool,
 }
+
 /// Inputs needed to persist a deterministic immutable-package manifest.
 pub struct ReportManifestRequest<'a> {
     /// Permitted root for routed report artifacts; direct commands may omit it.
@@ -81,6 +85,7 @@ pub struct ReportManifestRequest<'a> {
     /// Normalized reporting window.
     pub window: &'a ReportingWindow,
 }
+
 /// Bounded report artifact and publication receipt.
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -96,6 +101,7 @@ pub struct ReportOutput {
     /// Local report artifact paths, excluding credentials and publication URLs.
     pub artifacts: Vec<String>,
 }
+
 /// Inputs for one configured project report projection.
 pub struct ReportProjectRequest<'a> {
     /// Exact source commit used in the artifact name and manifest.
@@ -113,6 +119,7 @@ pub struct ReportProjectRequest<'a> {
     /// Exclusive upper bound for selected logbook entries.
     pub through: &'a str,
 }
+
 impl ReportInput {
     pub(super) fn validate(&self, root: &Path, publish: bool) -> ApiResult<(Self, PathBuf)> {
         let bounded = !self.project_id.is_empty()
@@ -152,10 +159,16 @@ impl ReportInput {
         }
     }
 }
+
 impl ReportManifestRequest<'_> {
     /// Write the same final manifest as the direct report command.
     pub fn write(self, pdf: Option<&[u8]>) -> ApiResult<ReportManifest> {
-        let entry_identifiers = self.updates.entries.iter().map(|entry| entry.identifier.clone()).collect::<Vec<_>>();
+        let entry_identifiers = self
+            .updates
+            .entries
+            .iter()
+            .map(|entry| entry.identifier().to_string())
+            .collect::<Vec<_>>();
         let manifest = ReportManifest::new(
             self.package_name.to_string(),
             self.project_id.to_string(),
@@ -212,6 +225,7 @@ impl ReportManifestRequest<'_> {
             })
     }
 }
+
 impl ReportOutput {
     fn validate_destination(self, destination: &Path) -> ApiResult<Self> {
         let artifacts_are_local = self.artifacts.iter().all(|artifact| Path::new(artifact).starts_with(destination));
@@ -221,6 +235,7 @@ impl ReportOutput {
         }
     }
 }
+
 impl ReportProjectRequest<'_> {
     /// Select updates using the direct report command's source and output rules.
     pub fn prepare(self) -> ApiResult<PreparedProjectReport> {
@@ -237,7 +252,7 @@ impl ReportProjectRequest<'_> {
                     })
                     .and_then(|activity| activity.updates_within(&window).map_err(|why| eyre!(why)))
                     .map(|updates| {
-                        let entries = updates.entries.into_iter().filter(|entry| !entry.global).collect();
+                        let entries = updates.entries.into_iter().filter(|entry| !entry.global()).collect();
                         (window, LogbookUpdates { entries, ..updates })
                     })
             })
@@ -262,6 +277,7 @@ impl ReportProjectRequest<'_> {
             })
     }
 }
+
 impl ToolRegistry {
     /// Register local report generation and explicit GitLab publication.
     /// The callback must enforce the supplied offline policy.

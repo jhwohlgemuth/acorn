@@ -29,6 +29,7 @@ pub enum GraduationTarget {
     /// `meta.contributors`.
     Contributors,
 }
+
 /// Subject category for a logbook entry.
 #[derive(Clone, Copy, Debug, Deserialize, EnumIter, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -62,6 +63,17 @@ pub enum LogbookCategory {
     #[serde(alias = "code")]
     Software,
 }
+
+/// A dated project activity or assessment of project health.
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(untagged)]
+pub enum LogbookEntry {
+    /// Record a dated project activity.
+    Activity(ActivityEntry),
+    /// Assess overall project health for a reporting period.
+    StatusUpdate(StatusUpdateEntry),
+}
+
 /// Origin of a logbook entry.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -72,6 +84,7 @@ pub enum LogbookEntryOrigin {
     /// Proposed by an enrichment provider and accepted by a person.
     Discovered,
 }
+
 /// Failure to select or graduate logbook entries.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LogbookError {
@@ -82,6 +95,7 @@ pub enum LogbookError {
     /// An accepted entry identifier did not identify a graduation candidate.
     UnknownGraduationIdentifier(String),
 }
+
 /// Format of an event described by a logbook entry.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -103,6 +117,7 @@ pub enum LogbookEventType {
     /// Workshop or working session.
     Workshop,
 }
+
 /// Temporal interpretation of a logbook timestamp.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -114,60 +129,74 @@ pub enum LogbookState {
     /// Work expected at the recorded instant.
     Upcoming,
 }
-/// A deterministic, reviewable proposal to graduate one logbook entry.
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct GraduationCandidate {
-    /// Identifier of the source logbook entry.
-    pub entry_identifier: String,
-    /// Canonical destination field.
-    pub target: GraduationTarget,
-    /// Value proposed for the canonical destination.
-    pub value: String,
+
+/// Project health relative to the current plan.
+///
+/// An awaiting decision or dependency belongs in `risk.kind` and its explanation.
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(deny_unknown_fields, tag = "status", rename_all = "kebab-case")]
+pub enum ProjectHealth {
+    /// The project is active and does not meet the criteria for ahead, at risk, or delayed.
+    OnTrack,
+    /// Progress exceeds the current plan.
+    AheadOfPlan,
+    /// A committed milestone is forecast to be missed.
+    AtRisk {
+        /// Explain the forecast risk when more context would help the reviewer.
+        #[serde(default, deserialize_with = "option_string_trim")]
+        reason: Option<String>,
+    },
+    /// A committed milestone has been missed.
+    Delayed {
+        /// Identify the missed milestone and explain the delay when known.
+        #[serde(default, deserialize_with = "option_string_trim")]
+        reason: Option<String>,
+    },
+    /// Project work is temporarily stopped.
+    Paused {
+        /// Explain why work stopped and what would allow it to resume when known.
+        #[serde(default, deserialize_with = "option_string_trim")]
+        reason: Option<String>,
+    },
+    /// Planned project work is finished.
+    Complete,
 }
-/// Deterministic, reviewable proposals to graduate logbook entries.
-#[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(transparent)]
-pub struct GraduationCandidates(pub Vec<GraduationCandidate>);
-/// A logbook collection with an optional editorial overview.
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
-#[builder(start_fn = init)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-#[validate(schema(function = "Logbook::is_valid", skip_on_field_errors = false))]
-pub struct Logbook {
-    /// Editorial overview of the logbook.
-    #[validate(nonempty, length(max = 1000))]
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub summary: Option<String>,
-    /// Ordered time-coded developments. Serialization preserves source order.
-    #[validate(nested, length(min = 1, max = 1000))]
-    pub entries: Vec<LogbookEntry>,
+
+/// Source of a leadership-relevant risk or dependency.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RiskDependencyType {
+    /// Data acquisition, preparation, or availability.
+    Data,
+    /// Hardware, services, or other infrastructure.
+    Infrastructure,
+    /// Security review or accreditation.
+    SecurityAccreditation,
+    /// Container or software environment.
+    SoftwareEnvironment,
+    /// Sponsor priorities or direction.
+    SponsorPrioritization,
+    /// Coordination with a partner.
+    PartnerCoordination,
+    /// Funding or contracting.
+    FundingContracting,
+    /// Staff availability or capacity.
+    Staffing,
+    /// Validation or acceptance.
+    Validation,
+    /// Access to a classified environment.
+    ClassifiedEnvironmentAccess,
+    /// Another stated risk or dependency.
+    Other,
 }
-/// Discovery provenance for a logbook entry.
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
-#[builder(start_fn = init, on(String, into))]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct LogbookDiscovery {
-    /// Provider that discovered the candidate.
-    pub provider: Provider,
-    /// Provider-native identifier or lookup value.
-    #[validate(nonempty, length(max = 2048))]
-    #[serde(deserialize_with = "string_trim")]
-    pub source: String,
-    /// Instant when the candidate was discovered.
-    #[validate(timestamp)]
-    #[serde(deserialize_with = "string_trim")]
-    pub discovered_at: String,
-}
+
 /// One time-coded research development.
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[builder(start_fn = init, on(LogbookCategory, into), on(LogbookEventType, into), on(LogbookState, into), on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-#[validate(schema(function = "LogbookEntry::is_valid", skip_on_field_errors = false))]
-pub struct LogbookEntry {
+#[validate(schema(function = "ActivityEntry::is_valid", skip_on_field_errors = false))]
+pub struct ActivityEntry {
     /// Stable local identifier, unique within the logbook.
     #[validate(nonempty, kebabcase, length(max = 100))]
     #[serde(deserialize_with = "string_trim")]
@@ -211,6 +240,62 @@ pub struct LogbookEntry {
     #[serde(default)]
     pub archived: bool,
 }
+
+/// A deterministic, reviewable proposal to graduate one logbook entry.
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct GraduationCandidate {
+    /// Identifier of the source logbook entry.
+    pub entry_identifier: String,
+    /// Canonical destination field.
+    pub target: GraduationTarget,
+    /// Value proposed for the canonical destination.
+    pub value: String,
+}
+
+/// Deterministic, reviewable proposals to graduate logbook entries.
+#[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct GraduationCandidates(pub Vec<GraduationCandidate>);
+
+/// A logbook collection with an optional editorial overview.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[validate(schema(function = "Logbook::is_valid", skip_on_field_errors = false))]
+pub struct Logbook {
+    /// Editorial overview of the logbook.
+    #[validate(nonempty, length(max = 1000))]
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub summary: Option<String>,
+    /// Default reporting range for status updates without an entry-specific range.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[validate(nested)]
+    pub range: Option<ReportingWindow>,
+    /// Ordered time-coded developments. Serialization preserves source order.
+    #[validate(nested, length(min = 1, max = 1000))]
+    pub entries: Vec<LogbookEntry>,
+}
+
+/// Discovery provenance for a logbook entry.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct LogbookDiscovery {
+    /// Provider that discovered the candidate.
+    pub provider: Provider,
+    /// Provider-native identifier or lookup value.
+    #[validate(nonempty, length(max = 2048))]
+    #[serde(deserialize_with = "string_trim")]
+    pub source: String,
+    /// Instant when the candidate was discovered.
+    #[validate(timestamp)]
+    #[serde(deserialize_with = "string_trim")]
+    pub discovered_at: String,
+}
+
 /// A since-filtered, display-ordered logbook update set.
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -238,6 +323,19 @@ pub struct LogbookUpdates {
     /// Entries at or after `since`, ordered newest first.
     pub entries: Vec<LogbookEntry>,
 }
+
+/// A risk or dependency relevant to leadership.
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct ProjectRisk {
+    /// Select the source of the risk or dependency.
+    pub kind: RiskDependencyType,
+    /// Describe its effect on the project or the action needed to resolve it.
+    #[validate(nonempty, length(max = 1000))]
+    #[serde(deserialize_with = "string_trim")]
+    pub explanation: String,
+}
+
 /// Immutable half-open reporting interval used for automated artifacts.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Validate)]
 #[validate(schema(function = "ReportingWindow::is_valid", skip_on_field_errors = false))]
@@ -250,188 +348,48 @@ pub struct ReportingWindow {
     #[validate(timestamp)]
     pub right: String,
 }
-impl From<&ResearchActivity> for GraduationCandidates {
-    fn from(activity: &ResearchActivity) -> Self {
-        Self(
-            activity
-                .logbook
-                .as_ref()
-                .into_iter()
-                .flat_map(|logbook| &logbook.entries)
-                .filter(|entry| !entry.archived)
-                .flat_map(|entry| {
-                    let classification = entry
-                        .classification
-                        .as_ref()
-                        .filter(|_| entry.category == LogbookCategory::Administration && entry.event_type == Some(LogbookEventType::Other))
-                        .map(|classification| GraduationCandidate {
-                            entry_identifier: entry.identifier.clone(),
-                            target: GraduationTarget::Classification,
-                            value: classification.to_string(),
-                        });
-                    let contributor = (entry.category == LogbookCategory::Personnel).then(|| GraduationCandidate {
-                        entry_identifier: entry.identifier.clone(),
-                        target: GraduationTarget::Contributors,
-                        value: entry.summary.clone(),
-                    });
-                    [classification, contributor].into_iter().flatten()
-                })
-                .collect(),
-        )
-    }
+
+/// An assessment of project health and its significance to leadership.
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct StatusUpdateEntry {
+    /// Identify this update within the project logbook.
+    #[validate(nonempty, kebabcase, length(max = 100))]
+    #[serde(deserialize_with = "string_trim")]
+    pub identifier: String,
+    /// Associate this update with the selected project.
+    #[validate(nonempty, kebabcase, length(max = 100))]
+    #[serde(deserialize_with = "string_trim")]
+    pub project_id: String,
+    /// Record when this update was submitted.
+    #[validate(timestamp)]
+    #[serde(deserialize_with = "string_trim")]
+    pub timestamp: String,
+    /// Use the top-level reporting range unless this update covers a different period.
+    #[validate(nested)]
+    pub range: Option<ReportingWindow>,
+    /// Describe the most important project change or result this month.
+    #[validate(nonempty, length(max = 1200))]
+    #[serde(deserialize_with = "string_trim")]
+    pub summary: String,
+    /// Explain why this change matters to leadership.
+    #[validate(nonempty, length(max = 1000))]
+    #[serde(deserialize_with = "string_trim")]
+    pub significance: String,
+    /// Assess the health of the project overall.
+    #[validate(nested)]
+    pub health: ProjectHealth,
+    /// Cite a concrete delivery, demonstration, test, approval, or other proof.
+    #[validate(nonempty, length(max = 1000))]
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub evidence: Option<String>,
+    /// Explain a risk or dependency leadership should know about, when relevant.
+    #[validate(nested)]
+    pub risk: Option<ProjectRisk>,
 }
-impl From<ResearchActivity> for GraduationCandidates {
-    fn from(activity: ResearchActivity) -> Self {
-        Self::from(&activity)
-    }
-}
-impl GraduationCandidates {
-    /// Render the deterministic merge-request note for the current candidates.
-    pub fn render_note(&self) -> String {
-        let candidates = self
-            .0
-            .iter()
-            .map(|candidate| format!("- `{}` → `{:?}`: {}", candidate.entry_identifier, candidate.target, candidate.value))
-            .collect::<Vec<_>>()
-            .join("\n");
-        let candidates = match candidates.is_empty() {
-            | true => "_No graduation candidates._".to_string(),
-            | false => candidates,
-        };
-        format!(
-            "<!-- acorn:logbook-intake -->\n## ACORN logbook intake\n\n### Graduation candidates\n{candidates}\n\nUse `/acorn graduate <entry-id>...` to accept selected candidates."
-        )
-    }
-}
-impl Logbook {
-    /// Select entries in a validated half-open reporting window, newest first.
-    pub fn entries_within(&self, window: &ReportingWindow) -> Result<Vec<LogbookEntry>, LogbookError> {
-        window.left_instant().and_then(|left| {
-            window.right_instant().and_then(|right| {
-                self.entries_all().map(|entries| {
-                    entries
-                        .into_iter()
-                        .filter(|entry| {
-                            rules::parse_timestamp(&entry.timestamp).is_ok_and(|instant| left.is_none_or(|left| instant >= left) && instant < right)
-                        })
-                        .collect()
-                })
-            })
-        })
-    }
-    /// Select entries at or after an inclusive RFC 3339 instant, newest first.
-    pub fn entries(&self, since: &str) -> Result<Vec<LogbookEntry>, LogbookError> {
-        rules::parse_timestamp(since)
-            .map_err(|_| LogbookError::InvalidTimestamp(since.to_string()))
-            .and_then(|since_instant| {
-                self.entries_all().map(|entries| {
-                    entries
-                        .into_iter()
-                        .filter(|entry| rules::parse_timestamp(&entry.timestamp).is_ok_and(|instant| instant >= since_instant))
-                        .collect()
-                })
-            })
-    }
-    /// Return all entries ordered newest first.
-    pub fn entries_all(&self) -> Result<Vec<LogbookEntry>, LogbookError> {
-        self.entries
-            .iter()
-            .map(|entry| {
-                rules::parse_timestamp(&entry.timestamp)
-                    .map(|instant| (instant, entry))
-                    .map_err(|_| LogbookError::InvalidTimestamp(entry.timestamp.clone()))
-            })
-            .collect::<Result<Vec<_>, _>>()
-            .map(|mut entries| {
-                entries.sort_by_key(|(instant, _)| Reverse(*instant));
-                entries.into_iter().map(|(_, entry)| entry.clone()).collect()
-            })
-    }
-    fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
-        self.entries
-            .iter()
-            .enumerate()
-            .find_map(|(index, entry)| {
-                self.entries
-                    .get(..index)
-                    .into_iter()
-                    .flatten()
-                    .any(|previous| previous.identifier == entry.identifier)
-                    .then_some((index, &entry.identifier))
-            })
-            .map(|(index, identifier)| {
-                let message = "Logbook entry identifiers must be unique";
-                let mut error = ValidationError::new("logbook_identifier").with_message(message);
-                error.add_param("identifier".into(), identifier);
-                ValidationReport::from_error(format!("entries[{index}].identifier"), error)
-            })
-            .map_or(Ok(()), Err)
-    }
-}
-impl MarkdownDecode for Logbook {
-    fn from_markdown(content: &str) -> Result<Self, String> {
-        frontmatter_and_body(content)
-            .0
-            .ok_or_else(|| "Logbook Markdown requires YAML frontmatter delimited by '---'".to_string())
-            .and_then(|frontmatter| Self::from_front_matter(&frontmatter))
-    }
-}
-impl MarkdownSupport for Logbook {
-    fn to_markdown(&self) -> String {
-        let summary = self.summary.as_ref().map(|value| format!("\n{value}\n")).unwrap_or_default();
-        let entries = self.entries.iter().map(MarkdownSupport::to_markdown).collect::<Vec<_>>().join("\n\n");
-        format!("# Logbook\n{summary}\n{entries}\n")
-    }
-}
-impl From<&str> for LogbookCategory {
-    fn from(value: &str) -> Self {
-        match value.trim().to_ascii_lowercase().as_str() {
-            | "administration" => Self::Administration,
-            | "collaboration" => Self::Collaboration,
-            | "data" => Self::Data,
-            | "conference" | "engagement" | "tour" => Self::Engagement,
-            | "funding" => Self::Funding,
-            | "infrastructure" | "technical" => Self::Infrastructure,
-            | "method" => Self::Method,
-            | "personnel" => Self::Personnel,
-            | "publication" => Self::Publication,
-            | "research" => Self::Research,
-            | "code" | "software" => Self::Software,
-            | _ => Self::Other,
-        }
-    }
-}
-impl From<String> for LogbookCategory {
-    fn from(value: String) -> Self {
-        value.as_str().into()
-    }
-}
-impl LogbookCategory {
-    /// Return the published ontology namespace represented by this category.
-    pub fn namespace(self) -> Namespace<&'static str> {
-        Namespace::new_unchecked(match self {
-            | Self::Administration => "https://schema.org/OrganizeAction",
-            | Self::Collaboration => "http://www.w3.org/ns/prov#Association",
-            | Self::Data => "http://www.w3.org/ns/dcat#Dataset",
-            | Self::Engagement => "https://schema.org/Event",
-            | Self::Funding => "https://schema.org/Grant",
-            | Self::Infrastructure => "http://www.w3.org/ns/prov#Entity",
-            | Self::Method => "http://www.w3.org/ns/prov#Plan",
-            | Self::Other => "http://www.w3.org/2004/02/skos/core#Concept",
-            | Self::Personnel => "http://www.w3.org/ns/prov#Person",
-            | Self::Publication => "https://schema.org/CreativeWork",
-            | Self::Research => "https://schema.org/ResearchProject",
-            | Self::Software => "https://schema.org/SoftwareSourceCode",
-        })
-    }
-}
-impl LogbookDiscovery {
-    /// Build a deterministic kebab-case entry identifier from provider and source.
-    pub fn identifier(&self) -> String {
-        self.provider.discovered_identifier(&self.source)
-    }
-}
-impl LogbookEntry {
+
+impl ActivityEntry {
     fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
         let mut report = ValidationReport::new();
         if !matches!(
@@ -459,7 +417,8 @@ impl LogbookEntry {
         report.finish()
     }
 }
-impl MarkdownDecode for LogbookEntry {
+
+impl MarkdownDecode for ActivityEntry {
     fn from_markdown(content: &str) -> Result<Self, String> {
         frontmatter_and_body(content)
             .0
@@ -467,7 +426,8 @@ impl MarkdownDecode for LogbookEntry {
             .and_then(|frontmatter| Self::from_front_matter(&frontmatter))
     }
 }
-impl MarkdownSupport for LogbookEntry {
+
+impl MarkdownSupport for ActivityEntry {
     fn to_markdown(&self) -> String {
         let archived = if self.archived { " · archived" } else { Default::default() };
         let classification = self.classification.as_ref().map(|value| format!(" · {value}")).unwrap_or_default();
@@ -483,7 +443,340 @@ impl MarkdownSupport for LogbookEntry {
         )
     }
 }
+
+impl From<&ResearchActivity> for GraduationCandidates {
+    fn from(activity: &ResearchActivity) -> Self {
+        Self(
+            activity
+                .logbook
+                .as_ref()
+                .into_iter()
+                .flat_map(|logbook| &logbook.entries)
+                .filter_map(LogbookEntry::activity)
+                .filter(|entry| !entry.archived)
+                .flat_map(|entry| {
+                    let classification = entry
+                        .classification
+                        .as_ref()
+                        .filter(|_| entry.category == LogbookCategory::Administration && entry.event_type == Some(LogbookEventType::Other))
+                        .map(|classification| GraduationCandidate {
+                            entry_identifier: entry.identifier.clone(),
+                            target: GraduationTarget::Classification,
+                            value: classification.to_string(),
+                        });
+                    let contributor = (entry.category == LogbookCategory::Personnel).then(|| GraduationCandidate {
+                        entry_identifier: entry.identifier.clone(),
+                        target: GraduationTarget::Contributors,
+                        value: entry.summary.clone(),
+                    });
+                    [classification, contributor].into_iter().flatten()
+                })
+                .collect(),
+        )
+    }
+}
+
+impl From<ResearchActivity> for GraduationCandidates {
+    fn from(activity: ResearchActivity) -> Self {
+        Self::from(&activity)
+    }
+}
+
+impl GraduationCandidates {
+    /// Render the deterministic merge-request note for the current candidates.
+    pub fn render_note(&self) -> String {
+        let candidates = self
+            .0
+            .iter()
+            .map(|candidate| format!("- `{}` → `{:?}`: {}", candidate.entry_identifier, candidate.target, candidate.value))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let candidates = match candidates.is_empty() {
+            | true => "_No graduation candidates._".to_string(),
+            | false => candidates,
+        };
+        format!(
+            "<!-- acorn:logbook-intake -->\n## ACORN logbook intake\n\n### Graduation candidates\n{candidates}\n\nUse `/acorn graduate <entry-id>...` to accept selected candidates."
+        )
+    }
+}
+
+impl Logbook {
+    /// Select entries in a validated half-open reporting window, newest first.
+    pub fn entries_within(&self, window: &ReportingWindow) -> Result<Vec<LogbookEntry>, LogbookError> {
+        window.left_instant().and_then(|left| {
+            window.right_instant().and_then(|right| {
+                self.entries_all().map(|entries| {
+                    entries
+                        .into_iter()
+                        .filter(|entry| match entry {
+                            | LogbookEntry::Activity(_) => rules::parse_timestamp(entry.timestamp())
+                                .is_ok_and(|instant| left.is_none_or(|left| instant >= left) && instant < right),
+                            | LogbookEntry::StatusUpdate(update) => update.range.as_ref().is_some_and(|range| {
+                                range
+                                    .left_instant()
+                                    .ok()
+                                    .zip(range.right_instant().ok())
+                                    .is_some_and(|(start, end)| start.is_none_or(|start| start < right) && left.is_none_or(|left| left < end))
+                            }),
+                        })
+                        .collect()
+                })
+            })
+        })
+    }
+    /// Select entries at or after an inclusive RFC 3339 instant, newest first.
+    pub fn entries(&self, since: &str) -> Result<Vec<LogbookEntry>, LogbookError> {
+        rules::parse_timestamp(since)
+            .map_err(|_| LogbookError::InvalidTimestamp(since.to_string()))
+            .and_then(|since_instant| {
+                self.entries_all().map(|entries| {
+                    entries
+                        .into_iter()
+                        .filter(|entry| rules::parse_timestamp(entry.timestamp()).is_ok_and(|instant| instant >= since_instant))
+                        .collect()
+                })
+            })
+    }
+    /// Return all entries ordered newest first.
+    pub fn entries_all(&self) -> Result<Vec<LogbookEntry>, LogbookError> {
+        self.entries
+            .iter()
+            .map(|entry| {
+                rules::parse_timestamp(entry.timestamp())
+                    .map(|instant| (instant, entry))
+                    .map_err(|_| LogbookError::InvalidTimestamp(entry.timestamp().to_string()))
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map(|mut entries| {
+                entries.sort_by_key(|(instant, _)| Reverse(*instant));
+                entries
+                    .into_iter()
+                    .map(|(_, entry)| match entry {
+                        | LogbookEntry::StatusUpdate(update) if update.range.is_none() => LogbookEntry::StatusUpdate(StatusUpdateEntry {
+                            range: self.range.clone(),
+                            ..update.clone()
+                        }),
+                        | other => other.clone(),
+                    })
+                    .collect()
+            })
+    }
+    fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
+        let missing_range = self.entries.iter().enumerate().find_map(|(index, entry)| match entry {
+            | LogbookEntry::StatusUpdate(update)
+                if update
+                    .range
+                    .as_ref()
+                    .or(self.range.as_ref())
+                    .and_then(|range| range.left.as_ref())
+                    .is_none() =>
+            {
+                Some(index)
+            }
+            | _ => None,
+        });
+        let duplicate = self
+            .entries
+            .iter()
+            .enumerate()
+            .find_map(|(index, entry)| {
+                self.entries
+                    .get(..index)
+                    .into_iter()
+                    .flatten()
+                    .any(|previous| previous.identifier() == entry.identifier())
+                    .then_some((index, entry.identifier()))
+            })
+            .map(|(index, identifier)| {
+                let message = "Logbook entry identifiers must be unique";
+                let mut error = ValidationError::new("logbook_identifier").with_message(message);
+                error.add_param("identifier".into(), identifier);
+                ValidationReport::from_error(format!("entries[{index}].identifier"), error)
+            })
+            .map_or(Ok(()), Err);
+        missing_range.map_or(duplicate, |index| {
+            Err(ValidationReport::from_error(
+                format!("entries[{index}].range"),
+                ValidationError::new("reporting_window").with_message("A status update requires a bounded entry or top-level logbook range"),
+            ))
+        })
+    }
+}
+
+impl MarkdownDecode for Logbook {
+    fn from_markdown(content: &str) -> Result<Self, String> {
+        frontmatter_and_body(content)
+            .0
+            .ok_or_else(|| "Logbook Markdown requires YAML frontmatter delimited by '---'".to_string())
+            .and_then(|frontmatter| Self::from_front_matter(&frontmatter))
+    }
+}
+
+impl MarkdownSupport for Logbook {
+    fn to_markdown(&self) -> String {
+        let summary = self.summary.as_ref().map(|value| format!("\n{value}\n")).unwrap_or_default();
+        let entries = self.entries.iter().map(MarkdownSupport::to_markdown).collect::<Vec<_>>().join("\n\n");
+        format!("# Logbook\n{summary}\n{entries}\n")
+    }
+}
+
+impl From<&str> for LogbookCategory {
+    fn from(value: &str) -> Self {
+        match value.trim().to_ascii_lowercase().as_str() {
+            | "administration" => Self::Administration,
+            | "collaboration" => Self::Collaboration,
+            | "data" => Self::Data,
+            | "conference" | "engagement" | "tour" => Self::Engagement,
+            | "funding" => Self::Funding,
+            | "infrastructure" | "technical" => Self::Infrastructure,
+            | "method" => Self::Method,
+            | "personnel" => Self::Personnel,
+            | "publication" => Self::Publication,
+            | "research" => Self::Research,
+            | "code" | "software" => Self::Software,
+            | _ => Self::Other,
+        }
+    }
+}
+
+impl From<String> for LogbookCategory {
+    fn from(value: String) -> Self {
+        value.as_str().into()
+    }
+}
+
+impl LogbookCategory {
+    /// Return the published ontology namespace represented by this category.
+    pub fn namespace(self) -> Namespace<&'static str> {
+        Namespace::new_unchecked(match self {
+            | Self::Administration => "https://schema.org/OrganizeAction",
+            | Self::Collaboration => "http://www.w3.org/ns/prov#Association",
+            | Self::Data => "http://www.w3.org/ns/dcat#Dataset",
+            | Self::Engagement => "https://schema.org/Event",
+            | Self::Funding => "https://schema.org/Grant",
+            | Self::Infrastructure => "http://www.w3.org/ns/prov#Entity",
+            | Self::Method => "http://www.w3.org/ns/prov#Plan",
+            | Self::Other => "http://www.w3.org/2004/02/skos/core#Concept",
+            | Self::Personnel => "http://www.w3.org/ns/prov#Person",
+            | Self::Publication => "https://schema.org/CreativeWork",
+            | Self::Research => "https://schema.org/ResearchProject",
+            | Self::Software => "https://schema.org/SoftwareSourceCode",
+        })
+    }
+}
+
+impl LogbookDiscovery {
+    /// Build a deterministic kebab-case entry identifier from provider and source.
+    pub fn identifier(&self) -> String {
+        self.provider.discovered_identifier(&self.source)
+    }
+}
+
+impl From<ActivityEntry> for LogbookEntry {
+    fn from(entry: ActivityEntry) -> Self {
+        Self::Activity(entry)
+    }
+}
+
+impl LogbookEntry {
+    /// Return the stable entry identifier.
+    pub fn identifier(&self) -> &str {
+        match self {
+            | Self::Activity(entry) => &entry.identifier,
+            | Self::StatusUpdate(entry) => &entry.identifier,
+        }
+    }
+    /// Return the project identifier.
+    pub fn project_id(&self) -> &str {
+        match self {
+            | Self::Activity(entry) => &entry.project_id,
+            | Self::StatusUpdate(entry) => &entry.project_id,
+        }
+    }
+    /// Return the entry timestamp.
+    pub fn timestamp(&self) -> &str {
+        match self {
+            | Self::Activity(entry) => &entry.timestamp,
+            | Self::StatusUpdate(entry) => &entry.timestamp,
+        }
+    }
+    /// Return the activity payload, if this entry records an activity.
+    pub fn activity(&self) -> Option<&ActivityEntry> {
+        match self {
+            | Self::Activity(entry) => Some(entry),
+            | Self::StatusUpdate(_) => None,
+        }
+    }
+    /// Return the mutable activity payload, if this entry records an activity.
+    pub fn activity_mut(&mut self) -> Option<&mut ActivityEntry> {
+        match self {
+            | Self::Activity(entry) => Some(entry),
+            | Self::StatusUpdate(_) => None,
+        }
+    }
+    /// Return the main update summary.
+    pub fn summary(&self) -> &str {
+        match self {
+            | Self::Activity(entry) => &entry.summary,
+            | Self::StatusUpdate(entry) => &entry.summary,
+        }
+    }
+    /// Return whether an activity has been archived.
+    pub fn archived(&self) -> bool {
+        self.activity().is_some_and(|entry| entry.archived)
+    }
+    /// Return whether an activity belongs on the report title page.
+    pub fn global(&self) -> bool {
+        self.activity().is_some_and(|entry| entry.global)
+    }
+}
+
+impl MarkdownDecode for LogbookEntry {
+    fn from_markdown(content: &str) -> Result<Self, String> {
+        frontmatter_and_body(content)
+            .0
+            .ok_or_else(|| "Logbook entry Markdown requires YAML frontmatter delimited by '---'".to_string())
+            .and_then(|frontmatter| Self::from_front_matter(&frontmatter).or_else(|_| ActivityEntry::from_front_matter(&frontmatter).map(Into::into)))
+    }
+}
+
+impl MarkdownSupport for LogbookEntry {
+    fn to_markdown(&self) -> String {
+        match self {
+            | Self::Activity(entry) => entry.to_markdown(),
+            | Self::StatusUpdate(entry) => {
+                let details = [
+                    Some(entry.summary.clone()),
+                    Some(format!("Leadership significance: {}", entry.significance)),
+                    entry.health.reason().map(|reason| format!("Health context: {reason}")),
+                    entry.evidence.as_ref().map(|evidence| format!("Evidence: {evidence}")),
+                    entry
+                        .risk
+                        .as_ref()
+                        .map(|risk| format!("Risk or dependency ({}): {}", risk.kind, risk.explanation)),
+                ]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+                .join("\n\n");
+                format!("## {} — Status update\n\n**{}**\n\n{details}", entry.timestamp, entry.health)
+            }
+        }
+    }
+}
+
+impl Validate for LogbookEntry {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        match self {
+            | Self::Activity(entry) => entry.validate(),
+            | Self::StatusUpdate(entry) => entry.validate(),
+        }
+    }
+}
+
 impl core::error::Error for LogbookError {}
+
 impl fmt::Display for LogbookError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -493,6 +786,7 @@ impl fmt::Display for LogbookError {
         }
     }
 }
+
 impl From<&str> for LogbookEventType {
     fn from(value: &str) -> Self {
         match value.trim().to_ascii_lowercase().as_str() {
@@ -507,11 +801,13 @@ impl From<&str> for LogbookEventType {
         }
     }
 }
+
 impl From<String> for LogbookEventType {
     fn from(value: String) -> Self {
         value.as_str().into()
     }
 }
+
 impl LogbookEventType {
     /// Return the published ontology namespace represented by this event type.
     pub fn namespace(self) -> Namespace<&'static str> {
@@ -524,6 +820,7 @@ impl LogbookEventType {
         })
     }
 }
+
 impl From<&str> for LogbookState {
     fn from(value: &str) -> Self {
         match value.trim().to_ascii_lowercase().as_str() {
@@ -533,17 +830,20 @@ impl From<&str> for LogbookState {
         }
     }
 }
+
 impl From<String> for LogbookState {
     fn from(value: String) -> Self {
         value.as_str().into()
     }
 }
+
 impl LogbookUpdates {
     /// Return the number of selected entries already archived into canonical metadata.
     pub fn archived_count(&self) -> usize {
-        self.entries.iter().filter(|entry| entry.archived).count()
+        self.entries.iter().filter(|entry| entry.archived()).count()
     }
 }
+
 impl MarkdownSupport for LogbookUpdates {
     fn to_markdown(&self) -> String {
         let subtitle = self.subtitle.as_ref().map(|value| format!("\n_{value}_\n")).unwrap_or_default();
@@ -565,6 +865,49 @@ impl MarkdownSupport for LogbookUpdates {
         )
     }
 }
+
+impl fmt::Display for ProjectHealth {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let label = match self {
+            | Self::OnTrack => "On track",
+            | Self::AheadOfPlan => "Ahead of plan",
+            | Self::AtRisk { .. } => "At risk",
+            | Self::Delayed { .. } => "Delayed",
+            | Self::Paused { .. } => "Paused",
+            | Self::Complete => "Complete",
+        };
+        formatter.write_str(label)
+    }
+}
+
+impl ProjectHealth {
+    /// Return optional context for an at-risk, delayed, or paused assessment.
+    pub fn reason(&self) -> Option<&str> {
+        match self {
+            | Self::AtRisk { reason } | Self::Delayed { reason } | Self::Paused { reason } => reason.as_deref(),
+            | _ => None,
+        }
+    }
+}
+
+impl Validate for ProjectHealth {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        let reason = match self {
+            | Self::AtRisk { reason } | Self::Delayed { reason } | Self::Paused { reason } => reason.as_deref(),
+            | _ => None,
+        };
+        reason
+            .filter(|value| value.trim().is_empty() || value.chars().count() > 1000)
+            .map(|_| {
+                ValidationReport::from_error(
+                    "reason",
+                    ValidationError::new("length").with_message("Reason must contain 1 to 1000 characters"),
+                )
+            })
+            .map_or(Ok(()), Err)
+    }
+}
+
 impl ReportingWindow {
     /// Construct a reporting window whose upper bound is exclusive.
     pub fn new(from: Option<&str>, through: &str) -> Result<Self, LogbookError> {
@@ -599,6 +942,7 @@ impl ReportingWindow {
         rules::parse_timestamp(&self.right).map_err(|_| LogbookError::InvalidTimestamp(self.right.clone()))
     }
 }
+
 impl ResearchActivity {
     fn logbook_updates(&self, entries: Vec<LogbookEntry>, since: String, through: Option<String>) -> LogbookUpdates {
         let principal_investigators = self
@@ -657,6 +1001,7 @@ impl ResearchActivity {
                                 .as_ref()
                                 .into_iter()
                                 .flat_map(|logbook| &logbook.entries)
+                                .filter_map(LogbookEntry::activity)
                                 .filter(|entry| {
                                     accepted_ids.contains(&entry.identifier)
                                         && entry.category == LogbookCategory::Administration
@@ -685,13 +1030,15 @@ impl ResearchActivity {
                             entries: logbook
                                 .entries
                                 .into_iter()
-                                .map(|entry| match accepted_ids.contains(&entry.identifier) {
-                                    | true => LogbookEntry {
-                                        archived: true,
-                                        state: LogbookState::Completed,
-                                        ..entry
-                                    },
-                                    | false => entry,
+                                .map(|entry| match entry {
+                                    | LogbookEntry::Activity(activity) if accepted_ids.contains(&activity.identifier) => {
+                                        LogbookEntry::Activity(ActivityEntry {
+                                            archived: true,
+                                            state: LogbookState::Completed,
+                                            ..activity
+                                        })
+                                    }
+                                    | other => other,
                                 })
                                 .collect(),
                             ..logbook
@@ -726,5 +1073,24 @@ impl ResearchActivity {
                         )
                     })
             })
+    }
+}
+
+impl fmt::Display for RiskDependencyType {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let label = match self {
+            | Self::Data => "Data",
+            | Self::Infrastructure => "Infrastructure",
+            | Self::SecurityAccreditation => "Security / accreditation",
+            | Self::SoftwareEnvironment => "Container / software environment",
+            | Self::SponsorPrioritization => "Sponsor prioritization",
+            | Self::PartnerCoordination => "Coordination with partner",
+            | Self::FundingContracting => "Funding / contracting",
+            | Self::Staffing => "Staffing",
+            | Self::Validation => "Validation",
+            | Self::ClassifiedEnvironmentAccess => "Access / classified environment",
+            | Self::Other => "Other",
+        };
+        formatter.write_str(label)
     }
 }

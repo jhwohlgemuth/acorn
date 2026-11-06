@@ -1,6 +1,6 @@
 //! Shared HTML composition for logbook update and report pages.
 use crate::util::constants::app::REPORT_FULL_TIMESTAMP_FORMAT;
-use acorn_schema::research_activity::{LogbookCategory, LogbookEntry, LogbookState, LogbookUpdates};
+use acorn_schema::research_activity::{ActivityEntry, LogbookCategory, LogbookEntry, LogbookState, LogbookUpdates};
 use acorn_schema::ClassificationLevel;
 use bon::Builder;
 use quick_xml::escape::escape;
@@ -8,14 +8,17 @@ use quick_xml::escape::escape;
 trait DisplayIcon {
     fn icon(self) -> String;
 }
+
 /// HTML rendering for one logbook entry.
 pub trait LogbookEntryRender {
     /// Render this entry with compact or full timestamps.
     fn render(&self, full_timestamp: bool) -> String;
 }
+
 trait LogbookStateHeading {
     fn heading(self) -> (&'static str, &'static str);
 }
+
 /// HTML composition for a projected set of logbook updates.
 pub trait LogbookUpdatesHtml {
     /// Render the report period label.
@@ -35,6 +38,7 @@ pub trait LogbookUpdatesHtml {
         html_document(self.title_body(full_timestamp, assets), assets)
     }
 }
+
 /// Embedded visual assets supplied by a host before report HTML composition.
 #[derive(Builder, Clone, Debug, Default)]
 #[builder(start_fn = init)]
@@ -52,30 +56,8 @@ pub struct ReportHtmlAssets {
     /// Report stylesheet.
     pub style: String,
 }
-impl DisplayIcon for LogbookCategory {
-    fn icon(self) -> String {
-        let drawing = match self {
-            | LogbookCategory::Administration => {
-                "<rect x='3' y='5' width='18' height='16' rx='1'/><path d='M8 5V3h8v2M7 10h2m6 0h2M7 14h2m6 0h2M11 21v-4h2v4'/>"
-            }
-            | LogbookCategory::Collaboration => {
-                "<circle cx='8' cy='8' r='3'/><circle cx='16' cy='8' r='3'/><path d='M2 19c0-3 2-5 6-5s6 2 6 5m-2-4c1-1 2-1 4-1 4 0 6 2 6 5'/>"
-            }
-            | LogbookCategory::Data => "<ellipse cx='12' cy='5' rx='8' ry='3'/><path d='M4 5v14c0 2 4 3 8 3s8-1 8-3V5M4 12c0 2 4 3 8 3s8-1 8-3'/>",
-            | LogbookCategory::Engagement => "<path d='M3 10h4l11-5v14L7 14H3zM7 14l2 7h4l-2-6M20 9a4 4 0 0 1 0 6'/>",
-            | LogbookCategory::Funding => "<circle cx='12' cy='12' r='9'/><path d='M15 8h-4a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4H9M12 5v3m0 8v3'/>",
-            | LogbookCategory::Infrastructure => "<rect x='3' y='3' width='18' height='18' rx='1'/><path d='M3 9h18M3 15h18M9 9v6M15 15v6'/>",
-            | LogbookCategory::Method => "<path d='M5 4h14v17H5zM8 9l1 1 2-2m2 1h4M8 15l1 1 2-2m2 1h4'/>",
-            | LogbookCategory::Other => "<path d='m12 3 2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7z'/>",
-            | LogbookCategory::Personnel => "<circle cx='12' cy='8' r='4'/><path d='M4 21c0-5 3-8 8-8s8 3 8 8'/>",
-            | LogbookCategory::Publication => "<path d='M12 20c-2-2-5-3-9-3V4c4 0 7 1 9 3 2-2 5-3 9-3v13c-4 0-7 1-9 3zm0-13v13'/>",
-            | LogbookCategory::Research => "<path d='M9 3h6M10 3v7L5 19a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3M8 16h8'/>",
-            | LogbookCategory::Software => "<path d='m8 7-5 5 5 5m8-10 5 5-5 5M14 4l-4 16'/>",
-        };
-        format!("<svg viewBox='0 0 24 24' aria-hidden='true'>{drawing}</svg>")
-    }
-}
-impl LogbookEntryRender for LogbookEntry {
+
+impl LogbookEntryRender for ActivityEntry {
     fn render(&self, full_timestamp: bool) -> String {
         let summary = self
             .summary
@@ -119,6 +101,69 @@ impl LogbookEntryRender for LogbookEntry {
         )
     }
 }
+
+impl DisplayIcon for LogbookCategory {
+    fn icon(self) -> String {
+        let drawing = match self {
+            | LogbookCategory::Administration => {
+                "<rect x='3' y='5' width='18' height='16' rx='1'/><path d='M8 5V3h8v2M7 10h2m6 0h2M7 14h2m6 0h2M11 21v-4h2v4'/>"
+            }
+            | LogbookCategory::Collaboration => {
+                "<circle cx='8' cy='8' r='3'/><circle cx='16' cy='8' r='3'/><path d='M2 19c0-3 2-5 6-5s6 2 6 5m-2-4c1-1 2-1 4-1 4 0 6 2 6 5'/>"
+            }
+            | LogbookCategory::Data => "<ellipse cx='12' cy='5' rx='8' ry='3'/><path d='M4 5v14c0 2 4 3 8 3s8-1 8-3V5M4 12c0 2 4 3 8 3s8-1 8-3'/>",
+            | LogbookCategory::Engagement => "<path d='M3 10h4l11-5v14L7 14H3zM7 14l2 7h4l-2-6M20 9a4 4 0 0 1 0 6'/>",
+            | LogbookCategory::Funding => "<circle cx='12' cy='12' r='9'/><path d='M15 8h-4a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4H9M12 5v3m0 8v3'/>",
+            | LogbookCategory::Infrastructure => "<rect x='3' y='3' width='18' height='18' rx='1'/><path d='M3 9h18M3 15h18M9 9v6M15 15v6'/>",
+            | LogbookCategory::Method => "<path d='M5 4h14v17H5zM8 9l1 1 2-2m2 1h4M8 15l1 1 2-2m2 1h4'/>",
+            | LogbookCategory::Other => "<path d='m12 3 2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7z'/>",
+            | LogbookCategory::Personnel => "<circle cx='12' cy='8' r='4'/><path d='M4 21c0-5 3-8 8-8s8 3 8 8'/>",
+            | LogbookCategory::Publication => "<path d='M12 20c-2-2-5-3-9-3V4c4 0 7 1 9 3 2-2 5-3 9-3v13c-4 0-7 1-9 3zm0-13v13'/>",
+            | LogbookCategory::Research => "<path d='M9 3h6M10 3v7L5 19a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3M8 16h8'/>",
+            | LogbookCategory::Software => "<path d='m8 7-5 5 5 5m8-10 5 5-5 5M14 4l-4 16'/>",
+        };
+        format!("<svg viewBox='0 0 24 24' aria-hidden='true'>{drawing}</svg>")
+    }
+}
+
+impl LogbookEntryRender for LogbookEntry {
+    fn render(&self, full_timestamp: bool) -> String {
+        match self {
+            | Self::Activity(entry) => entry.render(full_timestamp),
+            | Self::StatusUpdate(entry) => {
+                let reason = entry
+                    .health
+                    .reason()
+                    .map(|value| format!("<p><strong>Health context:</strong> {}</p>", escape(value)))
+                    .unwrap_or_default();
+                let evidence = entry
+                    .evidence
+                    .as_deref()
+                    .map(|value| format!("<p><strong>Evidence:</strong> {}</p>", escape(value)))
+                    .unwrap_or_default();
+                let risk = entry
+                    .risk
+                    .as_ref()
+                    .map(|risk| {
+                        format!(
+                            "<p><strong>Risk or dependency ({}):</strong> {}</p>",
+                            risk.kind,
+                            escape(&risk.explanation)
+                        )
+                    })
+                    .unwrap_or_default();
+                format!(
+                    "<article><h4>Project status: {}</h4><time>{}</time><p>{}</p><p>{}</p>{reason}{evidence}{risk}</article>",
+                    entry.health,
+                    escape(display_timestamp(&entry.timestamp, full_timestamp).as_str()),
+                    escape(&entry.summary),
+                    escape(&entry.significance),
+                )
+            }
+        }
+    }
+}
+
 impl LogbookStateHeading for LogbookState {
     fn heading(self) -> (&'static str, &'static str) {
         match self {
@@ -128,6 +173,7 @@ impl LogbookStateHeading for LogbookState {
         }
     }
 }
+
 impl LogbookUpdatesHtml for LogbookUpdates {
     fn report_period(&self, full_timestamp: bool) -> String {
         self.through.as_ref().map_or_else(
@@ -143,7 +189,11 @@ impl LogbookUpdatesHtml for LogbookUpdates {
         )
     }
     fn render_status_group(&self, state: LogbookState, full_timestamp: bool) -> Option<String> {
-        let entries = self.entries.iter().filter(|entry| entry.state == state).collect::<Vec<_>>();
+        let entries = self
+            .entries
+            .iter()
+            .filter(|entry| entry.activity().is_some_and(|activity| activity.state == state))
+            .collect::<Vec<_>>();
         (!entries.is_empty()).then(|| {
             let count = entries.len();
             let noun = if count == 1 { "entry" } else { "entries" };
@@ -153,10 +203,17 @@ impl LogbookUpdatesHtml for LogbookUpdates {
         })
     }
     fn project_body(&self, full_timestamp: bool) -> String {
+        let status_updates = self
+            .entries
+            .iter()
+            .filter(|entry| matches!(entry, LogbookEntry::StatusUpdate(_)))
+            .map(|entry| entry.render(full_timestamp))
+            .collect::<String>();
         let entries = [LogbookState::Completed, LogbookState::InProgress, LogbookState::Upcoming]
             .into_iter()
             .filter_map(|state| self.render_status_group(state, full_timestamp))
             .collect::<String>();
+        let entries = format!("{status_updates}{entries}");
         let credits = [
             ("Principal Investigator", "Principal Investigators", &self.principal_investigators),
             ("Sponsor", "Sponsors", &self.sponsors),
@@ -222,6 +279,7 @@ impl LogbookUpdatesHtml for LogbookUpdates {
         )
     }
 }
+
 /// Compose one combined report from a title page and project updates.
 pub fn combine(title: &LogbookUpdates, projects: &[LogbookUpdates], full_timestamp: bool, assets: &ReportHtmlAssets) -> String {
     let title = title.title_body(full_timestamp, assets);
@@ -231,6 +289,7 @@ pub fn combine(title: &LogbookUpdates, projects: &[LogbookUpdates], full_timesta
         .collect::<String>();
     html_document(format!("<div class=\"combined-report\">{title}{projects}{}</div>", legend_body()), assets)
 }
+
 fn display_report_date(value: &str, full_timestamp: bool) -> String {
     if full_timestamp {
         display_timestamp(value, true)
@@ -241,6 +300,7 @@ fn display_report_date(value: &str, full_timestamp: bool) -> String {
             .unwrap_or_else(|_| value.to_string())
     }
 }
+
 /// Render one timestamp in the compact or full report format.
 pub fn display_timestamp(value: &str, full_timestamp: bool) -> String {
     value
@@ -251,6 +311,7 @@ pub fn display_timestamp(value: &str, full_timestamp: bool) -> String {
         })
         .unwrap_or_else(|_| value.to_string())
 }
+
 fn html_document(body: String, assets: &ReportHtmlAssets) -> String {
     let footer_logo = &assets.color_logo;
     let fonts = &assets.font_faces;
@@ -259,6 +320,7 @@ fn html_document(body: String, assets: &ReportHtmlAssets) -> String {
         "<!doctype html><html><head><meta charset=\"utf-8\"><style>{fonts}{style}@page {{ @bottom-left {{ background-image: url('{footer_logo}'); }} }}</style></head><body>{body}</body></html>"
     )
 }
+
 fn legend_body() -> String {
     let statuses = [
         (LogbookState::Completed, "Teal", "Work finished at the recorded date."),
@@ -297,6 +359,7 @@ fn legend_body() -> String {
         "<section class=\"legend-page\"><header><h1>Reading this report</h1><p>Statuses and activity categories</p></header><main><section class=\"legend-section\"><h2>Status</h2><p class=\"legend-intro\">The heading color shows the state of work when an update was recorded.</p><div class=\"legend-statuses\">{statuses}</div></section><section class=\"legend-section\"><h2>Activity categories</h2><p class=\"legend-intro\">Category icons use the text color of their status heading; general updates use blue.</p><div class=\"legend-categories\">{categories}</div></section><p class=\"legend-note\">Status describes progress; category describes the kind of activity. Labels accompany every color and icon.</p></main></section>"
     )
 }
+
 /// Compose the report legend page with caller-provided embedded assets.
 pub fn legend_html(assets: &ReportHtmlAssets) -> String {
     html_document(legend_body(), assets)

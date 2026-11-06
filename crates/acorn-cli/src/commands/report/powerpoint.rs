@@ -10,7 +10,7 @@ use acorn::io::{
 use acorn_core::{util::interpolation::ReplacementPlan, util::MimeType};
 use acorn_host::fs::read_text;
 use acorn_schema::research_activity::logbook::MAX_LOGBOOK_SUMMARY_CHARACTERS;
-use acorn_schema::research_activity::{LogbookCategory, LogbookUpdates, ResearchActivity};
+use acorn_schema::research_activity::{LogbookCategory, LogbookEntry, LogbookUpdates, ResearchActivity};
 use color_eyre::eyre::eyre;
 use core::ops::Range;
 use quick_xml::{events::Event, Reader};
@@ -19,7 +19,9 @@ use strum::IntoEnumIterator;
 
 // Conservative fit for the retained reference's 14-point body, 7-inch column, and expanded 5.5-inch box.
 const CATEGORY_LINE_CHARACTERS: usize = 58;
+
 const CATEGORY_TEXT_HEIGHT: &str = "5000000";
+
 const MAX_CATEGORY_LINES: usize = 22;
 
 /// Report-specific PowerPoint behavior for a project research activity.
@@ -32,7 +34,7 @@ pub(super) trait PowerPointReporter {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) struct CategorySlide {
-    pub category: LogbookCategory,
+    pub category: Option<LogbookCategory>,
     pub project_id: String,
     pub title: String,
     pub subtitle: String,
@@ -46,11 +48,53 @@ pub(super) struct CategorySlide {
 
 impl PowerPointReporter for ResearchActivity {
     fn compose(&self, updates: &LogbookUpdates) -> ApiResult<Vec<CategorySlide>> {
+        let status_slides = updates
+            .entries
+            .iter()
+            .filter_map(|entry| match entry {
+                | LogbookEntry::StatusUpdate(update) if update.project_id == updates.identifier => Some(update),
+                | _ => None,
+            })
+            .map(|update| {
+                let achievement = [
+                    Some(update.summary.clone()),
+                    Some(format!("Leadership significance: {}", update.significance)),
+                    Some(format!("Project health: {}", update.health)),
+                    update.health.reason().map(|reason| format!("Health context: {reason}")),
+                    update.evidence.as_ref().map(|evidence| format!("Evidence: {evidence}")),
+                    update
+                        .risk
+                        .as_ref()
+                        .map(|risk| format!("Risk or dependency ({}): {}", risk.kind, risk.explanation)),
+                ]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+                .join("\n\n");
+                CategorySlide {
+                    category: None,
+                    project_id: updates.identifier.clone(),
+                    title: updates.title.clone(),
+                    subtitle: format!(
+                        "Project status | {} to {}",
+                        updates.since,
+                        updates.through.as_deref().unwrap_or("unspecified")
+                    ),
+                    achievement,
+                    notes: update.identifier.clone(),
+                    keywords: updates.keywords.clone(),
+                    principal_investigators: updates.principal_investigators.clone(),
+                    sponsors: updates.sponsors.clone(),
+                    image_url: self.authored_image_url(),
+                }
+            })
+            .collect::<Vec<_>>();
         LogbookCategory::iter()
             .filter_map(|category| {
                 let entries = updates
                     .entries
                     .iter()
+                    .filter_map(|entry| entry.activity())
                     .filter(|entry| !entry.global && entry.project_id == updates.identifier && entry.category == category)
                     .collect::<Vec<_>>();
                 (!entries.is_empty()).then_some((category, entries))
@@ -77,7 +121,7 @@ impl PowerPointReporter for ResearchActivity {
                         updates.identifier
                     )),
                     | None => Ok(CategorySlide {
-                        category,
+                        category: Some(category),
                         project_id: updates.identifier.clone(),
                         title: updates.title.clone(),
                         subtitle: format!("{category:?} | {} to {window}", updates.since),
@@ -90,7 +134,8 @@ impl PowerPointReporter for ResearchActivity {
                     }),
                 }
             })
-            .collect()
+            .collect::<ApiResult<Vec<_>>>()
+            .map(|slides| slides.into_iter().chain(status_slides).collect())
     }
     fn render(&self, updates: &LogbookUpdates, index_path: &Path, reference: &Path, destination: &Path) -> ApiResult<Option<std::path::PathBuf>> {
         self.compose(updates).and_then(|slides| {
@@ -102,8 +147,8 @@ impl PowerPointReporter for ResearchActivity {
                     .find(|slide| estimated_lines(&slide.achievement) > MAX_CATEGORY_LINES)
                     .map(|slide| {
                         Err(eyre!(
-                            "PowerPoint category '{:?}' for project '{}' needs {} lines; template capacity is {MAX_CATEGORY_LINES}",
-                            slide.category,
+                            "PowerPoint slide '{}' for project '{}' needs {} lines; template capacity is {MAX_CATEGORY_LINES}",
+                            slide.subtitle,
                             slide.project_id,
                             estimated_lines(&slide.achievement)
                         ))

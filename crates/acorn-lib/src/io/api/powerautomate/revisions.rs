@@ -10,6 +10,7 @@ pub(super) struct RevisionHistory {
     records: BTreeMap<String, Submission>,
     conflicts: BTreeSet<String>,
 }
+
 impl RevisionHistory {
     pub(super) fn read<'a>(rows: impl Iterator<Item = &'a str>) -> ApiResult<Self> {
         let mut records = BTreeMap::<String, (&str, Submission)>::new();
@@ -61,10 +62,11 @@ impl RevisionHistory {
                                         });
                                         let invalid_state = !current.submitter.email.as_str().eq_ignore_ascii_case(parent.submitter.email.as_str())
                                             || current.project_id != parent.project_id
-                                            || current.entry.global != parent.entry.global
-                                            || current.entry.identifier != parent.entry.identifier
-                                            || current.entry.archived
-                                            || parent.entry.archived
+                                            || core::mem::discriminant(&current.entry) != core::mem::discriminant(&parent.entry)
+                                            || current.entry.global() != parent.entry.global()
+                                            || current.entry.identifier() != parent.entry.identifier()
+                                            || current.entry.archived()
+                                            || parent.entry.archived()
                                             || rules::parse_timestamp(&current.submitted_at).ok() < rules::parse_timestamp(&parent.submitted_at).ok();
                                         match () {
                                             | _ if forked => {

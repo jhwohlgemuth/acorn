@@ -76,14 +76,15 @@ fn test_field_migrations_detect_deprecated_rad_paths() {
 #[test]
 fn test_logbook_input_output_round_trips_supported_formats() {
     let directory = tempdir().expect("temporary directory should be created");
-    let entry = LogbookEntry::init()
+    let entry: LogbookEntry = acorn_schema::research_activity::ActivityEntry::init()
         .identifier("first-entry")
         .project_id("example-project")
         .timestamp("2026-09-01T12:00:00Z")
         .category("other")
         .state("completed")
         .summary("First entry")
-        .build();
+        .build()
+        .into();
     let logbook = Logbook::init().entries(vec![entry.clone()]).build();
     [
         directory.path().join("logbook.json"),
@@ -94,12 +95,12 @@ fn test_logbook_input_output_round_trips_supported_formats() {
     .for_each(|path| {
         logbook.write(&path).expect("logbook should write");
         let parsed = Logbook::read(path).expect("logbook should read");
-        assert_eq!(parsed.entries[0].identifier, "first-entry");
+        assert_eq!(parsed.entries[0].identifier(), "first-entry");
     });
     let path = directory.path().join("entry.md");
     entry.write(&path).expect("entry should write");
     let parsed = LogbookEntry::read(path).expect("entry should read");
-    assert_eq!(parsed.identifier, "first-entry");
+    assert_eq!(parsed.identifier(), "first-entry");
 }
 #[test]
 fn test_malformed_jsonc_reports_error() {

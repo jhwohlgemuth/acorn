@@ -26,8 +26,8 @@ use acorn_core::util::MimeType;
 use acorn_schema::codec::DocumentCodec;
 use acorn_schema::pid::raid;
 use acorn_schema::research_activity::{
-    ActivityContributor, ActivityDateType, ActivityOrganization, AgentIdentifier, DatedAgentRole, DatedOrganizationRole, Logbook, LogbookEntry,
-    ResearchActivity, ResearchActivityMetadata, RightsAccess, StructuredRights, TypedActivityDate, TypedIdentifier,
+    ActivityContributor, ActivityDateType, ActivityOrganization, AgentIdentifier, DatedAgentRole, DatedOrganizationRole, Logbook, ResearchActivity,
+    ResearchActivityMetadata, RightsAccess, StructuredRights, TypedActivityDate, TypedIdentifier,
 };
 use acorn_schema::standard::datacite;
 use acorn_schema::standard::dcat;
@@ -55,10 +55,14 @@ use which::which;
 
 #[cfg(feature = "pdf")]
 mod updates;
+
 const OFFLINE: bool = true;
+
 #[cfg(feature = "pdf")]
 static PDF_VISUAL_TEST_LOCK: Mutex<()> = Mutex::new(());
+
 const TEST_THREADS: usize = 4;
+
 #[cfg(feature = "pdf")]
 async fn assert_pdf_visual_snapshot(test_name: &str, include_aspect: bool, snapshot: &str) -> Result<()> {
     let _guard = PDF_VISUAL_TEST_LOCK.lock().await;
@@ -112,6 +116,7 @@ async fn assert_pdf_visual_snapshot(test_name: &str, include_aspect: bool, snaps
         | Err(why) => Err(why),
     }
 }
+
 #[cfg(feature = "pdf")]
 fn copy_pdf_fixture(source: &Path, destination: &Path) -> Result<()> {
     create_dir_all(destination)
@@ -130,6 +135,7 @@ fn copy_pdf_fixture(source: &Path, destination: &Path) -> Result<()> {
                 })
         })
 }
+
 fn crosswalk_ready_activity() -> ResearchActivity {
     let orcid = AgentIdentifier::init()
         .value("https://orcid.org/0000-0002-1825-0097".to_string())
@@ -191,6 +197,7 @@ fn crosswalk_ready_activity() -> ResearchActivity {
         ..ResearchActivity::default()
     }
 }
+
 #[cfg(feature = "pdf")]
 fn pdf_test_browser() -> Result<PathBuf> {
     let configured = var_os(CHROME_PATH).map(PathBuf::from).filter(|path| path.is_file());
@@ -206,6 +213,7 @@ fn pdf_test_browser() -> Result<PathBuf> {
         .or(installed)
         .ok_or_else(|| eyre!("PDF visual snapshots require CHROME_PATH or an installed Chromium browser"))
 }
+
 #[cfg(feature = "pdf")]
 fn remove_aspect(path: &Path) -> Result<()> {
     read_to_string(path)
@@ -218,6 +226,7 @@ fn remove_aspect(path: &Path) -> Result<()> {
         .and_then(|value| serde_json::to_string_pretty(&value).map_err(|why| eyre!("Serialize PDF snapshot research activity — {why}")))
         .and_then(|content| write(path, content).map_err(|why| eyre!("Write PDF snapshot research activity — {why}")))
 }
+
 #[cfg(feature = "pdf")]
 fn render_first_pdf_page(pdf: &Path, output_prefix: &Path) -> Result<Vec<u8>> {
     which("pdftoppm")
@@ -235,6 +244,7 @@ fn render_first_pdf_page(pdf: &Path, output_prefix: &Path) -> Result<Vec<u8>> {
             | false => Err(eyre!("pdftoppm failed to render PDF visual snapshot with status {status}")),
         })
 }
+
 async fn run_structured_export(
     source: &Path,
     output: Option<PathBuf>,
@@ -271,9 +281,11 @@ async fn run_structured_export(
     )
     .await
 }
+
 fn silent() -> Verbosity {
     Verbosity::new(0, 1)
 }
+
 #[cfg(feature = "pdf")]
 #[tokio::test]
 async fn test_browser_executable_prefers_configured_path_offline() -> Result<()> {
@@ -1106,22 +1118,24 @@ async fn test_export_updates_writes_filtered_markdown_and_docx() -> Result<()> {
         logbook: Some(
             Logbook::init()
                 .entries(vec![
-                    LogbookEntry::init()
+                    acorn_schema::research_activity::ActivityEntry::init()
                         .identifier("included")
                         .project_id("example-project")
                         .timestamp("2026-09-01T12:00:00Z")
                         .category("infrastructure")
                         .state("completed")
                         .summary("Included update")
-                        .build(),
-                    LogbookEntry::init()
+                        .build()
+                        .into(),
+                    acorn_schema::research_activity::ActivityEntry::init()
                         .identifier("excluded")
                         .project_id("example-project")
                         .timestamp("2026-08-01T12:00:00Z")
                         .category("software")
                         .state("completed")
                         .summary("Excluded update")
-                        .build(),
+                        .build()
+                        .into(),
                 ])
                 .build(),
         ),

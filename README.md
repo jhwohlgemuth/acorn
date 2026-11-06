@@ -29,6 +29,8 @@ ACORN is context-aware at the data and workflow level. It keeps project descript
 The `acorn` command checks and formats research records, adds linked-data context, and creates reusable outputs. It runs on Windows, macOS, and Linux. See [Why ACORN?](https://acorn.ornl.gov/motivation.html) for the project-level research model and its intended uses.
 
 The bot can also consume a GitLab JSONL logbook inbox, durably admit authorized submissions, and propose project updates through review. See [ACRE inbox configuration](docs/src/concepts/acre.md#gitlab-logbook-inbox).
+
+Logbooks accept both dated activity entries and project status updates. Status updates record the monthly change, its significance, project health, optional evidence and risk, and the reporting range used by reports. Existing activity entries retain their JSON format.
 For existing local project indexes, `acorn intake stage --batch --source <URI-or-path>` groups JSONL into one reviewable multi-project batch. Sources can be local paths, `file:` URIs, or GitLab file URLs; remote sources are captured at an immutable commit for offline review. `intake inspect` previews routes and diffs before `intake apply --batch-id` writes them. After ingestion, `intake run --index` supports `--dry-run` previews, `--interactive` review, and `--force` to accept all eligible promotions. See [intake sources and review](docs/src/cli-reference/commands/intake.md).
 
 ## Installation

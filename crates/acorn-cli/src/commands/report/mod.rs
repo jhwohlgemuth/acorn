@@ -38,17 +38,20 @@ use std::fs::{create_dir_all, read};
 use std::path::{Path, PathBuf};
 
 mod powerpoint;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ReportSelection {
     Pdf,
     Powerpoint,
     Both,
 }
+
 struct GeneratedProjectReport {
     manifest: ReportManifest,
     pdf_written: bool,
     manifest_written: bool,
 }
+
 /// Machine-readable outcome for one configured project.
 #[derive(Builder, Clone, Debug, Serialize)]
 #[builder(start_fn = init, on(String, into))]
@@ -60,6 +63,7 @@ pub(crate) struct ProjectReportResult {
     through: String,
     version: Option<String>,
 }
+
 impl Report {
     fn through(&self) -> &str {
         self.through.as_deref().unwrap_or_default()
@@ -95,10 +99,10 @@ impl Report {
     fn title_updates(window: &ReportingWindow, projects: &[LogbookUpdates], general: Vec<LogbookEntry>) -> LogbookUpdates {
         let mut entries = projects
             .iter()
-            .flat_map(|project| project.entries.iter().filter(|entry| entry.global).cloned())
+            .flat_map(|project| project.entries.iter().filter(|entry| entry.global()).cloned())
             .chain(general)
             .collect::<Vec<_>>();
-        entries.sort_by_cached_key(|entry| Reverse(entry.timestamp.parse::<Timestamp>().ok()));
+        entries.sort_by_cached_key(|entry| Reverse(entry.timestamp().parse::<Timestamp>().ok()));
         LogbookUpdates {
             identifier: "report".to_string(),
             title: "General updates".to_string(),
@@ -125,7 +129,7 @@ impl Report {
                 let projects = projects
                     .into_iter()
                     .map(|updates| LogbookUpdates {
-                        entries: updates.entries.into_iter().filter(|entry| !entry.global).collect(),
+                        entries: updates.entries.into_iter().filter(|entry| !entry.global()).collect(),
                         ..updates
                     })
                     .filter(|updates| !updates.entries.is_empty())
@@ -247,6 +251,7 @@ impl Report {
         })
     }
 }
+
 impl ReportSelection {
     fn lower_bound(self, explicit: Option<&str>, previous: Option<&ReportManifest>, replay: bool) -> Option<String> {
         explicit.map(str::to_string).or_else(|| match (self, replay) {
@@ -256,6 +261,7 @@ impl ReportSelection {
         })
     }
 }
+
 impl TryFrom<Vec<ReportFormat>> for ReportSelection {
     type Error = color_eyre::Report;
 
@@ -268,6 +274,7 @@ impl TryFrom<Vec<ReportFormat>> for ReportSelection {
         }
     }
 }
+
 async fn deliver_callbacks(queue: &OperationQueue, config: &PowerAutomateConfig, routing: &FolderRegistry) -> ApiResult<()> {
     let callback_worker = CallbackWorker::new(
         queue.clone(),
@@ -284,6 +291,7 @@ async fn deliver_callbacks(queue: &OperationQueue, config: &PowerAutomateConfig,
         }
     }
 }
+
 fn enqueue_manifest_event(queue: &OperationQueue, config: &PowerAutomateConfig, project_id: &str, manifest: &ReportManifest) -> ApiResult<()> {
     let event = match manifest.status {
         | ReportStatus::Published => ArtifactEvent::ArtifactReady {
@@ -299,6 +307,7 @@ fn enqueue_manifest_event(queue: &OperationQueue, config: &PowerAutomateConfig, 
     };
     event.enqueue(queue, &config.callback_destination, &manifest.version).map(|_| ())
 }
+
 /// Run one validated native report request through the direct per-project workflow.
 pub(crate) async fn execute_routed(
     input: ReportInput,
@@ -436,6 +445,7 @@ pub(crate) async fn execute_routed(
         | Err(why) => Err(why),
     }
 }
+
 fn prepare(arguments: &Report, offline: bool) -> ApiResult<(PowerAutomateConfig, FolderRegistry, String, Vec<Folder>)> {
     ApplicationConfiguration::load(&arguments.config)
         .and_then(|configuration| {
@@ -485,6 +495,7 @@ fn prepare(arguments: &Report, offline: bool) -> ApiResult<(PowerAutomateConfig,
             }
         })
 }
+
 fn prepare_combined(arguments: &Report) -> ApiResult<Vec<Folder>> {
     ApplicationConfiguration::load(&arguments.config)
         .and_then(|configuration| {
@@ -508,6 +519,7 @@ fn prepare_combined(arguments: &Report) -> ApiResult<Vec<Folder>> {
             }
         })
 }
+
 fn prepare_project(
     arguments: &Report,
     commit: &str,
@@ -527,6 +539,7 @@ fn prepare_project(
     .prepare()
     .map(|prepared| (prepared.window, prepared.updates, prepared.output))
 }
+
 fn print_results(results: &[ProjectReportResult], artifact: &str) -> ApiResult<()> {
     serde_json::to_string_pretty(results)
         .map_err(|why| eyre!("Failed to encode report results — {why}"))
@@ -544,6 +557,7 @@ fn print_results(results: &[ProjectReportResult], artifact: &str) -> ApiResult<(
             }
         })
 }
+
 async fn publish_manifest(
     arguments: &Report,
     config: &PowerAutomateConfig,
@@ -561,12 +575,14 @@ async fn publish_manifest(
         },
     }
 }
+
 fn replay_manifest(arguments: &Report, config: &PowerAutomateConfig, queue: &OperationQueue, manifest: ReportManifest) -> ApiResult<ReportManifest> {
     match arguments.dry_run {
         | true => Ok(manifest),
         | false => enqueue_manifest_event(queue, config, &manifest.project_id, &manifest).map(|()| manifest),
     }
 }
+
 async fn report_project(
     arguments: &Report,
     config: &PowerAutomateConfig,
@@ -648,6 +664,7 @@ async fn report_project(
         | Err(why) => Err(why),
     }
 }
+
 fn report_reference_path(reference: Option<&Path>, index_path: &Path) -> PathBuf {
     let parent = index_path.parent().unwrap_or_else(|| Path::new("."));
     match reference {
@@ -656,6 +673,7 @@ fn report_reference_path(reference: Option<&Path>, index_path: &Path) -> PathBuf
         | None => parent.join("reference.pptx"),
     }
 }
+
 /// Run bounded reporting for every selected project and fail after independent projects finish.
 pub(crate) async fn run(arguments: &Report, offline: bool) -> ApiResult<()> {
     let year = Timestamp::now().to_zoned(jiff::tz::TimeZone::UTC).year();
@@ -719,6 +737,7 @@ pub(crate) async fn run(arguments: &Report, offline: bool) -> ApiResult<()> {
         },
     }
 }
+
 async fn run_selected(
     arguments: &Report,
     automation: &PowerAutomateConfig,
@@ -811,6 +830,7 @@ async fn run_selected(
         | Err(why) => Err(why),
     }
 }
+
 fn validate_report_artifact(allowed_root: Option<&Path>, artifact: &Path) -> ApiResult<()> {
     allowed_root.map_or(Ok(()), |root| {
         artifact
@@ -819,6 +839,7 @@ fn validate_report_artifact(allowed_root: Option<&Path>, artifact: &Path) -> Api
             .and_then(|relative| ArtifactPolicy::new(root, true, true).and_then(|policy| policy.destination(relative, &[]).map(|_| ())))
     })
 }
+
 #[allow(clippy::too_many_arguments)]
 fn write_manifest(
     arguments: &Report,
@@ -846,5 +867,6 @@ fn write_manifest(
     }
     .write(pdf)
 }
+
 #[cfg(test)]
 mod tests;

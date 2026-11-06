@@ -1,6 +1,6 @@
 #![allow(clippy::panic)] // Unexpected review callbacks must fail the test, even on expected-error paths.
 use super::*;
-use acorn_schema::research_activity::{GraduationCandidate, GraduationTarget, Logbook, LogbookEntry};
+use acorn_schema::research_activity::{GraduationCandidate, GraduationTarget, Logbook};
 use std::fs;
 
 fn fixture(directory: &Path, extension: &str) -> PathBuf {
@@ -9,22 +9,24 @@ fn fixture(directory: &Path, extension: &str) -> PathBuf {
         logbook: Some(
             Logbook::init()
                 .entries(vec![
-                    LogbookEntry::init()
+                    acorn_schema::research_activity::ActivityEntry::init()
                         .identifier("person-one")
                         .project_id("acorn")
                         .timestamp("2026-10-24T12:00:00Z")
                         .category("personnel")
                         .state("in-progress")
                         .summary("Example, Avery")
-                        .build(),
-                    LogbookEntry::init()
+                        .build()
+                        .into(),
+                    acorn_schema::research_activity::ActivityEntry::init()
                         .identifier("person-two")
                         .project_id("acorn")
                         .timestamp("2026-10-24T13:00:00Z")
                         .category("personnel")
                         .state("in-progress")
                         .summary("Example, Morgan")
-                        .build(),
+                        .build()
+                        .into(),
                 ])
                 .build(),
         ),
@@ -33,6 +35,7 @@ fn fixture(directory: &Path, extension: &str) -> PathBuf {
     fs::write(&path, activity.encode(&format(&path).unwrap()).unwrap()).unwrap();
     path
 }
+
 fn preview(index: &Path) -> Result<Value> {
     execute(
         index,
@@ -43,6 +46,7 @@ fn preview(index: &Path) -> Result<Value> {
         ask,
     )
 }
+
 #[test]
 fn test_ambiguous_selection_is_rejected() {
     let candidate = GraduationCandidate {
@@ -85,8 +89,8 @@ fn test_candidates_and_selected_graduation_preserve_evidence() {
         assert_eq!(value.title, original.title);
         let entries = &value.logbook.as_ref().unwrap().entries;
         assert_eq!(entries.len(), 2);
-        assert!(entries.first().unwrap().archived);
-        assert!(!entries.get(1).unwrap().archived);
+        assert!(entries.first().unwrap().archived());
+        assert!(!entries.get(1).unwrap().archived());
         assert_eq!(preview(&path).unwrap().get("candidates").unwrap().as_array().unwrap().len(), 1);
         assert!(apply(&path, &["person-one".into()], &digest_text(&before)).is_err());
         assert!(apply(&path, &["person-one".into()], &digest_text(&after)).is_err());
@@ -153,8 +157,8 @@ fn test_run_explicit_selection_requires_digest_and_skips_prompts() {
     let receipt = execute(&path, &options, |_| panic!("explicit selection must not prompt")).unwrap();
     assert_eq!(receipt.get("accepted").unwrap(), &json!(["person-two"]));
     let after = decode(&fs::read_to_string(&path).unwrap(), &MimeType::Json).unwrap();
-    assert!(!after.logbook.as_ref().unwrap().entries.first().unwrap().archived);
-    assert!(after.logbook.as_ref().unwrap().entries.get(1).unwrap().archived);
+    assert!(!after.logbook.as_ref().unwrap().entries.first().unwrap().archived());
+    assert!(after.logbook.as_ref().unwrap().entries.get(1).unwrap().archived());
 }
 #[test]
 fn test_run_force_accepts_all_eligible_entries_and_replay_is_unchanged() {
@@ -162,14 +166,15 @@ fn test_run_force_accepts_all_eligible_entries_and_replay_is_unchanged() {
     let path = fixture(directory.path(), "json");
     let mut activity = decode(&fs::read_to_string(&path).unwrap(), &MimeType::Json).unwrap();
     activity.logbook.as_mut().unwrap().entries.push(
-        LogbookEntry::init()
+        acorn_schema::research_activity::ActivityEntry::init()
             .identifier("research-only")
             .project_id("acorn")
             .timestamp("2026-10-24T14:00:00Z")
             .category("research")
             .state("in-progress")
             .summary("A highlight with no canonical promotion")
-            .build(),
+            .build()
+            .into(),
     );
     fs::write(&path, activity.encode(&MimeType::Json).unwrap()).unwrap();
     let before = fs::read_to_string(&path).unwrap();
@@ -183,7 +188,7 @@ fn test_run_force_accepts_all_eligible_entries_and_replay_is_unchanged() {
     let after = fs::read_to_string(&path).unwrap();
     let activity = decode(&after, &MimeType::Json).unwrap();
     assert_eq!(activity.meta.contributors.as_ref().unwrap().len(), 2);
-    assert!(!activity.logbook.unwrap().entries.get(2).unwrap().archived);
+    assert!(!activity.logbook.unwrap().entries.get(2).unwrap().archived());
     let replay = execute(&path, &options, |_| panic!("--force must not prompt")).unwrap();
     assert_eq!(replay.get("status").unwrap(), "unchanged");
     assert_eq!(fs::read_to_string(&path).unwrap(), after);

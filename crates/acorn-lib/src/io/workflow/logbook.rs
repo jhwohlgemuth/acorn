@@ -29,6 +29,7 @@ pub struct LogbookProposal {
     /// Exact predecessor required for a correction; absent for an append.
     pub replaces: Option<LogbookEntry>,
 }
+
 impl TryFrom<LogbookProposal> for ProcessRepositoryResponse {
     type Error = color_eyre::eyre::Report;
 
@@ -68,17 +69,17 @@ impl TryFrom<LogbookProposal> for ProcessRepositoryResponse {
                         .as_ref()
                         .into_iter()
                         .flat_map(|logbook| &logbook.entries)
-                        .find(|candidate| candidate.identifier == entry.identifier);
+                        .find(|candidate| candidate.identifier() == entry.identifier());
                     match (existing, replaces.as_ref()) {
                         | (Some(existing), Some(previous)) => {
-                            let archived = existing.archived;
+                            let archived = existing.archived();
                             let same = |left: &LogbookEntry, right: &LogbookEntry| {
                                 serde_json::to_value(left).and_then(|left| serde_json::to_value(right).map(|right| left == right))
                             };
                             same(existing, previous)
                                 .map_err(|why| eyre!("Failed to compare correction predecessor — {why}"))
                                 .and_then(|matches| {
-                                    if !matches || archived || entry.archived || previous.identifier != entry.identifier {
+                                    if !matches || archived || entry.archived() || previous.identifier() != entry.identifier() {
                                         Err(eyre!("Correction predecessor changed or was graduated; operator review is required"))
                                     } else {
                                         let logbook = activity.logbook.map(|logbook| {
@@ -86,7 +87,7 @@ impl TryFrom<LogbookProposal> for ProcessRepositoryResponse {
                                                 .entries
                                                 .into_iter()
                                                 .map(|candidate| {
-                                                    if candidate.identifier == entry.identifier {
+                                                    if candidate.identifier() == entry.identifier() {
                                                         entry.clone()
                                                     } else {
                                                         candidate
@@ -105,7 +106,7 @@ impl TryFrom<LogbookProposal> for ProcessRepositoryResponse {
                             .map_err(|why| eyre!("Failed to compare logbook replay — {why}"))
                             .and_then(|identical| match identical {
                                 | true => Ok((activity, false)),
-                                | false => Err(eyre!("Logbook entry identifier '{}' already has different content", entry.identifier)),
+                                | false => Err(eyre!("Logbook entry identifier '{}' already has different content", entry.identifier())),
                             }),
                         | (None, None) => {
                             let logbook = match activity.logbook {

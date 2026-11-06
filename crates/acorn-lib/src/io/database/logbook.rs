@@ -10,6 +10,7 @@ use jiff::Timestamp;
 use serde::Serialize;
 
 const GRADUATION_REASON: &str = "logbook-graduation";
+
 const RESEARCH_ACTIVITY_COLUMNS: &str = "id, iid, rad_json, identity_keys_json, provenance_json, created_at, updated_at";
 
 trait ResearchActivityPersistence {
@@ -17,6 +18,7 @@ trait ResearchActivityPersistence {
     fn persist(&self, connection: &Connection) -> ApiResult<String>;
     fn synchronize_logbook(&self, connection: &Connection, research_activity_iid: &str, now: Timestamp) -> ApiResult<()>;
 }
+
 /// Durable result of graduating logbook entries into canonical research activity data.
 #[derive(Clone, Debug, Serialize)]
 pub struct LogbookGraduationPersistence {
@@ -29,6 +31,7 @@ pub struct LogbookGraduationPersistence {
     /// Portable identifier of the immutable pre-graduation backup.
     pub revision_iid: String,
 }
+
 impl Database<Table> {
     /// Graduate accepted logbook entries while transactionally backing up the original activity.
     pub fn graduate_logbook(&self, activity: ResearchActivity, accepted_ids: &[String]) -> ApiResult<LogbookGraduationPersistence> {
@@ -121,11 +124,12 @@ impl Database<Table> {
         })
     }
 }
+
 impl ResearchActivityPersistence for ResearchActivity {
     fn archived_entries(&self) -> Vec<&LogbookEntry> {
         self.logbook
             .as_ref()
-            .map(|logbook| logbook.entries.iter().filter(|entry| entry.archived).collect())
+            .map(|logbook| logbook.entries.iter().filter(|entry| entry.archived()).collect())
             .unwrap_or_default()
     }
     fn persist(&self, connection: &Connection) -> ApiResult<String> {
@@ -170,23 +174,23 @@ impl ResearchActivityPersistence for ResearchActivity {
         self.logbook.as_ref().map_or(Ok(()), |logbook| {
             logbook.entries.iter().try_fold((), |(), entry| {
                 serialize(entry).and_then(|entry_json| {
-                    rules::parse_timestamp(&entry.timestamp)
-                        .map_err(|why| eyre!("Invalid persisted logbook timestamp '{}' — {why}", entry.timestamp))
+                    rules::parse_timestamp(entry.timestamp())
+                        .map_err(|why| eyre!("Invalid persisted logbook timestamp '{}' — {why}", entry.timestamp()))
                         .and_then(|timestamp| {
                             connection
                                 .query_row(
                                     "SELECT COUNT(*) FROM logbook_entries WHERE research_activity_iid = ? AND entry_identifier = ?",
-                                    backend::params![research_activity_iid, entry.identifier.as_str()],
+                                    backend::params![research_activity_iid, entry.identifier()],
                                     |row| row.get::<_, i64>(0),
                                 )
-                                .map_err(|why| eyre!("Failed to locate logbook entry '{}' — {why}", entry.identifier))
+                                .map_err(|why| eyre!("Failed to locate logbook entry '{}' — {why}", entry.identifier()))
                                 .and_then(|count| match count {
                                     | 0 => LogbookEntryRow::init()
                                         .research_activity_iid(research_activity_iid)
-                                        .entry_identifier(entry.identifier.clone())
+                                        .entry_identifier(entry.identifier().to_string())
                                         .entry_json(entry_json)
                                         .timestamp(timestamp)
-                                        .archived(entry.archived)
+                                        .archived(entry.archived())
                                         .created_at(now)
                                         .updated_at(now)
                                         .build()
@@ -199,13 +203,13 @@ impl ResearchActivityPersistence for ResearchActivity {
                                             backend::params![
                                                 entry_json,
                                                 to_rfc3339(timestamp),
-                                                i32::from(entry.archived),
+                                                i32::from(entry.archived()),
                                                 to_rfc3339(now),
                                                 research_activity_iid,
-                                                entry.identifier.as_str(),
+                                                entry.identifier(),
                                             ],
                                         )
-                                        .map_err(|why| eyre!("Failed to update logbook entry '{}' — {why}", entry.identifier))
+                                        .map_err(|why| eyre!("Failed to update logbook entry '{}' — {why}", entry.identifier()))
                                         .map(|_| ()),
                                 })
                         })
@@ -214,6 +218,7 @@ impl ResearchActivityPersistence for ResearchActivity {
         })
     }
 }
+
 impl ResearchActivityRow {
     fn find(connection: &Connection, identity_key: &str, activity_identifier: &str) -> ApiResult<Option<Self>> {
         connection
@@ -259,6 +264,7 @@ impl ResearchActivityRow {
         })
     }
 }
+
 fn deserialize_required<T>(json: Option<&str>, label: &str) -> ApiResult<T>
 where
     T: serde::de::DeserializeOwned,
@@ -266,6 +272,7 @@ where
     json.ok_or_else(|| eyre!("Persisted {label} is missing JSON"))
         .and_then(|json| serde_json::from_str(json).map_err(|why| eyre!("Failed to deserialize persisted {label} — {why}")))
 }
+
 fn insert_revision(connection: &Connection, research_activity_iid: &str, activity: &ResearchActivity) -> ApiResult<String> {
     Table::from("research_activity_revisions").unique_iid(connection).and_then(|iid| {
         serialize(activity).and_then(|rad_json| {
@@ -281,6 +288,7 @@ fn insert_revision(connection: &Connection, research_activity_iid: &str, activit
         })
     })
 }
+
 fn serialize<T>(value: &T) -> ApiResult<String>
 where
     T: Serialize + ?Sized,

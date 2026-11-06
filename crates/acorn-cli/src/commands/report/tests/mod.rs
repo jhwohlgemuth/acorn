@@ -2,14 +2,16 @@ use super::*;
 use acorn::io::api::powerautomate::local::ApplyStatus;
 use acorn::io::config::ApplicationConfiguration;
 use acorn_host::fs::file_checksum;
-use acorn_schema::research_activity::{Logbook, LogbookEntry};
+use acorn_schema::research_activity::Logbook;
 use clap_verbosity_flag::Verbosity;
 use std::env::temp_dir;
 use std::fs::write;
 use std::process::Command;
 
 mod powerpoint;
+
 mod registry;
+
 fn arguments(projects: Vec<String>) -> Report {
     let directory = temp_dir().join(format!("acorn-report-command-{}", nanoid::nanoid!()));
     create_dir_all(&directory).expect("report test directory");
@@ -41,6 +43,7 @@ fn arguments(projects: Vec<String>) -> Report {
         verbose: Verbosity::default(),
     }
 }
+
 fn report_fixture_arguments() -> Report {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/report");
     let mut arguments = arguments(Vec::new());
@@ -50,6 +53,7 @@ fn report_fixture_arguments() -> Report {
     arguments.through = Some("2026-11-01T00:00:00Z".to_string());
     arguments
 }
+
 #[tokio::test]
 async fn test_both_formats_keep_pdf_mode_and_local_project_deck_when_chrome_is_configured() {
     if let Some(chrome_path) = std::env::var_os("ACORN_TEST_CHROME_PATH").map(PathBuf::from) {
@@ -109,10 +113,10 @@ async fn test_general_only_combined_selection_and_window() {
         .into_iter()
         .next()
         .expect("fixture entry");
-    entry.project_id = "general".to_string();
-    entry.global = true;
-    entry.timestamp = "2026-10-05T00:00:00Z".to_string();
-    entry.summary = "Standalone general report acceptance".to_string();
+    entry.activity_mut().expect("activity").project_id = "general".to_string();
+    entry.activity_mut().expect("activity").global = true;
+    entry.activity_mut().expect("activity").timestamp = "2026-10-05T00:00:00Z".to_string();
+    entry.activity_mut().expect("activity").summary = "Standalone general report acceptance".to_string();
     let logbook = Logbook::init().entries(vec![entry]).build();
     write(
         arguments.root.join("general.json"),
@@ -175,16 +179,16 @@ fn test_global_entries_are_selected_from_project_fixtures() {
     let (_, _, _, selected) = prepare(&arguments, true).expect("report fixture configuration");
     let updates = arguments.global_updates(&selected).expect("global updates");
     assert_eq!(updates.entries.len(), 3);
-    assert!(updates.entries.iter().all(|entry| entry.global));
+    assert!(updates.entries.iter().all(|entry| entry.global()));
     assert_eq!(
-        updates.entries.iter().map(|entry| entry.project_id.as_str()).collect::<Vec<_>>(),
+        updates.entries.iter().map(|entry| entry.project_id()).collect::<Vec<_>>(),
         ["watershed-sensing", "materials-discovery", "grid-resilience"]
     );
     selected.iter().for_each(|folder| {
         let path = folder.path.as_deref().expect("project fixture path");
         let (_, project_updates, _) =
             prepare_project(&arguments, "000000000000", &folder.id, path, arguments.from.as_deref()).expect("project updates");
-        assert!(project_updates.entries.iter().all(|entry| !entry.global));
+        assert!(project_updates.entries.iter().all(|entry| !entry.global()));
     });
 }
 #[tokio::test]
@@ -288,13 +292,13 @@ async fn test_local_jsonl_apply_updates_report_source_and_renders_when_configure
     let entries = &updated.logbook.expect("updated logbook").entries;
     assert_eq!(entries.len(), 1);
     let entry = entries.first().expect("applied entry");
-    assert_eq!(entry.project_id, "acorn");
-    assert_eq!(entry.summary, "Ran pilot calibration with \"quoted\" notes");
-    let entry_id = entry.identifier.clone();
+    assert_eq!(entry.project_id(), "acorn");
+    assert_eq!(entry.summary(), "Ran pilot calibration with \"quoted\" notes");
+    let entry_id = entry.identifier().to_string();
     let (_, selected_updates, _) =
         prepare_project(&arguments, "1111111111111111", "acorn", "acorn/index.json", arguments.from.as_deref()).expect("updated report selection");
     assert_eq!(selected_updates.entries.len(), 1);
-    assert_eq!(selected_updates.entries.first().expect("selected entry").identifier, entry_id);
+    assert_eq!(selected_updates.entries.first().expect("selected entry").identifier(), entry_id);
     if arguments.chrome_path.is_some() {
         arguments.commit = Some("1111111111111111".to_string());
         let (_, _, updated_commit, _) = prepare(&arguments, true).expect("updated report configuration");
@@ -442,14 +446,15 @@ async fn test_report_project_with_entries_writes_pdf_when_chrome_is_configured()
         let activity = ResearchActivity {
             logbook: Some(
                 Logbook::init()
-                    .entries(vec![LogbookEntry::init()
+                    .entries(vec![acorn_schema::research_activity::ActivityEntry::init()
                         .category("software")
                         .identifier("release")
                         .project_id("pilot")
                         .state("completed")
                         .summary("Released the pilot")
                         .timestamp("2026-09-18T12:00:00Z")
-                        .build()])
+                        .build()
+                        .into()])
                     .build(),
             ),
             ..ResearchActivity::default()

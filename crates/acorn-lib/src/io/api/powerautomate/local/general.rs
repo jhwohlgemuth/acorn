@@ -11,14 +11,16 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 const EMPTY_LOGBOOK: &str = "{\"entries\":[]}\n";
+
 struct GeneralLogbook<'a>(&'a Logbook);
+
 impl Validate for GeneralLogbook<'_> {
     fn validate(&self) -> Result<(), ValidationReport> {
         if self
             .0
             .entries
             .iter()
-            .any(|entry| entry.project_id != "general" || !entry.global || entry.archived || entry.validate().is_err())
+            .any(|entry| entry.project_id() != "general" || !entry.global() || entry.archived() || entry.validate().is_err())
         {
             Err(ValidationReport::from_error(
                 "entries",
@@ -31,6 +33,7 @@ impl Validate for GeneralLogbook<'_> {
         }
     }
 }
+
 /// Resolve the configured path without creating or modifying the logbook.
 pub fn destination(config: &GeneralLogbookConfig, config_path: &Path) -> ApiResult<PathBuf> {
     config
@@ -51,14 +54,20 @@ pub fn destination(config: &GeneralLogbookConfig, config_path: &Path) -> ApiResu
             | Ok(_) | Err(_) => Ok(path),
         })
 }
-pub(super) fn read_content(path: &Path) -> ApiResult<String> {
-    match path.symlink_metadata() {
-        | Ok(metadata) if metadata.is_symlink() || !metadata.is_file() => Err(eyre!("General logbook must be a regular file")),
-        | Ok(_) => read_file_snapshot(path, MAX_INDEX_BYTES).map(|(_, text, _)| text),
-        | Err(why) if why.kind() == ErrorKind::NotFound => Ok(EMPTY_LOGBOOK.to_string()),
-        | Err(why) => Err(eyre!("Cannot inspect general logbook — {why}")),
-    }
+
+/// Read report-wide entries inside the requested reporting window.
+pub fn entries_within(path: &Path, window: &ReportingWindow) -> ApiResult<Vec<LogbookEntry>> {
+    read_content(path)
+        .and_then(|content| serde_json::from_str::<Logbook>(&content).map_err(|why| eyre!("Invalid general logbook — {why}")))
+        .and_then(|logbook| {
+            GeneralLogbook(&logbook)
+                .validate()
+                .map_err(|why| eyre!("Invalid general logbook — {why}"))
+                .map(|()| logbook)
+        })
+        .and_then(|logbook| logbook.entries_within(window).map_err(|why| eyre!(why)))
 }
+
 pub(super) fn propose(content: &str, entry: &LogbookEntry, replaces: Option<&LogbookEntry>) -> ApiResult<String> {
     serde_json::from_str::<Logbook>(content)
         .map_err(|why| eyre!("Invalid general logbook — {why}"))
@@ -69,17 +78,17 @@ pub(super) fn propose(content: &str, entry: &LogbookEntry, replaces: Option<&Log
                 .map(|()| logbook)
         })
         .and_then(|logbook| {
-            let existing = logbook.entries.iter().find(|candidate| candidate.identifier == entry.identifier);
+            let existing = logbook.entries.iter().find(|candidate| candidate.identifier() == entry.identifier());
             match (existing, replaces) {
                 | (Some(previous), Some(expected))
-                    if serde_json::to_value(previous).ok() == serde_json::to_value(expected).ok() && !previous.archived && !entry.archived =>
+                    if serde_json::to_value(previous).ok() == serde_json::to_value(expected).ok() && !previous.archived() && !entry.archived() =>
                 {
                     Ok((
                         logbook
                             .entries
                             .into_iter()
                             .map(|candidate| {
-                                if candidate.identifier == entry.identifier {
+                                if candidate.identifier() == entry.identifier() {
                                     entry.clone()
                                 } else {
                                     candidate
@@ -107,15 +116,12 @@ pub(super) fn propose(content: &str, entry: &LogbookEntry, replaces: Option<&Log
             })
         })
 }
-/// Read report-wide entries inside the requested reporting window.
-pub fn entries_within(path: &Path, window: &ReportingWindow) -> ApiResult<Vec<LogbookEntry>> {
-    read_content(path)
-        .and_then(|content| serde_json::from_str::<Logbook>(&content).map_err(|why| eyre!("Invalid general logbook — {why}")))
-        .and_then(|logbook| {
-            GeneralLogbook(&logbook)
-                .validate()
-                .map_err(|why| eyre!("Invalid general logbook — {why}"))
-                .map(|()| logbook)
-        })
-        .and_then(|logbook| logbook.entries_within(window).map_err(|why| eyre!(why)))
+
+pub(super) fn read_content(path: &Path) -> ApiResult<String> {
+    match path.symlink_metadata() {
+        | Ok(metadata) if metadata.is_symlink() || !metadata.is_file() => Err(eyre!("General logbook must be a regular file")),
+        | Ok(_) => read_file_snapshot(path, MAX_INDEX_BYTES).map(|(_, text, _)| text),
+        | Err(why) if why.kind() == ErrorKind::NotFound => Ok(EMPTY_LOGBOOK.to_string()),
+        | Err(why) => Err(eyre!("Cannot inspect general logbook — {why}")),
+    }
 }
