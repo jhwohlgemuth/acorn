@@ -47,7 +47,7 @@ Current friendly names:
 | Scheduled export flow | ACORN SharePoint Logbook Export |
 | Solution | ACORN SharePoint |
 | SharePoint connection reference | SharePoint ACORN-0c871 |
-| Retained GitLab intake | ACORN Logbook GitLab Intake (Draft) |
+| Retained GitLab intake | [PREMIUM] Highlights Intake - GitLab Intake |
 | Retained test export libraries | PA19 TEST ONLY Exports; PA24 TEST ONLY Exports |
 
 The intake and correction flows now use **Export ready** / **Export verified** in their Teams messages. Both flow saves returned the ready confirmation. Recipient selection, conditions, payloads and destinations were retained. The active SharePoint flows remain On; GitLab intake and catalog remain Off.

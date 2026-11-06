@@ -2,6 +2,7 @@
 name = "acorn-server"
 version.workspace = true
 edition = "2021"
+exclude.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 description = "Authenticated JSON-RPC and typed gRPC server for ACORN"

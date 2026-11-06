@@ -2,6 +2,7 @@
 name = "acorn-analysis"
 version.workspace = true
 edition = "2021"
+exclude.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 description = "Portable analysis models and supplied-content checks for ACORN"

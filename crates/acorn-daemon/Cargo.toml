@@ -2,6 +2,7 @@
 name = "acorn-daemon"
 version.workspace = true
 edition = "2021"
+exclude.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 description = "Persistent host process for ACORN APIs and configured jobs"

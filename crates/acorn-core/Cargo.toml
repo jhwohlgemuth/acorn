@@ -1,5 +1,6 @@
 [package]
 edition = "2021"
+exclude.workspace = true
 name = "acorn-core"
 version.workspace = true
 description = "Portable foundation types and utilities for ACORN"

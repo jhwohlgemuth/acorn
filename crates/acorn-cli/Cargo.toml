@@ -1,5 +1,6 @@
 [package]
 edition = "2021"
+exclude.workspace = true
 name = "acorn-cli"
 readme = "../../README.md"
 description = "ACORN command line interface"

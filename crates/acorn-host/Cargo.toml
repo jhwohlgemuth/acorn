@@ -1,5 +1,6 @@
 [package]
 edition = "2021"
+exclude.workspace = true
 name = "acorn-host"
 version.workspace = true
 description = "Narrow native host adapters for ACORN consumers"

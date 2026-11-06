@@ -41,8 +41,8 @@ Current layout source: `_assets/final-intake.pa.yaml`. Pre-change source: `_asse
 - App: `15ae605b-585b-49f5-a413-2b091f919a35`, environment `221f44a6-1468-ea4e-b93d-cd52f1723079` (the user's developer environment).
 - [Open Sponsor Highlights](https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/15ae605b-585b-49f5-a413-2b091f919a35).
 - GitLab project `22464`, `main`, `.acorn/intake/logbook.jsonl`, as selected by the user.
-- Intake flow `ff4a134b-5fd3-4465-ab19-0325c2f2bf1b`, **ACORN Logbook GitLab Intake (Draft)**, is **Off**. The existing name is retained to preserve the canvas binding; it now contains the saved `Persist submission v3` scope.
-- Catalog flow `cd27888f-dd74-4675-9dd1-abc246ba56d5`, **ACORN Project Catalog**, is **Off**.
+- Intake flow `ff4a134b-5fd3-4465-ab19-0325c2f2bf1b`, **[PREMIUM] Highlights Intake - GitLab Intake**, is **Off**. Renaming the flow preserved the canvas binding; it contains the saved `Persist submission v3` scope.
+- Catalog flow `cd27888f-dd74-4675-9dd1-abc246ba56d5`, **[PREMIUM] Highlights Intake - Project Catalog**, is **Off**.
 - Both use the user's existing protected **ACORN GitLab Logbook** API-key connection. No credential value was read, copied, or embedded in source or the app.
 
 The ORNL logo, green palette, contour background, responsive form, required project selection, schema-aligned fields, submit feedback, and browser recovery are published. The unused notification-only flow was removed from the app without deleting that flow. This publication does not configure Vergil, admission authorization, review, reporting, or callbacks.

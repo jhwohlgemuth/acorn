@@ -1,5 +1,6 @@
 [package]
 edition = "2021"
+exclude.workspace = true
 name = "acorn-wasm"
 version.workspace = true
 description = "JavaScript bindings for ACORN's portable validation and analysis APIs"

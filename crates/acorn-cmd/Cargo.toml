@@ -2,6 +2,7 @@
 name = "acorn-cmd"
 version.workspace = true
 edition = "2021"
+exclude.workspace = true
 license.workspace = true
 authors.workspace = true
 description = "Command construction and execution utilities for ACORN"

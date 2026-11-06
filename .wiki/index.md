@@ -29,7 +29,7 @@ Non-PA plans retain substantive work. Source spot-checks confirm coverage target
 
 ADP-05 and ADP-09 have landed. [ADP](features/ask-executor-adapters.md) ADP-06 waits for PAR-16 native parity before heterogeneous validation. IMC-12 remains ready for the later TUI consumer seam. This scheduling update does not change the portfolio ranking below.
 
-The [current guides and retained recovery sources](features/powerapps-jsonl-intake/source-bundle-readme.md) supersede old source/demo distribution ZIPs and redundant PDF extracts. Historical acceptance and native archives remain subject to [sanitization limits](privacy.md). The [cleanup record](features/powerapps-jsonl-intake/test-artifact-cleanup.md#october-30-power-platform-cleanup) identifies the completed test flows/apps removed October 30 and the retained PA-15/17 dependencies.
+The [current guides and retained recovery sources](features/powerapps-jsonl-intake/source-bundle-readme.md) supersede old source/demo distribution ZIPs and redundant PDF extracts. Historical acceptance and native archives remain subject to [sanitization limits](privacy.md). The [cleanup record](features/powerapps-jsonl-intake/test-artifact-cleanup.md#november-5-power-platform-cleanup) identifies the November app renames, removed test artifacts and unsupported self-chat poller, retained PA-15/17 evidence, and preserved premium app dependencies.
 
 Ranking uses impact first, then remaining difficulty, with user/architecture value and readiness as tie-breakers. “Quality” rates the plan rather than the proposed feature:
 

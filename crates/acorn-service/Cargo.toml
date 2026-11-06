@@ -2,6 +2,7 @@
 name = "acorn-service"
 version.workspace = true
 edition = "2021"
+exclude.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 description = "Portable application service boundary for ACORN"

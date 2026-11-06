@@ -152,3 +152,22 @@ After the owner confirmed permanent deletion, removed ten completed or duplicate
 | PA31 TEST ONLY Sponsor Highlights Editing | ID not captured before deletion |
 
 No solution qualified for removal. The Jason inventory retains the operational ACORN SharePoint and Sponsor Highlights Intake solutions, three PA-17 recovery/restore solutions, and the two platform defaults. ORNL Personal Productivity retains its PA-15/17 flows, PA-17 app and solution; unrelated tenant items were outside this cleanup. Synthetic SharePoint test lists/libraries, native backup packages, acceptance records, credentials and connections were not deleted. No test flow was run and no submission or notification was sent during cleanup.
+
+## November 5 Power Platform cleanup
+
+After the owner confirmed the exact deletion set, the **Wohlgemuth, Jason** inventory was reduced from three apps to two and from seventeen cloud flows to twelve. Power Apps warned that app deletion cannot be undone; Power Automate gave the same warning for each flow. No flow was run, no message or notification was sent, and no connection, credential, SharePoint record, GitLab byte or retained backup was changed.
+
+The fielded standard-connector app `Sponsor Highlights - SharePoint` (`163f110f-7f8a-401c-894e-0786b2c018a4`) was renamed **Highlights Intake**. The retained premium GitLab app `Sponsor Highlights` (`15ae605b-585b-49f5-a413-2b091f919a35`) was renamed **[PREMIUM] Highlights Intake**. Its disabled intake flow (`6039f419-420f-6922-46ef-04b00d2290f1`) was renamed from `ACORN Logbook GitLab Intake (Draft)` to **[PREMIUM] Highlights Intake - GitLab Intake**, and its disabled catalog flow (`cd27888f-dd74-4675-9dd1-abc246ba56d5`) was renamed from `ACORN Project Catalog` to **[PREMIUM] Highlights Intake - Project Catalog**. Both remain because Power Automate reported declared dependencies and the app's Flows view identifies them as app dependencies. Removing them would break the retained premium app.
+
+| Deleted resource | Type | Historical ID |
+| --- | --- | --- |
+| PA17 TEST ONLY Sponsor Highlights | Canvas app | `b4336414-edfb-4aae-b4e3-d8b994c19b65` |
+| [DISABLED] Unsupported Self-Chat Poller | Scheduled flow | `ca657adb-15f1-4013-a2c3-65218e4019a4` |
+| PA15 TEST ONLY Boundary Acceptance | Instant flow | `aa7d4202-cd93-7d22-3ebc-4b8321273543` |
+| PA17 TEST ONLY Native Intake | Instant flow | `a679a492-e3fd-119c-0734-44c5b8fc61b4` |
+| PA17 TEST ONLY Native Callback | Instant flow | `95b51a63-5177-1b09-7eae-2115653373a3` |
+| PA17 TEST ONLY Native Catalog | Instant flow | `c572aa21-beb9-4167-8b29-b35cdbdf7938` |
+
+The self-chat poller was created November 5 as a one-minute experiment. It requested the newest Microsoft Teams message from self-chat identifier `48:notes`, checked whether normalized text began with `/acorn summarize`, and intended to run an AI prompt and post the result back to the owner. All three observed runs stopped at `GetMessagesFromChat`: the GCC Teams connector returned HTTP 403 with `Forbidden`, `OperationFailed` and `Invalid conversation`. The condition, prompt and reply never ran. The flow was Off and had no associated apps. This is retained as negative design evidence: Teams self-chat polling through this connector is not a supported command-listener route; any future implementation needs a supported trigger or conversation surface and fresh connector acceptance.
+
+The two November 5 flows `[TEST] Summarize Text - Request` (`a4fa6058-0c5c-41df-aa23-a29f845b9558`) and `[TEST] Summarize Text - Reply` (`60809869-9eb3-4219-a973-1ada706b5c2a`) remain enabled as requested. Operational SharePoint intake, catalog, editing, export, coverage, deadline and callback-validation flows remain. The Jason PA-15/17 live test components no longer exist; future acceptance must create fresh isolated copies from the retained native packages and recorded evidence rather than touching operational components.
