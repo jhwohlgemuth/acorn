@@ -58,6 +58,7 @@
 - [Packages](./packages/README.md)
   - [Portable diffs](./packages/acorn-diff.md)
   - [Rust schemas](./packages/acorn-schema.md)
+    - [Logbook schema](./packages/logbook-schema.md)
   - [Portable analysis](./packages/acorn-analysis.md)
   - [Application service](./packages/acorn-service.md)
   - [Native commands](./packages/acorn-cmd.md)

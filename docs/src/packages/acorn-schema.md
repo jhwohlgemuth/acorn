@@ -29,6 +29,8 @@ The alloc-capable `acorn_schema::standard::zon` module encodes and decodes the J
 
 The portable `acorn_schema::standard::dublin_core` module models the current DCMI terms, legacy element namespace, DCMI type vocabulary, and DCAM terms as a normalized RDF graph. Its local codecs cover native graph JSON and YAML, JSON-LD, RDF/XML, and Turtle. See [Dublin Core](../concepts/dublin-core.md) for the data model, safety boundaries, and crosswalk behavior.
 
+Research activity records can carry time-coded developments and project-health assessments in an optional logbook. See the [Logbook schema](logbook-schema.md) for the entry variants, validation rules, reporting-window behavior, and data flow into reports and canonical metadata.
+
 Local PID validation checks parsed structure and, for ISBNs, ISNIs, ORCIDs, and RORs, the implemented check digit. It does not confirm registration with an external authority.
 
 ## Computation complexity

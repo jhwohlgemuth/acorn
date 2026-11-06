@@ -1,0 +1,31 @@
+scale = 1
+fontscale = 1.15
+color = 0x183C43
+S: box "Submit update" bold "Activity or status assessment" wid 2.0in ht 0.8in rad 0.08in fill 0xE8F1FB thickness 0
+I: box "Stage · inspect · apply" bold "Review an immutable JSONL receipt" wid 2.2in ht 0.8in rad 0.08in fill 0xF3F0FF thickness 0 at S+(2.55in,0)
+P: box "Decode entry" bold "Choose the untagged variant" wid 2.0in ht 0.8in rad 0.08in fill 0xE7F3E9 thickness 0 at I+(2.55in,0)
+V: box "Validate" bold "Fields + cross-entry rules" wid 2.0in ht 0.8in rad 0.08in fill 0xE7F3E9 thickness 0 at P+(0,-1.4in)
+L: box "Retain accepted entry" bold "ResearchActivity.logbook" wid 2.2in ht 0.8in rad 0.08in fill 0xE7F3E9 thickness 0 at I+(0,-1.4in)
+Q: box "Run report" bold "Choose a reporting window" wid 2.0in ht 0.8in rad 0.08in fill 0xF3F0FF thickness 0 at S+(0,-1.4in)
+R: box "Project updates" bold "Newest first · range resolved" wid 2.0in ht 0.8in rad 0.08in fill 0xE7F3E9 thickness 0 at S+(0,-2.8in)
+A: box "Render artifacts" bold "PDF · PowerPoint · Markdown" wid 2.2in ht 0.8in rad 0.08in fill 0xE7F3E9 thickness 0 at I+(0,-2.8in)
+G: box "Graduate reviewed activity" bold "Canonical metadata + archived source" wid 2.65in ht 0.8in rad 0.08in fill 0xFFF4D6 thickness 0 at P+(0,-2.8in)
+arrow from S.e to I.w thick color 0x00662C
+arrow from I.e to P.w thick color 0x00662C
+arrow from P.s to V.n+(0,0.12in) thick color 0x00662C
+arrow from V.w to L.e thick color 0x00662C
+arrow from L.w to Q.e thick color 0x00662C
+arrow from Q.s to R.n+(0,0.12in) thick color 0x00662C
+arrow from R.e to A.w thick color 0x00662C
+Route: line from L.s down 0.35in then right until even with G color 0x506A70 dashed
+arrow from Route.end to G.n+(0,0.12in) dashed color 0x506A70
+box "optional" italic wid 0.8in ht 0.24in fill none thickness 0 color 0x506A70 at Route.end+(-0.55in,0.14in)
+box "CONTRIBUTOR" bold small wid 1.35in ht 0.24in rad 0.06in fill 0x205795 color 0xFFFFFF thickness 0 at S.n
+box "DEVELOPER" bold small wid 1.25in ht 0.24in rad 0.06in fill 0x62408A color 0xFFFFFF thickness 0 at I.n
+box "AUTOMATED" bold small wid 1.2in ht 0.24in rad 0.06in fill 0x00662C color 0xFFFFFF thickness 0 at P.n
+box "AUTOMATED" bold small wid 1.2in ht 0.24in rad 0.06in fill 0x00662C color 0xFFFFFF thickness 0 at V.n
+box "AUTOMATED" bold small wid 1.2in ht 0.24in rad 0.06in fill 0x00662C color 0xFFFFFF thickness 0 at L.n
+box "DEVELOPER" bold small wid 1.25in ht 0.24in rad 0.06in fill 0x62408A color 0xFFFFFF thickness 0 at Q.n
+box "AUTOMATED" bold small wid 1.2in ht 0.24in rad 0.06in fill 0x00662C color 0xFFFFFF thickness 0 at R.n
+box "AUTOMATED" bold small wid 1.2in ht 0.24in rad 0.06in fill 0x00662C color 0xFFFFFF thickness 0 at A.n
+box "DEVELOPER" bold small wid 1.25in ht 0.24in rad 0.06in fill 0x805A0B color 0xFFFFFF thickness 0 at G.n

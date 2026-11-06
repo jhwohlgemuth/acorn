@@ -1,0 +1,19 @@
+scale = 1
+fontscale = 1.15
+color = 0x183C43
+RA: box "ResearchActivity" bold "logbook: Option<Logbook>" wid 1.9in ht 0.75in rad 0.08in fill 0xF3F0FF thickness 0
+L: box "Logbook" bold "summary? · range?" "entries: Vec<LogbookEntry>" wid 2.1in ht 0.9in rad 0.08in fill 0xE7F3E9 thickness 0 at RA+(2.35in,0)
+E: box "LogbookEntry" bold "untagged enum" "Activity | StatusUpdate" wid 2.1in ht 0.9in rad 0.08in fill 0xFFF4D6 thickness 0 at L+(2.4in,0)
+A: box "ActivityEntry" bold "identifier · projectId · timestamp" "category · state · summary" "global · origin · archived · optional detail" wid 2.8in ht 1.05in rad 0.08in fill 0xE8F1FB thickness 0 at L+(-0.55in,-1.65in)
+S: box "StatusUpdateEntry" bold "identifier · projectId · timestamp" "summary · significance · health" "range? · evidence? · risk?" wid 2.8in ht 1.05in rad 0.08in fill 0xE8F1FB thickness 0 at E+(0,-1.65in)
+AD: box "Activity detail" bold "classification? · eventType? · items?" "discovery?: provider · source · discoveredAt" wid 2.8in ht 0.9in rad 0.08in fill 0xF3F0FF thickness 0 at A+(0,-1.45in)
+SD: box "Status detail" bold "ReportingWindow: left? · right" "ProjectHealth: status · reason?" "ProjectRisk: kind · explanation" wid 2.8in ht 1.0in rad 0.08in fill 0xFFF4D6 thickness 0 at S+(0,-1.45in)
+arrow from RA.e to L.w thick color 0x00662C
+arrow from L.e to E.w thick color 0x00662C
+Branch: line from E.s down 0.35in color 0x00662C
+line from Branch.end to (A.x,Branch.end.y) color 0x00662C
+arrow from (A.x,Branch.end.y) to A.n thick color 0x00662C
+line from Branch.end to (S.x,Branch.end.y) color 0x00662C
+arrow from (S.x,Branch.end.y) to S.n thick color 0x00662C
+arrow from A.s to AD.n thick color 0x506A70
+arrow from S.s to SD.n thick color 0x506A70
