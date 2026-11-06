@@ -64,13 +64,23 @@ ifeq ($(OS),Windows_NT)
 	@pwsh -Command Move-Item -Path "$(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe" -Destination "./bin/acorn-v${VERSION}.exe" -Force
 else
 	@$(CLEAN_BIN_CMD)
+	@$(MAKE) build-linux-amd64 build-windows-amd64
+endif
+
+build-linux-amd64: ## Build the AMD64 Linux release binary.
 	@mkdir -p ./bin
 	@$(MUSL_BUILD) --release --package acorn-cli --target $(DEFAULT_TARGET)
 	@cp $(ARTIFACT_TARGET_DIR)/$(DEFAULT_TARGET)/release/acorn ./bin/acorn-v$(VERSION)
+
+build-linux-arm64: ## Build the ARM64 Linux release binary.
+	@mkdir -p ./bin
+	@$(MUSL_BUILD) --release --package acorn-cli --target $(DEFAULT_ARM64_TARGET)
+
+build-windows-amd64: ## Build the AMD64 Windows release binary.
+	@mkdir -p ./bin
 	@cargo build --release --package acorn-cli --target $(DEFAULT_WINDOWS_TARGET)
 	@pwsh -NoProfile -File scripts/check-windows-runtime.ps1 -Binary "$(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe" -Objdump x86_64-w64-mingw32-objdump
 	@cp $(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe ./bin/acorn-v$(VERSION).exe
-endif
 
 build-in-image: clean ## Build the project in a Docker image environment.
 	@docker image inspect $(REGISTRY)/acorn/rust:$(VERSION) > /dev/null 2>&1 || $(MAKE) rust-image
@@ -82,11 +92,13 @@ mcpb: ## Build the MCP bundle artifacts for release packaging.
 	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION)-x86_64-unknown-linux-musl.mcpb)
 	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION)-x86_64-pc-windows-gnu.mcpb)
 
-linux-packages: ## Build x86_64 and ARM64 AppImage and Debian release packages.
-	@$(MUSL_BUILD) --release --package acorn-cli --target $(DEFAULT_TARGET)
-	@$(MUSL_BUILD) --release --package acorn-cli --target $(DEFAULT_ARM64_TARGET)
+linux-package-amd64: build-linux-amd64 ## Build the AMD64 AppImage and Debian release packages.
 	@sh scripts/package-linux.sh $(VERSION) $(DEFAULT_TARGET) amd64 x86_64
+
+linux-package-arm64: build-linux-arm64 ## Build the ARM64 AppImage and Debian release packages.
 	@sh scripts/package-linux.sh $(VERSION) $(DEFAULT_ARM64_TARGET) arm64 aarch64
+
+linux-packages: linux-package-amd64 linux-package-arm64 ## Build AMD64 and ARM64 AppImage and Debian release packages.
 
 release-checksums: ## Generate SHA256 checksums for release artifacts.
 	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION))
@@ -558,7 +570,12 @@ TASKS = \
 	audit \
 	book \
 	build \
+	build-linux-amd64 \
+	build-linux-arm64 \
+	build-windows-amd64 \
 	build-wasm \
+	linux-package-amd64 \
+	linux-package-arm64 \
 	linux-packages \
 	mcpb \
 	release-checksums \

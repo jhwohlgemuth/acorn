@@ -10,7 +10,6 @@ variables:
   BINARY_NAME: acorn
   DEB_PACKAGE_NAME: acorn-cli
   DESKTOP_ID: gov.ornl.acorn
-  LINUX_PACKAGE_TARGETS: build linux-packages
   BUF_VERSION: "1.73.0"
   GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_JOB_ID/$CI_PROJECT_PATH
   GIT_CLEAN_FLAGS: -ffdx
@@ -59,6 +58,7 @@ prepare-environment:
         - Dockerfile.rust
         - Makefile
         - crates/acorn-analysis/Cargo.toml
+        - crates/acorn-cli/build.rs
         - crates/acorn-cli/Cargo.toml
         - crates/acorn-cli/src/commands/infer/**/*
         - crates/acorn-cmd/Cargo.toml
@@ -276,16 +276,14 @@ benchmark:
 
 # ------------------------------------------------------------------ build ----
 
-build-release:
-  extends:
-    - .build-release
-    - .rust-arm64
+.build-release-target:
   stage: build
+  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
   timeout: 45 minutes
   needs:
+    - job: prepare-environment
+      artifacts: true
     - job: test
-  before_script:
-    - rustup target add x86_64-unknown-linux-musl aarch64-unknown-linux-musl
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -297,6 +295,7 @@ build-release:
         - Cargo.toml
         - Dockerfile.rust
         - Makefile
+        - crates/acorn-cli/build.rs
         - crates/acorn-cli/Cargo.toml
         - crates/acorn-cli/src/commands/infer/**/*
         - crates/acorn-lib/Cargo.toml
@@ -311,6 +310,60 @@ build-release:
     paths:
       - bin/
 
+.build-linux-release:
+  extends: .build-release-target
+  before_script:
+    - rustup target add "${RUST_TARGET}"
+  script:
+    - command -v appstreamcli >/dev/null && command -v file >/dev/null && command -v xz >/dev/null || (apt-get update && apt-get install --no-install-recommends --yes appstream file xz-utils)
+    - command -v cargo-zigbuild >/dev/null && command -v zig >/dev/null || sh scripts/install-zigbuild.sh "${XDG_CACHE_HOME}/zigbuild"
+    - export PATH="${XDG_CACHE_HOME}/zigbuild/bin:${PATH}"
+    - cargo deb --version 2>/dev/null | grep -Eq 'cargo-deb 3\.8\.0$' || cargo install --locked --force cargo-deb --version 3.8.0
+    - sh scripts/install-appimage-tools.sh "${XDG_CACHE_HOME}/appimage"
+    - export APPIMAGE_RUNTIME_DIR="${XDG_CACHE_HOME}/appimage/lib/appimage"
+    - export PATH="${XDG_CACHE_HOME}/appimage/bin:${PATH}"
+    - cargo-zigbuild --version
+    - cargo-deb --version
+    - cargo --version
+    - rustc --version
+    - zig version
+    - MUSL_BUILD="cargo zigbuild" make "${LINUX_PACKAGE_TARGET}"
+    - mkdir -p target/linux-package-checksums
+    - cp "bin/${BINARY_NAME}-v${PKG_VERSION}-${APPIMAGE_ARCH}.AppImage.sha256" "bin/${BINARY_NAME}_${PKG_VERSION}-1_${DEB_ARCH}.deb.sha256" target/linux-package-checksums/
+    - MUSL_BUILD="cargo zigbuild" make "${LINUX_PACKAGE_TARGET}"
+    - for checksum in target/linux-package-checksums/*; do cmp "$checksum" "bin/$(basename "$checksum")"; done
+
+build-linux-amd64:
+  extends: .build-linux-release
+  tags:
+    - amd64
+  variables:
+    APPIMAGE_ARCH: x86_64
+    DEB_ARCH: amd64
+    LINUX_PACKAGE_TARGET: linux-package-amd64
+    RUST_TARGET: x86_64-unknown-linux-musl
+
+build-linux-arm64:
+  extends: .build-linux-release
+  tags:
+    - arm64
+  variables:
+    APPIMAGE_ARCH: aarch64
+    DEB_ARCH: arm64
+    LINUX_PACKAGE_TARGET: linux-package-arm64
+    RUST_TARGET: aarch64-unknown-linux-musl
+
+build-windows-amd64:
+  extends: .build-release-target
+  tags:
+    - amd64
+  before_script:
+    - rustup target add x86_64-pc-windows-gnu
+  script:
+    - cargo --version
+    - rustc --version
+    - make build-windows-amd64
+
 validate-needle-windows-amd64:
   stage: build
   tags:
@@ -319,7 +372,7 @@ validate-needle-windows-amd64:
   needs:
     - job: prepare-environment
       artifacts: true
-    - job: build-release
+    - job: build-windows-amd64
       artifacts: true
   rules:
     - if: $CI_COMMIT_TAG
@@ -331,6 +384,7 @@ validate-needle-windows-amd64:
         - Cargo.toml
         - Dockerfile.rust
         - Makefile
+        - crates/acorn-cli/build.rs
         - crates/acorn-cli/Cargo.toml
         - crates/acorn-cli/src/commands/infer/**/*
         - crates/acorn-lib/Cargo.toml
@@ -353,6 +407,11 @@ validate-needle-windows-amd64:
 
 validate-linux-amd64:
   extends: .validate-linux
+  needs:
+    - job: prepare-environment
+      artifacts: true
+    - job: build-linux-amd64
+      artifacts: true
   variables:
     DEB_ARCH: amd64
     APPIMAGE_ARCH: x86_64
@@ -369,6 +428,7 @@ validate-linux-amd64:
         - Cargo.toml
         - Dockerfile.rust
         - Makefile
+        - crates/acorn-cli/build.rs
         - crates/acorn-cli/Cargo.toml
         - packaging/linux/**/*
         - scripts/install-appimage-tools.sh
@@ -378,6 +438,11 @@ validate-linux-arm64:
   extends:
     - .validate-linux
     - .rust-arm64
+  needs:
+    - job: prepare-environment
+      artifacts: true
+    - job: build-linux-arm64
+      artifacts: true
   variables:
     DEB_ARCH: arm64
     APPIMAGE_ARCH: aarch64
@@ -394,6 +459,7 @@ validate-linux-arm64:
         - Cargo.toml
         - Dockerfile.rust
         - Makefile
+        - crates/acorn-cli/build.rs
         - crates/acorn-cli/Cargo.toml
         - packaging/linux/**/*
         - scripts/install-appimage-tools.sh
@@ -407,7 +473,11 @@ validate-mcpb:
   needs:
     - job: prepare-environment
       artifacts: true
-    - job: build-release
+    - job: build-linux-amd64
+      artifacts: true
+    - job: build-linux-arm64
+      artifacts: true
+    - job: build-windows-amd64
       artifacts: true
     - job: validate-linux-amd64
       artifacts: false
@@ -440,6 +510,7 @@ validate-mcpb:
         - Cargo.toml
         - Dockerfile.rust
         - Makefile
+        - crates/acorn-cli/build.rs
         - crates/acorn-cli/Cargo.toml
         - crates/acorn-lib/Cargo.toml
         - scripts/check-windows-runtime.ps1
