@@ -5,6 +5,6 @@
 - [GitLab shell runner readiness](gitlab-shell-runner-readiness.md) - GSR-02 is blocked. Runner 55645 can start a tagged job, then loses the final status update.
 - [Portable PID verification](pid-verification.md) - Consolidate shared PID behavior, run public APIs under Miri, and prove checksum cores with Creusot/Why3.
 - [Report PowerPoint visual regression](powerpoint-report-visual-regression.md) - Generate report decks, verify slide content, and compare reviewed LibreOffice renders on Linux and native Windows.
-- [WebMCP evaluations](webmcp-evaluations.md) - Exercise every live ACORN browser tool with deterministic smoke calls and explicit model-backed selection runs.
+- [WebMCP and MCP interoperability](webmcp-evaluations.md) - Layer contract tests, Inspector smoke, conformance, browser evaluations, and independent live-client controls.
 
 Persistent benchmark packages remain an operational test artifact, not a separate implementation plan. Comparisons use matching runner/hardware fingerprints and remain informational.
