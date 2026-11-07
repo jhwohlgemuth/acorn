@@ -6,7 +6,7 @@ difficulty: high
 impact: high
 package: [acorn-service, acorn-server, acorn-daemon, acorn-store, acorn-cli]
 tags: [feature, daemon, jobs, service, ssh, release]
-status: in-progress
+status: planned
 execution: phased
 phase_budget_hours: 5
 ---

@@ -178,7 +178,7 @@ Generic adapter implementation consumes the frozen registry and execution contra
 
 ## PAR-15 — Prove routing at near-parity catalog size
 
-- Status: waiting-on-validation
+- Status: blocked
 - Budget: 5 active hours maximum
 - Prerequisites: PAR-34 repair accepted; pinned Needle runner installed on a supported host
 - Exact write set: `crates/acorn-lib/src/io/mcp/tools/capability.rs`, `crates/acorn-lib/src/io/mcp/tools/needle.rs`, `crates/acorn-lib/src/io/sidecar/needle/mod.rs`, `crates/acorn-lib/src/io/sidecar/needle/assets.rs`, `crates/acorn-lib/src/io/sidecar/needle/tests/mod.rs`, `crates/acorn-cli/src/commands/infer/mod.rs`, `crates/acorn-cli/src/commands/infer/tests/mod.rs`, `tests/fixtures/routing/cases.json`, `tests/fixtures/routing/results.json`, `docs/src/inference/capability-parity.md`, `docs/src/inference/routing-evaluation.md`

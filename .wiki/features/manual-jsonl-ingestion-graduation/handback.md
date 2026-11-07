@@ -39,17 +39,17 @@ PA-05 can instead use a separately approved, fresh isolated inbox/index pair. It
 
 ## Reproduce the offline rehearsal
 
-The [rehearsal script](_assets/rehearse-handback.py) accepts only the frozen TEST ONLY input whose hashes it verifies. It creates a new local repository without a remote, runs `stage`, `inspect`, approved synthetic `apply`, preview and graduation, then rehearses exact-line reconciliation. It is a fixture verifier, not a production cleanup command. The synthetic approval uses `--yes` and reviewed entry/digest selection; real reviewers use the existing confirmation buttons or their recorded explicit approval.
+The [rehearsal script](../../_assets/manual-jsonl-ingestion-graduation/rehearse-handback.py) accepts only the frozen TEST ONLY input whose hashes it verifies. It creates a new local repository without a remote, runs `stage`, `inspect`, approved synthetic `apply`, preview and graduation, then rehearses exact-line reconciliation. It is a fixture verifier, not a production cleanup command. The synthetic approval uses `--yes` and reviewed entry/digest selection; real reviewers use the existing confirmation buttons or their recorded explicit approval.
 
 ```sh
-python3 .wiki/features/manual-jsonl-ingestion-graduation/_assets/rehearse-handback.py \
+python3 .wiki/_assets/manual-jsonl-ingestion-graduation/rehearse-handback.py \
   --workspace /tmp/acorn-man06-new \
   --acorn target/debug/acorn
 ```
 
 Supply `--git /path/to/git` if needed. The workspace must not exist. The script retains the command outputs, source/canonical commits, exact digests, final diff and evidence JSON. It uses `--offline` for every ACORN command, never invokes the service or `run --config`, and never imports receipts into a bot database.
 
-The [retained evidence](_assets/handback-evidence.json) and [fixture archive](_assets/handback-rehearsal.zip) preserve the successful run. The archive contains a Git bundle with the original, canonical, intervening-append and reconciled commits, plus manual receipts and graduation backup. Extract it into a new directory; clone `fixture.bundle` into a separate checkout to inspect the commits. The recorded configuration and receipts contain historical temporary paths; rerun the script for a usable new workspace.
+The [retained evidence](../../_assets/manual-jsonl-ingestion-graduation/handback-evidence.json) and [fixture archive](../../_assets/manual-jsonl-ingestion-graduation/handback-rehearsal.zip) preserve the successful run. The archive contains a Git bundle with the original, canonical, intervening-append and reconciled commits, plus manual receipts and graduation backup. Extract it into a new directory; clone `fixture.bundle` into a separate checkout to inspect the commits. The recorded configuration and receipts contain historical temporary paths; rerun the script for a usable new workspace.
 
 | Rehearsal check | Result |
 | --- | --- |
@@ -62,7 +62,7 @@ The [retained evidence](_assets/handback-evidence.json) and [fixture archive](_a
 
 Bot admission is a separate contract: `is_admitted` in `crates/acorn-lib/src/io/api/powerautomate/jsonl.rs` reads the operation queue's `intake_admission`, not local receipt files or canonical indexes. Its first-admission test queues a valid line in an empty database; the restart test avoids duplicate work only when the same database is retained. This is why the baseline reconciliation remains a deployment condition even after the offline rehearsal passes.
 
-The [focused validation record](_assets/handback-validation.txt) records 18 passing existing admission, replay and cleanup tests, including append races, unchanged rejected/blank/Unicode bytes and conflicting replay bytes. These tests use local mock servers; no real bot was started. Run them with:
+The [focused validation record](../../_assets/manual-jsonl-ingestion-graduation/handback-validation.txt) records 18 passing existing admission, replay and cleanup tests, including append races, unchanged rejected/blank/Unicode bytes and conflicting replay bytes. These tests use local mock servers; no real bot was started. Run them with:
 
 ```sh
 cargo nextest run --package acorn-lib --features agentic --lib \

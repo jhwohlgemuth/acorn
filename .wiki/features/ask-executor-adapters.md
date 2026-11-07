@@ -6,7 +6,7 @@ difficulty: high
 impact: high
 package: [acorn-lib, acorn-cli]
 tags: [feature, inference, routing, mcp, acp, sidecar]
-status: in-progress
+status: planned
 execution: phased
 phase_budget_hours: 5
 ---

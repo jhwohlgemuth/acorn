@@ -7,7 +7,7 @@ difficulty: high
 impact: high
 package: [acorn-lib, acorn-schema]
 tags: [refactor, api, endpoints, requests, configuration, errors, health, raid]
-status: in-progress
+status: planned
 execution: phased
 phase_budget_hours: 5
 ---

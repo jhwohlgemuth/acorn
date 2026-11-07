@@ -6,7 +6,7 @@ difficulty: medium
 impact: high
 package: [workspace]
 tags: [ci, gitlab, runners, reliability, isolation, reporting]
-status: in-progress
+status: planned
 execution: phased
 phase_budget_hours: 5
 ---

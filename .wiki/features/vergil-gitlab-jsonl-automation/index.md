@@ -26,12 +26,12 @@ October 26 SharePoint-aware review against `58c22da4` plus the current working t
 - Historical code review on October 24, 2026 used `49b4700d` plus that day's intake changes. Shared `Submission::admit`, `powerautomate/jsonl.rs` durable admission, `gitlab/bot.rs` snapshot cleanup/review processing and paginated cursors are implemented. `gitlab/tests/bot.rs` covers append-cleanup races, ambiguous success, conflicting IDs, restart, storage failure and admitted-route stability. The recorded earlier local workspace validation passed 2,694 tests with 17 skipped; this documentation review did not rerun it. No retained evidence establishes a Vergil service boot or live bot acceptance.
 - Durable callback IDs come from persisted keys and remain stable across retry/restart. The owner-only manual Power Automate receiver `dd1d8f67-116c-f55d-7752-7c7d322691c5` has a unique Dataverse receipt key, frozen payload/recipient and Sending/Sent tracking. Three controlled Jason emails, sequential/concurrent deduplication, payload rejection and a simulated uncertain-send hold passed. External authentication, HTTP acknowledgements and real sender lost-response/restart behavior remain unproven.
 - Separate intake and Vergil project tokens exist; intake/catalog bindings are verified. The Vergil protected runtime binding and service authority remain unverified. Token references are `acorn-powerautomate-intake` and `acorn-vergil-bot`, with recorded expiry November 23, 2026; recheck expiry before deployment without exposing values.
-- Pilot: GitLab `22464`, `main`, `.acorn/intake/logbook.jsonl`; initial folder `acorn`; Power Platform environment **Wohlgemuth, Jason** and recipient Jason Wohlgemuth. PA-02 is closed with intermittent cloud-connector access recorded as a [known pilot limitation](../powerapps-jsonl-intake/intake-access-decisions.md#known-limitation-and-pa-02-closure); this does not establish Vergil runtime access. Future shared deployment is PA-12 in that plan.
+- Pilot: GitLab `22464`, `main`, `.acorn/intake/logbook.jsonl`; initial folder `acorn`; Power Platform environment **Wohlgemuth, Jason** and recipient Jason Wohlgemuth. PA-02 is closed with intermittent cloud-connector access recorded as a [known pilot limitation](../powerapps-jsonl-intake/intake-access-decisions.md#known-limitation-and-pa-02-closure); this does not establish Vergil runtime access. Future SharePoint shared deployment is PA-12 in the [shared-deployment plan](../powerapps-jsonl-intake/shared-deployment/index.md), not a Vergil prerequisite.
 - The root reporting include tracking `main` does not satisfy the pilot's immutable-template requirement. Local `report --combine` already renders a combined PDF, and normal report mode implements bounded per-project manifests, package publication and callback intents. Those paths are in `commands/report/mod.rs` and `io/api/gitlab/package.rs`; local renders do not establish scheduled publication. Live boot, ingestion/cleanup, review/merge, scheduled publication and routing acceptance remain. Full current deployment evidence is in the [runbook](../powerapps-jsonl-intake/pilot-runbook.md).
 
 # Boundaries and dependencies
 
-The [form plan](../powerapps-jsonl-intake/index.md) owns producer behavior and Power Platform packaging; the [manual walkthrough](../manual-jsonl-ingestion-graduation/walkthrough.md) documents the implemented local commands and early demo. This plan consumes the same frozen envelope, canonical folder authorization and graduation contract. It does not block local stage/inspect/apply, CLI graduation or dry-run PDF generation.
+The [PA intake portfolio](../powerapps-jsonl-intake/index.md) coordinates SharePoint producer behavior; the [retained GitLab fallback plan](../powerapps-jsonl-intake/gitlab-fallback-hardening/index.md) owns Power Platform boundary/concurrency/restore evidence for that separate Off route. The [manual walkthrough](../manual-jsonl-ingestion-graduation/walkthrough.md) documents the implemented local commands and early demo. This plan consumes the same frozen envelope, canonical folder authorization and graduation contract. It does not block local stage/inspect/apply, CLI graduation or dry-run PDF generation.
 
 The SharePoint list is an immutable receipt history, and its collected JSONL is a rebuilt snapshot, not a GitLab inbox to drain. No phase here reads, cleans up or acknowledges SharePoint rows. The future [OAuth download plan](../sharepoint-jsonl-download/index.md) provides interactive delegated capture for an operator; its device sign-in and refresh cache are not an unattended Vergil authentication design. A future bridge would need its own source ownership, durable cursor/admission, replay and acknowledgement contract before deployment. Do not stage manually applied SharePoint rows into the bot inbox or seed its database as an implied handback.
 
@@ -92,7 +92,7 @@ Use the [Vergil operator runbook](vergil-operator-runbook.md) after the relevant
 
 ## PA-05 — Accept one-shot JSONL admission on Vergil
 
-- Status: waiting-on-validation
+- Status: blocked
 - Validation readiness: Admission and cleanup are implemented. Live acceptance requires PA-03 and approval of the actual reconciled baseline or fresh isolated fixture.
 - Budget: 5 active hours maximum
 - Prerequisites: PA-03; owner-approved source/index baseline using the [verified handback procedure](../manual-jsonl-ingestion-graduation/handback.md), or certified fresh isolated inbox; approved canonical folder/member registry
@@ -104,7 +104,7 @@ Use the [Vergil operator runbook](vergil-operator-runbook.md) after the relevant
 
 ## BOT-02 — Accept append-cleanup races and restart recovery
 
-- Status: waiting-on-validation
+- Status: blocked
 - Validation readiness: Recovery behavior is implemented and locally tested; the remaining work is the live isolated recovery matrix after PA-05.
 - Budget: 5 active hours maximum
 - Prerequisites: PA-05; approved isolated fault fixtures
@@ -116,7 +116,7 @@ Use the [Vergil operator runbook](vergil-operator-runbook.md) after the relevant
 
 ## PA-06 — Accept duplicate-safe review and callback delivery
 
-- Status: waiting-on-validation
+- Status: blocked
 - Validation readiness: Review operations and durable callback intents are implemented; end-to-end acceptance waits for PA-05 and the external callback integration in PA-04.
 - Budget: 5 active hours maximum
 - Prerequisites: PA-05, PA-04; authorized isolated submission and review authority
@@ -128,7 +128,7 @@ Use the [Vergil operator runbook](vergil-operator-runbook.md) after the relevant
 
 ## PA-07 — Graduate and merge the reviewed entry
 
-- Status: waiting-on-validation
+- Status: blocked
 - Validation readiness: The supported graduation path is implemented; live review-note acceptance and human-approved merge wait for PA-06 and the named reviewer.
 - Budget: 5 active hours maximum
 - Prerequisites: PA-06; named human reviewer and merge authority available
@@ -162,7 +162,7 @@ Use the [Vergil operator runbook](vergil-operator-runbook.md) after the relevant
 
 ## PA-09 — Validate routed automation and retire the bot plan
 
-- Status: waiting-on-validation
+- Status: blocked
 - Validation readiness: Routing behavior is implemented; final live end-to-end acceptance and its operator record wait for BOT-02 and BOT-03.
 - Budget: 5 active hours maximum
 - Prerequisites: BOT-02, BOT-03; two authorized routes and one unauthorized fixture

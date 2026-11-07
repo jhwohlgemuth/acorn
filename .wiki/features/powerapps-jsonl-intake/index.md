@@ -1,135 +1,97 @@
 ---
 type: Plan
-title: "PowerApp and Power Automate highlight intake"
-description: "Complete shared deployment and independent GitLab acceptance after standalone general reporting."
-difficulty: medium
+title: "PowerApp and Power Automate highlight intake portfolio"
+description: "Coordinate the accepted SharePoint intake, report-first approval gate, consistent form experience, retained GitLab fallback, and later shared deployment."
+difficulty: mixed
 impact: critical
 package: [workspace]
-tags: [powerapps, powerautomate, gitlab, sharepoint, jsonl, intake]
+tags: [powerapps, powerautomate, sharepoint, jsonl, intake, approval, reporting]
 status: in-progress
-execution: phased
-phase_budget_hours: 5
+execution: coordination
+priority: next
 ---
 
 > **Sanitized copy:** Account labels and related assets have been redacted. Historical checksums and import results describe the originals; see [privacy and reuse limits](../../privacy.md).
 
-# Goal
+# Purpose
 
-Operate the accepted SharePoint default for the approved contributors and operators: form -> immutable list receipt -> collected JSONL snapshot -> local `stage` -> `inspect` -> confirmed `apply` -> combined PDF. The owner-context three-row demonstration is accepted evidence for this manual workflow. Graduate metadata only when needed; Vergil, direct OAuth download and external callbacks are not prerequisites for local reporting.
+Coordinate the remaining Sponsor Highlights intake work without duplicating implementation phases. The accepted SharePoint route remains operational while six atomic plans add a report-authoring approval experience, gate the collected JSONL on approved batches, align the contributor form, retain a restorable GitLab fallback, and prepare a later approved shared deployment.
 
-Preserve the separate GitLab pilot Off for low-effort restoration and its unfinished route-specific acceptance. The owner approved SharePoint cutover October 27; native backup, catalog feedback and exporter repairs are installed. Wider shared deployment remains PA-12.
+This epic owns cross-plan product boundaries, dependency order, and the definition of the released workflow. It contains no executable phases. Each child plan has a five-hour phase budget, one primary lock per phase, exact files or named external systems, focused validation, and a mergeable or externally verifiable handoff.
 
-The [report-placement update](_assets/sharepoint/report-placement/README.md) puts placement first and routes title-page updates to a separate `general` receipt destination. PA-29 local intake and reporting now use an independent `options.generalLogbook` path and contributor allowlist; a mixed batch and general-only combined PDF passed focused acceptance. The reviewed local correction contract is accepted with full workspace tests and a four-receipt/two-entry CLI acceptance run. [Submission-editing evidence](_assets/sharepoint/submission-editing/README.md) records the accepted isolated app/flow tests. Published editing is accepted for the owner and standard-license contributor: private history, correction save, owner/contributor Teams confirmation and exact collected export passed. PA-31 is complete and pruned; [participant evidence](_assets/sharepoint/submission-editing/participant-acceptance.json) preserves the result.
+# Accepted baseline
 
-The [monthly project coverage dashboard](project-coverage.md) is published and refreshing every five minutes. Current/history counts, correction exclusion, repeated refresh and desktop/mobile views passed. The current month stays visible; previous months open from a collapsed history section. On October 28, the owner relayed successful contributor-account access to both October and September project views. PA-32 and PA-33 are accepted and pruned; dashboard-only page/list Read grants are verified. Populated month/project cards also link to the original counted submissions; opening those links requires existing reviewer access. The owner approved sharing original summaries with all dashboard viewers through label tooltips; raw intake/export grants remain unchanged.
+The current default is the SharePoint workflow in the Wohlgemuth, Jason pilot:
 
-The published [Sponsor Highlights entry hub](highlights-hub.md) links the form, coverage dashboard, guide library and reviewer resources. Existing dashboard contributors have approved page/library Read grants; contributor-account verification remains. The SharePoint library currently contains the user guide, developer guide, demo walkthrough and example report.
+1. The contributor canvas app writes one immutable SharePoint list receipt and one individual JSONL receipt file per submission UUID.
+2. Browser recovery, exact retry, correction ancestry, standard-license participant access, native backup/restore, catalog feedback, and the repaired collected exporter are accepted.
+3. The five-minute exporter currently rebuilds the combined `logbook.jsonl` through a captured source item-ID cutoff. It is bounded to 5,000 rows and 10 MiB, requires a readable prior file or an explicit 404, and accepts a write only after exact readback.
+4. An operator downloads the collected file, then uses local `stage -> inspect -> apply -> report` commands. The accepted three-row demonstration proves that manual workflow.
+5. The retained GitLab intake and catalog flows are Off. Their app, connector, credentials, backups, and evidence remain available for an explicitly approved restoration attempt.
 
-Supporting material: [operating runbook](pilot-runbook.md), [notification walkthrough](notification-walkthrough.md), and [source bundle](source-bundle-readme.md). Current reader-facing PDFs are authoritative in the [SharePoint guide library](https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20Guides/Forms/AllItems.aspx); `_assets/` retains form sources and dated acceptance/recovery evidence.
+Durable evidence remains in the [SharePoint pilot](sharepoint-pilot.md), [native backup](_assets/sharepoint/backup/README.md), [operational cutover](_assets/sharepoint/cutover/README.md), [submission editing](_assets/sharepoint/submission-editing/README.md), [boundary acceptance](boundary-acceptance.md), [browser recovery](browser-recovery-acceptance.md), [write-failure acceptance](write-failure-acceptance.md), [notification walkthrough](notification-walkthrough.md), [cleanup record](test-artifact-cleanup.md), and [manual reporting walkthrough](../manual-jsonl-ingestion-graduation/walkthrough.md).
 
-# Current evidence
+# Remaining plans
 
-November 5 self-chat command experiment: a scheduled Power Automate flow polled the latest message from the owner's Microsoft Teams self-chat every minute, matched `/acorn summarize`, then intended to run an AI prompt and post the result back to the owner. The Government Community Cloud Teams connector rejected the self-chat conversation identifier `48:notes` in every observed run: `GetMessagesFromChat` returned HTTP 403 with `Forbidden`, `OperationFailed`, and `Invalid conversation` before the condition, prompt, or reply actions could run. The flow was disabled and had no associated apps. This connector route is unsupported evidence, not an intake dependency or a viable command-listener design; future Teams command work needs a supported trigger or conversation surface and must not restore this polling pattern without new connector acceptance.
+| Order | Plan | Stable phases | Remaining outcome |
+|---:|---|---|---|
+| 1 | [Shared intake and approval experience](approval-experience/index.md) | PA-34, PA-35, PA-39 and bounded suffix phases | Freeze one accessible interaction system, build the report-shaped reviewer workspace, and refit contributor intake to the same UI. |
+| 2 | [Approval ledger and finalization](approval-ledger/index.md) | PA-36, PA-37 and bounded suffix phases | Materialize complete closed-period batches, save concurrent drafts safely, and freeze auditable approval projections. |
+| 3 | [Approval-gated collected export](approval-export/index.md) | PA-38 and bounded suffix phases | Preserve the pre-approval baseline and extend the collected JSONL only with complete approved batches. |
+| 4 | [Approval pilot acceptance and cutover](approval-release/index.md) | PA-40, PA-41 and bounded suffix phases | Accept the end-to-end report-authoring workflow, then deploy both consistent apps and the approval gate with rollback. |
+| 5 | [Retained GitLab fallback hardening](gitlab-fallback-hardening/index.md) | PA-15, PA-16, PA-17 | Finish bounded-write, concurrency, and native-restore acceptance only in recreated isolated systems. |
+| 6 | [Shared Power Platform deployment](shared-deployment/index.md) | PA-12 and PA-12A | Move the accepted SharePoint solution to a named shared environment and audience after the pilot release. |
 
-October 31 PA-29 local acceptance: `options.generalLogbook` names a safe relative JSON path and an explicit contributor allowlist independently of GitLab configuration. A mixed project/general batch staged to separate destinations, inspected both, created the general logbook on first apply, and replayed without duplication. General correction and UUID-conflict tests passed; missing configuration, false or absent `global`, and unauthorized submitters were rejected. The general-only combined PDF test rendered with Chrome and extracted the accepted title-page text once; a later `from` bound excluded it. The focused local suite passed 25 tests. No synthetic content was published.
+# Dependency order
 
-October 27 PA-25 deployment is accepted in the existing Jason pilot. The published SharePoint app retains its ID, approved owner/participant audience, owner-backed connections, submission bindings and recovery key. PA28 catalog response and seven canvas properties are installed, as is the accepted PA23/26/27 exporter. A live synthetic submission and Teams action succeeded; the downloaded eight-row aggregate preserves the earlier seven rows exactly. Both GitLab intake/catalog flows are verified Off, with components and credentials retained. [Cutover evidence and rollback](_assets/sharepoint/cutover/README.md) preserve native before/after apps, readback comparisons, run IDs and hashes.
+PA-34 freezes the UI, accessibility, field-to-report, and preview contract. PA-35 and PA-36 may then proceed in parallel on separate TEST ONLY systems. PA-35A/PA-35B complete the report canvas while PA-36A/PA-36B complete batch materialization and reads. PA-37 joins those tracks and freezes review decisions. PA-38 consumes frozen approvals; PA-39 may refit the contributor app after the shared components and approval behavior are accepted. PA-40 joins approval, export, and contributor work for isolated acceptance. PA-41 performs the pilot cutover only after explicit operational approval. PA-12 remains blocked until PA-41A is accepted and a shared target, security groups, licensing, capacity, ownership, and notification destination are named.
 
-| Track | Verified state | Remaining acceptance |
-| --- | --- | --- |
-| SharePoint default | PA19/20/21 storage, intake, recovery and boundary acceptance; PA22 standard-license participant; PA23/26/27 collected export; PA24 native restore; PA28 catalog feedback; PA25 approved deployment accepted. | PA12 wider shared environment/group deployment. Monitor combined-file freshness; no automated exporter-failure alert. |
-| GitLab retained | `[PREMIUM] Highlights Intake`, its declared intake/catalog flow dependencies, connectors, connections and data are preserved; intake/catalog remain Off. PA02 known connectivity limitation accepted by owner. Native backups retained. | PA15 remaining byte boundaries, PA16 concurrent writes, PA17 app-driven native restore and ORNL callback/table restoration. Recreate isolated copies from retained backups before resuming validation; restoration does not close these gates. |
-| Pilot deployment | SharePoint default in Wohlgemuth, Jason; owner and submitter Teams notices, milestone email to Jason. | Approved target, capacity, group and destination for PA12. Vergil and direct OAuth download are separate plans. |
+PA-15 through PA-17 are independent of the SharePoint approval path and do not block it. They remain useful only as fallback restoration evidence. The operational GitLab flows stay Off unless a separately authorized restoration decision follows accepted isolated evidence.
 
+# Cross-plan decisions
 
-The original DH access investigation is resolved by the owner's October 26 confirmation: he lacked a premium entitlement required by the GitLab custom connector. No DH-specific check remains. See the [licensing resolution](intake-access-decisions.md#original-participant-licensing-issue-resolved). PA-22 acceptance covers the separate SharePoint route with the approved standard-license participant; it does not establish access to the original premium app.
+## Ease of use and consistent controls
 
-Durable evidence: [SharePoint native backup and restore](_assets/sharepoint/backup/README.md), [SharePoint workflow](sharepoint-pilot.md), [GitLab boundaries](boundary-acceptance.md), [access decision](intake-access-decisions.md#known-limitation-and-pa-02-closure), [native restore handoff](_assets/solution-export/PA17-RESTORE-HANDOFF.md), [browser recovery](browser-recovery-acceptance.md), [write failure](write-failure-acceptance.md), [notification routing](notification-walkthrough.md), and [manual demo](../manual-jsonl-ingestion-graduation/walkthrough.md). These records preserve dated runs and limitations without keeping completed phases here.
+Ease of use is the leading product criterion. Both canvas apps consume one versioned component library and token contract. Genuine yes/no values use labeled toggles. Three-to-five short mutually exclusive choices use segmented button bars. Longer single-choice sets use native radio menus. Multi-choice sets use the same visual menu family but native checkbox semantics and an explicit selected count; they are never announced as radio groups. Long or dynamic collections use searchable selectors. Free text is reserved for narrative content with adjacent requirements, limits, and errors.
 
-The [cleanup record](test-artifact-cleanup.md#november-5-power-platform-cleanup) records the November 5 app renames and removal of the Jason PA-15/17 test app/flows and unsupported self-chat poller. The retained native backups, manifests and acceptance evidence remain the source for any future isolated recreation. Current reader-facing PDFs cover both branches and live only in the SharePoint guide library; dated local PDFs remain evidence rather than publication sources. The combined SharePoint file is a collected logbook; individual receipt files remain separate evidence. Direct SharePoint URL ingestion is not implemented: download the file before local CLI ingestion. The separate [SharePoint CLI download plan](../sharepoint-jsonl-download/index.md) owns reusable OAuth 2.0/Entra authentication with macOS/Windows/Linux credential caching and Graph file capture, with SharePoint URI intake and verified local snapshots as the first consumer. It adds ACRE `auth.profiles`/`auth.sources`, first-declared-profile defaults, `--device` and protected OS caching. It does not replace the recorded participant access/licensing evidence or the accepted producer completeness checks, and requires no operational app/flow changes.
+The apps share typography, spacing, color, focus, validation, empty/loading/error states, responsive breakpoints, status language, field order, and primary-action placement. Component-library updates are published, version-noted, explicitly adopted by each app, and regression-tested; a local copied component is not an accepted substitute because it stops receiving library updates.
 
-# Boundaries and decisions
+## Report-authoring approval surface
 
-October 27 PA-25 authorization: the owner explicitly requested installation of the accepted SharePoint revisions and disabling the GitLab connector route with low-effort restoration. Use the existing published SharePoint app and the already approved owner/participant audience. Disable GitLab intake/catalog flows after replacement verification; preserve app, custom connectors, credentials, connections, data and native backups. This authorizes operational deployment for PA-25 and supersedes earlier no-cutover assumptions for this phase only. Do not reroute pending GitLab receipts.
+The approval app is the pre-PDF report assembly surface, not a SharePoint list editor. Its page rail, report canvas, inline inspector, compare view, validation summary, and final batch summary mirror the actual ACORN title page, project pages, status-update cards, completed/in-progress/upcoming groups, report period, entry order, and inclusion rules.
 
-The October 26 authorization produced a separate standard-connector SharePoint pilot alongside GitLab. Preserve its replaced intake/catalog bindings, separate browser recovery key and SharePoint receipt semantics. An inactive premium branch within an app is not sufficient evidence of standard licensing. Preserve the GitLab version for rollback/future premium use; do not disable the operational route before replacement acceptance. Never automatically send an unresolved GitLab receipt to the SharePoint route. The private site's current membership does not imply access for every intended contributor.
+WYSIWYG means semantic and layout fidelity: the same content, ordering, grouping, labels, visibility, period, project boundaries, and approximate page composition. Canvas Apps and the Chromium-backed PDF renderer use different layout engines, so exact font metrics and line/page breaks are not promised. Every acceptance fixture renders a real ACORN combined PDF from the same frozen projection and records any bounded difference.
 
-October 24 acceptance constraint: perform PA-14/17 and PA-02/15/16 testing only in explicitly named test copies alongside the operational components in Wohlgemuth, Jason and ORNL Personal Productivity. Do not edit, publish, disable, rebind or import over operational app/flow/connector components, alter their credentials, or write their inbox. Use isolated test source paths. Browser restart and storage-denial tests must use an isolated browser session without closing operational tabs or changing their site storage settings. Retain any unmet acceptance instead of weakening this boundary.
+## Immutable source and approval projection
 
-The two storage contracts differ:
+Contributor receipts remain immutable. Reviewer changes are drafts and frozen projections in a separate review ledger. They never overwrite a source list row or individual receipt file. A modified projection receives a stable approval UUID; unchanged content may retain its source UUID only when the frozen bytes are exactly identical. Correction ancestry is rewritten through the source-to-approved mapping and must resolve to an included predecessor in the same or an earlier approved batch.
 
-- GitLab conditionally creates/appends an inbox while preserving previous bytes and proving the immutable commit. Retry uses the same UUID/payload; unavailable proof remains unresolved.
-- SharePoint stores one immutable list receipt per UUID and one individual JSONL receipt file. The five-minute exporter rebuilds a collected snapshot through a captured item-ID cutoff. It does not append to or drain the list. The app's export-ready panel confirms the individual receipt file, not inclusion in the latest combined snapshot. New arrivals after the cutoff wait for a later run.
+A reporting period is a closed half-open UTC interval over SharePoint receipt `Created`. Materialization captures a source high-water item ID. Finalization rechecks source completeness and requires every item to be approved or explicitly excluded with a reason. The batch becomes exporter-visible only after all included payloads are frozen and read back exactly.
 
-The collected file is a retained history, not a work queue. Applying a downloaded batch does not delete list rows, remove exported lines, mark remote receipts processed or acknowledge anything to the producer. Repeated downloads must preserve UUIDs and exact bytes so existing local replay/conflict checks can work; use the same local intake state/destinations. A fresh local workspace is not evidence that old submissions were already applied elsewhere. Do not delete older list rows to evade the export cap. The current 5,000-row/10 MiB bounds remain operational limits until a separately approved retention/scale design exists. Operators check combined-file freshness and exporter run history before downloading; no automated combined-export failure alert is currently evidenced, and a fresh app confirmation alone cannot establish a fresh collected file.
+## Collected export and rollback
 
-The October 26 read-only deployment inspection confirmed the prior-read failure path in the operational exporter. [PA-26 isolated repair is accepted](sharepoint-pilot.md#october-26-isolated-exporter-repair-acceptance-pa-26): only a readable prior file or explicit failed 404 admits publishing; uncertain writes require exact readback before a success receipt. The repaired source is preserved in native backup assets and installed in the operational exporter under PA-25; the Off test copy was removed October 30. [PA-23/27 aggregate and empty-file acceptance passed October 27](sharepoint-pilot.md#october-27-collected-export-acceptance). The [PA-24 native backup and isolated restore](_assets/sharepoint/backup/README.md) is accepted; [PA-25 operational installation](_assets/sharepoint/cutover/README.md) is also accepted. A write attempt cannot establish that the prior file survived, and an unresolved outcome must never trigger blind rollback.
+At pilot cutover, the last verified collected file becomes an immutable pre-approval baseline. The approval-aware exporter deterministically rebuilds `baseline + complete approved batches`, preserving current count, size, serialization, prior-read, conditional-write, and exact-readback protections. Pending, draft, finalizing, failed, unresolved, and excluded items never enter the collected file.
 
-SharePoint faults, maximum-size fixtures, competing writers, browser-storage tests and restore tests require explicitly named TEST ONLY copies and storage. Future isolated tests may read the published pilot for baseline evidence but must not inject malformed rows, change bindings, delete receipts, replace its collected file or disrupt normal runs. Before any test, verify every connector destination and disable unrelated notifications. Stop on a destination mismatch. The completed PA19/20/21/24/26/28/31 SharePoint test flows and apps were removed October 30; their dated acceptance evidence and native backup archives remain. PA19 and PA24 synthetic lists and libraries were not part of this cleanup. The [cleanup inventory](test-artifact-cleanup.md#october-30-power-platform-cleanup) and [native restore proof](_assets/sharepoint/backup/README.md) record the disposition and historical IDs. Create new isolated copies for any future SharePoint test rather than assuming the earlier live copies remain.
+Rollback freezes the last verified collected file and disables further publication. It must not re-enable the former unfiltered exporter, reconstruct content from mutable drafts, or delete source receipts.
 
-Normal intake sends best-effort Teams save notices under each route's recorded gate. The October 27 SharePoint recipient repair adds a submitter chat confirmation while retaining Jason's operator notice; its notification-only send test passed. All current milestone routes already include Jason; [routing evidence](notification-walkthrough.md#october-27-participant-delivery-repair) distinguishes this from the earlier owner-only PA-22 notice. Local CLI commands send no messages; later Teams/email milestones use the separate owner-triggered receiver. Its Dataverse/external-callback requirements are not dependencies of the standard SharePoint app. The [Vergil plan](../vergil-gitlab-jsonl-automation/index.md) owns future authenticated unattended callbacks; keep that integration outside app bindings and the accepted standard-user proof.
+# Related-plan boundaries
 
-Local browser recovery remains approved for non-sensitive data only. Neither received/exported SharePoint feedback nor a GitLab queued receipt means admitted, graduated, merged or published. The [manual walkthrough](../manual-jsonl-ingestion-graduation/walkthrough.md#sharepoint-download-to-a-combined-local-pdf) now documents the defaults-based four-step flow and retains the separate GitLab graduation rehearsal as dated evidence.
+- [SharePoint JSONL download](../sharepoint-jsonl-download/index.md) and [headless CI download](../sharepoint-headless-ci-download/index.md) read the collected file. They do not force exporter freshness, prove review completeness, or mutate Power Platform systems. Before PA-41 they capture the accepted current exporter; after PA-41 they capture the approval-gated file.
+- [Power Automate Teams workflow bot](../powerautomate-teams-bot/index.md) may add a future bounded intake or approval capability only through an accepted target-system contract and effect ledger. It does not own review state, finalization, or publication.
+- [Vergil automation](../vergil-gitlab-jsonl-automation/index.md) consumes only its approved GitLab inbox. There is no implicit SharePoint-to-GitLab bridge, acknowledgement, or cleanup path.
+- [Sponsor highlights clarity](../sponsor-highlights-clarity.md) owns future editorial synthesis, ASPECT evidence, renderer changes, accessibility of generated PDFs, and sponsor publication. This portfolio owns the pre-export review of fields already admitted by the intake schema; it does not invent the future editorial schema.
+- [Structured enrichment](../../refactors/core/research-activity-enrichment-integration.md) owns canonical enrichment and conflict policy. Reviewer edits here do not silently graduate or enrich canonical research-activity metadata.
+- [Runner-pool isolation](../../refactors/ci-runner-pools.md) owns reporting-worker credentials and concurrency. It is unrelated to the interactive SharePoint approval gate.
 
-# Dependencies and acceptance
+# Portfolio acceptance
 
-**Current manual MVP:** The SharePoint three-row owner demonstration already proves downloaded exact rows -> stage/inspect/apply -> combined local PDF; the earlier GitLab personnel rehearsal additionally proves supported graduation. Separate PA22 participant and PA23/26/27 producer acceptance are now recorded; the local demo alone does not establish either. For a new live demo, recheck approved access and combined-export freshness. If unavailable, use the retained exact local snapshot and label the capture as recorded evidence. Do not repeat a completed demo phase or reopen the retired manual-ingestion plan.
+The coordinated work is accepted only when:
 
-**Next work:** PA-12 needs an approved shared target, capacity, group and notification destination; the selected SharePoint route's participant, native restore and deployed-repair prerequisites are satisfied. Independent GitLab PA15/16/17 checks retain their current external blockers, but the Jason test components were removed November 5; recreate fresh isolated copies from retained backups before resuming them. GitLab operational flows stay Off until an explicit restoration decision. The [cutover runbook](_assets/sharepoint/cutover/README.md) describes two-toggle restoration and pending-receipt reconciliation. Direct CLI download (SPD) is optional; browser download remains supported.
-
-**Wider release gate:** PA12 must verify the chosen shared target and intended group; two-person pilot acceptance does not imply every contributor's entitlement/access or capacity. Callback integration, bot deployment and sponsor publication have separate owners. Never infer a future route or sharing change from a planning update.
-
-# Validation
-
-Inspect route-specific evidence: SharePoint list UUID/payload, individual receipt file, combined cutoff/count/digest and local batch; GitLab line deltas and immutable commit proof. Verify replay and conflict behavior. Record exact flow revisions and run IDs in the runbook. No Rust changes or full workspace tests are needed for these operational phases. Keep TEST ONLY evidence out of sponsor reports. On each completion, prune its phase and reconcile this plan, indexes, network and lane.
-
-# Execution phases
-
-`waiting-on-validation` (“Waiting on validation”) means the implementation exists and the phase awaits acceptance evidence. Prerequisites and external blockers still apply; this status does not mean ready to execute or accepted. Phases that still need deployment, integration or policy setup retain their existing status.
-
-## PA-15 — Accept bounded inbox and field limits
-
-- Status: waiting-on-validation
-- Validation readiness: Field limits and unsafe-tail rejection passed in both environments; ORNL oversized-file rejection and Jason mixed-line preservation also passed. Remaining: ORNL mixed-line preservation, exact-cap append in both environments, and oversized-file rejection in Jason. The latest Jason exact-cap and oversized-file cases each exhausted five attempts without acceptance. Exact-cap attempts 2 and 4 reached the append but received network-range 403; other failures stopped at catalog/file reads. Independent snapshots retained fixture bytes and file revisions. The Jason PA15 test flow was removed November 5; remaining Jason cases require a fresh isolated copy restored from retained evidence, runnable connector calls and independent byte/revision verification. See [boundary acceptance](boundary-acceptance.md) for dated attempts and proofs. The append cap is 10,485,759 UTF-8 bytes. PA-02 remains closed with the connectivity limitation accepted.
-- Budget: 5 active hours maximum
-- Prerequisites: safe isolated fixtures and restored baseline; a fresh isolated Jason flow copy recreated from retained evidence; authorized connector access sufficient to execute each case
-- Exact write set: pilot project `22464` isolated intake test files; validation actions in isolated intake flow copies in both test environments; `.wiki/features/powerapps-jsonl-intake/boundary-acceptance.md`; `.wiki/features/powerapps-jsonl-intake/_assets/boundary-tests/`
-- Primary integration lock: intake route
-- Outcome: Accept ORNL mixed-line preservation and exact-cap append in both environments, plus one-byte-over-cap rejection in Jason. Preserve accepted Jason mixed-line/unsafe-tail, field and ORNL rejection evidence.
-- Focused validation: Use one dimension per case; accepted records append once, rejected records do not alter any bytes, unsafe tails fail closed; preserve original pilot inbox.
-- Handoff: Record per-case outcomes and restore isolated fixtures; no implied concurrency acceptance.
-
-## PA-16 — Accept concurrent inbox creation and append
-
-- Status: waiting-on-validation
-- Validation readiness: Conditional writes and reconciliation are implemented; live concurrent-creation/append acceptance waits for PA-15 and usable authorized connectivity during the test. PA-02 closure does not accept concurrency behavior.
-- Budget: 5 active hours maximum
-- Prerequisites: PA-15; approved isolated source files; fresh isolated flow copies recreated from retained evidence where absent; usable authorized connectivity during the test
-- Exact write set: pilot project `22464` isolated concurrency test files; conditional-write actions in isolated intake flow copies in both test environments; `.wiki/features/powerapps-jsonl-intake/concurrency-acceptance.md`
-- Primary integration lock: intake route
-- Outcome: Prove simultaneous creators/writers do not overwrite lines or duplicate the same submission.
-- Focused validation: Inspect competing revisions, conditional-write failure/reconciliation and immutable receipts; preserve one-write limit and unresolved results when history proof is bounded. No Vergil cleanup runs in this phase.
-- Handoff: Preserve concurrency evidence; append-versus-bot-cleanup belongs to BOT-02.
-
-## PA-17 — Accept the native GitLab Power Platform restore
-
-- Status: waiting-on-validation
-- Validation readiness: The complete native backup set exists. The Jason PA17 test app and its intake, callback and catalog flows were removed November 5 after their earlier evidence and native packages were retained. App-driven intake and full callback/table restoration still need acceptance in fresh isolated imports; GitLab write denials and missing ORNL `prvCreateEntity` remain blockers.
-- Budget: 5 active hours maximum
-- Prerequisites: a fresh import of the retained native backup into an authorized disposable target; permitted GitLab writes for app-driven intake acceptance; ORNL capability to create the isolated callback table (`prvCreateEntity`), or an explicitly revised restore target. Native v6 app/connector/reference import and catalog acceptance are already verified.
-- Exact write set: isolated ACORN PA17 test solutions and cloned components in Wohlgemuth, Jason and ORNL Personal Productivity; read-only exports of operational components; `.wiki/features/powerapps-jsonl-intake/_assets/solution-export/`; `.wiki/features/powerapps-jsonl-intake/restore-target-readiness.md`
-- Primary integration lock: Power Platform packaging
-- Outcome: Accept the remaining app-driven GitLab write and callback/table restore using the existing complete native backup; retain accepted import/catalog evidence rather than repeating backup creation.
-- Focused validation: Inspect exported app, flows, connector and connection references; verify no secret values; perform import validation in an authorized disposable target when available, otherwise record the export as partial evidence and keep PA-17 open until restore verification is accepted.
-- Handoff: Record export version, hashes and restore result. A source ZIP alone does not satisfy this phase.
-
-## PA-12 — Move the accepted workflow to an approved shared environment
-
-- Status: blocked
-- Budget: 5 active hours maximum
-- Prerequisites: selected route accepted (SharePoint participant, native restore and approved operational installation are complete; GitLab would require PA-15–17); named approved GCC environment, maker/sharing rights and capacity for the intended audience, route-appropriate licensing, contributor security group, owner and recipient group/channel
-- Exact write set: target Power Platform solution import, protected connections, app/flow sharing and notification destination; `.wiki/features/powerapps-jsonl-intake/shared-deployment.md`
-- Primary integration lock: Power Platform deployment
-- Outcome: Deploy the accepted app/flows and switch future notifications from Jason to the approved shared destination.
-- Focused validation: Verify catalog and route-specific persistence/replay under intended user permissions: SharePoint receipt plus collected export, or GitLab append/commit; verify notification deduplication; preserve old receipt recipients and rollback; a new Teams channel has its own delivery state.
-- Handoff: Preserve destination IDs and protected reference names; prune only after target acceptance. This is outside the current pilot MVP.
+- both apps use the same published component revision and pass keyboard, screen-reader, contrast, focus, desktop, and 375-pixel checks;
+- a reviewer can assemble a closed period from the report canvas without opening raw JSON or SharePoint list administration;
+- original, edited, excluded, correction, general-update, activity, and status-update fixtures produce the expected frozen projection;
+- app preview and actual ACORN PDF agree on content, order, grouping, visibility, report period, and project boundaries;
+- the collected JSONL contains the immutable baseline plus complete approved batches only, with deterministic replay and safe uncertain-write behavior;
+- source receipts, contributor identity, review history, decisions, mappings, frozen bytes, and publication evidence remain auditable;
+- the operational cutover has fresh backups, named owners/audiences, exact before/after bytes, a tested freeze rollback, and explicit approval;
+- the former unfiltered exporter cannot resume accidentally after cutover.

@@ -114,6 +114,22 @@ class ValidatorTests(unittest.TestCase):
         root = self._repository(PLAN.replace("Status: ready", "Status: complete"))
         self.assertTrue(any("invalid phase status" in error for error in validate_repository(root)))
 
+    def test_unknown_operating_system_label_is_rejected(self) -> None:
+        root = self._repository(PLAN.replace("tags: [example]", "tags: [example, os:window]"))
+        self.assertTrue(any("unsupported operating-system label `os:window`" in error for error in validate_repository(root)))
+
+    def test_supported_operating_system_label_is_accepted(self) -> None:
+        root = self._repository(PLAN.replace("tags: [example]", "tags: [example, os:windows]"))
+        self.assertFalse(any("operating-system label" in error for error in validate_repository(root)))
+
+    def test_in_progress_plan_requires_an_in_progress_phase(self) -> None:
+        root = self._repository(PLAN.replace("status: planned", "status: in-progress"))
+        self.assertTrue(any("no phase is in-progress" in error for error in validate_repository(root)))
+
+    def test_in_progress_plan_with_an_active_phase_passes(self) -> None:
+        active = PLAN.replace("status: planned", "status: in-progress").replace("- Status: ready", "- Status: in-progress")
+        self.assertEqual(validate_repository(self._repository(active)), [])
+
     def test_dangling_prerequisite_is_rejected(self) -> None:
         root = self._repository(PLAN.replace("Prerequisites: none", "Prerequisites: XX-99"))
         self.assertTrue(any("unknown prerequisite" in error for error in validate_repository(root)))
@@ -155,10 +171,6 @@ class ValidatorTests(unittest.TestCase):
 
     def test_valid_repository_passes(self) -> None:
         self.assertEqual(validate_repository(self._repository()), [])
-
-    def test_waiting_on_validation_phase_passes(self) -> None:
-        root = self._repository(PLAN.replace("Status: ready", "Status: waiting-on-validation"))
-        self.assertEqual(validate_repository(root), [])
 
     def test_zero_budget_is_rejected(self) -> None:
         root = self._repository(PLAN.replace("5 active hours maximum", "0 active hours maximum"))

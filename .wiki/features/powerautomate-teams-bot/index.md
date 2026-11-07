@@ -32,7 +32,7 @@ The November 5, 2026 test vertical slice is accepted and therefore is not retain
 
 This plan owns the generalized Teams assistant, its Power Platform solution, conversation adapter, durable request/effect state, capability flows, response rendering and operations. It does not own the existing Sponsor Highlights canvas app, SharePoint list/exporter, GitLab intake/catalog flows, Vergil deployment or ACORN CLI behavior.
 
-The [PowerApp and Power Automate highlight intake plan](../powerapps-jsonl-intake/index.md) remains authoritative for the operational Sponsor Highlights app, SharePoint receipts, collected JSONL and shared-environment migration. The [Vergil GitLab bot plan](../vergil-gitlab-jsonl-automation/index.md) remains authoritative for unattended GitLab admission, cleanup, review, reporting and callbacks. A future bot capability may call those systems only through an approved, typed contract; this plan creates no implicit SharePoint-to-GitLab bridge and never drains SharePoint history.
+The [PowerApp and Power Automate intake portfolio](../powerapps-jsonl-intake/index.md) coordinates the operational Sponsor Highlights app, immutable SharePoint receipts, report-first review ledger, approval-gated collected JSONL and shared-environment migration. Its atomic child plans own the interfaces and release gates. The [Vergil GitLab bot plan](../vergil-gitlab-jsonl-automation/index.md) remains authoritative for unattended GitLab admission, cleanup, review, reporting and callbacks. A future bot capability may call those systems only through an approved, typed contract; this plan creates no implicit SharePoint-to-GitLab bridge and never drains SharePoint history.
 
 The two test flows remain test-only evidence until PAB-06 replaces them with solution-aware components. Do not rename them into production, add broad write capabilities to them, or treat successful owner testing as multi-user acceptance.
 
@@ -242,11 +242,11 @@ Only remaining work appears below. Phases are sequential unless a prerequisite e
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: PAB-08; PAB-04 effect ledger; explicit approval from each owning plan/system; named human approval authority
+- Prerequisites: PAB-08; PAB-04 effect ledger; explicit approval from each owning plan/system; named human approval authority; PA-41A before any Sponsor Highlights approval/publication mutation
 - Exact write set: F07 Intake and Submission, F08 Review and Approval, F09 Reports and Artifacts; separate mutation connection references; policy and response records
 - Primary integration lock: external effect ledger
-- Outcome: Add approved mutations only through stable target/effect keys and existing system contracts; return receipt/status links instead of claiming completion without proof.
-- Focused validation: Unauthorized target, changed payload under same request ID, duplicate/restart/lost-response, approval rejection/expiry, target conflict and inaccessible receipt. Verify no self-approval, arbitrary path/URL or direct SharePoint-to-GitLab bridge.
+- Outcome: Add approved mutations only through stable target/effect keys and existing system contracts; return receipt/status links instead of claiming completion without proof. Sponsor Highlights commands may request an existing flow operation but cannot write review rows, set Approved state, or publish collected JSONL directly.
+- Focused validation: Unauthorized target, changed payload under same request ID, duplicate/restart/lost-response, approval rejection/expiry, target conflict and inaccessible receipt. Verify no self-approval, arbitrary path/URL, direct review-state/export mutation, or SharePoint-to-GitLab bridge.
 - Handoff: Per-capability authority, idempotency/reconciliation record and rollback switch. Any unmet target-system gate remains outside the router.
 
 ## PAB-10 — Add retry, dead-letter and operations

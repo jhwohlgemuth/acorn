@@ -103,7 +103,7 @@ The original GitLab app and connector are retained, with intake and catalog flow
 Build the current CLI (`cargo build --bin acorn`, default PDF feature), then run from the repository root:
 
 ```sh
-python3 .wiki/features/manual-jsonl-ingestion-graduation/_assets/rehearse.py --workspace /tmp/acorn-demo-next-week-01 --acorn target/debug/acorn --chrome '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+python3 .wiki/_assets/manual-jsonl-ingestion-graduation/rehearse.py --workspace /tmp/acorn-demo-next-week-01 --acorn target/debug/acorn --chrome '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 ```
 
 The workspace must not exist. The script refuses to reset an existing directory. Use a new name for each rehearsal; retain earlier evidence. It uses ACORN’s **Yes / No** buttons for intake approval, selection of the contributor promotion, and final graduation approval. No is selected by default; Tab or the arrow keys switches selection and Enter confirms it. `y` and `n` also work; Escape or Ctrl+C cancels. No skips a graduation candidate; in this one-candidate rehearsal, skipping it stops the expected graduation checks. Declining the intake or final graduation approval stops the rehearsal without applying that change. Run in a terminal with both input and output attached. Interactive receipts appear in the terminal; the evidence records each command, confirmation mode and exit status.
@@ -125,7 +125,7 @@ The script verifies the immutable source hashes and exact line selection before 
 
 ## Appendix A — Confirmation acceptance
 
-The October 24 [confirmation checks](_assets/confirmation-checks.json) and [interactive rehearsal](_assets/confirmation-rehearsal-evidence.json) accepted Yes / No behavior, cancellation, stale permissions and replay protection. The consolidated `run` API then passed [ten terminal checks](_assets/run-confirmation-checks.json), the [unattended rehearsal](_assets/run-rehearsal-evidence.json), and the [interactive rehearsal](_assets/run-interactive-rehearsal-evidence.json). The latter used three prompts. Recorded final gates passed warning-free lint, 2,694 tests (17 skipped), book and wiki validation.
+The October 24 [confirmation checks](../../_assets/manual-jsonl-ingestion-graduation/confirmation-checks.json) and [interactive rehearsal](../../_assets/manual-jsonl-ingestion-graduation/confirmation-rehearsal-evidence.json) accepted Yes / No behavior, cancellation, stale permissions and replay protection. The consolidated `run` API then passed [ten terminal checks](../../_assets/manual-jsonl-ingestion-graduation/run-confirmation-checks.json), the [unattended rehearsal](../../_assets/manual-jsonl-ingestion-graduation/run-rehearsal-evidence.json), and the [interactive rehearsal](../../_assets/manual-jsonl-ingestion-graduation/run-interactive-rehearsal-evidence.json). The latter used three prompts. Recorded final gates passed warning-free lint, 2,694 tests (17 skipped), book and wiki validation.
 
 These are dated synthetic-local results, not a new run of sanitized fixtures. They sent no messages or remote updates. Current commands preserve explicit approval and exact-backup behavior; source records retain the detailed test outcomes.
 

@@ -4,19 +4,22 @@
 
 ## In progress
 
-- [Interactive metadata chat and terminal prompts](interactive-metadata-chat.md) - Inline multi-turn `ask`, durable transcripts, reusable terminal controls, and interactive format review are in place; the TUI consumer seam, multi-select control, and release validation remain.
-
-- [SharePoint JSONL download for ACORN intake](sharepoint-jsonl-download/index.md) - Complete reusable OAuth 2.0/Entra browser/device authorization with ACRE auth profiles, verified account identity, scoped cache inspection/reset, cross-platform protected caching, existing Confirm controls and Graph file capture, consumed by SharePoint direct-URL intake and offline review; approved CLI tenant access is unverified, and it requires no operational app/flow changes.
-
-- [Model acquisition and metadata hardening](model-acquisition-hardening.md) - Complete identity-safe Hugging Face requests, exact GGUF metadata, and ModelKit/ModelPack interoperability evidence.
 - [Needle routing and native capability parity](needle-router-native-parity.md) - Native routes cover 46/46 bounded rows; PAR-34 repairs failed real Needle selection before PAR-15 evaluation and PAR-16 release validation.
-- [PowerApp and Power Automate highlight intake](powerapps-jsonl-intake/index.md) - SharePoint is the accepted default, including contributor access, browser recovery, collected export, native restore and immutable submission editing. GitLab intake/catalog remain Off. PA-32 is accepted and pruned: monthly coverage/history is published, a serialized five-minute refresh is On, counts match original receipts, and desktop/mobile views passed. Populated month/project cards link to counted original submissions using existing reviewer access. Contributor-account October/September navigation is accepted and PA-33 is pruned; dashboard/page/list Read grants are verified; Entra groups remain deferred; PA-29 standalone general-logbook intake/reporting passed local acceptance and is pruned; PA-12 waits for shared-target/group/capacity approval. Independent GitLab PA-15–17 retain isolated acceptance blockers; OAuth download and Vergil are separate.
-- [RON support for ACRE configuration](acre-ron-configuration.md) - Dependency/format registration and the private data adapter are landed; complete configuration lifecycle, CLI discovery, canonical formatting, and final documentation remain.
-- [Generic ask executor adapters](ask-executor-adapters.md) - Reusable local sidecar registration and configured CLI composition are landed with MCP, ACP, and endpoint bindings; heterogeneous validation waits for native parity.
 
 ## Planned
 
+- [Shared intake and approval experience](powerapps-jsonl-intake/approval-experience/index.md) - PA-34 is next: freeze one accessible component/token and field-to-report contract. Bounded PA-35 slices build the report-shaped approval canvas; bounded PA-39 slices refit contributor intake and accept cross-app consistency without changing receipt semantics.
+- [Interactive metadata chat and terminal prompts](interactive-metadata-chat.md) - Inline multi-turn `ask`, durable transcripts, reusable terminal controls, and interactive format review are in place; the TUI consumer seam, multi-select control, and release validation remain.
+- [SharePoint JSONL download for ACORN intake](sharepoint-jsonl-download/index.md) - Complete reusable OAuth 2.0/Entra browser/device authorization with ACRE auth profiles, verified account identity, scoped cache inspection/reset, cross-platform protected caching, existing Confirm controls and Graph file capture, consumed by SharePoint direct-URL intake and offline review; approved CLI tenant access is unverified, and it requires no operational app/flow changes.
+- [Model acquisition and metadata hardening](model-acquisition-hardening.md) - Complete identity-safe Hugging Face requests, exact GGUF metadata, and ModelKit/ModelPack interoperability evidence.
+- [RON support for ACRE configuration](acre-ron-configuration.md) - Dependency/format registration and the private data adapter are landed; complete configuration lifecycle, CLI discovery, canonical formatting, and final documentation remain.
+
 - [Power Automate Teams workflow bot](powerautomate-teams-bot/index.md) - Package a Workflows-authored Teams assistant as solution-aware flows with Dataverse sessions, requests, jobs, idempotent effects and receipts. The owner-only summarize request/reply slice is repaired and accepted; remaining phases decide the supported Teams interaction surface, then add ALM, durable routing, centralized responses, bounded capabilities, recovery and governed pilot release. The Sponsor Highlights intake and Vergil automation plans retain their own systems.
+
+- [Intake approval ledger and finalization](powerapps-jsonl-intake/approval-ledger/index.md) - Materialize indexed, paged closed-period batches; save structured drafts with ETags; freeze stable approval UUIDs, correction mappings and exact bytes; expose only complete Approved batches.
+- [Approval-gated collected JSONL export](powerapps-jsonl-intake/approval-export/index.md) - Preserve an exact pre-cutover baseline and append deterministic frozen projections from Approved batches only, retaining current limits, read/write reconciliation and freeze-only rollback.
+- [Intake approval pilot acceptance and cutover](powerapps-jsonl-intake/approval-release/index.md) - Join both consistent apps, review ledger, approved export and actual ACORN PDF in isolated acceptance before an explicitly authorized operational cutover.
+- [Shared Power Platform intake deployment](powerapps-jsonl-intake/shared-deployment/index.md) - After PA-41A and target readiness, import the accepted solution into a named shared environment, accept it in isolation, then switch future links and notifications with rollback.
 
 - [Headless CI SharePoint JSONL download](sharepoint-headless-ci-download/index.md) - Follow SPD-26 shared functionality and acceptance on any one native OS with GitLab OIDC federation, ACRE workload profiles and read-only unattended capture/staging; seven bounded phases require approved app-only access and isolated live acceptance. No user credential cache or automatic apply/reporting.
 
@@ -35,6 +38,18 @@
 - [dPID research-object support](dpid-research-object-support.md) - Recognize and resolve versioned dPIDs, import resolver RO-Crate metadata into RAD, and preserve manifest provenance through a read-only first release.
 - [Deterministic and assisted gather extraction](gather-extraction.md) - Add bounded CSS extraction first, then an explicitly selected typed inference fallback for unresolved required fields.
 - [Azure Cosmos DB bucket downloads](azure-cosmos-buckets.md) - After the provider-neutral source prerequisite, add a Cosmos DB for NoSQL container or logical partition as a read-only bucket source.
+
+## Waiting on validation
+
+- [Retained GitLab intake fallback hardening](powerapps-jsonl-intake/gitlab-fallback-hardening/index.md) - Complete isolated byte-boundary, concurrent-write and native-restore acceptance for the retained Off GitLab route; every remaining phase is blocked on authorized disposable systems or connector access, and passing evidence does not authorize restoration.
+
+## Planned with no ready phase
+
+- [Generic ask executor adapters](ask-executor-adapters.md) - Reusable local sidecar registration and configured CLI composition are landed with MCP, ACP, and endpoint bindings; all remaining phases wait for PAR-16 native parity acceptance.
+
+## Epics
+
+- [PowerApp and Power Automate intake portfolio](powerapps-jsonl-intake/index.md) - Coordinates the accepted SharePoint baseline, report-first approval plans, retained GitLab fallback, shared deployment and boundaries with downloader, Teams, Vergil, editorial and enrichment work.
 
 ## Coordination
 

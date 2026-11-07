@@ -6,7 +6,7 @@ difficulty: medium
 impact: medium
 package: [acorn-core, acorn-lib, acorn-cli]
 tags: [feature, acre, configuration, ron, serialization]
-status: in-progress
+status: planned
 execution: phased
 phase_budget_hours: 5
 ---

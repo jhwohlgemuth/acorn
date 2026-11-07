@@ -6,7 +6,7 @@ difficulty: high
 impact: high
 package: [acorn-cli, acorn-lib]
 tags: [feature, cli, create, docker, ssh, reliability, rollback]
-status: in-progress
+status: planned
 execution: phased
 phase_budget_hours: 5
 ---

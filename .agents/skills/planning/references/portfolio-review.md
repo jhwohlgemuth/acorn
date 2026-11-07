@@ -1,5 +1,9 @@
 # Portfolio review
 
+## Currency cadence
+
+At the start of each `.wiki` planning session, check the selected plans and their affected dependencies against current evidence. While planning work is active, review the entire portfolio at least once per calendar month. If the most recent portfolio review date is missing or unknown, run the full review now. Also run it after substantial repository changes that may satisfy several plans. Record the review date, evidence scope, and unresolved blockers concisely in the root portfolio index. A review date alone does not establish that a plan is current; verify the underlying evidence.
+
 ## Evidence pass
 
 1. Record `git status`, current commit, and recent commits that overlap active plans.

@@ -7,7 +7,7 @@ difficulty: high
 impact: high
 package: [acorn-schema, acorn-lib, acorn-cli]
 tags: [feature, model, huggingface, oci, modelkit, modelpack, gguf, download, provenance]
-status: in-progress
+status: planned
 execution: phased
 phase_budget_hours: 5
 ---
