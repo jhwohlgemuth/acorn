@@ -1,10 +1,10 @@
 ---
 type: Plan
 title: "Split ACORN along layered crate boundaries"
-description: "Coordinate the remaining package ownership boundaries and their prerequisite plans."
+description: "Coordinate the remaining package ownership boundaries, including the static browser and Tauri interface roots, and their prerequisite plans."
 difficulty: high
 impact: critical
-package: [workspace, acorn-lib, acorn-core, acorn-schema, acorn-analysis, acorn-host, acorn-wasm, acorn-service, acorn-server, acorn-daemon, acorn-store, acorn-cmd]
+package: [workspace, acorn-lib, acorn-core, acorn-schema, acorn-analysis, acorn-host, acorn-wasm, acorn-web, acorn-desktop, acorn-service, acorn-server, acorn-daemon, acorn-store, acorn-cmd]
 tags: [refactor, architecture, crate-extraction, portability, dependencies]
 status: in-progress
 execution: coordination
@@ -20,6 +20,7 @@ Coordinate the remaining extraction from `acorn-lib` into portable domains, adap
 - `acorn-lib` still combines analyzer host execution, provider clients, persistence, export, and workflows. Its broad `std` feature enables unrelated native capabilities.
 - The outbound MCP client still combines service policy with native child-process and HTTP transports; extraction must preserve its landed contract.
 - The [shared API client](api/shared-client-contract.md) plan prepares `acorn-api` without creating its target package. The [acornd plan](../features/acornd-service.md) owns an initial `acorn-store` adapter for daemon history; it does not extract existing `acorn-lib` persistence.
+- The [browser and Tauri workspace plan](../features/acorn-browser-workspace/index.md) is the atomic consumer plan for two new interface roots. `acorn-web` composes the portable crates with `acorn-wasm` into one static Dioxus/WASM application; `acorn-desktop` embeds that application and delegates selected-file operations and bounded selected-root traversal to `acorn-host`. Neither interface may depend on `acorn-lib` or absorb reusable adapter/domain ownership.
 
 # Target package graph
 
@@ -39,6 +40,8 @@ browser adapters: acorn-wasm
 
 CLI / TUI  = service + native adapters
 JS / WASM  = service + browser adapters
+static Web = acorn-web + JS / WASM + browser presentation effects
+Tauri app  = acorn-desktop + embedded static Web + selected native adapters
 acorn-server = service + selected native adapters + protocol listeners
 acorn-daemon = service + server + store + host job execution
 ```
@@ -63,6 +66,8 @@ crates/
 ├── acorn-export     (planned)
 ├── acorn-host
 ├── acorn-wasm
+├── acorn-web         (planned)
+├── acorn-desktop     (planned)
 ├── acorn-service
 ├── acorn-server
 ├── acorn-daemon      (planned)
@@ -81,6 +86,8 @@ Workspace-wide support projects that are not published ACORN product crates, inc
 | `acorn-export` | Shared export context, templates, charts, OOXML/PowerPoint transformations, and renderer contracts that produce artifact bytes | Filesystem writes, browser/process startup, or CLI output |
 | `acorn-host` | Native filesystem and source handling, native HTTP transport, document conversion, process execution, downloads, synchronization, doctor checks, and concrete analysis/export adapters | Browser adapters, domain policy, or multi-service orchestration |
 | `acorn-wasm` | `wasm-bindgen` integration, JS-facing DTO conversion, and future browser adapters and composition | Native filesystem/process assumptions or portable domain policy |
+| `acorn-web` | Static Dioxus interface composition, routes, accessible presentation state, DOM-local file/folder/clipboard/download effects, session-only relative-path trees, and Pages-ready assets | Reusable JS ABI/WebMCP adapters, native host effects, portable domain policy, persisted directory authority, or `acorn-lib` compatibility paths |
+| `acorn-desktop` | Thin Tauri interface composition, bundled `acorn-web` assets, native file/folder dialog selection, and least-privilege IPC over selected `acorn-host` capabilities | A second UI, direct filesystem or traversal policy, reusable browser adapters, portable domain policy, reusable path authority, or privileged WebMCP bridging |
 | `acorn-service` | Artifact discovery, analysis use cases, GitLab bot/webhook/intake flows, MCP client/server workflows, and orchestration over injected port traits | Concrete host, browser, provider transport, or database implementations |
 | `acorn-server` | JSON-RPC and gRPC listeners, authentication, TLS, health, request bounds, tracing setup, and graceful process lifecycle | Portable analysis, application policy, provider logic, or persistence implementation |
 | `acorn-daemon` | Long-running worker/listener composition, local job execution, host registration, and installation | Portable analysis policy, protocol implementation, or general-purpose persistence |
@@ -91,13 +98,14 @@ Individual schemas, providers, commands, doctor checks, and generic utility coll
 
 # Coordination boundaries
 
-This record owns package direction, not implementation files or phases. The [shared API client plan](api/shared-client-contract.md) prepares `acorn-api`; the [CLI composition plan](core/cli-composition-boundary.md) owns interface cutover; the [acornd plan](../features/acornd-service.md) owns its daemon package and initial store adapter. Create a separate atomic extraction plan for remaining `acorn-lib` persistence with current evidence, exact write sets, one primary lock per phase, and five-hour outcomes when its prerequisite contract lands.
+This record owns package direction, not implementation files or phases. The [shared API client plan](api/shared-client-contract.md) prepares `acorn-api`; the [CLI composition plan](core/cli-composition-boundary.md) owns terminal interface cutover; the [browser and Tauri workspace plan](../features/acorn-browser-workspace/index.md) owns the `acorn-web`/`acorn-desktop` interface roots and their adapter consumption; the [acornd plan](../features/acornd-service.md) owns its daemon package and initial store adapter. Create a separate atomic extraction plan for remaining `acorn-lib` persistence with current evidence, exact write sets, one primary lock per phase, and five-hour outcomes when its prerequisite contract lands.
 
 # Plan dependencies
 
 - **Satisfied prerequisite:** the implemented portability matrix proves the analyzer boundary in-tree; that result does not itself authorize package extraction.
 - **Boundary inputs:** the analyzer/service/server extraction, `acorn-cmd`, and initial `acorn-host` boundaries are implemented; the [shared API client contract](api/shared-client-contract.md) prepares `acorn-api`. The [acornd plan](../features/acornd-service.md) creates a narrow `acorn-store` package; extraction of existing persistence is still unassigned.
 - **Downstream:** the implemented portability matrix expands with each accepted extraction. Browser adapters or consumer-owned host ports require a concrete alternate implementation and a new atomic plan.
+- **Concrete browser/desktop consumer:** ABW-01 must prove `acorn-web` consumes narrow portable owners plus `acorn-wasm` without `acorn-lib`/`acorn-host`; ABW-12 and ABW-17 must keep selected-file and selected-root filesystem primitives in `acorn-host` while `acorn-desktop` owns only Tauri dialog and authorization composition.
 - The complete ordering and shared-file collision map is maintained in the [plan dependency network](../plan-network.md).
 
 # Parallel execution
@@ -118,12 +126,15 @@ This architecture record is coordination-only. Before assigning extraction work,
 10. Browser dependencies are target-specific to `acorn-wasm`; portable crates must not gain a `wasm-bindgen` or `js-sys` dependency merely because they compile for a WASM target.
 11. New ACORN packages are created as `crates/<package-name>`; product crates must not return to the workspace root.
 12. Reusable operations own capability-specific typed errors, using the existing workspace `thiserror` dependency when it reduces handwritten boilerplate. Host and application composition retain `color-eyre`; error conversion is performed within the owning slice rather than a workspace-wide migration.
+13. Browser UI composition belongs to `acorn-web`, while reusable JavaScript DTO and WebMCP adapter behavior remains in `acorn-wasm`; the interface may use DOM-local presentation effects without moving browser types into portable crates.
+14. Tauri window/dialog/IPC composition belongs to `acorn-desktop`, but native filesystem primitives remain in `acorn-host`; the desktop interface selects narrow features and does not implement direct host policy or elevate WebMCP authority.
 
 # Active child plans
 
 - [Shared API client contract](api/shared-client-contract.md) stabilizes endpoint, request, response, error, and provider mechanics before a separate `acorn-api` extraction plan.
 - [CLI composition boundary](core/cli-composition-boundary.md) keeps parsing and presentation at the interface root.
 - [Installable acornd service](../features/acornd-service.md) composes the server with native job execution and creates the initial `acorn-store` history adapter without moving unrelated database code.
+- [Rust browser and Tauri desktop workspace](../features/acorn-browser-workspace/index.md) adds two thin interface roots over the existing portable, browser-adapter, and native-host owners; it must not create another domain or compatibility layer.
 - [Structured research-activity enrichment](core/research-activity-enrichment-integration.md) owns its schema/service seam.
 - [Portable diff hardening](acorn-diff-resource-and-api-hardening.md) and [ZON codec hardening](zon-codec-hardening.md) remain independent portable leaves.
 
@@ -144,3 +155,4 @@ Each future package extraction must name the exact current modules and their tar
 # Related plans
 
 - [Shared API client contract](api/shared-client-contract.md)
+- [Rust browser and Tauri desktop workspace](../features/acorn-browser-workspace/index.md)

@@ -2,7 +2,7 @@
 
 ## Coordination
 
-- [Crate boundary architecture](crate-boundary-architecture.md) - Coordinate remaining package owners and add atomic extraction plans after their prerequisite contracts land.
+- [Crate boundary architecture](crate-boundary-architecture.md) - Coordinate remaining package owners, including the planned `acorn-web` and `acorn-desktop` interface roots, and add atomic consumer/extraction plans after prerequisites land.
 
 ## Planned groups and independent work
 
