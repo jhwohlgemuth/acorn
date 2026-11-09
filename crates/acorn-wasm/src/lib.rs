@@ -115,8 +115,12 @@
 //! assert!(doi("10.11578/dc.20250604.1").is_ok());
 //! assert!(orcid("https://orcid.org/0000-0002-2057-9115").is_ok());
 //! ```
+#[cfg(test)]
+extern crate alloc;
+
 use acorn_analysis::readability::ReadabilityType;
 use acorn_analysis::{CheckCategory, CheckSeverity, FairDetails, FairEvidence, FairProfile};
+use acorn_core::big_o::{compare_notation, ComparisonInput, ComparisonOutput, Expression};
 use acorn_core::util::MimeType;
 use acorn_diff::{unified_diff, DiffValue, JsonPatch};
 use acorn_schema::codec::DocumentCodec;
@@ -131,12 +135,32 @@ use serde::Serialize;
 use serde_json::{Map, Value};
 use wasm_bindgen::prelude::*;
 
+const BIG_O_LIST_LIMIT: usize = 64;
+
 #[wasm_bindgen(typescript_custom_section)]
 const TYPESCRIPT_DEFINITIONS: &str = r#"
 export type DiagnosticKind = "parse" | "validation";
 export type DiffMode = "json-patch" | "unified";
 export type IdentifierInspectionStatus = "ambiguous" | "invalid" | "valid";
 export type IdentifierKind = "ark" | "arxiv" | "doi" | "handle" | "isbn" | "isni" | "orcid" | "patent" | "raid" | "ror" | "rrid" | "swhid";
+export type BigODominance = "left" | "right" | "equivalent" | "incomparable" | "undetermined";
+export type SymbolGrowth = "growing" | "fixed-positive" | "fixed-log-base" | "shrinking-positive";
+export interface BigOComparisonInput {
+  assumptions?: Record<string, SymbolGrowth>;
+  left: string;
+  right: string;
+}
+export interface BigOComparisonOutput {
+  assumptions: Record<string, SymbolGrowth>;
+  dominance: BigODominance;
+  left: string;
+  right: string;
+}
+export interface BigOValidationOutput {
+  error?: string;
+  expression: string;
+  valid: boolean;
+}
 export interface CrosswalkResult {
   content: string;
   format: "json";
@@ -203,6 +227,30 @@ export type ContentDiffResult =
 "#;
 #[wasm_bindgen]
 extern "C" {
+    #[wasm_bindgen(typescript_type = "Array")]
+    type JsArray;
+    #[wasm_bindgen(js_namespace = Array, js_name = isArray)]
+    fn is_js_array(value: &JsValue) -> bool;
+    #[wasm_bindgen(method, getter, structural)]
+    fn length(this: &JsArray) -> u32;
+    /// JavaScript Big-O comparison request accepted by [`compare_big_o`].
+    #[wasm_bindgen(typescript_type = "BigOComparisonInput")]
+    pub type JsBigOComparisonInput;
+    /// JavaScript list of Big-O comparison requests accepted by [`compare_big_o_list`].
+    #[wasm_bindgen(typescript_type = "BigOComparisonInput[]")]
+    pub type JsBigOComparisonInputList;
+    /// JavaScript Big-O comparison result returned by [`compare_big_o`].
+    #[wasm_bindgen(typescript_type = "BigOComparisonOutput")]
+    pub type JsBigOComparisonOutput;
+    /// JavaScript list of Big-O comparison results returned by [`compare_big_o_list`].
+    #[wasm_bindgen(typescript_type = "BigOComparisonOutput[]")]
+    pub type JsBigOComparisonOutputList;
+    /// JavaScript list of Big-O expressions accepted by [`validate_big_o_list`].
+    #[wasm_bindgen(typescript_type = "string[]")]
+    pub type JsBigOExpressionList;
+    /// JavaScript list of Big-O validation results returned by [`validate_big_o_list`].
+    #[wasm_bindgen(typescript_type = "BigOValidationOutput[]")]
+    pub type JsBigOValidationOutputList;
     /// JavaScript FAIR assessment returned by [`assess_fair_metadata`].
     #[wasm_bindgen(typescript_type = "FairAssessmentResult")]
     pub type JsFairAssessmentResult;
@@ -225,7 +273,7 @@ extern "C" {
     #[wasm_bindgen(typescript_type = "ValidationResult")]
     pub type JsValidationResult;
 }
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase", tag = "mode")]
 enum ContentDiffResult {
     #[serde(rename = "json-patch")]
@@ -245,6 +293,14 @@ enum IdentifierInspectionStatus {
     Ambiguous,
     Invalid,
     Valid,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BigOValidationOutput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+    expression: String,
+    valid: bool,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -791,6 +847,21 @@ fn serialize_json_compatible<T: Serialize>(value: &T) -> Result<JsValue, JsValue
         .serialize(&serde_wasm_bindgen::Serializer::json_compatible())
         .map_err(|why| JsValue::from_str(&why.to_string()))
 }
+fn compare_big_o_input(input: ComparisonInput) -> Result<ComparisonOutput, String> {
+    compare_notation(input).map_err(|why| why.to_string())
+}
+fn ensure_big_o_list_input(input: JsValue) -> Result<JsValue, JsValue> {
+    is_js_array(&input)
+        .then(|| input.unchecked_ref::<JsArray>().length() as usize)
+        .ok_or_else(|| JsValue::from_str("Big-O list input must be an array"))
+        .and_then(ensure_big_o_list_limit)
+        .map(|()| input)
+}
+fn ensure_big_o_list_limit(length: usize) -> Result<(), JsValue> {
+    (length <= BIG_O_LIST_LIMIT)
+        .then_some(())
+        .ok_or_else(|| JsValue::from_str(&format!("Big-O lists may contain at most {BIG_O_LIST_LIMIT} items")))
+}
 #[cfg(test)]
 fn validate_json(json: &str) -> ValidationResult {
     validate_json_with_fuzzy(json, VocabularyFuzzyMode::Relaxed)
@@ -864,6 +935,67 @@ pub fn validate_research_activity(json: &str, fuzzy: Option<String>) -> Result<J
         .and_then(|mode| serialize(&validate_json_with_fuzzy(json, mode)))
         .map(JsValue::unchecked_into)
 }
+/// Compare two Big-O expressions with optional explicit symbol-growth assumptions.
+///
+/// The input and output use the shared portable comparison contract. Analytical outcomes such
+/// as `incomparable` and `undetermined` are successful results; malformed requests are returned
+/// as JavaScript errors.
+#[wasm_bindgen(js_name = compareBigO)]
+pub fn compare_big_o(input: JsBigOComparisonInput) -> Result<JsBigOComparisonOutput, JsValue> {
+    serde_wasm_bindgen::from_value(input.into())
+        .map_err(|why| JsValue::from_str(&why.to_string()))
+        .and_then(|input| compare_big_o_input(input).map_err(|why| JsValue::from_str(&why)))
+        .and_then(|output| serialize_json_compatible(&output))
+        .map(JsValue::unchecked_into)
+}
+/// Compare a bounded list of Big-O expression pairs.
+///
+/// Each item uses the same contract as [`compare_big_o`]. Results preserve input order. The
+/// operation rejects lists longer than 64 items and reports the index of the first malformed
+/// comparison request.
+#[wasm_bindgen(js_name = compareBigOList)]
+pub fn compare_big_o_list(input: JsBigOComparisonInputList) -> Result<JsBigOComparisonOutputList, JsValue> {
+    ensure_big_o_list_input(input.into())
+        .and_then(|input| serde_wasm_bindgen::from_value::<Vec<ComparisonInput>>(input).map_err(|why| JsValue::from_str(&why.to_string())))
+        .and_then(|inputs| {
+            inputs
+                .into_iter()
+                .enumerate()
+                .map(|(index, input)| compare_big_o_input(input).map_err(|why| JsValue::from_str(&format!("comparison at index {index}: {why}"))))
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .and_then(|outputs| serialize_json_compatible(&outputs))
+        .map(JsValue::unchecked_into)
+}
+/// Validate a bounded list of Big-O expressions without comparing them.
+///
+/// Results preserve input order and collect one validation outcome per expression. Invalid
+/// notation is returned as data so callers can repair every list item in one pass. Lists longer
+/// than 64 items are rejected.
+#[wasm_bindgen(js_name = validateBigOList)]
+pub fn validate_big_o_list(input: JsBigOExpressionList) -> Result<JsBigOValidationOutputList, JsValue> {
+    ensure_big_o_list_input(input.into())
+        .and_then(|input| serde_wasm_bindgen::from_value::<Vec<String>>(input).map_err(|why| JsValue::from_str(&why.to_string())))
+        .and_then(|expressions| {
+            let outputs = expressions
+                .into_iter()
+                .map(|expression| match Expression::parse(&expression) {
+                    | Ok(_) => BigOValidationOutput {
+                        error: None,
+                        expression,
+                        valid: true,
+                    },
+                    | Err(why) => BigOValidationOutput {
+                        error: Some(why.to_string()),
+                        expression,
+                        valid: false,
+                    },
+                })
+                .collect::<Vec<_>>();
+            serialize_json_compatible(&outputs)
+        })
+        .map(JsValue::unchecked_into)
+}
 
 #[cfg(all(test, target_arch = "wasm32"))]
 mod wasm_tests {
@@ -873,6 +1005,104 @@ mod wasm_tests {
     #[wasm_bindgen_test]
     fn test_javascript_crosswalk_binding_propagates_invalid_metadata() {
         assert!(crosswalk_metadata("{}", "json", "research-activity-data", "datacite", None, None).is_err());
+    }
+    #[wasm_bindgen_test]
+    fn test_javascript_big_o_binding_accepts_objects_and_rejects_invalid_requests() {
+        let input = ComparisonInput {
+            left: "O(n^2)".to_string(),
+            right: "O(n log n)".to_string(),
+            assumptions: Default::default(),
+        };
+        let input = serialize_json_compatible(&input).expect("serialize comparison input").unchecked_into();
+        let output = compare_big_o(input).expect("compare canonical expressions");
+        let output: Value = serde_wasm_bindgen::from_value(output.into()).expect("deserialize comparison output");
+        assert_eq!(output["dominance"], "left");
+        assert_eq!(output["assumptions"]["n"], "growing");
+
+        let input = ComparisonInput {
+            left: "O(n)".to_string(),
+            right: "O(1)".to_string(),
+            assumptions: [("n".to_string(), acorn_core::big_o::SymbolGrowth::FixedPositive)].into(),
+        };
+        let input = serialize_json_compatible(&input)
+            .expect("serialize explicit comparison input")
+            .unchecked_into();
+        let output = compare_big_o(input).expect("compare with explicit assumptions");
+        let output: Value = serde_wasm_bindgen::from_value(output.into()).expect("deserialize explicit comparison output");
+        assert_eq!(output["dominance"], "equivalent");
+        assert_eq!(output["assumptions"]["n"], "fixed-positive");
+
+        for input in [
+            ComparisonInput {
+                left: "O(n - m)".to_string(),
+                right: "O(n)".to_string(),
+                assumptions: Default::default(),
+            },
+            ComparisonInput {
+                left: "O(n)".to_string(),
+                right: "O(n - m)".to_string(),
+                assumptions: Default::default(),
+            },
+            ComparisonInput {
+                left: "O(n)".to_string(),
+                right: "O(n^2)".to_string(),
+                assumptions: [("unknown".to_string(), acorn_core::big_o::SymbolGrowth::Growing)].into(),
+            },
+        ] {
+            let input = serialize_json_compatible(&input)
+                .expect("serialize invalid comparison input")
+                .unchecked_into();
+            assert!(compare_big_o(input).is_err());
+        }
+    }
+    #[wasm_bindgen_test]
+    fn test_javascript_big_o_list_bindings_validate_and_compare_in_order() {
+        let expressions = vec!["O(n)".to_string(), "O(n - m)".to_string(), "O(n^2)".to_string()];
+        let input = serialize_json_compatible(&expressions)
+            .expect("serialize expression list")
+            .unchecked_into();
+        let output = validate_big_o_list(input).expect("validate expression list");
+        let output: Value = serde_wasm_bindgen::from_value(output.into()).expect("deserialize expression validation output");
+        assert_eq!(output[0]["valid"], true);
+        assert_eq!(output[1]["valid"], false);
+        assert!(output[1]["error"].as_str().is_some_and(|error| !error.is_empty()));
+        assert_eq!(output[2]["expression"], "O(n^2)");
+
+        let inputs = vec![
+            ComparisonInput {
+                left: "O(n^2)".to_string(),
+                right: "O(n log n)".to_string(),
+                assumptions: Default::default(),
+            },
+            ComparisonInput {
+                left: "O(n)".to_string(),
+                right: "O(1)".to_string(),
+                assumptions: [("n".to_string(), acorn_core::big_o::SymbolGrowth::FixedPositive)].into(),
+            },
+        ];
+        let input = serialize_json_compatible(&inputs).expect("serialize comparison list").unchecked_into();
+        let output = compare_big_o_list(input).expect("compare expression list");
+        let output: Value = serde_wasm_bindgen::from_value(output.into()).expect("deserialize comparison list output");
+        assert_eq!(output[0]["dominance"], "left");
+        assert_eq!(output[1]["dominance"], "equivalent");
+
+        let expressions = vec![Value::Null; BIG_O_LIST_LIMIT + 1];
+        let input = serialize_json_compatible(&expressions)
+            .expect("serialize oversized expression list")
+            .unchecked_into();
+        let error = validate_big_o_list(input)
+            .err()
+            .expect("reject oversized expression list before decoding its items");
+        assert_eq!(error.as_string().as_deref(), Some("Big-O lists may contain at most 64 items"));
+
+        let inputs = vec![Value::Null; BIG_O_LIST_LIMIT + 1];
+        let input = serialize_json_compatible(&inputs)
+            .expect("serialize oversized comparison list")
+            .unchecked_into();
+        let error = compare_big_o_list(input)
+            .err()
+            .expect("reject oversized comparison list before decoding its items");
+        assert_eq!(error.as_string().as_deref(), Some("Big-O lists may contain at most 64 items"));
     }
     #[wasm_bindgen_test]
     fn test_javascript_diff_binding_returns_a_value() {
@@ -901,6 +1131,35 @@ mod wasm_tests {
     #[wasm_bindgen_test]
     fn test_javascript_validation_binding_returns_a_value() {
         assert!(validate_research_activity(r#"{"title": 1}"#, None).is_ok());
+    }
+    #[wasm_bindgen_test]
+    fn test_javascript_validation_binding_preserves_big_o_diagnostics() {
+        let validate = |json| {
+            let result = validate_research_activity(json, None).expect("validate complete RAD fixture");
+            serde_wasm_bindgen::from_value::<Value>(result.into()).expect("deserialize validation result")
+        };
+        let valid = validate(include_str!("../../../tests/fixtures/data/big_o/valid/index.json"));
+        assert_eq!(valid["valid"], true);
+        assert_eq!(valid["diagnostics"].as_array().map(Vec::len), Some(0));
+
+        for (json, code, message) in [
+            (
+                include_str!("../../../tests/fixtures/data/big_o/invalid-syntax/index.json"),
+                "syntax",
+                "Invalid complexity expression: unexpected token in Big-O expression at byte 4",
+            ),
+            (
+                include_str!("../../../tests/fixtures/data/big_o/invalid-reference/index.json"),
+                "reference",
+                "Complexity variable `n` is not defined",
+            ),
+        ] {
+            let invalid = validate(json);
+            assert_eq!(invalid["valid"], false);
+            assert_eq!(invalid["diagnostics"][0]["code"], code);
+            assert_eq!(invalid["diagnostics"][0]["message"], message);
+            assert_eq!(invalid["diagnostics"][0]["path"], "aspect.computation[0].stages[0].complexity.bounds[0]");
+        }
     }
 }
 

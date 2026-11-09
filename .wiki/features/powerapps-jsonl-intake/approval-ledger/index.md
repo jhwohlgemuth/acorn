@@ -19,6 +19,22 @@ Add a separate, auditable review ledger between immutable contributor receipts a
 
 The operational SharePoint source list and individual receipt files are immutable by UUID. The existing exporter reads source rows through a captured item-ID cutoff and preserves the prior collected file on read/write uncertainty. Those properties are accepted and remain the safety baseline.
 
+On November 8, 2026, the TEST ONLY reviewer app draft generated a summary from a synthetic local fixture through `Summarize Reviewer Item TEST ONLY`; the flow's `Run a prompt` action succeeded. The app remains unpublished and fixture review does not write review-ledger rows. The materializer is Off. Its earlier rejection was caused by a `State` string comparison: SharePoint returns `State` as a choice object with `Value: "Draft"`. The saved guard now reads `State.Value`, retains the exact-one-row and closed-period checks, and passes Flow checker with zero errors and warnings. Corrected run `08584074345624719645844541435CU01` took the guard's yes branch and succeeded through the bounded source reads; no review rows were written. See [summary contract](../_assets/sharepoint/intake-approval/app/ai-summary-contract.md).
+
+The review-item scope is now saved in the TEST ONLY materializer. Empty-period run `08584074331870042769622156638CU28` reconciled zero source and review rows and marked batch `4aaece96-96dd-4df0-9f48-71350f514971` Ready with zero counts. The flow was returned to Off. This does not validate populated, paged, correction, retry, integrity-failure, or authorization cases. See [materialization acceptance](../_assets/sharepoint/intake-approval/storage/materialization-acceptance.md).
+
+The approved October 26 TEST ONLY run created six restricted review items under batch `aae6eba5-ea56-477d-abbe-93161e743866`; its first reconciliation rejected the populated batch. Guarded retries added no items. A diagnostic run compared all eleven fingerprint fields for all six source/review pairs successfully, while whole-array string equality failed. With the user's action-time approval, the saved scope was replaced with a generated version that normalizes numeric source item IDs to text and compares arrays of fingerprint strings. Run `08584074303517479023363906361CU00` succeeded. SharePoint now shows the batch Ready with source/item/unresolved counts of six and exactly six review-item rows. The materializer remains Off. See [materialization acceptance](../_assets/sharepoint/intake-approval/storage/materialization-acceptance.md).
+
+The batch creator reused the October 26 batch on an exact-period retry, rejected an overlapping period, and rejected a future period before lookup. A malformed start timestamp failed before batch creation. The user chose isolated TEST ONLY fixtures for correction, malformed payload, larger pagination, partial retry, and mutation cases. The copied source fixture list contains a synthetic root/correction pair. Fixture materializer run `08584074290834244800397373633CU25` reached Ready with source/item/unresolved counts of two; the correction review item retained its root and predecessor. A third synthetic row with a mismatched payload submission ID was rejected in run `08584074285640202835322304200CU26`; its batch stayed Draft and no review item was created. A Ready-batch retry initially failed at the batch-state guard. With the user's action-time approval, both materializers were repaired and saved with zero checker errors and warnings. Fixture retry run `08584074271372033577423346817CU21` succeeded through the Ready branch and skipped the source read. Both materializers are Off, and no operational source rows were altered. See [materialization acceptance](../_assets/sharepoint/intake-approval/storage/materialization-acceptance.md).
+
+The separate TEST ONLY seed flow was imported as `b83ff8ad-2ecf-44f1-9e4b-2d612bc76f78` and its 100-row run `08584074246986131369023945305CU02` succeeded through the explicit 100-response guard. The closed fixture batch `288f52db-78ae-43e5-8a40-c2e413e3b7b3` reached Ready in materializer run `08584074244989093229734115024CU20` with high-water ID 103 and source/item/unresolved counts of 100. The seed range was advanced to distinct UUIDs after user approval, and run `08584074241108200013464837542CU16` created and verified 5,000 reserved-example source rows. Materializer run `08584074235619154980944169987CU28` succeeded; the batch is Ready with high-water ID 5103 and source/item/unresolved counts of 5,000. The seed and fixture materializer flows are Off. A missing-parent correction fixture failed at `InvalidCorrectionGraphPA36A` before creating an item. See [materialization acceptance](../_assets/sharepoint/intake-approval/storage/materialization-acceptance.md).
+
+PA-36A and PA-36B are accepted on the TEST ONLY track. Materialization reconciled empty, six-row, correction, 100-row, and 5,000-row batches; rejected malformed payload and correction fixtures; reused partial rows without duplication; and returned an existing Ready result after an uncertain caller response. The materializers and seed flow are Off. Three imported Power Apps V2 read flows match the [read contract](../_assets/sharepoint/intake-approval/storage/read-contract.json), passed Flow checker, and remain On, owner-only, and unshared. The unpublished app listed five Ready batches, traversed all 5,000 IDs without a cursor gap or duplicate, stopped correctly on 100-row and empty batches, excluded an Approved/Valid row from Needs review while retaining its Unresolved correction, and displayed distinct decoded source and nonempty draft JSON with item ETag `"2"`. [Materialization acceptance](../_assets/sharepoint/intake-approval/storage/materialization-acceptance.md) and [read acceptance](../_assets/sharepoint/intake-approval/storage/read-acceptance.md) record run IDs and bounded identity/fault-injection limits. Mutation and late-arrival enforcement remain PA-37B finalization gates; revoked-reviewer write denial remains a PA-37 gate.
+
+PA-36C is accepted on the TEST ONLY track. The saved, unpublished reviewer now generates a suggestion from the selected original entry through `Summarize Reviewer Item TEST ONLY`, sends only the entry summary/items/category/state/event type/timestamp, and never sends submitter, source identifiers, ETags, saved draft, validation state, or decision. A live reserved-example review item and separate activity/status fixtures produced bounded factual suggestions. Discard cleared the result; Use suggestion changed only local app state and displayed `Applied locally (not saved)` while the saved draft, Approve decision, Valid state, and item ETag `"2"` remained unchanged. Switching to the correction item cleared the prior result before its read completed. Empty, over-12,000-character, empty/over-1,200-character response, stale-selection, and service-error states are present in the checker-clean formulas. App checker reported zero formula issues. The successful flow route is available, but external capacity failure was not injected and the future credit source/quota remain unknown. See [summary contract](../_assets/sharepoint/intake-approval/app/ai-summary-contract.md).
+
+PA-37 is accepted on the TEST ONLY track. The rebuilt atomic REST request advanced the fixture from ETag/version `"2"`/`2` to `"3"`/`3` with exact reread; an identical pre-save retry returned unchanged. Of two different requests using ETag/version `"3"`/`3`, writer A advanced the item to `"4"`/`4` and writer B returned conflict without writing. A lost-response retry reconciled unchanged, while invalid decision, exclude-without-reason, and Draft-batch requests all rejected without mutation. The owner-only reviewer group keeps revoked-reviewer denial as a bounded identity limit. The saved, unpublished app calls one compact JSON trigger input and live preview proved changed `Saved` (`"8"` to `"9"`), unchanged `Saved` at `"9"`, a second writer at `"10"`, stale-client `Conflict` with its local draft retained at `"9"`, and lost-response retry reconciliation at exact ETag `"11"` without another increment. Exclude-without-reason and transient service failures displayed `Failed` and retained local edits. On November 9 the selected TEST ONLY fixture batch was temporarily set to `Failed`; the app showed `Failed · This batch is locked. Your local draft is retained.` and kept the local summary, after which the batch was visibly restored to `Ready` with counts unchanged. See [save acceptance](../_assets/sharepoint/intake-approval/finalization/save-acceptance.md).
+
 Canvas Apps delegation is not sufficient for completeness-sensitive batch construction. Microsoft documents that nondelegable expressions process only a bounded local prefix. SharePoint `Get items` also has list-view and pagination constraints. Batch materialization and final completeness checks therefore belong in explicit Power Automate flows using indexed server-side filters, stable ordering, pagination, count reconciliation, and a captured high-water ID—not client-side `ClearCollect`, `GroupBy`, or nondelegable filters. See [Power Apps delegation](https://learn.microsoft.com/power-apps/maker/canvas-apps/delegation-overview) and [SharePoint Get items guidance](https://learn.microsoft.com/sharepoint/dev/business-apps/power-automate/guidance/working-with-get-items-and-get-files).
 
 # Data model
@@ -50,7 +66,7 @@ One `Review Item` row stores:
 |---|---|
 | `batchId` + `sourceItemId` | Unique source membership key. |
 | `sourceSubmissionId` | Immutable contributor UUID. |
-| `sourcePayload` / `sourceDigest` | Exact captured JSON and digest; never edited. |
+| `sourcePayloadBase64A/B` / `sourceETag` | Exact captured UTF-8 JSON encoding (split at 45,000 characters) and source SharePoint ETag; never edited. |
 | `sourceCreatedUtc` | Receipt `Created` instant used for period membership. |
 | `sourceRevisionRoot` / `sourceSupersedes` | Immutable correction ancestry. |
 | `draftProjection` | Structured reviewer draft; mutable only while batch is `Ready`. |
@@ -62,7 +78,7 @@ One `Review Item` row stores:
 | `approvedSupersedes` | Rewritten approved predecessor, when any. |
 | `validationState` / `validationErrors` | Bounded machine-readable result used by the app. |
 
-Store large/raw payloads in a private review library if list-column limits or run-history exposure make list storage unsafe; the schema contract must choose one representation before implementation. The app receives only fields required for the current page and never broad library access.
+The existing intake caps encoded receipts at 87,380 characters. Store the captured payload in two plain multiline list columns, as the operational receipt list already does, with a 45,000-character first part. The app receives only fields required for the current page and never broad list access. The user approved exact encoded-byte comparison and source ETag for PA-36A because the standard cloud-flow expression set has no SHA-256 function; do not label an encoding or ETag as a cryptographic digest. Later draft/finalization digest fields remain reserved until their phases select a supported implementation.
 
 # State and authorization contract
 
@@ -80,8 +96,8 @@ Any uncertain materialization/finalization result becomes `Failed` or remains in
 2. Create or resolve the idempotent batch key.
 3. Capture the current maximum source item ID.
 4. Enumerate source rows where `Created >= start`, `Created < end`, and `ID <= highWater`, ordered by ID, using indexed filters and explicit pagination.
-5. Validate each exact source payload and digest; create review items by unique membership key.
-6. Requery/count the same bounded source set and compare IDs, count, and digests with materialized items.
+5. Validate each exact source payload and capture its ETag; create review items by unique membership key.
+6. Requery/count the same bounded source set and compare IDs, count, ETags, and complete encoded payloads with materialized items.
 7. Mark `Ready` only when the complete set matches. Empty periods may become Ready with zero items, but finalization policy must explicitly permit or reject empty publication.
 
 New source rows after the high-water ID are not silently added. If a row with a `Created` value inside the closed interval arrives later, finalization's complete-source recheck blocks the batch and requires a new materialization/superseding batch decision.
@@ -99,7 +115,7 @@ Only after every included payload, mapping, count, and digest rereads exactly do
 - Two reviewers saving the same item: one succeeds; the stale ETag receives a conflict with current version and no silent last-writer-wins overwrite.
 - Duplicate materialization/finalization requests: return the existing state/result without duplicate rows or new UUIDs.
 - Flow timeout or lost response: reconcile by rereading batch/item state and digest before retry.
-- Source mutation: any digest change from the captured source is a terminal integrity failure; do not adopt new bytes silently.
+- Source mutation: any ETag or exact encoded-byte change from the captured source is a terminal integrity failure; do not adopt new bytes silently.
 - Late in-period source: block finalization and require a documented rematerialization decision.
 - Invalid correction graph: block the affected item and batch; never publish a dangling `supersedesSubmissionId`.
 - Reviewer loses group membership: the next flow call denies access; cached app data does not grant authority.
@@ -107,7 +123,7 @@ Only after every included payload, mapping, count, and digest rereads exactly do
 
 # Boundaries
 
-This plan owns TEST ONLY review lists/libraries, review flows, app data bindings, concurrency, finalization, and frozen projections. It does not modify the collected exporter, production source list, contributor app, ACORN schema, or local report renderer. The exporter plan consumes only Approved manifests and frozen bytes.
+This plan owns TEST ONLY review lists/libraries, review flows, app data bindings, concurrency, finalization, and frozen projections. The user authorized one narrow operational source-list metadata change for PA-36A: add an index on `Created`, which was absent on November 8, 2026. It does not modify source rows, the collected exporter, contributor app, ACORN schema, or local report renderer. The exporter plan consumes only Approved manifests and frozen bytes.
 
 # Acceptance criteria
 
@@ -122,56 +138,23 @@ This plan owns TEST ONLY review lists/libraries, review flows, app data bindings
 
 # Execution phases
 
-## PA-36 — Freeze review storage, state, and permission contracts
+## PA-37S — Bind batches to their materialization source
 
-- Status: planned
+- Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: PA-34; approved TEST ONLY SharePoint site/list/library destinations
-- Exact write set: `.wiki/features/powerapps-jsonl-intake/approval-ledger/index.md`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/storage/schema.json`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/storage/permissions.md`; TEST ONLY lists `Sponsor Highlights Review Batches TEST ONLY` and `Sponsor Highlights Review Items TEST ONLY`; TEST ONLY library `Sponsor Highlights Approved Projections TEST ONLY`
-- Primary integration lock: approval ledger schema
-- Outcome: Freeze columns, internal names, indexes, unique keys, state transitions, retention, payload location, reviewer/finalizer/exporter permissions, and audit fields.
-- Focused validation: Schema review against source payload sizes, SharePoint limits, least privilege, correction fields, app paging needs, and exporter consumption; prove contributors and unrelated site members cannot read review data.
-- Handoff: Preserve exported schemas, permissions, IDs, and a versioned state diagram. PA-36A and PA-35 may proceed independently.
-
-## PA-36A — Materialize complete closed-period batches
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: PA-36
-- Exact write set: TEST ONLY flows `Create Approval Batch TEST ONLY` and `Materialize Approval Batch TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/storage/materialization.json`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/storage/materialization-acceptance.md`
-- Primary integration lock: approval batch materialization
-- Outcome: Create idempotent closed-period batches, capture high-water ID, enumerate indexed/paged source rows, validate exact payloads, reconcile membership, and expose Ready only after complete materialization.
-- Focused validation: Invalid/open/future/overlapping periods, empty batch, 1/100/5,000 rows, multi-page reads, duplicate request, late arrival, malformed payload, changed source digest, timeout/retry, and unauthorized caller.
-- Handoff: Preserve flow definitions, query/index evidence, run IDs, counts, digests, and failure codes. No app read or editing is claimed.
-
-## PA-36B — Expose delegated review paging to the app
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: PA-36A; PA-35
-- Exact write set: TEST ONLY flows `List Approval Batches TEST ONLY`, `Read Approval Page TEST ONLY`, and `Read Approval Item TEST ONLY`; TEST ONLY app `Intake Approval TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/storage/read-contract.json`
-- Primary integration lock: approval app data binding
-- Outcome: Return bounded batch summaries, stable report-order pages, and one full selected item without client-side completeness assumptions or broad list permissions.
-- Focused validation: First/middle/last page, stable cursor, filter-to-problem, empty result, maximum batch, unauthorized caller, revoked membership, source/edited comparison, and no duplicate/missing item IDs.
-- Handoff: Freeze request/response schemas and delegation evidence for draft-save integration.
-
-## PA-37 — Save validated drafts with optimistic concurrency
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: PA-35B; PA-36B
-- Exact write set: TEST ONLY flow `Save Approval Item TEST ONLY`; TEST ONLY app `Intake Approval TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/finalization/save-contract.json`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/finalization/save-acceptance.md`
-- Primary integration lock: approval item concurrency
-- Outcome: Validate and save structured drafts/decisions with expected ETag, canonical digest, exact reread, debounced app status, and conflict recovery.
-- Focused validation: Changed/unchanged save, stale ETag, simultaneous reviewers, duplicate retry, lost response, invalid field combinations, excluded-without-reason, approved batch edit, and revoked reviewer.
-- Handoff: Preserve flow/app revisions, ETag traces, canonical draft examples, and conflict UX evidence. Finalization remains disabled.
+- Prerequisites: accepted TEST ONLY materialization evidence recorded in the current evidence
+- Exact write set: TEST ONLY list `Sponsor Highlights Review Batches TEST ONLY`; TEST ONLY flows `Materialize Approval Batch TEST ONLY` and `Materialize Approval Batch Fixture TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/storage/schema.json`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/storage/build-materialization.py`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/storage/build-source-binding.py`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/storage/source-binding-acceptance.md`
+- Primary integration lock: approval batch source binding
+- Outcome: Record one immutable trusted source-list ID on each batch when materialization starts, and backfill accepted TEST ONLY batches from their verified materialization flow histories.
+- Focused validation: Both materializers set the expected list ID, exact retries preserve it, all seven existing TEST ONLY batches have the correct binding, a mismatched source is rejected, and no operational source rows or exporter settings change.
+- Handoff: Preserve the schema and flow revisions, all seven batch bindings, run IDs, and mismatch rejection evidence for PA-37A/B.
 
 ## PA-37A — Freeze approval UUIDs and correction-safe projections
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: PA-37
-- Exact write set: TEST ONLY flow `Prepare Approval Finalization TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/finalization/projection-contract.json`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/finalization/correction-fixtures.jsonl`
+- Prerequisites: accepted TEST ONLY save evidence recorded in the current evidence; PA-37S
+- Exact write set: TEST ONLY flow `Prepare Approval Finalization TEST ONLY`; TEST ONLY library `Sponsor Highlights Approved Projections TEST ONLY` pending area; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/finalization/projection-contract.json`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/finalization/correction-fixtures.jsonl`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/finalization/projection-oracle.py`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/finalization/build-finalization.py`
 - Primary integration lock: approval projection identity
 - Outcome: Deterministically validate included drafts, assign stable approval UUIDs, build source-to-approved mappings, rewrite correction ancestry, and produce canonical candidate JSONL without committing batch visibility.
 - Focused validation: Byte-identical versus edited content, same-batch/prior-batch corrections, excluded root/descendant combinations, reordered source rows, duplicate retry, UUID collision, dangling/cyclic ancestry, activity/status validation, and deterministic bytes.
@@ -182,7 +165,7 @@ This plan owns TEST ONLY review lists/libraries, review flows, app data bindings
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: PA-37A
-- Exact write set: TEST ONLY flows `Finalize Approval Batch TEST ONLY` and `Read Approved Batch TEST ONLY`; TEST ONLY library `Sponsor Highlights Approved Projections TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/finalization/finalization-acceptance.md`
+- Exact write set: TEST ONLY flows `Finalize Approval Batch TEST ONLY` and `Read Approved Batch TEST ONLY`; TEST ONLY library `Sponsor Highlights Approved Projections TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/finalization/build-finalization.py`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/finalization/finalization-contract.json`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/finalization/finalization-acceptance.md`
 - Primary integration lock: approval finalization
 - Outcome: Recheck source completeness, acquire one finalization lease, freeze every included payload/mapping, reread exact bytes, reconcile counts/digest, and set Approved as the single visibility commit.
 - Focused validation: Complete/incomplete batch, late source, concurrent finalizers, timeout before/after writes, missing/corrupt frozen file, readback mismatch, duplicate finalization, empty batch policy, and unauthorized finalizer.

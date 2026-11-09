@@ -35,8 +35,8 @@ Durable evidence remains in the [SharePoint pilot](sharepoint-pilot.md), [native
 
 | Order | Plan | Stable phases | Remaining outcome |
 |---:|---|---|---|
-| 1 | [Shared intake and approval experience](approval-experience/index.md) | PA-34, PA-35, PA-39 and bounded suffix phases | Freeze one accessible interaction system, build the report-shaped reviewer workspace, and refit contributor intake to the same UI. |
-| 2 | [Approval ledger and finalization](approval-ledger/index.md) | PA-36, PA-37 and bounded suffix phases | Materialize complete closed-period batches, save concurrent drafts safely, and freeze auditable approval projections. |
+| 1 | [Shared intake and approval experience](approval-experience/index.md) | PA-39 and bounded suffix phases | PA-35B is accepted with remaining accessibility work deferred by user direction; refit contributor intake to the accepted shared UI. |
+| 2 | [Approval ledger and finalization](approval-ledger/index.md) | PA-37S, PA-37A, and PA-37B | Bind batches to their source list, freeze auditable approval projections, and commit complete batches after exact readback. |
 | 3 | [Approval-gated collected export](approval-export/index.md) | PA-38 and bounded suffix phases | Preserve the pre-approval baseline and extend the collected JSONL only with complete approved batches. |
 | 4 | [Approval pilot acceptance and cutover](approval-release/index.md) | PA-40, PA-41 and bounded suffix phases | Accept the end-to-end report-authoring workflow, then deploy both consistent apps and the approval gate with rollback. |
 | 5 | [Retained GitLab fallback hardening](gitlab-fallback-hardening/index.md) | PA-15, PA-16, PA-17 | Finish bounded-write, concurrency, and native-restore acceptance only in recreated isolated systems. |
@@ -44,7 +44,7 @@ Durable evidence remains in the [SharePoint pilot](sharepoint-pilot.md), [native
 
 # Dependency order
 
-PA-34 freezes the UI, accessibility, field-to-report, and preview contract. PA-35 and PA-36 may then proceed in parallel on separate TEST ONLY systems. PA-35A/PA-35B complete the report canvas while PA-36A/PA-36B complete batch materialization and reads. PA-37 joins those tracks and freezes review decisions. PA-38 consumes frozen approvals; PA-39 may refit the contributor app after the shared components and approval behavior are accepted. PA-40 joins approval, export, and contributor work for isolated acceptance. PA-41 performs the pilot cutover only after explicit operational approval. PA-12 remains blocked until PA-41A is accepted and a shared target, security groups, licensing, capacity, ownership, and notification destination are named.
+PA-34 froze the UI, accessibility, field-to-report, and preview contract; PA-35 delivered the fixture-only reviewer shell. PA-35A accepted the activity report canvas against an ACORN PDF; the PA-35C repair published shared library revision 1.0.1 and the reviewer adopted it. PA-35B accepted the status/correction experience, with all further accessibility features and checks deferred by user direction. PA-36 storage, PA-36A/36B TEST ONLY batch materialization and delegated reads, and PA-36C reviewer-triggered AI summaries are accepted. PA-37's compact binding, changed/unchanged/conflict/retry states, and non-Ready app-state check are accepted. PA-37S is binding each batch to its materialization source before PA-37A prepares projection identities and correction mappings. PA-38 consumes frozen approvals; PA-39 may refit the contributor app after the shared components and approval behavior are accepted. PA-40 joins approval, export, and contributor work for isolated acceptance. PA-41 performs the pilot cutover only after explicit operational approval. PA-12 remains blocked until PA-41A is accepted and a shared target, security groups, licensing, capacity, ownership, and notification destination are named.
 
 PA-15 through PA-17 are independent of the SharePoint approval path and do not block it. They remain useful only as fallback restoration evidence. The operational GitLab flows stay Off unless a separately authorized restoration decision follows accepted isolated evidence.
 
@@ -87,7 +87,7 @@ Rollback freezes the last verified collected file and disables further publicati
 
 The coordinated work is accepted only when:
 
-- both apps use the same published component revision and pass keyboard, screen-reader, contrast, focus, desktop, and 375-pixel checks;
+- both apps use the same published component revision and pass desktop and 375-pixel usability checks; further accessibility features and checks are deferred by user direction;
 - a reviewer can assemble a closed period from the report canvas without opening raw JSON or SharePoint list administration;
 - original, edited, excluded, correction, general-update, activity, and status-update fixtures produce the expected frozen projection;
 - app preview and actual ACORN PDF agree on content, order, grouping, visibility, report period, and project boundaries;

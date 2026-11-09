@@ -1,0 +1,1124 @@
+{
+  "id": "b89154af-b995-55f4-bb2a-6a8c6a5c5e7e",
+  "brandColor": "#8C6CFF",
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "connectionName": "shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "tier": "NotSpecified",
+      "apiName": "sharepointonline",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": true
+    }
+  },
+  "connectorDisplayName": "Control",
+  "isTrigger": false,
+  "operationName": "Batch_guard_PA36A",
+  "operationDefinition": {
+    "actions": {
+      "Ready_retry_PA36A": {
+        "type": "If",
+        "expression": {
+          "and": [
+            {
+              "equals": [
+                "@equals(first(body('Find_batch_mat_PA36A')?['value'])?['State']?['Value'],'Ready')",
+                true
+              ]
+            }
+          ]
+        },
+        "actions": {
+          "Existing_ready_result_PA36A": {
+            "type": "Compose",
+            "inputs": "@first(body('Find_batch_mat_PA36A')?['value'])"
+          },
+          "Complete_ready_retry_PA36A": {
+            "type": "Terminate",
+            "inputs": {
+              "runStatus": "Succeeded"
+            },
+            "runAfter": {
+              "Existing_ready_result_PA36A": [
+                "Succeeded"
+              ]
+            }
+          }
+        },
+        "else": {
+          "actions": {}
+        },
+        "runAfter": {}
+      },
+      "Read_latest_source_PA36A": {
+        "metadata": {
+          "operationMetadataId": "e5cffb03-8c4f-422a-9a05-f1dd2349f094"
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "table": "746cf260-a4d3-4c8f-ab98-d78fe4a9afa1",
+            "$orderby": "ID desc",
+            "$top": 1
+          },
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems"
+          },
+          "retryPolicy": {
+            "type": "none"
+          },
+          "authentication": {
+            "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']",
+            "type": "Raw"
+          }
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs"
+            ]
+          }
+        },
+        "runAfter": {
+          "Ready_retry_PA36A": [
+            "Succeeded"
+          ]
+        }
+      },
+      "High_water_PA36A": {
+        "runAfter": {
+          "Read_latest_source_PA36A": [
+            "Succeeded"
+          ]
+        },
+        "metadata": {
+          "operationMetadataId": "3e69372c-b10c-43da-a0e1-6630f14c9cc2"
+        },
+        "type": "Compose",
+        "inputs": "@if(equals(first(body('Find_batch_mat_PA36A')?['value'])?['SourceHighWaterId'],null), if(empty(body('Read_latest_source_PA36A')?['value']), 0, first(body('Read_latest_source_PA36A')?['value'])?['ID']), first(body('Find_batch_mat_PA36A')?['value'])?['SourceHighWaterId'])",
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs"
+            ]
+          }
+        }
+      },
+      "Read_bounded_source_PA36A": {
+        "runAfter": {
+          "High_water_PA36A": [
+            "Succeeded"
+          ]
+        },
+        "metadata": {
+          "operationMetadataId": "fad582d0-4774-4b71-b982-c934e8dfd0f1"
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "table": "746cf260-a4d3-4c8f-ab98-d78fe4a9afa1",
+            "$filter": "@concat('Created ge ', decodeUriComponent('%27'), first(body('Find_batch_mat_PA36A')?['value'])?['PeriodStartUtc'], decodeUriComponent('%27'), ' and Created lt ', decodeUriComponent('%27'), first(body('Find_batch_mat_PA36A')?['value'])?['PeriodEndUtc'], decodeUriComponent('%27'), ' and ID le ', string(outputs('High_water_PA36A')))",
+            "$orderby": "ID asc",
+            "$top": 5001
+          },
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems"
+          },
+          "retryPolicy": {
+            "type": "none"
+          },
+          "authentication": {
+            "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']",
+            "type": "Raw"
+          }
+        },
+        "runtimeConfiguration": {
+          "paginationPolicy": {
+            "minimumItemCount": 5001
+          },
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Source_count_PA36A": {
+        "runAfter": {
+          "Read_bounded_source_PA36A": [
+            "Succeeded"
+          ]
+        },
+        "metadata": {
+          "operationMetadataId": "8352b16e-47ef-483a-abe3-f688eb00af95"
+        },
+        "type": "Compose",
+        "inputs": "@length(body('Read_bounded_source_PA36A')?['value'])",
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs"
+            ]
+          }
+        }
+      },
+      "Source_limit_PA36A": {
+        "actions": {
+          "Source_probe_PA36A": {
+            "metadata": {
+              "operationMetadataId": "b8761e80-6659-4930-a360-d0725f880555"
+            },
+            "type": "Compose",
+            "inputs": "@concat('bounded source rows=', string(outputs('Source_count_PA36A')), '; high water=', string(outputs('High_water_PA36A')))",
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs"
+                ]
+              }
+            }
+          },
+          "Materialize_review_items_PA36A": {
+            "actions": {
+              "Invalid_source_rows_PA36A": {
+                "metadata": {
+                  "operationMetadataId": "6fc3fa5f-a10e-49fe-8e7f-15c6ea8b8f8e"
+                },
+                "type": "Query",
+                "inputs": {
+                  "from": "@body('Read_bounded_source_PA36A')?['value']",
+                  "where": "@or(equals(item()?['ID'], null), empty(item()?['Created']), empty(item()?['SubmissionId']), empty(item()?['ProjectId']), empty(item()?['PayloadBase64A']), empty(item()?['@odata.etag']), greater(length(concat(coalesce(item()?['PayloadBase64A'], substring('x', 0, 0)), coalesce(item()?['PayloadBase64B'], substring('x', 0, 0)))), 87380), not(equals(json(base64ToString(concat(coalesce(item()?['PayloadBase64A'], substring('x', 0, 0)), coalesce(item()?['PayloadBase64B'], substring('x', 0, 0)))))?['submissionId'], item()?['SubmissionId'])), not(equals(json(base64ToString(concat(coalesce(item()?['PayloadBase64A'], substring('x', 0, 0)), coalesce(item()?['PayloadBase64B'], substring('x', 0, 0)))))?['projectId'], item()?['ProjectId'])), empty(json(base64ToString(concat(coalesce(item()?['PayloadBase64A'], substring('x', 0, 0)), coalesce(item()?['PayloadBase64B'], substring('x', 0, 0)))))?['entry']?['summary']), and(not(empty(json(base64ToString(concat(coalesce(item()?['PayloadBase64A'], substring('x', 0, 0)), coalesce(item()?['PayloadBase64B'], substring('x', 0, 0)))))?['revision'])), or(empty(json(base64ToString(concat(coalesce(item()?['PayloadBase64A'], substring('x', 0, 0)), coalesce(item()?['PayloadBase64B'], substring('x', 0, 0)))))?['revision']?['rootSubmissionId']), empty(json(base64ToString(concat(coalesce(item()?['PayloadBase64A'], substring('x', 0, 0)), coalesce(item()?['PayloadBase64B'], substring('x', 0, 0)))))?['revision']?['supersedesSubmissionId']), equals(json(base64ToString(concat(coalesce(item()?['PayloadBase64A'], substring('x', 0, 0)), coalesce(item()?['PayloadBase64B'], substring('x', 0, 0)))))?['revision']?['supersedesSubmissionId'], item()?['SubmissionId']))))"
+                },
+                "runtimeConfiguration": {
+                  "secureData": {
+                    "properties": [
+                      "inputs",
+                      "outputs"
+                    ]
+                  }
+                }
+              },
+              "Source_valid_PA36A": {
+                "actions": {
+                  "Corrections_PA36A": {
+                    "metadata": {
+                      "operationMetadataId": "9a5401a3-932d-4617-b74b-1ce25dc6f8ef"
+                    },
+                    "type": "Query",
+                    "inputs": {
+                      "from": "@body('Read_bounded_source_PA36A')?['value']",
+                      "where": "@not(empty(json(base64ToString(concat(coalesce(item()?['PayloadBase64A'], substring('x', 0, 0)), coalesce(item()?['PayloadBase64B'], substring('x', 0, 0)))))?['revision']?['supersedesSubmissionId']))"
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Check_corrections_PA36A": {
+                    "foreach": "@body('Corrections_PA36A')",
+                    "actions": {
+                      "Find_parent_PA36A": {
+                        "metadata": {
+                          "operationMetadataId": "c517918e-ab31-4673-8682-07b6d89e85b5"
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                            "table": "746cf260-a4d3-4c8f-ab98-d78fe4a9afa1",
+                            "$filter": "@concat('SubmissionId eq ', decodeUriComponent('%27'), json(base64ToString(concat(coalesce(item()?['PayloadBase64A'], substring('x', 0, 0)), coalesce(item()?['PayloadBase64B'], substring('x', 0, 0)))))?['revision']?['supersedesSubmissionId'], decodeUriComponent('%27'))",
+                            "$top": 2
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                            "connectionName": "shared_sharepointonline",
+                            "operationId": "GetItems"
+                          },
+                          "retryPolicy": {
+                            "type": "none"
+                          },
+                          "authentication": {
+                            "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']",
+                            "type": "Raw"
+                          }
+                        },
+                        "runtimeConfiguration": {
+                          "secureData": {
+                            "properties": [
+                              "inputs",
+                              "outputs"
+                            ]
+                          }
+                        }
+                      },
+                      "Parent_valid_PA36A": {
+                        "actions": {},
+                        "runAfter": {
+                          "Find_parent_PA36A": [
+                            "Succeeded"
+                          ]
+                        },
+                        "else": {
+                          "actions": {
+                            "InvalidCorrectionGraphPA36A": {
+                              "metadata": {
+                                "operationMetadataId": "6fe7da78-5457-49d1-9baf-d5200fc08740"
+                              },
+                              "type": "Compose",
+                              "inputs": "@json('InvalidCorrectionGraphPA36A')"
+                            }
+                          }
+                        },
+                        "expression": {
+                          "and": [
+                            {
+                              "equals": [
+                                "@length(body('Find_parent_PA36A')?['value'])",
+                                1
+                              ]
+                            },
+                            {
+                              "less": [
+                                "@first(body('Find_parent_PA36A')?['value'])?['ID']",
+                                "@item()?['ID']"
+                              ]
+                            },
+                            {
+                              "equals": [
+                                "@coalesce(json(base64ToString(concat(coalesce(first(body('Find_parent_PA36A')?['value'])?['PayloadBase64A'], substring('x', 0, 0)), coalesce(first(body('Find_parent_PA36A')?['value'])?['PayloadBase64B'], substring('x', 0, 0)))))?['revision']?['rootSubmissionId'], first(body('Find_parent_PA36A')?['value'])?['SubmissionId'])",
+                                "@json(base64ToString(concat(coalesce(item()?['PayloadBase64A'], substring('x', 0, 0)), coalesce(item()?['PayloadBase64B'], substring('x', 0, 0)))))?['revision']?['rootSubmissionId']"
+                              ]
+                            }
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "91fd56d4-ec8d-41fb-bbb6-3ca2e54daa74"
+                        },
+                        "type": "If"
+                      }
+                    },
+                    "runAfter": {
+                      "Corrections_PA36A": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "84a659cb-3859-4361-8a0d-40761a5a4347"
+                    },
+                    "type": "Foreach",
+                    "runtimeConfiguration": {
+                      "concurrency": {
+                        "repetitions": 1
+                      }
+                    }
+                  },
+                  "Read_existing_items_PA36A": {
+                    "runAfter": {
+                      "Check_corrections_PA36A": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "3a4059a9-b8a3-4c33-80b5-f550cca3ae9b"
+                    },
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                        "table": "47c8f476-1a5e-4658-9380-39bec3671a24",
+                        "$filter": "@concat('BatchId eq ', decodeUriComponent('%27'), triggerBody()?['text'], decodeUriComponent('%27'))",
+                        "$orderby": "SourceItemId asc",
+                        "$top": 5001
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "connectionName": "shared_sharepointonline",
+                        "operationId": "GetItems"
+                      },
+                      "retryPolicy": {
+                        "type": "none"
+                      },
+                      "authentication": {
+                        "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']",
+                        "type": "Raw"
+                      }
+                    },
+                    "runtimeConfiguration": {
+                      "paginationPolicy": {
+                        "minimumItemCount": 5001
+                      },
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Select_source_before_PA36A": {
+                    "runAfter": {
+                      "Read_existing_items_PA36A": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "56492c3e-154e-4ac0-944a-5042cc9ff2c1"
+                    },
+                    "type": "Select",
+                    "inputs": {
+                      "from": "@body('Read_bounded_source_PA36A')?['value']",
+                      "select": {
+                        "key": "@concat(triggerBody()?['text'], '|', item()?['SubmissionId'])",
+                        "sourceItemId": "@item()?['ID']",
+                        "submissionId": "@item()?['SubmissionId']",
+                        "payloadA": "@item()?['PayloadBase64A']",
+                        "payloadB": "@coalesce(item()?['PayloadBase64B'], substring('x', 0, 0))",
+                        "etag": "@item()?['@odata.etag']",
+                        "createdTicks": "@ticks(item()?['Created'])",
+                        "projectId": "@item()?['ProjectId']",
+                        "sortKey": "@concat(item()?['ProjectId'], '|', formatDateTime(item()?['Created'], 'yyyyMMddHHmmssfffffff'), '|', item()?['SubmissionId'])",
+                        "revisionRoot": "@coalesce(json(base64ToString(concat(coalesce(item()?['PayloadBase64A'], substring('x', 0, 0)), coalesce(item()?['PayloadBase64B'], substring('x', 0, 0)))))?['revision']?['rootSubmissionId'], substring('x', 0, 0))",
+                        "supersedes": "@coalesce(json(base64ToString(concat(coalesce(item()?['PayloadBase64A'], substring('x', 0, 0)), coalesce(item()?['PayloadBase64B'], substring('x', 0, 0)))))?['revision']?['supersedesSubmissionId'], substring('x', 0, 0))"
+                      }
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Select_existing_before_PA36A": {
+                    "runAfter": {
+                      "Select_source_before_PA36A": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "4b5e6b78-1789-4e65-a657-5293eccbdafb"
+                    },
+                    "type": "Select",
+                    "inputs": {
+                      "from": "@body('Read_existing_items_PA36A')?['value']",
+                      "select": {
+                        "key": "@item()?['MembershipKey']",
+                        "sourceItemId": "@item()?['SourceItemId']",
+                        "submissionId": "@item()?['SourceSubmissionId']",
+                        "payloadA": "@item()?['SourcePayloadBase64A']",
+                        "payloadB": "@coalesce(item()?['SourcePayloadBase64B'], substring('x', 0, 0))",
+                        "etag": "@item()?['SourceETag']",
+                        "createdTicks": "@ticks(item()?['SourceCreatedUtc'])",
+                        "projectId": "@item()?['ProjectId']",
+                        "sortKey": "@item()?['ReportSortKey']",
+                        "revisionRoot": "@coalesce(item()?['SourceRevisionRoot'], substring('x', 0, 0))",
+                        "supersedes": "@coalesce(item()?['SourceSupersedes'], substring('x', 0, 0))"
+                      }
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Select_source_before_text_PA36A": {
+                    "runAfter": {
+                      "Select_existing_before_PA36A": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "caec9959-91f4-4531-838d-9b028a58851f"
+                    },
+                    "type": "Select",
+                    "inputs": {
+                      "from": "@body('Select_source_before_PA36A')",
+                      "select": "@string(setProperty(item(), 'sourceItemId', string(item()?['sourceItemId'])))"
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Select_existing_before_text_PA36A": {
+                    "runAfter": {
+                      "Select_source_before_text_PA36A": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "52b5a95c-3045-4616-a4f1-037ac8bf76b8"
+                    },
+                    "type": "Select",
+                    "inputs": {
+                      "from": "@body('Select_existing_before_PA36A')",
+                      "select": "@string(setProperty(item(), 'sourceItemId', string(item()?['sourceItemId'])))"
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Existing_subset_PA36A": {
+                    "actions": {
+                      "Mark_materializing_PA36A": {
+                        "metadata": {
+                          "operationMetadataId": "7c7607a0-fe4f-4747-83af-e66cc3ae437d"
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                            "table": "2f405310-4681-40db-99ff-1bafd4b90676",
+                            "id": "@first(body('Find_batch_mat_PA36A')?['value'])?['ID']",
+                            "item/BatchId": "@first(body('Find_batch_mat_PA36A')?['value'])?['BatchId']",
+                            "item/PeriodKey": "@first(body('Find_batch_mat_PA36A')?['value'])?['PeriodKey']",
+                            "item/PolicyRevision": "@first(body('Find_batch_mat_PA36A')?['value'])?['PolicyRevision']",
+                            "item/PeriodStartUtc": "@first(body('Find_batch_mat_PA36A')?['value'])?['PeriodStartUtc']",
+                            "item/PeriodEndUtc": "@first(body('Find_batch_mat_PA36A')?['value'])?['PeriodEndUtc']",
+                            "item/CreatedByEmail": "@first(body('Find_batch_mat_PA36A')?['value'])?['CreatedByEmail']",
+                            "item/Title": "@first(body('Find_batch_mat_PA36A')?['value'])?['Title']",
+                            "item/State/Value": "Materializing",
+                            "item/SourceHighWaterId": "@outputs('High_water_PA36A')",
+                            "item/SourceCount": "@outputs('Source_count_PA36A')",
+                            "item/MaterializationRunId": "@workflow()?['run']?['name']"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                            "connectionName": "shared_sharepointonline",
+                            "operationId": "PatchItem"
+                          },
+                          "retryPolicy": {
+                            "type": "none"
+                          },
+                          "authentication": {
+                            "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']",
+                            "type": "Raw"
+                          }
+                        },
+                        "runtimeConfiguration": {
+                          "secureData": {
+                            "properties": [
+                              "inputs",
+                              "outputs"
+                            ]
+                          }
+                        }
+                      },
+                      "Select_existing_keys_PA36A": {
+                        "runAfter": {
+                          "Mark_materializing_PA36A": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "b92fb358-5034-444d-8acd-4b6f9faae1af"
+                        },
+                        "type": "Select",
+                        "inputs": {
+                          "from": "@body('Read_existing_items_PA36A')?['value']",
+                          "select": "@item()?['MembershipKey']"
+                        },
+                        "runtimeConfiguration": {
+                          "secureData": {
+                            "properties": [
+                              "inputs",
+                              "outputs"
+                            ]
+                          }
+                        }
+                      },
+                      "Missing_source_rows_PA36A": {
+                        "runAfter": {
+                          "Select_existing_keys_PA36A": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "45cc380f-14c2-4970-9f46-31968734a037"
+                        },
+                        "type": "Query",
+                        "inputs": {
+                          "from": "@body('Read_bounded_source_PA36A')?['value']",
+                          "where": "@not(contains(body('Select_existing_keys_PA36A'), concat(triggerBody()?['text'], '|', item()?['SubmissionId'])))"
+                        },
+                        "runtimeConfiguration": {
+                          "secureData": {
+                            "properties": [
+                              "inputs",
+                              "outputs"
+                            ]
+                          }
+                        }
+                      },
+                      "Create_missing_items_PA36A": {
+                        "foreach": "@body('Missing_source_rows_PA36A')",
+                        "actions": {
+                          "Create_review_item_PA36A": {
+                            "metadata": {
+                              "operationMetadataId": "9e201c6e-af57-4820-a98c-45cbb30eabc5"
+                            },
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "parameters": {
+                                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                "table": "47c8f476-1a5e-4658-9380-39bec3671a24",
+                                "item/MembershipKey": "@concat(triggerBody()?['text'], '|', item()?['SubmissionId'])",
+                                "item/BatchId": "@triggerBody()?['text']",
+                                "item/SourceItemId": "@item()?['ID']",
+                                "item/SourceSubmissionId": "@item()?['SubmissionId']",
+                                "item/SourcePayloadBase64A": "@item()?['PayloadBase64A']",
+                                "item/SourceETag": "@item()?['@odata.etag']",
+                                "item/SourceCreatedUtc": "@item()?['Created']",
+                                "item/ProjectId": "@item()?['ProjectId']",
+                                "item/ReportSortKey": "@concat(item()?['ProjectId'], '|', formatDateTime(item()?['Created'], 'yyyyMMddHHmmssfffffff'), '|', item()?['SubmissionId'])",
+                                "item/DraftVersion": 1,
+                                "item/Title": "@concat(triggerBody()?['text'], '|', item()?['SubmissionId'])",
+                                "item/Decision/Value": "Unresolved",
+                                "item/ValidationState/Value": "Valid",
+                                "item/SourcePayloadBase64B": "@coalesce(item()?['PayloadBase64B'], substring('x', 0, 0))",
+                                "item/SourceRevisionRoot": "@coalesce(json(base64ToString(concat(coalesce(item()?['PayloadBase64A'], substring('x', 0, 0)), coalesce(item()?['PayloadBase64B'], substring('x', 0, 0)))))?['revision']?['rootSubmissionId'], substring('x', 0, 0))",
+                                "item/SourceSupersedes": "@coalesce(json(base64ToString(concat(coalesce(item()?['PayloadBase64A'], substring('x', 0, 0)), coalesce(item()?['PayloadBase64B'], substring('x', 0, 0)))))?['revision']?['supersedesSubmissionId'], substring('x', 0, 0))"
+                              },
+                              "host": {
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                "connectionName": "shared_sharepointonline",
+                                "operationId": "PostItem"
+                              },
+                              "retryPolicy": {
+                                "type": "none"
+                              },
+                              "authentication": {
+                                "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']",
+                                "type": "Raw"
+                              }
+                            },
+                            "runtimeConfiguration": {
+                              "secureData": {
+                                "properties": [
+                                  "inputs",
+                                  "outputs"
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "runAfter": {
+                          "Missing_source_rows_PA36A": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "ed3b3233-8d9d-454f-bdbe-40e579eae1f9"
+                        },
+                        "type": "Foreach",
+                        "runtimeConfiguration": {
+                          "concurrency": {
+                            "repetitions": 1
+                          }
+                        }
+                      },
+                      "Read_source_again_PA36A": {
+                        "runAfter": {
+                          "Create_missing_items_PA36A": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "ccaf5c05-a549-44f1-95de-585b5b6627d0"
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                            "table": "746cf260-a4d3-4c8f-ab98-d78fe4a9afa1",
+                            "$filter": "@concat('Created ge ', decodeUriComponent('%27'), first(body('Find_batch_mat_PA36A')?['value'])?['PeriodStartUtc'], decodeUriComponent('%27'), ' and Created lt ', decodeUriComponent('%27'), first(body('Find_batch_mat_PA36A')?['value'])?['PeriodEndUtc'], decodeUriComponent('%27'), ' and ID le ', string(outputs('High_water_PA36A')))",
+                            "$orderby": "ID asc",
+                            "$top": 5001
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                            "connectionName": "shared_sharepointonline",
+                            "operationId": "GetItems"
+                          },
+                          "retryPolicy": {
+                            "type": "none"
+                          },
+                          "authentication": {
+                            "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']",
+                            "type": "Raw"
+                          }
+                        },
+                        "runtimeConfiguration": {
+                          "paginationPolicy": {
+                            "minimumItemCount": 5001
+                          },
+                          "secureData": {
+                            "properties": [
+                              "inputs",
+                              "outputs"
+                            ]
+                          }
+                        }
+                      },
+                      "Read_items_again_PA36A": {
+                        "runAfter": {
+                          "Read_source_again_PA36A": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "72bc2289-23e7-4533-b3c1-2abf37ee37fb"
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                            "table": "47c8f476-1a5e-4658-9380-39bec3671a24",
+                            "$filter": "@concat('BatchId eq ', decodeUriComponent('%27'), triggerBody()?['text'], decodeUriComponent('%27'))",
+                            "$orderby": "SourceItemId asc",
+                            "$top": 5001
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                            "connectionName": "shared_sharepointonline",
+                            "operationId": "GetItems"
+                          },
+                          "retryPolicy": {
+                            "type": "none"
+                          },
+                          "authentication": {
+                            "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']",
+                            "type": "Raw"
+                          }
+                        },
+                        "runtimeConfiguration": {
+                          "paginationPolicy": {
+                            "minimumItemCount": 5001
+                          },
+                          "secureData": {
+                            "properties": [
+                              "inputs",
+                              "outputs"
+                            ]
+                          }
+                        }
+                      },
+                      "Select_source_again_PA36A": {
+                        "runAfter": {
+                          "Read_items_again_PA36A": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "bea4832d-1e4c-4d66-93b5-6a887af08482"
+                        },
+                        "type": "Select",
+                        "inputs": {
+                          "from": "@body('Read_source_again_PA36A')?['value']",
+                          "select": {
+                            "key": "@concat(triggerBody()?['text'], '|', item()?['SubmissionId'])",
+                            "sourceItemId": "@item()?['ID']",
+                            "submissionId": "@item()?['SubmissionId']",
+                            "payloadA": "@item()?['PayloadBase64A']",
+                            "payloadB": "@coalesce(item()?['PayloadBase64B'], substring('x', 0, 0))",
+                            "etag": "@item()?['@odata.etag']",
+                            "createdTicks": "@ticks(item()?['Created'])",
+                            "projectId": "@item()?['ProjectId']",
+                            "sortKey": "@concat(item()?['ProjectId'], '|', formatDateTime(item()?['Created'], 'yyyyMMddHHmmssfffffff'), '|', item()?['SubmissionId'])",
+                            "revisionRoot": "@coalesce(json(base64ToString(concat(coalesce(item()?['PayloadBase64A'], substring('x', 0, 0)), coalesce(item()?['PayloadBase64B'], substring('x', 0, 0)))))?['revision']?['rootSubmissionId'], substring('x', 0, 0))",
+                            "supersedes": "@coalesce(json(base64ToString(concat(coalesce(item()?['PayloadBase64A'], substring('x', 0, 0)), coalesce(item()?['PayloadBase64B'], substring('x', 0, 0)))))?['revision']?['supersedesSubmissionId'], substring('x', 0, 0))"
+                          }
+                        },
+                        "runtimeConfiguration": {
+                          "secureData": {
+                            "properties": [
+                              "inputs",
+                              "outputs"
+                            ]
+                          }
+                        }
+                      },
+                      "Select_items_again_PA36A": {
+                        "runAfter": {
+                          "Select_source_again_PA36A": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "5aafb2ff-4755-49b1-8e1e-8f79283a9a56"
+                        },
+                        "type": "Select",
+                        "inputs": {
+                          "from": "@body('Read_items_again_PA36A')?['value']",
+                          "select": {
+                            "key": "@item()?['MembershipKey']",
+                            "sourceItemId": "@item()?['SourceItemId']",
+                            "submissionId": "@item()?['SourceSubmissionId']",
+                            "payloadA": "@item()?['SourcePayloadBase64A']",
+                            "payloadB": "@coalesce(item()?['SourcePayloadBase64B'], substring('x', 0, 0))",
+                            "etag": "@item()?['SourceETag']",
+                            "createdTicks": "@ticks(item()?['SourceCreatedUtc'])",
+                            "projectId": "@item()?['ProjectId']",
+                            "sortKey": "@item()?['ReportSortKey']",
+                            "revisionRoot": "@coalesce(item()?['SourceRevisionRoot'], substring('x', 0, 0))",
+                            "supersedes": "@coalesce(item()?['SourceSupersedes'], substring('x', 0, 0))"
+                          }
+                        },
+                        "runtimeConfiguration": {
+                          "secureData": {
+                            "properties": [
+                              "inputs",
+                              "outputs"
+                            ]
+                          }
+                        }
+                      },
+                      "Select_source_again_text_PA36A": {
+                        "runAfter": {
+                          "Select_items_again_PA36A": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "f9f6beb7-bb6d-4f92-9229-3af2770684dd"
+                        },
+                        "type": "Select",
+                        "inputs": {
+                          "from": "@body('Select_source_again_PA36A')",
+                          "select": "@string(setProperty(item(), 'sourceItemId', string(item()?['sourceItemId'])))"
+                        },
+                        "runtimeConfiguration": {
+                          "secureData": {
+                            "properties": [
+                              "inputs",
+                              "outputs"
+                            ]
+                          }
+                        }
+                      },
+                      "Select_items_again_text_PA36A": {
+                        "runAfter": {
+                          "Select_source_again_text_PA36A": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "8dadcdda-55e3-4aa5-ae47-ee90a1cfc22d"
+                        },
+                        "type": "Select",
+                        "inputs": {
+                          "from": "@body('Select_items_again_PA36A')",
+                          "select": "@string(setProperty(item(), 'sourceItemId', string(item()?['sourceItemId'])))"
+                        },
+                        "runtimeConfiguration": {
+                          "secureData": {
+                            "properties": [
+                              "inputs",
+                              "outputs"
+                            ]
+                          }
+                        }
+                      },
+                      "Reconciled_PA36A": {
+                        "actions": {
+                          "Mark_ready_PA36A": {
+                            "metadata": {
+                              "operationMetadataId": "8f0ae6df-6b54-41fa-94b9-8cf82f9a0598"
+                            },
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "parameters": {
+                                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                "table": "2f405310-4681-40db-99ff-1bafd4b90676",
+                                "id": "@first(body('Find_batch_mat_PA36A')?['value'])?['ID']",
+                                "item/BatchId": "@first(body('Find_batch_mat_PA36A')?['value'])?['BatchId']",
+                                "item/PeriodKey": "@first(body('Find_batch_mat_PA36A')?['value'])?['PeriodKey']",
+                                "item/PolicyRevision": "@first(body('Find_batch_mat_PA36A')?['value'])?['PolicyRevision']",
+                                "item/PeriodStartUtc": "@first(body('Find_batch_mat_PA36A')?['value'])?['PeriodStartUtc']",
+                                "item/PeriodEndUtc": "@first(body('Find_batch_mat_PA36A')?['value'])?['PeriodEndUtc']",
+                                "item/CreatedByEmail": "@first(body('Find_batch_mat_PA36A')?['value'])?['CreatedByEmail']",
+                                "item/Title": "@first(body('Find_batch_mat_PA36A')?['value'])?['Title']",
+                                "item/State/Value": "Ready",
+                                "item/SourceHighWaterId": "@outputs('High_water_PA36A')",
+                                "item/SourceCount": "@outputs('Source_count_PA36A')",
+                                "item/MaterializedAtUtc": "@utcNow()",
+                                "item/ItemCount": "@outputs('Source_count_PA36A')",
+                                "item/ApprovedCount": 0,
+                                "item/ExcludedCount": 0,
+                                "item/UnresolvedCount": "@outputs('Source_count_PA36A')",
+                                "item/MaterializationRunId": "@workflow()?['run']?['name']"
+                              },
+                              "host": {
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                "connectionName": "shared_sharepointonline",
+                                "operationId": "PatchItem"
+                              },
+                              "retryPolicy": {
+                                "type": "none"
+                              },
+                              "authentication": {
+                                "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']",
+                                "type": "Raw"
+                              }
+                            },
+                            "runtimeConfiguration": {
+                              "secureData": {
+                                "properties": [
+                                  "inputs",
+                                  "outputs"
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "runAfter": {
+                          "Select_items_again_text_PA36A": [
+                            "Succeeded"
+                          ]
+                        },
+                        "else": {
+                          "actions": {
+                            "SourceOrItemsChangedPA36A": {
+                              "metadata": {
+                                "operationMetadataId": "a012c716-9f4a-472c-bbf9-42aab113ad03"
+                              },
+                              "type": "Terminate",
+                              "inputs": {
+                                "runStatus": "Failed",
+                                "runError": {
+                                  "code": "SourceOrItemsChangedPA36A",
+                                  "message": "Source ETag, exact encoded payload, or membership changed during materialization."
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "expression": {
+                          "and": [
+                            {
+                              "equals": [
+                                "@length(body('Select_source_again_PA36A'))",
+                                "@outputs('Source_count_PA36A')"
+                              ]
+                            },
+                            {
+                              "equals": [
+                                "@length(body('Select_items_again_PA36A'))",
+                                "@outputs('Source_count_PA36A')"
+                              ]
+                            },
+                            {
+                              "equals": [
+                                "@body('Select_source_again_text_PA36A')",
+                                "@body('Select_source_before_text_PA36A')"
+                              ]
+                            },
+                            {
+                              "equals": [
+                                "@length(intersection(body('Select_source_again_text_PA36A'), body('Select_items_again_text_PA36A')))",
+                                "@outputs('Source_count_PA36A')"
+                              ]
+                            }
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "7c6aca31-061c-4c9e-88d6-ea0d000c955b"
+                        },
+                        "type": "If"
+                      }
+                    },
+                    "runAfter": {
+                      "Select_existing_before_text_PA36A": [
+                        "Succeeded"
+                      ]
+                    },
+                    "else": {
+                      "actions": {
+                        "ExistingReviewMismatchPA36A": {
+                          "metadata": {
+                            "operationMetadataId": "7dc88918-3545-468f-9eea-1473ac85fd63"
+                          },
+                          "type": "Terminate",
+                          "inputs": {
+                            "runStatus": "Failed",
+                            "runError": {
+                              "code": "ExistingReviewMismatchPA36A",
+                              "message": "Existing review items differ from captured source bytes/ETags."
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "expression": {
+                      "and": [
+                        {
+                          "lessOrEquals": [
+                            "@length(body('Select_existing_before_PA36A'))",
+                            "@outputs('Source_count_PA36A')"
+                          ]
+                        },
+                        {
+                          "equals": [
+                            "@length(intersection(body('Select_existing_before_text_PA36A'), body('Select_source_before_text_PA36A')))",
+                            "@length(body('Select_existing_before_PA36A'))"
+                          ]
+                        }
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "20bf6599-8870-4d22-92b7-2573b07728bd"
+                    },
+                    "type": "If"
+                  }
+                },
+                "runAfter": {
+                  "Invalid_source_rows_PA36A": [
+                    "Succeeded"
+                  ]
+                },
+                "else": {
+                  "actions": {
+                    "InvalidSourcePayloadPA36A": {
+                      "metadata": {
+                        "operationMetadataId": "8f7ca535-8639-4763-aaed-f72be9b2eb23"
+                      },
+                      "type": "Terminate",
+                      "inputs": {
+                        "runStatus": "Failed",
+                        "runError": {
+                          "code": "InvalidSourcePayloadPA36A",
+                          "message": "Source rows are malformed, inconsistent, or exceed the bounded count."
+                        }
+                      }
+                    }
+                  }
+                },
+                "expression": {
+                  "and": [
+                    {
+                      "equals": [
+                        "@length(body('Invalid_source_rows_PA36A'))",
+                        0
+                      ]
+                    },
+                    {
+                      "lessOrEquals": [
+                        "@outputs('Source_count_PA36A')",
+                        5000
+                      ]
+                    }
+                  ]
+                },
+                "metadata": {
+                  "operationMetadataId": "30623647-7607-4283-b7d4-fb666663c387"
+                },
+                "type": "If"
+              }
+            },
+            "runAfter": {
+              "Source_probe_PA36A": [
+                "Succeeded"
+              ]
+            },
+            "metadata": {
+              "operationMetadataId": "3a049e43-fbb7-4899-b31d-1e8fdc50b4e7"
+            },
+            "type": "Scope"
+          }
+        },
+        "runAfter": {
+          "Source_count_PA36A": [
+            "Succeeded"
+          ]
+        },
+        "else": {
+          "actions": {
+            "Reject_source_limit_PA36A": {
+              "metadata": {
+                "operationMetadataId": "b7996f55-7075-4bac-8cd8-e722462fe25f"
+              },
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "source_limit",
+                  "message": "Closed period exceeds 5000 source rows."
+                }
+              }
+            }
+          }
+        },
+        "expression": {
+          "lessOrEquals": [
+            "@outputs('Source_count_PA36A')",
+            5000
+          ]
+        },
+        "metadata": {
+          "operationMetadataId": "a650cbeb-3928-46f7-b1a2-f9cce81d79c5"
+        },
+        "type": "If"
+      }
+    },
+    "runAfter": {
+      "Find_batch_mat_PA36A": [
+        "Succeeded"
+      ]
+    },
+    "else": {
+      "actions": {
+        "Reject_batch_state_PA36A": {
+          "metadata": {
+            "operationMetadataId": "275c25ea-9886-4a37-a1f2-9cef3da0f0fd"
+          },
+          "type": "Terminate",
+          "inputs": {
+            "runStatus": "Failed",
+            "runError": {
+              "code": "invalid_batch_state",
+              "message": "Batch must be one closed Draft or Materializing row."
+            }
+          }
+        }
+      }
+    },
+    "expression": {
+      "and": [
+        {
+          "equals": [
+            "@and(equals(length(body('Find_batch_mat_PA36A')?['value']),1),or(equals(first(body('Find_batch_mat_PA36A')?['value'])?['State']?['Value'],'Draft'),equals(first(body('Find_batch_mat_PA36A')?['value'])?['State']?['Value'],'Materializing'),equals(first(body('Find_batch_mat_PA36A')?['value'])?['State']?['Value'],'Ready')),lessOrEquals(ticks(first(body('Find_batch_mat_PA36A')?['value'])?['PeriodEndUtc']),ticks(utcNow())))",
+            true
+          ]
+        }
+      ]
+    },
+    "metadata": {
+      "operationMetadataId": "593af492-adce-41c7-96ac-cbb1f7aa9d11"
+    },
+    "type": "If"
+  }
+}

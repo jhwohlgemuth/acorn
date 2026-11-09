@@ -55,7 +55,7 @@ At least one approved contributor and one approved reviewer who did not build th
 - both users recognize the same controls, terms, state language, and primary-action placement;
 - reviewer can predict the PDF’s content and hierarchy from the approval workspace.
 
-Material confusion or inaccessible completion blocks cutover and becomes a bounded repair phase in the owning plan.
+Material task failure or confusion blocks cutover and becomes a bounded repair phase in the owning plan. Accessibility-specific acceptance is deferred at the user's direction; this release gate does not claim those checks passed.
 
 # Cutover runbook
 
@@ -80,7 +80,7 @@ Rollback disables approval finalization/publication triggers and preserves the l
 # Acceptance criteria
 
 - Every release-matrix case passes with exact run IDs, revisions, bytes/digests, screenshots, PDF, and authorization evidence.
-- Both apps use one accepted component revision and pass accessibility/usability gates.
+- Both apps use one accepted component revision and pass usability gates. Further accessibility work is deferred by user direction.
 - Actual PDF comparison has no semantic mismatch.
 - Operational baseline and rollback artifacts are complete before activation.
 - One production smoke receipt remains excluded from the collected file while its review decision is unresolved, then appears exactly once after approval and batch finalization.
@@ -105,15 +105,15 @@ PA-40 requires accepted PA-37B, PA-38B, and PA-39B. PA-41 requires PA-40A plus e
 - Focused validation: Exact IDs/bytes/digests/counts; unauthorized roles; replay; stale ETag; late source; correction mapping; exclusion; uncertain write; local stage/inspect/apply; PDF text/order/visibility comparison.
 - Handoff: Preserve complete technical evidence and defects. Semantic mismatch or unsafe recovery blocks PA-40A.
 
-## PA-40A — Accept usability, accessibility, and WYSIWYG fidelity
+## PA-40A — Accept usability and WYSIWYG fidelity
 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: PA-40; approved uncoached contributor and reviewer participants
-- Exact write set: TEST ONLY apps `Intake Approval TEST ONLY` and `Sponsor Highlights Intake UI TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/usability.md`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/accessibility.md`; `.wiki/features/powerapps-jsonl-intake/pilot-runbook.md`
+- Exact write set: TEST ONLY apps `[PROTOTYPE] Intake Approval` and `Sponsor Highlights Intake UI TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/usability.md`; `.wiki/features/powerapps-jsonl-intake/pilot-runbook.md`
 - Primary integration lock: Power Platform user acceptance
-- Outcome: Accept both primary user journeys, cross-app consistency, keyboard/screen-reader/zoom behavior, and preview-to-PDF expectations with no material coaching or semantic discrepancy.
-- Focused validation: Two uncoached walkthroughs, task/error observations, App/Accessibility Checker, keyboard only, supported screen-reader smoke, 200% zoom, desktop/tablet/375-pixel captures, and page-by-page PDF comparison.
+- Outcome: Accept both primary user journeys, cross-app consistency, and preview-to-PDF expectations with no material coaching or semantic discrepancy. Further accessibility features and checks remain deferred by user direction.
+- Focused validation: Two uncoached walkthroughs, task/error observations, formula/runtime App Checker, desktop/tablet/375-pixel captures, and page-by-page PDF comparison.
 - Handoff: Record signed go/no-go, accepted renderer differences, required support wording, and any bounded repair phases. PA-41 remains blocked without go.
 
 ## PA-41 — Back up and cut over the operational approval gate

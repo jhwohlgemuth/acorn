@@ -3,6 +3,14 @@ import test from "node:test";
 
 import { createAcornWebMcpAdapter } from "./webmcp.js";
 
+const bigOValue = (overrides = {}) => ({
+    assumptions: { n: "growing" },
+    dominance: "left",
+    left: "O(n^2)",
+    right: "O(n log n)",
+    ...overrides,
+});
+
 const identifierValue = (overrides = {}) => ({
     candidates: [],
     kind: "doi",
@@ -36,6 +44,7 @@ const fairValue = () => ({
 const bindings = (overrides = {}) => ({
     assessFairMetadata: () => fairValue(),
     checkReadability: () => readabilityValue(),
+    compareBigO: () => bigOValue(),
     crosswalkMetadata: (_content, _format, source, target) => ({ content: "{}", format: "json", source, target, warnings: [] }),
     diffContent: () => ({ changed: true, diff: "--- before\n+++ after", mode: "unified" }),
     discoverPersistentIdentifiers: () => ({ count: 1, identifiers: [{ kind: "doi", normalized: "10.1000/182" }], truncated: false }),
@@ -109,6 +118,70 @@ test("binding failures are redacted", async () => {
         error: { code: "execution_failed", message: "ACORN could not complete the operation." },
         ok: false,
     });
+});
+
+test("Big-O comparison forwards canonical and explicit-assumption requests", async () => {
+    const calls = [];
+    const adapter = createAcornWebMcpAdapter(bindings({
+        compareBigO: (input) => {
+            calls.push(input);
+            return bigOValue({ assumptions: input.assumptions });
+        },
+    }));
+    assert.deepEqual((await adapter.compareBigO({ left: "O(n^2)", right: "O(n log n)" })).result, {
+        assumptions: {},
+        dominance: "left",
+        left: "O(n^2)",
+        right: "O(n log n)",
+    });
+    assert.deepEqual((await adapter.compareBigO({
+        assumptions: { m: "fixed-positive", n: "growing" },
+        left: "O(n * m)",
+        right: "O(n)",
+    })).result.assumptions, { m: "fixed-positive", n: "growing" });
+    assert.deepEqual(calls, [
+        { assumptions: {}, left: "O(n^2)", right: "O(n log n)" },
+        { assumptions: { m: "fixed-positive", n: "growing" }, left: "O(n * m)", right: "O(n)" },
+    ]);
+});
+
+test("Big-O comparison enforces arguments and maps request errors", async () => {
+    let calls = 0;
+    const adapter = createAcornWebMcpAdapter(bindings({
+        compareBigO: ({ left }) => {
+            calls += 1;
+            if (left === "O(n+)") {
+                throw "invalid left Big-O expression: expected a term";
+            }
+            if (left === "O(m)") {
+                throw new Error("growth assumption `n` does not reference either expression");
+            }
+            return bigOValue();
+        },
+    }));
+    assert.equal((await adapter.compareBigO({ left: "O(n)", right: 1 })).error.code, "invalid_arguments");
+    assert.equal((await adapter.compareBigO({ extra: true, left: "O(n)", right: "O(1)" })).error.code, "invalid_arguments");
+    assert.equal((await adapter.compareBigO({ assumptions: { n: "unknown" }, left: "O(n)", right: "O(1)" })).error.code, "invalid_arguments");
+    assert.equal((await adapter.compareBigO({ left: "O(n+)", right: "O(n)" })).error.code, "invalid_arguments");
+    assert.equal((await adapter.compareBigO({ assumptions: { n: "growing" }, left: "O(m)", right: "O(1)" })).error.code, "invalid_arguments");
+    assert.equal((await adapter.compareBigO({ left: "é".repeat(128), right: "O(1)" })).ok, true);
+    assert.equal((await adapter.compareBigO({ left: `${"é".repeat(128)}x`, right: "O(1)" })).error.code, "input_too_large");
+    const assumptions = Object.fromEntries(Array.from({ length: 65 }, (_, index) => [`n${index}`, "growing"]));
+    assert.equal((await adapter.compareBigO({ assumptions, left: "O(n)", right: "O(1)" })).error.code, "input_too_large");
+    const oversizedName = "n".repeat(300 * 1024);
+    assert.equal((await adapter.compareBigO({ assumptions: { [oversizedName]: "growing" }, left: "O(n)", right: "O(1)" })).error.code, "input_too_large");
+    assert.equal(calls, 3);
+});
+
+test("Big-O comparison rejects malformed results and honors cancellation", async () => {
+    const adapter = createAcornWebMcpAdapter(bindings({ compareBigO: () => ({ dominance: "left" }) }));
+    assert.equal((await adapter.compareBigO({ left: "O(n)", right: "O(1)" })).error.code, "execution_failed");
+    const controller = new AbortController();
+    controller.abort();
+    assert.equal((await adapter.compareBigO(
+        { left: "O(n)", right: "O(1)" },
+        { signal: controller.signal },
+    )).error.code, "cancelled");
 });
 
 test("new portable tools validate arguments and forward normalized values", async () => {
@@ -271,6 +344,7 @@ test("installation cleans up partial registration and permits retry", async () =
     assert.deepEqual([...succeeding.tools.keys()], [
         "acorn_assess_fair_metadata",
         "acorn_check_readability",
+        "acorn_compare_big_o",
         "acorn_crosswalk_metadata",
         "acorn_diff_content",
         "acorn_discover_persistent_identifiers",
@@ -312,6 +386,7 @@ test("installation registers strict schemas and safety annotations", async () =>
     const installation = adapter.install(context);
     assert.equal(await installation.ready, "installed");
     const readability = context.tools.get("acorn_check_readability");
+    const bigO = context.tools.get("acorn_compare_big_o");
     const identifier = context.tools.get("acorn_inspect_persistent_identifier");
     const metadata = context.tools.get("acorn_validate_metadata_standard");
     const validation = context.tools.get("acorn_validate_research_activity");
@@ -323,6 +398,16 @@ test("installation registers strict schemas and safety annotations", async () =>
     assert.equal(readability.inputSchema.additionalProperties, false);
     assert.deepEqual(readability.inputSchema.required, ["metric", "text"]);
     assert.deepEqual(readability.inputSchema.properties.metric.enum, ["ari", "cli", "fkgl", "fres", "gfi", "lix", "smog"]);
+    assert.equal(bigO.inputSchema.additionalProperties, false);
+    assert.deepEqual(bigO.inputSchema.required, ["left", "right"]);
+    assert.equal(bigO.inputSchema.properties.assumptions.maxProperties, 64);
+    assert.equal(bigO.inputSchema.properties.assumptions.propertyNames.maxLength, 256);
+    assert.deepEqual(bigO.inputSchema.properties.assumptions.additionalProperties.enum, [
+        "fixed-log-base",
+        "fixed-positive",
+        "growing",
+        "shrinking-positive",
+    ]);
     assert.equal(identifier.inputSchema.additionalProperties, false);
     assert.deepEqual(identifier.inputSchema.required, ["value"]);
     assert.deepEqual(identifier.inputSchema.properties.kind.enum, [
@@ -421,6 +506,15 @@ test("output bounds reject oversized normalized results", async () => {
         }),
     );
     assert.equal((await adapter.validateResearchActivity({ json: "{}" })).error.code, "result_too_large");
+
+    const errorAdapter = createAcornWebMcpAdapter(bindings({
+        compareBigO: () => {
+            throw `invalid left Big-O expression: ${"x".repeat(300 * 1024)}`;
+        },
+    }));
+    const output = await errorAdapter.compareBigO({ left: "O(n)", right: "O(1)" });
+    assert.equal(output.error.code, "result_too_large");
+    assert.ok(Buffer.byteLength(JSON.stringify(output), "utf8") <= 256 * 1024);
 });
 
 test("tool execution returns direct structured envelopes", async () => {

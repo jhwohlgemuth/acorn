@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "site": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+  "objectIds": {
+    "batchesList": "2f405310-4681-40db-99ff-1bafd4b90676",
+    "itemsList": "47c8f476-1a5e-4658-9380-39bec3671a24",
+    "approvedProjectionsLibrary": "edd3f80a-8925-45df-aed5-1ea444ad6f02"
+  },
+  "policyRevision": "review-v1",
+  "source": {
+    "listId": "a904a6c6-5dd0-427b-9575-8167c4c0c412",
+    "listName": "Sponsor Highlights Intake Pilot",
+    "payloadEncoding": "base64(UTF-8 JSON object), split after character 45000",
+    "maximumPayloadBase64Characters": 87380,
+    "membershipTimeField": "Created",
+    "highWaterField": "ID"
+  },
+  "sourceFixtures": {
+    "listId": "746cf260-a4d3-4c8f-ab98-d78fe4a9afa1",
+    "listName": "Sponsor Highlights Review Source Fixtures TEST ONLY"
+  },
+  "integrity": {
+    "method": "exact encoded-byte equality and SharePoint source ETag",
+    "reason": "The standard cloud-flow expression set has no SHA-256 function; the user approved exact-byte and ETag checks for PA-36A.",
+    "sourceMutationRule": "Any changed ETag or encoded payload fails materialization or finalization; never refresh captured bytes in place."
+  },
+  "lists": {
+    "batches": {
+      "name": "Sponsor Highlights Review Batches TEST ONLY",
+      "key": "PeriodKey",
+      "columns": [
+        {"name": "BatchId", "type": "Text", "required": true, "unique": true, "indexed": true},
+        {"name": "PeriodKey", "type": "Text", "required": true, "unique": true, "indexed": true},
+        {"name": "PolicyRevision", "type": "Text", "required": true},
+        {"name": "PeriodStartUtc", "type": "DateTime", "required": true, "indexed": true},
+        {"name": "PeriodEndUtc", "type": "DateTime", "required": true},
+        {"name": "SourceHighWaterId", "type": "Number", "required": false},
+        {"name": "SourceListId", "type": "Text", "required": false},
+        {"name": "SourceCount", "type": "Number", "required": false},
+        {"name": "State", "type": "Choice", "choices": ["Draft", "Materializing", "Ready", "Finalizing", "Approved", "Failed"], "required": true, "indexed": true},
+        {"name": "CreatedByEmail", "type": "Text", "required": true},
+        {"name": "MaterializedAtUtc", "type": "DateTime", "required": false},
+        {"name": "ItemCount", "type": "Number", "required": false},
+        {"name": "ApprovedCount", "type": "Number", "required": false},
+        {"name": "ExcludedCount", "type": "Number", "required": false},
+        {"name": "UnresolvedCount", "type": "Number", "required": false},
+        {"name": "ProjectionDigest", "type": "Text", "required": false},
+        {"name": "ApprovedByEmail", "type": "Text", "required": false},
+        {"name": "ApprovedAtUtc", "type": "DateTime", "required": false},
+        {"name": "FailureCode", "type": "Text", "required": false},
+        {"name": "MaterializationRunId", "type": "Text", "required": false}
+      ]
+    },
+    "items": {
+      "name": "Sponsor Highlights Review Items TEST ONLY",
+      "key": "MembershipKey",
+      "columns": [
+        {"name": "MembershipKey", "type": "Text", "required": true, "unique": true, "indexed": true},
+        {"name": "BatchId", "type": "Text", "required": true, "indexed": true},
+        {"name": "SourceItemId", "type": "Number", "required": true},
+        {"name": "SourceSubmissionId", "type": "Text", "required": true},
+        {"name": "SourcePayloadBase64A", "type": "Note", "required": true},
+        {"name": "SourcePayloadBase64B", "type": "Note", "required": false},
+        {"name": "SourceETag", "type": "Text", "required": true},
+        {"name": "SourceCreatedUtc", "type": "DateTime", "required": true},
+        {"name": "SourceRevisionRoot", "type": "Text", "required": false},
+        {"name": "SourceSupersedes", "type": "Text", "required": false},
+        {"name": "ProjectId", "type": "Text", "required": true, "indexed": true},
+        {"name": "ReportSortKey", "type": "Text", "required": true, "indexed": true},
+        {"name": "DraftProjectionBase64A", "type": "Note", "required": false},
+        {"name": "DraftProjectionBase64B", "type": "Note", "required": false},
+        {"name": "DraftDigest", "type": "Text", "required": false},
+        {"name": "DraftVersion", "type": "Number", "required": true},
+        {"name": "DraftModifiedByEmail", "type": "Text", "required": false},
+        {"name": "DraftModifiedAtUtc", "type": "DateTime", "required": false},
+        {"name": "Decision", "type": "Choice", "choices": ["Unresolved", "Approve", "Exclude"], "required": true, "indexed": true},
+        {"name": "DecisionReason", "type": "Note", "required": false},
+        {"name": "ApprovedSubmissionId", "type": "Text", "required": false},
+        {"name": "ApprovedPayloadPath", "type": "Text", "required": false},
+        {"name": "ApprovedDigest", "type": "Text", "required": false},
+        {"name": "ApprovedSupersedes", "type": "Text", "required": false},
+        {"name": "ValidationState", "type": "Choice", "choices": ["Unchecked", "Valid", "Invalid"], "required": true},
+        {"name": "ValidationErrors", "type": "Note", "required": false}
+      ]
+    }
+  },
+  "library": {
+    "name": "Sponsor Highlights Approved Projections TEST ONLY",
+    "path": "/Sponsor Highlights Approved Projections TEST ONLY",
+    "content": "Immutable approved JSONL payloads and batch manifest only; no source receipts or mutable drafts",
+    "visibleState": "Approved"
+  },
+  "stateTransitions": {
+    "Draft": ["Materializing", "Failed"],
+    "Materializing": ["Ready", "Failed"],
+    "Ready": ["Finalizing", "Failed"],
+    "Finalizing": ["Approved", "Failed"],
+    "Approved": [],
+    "Failed": []
+  },
+  "retention": "No automatic deletion by review flows; SharePoint site retention policies continue to apply. TEST ONLY cleanup requires an explicit owner decision."
+}

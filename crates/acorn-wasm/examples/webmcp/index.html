@@ -26,7 +26,7 @@
 <body>
   <main>
     <h1>ACORN browser tools</h1>
-    <p>Validate and assess metadata, work with research identifiers, compare content, run typed crosswalks, and check prose locally with ACORN WebAssembly. Manual controls remain available when WebMCP is unsupported.</p>
+    <p>Validate and assess metadata, work with research identifiers, compare content and Big-O expressions, run typed crosswalks, and check prose locally with ACORN WebAssembly. Manual controls remain available when WebMCP is unsupported.</p>
     <p class="notice">A browser agent may send tool inputs and outputs to its configured model provider. ACORN itself performs these operations locally and does not add network, filesystem, storage, or process access.</p>
     <p id="capability-status" role="status" aria-live="polite">Initializing ACORN WebAssembly…</p>
 
@@ -35,6 +35,7 @@
       <button id="metadata-tab" type="button" role="tab" aria-controls="metadata-panel" aria-selected="false" tabindex="-1">Validate standard</button>
       <button id="discovery-tab" type="button" role="tab" aria-controls="discovery-panel" aria-selected="false" tabindex="-1">Discover identifiers</button>
       <button id="identifier-tab" type="button" role="tab" aria-controls="identifier-panel" aria-selected="false" tabindex="-1">Inspect identifier</button>
+      <button id="big-o-tab" type="button" role="tab" aria-controls="big-o-panel" aria-selected="false" tabindex="-1">Compare Big-O</button>
       <button id="diff-tab" type="button" role="tab" aria-controls="diff-panel" aria-selected="false" tabindex="-1">Diff content</button>
       <button id="fair-tab" type="button" role="tab" aria-controls="fair-panel" aria-selected="false" tabindex="-1">Assess FAIR</button>
       <button id="crosswalk-tab" type="button" role="tab" aria-controls="crosswalk-panel" aria-selected="false" tabindex="-1">Crosswalk</button>
@@ -137,6 +138,23 @@
       <h3>Output</h3>
       <p id="identifier-status" role="status" aria-live="polite">No identifier inspection has run.</p>
       <textarea id="identifier-output" class="output" aria-label="Identifier inspection output" readonly spellcheck="false">{}</textarea>
+    </section>
+
+    <section id="big-o-panel" role="tabpanel" aria-labelledby="big-o-tab" hidden>
+      <h2>Compare Big-O expressions</h2>
+      <p>Compare two complexity expressions using the canonical pair from ACORN's Big-O fixtures, with optional symbol-growth assumptions.</p>
+      <form id="big-o-form">
+        <label for="big-o-left">Left expression</label>
+        <input id="big-o-left" type="text" value="O(n^2)" spellcheck="false">
+        <label for="big-o-right">Right expression</label>
+        <input id="big-o-right" type="text" value="O(n log n)" spellcheck="false">
+        <label for="big-o-assumptions">Growth assumptions (JSON object, optional)</label>
+        <textarea id="big-o-assumptions" spellcheck="false">{}</textarea>
+        <div class="actions"><button id="compare-big-o" type="submit" disabled>Compare expressions</button></div>
+      </form>
+      <h3>Output</h3>
+      <p id="big-o-status" role="status" aria-live="polite">No Big-O comparison has run.</p>
+      <textarea id="big-o-output" class="output" aria-label="Big-O comparison output" readonly spellcheck="false">{}</textarea>
     </section>
 
     <section id="diff-panel" role="tabpanel" aria-labelledby="diff-tab" hidden>

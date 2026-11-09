@@ -1,4 +1,5 @@
 const FAIR_TOOL = "acorn_assess_fair_metadata";
+const BIG_O_TOOL = "acorn_compare_big_o";
 const CROSSWALK_TOOL = "acorn_crosswalk_metadata";
 const DIFF_TOOL = "acorn_diff_content";
 const DISCOVERY_TOOL = "acorn_discover_persistent_identifiers";
@@ -9,6 +10,7 @@ const VALIDATION_TOOL = "acorn_validate_research_activity";
 const ACORN_TOOL_NAMES = Object.freeze([
     FAIR_TOOL,
     READABILITY_TOOL,
+    BIG_O_TOOL,
     CROSSWALK_TOOL,
     DIFF_TOOL,
     DISCOVERY_TOOL,
@@ -89,7 +91,7 @@ export async function runNativeSmoke({ adapter, installation }) {
     const capability = document.querySelector("#capability-status");
     const output = document.querySelector("#smoke-output");
     const tabs = [...document.querySelectorAll('[role="tab"]')];
-    assert(tabs.length === 8, "The demo does not expose one tab per ACORN tool");
+    assert(tabs.length === 9, "The demo does not expose one tab per ACORN tool");
     assert(tabs.filter((tab) => tab.getAttribute("aria-selected") === "true").length === 1, "The demo must select exactly one tool tab");
     tabs.forEach((tab) => {
         const panel = document.querySelector(`#${tab.getAttribute("aria-controls")}`);
@@ -109,7 +111,7 @@ export async function runNativeSmoke({ adapter, installation }) {
     assert(typeof document.modelContext?.executeTool === "function", "executeTool is unavailable");
     const tools = await document.modelContext.getTools();
     const acornTools = tools.filter(({ name }) => ACORN_TOOL_NAMES.includes(name));
-    assert(acornTools.length === 8, "ACORN tools were not discovered");
+    assert(acornTools.length === 9, "ACORN tools were not discovered");
     assert(JSON.stringify(acornTools.map(({ name }) => name)) === JSON.stringify(ACORN_TOOL_NAMES), "ACORN tools are not ordered by name");
     acornTools.forEach((tool) => {
         assert(registeredSchema(tool)?.additionalProperties === false, `${tool.name} accepts unknown fields`);
@@ -173,6 +175,18 @@ export async function runNativeSmoke({ adapter, installation }) {
         );
         assert(metricResult.ok && metricResult.result.checks[0].metric === metric, `${metric} did not preserve its result`);
     }
+    const bigOTool = acornTools.find(({ name }) => name === BIG_O_TOOL);
+    const bigOInput = { left: "O(n^2)", right: "O(n log n)" };
+    const bigO = parseExecutionResult(await executeNativeTool(document.modelContext, bigOTool, bigOInput));
+    assert(bigO.ok && bigO.result.dominance === "left", "Canonical Big-O comparison did not report left dominance");
+    assert(bigO.result.assumptions.n === "growing", "Canonical Big-O comparison did not infer n as growing");
+    assert(JSON.stringify(bigO) === JSON.stringify(await adapter.compareBigO(bigOInput)), "Manual and tool Big-O comparisons differ");
+    const explicitBigO = parseExecutionResult(await executeNativeTool(
+        document.modelContext,
+        bigOTool,
+        { assumptions: { n: "growing" }, left: "O(n^2)", right: "O(n log n)" },
+    ));
+    assert(explicitBigO.ok && explicitBigO.result.assumptions.n === "growing", "Explicit Big-O assumptions were not preserved");
     const hostile = parseExecutionResult(
         await executeNativeTool(document.modelContext, validationTool, { json: '{"<img src=x onerror=alert(1)>":' }),
     );
@@ -202,6 +216,7 @@ export async function runNativeSmoke({ adapter, installation }) {
     assert(maximumValidationMs < 100, `Validation exceeded the 100 ms gate: ${maximumValidationMs.toFixed(2)} ms`);
     assert(maximumReadabilityMs < 100, `Readability exceeded the 100 ms gate: ${maximumReadabilityMs.toFixed(2)} ms`);
     assert(document.querySelector("#identifier-output").value.length > 2, "Identifier output was not routed to its tool tab");
+    assert(document.querySelector("#big-o-output").value.length > 2, "Big-O output was not routed to its tool tab");
     assert(document.querySelector("#metadata-output").value.length > 2, "Metadata validation output was not routed to its tool tab");
     assert(document.querySelector("#discovery-output").value.length > 2, "Identifier discovery output was not routed to its tool tab");
     assert(document.querySelector("#diff-output").value.length > 2, "Diff output was not routed to its tool tab");

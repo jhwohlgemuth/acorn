@@ -2,16 +2,36 @@
 use super::{Exponent, Expression, Term};
 use crate::util::math::{Degree, Monomial, Rational};
 use crate::ThisOrThat;
-use alloc::collections::BTreeMap;
-use alloc::string::String;
+use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
+use core::fmt;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use strum::EnumIs;
 
+const MAX_ASSUMPTIONS: usize = 64;
 const MAX_TERMS: usize = 256;
+/// Failure to compare a pair of Big-O expressions.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ComparisonError {
+    /// The left expression is not valid bounded Big-O notation.
+    LeftParse(super::ParseError),
+    /// The right expression is not valid bounded Big-O notation.
+    RightParse(super::ParseError),
+    /// The request contains more explicit assumptions than supported.
+    TooManyAssumptions {
+        /// Number of supplied assumption entries.
+        count: usize,
+    },
+    /// An explicit assumption names no symbol in either expression.
+    UnknownAssumption(String),
+}
 /// Proven relationship between the growth of two bound expressions.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Dominance {
     /// The left expression grows strictly faster.
     Left,
@@ -25,7 +45,8 @@ pub enum Dominance {
     Undetermined,
 }
 /// Asymptotic behavior assumed for one named symbol.
-#[derive(Clone, Copy, Debug, EnumIs, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, EnumIs, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum SymbolGrowth {
     /// An independent input size tending toward infinity.
     Growing,
@@ -58,6 +79,34 @@ pub enum SymbolGrowth {
 /// ```
 #[derive(Clone, Copy, Debug)]
 pub struct Asymptotic<'expression>(&'expression Expression);
+/// Serializable request for deterministic pairwise Big-O comparison.
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ComparisonInput {
+    /// Big-O notation on the left side of the comparison.
+    #[schemars(length(max = 256))]
+    pub left: String,
+    /// Big-O notation on the right side of the comparison.
+    #[schemars(length(max = 256))]
+    pub right: String,
+    /// Optional explicit growth classifications keyed by referenced symbol.
+    #[serde(default)]
+    #[schemars(extend("maxProperties" = 64))]
+    pub assumptions: BTreeMap<String, SymbolGrowth>,
+}
+/// Serializable result of deterministic pairwise Big-O comparison.
+#[derive(Clone, Debug, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ComparisonOutput {
+    /// Original left notation, preserved unchanged.
+    pub left: String,
+    /// Original right notation, preserved unchanged.
+    pub right: String,
+    /// Proven relationship under the effective assumptions.
+    pub dominance: Dominance,
+    /// Inferred and explicit assumptions used by the proof engine.
+    pub assumptions: BTreeMap<String, SymbolGrowth>,
+}
 /// Caller-supplied growth assumptions shared by both expressions.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct GrowthAssumptions(BTreeMap<String, SymbolGrowth>);
@@ -92,18 +141,47 @@ impl PartialOrd for Asymptotic<'_> {
         })
     }
 }
+impl core::error::Error for ComparisonError {}
+impl fmt::Display for ComparisonError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            | Self::LeftParse(error) => write!(formatter, "invalid left Big-O expression: {error}"),
+            | Self::RightParse(error) => write!(formatter, "invalid right Big-O expression: {error}"),
+            | Self::TooManyAssumptions { count } => {
+                write!(formatter, "too many growth assumptions: {count} exceeds {MAX_ASSUMPTIONS}")
+            }
+            | Self::UnknownAssumption(name) => {
+                write!(formatter, "growth assumption `{name}` does not reference either expression")
+            }
+        }
+    }
+}
 impl GrowthAssumptions {
     /// Start with no classified symbols.
     pub fn new() -> Self {
         Self::default()
     }
+    /// Infer classifications shared by a pair of parsed expressions.
+    pub fn inferred_pair(values: ThisOrThat<&Expression>) -> Self {
+        let (left, right) = values.into_parts();
+        left.variables()
+            .chain(right.variables())
+            .fold(Self::new(), |assumptions, name| assumptions.with(name, SymbolGrowth::Growing))
+            .infer_fixed_log_bases(left.root())
+            .infer_fixed_log_bases(right.root())
+    }
+    /// Return the classification for one symbol.
+    pub fn get(&self, name: &str) -> Option<SymbolGrowth> {
+        self.0.get(name).copied()
+    }
+    /// Iterate over classified symbols in lexical order.
+    pub fn iter(&self) -> impl Iterator<Item = (&str, SymbolGrowth)> {
+        self.0.iter().map(|(name, growth)| (name.as_str(), *growth))
+    }
     /// Classify one symbol, replacing an earlier classification if present.
     pub fn with(mut self, name: impl Into<String>, growth: SymbolGrowth) -> Self {
         self.0.insert(name.into(), growth);
         self
-    }
-    fn get(&self, name: &str) -> Option<SymbolGrowth> {
-        self.0.get(name).copied()
     }
     fn inferred(expression: &Expression) -> Self {
         expression
@@ -120,6 +198,11 @@ impl GrowthAssumptions {
             | Term::LogBase { base, argument } => self.with(base, SymbolGrowth::FixedLogBase).infer_fixed_log_bases(argument),
             | Term::Power { base, .. } => self.infer_fixed_log_bases(base),
         }
+    }
+    fn overlay(self, explicit: &BTreeMap<String, SymbolGrowth>) -> Self {
+        explicit
+            .iter()
+            .fold(self, |assumptions, (name, growth)| assumptions.with(name.clone(), *growth))
     }
 }
 impl SymbolGrowth {
@@ -139,6 +222,35 @@ pub fn compare_growth(values: ThisOrThat<&Expression>, assumptions: &GrowthAssum
         match (normalize(left.root(), assumptions), normalize(right.root(), assumptions)) {
             | (Some(left), Some(right)) => compare_terms(&left, &right),
             | _ => Dominance::Undetermined,
+        }
+    }
+}
+/// Parse and compare two Big-O expressions under deterministic effective assumptions.
+///
+/// Original notation is preserved in the successful output.
+/// Ordinary symbols are inferred as growing, named logarithm bases are inferred as fixed, and explicit assumptions override those defaults.
+pub fn compare_notation(input: ComparisonInput) -> Result<ComparisonOutput, ComparisonError> {
+    let ComparisonInput { left, right, assumptions } = input;
+    match (Expression::parse(&left), Expression::parse(&right)) {
+        | (Err(error), _) => Err(ComparisonError::LeftParse(error)),
+        | (_, Err(error)) => Err(ComparisonError::RightParse(error)),
+        | (Ok(_), Ok(_)) if assumptions.len() > MAX_ASSUMPTIONS => Err(ComparisonError::TooManyAssumptions { count: assumptions.len() }),
+        | (Ok(left_expression), Ok(right_expression)) => {
+            let referenced = left_expression.variables().chain(right_expression.variables()).collect::<BTreeSet<_>>();
+            match assumptions.keys().find(|name| !referenced.contains(name.as_str())) {
+                | Some(name) => Err(ComparisonError::UnknownAssumption(name.clone())),
+                | None => {
+                    let effective = GrowthAssumptions::inferred_pair(ThisOrThat::new(&left_expression, &right_expression)).overlay(&assumptions);
+                    let dominance = compare_growth(ThisOrThat::new(&left_expression, &right_expression), &effective);
+                    let assumptions = effective.iter().map(|(name, growth)| (name.to_string(), growth)).collect();
+                    Ok(ComparisonOutput {
+                        left,
+                        right,
+                        dominance,
+                        assumptions,
+                    })
+                }
+            }
         }
     }
 }

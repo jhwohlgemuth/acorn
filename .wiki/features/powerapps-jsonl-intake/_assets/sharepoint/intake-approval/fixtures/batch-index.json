@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-11-07T17:00:00-05:00",
+  "selectedBatchId": "2026-10",
+  "batches": [
+    {
+      "id": "2026-10",
+      "label": "October 2026",
+      "state": "closed",
+      "period": {
+        "left": "2026-10-01T00:00:00-04:00",
+        "right": "2026-11-01T00:00:00-04:00"
+      },
+      "selectedPageId": "general-updates",
+      "counts": {
+        "pages": 3,
+        "entries": 8,
+        "unresolved": 4,
+        "edited": 1,
+        "approved": 2,
+        "excluded": 1
+      }
+    },
+    {
+      "id": "2026-09",
+      "label": "September 2026",
+      "state": "closed",
+      "period": {
+        "left": "2026-09-01T00:00:00-04:00",
+        "right": "2026-10-01T00:00:00-04:00"
+      },
+      "selectedPageId": null,
+      "counts": {
+        "pages": 0,
+        "entries": 0,
+        "unresolved": 0,
+        "edited": 0,
+        "approved": 0,
+        "excluded": 0
+      }
+    }
+  ],
+  "states": {
+    "loading": "Loading the closed reporting period…",
+    "empty": "No review pages are available for this period.",
+    "error": "The fixture could not be loaded. Retry without losing your selected period."
+  }
+}

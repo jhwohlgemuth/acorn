@@ -7,6 +7,7 @@
 )]
 //! Integration tests for `acorn check`
 use assert_cmd::Command;
+use serde_json::Value;
 use std::fs::write;
 use std::path::PathBuf;
 use tempfile::tempdir;
@@ -32,6 +33,42 @@ fn fixture(name: &str) -> PathBuf {
         .join("tests")
         .join("fixtures")
         .join(name)
+}
+fn big_o_check(name: &str, output: &str) -> std::process::Output {
+    Command::cargo_bin("acorn")
+        .expect("ACORN binary")
+        .env("NO_COLOR", "1")
+        .env("CLICOLOR", "0")
+        .env("TERM", "dumb")
+        .env("ACORN_NO_LOCAL_DATABASE", "true")
+        .args([
+            "--offline",
+            "check",
+            &fixture(&format!("data/big_o/{name}")).to_string_lossy(),
+            "--skip",
+            "fair,link,prose,quality,readability",
+            "--output",
+            output,
+        ])
+        .output()
+        .expect("Big-O check output")
+}
+fn assert_big_o_json_diagnostic(name: &str, message: &str) {
+    let output = big_o_check(name, "json");
+    assert!(!output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let json = stdout.find('{').map(|start| &stdout[start..]).expect("JSON check envelope");
+    let report: Value = serde_json::from_str(json).expect("structured check output");
+    let checks = report["checks"].as_array().expect("check array");
+    assert_eq!(checks.len(), 1);
+    let check = &checks[0];
+    assert_eq!(check["record"], "check");
+    assert_eq!(check["category"], "schema");
+    assert_eq!(check["severity"], "error");
+    assert_eq!(check["success"], false);
+    assert_eq!(check["uri"], format!("{name}/index.json"));
+    assert_eq!(check["locator"], "aspect.computation[0].stages[0].complexity.bounds[0]");
+    assert_eq!(check["message"], message);
 }
 fn normalized_process(args: &[String]) -> String {
     let output = Command::cargo_bin("acorn")
@@ -74,6 +111,29 @@ fn normalized_process(args: &[String]) -> String {
         normalize(&output.stdout),
         normalize(&output.stderr)
     )
+}
+#[test]
+fn test_big_o_fixture_contract_in_human_and_json_modes() {
+    for output in ["human", "json"] {
+        let valid = big_o_check("valid", output);
+        assert!(valid.status.success(), "{}", String::from_utf8_lossy(&valid.stderr));
+        assert!(!String::from_utf8_lossy(&valid.stdout).contains("Invalid complexity expression"));
+    }
+    for (name, message) in [
+        ("invalid-reference", "Complexity variable `n` is not defined"),
+        (
+            "invalid-syntax",
+            "Invalid complexity expression: unexpected token in Big-O expression at byte 4",
+        ),
+    ] {
+        let human = big_o_check(name, "human");
+        assert!(human.status.success(), "piped human output preserves the existing CSV behavior");
+        let human = String::from_utf8_lossy(&human.stdout);
+        assert!(human.contains(&format!("0,error,schema,{name}/index.json")));
+        assert!(human.contains("aspect.computation[0].stages[0].complexity.bounds[0]"));
+        assert!(human.contains(message));
+        assert_big_o_json_diagnostic(name, message);
+    }
 }
 #[test]
 fn test_check_diagnostics_remain_on_stdout() {

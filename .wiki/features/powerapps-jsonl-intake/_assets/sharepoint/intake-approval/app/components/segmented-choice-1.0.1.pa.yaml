@@ -1,0 +1,140 @@
+ComponentDefinitions:
+  cmpSegmentedChoice:
+    DefinitionType: CanvasComponent
+    Description: Three-option segmented choice. Contract 1.0.0.
+    AllowCustomization: true
+    CustomProperties:
+      AccessibleLabel:
+        PropertyKind: Input
+        DisplayName: Accessible label
+        Description: Screen-reader label for the control.
+        DataType: Text
+        Default: ="Text"
+      Choices:
+        PropertyKind: Input
+        DisplayName: Choices
+        Description: Table with Key and Label text columns.
+        DataType: Table
+        Default: |-
+          =Table({Key: "one", Label: "One"}, {Key: "two", Label: "Two"}, {Key: "three", Label: "Three"})
+      DefaultKey:
+        PropertyKind: Input
+        DisplayName: Default key
+        Description: Canonical key selected when the component loads.
+        DataType: Text
+        Default: ="Text"
+      Disabled:
+        PropertyKind: Input
+        DisplayName: Disabled
+        Description: Disables editing when true.
+        DataType: Boolean
+        Default: =true
+      ErrorText:
+        PropertyKind: Input
+        DisplayName: Error text
+        Description: Validation message shown for invalid input.
+        DataType: Text
+        Default: ="Text"
+      HelpText:
+        PropertyKind: Input
+        DisplayName: Help text
+        Description: Supporting instructions shown below the label.
+        DataType: Text
+        Default: ="Text"
+      Label:
+        PropertyKind: Input
+        DisplayName: Label
+        Description: Visible field label.
+        DataType: Text
+        Default: ="Text"
+      OnChange:
+        PropertyKind: Event
+        DisplayName: On change
+        Description: Runs when a segment is selected.
+        ReturnType: None
+        Default: =
+      Required:
+        PropertyKind: Input
+        DisplayName: Required
+        Description: Marks the choice as required.
+        DataType: Boolean
+        Default: =true
+      SelectedKey:
+        PropertyKind: Output
+        DisplayName: Selected key
+        Description: Canonical key currently selected.
+        DataType: Text
+    Properties:
+      OnReset: =Set(varSegmentKey,Blank())
+      SelectedKey: =Coalesce(varSegmentKey,cmpSegmentedChoice.DefaultKey)
+    Children:
+      - btnSegment1:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =ColorFade(Self.Fill, -15%)
+            Color: =If(cmpSegmentedChoice.DefaultKey = First(cmpSegmentedChoice.Choices).Key, Color.White, ColorValue("#123B31"))
+            DisabledBorderColor: =RGBA(166, 166, 166, 1)
+            DisplayMode: =If(cmpSegmentedChoice.Disabled, DisplayMode.Disabled, DisplayMode.Edit)
+            Fill: =If(cmpSegmentedChoice.DefaultKey = First(cmpSegmentedChoice.Choices).Key, ColorValue("#007833"), ColorValue("#E8F1EE"))
+            FocusedBorderColor: =ColorValue("#123B31")
+            FocusedBorderThickness: =3
+            Font: =Font.'Segoe UI'
+            Height: =44
+            HoverBorderColor: =ColorFade(Self.BorderColor, 20%)
+            HoverColor: =RGBA(255, 255, 255, 1)
+            HoverFill: =ColorFade(RGBA(56, 96, 178, 1), -20%)
+            OnSelect: =Set(varSegmentKey,First(cmpSegmentedChoice.Choices).Key); cmpSegmentedChoice.OnChange()
+            PressedBorderColor: =Self.Fill
+            PressedColor: =Self.Fill
+            PressedFill: =Self.Color
+            Size: =12
+            Text: =If(cmpSegmentedChoice.DefaultKey=First(cmpSegmentedChoice.Choices).Key,"✓ ","") & First(cmpSegmentedChoice.Choices).Label
+            Width: =If(App.Width<500,Parent.Width,Parent.Width/3-4)
+      - btnSegment2:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =ColorFade(Self.Fill, -15%)
+            Color: =If(cmpSegmentedChoice.DefaultKey = Index(cmpSegmentedChoice.Choices, 2).Key, Color.White, ColorValue("#123B31"))
+            DisabledBorderColor: =RGBA(166, 166, 166, 1)
+            DisplayMode: =If(cmpSegmentedChoice.Disabled, DisplayMode.Disabled, DisplayMode.Edit)
+            Fill: =If(cmpSegmentedChoice.DefaultKey = Index(cmpSegmentedChoice.Choices, 2).Key, ColorValue("#007833"), ColorValue("#E8F1EE"))
+            FocusedBorderColor: =ColorValue("#123B31")
+            FocusedBorderThickness: =3
+            Font: =Font.'Segoe UI'
+            Height: =44
+            HoverBorderColor: =ColorFade(Self.BorderColor, 20%)
+            HoverColor: =RGBA(255, 255, 255, 1)
+            HoverFill: =ColorFade(RGBA(56, 96, 178, 1), -20%)
+            OnSelect: =Set(varSegmentKey,Index(cmpSegmentedChoice.Choices,2).Key); cmpSegmentedChoice.OnChange()
+            PressedBorderColor: =Self.Fill
+            PressedColor: =Self.Fill
+            PressedFill: =Self.Color
+            Size: =12
+            Text: =If(cmpSegmentedChoice.DefaultKey=Index(cmpSegmentedChoice.Choices,2).Key,"✓ ","") & Index(cmpSegmentedChoice.Choices,2).Label
+            Width: =If(App.Width<500,Parent.Width,Parent.Width/3-4)
+            X: =If(App.Width<500,0,Parent.Width/3)
+            Y: =If(App.Width<500,48,0)
+      - btnSegment3:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =ColorFade(Self.Fill, -15%)
+            Color: =If(cmpSegmentedChoice.DefaultKey = Last(cmpSegmentedChoice.Choices).Key, Color.White, ColorValue("#123B31"))
+            DisabledBorderColor: =RGBA(166, 166, 166, 1)
+            DisplayMode: =If(cmpSegmentedChoice.Disabled, DisplayMode.Disabled, DisplayMode.Edit)
+            Fill: =If(cmpSegmentedChoice.DefaultKey = Last(cmpSegmentedChoice.Choices).Key, ColorValue("#007833"), ColorValue("#E8F1EE"))
+            FocusedBorderColor: =ColorValue("#123B31")
+            FocusedBorderThickness: =3
+            Font: =Font.'Segoe UI'
+            Height: =44
+            HoverBorderColor: =ColorFade(Self.BorderColor, 20%)
+            HoverColor: =RGBA(255, 255, 255, 1)
+            HoverFill: =ColorFade(RGBA(56, 96, 178, 1), -20%)
+            OnSelect: =Set(varSegmentKey,Last(cmpSegmentedChoice.Choices).Key); cmpSegmentedChoice.OnChange()
+            PressedBorderColor: =Self.Fill
+            PressedColor: =Self.Fill
+            PressedFill: =Self.Color
+            Size: =12
+            Text: =If(cmpSegmentedChoice.DefaultKey=Last(cmpSegmentedChoice.Choices).Key,"✓ ","") & Last(cmpSegmentedChoice.Choices).Label
+            Width: =If(App.Width<500,Parent.Width,Parent.Width/3-4)
+            X: =If(App.Width<500,0,2*Parent.Width/3)
+            Y: =If(App.Width<500,96,0)

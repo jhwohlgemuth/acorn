@@ -1,0 +1,363 @@
+{
+  "contractVersion": "1.0.0",
+  "entryTypes": {
+    "activity": {
+      "fieldOrder": [
+        "projectId",
+        "global",
+        "timestamp",
+        "category",
+        "state",
+        "eventType",
+        "classification",
+        "summary",
+        "items"
+      ],
+      "fields": {
+        "archived": {
+          "control": "read-only",
+          "editable": false,
+          "report": "Activity detail line shows Archived when true",
+          "required": true
+        },
+        "category": {
+          "control": "cmpRadioChoice",
+          "editable": true,
+          "report": "Activity heading label and icon",
+          "required": true,
+          "vocabulary": "activityCategory"
+        },
+        "classification": {
+          "control": "cmpSegmentedChoice",
+          "editable": true,
+          "preservation": "Present null as unclassified and preserve null until a deliberate change",
+          "report": "Activity detail line when greater than unclassified",
+          "required": false,
+          "validation": "Requires category administration and eventType other",
+          "vocabulary": "classification"
+        },
+        "discovery": {
+          "control": "read-only",
+          "editable": false,
+          "report": "Activity detail line shows discovery provider",
+          "required": false
+        },
+        "eventType": {
+          "control": "cmpRadioChoice",
+          "editable": true,
+          "report": "Activity detail line",
+          "required": false,
+          "vocabulary": "eventType"
+        },
+        "global": {
+          "control": "cmpSegmentedChoice",
+          "editable": "approved-routing-rules-only",
+          "report": "Selects General updates title page or project page",
+          "required": true,
+          "vocabulary": "reportPlacement"
+        },
+        "identifier": {
+          "control": "read-only",
+          "editable": false,
+          "report": null,
+          "required": false
+        },
+        "items": {
+          "control": "cmpRepeatableText",
+          "editable": true,
+          "limits": {
+            "itemCharacters": 1000,
+            "items": 20
+          },
+          "report": "Ordered bulleted list",
+          "required": false
+        },
+        "origin": {
+          "control": "read-only",
+          "editable": false,
+          "report": "Activity detail line shows Manual entry when discovery is absent",
+          "required": true
+        },
+        "state": {
+          "control": "cmpSegmentedChoice",
+          "editable": true,
+          "report": "Activity group and order",
+          "required": true,
+          "vocabulary": "activityState"
+        },
+        "summary": {
+          "control": "cmpNarrative",
+          "editable": true,
+          "limits": {
+            "characters": 1200
+          },
+          "report": "Activity paragraphs split on blank lines",
+          "required": true
+        },
+        "timestamp": {
+          "control": "native-date-picker",
+          "editable": true,
+          "report": "Activity date and source ordering",
+          "required": true
+        }
+      }
+    },
+    "statusUpdate": {
+      "fieldOrder": [
+        "projectId",
+        "range",
+        "health",
+        "summary",
+        "significance",
+        "evidence",
+        "risk"
+      ],
+      "fields": {
+        "evidence": {
+          "control": "cmpBooleanToggle+cmpNarrative",
+          "editable": true,
+          "limits": {
+            "characters": 1000
+          },
+          "report": "Evidence paragraph when present",
+          "required": false
+        },
+        "health": {
+          "control": "cmpRadioChoice+cmpNarrative",
+          "editable": true,
+          "limits": {
+            "reasonCharacters": 1000
+          },
+          "report": "Status heading and optional Health context paragraph",
+          "required": true,
+          "vocabulary": "projectHealth"
+        },
+        "identifier": {
+          "control": "read-only",
+          "editable": false,
+          "report": null,
+          "required": false
+        },
+        "range": {
+          "control": "cmpBooleanToggle+native-date-picker",
+          "editable": true,
+          "report": "Report interval context",
+          "required": "bounded-effective-range"
+        },
+        "risk": {
+          "control": "cmpBooleanToggle+cmpRadioChoice+cmpNarrative",
+          "editable": true,
+          "limits": {
+            "explanationCharacters": 1000
+          },
+          "report": "Risk or dependency paragraph with kind and explanation",
+          "required": false,
+          "vocabulary": "riskDependencyType"
+        },
+        "significance": {
+          "control": "cmpNarrative",
+          "editable": true,
+          "limits": {
+            "characters": 1000
+          },
+          "report": "Second status narrative paragraph",
+          "required": true
+        },
+        "summary": {
+          "control": "cmpNarrative",
+          "editable": true,
+          "limits": {
+            "characters": 1200
+          },
+          "report": "First status narrative paragraph",
+          "required": true
+        },
+        "timestamp": {
+          "control": "read-only",
+          "editable": false,
+          "report": "Status card date",
+          "required": true
+        }
+      }
+    }
+  },
+  "envelopeFields": {
+    "entry": {
+      "control": "cmpSegmentedChoice",
+      "editable": "new-contributor-entry-only",
+      "report": "Selects activity or status card shape",
+      "required": true
+    },
+    "projectId": {
+      "control": "cmpSearchChoice",
+      "editable": "new-contributor-entry-only",
+      "report": "Selects project page; general routing is represented by activity.global",
+      "required": true
+    },
+    "range": {
+      "control": "cmpBooleanToggle+native-date-picker",
+      "editable": true,
+      "report": "Default status reporting interval",
+      "required": false
+    },
+    "revision": {
+      "control": "read-only",
+      "editable": false,
+      "report": null,
+      "required": false
+    },
+    "submissionId": {
+      "control": "read-only",
+      "editable": false,
+      "report": null,
+      "required": true
+    },
+    "submittedAt": {
+      "control": "read-only",
+      "editable": false,
+      "report": null,
+      "required": true
+    },
+    "submitter": {
+      "control": "read-only",
+      "editable": false,
+      "report": null,
+      "required": true
+    }
+  },
+  "report": {
+    "activityGroupOrder": [
+      "completed",
+      "in-progress",
+      "upcoming"
+    ],
+    "emptyActivityGroups": "omit",
+    "generalPage": {
+      "context": [
+        "reportMonth",
+        "reportInterval"
+      ],
+      "heading": "General updates"
+    },
+    "projectContext": [
+      "title",
+      "subtitle",
+      "keywords",
+      "principalInvestigators",
+      "sponsors"
+    ],
+    "projectEntryOrder": [
+      "statusUpdates",
+      "completedActivities",
+      "inProgressActivities",
+      "upcomingActivities"
+    ],
+    "unsupportedFieldBehavior": "publication-blocker"
+  },
+  "reviewFields": {
+    "decision": {
+      "control": "cmpSegmentedChoice",
+      "report": "Governs batch completeness and preview visibility",
+      "vocabulary": "reviewDecision"
+    },
+    "exclusionReason": {
+      "control": "cmpNarrative",
+      "report": null,
+      "required": "when-decision-exclude"
+    },
+    "includeInReport": {
+      "control": "cmpBooleanToggle",
+      "derivedFrom": "decision",
+      "report": "Controls preview visibility without deleting audit history"
+    }
+  },
+  "sourceFiles": [
+    "crates/acorn-lib/src/io/api/powerautomate/form.rs",
+    "crates/acorn-lib/src/io/export/updates/html.rs",
+    "crates/acorn-schema/src/research_activity/logbook.rs",
+    "crates/acorn-schema/src/types.rs",
+    ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/layout.pa.yaml"
+  ],
+  "systemControlledFields": [
+    "approvalId",
+    "approvalTimestamps",
+    "entry.archived",
+    "entry.discovery",
+    "entry.identifier",
+    "entry.origin",
+    "entry.statusUpdate.timestamp",
+    "projectId",
+    "receiptId",
+    "revision",
+    "submissionId",
+    "submittedAt",
+    "submitter"
+  ],
+  "vocabularies": {
+    "activityCategory": [
+      "administration",
+      "collaboration",
+      "data",
+      "engagement",
+      "funding",
+      "infrastructure",
+      "method",
+      "other",
+      "personnel",
+      "publication",
+      "research",
+      "software"
+    ],
+    "activityState": [
+      "completed",
+      "in-progress",
+      "upcoming"
+    ],
+    "classification": [
+      "unclassified",
+      "confidential",
+      "secret",
+      "topsecret"
+    ],
+    "eventType": [
+      "conference",
+      "exhibition",
+      "meeting",
+      "other",
+      "presentation",
+      "tour",
+      "training",
+      "workshop"
+    ],
+    "projectHealth": [
+      "on-track",
+      "ahead-of-plan",
+      "at-risk",
+      "delayed",
+      "paused",
+      "complete"
+    ],
+    "reportPlacement": [
+      "project",
+      "general"
+    ],
+    "reviewDecision": [
+      "unresolved",
+      "approve",
+      "exclude"
+    ],
+    "riskDependencyType": [
+      "data",
+      "infrastructure",
+      "security-accreditation",
+      "software-environment",
+      "sponsor-prioritization",
+      "partner-coordination",
+      "funding-contracting",
+      "staffing",
+      "validation",
+      "classified-environment-access",
+      "other"
+    ]
+  }
+}

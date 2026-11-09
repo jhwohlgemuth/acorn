@@ -1,6 +1,7 @@
 import init, {
     assessFairMetadata,
     checkReadability,
+    compareBigO,
     crosswalkMetadata,
     diffContent,
     discoverPersistentIdentifiers,
@@ -27,6 +28,10 @@ const toolViews = Object.freeze({
     acorn_check_readability: {
         output: document.querySelector("#readability-output"),
         status: document.querySelector("#readability-status"),
+    },
+    acorn_compare_big_o: {
+        output: document.querySelector("#big-o-output"),
+        status: document.querySelector("#big-o-status"),
     },
     acorn_crosswalk_metadata: {
         output: document.querySelector("#crosswalk-output"),
@@ -96,6 +101,7 @@ async function initialize() {
         {
             assessFairMetadata,
             checkReadability,
+            compareBigO,
             crosswalkMetadata,
             diffContent,
             discoverPersistentIdentifiers,
@@ -133,6 +139,32 @@ async function initialize() {
             text: document.querySelector("#prose").value,
         };
         render("acorn_check_readability", await adapter.checkReadability(input), "Manual readability check completed.");
+    });
+    document.querySelector("#big-o-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const assumptionsText = document.querySelector("#big-o-assumptions").value.trim();
+        let assumptions = {};
+        let assumptionsValid = true;
+        try {
+            if (assumptionsText.length !== 0) {
+                assumptions = { assumptions: JSON.parse(assumptionsText) };
+            }
+        } catch {
+            assumptionsValid = false;
+            render(
+                "acorn_compare_big_o",
+                { error: { code: "invalid_arguments", message: "Growth assumptions must be valid JSON." }, ok: false },
+                "Manual Big-O comparison rejected invalid assumptions JSON.",
+            );
+        }
+        if (assumptionsValid) {
+            const input = {
+                ...assumptions,
+                left: document.querySelector("#big-o-left").value,
+                right: document.querySelector("#big-o-right").value,
+            };
+            render("acorn_compare_big_o", await adapter.compareBigO(input), "Manual Big-O comparison completed.");
+        }
     });
     document.querySelector("#crosswalk-form").addEventListener("submit", async (event) => {
         event.preventDefault();

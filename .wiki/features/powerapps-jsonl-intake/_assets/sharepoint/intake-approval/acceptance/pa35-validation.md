@@ -1,0 +1,18 @@
+# PA-35 fixture shell validation
+
+Validated November 7, 2026 against the saved, unpublished `[PROTOTYPE] Intake Approval` canvas app (`ef761a81-bd35-4854-8de0-f91a452ba73f`). The app was copied from the non-premium `Highlights Intake` app. Its original submission screen remains hidden for reference; `App.StartScreen` opens `ApprovalReviewScreen`.
+
+## Evidence
+
+- Studio downloaded the original app to `/Users/o9w/Downloads/Intake Approval TEST ONLY (1).msapp` (SHA-256 `aa3e2519dc7751ff0a14192c96357f52bddc8735d13d994c4bc77c3e21986229`). The [sanitized archive](../app/intake-approval-pa35-test-only.msapp) passed `unzip -t` with no compressed-data errors and contains no occurrences of the account name removed for wiki privacy. Its SHA-256 is `b7ae815a703aa12618c3be20ebba52abf3bf5c9d4f711cab6a222ce28b2a0a2d`. [App source](../app/approval-app.pa.yaml) and [reviewer screen source](../app/approval-shell.pa.yaml) were extracted from the original download; the latter has the same account-name redaction as the sanitized archive.
+- Fresh Studio load of `ApprovalReviewScreen` initialized October with General updates (2), Project Atlas (3), Project Borealis (3), and exactly 3 pages, 8 entries, 4 unresolved, 1 edited, 2 approved, and 1 excluded, matching the [batch](../fixtures/batch-index.json) and [report](../fixtures/report-context.json) fixtures.
+- Selecting September displayed the empty message, September header, zero unresolved status, and no selected October page. Selecting an October page restored the report summary. The selected page and period survived closing and reopening Studio preview in the same editor session.
+- Keyboard Tab reached the three page actions in order; Return on Project Borealis updated its title, subtitle, and ordered section summary. The current page is also marked with a check and a distinct text/color treatment.
+- Desktop, 375-pixel ready, and 375-pixel empty captures show the final shell. The compact page picker exposes all four choices without horizontal scrolling; the sticky status bar remains visible. Raw captures remain in `/Users/o9w/.codex/visualizations/2026/11/07/01a1b7f6-30ec-73d0-b176-eb7e29542481/` as `pa35-reviewer-desktop-final.png`, `pa35-reviewer-375-final.png`, and `pa35-reviewer-empty-375-final.png`; they are excluded from the sanitized wiki because the Power Apps header displays the account label.
+- Power Apps App Checker recheck reported no formula, runtime, or accessibility issues. Two performance advisories remain: an unused variable in the inherited app, and a fixture collection initialized in `ApprovalReviewScreen.OnVisible`. The static fixture is intentionally small; production-sized loading is deferred to later phases.
+
+## Scope and limits
+
+The shell uses in-app fixture records only. Loading, ready, empty, and error copy plus a retry control are in the saved screen source; the empty state was exercised in preview. The hardcoded fixture has no ordinary failure trigger, so the error presentation was inspected in source and App Checker rather than forced at runtime. Report card editing, approval decisions, live SharePoint reads or writes, and final review remain outside PA-35.
+
+The copied app still contains inherited flow and connection references on its hidden contributor screen. Do not import this archive into an operational environment or enable those bindings as part of PA-35. The sanitized archive was not reimported, so its hash and ZIP integrity do not prove Canvas import or runtime behavior. No operational app, flow, connection, permission, or production data was changed during this phase. The maker-portal package export generated a signed blob URL that Chrome blocked; the Studio `.msapp` download above is the preserved original app artifact.

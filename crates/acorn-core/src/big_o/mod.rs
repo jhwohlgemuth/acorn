@@ -10,7 +10,9 @@ use core::fmt;
 use core::str::FromStr;
 
 mod compare;
-pub use compare::{compare_growth, Asymptotic, Dominance, GrowthAssumptions, SymbolGrowth};
+pub use compare::{
+    compare_growth, compare_notation, Asymptotic, ComparisonError, ComparisonInput, ComparisonOutput, Dominance, GrowthAssumptions, SymbolGrowth,
+};
 
 /// Maximum accepted notation length in bytes.
 pub const MAX_INPUT_BYTES: usize = 256;

@@ -1,11 +1,11 @@
 ---
 type: Plan
 title: "Shared intake and approval experience"
-description: "Create one accessible Power Apps interaction system, a report-shaped approval workspace, and a contributor form that uses the same components and language."
+description: "Create one shared Power Apps interaction system, a report-shaped approval workspace, and a contributor form that uses the same components and language."
 difficulty: high
 impact: critical
 package: [power-platform]
-tags: [powerapps, usability, accessibility, responsive, wysiwyg, intake, approval]
+tags: [powerapps, usability, responsive, wysiwyg, intake, approval]
 status: planned
 execution: phased
 phase_budget_hours: 5
@@ -25,6 +25,16 @@ The admitted schema supports two entry shapes. Activities include project, place
 The actual combined report has a General updates title page followed by project pages. Project pages render status updates first, then activity groups in completed, in-progress, and upcoming order. Activity cards show category, date, event/provenance/classification/archive details, summary paragraphs, and supporting items. Status cards show reporting window, health/context, summary, significance, evidence, and risk. This renderer—not the current form layout—is the preview contract.
 
 Current Microsoft guidance supports reusable component libraries, responsive auto-layout containers, modern controls, horizontal radio groups, accessibility checking, and labeled toggles. It also documents material constraints: component updates must be published and explicitly adopted by consuming apps; nondelegable Canvas queries can return incomplete results; and custom composite radio/checkbox roles or custom arrow-key behavior are not reliably available. The design therefore prefers native controls and honest button semantics over visually clever but inaccessible composites. See [component libraries](https://learn.microsoft.com/power-apps/maker/canvas-apps/component-library), [responsive layouts](https://learn.microsoft.com/power-apps/maker/canvas-apps/create-responsive-layout), [delegation](https://learn.microsoft.com/power-apps/maker/canvas-apps/delegation-overview), and [accessibility limitations](https://learn.microsoft.com/power-apps/maker/canvas-apps/accessible-apps-limitations).
+
+The November 7, 2026 PA-34 preparation check at `10b17f22` verified the contract against `crates/acorn-lib/src/io/api/powerautomate/form.rs`, `crates/acorn-schema/src/research_activity/logbook.rs`, `crates/acorn-schema/src/types.rs`, `crates/acorn-lib/src/io/export/updates/html.rs`, and `_assets/sharepoint/layout.pa.yaml`. The fixed vocabularies, field limits, status-first report order, and three activity-state groups still match this plan. The current Canvas source still uses classic dropdowns for project, category, state, event type, and report placement. The selected Power Apps environment is accessible and currently contains no component libraries, so PA-34 creates `Sponsor Highlights UI TEST ONLY` as a new TEST ONLY library rather than revising an existing library. No operational app, flow, connection, or data mutation is part of that preparation.
+
+PA-34 completed on November 7, 2026. Contract revision 1.0.0 is frozen in `ui-contract.md` and `report-preview-map.json`. The published TEST ONLY component library `Sponsor Highlights UI TEST ONLY` contains `cmpBooleanToggle`, `cmpSegmentedChoice`, `cmpRadioChoice`, `cmpCheckboxChoice`, `cmpSearchChoice`, `cmpNarrative`, `cmpRepeatableText`, and `cmpStatusMessage`. Its native-control harness passed 375-pixel and 816-pixel width checks, and Power Apps App Checker reported no formula, runtime, accessibility, or performance issues after recheck. The library remains isolated from operational apps, flows, connections, and data.
+
+PA-35 completed on November 7, 2026 in the saved, unpublished `[PROTOTYPE] Intake Approval` app. The fixture shell opens on `ApprovalReviewScreen`, shows the October batch's three pages and exact 3/8/4/1/2/1 counts, offers the empty September period, and keeps its status bar and page selection coherent at desktop and 375-pixel widths. Keyboard page navigation, persisted selection within the editor session, and App Checker formula/runtime/accessibility categories passed. The original local download, sanitized wiki app/source, local screenshots, two performance-advisory dispositions, and scope limits are recorded in [PA-35 validation](../_assets/sharepoint/intake-approval/acceptance/pa35-validation.md). The copied contributor screen remains hidden and retains inherited connection references; no live binding or approval edit was added.
+
+A subsequent scoped TEST ONLY change replaced the fixture page rail with the intake catalog's dynamic project list and a continuous, read-only view of the current collected logbook. Desktop project selection and the 375-pixel dropdown scroll to section headers; the fresh-load preview reconciled 29 parsed updates against the read flow's source count. The app is saved and unpublished. [Live report validation](../_assets/sharepoint/intake-approval/acceptance/live-report.md) records the flow, source, evidence, and limits. This collected-file preview remained separate from PA-35A/PA-35B editing and the now-accepted PA-36B bounded review-ledger paging.
+
+PA-35A's activity report canvas and isolated ACORN comparison are recorded in [activity preview acceptance](../_assets/sharepoint/intake-approval/acceptance/activity-preview.md). The seven included projections and one valid Atlas correction rendered in the [October fixture PDF](../_assets/sharepoint/intake-approval/acceptance/pa35-fixture-report.pdf). The app can edit a selected summary in the report canvas, edit activity fields and ordered items in the inspector, compare source values, and preview exclusion. PA-35B completed the status, validation, correction, and responsive fixture behavior in the saved unpublished reviewer app. The repaired TEST ONLY shared library revision 1.0.1 is published and adopted in the reviewer. `cmpNarrative` edits the report-canvas summary, `cmpSegmentedChoice` edits activity state, and `cmpStatusMessage` displays validation. Guarded change handlers preserve decisions on record navigation. [Experience evidence](../_assets/sharepoint/intake-approval/acceptance/experience.md) records the actual component APIs, status and validation behavior, phone/tablet/wide captures, keyboard completion, App Checker result, final PDF comparison, and the user's deferral of remaining accessibility work.
 
 # Interaction contract
 
@@ -99,19 +109,17 @@ The preview must match the ACORN projection for:
 
 Pixel-identical line breaks, font metrics, and automatic page breaks are explicitly out of scope. The app must not claim final PDF fidelity until the same frozen JSONL has been rendered by ACORN and compared in acceptance.
 
-# Accessibility and usability gates
+# Usability and deferred accessibility
 
 - Use responsive auto-layout containers with Scale to fit disabled; do not position the main workflow with fixed coordinates.
-- Prefer modern native Toggle, Radio, Checkbox, Button, Text Input, and Date Picker controls. A button bar remains buttons semantically.
-- Every interactive control has a visible label, meaningful AccessibleLabel, visible focus, logical source/tab order, and keyboard-only path. Avoid positive custom TabIndex values.
-- State is conveyed with text and icon in addition to color. Custom colors meet at least 4.5:1 text contrast.
-- Dynamic save, validation, and conflict messages use an accessible live-status pattern supported by the platform.
-- The accessibility checker has no unresolved errors. Warnings require a written disposition.
+- Keep the existing native controls, labels, focus styles, text state cues, and live validation behavior in the accepted reviewer prototype.
 - Usability acceptance includes a contributor and reviewer completing their primary task without implementation coaching; observed confusion becomes a bounded repair phase.
+
+The user deferred all further accessibility features and gates on November 8, 2026. Screen-reader, 200% zoom, keyboard-only, contrast, and accessibility-checker acceptance are not prerequisites for PA-39 through PA-41. Existing behavior is preserved; this deferral does not claim those checks passed.
 
 # Dependencies and boundaries
 
-PA-34 is first. PA-35 follows it and uses fixtures only. PA-35A and PA-35B complete the reviewer surface before PA-39 refits the contributor app. The approval ledger may proceed in parallel after PA-34, but production bindings wait for its accepted contracts. This plan never changes production lists, flows, exporter selection, or permissions.
+PA-34, PA-35, PA-35A, PA-35B, and the PA-35C repair are complete. PA-39 next refits the contributor app. The approval ledger may proceed in parallel, but production bindings wait for its accepted contracts. This plan never changes production lists, flows, exporter selection, or permissions.
 
 Reviewer edits may change only fields admitted by the frozen form/report contract. Project routing, submitter, source receipt, correction ancestry, source/approval UUIDs, and audit timestamps are read-only. Editorial synthesis proposed by [Sponsor highlights clarity](../../sponsor-highlights-clarity.md) is not added here until its schema and renderer are separately accepted.
 
@@ -121,60 +129,16 @@ Reviewer edits may change only fields admitted by the frozen form/report contrac
 - The field mapping covers every admitted activity and status-update field and every visible report element; unknown fields fail visibly.
 - The reviewer can complete title-page and project-page review from the report workspace, with original-versus-edited inspection and no raw-JSON editing.
 - Contributor activity, correction, browser recovery, retry, validation, and catalog behavior remain byte-compatible for unchanged inputs.
-- Both apps pass App Checker, accessibility checker, keyboard-only, screen-reader smoke, desktop, tablet, and 375-pixel checks.
+- Both apps pass formula/runtime App Checker and desktop, tablet, and 375-pixel checks.
 - Fixture previews and actual ACORN PDFs match the WYSIWYG contract, with bounded differences recorded.
 
 # Execution phases
-
-## PA-34 — Freeze the shared form and report-preview contract
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: approved interaction direction; current form schema, report renderer, and canvas sources available
-- Exact write set: `.wiki/features/powerapps-jsonl-intake/approval-experience/index.md`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/ui-contract.md`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/report-preview-map.json`; TEST ONLY component library `Sponsor Highlights UI TEST ONLY`
-- Primary integration lock: Power Apps shared UI contract
-- Outcome: Freeze component names, inputs/outputs, tokens, breakpoints, state language, control-selection rules, field order, system-controlled fields, and field-to-report mapping.
-- Focused validation: Review every current schema field and fixed vocabulary; verify radio/checkbox/button semantics; compare the mapping with `form.rs`, `logbook.rs`, `updates/html.rs`, and current canvas sources; run component harness checks at desktop and 375-pixel widths.
-- Handoff: Publish a versioned contract and harness revision. PA-35 and PA-36 may start only after unresolved field or accessibility decisions are zero.
-
-## PA-35 — Build the fixture-backed approval shell
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: PA-34
-- Exact write set: TEST ONLY canvas app `Intake Approval TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/app/approval-shell.pa.yaml`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/fixtures/batch-index.json`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/fixtures/report-context.json`
-- Primary integration lock: approval app canvas
-- Outcome: Deliver the responsive batch dashboard, page rail/page picker, canvas, inspector shell, sticky status bar, shared loading/empty/error states, and fixture loader with no live data mutations.
-- Focused validation: Run App Checker and accessibility checker; verify keyboard traversal, persisted selection, desktop and 375-pixel layout, and exact fixture page/count display.
-- Handoff: Preserve the exported TEST ONLY app and screenshots. No report card editing or live SharePoint connection is claimed.
-
-## PA-35A — Render and edit activity report pages
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: PA-35
-- Exact write set: TEST ONLY canvas app `Intake Approval TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/app/activity-preview.pa.yaml`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/fixtures/activities.jsonl`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/activity-preview.md`
-- Primary integration lock: approval app canvas
-- Outcome: Render title-page and project activity cards in report order, with inline summary editing, structured inspector controls, supporting-item editing/reordering, source comparison, validation, and include/exclude preview behavior.
-- Focused validation: Compare general/project placement, three state groups, category/event/classification details, paragraphs, item order, empty groups, and errors with actual ACORN HTML/PDF from the same fixtures.
-- Handoff: Preserve fixture projections, preview captures, PDF captures, and remaining renderer differences. Status updates remain for PA-35B.
-
-## PA-35B — Complete status, correction, and responsive review behavior
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: PA-35A
-- Exact write set: TEST ONLY canvas app `Intake Approval TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/app/status-preview.pa.yaml`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/fixtures/status-and-corrections.jsonl`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/experience.md`
-- Primary integration lock: approval app canvas
-- Outcome: Add status-update cards, conditional health/risk controls, reporting-window behavior, correction ancestry display, validation summary, next-problem navigation, narrow inspector stacking, and final accessibility behavior.
-- Focused validation: Exercise all health states, risk/no-risk, evidence/no-evidence, source/edited comparison, correction chains, keyboard-only completion, screen-reader smoke, 200% zoom, desktop, tablet, and 375-pixel layouts.
-- Handoff: Record the accepted fixture-only reviewer experience and component revision. Live save/finalize behavior belongs to the ledger plan.
 
 ## PA-39 — Refit contributor activity entry to the shared components
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: PA-35B; isolated copy of the published contributor app and bindings
+- Prerequisites: accepted reviewer fixture experience recorded in the current evidence; isolated copy of the published contributor app and bindings
 - Exact write set: isolated contributor app `Sponsor Highlights Intake UI TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/layout.pa.yaml`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/intake-refit/activity.pa.yaml`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/intake-refit/payload-parity.json`
 - Primary integration lock: contributor app canvas
 - Outcome: Replace fixed dropdowns with the accepted placement bar, state bar, category radio menu, event radio menu, shared narrative components, shared validation summary, and report-card preview while preserving the project selector and payload contract.
@@ -196,9 +160,9 @@ Reviewer edits may change only fields admitted by the frozen form/report contrac
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: PA-35B; PA-39A
-- Exact write set: TEST ONLY apps `Intake Approval TEST ONLY` and `Sponsor Highlights Intake UI TEST ONLY`; TEST ONLY component library `Sponsor Highlights UI TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/cross-app-ui.md`
+- Prerequisites: accepted reviewer fixture experience recorded in the current evidence; PA-39A
+- Exact write set: TEST ONLY apps `[PROTOTYPE] Intake Approval` and `Sponsor Highlights Intake UI TEST ONLY`; TEST ONLY component library `Sponsor Highlights UI TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/cross-app-ui.md`
 - Primary integration lock: Power Apps shared UI contract
-- Outcome: Accept one component revision, token set, terminology, focus model, error language, responsive behavior, and report-preview vocabulary across both isolated apps.
-- Focused validation: Side-by-side component inventory, scripted field-order walkthrough, keyboard-only primary tasks, screen-reader smoke, accessibility/App Checker, 200% zoom, desktop/tablet/375-pixel screenshots, and two uncoached task observations.
+- Outcome: Accept one component revision, token set, terminology, error language, responsive behavior, and report-preview vocabulary across both isolated apps.
+- Focused validation: Side-by-side component inventory, scripted field-order walkthrough, formula/runtime App Checker, desktop/tablet/375-pixel screenshots, and two uncoached task observations. Accessibility checks remain deferred at the user's direction.
 - Handoff: Freeze the cross-app UI revision consumed by PA-40. Any material usability defect becomes a new bounded repair phase.

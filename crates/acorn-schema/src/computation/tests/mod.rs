@@ -2,6 +2,7 @@ use super::*;
 use crate::hardware::Resource;
 use crate::research_activity::ResearchActivity;
 use serde_json::json;
+use std::path::PathBuf;
 
 const COMPUTATION_ID: &str = "00000000-0000-4000-8000-000000000001";
 const PREPARE_ID: &str = "00000000-0000-4000-8000-000000000002";
@@ -9,6 +10,58 @@ const PROBLEM_ID: &str = "00000000-0000-4000-8000-000000000003";
 const PROFILE_ID: &str = "00000000-0000-4000-8000-000000000004";
 const SAMPLE_ID: &str = "00000000-0000-4000-8000-000000000005";
 
+fn big_o_fixture(name: &str) -> ResearchActivity {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/data/big_o")
+        .join(name)
+        .join("index.json");
+    let content = std::fs::read_to_string(&path).expect("Big-O RAD fixture should exist");
+    eserde::json::from_str(&content).expect("Big-O RAD fixture should deserialize")
+}
+
+#[test]
+fn test_big_o_bound_schema_advertises_closed_bounded_alternatives() {
+    let schema = serde_json::to_value(schemars::schema_for!(ComplexityBound)).expect("serialize complexity-bound schema");
+    for (index, resource) in ["space", "time"].into_iter().enumerate() {
+        let alternative = schema
+            .pointer(&format!("/oneOf/{index}"))
+            .expect("complexity-bound alternative should exist");
+        assert_eq!(alternative.get("additionalProperties"), Some(&json!(false)), "{resource} alternative");
+        assert_eq!(alternative.pointer(&format!("/properties/{resource}/maxLength")), Some(&json!(256)));
+    }
+}
+#[test]
+fn test_big_o_complete_fixtures_preserve_nested_validation_and_notation() {
+    let valid = big_o_fixture("valid");
+    valid.validate().expect("valid Big-O fixture should validate without unrelated issues");
+    let canonical = serde_json::to_value(valid).expect("serialize valid Big-O fixture");
+    for (pointer, notation) in [
+        ("/aspect/computation/0/stages/0/complexity/bounds/0/time", "O(n log n)"),
+        ("/aspect/computation/0/stages/0/complexity/bounds/1/space", "O(n)"),
+        ("/aspect/computation/0/stages/1/complexity/bounds/time", "O(n^2)"),
+        ("/aspect/computation/0/stages/2/complexity/bounds/time", "O(P*B+2*log(B)*t*H^2/e)"),
+    ] {
+        assert_eq!(canonical.pointer(pointer), Some(&json!(notation)), "notation at {pointer}");
+    }
+    for (fixture, code, message) in [
+        (
+            "invalid-syntax",
+            "syntax",
+            "Invalid complexity expression: unexpected token in Big-O expression at byte 4",
+        ),
+        ("invalid-reference", "reference", "Complexity variable `n` is not defined"),
+    ] {
+        let report = big_o_fixture(fixture)
+            .validate()
+            .expect_err("invalid Big-O fixture should report one intended issue");
+        let issues = report.iter().collect::<Vec<_>>();
+        assert_eq!(issues.len(), 1, "{fixture} should have no unrelated validation issues: {issues:?}");
+        let issue = issues.first().expect("one Big-O validation issue should exist");
+        assert_eq!(issue.path, "aspect.computation[0].stages[0].complexity.bounds[0]", "{fixture}");
+        assert_eq!(issue.error.code, code, "{fixture}");
+        assert_eq!(issue.error.message.as_deref(), Some(message), "{fixture}");
+    }
+}
 #[test]
 fn test_complexity_bounds_round_trip_and_validate() {
     let value = json!({

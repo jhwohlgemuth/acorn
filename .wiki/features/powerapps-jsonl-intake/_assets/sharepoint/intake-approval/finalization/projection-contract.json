@@ -1,0 +1,41 @@
+{
+  "version": "pa37a-v1",
+  "scope": "TEST ONLY",
+  "flow": "Prepare Approval Finalization TEST ONLY",
+  "input": {
+    "batchId": "Existing Ready batch UUID"
+  },
+  "authorization": {
+    "groupId": 43,
+    "rule": "Check the current caller against the finalizers group before reading the batch, review items, or source payloads."
+  },
+  "candidate": {
+    "visibility": "Pending files and IDs are never exporter-visible; only an Approved batch is visible.",
+    "emptyBatchPolicy": "Reject finalization of a zero-item batch; an empty Ready batch remains useful for materialization and paging tests.",
+    "order": "SourceItemId ascending within a batch; corrections must follow their predecessors in source creation order.",
+    "included": "Decision Approve and ValidationState Valid; every other decision blocks preparation except Exclude with a nonempty reason.",
+    "sourceRule": "Reread every source row and require the captured SourceETag and complete concatenated SourcePayloadBase64A/B to match exactly.",
+    "draftRule": "Use the saved complete DraftProjectionBase64A/B when present, otherwise the captured source bytes. Validate the resulting activity or status object against the accepted form contract before preparing it.",
+    "identityRule": "Reuse SourceSubmissionId only when final serialized UTF-8 bytes equal the captured source bytes exactly. Otherwise persist one generated ApprovedSubmissionId on the review item with an item ETag conditional write, then reuse it on every retry.",
+    "ancestryRule": "Rewrite revision.rootSubmissionId and revision.supersedesSubmissionId through source-to-approved mappings. A same-batch predecessor must be included and earlier; a prior-batch predecessor must resolve through an Approved batch. Excluded, missing, ambiguous, dangling, or cyclic ancestry blocks the candidate.",
+    "serialization": "Preserve the exact source UTF-8 bytes when the object is unchanged. For changed objects, serialize once through the cloud-flow string function after applying approved IDs and rewritten ancestry; retain those exact bytes for readback.",
+    "digest": "Use an explicitly non-cryptographic b64-edge-v1 fingerprint only for display and lookup. Exact comparisons use complete encoded bytes plus item ETags and versions; a fingerprint alone is never an integrity proof.",
+    "storage": "Store candidate objects and a manifest under a non-public Pending/<batchId> path in the restricted TEST ONLY approved-projection library. PA-37B must read exact candidate bytes and reject stale source or draft ETags/versions before freezing.",
+    "retry": "A repeated request reuses every persisted ApprovedSubmissionId and returns the same candidate bytes for an unchanged source/draft/mapping snapshot. A changed snapshot creates a new pending candidate, never silently adopts new source bytes."
+  },
+  "failure": {
+    "rule": "No candidate may set a batch to Approved. A failed or uncertain preparation leaves Ready or Failed with a bounded diagnostic and no exporter-visible payload.",
+    "cases": [
+      "unauthorized caller",
+      "non-Ready or ambiguous batch",
+      "empty batch",
+      "unresolved or invalid item",
+      "source count, ETag, or encoded-byte mismatch",
+      "draft validation failure",
+      "duplicate source or approved UUID",
+      "missing, excluded, or cyclic correction predecessor",
+      "conditional ID write race",
+      "candidate write or readback mismatch"
+    ]
+  }
+}

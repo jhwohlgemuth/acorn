@@ -1,3 +1,4 @@
+export type BigODominance = "equivalent" | "incomparable" | "left" | "right" | "undetermined";
 export type CrosswalkSource = "datacite" | "dublin-core" | "raid" | "research-activity-data";
 export type CrosswalkTarget = "datacite" | "dublin-core" | "raid" | "research-activity-data";
 export type DiffMode = "json-patch" | "unified";
@@ -25,9 +26,11 @@ export type MetadataStandard =
     | "research-activity-data"
     | "text";
 export type ReadabilityMetric = "ari" | "cli" | "fkgl" | "fres" | "gfi" | "lix" | "smog";
+export type SymbolGrowth = "fixed-log-base" | "fixed-positive" | "growing" | "shrinking-positive";
 export type ToolName =
     | "acorn_assess_fair_metadata"
     | "acorn_check_readability"
+    | "acorn_compare_big_o"
     | "acorn_crosswalk_metadata"
     | "acorn_diff_content"
     | "acorn_discover_persistent_identifiers"
@@ -35,6 +38,19 @@ export type ToolName =
     | "acorn_validate_metadata_standard"
     | "acorn_validate_research_activity";
 export type ToolResult<T> = { ok: true; result: T } | { error: { code: ErrorCode; message: string }; ok: false };
+
+export interface BigOComparisonInput {
+    assumptions?: Record<string, SymbolGrowth>;
+    left: string;
+    right: string;
+}
+
+export interface BigOComparisonOutput {
+    assumptions: Record<string, SymbolGrowth>;
+    dominance: BigODominance;
+    left: string;
+    right: string;
+}
 
 export interface ContentDiffJsonPatchResult {
     changed: boolean;
@@ -136,7 +152,8 @@ export interface ExecutionOptions {
 
 export interface InvocationEvent {
     output?: ToolResult<
-        ContentDiffResult
+        BigOComparisonOutput
+        | ContentDiffResult
         | CrosswalkResult
         | FairAssessmentResult
         | IdentifierDiscoveryResult
@@ -151,6 +168,7 @@ export interface InvocationEvent {
 export interface AcornBindings {
     assessFairMetadata(json: string, standard: string, resource?: string): unknown;
     checkReadability(text: string, metric: string): unknown;
+    compareBigO(input: BigOComparisonInput): unknown;
     crosswalkMetadata(
         content: string,
         format: string,
@@ -197,6 +215,10 @@ export interface AcornWebMcpAdapter {
         input: { metric: ReadabilityMetric; text: string },
         options?: ExecutionOptions,
     ): Promise<ToolResult<ReadabilityResult>>;
+    compareBigO(
+        input: BigOComparisonInput,
+        options?: ExecutionOptions,
+    ): Promise<ToolResult<BigOComparisonOutput>>;
     crosswalkMetadata(input: CrosswalkInput, options?: ExecutionOptions): Promise<ToolResult<CrosswalkResult>>;
     diffContent(
         input: { after: string; before: string; mode: DiffMode },

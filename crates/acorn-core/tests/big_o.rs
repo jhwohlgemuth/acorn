@@ -1,9 +1,12 @@
 //! Integration coverage for the portable Big-O parser.
+extern crate alloc;
+
 use acorn_core::big_o::{
-    compare_growth, Asymptotic, Dominance, Exponent, Expression, GrowthAssumptions, ParseErrorKind, SymbolGrowth, Term, MAX_INPUT_BYTES,
-    MAX_NESTING_DEPTH,
+    compare_growth, compare_notation, Asymptotic, ComparisonError, ComparisonInput, Dominance, Exponent, Expression, GrowthAssumptions,
+    ParseErrorKind, SymbolGrowth, Term, MAX_INPUT_BYTES, MAX_NESTING_DEPTH,
 };
 use acorn_core::ThisOrThat;
+use alloc::collections::BTreeMap;
 use core::cmp::Ordering;
 
 #[test]
@@ -164,6 +167,115 @@ fn test_asymptotic_symbol_roles_do_not_depend_on_comparison_partners() {
     assert!(a > b);
     assert!(a > c);
     assert_eq!(b.partial_cmp(&a), Some(Ordering::Less));
+}
+#[test]
+fn test_compare_notation_infers_and_overrides_assumptions() {
+    let inferred = compare_notation(ComparisonInput {
+        left: "O(log_a(n))".to_string(),
+        right: "O(n)".to_string(),
+        assumptions: BTreeMap::new(),
+    })
+    .expect("infer ordinary symbols and named logarithm bases");
+    assert_eq!(inferred.dominance, Dominance::Right);
+    assert_eq!(
+        inferred.assumptions,
+        BTreeMap::from([("a".to_string(), SymbolGrowth::FixedLogBase), ("n".to_string(), SymbolGrowth::Growing)])
+    );
+    let overridden = compare_notation(ComparisonInput {
+        left: "O(n)".to_string(),
+        right: "O(1)".to_string(),
+        assumptions: BTreeMap::from([("n".to_string(), SymbolGrowth::FixedPositive)]),
+    })
+    .expect("explicit assumptions override inference");
+    assert_eq!(overridden.dominance, Dominance::Equivalent);
+    assert_eq!(overridden.assumptions.get("n"), Some(&SymbolGrowth::FixedPositive));
+}
+#[test]
+fn test_compare_notation_preserves_contract_and_serialization() {
+    let output = compare_notation(ComparisonInput {
+        left: " O(n^2) ".to_string(),
+        right: "O(n log n)".to_string(),
+        assumptions: BTreeMap::new(),
+    })
+    .expect("compare canonical fixture expressions");
+    assert_eq!(output.left, " O(n^2) ");
+    assert_eq!(output.right, "O(n log n)");
+    assert_eq!(output.dominance, Dominance::Left);
+    assert_eq!(
+        serde_json::to_string(&output).expect("serialize comparison output"),
+        r#"{"left":" O(n^2) ","right":"O(n log n)","dominance":"left","assumptions":{"n":"growing"}}"#
+    );
+    let schema = serde_json::to_value(schemars::schema_for!(ComparisonInput)).expect("serialize comparison input schema");
+    assert_eq!(schema.pointer("/properties/left/maxLength"), Some(&serde_json::json!(256)));
+    assert_eq!(schema.pointer("/properties/right/maxLength"), Some(&serde_json::json!(256)));
+    assert_eq!(schema.pointer("/properties/assumptions/maxProperties"), Some(&serde_json::json!(64)));
+    assert_eq!(schema.pointer("/additionalProperties"), Some(&serde_json::json!(false)));
+}
+#[test]
+fn test_compare_notation_rejects_invalid_inputs_and_limits() {
+    let invalid_left = compare_notation(ComparisonInput {
+        left: "O(n - m)".to_string(),
+        right: "O(n)".to_string(),
+        assumptions: BTreeMap::new(),
+    })
+    .expect_err("reject invalid left notation");
+    assert!(matches!(&invalid_left, ComparisonError::LeftParse(error) if error.offset() == 4));
+    assert_eq!(
+        invalid_left.to_string(),
+        "invalid left Big-O expression: unexpected token in Big-O expression at byte 4"
+    );
+    let invalid_right = compare_notation(ComparisonInput {
+        left: "O(n)".to_string(),
+        right: "O(n - m)".to_string(),
+        assumptions: BTreeMap::new(),
+    })
+    .expect_err("reject invalid right notation");
+    assert!(matches!(invalid_right, ComparisonError::RightParse(error) if error.offset() == 4));
+    let unknown = compare_notation(ComparisonInput {
+        left: "O(n)".to_string(),
+        right: "O(n^2)".to_string(),
+        assumptions: BTreeMap::from([("z".to_string(), SymbolGrowth::Growing), ("a".to_string(), SymbolGrowth::FixedPositive)]),
+    })
+    .expect_err("reject assumptions for unreferenced symbols");
+    assert_eq!(unknown, ComparisonError::UnknownAssumption("a".to_string()));
+    let assumptions = (0..64)
+        .map(|index| (format!("symbol_{index:02}"), SymbolGrowth::Growing))
+        .collect::<BTreeMap<_, _>>();
+    let at_limit = compare_notation(ComparisonInput {
+        left: "O(n)".to_string(),
+        right: "O(n^2)".to_string(),
+        assumptions,
+    })
+    .expect_err("validate assumptions after accepting the count boundary");
+    assert!(matches!(at_limit, ComparisonError::UnknownAssumption(_)));
+    let assumptions = (0..65)
+        .map(|index| (format!("symbol_{index:02}"), SymbolGrowth::Growing))
+        .collect::<BTreeMap<_, _>>();
+    let over_limit = compare_notation(ComparisonInput {
+        left: "O(n)".to_string(),
+        right: "O(n^2)".to_string(),
+        assumptions,
+    })
+    .expect_err("reject too many assumptions before symbol validation");
+    assert_eq!(over_limit, ComparisonError::TooManyAssumptions { count: 65 });
+}
+#[test]
+fn test_compare_notation_returns_every_dominance() {
+    for (left, right, dominance) in [
+        ("O(n^2)", "O(n log n)", Dominance::Left),
+        ("O(n log n)", "O(n^2)", Dominance::Right),
+        ("O(2*n+1)", "O(n)", Dominance::Equivalent),
+        ("O(n)", "O(m)", Dominance::Incomparable),
+        ("O(polylog(n))", "O(log(n)^2)", Dominance::Undetermined),
+    ] {
+        let output = compare_notation(ComparisonInput {
+            left: left.to_string(),
+            right: right.to_string(),
+            assumptions: BTreeMap::new(),
+        })
+        .expect("valid comparison is a successful analytical outcome");
+        assert_eq!(output.dominance, dominance, "{left} versus {right}");
+    }
 }
 #[test]
 fn test_function_arguments_distinguish_unexpected_tokens_from_end() {

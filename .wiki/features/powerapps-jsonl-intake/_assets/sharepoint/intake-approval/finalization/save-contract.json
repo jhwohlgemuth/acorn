@@ -1,0 +1,81 @@
+{
+  "version": "pa37-v1",
+  "status": "in-progress",
+  "scope": "TEST ONLY",
+  "flow": "Save Approval Item TEST ONLY",
+  "authorization": {
+    "reviewersGroupId": 42,
+    "callerSource": "Power Apps trigger identity headers",
+    "rule": "Reread group membership and fail closed before reading the batch or item on every call."
+  },
+  "request": {
+    "batchId": "UUID",
+    "sourceItemId": "positive integer",
+    "expectedItemETag": "SharePoint item ETag returned by Read Approval Item TEST ONLY",
+    "expectedDraftVersion": "integer returned by Read Approval Item TEST ONLY",
+    "summary": "trimmed string containing 1 to 1200 characters",
+    "decision": "unresolved, approve, or exclude",
+    "decisionReason": "trimmed string containing at most 1200 characters; required for exclude"
+  },
+  "canonicalDraft": {
+    "algorithm": "Parse the immutable captured source object, replace only entry.summary, and serialize the resulting object once with the cloud-flow string function.",
+    "encoding": "base64(UTF-8 canonical JSON), split after character 45000 into DraftProjectionBase64A and DraftProjectionBase64B",
+    "fingerprint": "DraftDigest stores b64-edge-v1:<length>:<first 96 Base64 characters>:<last 96 Base64 characters>.",
+    "fingerprintSecurity": "The fingerprint is deterministic but is not cryptographic and is never used alone for equality, authorization, or concurrency.",
+    "exactEquality": "Concatenate and compare the complete two-part Base64 value. SharePoint item ETag and DraftVersion are the concurrency authority."
+  },
+  "validation": {
+    "allowedMutation": [
+      "entry.summary",
+      "Decision",
+      "DecisionReason"
+    ],
+    "rules": [
+      "The batch exists exactly once and State.Value is Ready.",
+      "The BatchId and SourceItemId pair resolves exactly once.",
+      "Summary contains 1 to 1200 trimmed characters.",
+      "Decision is one of unresolved, approve, or exclude.",
+      "DecisionReason contains at most 1200 trimmed characters.",
+      "Exclude requires a nonempty DecisionReason."
+    ],
+    "savedValidationState": "Valid"
+  },
+  "write": {
+    "operation": "SharePoint REST MERGE with X-HTTP-Method MERGE and IF-MATCH set to the reread item ETag",
+    "retryPolicy": "none",
+    "audit": [
+      "DraftVersion increments by one only for a changed save.",
+      "DraftModifiedByEmail is the normalized trigger caller.",
+      "DraftModifiedAtUtc is one captured UTC instant."
+    ],
+    "readback": "After a successful conditional write, reread the exact item and compare complete encoded draft bytes, fingerprint, version, modifier, modified instant, decision, reason, validation state, and changed ETag before returning saved."
+  },
+  "idempotency": {
+    "unchanged": "If the current complete draft bytes, decision, trimmed reason, and Valid state already equal the request, return unchanged without writing even when the caller repeats the pre-save ETag after a lost response.",
+    "conflict": "If content differs and either expected ETag or expected DraftVersion is stale, return conflict with the current item and do not write.",
+    "conditionalRace": "If another write wins after the reread, the IF-MATCH request fails and returns conflict; it never retries as an unconditional write."
+  },
+  "responses": {
+    "saved": "Changed request was written and exactly reread.",
+    "unchanged": "Requested state already exists; no write or version increment occurred.",
+    "conflict": "Current item JSON is returned for explicit reload/merge while the app retains the local edit.",
+    "invalid": "Validation errors are returned and no write occurs.",
+    "batch-not-ready": "Batch is absent, ambiguous, or not Ready; no item payload is returned.",
+    "forbidden": "Caller is not a current reviewer; no batch or item payload is returned.",
+    "failed": "Lookup or exact-readback result is uncertain; reload before retrying."
+  },
+  "app": {
+    "name": "[PROTOTYPE] Intake Approval",
+    "publication": "The PA-37 app remains saved and unpublished.",
+    "localEditRule": "AI generation and Use suggestion remain local; only the save control calls the flow.",
+    "statusStates": [
+      "Saving",
+      "Saved",
+      "Conflict",
+      "Failed"
+    ],
+    "conflictRecovery": "Keep the local summary, show the current server item, and require an explicit reload or merge before a later save.",
+    "validationStatus": "Saving and Failed were exercised in live preview. Saved and Conflict are formula-clean but await a refreshed seven-input Power Apps V2 binding before live acceptance."
+  },
+  "finalization": "Disabled; this flow cannot change batch state, approved identities, approved payload fields, or the approved projections library."
+}

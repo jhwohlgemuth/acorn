@@ -33,7 +33,7 @@
 - [Release-gated Beam inference integration](beam-inference-integration.md) - Verify released serving contracts, then evaluate an explicitly configured hosted or operator-owned endpoint independently of local SLM sidecars.
 
 - [Database-backed artifact generation](database-backed-artifact-generation.md) - Generate reproducible current or historical artifacts from canonical database state through existing typed renderers.
-- [Big-O metadata validation and agent comparison](big-o-agent-validation-and-comparison.md) - Prove Big-O syntax and variable validation in complete RAD fixtures, preserve findings through `acorn check` and MCP, and add deterministic MCP, native, WASM, and WebMCP comparison.
+- [Big-O metadata validation and agent comparison](big-o-agent-validation-and-comparison.md) - Complete RAD, direct/list WASM, and bounded nine-tool WebMCP coverage are implemented; native-browser evidence and MCP/native registration remain blocked on their environments/locks.
 - [Rust browser and Tauri desktop workspace for ACORN tools](acorn-browser-workspace/index.md) - Build one accessible Dioxus workspace, isolated Resium/CesiumJS ROR map, and least-privilege Tauri shell while preserving the existing portable, `acorn-wasm`, `acorn-host`, and `acorn-lib` ownership boundaries.
 - [CEL metadata validation-profile pilot](cel-validation-profile-pilot.md) - Evaluate bounded, optional institutional rules against existing Rust/Rhai behavior before adopting a CEL runtime; see the [OPA/CEL review](../_assets/opa-cel-review.md).
 - [dPID research-object support](dpid-research-object-support.md) - Recognize and resolve versioned dPIDs, import resolver RO-Crate metadata into RAD, and preserve manifest provenance through a read-only first release.

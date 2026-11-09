@@ -1,3 +1,6 @@
+const BIG_O_DOMINANCE = Object.freeze(["equivalent", "incomparable", "left", "right", "undetermined"]);
+const BIG_O_INPUT_LIMIT = 256;
+const BIG_O_TOOL_NAME = "acorn_compare_big_o";
 const CROSSWALK_PAIRS = Object.freeze([
     "datacite:dublin-core",
     "dublin-core:datacite",
@@ -37,6 +40,7 @@ const OUTPUT_LIMIT = 256 * 1024;
 const READABILITY_INPUT_LIMIT = 16 * 1024;
 const READABILITY_METRICS = Object.freeze(["ari", "cli", "fkgl", "fres", "gfi", "lix", "smog"]);
 const READABILITY_TOOL_NAME = "acorn_check_readability";
+const SYMBOL_GROWTH = Object.freeze(["fixed-log-base", "fixed-positive", "growing", "shrinking-positive"]);
 const VALIDATE_METADATA_TOOL_NAME = "acorn_validate_metadata_standard";
 const VALIDATION_TOOL_NAME = "acorn_validate_research_activity";
 const encoder = new TextEncoder();
@@ -52,6 +56,24 @@ const annotations = Object.freeze({
     consequentialHint: false,
     readOnlyHint: true,
     untrustedContentHint: true,
+});
+
+const bigOInputSchema = Object.freeze({
+    additionalProperties: false,
+    properties: {
+        assumptions: {
+            additionalProperties: { enum: SYMBOL_GROWTH, type: "string" },
+            default: {},
+            description: "Optional growth assumptions keyed by symbols used in either expression.",
+            maxProperties: 64,
+            propertyNames: { maxLength: BIG_O_INPUT_LIMIT, type: "string" },
+            type: "object",
+        },
+        left: { description: "Left Big-O expression.", maxLength: BIG_O_INPUT_LIMIT, type: "string" },
+        right: { description: "Right Big-O expression.", maxLength: BIG_O_INPUT_LIMIT, type: "string" },
+    },
+    required: ["left", "right"],
+    type: "object",
 });
 
 const fairInputSchema = Object.freeze({
@@ -185,7 +207,12 @@ function emit(onInvocation, event) {
 }
 
 function failure(code, message) {
-    return { error: { code, message }, ok: false };
+    const output = { error: { code, message }, ok: false };
+    let boundedOutput = output;
+    if (byteLength(JSON.stringify(output)) > OUTPUT_LIMIT) {
+        boundedOutput = { error: { code: "result_too_large", message: "The ACORN error exceeded the 256 KiB output limit." }, ok: false };
+    }
+    return boundedOutput;
 }
 
 function isRecord(value) {
@@ -314,6 +341,69 @@ function assessFairArguments(input) {
         throw new AdapterError("input_too_large", "FAIR assessment input exceeded its UTF-8 byte limit.");
     }
     return input;
+}
+
+function bigOArguments(input) {
+    validateKeys(input, ["assumptions", "left", "right"], ["left", "right"]);
+    if (typeof input.left !== "string" || typeof input.right !== "string") {
+        throw new AdapterError("invalid_arguments", "Big-O comparison requires left and right expression strings.");
+    }
+    if (input.assumptions !== undefined && !isRecord(input.assumptions)) {
+        throw new AdapterError("invalid_arguments", "Big-O assumptions must be an object when supplied.");
+    }
+    const assumptions = input.assumptions || {};
+    const assumptionNames = Object.keys(assumptions);
+    if (Object.values(assumptions).some((growth) => !SYMBOL_GROWTH.includes(growth))) {
+        throw new AdapterError("invalid_arguments", "Big-O assumptions contain an unsupported growth value.");
+    }
+    if (
+        byteLength(input.left) > BIG_O_INPUT_LIMIT
+        || byteLength(input.right) > BIG_O_INPUT_LIMIT
+        || assumptionNames.length > 64
+        || assumptionNames.some((name) => byteLength(name) > BIG_O_INPUT_LIMIT)
+    ) {
+        throw new AdapterError("input_too_large", "Big-O comparison input exceeded its UTF-8 byte or assumption-count limit.");
+    }
+    return { assumptions, left: input.left, right: input.right };
+}
+
+function bigOResult(value) {
+    const normalized = normalize(value);
+    const fields = ["assumptions", "dominance", "left", "right"];
+    const valid = isRecord(normalized)
+        && Object.keys(normalized).length === fields.length
+        && fields.every((field) => field in normalized)
+        && isRecord(normalized.assumptions)
+        && Object.values(normalized.assumptions).every((growth) => SYMBOL_GROWTH.includes(growth))
+        && BIG_O_DOMINANCE.includes(normalized.dominance)
+        && typeof normalized.left === "string"
+        && typeof normalized.right === "string";
+    if (!valid) {
+        throw new AdapterError("execution_failed", "ACORN returned an invalid Big-O comparison result.");
+    }
+    return normalized;
+}
+
+function bigOWasmError(error) {
+    let message;
+    if (typeof error === "string") {
+        message = error;
+    } else if (error !== null && error !== undefined) {
+        message = error.message;
+    }
+    const requestError = (
+        typeof message === "string"
+        && (
+            message.startsWith("invalid left Big-O expression:")
+            || message.startsWith("invalid right Big-O expression:")
+            || message.startsWith("growth assumption `")
+        )
+    );
+    let mapped = error;
+    if (requestError) {
+        mapped = new AdapterError("invalid_arguments", message);
+    }
+    return mapped;
 }
 
 function crosswalkArguments(input) {
@@ -482,6 +572,7 @@ export function createAcornWebMcpAdapter(bindings, options = {}) {
     if (
         typeof bindings?.assessFairMetadata !== "function"
         || typeof bindings?.checkReadability !== "function"
+        || typeof bindings.compareBigO !== "function"
         || typeof bindings?.crosswalkMetadata !== "function"
         || typeof bindings?.diffContent !== "function"
         || typeof bindings?.discoverPersistentIdentifiers !== "function"
@@ -524,6 +615,16 @@ export function createAcornWebMcpAdapter(bindings, options = {}) {
     const checkReadability = (input, execution = {}) => run(READABILITY_TOOL_NAME, execution.signal, () => {
         const { metric, text } = readabilityArguments(input);
         return readabilityResult(bindings.checkReadability(text, metric));
+    });
+    const compareBigO = (input, execution = {}) => run(BIG_O_TOOL_NAME, execution.signal, () => {
+        const comparison = bigOArguments(input);
+        let result;
+        try {
+            result = bigOResult(bindings.compareBigO(comparison));
+        } catch (error) {
+            throw bigOWasmError(error);
+        }
+        return result;
     });
     const crosswalkMetadata = (input, execution = {}) => run(CROSSWALK_TOOL_NAME, execution.signal, () => {
         const { contactJson, content, format, localIdentifier, source, target } = crosswalkArguments(input);
@@ -592,6 +693,14 @@ export function createAcornWebMcpAdapter(bindings, options = {}) {
                     inputSchema: readabilityInputSchema,
                     name: READABILITY_TOOL_NAME,
                     title: "Check readability",
+                },
+                {
+                    annotations,
+                    description: "Compare two supplied Big-O expressions under optional symbol-growth assumptions.",
+                    execute: (input, execution) => compareBigO(input, execution),
+                    inputSchema: bigOInputSchema,
+                    name: BIG_O_TOOL_NAME,
+                    title: "Compare Big-O expressions",
                 },
                 {
                     annotations,
@@ -669,6 +778,7 @@ export function createAcornWebMcpAdapter(bindings, options = {}) {
     return Object.freeze({
         assessFairMetadata,
         checkReadability,
+        compareBigO,
         crosswalkMetadata,
         diffContent,
         discoverPersistentIdentifiers,

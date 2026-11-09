@@ -19,12 +19,12 @@ use serde_with::skip_serializing_none;
 
 /// Asymptotic cost of one algorithmic resource.
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub enum ComplexityBound {
     /// Auxiliary space complexity, such as `O(n)`.
-    Space(String),
+    Space(#[schemars(length(max = 256))] String),
     /// Time complexity, such as `O(n log n)`.
-    Time(String),
+    Time(#[schemars(length(max = 256))] String),
 }
 /// Input case for an algorithm's asymptotic bounds.
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]

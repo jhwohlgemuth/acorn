@@ -1,0 +1,871 @@
+# Extracted ReviewWorkspace control from the saved, unpublished TEST ONLY app.
+# The fixture launcher and inherited live report are in status-preview.pa.yaml.
+Screens:
+  ApprovalReviewScreen:
+    Children:
+      - ReviewWorkspace:
+          Control: GroupContainer@1.5.0
+          Variant: AutoLayout
+          Properties:
+            Fill: =ColorValue("#EDF3EF")
+            Height: =Parent.Height
+            LayoutDirection: =LayoutDirection.Vertical
+            LayoutGap: =10
+            LayoutOverflowY: =LayoutOverflow.Scroll
+            PaddingBottom: =8
+            PaddingLeft: =8
+            PaddingRight: =8
+            Visible: =varFixtureMode
+            Width: =Parent.Width
+          Children:
+            - ReviewTop:
+                Control: GroupContainer@1.5.0
+                Variant: AutoLayout
+                Properties:
+                  Fill: =ColorValue("#123B31")
+                  FillPortions: =0
+                  Height: =68
+                  LayoutAlignItems: =LayoutAlignItems.Center
+                  LayoutDirection: =LayoutDirection.Horizontal
+                  LayoutJustifyContent: =LayoutJustifyContent.SpaceBetween
+                  LayoutMinHeight: =68
+                  PaddingLeft: =16
+                  PaddingRight: =16
+                Children:
+                  - ReviewTitle:
+                      Control: Label@2.5.1
+                      Properties:
+                        TabIndex: =0
+                        FocusedBorderThickness: =4
+                        Width: =Parent.Width - 224
+                        Color: =Color.White
+                        FontWeight: =FontWeight.Semibold
+                        Size: =19
+                        Text: =If(Parent.Width<500,"Review","Sponsor Highlights · Fixture review")
+                  - ReviewPreviewToggle:
+                      Control: Classic/Button@2.2.0
+                      Properties:
+                        OnSelect: =Set(varPreviewOnly,!varPreviewOnly); Reset(ReviewGallery)
+                        Text: =If(varPreviewOnly,"All","Only")
+                        Width: =70
+                  - ReviewBack:
+                      Control: Classic/Button@2.2.0
+                      Properties:
+                        OnSelect: =Set(varFixtureMode,false)
+                        Text: ="Back"
+                        Width: =70
+            - ReviewModeNote:
+                Control: Label@2.5.1
+                Properties:
+                  TabIndex: =0
+                  FocusedBorderThickness: =4
+                  Width: =Parent.Width - 16
+                  Height: =26
+                  Size: =11
+                  Text: ="Fixture preview · " & CountRows(colReviewDrafts) & " updates · " & CountIf(colReviewDrafts,decision="unresolved") & " unresolved · Local only"
+            - ReviewMain:
+                Control: GroupContainer@1.5.0
+                Variant: AutoLayout
+                Properties:
+                  LayoutDirection: =If(Parent.Width < 1120,LayoutDirection.Vertical,LayoutDirection.Horizontal)
+                  LayoutGap: =12
+                  LayoutMinHeight: =0
+                  LayoutMinWidth: =0
+                  LayoutOverflowY: =LayoutOverflow.Scroll
+                Children:
+                  - ReviewRail:
+                      Control: GroupContainer@1.5.0
+                      Variant: AutoLayout
+                      Properties:
+                        Fill: =Color.White
+                        FillPortions: =0
+                        Height: =If(Parent.Width < 1120, 64, Parent.Height)
+                        LayoutDirection: =If(Parent.Width < 1120, LayoutDirection.Horizontal, LayoutDirection.Vertical)
+                        LayoutGap: =4
+                        LayoutMinHeight: =0
+                        LayoutMinWidth: =0
+                        PaddingLeft: =8
+                        PaddingRight: =8
+                        Width: =If(Parent.Width < 1120, Parent.Width, 196)
+                      Children:
+                        - ReviewRailTitle:
+                            Control: Label@2.5.1
+                            Properties:
+                              TabIndex: =0
+                              FocusedBorderThickness: =4
+                              Width: =Parent.Width - 16
+                              Height: =28
+                              Text: ="Report pages"
+                              Visible: =ReviewMain.Width >= 1120
+                        - ReviewGeneral:
+                            Control: Classic/Button@2.2.0
+                            Properties:
+                              OnSelect: =Set(varJumpProject,"general"); Set(varReviewId,"general-progress-1"); Reset(ReviewGallery)
+                              Text: ="General"
+                              Visible: =ReviewMain.Width >= 1120
+                        - ReviewAtlas:
+                            Control: Classic/Button@2.2.0
+                            Properties:
+                              OnSelect: =Set(varJumpProject,"project-atlas"); Set(varReviewId,"atlas-status-1"); Reset(ReviewGallery)
+                              Text: ="Atlas"
+                              Visible: =ReviewMain.Width >= 1120
+                        - ReviewBorealis:
+                            Control: Classic/Button@2.2.0
+                            Properties:
+                              OnSelect: =Set(varJumpProject,"project-borealis"); Set(varReviewId,"borealis-status-1"); Reset(ReviewGallery)
+                              Text: ="Borealis"
+                              Visible: =ReviewMain.Width >= 1120
+                        - ReviewPagePicker:
+                            Control: Classic/DropDown@2.3.1
+                            Properties:
+                              AccessibleLabel: ="Choose a report page"
+                              Default: =Switch(LookUp(colReviewDrafts,id=varReviewId).projectId,"project-atlas","Project Atlas","project-borealis","Project Borealis","General updates")
+                              Items: =["General updates","Project Atlas","Project Borealis"]
+                              Items.Value: =Value
+                              OnChange: =Set(varJumpProject,Switch(Self.Selected.Value,"Project Atlas","project-atlas","Project Borealis","project-borealis","general")); Set(varReviewId,Switch(Self.Selected.Value,"Project Atlas","atlas-status-1","Project Borealis","borealis-status-1","general-progress-1")); Reset(ReviewGallery)
+                              Visible: =ReviewMain.Width < 1120
+                              Width: =Parent.Width - 16
+                  - ReviewReport:
+                      Control: GroupContainer@1.5.0
+                      Variant: AutoLayout
+                      Properties:
+                        Fill: =Color.White
+                        FillPortions: =If(Parent.Width < 1120,0,2)
+                        Height: =If(Parent.Width < 1120,400,Parent.Height)
+                        LayoutDirection: =LayoutDirection.Vertical
+                        LayoutMinHeight: =220
+                        LayoutMinWidth: =0
+                        PaddingLeft: =8
+                        PaddingRight: =8
+                        PaddingTop: =8
+                        Width: =If(Parent.Width < 1120,Parent.Width,Parent.Width*0.55)
+                      Children:
+                        - ReviewReportTitle:
+                            Control: Label@2.5.1
+                            Properties:
+                              TabIndex: =0
+                              FocusedBorderThickness: =4
+                              Width: =Parent.Width - 16
+                              FontWeight: =FontWeight.Semibold
+                              Height: =If(Parent.Width<500,52,32)
+                              Size: =17
+                              Text: =If(Parent.Width<500,"October 2026" & Char(10) & "01OCT–01NOV","October 2026 · Report preview · 01OCT–01NOV")
+                        - ReviewJumpNote:
+                            Control: Label@2.5.1
+                            Properties:
+                              AutoHeight: =true
+                              FocusedBorderThickness: =4
+                              Size: =10
+                              TabIndex: =0
+                              Text: =If(Coalesce(varJumpProject,"general")="general","Report order", "Focused page first · other report pages follow. Choose General to restore report order.")
+                              Width: =Parent.Width - 16
+                        - ReviewCanvasSummaryLabel:
+                            Control: Label@2.5.1
+                            Properties:
+                              FocusedBorderThickness: =4
+                              Height: =22
+                              Size: =11
+                              TabIndex: =0
+                              Text: ="Edit selected summary in report"
+                              Width: =Parent.Width - 16
+                        - ReviewCanvasSummaryInput:
+                            Control: Classic/TextInput@2.3.2
+                            Properties:
+                              AccessibleLabel: ="Edit selected summary in report"
+                              Default: =LookUp(colReviewDrafts,id=varReviewId).summary
+                              Height: =70
+                              Mode: =TextMode.MultiLine
+                              OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{summary:Self.Text,decision:"unresolved"}); Reset(ReviewSummaryInput)
+                              Width: =Parent.Width - 16
+                        - ReviewGallery:
+                            Control: Gallery@2.15.0
+                            Variant: BrowseLayout_Flexible_SocialFeed_ver5.0
+                            Properties:
+                              AccessibleLabel: ="Fixture report updates"
+                              Default: =LookUp(colReviewDrafts,id=varReviewId)
+                              Items: =SortByColumns(AddColumns(Filter(colReviewDrafts,!varPreviewOnly || decision<>"exclude" || IsBlank(Trim(exclusionReason))),sortPage,If(projectId=Coalesce(varJumpProject,"general"),-1,0),sortState,If(projectId="general","",state),sortDate,If(projectId="general",-Value(Substitute(occurred,"-","")),Value(Substitute(occurred,"-","")))),"sortPage",SortOrder.Ascending,"projectId",SortOrder.Ascending,"kind",SortOrder.Descending,"sortState",SortOrder.Ascending,"sortDate",SortOrder.Ascending,"id",SortOrder.Ascending)
+                              LayoutMinHeight: =120
+                              LayoutMinWidth: =0
+                              OnSelect: =Set(varReviewId,ThisItem.id)
+                              TabIndex: =0
+                              TemplateFill: =If(ThisItem.id=varReviewId,ColorValue("#E7F3EB"),Color.White)
+                              TemplatePadding: =8
+                              TemplateSize: '=210 '
+                              Width: =Parent.Width - 16
+                            Children:
+                              - ReviewCardTitle:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    FontWeight: =FontWeight.Semibold
+                                    OnSelect: =Select(Parent)
+                                    Text: =If(ThisItem.id="general-progress-1","General updates" & Char(10),ThisItem.id="atlas-status-1","Project Atlas · Accessible research data services" & Char(10),ThisItem.id="borealis-status-1","Project Borealis · Scientific software sustainability" & Char(10),"") & If(ThisItem.kind="status","Project status · " & ThisItem.health,Upper(ThisItem.state) & " · " & ThisItem.category) & " · " & ThisItem.occurred
+                                    Width: =Parent.TemplateWidth - 24
+                                    X: =1
+                                    Y: =8
+                              - ReviewCardPageMeta:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    OnSelect: =Select(Parent)
+                                    Size: =10
+                                    Text: |-
+                                      =Switch(ThisItem.id,"atlas-status-1","Keywords: accessibility · research data" & Char(10) & "PI: Avery Chen · Sponsor: Office of Science","borealis-status-1","Keywords: software · sustainability" & Char(10) & "PI: Morgan Rivera · Sponsor: Advanced Scientific Computing Research","")
+                                    Visible: =ThisItem.kind="status"
+                                    Width: =Parent.TemplateWidth - 24
+                                    X: =1
+                                    Y: =ReviewCardTitle.Y + ReviewCardTitle.Height + 4
+                              - ReviewCardSummary:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    OnSelect: =Select(Parent)
+                                    Size: =12
+                                    Text: =ThisItem.summary
+                                    Width: =Parent.TemplateWidth - 24
+                                    X: =1
+                                    Y: =If(ThisItem.kind="status",ReviewCardPageMeta.Y + ReviewCardPageMeta.Height + 4,ReviewCardTitle.Y + ReviewCardTitle.Height + 4)
+                              - ReviewCardMeta:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    OnSelect: =Select(Parent)
+                                    Size: =11
+                                    Text: =Switch(ThisItem.projectId,"general","General updates","project-atlas","Project Atlas","Project Borealis") & " · " & If(ThisItem.decision="exclude","Excluded",ThisItem.decision="approve","Approved","Needs review") & If(ThisItem.sourceSummary<>ThisItem.summary," · Edited","")
+                                    Width: =Parent.TemplateWidth - 24
+                                    X: =1
+                                    Y: =ReviewCardSummary.Y + ReviewCardSummary.Height + 4
+                              - ReviewCardBody:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    OnSelect: =Select(Parent)
+                                    Size: =11
+                                    Text: |-
+                                      =If(ThisItem.kind="activity",If(IsBlank(ThisItem.items),"","• " & Substitute(ThisItem.items,Char(10),Char(10) & "• ")) & If(IsBlank(ThisItem.eventType),"",Char(10) & "Event: " & ThisItem.eventType) & If(ThisItem.classification="unclassified","",Char(10) & "Classification: " & ThisItem.classification),"Significance: " & ThisItem.significance & If(IsBlank(ThisItem.healthReason),"",Char(10) & "Health context: " & ThisItem.healthReason) & If(IsBlank(ThisItem.evidence),"",Char(10) & "Evidence: " & ThisItem.evidence) & If(IsBlank(ThisItem.riskKind),"",Char(10) & "Risk or dependency (" & ThisItem.riskKind & "): " & ThisItem.riskExplanation))
+                                    Width: =Parent.TemplateWidth - 24
+                                    X: =12
+                                    Y: '=ReviewCardMeta.Y + ReviewCardMeta.Height + 6    '
+                  - ReviewInspector:
+                      Control: GroupContainer@1.5.0
+                      Variant: AutoLayout
+                      Properties:
+                        Fill: =Color.White
+                        FillPortions: =If(Parent.Width < 1120,0,1)
+                        Height: =If(Parent.Width < 1120,600,Parent.Height)
+                        LayoutDirection: =LayoutDirection.Vertical
+                        LayoutGap: =8
+                        LayoutMinHeight: =220
+                        LayoutMinWidth: =0
+                        LayoutOverflowY: =LayoutOverflow.Scroll
+                        PaddingLeft: =12
+                        PaddingRight: =12
+                        PaddingTop: =12
+                        Width: =If(Parent.Width < 1120,Parent.Width,320)
+                      Children:
+                        - ReviewInspectorTitle:
+                            Control: Label@2.5.1
+                            Properties:
+                              TabIndex: =0
+                              FocusedBorderThickness: =4
+                              Width: =Parent.Width - 16
+                              FontWeight: =FontWeight.Semibold
+                              Height: =32
+                              Size: =17
+                              Text: ="Edit selected update"
+                        - ReviewSelectedMeta:
+                            Control: Label@2.5.1
+                            Properties:
+                              TabIndex: =0
+                              FocusedBorderThickness: =4
+                              Width: =Parent.Width - 16
+                              Height: =32
+                              Size: =11
+                              Text: =LookUp(colReviewDrafts,id=varReviewId).id & " · Local fixture draft"
+                        - ReviewSourceSummary:
+                            Control: Label@2.5.1
+                            Properties:
+                              TabIndex: =0
+                              FocusedBorderThickness: =4
+                              AutoHeight: =true
+                              Size: =11
+                              Text: |-
+                                = "Original: " & LookUp(colReviewDrafts,id=varReviewId).sourceSummary
+                              Width: =Parent.Width - 24
+                        - ReviewSummaryLabel:
+                            Control: Label@2.5.1
+                            Properties:
+                              TabIndex: =0
+                              FocusedBorderThickness: =4
+                              Width: =Parent.Width - 16
+                              Height: =26
+                              Text: ="Summary · 1,200 characters"
+                        - ReviewSummaryInput:
+                            Control: Classic/TextInput@2.3.2
+                            Properties:
+                              AccessibleLabel: ="Edit summary"
+                              Default: =LookUp(colReviewDrafts,id=varReviewId).summary
+                              Height: =110
+                              Mode: =TextMode.MultiLine
+                              OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{summary:Self.Text,decision:"unresolved"})
+                              Width: =Parent.Width - 24
+                        - ReviewValidation:
+                            Control: Label@2.5.1
+                            Properties:
+                              TabIndex: =0
+                              FocusedBorderThickness: =4
+                              AutoHeight: =true
+                              Color: =ColorValue("#8B1D18")
+                              Text: =With({item:LookUp(colReviewDrafts,id=varReviewId)},If(IsBlank(Trim(item.summary)),"Summary is required. ",Len(item.summary)>1200,"Summary exceeds 1,200 characters. ",""))
+                              Width: =Parent.Width - 24
+                        - ReviewValidationSummary:
+                            Control: Label@2.5.1
+                            Properties:
+                              AutoHeight: =true
+                              Color: =ColorValue("#8B1D18")
+                              FocusedBorderThickness: =4
+                              TabIndex: =0
+                              Text: =Trim(ReviewValidation.Text & " " & If(LookUp(colReviewDrafts,id=varReviewId).kind="activity",ReviewActivityProblems.Text,ReviewStatusProblems.Text & " " & ReviewRangeError.Text) & " " & ReviewExclusionError.Text)
+                              Visible: =!IsBlank(Self.Text)
+                              Width: =Parent.Width - 24
+                        - ReviewActivityFields:
+                            Control: GroupContainer@1.5.0
+                            Variant: AutoLayout
+                            Properties:
+                              FillPortions: =0
+                              Height: =860
+                              LayoutDirection: =LayoutDirection.Vertical
+                              LayoutGap: =6
+                              LayoutMinHeight: =0
+                              LayoutMinWidth: =0
+                              PaddingLeft: =8
+                              PaddingRight: =8
+                              Visible: =LookUp(colReviewDrafts,id=varReviewId).kind="activity"
+                              Width: =Parent.Width - 24
+                            Children:
+                              - ReviewActivityHeading:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =28
+                                    Text: ="Activity details"
+                              - ReviewRouting:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    Size: =11
+                                    Text: |-
+                                      ="Destination: " & Switch(LookUp(colReviewDrafts,id=varReviewId).projectId,"general","General updates","project-atlas","Project Atlas","Project Borealis") & " · Source routing locked"
+                                    Width: =Parent.Width - 16
+                              - ReviewDateLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    Height: =22
+                                    Text: ="Activity date"
+                              - ReviewDate:
+                                  Control: Classic/DatePicker@2.6.0
+                                  Properties:
+                                    AccessibleLabel: ="Activity date"
+                                    DefaultDate: =DateValue(LookUp(colReviewDrafts,id=varReviewId).occurred)
+                                    Height: =44
+                                    OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{occurred:Text(Self.SelectedDate,"yyyy-mm-dd"),decision:"unresolved"})
+                                    Width: =Parent.Width - 16
+                              - ReviewCategoryLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    Height: =22
+                                    Text: ="Category"
+                              - ReviewCategory:
+                                  Control: Classic/DropDown@2.3.1
+                                  Properties:
+                                    AccessibleLabel: ="Category"
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).category
+                                    Height: =44
+                                    Items: =["administration","collaboration","data","engagement","funding","infrastructure","method","other","personnel","publication","research","software"]
+                                    Items.Value: =Value
+                                    OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{category:Self.Selected.Value,decision:"unresolved"})
+                                    Width: =Parent.Width - 16
+                              - ReviewStateLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    Height: =22
+                                    Text: ="Status group"
+                              - ReviewState:
+                                  Control: Classic/DropDown@2.3.1
+                                  Properties:
+                                    AccessibleLabel: ="Status group"
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).state
+                                    Height: =44
+                                    Items: =["completed","in-progress","upcoming"]
+                                    Items.Value: =Value
+                                    OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{state:Self.Selected.Value,decision:"unresolved"})
+                                    Width: =Parent.Width - 16
+                              - ReviewEventLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    Height: =22
+                                    Text: ="Event type · optional"
+                              - ReviewEvent:
+                                  Control: Classic/DropDown@2.3.1
+                                  Properties:
+                                    AccessibleLabel: ="Event type"
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).eventType
+                                    Height: =44
+                                    Items: =["","conference","exhibition","meeting","other","presentation","tour","training","workshop"]
+                                    Items.Value: =Value
+                                    OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{eventType:Self.Selected.Value,decision:"unresolved"})
+                                    Width: =Parent.Width - 16
+                              - ReviewClassificationLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    Height: =22
+                                    Text: ="Classification · policy checked"
+                              - ReviewClassification:
+                                  Control: Classic/DropDown@2.3.1
+                                  Properties:
+                                    AccessibleLabel: ="Classification"
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).classification
+                                    Height: =44
+                                    Items: =["unclassified","confidential","secret","topsecret"]
+                                    Items.Value: =Value
+                                    OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{classification:Self.Selected.Value,decision:"unresolved"})
+                                    Width: =Parent.Width - 16
+                              - ReviewItemsLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    Text: ="Supporting items · one per line; move lines to reorder"
+                                    Width: =Parent.Width - 16
+                              - ReviewItems:
+                                  Control: Classic/TextInput@2.3.2
+                                  Properties:
+                                    AccessibleLabel: ="Supporting items"
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).items
+                                    Height: =112
+                                    Mode: =TextMode.MultiLine
+                                    OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{items:Self.Text,decision:"unresolved"})
+                                    Width: =Parent.Width - 16
+                              - ReviewSourceItems:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    Size: =11
+                                    Text: |-
+                                      ="Original items: " & Substitute(LookUp(colReviewDrafts,id=varReviewId).sourceItems,Char(10)," · ")
+                                    Width: =Parent.Width - 16
+                              - ReviewActivityProblems:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    Color: =ColorValue("#8B1D18")
+                                    Text: =With({item:LookUp(colReviewDrafts,id=varReviewId)},If(IsBlank(item.category),"Choose a category. ","") & If(IsBlank(item.state),"Choose a status group. ","") & If(IsBlank(item.occurred),"Choose a date. ","") & If(Len(item.items)>20000 || CountRows(Filter(Split(item.items,Char(10)),!IsBlank(Trim(Value))))>20,"Supporting items exceed 20 lines. ","") & If(item.classification<>"unclassified" && (item.category<>"administration" || item.eventType<>"other"),"Classification requires administration and Other event type.",""))
+                                    Width: =Parent.Width - 16
+                        - ReviewStatusFields:
+                            Control: GroupContainer@1.5.0
+                            Variant: AutoLayout
+                            Properties:
+                              FillPortions: =0
+                              Height: =760
+                              LayoutDirection: =LayoutDirection.Vertical
+                              LayoutGap: =6
+                              LayoutMinHeight: =0
+                              LayoutMinWidth: =0
+                              PaddingLeft: =8
+                              PaddingRight: =8
+                              Visible: =LookUp(colReviewDrafts,id=varReviewId).kind="status"
+                              Width: =Parent.Width - 24
+                            Children:
+                              - ReviewStatusHeading:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =28
+                                    Text: ="Project status update"
+                              - ReviewStatusDate:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    Size: =11
+                                    Text: = "Recorded " & LookUp(colReviewDrafts,id=varReviewId).occurred & " · Source timestamp locked"
+                                    Width: =Parent.Width - 16
+                              - ReviewHealthLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    Height: =22
+                                    Text: ="Project health"
+                              - ReviewHealth:
+                                  Control: Classic/DropDown@2.3.1
+                                  Properties:
+                                    AccessibleLabel: ="Project health"
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).health
+                                    Height: =44
+                                    Items: =["on-track","ahead-of-plan","at-risk","delayed","paused","complete"]
+                                    Items.Value: =Value
+                                    OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{health:Self.Selected.Value,healthReason:If(Self.Selected.Value in ["at-risk","delayed","paused"],LookUp(colReviewDrafts,id=varReviewId).healthReason,""),decision:"unresolved"})
+                                    Width: =Parent.Width - 16
+                              - ReviewHealthReasonLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    Height: =22
+                                    Text: ="Health context"
+                                    Visible: =LookUp(colReviewDrafts,id=varReviewId).health in ["at-risk","delayed","paused"]
+                              - ReviewHealthReason:
+                                  Control: Classic/TextInput@2.3.2
+                                  Properties:
+                                    AccessibleLabel: ="Health context"
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).healthReason
+                                    Height: =72
+                                    Mode: =TextMode.MultiLine
+                                    OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{healthReason:Self.Text,decision:"unresolved"})
+                                    Visible: =LookUp(colReviewDrafts,id=varReviewId).health in ["at-risk","delayed","paused"]
+                                    Width: =Parent.Width - 16
+                              - ReviewSignificanceLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    Height: =22
+                                    Text: ="Significance · required"
+                              - ReviewSignificance:
+                                  Control: Classic/TextInput@2.3.2
+                                  Properties:
+                                    AccessibleLabel: ="Significance"
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).significance
+                                    Height: =92
+                                    Mode: =TextMode.MultiLine
+                                    OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{significance:Self.Text,decision:"unresolved"})
+                                    Width: =Parent.Width - 16
+                              - ReviewEvidenceLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    Height: =22
+                                    Text: ="Evidence · optional"
+                              - ReviewEvidence:
+                                  Control: Classic/TextInput@2.3.2
+                                  Properties:
+                                    AccessibleLabel: ="Evidence"
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).evidence
+                                    Height: =80
+                                    Mode: =TextMode.MultiLine
+                                    OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{evidence:Self.Text,decision:"unresolved"})
+                                    Width: =Parent.Width - 16
+                              - ReviewRiskKindLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    Height: =22
+                                    Text: ="Risk or dependency kind · optional"
+                              - ReviewRiskKind:
+                                  Control: Classic/DropDown@2.3.1
+                                  Properties:
+                                    AccessibleLabel: ="Risk or dependency kind"
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).riskKind
+                                    Height: =44
+                                    Items: =["","data","infrastructure","security-accreditation","software-environment","sponsor-prioritization","partner-coordination","funding-contracting","staffing","validation","classified-environment-access","other"]
+                                    Items.Value: =Value
+                                    OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{riskKind:Self.Selected.Value,riskExplanation:If(IsBlank(Self.Selected.Value),"",LookUp(colReviewDrafts,id=varReviewId).riskExplanation),decision:"unresolved"})
+                                    Width: =Parent.Width - 16
+                              - ReviewRiskExplanationLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    Height: =22
+                                    Text: ="Risk explanation"
+                                    Visible: =!IsBlank(LookUp(colReviewDrafts,id=varReviewId).riskKind)
+                              - ReviewRiskExplanation:
+                                  Control: Classic/TextInput@2.3.2
+                                  Properties:
+                                    AccessibleLabel: ="Risk explanation"
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).riskExplanation
+                                    Height: =72
+                                    Mode: =TextMode.MultiLine
+                                    OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{riskExplanation:Self.Text,decision:"unresolved"})
+                                    Visible: =!IsBlank(LookUp(colReviewDrafts,id=varReviewId).riskKind)
+                                    Width: =Parent.Width - 16
+                              - ReviewStatusProblems:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    Color: =ColorValue("#8B1D18")
+                                    Text: =With({item:LookUp(colReviewDrafts,id=varReviewId)},If(IsBlank(item.health),"Choose project health. ","") & If(item.health in ["at-risk","delayed","paused"] && IsBlank(Trim(item.healthReason)),"Explain the health state. ","") & If(IsBlank(Trim(item.significance)),"Significance is required. ","") & If(Len(item.significance)>1000,"Significance exceeds 1,000 characters. ","") & If(Len(item.evidence)>1000,"Evidence exceeds 1,000 characters. ","") & If(Len(item.healthReason)>1000,"Health context exceeds 1,000 characters. ","") & If(!IsBlank(item.riskKind) && IsBlank(Trim(item.riskExplanation)),"Explain the risk or dependency. ","") & If(Len(item.riskExplanation)>1000,"Risk explanation exceeds 1,000 characters.",""))
+                                    Width: =Parent.Width - 16
+                        - ReviewDecisionFields:
+                            Control: GroupContainer@1.5.0
+                            Variant: AutoLayout
+                            Properties:
+                              FillPortions: =0
+                              Height: =330
+                              LayoutDirection: =LayoutDirection.Vertical
+                              LayoutGap: =6
+                              LayoutMinHeight: =0
+                              LayoutMinWidth: =0
+                              PaddingLeft: =8
+                              PaddingRight: =8
+                              Width: =Parent.Width - 24
+                            Children:
+                              - ReviewDecisionHeading:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =28
+                                    Text: ="Review decision · fixture only"
+                              - ReviewDecisionState:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    Height: =26
+                                    Text: |-
+                                      = "Current: " & LookUp(colReviewDrafts,id=varReviewId).decision & If(LookUp(colReviewDrafts,id=varReviewId).sourceSummary<>LookUp(colReviewDrafts,id=varReviewId).summary," · Edited","")
+                              - ReviewDecisionButtons:
+                                  Control: GroupContainer@1.5.0
+                                  Variant: AutoLayout
+                                  Properties:
+                                    FillPortions: =0
+                                    Height: =44
+                                    LayoutDirection: =LayoutDirection.Horizontal
+                                    LayoutGap: =4
+                                    LayoutMinHeight: =44
+                                    Width: =Parent.Width - 16
+                                  Children:
+                                    - ReviewUnresolved:
+                                        Control: Classic/Button@2.2.0
+                                        Properties:
+                                          FillPortions: =1
+                                          OnSelect: =UpdateIf(colReviewDrafts,id=varReviewId,{decision:"unresolved"})
+                                          Text: ="Unresolved"
+                                    - ReviewApprove:
+                                        Control: Classic/Button@2.2.0
+                                        Properties:
+                                          FillPortions: =1
+                                          DisplayMode: =If(IsBlank(ReviewValidation.Text) && If(LookUp(colReviewDrafts,id=varReviewId).kind="activity",IsBlank(ReviewActivityProblems.Text),IsBlank(ReviewStatusProblems.Text) && IsBlank(ReviewRangeError.Text)),DisplayMode.Edit,DisplayMode.Disabled)
+                                          OnSelect: =UpdateIf(colReviewDrafts,id=varReviewId,{decision:"approve"})
+                                          Text: ="Approve"
+                                    - ReviewExclude:
+                                        Control: Classic/Button@2.2.0
+                                        Properties:
+                                          FillPortions: =1
+                                          OnSelect: =UpdateIf(colReviewDrafts,id=varReviewId,{decision:"exclude"})
+                                          Text: ="Exclude"
+                              - ReviewExclusionLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    Text: ="Exclusion reason · required when excluded"
+                                    Visible: =LookUp(colReviewDrafts,id=varReviewId).decision="exclude"
+                                    Width: =Parent.Width - 16
+                              - ReviewExclusionReason:
+                                  Control: Classic/TextInput@2.3.2
+                                  Properties:
+                                    AccessibleLabel: ="Exclusion reason"
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).exclusionReason
+                                    Height: =72
+                                    Mode: =TextMode.MultiLine
+                                    OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{exclusionReason:Self.Text})
+                                    Visible: =LookUp(colReviewDrafts,id=varReviewId).decision="exclude"
+                                    Width: =Parent.Width - 16
+                              - ReviewIncludeState:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    Size: =11
+                                    Text: =With({item:LookUp(colReviewDrafts,id=varReviewId)},If(item.decision="exclude" && IsBlank(Trim(item.exclusionReason)),"Exclusion pending · add a reason; still included",item.decision="exclude","Excluded from preview; audit card remains available","Included in preview"))
+                                    Width: =Parent.Width - 16
+                              - ReviewExclusionError:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    Color: =ColorValue("#8B1D18")
+                                    Text: =If(LookUp(colReviewDrafts,id=varReviewId).decision="exclude" && IsBlank(Trim(LookUp(colReviewDrafts,id=varReviewId).exclusionReason)),"An exclusion reason is required.","")
+                                    Width: =Parent.Width - 16
+                              - ReviewNextProblem:
+                                  Control: Classic/Button@2.2.0
+                                  Properties:
+                                    OnSelect: =Set(varReviewId,Coalesce(First(Filter(colReviewDrafts,id<>varReviewId && (decision="unresolved" || (decision="exclude" && IsBlank(Trim(exclusionReason)))))).id,varReviewId)); Set(varJumpProject,LookUp(colReviewDrafts,id=varReviewId).projectId); Reset(ReviewGallery)
+                                    Text: ="Next problem"
+                                    Width: =Parent.Width - 16
+                        - ReviewComparisonAndRange:
+                            Control: GroupContainer@1.5.0
+                            Variant: AutoLayout
+                            Properties:
+                              FillPortions: =0
+                              Height: =330
+                              LayoutDirection: =LayoutDirection.Vertical
+                              LayoutGap: =6
+                              LayoutMinHeight: =0
+                              LayoutMinWidth: =0
+                              PaddingLeft: =8
+                              PaddingRight: =8
+                              Width: =Parent.Width - 24
+                            Children:
+                              - ReviewSourceHeading:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =28
+                                    Text: ="Source comparison and ancestry"
+                              - ReviewOriginalDetails:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    Size: =11
+                                    Text: |-
+                                      = "Original fields: " & LookUp(colReviewDrafts,id=varReviewId).sourceDetails
+                                    Width: =Parent.Width - 16
+                              - ReviewCorrectionAncestry:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    Size: =11
+                                    Text: =With({item:LookUp(colReviewDrafts,id=varReviewId)},If(IsBlank(item.corrects),"Original submission · no correction parent","Correction of " & item.corrects & " · parent identity locked"))
+                                    Width: =Parent.Width - 16
+                              - ReviewRangeLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    Height: =22
+                                    Text: ="Status reporting window"
+                                    Visible: =LookUp(colReviewDrafts,id=varReviewId).kind="status"
+                              - ReviewRangeMode:
+                                  Control: Classic/DropDown@2.3.1
+                                  Properties:
+                                    AccessibleLabel: ="Reporting window mode"
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).rangeMode
+                                    Height: =44
+                                    Items: =["batch","custom"]
+                                    Items.Value: =Value
+                                    OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{rangeMode:Self.Selected.Value,decision:"unresolved"})
+                                    Visible: =LookUp(colReviewDrafts,id=varReviewId).kind="status"
+                                    Width: =Parent.Width - 16
+                              - ReviewRangeHelp:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    Size: =11
+                                    Text: |-
+                                      ="Batch period: October 1–31, 2026. A custom range must stay within it."
+                                    Visible: =LookUp(colReviewDrafts,id=varReviewId).kind="status"
+                                    Width: =Parent.Width - 16
+                              - ReviewRangeStartLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    Height: =22
+                                    Text: ="Custom start"
+                                    Visible: =LookUp(colReviewDrafts,id=varReviewId).kind="status" && LookUp(colReviewDrafts,id=varReviewId).rangeMode="custom"
+                              - ReviewRangeStart:
+                                  Control: Classic/DatePicker@2.6.0
+                                  Properties:
+                                    AccessibleLabel: ="Custom reporting start"
+                                    DefaultDate: =DateValue(LookUp(colReviewDrafts,id=varReviewId).rangeStart)
+                                    Height: =44
+                                    OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{rangeStart:Text(Self.SelectedDate,"yyyy-mm-dd"),decision:"unresolved"})
+                                    Visible: =LookUp(colReviewDrafts,id=varReviewId).kind="status" && LookUp(colReviewDrafts,id=varReviewId).rangeMode="custom"
+                                    Width: =Parent.Width - 16
+                              - ReviewRangeEndLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    Width: =Parent.Width - 16
+                                    Height: =22
+                                    Text: ="Custom end · exclusive"
+                                    Visible: =LookUp(colReviewDrafts,id=varReviewId).kind="status" && LookUp(colReviewDrafts,id=varReviewId).rangeMode="custom"
+                              - ReviewRangeEnd:
+                                  Control: Classic/DatePicker@2.6.0
+                                  Properties:
+                                    AccessibleLabel: ="Custom reporting end"
+                                    DefaultDate: =DateValue(LookUp(colReviewDrafts,id=varReviewId).rangeEnd)
+                                    Height: =44
+                                    OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{rangeEnd:Text(Self.SelectedDate,"yyyy-mm-dd"),decision:"unresolved"})
+                                    Visible: =LookUp(colReviewDrafts,id=varReviewId).kind="status" && LookUp(colReviewDrafts,id=varReviewId).rangeMode="custom"
+                                    Width: =Parent.Width - 16
+                              - ReviewRangeError:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    TabIndex: =0
+                                    FocusedBorderThickness: =4
+                                    AutoHeight: =true
+                                    Color: =ColorValue("#8B1D18")
+                                    Text: =With({item:LookUp(colReviewDrafts,id=varReviewId)},If(item.kind="status" && item.rangeMode="custom" && (DateValue(item.rangeStart)<Date(2026,10,1) || DateValue(item.rangeEnd)>Date(2026,11,1) || DateValue(item.rangeStart)>=DateValue(item.rangeEnd)),"Custom reporting window must stay inside October and have an end after the start.",""))
+                                    Width: =Parent.Width - 16

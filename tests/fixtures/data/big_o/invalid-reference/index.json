@@ -1,0 +1,87 @@
+{
+  "meta": {
+    "identifier": "big-o-valid",
+    "archive": false,
+    "draft": false,
+    "status": "active"
+  },
+  "aspect": {
+    "computation": [
+      {
+        "identifier": "00000000-0000-4000-8000-000000000001",
+        "stages": [
+          {
+            "identifier": "00000000-0000-4000-8000-000000000002",
+            "operation": "classical",
+            "complexity": {
+              "case": "worst",
+              "bounds": [
+                { "time": "O(n log n)" },
+                { "space": "O(m)" }
+              ],
+              "variables": {
+                "m": "Number of batches"
+              }
+            }
+          },
+          {
+            "identifier": "00000000-0000-4000-8000-000000000003",
+            "operation": "classical",
+            "complexity": {
+              "bounds": { "time": "O(n^2)" },
+              "variables": {
+                "n": "Number of records"
+              }
+            },
+            "dependsOn": [
+              "00000000-0000-4000-8000-000000000002"
+            ]
+          },
+          {
+            "identifier": "00000000-0000-4000-8000-000000000004",
+            "operation": "classical",
+            "complexity": {
+              "bounds": { "time": "O(P*B+2*log(B)*t*H^2/e)" },
+              "variables": {
+                "B": "Batch size",
+                "H": "Hidden dimension",
+                "P": "Parameter count",
+                "e": "Target error",
+                "t": "Iteration count"
+              }
+            },
+            "dependsOn": [
+              "00000000-0000-4000-8000-000000000003"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "title": "Valid Big-O Research Activity",
+  "sections": {
+    "mission": "Validate portable Big-O metadata in complete research activity data.",
+    "challenge": "Complexity notation must remain deterministic across every supported interface.",
+    "approach": [
+      "Parse bounded expressions and validate every declared variable reference."
+    ],
+    "impact": [
+      "Agents receive precise nested diagnostics before comparing growth."
+    ],
+    "research": {
+      "focus": "Portable algorithm complexity validation",
+      "areas": [
+        "Research metadata"
+      ]
+    }
+  },
+  "contact": {
+    "title": "Principal Investigator",
+    "first": "Jane",
+    "last": "Doe",
+    "email": "jane.doe@example.org",
+    "phone": "(865) 555-0100",
+    "url": "https://example.org/people/jane-doe",
+    "organization": "Example Organization"
+  }
+}

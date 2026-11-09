@@ -1,0 +1,37 @@
+{
+  "version": "pa37b-v1",
+  "scope": "TEST ONLY",
+  "flows": ["Finalize Approval Batch TEST ONLY", "Read Approved Batch TEST ONLY"],
+  "authorization": {
+    "finalizersGroupId": 43,
+    "exportersGroupId": 44,
+    "rule": "Each call checks current caller membership before disclosing batch or projection data. The owner-only TEST ONLY finalizer may inspect Approved output during acceptance."
+  },
+  "input": {
+    "batchId": "Existing Ready batch UUID",
+    "candidateManifest": "Exact pending manifest produced by PA-37A"
+  },
+  "precommit": [
+    "Resolve exactly one Ready batch with an exact pending manifest.",
+    "Require at least one source item and no more than 5000; zero unresolved, reconciled approved/excluded/item counts, and no invalid review items.",
+    "Reread the source list bound to the batch over the complete closed interval, including IDs beyond the materialization high-water mark, and reject late arrivals or changed captured ETags/encoded bytes.",
+    "Reread every review item and compare its complete draft bytes, ETag, version, decision, reason, candidate ID, mapping, and candidate bytes with the pending manifest.",
+    "Reject duplicate source IDs, duplicate approved IDs, missing/cyclic/dangling ancestry, and any included correction whose predecessor is excluded or unresolved.",
+    "Conditionally change Ready to Finalizing using the batch item ETag; a competing request must return a non-visible conflict or in-progress result."
+  ],
+  "freeze": {
+    "path": "Approved/<batchId>/<sourceItemId>.jsonl and Approved/<batchId>/manifest.json",
+    "rule": "Write each included candidate as exact UTF-8 bytes, reread every file, and compare complete bytes. Excluded items get no projection file. Write and exactly reread the complete mapping/count/ordering manifest last.",
+    "digest": "Store a named non-cryptographic b64-edge-v1 fingerprint for diagnostics only. Exact file bytes and list ETags/versions are the integrity checks.",
+    "bounds": "At most 5000 approved and excluded source rows and 10 MiB of combined JSONL; fail closed before publication if either limit is exceeded."
+  },
+  "commit": {
+    "rule": "Only after every frozen file and the manifest reread exactly may a conditional SharePoint item update set State to Approved, ApprovedByEmail and ApprovedAtUtc once, and ProjectionDigest to the frozen fingerprint. The app and exporter cannot perform this update.",
+    "readRule": "Read Approved Batch TEST ONLY returns only an Approved manifest and its exact frozen bytes; Draft, Ready, Finalizing, and Failed reveal no projection content.",
+    "duplicate": "An Approved request returns the existing immutable manifest. A Finalizing request returns in-progress without a second writer. An uncertain precommit result remains non-visible until an operator resolves it."
+  },
+  "failure": {
+    "rule": "A failed or timed-out read, conditional write, file write, or exact readback never sets Approved. Preserve existing source receipts and files for diagnosis; never reconstruct approved content from mutable drafts after a failed commit.",
+    "rollback": "The collected exporter remains unchanged and sees only Approved batches; it cannot read pending candidate files."
+  }
+}

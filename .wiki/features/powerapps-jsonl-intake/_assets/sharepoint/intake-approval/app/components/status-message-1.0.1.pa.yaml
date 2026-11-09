@@ -1,0 +1,31 @@
+ComponentDefinitions:
+  cmpStatusMessage:
+    DefinitionType: CanvasComponent
+    Description: Inline loading, success, and error message. Contract 1.0.0.
+    AllowCustomization: true
+    CustomProperties:
+      Message:
+        PropertyKind: Input
+        DisplayName: Message
+        Description: Message shown to the reviewer.
+        DataType: Text
+        Default: ="Text"
+      State:
+        PropertyKind: Input
+        DisplayName: State
+        Description: One of Loading, Success, Error, or Info.
+        DataType: Text
+        Default: ="Text"
+    Children:
+      - lblStatus:
+          Control: Label@2.5.1
+          Properties:
+            AutoHeight: =true
+            BorderColor: =RGBA(0, 18, 107, 1)
+            Color: =If(cmpStatusMessage.State = "Error", ColorValue("#B42318"), If(cmpStatusMessage.State = "Success", ColorValue("#007833"), ColorValue("#123B31")))
+            Font: =Font.'Segoe UI'
+            Height: =44
+            Live: =Live.Polite
+            Size: =12
+            Text: =cmpStatusMessage.Message
+            Width: =Parent.Width

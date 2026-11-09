@@ -558,7 +558,7 @@ fn test_bagit() {
         .info(info)
         .build()
         .with_payload();
-    assert_eq!(bag.payload.len(), 32);
+    assert_eq!(bag.payload.len(), 36);
     assert_eq!(bag.clone().info.unwrap().entries().len(), 2);
     let save_path = temp_dir.join("bag");
     match bag.save(save_path.to_str().unwrap()) {

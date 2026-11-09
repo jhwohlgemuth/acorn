@@ -1,0 +1,174 @@
+{
+  "schemaVersion": "1.0.0",
+  "batchId": "2026-10",
+  "title": "Sponsor Highlights",
+  "month": "October 2026",
+  "periodLabel": "October 1–31, 2026",
+  "selectedPageId": "general-updates",
+  "pageOrder": [
+    "general-updates",
+    "project-atlas",
+    "project-borealis"
+  ],
+  "pages": [
+    {
+      "id": "general-updates",
+      "kind": "general",
+      "title": "General updates",
+      "subtitle": "Report-wide activity",
+      "metadata": {
+        "keywords": [],
+        "investigators": [],
+        "sponsors": []
+      },
+      "counts": {
+        "entries": 2,
+        "unresolved": 1,
+        "edited": 0,
+        "approved": 1,
+        "excluded": 0
+      },
+      "sections": [
+        {
+          "key": "completed",
+          "label": "Completed",
+          "entryIds": [
+            "general-completed-1"
+          ]
+        },
+        {
+          "key": "in-progress",
+          "label": "In progress",
+          "entryIds": [
+            "general-progress-1"
+          ]
+        },
+        {
+          "key": "upcoming",
+          "label": "Upcoming",
+          "entryIds": []
+        }
+      ]
+    },
+    {
+      "id": "project-atlas",
+      "kind": "project",
+      "title": "Project Atlas",
+      "subtitle": "Accessible research data services",
+      "metadata": {
+        "keywords": [
+          "accessibility",
+          "research data"
+        ],
+        "investigators": [
+          "Avery Chen"
+        ],
+        "sponsors": [
+          "Office of Science"
+        ]
+      },
+      "counts": {
+        "entries": 3,
+        "unresolved": 2,
+        "edited": 1,
+        "approved": 0,
+        "excluded": 0
+      },
+      "sections": [
+        {
+          "key": "status-updates",
+          "label": "Project status",
+          "entryIds": [
+            "atlas-status-1"
+          ]
+        },
+        {
+          "key": "completed",
+          "label": "Completed",
+          "entryIds": [
+            "atlas-completed-1"
+          ]
+        },
+        {
+          "key": "in-progress",
+          "label": "In progress",
+          "entryIds": [
+            "atlas-progress-1"
+          ]
+        },
+        {
+          "key": "upcoming",
+          "label": "Upcoming",
+          "entryIds": []
+        }
+      ]
+    },
+    {
+      "id": "project-borealis",
+      "kind": "project",
+      "title": "Project Borealis",
+      "subtitle": "Scientific software sustainability",
+      "metadata": {
+        "keywords": [
+          "software",
+          "sustainability"
+        ],
+        "investigators": [
+          "Morgan Rivera"
+        ],
+        "sponsors": [
+          "Advanced Scientific Computing Research"
+        ]
+      },
+      "counts": {
+        "entries": 3,
+        "unresolved": 1,
+        "edited": 0,
+        "approved": 1,
+        "excluded": 1
+      },
+      "sections": [
+        {
+          "key": "status-updates",
+          "label": "Project status",
+          "entryIds": [
+            "borealis-status-1"
+          ]
+        },
+        {
+          "key": "completed",
+          "label": "Completed",
+          "entryIds": []
+        },
+        {
+          "key": "in-progress",
+          "label": "In progress",
+          "entryIds": [
+            "borealis-progress-1"
+          ]
+        },
+        {
+          "key": "upcoming",
+          "label": "Upcoming",
+          "entryIds": [
+            "borealis-upcoming-1"
+          ]
+        }
+      ]
+    }
+  ],
+  "systemFields": {
+    "editable": false,
+    "fields": [
+      "approvalId",
+      "correctionAncestry",
+      "origin",
+      "projectId",
+      "receiptId",
+      "sourceSubmissionId",
+      "submittedAt",
+      "submitter"
+    ]
+  },
+  "unknownFieldBehavior": "fail-visible"
+}

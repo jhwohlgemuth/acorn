@@ -29,8 +29,8 @@ ALLOWED_PHASE_STATUSES = {"blocked", "in-progress", "planned", "ready"}
 ALLOWED_PLAN_STATUSES = {"in-progress", "planned", "waiting-on-validation"}
 FIELD_PATTERN = re.compile(r"^- ([A-Za-z ]+):\s*(.*)$", re.MULTILINE)
 LINK_PATTERN = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
-PHASE_HEADING_PATTERN = re.compile(r"^## ([A-Z][A-Z0-9]*-\d{2}) [—-] (.+)$", re.MULTILINE)
-PHASE_ID_PATTERN = re.compile(r"\b[A-Z][A-Z0-9]*-\d{2}\b")
+PHASE_HEADING_PATTERN = re.compile(r"^## ([A-Z][A-Z0-9]*-\d{2}[A-Z]?) [—-] (.+)$", re.MULTILINE)
+PHASE_ID_PATTERN = re.compile(r"\b[A-Z][A-Z0-9]*-\d{2}[A-Z]?\b")
 REQUIRED_PHASE_FIELDS = {
     "Budget",
     "Exact write set",

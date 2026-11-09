@@ -1,0 +1,88 @@
+{
+  "version": "pa36b-v1",
+  "status": "test-only-accepted; bounded identity limits recorded in read-acceptance.md",
+  "authorization": {
+    "site": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+    "reviewersGroupId": 42,
+    "callerSource": "Power Apps trigger identity headers",
+    "rule": "Every call rereads group membership and fails closed before any batch or item read."
+  },
+  "lists": {
+    "batches": "2f405310-4681-40db-99ff-1bafd4b90676",
+    "items": "47c8f476-1a5e-4658-9380-39bec3671a24"
+  },
+  "flows": {
+    "List Approval Batches TEST ONLY": {
+      "request": {
+        "beforePeriodStartUtc": "empty string or UTC instant"
+      },
+      "response": {
+        "batchesjson": "JSON array string with batchId, periodStartUtc, periodEndUtc, state, sourceCount, itemCount, unresolvedCount, approvedCount, excludedCount",
+        "nextperiod": "empty string or exclusive periodStartUtc",
+        "hasmore": "string True or False (case-insensitive at the app boundary)"
+      },
+      "order": "PeriodStartUtc descending; nonoverlapping periods have unique starts",
+      "visibility": "Ready batches only."
+    },
+    "Read Approval Page TEST ONLY": {
+      "request": {
+        "batchId": "UUID",
+        "afterSortKey": "empty string or exclusive ReportSortKey",
+        "problemsOnly": "string true or false"
+      },
+      "response": {
+        "batchid": "UUID",
+        "itemsjson": "JSON array string with sourceItemId, sourceSubmissionId, projectId, reportSortKey, sourceCreatedUtc, sourceSummary, decision, validationState, draftVersion, hasDraft",
+        "nextcursor": "empty string or exclusive ReportSortKey",
+        "hasmore": "string True or False (case-insensitive at the app boundary)"
+      },
+      "order": "ReportSortKey ascending; page queries use an indexed BatchId filter and exclusive ReportSortKey cursor.",
+      "problemFilter": "When problemsOnly is true, include Unresolved decisions or Invalid validation states in the server query before limiting.",
+      "visibility": "Only a Ready batch can be read for review; a state change between pages fails closed."
+    },
+    "Read Approval Item TEST ONLY": {
+      "request": {
+        "batchId": "UUID",
+        "sourceItemId": "positive integer"
+      },
+      "response": {
+        "itemjson": {
+          "encoding": "JSON object string",
+          "batchId": "UUID",
+          "sourceItemId": "integer",
+          "sourceSubmissionId": "UUID",
+          "projectId": "string",
+          "reportSortKey": "string",
+          "sourcePayloadJson": "exact decoded UTF-8 source JSON string",
+          "sourceETag": "string",
+          "sourceRevisionRoot": "string or null",
+          "sourceSupersedes": "string or null",
+          "draftProjectionJson": "empty string or exact decoded UTF-8 draft JSON string",
+          "draftVersion": "integer",
+          "decision": "Unresolved, Approve, or Exclude",
+          "decisionReason": "string or null",
+          "validationState": "Unchecked, Valid, or Invalid",
+          "validationErrors": "string or null",
+          "itemETag": "SharePoint ETag for later optimistic save"
+        }
+      },
+      "lookup": "Require exactly one BatchId/SourceItemId pair in a Ready batch."
+    }
+  },
+  "errors": [
+    "Forbidden",
+    "BatchNotReady",
+    "ItemNotFound"
+  ],
+  "limits": {
+    "pageSize": 50,
+    "maximumBatchItems": 5000,
+    "sourcePayloadInPage": false,
+    "sourcePayloadInItem": true
+  },
+  "cloudFlowIds": {
+    "List Approval Batches TEST ONLY": "67c5f335-aaf9-44fd-8130-f2f508acf4ab",
+    "Read Approval Page TEST ONLY": "746b3129-5834-4d33-986f-4df9c1bb125e",
+    "Read Approval Item TEST ONLY": "c63133dd-3835-4d2c-9ecf-2495fc3b1d47"
+  }
+}
