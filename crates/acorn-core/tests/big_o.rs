@@ -2,8 +2,8 @@
 extern crate alloc;
 
 use acorn_core::big_o::{
-    compare_growth, compare_notation, Asymptotic, ComparisonError, ComparisonInput, Dominance, Exponent, Expression, GrowthAssumptions,
-    ParseErrorKind, SymbolGrowth, Term, MAX_INPUT_BYTES, MAX_NESTING_DEPTH,
+    compare_growth, compare_notation, AsStr, Asymptotic, ComparisonError, ComparisonInput, Dominance, Exponent, Expression, GrowthAssumptions,
+    LatexExpression, ParseErrorKind, SymbolGrowth, Term, MAX_INPUT_BYTES, MAX_NESTING_DEPTH,
 };
 use acorn_core::ThisOrThat;
 use alloc::collections::BTreeMap;
@@ -40,6 +40,34 @@ fn test_accepted_grammar_and_precedence() {
                 if n == "n" && matches!(product.as_slice(), [Term::Variable(m), Term::Power { base, exponent: Exponent::Integer(2) }]
                     if m == "m" && matches!(base.as_ref(), Term::Variable(k) if k == "k")))
     ));
+}
+#[test]
+fn test_latex_expression_formats_big_o_terms() {
+    for (notation, expected) in [
+        ("O(n^2 + m)", r"\mathcal{O}\left(n^{2} + m\right)"),
+        (
+            "O((n + 1)(m + 1))",
+            r"\mathcal{O}\left(\left(n + 1\right) \cdot \left(m + 1\right)\right)",
+        ),
+        ("O((log n)^2)", r"\mathcal{O}\left(\log\left(n\right)^{2}\right)"),
+        (
+            "O(P^(1/2)+W_out(P))",
+            r"\mathcal{O}\left(P^{\frac{1}{2}} + W_{\mathrm{out}}\left(P\right)\right)",
+        ),
+        (
+            "O(G+log_a(G)*k*c^(e-d))",
+            r"\mathcal{O}\left(G + \log_{a}\left(G\right) \cdot k \cdot c^{e-d}\right)",
+        ),
+        (
+            "O(polylog(q/e) + long_name)",
+            r"\mathcal{O}\left(\operatorname{polylog}\left(\frac{q}{e}\right) + \mathrm{long\_name}\right)",
+        ),
+    ] {
+        let expression = Expression::parse(notation).expect("parse LaTeX example");
+        let latex = LatexExpression::from(expression);
+        assert_eq!(latex.as_str(), expected, "input {notation:?}");
+        assert_eq!(latex.to_string(), expected, "input {notation:?}");
+    }
 }
 #[test]
 fn test_asymptotic_comparison_infers_standard_growth_conventions() {
