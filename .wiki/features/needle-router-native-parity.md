@@ -6,7 +6,7 @@ difficulty: high
 impact: high
 package: [acorn-lib, acorn-cli, acorn-schema]
 tags: [feature, inference, routing, tools, parity]
-status: in-progress
+status: planned
 execution: phased
 phase_budget_hours: 5
 ---
@@ -28,7 +28,9 @@ question/command + explicit inputs + application policy
 
 Native operations execute existing Rust services; models and agents implement capabilities that require them. The framework is extensible through registered descriptors and adapters, with concrete contracts at operation boundaries. It does not generate shell commands or autonomously orchestrate multiple agents.
 
-PAR-34 calibration evidence on 2026-11-05: the current capability-only catalog and source hint produced 44/75 correct raw selections, seven accepted correct previews, 74/75 shortlist retention, no truncation, and no negative calibration case eligible to execute. A measured preview fallback reached 66/75 combined suggestions but replaced some correct choices and was removed. Unscoped `--route` is preview-only; an explicit capability and caller JSON are required to run a handler. The 95% selection gate remains unmet. The revised candidate has not been run on held-out; the initial 200-case baseline did include held-out measurements. Eight compatible alternative-binding calibration fixtures pass a separate policy replay. The corpus lacks the alternate schemas needed to reproduce its incompatible binding fixtures, so those remain unvalidated.
+Fresh PAR-34 calibration on 2026-11-09 reproduced 44/75 correct raw selections, seven accepted correct previews, and 74/75 shortlist retention across 100 cases. A measured rule-assisted fallback reached 66/75 suggestions but displaced correct choices and was removed. Unscoped `--route` is preview-only; an explicit capability and caller JSON are required to run a handler. The former 95% automatic-selection release gate is retired for this release. The revised candidate has not been run on held-out; the initial 200-case baseline did include held-out measurements. Eight compatible alternative-binding calibration fixtures pass a separate policy replay. The corpus lacks alternate schemas for its incompatible binding fixtures, so those remain unvalidated.
+
+PAR-34's synthetic safety matrix now replays all 30 forbidden, negated, and ungrounded corpus rows against a safe terminal handler with zero calls or artifacts. Focused tests also cover canonical caller arguments, offline and remote policy, exact mutation authority, incompatible version/schema/effect contracts, and response errors. Unsupported corpus argument and incompatible-binding rows remain marked unsupported where their frozen fixtures lack canonical input or alternate contract declarations. This evidence does not claim that the live model supplied the validation flags.
 
 # Framework evidence
 
@@ -67,10 +69,7 @@ Local evidence checked through 2026-11-02:
 - PAR-09 has a bounded, exact-authority JSONL batch binding over `ResearchActivity::batch_read`, `Batch::batch_write`, and the shared `StandardCrosswalk` conversion. Library tests prove denied/default writes and source preservation; direct CLI tests prove byte-identical plain and selected crosswalk JSONL output. The `export.batch` row has passing evidence.
 - The BagIt binding delegates to the existing `Bag::save_as` and verification service. A focused test proves default write denial, source preservation, staging outside the source, and ZIP/TAR/TAR.GZ/7z outputs; a direct CLI test proves byte-identical ZIP archives. The `export.bag` row has passing evidence.
 - PAR-25 closes `export.preview` and `export.render` with read-only archive, document, graph, PowerPoint, and updates previews and exact-authority render/crosswalk bindings. Focused tests compare direct CLI text and graph bytes, PowerPoint parts, valid PDFs, denied writes, and unchanged source files. Direct PowerPoint and updates `--dry-run` now leave no artifacts.
-- The unscoped native catalog is over Needle's 32-KiB input limit after export registrations. PAR-15 now selects a deterministic prompt shortlist under 22 KiB. Its first 200-case real Needle preview failed the selection gate: 163 tool failures, 0/75 accepted correct previews in each split, and 73/75 calibration versus 71/75 held-out shortlist retention under the initial online-built registry. The [evaluation](../../docs/src/inference/routing-evaluation.md) records the limitations and diagnostic replays. Complex tool schemas can exhaust Needle's call budget even with a single capability; a bounded repair precedes a valid rerun.
-- PAR-34 compacted the model-facing schema projection without changing canonical validation and tested a 6-KiB shortlist. The 100-case calibration replay improved raw correct selection to 18/75 but accepted only 1/75 correct previews; 10 calls still truncated, and shortlist retention was 71/75. The harness still lacks full binding and mutation-policy context. The [evaluation](../../docs/src/inference/routing-evaluation.md) records this nonpassing calibration evidence; PAR-34 remains open.
-- A deterministic exact-family shortlist replaced the failed Needle family call. The later capability-only calibration replay retained 74/75 expected IDs and returned 44/75 raw correct calls with no truncated responses. The 95% gate remains unmet. The revised candidate has not been run on held-out. PAR-34 must repair within-family choice and harness policy/binding fidelity before PAR-15 and PAR-16 proceed.
-- A separate two-stage Needle family-selection probe reached 12/75 correct families on calibration and was not integrated. PAR-34 must find a routing approach that meets the frozen gate before PAR-15 or PAR-16 can start.
+- The unscoped native catalog exceeds Needle's 32-KiB limit. A compact capability-only prompt shortlist removed truncation, but the fresh 100-case calibration still selected only 44/75 supported names and accepted seven correct previews. The earlier 200-case baseline and diagnostic probes remain in the [evaluation](../../docs/src/inference/routing-evaluation.md). This release retains explicit capability selection; PAR-34's synthetic policy and execution-safety matrix is complete, and PAR-16 owns release validation.
 - OpenAPI specification import now has read-only preview and exact-authority apply bindings over a shared endpoint projection. Focused tests cover local and mocked HTTP input, invalid specifications, offline rejection, bounded paths, denied writes, matching direct CLI JSON, and unchanged source files. The `import.spec` row has passing evidence.
 - Hugging Face metadata import now shares one GGUF resolver between the direct CLI and native preview/apply routes. A loopback fixture verifies matching metadata count and persisted database weights, offline denial, exact database authority, and no model-weight requests. The six import corpus prompts now use real endpoint and metadata semantics; corpus revision 3 retains 200 unique cases and a 100/100 split.
 - Configuration synchronization now exposes the shared target renderer as a structured preview and uses the same coordinated commit as the direct CLI. Focused tests compare OpenCode direct and native configuration text, preview Goose, llama-swap, and VS Code, require exact destination authority, and preserve model files. The two sync rows have passing evidence.
@@ -79,7 +78,7 @@ Local evidence checked through 2026-11-02:
 - PowerPoint reference-deck rendering now lives in `acorn-lib` with explicit source, output, chart, and fallback-image inputs. The direct command delegates to it; report slides reuse its staged OOXML helpers. A focused test compares direct and shared slide parts, verifies a two-input deck, and preserves the source. The existing 13 PowerPoint helper tests and the 10-test export registry suite pass.
 - Since-filtered updates projection, artifact naming, DOCX, and Markdown generation now live in `acorn-lib`; the direct command delegates to them. Focused direct/shared tests compare exact artifact bytes for both formats, cover a missing logbook and invalid timestamps, and preserve source bytes. The shared HTML/PDF seam consumes this projection.
 - Updates HTML page composition now lives in `acorn-lib` with explicit embedded assets supplied by the CLI adapter. Shared and CLI project, title, and legend HTML match; the direct command and shared Chromium renderer produce valid updates PDFs. The 12-test export registry suite, eight updates HTML tests, strict library Clippy, and no-default CLI check pass.
-- Pinned Needle cache status and explicit acquisition use the same verified asset resolver as `download needle`. Focused tests prove read-only offline status, exact cache destination authority, alternate destination rejection, and direct CLI runner equivalence. The local macOS ARM64 cache contains the pinned runner for eventual PAR-15 scoring.
+- Pinned Needle cache status and explicit acquisition use the same verified asset resolver as `download needle`. Focused tests prove read-only offline status, exact cache destination authority, alternate destination rejection, and direct CLI runner equivalence. The local macOS ARM64 cache supplied the fresh PAR-34 calibration runner.
 - Native report generation and publication use the direct command's shared project projection and manifest writer, Chromium PDF renderer, immutable GitLab package service, and callback queue. Focused tests compare direct/native project and legend PDFs, manifest fields, exact local and publication authority, and offline rejection; mocked package tests cover ordered publication, checksum checks, no-change ledgers, and identical-content retries. The `report.local` and `report.publish` rows have passing evidence.
 - Shared sidecar asset/distribution contracts exist. The four planned SLM adapters remain unimplemented; their external gates do not block native parity or generic adapters.
 
@@ -140,7 +139,7 @@ Registry/adapter leaves initially live under `crates/acorn-lib/src/io/mcp/tools/
 Scheduling order:
 
 1. The caller-owned Needle registry, frozen 200-case corpus, versioned capability/binding contract, terminal execution, opt-in CLI route syntax, bounded native input policy, and check/fix/diff bindings have landed.
-2. PAR-34 repairs the failed model-facing routing and harness; PAR-15 reruns real Needle routing on corpus revision 3; PAR-16 validates the native parity release.
+2. PAR-34's synthetic corpus-policy and execution-safety matrix has passed. The pinned Needle selector remains preview-only: a fresh 100-case calibration selected 44/75 supported capabilities correctly, and a rule-assisted probe reached only 66/75 suggestions while displacing correct choices. The former PAR-15 held-out automatic-selection gate is retired as infeasible for this release. PAR-16 validates explicit native dispatch and publishes the measured limitation.
 3. The [generic adapter plan](ask-executor-adapters.md) may consume the landed registry, execution, and CLI contracts. Its heterogeneous release waits for PAR-16. Swift and Julia profiles consume its registration contract independently.
 
 Each phase has at most five active hours and an exact product write set. Reconcile this plan and its four index/network/lane files after each phase. The frozen inventory records operation seams. Split a missing reusable seam into a bounded extraction phase before its adapter begins if the named leaf cannot complete both within five active hours; a cross-crate rewrite cannot hide inside a registration phase.
@@ -153,7 +152,7 @@ All registered native operations should support the same typed execution contrac
 
 - Two compatible executor bindings for the same capability work without router changes; mismatched schemas/effects are rejected.
 - All mandatory parity scenarios pass CLI/service-versus-registry tests for success, failure, offline behavior, effects, and artifacts, with exclusions reported.
-- Freeze at least 200 labeled routing cases before scoring. Require 95% correct capability selection on unambiguous supported cases and zero executions on designated forbidden/negated/ungrounded cases. Report abstentions, coverage, latency, and shortlist recall; do not tune on the held-out set.
+- Preserve the frozen 200-case routing corpus and report the measured Needle selection accuracy, abstentions, coverage, latency, and shortlist recall. Keep unscoped model selection preview-only. Prove zero executions on designated forbidden, negated, or ungrounded cases through an execution-safety harness before releasing explicit dispatch. A future automatic-selector release requires a separately versioned evaluation and at least 95% correct selection on supported cases, without tuning on held-out labels.
 - Native bindings prove availability changes, semantic errors, resource limits, cancellation/cleanup, provenance, and no implicit fallback or recursive routing.
 - Existing CLI, MCP, Needle, and explicit inference compatibility survives; narrow feature and portable builds do not acquire unwanted host dependencies.
 - Run focused tests per phase; serialize final lint/full-suite, feature/WASM, help/docs, and explicit real-backend gates after shared files stabilize.
@@ -164,36 +163,13 @@ Generic adapter implementation consumes the frozen registry and execution contra
 
 # Execution phases
 
-## PAR-34 — Repair model-facing routing and corpus harness
-
-- Status: in-progress
-- Budget: 5 active hours maximum
-- Prerequisites: First PAR-15 measurement and diagnostic evidence
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/capability.rs`, `crates/acorn-lib/src/io/mcp/tools/needle.rs`, `crates/acorn-lib/src/io/sidecar/needle/mod.rs`, `crates/acorn-lib/src/io/sidecar/needle/process.rs`, `crates/acorn-lib/src/io/sidecar/needle/tests/mod.rs`, `crates/acorn-cli/src/commands/infer/mod.rs`, `crates/acorn-cli/src/commands/infer/tests/mod.rs`, `crates/acorn-cli/src/commands/infer/tests/routing_scope.rs`, `tests/fixtures/routing/results.json`, `docs/src/inference/needle.md`, `docs/src/inference/routing-evaluation.md`
-- Primary integration lock: Needle routing evaluation
-- Outcome: Keep canonical argument validation behind a capability-only Needle choice, measure all declared caller and binding policy, and reach the 95% calibration selection gate without using held-out labels.
-- Focused validation: Calibration selection and shortlist recall, compatible and incompatible binding-fixture replays, response-error capture, negative-case execution safety, no artifact writes, and strict Clippy.
-- Calibration evidence: The capability-only catalog reached 44/75 raw correct selections. A measured preview-only deterministic fallback reached 66/75 combined suggestions but replaced some correct model choices; it was removed. Unscoped routing is preview-only; execution requires an explicit capability and caller JSON. Do not rerun the revised candidate on held-out while this gate remains unmet.
-- Handoff: Remove PAR-34 after the repaired harness and model-facing catalog pass focused calibration; keep PAR-15's held-out gate separate.
-
-## PAR-15 — Prove routing at near-parity catalog size
-
-- Status: blocked
-- Budget: 5 active hours maximum
-- Prerequisites: PAR-34 repair accepted; pinned Needle runner installed on a supported host
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/capability.rs`, `crates/acorn-lib/src/io/mcp/tools/needle.rs`, `crates/acorn-lib/src/io/sidecar/needle/mod.rs`, `crates/acorn-lib/src/io/sidecar/needle/assets.rs`, `crates/acorn-lib/src/io/sidecar/needle/tests/mod.rs`, `crates/acorn-cli/src/commands/infer/mod.rs`, `crates/acorn-cli/src/commands/infer/tests/mod.rs`, `tests/fixtures/routing/cases.json`, `tests/fixtures/routing/results.json`, `docs/src/inference/capability-parity.md`, `docs/src/inference/routing-evaluation.md`
-- Primary integration lock: Needle routing evaluation
-- Outcome: Enforce catalog budgets/cache invalidation and score the frozen corpus against the actual native catalog. Add measured deterministic scoping only if needed.
-- Focused validation: Declared routing gates, no silent truncation, retained-candidate recall, negative-case nonexecution, abstention, latency, and index/schema cache isolation.
-- Handoff: Remove PAR-15 after preserving evidence in code/tests/docs; unblock only satisfied dependents.
-
 ## PAR-16 — Release native near parity
 
-- Status: planned
+- Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: PAR-15
+- Prerequisites: Accepted synthetic safety matrix
 - Exact write set: `tests/fixtures/routing/parity.json`, `docs/src/inference/capability-parity.md`, `docs/src/inference/router.md`, `docs/src/SUMMARY.md`, `CommandLineHelp.md`, `.wiki/features/needle-router-native-parity.md`, `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
 - Primary integration lock: Router release gate
-- Outcome: Publish measured coverage, exclusions, compatibility, and examples before heterogeneous router release. Failed scenarios remain remaining work.
-- Focused validation: Serialize make lint, make test, applicable feature/WASM checks, help/book checks, and matrix/equivalence audit.
+- Outcome: Publish measured coverage, exclusions, explicit-dispatch examples, and the failed automatic-selection result before heterogeneous router release. Unscoped Needle selection remains preview-only.
+- Focused validation: Serialize make lint, make test, applicable feature/WASM checks, help/book checks, the 46-row matrix/equivalence audit, and PAR-34 execution-safety evidence.
 - Handoff: Retire this plan and its index, network, and lane entries after native parity acceptance; unblock ADP-06's heterogeneous release gate.

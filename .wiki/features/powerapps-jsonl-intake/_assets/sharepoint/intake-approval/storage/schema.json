@@ -58,7 +58,7 @@
         {"name": "MembershipKey", "type": "Text", "required": true, "unique": true, "indexed": true},
         {"name": "BatchId", "type": "Text", "required": true, "indexed": true},
         {"name": "SourceItemId", "type": "Number", "required": true},
-        {"name": "SourceSubmissionId", "type": "Text", "required": true},
+        {"name": "SourceSubmissionId", "type": "Text", "required": true, "indexed": true},
         {"name": "SourcePayloadBase64A", "type": "Note", "required": true},
         {"name": "SourcePayloadBase64B", "type": "Note", "required": false},
         {"name": "SourceETag", "type": "Text", "required": true},

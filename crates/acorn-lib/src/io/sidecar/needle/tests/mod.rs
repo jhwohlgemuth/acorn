@@ -2,8 +2,8 @@ use super::{assets, write_tools, InferenceResult, Needle, WithheldExecution};
 use crate::io::api::needle::CompleteResponse;
 use crate::io::file_checksum;
 use crate::io::mcp::{
-    AnalysisInput, BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, ExecutionContext, ExecutionOutcome, InputLimits,
-    RoutedInputPolicy, ToolCallContext, ToolRegistry,
+    AnalysisInput, BindingAvailability, BindingDefinition, BindingKind, CapabilityDefinition, CapabilitySelectionContext, ExecutionContext,
+    ExecutionOutcome, InputLimits, MutationAuthority, RoutedInputPolicy, ToolCallContext, ToolRegistry,
 };
 use crate::io::sidecar::{
     modelkit_download_items, ModelKitAsset, ModelKitFile, ModelKitManifest, ModelKitSidecar, ResolvedAssets, Sidecar, SidecarAssets,
@@ -26,6 +26,53 @@ struct TerminalInput {
 #[derive(schemars::JsonSchema, serde::Serialize)]
 struct TerminalOutput {
     value: u64,
+}
+#[derive(schemars::JsonSchema, serde::Serialize)]
+struct ArtifactOutput {
+    artifacts: Vec<String>,
+    value: u64,
+}
+#[derive(schemars::JsonSchema, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MutationInput {
+    destination: String,
+    value: u64,
+}
+fn artifact_registry(capability_id: &str, binding_id: &str, kind: BindingKind, effects: ToolEffects) -> (ToolRegistry, Arc<AtomicUsize>) {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counter = Arc::clone(&calls);
+    let version = acorn_core::util::SemanticVersion::from((1, 0, 0));
+    let registry = ToolRegistry::default()
+        .register_capability(CapabilityDefinition::new::<TerminalInput, ArtifactOutput>(
+            capability_id,
+            version,
+            "Safe policy fixture",
+            effects,
+        ))
+        .expect("fixture capability")
+        .register_capability_binding::<TerminalInput, ArtifactOutput, _, _>(
+            BindingDefinition::new::<TerminalInput, ArtifactOutput>(binding_id, capability_id, version, kind, effects, BindingAvailability::Ready),
+            move |input| {
+                let counter = Arc::clone(&counter);
+                async move {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                    Ok(ArtifactOutput {
+                        artifacts: vec!["memory://fixture-artifact".to_string()],
+                        value: input.value.unwrap_or_default(),
+                    })
+                }
+            },
+        )
+        .expect("fixture binding");
+    (registry, calls)
+}
+fn terminal_response(name: &str, arguments: Value) -> CompleteResponse {
+    serde_json::from_value(serde_json::json!({
+        "type":"call", "success":true, "error":null, "error_code":null,
+        "function_calls":[{"name":name,"arguments":arguments}],
+        "confidence":0.99, "validation":{"ungrounded":[],"negation":false}
+    }))
+    .expect("synthetic terminal response")
 }
 fn asset(name: &str, file: ModelKitFile) -> ModelKitAsset {
     ModelKitAsset {
@@ -574,6 +621,355 @@ fn test_official_assets_cover_every_supported_platform() {
         assert_eq!(asset.sha256.len(), 64);
     }
     assert!(Needle::for_target("macos", "x86_64").is_err());
+}
+#[tokio::test]
+async fn test_routing_corpus_negative_cases_never_execute_a_terminal_handler() {
+    let corpus: Value = serde_json::from_str(include_str!("../../../../../../../tests/fixtures/routing/cases.json")).expect("routing corpus");
+    let cases = corpus.get("cases").and_then(Value::as_array).expect("routing cases");
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counter = calls.clone();
+    let effects = ToolEffects {
+        read_only: true,
+        destructive: false,
+        idempotent: true,
+        open_world: false,
+    };
+    let registry = ToolRegistry::default()
+        .register_capability(CapabilityDefinition::new::<TerminalInput, ArtifactOutput>(
+            "acorn.terminal",
+            acorn_core::util::SemanticVersion::from((1, 0, 0)),
+            "Safe fixture handler",
+            effects,
+        ))
+        .expect("fixture capability")
+        .register_capability_binding::<TerminalInput, ArtifactOutput, _, _>(
+            BindingDefinition::new::<TerminalInput, ArtifactOutput>(
+                "native:terminal",
+                "acorn.terminal",
+                acorn_core::util::SemanticVersion::from((1, 0, 0)),
+                BindingKind::Native,
+                effects,
+                BindingAvailability::Ready,
+            ),
+            move |input| {
+                let counter = counter.clone();
+                async move {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                    Ok(ArtifactOutput {
+                        artifacts: vec!["memory://unexpected-artifact".to_string()],
+                        value: input.value.unwrap_or_default(),
+                    })
+                }
+            },
+        )
+        .expect("fixture binding");
+    let threshold = Noul::new(0.8).expect("threshold");
+    let mut checked = 0;
+    for case in cases.iter().filter(|case| {
+        case.get("class")
+            .and_then(Value::as_str)
+            .is_some_and(|class| matches!(class, "forbidden" | "negated" | "ungrounded"))
+    }) {
+        let class = case.get("class").and_then(Value::as_str).expect("negative class");
+        let id = case.get("id").and_then(Value::as_str).expect("case ID");
+        assert_eq!(case.get("explicit_inputs"), Some(&serde_json::json!({})), "{id}");
+        assert_eq!(
+            case.get("expected").and_then(|expected| expected.get("execute")).and_then(Value::as_bool),
+            Some(false),
+            "{id}"
+        );
+        assert!(
+            case.pointer("/expected/effects").and_then(Value::as_array).is_some_and(Vec::is_empty),
+            "{id}"
+        );
+        let (response_type, function_calls, validation) = match class {
+            | "forbidden" => ("refuse", serde_json::json!([]), serde_json::json!({"ungrounded":[],"negation":false})),
+            | "negated" => (
+                "call",
+                serde_json::json!([{"name":"acorn.terminal","arguments":{"value":7}}]),
+                serde_json::json!({"ungrounded":[],"negation":true}),
+            ),
+            | "ungrounded" => (
+                "call",
+                serde_json::json!([{"name":"acorn.terminal","arguments":{"value":7}}]),
+                serde_json::json!({"ungrounded":["acorn.terminal.value"],"negation":false}),
+            ),
+            | _ => unreachable!("filtered class"),
+        };
+        let response: CompleteResponse = serde_json::from_value(serde_json::json!({
+            "type":response_type, "success":true, "function_calls":function_calls,
+            "confidence":0.99, "validation":validation
+        }))
+        .expect("synthetic model decision");
+        let context = ExecutionContext {
+            caller_arguments: (class == "negated").then(|| serde_json::json!({"value":7})),
+            ..ExecutionContext::default()
+        };
+        let result = Needle::execute_route_response(&registry, response, threshold, context)
+            .await
+            .expect("route outcome");
+        assert_eq!(result.outcome, ExecutionOutcome::Withheld, "{id}");
+        assert!(result.selected.is_none(), "{id}");
+        assert!(result.execution.is_none(), "{id}");
+        assert_eq!(calls.load(Ordering::SeqCst), 0, "{id}");
+        checked += 1;
+    }
+    assert_eq!(checked, 30);
+    let unknown = Needle::execute_route_response(
+        &registry,
+        terminal_response("acorn.unregistered", serde_json::json!({"value":7})),
+        threshold,
+        ExecutionContext {
+            caller_arguments: Some(serde_json::json!({"value":7})),
+            ..ExecutionContext::default()
+        },
+    )
+    .await
+    .expect("unregistered model call");
+    assert_eq!(unknown.outcome, ExecutionOutcome::Unavailable);
+    assert!(unknown.execution.is_none());
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+}
+#[tokio::test]
+async fn test_routing_policy_replays_caller_arguments_without_model_authority() {
+    let effects = ToolEffects {
+        read_only: true,
+        destructive: false,
+        idempotent: true,
+        open_world: false,
+    };
+    let (registry, calls) = artifact_registry("acorn.terminal", "native:terminal", BindingKind::Native, effects);
+    let response = terminal_response("acorn.terminal", serde_json::json!({"value":999}));
+    let threshold = Noul::new(0.8).expect("threshold");
+    let missing = Needle::execute_route_response(&registry, response.clone(), threshold, ExecutionContext::default())
+        .await
+        .expect("missing caller data");
+    assert_eq!(missing.outcome, ExecutionOutcome::NeedsInput);
+    assert!(missing.execution.is_none());
+    let invalid = Needle::execute_route_response(
+        &registry,
+        response.clone(),
+        threshold,
+        ExecutionContext {
+            caller_arguments: Some(serde_json::json!({"value":7,"extra":true})),
+            ..ExecutionContext::default()
+        },
+    )
+    .await
+    .expect("invalid caller data");
+    assert_eq!(invalid.outcome, ExecutionOutcome::InvalidInput);
+    assert!(invalid
+        .execution
+        .as_ref()
+        .is_some_and(|execution| execution.artifacts.is_empty() && execution.content.is_none()));
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    let valid = Needle::execute_route_response(
+        &registry,
+        response,
+        threshold,
+        ExecutionContext {
+            caller_arguments: Some(serde_json::json!({"value":7})),
+            ..ExecutionContext::default()
+        },
+    )
+    .await
+    .expect("caller data");
+    assert_eq!(valid.outcome, ExecutionOutcome::Completed);
+    assert_eq!(
+        valid
+            .execution
+            .as_ref()
+            .and_then(|execution| execution.content.as_ref())
+            .and_then(|content| content.get("value")),
+        Some(&serde_json::json!(7))
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+#[tokio::test]
+async fn test_routing_policy_rejects_offline_and_unapproved_remote_bindings() {
+    let effects = ToolEffects {
+        read_only: true,
+        destructive: false,
+        idempotent: true,
+        open_world: true,
+    };
+    let (registry, calls) = artifact_registry("acorn.remote", "remote:acorn.remote", BindingKind::Remote, effects);
+    let arguments = serde_json::json!({"value":7});
+    let response = terminal_response("acorn.remote", arguments.clone());
+    let threshold = Noul::new(0.8).expect("threshold");
+    for selection in [
+        CapabilitySelectionContext {
+            offline: true,
+            allow_remote: true,
+        },
+        CapabilitySelectionContext {
+            offline: false,
+            allow_remote: false,
+        },
+    ] {
+        let denied = Needle::execute_route_response(
+            &registry,
+            response.clone(),
+            threshold,
+            ExecutionContext {
+                selection,
+                caller_arguments: Some(arguments.clone()),
+                ..ExecutionContext::default()
+            },
+        )
+        .await
+        .expect("remote policy");
+        assert_eq!(denied.outcome, ExecutionOutcome::Unavailable);
+        assert!(denied.execution.is_none());
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+    }
+    let allowed = Needle::execute_route_response(
+        &registry,
+        response,
+        threshold,
+        ExecutionContext {
+            selection: CapabilitySelectionContext {
+                offline: false,
+                allow_remote: true,
+            },
+            caller_arguments: Some(arguments),
+            ..ExecutionContext::default()
+        },
+    )
+    .await
+    .expect("approved remote policy");
+    assert_eq!(allowed.outcome, ExecutionOutcome::Completed);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+#[tokio::test]
+async fn test_routing_policy_requires_exact_mutation_authority() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counter = Arc::clone(&calls);
+    let effects = ToolEffects {
+        read_only: false,
+        destructive: true,
+        idempotent: false,
+        open_world: false,
+    };
+    let version = acorn_core::util::SemanticVersion::from((1, 0, 0));
+    let registry = ToolRegistry::default()
+        .register_capability(CapabilityDefinition::new::<MutationInput, ArtifactOutput>(
+            "acorn.write",
+            version,
+            "Safe mutation policy fixture",
+            effects,
+        ))
+        .expect("fixture capability")
+        .register_capability_binding::<MutationInput, ArtifactOutput, _, _>(
+            BindingDefinition::new::<MutationInput, ArtifactOutput>(
+                "native:acorn.write",
+                "acorn.write",
+                version,
+                BindingKind::Native,
+                effects,
+                BindingAvailability::Ready,
+            ),
+            move |input| {
+                let counter = Arc::clone(&counter);
+                async move {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                    Ok(ArtifactOutput {
+                        artifacts: vec![input.destination],
+                        value: input.value,
+                    })
+                }
+            },
+        )
+        .expect("fixture binding");
+    let arguments = serde_json::json!({"destination":"memory://target","value":7});
+    let response = terminal_response("acorn.write", arguments.clone());
+    let threshold = Noul::new(0.8).expect("threshold");
+    let grant = MutationAuthority {
+        capability_id: "acorn.write".to_string(),
+        binding_id: "native:acorn.write".to_string(),
+        arguments: arguments.clone(),
+        destination: "memory://target".to_string(),
+    };
+    for mutation in [
+        None,
+        Some(MutationAuthority {
+            destination: "memory://other".to_string(),
+            ..grant.clone()
+        }),
+        Some(MutationAuthority {
+            arguments: serde_json::json!({"destination":"memory://target","value":8}),
+            ..grant.clone()
+        }),
+    ] {
+        let denied = Needle::execute_route_response(
+            &registry,
+            response.clone(),
+            threshold,
+            ExecutionContext {
+                caller_arguments: Some(arguments.clone()),
+                mutation,
+                ..ExecutionContext::default()
+            },
+        )
+        .await
+        .expect("mutation policy");
+        assert_eq!(denied.outcome, ExecutionOutcome::PermissionRequired);
+        assert!(denied
+            .execution
+            .as_ref()
+            .is_some_and(|execution| execution.artifacts.is_empty() && execution.content.is_none()));
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+    }
+    let allowed = Needle::execute_route_response(
+        &registry,
+        response,
+        threshold,
+        ExecutionContext {
+            caller_arguments: Some(arguments),
+            mutation: Some(grant),
+            ..ExecutionContext::default()
+        },
+    )
+    .await
+    .expect("exact mutation grant");
+    assert_eq!(allowed.outcome, ExecutionOutcome::Completed);
+    assert_eq!(allowed.execution.as_ref().map(|execution| execution.artifacts.len()), Some(1));
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+#[tokio::test]
+async fn test_routing_response_errors_never_invoke_a_handler() {
+    let effects = ToolEffects {
+        read_only: true,
+        destructive: false,
+        idempotent: true,
+        open_world: false,
+    };
+    let (registry, calls) = artifact_registry("acorn.terminal", "native:terminal", BindingKind::Native, effects);
+    let threshold = Noul::new(0.8).expect("threshold");
+    for (success, error) in [(false, None), (true, Some("model rejected"))] {
+        let mut response = terminal_response("acorn.terminal", serde_json::json!({"value":7}));
+        response.success = success;
+        response.error = error.map(str::to_string);
+        response.error_code = Some("fixture-error".to_string());
+        let result = Needle::execute_route_response(
+            &registry,
+            response,
+            threshold,
+            ExecutionContext {
+                caller_arguments: Some(serde_json::json!({"value":7})),
+                ..ExecutionContext::default()
+            },
+        )
+        .await
+        .expect("response error");
+        assert_eq!(result.outcome, ExecutionOutcome::ToolFailed);
+        assert_eq!(
+            result.response.as_ref().and_then(|value| value.error_code.as_deref()),
+            Some("fixture-error")
+        );
+        assert!(result.selected.is_none() && result.execution.is_none());
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+    }
 }
 #[tokio::test]
 async fn test_routed_response_executes_one_terminal_binding() {

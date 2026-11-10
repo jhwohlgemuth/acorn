@@ -25,6 +25,12 @@ def bind(definition: dict, source_id: str) -> dict:
     old_guard = condition[0]
     if not old_guard.startswith("@and("):
         raise ValueError("Unexpected materializer batch guard")
+    ready = "equals(first(body('Find_batch_mat_PA36A')?['value'])?['State']?['Value'],'Ready')"
+    if ready not in old_guard:
+        materializing = "equals(first(body('Find_batch_mat_PA36A')?['value'])?['State']?['Value'],'Materializing')"
+        if materializing not in old_guard:
+            raise ValueError("Materializer batch guard lacks Materializing state")
+        old_guard = old_guard.replace(materializing, materializing + "," + ready, 1)
     binding = (
         "or(equals(first(body('Find_batch_mat_PA36A')?['value'])?['SourceListId'],'"
         + source_id
@@ -35,6 +41,8 @@ def bind(definition: dict, source_id: str) -> dict:
         condition[0] = old_guard[:-1] + "," + binding + ")"
     elif source_id not in old_guard:
         raise ValueError("Batch guard already bound to another source")
+    else:
+        condition[0] = old_guard
 
     limit = guard["actions"]["Source_limit_PA36A"]["actions"]
     materialization = limit["Materialize_review_items_PA36A"]["actions"]

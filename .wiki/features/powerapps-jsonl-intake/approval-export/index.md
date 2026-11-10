@@ -84,7 +84,7 @@ PA-38 requires accepted PA-37B frozen batches and a synthetic verified baseline.
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: PA-37B; isolated export library; verified synthetic pre-approval baseline
+- Prerequisites: accepted [TEST ONLY finalization evidence](../_assets/sharepoint/intake-approval/finalization/finalization-acceptance.md); isolated export library; verified synthetic pre-approval baseline
 - Exact write set: `.wiki/features/powerapps-jsonl-intake/approval-export/index.md`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/exporter/export-contract.json`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/exporter/baseline.json`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/exporter/fixtures.json`
 - Primary integration lock: SharePoint collected exporter contract
 - Outcome: Freeze baseline metadata, approved-manifest schema, deterministic batch/item ordering, duplicate/correction checks, limits, receipt fields, and rollback rule.

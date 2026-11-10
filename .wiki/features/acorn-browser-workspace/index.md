@@ -90,7 +90,7 @@ These SVGs are the canonical plan-level Home and About previews. Any browser or 
 - Automatic clipboard writes, automatic downloads, tool execution on page load, telemetry, or ACORN-originated network requests.
 - Copying OKF Plan Browser source, planning content, portfolio concepts, or product name. The reference governs information architecture and visual rhythm only.
 - Using an ORNL logo, DOE mark, trademarked asset, or claim of official branding without an approved repository asset and authorization.
-- Adding a future ninth Big-O tool. BGO-07 owns that adapter registration and must open a bounded browser-workspace extension after its contract lands.
+- Adding Big-O UI to this eight-tool workspace scope before its navigation and preview are reconciled with the now nine-tool adapter.
 
 ## Product and architecture decisions
 
@@ -149,13 +149,13 @@ These SVGs are the canonical plan-level Home and About previews. Any browser or 
 - ABW-02 follows ABW-01 and freezes the branded shell; ABW-10 then completes the applicable OKF home/chrome affordances. ABW-03 follows both. ABW-04 and ABW-05 own disjoint page and operation modules and may proceed in parallel only after ABW-03 freezes the shared result/input components and their listed files remain disjoint.
 - ABW-06 follows the tool pages because single-file/copy/download behavior must be accepted against real result types, not speculative abstractions. ABW-16 then adds the bounded recursive browser folder workspace over that frozen effect contract.
 - ABW-18 follows ABW-03, ABW-05, and ABW-16 so it can consume the accepted RAD input, normalized ROR identifiers, and session-tree contracts. It exclusively owns the React/Resium/CesiumJS island, Vite staging, and generated ROR location index; no other phase may introduce React or change final static-asset assembly concurrently.
-- ABW-07 follows ABW-01 and all tool groups. It serializes WebMCP staging and `Makefile` changes with WME-02, WME-04, BGO-07, and any other owner of `webmcp.js` or WASM package assembly. It consumes the adapter unchanged unless a separate evidence-backed repair expands its write set.
+- ABW-07 follows ABW-01 and all tool groups. It serializes WebMCP staging and `Makefile` changes with WME-02, WME-04, and any other owner of `webmcp.js` or WASM package assembly. It consumes the adapter unchanged unless a separate evidence-backed repair expands its write set.
 - ABW-08 requires the complete manual and geospatial route matrix, including the map island's static assets, WebGL fallback, and accessible table. Live WebMCP registration requires a supported Chrome build and flag/configuration; missing support blocks only that matrix row, not manual browser acceptance.
 - ABW-11 follows the frozen browser build seam and shell, then claims the workspace manifest/lockfile alone to add the Tauri shell. ABW-12 follows the accepted browser effects, serializes the `acorn-host` filesystem leaf, and adds bounded native single-file open/save commands without a general filesystem permission or direct filesystem implementation in `acorn-desktop`. ABW-17 then adds one selected-folder command against the ABW-16 tree contract and the same `acorn-host` ownership boundary.
 - ABW-13, ABW-14, and ABW-15 validate local bundles on Windows, macOS, and Linux respectively after ABW-17 and ABW-08. Their platform-specific files are disjoint and may proceed in parallel on authorized native hosts; each unavailable host remains unverified rather than passing by inference.
 - ABW-09 follows all browser and desktop behavior and acceptance phases. It owns final documentation, broad gates, and plan retirement.
 - The [WebMCP and MCP interoperability plan](../../testing/webmcp-evaluations.md) remains authoritative for external evaluator, model-selection, MCP Inspector/conformance, public MCP control, and required-CI decisions. This plan owns the product page and manual parity.
-- BGO-07 may later add a ninth tool. It must serialize adapter changes with ABW-07 and add a new bounded UI phase rather than silently expanding this eight-tool baseline.
+- BGO has added a ninth Big-O tool and passed its interactive Chrome smoke. Before ABW implementation, reconcile this plan's eight-tool UI scope and previews with the nine-tool adapter in a bounded planning update.
 
 # Validation strategy
 
@@ -329,7 +329,7 @@ Static, unit, or headless checks do not count as live desktop/portrait/landscape
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ABW-01, ABW-03, ABW-04, ABW-05, ABW-10; no concurrent WME-02/WME-04/BGO-07 or other WASM package-staging owner
+- Prerequisites: ABW-01, ABW-03, ABW-04, ABW-05, ABW-10; no concurrent WME-02/WME-04 or other WASM package-staging owner
 - Exact write set: `crates/acorn-web/index.html`, `crates/acorn-web/assets/webmcp-bootstrap.js` (new), `crates/acorn-web/src/webmcp.rs` (new), `crates/acorn-web/src/app.rs`, `crates/acorn-web/src/components/sidebar.rs`, `crates/acorn-web/src/pages/home.rs`, `crates/acorn-web/tests/webmcp-workspace.test.mjs` (new), `Makefile`, `.wiki/features/acorn-browser-workspace/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
 - Primary integration lock: WebMCP application installation and WASM package staging
 - Outcome: Initialize the generated bindings, create and explicitly install the unchanged adapter, expose `initializing/installed/unsupported/failed/disposed` status, route invocation feedback without overwriting unrelated pages, dispose on page teardown, and keep all manual routes usable without `document.modelContext`.

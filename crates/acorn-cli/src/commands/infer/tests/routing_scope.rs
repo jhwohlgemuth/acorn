@@ -3,8 +3,8 @@ use super::*;
 #[cfg(feature = "exec")]
 use acorn::io::mcp::{
     AnalysisInput, AnalysisOutput, BindingAvailability, BindingDefinition, BindingKind, CapabilityError, CapabilitySelectionContext,
-    DiffOperationInput, DiffOperationOutput, DoctorInput, DoctorOutput, ExecutionContext, GatherInput, GatherOutput, SwhidInput, SwhidOutput,
-    ToolRegistry,
+    DiffOperationInput, DiffOperationOutput, DoctorInput, DoctorOutput, ExecutionContext, ExecutionOutcome, GatherInput, GatherOutput, SwhidInput,
+    SwhidOutput, ToolRegistry,
 };
 #[cfg(feature = "exec")]
 use acorn::io::sidecar::needle::Needle;
@@ -18,6 +18,42 @@ fn corpus_binding_id(id: &str) -> String {
     match id.strip_prefix("native:") {
         | Some(alias) if matches!(alias, "check" | "diff" | "doctor" | "gather" | "swhid") => format!("native:{APPLICATION}.{alias}"),
         | _ => id.to_string(),
+    }
+}
+#[cfg(feature = "exec")]
+fn corpus_caller_arguments(case: &serde_json::Value) -> Result<Option<serde_json::Value>, &'static str> {
+    match case.get("explicit_inputs") {
+        | Some(serde_json::Value::Object(fields)) if !fields.is_empty() => {
+            let inventory_id = case.get("inventory_id").and_then(serde_json::Value::as_str);
+            let stdin_json = fields.get("stdin_json").and_then(serde_json::Value::as_str);
+            match (inventory_id, stdin_json, fields.len()) {
+                | (Some("check.stdin"), Some(content), 1) => Ok(Some(serde_json::json!({"input":{"kind":"text","value":content}}))),
+                | _ => Err("declared inputs have no canonical routing mapping"),
+            }
+        }
+        | Some(serde_json::Value::Object(_)) | Some(serde_json::Value::Null) | None => {
+            match case.get("inventory_id").and_then(serde_json::Value::as_str) {
+                | Some(id) if id.starts_with("check.") => match case.get("input_refs").and_then(serde_json::Value::as_array).map(Vec::as_slice) {
+                    | Some([reference]) => match reference.as_str() {
+                        | Some(input) => {
+                            let kind = if Location::from(input).is_http_or_https() {
+                                "url"
+                            } else if std::path::Path::new(input).is_dir() {
+                                "directory"
+                            } else {
+                                "file"
+                            };
+                            Ok(Some(serde_json::json!({"input":{"kind":kind,"value":input}})))
+                        }
+                        | None => Err("input reference is not a string"),
+                    },
+                    | Some([]) | None => Ok(None),
+                    | _ => Err("multiple input references have no single-call routing mapping"),
+                },
+                | _ => Ok(None),
+            }
+        }
+        | _ => Err("declared inputs are not an object"),
     }
 }
 #[cfg(feature = "exec")]
@@ -124,6 +160,43 @@ fn test_check_model_catalog_is_compact() {
         assert!(variants.iter().any(|variant| variant.as_str() == Some(kind)));
     }
 }
+#[tokio::test]
+#[cfg(feature = "exec")]
+async fn test_big_o_explicit_scope_and_offline_dispatch() {
+    let registry = native_routing_registry(true).expect("native registry");
+    let capability = format!("{APPLICATION}.diff::bigo");
+    let binding = format!("native:{capability}");
+    let selection = CapabilitySelectionContext {
+        offline: true,
+        allow_remote: false,
+    };
+    let catalog = registry
+        .capability_catalog(Some(core::slice::from_ref(&capability)), selection)
+        .expect("scoped offline catalog");
+    let entries: serde_json::Value = serde_json::from_str(&catalog).expect("catalog JSON");
+    assert_eq!(entries.as_array().map(Vec::len), Some(1));
+    let selected = registry
+        .select_capability_binding(&capability, Some(&binding), None, selection)
+        .expect("explicit Big-O binding");
+    let result = registry
+        .execute_selected(
+            &selected,
+            serde_json::json!({"left":"O(n^2)","right":"O(n log n)"}),
+            ExecutionContext {
+                selection,
+                grounded: true,
+                ..ExecutionContext::default()
+            },
+        )
+        .await;
+    assert_eq!(result.outcome, ExecutionOutcome::Completed);
+    assert_eq!(
+        result.content.as_ref().and_then(|content| content.get("dominance")),
+        Some(&serde_json::json!("left"))
+    );
+    assert!(result.artifacts.is_empty());
+    assert_eq!(result.provenance.binding_id, binding);
+}
 #[test]
 #[cfg(feature = "exec")]
 fn test_calibration_shortlist_retains_supported_capabilities_within_needle_budget() {
@@ -196,6 +269,50 @@ fn test_corpus_binding_aliases_resolve_without_changing_other_bindings() {
         assert!(registry.select_capability_binding("acorn.check", Some(id), None, context).is_err());
     }
 }
+#[tokio::test]
+#[cfg(feature = "exec")]
+async fn test_corpus_caller_arguments_replay_declared_inputs() {
+    let corpus: serde_json::Value = serde_json::from_str(include_str!("../../../../../../tests/fixtures/routing/cases.json")).expect("frozen corpus");
+    let cases = corpus.get("cases").and_then(serde_json::Value::as_array).expect("cases");
+    let find = |id: &str| {
+        cases
+            .iter()
+            .find(|case| case.get("id").and_then(serde_json::Value::as_str) == Some(id))
+            .expect("declared case")
+    };
+    let registry = native_routing_registry(false).expect("native registry");
+    let selected = registry
+        .select_capability_binding("acorn.check", None, None, CapabilitySelectionContext::default())
+        .expect("check binding");
+    for id in ["BOUND-044", "BOUND-045"] {
+        let case = find(id);
+        let content = case
+            .pointer("/explicit_inputs/stdin_json")
+            .and_then(serde_json::Value::as_str)
+            .expect("declared JSON");
+        let arguments = corpus_caller_arguments(case).expect("mapped arguments").expect("caller arguments");
+        assert_eq!(arguments, serde_json::json!({"input":{"kind":"text","value":content}}), "{id}");
+        assert!(serde_json::from_value::<AnalysisInput>(arguments.clone()).is_ok(), "{id}");
+        let preview = registry
+            .execute_selected(
+                &selected,
+                arguments,
+                ExecutionContext {
+                    preview: true,
+                    grounded: true,
+                    ..ExecutionContext::default()
+                },
+            )
+            .await;
+        assert_eq!(preview.outcome, ExecutionOutcome::Proposed, "{id}");
+        assert!(preview.content.is_none() && preview.artifacts.is_empty(), "{id}");
+    }
+    assert_eq!(corpus_caller_arguments(find("SAF-001")), Ok(None));
+    assert_eq!(
+        corpus_caller_arguments(find("BOUND-047")),
+        Err("declared inputs have no canonical routing mapping")
+    );
+}
 #[test]
 #[cfg(feature = "exec")]
 fn test_calibration_alternative_binding_policy_replay() {
@@ -249,6 +366,65 @@ fn test_calibration_alternative_binding_policy_replay() {
         assert_eq!(replay.get("status").and_then(serde_json::Value::as_str), Some(status), "{id}: {replay}");
         assert_eq!(replay.get("binding").and_then(serde_json::Value::as_str), binding, "{id}: {replay}");
     }
+}
+#[test]
+#[cfg(feature = "exec")]
+fn test_incompatible_binding_contracts_are_rejected() {
+    let native = native_routing_registry(false).expect("native registry");
+    let capability = native
+        .select_capability_binding("acorn.check", None, None, CapabilitySelectionContext::default())
+        .expect("check binding")
+        .capability;
+    let registry = ToolRegistry::default()
+        .register_capability(capability.clone())
+        .expect("canonical capability");
+    let version = acorn_core::util::SemanticVersion::from((2, 0, 0));
+    let wrong_version = registry.clone().register_capability_binding::<AnalysisInput, AnalysisOutput, _, _>(
+        BindingDefinition::new::<AnalysisInput, AnalysisOutput>(
+            "local:check-v2",
+            &capability.id,
+            version,
+            BindingKind::Local,
+            capability.effects,
+            BindingAvailability::Ready,
+        ),
+        |_| async { Err(color_eyre::eyre::eyre!("fixture handler must never execute")) },
+    );
+    let wrong_schema = registry
+        .clone()
+        .register_capability_binding::<DiffOperationInput, DiffOperationOutput, _, _>(
+            BindingDefinition::new::<DiffOperationInput, DiffOperationOutput>(
+                "local:check-incompatible",
+                &capability.id,
+                capability.version,
+                BindingKind::Local,
+                capability.effects,
+                BindingAvailability::Ready,
+            ),
+            |_| async { Err(color_eyre::eyre::eyre!("fixture handler must never execute")) },
+        );
+    let mut effects = capability.effects;
+    effects.read_only = false;
+    let wrong_effects = registry.clone().register_capability_binding::<AnalysisInput, AnalysisOutput, _, _>(
+        BindingDefinition::new::<AnalysisInput, AnalysisOutput>(
+            "local:check-effects",
+            &capability.id,
+            capability.version,
+            BindingKind::Local,
+            effects,
+            BindingAvailability::Ready,
+        ),
+        |_| async { Err(color_eyre::eyre::eyre!("fixture handler must never execute")) },
+    );
+    for mismatch in [wrong_version, wrong_schema, wrong_effects] {
+        assert!(matches!(
+            mismatch,
+            Err(ref error) if matches!(error.downcast_ref::<CapabilityError>(), Some(CapabilityError::MismatchedContract { .. }))
+        ));
+    }
+    assert!(registry
+        .select_capability_binding("acorn.check", None, None, CapabilitySelectionContext::default())
+        .is_err());
 }
 #[test]
 #[cfg(feature = "exec")]
@@ -320,24 +496,11 @@ async fn test_measure_real_needle_routing_without_handler_execution() {
             .get("expected")
             .and_then(|value| value.get("capability_id"))
             .and_then(serde_json::Value::as_str);
-        let caller_arguments = case
-            .get("inventory_id")
-            .and_then(serde_json::Value::as_str)
-            .filter(|inventory_id| inventory_id.starts_with("check."))
-            .and_then(|_| case.get("input_refs"))
-            .and_then(serde_json::Value::as_array)
-            .and_then(|references| references.first())
-            .and_then(serde_json::Value::as_str)
-            .map(|input| {
-                let kind = if Location::from(input).is_http_or_https() {
-                    "url"
-                } else if std::path::Path::new(input).is_dir() {
-                    "directory"
-                } else {
-                    "file"
-                };
-                serde_json::json!({"input":{"kind":kind,"value":input}})
-            });
+        let (caller_arguments, caller_argument_status, caller_argument_error) = match corpus_caller_arguments(case) {
+            | Ok(Some(arguments)) => (Some(arguments), "supplied", None),
+            | Ok(None) => (None, "missing", None),
+            | Err(reason) => (None, "unsupported", Some(reason)),
+        };
         let offline = case
             .get("route_context")
             .and_then(|context| context.get("offline"))
@@ -393,7 +556,7 @@ async fn test_measure_real_needle_routing_without_handler_execution() {
                             preview: true,
                             binding_override: binding_override.clone(),
                             binding_preference: binding_preference.clone(),
-                            caller_arguments,
+                            caller_arguments: caller_arguments.clone(),
                             ..ExecutionContext::default()
                         },
                     )
@@ -408,12 +571,30 @@ async fn test_measure_real_needle_routing_without_handler_execution() {
                     .execution
                     .as_ref()
                     .is_none_or(|execution| execution.content.is_none() && execution.artifacts.is_empty()));
-                let would_execute = result.outcome == acorn::io::mcp::ExecutionOutcome::Proposed
-                    && result.selected.as_ref().is_some_and(|selected| {
-                        registry
-                            .select_capability_binding(&selected.capability_id, Some(&selected.binding_id), None, selection)
-                            .is_ok_and(|binding| binding.capability.effects.read_only)
-                    });
+                let would_execute = match (result.outcome, result.selected.as_ref(), caller_arguments.as_ref()) {
+                    | (ExecutionOutcome::Proposed, Some(selected), Some(arguments)) => {
+                        match registry.select_capability_binding(&selected.capability_id, Some(&selected.binding_id), None, selection) {
+                            | Ok(binding) if binding.capability.effects.read_only => {
+                                registry
+                                    .execute_selected(
+                                        &binding,
+                                        arguments.clone(),
+                                        ExecutionContext {
+                                            selection,
+                                            preview: true,
+                                            grounded: true,
+                                            ..ExecutionContext::default()
+                                        },
+                                    )
+                                    .await
+                                    .outcome
+                                    == ExecutionOutcome::Proposed
+                            }
+                            | _ => false,
+                        }
+                    }
+                    | _ => false,
+                };
                 let selected_call = result
                     .response
                     .as_ref()
@@ -437,6 +618,8 @@ async fn test_measure_real_needle_routing_without_handler_execution() {
                     "binding_preference": binding_preference,
                     "candidate_bindings": candidate_bindings,
                     "binding_fixture": binding_fixture,
+                    "caller_argument_error": caller_argument_error,
+                    "caller_argument_status": caller_argument_status,
                     "selected_call": selected_call,
                     "selected_arguments": selected_arguments,
                     "selected_capability": result.selected.as_ref().map(|selected| &selected.capability_id),
@@ -464,6 +647,8 @@ async fn test_measure_real_needle_routing_without_handler_execution() {
                 "binding_preference": binding_preference,
                 "candidate_bindings": candidate_bindings,
                 "binding_fixture": binding_fixture,
+                "caller_argument_error": caller_argument_error,
+                "caller_argument_status": caller_argument_status,
                 "selected_call": null,
                 "outcome": "transport-failed",
                 "would_execute_without_preview": false,

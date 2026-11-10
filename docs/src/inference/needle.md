@@ -48,6 +48,8 @@ acorn infer "Return the running ACORN version" --route --capability acorn.versio
 
 The first command returns a route preview without running a handler. The second can run the explicit capability after validation; the third forces a preview. Mutating routes also require `--apply`, an explicit `--binding`, and a `--destination` that exactly matches the caller JSON. The [CLI reference](../cli-reference/commands/infer.md#native-capability-routing) lists the interface.
 
+The explicit route rechecks the selected binding against offline and remote policy before dispatch. It uses caller JSON rather than model-generated arguments, validates that JSON against the canonical capability schema, and requires an exact capability, binding, arguments, and destination grant for mutation. A failed selection or response error produces no handler call or artifact. The [routing evaluation](routing-evaluation.md) distinguishes these synthetic safety checks from the pinned model's measured selection accuracy.
+
 Path and URL components can help rank candidates, but cannot determine an exclusive family. The full capability catalog retains unions, discriminator values, and validation constraints. Check inputs retain their source kind, such as `{"input":{"kind":"directory","value":"data"}}`, through native argument validation and execution.
 
 For native `--route`, the `outcome` field reports `needs-input`, `withheld`, or a later execution result. The `response` retains Needle's original choice; `selected` and `execution` are absent when no binding was selected. For legacy `acorn infer` without `--route`, withholding is an abstention: ACORN prints the native response, sets `withheld`, and leaves `results` empty:

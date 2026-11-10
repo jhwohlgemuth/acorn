@@ -6,7 +6,7 @@ difficulty: medium
 impact: high
 package: [acorn-core, acorn-schema, acorn-lib, acorn-cli, acorn-wasm]
 tags: [feature, big-o, validation, mcp, webmcp, wasm]
-status: planned
+status: in-progress
 execution: phased
 phase_budget_hours: 5
 ---
@@ -29,19 +29,18 @@ An MCP-connected agent should use this sequence:
 
 # Current evidence
 
-Evidence rechecked on 2026-11-09 against `10b17f22` and the current worktree:
+Evidence rechecked on 2026-11-09 against `ad93d5e8` and the current worktree:
 
 - `acorn-core::big_o` has a bounded ASCII parser, located `ParseError`, an `Expression` tree, lexical variable iteration, and limits of 256 input bytes, 16 nesting levels, and 64 parsed nodes. The accepted grammar includes addition, implicit and explicit multiplication, division, positive integer/rational/named-difference powers, `log`, named logarithm bases, `polylog`, and `W_out`.
 - `acorn-core::big_o::compare_notation` now provides the serializable, cross-transport request/result contract over the existing proof engine. Pair inference classifies ordinary variables as growing and named logarithm bases as fixed, explicit assumptions override inference, and typed errors distinguish left/right parse failures, assumption overflow, and lexical-first unknown names.
-- `AlgorithmComplexity::is_valid` parses every `ComplexityBound`, emits `syntax` for parser failures, checks referenced names against a present `variables` map with `reference`, and reports empty or repeated bounds with `nonempty` and `duplicate`. The committed `tests/fixtures/data/big_o/` suite now proves complete valid, invalid-syntax, and invalid-reference RAD documents, exact nested paths, expression round trips, and closed 256-character bound schemas. MCP protocol integration evidence remains outstanding.
+- `AlgorithmComplexity::is_valid` parses every `ComplexityBound`, emits `syntax` for parser failures, checks referenced names against a present `variables` map with `reference`, and reports empty or repeated bounds with `nonempty` and `duplicate`. The committed `tests/fixtures/data/big_o/` suite proves complete valid, invalid-syntax, and invalid-reference RAD documents, exact nested paths, expression round trips, and closed 256-character bound schemas. MCP protocol coverage now exercises those same complete documents.
 - `acorn check` preserves nested Big-O validation through its existing interfaces. The complete valid fixture succeeds in human and JSON modes; invalid syntax/reference fixtures retain the `schema` category, `error` severity, unsuccessful JSON status, exact metadata locator, fixture-relative URI, and parser/reference message. Piped human output retains the existing CSV success behavior, while JSON mode exits nonzero for invalid fixtures.
-- `ToolRegistry::with_database` already registers `acorn.validate_research_activity_data` and compatibility alias `acorn.check_research_activity_data`. Both accept `ValidationInput<ResearchActivity>` and return `{ valid, errors }`; no MCP server test supplies complete Big-O-bearing RAD metadata.
-- The MCPB v0.3 manifest fixture lists the two RAD validation names but no Big-O comparison tool.
+- `ToolRegistry::with_database` registers `acorn.validate_research_activity_data`, compatibility alias `acorn.check_research_activity_data`, and MCP-only `acorn.compare_big_o`. The validation tools accept complete `ResearchActivity` input and return `{ valid, errors }`; comparison accepts `{ left, right, assumptions? }` and returns `{ left, right, dominance, assumptions }`. The comparison definition is read-only and absent from Needle's catalog. Wire-level `tools/list` and `tools/call` tests cover the three complete RAD fixtures, alias equivalence, inferred and explicit comparison, malformed sides, unknown assumptions, and output limits. The MCPB v0.3 manifest fixture matches the registry.
 - `acorn-wasm` exports object-based `compareBigO({ left, right, assumptions? })`, delegates to the portable comparison contract, and returns `{ left, right, dominance, assumptions }` with JSON-compatible ordered assumption properties. Bounded `validateBigOList(string[])` and `compareBigOList(BigOComparisonInput[])` APIs inspect the JavaScript array length before deserialization, process up to 64 ordered items, collect every expression-validation result, preserve comparison order, and identify the first malformed pair by index. The crate retains structured `validateResearchActivity` diagnostics for all three complete RAD fixtures.
-- WebMCP now exposes `acorn_compare_big_o` in a sorted nine-tool registry with matching TypeScript declarations and a ninth fixture-derived demo tab. Its adapter enforces exact fields, 256-byte expression and assumption-name limits, 64 assumptions, growth-value enums, pre/post-call cancellation, bounded success and failure envelopes, request-error mapping, and exact result normalization. Focused adapter tests, the staged WASM package, direct binary execution, and existing WASM validation tests pass; the native-browser smoke remains an environment-run check because browser automation was unavailable during this execution.
-- The schema documentation describes Big-O notation, but the computation concept still contains stale grammar statements, including an assertion that division is unsupported.
-- PAR-34 remains in progress and owns `crates/acorn-lib/src/io/mcp/tools/capability.rs`, Needle integration, CLI inference routing tests, and shared routing documentation. PAR-15 remains blocked, PAR-16 remains planned, and ADP-06/07 remain blocked. Those states are not evidence that this plan has progressed. BGO phases that register MCP or native tools wait until PAR-16 and ADP-07 release the Ask capability-routing lock; fixture, schema, CLI-check, portable-core, and WASM work can proceed independently on disjoint files.
-- Focused implementation gates pass: `cargo test -p acorn-schema computation` (10 passed), `cargo test -p acorn-core --test big_o` (22 passed), `cargo test -p acorn-cli --test check big_o`, `cargo test -p acorn-wasm` (24 unit tests and 2 doctests), `wasm-pack test --node crates/acorn-wasm` (11 binding tests and 2 doctests), `node --test crates/acorn-wasm/web/webmcp.test.mjs` (25 passed), staged direct-WASM single/list execution, `make build-wasm`, `make check-wasm`, strict all-target `acorn-wasm` Clippy, `cargo check -p acorn-core --no-default-features --features alloc`, focused alloc-only Clippy for the core library plus `big_o` integration test, and strict `acorn-schema` library/test Clippy. The broader alloc-only `--all-targets` Clippy command is not a valid BGO gate because unrelated std-only tests currently fail to compile under that feature set.
+- WebMCP exposes `acorn_compare_big_o` in a sorted nine-tool registry with matching TypeScript declarations and a ninth fixture-derived demo tab. Its adapter enforces exact fields, 256-byte expression and assumption-name limits, 64 assumptions, growth-value enums, pre/post-call cancellation, bounded success and failure envelopes, request-error mapping, and exact result normalization. The rebuilt package passed 25 adapter tests, 11 WASM binding tests, and a nine-tool native smoke in interactive Chrome 156.0.8078.80 with the WebMCP testing flag enabled. Browser timings and the displayed PASS are recorded in the demo README.
+- The computation, schema, check, MCPB, and web package documentation now describes the supported grammar and validated agent workflow. BGO-08 final publication and integration gates remain pending.
+- PAR-34's synthetic routing safety matrix has passed and its CLI inference files are released. The former PAR-15 automatic-selection gate is retired after a fresh 44/75 correct calibration and a nonpassing 66/75 rule-assisted probe; unscoped Needle selection remains preview-only. BGO-05 has started: the native `acorn.diff::bigo` v1 capability and `native:acorn.diff::bigo` binding delegate to `compare_notation` with local-read effects and offline support. Focused library tests cover schema/effect equality, scoped discovery, explicit dispatch, invalid input, cancellation, no artifacts, and no fallback; focused CLI routing tests cover the explicit offline route. Routed execution currently returns `ToolFailed` without the left/right parser detail required by the comparison error policy, so BGO-05 remains in progress. Natural-language selection is not scored by BGO.
+- Focused implementation gates pass: `cargo test -p acorn-schema computation` (10 passed), `cargo test -p acorn-core --test big_o` (22 passed), `cargo test -p acorn-cli --test check big_o`, `cargo test -p acorn-lib --features agentic io::mcp::tests::server` (17 passed, including MCPB fixture and wire-level protocol coverage), `cargo test -p acorn-wasm` (24 unit tests and 2 doctests), `wasm-pack test --node crates/acorn-wasm` (11 binding tests and 2 doctests), `node --test crates/acorn-wasm/web/webmcp.test.mjs` (25 passed), staged direct-WASM single/list execution, `make build-wasm`, `make check-wasm`, strict all-target `acorn-wasm` Clippy, `cargo check -p acorn-core --no-default-features --features alloc`, focused alloc-only Clippy for the core library plus `big_o` integration test, and strict `acorn-schema` library/test Clippy. The broader alloc-only `--all-targets` Clippy command is not a valid BGO gate because unrelated std-only tests currently fail to compile under that feature set.
 
 # Boundaries
 
@@ -439,64 +438,38 @@ Adding the tool changes the WebMCP `ToolName` union, registered-tool assertion, 
 
 - Complete RAD fixtures, the portable Big-O contract, and CLI integration coverage are complete.
 - Direct WASM and WebMCP comparison and validation coverage are complete; router work remains independently locked.
-- BGO-04 and BGO-05 require PAR-16 and ADP-07 to be accepted and pruned, or an explicit handoff from their owners releasing every overlapping `io/mcp/tools/`, MCP server-test, and CLI inference file. This plan does not patch around the current dirty router work.
-- BGO-04 serializes before BGO-05 under the Ask capability-routing lock: first publish/test the inbound MCP tool, then register the native routed binding.
-- BGO-08 follows all behavior phases.
+- The MCP registry, protocol tests, schema descriptions, and MCPB manifest are accepted. WME-10 may use the MCP registry and server-test files after this handoff.
+- PAR-34 released `crates/acorn-cli/src/commands/infer/mod.rs` and its routing-scope tests for BGO-05. PAR-16 and ADP-07 are not prerequisites for explicit capability discovery and dispatch.
+- BGO-08 final validation follows BGO-05 acceptance; its documentation edits can be checked independently.
 - No dependency, feature, or lockfile change is planned. If implementation proves one necessary, stop and create a bounded workspace-graph phase rather than expanding an existing phase.
 
 Prepared execution order on 2026-11-09:
 
-BGO-07 has only its native-browser evidence gate remaining. The nine-tab page and all staged WASM assets load in Chrome 156 headless mode, but native WebMCP registration does not complete there; finish the smoke in a supported interactive Chrome session with the WebMCP testing flag enabled.
-
-BGO-04 is the next transport implementation phase, but remains blocked. Current code confirms its insertion points in `ToolRegistry::with_database`, the canonical MCP protocol server tests, `ToolDefinition` display descriptions, and the MCPB v0.3 fixture; implementation must wait for PAR-16 and ADP-07 or an explicit release of every overlapping file and the Ask capability-routing lock.
-
-BGO-05 remains behind BGO-04 under the same lock, and BGO-08 remains the final integration phase. Preparation does not authorize either blocked phase or claim progress from PAR/ADP work.
+- BGO-05: Preserve actionable left/right parser and assumption errors through the routed response without exposing unrelated handler diagnostics. The route and focused tests are otherwise in place; the frozen routing corpus remains unchanged.
+- BGO-08: The current documentation builds successfully. After BGO-05 acceptance, add the native-dispatch example, validate all examples and run the exclusive final gates, then retire the plan if all acceptance criteria hold.
 
 # Execution phases
 
-## BGO-04 — Expose validation and comparison through the ACORN MCP server
-
-- Status: blocked
-- Budget: 5 active hours maximum
-- Prerequisites: PAR-16 and ADP-07 accepted/pruned or explicit release of all overlapping files; Ask capability-routing lock available
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/mod.rs`, `crates/acorn-lib/src/io/mcp/tests/server.rs`, `crates/acorn-schema/src/agent/tools.rs`, `tests/fixtures/mcpb/manifest-v0.3.json`
-- Primary integration lock: Ask capability routing
-- Preparation evidence: Register `acorn.compare_big_o` as MCP-only by setting `ToolDefinition.exposure.needle = false`, delegate its typed handler to `compare_notation`, keep invalid comparison requests as tool errors, and extend actual `tools/list`/`tools/call` protocol coverage plus the existing validation-alias tests. The registry already sorts definitions by name and enforces effect/output policy.
-- Outcome: Make existing RAD validation descriptions Big-O-aware, register MCP-only `acorn.compare_big_o`, update the MCPB manifest, and prove validation plus comparison through `tools/list` and actual MCP protocol calls.
-- Focused validation: `cargo test -p acorn-lib io::mcp::tests::server`; run MCPB manifest tests; assert names, input/output schemas, effect annotations, exposure, valid/invalid fixture results, compatibility-alias equivalence, canonical comparison, malformed expression errors, unknown assumptions, and output-size policy.
-- Handoff: Record the final inbound MCP names and schemas; remove BGO-04 and make BGO-05 ready. Do not project the new built-in tool into Needle.
-
 ## BGO-05 — Register the native routed Big-O capability
 
-- Status: blocked
+- Status: in-progress
 - Budget: 5 active hours maximum
-- Prerequisites: BGO-04, released Ask capability-routing lock
-- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native/big_o.rs`, `crates/acorn-lib/src/io/mcp/tools/native/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/native/tests/big_o.rs`, `crates/acorn-lib/src/io/mcp/tools/native/tests/mod.rs`, `crates/acorn-cli/src/commands/infer/mod.rs`, `crates/acorn-cli/src/commands/infer/tests/routing_scope.rs`
-- Primary integration lock: Ask capability routing
-- Preparation evidence: Add one sorted native leaf and test module, register a version `1.0.0` local-read capability/binding with `BindingAvailability::Ready` and offline support, call `compare_notation` directly, and insert registration immediately after the existing diff capability in the CLI registry chain. Extend only explicit scope/binding tests; do not add or revise routing-corpus prompts.
-- Outcome: Register `acorn.diff::bigo` and `native:acorn.diff::bigo` against the portable contract, expose it in scoped catalogs, and prove explicit offline-safe dispatch without modifying the frozen natural-language routing corpus.
-- Focused validation: `cargo test -p acorn-lib io::mcp::tools::native::tests::big_o`; `cargo test -p acorn-cli commands::infer::tests::routing_scope -- big_o`; verify schema/effect equality, discovery, explicit binding selection, invalid-input propagation, cancellation, no mutation requirement, no fallback, and one terminal result.
-- Handoff: Record capability/binding/version/effects and release the routing lock; remove BGO-05. Any request to score natural-language selection becomes a separately versioned routing-evaluation phase.
-
-## BGO-07 — Record the nine-tool native-browser smoke
-
-- Status: blocked
-- Budget: 1 active hour maximum
-- Prerequisites: Supported interactive Chrome session with `chrome://flags/#enable-webmcp-testing` enabled
-- Exact write set: `crates/acorn-wasm/examples/webmcp/README.md`, `.wiki/features/big-o-agent-validation-and-comparison.md`, `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
-- Primary integration lock: WebMCP browser evidence
-- Completed evidence: The typed adapter, ninth registration/tab, batch-capable direct WASM APIs, strict schemas, error mapping, cancellation, limits, generated package, and all non-browser tests pass. Chrome 156 headless mode loaded the nine-tab page and staged assets but did not complete native registration, consistent with Chrome's documented headless limitation for WebMCP.
-- Outcome: Run `http://127.0.0.1:8000/webmcp/?smoke=1` in supported interactive Chrome, record a nine-tool PASS and browser version in the demo README, then remove BGO-07.
-- Focused validation: Confirm nine unique tools/tabs, canonical Big-O result/manual parity, explicit assumptions, invalid syntax and bounds, unchanged RAD validation, permissions policy, cancellation, timing, output routing, and cleanup.
-- Handoff: Preserve the browser/version/timing result in the README, remove BGO-07, release the browser-evidence lock, and unblock BGO-08 only when BGO-04/05 are also complete.
+- Prerequisites: Accepted CLI inference-file handoff
+- Exact write set: `crates/acorn-lib/src/io/mcp/tools/native/big_o.rs`, `crates/acorn-lib/src/io/mcp/tools/native/mod.rs`, `crates/acorn-lib/src/io/mcp/tools/native/tests/big_o.rs`, `crates/acorn-lib/src/io/mcp/tools/native/tests/mod.rs`, `crates/acorn-cli/src/commands/infer/mod.rs`, `crates/acorn-cli/src/commands/infer/tests/routing_scope.rs`; any routed-error contract extension requires an explicit bounded write-set amendment before implementation.
+- Primary integration lock: CLI inference registry
+- Current state: Version `1.0.0` local-read, offline-safe discovery and explicit dispatch match `compare_notation`; two focused library tests, eight focused CLI tests, and strict library/CLI Clippy pass. Malformed notation yields `ToolFailed` without the parser's side and message in `RoutedExecution`.
+- Outcome: Complete the routed comparison error policy, preserve explicit offline-safe dispatch and one terminal result, and keep the frozen natural-language routing corpus unchanged.
+- Focused validation: Assert left/right and unknown-assumption errors at the caller-visible routed boundary, schema/effect equality, discovery, explicit binding selection, cancellation, no mutation requirement, no fallback, and zero artifacts for failures.
+- Handoff: Record capability/binding/version/effects and release the routing lock; remove BGO-05 only after the error policy passes. Any request to score natural-language selection becomes a separately versioned routing-evaluation phase.
 
 ## BGO-08 — Publish the agent workflow and run release gates
 
 - Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: BGO-04, BGO-05, BGO-07; stable worktree and exclusive final-validation window
+- Prerequisites: BGO-05; stable worktree and exclusive final-validation window
 - Exact write set: `docs/src/concepts/aspect/computation.md`, `docs/src/packages/acorn-schema.md`, `docs/src/cli-reference/commands/check.md`, `docs/src/packages/mcpb.md`, `docs/src/packages/acorn-web.md`, `.wiki/features/big-o-agent-validation-and-comparison.md`, `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
 - Primary integration lock: Documentation generation
-- Outcome: Correct the grammar documentation, publish RAD validation and MCP/native/WASM/WebMCP examples, explain agent sequencing and assumptions, run final gates, and retire this plan only after every acceptance criterion is durable outside `.wiki`.
+- Current state: Grammar, RAD, MCP, WASM, and WebMCP documentation edits build with `make book`; nine-tool browser evidence and explicit offline native-dispatch tests are recorded. Native-dispatch documentation, final validation, and plan retirement wait for BGO-05's routed error policy.
+- Outcome: Add a verified native-dispatch example after BGO-05, validate the published workflow and examples, run final gates, and retire this plan only after every acceptance criterion is durable outside `.wiki`.
 - Focused validation: `make lint`; `make test`; `make check-wasm`; `make book`; validate example JSON against generated schemas; run `.agents/skills/planning/scripts/validate_wiki.py`; check internal links and confirm MCP/WebMCP tool counts in documentation match tests.
 - Handoff: If all gates pass, delete this concept and remove its feature-index, root-ranking, network, and parallel-lane entries in the same change. A failed product gate creates a bounded repair phase with its own write set; do not broaden BGO-08.

@@ -6,7 +6,7 @@ difficulty: high
 impact: critical
 package: [power-platform]
 tags: [powerapps, usability, responsive, wysiwyg, intake, approval]
-status: planned
+status: in-progress
 execution: phased
 phase_budget_hours: 5
 priority: next
@@ -136,13 +136,13 @@ Reviewer edits may change only fields admitted by the frozen form/report contrac
 
 ## PA-39 — Refit contributor activity entry to the shared components
 
-- Status: planned
+- Status: in-progress
 - Budget: 5 active hours maximum
-- Prerequisites: accepted reviewer fixture experience recorded in the current evidence; isolated copy of the published contributor app and bindings
+- Prerequisites: accepted reviewer fixture experience recorded in the current evidence; isolated unpublished copy of the published contributor app. The copied operational submit binding must be disabled during PA-39 preview; PA-39 payload parity uses local fixtures and does not invoke a submission flow.
 - Exact write set: isolated contributor app `Sponsor Highlights Intake UI TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/layout.pa.yaml`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/intake-refit/activity.pa.yaml`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/intake-refit/payload-parity.json`
 - Primary integration lock: contributor app canvas
 - Outcome: Replace fixed dropdowns with the accepted placement bar, state bar, category radio menu, event radio menu, shared narrative components, shared validation summary, and report-card preview while preserving the project selector and payload contract.
-- Focused validation: Compare old/new payload bytes for unchanged activity fixtures; verify all fixed values, validation limits, project loading/retry, general placement, desktop and 375-pixel behavior.
+- Focused validation: Compare old/new payload bytes for unchanged activity fixtures without submitting; verify all fixed values, validation limits, project loading/retry, general placement, desktop and 375-pixel behavior. Verify the isolated preview cannot invoke the operational submit flow.
 - Handoff: Preserve the isolated app export, component version, property diff, payload parity, screenshots, and rollback package.
 
 ## PA-39A — Preserve correction, recovery, and save-status behavior

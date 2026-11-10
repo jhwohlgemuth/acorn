@@ -27,7 +27,11 @@
   "tools": [
     {
       "name": "acorn.check_research_activity_data",
-      "description": "Check ACORN research activity data and return every schema validation issue."
+      "description": "Check ACORN research activity data, including Big-O complexity bounds and variable references, and return every schema validation issue."
+    },
+    {
+      "name": "acorn.compare_big_o",
+      "description": "Compare two Big-O expressions under optional explicit symbol growth assumptions and return their proven dominance."
     },
     {
       "name": "acorn.crosswalk_metadata_standard",
@@ -51,7 +55,7 @@
     },
     {
       "name": "acorn.validate_research_activity_data",
-      "description": "Validate ACORN research activity data and return every schema validation issue."
+      "description": "Validate ACORN research activity data, including Big-O complexity bounds and variable references, and return every schema validation issue."
     },
     {
       "name": "acorn.version",

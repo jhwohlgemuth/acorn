@@ -1,3 +1,4 @@
+mod big_o;
 #[cfg(feature = "diagnostics")]
 mod doctor;
 mod download;

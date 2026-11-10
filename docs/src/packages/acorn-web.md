@@ -1,6 +1,6 @@
 # WebAssembly development
 
-The `acorn-wasm` crate exposes ACORN's portable validation, identifier, diff, FAIR, crosswalk, and readability APIs to JavaScript. It operates entirely on supplied in-memory values and does not use filesystems, processes, databases, or networks.
+The `acorn-wasm` crate exposes ACORN's portable validation, Big-O comparison, identifier, diff, FAIR, crosswalk, and readability APIs to JavaScript. It operates entirely on supplied in-memory values and does not use filesystems, processes, databases, or networks.
 
 ## Installation
 
@@ -46,11 +46,14 @@ Import the generated web module and initialize it before calling the bindings:
 import init, {
     assessFairMetadata,
     checkReadability,
+    compareBigO,
+    compareBigOList,
     crosswalkMetadata,
     crosswalkMetadataAs,
     diffContent,
     discoverPersistentIdentifiers,
     inspectPersistentIdentifier,
+    validateBigOList,
     validateMetadataStandard,
     validateResearchActivity,
 } from "./target/acorn-wasm/pkg/acorn.js";
@@ -64,9 +67,14 @@ const identifier = inspectPersistentIdentifier("https://doi.org/10.1000/182");
 const difference = diffContent('{"title":"Before"}', '{"title":"After"}', "json-patch");
 const fair = assessFairMetadata('{"title":"Example","doi":"10.1000/182"}', "datacite", "memory://example");
 const readability = checkReadability("Supplied text to assess.", "fkgl");
+const comparison = compareBigO({ left: "O(n^2)", right: "O(n log n)" });
+const comparisons = compareBigOList([{ left: "O(n^2)", right: "O(n log n)" }]);
+const bounds = validateBigOList(["O(n log n)", "O(n - m)"]);
 ```
 
 `validateResearchActivity` returns `{ valid, value, diagnostics }`. Parse and validation diagnostics retain their original order and include their kind, path, message, and validation details when available.
+
+`compareBigO` takes one object with `left`, `right`, and optional `assumptions`. It returns the original expressions, `dominance`, and the effective assumptions map. Ordinary symbols default to `growing`, named logarithm bases to `fixed-log-base`, and explicit assumptions override those defaults. `left` and `right` mean strictly faster growth on that side; `equivalent`, `incomparable`, and `undetermined` are valid results. `validateBigOList` and `compareBigOList` accept up to 64 ordered items. The former collects expression-validation results; the latter preserves pair order and identifies the first malformed pair by index. Each expression is limited to 256 ASCII bytes and a comparison accepts at most 64 explicit assumptions.
 
 `inspectPersistentIdentifier` classifies, validates, and normalizes one supplied ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, patent, RAiD, ROR, RRID, or SWHID. Supply the optional second argument to validate against a specific lowercase kind. Without it, a bare value valid as both an ISNI and ORCID returns an ambiguous result with both candidates rather than guessing.
 
@@ -92,6 +100,7 @@ The generated package includes an opt-in adapter for the experimental browser We
 import init, {
     assessFairMetadata,
     checkReadability,
+    compareBigO,
     crosswalkMetadata,
     diffContent,
     discoverPersistentIdentifiers,
@@ -106,6 +115,7 @@ await init();
 const adapter = createAcornWebMcpAdapter({
     assessFairMetadata,
     checkReadability,
+    compareBigO,
     crosswalkMetadata,
     diffContent,
     discoverPersistentIdentifiers,
@@ -119,12 +129,13 @@ console.log(await installation.ready);
 // Call installation.dispose() when the page no longer provides the tools.
 ```
 
-The adapter registers eight read-only tools:
+The adapter registers nine read-only tools:
 
 | Tool | Input | Result |
 |---|---|---|
 | `acorn_assess_fair_metadata` | `{ json: string, standard: MetadataStandard, resource?: string }` | All 41 ordered RDA FAIR findings plus profile counts |
 | `acorn_check_readability` | `{ text: string, metric: "ari" | "cli" | "fkgl" | "fres" | "gfi" | "lix" | "smog" }` | The selected readability check and category summary |
+| `acorn_compare_big_o` | `{ left: string, right: string, assumptions?: Record<string, SymbolGrowth> }` | Dominance and effective assumptions for two Big-O expressions |
 | `acorn_crosswalk_metadata` | `{ content, format, source, target, contact?, localIdentifier? }` | Pretty JSON target content and typed data-loss warnings for supported RAD, DataCite, RAiD, and Dublin Core conversions |
 | `acorn_diff_content` | `{ before: string, after: string, mode: "json-patch" | "unified" }` | Deterministic RFC 6902 operations or a unified text diff |
 | `acorn_discover_persistent_identifiers` | `{ text: string }` | Up to 100 normalized, deduplicated supported identifiers plus count and truncation state |
@@ -132,15 +143,16 @@ The adapter registers eight read-only tools:
 | `acorn_validate_metadata_standard` | `{ content: string, format: MetadataFormat, standard: MetadataStandard }` | Validity plus ordered diagnostics for eleven portable standards |
 | `acorn_validate_research_activity` | `{ json: string }` | Validity plus ordered diagnostics; parsed research data is never echoed |
 
-All schemas reject unknown fields. The adapter limits JSON and metadata documents to 256 KiB, each diff side to 128 KiB, prose and discovery text to 16 KiB, identifier and resource labels to 2 KiB, output to 256 KiB, discovered identifiers to 100, and returned diagnostics to the first 100. It permits only one active invocation per adapter and returns structured, bounded errors for invalid input, cancellation, contention, or execution failures. ACORN runs all operations locally. Identifier operations and FAIR assessment do not resolve or fetch metadata. The adapter makes no network requests and does not persist supplied content, but a browser agent may send tool inputs and outputs to its configured model provider.
+All schemas reject unknown fields. The adapter limits JSON and metadata documents to 256 KiB, each Big-O expression and assumption name to 256 UTF-8 bytes, each Big-O comparison to 64 assumptions, each diff side to 128 KiB, prose and discovery text to 16 KiB, identifier and resource labels to 2 KiB, output to 256 KiB, discovered identifiers to 100, and returned diagnostics to the first 100. It permits only one active invocation per adapter and returns structured, bounded errors for invalid input, cancellation, contention, or execution failures. ACORN runs all operations locally. Identifier operations and FAIR assessment do not resolve or fetch metadata. The adapter makes no network requests and does not persist supplied content, but a browser agent may send tool inputs and outputs to its configured model provider.
 
-Cancellation is checked before and after each operation. The current WASM bindings are synchronous, so cancellation cannot interrupt a calculation already running on the browser's main thread. On Chrome 154.0.0.0 on macOS on 2026-10-09, the eight-tool native smoke recorded maximum warm times of 12.60 ms across 20 identifier calls at 2 KiB, 2.90 ms across 20 validation calls at 256 KiB, and 8.20 ms across 20 readability calls at 16 KiB.
+Cancellation is checked before and after each operation. The current WASM bindings are synchronous, so cancellation cannot interrupt a calculation already running on the browser's main thread. On Chrome 156.0.8078.80 on macOS on 2026-11-09, the nine-tool native smoke recorded maximum warm times of 15.50 ms across 20 identifier calls at 2 KiB, 3.50 ms across 20 validation calls at 256 KiB, and 12.10 ms across 20 readability calls at 16 KiB.
 
-WebMCP is experimental and browser support is limited. In Chrome, enable the WebMCP testing flag before opening the demo. Unsupported browsers can still use all eight tabbed manual controls.
+WebMCP is experimental and browser support is limited. In Chrome, enable the WebMCP testing flag before opening the demo. Unsupported browsers can still use all nine tabbed manual controls.
 
 | Browser | Configuration | Verified behavior |
 |---|---|---|
 | Chrome 154.0.8037.98 on macOS | `chrome://flags/#enable-webmcp-testing` enabled | Passed native registration, discovery, schema and annotation inspection, execution, cancellation, manual parity, Permissions Policy denial, bounds, timing, and cleanup on 2026-10-08 |
+| Chrome 156.0.8078.80 on macOS | `chrome://flags/#enable-webmcp-testing` enabled | Nine-tool native smoke passed registration, discovery, schemas, annotations, execution, serialization, manual parity, Permissions Policy denial, bounds, timing, and cleanup on 2026-11-09 |
 | Chrome without the testing flag and browsers without `document.modelContext` | None | Manual WASM controls remain available; no tools are registered |
 
 Chrome 154 exposes discovered schemas as serialized JSON and requires JSON-string arguments for in-page `executeTool()` calls. The smoke supports that implementation as well as the object arguments used by Chrome 155 and the current draft. This compatibility handling is only needed by in-page agents and tests; tool registration and browser-agent invocation use the adapter's normal structured inputs. The `tools` Permissions Policy defaults to same-origin access, and the adapter does not opt into cross-origin exposure.
@@ -164,6 +176,7 @@ The WASM build exposes Rust APIs that operate on supplied in-memory values. It c
 | Metadata standards | Serde-compatible CFF, DataCite, DCAT, Dublin Core, Huwise, Invenio, and text models; Dublin Core graph codecs for JSON-LD, RDF/XML, and Turtle; in-memory schema crosswalk contracts and conversions |
 | Persistent identifiers | ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, patent, RAiD, ROR, RRID, and SWHID parsing, recognition, normalization, component access, and checksum validation where the identifier defines one |
 | Validation | Research schema validation plus helpers for identifiers, dates and timestamps, URLs, semantic versions, geographic coordinates and polygons, language and country codes, phone numbers, and media extensions |
+| Big-O analysis | Bounded notation parsing, complete-RAD complexity validation, and pairwise comparison under inferred or explicit growth assumptions |
 | Hardware metadata | Architecture, accelerator, processor, memory, sensor, topology, vendor, and computing-resource models |
 | Portable domain APIs | `Location`, `Repository`, `Scheme`, `Release`, `AcornError`, and `AcornResult` |
 | Portable utilities | MIME and file-extension detection, ZON encoding/decoding, Crockford Base32, constant-time byte comparison, glob matching, regex-to-glob conversion, frontmatter splitting, semantic versions, byte formatting, and string normalization |

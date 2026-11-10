@@ -4,7 +4,7 @@
 
 ## In progress
 
-- [Needle routing and native capability parity](needle-router-native-parity.md) - Native routes cover 46/46 bounded rows; PAR-34 repairs failed real Needle selection before PAR-15 evaluation and PAR-16 release validation.
+- [Needle routing and native capability parity](needle-router-native-parity.md) - Native routes cover 46/46 bounded rows; PAR-34's synthetic safety matrix is accepted and PAR-16 is ready to release explicit dispatch. Automatic Needle selection remains preview-only after failed calibration.
 
 ## Planned
 
@@ -16,7 +16,6 @@
 
 - [Power Automate Teams workflow bot](powerautomate-teams-bot/index.md) - Package a Workflows-authored Teams assistant as solution-aware flows with Dataverse sessions, requests, jobs, idempotent effects and receipts. The owner-only summarize request/reply slice is repaired and accepted; remaining phases decide the supported Teams interaction surface, then add ALM, durable routing, centralized responses, bounded capabilities, recovery and governed pilot release. The Sponsor Highlights intake and Vergil automation plans retain their own systems.
 
-- [Intake approval ledger and finalization](powerapps-jsonl-intake/approval-ledger/index.md) - Materialize indexed, paged closed-period batches; save structured drafts with ETags; freeze stable approval UUIDs, correction mappings and exact bytes; expose only complete Approved batches.
 - [Approval-gated collected JSONL export](powerapps-jsonl-intake/approval-export/index.md) - Preserve an exact pre-cutover baseline and append deterministic frozen projections from Approved batches only, retaining current limits, read/write reconciliation and freeze-only rollback.
 - [Intake approval pilot acceptance and cutover](powerapps-jsonl-intake/approval-release/index.md) - Join both consistent apps, review ledger, approved export and actual ACORN PDF in isolated acceptance before an explicitly authorized operational cutover.
 - [Shared Power Platform intake deployment](powerapps-jsonl-intake/shared-deployment/index.md) - After PA-41A and target readiness, import the accepted solution into a named shared environment, accept it in isolation, then switch future links and notifications with rollback.
@@ -33,7 +32,7 @@
 - [Release-gated Beam inference integration](beam-inference-integration.md) - Verify released serving contracts, then evaluate an explicitly configured hosted or operator-owned endpoint independently of local SLM sidecars.
 
 - [Database-backed artifact generation](database-backed-artifact-generation.md) - Generate reproducible current or historical artifacts from canonical database state through existing typed renderers.
-- [Big-O metadata validation and agent comparison](big-o-agent-validation-and-comparison.md) - Complete RAD, direct/list WASM, and bounded nine-tool WebMCP coverage are implemented; native-browser evidence and MCP/native registration remain blocked on their environments/locks.
+- [Big-O metadata validation and agent comparison](big-o-agent-validation-and-comparison.md) - Complete RAD, MCP validation/comparison, direct/list WASM, and nine-tool WebMCP browser evidence are accepted. BGO-05 explicit offline native dispatch works; routed comparison errors still need caller-visible detail before BGO-08 final gates.
 - [Rust browser and Tauri desktop workspace for ACORN tools](acorn-browser-workspace/index.md) - Build one accessible Dioxus workspace, isolated Resium/CesiumJS ROR map, and least-privilege Tauri shell while preserving the existing portable, `acorn-wasm`, `acorn-host`, and `acorn-lib` ownership boundaries.
 - [CEL metadata validation-profile pilot](cel-validation-profile-pilot.md) - Evaluate bounded, optional institutional rules against existing Rust/Rhai behavior before adopting a CEL runtime; see the [OPA/CEL review](../_assets/opa-cel-review.md).
 - [dPID research-object support](dpid-research-object-support.md) - Recognize and resolve versioned dPIDs, import resolver RO-Crate metadata into RAD, and preserve manifest provenance through a read-only first release.

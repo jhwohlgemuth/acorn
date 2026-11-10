@@ -8,10 +8,12 @@ use crate::io::{DeterministicZipEntry, Platform};
 use acorn_schema::agent::tools::{ToolDefinition, ToolExposure};
 use acorn_schema::research_activity::ResearchActivity;
 use rmcp::model::JsonObject;
+use rmcp::ServiceExt;
 use serde_json::{json, Value};
 use std::fs::{read, write, File};
 use std::path::Path;
 use tempfile::tempdir;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, DuplexStream, ReadHalf, WriteHalf};
 use zip::ZipArchive;
 
 #[derive(schemars::JsonSchema, serde::Deserialize)]
@@ -132,12 +134,28 @@ fn test_catalog_is_deterministic_and_shared() {
     let registry = ToolRegistry::acorn().expect("registry");
     let definitions = registry.definitions();
     let needle = registry.needle_tools();
-    assert_eq!(definitions.len(), if cfg!(feature = "analysis") { 9 } else { 8 });
-    assert_eq!(definitions.len(), needle.len() + 1);
+    assert_eq!(definitions.len(), if cfg!(feature = "analysis") { 10 } else { 9 });
+    assert_eq!(definitions.len(), needle.len() + 2);
     assert!(definitions
         .windows(2)
         .all(|pair| pair.first().zip(pair.get(1)).is_some_and(|(left, right)| left.name < right.name)));
     assert!(!needle.iter().any(|tool| tool.name == "acorn.apply_logbook_graduation"));
+    assert!(!needle.iter().any(|tool| tool.name == "acorn.compare_big_o"));
+    let comparison = definitions
+        .iter()
+        .find(|tool| tool.name == "acorn.compare_big_o")
+        .expect("Big-O comparison");
+    assert!(comparison.effects.read_only);
+    assert!(!comparison.effects.destructive);
+    assert!(!comparison.effects.open_world);
+    assert!(comparison.exposure.mcp);
+    assert!(!comparison.exposure.needle);
+    assert!(comparison.input_schema.pointer("/required").is_some());
+    assert!(comparison
+        .output_schema
+        .as_ref()
+        .and_then(|schema| schema.pointer("/properties/dominance"))
+        .is_some());
     needle.iter().for_each(|projected| {
         let definition = definitions
             .iter()
@@ -261,6 +279,179 @@ async fn test_mcp_invocation_dispatches_through_the_shared_handler() {
     let mut invalid = JsonObject::new();
     invalid.insert("unexpected".to_string(), Value::Bool(true));
     assert_eq!(server.invoke("acorn.version", invalid).await.is_error, Some(true));
+}
+async fn mcp_request(
+    reader: &mut BufReader<ReadHalf<DuplexStream>>,
+    writer: &mut WriteHalf<DuplexStream>,
+    id: u32,
+    method: &str,
+    params: Value,
+) -> Value {
+    let request = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
+    writer.write_all(format!("{request}\n").as_bytes()).await.expect("write MCP request");
+    let mut line = String::new();
+    reader.read_line(&mut line).await.expect("read MCP response");
+    let response: Value = serde_json::from_str(&line).expect("JSON-RPC response");
+    assert_eq!(response["id"], id);
+    assert!(response.get("error").is_none(), "protocol error: {response}");
+    response["result"].clone()
+}
+async fn mcp_tool_call(
+    reader: &mut BufReader<ReadHalf<DuplexStream>>,
+    writer: &mut WriteHalf<DuplexStream>,
+    id: u32,
+    name: &str,
+    arguments: Value,
+) -> Value {
+    mcp_request(reader, writer, id, "tools/call", json!({"name": name, "arguments": arguments})).await
+}
+#[tokio::test]
+async fn test_big_o_tools_over_mcp_protocol() {
+    let (server_transport, client_transport) = tokio::io::duplex(64 * 1024);
+    let server_task = tokio::spawn(async move {
+        Server::acorn()
+            .expect("server")
+            .serve(server_transport)
+            .await
+            .expect("serve")
+            .waiting()
+            .await
+            .expect("server shutdown")
+    });
+    let (read_half, mut writer) = tokio::io::split(client_transport);
+    let mut reader = BufReader::new(read_half);
+    mcp_request(
+        &mut reader,
+        &mut writer,
+        1,
+        "initialize",
+        json!({"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "bgo-test", "version": "0.1"}}),
+    )
+    .await;
+    writer
+        .write_all(b"{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n")
+        .await
+        .expect("initialize notification");
+    let list = mcp_request(&mut reader, &mut writer, 2, "tools/list", json!({})).await;
+    let tools = list["tools"].as_array().expect("tools/list result");
+    let names = tools.iter().map(|tool| tool["name"].as_str().expect("tool name")).collect::<Vec<_>>();
+    assert!(names.windows(2).all(|pair| pair[0] < pair[1]));
+    for name in [
+        "acorn.validate_research_activity_data",
+        "acorn.check_research_activity_data",
+        "acorn.compare_big_o",
+    ] {
+        assert!(names.contains(&name), "missing {name}");
+    }
+    let comparison = tools.iter().find(|tool| tool["name"] == "acorn.compare_big_o").expect("comparison tool");
+    let required = comparison["inputSchema"]["required"].as_array().expect("comparison required fields");
+    assert!(required.contains(&json!("left")));
+    assert!(required.contains(&json!("right")));
+    assert!(comparison["inputSchema"]["properties"]["assumptions"].is_object());
+    assert!(comparison["outputSchema"]["properties"]["dominance"].is_object());
+    assert_eq!(comparison["annotations"]["readOnlyHint"], true);
+    assert_eq!(comparison["annotations"]["destructiveHint"], false);
+    assert_eq!(comparison["annotations"]["openWorldHint"], false);
+    for name in ["acorn.validate_research_activity_data", "acorn.check_research_activity_data"] {
+        let validation = tools.iter().find(|tool| tool["name"] == name).expect("RAD validation tool");
+        assert!(validation["description"]
+            .as_str()
+            .is_some_and(|description| description.contains("Big-O")));
+    }
+
+    for ((canonical_id, alias_id), (fixture, expected_valid, finding)) in [(3, 4), (5, 6), (7, 8)].into_iter().zip([
+        (include_str!("../../../../../../tests/fixtures/data/big_o/valid/index.json"), true, ""),
+        (
+            include_str!("../../../../../../tests/fixtures/data/big_o/invalid-syntax/index.json"),
+            false,
+            "Invalid complexity expression",
+        ),
+        (
+            include_str!("../../../../../../tests/fixtures/data/big_o/invalid-reference/index.json"),
+            false,
+            "Complexity variable `n` is not defined",
+        ),
+    ]) {
+        let activity: Value = serde_json::from_str(fixture).expect("complete RAD fixture");
+        let arguments = json!({"activity": activity});
+        let canonical = mcp_tool_call(
+            &mut reader,
+            &mut writer,
+            canonical_id,
+            "acorn.validate_research_activity_data",
+            arguments.clone(),
+        )
+        .await;
+        let alias = mcp_tool_call(&mut reader, &mut writer, alias_id, "acorn.check_research_activity_data", arguments).await;
+        assert_ne!(canonical["isError"], true);
+        assert_eq!(canonical["structuredContent"], alias["structuredContent"]);
+        let result = &canonical["structuredContent"];
+        assert_eq!(result["valid"], expected_valid);
+        let errors = result["errors"].as_array().expect("validation issues");
+        if expected_valid {
+            assert!(errors.is_empty());
+        } else {
+            assert!(
+                errors.iter().any(|error| error.as_str().is_some_and(|message| message.contains(finding))),
+                "{errors:?}"
+            );
+            assert!(errors.iter().any(|error| error
+                .as_str()
+                .is_some_and(|message| message.contains("aspect.computation[0].stages[0].complexity.bounds[0]"))));
+        }
+    }
+
+    let compare = mcp_tool_call(
+        &mut reader,
+        &mut writer,
+        9,
+        "acorn.compare_big_o",
+        json!({"left": "O(n log n)", "right": "O(n^2)"}),
+    )
+    .await;
+    assert_ne!(compare["isError"], true);
+    let output = &compare["structuredContent"];
+    assert_eq!(output["dominance"], "right");
+    assert_eq!(output["assumptions"]["n"], "growing");
+
+    let explicit = mcp_tool_call(
+        &mut reader,
+        &mut writer,
+        10,
+        "acorn.compare_big_o",
+        json!({"left": "O(n)", "right": "O(n^2)", "assumptions": {"n": "fixed-positive"}}),
+    )
+    .await;
+    assert_ne!(explicit["isError"], true);
+    assert_eq!(explicit["structuredContent"]["dominance"], "equivalent");
+
+    for (id, (arguments, message)) in [11, 12, 13].into_iter().zip([
+        (json!({"left": "O(", "right": "O(n)"}), "invalid left Big-O expression"),
+        (json!({"left": "O(n)", "right": "O("}), "invalid right Big-O expression"),
+        (
+            json!({"left": "O(n)", "right": "O(n^2)", "assumptions": {"absent": "growing"}}),
+            "does not reference either expression",
+        ),
+    ]) {
+        let result = mcp_tool_call(&mut reader, &mut writer, id, "acorn.compare_big_o", arguments).await;
+        assert_eq!(result["isError"], true);
+        assert!(result["structuredContent"]["message"].as_str().is_some_and(|text| text.contains(message)));
+    }
+    drop(writer);
+    drop(reader);
+    server_task.await.expect("join server");
+}
+#[tokio::test]
+async fn test_big_o_comparison_obeys_output_limit() {
+    let registry = ToolRegistry::acorn().expect("registry");
+    let result = registry
+        .call_with_context(
+            "acorn.compare_big_o",
+            json!({"left": "O(n)", "right": "O(n^2)"}),
+            ToolCallContext::mcp_with_policy(false, false, 16),
+        )
+        .await;
+    assert!(result.is_err_and(|why| why.to_string().contains("output")));
 }
 #[tokio::test]
 async fn test_mutation_catalog_and_handler_use_injected_database() {

@@ -12,7 +12,9 @@ use crate::io::enrichment::{Enrich, Pipeline};
 use crate::io::mcp::ExecutorBindingConfiguration;
 #[cfg(feature = "analysis")]
 use acorn_analysis::StandardCrosswalk;
+use acorn_core::big_o::{compare_notation, ComparisonInput, ComparisonOutput};
 use acorn_core::prelude::{Box, String, Vec};
+use acorn_core::util::constants::app::APPLICATION;
 use acorn_core::util::SemanticVersion;
 use acorn_core::util::{MarkdownSupport, MimeType};
 use acorn_core::Location;
@@ -395,7 +397,7 @@ impl ToolCallContext {
     /// Restrictive context for an MCP call
     pub fn mcp(offline: bool) -> Self {
         Self {
-            exposure: ToolExposure { needle: false, mcp: true },
+            exposure: ToolExposure::MCP_ONLY,
             offline,
             allow_mutation: false,
             max_output_bytes: 1024 * 1024,
@@ -404,7 +406,7 @@ impl ToolCallContext {
     /// MCP context with explicit mutation and structured-output policies.
     pub fn mcp_with_policy(offline: bool, allow_mutation: bool, max_output_bytes: usize) -> Self {
         Self {
-            exposure: ToolExposure { needle: false, mcp: true },
+            exposure: ToolExposure::MCP_ONLY,
             offline,
             allow_mutation,
             max_output_bytes,
@@ -536,13 +538,13 @@ impl ToolRegistry {
     /// Build the built-in registry with an optional persistent research-activity store.
     pub fn with_database(database: Option<Database<Table>>) -> ApiResult<Self> {
         let mut format_definition = ToolDefinition::new::<FormatAndEnrichInput, FormatAndEnrichOutput>(
-            "acorn.format_and_enrich_research_activity_data",
+            &format!("{APPLICATION}.format_and_enrich_research_activity_data"),
             "Format and enrich research activity",
             "Normalize research activity data and enrich it using configured metadata providers.",
         );
         format_definition.effects.open_world = true;
         let mut apply_graduation_definition = ToolDefinition::new::<ApplyLogbookGraduationInput, ApplyLogbookGraduationOutput>(
-            "acorn.apply_logbook_graduation",
+            &format!("{APPLICATION}.apply_logbook_graduation"),
             "Apply logbook graduation",
             "Transactionally back up the research activity, copy accepted logbook values into canonical metadata, and archive the retained entries.",
         );
@@ -553,7 +555,7 @@ impl ToolRegistry {
         let registry = Self::default()
             .register(
                 ToolDefinition::new::<VersionInput, VersionOutput>(
-                    "acorn.version",
+                    &format!("{APPLICATION}.version"),
                     "ACORN version",
                     "Return the version of the running ACORN library.",
                 ),
@@ -566,9 +568,9 @@ impl ToolRegistry {
             .and_then(|registry| {
                 registry.register_projected(
                     ToolDefinition::new::<ValidationInput<ResearchActivity>, ValidationOutput>(
-                        "acorn.validate_research_activity_data",
+                        &format!("{APPLICATION}.validate_research_activity_data"),
                         "Validate research activity",
-                        "Validate ACORN research activity data and return every schema validation issue.",
+                        "Validate ACORN research activity data, including Big-O complexity bounds and variable references, and return every schema validation issue.",
                     ),
                     |input: needle::ActivityInput| ValidationInput::<ResearchActivity>::try_from(input),
                     |input: ValidationInput<ResearchActivity>| async move { ValidationOutput::try_from(input) },
@@ -577,18 +579,29 @@ impl ToolRegistry {
             .and_then(|registry| {
                 registry.register_projected(
                     ToolDefinition::new::<ValidationInput<ResearchActivity>, ValidationOutput>(
-                        "acorn.check_research_activity_data",
+                        &format!("{APPLICATION}.check_research_activity_data"),
                         "Check research activity",
-                        "Check ACORN research activity data and return every schema validation issue.",
+                        "Check ACORN research activity data, including Big-O complexity bounds and variable references, and return every schema validation issue.",
                     ),
                     |input: needle::ActivityInput| ValidationInput::<ResearchActivity>::try_from(input),
                     |input: ValidationInput<ResearchActivity>| async move { ValidationOutput::try_from(input) },
                 )
             })
             .and_then(|registry| {
+                let mut definition = ToolDefinition::new::<ComparisonInput, ComparisonOutput>(
+                    &format!("{APPLICATION}.compare_big_o"),
+                    "Compare Big-O expressions",
+                    "Compare two Big-O expressions under optional explicit symbol growth assumptions and return their proven dominance.",
+                );
+                definition.exposure = ToolExposure::MCP_ONLY;
+                registry.register(definition, |input: ComparisonInput| async move {
+                    compare_notation(input).map_err(|why| eyre!("{why}"))
+                })
+            })
+            .and_then(|registry| {
                 registry.register_projected(
                     ToolDefinition::new::<ExportInput, ExportOutput>(
-                        "acorn.export_research_activity_data",
+                        &format!("{APPLICATION}.export_research_activity_data"),
                         "Export research activity",
                         "Serialize ACORN research activity data as JSON, Markdown, PDF, PowerPoint, or YAML.",
                     ),
@@ -599,7 +612,7 @@ impl ToolRegistry {
             .and_then(|registry| {
                 registry.register_projected(
                     ToolDefinition::new::<UpdatesExportInput, UpdatesExportOutput>(
-                        "acorn.export_research_activity_updates",
+                        &format!("{APPLICATION}.export_research_activity_updates"),
                         "Export research activity updates",
                         "Render logbook entries at or after an inclusive RFC 3339 timestamp.",
                     ),
@@ -610,7 +623,7 @@ impl ToolRegistry {
             .and_then(|registry| {
                 registry.register_projected(
                     ToolDefinition::new::<ProposeLogbookGraduationInput, ProposeLogbookGraduationOutput>(
-                        "acorn.propose_logbook_graduation",
+                        &format!("{APPLICATION}.propose_logbook_graduation"),
                         "Propose logbook graduation",
                         "Return reviewable logbook entries that can be copied into canonical activity metadata.",
                     ),
@@ -638,7 +651,7 @@ impl ToolRegistry {
         let registry = registry.and_then(|registry| {
             registry.register_projected(
                 ToolDefinition::new::<CrosswalkInput, CrosswalkOutput>(
-                    "acorn.crosswalk_metadata_standard",
+                    &format!("{APPLICATION}.crosswalk_metadata_standard"),
                     "Crosswalk metadata standards",
                     "Convert JSON or YAML metadata among DataCite, DCAT, HuWise, and Invenio while reporting field-loss warnings.",
                 ),

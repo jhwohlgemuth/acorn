@@ -106,6 +106,8 @@ def prepare(rows: list[ReviewRow], prior_approved: dict[str, str]) -> list[Candi
     if len(set(source_ids)) != len(source_ids):
         raise ProjectionError("Duplicate source submission ID")
     mapping = {_uuid(source): _uuid(approved) for source, approved in prior_approved.items()}
+    if len(set(mapping.values())) != len(mapping):
+        raise ProjectionError("Duplicate prior approved submission ID")
     candidates = []
     used_approved = set(mapping.values())
     for row in ordered:
@@ -138,6 +140,8 @@ def prepare(rows: list[ReviewRow], prior_approved: dict[str, str]) -> list[Candi
             revision["supersedesSubmissionId"] = approved_supersedes
             revision["rootSubmissionId"] = mapping[root]
         unchanged = draft_text == row.source_json and projected.get("revision") == source.get("revision")
+        if unchanged and row.approved_submission_id is not None and _uuid(row.approved_submission_id) != source_id:
+            raise ProjectionError(f"Unchanged item has a different approved ID: {source_id}")
         approved_id = source_id if unchanged else _uuid(row.approved_submission_id)
         if not unchanged and approved_id in source_ids:
             raise ProjectionError(f"Changed item reused a source UUID: {approved_id}")
@@ -183,6 +187,7 @@ def _self_test() -> None:
     for invalid in (
         [rows[0]],
         [ReviewRow(1, root_text, json.dumps(changed, separators=(",", ":")), "Approve", "", "Valid", root["submissionId"])],
+        [ReviewRow(1, root_text, None, "Approve", "", "Valid", "b3500000-0000-4000-8000-000000000001")],
         [ReviewRow(1, root_text, None, "Unresolved", "", "Valid")],
         [ReviewRow(1, root_text, None, "Exclude", "", "Valid")],
     ):
@@ -192,6 +197,12 @@ def _self_test() -> None:
             pass
         else:
             raise AssertionError(f"Invalid projection was accepted: {invalid}")
+    try:
+        prepare([ReviewRow(1, root_text, None, "Approve", "", "Valid")], {"a3500000-0000-4000-8000-000000000008": "b3500000-0000-4000-8000-000000000008", "a3500000-0000-4000-8000-000000000009": "b3500000-0000-4000-8000-000000000008"})
+    except ProjectionError as error:
+        assert "Duplicate prior" in str(error)
+    else:
+        raise AssertionError("Duplicate prior approved IDs were accepted")
     status = copy.deepcopy(root)
     status["entry"] = {"summary": "On track", "health": {"status": "on-track"}, "significance": "Milestone retained", "timestamp": "2026-11-08T22:30:00Z", "range": {"left": "2026-11-01T00:00:00Z", "right": "2026-12-01T00:00:00Z"}}
     assert prepare([ReviewRow(1, json.dumps(status), None, "Approve", "", "Valid")], {})[0].approved_submission_id == root["submissionId"]

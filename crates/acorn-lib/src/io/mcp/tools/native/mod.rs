@@ -11,6 +11,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 mod analysis;
+mod big_o;
 mod diff;
 #[cfg(feature = "diagnostics")]
 mod doctor;

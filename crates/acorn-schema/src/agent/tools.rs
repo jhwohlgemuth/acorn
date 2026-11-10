@@ -1,5 +1,6 @@
 //! Portable data contracts for ACORN agent tools
 use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
+use acorn_core::util::constants::app::APPLICATION;
 use acorn_core::{AcornError, AcornResult};
 use core::fmt;
 use schemars::{schema_for, JsonSchema};
@@ -84,16 +85,17 @@ impl From<ToolDefinition> for NeedleToolDefinition {
 }
 impl fmt::Display for ToolDefinition {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let description = match self.name.as_str() {
-            | "acorn.check_research_activity_data" | "acorn.validate_research_activity_data" =>
-                "Validate an explicitly supplied, complete ACORN research activity JSON object. Never synthesize activity JSON from prose and never use this tool to modify or persist data.",
-            | "acorn.export_research_activity_data" =>
+        let suffix = self.name.strip_prefix(APPLICATION).and_then(|name| name.strip_prefix('.'));
+        let description = match suffix {
+            | Some("check_research_activity_data" | "validate_research_activity_data") =>
+                "Validate an explicitly supplied, complete ACORN research activity JSON object, including Big-O bounds and variable references. Never synthesize activity JSON from prose and never use this tool to modify or persist data.",
+            | Some("export_research_activity_data") =>
                 "Serialize an explicitly supplied, complete ACORN research activity JSON object. Do not use for unrelated information or synthesize activity JSON from prose.",
-            | "acorn.export_research_activity_updates" =>
+            | Some("export_research_activity_updates") =>
                 "Render updates from an explicitly supplied, complete ACORN research activity JSON object at or after a supplied RFC 3339 timestamp.",
-            | "acorn.format_and_enrich_research_activity_data" =>
+            | Some("format_and_enrich_research_activity_data") =>
                 "Normalize an explicitly supplied, complete ACORN research activity JSON object and enrich it using configured metadata providers.",
-            | "acorn.propose_logbook_graduation" =>
+            | Some("propose_logbook_graduation") =>
                 "Propose reviewable changes from an explicitly supplied, complete ACORN research activity JSON object. This tool cannot apply, persist, or directly modify data.",
             | _ => &self.description,
         };
@@ -120,8 +122,8 @@ impl ToolDefinition {
     }
     /// Return Needle routing expressions for this tool.
     pub fn needle_triggers(&self) -> Vec<String> {
-        match self.name.as_str() {
-            | "acorn.version" => vec!["acorn.*version".to_string(), "version.*acorn".to_string()],
+        match self.name.strip_prefix(APPLICATION).and_then(|name| name.strip_prefix('.')) {
+            | Some("version") => vec![format!("{APPLICATION}.*version"), format!("version.*{APPLICATION}")],
             | _ => Vec::new(),
         }
     }
@@ -163,6 +165,10 @@ impl ToolDefinition {
         .next()
         .map_or(Ok(()), Err)
     }
+}
+impl ToolExposure {
+    /// Allow a tool only through the MCP interface.
+    pub const MCP_ONLY: Self = Self { needle: false, mcp: true };
 }
 impl ToolResult {
     /// Construct a successful canonical result

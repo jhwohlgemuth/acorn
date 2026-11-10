@@ -98,7 +98,7 @@ PA-40 requires accepted PA-37B, PA-38B, and PA-39B. PA-41 requires PA-40A plus e
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: PA-37B; PA-38B; PA-39B; named test contributor and reviewer; isolated ACORN workspace
+- Prerequisites: accepted [TEST ONLY finalization evidence](../_assets/sharepoint/intake-approval/finalization/finalization-acceptance.md); PA-38B; PA-39B; named test contributor and reviewer; isolated ACORN workspace
 - Exact write set: TEST ONLY approval/intake apps, lists, flows, component library, and export library; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/end-to-end.md`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/accepted.jsonl`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/accepted.pdf`
 - Primary integration lock: Power Platform intake acceptance
 - Outcome: Execute the release matrix through submission, materialization, review, finalization, approved export, local intake, and combined PDF without production changes.

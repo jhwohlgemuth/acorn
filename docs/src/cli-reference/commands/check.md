@@ -55,6 +55,16 @@ acorn check --paste --format yaml --standard rads
 
 HTTP and HTTPS inputs are downloaded to a temporary file and checked using content-based format detection, with the URL extension as a fallback. This supports extensionless PDF URLs. Remote inputs require network access and are rejected in global `--offline` mode.
 
+## Computation complexity
+
+Checking a complete Research Activity document validates every `aspect.computation[*].stages[*].complexity.bounds[*]` time or space expression. Syntax errors, undeclared names when a `variables` map is present, empty bounds, and repeated time or space resources retain the existing schema-check category and appear at the nested metadata path. For example:
+
+```sh
+acorn check path/to/project/index.json --output json
+```
+
+The JSON check envelope reports unsuccessful schema findings for invalid bounds; the human output shows the same metadata location. A valid document keeps its authored expressions unchanged. This checks notation and declarations, not whether the claimed algorithmic bound is correct. See [Computation](../../concepts/aspect/computation.md) for the accepted grammar.
+
 ## Bounded fix suggestions
 
 `--suggest-fixes` analyzes the input once and sends normalized failing checks to the selected inference backend. Suggestions are reviewable data only; this command never builds or executes a fix plan. ACP through OpenCode is the default. Use `--backend ollama --model MODEL` for a local Ollama server, or `--backend openai --model MODEL` for another OpenAI-compatible endpoint. Use `--output json` for a single object containing normalized checks and the grouped fix report. Suggestion mode cannot be combined with `--watch`, and check failures retain their normal exit status.
