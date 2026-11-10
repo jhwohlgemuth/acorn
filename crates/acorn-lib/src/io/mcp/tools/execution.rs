@@ -1,7 +1,9 @@
 //! One terminal capability invocation with caller-bound authority.
 use super::{CapabilitySelectionContext, HandlerCall, SelectedBinding, ToolRegistry};
 use crate::util::constants::app::DEFAULT_JSON_RPC_MAX_BODY_BYTES;
+use acorn_core::big_o::ComparisonError;
 use acorn_core::prelude::{String, Vec};
+use acorn_core::util::constants::app::APPLICATION;
 use acorn_core::util::SemanticVersion;
 use acorn_schema::hardware::Memory;
 use core::future::{self, Future};
@@ -100,6 +102,9 @@ pub struct RoutedExecution {
     pub outcome: ExecutionOutcome,
     /// Validated handler output when complete.
     pub content: Option<Value>,
+    /// Bounded caller-safe detail for recognized input errors.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
     /// Bounded output artifact references.
     pub artifacts: Vec<ArtifactReference>,
     /// Selected contract identity; never contains credentials.
@@ -129,6 +134,7 @@ impl RoutedExecution {
         Self {
             outcome,
             content: None,
+            error: None,
             artifacts: Vec::new(),
             provenance: ExecutionProvenance {
                 capability_id: selected.capability.id.clone(),
@@ -198,7 +204,14 @@ impl ToolRegistry {
                         RoutedExecution::new(selected, ExecutionOutcome::TimedOut, true)
                     },
                     result = call.future.as_mut() => match result {
-                        Err(_) => RoutedExecution::new(selected, ExecutionOutcome::ToolFailed, true),
+                        Err(why) => {
+                            let mut failed = RoutedExecution::new(selected, ExecutionOutcome::ToolFailed, true);
+                            failed.error = why.downcast_ref::<ComparisonError>().and_then(|error| {
+                                (selected.capability.id == format!("{APPLICATION}.diff::bigo"))
+                                    .then(|| error.to_string().chars().take(512).collect())
+                            });
+                            failed
+                        },
                         Ok(value) => {
                             let output_size = serde_json::to_vec(&value).map_or(usize::MAX, |encoded| encoded.len());
                             if context.max_output.can_contain(u64::try_from(output_size).unwrap_or(u64::MAX)) != Some(true)

@@ -74,10 +74,24 @@ async fn test_big_o_invalid_requests_and_cancellation_have_no_artifacts() {
     let selected = registry
         .select_capability_binding(CAPABILITY, Some(BINDING), None, offline())
         .expect("explicit offline binding");
-    for (arguments, outcome) in [
-        (json!({"left":"O(n - m)","right":"O(n)"}), ExecutionOutcome::ToolFailed),
-        (json!({"left":"O(n^2)"}), ExecutionOutcome::InvalidInput),
-        (json!({"left":"O(n)","right":"O(1)","extra":true}), ExecutionOutcome::InvalidInput),
+    for (arguments, outcome, detail) in [
+        (
+            json!({"left":"O(n - m)","right":"O(n)"}),
+            ExecutionOutcome::ToolFailed,
+            Some("invalid left Big-O expression"),
+        ),
+        (
+            json!({"left":"O(n)","right":"O(n - m)"}),
+            ExecutionOutcome::ToolFailed,
+            Some("invalid right Big-O expression"),
+        ),
+        (
+            json!({"left":"O(n)","right":"O(1)","assumptions":{"missing":"growing"}}),
+            ExecutionOutcome::ToolFailed,
+            Some("growth assumption `missing`"),
+        ),
+        (json!({"left":"O(n^2)"}), ExecutionOutcome::InvalidInput, None),
+        (json!({"left":"O(n)","right":"O(1)","extra":true}), ExecutionOutcome::InvalidInput, None),
     ] {
         let result = registry
             .execute_selected(
@@ -91,6 +105,14 @@ async fn test_big_o_invalid_requests_and_cancellation_have_no_artifacts() {
             )
             .await;
         assert_eq!(result.outcome, outcome);
+        assert_eq!(
+            result.error.as_deref().map(|message| message.contains(detail.unwrap_or_default())),
+            detail.map(|_| true)
+        );
+        assert_eq!(
+            serde_json::to_value(&result).expect("routed result").get("error").is_some(),
+            detail.is_some()
+        );
         assert!(result.content.is_none());
         assert!(result.artifacts.is_empty());
     }

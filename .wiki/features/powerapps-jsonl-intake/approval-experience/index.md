@@ -36,6 +36,8 @@ A subsequent scoped TEST ONLY change replaced the fixture page rail with the int
 
 PA-35A's activity report canvas and isolated ACORN comparison are recorded in [activity preview acceptance](../_assets/sharepoint/intake-approval/acceptance/activity-preview.md). The seven included projections and one valid Atlas correction rendered in the [October fixture PDF](../_assets/sharepoint/intake-approval/acceptance/pa35-fixture-report.pdf). The app can edit a selected summary in the report canvas, edit activity fields and ordered items in the inspector, compare source values, and preview exclusion. PA-35B completed the status, validation, correction, and responsive fixture behavior in the saved unpublished reviewer app. The repaired TEST ONLY shared library revision 1.0.1 is published and adopted in the reviewer. `cmpNarrative` edits the report-canvas summary, `cmpSegmentedChoice` edits activity state, and `cmpStatusMessage` displays validation. Guarded change handlers preserve decisions on record navigation. [Experience evidence](../_assets/sharepoint/intake-approval/acceptance/experience.md) records the actual component APIs, status and validation behavior, phone/tablet/wide captures, keyboard completion, App Checker result, final PDF comparison, and the user's deferral of remaining accessibility work.
 
+PA-39 completed on November 10, 2026 in the saved, unpublished `Sponsor Highlights Intake UI TEST ONLY` app. The TEST ONLY library revision 1.0.2 repaired two-choice segmented bars, selected-state visuals, and blank narrative defaults; the contributor app adopted it while the reviewer remains on 1.0.1 pending cross-app acceptance. The form now uses shared placement and state bars, category and event radio menus, summary and detail narratives, and a validation message, plus an app-owned report-card preview. `cmpRepeatableText` remained a nonfunctional stub, so supporting details use `cmpNarrative` with the prior one-line-per-item payload semantics; PA-39B must reconcile this contract difference. The project catalog loaded, refreshed, and allowed selection in desktop and 375-pixel preview; the retry/error branch was inspected without fault injection. Summary and detail limits reported errors. The copied submit control is `DisplayMode.Disabled`, and no flow was invoked. The [refit artifacts](../_assets/sharepoint/intake-approval/intake-refit/payload-parity.json) include the exported app package, exact form source, six synthetic fixture byte comparisons, and phone/desktop captures. `layout.pa.yaml` remains the pre-editing generator baseline; the exported package is the full current test app source and rollback point for later refits. The archived production and exported refit JSON record expressions match exactly after six control-reference substitutions; the fixture comparison is a local model, not a Power Fx runtime payload capture. Studio showed no formula errors; its ten accessibility findings are deferred by user direction. The isolated package retains operational flow references and must not be published or used for live submission in this phase.
+
 # Interaction contract
 
 ## Control decision table
@@ -119,7 +121,7 @@ The user deferred all further accessibility features and gates on November 8, 20
 
 # Dependencies and boundaries
 
-PA-34, PA-35, PA-35A, PA-35B, and the PA-35C repair are complete. PA-39 next refits the contributor app. The approval ledger may proceed in parallel, but production bindings wait for its accepted contracts. This plan never changes production lists, flows, exporter selection, or permissions.
+PA-34, PA-35, PA-35A, PA-35B, the PA-35C repair, and PA-39 are complete. PA-39A next preserves correction and recovery behavior in the refit. The approval ledger may proceed in parallel, but production bindings wait for its accepted contracts. This plan never changes production lists, flows, exporter selection, or permissions.
 
 Reviewer edits may change only fields admitted by the frozen form/report contract. Project routing, submitter, source receipt, correction ancestry, source/approval UUIDs, and audit timestamps are read-only. Editorial synthesis proposed by [Sponsor highlights clarity](../../sponsor-highlights-clarity.md) is not added here until its schema and renderer are separately accepted.
 
@@ -134,23 +136,12 @@ Reviewer edits may change only fields admitted by the frozen form/report contrac
 
 # Execution phases
 
-## PA-39 — Refit contributor activity entry to the shared components
+## PA-39A — Preserve correction, recovery, and save-status behavior
 
 - Status: in-progress
 - Budget: 5 active hours maximum
-- Prerequisites: accepted reviewer fixture experience recorded in the current evidence; isolated unpublished copy of the published contributor app. The copied operational submit binding must be disabled during PA-39 preview; PA-39 payload parity uses local fixtures and does not invoke a submission flow.
-- Exact write set: isolated contributor app `Sponsor Highlights Intake UI TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/layout.pa.yaml`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/intake-refit/activity.pa.yaml`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/intake-refit/payload-parity.json`
-- Primary integration lock: contributor app canvas
-- Outcome: Replace fixed dropdowns with the accepted placement bar, state bar, category radio menu, event radio menu, shared narrative components, shared validation summary, and report-card preview while preserving the project selector and payload contract.
-- Focused validation: Compare old/new payload bytes for unchanged activity fixtures without submitting; verify all fixed values, validation limits, project loading/retry, general placement, desktop and 375-pixel behavior. Verify the isolated preview cannot invoke the operational submit flow.
-- Handoff: Preserve the isolated app export, component version, property diff, payload parity, screenshots, and rollback package.
-
-## PA-39A — Preserve correction, recovery, and save-status behavior
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: PA-39
-- Exact write set: isolated contributor app `Sponsor Highlights Intake UI TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/submission-editing/build-app.py`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/intake-refit/correction-recovery.pa.yaml`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/intake-refit/recovery-acceptance.md`
+- Prerequisites: accepted contributor activity refit recorded in the current evidence
+- Exact write set: isolated contributor app `Sponsor Highlights Intake UI TEST ONLY`; `Sponsor Highlights Intake Fixture TEST ONLY` flow; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/submission-editing/build-app.py`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/intake-refit/correction-recovery.pa.yaml`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/intake-refit/recovery-acceptance.md`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/intake-refit/isolated-app.msapp`
 - Primary integration lock: contributor app canvas
 - Outcome: Rebind history/correction, immutable routing, browser recovery, exact retry, conflict, rejection, export-status, and success panels to the shared components and language without weakening existing guards.
 - Focused validation: Original and correction submission, pending browser restart, other-user recovery block, received/export retry, conflict, rejected edit, catalog failure, and unchanged notification inputs.
@@ -163,6 +154,6 @@ Reviewer edits may change only fields admitted by the frozen form/report contrac
 - Prerequisites: accepted reviewer fixture experience recorded in the current evidence; PA-39A
 - Exact write set: TEST ONLY apps `[PROTOTYPE] Intake Approval` and `Sponsor Highlights Intake UI TEST ONLY`; TEST ONLY component library `Sponsor Highlights UI TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/cross-app-ui.md`
 - Primary integration lock: Power Apps shared UI contract
-- Outcome: Accept one component revision, token set, terminology, error language, responsive behavior, and report-preview vocabulary across both isolated apps.
-- Focused validation: Side-by-side component inventory, scripted field-order walkthrough, formula/runtime App Checker, desktop/tablet/375-pixel screenshots, and two uncoached task observations. Accessibility checks remain deferred at the user's direction.
+- Outcome: Accept one component revision, token set, terminology, error language, responsive behavior, supporting-detail control behavior, and report-preview vocabulary across both isolated apps. Repair or explicitly revise the `cmpRepeatableText` contract before freezing the shared revision.
+- Focused validation: Side-by-side component inventory, supporting-detail add/remove/reorder or accepted line-based behavior, scripted field-order walkthrough, formula/runtime App Checker, desktop/tablet/375-pixel screenshots, and two uncoached task observations. Accessibility checks remain deferred at the user's direction.
 - Handoff: Freeze the cross-app UI revision consumed by PA-40. Any material usability defect becomes a new bounded repair phase.

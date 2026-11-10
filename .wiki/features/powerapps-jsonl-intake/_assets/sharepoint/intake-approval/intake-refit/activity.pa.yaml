@@ -1,0 +1,589 @@
+- EntryForm:
+    Control: GroupContainer@1.5.0
+    Variant: AutoLayout
+    Properties:
+      AlignInContainer: =AlignInContainer.Center
+      Fill: =Color.White
+      FillPortions: =0
+      Height: =SectionDetails.Height + SubmissionContext.Height + PlacementLabel.Height + PlacementChoice.Height + ProjectLabel.Height + ProjectDropdown.Height + ProjectHelp.Height + RefreshProjectsButton.Height + DateLabel.Height + OccurredOnPicker.Height + CategoryLabel.Height + CategoryChoice.Height + StateLabel.Height + StateChoice.Height + EventLabel.Height + EventChoice.Height + SectionStory.Height + SummaryLabel.Height + SummaryNarrative.Height + SummaryCount.Height + ItemsLabel.Height + DetailsNarrative.Height + ItemsHelp.Height + ValidationSummary.Height + ReportCardPreview.Height + ReviewNote.Height + Self.PaddingTop + Self.PaddingBottom + Self.LayoutGap * 25
+      LayoutAlignItems: =LayoutAlignItems.Stretch
+      LayoutDirection: =LayoutDirection.Vertical
+      LayoutGap: =6
+      LayoutMinHeight: =Self.Height
+      LayoutMinWidth: =0
+      PaddingBottom: =24
+      PaddingLeft: =If(Parent.Width < 700, 16, 32)
+      PaddingRight: =If(Parent.Width < 700, 16, 32)
+      PaddingTop: =24
+      RadiusBottomLeft: =12
+      RadiusBottomRight: =12
+      RadiusTopLeft: =12
+      RadiusTopRight: =12
+      Width: =Min(880, Parent.Width - Parent.PaddingLeft - Parent.PaddingRight)
+    Children:
+      - SectionDetails:
+          Control: Label@2.5.1
+          Properties:
+            Color: =ColorValue("#007833")
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =28
+            LayoutMinHeight: =28
+            LayoutMinWidth: =0
+            OnSelect: =
+            Size: =10
+            Text: ="01  //  HIGHLIGHT DETAILS"
+      - SubmissionContext:
+          Control: Label@2.5.1
+          Properties:
+            AutoHeight: =true
+            Color: =ColorValue("#52685F")
+            Font: =Font.'Segoe UI'
+            Height: =32
+            LayoutMinHeight: =32
+            LayoutMinWidth: =0
+            OnSelect: =
+            Size: =11
+            Text: =If(!IsBlank(varCorrectionParent), "CORRECTION // Original receipt retained. Project and report placement stay fixed.", "Submitted by " & User().FullName)
+      - PlacementLabel:
+          Control: Label@2.5.1
+          Properties:
+            Color: =ColorValue("#123B31")
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =28
+            LayoutMinHeight: =28
+            LayoutMinWidth: =0
+            OnSelect: =
+            Size: =12
+            Text: ="Report placement *"
+      - PlacementDropdown:
+          Control: Classic/DropDown@2.3.1
+          Properties:
+            AccessibleLabel: ="Report placement"
+            BorderColor: =ColorValue("#B7C9C0")
+            BorderThickness: =1
+            ChevronBackground: =ColorValue("#EDF4EF")
+            ChevronFill: =ColorValue("#007833")
+            Color: =ColorValue("#123B31")
+            Default: =PlacementChoice.SelectedKey
+            DisplayMode: =If(!IsBlank(varCorrectionParent), DisplayMode.Disabled, If(varSubmitting || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit))
+            Fill: =Color.White
+            FocusedBorderThickness: =2
+            Font: =Font.'Segoe UI'
+            Height: =44
+            HoverBorderColor: =ColorValue("#007833")
+            HoverFill: =ColorValue("#F0F7F2")
+            Items: =["Project highlight","Report-wide update (no associated project)"]
+            Items.Value: =Value
+            LayoutMinHeight: =44
+            LayoutMinWidth: =0
+            SelectionColor: =ColorValue("#123B31")
+            SelectionFill: =ColorValue("#D9EDDF")
+            Size: =12
+            Visible: =false
+      - PlacementChoice:
+          Control: CanvasComponent
+          ComponentName: cmpSegmentedChoice
+          ComponentLibraryUniqueName: cr1d0_sponsorhighlightsuitestonly_cf112
+          Properties:
+            AccessibleLabel: ="Report placement, required"
+            Choices: |-
+              =Table({Key: "Project highlight", Label: "Project highlight"}, {Key: "Report-wide update (no associated project)", Label: "Report-wide update (no associated project)"})
+            DefaultKey: =If(!IsBlank(varRestoredDraft) && Boolean(varRestoredDraft.entry.global), "Report-wide update (no associated project)", "Project highlight")
+            Disabled: =varSubmitting || !IsBlank(varPendingJson)
+            ErrorText: =""
+            Height: =If(App.Width < 500, 96, 48)
+            HelpText: ="Choose where this highlight appears in the report."
+            Label: ="Report placement"
+            LayoutMinWidth: =0
+            OnChange: =Reset(PlacementDropdown)
+            Required: =true
+      - ProjectLabel:
+          Control: Label@2.5.1
+          Properties:
+            Color: =ColorValue("#123B31")
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =28
+            LayoutMinHeight: =28
+            LayoutMinWidth: =0
+            OnSelect: =
+            Size: =12
+            Text: =If(PlacementDropdown.Selected.Value = "Project highlight", "Project *", "Project · project highlights only")
+      - ProjectDropdown:
+          Control: Classic/DropDown@2.3.1
+          Properties:
+            AccessibleLabel: =If(PlacementDropdown.Selected.Value = "Project highlight", "Project, required", "Project, available for project highlights only")
+            BorderColor: =ColorValue("#B7C9C0")
+            BorderThickness: =1
+            ChevronBackground: =ColorValue("#EDF4EF")
+            ChevronFill: =ColorValue("#007833")
+            Color: =ColorValue("#123B31")
+            Default: =Coalesce(varPendingProjectLabel, "Select a project")
+            DisplayMode: =If(!IsBlank(varCorrectionParent), DisplayMode.Disabled, If(PlacementDropdown.Selected.Value <> "Project highlight" || varSubmitting || varProjectsLoading || !varCatalogLoaded || CountRows(colProjects) <= 1 || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit))
+            Fill: =Color.White
+            FocusedBorderThickness: =2
+            Font: =Font.'Segoe UI'
+            Height: =44
+            HoverBorderColor: =ColorValue("#007833")
+            HoverFill: =ColorValue("#F0F7F2")
+            Items: =Filter(colProjects, !IsBlank(varPendingJson) || (PlacementDropdown.Selected.Value = "Project highlight" && ProjectId <> "general"))
+            Items.Value: =Value
+            LayoutMinHeight: =44
+            LayoutMinWidth: =0
+            SelectionColor: =ColorValue("#123B31")
+            SelectionFill: =ColorValue("#D9EDDF")
+            Size: =12
+      - ProjectHelp:
+          Control: Label@2.5.1
+          Properties:
+            AutoHeight: =true
+            Color: '=If(!IsBlank(varProjectCatalogError), ColorValue("#7A3E00"), ColorValue("#52685F"))  '
+            Fill: '=If(!IsBlank(varProjectCatalogError), ColorValue("#FFF4E5"), Color.Transparent)  '
+            Font: =Font.'Segoe UI'
+            Height: =44
+            LayoutMinHeight: =44
+            LayoutMinWidth: =0
+            Live: '=Live.Assertive  '
+            OnSelect: =
+            Size: '=12  '
+            Text: =If(!IsBlank(varCorrectionParent), "This correction stays with " & varEditingProjectId & ". Project and report placement cannot be changed here.", If(!IsBlank(varPendingJson), "This highlight belongs to " & varPendingProjectLabel & ". The project is fixed for this submission.", PlacementDropdown.Selected.Value = "Report-wide update (no associated project)", "Use this for program- or organization-wide updates with no associated project. Updates about a specific project belong under Project highlight, even when broad in scope.", PlacementDropdown.Selected.Value <> "Project highlight", "Choose report placement first. Select Project highlight to load and choose a project.", varProjectsLoading, "Loading projects…", !IsBlank(varProjectCatalogError), varProjectCatalogError, !varCatalogLoaded, "Load the available projects to get started.", CountRows(colProjects) <= 1, "No projects are available yet. Contact the app owner.", IsBlank(ProjectDropdown.Selected.ProjectId), "Choose the project this highlight belongs to.", "This highlight belongs to " & ProjectDropdown.Selected.Value & "."))
+      - RefreshProjectsButton:
+          Control: Classic/Button@2.2.0
+          Properties:
+            AlignInContainer: =AlignInContainer.Start
+            BorderColor: =ColorValue("#B7C9C0")
+            Color: =ColorValue("#007833")
+            DisplayMode: =If(!IsBlank(varCorrectionParent), DisplayMode.Disabled, If(PlacementDropdown.Selected.Value <> "Project highlight" || varProjectsLoading || varSubmitting || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit))
+            Fill: =ColorValue("#EDF4EF")
+            FocusedBorderColor: =ColorValue("#123B31")
+            FocusedBorderThickness: =3
+            Font: =Font.'Segoe UI'
+            Height: =36
+            HoverColor: =ColorValue("#123B31")
+            HoverFill: =ColorValue("#D9EDDF")
+            LayoutMinHeight: =36
+            LayoutMinWidth: =0
+            OnSelect: "=If(PlacementDropdown.Selected.Value = \"Project highlight\" && !varProjectsLoading && !varSubmitting && IsBlank(varPendingJson),\n    Set(varProjectsLoading, true); Set(varProjectCatalogError, \"\"); Set(varCatalogLoaded, false);\n    ClearCollect(colProjects, {Value: \"Select a project\", ProjectId: \"\"});\n    ClearCollect(colCatalogCandidate, {Value: \"\", ProjectId: \"\", ValidTypes: true}); Clear(colCatalogCandidate);\n    Set(varProjectCatalogResponse, IfError(\n        ACORNSharePointPilotCatalog.Run(),\n        Set(varProjectCatalogError, If(FirstError.Details.HttpStatusCode in [401, 403],\n            \"Project access was denied. Ask the app owner to check your form access and the catalog connection, then retry.\",\n            \"The project service could not be reached. Check your connection and retry. If this continues, contact the app owner.\")); {catalogjson: \"\"}\n    ));\n    If(IsBlank(varProjectCatalogError),\n        IfError(\n            With({catalog: ParseJSON(varProjectCatalogResponse.catalogjson)},\n                If(!IsBlank(Text(catalog.error)),\n                    Set(varProjectCatalogError, Switch(Text(catalog.error),\n                        \"access_denied\", \"Project access was denied. Ask the app owner to check your form access and the catalog connection, then retry.\",\n                        \"catalog_limit\", \"The project list exceeds the supported limit. Contact the app owner; no projects were loaded.\",\n                        \"unavailable\", \"The project service is temporarily unavailable. Retry shortly. If this continues, contact the app owner.\",\n                        \"The project list could not be verified. Retry, or contact the app owner if this continues.\")),\n                    Text(catalog.source) <> \"sharepoint\" || !StartsWith(TrimEnds(JSON(catalog.projects)), \"[\"),\n                    Set(varProjectCatalogError, \"The project list could not be verified. Retry, or contact the app owner if this continues.\"),\n                    ClearCollect(colCatalogCandidate, ForAll(Table(catalog.projects), {Value: Text(ThisRecord.Value.label), ProjectId: Text(ThisRecord.Value.id), ValidTypes: StartsWith(JSON(ThisRecord.Value.id), Char(34)) && StartsWith(JSON(ThisRecord.Value.label), Char(34))}));\n                    If(CountRows(colCatalogCandidate) > 1000 ||\n                       CountRows(Distinct(colCatalogCandidate, ProjectId)) <> CountRows(colCatalogCandidate) ||\n                       CountIf(colCatalogCandidate, !ValidTypes || IsBlank(TrimEnds(Value)) || IsBlank(TrimEnds(ProjectId)) || Len(Value) > 512 || Len(ProjectId) > 512) > 0,\n                        Set(varProjectCatalogError, \"The project list could not be verified. Retry, or contact the app owner if this continues.\"),\n                        IsEmpty(colCatalogCandidate),\n                        Set(varProjectCatalogError, \"No projects are available yet. Ask the app owner to update the project list, then retry.\"),\n                        Collect(colProjects, ShowColumns(colCatalogCandidate, Value, ProjectId)); Set(varCatalogLoaded, true); Set(varCatalogEverLoaded, true)\n                    )\n                )\n            ); true,\n            Set(varProjectCatalogError, \"The project list could not be verified. Retry, or contact the app owner if this continues.\"); false\n        )\n    );\n    If(!varCatalogLoaded, ClearCollect(colProjects, {Value: \"Select a project\", ProjectId: \"\"}));\n    Clear(colCatalogCandidate); Set(varProjectsLoading, false); Reset(ProjectDropdown)\n)\n    "
+            Size: =11
+            Text: '=If(varProjectsLoading, "Loading projects…", !IsBlank(varProjectCatalogError), "Retry Project List", Coalesce(varCatalogEverLoaded, false), "Refresh Project List", "Load Project List") '
+            Width: =180
+      - DateLabel:
+          Control: Label@2.5.1
+          Properties:
+            Color: =ColorValue("#123B31")
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =28
+            LayoutMinHeight: =28
+            LayoutMinWidth: =0
+            OnSelect: =
+            Size: =12
+            Text: ="Date *"
+      - OccurredOnPicker:
+          Control: Classic/DatePicker@2.6.0
+          Properties:
+            AccessibleLabel: ="Date of highlight, required"
+            BorderColor: =ColorValue("#B7C9C0")
+            BorderThickness: =1
+            Color: =ColorValue("#123B31")
+            DefaultDate: =If(IsBlank(varRestoredDraft), Today(), DateTimeValue(Text(varRestoredDraft.entry.timestamp)))
+            DisplayMode: =If(varSubmitting || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit)
+            Fill: =Color.White
+            FocusedBorderThickness: =2
+            Font: =Font.'Segoe UI'
+            Format: ="mmm d, yyyy"
+            Height: =44
+            IconBackground: =ColorValue("#007833")
+            IconFill: =Color.White
+            LayoutMinHeight: =44
+            LayoutMinWidth: =0
+            Size: =12
+      - CategoryLabel:
+          Control: Label@2.5.1
+          Properties:
+            Color: =ColorValue("#123B31")
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =28
+            LayoutMinHeight: =28
+            LayoutMinWidth: =0
+            OnSelect: =
+            Size: =12
+            Text: ="Category *"
+      - CategoryDropdown:
+          Control: Classic/DropDown@2.3.1
+          Properties:
+            AccessibleLabel: ="Category, required"
+            BorderColor: =ColorValue("#B7C9C0")
+            BorderThickness: =1
+            ChevronBackground: =ColorValue("#EDF4EF")
+            ChevronFill: =ColorValue("#007833")
+            Color: =ColorValue("#123B31")
+            Default: =CategoryChoice.SelectedKey
+            DisplayMode: =If(varSubmitting || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit)
+            Fill: =Color.White
+            FocusedBorderThickness: =2
+            Font: =Font.'Segoe UI'
+            Height: =44
+            HoverBorderColor: =ColorValue("#007833")
+            HoverFill: =ColorValue("#F0F7F2")
+            Items: =["Select a category","administration","collaboration","data","engagement","funding","infrastructure","method","other","personnel","publication","research","software"]
+            Items.Value: =Value
+            LayoutMinHeight: =44
+            LayoutMinWidth: =0
+            SelectionColor: =ColorValue("#123B31")
+            SelectionFill: =ColorValue("#D9EDDF")
+            Size: =12
+            Visible: =false
+      - CategoryChoice:
+          Control: CanvasComponent
+          ComponentName: cmpRadioChoice
+          ComponentLibraryUniqueName: cr1d0_sponsorhighlightsuitestonly_cf112
+          Properties:
+            AccessibleLabel: ="Category, required"
+            Choices: |-
+              =Table({Key: "administration", Label: "Administration"}, {Key: "collaboration", Label: "Collaboration"}, {Key: "data", Label: "Data"}, {Key: "engagement", Label: "Engagement"}, {Key: "funding", Label: "Funding"}, {Key: "infrastructure", Label: "Infrastructure"}, {Key: "method", Label: "Method"}, {Key: "other", Label: "Other"}, {Key: "personnel", Label: "Personnel"}, {Key: "publication", Label: "Publication"}, {Key: "research", Label: "Research"}, {Key: "software", Label: "Software"})
+            DefaultKey: =Coalesce(Text(varRestoredDraft.entry.category), "")
+            Disabled: =varSubmitting || !IsBlank(varPendingJson)
+            ErrorText: =""
+            Height: =260
+            HelpText: ="Choose the category that best describes the highlight."
+            Label: ="Category"
+            LayoutMinWidth: =0
+            OnChange: =Reset(CategoryDropdown)
+            Required: =true
+      - StateLabel:
+          Control: Label@2.5.1
+          Properties:
+            Color: =ColorValue("#123B31")
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =28
+            LayoutMinHeight: =28
+            LayoutMinWidth: =0
+            OnSelect: =
+            Size: =12
+            Text: ="Status *"
+      - StateDropdown:
+          Control: Classic/DropDown@2.3.1
+          Properties:
+            AccessibleLabel: ="Status, required"
+            BorderColor: =ColorValue("#B7C9C0")
+            BorderThickness: =1
+            ChevronBackground: =ColorValue("#EDF4EF")
+            ChevronFill: =ColorValue("#007833")
+            Color: =ColorValue("#123B31")
+            Default: =StateChoice.SelectedKey
+            DisplayMode: =If(varSubmitting || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit)
+            Fill: =Color.White
+            FocusedBorderThickness: =2
+            Font: =Font.'Segoe UI'
+            Height: =44
+            HoverBorderColor: =ColorValue("#007833")
+            HoverFill: =ColorValue("#F0F7F2")
+            Items: =["Select a status","completed","in-progress","upcoming"]
+            Items.Value: =Value
+            LayoutMinHeight: =44
+            LayoutMinWidth: =0
+            SelectionColor: =ColorValue("#123B31")
+            SelectionFill: =ColorValue("#D9EDDF")
+            Size: =12
+            Visible: =false
+      - StateChoice:
+          Control: CanvasComponent
+          ComponentName: cmpSegmentedChoice
+          ComponentLibraryUniqueName: cr1d0_sponsorhighlightsuitestonly_cf112
+          Properties:
+            AccessibleLabel: ="Status, required"
+            Choices: |-
+              =Table({Key: "completed", Label: "Completed"}, {Key: "in-progress", Label: "In progress"}, {Key: "upcoming", Label: "Upcoming"})
+            DefaultKey: =Coalesce(Text(varRestoredDraft.entry.state), "")
+            Disabled: =varSubmitting || !IsBlank(varPendingJson)
+            ErrorText: =""
+            Height: =If(App.Width < 500, 140, 48)
+            HelpText: ="Choose when this work happened."
+            Label: ="Status"
+            LayoutMinWidth: =0
+            OnChange: =Reset(StateDropdown)
+            Required: =true
+      - EventLabel:
+          Control: Label@2.5.1
+          Properties:
+            Color: =ColorValue("#123B31")
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =28
+            LayoutMinHeight: =28
+            LayoutMinWidth: =0
+            OnSelect: =
+            Size: =12
+            Text: ="Event type · optional"
+      - EventTypeDropdown:
+          Control: Classic/DropDown@2.3.1
+          Properties:
+            AccessibleLabel: ="Event type, optional"
+            BorderColor: =ColorValue("#B7C9C0")
+            BorderThickness: =1
+            ChevronBackground: =ColorValue("#EDF4EF")
+            ChevronFill: =ColorValue("#007833")
+            Color: =ColorValue("#123B31")
+            Default: =EventChoice.SelectedKey
+            DisplayMode: =If(varSubmitting || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit)
+            Fill: =Color.White
+            FocusedBorderThickness: =2
+            Font: =Font.'Segoe UI'
+            Height: =44
+            HoverBorderColor: =ColorValue("#007833")
+            HoverFill: =ColorValue("#F0F7F2")
+            Items: =["Not specified","conference","exhibition","meeting","other","presentation","tour","training","workshop"]
+            Items.Value: =Value
+            LayoutMinHeight: =44
+            LayoutMinWidth: =0
+            SelectionColor: =ColorValue("#123B31")
+            SelectionFill: =ColorValue("#D9EDDF")
+            Size: =12
+            Visible: =false
+      - EventChoice:
+          Control: CanvasComponent
+          ComponentName: cmpRadioChoice
+          ComponentLibraryUniqueName: cr1d0_sponsorhighlightsuitestonly_cf112
+          Properties:
+            AccessibleLabel: ="Event type, optional"
+            Choices: |-
+              =Table({Key: "Not specified", Label: "Not specified"}, {Key: "conference", Label: "Conference"}, {Key: "exhibition", Label: "Exhibition"}, {Key: "meeting", Label: "Meeting"}, {Key: "other", Label: "Other"}, {Key: "presentation", Label: "Presentation"}, {Key: "tour", Label: "Tour"}, {Key: "training", Label: "Training"}, {Key: "workshop", Label: "Workshop"})
+            DefaultKey: =Coalesce(Text(varRestoredDraft.entry.eventType), "Not specified")
+            Disabled: =varSubmitting || !IsBlank(varPendingJson)
+            ErrorText: =""
+            Height: =240
+            HelpText: ="Leave Not specified when this was not an event."
+            Label: ="Event type"
+            LayoutMinWidth: =0
+            OnChange: =Reset(EventTypeDropdown)
+            Required: =false
+      - SectionStory:
+          Control: Label@2.5.1
+          Properties:
+            Color: =ColorValue("#007833")
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            LayoutMinWidth: =0
+            OnSelect: =
+            Size: =10
+            Text: ="02  //  THE DEVELOPMENT"
+      - SummaryLabel:
+          Control: Label@2.5.1
+          Properties:
+            Color: =ColorValue("#123B31")
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =28
+            LayoutMinHeight: =28
+            LayoutMinWidth: =0
+            OnSelect: =
+            Size: =12
+            Text: ="Summary *"
+      - SummaryInput:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            AccessibleLabel: ="What changed, and why does it matter?"
+            BorderColor: =ColorValue("#B7C9C0")
+            BorderThickness: =1
+            Color: =ColorValue("#123B31")
+            Default: =Coalesce(Text(varRestoredDraft.entry.summary), "")
+            DisplayMode: =If(varSubmitting || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit)
+            Fill: =Color.White
+            FocusedBorderThickness: =2
+            Font: =Font.'Segoe UI'
+            Height: =120
+            HintText: =If(PlacementDropdown.Selected.Value = "Report-wide update (no associated project)", "What changed across the program or organization, and why does it matter?", "What changed, and why does it matter?")
+            HoverBorderColor: =ColorValue("#007833")
+            HoverFill: =ColorValue("#F0F7F2")
+            LayoutMinHeight: =120
+            LayoutMinWidth: =0
+            MaxLength: =1200
+            Mode: =TextMode.MultiLine
+            PaddingRight: =12
+            PaddingTop: =10
+            RadiusBottomLeft: =6
+            RadiusBottomRight: =6
+            RadiusTopLeft: =6
+            RadiusTopRight: =6
+            Size: =12
+            Visible: =false
+      - SummaryNarrative:
+          Control: CanvasComponent
+          ComponentName: cmpNarrative
+          ComponentLibraryUniqueName: cr1d0_sponsorhighlightsuitestonly_cf112
+          Properties:
+            AccessibleLabel: ="Summary, required. What changed, and why does it matter?"
+            DefaultValue: =Coalesce(Text(varRestoredDraft.entry.summary), "")
+            Disabled: =varSubmitting || !IsBlank(varPendingJson)
+            ErrorText: =If(Len(Trim(SummaryNarrative.Value)) > 1200, "Summary must be 1,200 characters or fewer.", "")
+            Height: =200
+            HelpText: ="Lead with the outcome; explain its relevance."
+            Label: ="Summary"
+            LayoutMinWidth: =0
+            OnChange: =Reset(SummaryInput)
+            Required: =true
+      - SummaryCount:
+          Control: Label@2.5.1
+          Properties:
+            AutoHeight: =true
+            Color: =ColorValue("#52685F")
+            Font: =Font.'Segoe UI'
+            Height: =30
+            LayoutMinHeight: =30
+            LayoutMinWidth: =0
+            OnSelect: =
+            Size: =10
+            Text: =Text(Len(SummaryNarrative.Value)) & " / 1,200 characters. Lead with the outcome; explain its relevance."
+      - ItemsLabel:
+          Control: Label@2.5.1
+          Properties:
+            Color: =ColorValue("#123B31")
+            Font: =Font.'Segoe UI'
+            FontWeight: =FontWeight.Semibold
+            Height: =28
+            LayoutMinHeight: =28
+            LayoutMinWidth: =0
+            OnSelect: =
+            Size: =12
+            Text: ="Supporting details · optional"
+      - ItemsInput:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            AccessibleLabel: ="One detail per line. Include evidence, a measure, a milestone, or a next step."
+            BorderColor: =ColorValue("#B7C9C0")
+            BorderThickness: =1
+            Color: =ColorValue("#123B31")
+            Default: =DetailsNarrative.Value
+            DisplayMode: =If(varSubmitting || !IsBlank(varPendingJson), DisplayMode.Disabled, DisplayMode.Edit)
+            Fill: =Color.White
+            FocusedBorderThickness: =2
+            Font: =Font.'Segoe UI'
+            Height: =100
+            HintText: ="One detail per line. Include evidence, a measure, a milestone, or a next step."
+            HoverBorderColor: =ColorValue("#007833")
+            HoverFill: =ColorValue("#F0F7F2")
+            LayoutMinHeight: =100
+            LayoutMinWidth: =0
+            MaxLength: =21000
+            Mode: =TextMode.MultiLine
+            PaddingRight: =12
+            PaddingTop: =10
+            RadiusBottomLeft: =6
+            RadiusBottomRight: =6
+            RadiusTopLeft: =6
+            RadiusTopRight: =6
+            Size: =12
+            Visible: =false
+      - DetailsNarrative:
+          Control: CanvasComponent
+          ComponentName: cmpNarrative
+          ComponentLibraryUniqueName: cr1d0_sponsorhighlightsuitestonly_cf112
+          Properties:
+            AccessibleLabel: ="Supporting details, optional. One detail per line."
+            DefaultValue: =If(IsBlank(varRestoredDraft), "", Concat(Table(varRestoredDraft.entry.items), Text(Value), Char(10)))
+            Disabled: =varSubmitting || !IsBlank(varPendingJson)
+            ErrorText: =If(CountRows(Filter(Split(Substitute(DetailsNarrative.Value, Char(13), ""), Char(10)), !IsBlank(Trim(Value)))) > 20, "Use no more than 20 details.", CountIf(Filter(Split(Substitute(DetailsNarrative.Value, Char(13), ""), Char(10)), !IsBlank(Trim(Value))), Len(Trim(Value)) > 1000) > 0, "Each detail must be 1,000 characters or fewer.", "")
+            Height: =200
+            HelpText: ="One detail per line, up to 20 details and 1,000 characters each."
+            Label: ="Supporting details"
+            LayoutMinWidth: =0
+            OnChange: =Reset(ItemsInput)
+            Required: =false
+      - ItemsHelp:
+          Control: Label@2.5.1
+          Properties:
+            AutoHeight: =true
+            Color: =If(CountRows(Filter(Split(Substitute(ItemsInput.Text, Char(13), ""), Char(10)), !IsBlank(Trim(Value)))) > 20 || CountIf(Filter(Split(Substitute(ItemsInput.Text, Char(13), ""), Char(10)), !IsBlank(Trim(Value))), Len(Trim(Value)) > 1000) > 0, ColorValue("#A4262C"), ColorValue("#52685F"))
+            Font: =Font.'Segoe UI'
+            Height: =30
+            LayoutMinHeight: =30
+            LayoutMinWidth: =0
+            OnSelect: =
+            Size: =10
+            Text: =Text(CountRows(Filter(Split(Substitute(DetailsNarrative.Value, Char(13), ""), Char(10)), !IsBlank(Trim(Value))))) & " / 20 details · up to 1,000 characters each"
+      - ValidationSummary:
+          Control: CanvasComponent
+          ComponentName: cmpStatusMessage
+          ComponentLibraryUniqueName: cr1d0_sponsorhighlightsuitestonly_cf112
+          Properties:
+            Height: =96
+            LayoutMinWidth: =0
+            Message: =If(varProjectsLoading, "Loading projects…", !IsBlank(varProjectCatalogError), varProjectCatalogError, PlacementChoice.SelectedKey = "Project highlight" && !varCatalogLoaded, "Load the project list.", PlacementChoice.SelectedKey = "Project highlight" && IsBlank(ProjectDropdown.Selected.ProjectId), "Choose a project.", IsBlank(OccurredOnPicker.SelectedDate), "Choose a date.", !(CategoryChoice.SelectedKey in ["administration","collaboration","data","engagement","funding","infrastructure","method","other","personnel","publication","research","software"]), "Choose a category.", !(StateChoice.SelectedKey in ["completed","in-progress","upcoming"]), "Choose a status.", IsBlank(Trim(SummaryNarrative.Value)), "Add a summary.", Len(Trim(SummaryNarrative.Value)) > 1200, "Summary must be 1,200 characters or fewer.", CountRows(Filter(Split(Substitute(DetailsNarrative.Value, Char(13), ""), Char(10)), !IsBlank(Trim(Value)))) > 20, "Use no more than 20 details.", CountIf(Filter(Split(Substitute(DetailsNarrative.Value, Char(13), ""), Char(10)), !IsBlank(Trim(Value))), Len(Trim(Value)) > 1000) > 0, "Each detail must be 1,000 characters or fewer.", "Ready for review. Submission is disabled in this test app.")
+            State: =If((PlacementChoice.SelectedKey = "Project highlight" && (!varCatalogLoaded || IsBlank(ProjectDropdown.Selected.ProjectId))) || IsBlank(OccurredOnPicker.SelectedDate) || !(CategoryChoice.SelectedKey in ["administration","collaboration","data","engagement","funding","infrastructure","method","other","personnel","publication","research","software"]) || !(StateChoice.SelectedKey in ["completed","in-progress","upcoming"]) || IsBlank(Trim(SummaryNarrative.Value)) || Len(Trim(SummaryNarrative.Value)) > 1200 || CountRows(Filter(Split(Substitute(DetailsNarrative.Value, Char(13), ""), Char(10)), !IsBlank(Trim(Value)))) > 20 || CountIf(Filter(Split(Substitute(DetailsNarrative.Value, Char(13), ""), Char(10)), !IsBlank(Trim(Value))), Len(Trim(Value)) > 1000) > 0, "Error", "Success")
+      - ReportCardPreview:
+          Control: GroupContainer@1.5.0
+          Variant: AutoLayout
+          Properties:
+            Fill: =Color.White
+            FillPortions: =0
+            Height: =300
+            LayoutAlignItems: =LayoutAlignItems.Stretch
+            LayoutDirection: =LayoutDirection.Vertical
+            LayoutGap: =8
+            LayoutMinHeight: =300
+            LayoutMinWidth: =0
+            PaddingBottom: =16
+            PaddingLeft: =16
+            PaddingRight: =16
+            PaddingTop: =16
+            RadiusBottomLeft: =12
+            RadiusBottomRight: =12
+            RadiusTopLeft: =12
+            RadiusTopRight: =12
+          Children:
+            - PreviewHeading:
+                Control: Label@2.5.1
+                Properties:
+                  FontWeight: =FontWeight.Semibold
+                  Height: =32
+                  LayoutMinHeight: =32
+                  LayoutMinWidth: =0
+                  Text: ="REPORT PREVIEW"
+            - PreviewPlacement:
+                Control: Label@2.5.1
+                Properties:
+                  FontWeight: =FontWeight.Semibold
+                  Height: =34
+                  LayoutMinHeight: =34
+                  LayoutMinWidth: =0
+                  Text: =If(PlacementChoice.SelectedKey = "Project highlight", Coalesce(ProjectDropdown.Selected.Value, "Project highlight"), "Report title page · General update")
+            - PreviewMeta:
+                Control: Label@2.5.1
+                Properties:
+                  Height: =30
+                  LayoutMinHeight: =30
+                  LayoutMinWidth: =0
+                  Text: =Text(OccurredOnPicker.SelectedDate, "mmm d, yyyy") & " · " & CategoryChoice.SelectedKey & " · " & StateChoice.SelectedKey & If(EventChoice.SelectedKey = "Not specified", "", " · " & EventChoice.SelectedKey)
+            - PreviewSummary:
+                Control: Label@2.5.1
+                Properties:
+                  AutoHeight: =true
+                  Height: =90
+                  LayoutMinHeight: =90
+                  LayoutMinWidth: =0
+                  Text: =Coalesce(SummaryNarrative.Value, "Your summary appears here.")
+            - PreviewDetails:
+                Control: Label@2.5.1
+                Properties:
+                  AutoHeight: =true
+                  Height: =80
+                  LayoutMinHeight: =80
+                  LayoutMinWidth: =0
+                  Text: =Concat(Filter(Split(Substitute(DetailsNarrative.Value, Char(13), ""), Char(10)), !IsBlank(Trim(Value))), "• " & Trim(Value), Char(10))
+      - ReviewNote:
+          Control: Label@2.5.1
+          Properties:
+            AutoHeight: =true
+            Color: =ColorValue("#52685F")
+            Font: =Font.'Segoe UI'
+            Height: =44
+            LayoutMinHeight: =44
+            LayoutMinWidth: =0
+            OnSelect: =
+            Size: =11
+            Text: '="For non-sensitive highlights. Pending submissions stay in this browser until confirmed. SharePoint stores your receipt and export; saving does not publish a report."    '

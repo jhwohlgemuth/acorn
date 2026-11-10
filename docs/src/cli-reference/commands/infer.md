@@ -33,6 +33,16 @@ acorn infer "Return the running ACORN version" --route --capability acorn.versio
 
 An explicit `--capability` limits the catalog to that ID. A handler can run only when you also supply exact `--input-json` and the confidence, grounding, schema, binding, and policy checks pass. `--route-preview` keeps an explicit route in preview mode. Mutating operations additionally require `--apply`, `--binding`, and `--destination`; the destination must match the JSON arguments exactly. Keep the default confidence threshold while the selection gate is open.
 
+After validating a complete research activity document, compare two of its Big-O expressions through the offline-safe native binding:
+
+```sh
+acorn --offline infer "Compare these validated Big-O bounds" --route \
+  --capability acorn.diff::bigo --binding native:acorn.diff::bigo \
+  --input-json '{"left":"O(n^2)","right":"O(n log n)"}'
+```
+
+The native route uses the same comparison input and result as `acorn.compare_big_o` in MCP. A `completed` result contains `content.dominance` and effective `content.assumptions`; `incomparable` and `undetermined` are successful results. Invalid notation or an unknown assumption yields `tool-failed` with a bounded `error` naming the side or symbol. The route requires a configured local Needle sidecar and may be withheld by its grounding or confidence gate; explicit capability and binding selection does not bypass those checks.
+
 ## Embedded prompts
 
 Known assets are `eli5`, `extract-claim`, `find-gaps`, `suggest-fixes`, `summarize`, `teach`, and `translate`. Each resolved input file must contain a JSON, YAML, or ZON object. `infer run` merges those objects and supplies the result to the template as `data`.

@@ -8,7 +8,7 @@
 
 ## Planned
 
-- [Shared intake and approval experience](powerapps-jsonl-intake/approval-experience/index.md) - PA-34 is next: freeze one accessible component/token and field-to-report contract. Bounded PA-35 slices build the report-shaped approval canvas; bounded PA-39 slices refit contributor intake and accept cross-app consistency without changing receipt semantics.
+- [Shared intake and approval experience](powerapps-jsonl-intake/approval-experience/index.md) - PA-39 accepted the isolated contributor activity refit. PA-39A preserves correction and recovery paths; PA-39B accepts cross-app consistency without changing receipt semantics.
 - [Interactive metadata chat and terminal prompts](interactive-metadata-chat.md) - Inline multi-turn `ask`, durable transcripts, reusable terminal controls, and interactive format review are in place; the TUI consumer seam, multi-select control, and release validation remain.
 - [SharePoint JSONL download for ACORN intake](sharepoint-jsonl-download/index.md) - Complete reusable OAuth 2.0/Entra browser/device authorization with ACRE auth profiles, verified account identity, scoped cache inspection/reset, cross-platform protected caching, existing Confirm controls and Graph file capture, consumed by SharePoint direct-URL intake and offline review; approved CLI tenant access is unverified, and it requires no operational app/flow changes.
 - [Model acquisition and metadata hardening](model-acquisition-hardening.md) - Complete identity-safe Hugging Face requests, exact GGUF metadata, and ModelKit/ModelPack interoperability evidence.
@@ -32,7 +32,6 @@
 - [Release-gated Beam inference integration](beam-inference-integration.md) - Verify released serving contracts, then evaluate an explicitly configured hosted or operator-owned endpoint independently of local SLM sidecars.
 
 - [Database-backed artifact generation](database-backed-artifact-generation.md) - Generate reproducible current or historical artifacts from canonical database state through existing typed renderers.
-- [Big-O metadata validation and agent comparison](big-o-agent-validation-and-comparison.md) - Complete RAD, MCP validation/comparison, direct/list WASM, and nine-tool WebMCP browser evidence are accepted. BGO-05 explicit offline native dispatch works; routed comparison errors still need caller-visible detail before BGO-08 final gates.
 - [Rust browser and Tauri desktop workspace for ACORN tools](acorn-browser-workspace/index.md) - Build one accessible Dioxus workspace, isolated Resium/CesiumJS ROR map, and least-privilege Tauri shell while preserving the existing portable, `acorn-wasm`, `acorn-host`, and `acorn-lib` ownership boundaries.
 - [CEL metadata validation-profile pilot](cel-validation-profile-pilot.md) - Evaluate bounded, optional institutional rules against existing Rust/Rhai behavior before adopting a CEL runtime; see the [OPA/CEL review](../_assets/opa-cel-review.md).
 - [dPID research-object support](dpid-research-object-support.md) - Recognize and resolve versioned dPIDs, import resolver RO-Crate metadata into RAD, and preserve manifest provenance through a read-only first release.

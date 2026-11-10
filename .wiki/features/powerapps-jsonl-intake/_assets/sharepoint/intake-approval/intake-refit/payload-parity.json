@@ -1,0 +1,86 @@
+{
+  "phase": "PA-39",
+  "date": "2026-11-10",
+  "scope": "Synthetic activity fixtures only; no flow submission or SharePoint write.",
+  "method": "The archived production submit formula and the isolated app export have identical base record expressions after only the six documented control-reference substitutions. A local compact UTF-8 JSON model compared bytes for six unchanged fixtures; this is not a Power Fx runtime payload capture.",
+  "sources": {
+    "publishedFormula": ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/submission-editing/production-control-properties.json",
+    "fixtureSource": ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/fixtures/activities.jsonl",
+    "isolatedAppPackageSha256": "108d204f7336cea56c32e0eb3bba423200298e6eac5674638da4af269d177001",
+    "entryFormSha256": "2f0c1bd915ec64b4cd52a57f9f10182d77fa1e90b455819ea559793e352f59fb",
+    "publishedRecordSha256": "9e6d656d1a633c3e5d48774adc33278b192079290d83e21a8d80567fa6fa1c0c",
+    "refitRecordSha256": "677bec9c932a96de2086bf94bfed990f6a4b7b0c5529edc03276b213a1c4120b",
+    "normalizedRecordSha256": "677bec9c932a96de2086bf94bfed990f6a4b7b0c5529edc03276b213a1c4120b",
+    "phoneSha256": "39c9ed0079f1c9149b755207f97c9bfd0a6fbbb344103df42afdc1c2714034b1",
+    "desktopSha256": "d17411b8052181f3d6654779998c3dff29ecf480a8fe2bd825faaf54d1e2c77f"
+  },
+  "replacements": {
+    "CategoryDropdown.Selected.Value": "CategoryChoice.SelectedKey",
+    "EventTypeDropdown.Selected.Value": "EventChoice.SelectedKey",
+    "ItemsInput.Text": "DetailsNarrative.Value",
+    "PlacementDropdown.Selected.Value": "PlacementChoice.SelectedKey",
+    "StateDropdown.Selected.Value": "StateChoice.SelectedKey",
+    "SummaryInput.Text": "SummaryNarrative.Value"
+  },
+  "submissionDisabled": true,
+  "fixtures": [
+    {
+      "fixtureId": "general-completed-1",
+      "bytes": 465,
+      "oldSha256": "8821cd5a45e8d6cf52a6378369844535049fe29aeb79e60eae01b712c7a1a248",
+      "newSha256": "8821cd5a45e8d6cf52a6378369844535049fe29aeb79e60eae01b712c7a1a248",
+      "byteEqual": true
+    },
+    {
+      "fixtureId": "general-progress-1",
+      "bytes": 475,
+      "oldSha256": "43d8e51808307017b68f6ed4a89e15af387ea4ef11ce91f38f29b78c5c803b8d",
+      "newSha256": "43d8e51808307017b68f6ed4a89e15af387ea4ef11ce91f38f29b78c5c803b8d",
+      "byteEqual": true
+    },
+    {
+      "fixtureId": "atlas-completed-1",
+      "bytes": 508,
+      "oldSha256": "c88a32d91464e29ec1ec089b7c1c44ff2eef98adac17105a0e9f2e5062fa4187",
+      "newSha256": "c88a32d91464e29ec1ec089b7c1c44ff2eef98adac17105a0e9f2e5062fa4187",
+      "byteEqual": true
+    },
+    {
+      "fixtureId": "atlas-progress-1",
+      "bytes": 477,
+      "oldSha256": "9e897a1ff93a338f79dd883dc72abdb8236516dbb15643e0ce762f1ad813296a",
+      "newSha256": "9e897a1ff93a338f79dd883dc72abdb8236516dbb15643e0ce762f1ad813296a",
+      "byteEqual": true
+    },
+    {
+      "fixtureId": "borealis-progress-1",
+      "bytes": 445,
+      "oldSha256": "c482cefd3a3bafbcd7acf99a785e92ba9954ce261b7b938145320cb6e2e9467f",
+      "newSha256": "c482cefd3a3bafbcd7acf99a785e92ba9954ce261b7b938145320cb6e2e9467f",
+      "byteEqual": true
+    },
+    {
+      "fixtureId": "borealis-upcoming-1",
+      "bytes": 443,
+      "oldSha256": "c0899ab185e3177846155da81f87fd95354b1d0f09e3046008d51fee45f7207f",
+      "newSha256": "c0899ab185e3177846155da81f87fd95354b1d0f09e3046008d51fee45f7207f",
+      "byteEqual": true
+    }
+  ],
+  "previewChecks": [
+    "Desktop: fixed choices, independent selected states, general placement, report card, and valid form state observed.",
+    "375x667 phone: placement and state bars stack; project catalog loaded and acorn selection rendered; category/event radios, narratives, and report card stayed within width.",
+    "Project catalog Refresh reloaded the choices after load; the unchanged retry/error branch was inspected in the exported source, without fault injection.",
+    "Summary over 1,200 characters showed the limit error.",
+    "Twenty-one nonempty details showed Use no more than 20 details.",
+    "One 1,001-character detail showed the per-detail limit error.",
+    "Power Apps Studio reported no formula errors; isolated app remained Saved (Unpublished)."
+  ],
+  "limits": [
+    "The operational submit formula is retained in the isolated package but SubmitButton.DisplayMode is always Disabled.",
+    "The package includes ten App Checker accessibility findings, deferred by user direction.",
+    "No actual Power Fx JSON bytes were emitted because submission was deliberately disabled.",
+    "The phone screenshot masks the account name; the desktop screenshot is cropped above the account attribution. These are redacted visual evidence, not unmodified captures."
+  ],
+  "componentLibraryRevision": "1.0.2"
+}
