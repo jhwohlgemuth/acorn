@@ -211,6 +211,11 @@ async fn test_local_jsonl_apply_updates_report_source_and_renders_when_configure
     .expect("fixture submission");
     write(&inbox, format!("{line}\n")).expect("fixture inbox");
     let local_config = root.join("local.json");
+    let route = if cfg!(windows) {
+        format!("file:///{}", index.display().to_string().replace('\\', "/"))
+    } else {
+        format!("file://{}", index.display())
+    };
     write(
         &local_config,
         serde_json::to_vec(&serde_json::json!({
@@ -218,7 +223,7 @@ async fn test_local_jsonl_apply_updates_report_source_and_renders_when_configure
             "folders": [{
                 "id": "acorn",
                 "members": ["scientist@example.org"],
-                "path": format!("file://{}", index.display())
+                "path": route
             }]
         }))
         .expect("local configuration"),

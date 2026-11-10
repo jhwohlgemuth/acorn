@@ -22,10 +22,15 @@ async fn test_gitlab_capture_pins_revision_and_preserves_offline_review() {
     let config = root.join("config.json");
     let index = root.join("index.json");
     write(&index, serde_json::to_string(&ResearchActivity::default()).unwrap()).unwrap();
+    let folder = if cfg!(windows) {
+        format!("file:///{}", index.display().to_string().replace('\\', "/"))
+    } else {
+        format!("file://{}", index.display())
+    };
     write(
         &config,
         json!({"schemaVersion":"2.0.0", "folders":[{
-            "id":"acorn", "members":["scientist@example.org"], "path":format!("file://{}", index.display())
+            "id":"acorn", "members":["scientist@example.org"], "path":folder
         }]})
         .to_string(),
     )

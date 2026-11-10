@@ -519,17 +519,17 @@ pub(super) fn secure_directory(config_path: &Path) -> ApiResult<PathBuf> {
         | true => Err(eyre!("Local batch directory must not be a symlink")),
         | false => create_dir_all(&path)
             .map_err(|why| eyre!("Cannot create local batch directory: {why}"))
-            .and_then(|()| {
-                #[cfg(unix)]
-                {
-                    use std::os::unix::fs::PermissionsExt;
-                    fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).map_err(|why| eyre!("Cannot protect local batch directory: {why}"))
-                }
-                #[cfg(not(unix))]
-                {
-                    Ok(())
-                }
-            })
+            .and_then(|()| protect_local_batch(&path))
             .map(|()| path),
     })
+}
+#[cfg(unix)]
+fn protect_local_batch(path: &Path) -> ApiResult<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o700)).map_err(|why| eyre!("Cannot protect local batch directory: {why}"))
+}
+#[cfg(not(unix))]
+fn protect_local_batch(path: &Path) -> ApiResult<()> {
+    let _ = path;
+    Ok(())
 }

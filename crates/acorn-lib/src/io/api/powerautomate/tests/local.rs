@@ -23,6 +23,15 @@ fn apply_batch(config_path: &Path, batch_id: &str) -> ApiResult<local::BatchAppl
     ApplicationConfiguration::load_local_intake(config_path).and_then(|(configuration, path)| configuration.apply_batch(&path, batch_id))
 }
 
+/// Build the canonical absolute file URI for one local path on every platform.
+fn file_uri(path: &Path) -> String {
+    let text = path.display().to_string();
+    match cfg!(windows) {
+        | true => format!("file:///{}", text.replace('\\', "/")),
+        | false => format!("file://{text}"),
+    }
+}
+
 fn batch_setup() -> (tempfile::TempDir, PathBuf, PathBuf, Vec<PathBuf>) {
     let directory = tempfile::tempdir().unwrap();
     let config = directory.path().join(".acorn.json");
@@ -43,7 +52,7 @@ fn batch_setup() -> (tempfile::TempDir, PathBuf, PathBuf, Vec<PathBuf>) {
                 "id": id,
                 "aliases": if id == "alpha" { vec!["Alpha Project"] } else { vec![] },
                 "members": ["scientist@example.org"],
-                "path": format!("file://{}", path.display())
+                "path": file_uri(path)
             })
         })
         .collect::<Vec<_>>();
@@ -100,7 +109,7 @@ fn setup(destination: &str) -> (tempfile::TempDir, PathBuf, PathBuf, PathBuf) {
     fs::write(&index, serde_json::to_string(&ResearchActivity::default()).unwrap()).unwrap();
     fs::write(&inbox, LINE.lines().next().unwrap().to_string() + "\n").unwrap();
     let path = match destination {
-        | "local" => format!("file://{}", index.display()),
+        | "local" => file_uri(&index),
         | "remote" => "https://example.org/index.json".to_string(),
         | _ => "index.json".to_string(),
     };
@@ -343,6 +352,7 @@ fn test_batch_general_rejects_unauthorized_submitter() {
     assert_eq!(BatchSummary::stage(&config, &inbox).unwrap().rejected, 1);
     assert!(!general.exists());
 }
+#[cfg(unix)]
 #[test]
 fn test_batch_manifest_is_owner_readable() {
     use std::os::unix::fs::PermissionsExt;

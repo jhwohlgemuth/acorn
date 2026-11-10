@@ -17,13 +17,21 @@ fn intake(root: &Path, arguments: &[&str]) -> Output {
         .output()
         .unwrap()
 }
+/// Build the canonical absolute file URI for one local path on every platform.
+fn file_uri(path: &Path) -> String {
+    let text = path.display().to_string();
+    match cfg!(windows) {
+        | true => format!("file:///{}", text.replace('\\', "/")),
+        | false => format!("file://{text}"),
+    }
+}
 fn stage(root: &Path, batch: bool) -> String {
     write(root.join("index.json"), serde_json::to_vec(&ResearchActivity::default()).unwrap()).unwrap();
     write(
         root.join("config.json"),
         json!({"schemaVersion":"2.0.0", "folders":[{
             "id":"acorn", "members":["scientist@example.org"],
-            "path":format!("file://{}", root.join("index.json").display())
+            "path":file_uri(&root.join("index.json"))
         }]})
         .to_string(),
     )
@@ -201,7 +209,7 @@ fn test_stage_source_accepts_file_uri() {
     let directory = tempdir().unwrap();
     let root = directory.path();
     let expected = stage(root, true);
-    let uri = format!("file://{}/inbox.jsonl", root.display());
+    let uri = file_uri(&root.join("inbox.jsonl"));
     for source in ["inbox.jsonl", uri.as_str()] {
         let output = intake(root, &["stage", "--config", "config.json", "--source", source, "--batch"]);
         assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));

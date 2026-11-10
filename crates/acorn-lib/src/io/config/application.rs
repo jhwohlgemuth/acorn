@@ -32,7 +32,11 @@ use acorn_core::{
     validation::ValidationError,
     Location, Scheme, SimpleOrDetailed,
 };
-use acorn_host::{config::resolve_config_path, fs::SafePath, terminal::Label};
+use acorn_host::{
+    config::resolve_config_path,
+    fs::{file_uri_to_path, SafePath},
+    terminal::Label,
+};
 use acorn_schema::{
     codec::{CodecDiagnostic, DocumentCodec},
     hardware::memory::Memory,
@@ -1782,12 +1786,14 @@ fn default_intake_poll_interval() -> Seconds {
 /// Return the local filesystem path named by one `file` location.
 ///
 /// A non-empty authority is a Windows UNC host, so it joins the path as a `\\host` prefix.
+/// An empty or `localhost` authority names a local drive, so the shared file URI conversion
+/// decodes the path, mapping `file:///C:/…` to `C:\…` on Windows. A POSIX-only destination
+/// such as `file:///srv/…` stays a local-style path rather than failing validation.
 fn file_path(uri: &Location) -> PathBuf {
     let path = uri.path().unwrap_or_default();
-    let host = uri.host().unwrap_or_default();
-    match host.is_empty() {
-        | true => PathBuf::from(path),
-        | false => PathBuf::from(format!(r"\\{host}{path}")),
+    match uri.host().as_deref() {
+        | None | Some("") | Some("localhost") => file_uri_to_path(format!("file://{path}")).unwrap_or_else(|_| PathBuf::from(path)),
+        | Some(host) => PathBuf::from(format!(r"\\{host}{path}")),
     }
 }
 /// Select the first supported RAD index in a local folder using the documented priority order.
