@@ -17,6 +17,7 @@
       .light-label{fill:#272b28;font-size:13px;font-weight:500}.light-muted{fill:#606a63}
     </style>
     <symbol id="home" viewBox="0 0 24 24"><path class="s" d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></symbol>
+    <symbol id="portfolio" viewBox="0 0 24 24"><rect class="s" x="3" y="3" width="7" height="7" rx="1"/><rect class="s" x="14" y="3" width="7" height="7" rx="1"/><rect class="s" x="3" y="14" width="7" height="7" rx="1"/><rect class="s" x="14" y="14" width="7" height="7" rx="1"/></symbol>
     <symbol id="filecheck" viewBox="0 0 24 24"><path class="s" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path class="s" d="M14 2v6h6M9 15l2 2 4-4"/></symbol>
     <symbol id="badge" viewBox="0 0 24 24"><path class="s" d="m12 2 3 2 3.6.4.4 3.6 2 3-2 3-.4 3.6-3.6.4-3 2-3-2-3.6-.4-.4-3.6-2-3 2-3 .4-3.6L9 4Z"/><path class="s" d="m9 12 2 2 4-4"/></symbol>
     <symbol id="shuffle" viewBox="0 0 24 24"><path class="s" d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></symbol>
@@ -55,23 +56,25 @@
     <g transform="translate(294 128)" color="#a9b1ac"><use href="#panel" width="18" height="18"/></g>
     <text x="94" y="190" class="quiet small">8 WebMCP tools · map · local</text>
 
+    <text x="96" y="208" class="group">WORKSPACE</text>
     <rect x="84" y="214" width="240" height="42" rx="8" fill="#00662c"/>
     <g transform="translate(99 225)" color="#fff"><use href="#home" width="19" height="19"/></g><text x="131" y="240" fill="#fff" font-size="14" font-weight="500">Home</text>
-    <text x="96" y="286" class="group">VALIDATE</text>
-    <g transform="translate(99 302)" color="#a9b1ac"><use href="#filecheck" width="18" height="18"/></g><text x="131" y="317" class="nav">Research activity</text>
-    <g transform="translate(99 340)" color="#a9b1ac"><use href="#badge" width="18" height="18"/></g><text x="131" y="355" class="nav">Metadata standard</text>
-    <text x="96" y="394" class="group">ANALYZE</text>
-    <g transform="translate(99 410)" color="#a9b1ac"><use href="#shuffle" width="18" height="18"/></g><text x="131" y="425" class="nav">Crosswalk</text>
-    <g transform="translate(99 448)" color="#a9b1ac"><use href="#shield" width="18" height="18"/></g><text x="131" y="463" class="nav">FAIR metadata</text>
-    <g transform="translate(99 486)" color="#a9b1ac"><use href="#book" width="18" height="18"/></g><text x="131" y="501" class="nav">Readability</text>
-    <g transform="translate(99 524)" color="#a9b1ac"><use href="#diff" width="18" height="18"/></g><text x="131" y="539" class="nav">Content diff</text>
-    <g transform="translate(99 562)" color="#a9b1ac"><use href="#compass" width="18" height="18"/></g><text x="131" y="577" class="nav">Geospatial</text>
-    <text x="96" y="616" class="group">IDENTIFIERS</text>
-    <g transform="translate(99 632)" color="#a9b1ac"><use href="#search" width="18" height="18"/></g><text x="131" y="647" class="nav">Discover</text>
-    <g transform="translate(99 670)" color="#a9b1ac"><use href="#info" width="18" height="18"/></g><text x="131" y="685" class="nav">Inspect</text>
-    <text x="96" y="724" class="group">APPLICATION</text>
-    <g transform="translate(99 740)" color="#a9b1ac"><use href="#settings" width="18" height="18"/></g><text x="131" y="755" class="nav">Settings</text>
-    <g transform="translate(99 778)" color="#a9b1ac"><use href="#help" width="18" height="18"/></g><text x="131" y="793" class="nav">About</text>
+    <g transform="translate(99 271)" color="#a9b1ac"><use href="#portfolio" width="18" height="18"/></g><text x="131" y="286" class="nav">Portfolio</text>
+    <text x="96" y="312" class="group">VALIDATE</text>
+    <g transform="translate(99 339)" color="#a9b1ac"><use href="#filecheck" width="18" height="18"/></g><text x="131" y="354" class="nav">Research activity</text>
+    <g transform="translate(99 377)" color="#a9b1ac"><use href="#badge" width="18" height="18"/></g><text x="131" y="392" class="nav">Metadata standard</text>
+    <text x="96" y="420" class="group">ANALYZE</text>
+    <g transform="translate(99 447)" color="#a9b1ac"><use href="#shuffle" width="18" height="18"/></g><text x="131" y="462" class="nav">Crosswalk</text>
+    <g transform="translate(99 485)" color="#a9b1ac"><use href="#shield" width="18" height="18"/></g><text x="131" y="500" class="nav">FAIR metadata</text>
+    <g transform="translate(99 523)" color="#a9b1ac"><use href="#book" width="18" height="18"/></g><text x="131" y="538" class="nav">Readability</text>
+    <g transform="translate(99 561)" color="#a9b1ac"><use href="#diff" width="18" height="18"/></g><text x="131" y="576" class="nav">Content diff</text>
+    <g transform="translate(99 599)" color="#a9b1ac"><use href="#compass" width="18" height="18"/></g><text x="131" y="614" class="nav">Geospatial</text>
+    <text x="96" y="642" class="group">IDENTIFIERS</text>
+    <g transform="translate(99 669)" color="#a9b1ac"><use href="#search" width="18" height="18"/></g><text x="131" y="684" class="nav">Discover</text>
+    <g transform="translate(99 707)" color="#a9b1ac"><use href="#info" width="18" height="18"/></g><text x="131" y="722" class="nav">Inspect</text>
+    <text x="96" y="750" class="group">APPLICATION</text>
+    <g transform="translate(99 777)" color="#a9b1ac"><use href="#settings" width="18" height="18"/></g><text x="131" y="792" class="nav">Settings</text>
+    <g transform="translate(99 815)" color="#a9b1ac"><use href="#help" width="18" height="18"/></g><text x="131" y="830" class="nav">About</text>
     <line x1="92" y1="918" x2="316" y2="918" stroke="#3c414e"/>
     <circle cx="103" cy="948" r="5" fill="#d6a94a"/><text x="118" y="953" class="muted small">WebMCP unsupported · manual ready</text>
     <text x="94" y="982" class="quiet small">v0.6.3</text>
