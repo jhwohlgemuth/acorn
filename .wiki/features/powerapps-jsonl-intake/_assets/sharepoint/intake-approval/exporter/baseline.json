@@ -1,0 +1,17 @@
+{
+  "version": "pa38-v1",
+  "scope": "TEST ONLY synthetic fixture",
+  "contentBase64": "eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlN5bnRoZXRpYyBhY2NlcHRhbmNlIG9ubHkuIiwiVW5pY29kZSBjYWbDqSDOlCDwn5e6OyBlc2NhcGVkIG5ld2xpbmVcbmluc2lkZSBhIEpTT04gc3RyaW5nLiJdLCJvcmlnaW4iOiJtYW51YWwiLCJzdGF0ZSI6ImluLXByb2dyZXNzIiwic3VtbWFyeSI6IlBBMjMgVEVTVCBPTkxZIHNuYXBzaG90IHJvdyAxIiwidGltZXN0YW1wIjoiMjAyNi0xMC0yN1QwNDowMDowMC4wMDBaIn0sInByb2plY3RJZCI6ImFjb3JuIiwic3VibWlzc2lvbklkIjoiODFmMjM1OWYtNGMwMC01MGJmLThiZGMtNTRjYTU1ZDIwOWQ3Iiwic3VibWl0dGVkQXQiOiIyMDI2LTEwLTI3VDEyOjAwOjAwLjAwMFoiLCJzdWJtaXR0ZXIiOnsiZW1haWwiOiJhbGV4Lm1vcmdhbkBleGFtcGxlLm9yZyJ9fQp7ImVudHJ5Ijp7ImFyY2hpdmVkIjpmYWxzZSwiY2F0ZWdvcnkiOiJzb2Z0d2FyZSIsImV2ZW50VHlwZSI6bnVsbCwiZ2xvYmFsIjpmYWxzZSwiaXRlbXMiOlsiU3ludGhldGljIGFjY2VwdGFuY2Ugb25seS4iLCJVbmljb2RlIGNhZsOpIM6UIPCfl7o7IGVzY2FwZWQgbmV3bGluZVxuaW5zaWRlIGEgSlNPTiBzdHJpbmcuIl0sIm9yaWdpbiI6Im1hbnVhbCIsInN0YXRlIjoiaW4tcHJvZ3Jlc3MiLCJzdW1tYXJ5IjoiUEEyMyBURVNUIE9OTFkgc25hcHNob3Qgcm93IDIiLCJ0aW1lc3RhbXAiOiIyMDI2LTEwLTI3VDA0OjAwOjAwLjAwMFoifSwicHJvamVjdElkIjoiYWNvcm4iLCJzdWJtaXNzaW9uSWQiOiI2ZGIzNmIyNy05MmIyLTU3YTItOTUyOS1kNTEwYWQ4NjQ3NGIiLCJzdWJtaXR0ZWRBdCI6IjIwMjYtMTAtMjdUMTI6MDA6MDAuMDAwWiIsInN1Ym1pdHRlciI6eyJlbWFpbCI6ImFsZXgubW9yZ2FuQGV4YW1wbGUub3JnIn19Cg==",
+  "sha256": "4218e52014ed65938a319e2f1f7335d34d449fadb8822eaccc1c1d41763bc9a9",
+  "byteCount": 940,
+  "lineCount": 2,
+  "fileIdentity": "synthetic:aggregate-tests/downloaded-cutoff.jsonl",
+  "fileRevision": "git-worktree-fixture",
+  "sourceListId": "746cf260-a4d3-4c8f-ab98-d78fe4a9afa1",
+  "sourceHighWaterId": 2,
+  "capturedAtUtc": "2026-11-10T00:00:00Z",
+  "exporterRevision": "pa38-v1",
+  "approvingOperator": "synthetic-fixture-only",
+  "protectedLibraryPath": null,
+  "verifiedFrom": ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/aggregate-tests/downloaded-cutoff.jsonl"
+}

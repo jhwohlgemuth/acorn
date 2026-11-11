@@ -1,0 +1,1005 @@
+{
+  "Initialize_seen_ids_PA38": {
+    "type": "InitializeVariable",
+    "inputs": {
+      "variables": [
+        {
+          "name": "SeenIdsPA38",
+          "type": "Array",
+          "value": []
+        }
+      ]
+    },
+    "runAfter": {}
+  },
+  "Initialize_seen_batches_PA38": {
+    "type": "InitializeVariable",
+    "inputs": {
+      "variables": [
+        {
+          "name": "SeenBatchIdsPA38",
+          "type": "Array",
+          "value": []
+        }
+      ]
+    },
+    "runAfter": {
+      "Initialize_seen_ids_PA38": [
+        "Succeeded"
+      ]
+    }
+  },
+  "Initialize_source_ids_PA38": {
+    "type": "InitializeVariable",
+    "inputs": {
+      "variables": [
+        {
+          "name": "SeenSourceIdsPA38",
+          "type": "Array",
+          "value": []
+        }
+      ]
+    },
+    "runAfter": {
+      "Initialize_seen_batches_PA38": [
+        "Succeeded"
+      ]
+    }
+  },
+  "Initialize_lines_PA38": {
+    "type": "InitializeVariable",
+    "inputs": {
+      "variables": [
+        {
+          "name": "ApprovedLinesPA38",
+          "type": "Array",
+          "value": []
+        }
+      ]
+    },
+    "runAfter": {
+      "Initialize_source_ids_PA38": [
+        "Succeeded"
+      ]
+    }
+  },
+  "Initialize_included_order_PA38": {
+    "type": "InitializeVariable",
+    "inputs": {
+      "variables": [
+        {
+          "name": "PreviousIncludedSourceIdPA38",
+          "type": "Integer",
+          "value": 0
+        }
+      ]
+    },
+    "runAfter": {
+      "Initialize_lines_PA38": [
+        "Succeeded"
+      ]
+    }
+  },
+  "Approved_logbook_export_PA38": {
+    "type": "Scope",
+    "actions": {
+      "Read_baseline_PA38": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetFileContentByPath",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "path": "/Sponsor Highlights Collected Export TEST ONLY/baseline.jsonl",
+            "inferContentType": false
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {},
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Exact_baseline_PA38": {
+        "type": "Compose",
+        "inputs": "@if(equals(body('Read_baseline_PA38')?['$content'],'eyJlbnRyeSI6eyJhcmNoaXZlZCI6ZmFsc2UsImNhdGVnb3J5Ijoic29mdHdhcmUiLCJldmVudFR5cGUiOm51bGwsImdsb2JhbCI6ZmFsc2UsIml0ZW1zIjpbIlN5bnRoZXRpYyBhY2NlcHRhbmNlIG9ubHkuIiwiVW5pY29kZSBjYWbDqSDOlCDwn5e6OyBlc2NhcGVkIG5ld2xpbmVcbmluc2lkZSBhIEpTT04gc3RyaW5nLiJdLCJvcmlnaW4iOiJtYW51YWwiLCJzdGF0ZSI6ImluLXByb2dyZXNzIiwic3VtbWFyeSI6IlBBMjMgVEVTVCBPTkxZIHNuYXBzaG90IHJvdyAxIiwidGltZXN0YW1wIjoiMjAyNi0xMC0yN1QwNDowMDowMC4wMDBaIn0sInByb2plY3RJZCI6ImFjb3JuIiwic3VibWlzc2lvbklkIjoiODFmMjM1OWYtNGMwMC01MGJmLThiZGMtNTRjYTU1ZDIwOWQ3Iiwic3VibWl0dGVkQXQiOiIyMDI2LTEwLTI3VDEyOjAwOjAwLjAwMFoiLCJzdWJtaXR0ZXIiOnsiZW1haWwiOiJhbGV4Lm1vcmdhbkBleGFtcGxlLm9yZyJ9fQp7ImVudHJ5Ijp7ImFyY2hpdmVkIjpmYWxzZSwiY2F0ZWdvcnkiOiJzb2Z0d2FyZSIsImV2ZW50VHlwZSI6bnVsbCwiZ2xvYmFsIjpmYWxzZSwiaXRlbXMiOlsiU3ludGhldGljIGFjY2VwdGFuY2Ugb25seS4iLCJVbmljb2RlIGNhZsOpIM6UIPCfl7o7IGVzY2FwZWQgbmV3bGluZVxuaW5zaWRlIGEgSlNPTiBzdHJpbmcuIl0sIm9yaWdpbiI6Im1hbnVhbCIsInN0YXRlIjoiaW4tcHJvZ3Jlc3MiLCJzdW1tYXJ5IjoiUEEyMyBURVNUIE9OTFkgc25hcHNob3Qgcm93IDIiLCJ0aW1lc3RhbXAiOiIyMDI2LTEwLTI3VDA0OjAwOjAwLjAwMFoifSwicHJvamVjdElkIjoiYWNvcm4iLCJzdWJtaXNzaW9uSWQiOiI2ZGIzNmIyNy05MmIyLTU3YTItOTUyOS1kNTEwYWQ4NjQ3NGIiLCJzdWJtaXR0ZWRBdCI6IjIwMjYtMTAtMjdUMTI6MDA6MDAuMDAwWiIsInN1Ym1pdHRlciI6eyJlbWFpbCI6ImFsZXgubW9yZ2FuQGV4YW1wbGUub3JnIn19Cg=='),true,json('PA38_BaselineChanged'))",
+        "runAfter": {
+          "Read_baseline_PA38": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs"
+            ]
+          }
+        }
+      },
+      "Baseline_text_PA38": {
+        "type": "Compose",
+        "inputs": "@base64ToString(body('Read_baseline_PA38')?['$content'])",
+        "runAfter": {
+          "Exact_baseline_PA38": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs"
+            ]
+          }
+        }
+      },
+      "Nonempty_baseline_rows_PA38": {
+        "type": "Query",
+        "inputs": {
+          "from": "@split(outputs('Baseline_text_PA38'),decodeUriComponent('%0A'))",
+          "where": "@not(empty(item()))"
+        },
+        "runAfter": {
+          "Baseline_text_PA38": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Each_baseline_row_PA38": {
+        "type": "Foreach",
+        "foreach": "@body('Nonempty_baseline_rows_PA38')",
+        "actions": {
+          "Baseline_object_PA38": {
+            "type": "Compose",
+            "inputs": "@json(items('Each_baseline_row_PA38'))",
+            "runAfter": {},
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs"
+                ]
+              }
+            }
+          },
+          "Valid_baseline_row_PA38": {
+            "type": "Compose",
+            "inputs": "@if(and(not(empty(outputs('Baseline_object_PA38')?['submissionId'])),not(contains(variables('SeenIdsPA38'),outputs('Baseline_object_PA38')?['submissionId']))),true,json('PA38_InvalidBaselineRow'))",
+            "runAfter": {
+              "Baseline_object_PA38": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs"
+                ]
+              }
+            }
+          },
+          "Remember_baseline_id_PA38": {
+            "type": "AppendToArrayVariable",
+            "inputs": {
+              "name": "SeenIdsPA38",
+              "value": "@outputs('Baseline_object_PA38')?['submissionId']"
+            },
+            "runAfter": {
+              "Valid_baseline_row_PA38": [
+                "Succeeded"
+              ]
+            }
+          }
+        },
+        "runAfter": {
+          "Nonempty_baseline_rows_PA38": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "concurrency": {
+            "repetitions": 1
+          }
+        }
+      },
+      "Read_approved_batches_PA38": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "table": "2f405310-4681-40db-99ff-1bafd4b90676",
+            "$filter": "State eq 'Approved'",
+            "$orderby": "ApprovedAtUtc asc,BatchId asc",
+            "$top": 5001
+          },
+          "authentication": "@parameters('$authentication')",
+          "retryPolicy": {
+            "type": "none"
+          }
+        },
+        "runAfter": {
+          "Each_baseline_row_PA38": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          },
+          "paginationPolicy": {
+            "minimumItemCount": 5001
+          }
+        }
+      },
+      "Each_approved_batch_PA38": {
+        "type": "Foreach",
+        "foreach": "@body('Read_approved_batches_PA38')?['value']",
+        "actions": {
+          "Unique_batch_PA38": {
+            "type": "Compose",
+            "inputs": "@if(and(equals(items('Each_approved_batch_PA38')?['State']?['Value'],'Approved'),not(contains(variables('SeenBatchIdsPA38'),items('Each_approved_batch_PA38')?['BatchId']))),true,json('PA38_DuplicateOrUnapprovedBatch'))",
+            "runAfter": {},
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs"
+                ]
+              }
+            }
+          },
+          "Remember_batch_PA38": {
+            "type": "AppendToArrayVariable",
+            "inputs": {
+              "name": "SeenBatchIdsPA38",
+              "value": "@items('Each_approved_batch_PA38')?['BatchId']"
+            },
+            "runAfter": {
+              "Unique_batch_PA38": [
+                "Succeeded"
+              ]
+            }
+          },
+          "Reset_included_order_PA38": {
+            "type": "SetVariable",
+            "inputs": {
+              "name": "PreviousIncludedSourceIdPA38",
+              "value": 0
+            },
+            "runAfter": {
+              "Remember_batch_PA38": [
+                "Succeeded"
+              ]
+            }
+          },
+          "Reset_source_ids_PA38": {
+            "type": "SetVariable",
+            "inputs": {
+              "name": "SeenSourceIdsPA38",
+              "value": []
+            },
+            "runAfter": {
+              "Reset_included_order_PA38": [
+                "Succeeded"
+              ]
+            }
+          },
+          "Read_manifest_PA38": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "GetFileContentByPath",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                "path": "@concat('/Sponsor Highlights Approved Projections TEST ONLY/Approved/',items('Each_approved_batch_PA38')?['BatchId'],'/manifest.json')",
+                "inferContentType": false
+              },
+              "authentication": "@parameters('$authentication')",
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runAfter": {
+              "Reset_source_ids_PA38": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            }
+          },
+          "Manifest_text_PA38": {
+            "type": "Compose",
+            "inputs": "@base64ToString(body('Read_manifest_PA38')?['$content'])",
+            "runAfter": {
+              "Read_manifest_PA38": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs"
+                ]
+              }
+            }
+          },
+          "Manifest_object_PA38": {
+            "type": "Compose",
+            "inputs": "@json(outputs('Manifest_text_PA38'))",
+            "runAfter": {
+              "Manifest_text_PA38": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs"
+                ]
+              }
+            }
+          },
+          "Manifest_fingerprint_PA38": {
+            "type": "Compose",
+            "inputs": "@concat('b64-edge-v1:',string(length(base64(outputs('Manifest_text_PA38')))),':',substring(base64(outputs('Manifest_text_PA38')),0,if(greater(length(base64(outputs('Manifest_text_PA38'))),64),64,length(base64(outputs('Manifest_text_PA38'))))),':',substring(base64(outputs('Manifest_text_PA38')),if(greater(length(base64(outputs('Manifest_text_PA38'))),64),sub(length(base64(outputs('Manifest_text_PA38'))),64),0),if(greater(length(base64(outputs('Manifest_text_PA38'))),64),64,length(base64(outputs('Manifest_text_PA38'))))))",
+            "runAfter": {
+              "Manifest_object_PA38": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs"
+                ]
+              }
+            }
+          },
+          "Valid_manifest_PA38": {
+            "type": "Compose",
+            "inputs": "@if(and(equals(outputs('Manifest_object_PA38')?['batchId'],items('Each_approved_batch_PA38')?['BatchId']),equals(outputs('Manifest_object_PA38')?['sourceListId'],items('Each_approved_batch_PA38')?['SourceListId']),equals(int(outputs('Manifest_object_PA38')?['sourceCount']),int(items('Each_approved_batch_PA38')?['SourceCount'])),equals(int(items('Each_approved_batch_PA38')?['ItemCount']),int(items('Each_approved_batch_PA38')?['SourceCount'])),equals(length(outputs('Manifest_object_PA38')?['included']),int(items('Each_approved_batch_PA38')?['ApprovedCount'])),equals(length(outputs('Manifest_object_PA38')?['excluded']),int(items('Each_approved_batch_PA38')?['ExcludedCount'])),equals(add(length(outputs('Manifest_object_PA38')?['included']),length(outputs('Manifest_object_PA38')?['excluded'])),int(items('Each_approved_batch_PA38')?['SourceCount'])),equals(int(items('Each_approved_batch_PA38')?['UnresolvedCount']),0),greater(length(outputs('Manifest_object_PA38')?['included']),0),not(empty(items('Each_approved_batch_PA38')?['ApprovedByEmail'])),not(empty(items('Each_approved_batch_PA38')?['ApprovedAtUtc'])),not(empty(items('Each_approved_batch_PA38')?['PeriodKey'])),not(empty(items('Each_approved_batch_PA38')?['PeriodStartUtc'])),not(empty(items('Each_approved_batch_PA38')?['PeriodEndUtc'])),not(empty(items('Each_approved_batch_PA38')?['PolicyRevision'])),equals(outputs('Manifest_fingerprint_PA38'),items('Each_approved_batch_PA38')?['ProjectionDigest'])),true,json('PA38_InvalidApprovedManifest'))",
+            "runAfter": {
+              "Manifest_fingerprint_PA38": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs"
+                ]
+              }
+            }
+          },
+          "Each_excluded_row_PA38": {
+            "type": "Foreach",
+            "foreach": "@outputs('Manifest_object_PA38')?['excluded']",
+            "actions": {
+              "Valid_exclusion_PA38": {
+                "type": "Compose",
+                "inputs": "@if(and(greater(int(items('Each_excluded_row_PA38')?['sourceItemId']),0),not(empty(trim(coalesce(items('Each_excluded_row_PA38')?['reason'],'')))),not(contains(variables('SeenSourceIdsPA38'),string(items('Each_excluded_row_PA38')?['sourceItemId'])))),true,json('PA38_InvalidExclusion'))",
+                "runAfter": {},
+                "runtimeConfiguration": {
+                  "secureData": {
+                    "properties": [
+                      "inputs"
+                    ]
+                  }
+                }
+              },
+              "Remember_exclusion_PA38": {
+                "type": "AppendToArrayVariable",
+                "inputs": {
+                  "name": "SeenSourceIdsPA38",
+                  "value": "@string(items('Each_excluded_row_PA38')?['sourceItemId'])"
+                },
+                "runAfter": {
+                  "Valid_exclusion_PA38": [
+                    "Succeeded"
+                  ]
+                }
+              }
+            },
+            "runAfter": {
+              "Valid_manifest_PA38": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {
+              "concurrency": {
+                "repetitions": 1
+              }
+            }
+          },
+          "Each_approved_row_PA38": {
+            "type": "Foreach",
+            "foreach": "@outputs('Manifest_object_PA38')?['included']",
+            "actions": {
+              "Read_frozen_row_PA38": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "GetFileContentByPath",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "path": "@concat('/Sponsor Highlights Approved Projections TEST ONLY/Approved/',items('Each_approved_batch_PA38')?['BatchId'],'/',string(items('Each_approved_row_PA38')?['sourceItemId']),'.jsonl')",
+                    "inferContentType": false
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {},
+                "runtimeConfiguration": {
+                  "secureData": {
+                    "properties": [
+                      "inputs",
+                      "outputs"
+                    ]
+                  }
+                }
+              },
+              "Frozen_object_PA38": {
+                "type": "Compose",
+                "inputs": "@json(base64ToString(body('Read_frozen_row_PA38')?['$content']))",
+                "runAfter": {
+                  "Read_frozen_row_PA38": [
+                    "Succeeded"
+                  ]
+                },
+                "runtimeConfiguration": {
+                  "secureData": {
+                    "properties": [
+                      "inputs"
+                    ]
+                  }
+                }
+              },
+              "Valid_frozen_row_PA38": {
+                "type": "Compose",
+                "inputs": "@if(and(equals(body('Read_frozen_row_PA38')?['$content'],items('Each_approved_row_PA38')?['payloadBase64']),not(contains(base64ToString(body('Read_frozen_row_PA38')?['$content']),decodeUriComponent('%0A'))),not(contains(base64ToString(body('Read_frozen_row_PA38')?['$content']),decodeUriComponent('%0D'))),lessOrEquals(sub(div(mul(length(body('Read_frozen_row_PA38')?['$content']),3),4),if(endsWith(body('Read_frozen_row_PA38')?['$content'],'=='),2,if(endsWith(body('Read_frozen_row_PA38')?['$content'],'='),1,0))),65535),equals(outputs('Frozen_object_PA38')?['submissionId'],items('Each_approved_row_PA38')?['approvedSubmissionId']),equals(items('Each_approved_row_PA38')?['decision'],'Approve'),equals(outputs('Manifest_object_PA38')?['mapping']?[items('Each_approved_row_PA38')?['sourceSubmissionId']],items('Each_approved_row_PA38')?['approvedSubmissionId']),not(contains(variables('SeenIdsPA38'),items('Each_approved_row_PA38')?['approvedSubmissionId'])),not(contains(variables('SeenSourceIdsPA38'),string(items('Each_approved_row_PA38')?['sourceItemId']))),greater(int(items('Each_approved_row_PA38')?['sourceItemId']),variables('PreviousIncludedSourceIdPA38')),or(and(empty(outputs('Frozen_object_PA38')?['revision']),empty(items('Each_approved_row_PA38')?['approvedSupersedes'])),and(equals(outputs('Frozen_object_PA38')?['revision']?['supersedesSubmissionId'],items('Each_approved_row_PA38')?['approvedSupersedes']),contains(variables('SeenIdsPA38'),outputs('Frozen_object_PA38')?['revision']?['supersedesSubmissionId']),contains(variables('SeenIdsPA38'),outputs('Frozen_object_PA38')?['revision']?['rootSubmissionId'])))),true,json('PA38_InvalidFrozenRow'))",
+                "runAfter": {
+                  "Frozen_object_PA38": [
+                    "Succeeded"
+                  ]
+                },
+                "runtimeConfiguration": {
+                  "secureData": {
+                    "properties": [
+                      "inputs"
+                    ]
+                  }
+                }
+              },
+              "Remember_included_order_PA38": {
+                "type": "SetVariable",
+                "inputs": {
+                  "name": "PreviousIncludedSourceIdPA38",
+                  "value": "@int(items('Each_approved_row_PA38')?['sourceItemId'])"
+                },
+                "runAfter": {
+                  "Valid_frozen_row_PA38": [
+                    "Succeeded"
+                  ]
+                }
+              },
+              "Remember_source_PA38": {
+                "type": "AppendToArrayVariable",
+                "inputs": {
+                  "name": "SeenSourceIdsPA38",
+                  "value": "@string(items('Each_approved_row_PA38')?['sourceItemId'])"
+                },
+                "runAfter": {
+                  "Remember_included_order_PA38": [
+                    "Succeeded"
+                  ]
+                }
+              },
+              "Remember_id_PA38": {
+                "type": "AppendToArrayVariable",
+                "inputs": {
+                  "name": "SeenIdsPA38",
+                  "value": "@items('Each_approved_row_PA38')?['approvedSubmissionId']"
+                },
+                "runAfter": {
+                  "Remember_source_PA38": [
+                    "Succeeded"
+                  ]
+                }
+              },
+              "Remember_line_PA38": {
+                "type": "AppendToArrayVariable",
+                "inputs": {
+                  "name": "ApprovedLinesPA38",
+                  "value": "@base64ToString(body('Read_frozen_row_PA38')?['$content'])"
+                },
+                "runAfter": {
+                  "Remember_id_PA38": [
+                    "Succeeded"
+                  ]
+                }
+              }
+            },
+            "runAfter": {
+              "Each_excluded_row_PA38": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {
+              "concurrency": {
+                "repetitions": 1
+              }
+            }
+          }
+        },
+        "runAfter": {
+          "Read_approved_batches_PA38": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "concurrency": {
+            "repetitions": 1
+          }
+        }
+      },
+      "Combined_JSONL_LB": {
+        "type": "Compose",
+        "inputs": "@concat(outputs('Baseline_text_PA38'),if(empty(variables('ApprovedLinesPA38')),'',concat(join(variables('ApprovedLinesPA38'),decodeUriComponent('%0A')),decodeUriComponent('%0A'))))",
+        "runAfter": {
+          "Each_approved_batch_PA38": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs"
+            ]
+          }
+        }
+      },
+      "Within_candidate_bounds_PA38": {
+        "type": "If",
+        "expression": {
+          "and": [
+            {
+              "lessOrEquals": [
+                "@add(length(body('Nonempty_baseline_rows_PA38')),length(variables('ApprovedLinesPA38')))",
+                5000
+              ]
+            },
+            {
+              "lessOrEquals": [
+                "@sub(div(mul(length(base64(outputs('Combined_JSONL_LB'))),3),4),if(endsWith(base64(outputs('Combined_JSONL_LB')),'=='),2,if(endsWith(base64(outputs('Combined_JSONL_LB')),'='),1,0)))",
+                10485760
+              ]
+            }
+          ]
+        },
+        "actions": {
+          "Read_previous_logbook_LB": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "GetFileContentByPath",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                "path": "/Sponsor Highlights Collected Export TEST ONLY/logbook.jsonl",
+                "inferContentType": false
+              },
+              "authentication": "@parameters('$authentication')",
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runAfter": {},
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            }
+          },
+          "Readable_or_missing_LB": {
+            "type": "If",
+            "expression": {
+              "or": [
+                {
+                  "and": [
+                    {
+                      "equals": [
+                        "@actions('Read_previous_logbook_LB')?['status']",
+                        "Succeeded"
+                      ]
+                    },
+                    {
+                      "not": {
+                        "equals": [
+                          "@if(and(equals(actions('Read_previous_logbook_LB')?['status'],'Succeeded'),equals(outputs('Read_previous_logbook_LB')?['statusCode'],200),equals(string(outputs('Read_previous_logbook_LB')?['headers']?['Content-Length']),'0'),equals(body('Read_previous_logbook_LB')?['$content'],null)),string(null),body('Read_previous_logbook_LB')?['$content'])",
+                          null
+                        ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "and": [
+                    {
+                      "equals": [
+                        "@actions('Read_previous_logbook_LB')?['status']",
+                        "Failed"
+                      ]
+                    },
+                    {
+                      "equals": [
+                        "@outputs('Read_previous_logbook_LB')?['statusCode']",
+                        404
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "actions": {
+              "Changed_logbook_LB": {
+                "type": "If",
+                "expression": {
+                  "not": {
+                    "equals": [
+                      "@if(and(equals(actions('Read_previous_logbook_LB')?['status'],'Succeeded'),equals(outputs('Read_previous_logbook_LB')?['statusCode'],200),equals(string(outputs('Read_previous_logbook_LB')?['headers']?['Content-Length']),'0'),equals(body('Read_previous_logbook_LB')?['$content'],null)),string(null),body('Read_previous_logbook_LB')?['$content'])",
+                      "@base64(outputs('Combined_JSONL_LB'))"
+                    ]
+                  }
+                },
+                "actions": {
+                  "Write_logbook_LB": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": {
+                        "connectionName": "shared_sharepointonline",
+                        "operationId": "HttpRequest",
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                      },
+                      "parameters": {
+                        "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                        "parameters/method": "POST",
+                        "parameters/uri": "_api/web/GetFolderByServerRelativeUrl('/sites/ResearchEnablement/Sponsor Highlights Collected Export TEST ONLY')/Files/add(url='logbook.jsonl',overwrite=@{if(equals(actions('Read_previous_logbook_LB')?['status'],'Succeeded'),'true','false')})",
+                        "parameters/headers": {
+                          "Accept": "application/json;odata=nometadata",
+                          "Content-Type": "application/octet-stream"
+                        },
+                        "parameters/body": "@outputs('Combined_JSONL_LB')"
+                      },
+                      "authentication": "@parameters('$authentication')",
+                      "retryPolicy": {
+                        "type": "none"
+                      }
+                    },
+                    "runAfter": {},
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "else": {
+                  "actions": {}
+                },
+                "runAfter": {}
+              },
+              "Read_published_logbook_LB": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "GetFileContentByPath",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                    "path": "/Sponsor Highlights Collected Export TEST ONLY/logbook.jsonl",
+                    "inferContentType": false
+                  },
+                  "authentication": "@parameters('$authentication')",
+                  "retryPolicy": {
+                    "type": "none"
+                  }
+                },
+                "runAfter": {
+                  "Changed_logbook_LB": [
+                    "Succeeded",
+                    "Failed",
+                    "TimedOut"
+                  ]
+                },
+                "runtimeConfiguration": {
+                  "secureData": {
+                    "properties": [
+                      "inputs",
+                      "outputs"
+                    ]
+                  }
+                }
+              },
+              "Exact_logbook_LB": {
+                "type": "If",
+                "expression": {
+                  "and": [
+                    {
+                      "equals": [
+                        "@actions('Read_published_logbook_LB')?['status']",
+                        "Succeeded"
+                      ]
+                    },
+                    {
+                      "equals": [
+                        "@if(and(equals(actions('Read_published_logbook_LB')?['status'],'Succeeded'),equals(outputs('Read_published_logbook_LB')?['statusCode'],200),equals(string(outputs('Read_published_logbook_LB')?['headers']?['Content-Length']),'0'),equals(body('Read_published_logbook_LB')?['$content'],null)),string(null),body('Read_published_logbook_LB')?['$content'])",
+                        "@base64(outputs('Combined_JSONL_LB'))"
+                      ]
+                    }
+                  ]
+                },
+                "actions": {
+                  "Export_receipt_LB": {
+                    "type": "Compose",
+                    "inputs": {
+                      "runId": "@workflow()?['run']?['name']",
+                      "baselineSha256": "4218e52014ed65938a319e2f1f7335d34d449fadb8822eaccc1c1d41763bc9a9",
+                      "batchCount": "@length(variables('SeenBatchIdsPA38'))",
+                      "lineCount": "@add(length(body('Nonempty_baseline_rows_PA38')),length(variables('ApprovedLinesPA38')))",
+                      "byteCount": "@sub(div(mul(length(base64(outputs('Combined_JSONL_LB'))),3),4),if(endsWith(base64(outputs('Combined_JSONL_LB')),'=='),2,if(endsWith(base64(outputs('Combined_JSONL_LB')),'='),1,0)))",
+                      "candidateFingerprint": "@concat('b64-edge-v1:',string(length(base64(outputs('Combined_JSONL_LB')))),':',substring(base64(outputs('Combined_JSONL_LB')),0,if(greater(length(base64(outputs('Combined_JSONL_LB'))),64),64,length(base64(outputs('Combined_JSONL_LB'))))),':',substring(base64(outputs('Combined_JSONL_LB')),if(greater(length(base64(outputs('Combined_JSONL_LB'))),64),sub(length(base64(outputs('Combined_JSONL_LB'))),64),0),if(greater(length(base64(outputs('Combined_JSONL_LB'))),64),64,length(base64(outputs('Combined_JSONL_LB'))))))",
+                      "lastApprovedBatchId": "@if(empty(variables('SeenBatchIdsPA38')),null,last(variables('SeenBatchIdsPA38')))",
+                      "fileIdentity": "/sites/ResearchEnablement/Sponsor Highlights Collected Export TEST ONLY/logbook.jsonl",
+                      "fileRevision": "@coalesce(body('Read_published_metadata_PA38')?['ETag'],body('Read_published_metadata_PA38')?['@odata.etag'])",
+                      "verifiedAtUtc": "@utcNow()"
+                    },
+                    "runAfter": {
+                      "Exact_metadata_PA38": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Read_published_metadata_PA38": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": {
+                        "connectionName": "shared_sharepointonline",
+                        "operationId": "HttpRequest",
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                      },
+                      "parameters": {
+                        "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                        "parameters/method": "GET",
+                        "parameters/uri": "_api/web/GetFileByServerRelativeUrl('/sites/ResearchEnablement/Sponsor Highlights Collected Export TEST ONLY/logbook.jsonl')?$select=ETag,UniqueId",
+                        "parameters/headers": {
+                          "Accept": "application/json;odata=nometadata"
+                        }
+                      },
+                      "authentication": "@parameters('$authentication')",
+                      "retryPolicy": {
+                        "type": "none"
+                      }
+                    },
+                    "runAfter": {}
+                  },
+                  "Exact_metadata_PA38": {
+                    "type": "Compose",
+                    "inputs": "@if(not(empty(coalesce(body('Read_published_metadata_PA38')?['ETag'],body('Read_published_metadata_PA38')?['@odata.etag']))),true,json('PA38_MissingFileRevision'))",
+                    "runAfter": {
+                      "Read_published_metadata_PA38": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Publish_receipt_PA38": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": {
+                        "connectionName": "shared_sharepointonline",
+                        "operationId": "HttpRequest",
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                      },
+                      "parameters": {
+                        "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                        "parameters/method": "POST",
+                        "parameters/uri": "_api/web/GetFolderByServerRelativeUrl('/sites/ResearchEnablement/Sponsor Highlights Collected Export TEST ONLY')/Files/add(url='export-receipt-@{workflow()?['run']?['name']}.json',overwrite=false)",
+                        "parameters/headers": {
+                          "Accept": "application/json;odata=nometadata",
+                          "Content-Type": "application/json"
+                        },
+                        "parameters/body": "@string(outputs('Export_receipt_LB'))"
+                      },
+                      "authentication": "@parameters('$authentication')",
+                      "retryPolicy": {
+                        "type": "none"
+                      }
+                    },
+                    "runAfter": {
+                      "Export_receipt_LB": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Read_receipt_PA38": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": {
+                        "connectionName": "shared_sharepointonline",
+                        "operationId": "GetFileContentByPath",
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                      },
+                      "parameters": {
+                        "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                        "path": "/Sponsor Highlights Collected Export TEST ONLY/export-receipt-@{workflow()?['run']?['name']}.json",
+                        "inferContentType": false
+                      },
+                      "authentication": "@parameters('$authentication')",
+                      "retryPolicy": {
+                        "type": "none"
+                      }
+                    },
+                    "runAfter": {
+                      "Publish_receipt_PA38": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Exact_receipt_PA38": {
+                    "type": "Compose",
+                    "inputs": "@if(equals(body('Read_receipt_PA38')?['$content'],base64(string(outputs('Export_receipt_LB')))),true,json('PA38_ReceiptReadbackMismatch'))",
+                    "runAfter": {
+                      "Read_receipt_PA38": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "else": {
+                  "actions": {
+                    "LogbookOutcomeUnresolved": {
+                      "type": "Terminate",
+                      "inputs": {
+                        "runStatus": "Failed",
+                        "runError": {
+                          "code": "LogbookOutcomeUnresolved",
+                          "message": "Combined logbook outcome is unresolved. Read and compare exact expected bytes before retrying; the prior file is not guaranteed retained. Do not roll back over a later snapshot."
+                        }
+                      },
+                      "runAfter": {}
+                    }
+                  }
+                },
+                "runAfter": {
+                  "Read_published_logbook_LB": [
+                    "Succeeded",
+                    "Failed",
+                    "TimedOut",
+                    "Skipped"
+                  ]
+                }
+              }
+            },
+            "else": {
+              "actions": {
+                "LogbookPreviousReadUnavailable": {
+                  "type": "Terminate",
+                  "inputs": {
+                    "runStatus": "Failed",
+                    "runError": {
+                      "code": "LogbookPreviousReadUnavailable",
+                      "message": "Previous logbook was not read and no confirmed 404 was returned. No write was attempted."
+                    }
+                  },
+                  "runAfter": {}
+                }
+              }
+            },
+            "runAfter": {
+              "Read_previous_logbook_LB": [
+                "Succeeded",
+                "Failed",
+                "TimedOut",
+                "Skipped"
+              ]
+            }
+          }
+        },
+        "else": {
+          "actions": {
+            "ApprovedExportBoundExceeded": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "ApprovedExportBoundExceeded",
+                  "message": "Approved export exceeds the total row or byte bound."
+                }
+              },
+              "runAfter": {}
+            }
+          }
+        },
+        "runAfter": {
+          "Combined_JSONL_LB": [
+            "Succeeded"
+          ]
+        }
+      }
+    },
+    "runAfter": {
+      "Initialize_included_order_PA38": [
+        "Succeeded"
+      ]
+    }
+  }
+}

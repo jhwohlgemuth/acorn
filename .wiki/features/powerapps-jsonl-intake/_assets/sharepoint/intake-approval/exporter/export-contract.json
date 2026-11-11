@@ -1,0 +1,86 @@
+{
+  "version": "pa38-v1",
+  "scope": "TEST ONLY until PA-41 cutover",
+  "baseline": {
+    "source": "TEST ONLY: exact synthetic baseline in an isolated library. PA-41 must capture the operational file and protect its baseline library.",
+    "metadata": [
+      "contentBase64",
+      "sha256",
+      "byteCount",
+      "lineCount",
+      "fileIdentity",
+      "fileRevision",
+      "sourceListId",
+      "sourceHighWaterId",
+      "capturedAtUtc",
+      "exporterRevision",
+      "approvingOperator"
+    ],
+    "byteRule": "Read and compare full contentBase64 to the protected file before every candidate. The first candidate bytes are exactly the baseline bytes. Empty is allowed; nonempty ends in one LF and has one JSON object per line.",
+    "failure": "Missing, changed, unreadable, or unverified baseline blocks publication. PA-41 must replace synthetic metadata with a verified operational capture before activation."
+  },
+  "approvedInput": {
+    "batchState": "Approved only; ignore every other state",
+    "batchOrder": [
+      "ApprovedAtUtc ascending",
+      "BatchId ascending"
+    ],
+    "itemOrder": "Included manifest rows in SourceItemId ascending order",
+    "manifestPath": "/Sponsor Highlights Approved Projections TEST ONLY/Approved/<batchId>/manifest.json",
+    "rowPath": "/Sponsor Highlights Approved Projections TEST ONLY/Approved/<batchId>/<sourceItemId>.jsonl",
+    "checks": [
+      "unique BatchId",
+      "batchId and sourceListId match",
+      "Approval instant and finalizer present",
+      "sourceCount equals included plus excluded",
+      "ApprovedCount and ExcludedCount match",
+      "UnresolvedCount is zero",
+      "ProjectionDigest equals b64-edge-v1 fingerprint of exact manifest bytes",
+      "unique SourceItemId",
+      "excluded reason nonempty",
+      "included decision Approve",
+      "frozen bytes exactly equal payloadBase64",
+      "one valid UTF-8 JSON object per row",
+      "submissionId equals approvedSubmissionId",
+      "unique submissionId across baseline and approved rows",
+      "revision predecessor and root resolve in baseline or earlier approved rows",
+      "ItemCount equals SourceCount",
+      "PeriodKey, PeriodStartUtc, PeriodEndUtc, and PolicyRevision present",
+      "included SourceItemId strictly ascending"
+    ],
+    "digestRule": "The PA-37B fingerprint is diagnostic and cannot prove integrity alone. Full encoded-byte comparison proves frozen file equality; local acceptance also records SHA-256 of exact bytes."
+  },
+  "candidate": {
+    "construction": "baseline bytes followed by each approved frozen row's exact bytes and one LF",
+    "limits": {
+      "totalRows": 5000,
+      "totalBytes": 10485760,
+      "perRowBytes": 65535
+    },
+    "replay": "Same baseline and Approved snapshots produce byte-identical output. A later Approved batch may append only after every earlier byte.",
+    "error": "Any invalid Approved batch fails the entire run before publication; never silently omit it."
+  },
+  "publication": {
+    "concurrency": "one run at a time",
+    "previousRead": "Accept complete successful read or explicit 404 only",
+    "unchanged": "Skip write after exact encoded-byte equality",
+    "write": "One conditional SharePoint write with connector retries disabled; a confirmed 404 uses overwrite=false",
+    "uncertainOutcome": "Read and compare complete expected bytes; do not roll back over a later file",
+    "receipt": [
+      "runId",
+      "baselineSha256",
+      "lastApprovedBatchId",
+      "batchCount",
+      "lineCount",
+      "byteCount",
+      "candidateFingerprint",
+      "fileIdentity",
+      "fileRevision",
+      "verifiedAtUtc"
+    ],
+    "success": "After exact logbook readback, fetch a nonempty SharePoint file ETag, write a run-unique receipt, and reread the receipt exactly. A failed receipt step fails the run.",
+    "receiptPath": "/Sponsor Highlights Collected Export TEST ONLY/export-receipt-<runId>.json",
+    "fingerprintLimit": "candidateFingerprint is diagnostic, not a cryptographic digest; independent SHA-256 is recorded in acceptance evidence."
+  },
+  "rollback": "Disable approval-aware trigger, retain last verified file, and keep old unfiltered trigger disabled. Redeploy from the accepted package only after reconciling the file and approved snapshots."
+}

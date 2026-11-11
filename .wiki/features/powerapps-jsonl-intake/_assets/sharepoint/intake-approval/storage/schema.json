@@ -19,6 +19,10 @@
     "listId": "746cf260-a4d3-4c8f-ab98-d78fe4a9afa1",
     "listName": "Sponsor Highlights Review Source Fixtures TEST ONLY"
   },
+  "sourcePa31": {
+    "listId": "31a7f178-6729-4252-a2bc-e06a07838f5c",
+    "listName": "PA31 TEST ONLY Receipts"
+  },
   "integrity": {
     "method": "exact encoded-byte equality and SharePoint source ETag",
     "reason": "The standard cloud-flow expression set has no SHA-256 function; the user approved exact-byte and ETag checks for PA-36A.",

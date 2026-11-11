@@ -1,13 +1,15 @@
 # Sponsor Highlights shared UI contract
 
-- Contract version: `1.0.1` for the repaired reviewer controls; the original PA-34 baseline remains `1.0.0`
+- Contract version: `1.0.7` for the TEST ONLY app and shared-control behavior; the original PA-34 baseline remains `1.0.0`
 - Power Apps component library: `Sponsor Highlights UI TEST ONLY`
 - Status: TEST ONLY revision; actual published properties are recorded below
 - Source baseline: ACORN `10b17f22`, November 7, 2026
 
 This contract defines the shared controls, tokens, responsive behavior, state language, and field order used by the TEST ONLY contributor and reviewer apps. The component library contains presentation and interaction components only. It does not connect to SharePoint, call flows, make approval decisions, or mutate operational data.
 
-The user deferred all further accessibility features and checks on November 8, 2026. Existing labels, focus cues, and live validation in revision 1.0.1 remain implemented; the unperformed screen-reader, zoom, contrast, and cross-app accessibility checks are not acceptance gates for the current pilot.
+The user deferred all further accessibility features and checks on November 8, 2026. Existing labels, focus cues, and live validation remain implemented; the unperformed screen-reader, zoom, contrast, and cross-app accessibility checks are not acceptance gates for the current pilot.
+
+PA-39C changed the reviewer app's own decision controls and report-card styling without changing the published component library. The fixture decision bar reads `Needs review`, `Approve`, and `Exclude`; its selected option adds a check mark and the matching amber, green, or red state color. Every report card repeats the decision in text and a full-width color band, followed by the page name. At narrow inspector widths, the decision buttons stack at full width. An excluded item shows its required reason field and the inclusion state before Next problem. The [cross-app acceptance record](acceptance/cross-app-ui.md) contains desktop and 375-pixel proof.
 
 ## Authoritative sources
 
@@ -46,12 +48,12 @@ Use only for genuine Boolean values.
 
 ### `cmpSegmentedChoice`
 
-The published implementation supports three short, mutually exclusive choices. Every option is a real button. The selected option adds a check mark to its text; the component does not claim radio semantics. Revision 1.0.1 puts the buttons in a row above the 500-pixel app breakpoint and in a full-width stack below it. Button activation updates a component-scoped selected key before invoking `OnChange`; `Reset` clears that key so `DefaultKey` can initialize the next record.
+The published implementation supports two or three short, mutually exclusive choices. Every option is a real button. The selected option adds a check mark to its text; the component does not claim radio semantics. The buttons sit in a row above the 500-pixel app breakpoint and in a full-width stack below it. Two-choice rows have a 12-pixel horizontal gap; three-choice rows have a 4-pixel gap. Button activation updates a component-scoped selected key before invoking `OnChange`; `Reset` clears that key so `DefaultKey` can initialize the next record. The contributor placement control displays `General update` while retaining the canonical key `Report-wide update (no associated project)`.
 
 | Property | Direction | Type | Meaning |
 |---|---|---|---|
 | `AccessibleLabel` | Input | Text | Announced group purpose. |
-| `Choices` | Input | Table | Three ordered records with `Key` and `Label`. |
+| `Choices` | Input | Table | Two or three ordered records with `Key` and `Label`. |
 | `DefaultKey` | Input | Text | Canonical source key on reset. |
 | `Disabled` | Input | Boolean | Prevent changes. |
 | `ErrorText` | Input | Text | Validation message; blank when valid. |
@@ -59,6 +61,7 @@ The published implementation supports three short, mutually exclusive choices. E
 | `Label` | Input | Text | Visible field label. |
 | `OnChange` | Input | Event | App-owned response to a deliberate change. |
 | `Required` | Input | Boolean | Adds visible and announced required language. |
+| `SecondChoiceTooltip` | Input | Text | Mouseover title for the second button; blank when unused. The contributor placement instance uses `Highlight with no associated project`. |
 | `SelectedKey` | Output | Text | Canonical key of the selected button. |
 
 ### `cmpRadioChoice`
@@ -136,7 +139,7 @@ Use for one text value. It wraps a multiline native Text Input and keeps count, 
 
 ### `cmpRepeatableText`
 
-Use for supporting items. Rows are authored text, not multi-select choices.
+This component remains a library stub and is not used by either accepted app. Supporting items use `cmpNarrative` in the contributor app and a native multiline text input in the reviewer app. Each nonempty line is one item; moving a line reorders items. Both apps retain the 20-item and 1,000-character-per-item limits. This line-based behavior is the accepted PA-39B contract; the table below describes a future row-based component and is not a current acceptance requirement.
 
 | Property | Direction | Type | Meaning |
 |---|---|---|---|
@@ -313,4 +316,4 @@ Classification is not added to contributor intake by this contract.
 
 ## Versioning and adoption
 
-The PA-34 library baseline was published with semantic version `1.0.0` and description `PA-34 shared intake and reviewer interaction contract`. The TEST ONLY repair revision `1.0.1` was published on November 8, 2026 with description `PA-35C 1.0.1: responsive segmented choices with per-instance selection and reset; complete live validation messages. TEST ONLY.` The reviewer prototype explicitly updates its dependency to that published revision. The contributor app has not adopted it. Its other component APIs have not been re-audited for PA-39.
+The PA-34 library baseline was published with semantic version `1.0.0`. The TEST ONLY library's live version 18, published November 10, 2026, carries the radio reset repair, `SecondChoiceTooltip`, and two-choice spacing. Both isolated apps explicitly adopted that revision. The contributor app's live version 16 uses the shorter placement label and tooltip. The reviewer prototype remains unpublished and uses the Office Green theme for its app-owned classic buttons and dropdown accents; shared segmented and narrative components retain the semantic tokens above.

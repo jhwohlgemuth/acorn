@@ -31,7 +31,7 @@ Use the structured activity metadata already owned by `acorn-schema` as the dest
 
 # Dependencies
 
-Preserve the implemented [standards field matrix](../../_assets/standards-field-matrix.md), crosswalk loss reporting, and reviewer-controlled metadata graduation flow. This plan consumes the existing schema; it does not add another parallel metadata model. The [Intake Approval experience](../../features/powerapps-jsonl-intake/approval-experience/index.md) reviews admitted report fields before PDF export; it neither performs canonical metadata graduation nor owns enrichment conflict policy.
+Preserve the implemented [standards field matrix](../../_assets/standards-field-matrix.md), crosswalk loss reporting, and reviewer-controlled metadata graduation flow. This plan consumes the existing schema; it does not add another parallel metadata model. The [accepted Intake Approval experience](../../features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/cross-app-ui.md) reviews admitted report fields before PDF export; it neither performs canonical metadata graduation nor owns enrichment conflict policy.
 
 # Recommendation
 

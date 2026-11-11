@@ -8,7 +8,6 @@
 
 ## Planned
 
-- [Shared intake and approval experience](powerapps-jsonl-intake/approval-experience/index.md) - PA-39 accepted the isolated contributor activity refit. PA-39A preserves correction and recovery paths; PA-39B accepts cross-app consistency without changing receipt semantics.
 - [Interactive metadata chat and terminal prompts](interactive-metadata-chat.md) - Inline multi-turn `ask`, durable transcripts, reusable terminal controls, and interactive format review are in place; the TUI consumer seam, multi-select control, and release validation remain.
 - [SharePoint JSONL download for ACORN intake](sharepoint-jsonl-download/index.md) - Complete reusable OAuth 2.0/Entra browser/device authorization with ACRE auth profiles, verified account identity, scoped cache inspection/reset, cross-platform protected caching, existing Confirm controls and Graph file capture, consumed by SharePoint direct-URL intake and offline review; approved CLI tenant access is unverified, and it requires no operational app/flow changes.
 - [Model acquisition and metadata hardening](model-acquisition-hardening.md) - Complete identity-safe Hugging Face requests, exact GGUF metadata, and ModelKit/ModelPack interoperability evidence.
@@ -16,7 +15,6 @@
 
 - [Power Automate Teams workflow bot](powerautomate-teams-bot/index.md) - Package a Workflows-authored Teams assistant as solution-aware flows with Dataverse sessions, requests, jobs, idempotent effects and receipts. The owner-only summarize request/reply slice is repaired and accepted; remaining phases decide the supported Teams interaction surface, then add ALM, durable routing, centralized responses, bounded capabilities, recovery and governed pilot release. The Sponsor Highlights intake and Vergil automation plans retain their own systems.
 
-- [Approval-gated collected JSONL export](powerapps-jsonl-intake/approval-export/index.md) - Preserve an exact pre-cutover baseline and append deterministic frozen projections from Approved batches only, retaining current limits, read/write reconciliation and freeze-only rollback.
 - [Intake approval pilot acceptance and cutover](powerapps-jsonl-intake/approval-release/index.md) - Join both consistent apps, review ledger, approved export and actual ACORN PDF in isolated acceptance before an explicitly authorized operational cutover.
 - [Shared Power Platform intake deployment](powerapps-jsonl-intake/shared-deployment/index.md) - After PA-41A and target readiness, import the accepted solution into a named shared environment, accept it in isolation, then switch future links and notifications with rollback.
 

@@ -1,0 +1,32 @@
+{
+  "version": "pa38-v1",
+  "batch": {
+    "batchId": "22222222-2222-4222-8222-222222222222",
+    "state": "Approved",
+    "approvedAtUtc": "2026-11-10T12:00:00Z",
+    "approvedByEmail": "synthetic@example.org",
+    "sourceListId": "746cf260-a4d3-4c8f-ab98-d78fe4a9afa1",
+    "sourceCount": 2,
+    "approvedCount": 1,
+    "excludedCount": 1,
+    "unresolvedCount": 0,
+    "projectionDigest": "b64-edge-v1:1120:eyJiYXRjaElkIjoiMjIyMjIyMjItMjIyMi00MjIyLTgyMjItMjIyMjIyMjIyMjIy:MTExMTEiOiIxMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTEifX0=",
+    "manifestBase64": "eyJiYXRjaElkIjoiMjIyMjIyMjItMjIyMi00MjIyLTgyMjItMjIyMjIyMjIyMjIyIiwiY2FuZGlkYXRlUnVuSWQiOiIzMzMzMzMzMy0zMzMzLTQzMzMtODMzMy0zMzMzMzMzMzMzMzMiLCJzb3VyY2VMaXN0SWQiOiI3NDZjZjI2MC1hNGQzLTRjOGYtYWI5OC1kNzhmZTRhOWFmYTEiLCJzb3VyY2VDb3VudCI6MiwiaW5jbHVkZWQiOlt7InNvdXJjZUl0ZW1JZCI6Mywic291cmNlU3VibWlzc2lvbklkIjoiMTExMTExMTEtMTExMS00MTExLTgxMTEtMTExMTExMTExMTExIiwiYXBwcm92ZWRTdWJtaXNzaW9uSWQiOiIxMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTEiLCJzb3VyY2VFVGFnIjoiXCIxXCIiLCJyZXZpZXdFVGFnIjoiXCIxXCIiLCJkcmFmdFZlcnNpb24iOjEsImRlY2lzaW9uIjoiQXBwcm92ZSIsImFwcHJvdmVkU3VwZXJzZWRlcyI6bnVsbCwicGF5bG9hZEJhc2U2NCI6ImV5SnpkV0p0YVhOemFXOXVTV1FpT2lJeE1URXhNVEV4TVMweE1URXhMVFF4TVRFdE9ERXhNUzB4TVRFeE1URXhNVEV4TVRFaUxDSndjbTlxWldOMFNXUWlPaUpoWTI5eWJpSXNJbVZ1ZEhKNUlqcDdJbk4xYlcxaGNua2lPaUpVUlZOVUlFOU9URmtnWVhCd2NtOTJaV1FnY0hKdmFtVmpkR2x2YmlKOWZRPT0ifV0sImV4Y2x1ZGVkIjpbeyJzb3VyY2VJdGVtSWQiOjQsInNvdXJjZVN1Ym1pc3Npb25JZCI6IjQ0NDQ0NDQ0LTQ0NDQtNDQ0NC04NDQ0LTQ0NDQ0NDQ0NDQ0NCIsInJlYXNvbiI6IlRFU1QgT05MWSBleGNsdWRlZCJ9XSwibWFwcGluZyI6eyIxMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTEiOiIxMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTEifX0=",
+    "itemCount": 2,
+    "periodKey": "2026-Q4",
+    "periodStartUtc": "2026-10-01T00:00:00Z",
+    "periodEndUtc": "2027-01-01T00:00:00Z",
+    "policyRevision": "TEST-ONLY-v1"
+  },
+  "frozenFiles": [
+    {
+      "batchId": "22222222-2222-4222-8222-222222222222",
+      "sourceItemId": 3,
+      "contentBase64": "eyJzdWJtaXNzaW9uSWQiOiIxMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTEiLCJwcm9qZWN0SWQiOiJhY29ybiIsImVudHJ5Ijp7InN1bW1hcnkiOiJURVNUIE9OTFkgYXBwcm92ZWQgcHJvamVjdGlvbiJ9fQ==",
+      "sha256": "f25b9730ea54850a9c198abe5952dd155edf080a1685a83fa448c1e0a1d18363"
+    }
+  ],
+  "expectedCandidateSha256": "5923e8dcb620408b5a1cda0a08dc9daed3aec77075c39e5ca3d843d4b8dc242c",
+  "expectedCandidateByteCount": 1068,
+  "expectedCandidateLineCount": 3
+}

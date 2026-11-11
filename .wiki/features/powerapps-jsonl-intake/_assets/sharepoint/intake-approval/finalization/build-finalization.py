@@ -17,7 +17,11 @@ BATCHES = SCHEMA["objectIds"]["batchesList"]
 ITEMS = SCHEMA["objectIds"]["itemsList"]
 LIBRARY = SCHEMA["objectIds"]["approvedProjectionsLibrary"]
 LIBRARY_PATH = SCHEMA["library"]["path"]
-SOURCES = (SCHEMA["source"]["listId"], SCHEMA["sourceFixtures"]["listId"])
+SOURCES = (SCHEMA["source"]["listId"], SCHEMA["sourceFixtures"]["listId"], SCHEMA["sourcePa31"]["listId"])
+
+
+def trusted_source(source_id: str) -> str:
+    return "@or(" + ",".join("equals(" + source_id + ",'" + list_id + "')" for list_id in SOURCES) + ")"
 AUTH = {"value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']", "type": "Raw"}
 SECURE = {"secureData": {"properties": ["inputs", "outputs"]}}
 COMPOSE_SECURE = {"secureData": {"properties": ["inputs"]}}
@@ -244,7 +248,7 @@ def prepare_actions() -> dict:
     source_object = "json(" + source_text + ")"
     draft_text = "if(empty(item()?['DraftProjectionBase64A'])," + source_text + ",base64ToString(concat(item()?['DraftProjectionBase64A'],coalesce(item()?['DraftProjectionBase64B'],''))))"
     draft_object = "json(" + draft_text + ")"
-    canonical_draft = "string(setProperty(" + source_object + ",'entry',setProperty(" + source_object + "?['entry'],'summary'," + draft_object + "?['entry']?['summary'])))"
+    canonical_draft = "if(equals(" + draft_object + "?['entry']?['summary']," + source_object + "?['entry']?['summary'])," + source_text + ",string(setProperty(" + source_object + ",'entry',setProperty(" + source_object + "?['entry'],'summary'," + draft_object + "?['entry']?['summary']))))"
     invalid_draft = "@or(not(equals(item()?['SourceSubmissionId']," + source_object + "?['submissionId'])),not(equals(item()?['ProjectId']," + source_object + "?['projectId'])),and(not(empty(item()?['DraftProjectionBase64A'])),or(not(equals(" + draft_text + "," + canonical_draft + ")),less(length(trim(coalesce(" + draft_object + "?['entry']?['summary'],''))),1),greater(length(trim(coalesce(" + draft_object + "?['entry']?['summary'],''))),1200))))"
     invalid_item = (
         "@or("
@@ -299,7 +303,7 @@ def prepare_actions() -> dict:
             "runtimeConfiguration": SECURE,
         },
         "Valid_drafts_PA37A": assertion_gate("@and(equals(length(body('Invalid_drafts_PA37A')),0),equals(length(body('Select_source_uuids_PA37A')),length(union(body('Select_source_uuids_PA37A'),body('Select_source_uuids_PA37A')))))", "InvalidDraftPA37A", "Draft bytes, immutable identity, or source submission IDs are invalid.", "Select_source_uuids_PA37A"),
-        "Bound_source_PA37A": assertion_gate("@or(equals(" + source_id + ",'" + SOURCES[0] + "'),equals(" + source_id + ",'" + SOURCES[1] + "'))", "UnboundSourcePA37A", "Batch has no trusted materialization source.", "Valid_drafts_PA37A"),
+        "Bound_source_PA37A": assertion_gate(trusted_source(source_id), "UnboundSourcePA37A", "Batch has no trusted materialization source.", "Valid_drafts_PA37A"),
         "Read_source_PA37A": get_items("@" + source_id, source_filter, "ID asc", 5001, "Bound_source_PA37A", paged=True),
         "Beyond_high_water_PA37A": {
             "type": "Query",
@@ -324,7 +328,7 @@ def prepare_actions() -> dict:
     return {**actions, **projection_actions("Exact_source_PA37A")}
 
 
-def package_actions(template: Path, output: Path, name: str, phase: str, actions: dict) -> Path:
+def package_actions(template: Path, output: Path, name: str, phase: str, actions: dict, update_existing: bool = False) -> Path:
     validate_actions(actions)
     with ZipFile(template) as source:
         files = {name: source.read(name) for name in source.namelist()}
@@ -341,8 +345,8 @@ def package_actions(template: Path, output: Path, name: str, phase: str, actions
     manifest = json.loads(files["manifest.json"])
     manifest["details"]["displayName"] = name
     manifest["resources"][resource_id]["details"]["displayName"] = name
-    manifest["resources"][resource_id]["suggestedCreationType"] = "New"
-    manifest["resources"][resource_id]["creationType"] = "New"
+    manifest["resources"][resource_id]["suggestedCreationType"] = "Update" if update_existing else "New"
+    manifest["resources"][resource_id]["creationType"] = "Existing, New, Update" if update_existing else "New"
     files["manifest.json"] = (json.dumps(manifest, indent=2) + "\n").encode()
     output.parent.mkdir(parents=True, exist_ok=True)
     with ZipFile(output, "w", ZIP_DEFLATED) as package:
@@ -387,8 +391,8 @@ def validate_actions(actions: dict) -> None:
     visit(actions, 1, False)
 
 
-def build(template: Path, output: Path) -> Path:
-    return package_actions(template, output, "Prepare Approval Finalization TEST ONLY", "PA37A", prepare_actions())
+def build(template: Path, output: Path, update_existing: bool = False) -> Path:
+    return package_actions(template, output, "Prepare Approval Finalization TEST ONLY", "PA37A", prepare_actions(), update_existing)
 
 
 def select_rows(source: str, expression: str, dependency: str) -> dict:
@@ -566,7 +570,7 @@ def finalization_actions() -> dict:
             "Stop_in_progress_PA37B": {"type": "Terminate", "inputs": {"runStatus": "Succeeded"}, "runAfter": after("Respond_in_progress_PA37B")},
         }, "else": {"actions": {"Not_finalizing_PA37B": compose("@true")}}, "runAfter": after("Already_approved_PA37B")},
         "Ready_batch_PA37B": assertion_gate("@and(equals(" + batch + "?['State']?['Value'],'Ready'),greater(int(" + batch + "?['SourceCount']),0))", "NotReadyPA37B", "Batch is not complete and Ready.", "Already_finalizing_PA37B"),
-        "Bound_source_PA37B": assertion_gate("@or(equals(" + source_id + ",'" + SOURCES[0] + "'),equals(" + source_id + ",'" + SOURCES[1] + "'))", "UnboundSourcePA37B", "Batch source list is not trusted.", "Ready_batch_PA37B"),
+        "Bound_source_PA37B": assertion_gate(trusted_source(source_id), "UnboundSourcePA37B", "Batch source list is not trusted.", "Ready_batch_PA37B"),
         "Read_pending_manifest_PA37B": read_file(pending_path, "Bound_source_PA37B"),
         "Manifest_json_PA37B": compose("@base64ToString(body('Read_pending_manifest_PA37B')?['$content'])", "Read_pending_manifest_PA37B"),
         "Manifest_object_PA37B": compose("@json(outputs('Manifest_json_PA37B'))", "Manifest_json_PA37B"),
@@ -639,19 +643,20 @@ def approved_reader_actions() -> dict:
     }
 
 
-def build_b(template: Path, output: Path) -> Path:
-    return package_actions(template, output, "Finalize Approval Batch TEST ONLY", "PA37B", finalization_actions())
+def build_b(template: Path, output: Path, update_existing: bool = False) -> Path:
+    return package_actions(template, output, "Finalize Approval Batch TEST ONLY", "PA37B", finalization_actions(), update_existing)
 
 
-def build_reader(template: Path, output: Path) -> Path:
-    return package_actions(template, output, "Read Approved Batch TEST ONLY", "PA37R", approved_reader_actions())
+def build_reader(template: Path, output: Path, update_existing: bool = False) -> Path:
+    return package_actions(template, output, "Read Approved Batch TEST ONLY", "PA37R", approved_reader_actions(), update_existing)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--flow", choices=("prepare", "finalize", "reader"), default="prepare")
+    parser.add_argument("--update-existing", action="store_true")
     parser.add_argument("template", type=Path)
     parser.add_argument("output", type=Path)
     arguments = parser.parse_args()
     builder = {"prepare": build, "finalize": build_b, "reader": build_reader}[arguments.flow]
-    print(builder(arguments.template, arguments.output))
+    print(builder(arguments.template, arguments.output, arguments.update_existing))
