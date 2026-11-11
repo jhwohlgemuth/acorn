@@ -515,7 +515,7 @@ pub struct Check {
     pub(crate) filter: Vec<String>,
     /// Force the file format used for standard input or clipboard text
     ///
-    /// Supported formats: cff, json, jsonc, jsonld, markdown, rdfxml, text, turtle, yaml, zon
+    /// Supported formats: cff, json, jsonc, jsonld, markdown, rdfxml, ron, text, turtle, yaml, zon
     #[arg(long, value_name = "FORMAT", value_parser = parse_check_format, help_heading = "OPTIONS", conflicts_with_all = ["path", "branch", "commit", "filter", "ignore", "merge_request"])]
     pub(crate) format: Option<MimeType>,
     /// Controlled-vocabulary fuzzy matching profile used by prose checks

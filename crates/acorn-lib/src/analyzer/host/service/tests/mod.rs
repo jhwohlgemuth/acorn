@@ -255,6 +255,7 @@ fn test_classify_paths_detects_only_canonical_acre_filenames() {
         PathBuf::from(".acorn.jsonc"),
         PathBuf::from(".acorn.yaml"),
         PathBuf::from(".acorn.yml"),
+        PathBuf::from(".acorn.ron"),
         PathBuf::from("custom.json"),
     ];
     let groups = classify_paths(&paths, Standard::ResearchActivityData);
@@ -263,11 +264,11 @@ fn test_classify_paths_detects_only_canonical_acre_filenames() {
         vec![
             StandardPaths {
                 standard: Standard::ApplicationConfigurationResearchEnablement,
-                paths: paths[..4].to_vec(),
+                paths: paths[..5].to_vec(),
             },
             StandardPaths {
                 standard: Standard::ResearchActivityData,
-                paths: vec![paths[4].clone()],
+                paths: vec![paths[5].clone()],
             },
         ]
     );

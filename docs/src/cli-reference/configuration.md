@@ -1,13 +1,13 @@
 # Configuration
 
 ## Flat file
-Application Configuration for Research Enablement (ACRE) is the versioned configuration standard used by ACORN and reusable by other research-enablement applications such as Xylem. ACRE files may use JSON, JSONC (JSON with Comments), or YAML.
+Application Configuration for Research Enablement (ACRE) is the versioned configuration standard used by ACORN and reusable by other research-enablement applications such as Xylem. ACRE files may use JSON, JSONC (JSON with Comments), YAML, or RON.
 
 The current schema version is `2.0.0`. New files should declare it with the `schemaVersion` property. Files that omit the property are interpreted as version `2.0.0`. Other explicit versions, including a `v` prefix, are rejected. There is no backwards compatibility: version `1.0.0` documents are rejected.
 
-Attribute names are `snake_case` in every format — JSON, JSONC, and YAML — so one document shape is valid everywhere. Pre-existing camelCase attributes such as `schemaVersion` keep their current spelling.
+Attribute names are `snake_case` in every format — JSON, JSONC, YAML, and RON — so one document shape is valid everywhere. Pre-existing camelCase attributes such as `schemaVersion` keep their current spelling. RON uses string-keyed maps and string enum values; `()` represents an explicit null.
 
-The optional `auth` attribute uses the frozen `tenantId`, `clientId`, `defaultResource`, `sitePath`, `libraryPath`, and `itemPath` field names in every format. Named profiles retain declaration order across JSON, JSONC, and YAML, so the first profile is the default for future auth commands. Auth configuration is non-secret: place no password, client secret, access token, refresh token, or device code in ACRE. See the [synthetic SharePoint example](commands/sharepoint-intake.md#acre-configuration-contract) for profile and source fields. The schema and source matching are available now; CLI auth commands and profile resolution are implemented separately.
+The optional `auth` attribute uses the frozen `tenantId`, `clientId`, `defaultResource`, `sitePath`, `libraryPath`, and `itemPath` field names in every format. Named profiles retain declaration order across JSON, JSONC, YAML, and RON, so the first profile is the default for future auth commands. Auth configuration is non-secret: place no password, client secret, access token, refresh token, or device code in ACRE. See the [synthetic SharePoint example](commands/sharepoint-intake.md#acre-configuration-contract) for profile and source fields. The schema and source matching are available now; CLI auth commands and profile resolution are implemented separately.
 
 ### Example
 `.acorn.json` file
@@ -115,7 +115,7 @@ Run `acorn create runner` on the intended shell host with GitLab Runner installe
 > [!TIP]
 > `.jsonc` files permit `//` line comments, `/* block */` comments, and trailing commas. All other syntax follows standard JSON rules. Rename a `.json` file to `.jsonc` if you need comments.
 > [!TIP]
-> ACORN looks for `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, then `.acorn.yml` in the current working directory. You can also specify a different configuration file using the `--config <FILE>` flag when running ACORN commands.
+> ACORN looks for `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, `.acorn.yml`, then `.acorn.ron` in the current working directory. You can also specify a different configuration file using the `--config <FILE>` flag when running ACORN commands.
 
 Validate canonical filenames directly; ACORN detects ACRE from the exact filename:
 

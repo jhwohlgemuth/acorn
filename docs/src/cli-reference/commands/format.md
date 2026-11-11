@@ -30,15 +30,18 @@ acorn format path/to/project/index.json --enrich --dry-run
 # Format an ACRE configuration file while preserving comments and property order
 acorn format .acorn.jsonc --standard acre
 
+# Preview canonical RON formatting, including comment removal
+acorn format .acorn.ron --standard acre --dry-run
+
 # Canonicalize a Dublin Core graph while retaining Turtle syntax
 acorn format metadata.ttl --standard dcmi
 ```
 
 ## ACRE configuration
 
-Use `--standard acre` to format Application Configuration for Research Enablement files. JSON and JSONC use two-space indentation, LF line endings, and a final newline while retaining property order, comments, and existing trailing commas. YAML uses the same indentation and line-ending policy and retains comments. Formatting validates the file first and preserves an omitted `schemaVersion` field.
+Use `--standard acre` to format Application Configuration for Research Enablement files. JSON and JSONC use two-space indentation, LF line endings, and a final newline while retaining property order, comments, and existing trailing commas. YAML uses the same indentation and line-ending policy and retains comments. RON sorts map keys except ordered `auth.profiles`, uses two-space indentation, LF line endings, and a final newline; it removes comments and source layout. A dry run shows the exact rewrite without writing. Formatting validates the file first and preserves an omitted `schemaVersion` field.
 
-When the path is a directory, only `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, and `.acorn.yml` are selected. An explicit file may use any supported JSON, JSONC, YAML, or YML filename. ACRE formatting is side-effect free and rejects `--config`, `--enrich`, and `--provider`.
+When the path is a directory, only `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, `.acorn.yml`, and `.acorn.ron` are selected. An explicit file may use any supported JSON, JSONC, YAML, YML, or RON filename. ACRE formatting does not invoke configured workflows and rejects `--config`, `--enrich`, and `--provider`.
 
 ## Dublin Core
 

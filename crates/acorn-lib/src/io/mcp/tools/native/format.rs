@@ -591,7 +591,7 @@ impl ToolRegistry {
         })
     }
 }
-/// Validate and format ACRE content while retaining comments and trailing commas.
+/// Validate and format ACRE content, using canonical output for RON.
 pub fn format_acre(path: &Path, original: &str) -> ApiResult<String> {
     ApplicationConfiguration::read(path.to_path_buf())
         .and_then(|configuration| configuration.validate().map_err(|why| eyre!("Validate ACRE configuration — {why}")))
@@ -612,7 +612,8 @@ pub fn format_acre(path: &Path, original: &str) -> ApiResult<String> {
             | MimeType::Yaml => format_yaml(original, &FormatOptions::default())
                 .map(|content| if content.ends_with('\n') { content } else { format!("{content}\n") })
                 .map_err(|why| eyre!("Format ACRE YAML — {why}")),
-            | _ => Err(eyre!("ACRE formatting supports JSON, JSONC, YAML, and YML files")),
+            | MimeType::Ron => ApplicationConfiguration::format_ron(original),
+            | _ => Err(eyre!("ACRE formatting supports JSON, JSONC, YAML, YML, and RON files")),
         })
 }
 async fn format_metadata<T>(path: &Path, input: &FormatPreviewInput) -> ApiResult<(String, String, Vec<String>, Vec<String>, Vec<String>)>
@@ -703,7 +704,7 @@ fn selected_directory_format_file(path: &Path, standard: FormatStandard) -> bool
         | FormatStandard::ApplicationConfigurationResearchEnablement => path
             .file_name()
             .and_then(|name| name.to_str())
-            .is_some_and(|name| matches!(name, ".acorn.json" | ".acorn.jsonc" | ".acorn.yaml" | ".acorn.yml")),
+            .is_some_and(|name| matches!(name, ".acorn.json" | ".acorn.jsonc" | ".acorn.yaml" | ".acorn.yml" | ".acorn.ron")),
         | _ => {
             let ext = MimeType::from_path(path);
             ext.is_json() || ext.is_jsonc() || ext.is_markdown() || ext.is_pdf() || ext.is_yaml() || ext.is_zon()

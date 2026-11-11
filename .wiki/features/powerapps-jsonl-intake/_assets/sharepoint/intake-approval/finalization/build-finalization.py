@@ -248,8 +248,8 @@ def prepare_actions() -> dict:
     source_object = "json(" + source_text + ")"
     draft_text = "if(empty(item()?['DraftProjectionBase64A'])," + source_text + ",base64ToString(concat(item()?['DraftProjectionBase64A'],coalesce(item()?['DraftProjectionBase64B'],''))))"
     draft_object = "json(" + draft_text + ")"
-    canonical_draft = "if(equals(" + draft_object + "?['entry']?['summary']," + source_object + "?['entry']?['summary'])," + source_text + ",string(setProperty(" + source_object + ",'entry',setProperty(" + source_object + "?['entry'],'summary'," + draft_object + "?['entry']?['summary']))))"
-    invalid_draft = "@or(not(equals(item()?['SourceSubmissionId']," + source_object + "?['submissionId'])),not(equals(item()?['ProjectId']," + source_object + "?['projectId'])),and(not(empty(item()?['DraftProjectionBase64A'])),or(not(equals(" + draft_text + "," + canonical_draft + ")),less(length(trim(coalesce(" + draft_object + "?['entry']?['summary'],''))),1),greater(length(trim(coalesce(" + draft_object + "?['entry']?['summary'],''))),1200))))"
+    canonical_draft = "string(setProperty(" + source_object + ",'entry',setProperty(" + source_object + "?['entry'],'summary'," + draft_object + "?['entry']?['summary'])))"
+    invalid_draft = "@or(not(equals(item()?['SourceSubmissionId']," + source_object + "?['submissionId'])),not(equals(item()?['ProjectId']," + source_object + "?['projectId'])),and(not(empty(item()?['DraftProjectionBase64A'])),or(and(not(equals(" + draft_text + "," + source_text + ")),not(equals(" + draft_text + "," + canonical_draft + "))),less(length(trim(coalesce(" + draft_object + "?['entry']?['summary'],''))),1),greater(length(trim(coalesce(" + draft_object + "?['entry']?['summary'],''))),1200))))"
     invalid_item = (
         "@or("
         "not(equals(item()?['ValidationState']?['Value'],'Valid')),"
@@ -439,7 +439,7 @@ def finalization_row_actions() -> dict:
         "equals(" + row + "?['@odata.etag'],outputs('Manifest_row_PA37B')?['reviewETag'])",
         "equals(" + row + "?['Decision']?['Value'],if(equals(length(" + included + "),1),'Approve','Exclude'))",
         "or(equals(length(" + included + "),1),equals(coalesce(" + row + "?['DecisionReason'],''),coalesce(outputs('Manifest_row_PA37B')?['reason'],'')))",
-        "or(equals(length(" + excluded + "),1),equals(" + row + "?['ApprovedSubmissionId'],outputs('Manifest_row_PA37B')?['approvedSubmissionId']))",
+        "or(equals(length(" + excluded + "),1),or(equals(" + row + "?['ApprovedSubmissionId'],outputs('Manifest_row_PA37B')?['approvedSubmissionId']),and(empty(" + row + "?['ApprovedSubmissionId']),equals(outputs('Manifest_row_PA37B')?['approvedSubmissionId']," + row + "?['SourceSubmissionId']))))",
     ))
     path = "@concat('" + LIBRARY_PATH + "/Pending/',outputs('Batch_id_PA37B'),'/',outputs('Candidate_id_PA37B'),'/',string(" + row + "?['SourceItemId']),'.jsonl')"
     source_text = "base64ToString(concat(" + row + "?['SourcePayloadBase64A'],coalesce(" + row + "?['SourcePayloadBase64B'],'')))"

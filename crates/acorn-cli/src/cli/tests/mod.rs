@@ -145,7 +145,7 @@ fn test_check_format_argument() {
     ]
     .into_iter()
     .flat_map(|standard| {
-        ["cff", "json", "jsonc", "jsonld", "markdown", "rdfxml", "text", "turtle", "yaml"]
+        ["cff", "json", "jsonc", "jsonld", "markdown", "rdfxml", "ron", "text", "turtle", "yaml"]
             .into_iter()
             .map(move |format| (standard, format))
     })
@@ -1839,6 +1839,23 @@ fn test_resolve_paths_including_discovers_named_files() {
     assert!(resolved.contains(&json));
     assert!(resolved.contains(&kitfile));
     assert!(!resolved.contains(&text));
+}
+#[test]
+fn test_check_named_ron_discovery_does_not_expand_export() {
+    let root = temp_test_dir("resolve-acre-ron");
+    let _cleanup = TestCleanup::new(root.clone());
+    create_dir_all(&root).unwrap();
+    let canonical = root.join(".acorn.ron");
+    let other = root.join("other.ron");
+    write(&canonical, "{}\n").unwrap();
+    write(&other, "{}\n").unwrap();
+    let options = CommandOptions::init().build();
+    let check = block_on(resolve_paths_including(&Some(root.clone()), &options, &["Kitfile", ".acorn.ron"])).unwrap();
+    let export = block_on(resolve_export_paths(&Some(root), &options)).unwrap();
+    assert!(check.contains(&canonical));
+    assert!(!check.contains(&other));
+    assert!(!export.contains(&canonical));
+    assert!(!export.contains(&other));
 }
 #[test]
 fn test_routed_infer_contract_and_authority_flags() {

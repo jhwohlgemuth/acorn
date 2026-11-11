@@ -12,6 +12,42 @@ use std::fs::write;
 use std::path::PathBuf;
 use tempfile::tempdir;
 
+fn assert_big_o_json_diagnostic(name: &str, message: &str) {
+    let output = big_o_check(name, "json");
+    assert!(!output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let json = stdout.find('{').map(|start| &stdout[start..]).expect("JSON check envelope");
+    let report: Value = serde_json::from_str(json).expect("structured check output");
+    let checks = report["checks"].as_array().expect("check array");
+    assert_eq!(checks.len(), 1);
+    let check = &checks[0];
+    assert_eq!(check["record"], "check");
+    assert_eq!(check["category"], "schema");
+    assert_eq!(check["severity"], "error");
+    assert_eq!(check["success"], false);
+    assert_eq!(check["uri"], format!("{name}/index.json"));
+    assert_eq!(check["locator"], "aspect.computation[0].stages[0].complexity.bounds[0]");
+    assert_eq!(check["message"], message);
+}
+fn big_o_check(name: &str, output: &str) -> std::process::Output {
+    Command::cargo_bin("acorn")
+        .expect("ACORN binary")
+        .env("NO_COLOR", "1")
+        .env("CLICOLOR", "0")
+        .env("TERM", "dumb")
+        .env("ACORN_NO_LOCAL_DATABASE", "true")
+        .args([
+            "--offline",
+            "check",
+            &fixture(&format!("data/big_o/{name}")).to_string_lossy(),
+            "--skip",
+            "fair,link,prose,quality,readability",
+            "--output",
+            output,
+        ])
+        .output()
+        .expect("Big-O check output")
+}
 fn dcat_fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -33,42 +69,6 @@ fn fixture(name: &str) -> PathBuf {
         .join("tests")
         .join("fixtures")
         .join(name)
-}
-fn big_o_check(name: &str, output: &str) -> std::process::Output {
-    Command::cargo_bin("acorn")
-        .expect("ACORN binary")
-        .env("NO_COLOR", "1")
-        .env("CLICOLOR", "0")
-        .env("TERM", "dumb")
-        .env("ACORN_NO_LOCAL_DATABASE", "true")
-        .args([
-            "--offline",
-            "check",
-            &fixture(&format!("data/big_o/{name}")).to_string_lossy(),
-            "--skip",
-            "fair,link,prose,quality,readability",
-            "--output",
-            output,
-        ])
-        .output()
-        .expect("Big-O check output")
-}
-fn assert_big_o_json_diagnostic(name: &str, message: &str) {
-    let output = big_o_check(name, "json");
-    assert!(!output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let json = stdout.find('{').map(|start| &stdout[start..]).expect("JSON check envelope");
-    let report: Value = serde_json::from_str(json).expect("structured check output");
-    let checks = report["checks"].as_array().expect("check array");
-    assert_eq!(checks.len(), 1);
-    let check = &checks[0];
-    assert_eq!(check["record"], "check");
-    assert_eq!(check["category"], "schema");
-    assert_eq!(check["severity"], "error");
-    assert_eq!(check["success"], false);
-    assert_eq!(check["uri"], format!("{name}/index.json"));
-    assert_eq!(check["locator"], "aspect.computation[0].stages[0].complexity.bounds[0]");
-    assert_eq!(check["message"], message);
 }
 fn normalized_process(args: &[String]) -> String {
     let output = Command::cargo_bin("acorn")
@@ -111,6 +111,83 @@ fn normalized_process(args: &[String]) -> String {
         normalize(&output.stdout),
         normalize(&output.stderr)
     )
+}
+
+#[test]
+fn test_check_ron_acre_explicit_and_discovered() {
+    let directory = tempdir().expect("temporary directory");
+    let canonical = directory.path().join(".acorn.ron");
+    let unrelated = directory.path().join("other.ron");
+    write(&canonical, "{\"schemaVersion\": \"2.0.0\"}\n").expect("write ACRE RON");
+    write(&unrelated, "invalid RON").expect("write unrelated RON");
+    for (path, standard) in [(canonical.as_path(), None), (canonical.as_path(), Some("acre"))] {
+        let mut command = Command::cargo_bin("acorn").expect("ACORN binary");
+        command.env("ACORN_NO_LOCAL_DATABASE", "true").args([
+            "--offline",
+            "check",
+            &path.to_string_lossy(),
+            "--no-fail",
+            "--skip",
+            "link,prose,quality,readability",
+        ]);
+        if let Some(standard) = standard {
+            command.args(["--standard", standard]);
+        }
+        let output = command.output().expect("RON check output");
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    }
+    let output = Command::cargo_bin("acorn")
+        .expect("ACORN binary")
+        .env("ACORN_NO_LOCAL_DATABASE", "true")
+        .args([
+            "--offline",
+            "check",
+            &directory.path().to_string_lossy(),
+            "--no-fail",
+            "--skip",
+            "link,prose,quality,readability",
+        ])
+        .output()
+        .expect("directory check output");
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("other.ron"));
+    let filtered = Command::cargo_bin("acorn")
+        .expect("ACORN binary")
+        .env("ACORN_NO_LOCAL_DATABASE", "true")
+        .args([
+            "--offline",
+            "check",
+            &directory.path().to_string_lossy(),
+            "--filter",
+            r"\.acorn\.ron$",
+            "--no-fail",
+            "--skip",
+            "link,prose,quality,readability",
+        ])
+        .output()
+        .expect("filtered RON check output");
+    assert!(filtered.status.success(), "{}", String::from_utf8_lossy(&filtered.stderr));
+}
+#[test]
+fn test_check_ron_acre_stdin() {
+    let output = Command::cargo_bin("acorn")
+        .expect("ACORN binary")
+        .env("ACORN_NO_LOCAL_DATABASE", "true")
+        .args([
+            "--offline",
+            "check",
+            "--format",
+            "ron",
+            "--standard",
+            "acre",
+            "--no-fail",
+            "--skip",
+            "link,prose,quality,readability",
+        ])
+        .write_stdin("{\"schemaVersion\": \"2.0.0\"}\n")
+        .output()
+        .expect("stdin RON check output");
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
 }
 #[test]
 fn test_big_o_fixture_contract_in_human_and_json_modes() {

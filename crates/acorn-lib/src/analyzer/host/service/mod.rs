@@ -251,7 +251,7 @@ impl StandardHostExt for Standard {
     fn from_path(path: &Path) -> Self {
         let file_name = path.file_name().and_then(|value| value.to_str());
         let mime = MimeType::from_path(path);
-        if file_name.is_some_and(|value| matches!(value, ".acorn.json" | ".acorn.jsonc" | ".acorn.yaml" | ".acorn.yml")) {
+        if file_name.is_some_and(|value| matches!(value, ".acorn.json" | ".acorn.jsonc" | ".acorn.yaml" | ".acorn.yml" | ".acorn.ron")) {
             Self::ApplicationConfigurationResearchEnablement
         } else if file_name == Some("Kitfile") {
             Self::Kitfile

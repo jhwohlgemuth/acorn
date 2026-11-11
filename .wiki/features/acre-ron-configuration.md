@@ -28,15 +28,15 @@ The intended authoring form is a RON map:
 
 # Current evidence
 
-RON-01 and RON-02 were implemented on 2026-11-01 against `59d73ffa` and the current worktree. Existing IID edits and the separate acornd planning changes remain outside this implementation's ownership.
+RON-01 through RON-05 are implemented. RON-06 documentation and RON-specific checks are complete, but portfolio retirement waits for the workspace security audit gate. Unrelated Power Platform wiki edits remain outside this implementation's ownership.
 
 - RON 0.12.2 is pinned as an optional `acorn-lib` dependency enabled only by `analysis`. Feature-tree checks keep it absent from default, no-default, `mcp-client`, and `acp` selections. [`MimeType::Ron`](../../crates/acorn-core/src/util/alloc/mod.rs) maps `.ron` to the ACORN-convention label `application/ron` without joining repository-file allowlists.
 - [`ApplicationConfiguration::parse_ron`](../../crates/acorn-lib/src/io/config/application.rs) and `to_ron` use a private string-keyed data-tree adapter. The corpus covers every top-level ACRE section, aliases, defaulting, `OneOrMany`, tagged MCP transports, workflow/script values, explicit null, nested duplicates, numeric loss, schema paths, trailing content, recursion limits, canonical output, and typed round trips under `analysis` and `analysis,exec`.
-- [`ApplicationConfiguration`](../../crates/acorn-lib/src/io/config/application.rs) still routes extension-based reads/writes, discovery, `render`, model-update previews, and `DocumentCodec` through JSON, JSONC, or YAML only. RON-03 owns those library lifecycle connections.
-- [`DEFAULT_CONFIG_FILENAMES`](../../crates/acorn-lib/src/util/constants/app.rs) orders `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, and `.acorn.yml`. Configuration tests explicitly pin that list and its precedence.
-- [`StandardHostExt::from_path`](../../crates/acorn-lib/src/analyzer/host/service/mod.rs) recognizes the same four exact ACRE names. Custom filenames require an explicit standard. ACRE uses schema checks without prose, link, or crosswalk analysis.
-- [`parse_check_format`](../../crates/acorn-cli/src/cli/parse.rs) lacks `ron`. CLI path discovery shares an extension list with other commands, including export, so globally adding RON there would broaden unrelated input discovery.
-- [`format/acre.rs`](../../crates/acorn-cli/src/commands/format/acre.rs) has its own canonical-name list and uses source-preserving JSON/YAML formatters. [`ACRE_SPEC.md`](../../ACRE_SPEC.md) and the book currently document only the three existing formats.
+- [`ApplicationConfiguration`](../../crates/acorn-lib/src/io/config/application.rs) now routes extension-based reads/writes, rendering, model-update previews, and `DocumentCodec` through the RON adapter. RON lifecycle tests cover dry-run and write behavior, codec round trips, precedence, and explicit failures.
+- [`DEFAULT_CONFIG_FILENAMES`](../../crates/acorn-lib/src/util/constants/app.rs) appends `.acorn.ron` after the existing four names. [`StandardHostExt::from_path`](../../crates/acorn-lib/src/analyzer/host/service/mod.rs) recognizes that exact name; custom filenames require an explicit standard.
+- [`parse_check_format`](../../crates/acorn-cli/src/cli/parse.rs) accepts `ron` for piped or clipboard check input. Check-specific discovery accepts `.acorn.ron` without adding all RON files to shared export discovery. CLI parser and check integration tests pass.
+- [`format/acre.rs`](../../crates/acorn-cli/src/commands/format/acre.rs) selects canonical `.acorn.ron` files and formats explicit RON through the validated data tree. RON formatting removes comments and preserves omitted fields. The formatter suite and RON library suite pass; [`ACRE_SPEC.md`](../../ACRE_SPEC.md) and the book now document the behavior.
+- The adapter preserves `auth.profiles` declaration order through typed loading, formatting, and writing; a regression fixture starts with `zeta` before `alpha`. The final `make test` run passed 3,032 tests with 18 skipped; read-only all-features Clippy, `cargo fmt --check`, `make check-portable` (including WASM package and tests), and `mdbook build docs` passed. `make audit` completed dependency-usage analysis but failed on 38 advisory findings in the unchanged workspace lockfile. That repository-wide security gate remains outside the RON write set.
 - RON 0.12.2 documents comments, trailing commas, and map syntax, but limits tagged/untagged/flattened Serde representations and does not guarantee arbitrary round trips through `ron::Value`. This supports using an ACRE data adapter instead of changing shared schema types. [RON documentation](https://docs.rs/ron/0.12.2/ron/#limitations)
 
 # Decisions and boundaries
@@ -52,7 +52,7 @@ RON-01 and RON-02 were implemented on 2026-11-01 against `59d73ffa` and the curr
 
 # Dependencies and ownership
 
-There is no prerequisite implementation plan. RON-01 and RON-02 are landed; RON-03 through RON-06 land in order. Claim the exact files for the active phase before starting; no phase authorizes edits to adjacent subsystems.
+There is no prerequisite implementation plan. RON-01 through RON-05 and the RON-06 documentation are landed. RON-06 remains blocked on the repository security audit gate before portfolio retirement. No phase authorizes edits to adjacent subsystems.
 
 - Serialize manifest changes with every workspace-graph owner, including core format changes that touch `acorn-core/src/util/`.
 - Serialize ACRE roots with [shared API configuration](../refactors/api/shared-client-contract.md), model configuration, and other active configuration work. These are ownership constraints, not dependencies on those plans finishing.
@@ -74,46 +74,13 @@ There is no prerequisite implementation plan. RON-01 and RON-02 are landed; RON-
 
 # Execution phases
 
-## RON-03 — Complete configuration loading and persistence
+## RON-06 — Retire after the security audit gate
 
-- Status: ready
+- Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: API/config root files available for exclusive edits.
-- Exact write set: `crates/acorn-lib/src/io/config/application.rs`, `crates/acorn-lib/src/util/constants/app.rs`, `crates/acorn-lib/src/io/config/tests/mod.rs`, `crates/acorn-lib/src/io/config/tests/ron.rs`.
-- Primary integration lock: API/config roots
-- Outcome: Append the canonical name, route extension-based reads/writes, codec operations and preview rendering through the adapter, and preserve model-update and load-with-path behavior. Library consumers can use RON without CLI discovery changes.
-- Focused validation: `cargo test -p acorn-lib --features analysis io::config`; cover every discovery precedence pair, explicit-file failures, config-relative paths, load/load-with-path, source selection, read/write, and model-update dry-run/write parity using local fixtures.
-- Handoff: Freeze the loader/writer contract and preserve existing JSONC comment behavior; RON-04 can expose it through check commands.
-
-## RON-04 — Add check input and canonical-file discovery
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: RON-03; CLI/check files available for exclusive integration.
-- Exact write set: `crates/acorn-lib/src/analyzer/host/service/mod.rs`, `crates/acorn-lib/src/analyzer/host/service/tests/mod.rs`, `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/cli/parse.rs`, `crates/acorn-cli/src/cli/tests/mod.rs`, `crates/acorn-cli/src/commands/check/mod.rs`, `crates/acorn-cli/tests/check.rs`, `CommandLineHelp.md`.
-- Primary integration lock: CLI contract
-- Outcome: Recognize the exact `.acorn.ron` name, add explicit `--format ron`, and preserve standard selection and offline schema-only behavior. Extend check-specific path selection without adding all RON files to shared export discovery. Update config/check help in the same phase.
-- Focused validation: `cargo test -p acorn-lib --features analysis analyzer::host::service`; `cargo test -p acorn-cli --lib cli::tests`; `cargo test -p acorn-cli --test check`; verify stdin, explicit file, mixed directory, filters, and git-selected inputs plus unchanged non-ACRE discovery; `make help`.
-- Handoff: Record accepted command behavior and release parser/help ownership before formatter integration.
-
-## RON-05 — Add canonical ACRE RON formatting
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: RON-04.
-- Exact write set: `crates/acorn-lib/src/io/config/application.rs`, `crates/acorn-lib/src/io/config/ron.rs`, `crates/acorn-lib/src/io/config/tests/ron.rs`, `crates/acorn-cli/src/commands/format/acre.rs`, `crates/acorn-cli/src/commands/format/tests/mod.rs`, `docs/src/cli-reference/commands/format.md`.
-- Primary integration lock: CLI contract
-- Outcome: Format explicit RON files and canonical directory entries through the validated data tree. Use the existing diff/write machinery, preserve omissions and semantic values, and document canonicalization and comment removal when the behavior becomes available.
-- Focused validation: `cargo test -p acorn-cli --lib commands::format`; RON codec tests; assert idempotence, semantic equality, unchanged omitted version, exact dry-run/no-write behavior, invalid-input preservation, and retained JSONC/YAML comments.
-- Handoff: Preserve formatting examples and guarantees in command documentation; RON-06 can close cross-surface acceptance.
-
-## RON-06 — Document, verify, and retire
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: RON-05; other implementations stable for serialized workspace gates.
-- Exact write set: `ACRE_SPEC.md`, `README.md`, `docs/src/concepts/acre.md`, `docs/src/concepts/standards.md`, `docs/src/cli-reference/configuration.md`, `docs/src/cli-reference/commands/check.md`, `docs/src/cli-reference/commands/format.md`, `.wiki/features/acre-ron-configuration.md`, `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`.
+- Prerequisites: `make audit` passes; its current run reports 38 vulnerabilities from the unchanged workspace lockfile.
+- Exact write set: `.wiki/features/acre-ron-configuration.md`, `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`.
 - Primary integration lock: Documentation generation
-- Outcome: Publish the RON mapping contract, examples, discovery order, explicit selection, diagnostics, and formatting limits. Run final gates without expanding implementation scope, then retire the plan.
-- Focused validation: `make lint`, `make test`, `make check-portable`, `make check-wasm`, `make audit`, `mdbook build docs`; repeat feature-tree checks from RON-01; verify documented examples against fixtures and run `python3 .agents/skills/planning/scripts/validate_wiki.py .`. Record any pre-existing gate failure separately from RON regressions.
-- Handoff: Keep durable behavior in tests and documentation; delete this plan and its index/network/lane entries after every acceptance criterion passes.
+- Outcome: Retire the plan after the repository audit passes without changing the accepted RON contract.
+- Focused validation: Run `make audit` after dependency remediation, then validate the wiki and inspect the retirement diff.
+- Handoff: Keep durable behavior in tests and documentation; delete this plan and its index/network/lane entries after the remaining gate passes.

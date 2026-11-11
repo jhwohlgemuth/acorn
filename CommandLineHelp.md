@@ -204,7 +204,7 @@ Perform static analysis on research activity data and apply standardized best pr
    Only files matching at least one pattern will be processed
 * `--format <FORMAT>` — Force the file format used for standard input or clipboard text
 
-   Supported formats: cff, json, jsonc, jsonld, markdown, rdfxml, text, turtle, yaml, zon
+   Supported formats: cff, json, jsonc, jsonld, markdown, rdfxml, ron, text, turtle, yaml, zon
 * `--fuzzy <MODE>` — Controlled-vocabulary fuzzy matching profile used by prose checks
 
   Default value: `relaxed`
@@ -595,7 +595,7 @@ Download research activity data from buckets or model weights for local inferenc
     $> acorn download https://github.com/user/repo --output ./content --clobber
 
     Download using default configuration in current directory (first match):
-    .acorn.json, .acorn.jsonc, .acorn.yaml, .acorn.yml
+    .acorn.json, .acorn.jsonc, .acorn.yaml, .acorn.yml, .acorn.ron
     $> acorn download
 
     Download default GGUF (Q4_K_M) model from a Hugging Face repository

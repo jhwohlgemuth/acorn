@@ -169,12 +169,13 @@ pub(crate) fn parse_check_format(s: &str) -> Result<MimeType, String> {
         | "json-ld" | "jsonld" => Ok(MimeType::LdJson),
         | "markdown" | "md" => Ok(MimeType::Markdown),
         | "rdf-xml" | "rdfxml" => Ok(MimeType::RdfXml),
+        | "ron" => Ok(MimeType::Ron),
         | "text" | "txt" => Ok(MimeType::Text),
         | "ttl" | "turtle" => Ok(MimeType::Turtle),
         | "yaml" | "yml" => Ok(MimeType::Yaml),
         | "zon" | "zonf" => Ok(MimeType::Zon),
         | _ => Err(format!(
-            "unknown check format '{s}' — expected one of: cff, json, jsonc, jsonld, markdown, rdfxml, text, turtle, yaml, zon"
+            "unknown check format '{s}' — expected one of: cff, json, jsonc, jsonld, markdown, rdfxml, ron, text, turtle, yaml, zon"
         )),
     }
 }

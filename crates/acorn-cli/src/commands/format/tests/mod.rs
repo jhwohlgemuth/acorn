@@ -178,9 +178,13 @@ async fn test_format_acre_directory_only_formats_canonical_names() -> Result<()>
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let canonical = temp_dir.join(".acorn.json");
     let custom = temp_dir.join("custom.json");
+    let canonical_ron = temp_dir.join(".acorn.ron");
+    let custom_ron = temp_dir.join("custom.ron");
     let content = "{\"schemaVersion\":\"2.0.0\"}";
     fs::write(&canonical, content)?;
     fs::write(&custom, content)?;
+    fs::write(&canonical_ron, "// removed\n{\"models\":[\"acme/example\"]}")?;
+    fs::write(&custom_ron, "// retained\n{}")?;
     let result = run(
         &None,
         false,
@@ -201,6 +205,48 @@ async fn test_format_acre_directory_only_formats_canonical_names() -> Result<()>
     assert!(result.is_ok(), "ACRE directory formatting should succeed: {result:?}");
     assert_eq!(fs::read_to_string(custom)?, content);
     assert_eq!(fs::read_to_string(canonical)?, "{ \"schemaVersion\": \"2.0.0\" }\n");
+    let formatted_ron = fs::read_to_string(canonical_ron)?;
+    assert!(!formatted_ron.contains("removed"));
+    assert!(!formatted_ron.contains("schemaVersion"));
+    assert!(formatted_ron.ends_with('\n'));
+    assert_eq!(fs::read_to_string(custom_ron)?, "// retained\n{}");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_format_acre_ron_dry_run_write_and_invalid_preservation() -> Result<()> {
+    let temp_dir = temp_test_dir("format_acre_ron");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let path = temp_dir.join("custom.ron");
+    let source = "// removed on write\n{\"models\":[\"acme/example\"]}";
+    fs::write(&path, source)?;
+    let options = |dry_run| {
+        CommandOptions::init()
+            .maybe_path(Some(path.clone()))
+            .dry_run(dry_run)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(true)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build()
+    };
+    run(&None, false, &[], Standard::ApplicationConfigurationResearchEnablement, &options(true)).await?;
+    assert_eq!(fs::read_to_string(&path)?, source);
+    run(&None, false, &[], Standard::ApplicationConfigurationResearchEnablement, &options(false)).await?;
+    let formatted = fs::read_to_string(&path)?;
+    assert!(!formatted.contains("removed on write"));
+    assert!(!formatted.contains("schemaVersion"));
+    run(&None, false, &[], Standard::ApplicationConfigurationResearchEnablement, &options(false)).await?;
+    assert_eq!(fs::read_to_string(&path)?, formatted);
+    fs::write(&path, "{\"models\":[}")?;
+    assert!(
+        run(&None, false, &[], Standard::ApplicationConfigurationResearchEnablement, &options(false))
+            .await
+            .is_err()
+    );
+    assert_eq!(fs::read_to_string(&path)?, "{\"models\":[}");
     Ok(())
 }
 #[tokio::test]

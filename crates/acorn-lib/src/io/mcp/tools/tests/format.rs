@@ -51,6 +51,8 @@ async fn test_format_directory_matches_cli_selection() {
         include_str!("../../../../../../../tests/fixtures/config/basic.jsonc"),
     )
     .expect("ACRE fixture");
+    fs::write(root.path().join(".acorn.ron"), "// removed\n{\"models\":[\"acme/example\"]}").expect("RON fixture");
+    fs::write(root.path().join("custom.ron"), "{}").expect("noncanonical RON fixture");
     fs::write(
         root.path().join("CITATION.cff"),
         include_str!("../../../../../../../tests/fixtures/CITATION.cff"),
@@ -66,8 +68,12 @@ async fn test_format_directory_matches_cli_selection() {
     .preview(root.path(), true)
     .await
     .expect("ACRE directory preview");
-    assert_eq!(preview.changes.len(), 1);
-    assert!(preview.changes.first().is_some_and(|change| change.source.ends_with(".acorn.jsonc")));
+    assert_eq!(preview.changes.len(), 2);
+    assert!(preview.changes.iter().any(|change| change.source.ends_with(".acorn.jsonc")));
+    assert!(preview
+        .changes
+        .iter()
+        .any(|change| change.source.ends_with(".acorn.ron") && !change.content.contains("removed")));
     assert!(preview.failures.is_empty());
 }
 #[tokio::test]
@@ -75,6 +81,38 @@ async fn test_format_enrichment_is_unavailable_offline() {
     let root = tempdir().expect("temporary root");
     let input = FormatPreviewInput { enrich: true, ..cff_input() };
     assert!(input.preview(root.path(), true).await.is_err());
+}
+#[tokio::test]
+async fn test_format_explicit_ron_preview_and_apply() {
+    let root = tempdir().expect("temporary root");
+    let source = "// removed\n{\"models\":[\"acme/example\"]}";
+    fs::write(root.path().join("custom.ron"), source).expect("RON fixture");
+    let input = FormatPreviewInput {
+        input: InputReference::File(PathBuf::from("custom.ron")),
+        standard: FormatStandard::ApplicationConfigurationResearchEnablement,
+        enrich: false,
+        providers: Vec::new(),
+        fuzzy: VocabularyFuzzyMode::Strict,
+    };
+    let preview = input.clone().preview(root.path(), true).await.expect("RON preview");
+    assert_eq!(preview.changes.len(), 1, "RON preview changes: {:?}", preview.changes);
+    let change = preview.changes.first().expect("one RON change");
+    assert_eq!(change.original, source);
+    assert!(!change.diff.is_empty());
+    assert!(!change.content.contains("removed"));
+    assert!(change.content.ends_with('\n'));
+    assert_eq!(fs::read_to_string(root.path().join("custom.ron")).expect("source"), source);
+    let applied = FormatApplyInput {
+        input,
+        destination: PathBuf::from("formatted.ron"),
+        overwrite: false,
+    }
+    .apply(root.path(), true)
+    .await
+    .expect("RON apply");
+    assert!(applied.applied);
+    assert_eq!(fs::read_to_string(applied.destination).expect("formatted RON"), change.content);
+    assert_eq!(fs::read_to_string(root.path().join("custom.ron")).expect("source"), source);
 }
 #[tokio::test]
 async fn test_format_invalid_input_never_writes() {

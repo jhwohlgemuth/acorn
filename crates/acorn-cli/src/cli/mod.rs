@@ -133,7 +133,7 @@ pub enum Commands {
     ///     $> acorn download https://github.com/user/repo --output ./content --clobber
     ///
     ///     Download using default configuration in current directory (first match):
-    ///     .acorn.json, .acorn.jsonc, .acorn.yaml, .acorn.yml
+    ///     .acorn.json, .acorn.jsonc, .acorn.yaml, .acorn.yml, .acorn.ron
     ///     $> acorn download
     ///
     ///     Download default GGUF (Q4_K_M) model from a Hugging Face repository

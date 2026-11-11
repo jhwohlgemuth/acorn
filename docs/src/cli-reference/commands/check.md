@@ -33,6 +33,9 @@ acorn check oci://registry.example.org/models/qwen:latest
 # Validate canonical or custom ACRE configuration
 acorn check path/to/project/.acorn.jsonc
 acorn check path/to/project/settings.yaml --standard acre
+acorn check path/to/project/.acorn.ron
+acorn check path/to/project/settings.ron --standard acre
+printf '{"schemaVersion":"2.0.0"}' | acorn check --format ron --standard acre
 
 # Check prose, readability, and links extracted from a PDF
 acorn check path/to/report.pdf

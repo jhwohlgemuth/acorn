@@ -4,7 +4,7 @@ Application Configuration for Research Enablement (ACRE) is ACORN's versioned co
 
 ## Use an ACRE file
 
-Create `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, or `.acorn.yml` in the project directory. ACORN checks those names in that order. New files should declare schema version `2.0.0`:
+Create `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, `.acorn.yml`, or `.acorn.ron` in the project directory. ACORN checks those names in that order. New files should declare schema version `2.0.0`:
 
 ```yaml
 schemaVersion: 2.0.0
@@ -24,6 +24,8 @@ acorn export --schema --standard acre
 ```
 
 Canonical filenames are detected automatically by `acorn check`. For a custom filename or piped input, add `--standard acre`.
+
+RON uses string-keyed maps and the same ACRE names and string enum values. For example, `.acorn.ron` may contain `{"schemaVersion": "2.0.0", "models": ["acme/example"]}`. Use `--format ron --standard acre` for piped input. RON formatting produces stable map order and removes comments; preview the exact rewrite with `--dry-run`.
 
 ## Attributes
 

@@ -6,7 +6,7 @@ difficulty: high
 impact: critical
 package: [power-platform, sharepoint, workspace]
 tags: [powerapps, powerautomate, acceptance, deployment, rollback, pdf]
-status: in-progress
+status: planned
 execution: phased
 phase_budget_hours: 5
 ---
@@ -79,7 +79,7 @@ Rollback disables approval finalization/publication triggers and preserves the l
 
 # Acceptance criteria
 
-- Every release-matrix case passes with exact run IDs, revisions, bytes/digests, screenshots, PDF, and authorization evidence.
+- PA-40 technical acceptance preserves exact run IDs, revisions, bytes/digests, and PDF evidence. The owner allowed one-account authorization evidence to remain unverified and accepted the controlled source-change guard plus a post-write failure proxy for PA-40 only. Full release still requires denied-role, unchanged-window late-arrival, and connector-level lost-response service checks before operational cutover.
 - Both apps use one accepted component revision and pass usability gates. Further accessibility work is deferred by user direction.
 - Actual PDF comparison has no semantic mismatch.
 - Operational baseline and rollback artifacts are complete before activation.
@@ -90,41 +90,19 @@ Rollback disables approval finalization/publication triggers and preserves the l
 
 # Current PA-40 evidence and boundaries
 
-The [November 10 end-to-end checkpoint](../_assets/sharepoint/intake-approval/acceptance/end-to-end.md) verifies contributor project, General, and same-batch correction receipts through the isolated PA31 source and materializer. The saved, unpublished reviewer WYSIWYG canvas reads live Ready-batch rows and saves decisions through the optimistic-concurrency flow. Clean project/General and same-batch correction batches were each prepared, finalized, exported with exact frozen bytes, staged and applied locally, and compared against three-page PDFs. The correction revision names its newly approved root ID; the local report shows only the effective revised wording. The correction root was approved without an intentional edit, but its reviewer-saved draft differed at the byte level, so the finalizer issued a new UUID under the accepted identity contract; unchanged activity remains unverified. The TEST ONLY preparation/finalizer definitions now trust PA31; the finalizer includes the LF-aware 10 MiB condition. An ETag-stale reviewer save was rejected; after reloading and comparing the server row, the retry saved with exact reread. The first project/General batch retained a stale high-water field after zero-row recovery and must not be finalized. Live status, the remaining release matrix, and durable live-report captures remain open. The user directed that the unauthorized-role denial check use no second account and be recorded as unverified. PA-40 therefore remains blocked under its current criterion.
+The [November 10 end-to-end acceptance](../_assets/sharepoint/intake-approval/acceptance/end-to-end.md) verifies contributor project, General, same-batch correction, prior-batch correction, unchanged approval/exclusion, and live project status through the isolated PA31 source, materializer, connected review, approved freeze/export, and local combined PDF. Corrections name newly approved root IDs; local reports show only effective revised wording. Unchanged project bytes and UUID survived freeze, while an excluded General item remained only in the audit manifest. The TEST ONLY preparation/finalizer definitions trust PA31; the finalizer includes the LF-aware 10 MiB condition. An ETag-stale reviewer save was rejected, then recovered by reload and exact reread. The published TEST ONLY contributor version 17 and saved unpublished reviewer app carried status item 18 through a four-page PDF; durable desktop/375-pixel captures preserve the live reviewer state. A controlled source-interval change was rejected before writes; the owner accepted that service result with the full-window/high-water guard as the PA-40 late-source substitute. A TEST ONLY exporter run passed the post-write failure proxy: exact reread and receipt succeeded, and collected bytes remained unchanged. The original exporter was restored by native package import; a fresh export matches the pre-fault action graph, trigger, and connection reference exactly. The final [accepted JSONL](../_assets/sharepoint/intake-approval/acceptance/accepted.jsonl) has 11 lines and 5,434 bytes, and the [accepted PDF](../_assets/sharepoint/intake-approval/acceptance/accepted.pdf) has four pages. Materializer, preparation, finalizer, and exporter remain Off. A true unchanged-window late arrival, connector-level lost response, and denied-role checks remain PA-41 gates. The first project/General batch retained a stale high-water field after zero-row recovery and must not be finalized.
 
 # Dependencies and boundaries
 
-PA-40 requires accepted PA-37B and PA-40S, [PA-38B TEST ONLY export acceptance](../_assets/sharepoint/intake-approval/exporter/failure-acceptance.md), the [accepted cross-app experience](../_assets/sharepoint/intake-approval/acceptance/cross-app-ui.md), and the PA-40V integration repair below. The unauthorized-role row additionally requires a distinct denied identity or an explicit revision of the release criterion; it cannot be marked passed with the owner account. PA-41 requires PA-40A plus explicit operational authorization. This plan does not authorize wider shared-environment migration; PA-12 remains separate. Direct OAuth/CI download and Vergil automation are not release prerequisites.
+PA-40 technical acceptance used accepted PA-37B, PA-40S, [PA-38B TEST ONLY export acceptance](../_assets/sharepoint/intake-approval/exporter/failure-acceptance.md), and the [accepted cross-app experience](../_assets/sharepoint/intake-approval/acceptance/cross-app-ui.md). Its one-account and fault-substitution exceptions do not carry into PA-41 operational cutover. PA-41 requires PA-40A plus explicit operational authorization, denied-role evidence, and the true late-arrival and connector-level lost-response checks. This plan does not authorize wider shared-environment migration; PA-12 remains separate. Direct OAuth/CI download and Vergil automation are not release prerequisites.
 
 # Execution phases
 
-## PA-40V — Bind the report canvas to live review decisions
-
-- Status: in-progress
-- Budget: 5 active hours maximum
-- Prerequisites: accepted [source-binding evidence](../_assets/sharepoint/intake-approval/acceptance/end-to-end.md) and [optimistic-concurrency save evidence](../_assets/sharepoint/intake-approval/finalization/save-acceptance.md)
-- Exact write set: saved, unpublished `[PROTOTYPE] Intake Approval` TEST ONLY app, its TEST ONLY review read/save flow bindings, and `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/end-to-end.md`
-- Primary integration lock: Power Platform reviewer authoring
-- Outcome: The report canvas previews and edits live Ready-batch rows, and its decisions use the accepted optimistic-concurrency save path.
-- Focused validation: Live source comparison, edited activity, status and General placement, excluded reason/visibility, saved ETag/version, stale-writer recovery, and desktop/375-pixel report captures; retain the local UI fixture separately.
-- Handoff: Preserve app/flow revisions and exact decision evidence before PA-40 resumes.
-
-## PA-40 — Accept functional end-to-end report authoring
+## PA-40A — Accept usability and WYSIWYG fidelity
 
 - Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: accepted [source-binding evidence](../_assets/sharepoint/intake-approval/acceptance/end-to-end.md) and PA-40V; accepted [TEST ONLY finalization evidence](../_assets/sharepoint/intake-approval/finalization/finalization-acceptance.md); accepted [TEST ONLY export evidence](../_assets/sharepoint/intake-approval/exporter/failure-acceptance.md); [accepted cross-app experience](../_assets/sharepoint/intake-approval/acceptance/cross-app-ui.md); named test contributor and reviewer; isolated ACORN workspace; distinct denied-role identity or explicit criterion revision
-- Exact write set: TEST ONLY approval/intake apps, lists, flows, component library, and export library; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/end-to-end.md`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/accepted.jsonl`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/accepted.pdf`
-- Primary integration lock: Power Platform intake acceptance
-- Outcome: Execute the release matrix through submission, materialization, review, finalization, approved export, local intake, and combined PDF without production changes.
-- Focused validation: Exact IDs/bytes/digests/counts; unauthorized roles; replay; stale ETag; late source; correction mapping; exclusion; uncertain write; local stage/inspect/apply; PDF text/order/visibility comparison.
-- Handoff: Preserve complete technical evidence and defects. Semantic mismatch or unsafe recovery blocks PA-40A.
-
-## PA-40A — Accept usability and WYSIWYG fidelity
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: PA-40; approved uncoached contributor and reviewer participants
+- Prerequisites: [accepted isolated technical chain](../_assets/sharepoint/intake-approval/acceptance/end-to-end.md); approved uncoached contributor and reviewer participants. The [November 11 automated checkpoint](../_assets/sharepoint/intake-approval/acceptance/usability.md) records App Checker, published-player correction navigation, and current desktop/tablet/375-pixel visual captures, but the owner deferred the contributor walkthrough. Exact Approved-batch canvas-to-PDF comparison remains unverified.
 - Exact write set: TEST ONLY apps `[PROTOTYPE] Intake Approval` and `Sponsor Highlights Intake UI TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/usability.md`; `.wiki/features/powerapps-jsonl-intake/pilot-runbook.md`
 - Primary integration lock: Power Platform user acceptance
 - Outcome: Accept both primary user journeys, cross-app consistency, and preview-to-PDF expectations with no material coaching or semantic discrepancy. Further accessibility features and checks remain deferred by user direction.
@@ -135,7 +113,7 @@ PA-40 requires accepted PA-37B and PA-40S, [PA-38B TEST ONLY export acceptance](
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: PA-40A accepted; explicit owner authorization; named operational reviewer/finalizer/contributor groups; fresh capacity/licensing/DLP check; scheduled change window
+- Prerequisites: PA-40A accepted; denied-role, unchanged-window late-arrival, and connector-level lost-response evidence; explicit owner authorization; named operational reviewer/finalizer/contributor groups; fresh capacity/licensing/DLP check; scheduled change window
 - Exact write set: operational apps `Intake Approval` and `Sponsor Highlights Intake`; operational review lists/library and approval flows; operational collected exporter; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/cutover/backup-manifest.json`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/cutover/baseline.json`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/cutover/rollback.md`
 - Primary integration lock: Power Platform deployment
 - Outcome: Capture recoverable native backups and exact baseline, deploy least-privilege review systems and consistent apps, disable the old exporter, and activate approval-gated publication.

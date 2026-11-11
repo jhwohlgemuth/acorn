@@ -10,14 +10,15 @@ acorn export --schema --standard acre
 
 ## Files and discovery
 
-ACRE supports JSON, JSON with Comments (JSONC), and YAML. ACORN discovers the first canonical file in the current directory in this order:
+ACRE supports JSON, JSON with Comments (JSONC), YAML, and RON. ACORN discovers the first canonical file in the current directory in this order:
 
 1. `.acorn.json`
 2. `.acorn.jsonc`
 3. `.acorn.yaml`
 4. `.acorn.yml`
+5. `.acorn.ron`
 
-Use `--config <FILE>` with commands that consume a non-canonical filename. JSONC permits line comments, block comments, and trailing commas. Property names are case-sensitive.
+Use `--config <FILE>` with commands that consume a non-canonical filename. JSONC permits line comments, block comments, and trailing commas. RON uses string-keyed maps with the same field names and string enum values as JSON; it permits comments and trailing commas, and `()` represents an explicit null. Named Rust structs and enum constructors are outside this ACRE representation. Property names are case-sensitive.
 
 An ACRE document is a single object. Every top-level attribute is optional, and omitted attributes have no effect. New files should set `schemaVersion` explicitly; an omitted version resolves to `2.0.0`. Unknown top-level attributes and unsupported explicit schema versions are rejected.
 
@@ -61,6 +62,17 @@ acorn export --schema --standard acre
 ```
 
 Use `--standard acre` with `acorn check` when the input has a non-canonical filename or comes from standard input.
+
+Equivalent RON can be authored as a map:
+
+```ron
+{
+  "schemaVersion": "2.0.0",
+  "models": ["acme/example"],
+}
+```
+
+Save this as `.acorn.ron` or select a custom `.ron` file explicitly. For piped input, use `acorn check --format ron --standard acre`. RON syntax errors report a source position; typed ACRE errors report field paths. `acorn format .acorn.ron --standard acre --dry-run` previews canonical output. A write removes comments and source layout, sorts map keys except ordered `auth.profiles`, uses two-space indentation and LF, and ends with a newline. Omitted fields stay omitted. JSONC and YAML retain their existing comment-preserving formatting behavior. RON is ACRE-only: RAD, crosswalks, schema export, and check reports do not gain RON output.
 
 ## Folder-to-bucket association
 

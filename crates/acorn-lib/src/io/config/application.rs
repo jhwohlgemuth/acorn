@@ -927,9 +927,19 @@ impl ApplicationConfiguration {
     /// Output uses string-keyed maps, two-space indentation, LF newlines, stable key ordering, and one final newline.
     /// Comments and source layout are not retained.
     pub fn to_ron(&self) -> ApiResult<String> {
-        serde_json::to_value(self)
+        serde_json::to_string(self)
             .map_err(|why| eyre!("Failed to adapt ACRE configuration to RON — {why}"))
-            .and_then(|value| ron::serialize(&value).map_err(|why| eyre!("Failed to serialize ACRE RON configuration — {why}")))
+            .and_then(|json| serde_json::from_str::<ron::DataValue>(&json).map_err(|why| eyre!("Failed to adapt ACRE configuration to RON — {why}")))
+            .and_then(|value| ron::serialize(&value.canonicalize("")).map_err(|why| eyre!("Failed to serialize ACRE RON configuration — {why}")))
+    }
+    /// Validate and canonically format a RON data map without adding omitted ACRE fields.
+    ///
+    /// Comments and source layout are removed from the result.
+    pub fn format_ron(content: &str) -> ApiResult<String> {
+        Self::parse_ron(content)
+            .and_then(|configuration| configuration.validate().map_err(|why| eyre!("Validate ACRE configuration — {why}")))
+            .and_then(|()| ron::parse(content).map_err(|why| eyre!("Failed to parse ACRE RON configuration — {why}")))
+            .and_then(|value| ron::serialize(&value.canonicalize("")).map_err(|why| eyre!("Failed to serialize ACRE RON configuration — {why}")))
     }
     /// Return the configured PowerAutomate integration settings.
     pub fn power_automate(&self) -> Option<&PowerAutomateConfig> {
@@ -991,6 +1001,7 @@ impl ApplicationConfiguration {
         match MimeType::from_path(path) {
             | MimeType::Json | MimeType::Jsonc => self.render_json(),
             | MimeType::Yaml => serde_norway::to_string(self).map_err(|why| eyre!("Failed to serialize YAML config — {why}")),
+            | MimeType::Ron => self.to_ron(),
             | _ => Err(eyre!("Unsupported configuration file extension")),
         }
     }
@@ -1156,6 +1167,7 @@ impl DocumentCodec for ApplicationConfiguration {
             | MimeType::Json | MimeType::Jsonc | MimeType::Yaml => {
                 Self::parse(content).map_err(|error| vec![CodecDiagnostic::deserialize(error.to_string())])
             }
+            | MimeType::Ron => Self::parse_ron(content).map_err(|error| vec![CodecDiagnostic::deserialize(error.to_string())]),
             | _ => Err(vec![CodecDiagnostic::unsupported(format, Self::NAME)]),
         }
     }
@@ -1163,18 +1175,22 @@ impl DocumentCodec for ApplicationConfiguration {
         match format {
             | MimeType::Json | MimeType::Jsonc => serde_json::to_string_pretty(self).map_err(|error| CodecDiagnostic::serialize(error.to_string())),
             | MimeType::Yaml => serde_norway::to_string(self).map_err(|error| CodecDiagnostic::serialize(error.to_string())),
+            | MimeType::Ron => self.to_ron().map_err(|error| CodecDiagnostic::serialize(error.to_string())),
             | _ => Err(CodecDiagnostic::unsupported(format, Self::NAME)),
         }
     }
 }
 impl InputOutput for ApplicationConfiguration {
-    /// Read and parse application configuration file (JSON, JSONC, or YAML)
+    /// Read and parse application configuration file (JSON, JSONC, YAML, or RON)
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into();
         match MimeType::from_path(&source) {
             | MimeType::Json => Self::read_json(source.clone()),
             | MimeType::Jsonc => Self::read_jsonc(source.clone()),
             | MimeType::Yaml => Self::read_yaml(source.clone()),
+            | MimeType::Ron => read_file(&source)
+                .map_err(|why| eyre!("Failed to read RON config `{}` — {why}", source.display()))
+                .and_then(|content| Self::parse_ron(content).map_err(|why| eyre!("Failed to parse RON config `{}` — {why}", source.display()))),
             | _ => Err(eyre!("Unsupported configuration file extension")),
         }
     }
@@ -1234,7 +1250,7 @@ impl InputOutput for ApplicationConfiguration {
         };
         Self::parse_yaml(content).map_err(|why| eyre!("Failed to parse YAML config — {why}"))
     }
-    /// Write configuration to specified path (detects JSON, JSONC, or YAML from extension)
+    /// Write configuration to specified path (detects JSON, JSONC, YAML, or RON from extension)
     ///
     /// JSONC files are written as strict JSON (no comments generated).
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
@@ -1242,6 +1258,7 @@ impl InputOutput for ApplicationConfiguration {
         match MimeType::from_path(&target) {
             | MimeType::Json | MimeType::Jsonc => self.write_json(&target),
             | MimeType::Yaml => self.write_yaml(&target),
+            | MimeType::Ron => self.to_ron().and_then(|content| write_file(&target, content)),
             | _ => Err(eyre!("Unsupported configuration file extension")),
         }
     }

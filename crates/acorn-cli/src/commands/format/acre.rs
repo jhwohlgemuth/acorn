@@ -1,5 +1,5 @@
 use super::{format_diff, write_formatted_content};
-use crate::cli::{resolve_paths, CommandOptions};
+use crate::cli::{resolve_paths_including, CommandOptions};
 use crate::io::interactive::Viewport;
 use acorn::io::mcp::format_acre;
 use acorn_schema::enrichment::Provider;
@@ -10,7 +10,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const FILE_NAMES: [&str; 4] = [".acorn.json", ".acorn.jsonc", ".acorn.yaml", ".acorn.yml"];
+const FILE_NAMES: [&str; 5] = [".acorn.json", ".acorn.jsonc", ".acorn.yaml", ".acorn.yml", ".acorn.ron"];
 
 fn format_file(path: &Path, options: &CommandOptions) -> Result<String, Report> {
     read_to_string(path)
@@ -33,7 +33,7 @@ fn format_file(path: &Path, options: &CommandOptions) -> Result<String, Report> 
 }
 async fn format_paths(path: &Option<PathBuf>, options: &CommandOptions) -> Result<(), Report> {
     let explicit_file = path.as_ref().is_some_and(|candidate| candidate.is_file());
-    resolve_paths(path, options).await.and_then(|paths| {
+    resolve_paths_including(path, options, &[".acorn.ron"]).await.and_then(|paths| {
         let selected = paths
             .iter()
             .filter(|candidate| {

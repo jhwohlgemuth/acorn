@@ -98,3 +98,100 @@ fn test_ron_serialization_is_canonical_and_round_trips() {
         serde_json::to_value(configuration).expect("serialize original configuration")
     );
 }
+#[test]
+fn test_ron_file_lifecycle_and_codec() {
+    let directory = super::temp_resolve_dir("ron-lifecycle");
+    create_dir_all(&directory).expect("create RON directory");
+    let path = directory.join(".acorn.ron");
+    write(&path, "// original comment\n{\"members\": \"scientist@example.org\"}\n").expect("write RON source");
+    assert_eq!(ApplicationConfiguration::resolve_in(&None, &directory), Some(path.clone()));
+    let loaded = ApplicationConfiguration::load(&Some(path.clone())).expect("load RON");
+    assert_eq!(loaded.members.as_ref().map(OneOrMany::len), Some(1));
+    let (with_path, resolved) = ApplicationConfiguration::load_with_path(&Some(path.clone())).expect("load RON with path");
+    assert_eq!(resolved, Some(path.clone()));
+    assert_eq!(
+        serde_json::to_value(&loaded).expect("serialize"),
+        serde_json::to_value(&with_path).expect("serialize")
+    );
+    let updated = loaded
+        .with_models(&[ModelEntry::Selector("acme/added".to_string())])
+        .expect("update RON model list");
+    updated.write_or_preview(&path, true, true).expect("preview RON update");
+    assert!(read_to_string(&path).expect("read original").contains("original comment"));
+    updated.write_or_preview(&path, false, true).expect("write canonical RON");
+    assert!(!read_to_string(&path).expect("read canonical").contains("original comment"));
+    assert_eq!(
+        ApplicationConfiguration::read(&path)
+            .expect("read updated RON")
+            .models
+            .as_ref()
+            .map(OneOrMany::len),
+        Some(1)
+    );
+    let encoded =
+        <ApplicationConfiguration as acorn_schema::codec::DocumentCodec>::encode(&updated, &acorn_core::util::MimeType::Ron).expect("encode RON");
+    let decoded =
+        <ApplicationConfiguration as acorn_schema::codec::DocumentCodec>::decode(&encoded, &acorn_core::util::MimeType::Ron).expect("decode RON");
+    assert_eq!(
+        serde_json::to_value(decoded).expect("serialize"),
+        serde_json::to_value(updated).expect("serialize")
+    );
+    remove_dir_all(directory).expect("remove RON directory");
+}
+#[test]
+fn test_ron_discovery_precedence_and_explicit_errors() {
+    let directory = super::temp_resolve_dir("ron-precedence");
+    create_dir_all(&directory).expect("create RON directory");
+    let ron = directory.join(".acorn.ron");
+    write(&ron, "{}\n").expect("write RON source");
+    for name in DEFAULT_CONFIG_FILENAMES[..4].iter().rev() {
+        let higher = directory.join(name);
+        write(&higher, "{}\n").expect("write higher-priority source");
+        assert_eq!(ApplicationConfiguration::resolve_in(&None, &directory), Some(higher));
+    }
+    assert_eq!(ApplicationConfiguration::resolve_in(&Some(ron.clone()), &directory), Some(ron));
+    assert!(ApplicationConfiguration::load(&Some(directory.join("missing.ron"))).is_err());
+    let malformed = directory.join("malformed.ron");
+    write(&malformed, "{\"models\": [}").expect("write malformed RON");
+    assert!(ApplicationConfiguration::load(&Some(malformed)).is_err());
+    remove_dir_all(directory).expect("remove RON directory");
+}
+#[test]
+fn test_ron_format_preserves_source_data_and_omissions() {
+    let source = "// remove this comment\r\n{\"models\":[\"acme/example\",],\"members\":(),}\r\n";
+    let formatted = ApplicationConfiguration::format_ron(source).expect("format RON data");
+    assert!(!formatted.contains("comment"));
+    assert!(!formatted.contains("schemaVersion"));
+    assert!(!formatted.contains("\r\n"));
+    assert!(formatted.ends_with('\n'));
+    assert_eq!(ApplicationConfiguration::format_ron(&formatted).expect("format canonical RON"), formatted);
+    let before = ApplicationConfiguration::parse_ron(source).expect("parse source RON");
+    let after = ApplicationConfiguration::parse_ron(&formatted).expect("parse formatted RON");
+    assert_eq!(
+        serde_json::to_value(before).expect("serialize source"),
+        serde_json::to_value(after).expect("serialize formatted")
+    );
+    assert!(ApplicationConfiguration::format_ron("{\"unknown\":true}").is_err());
+    assert!(ApplicationConfiguration::format_ron("{\"models\":[}").is_err());
+}
+#[test]
+fn test_ron_auth_profile_order_survives_format_and_write() {
+    let source = read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/oauth2/config/ordered.json"))
+        .expect("read ordered auth fixture");
+    let configuration = ApplicationConfiguration::parse_ron(&source).expect("parse ordered RON profiles");
+    assert_eq!(
+        configuration.auth.as_ref().and_then(|auth| auth.profile(None)).map(|(name, _)| name),
+        Some("zeta")
+    );
+    for formatted in [
+        ApplicationConfiguration::format_ron(&source).expect("format RON"),
+        configuration.to_ron().expect("write RON"),
+    ] {
+        let reparsed = ApplicationConfiguration::parse_ron(&formatted).expect("reparse ordered RON profiles");
+        assert_eq!(
+            reparsed.auth.as_ref().and_then(|auth| auth.profile(None)).map(|(name, _)| name),
+            Some("zeta")
+        );
+        assert!(formatted.find("\"zeta\"").expect("zeta key") < formatted.find("\"alpha\"").expect("alpha key"));
+    }
+}

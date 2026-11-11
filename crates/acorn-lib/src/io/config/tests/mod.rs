@@ -1027,7 +1027,10 @@ fn test_default_config_filename_precedence_is_preserved() {
 }
 #[test]
 fn test_default_config_filenames_require_supported_extensions() {
-    assert_eq!(DEFAULT_CONFIG_FILENAMES, [".acorn.json", ".acorn.jsonc", ".acorn.yaml", ".acorn.yml"]);
+    assert_eq!(
+        DEFAULT_CONFIG_FILENAMES,
+        [".acorn.json", ".acorn.jsonc", ".acorn.yaml", ".acorn.yml", ".acorn.ron"]
+    );
 }
 #[tokio::test]
 async fn test_download_file_skips_existing_file_without_clobber() {

@@ -30,6 +30,8 @@ The `acorn` command checks and formats research records, adds linked-data contex
 
 The bot can also consume a GitLab JSONL logbook inbox, durably admit authorized submissions, and propose project updates through review. See [ACRE inbox configuration](docs/src/concepts/acre.md#gitlab-logbook-inbox).
 
+ACRE application configuration accepts JSON, JSONC, YAML, and RON. See the [ACRE format guide](docs/src/concepts/acre.md) for filenames, validation, and formatting behavior.
+
 Logbooks accept both dated activity entries and project status updates. Status updates record the monthly change, its significance, project health, optional evidence and risk, and the reporting range used by reports. Existing activity entries retain their JSON format.
 For existing local project indexes, `acorn intake stage --batch --source <URI-or-path>` groups JSONL into one reviewable multi-project batch. Sources can be local paths, `file:` URIs, or GitLab file URLs; remote sources are captured at an immutable commit for offline review. `intake inspect` previews routes and diffs before `intake apply --batch-id` writes them. After ingestion, `intake run --index` supports `--dry-run` previews, `--interactive` review, and `--force` to accept all eligible promotions. See [intake sources and review](docs/src/cli-reference/commands/intake.md).
 

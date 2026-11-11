@@ -148,16 +148,18 @@ impl PrepareLocation for Location {
                         .map_err(|why| eyre!("Materialize remote check source at {} — {why}", path.display()))
                 })
             }
-            | _ if scheme.is_file() => resolve_paths_including(&Some(self.uri_as_path()), options, &["Kitfile"])
+            | _ if scheme.is_file() => resolve_paths_including(&Some(self.uri_as_path()), options, &["Kitfile", ".acorn.ron"])
                 .await
                 .and_then(|paths| {
                     Fingerprint::from_files(paths.clone()).map(|fingerprint| Prepared::new(Input::Paths { paths, temporary: None }, fingerprint))
                 }),
-            | Location::Simple(value) if scheme.is_unsupported() => resolve_paths_including(&Some(PathBuf::from(value)), options, &["Kitfile"])
-                .await
-                .and_then(|paths| {
-                    Fingerprint::from_files(paths.clone()).map(|fingerprint| Prepared::new(Input::Paths { paths, temporary: None }, fingerprint))
-                }),
+            | Location::Simple(value) if scheme.is_unsupported() => {
+                resolve_paths_including(&Some(PathBuf::from(value)), options, &["Kitfile", ".acorn.ron"])
+                    .await
+                    .and_then(|paths| {
+                        Fingerprint::from_files(paths.clone()).map(|fingerprint| Prepared::new(Input::Paths { paths, temporary: None }, fingerprint))
+                    })
+            }
             | Location::Detailed { uri, .. } => Err(eyre!("Unsupported check source URI scheme — {uri}")),
             | Location::Simple(value) => Err(eyre!("Unsupported check source — {value}")),
         }
@@ -203,7 +205,11 @@ impl PrepareText for TextOrigin {
         let root = standard_project_folder("check", Some(temp_dir()));
         let input = root.join("input");
         let format = format.cloned().unwrap_or_else(|| MimeType::infer_from(content));
-        let path = input.join(self.filename(&format));
+        let path = input.join(match (self, &format) {
+            | (TextOrigin::Clipboard, MimeType::Ron) => "clipboard.ron",
+            | (TextOrigin::Stdin, MimeType::Ron) => "stdin.ron",
+            | _ => self.filename(&format),
+        });
         let cleanup = || {
             let _ = remove_dir_all(&root);
         };
