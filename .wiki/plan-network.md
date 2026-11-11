@@ -25,11 +25,6 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md) coor
 - [CLI composition boundary](refactors/core/cli-composition-boundary.md) follows the stable service/server request and error contracts. Command leaves may normalize earlier only when they avoid shared CLI roots; CLI-11 closes the plan after accepted startup and exit behavior.
 - [Portable diff hardening](refactors/acorn-diff-resource-and-api-hardening.md) and [ZON codec hardening](refactors/zon-codec-hardening.md) are independent portable leaves.
 
-### Configuration formats
-
-- [RON support for ACRE configuration](features/acre-ron-configuration.md) has implemented loading, persistence, check input/discovery, canonical formatting, and documentation. RON-06 waits for the workspace security audit gate before portfolio retirement.
-- Its manifest, core utility, configuration, and CLI edits serialize with their current owners, including shared API configuration, export utility work, and CLI composition. These are shared-file constraints, not dependencies on those plans finishing. RON does not change the separate acornd configuration or enable RON for RAD/export formats.
-
 ### Provider and acquisition work
 
 - [SharePoint JSONL download](features/sharepoint-jsonl-download/index.md): The contract, fixtures, feature-gated seams, ACRE auth profiles, verified identity and fixture-tested device grant are landed. SPD-01 remains blocked on approved tenant access and can proceed independently of SPD-24 shared cache coordination, SPD-04 browser authorization and SPD-06 configured SharePoint identity resolution. macOS SPD-05, Windows SPD-14 and Linux SPD-15 independently consume SPD-24. SPD-04 + SPD-06 -> SPD-07 captures Graph bytes -> SPD-08 persists snapshots. SPD-04 -> SPD-13 supplies Confirm/Spin presentation. Both grants and all cache adapters -> SPD-20 composes cache management; SPD-13 + SPD-20 -> SPD-21 exposes auth commands. Capture, presentation, profiles, both grants and cache management -> SPD-09 wires intake. SPD-01 + SPD-09 -> SPD-10 live handoff. SPD-16/17/18 separately prove native caching after their adapter, SPD-01, SPD-09 and SPD-21; SPD-01 + SPD-09 + SPD-21 -> SPD-22 proves live device/reset behavior. SPD-10 + SPD-22 + (SPD-16 OR SPD-17 OR SPD-18) -> SPD-26 single-platform handoff -> HCI-01. Separately, SPD-10 + all of SPD-16/17/18 + SPD-22 -> SPD-11 documentation; SPD-11 + SPD-26 -> SPD-12 final gates. Native hosts, stores and approved sign-in are external prerequisites; missing hosts or policy denial cannot count as acceptance. Power Apps participant access and exporter acceptance are recorded in the intake runbook; Vergil is not a dependency.
@@ -92,16 +87,16 @@ SharePoint SPD-13 consumes the landed interactive Confirm/Spin controls; it does
 
 | Surface | Plans that serialize |
 |---|---|
-| Workspace manifests and lockfile | model acquisition, Cosmos, gather extraction, CEL, ask adapters, SLM, PID-06 Verus setup, PID-08 integration, Miri wiring, ACRE RON |
-| Analyzer results, check orchestration, and module indexes | CEL, gather inference, structured enrichment, diff, interactive metadata chat, CLI coverage, ACRE RON check discovery, Big-O CLI-check evidence |
-| `io/api/mod.rs`, configuration roots, endpoint snapshots | shared API contract, dPID, Cosmos, model acquisition, ACRE RON, later SharePoint configuration integration |
+| Workspace manifests and lockfile | [dependency audit](refactors/workspace-dependency-audit.md), model acquisition, Cosmos, gather extraction, CEL, ask adapters, SLM, PID-06 Verus setup, PID-08 integration, Miri wiring |
+| Analyzer results, check orchestration, and module indexes | CEL, gather inference, structured enrichment, diff, interactive metadata chat, CLI coverage, Big-O CLI-check evidence |
+| `io/api/mod.rs`, configuration roots, endpoint snapshots | shared API contract, dPID, Cosmos, model acquisition, later SharePoint configuration integration |
 | Host OAuth capability and ACRE auth profiles | SPD owns the initial contract; headless HCI-02/03 extend it after SPD-26 acceptance, coordinating with API/configuration owners and remaining SPD validation |
 | Research-activity/PID schema roots | dPID, structured enrichment, PID verification, sponsor highlights clarity, Big-O RAD validation |
 | Intake source routing and snapshot persistence | SharePoint download SPD-08/09 and subsequent headless HCI-04; sponsor highlights HIL-19 and CLI composition coordinate exact intake files; existing local/GitLab behavior must remain intact |
 | Logbook graduation persistence, MCP apply/list, and GitLab automation | sponsor highlights clarity owns target-specific graduation; manual JSONL commands already reuse the existing contract; HIL-19 owns their future target-specific adapter; Vergil automation consumes it for the external pilot |
 | `io/{archive,oci}.rs`, `io/model/gguf/`, and model planner | model acquisition, SLM/Needle artifact work |
 | Tool registry, Needle startup/catalog, inference dispatch | router/parity, Needle validation, CLI composition, interactive metadata chat, Big-O MCP/native registration; adapter leaves consume the frozen binding contract |
-| CLI parser, `main.rs`, generated help | CLI composition, dPID, gather, CEL, remote create, ask adapters, interactive metadata chat, SLM, ACRE RON, sponsor highlights clarity HIL-03/HIL-19; manual JSONL API work is complete |
+| CLI parser, `main.rs`, generated help | CLI composition, dPID, gather, CEL, remote create, ask adapters, interactive metadata chat, SLM, sponsor highlights clarity HIL-03/HIL-19; manual JSONL API work is complete |
 | Enrichment candidates and format workflow | structured enrichment and the landed interactive format workflow; coordinate any future edits to their shared workflow files |
 | Export dispatch/templates/PowerPoint | export pipeline, database-backed artifacts, category-based logbook presentations, grouped report separators, sponsor highlights clarity |
 | `Makefile` and `.gitlab-ci.yml` | runner pools, mise, Podman, SLM, Needle, PID verification, export fuzzing, coverage throughput |

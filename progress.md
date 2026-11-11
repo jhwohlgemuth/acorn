@@ -59,8 +59,19 @@
 
 ## Implementation — RON support for ACRE configuration
 
-- Plan: `.wiki/features/acre-ron-configuration.md`; RON-01 through RON-05 are complete and pruned. RON-06 remains blocked only on the workspace security audit gate.
+- Plan: The RON plan was retired after RON-06 documentation, tests, and portfolio cleanup. Workspace advisory debt is tracked in `.wiki/refactors/workspace-dependency-audit.md`.
 - Authorized scope: Complete RON-05/06 without changing unrelated Power Platform wiki work or broadening RON to RAD and export formats.
 - Verified state: `.acorn.ron` has lowest default configuration precedence; explicit RON loads, writes, previews, and codec operations use the private adapter. Check recognizes canonical and explicit custom RON and stdin with `--format ron --standard acre`. Canonical ACRE formatting selects `.acorn.ron` in directories, preserves omitted fields and ordered `auth.profiles`, removes comments, and leaves invalid input unchanged. The RON library suite passed 11 tests and the CLI formatter suite passed 18. Final `make test` passed 3,032 tests with 18 skipped; read-only all-features Clippy, `cargo fmt --check`, `make check-portable` including WASM tests, and `mdbook build docs` passed. `make audit` passed dependency-usage analysis but failed on 38 advisory findings in the unchanged workspace lockfile; this repository-wide gate is separate from the RON implementation. The earlier analysis-feature `io::config` run had one intake-validation failure on an empty branch; that test was not rerun in the final matrix.
-- Remaining work: RON-06 portfolio retirement after the workspace security audit passes.
-- Next action: Resolve the workspace audit findings under their dependency owner, rerun `make audit`, then delete the RON plan and its index/network/lane entries after wiki validation.
+- Remaining work: None for RON. The workspace dependency audit remains open separately.
+- Next action: Complete AUD-01 triage under the Workspace graph lock, then remediate the findings in bounded dependency groups.
+
+## Implementation — PA-40A reviewer usability and report fidelity
+
+- Plan: `.wiki/features/powerapps-jsonl-intake/approval-release/index.md`; active phase: PA-40A; state: blocked.
+- Authorized scope: TEST ONLY contributor and reviewer apps and the PA-40A acceptance/runbook evidence. No operational cutover is authorized by this phase.
+- Baseline and local work: `39727a87`; the pre-existing untracked `.wiki/refactors/workspace-dependency-audit.md` was left untouched.
+- Verified state: On November 11, the saved, unpublished reviewer Studio Preview loaded six Ready batches and did not expose the Approved batch used for the accepted four-page PDF. No review item was edited or saved. The prior automated App Checker, layout, and navigation evidence remains in [usability.md](.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/usability.md).
+- Remaining work: Make the exact Approved batch available in a read-only report view, compare its canvas pages with the accepted PDF, observe one approved contributor and one approved reviewer who did not build the apps completing uncoached tasks, and record a signed go/no-go decision.
+- Budget: This recheck used less than one active hour; PA-40A remains within its five-hour ceiling. Waiting for participants and an Approved-batch viewing path does not consume active phase time.
+- Blockers: The live picker exposes Ready batches only; independent participants are not yet available for observation. No PA-40A acceptance or PA-41 release gate is claimed.
+- Next action: Open the accepted Approved batch in a read-only reviewer report view, capture all pages, and compare them with `accepted.pdf`; arrange the two uncoached walkthroughs.

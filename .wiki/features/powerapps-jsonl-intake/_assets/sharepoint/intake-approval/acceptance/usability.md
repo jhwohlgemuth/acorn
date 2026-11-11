@@ -15,3 +15,7 @@ November 11, 2026. Scope: TEST ONLY contributor and reviewer apps. This is an au
 | Uncoached journeys | No new contributor or reviewer observation was performed after PA-39C/PA-40V. The owner asked to stop the contributor walkthrough request. | Unverified. Both observations and a signed go/no-go remain release gates. |
 
 Accessibility-specific acceptance remains deferred at the owner's direction. App Checker counts are preserved as diagnostics, not an accessibility acceptance claim. PA-40A cannot be accepted from this automated checkpoint. Automated navigation and desktop/tablet/375-pixel visual checks are complete with current captures across the two TEST ONLY apps. Exact Approved-batch preview capture remains open because the reviewer picker has no path to that batch. Native-device and uncoached human task observations remain necessary afterward.
+
+## November 11 execution recheck
+
+In the saved, unpublished `[PROTOTYPE] Intake Approval` Studio Preview, `ReviewLedgerLiveScreen` loaded six Ready batches. The picker offered November 10 (one and two items), November 8 (5,000 and 100 items), October 25 (six items), and August 31 (zero items). It offered no Approved batch and no route to the accepted batch `9a710978-bed7-4688-af38-fd5af26d5648`. No review item was edited or saved. The exact canvas-to-PDF comparison remains blocked until the accepted Approved batch can be opened in a read-only report view. An approved contributor and reviewer who did not build the apps must then complete the uncoached journeys before a signed PA-40A go/no-go decision.
