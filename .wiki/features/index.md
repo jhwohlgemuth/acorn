@@ -50,3 +50,5 @@
 ## Coordination
 
 - [Ask routing and sidecar coordination](slm-sidecars.md) - Orders the four independently executable plans without owning phases.
+
+Application publishing now has checked browser/desktop coverage: browser preview ZIP/checksum build, upload and release-link integration is implemented; desktop remains planned until ABW-11 adds its native crate and ABW-23–30 establish signed artifacts and channels. Both are application artifacts, outside crates.io publishing. GitHub Pages is enabled and a mirror-triggered build/smoke/deploy workflow is configured locally; root and `/acorn/` Chromium checks pass. First hosted deployment and HTTPS enforcement await mirroring the workflow and certificate provisioning. GitLab archive public access and native publication remain unverified.

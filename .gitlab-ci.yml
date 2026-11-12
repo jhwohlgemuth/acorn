@@ -129,6 +129,7 @@ test:
     - make test-ci
     - make check-host
     - bash scripts/publish-crates.sh --check
+    - make check-release-apps
     - cargo package --workspace --exclude acorn-downstream-host-fixture --exclude acorn-web --exclude xtask --no-verify --allow-dirty --locked --offline
 
 test-docs:
@@ -275,6 +276,52 @@ benchmark:
     when: always
 
 # ------------------------------------------------------------------ build ----
+
+build-web:
+  extends: .rust-arm64
+  resource_group: acorn-web-release
+  stage: build
+  timeout: 60 minutes
+  needs:
+    - job: test
+  variables:
+    PKG_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic"
+  cache:
+    key: dioxus-0.7.3-arm64
+    paths:
+      - target/tools/dioxus/
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - Cargo.toml
+      variables:
+        PUBLISH_WEB: "true"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - .gitlab-ci.yml
+        - Cargo.lock
+        - Cargo.toml
+        - Makefile
+        - crates/**/*
+        - docs/src/_assets/acorn.svg
+        - packaging/applications.json
+        - xtask/**/*
+  before_script:
+    - command -v python3 >/dev/null || (apt-get update && apt-get install --no-install-recommends --yes python3)
+    - make web-setup
+  script:
+    - make check-release-apps
+    - make web-check
+    - make web-test
+    - make web-package
+    - if [ "${PUBLISH_WEB:-false}" = "true" ]; then make web-publish; fi
+  artifacts:
+    paths:
+      - bin/acorn-web-*.zip
+      - bin/acorn-web-*.zip.sha256
+    expire_in: 30 days
 
 .build-release-target:
   stage: build
@@ -575,6 +622,8 @@ publish-release:
     - job: validate-linux-arm64
     - job: validate-mcpb
       artifacts: false
+    - job: build-web
+      artifacts: false
   retry:
     max: 2
     when:
@@ -594,6 +643,10 @@ publish-release:
     ref: "${CI_COMMIT_SHA}"
     assets:
       links:
+        - name: "ACORN browser preview v${PKG_VERSION} (static site ZIP)"
+          url: "${PKG_REGISTRY_URL}/acorn-web/v${PKG_VERSION}/acorn-web-v${PKG_VERSION}.zip"
+        - name: "ACORN browser preview v${PKG_VERSION} (SHA-256)"
+          url: "${PKG_REGISTRY_URL}/acorn-web/v${PKG_VERSION}/acorn-web-v${PKG_VERSION}.zip.sha256"
         - name: "${BINARY_NAME} v${PKG_VERSION} (Linux)"
           url: "${PKG_REGISTRY_URL}/${DEFAULT_TARGET}/v${PKG_VERSION}/${BINARY_NAME}"
         - name: "${BINARY_NAME} v${PKG_VERSION} (Windows)"

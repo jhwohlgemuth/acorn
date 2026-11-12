@@ -3,7 +3,7 @@
 \usepackage[T1]{fontenc}
 \usepackage{helvet}
 \renewcommand{\familydefault}{\sfdefault}
-\usepackage{xcolor,graphicx,tabularx,booktabs,enumitem,fancyhdr,hyperref,tikz,tcolorbox}
+\usepackage{xcolor,graphicx,tabularx,booktabs,enumitem,fancyhdr,hyperref,tikz,tcolorbox,amssymb}
 \usetikzlibrary{arrows.meta,positioning}
 \definecolor{Forest}{HTML}{1E4035}
 \definecolor{Green}{HTML}{00662C}
@@ -76,22 +76,22 @@
 {\color{white}\small Document progress. Connect research to impact.}
 \end{tcolorbox}
 
-\eyebrow{01 / HIGHLIGHT DETAILS}
+{\color{Green}\large\bfseries 01 // Highlight details}\par
 \begin{tabularx}{\linewidth}{@{}X X@{}}
 \textbf{Type} & \textbf{Report placement}\\[4pt]
 Activity highlight / Project status & Project highlight / General update\\[12pt]
 \textbf{Project} & \textbf{Date}\\[4pt]
 Select a project & Choose the activity date\\[12pt]
 \textbf{For an activity highlight} & \textbf{For a project status}\\[4pt]
-Choose a category, status, and optional event type & Choose project health; choose a risk or None\\
+Choose a category, status, and optional event type & Choose project health; choose a risk or None; add proof if available\\
 \end{tabularx}
 
 \vspace{10pt}
-\eyebrow{02 / THE DEVELOPMENT}
-Write the short summary first. Add the context requested for the selected type. Optional details may stay empty. The report preview helps you check how the text reads.
+{\color{Green}\large\bfseries 02 // The development}\par
+Write the short summary first. Add the context requested for the selected type. Field labels stay visible while you type; optional details may stay empty. The third section, Report preview, helps you check how the text reads.
 
 \begin{note}
-\textbf{Choice buttons:} project health and risk appear as two-column button grids with icons. A green button and check mark show your selection. All choices in each grid are visible without a separate list scrollbar. For a status marked At risk, Delayed, or Paused, explain the health context. If you choose a risk other than None, add the effect or action needed.
+\textbf{Choice buttons:} project health and risk appear as two-column button grids with icons describing each option. The row and column gaps are similar, and a green button shows your selection. All choices in each grid are visible without a separate list scrollbar. For a status marked At risk, Delayed, or Paused, explain the health context. If you choose a risk other than None, add the effect or action needed.
 \end{note}
 
 \vspace{8pt}
@@ -118,14 +118,14 @@ Button icons reinforce the action: arrows move through the form, the circular ar
 {\color{Forest}\bfseries Current published status controls (redrawn reference)}\par
 \begin{tikzpicture}[x=1in,y=1in]
   \node[anchor=west,text=Forest,font=\small\bfseries] at (0,0) {Project health *};
-  \tile{1.50,-.34}{On track}{Mint}\tile{4.60,-.34}{Ahead of plan}{Mint}
-  \tile{1.50,-.78}{At risk}{Mint}\tile{4.60,-.78}{Delayed}{Mint}
-  \tile{1.50,-1.22}{Paused}{Mint}\tile{4.60,-1.22}{Complete}{Mint}
-  \node[anchor=west,text=Forest,font=\small\bfseries] at (0,-1.69) {Risk or dependency};
-  \tile{1.50,-2.03}{None}{Mint}\tile{4.60,-2.03}{Data}{Mint}
-  \tile{1.50,-2.47}{Infrastructure}{Mint}\tile{4.60,-2.47}{Security accreditation}{Mint}
-  \tile{1.50,-2.91}{Software environment}{Mint}\tile{4.60,-2.91}{Sponsor prioritization}{Mint}
-  \node[anchor=west,text=Muted,font=\scriptsize] at (0,-3.30) {Six more risk buttons follow in the live grid; select one or choose None.};
+  \tile{1.50,-.34}{$\rightarrow$ On track}{Mint}\tile{4.60,-.34}{$\nearrow$ Ahead of plan}{Mint}
+  \tile{1.50,-.88}{$\triangle$ At risk}{Mint}\tile{4.60,-.88}{$\circlearrowleft$ Delayed}{Mint}
+  \tile{1.50,-1.42}{$\Vert$ Paused}{Mint}\tile{4.60,-1.42}{$\checkmark$ Complete}{Mint}
+  \node[anchor=west,text=Forest,font=\small\bfseries] at (0,-1.95) {Risk or dependency};
+  \tile{1.50,-2.29}{$\circ$ None}{Mint}\tile{4.60,-2.29}{$\equiv$ Data}{Mint}
+  \tile{1.50,-2.83}{$\boxplus$ Infrastructure}{Mint}\tile{4.60,-2.83}{$\square$ Security accreditation}{Mint}
+  \tile{1.50,-3.37}{$\ast$ Software environment}{Mint}\tile{4.60,-3.37}{$\star$ Sponsor prioritization}{Mint}
+  \node[anchor=west,text=Muted,font=\scriptsize] at (0,-3.75) {Six more risk buttons follow in the live grid; select one or choose None.};
 \end{tikzpicture}
 \newpage
 
@@ -155,7 +155,7 @@ Button icons reinforce the action: arrows move through the form, the circular ar
 \vspace{11pt}
 \eyebrow{INSPECT AND DECIDE}
 \begin{enumerate}[leftmargin=20pt,itemsep=5pt]
-\item Use Needs review to filter the item list. Select an item and read the source summary. View JSON is optional detail.
+\item Use the checkbox-marked Needs review filter to narrow the item list. Select an item and read the source summary. View JSON is optional detail.
 \item Edit the one summary field if the report text needs work. Choose Unresolved, Approve, or Exclude. Exclude requires a reason.
 \item Save the review in the ledger. The optional AI suggestion must be checked against the source before applying it.
 \end{enumerate}
@@ -186,9 +186,9 @@ If a Ready batch or item is missing, record that state. Do not save a substitute
   \draw[fill=Navy,draw=Navy,rounded corners=5pt] (.18,.82) rectangle (2.15,1.34);
   \draw[fill=Mint,draw=Line,rounded corners=5pt] (2.34,.82) rectangle (4.31,1.34);
   \draw[fill=Mint,draw=Line,rounded corners=5pt] (4.50,.82) rectangle (6.47,1.34);
-  \node[text=white,font=\bfseries] at (1.16,1.08) {Review};
-  \node[text=Ink,font=\bfseries] at (3.33,1.08) {Approve};
-  \node[text=Ink,font=\bfseries] at (5.49,1.08) {Exclude};
+  \node[text=white,font=\bfseries] at (1.16,1.08) {$\square$ Review};
+  \node[text=Ink,font=\bfseries] at (3.33,1.08) {$\checkmark$ Approve};
+  \node[text=Ink,font=\bfseries] at (5.49,1.08) {$\times$ Exclude};
   \draw[fill=Green,draw=Green,rounded corners=5pt] (.18,.18) rectangle (6.47,.64);
   \node[text=white,font=\bfseries] at (3.33,.41) {Next problem};
 \end{tikzpicture}

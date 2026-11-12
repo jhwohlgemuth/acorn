@@ -12415,9 +12415,14 @@ checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
 name = "xtask"
 version = "0.1.0"
 dependencies = [
+ "reqwest 0.13.4",
+ "semver",
  "serde",
  "serde_json",
+ "sha2",
+ "tempfile",
  "toml_edit 0.22.27",
+ "zip 8.6.0",
 ]
 
 [[package]]

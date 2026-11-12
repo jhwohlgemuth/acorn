@@ -35,7 +35,7 @@ Files and edits live only in tab memory. Reloading clears the session. Navigatio
 
 The route shell and operations are implemented; full Portfolio and folder loading, offline geospatial map, release-matched skill downloads, production desktop channels, Driver.js guided tour, system theme synchronization and full browser/assistive-technology matrices remain in the ABW plan. Resource pages describe pending functionality explicitly. The quick-start dialog is a quick-start guide, not accepted Driver.js tour implementation. Desktop artifacts are not built by these targets.
 
-The static build currently serves from the origin root; subpath hosting requires a separate accepted base-path check. Do not advertise root-only preview evidence as arbitrary-prefix deployment acceptance.
+The default static build serves from the origin root. `WEB_BASE_PATH=/acorn` builds for a project-site prefix, including asset URLs and router links. Use the same prefix for the Pages smoke test. The local `web-preview` server is for root builds; rebuild with `make web-build` after testing a prefixed Pages build.
 
 ## Validation evidence
 
@@ -59,3 +59,39 @@ The initial review replaces duplicated title/variant lists with `Display` and `E
 Follow-up review: the browser inherits the workspace version and the UI reads Cargo package metadata. `make web-check` and `make web-build` passed after this change; the existing Binaryen fallback described above remains.
 
 Review regressions: clean workspace checks regenerate absent assets and match their canonical sources byte-for-byte. The release-list check and CI's offline Cargo packaging command pass with the browser excluded. Native rendering tests preserve nested JSON Patch values; real WASM tests accept empty and whitespace-only unified diffs while native checks enforce byte limits and nonempty JSON Patch inputs. The JavaScript lifecycle test uses the real adapter with a model-context fixture to verify nine registrations and successful execution after two cached navigation cycles, then disposal on final unload. This is automated lifecycle evidence, not a new cross-browser observation.
+
+## Application publishing lifecycle
+
+`acorn-web` and `acorn-desktop` are application distributions. `packaging/applications.json` records both independently of the crates.io release list. Rust release commands live in `xtask/src/application_release/`. `make check-release-apps` runs `cargo xtask check-release-apps`, checks coverage, workspace version inheritance, `publish = false` and pending desktop work, and runs the Rust packaging/upload regression tests.
+
+`make web-package` builds the browser, verifies the single WASM payload and nine operation exports, then writes `bin/acorn-web-v<VERSION>.zip` and its `.sha256` sidecar. Extract the ZIP and serve it over HTTP at the origin root. `release.json` inside the archive records the source revision, workspace version, file hashes and application publication states. Archive bytes are reproducible for identical inputs.
+
+On merge requests and relevant default-branch changes, `build-web` checks, tests and packages the browser. On the existing default-branch `Cargo.toml` release trigger, it also runs `make web-publish`, using `CI_JOB_TOKEN` and `PKG_REGISTRY_URL`. Publication verifies the existing archive before uploading it to `acorn-web/v<VERSION>/` in the GitLab generic package registry. The release job waits for this build/upload and exposes ZIP and checksum links labeled **browser preview**. Existing identical remote bytes are accepted on retries; different bytes at the same URL are rejected. `make web-package` delegates to `cargo xtask package-web`; `make web-publish` delegates to `cargo xtask publish-web`. The latter performs a real upload and does not rebuild. GitHub Pages deployment is handled separately by the mirror workflow below.
+
+The browser remains a preview while its documented acceptance and optimizer limits remain open. These registry URLs use the project's access policy; anonymous public access has not been established. The desktop crate does not yet exist. Its inventory entry remains `planned`, and no native download is advertised. ABW-11 must add the crate with workspace version inheritance and `publish = false`, move the inventory to `development`, and add native build checks and the Cargo packaging exclusion. ABW-23–30 must add signed native artifacts, release links and package-manager publication using the same immutable upload path, with actual public-download/signing evidence. Desktop packaging must retain the shared frontend version and digest and use identifiers distinct from the CLI.
+
+For an existing browser build, run `cargo xtask package-web` and `cargo xtask verify-web` without rebuilding. Both accept `--output DIR`; packaging also accepts `--source DIR`. The CLI artifact uploader uses the same `cargo xtask upload-artifact FILE HTTPS_URL` implementation. Release checks, packaging, verification and HTTP uploads require no Python runtime.
+
+## GitHub Pages mirror deployment
+
+GitLab remains the source repository. Its enabled push mirror updates protected branches in `jhwohlgemuth/acorn`. `.github/workflows/acorn-web-pages.yml` deploys the browser preview after each mirrored push to `main`; it also supports a manual run on `main`. Other branches and forks cannot deploy through this workflow. Pages is a continuously updated preview of mirrored main, independent of the versioned GitLab ZIP releases.
+
+The build reads the Pages `base_path`, runs `make check-release-apps`, builds with `make web-pages`, and runs `make web-test-pages` in Chromium before uploading only the generated public directory. The deploy job uses GitHub's Pages artifact and OIDC actions with `pages: write` and `id-token: write`; no GitLab token, personal deployment token, generated branch or additional backend is needed. Deployments are serialized so an active deployment is not interrupted by a later mirror push.
+
+`web-pages` adds an identical `404.html` and a `.nojekyll` marker. A direct tool URL or refresh receives GitHub Pages' HTTP 404 response, then boots the application at that route. This preserves the URL and navigation; it does not change the server response to HTTP 200. The smoke test checks this behavior, stylesheet and image loading, local WASM execution, router links, and failed or unexpected network requests.
+
+Reproduce the project-site build and browser check locally:
+
+```sh
+npm ci --prefix crates/acorn-web
+# One-time browser installation; Linux CI also passes --with-deps.
+crates/acorn-web/node_modules/.bin/playwright install --only-shell chromium
+make web-pages WEB_BASE_PATH=/acorn
+make web-test-pages WEB_BASE_PATH=/acorn
+```
+
+The GitHub repository is configured with Actions enabled, Pages' publishing source set to **GitHub Actions**, and the `github-pages` environment restricted to `main`. GitHub assigns the project site to the account's existing domain at `www.jasonwohlgemuth.com/acorn/`. The first hosted deployment is pending the workflow reaching the mirror. HTTPS enforcement must be enabled once GitHub provisions the site certificate; the setup API currently reports that the certificate does not exist yet. The GitLab mirror credential must be allowed to push workflow files (the `workflow` scope for a classic GitHub PAT). Keep workflow changes in GitLab so later mirroring does not overwrite GitHub-only edits. The first deployment requires this workflow and its supporting files to reach the mirror; the resulting live URL is recorded by the `github-pages` deployment. This setup does not change `acorn.ornl.gov` or publish desktop installers.
+
+References: [GitHub custom Pages workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages), [Dioxus base-path configuration](https://dioxuslabs.com/learn/0.7/guides/tools/configure/).
+
+Local hosting evidence: release builds and Chromium 158 smoke tests passed for `/acorn/` and an empty root base path. Both loaded assets, ran Research Activity validation, navigated within the configured prefix, and refreshed a direct Readability route through the Pages-style 404 response. The existing Binaryen optimizer fallback remains; this evidence does not claim a live GitHub deployment or a full browser matrix.

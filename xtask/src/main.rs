@@ -1,3 +1,4 @@
+mod application_release;
 mod benchmark_history;
 
 use serde::Deserialize;
@@ -46,13 +47,19 @@ fn main() {
         eprintln!();
         eprintln!("Commands:");
         eprintln!("  benchmark-history <command>  Build or inspect persistent benchmark history");
+        eprintln!("  check-release-apps         Verify browser/desktop release coverage");
         eprintln!("  check-release-crates <crate>...  Verify the crates.io release list");
         eprintln!("  check-version              Verify all internal dep pins match workspace version");
+        eprintln!("  package-web [--source DIR] [--output DIR]  Package browser assets");
+        eprintln!("  publish-web [--output DIR] Upload a verified browser release");
         eprintln!("  release-version <version>  Update workspace version and sync internal deps");
+        eprintln!("  upload-artifact FILE URL   Upload immutable release bytes");
+        eprintln!("  verify-web [--output DIR]  Verify a browser archive and checksum");
         std::process::exit(1);
     }
     let result = match args[1].as_str() {
         | "benchmark-history" => benchmark_history::run(&args[2..]),
+        | "check-release-apps" | "package-web" | "publish-web" | "upload-artifact" | "verify-web" => application_release::run(&args[1], &args[2..]),
         | "check-release-crates" => cmd_check_release_crates(&args[2..]),
         | "check-version" => cmd_check_version(),
         | "release-version" => {
@@ -65,7 +72,7 @@ fn main() {
         }
         | _ => {
             eprintln!("Error: unknown command '{}'", args[1]);
-            eprintln!("Available commands: benchmark-history, check-release-crates, check-version, release-version");
+            eprintln!("Available commands: benchmark-history, check-release-apps, check-release-crates, check-version, package-web, publish-web, release-version, upload-artifact, verify-web");
             std::process::exit(1);
         }
     };

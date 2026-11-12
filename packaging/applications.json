@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "applications": {
+    "acorn-desktop": {
+      "manifest": "crates/acorn-desktop/Cargo.toml",
+      "state": "planned",
+      "delivery": "Signed native bundles and package-manager channels",
+      "remaining_phases": ["ABW-11", "ABW-13", "ABW-14", "ABW-15", "ABW-21", "ABW-23", "ABW-24", "ABW-25", "ABW-26", "ABW-27", "ABW-28", "ABW-29", "ABW-30"]
+    },
+    "acorn-web": {
+      "manifest": "crates/acorn-web/Cargo.toml",
+      "state": "preview",
+      "delivery": "Versioned static-site archive in GitLab releases",
+      "remaining_phases": ["ABW-08", "ABW-09", "ABW-21", "ABW-35"]
+    }
+  }
+}

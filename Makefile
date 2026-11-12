@@ -251,6 +251,10 @@ check-portable: ## Validate portable/core feature builds and compatibility check
 	@$(MAKE) build-wasm WASM_PACK_BUILD_ARGS=--dev
 	@bash scripts/check-portable-dependencies.sh
 
+check-release-apps: ## Validate browser and desktop application publishing coverage.
+	@cargo xtask check-release-apps
+	@cargo test -p xtask application_release
+
 check-release-crates: ## Verify that every crates.io workspace crate is in the release list.
 	@bash scripts/publish-crates.sh --check
 
@@ -480,7 +484,7 @@ version: ## Print the project version string.
 
 web-build: web-prepare ## Build the release browser and verify its single WASM payload.
 	@python3 crates/acorn-web/scripts/clean-output.py
-	@$(DIOXUS) build --package acorn-web --platform web --release --profile web-release
+	@$(DIOXUS) build --package acorn-web --platform web --release --profile web-release --base-path "$(WEB_BASE_PATH)" --locked
 	@node crates/acorn-web/scripts/check-package.mjs $(WEB_PUBLIC)
 
 web-check: web-prepare ## Check browser Rust, WASM portability, formatting and lint.
@@ -492,6 +496,13 @@ web-check: web-prepare ## Check browser Rust, WASM portability, formatting and l
 web-dev: web-prepare ## Run the ACORN browser with Dioxus hot reload on loopback.
 	@$(DIOXUS) serve --package acorn-web --platform web --addr 127.0.0.1 --port $(WEB_PORT) --open false
 
+web-package: web-build ## Package the browser release archive and SHA-256 sidecar.
+	@cargo xtask package-web
+
+web-pages: web-build ## Build static Pages assets, including the SPA route fallback.
+	@cp $(WEB_PUBLIC)/index.html $(WEB_PUBLIC)/404.html
+	@touch $(WEB_PUBLIC)/.nojekyll
+
 web-prepare: ## Stage canonical documentation artwork and the WebMCP adapter.
 	@mkdir -p crates/acorn-web/assets/generated
 	@cp docs/src/_assets/acorn.svg crates/acorn-web/assets/generated/acorn.svg
@@ -499,6 +510,9 @@ web-prepare: ## Stage canonical documentation artwork and the WebMCP adapter.
 
 web-preview: ## Serve the built browser locally for review (run web-build first).
 	@python3 crates/acorn-web/scripts/preview.py $(WEB_PUBLIC) --port $(WEB_PORT)
+
+web-publish: check-release-apps ## Upload the existing browser archive to the GitLab package registry.
+	@cargo xtask publish-web
 
 web-setup: ## Install the pinned Dioxus CLI locally and the WASM target.
 	@rustup target add wasm32-unknown-unknown
@@ -508,6 +522,9 @@ web-test: web-prepare ## Test browser bounds, nine real WASM operations and WebM
 	@cargo test -p acorn-web
 	@$(MAKE) test-webmcp
 	@$(MAKE) web-test-wasm
+
+web-test-pages: ## Smoke-test the built Pages site with Chromium (npm ci and playwright install first).
+	@node crates/acorn-web/scripts/pages-smoke.mjs "$(WEB_PUBLIC)" "$(WEB_BASE_PATH)"
 
 web-test-wasm: web-prepare ## Run all nine browser operations in the real WASM runtime.
 	@wasm-pack test --node crates/acorn-web --lib
@@ -615,6 +632,7 @@ TASKS = \
 	changelog \
 	changelog-release \
 	check-dependencies \
+	check-release-apps \
 	check-release-crates \
 	check-version \
 	check-wasm \
@@ -662,14 +680,19 @@ TASKS = \
 	web-build \
 	web-check \
 	web-dev \
+	web-package \
+	web-pages \
 	web-prepare \
 	web-preview \
+	web-publish \
 	web-setup \
 	web-test \
+	web-test-pages \
 	web-test-wasm
 TEST_OLLAMA_BASE_URL ?= http://localhost:11434
 VERSION = `awk -F ' = ' '$$1 ~ /^version/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
 WASM_PACK_BUILD_ARGS =
+WEB_BASE_PATH ?= /
 WEB_PORT ?= 8080
 WEB_PUBLIC = target/dx/acorn-web/release/web/public
 
