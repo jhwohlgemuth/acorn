@@ -635,6 +635,12 @@ fn test_auth_source_matches_one_exact_document_without_widening() {
         .is_err());
 }
 #[test]
+fn test_browser_acre_example_validates() {
+    let content = include_str!("../../../../../acorn-web/assets/examples/.acorn.json");
+    let config: application::ApplicationConfiguration = serde_json::from_str(content).expect("bundled ACRE configuration");
+    assert!(config.validate().is_ok(), "{:?}", config.validate());
+}
+#[test]
 fn test_bucket() {
     let bucket = Bucket {
         name: Some("nssd".to_string()),

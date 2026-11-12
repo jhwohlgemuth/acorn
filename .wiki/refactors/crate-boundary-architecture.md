@@ -66,7 +66,7 @@ crates/
 ├── acorn-export     (planned)
 ├── acorn-host
 ├── acorn-wasm
-├── acorn-web         (planned)
+├── acorn-web         (browser implemented)
 ├── acorn-desktop     (planned)
 ├── acorn-service
 ├── acorn-server
@@ -105,7 +105,7 @@ This record owns package direction, not implementation files or phases. The [sha
 - **Satisfied prerequisite:** the implemented portability matrix proves the analyzer boundary in-tree; that result does not itself authorize package extraction.
 - **Boundary inputs:** the analyzer/service/server extraction, `acorn-cmd`, and initial `acorn-host` boundaries are implemented; the [shared API client contract](api/shared-client-contract.md) prepares `acorn-api`. The [acornd plan](../features/acornd-service.md) creates a narrow `acorn-store` package; extraction of existing persistence is still unassigned.
 - **Downstream:** the implemented portability matrix expands with each accepted extraction. Browser adapters or consumer-owned host ports require a concrete alternate implementation and a new atomic plan.
-- **Concrete browser/desktop consumer:** ABW-01 must prove `acorn-web` consumes narrow portable owners plus `acorn-wasm` without `acorn-lib`/`acorn-host`; ABW-12 and ABW-17 must keep selected-file and selected-root filesystem primitives in `acorn-host` while `acorn-desktop` owns only Tauri dialog and authorization composition.
+- **Concrete browser/desktop consumer:** The accepted browser proves `acorn-web` consumes narrow portable owners plus `acorn-wasm` without `acorn-lib`/`acorn-host`; ABW-12 and ABW-17 must keep selected-file and selected-root filesystem primitives in `acorn-host` while `acorn-desktop` owns only Tauri dialog and authorization composition.
 - The complete ordering and shared-file collision map is maintained in the [plan dependency network](../plan-network.md).
 
 # Parallel execution

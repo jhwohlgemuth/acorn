@@ -1,15 +1,50 @@
 #!make
 -include .env
-ACP_AGENT ?= opencode
-TEST_OLLAMA_BASE_URL ?= http://localhost:11434
 
-setup: ## Install the Rust toolchain and project development dependencies.
-	@rustup update stable
-	@cargo install $(DEV_DEPENDENCIES) --locked
-	@rustup target add $(TARGETS)
+acorn-clean: ## Remove ACORN Docker images from the local registry.
+	@docker rmi -f acorn:$(VERSION)
+	@docker rmi -f acorn:latest
+	@docker rmi -f $(REGISTRY)/acorn/runner:$(VERSION)
+	@docker rmi -f $(REGISTRY)/acorn/runner:latest
+	@docker rmi -f jhwohlgemuth/acorn:$(VERSION)
+	@docker rmi -f jhwohlgemuth/acorn:latest
+	@docker rmi -f ghcr.io/jhwohlgemuth/acorn:$(VERSION)
+	@docker rmi -f ghcr.io/jhwohlgemuth/acorn:latest
 
-help: ## Show the available development tasks.
-	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target> [VERSION=x.y.z] [ACP_AGENT=opencode|codex] [BENCH_ARGS=\"...\"] [BENCH_BASELINE=x.y.z] [BENCH_HISTORY=...] [CI_JOB=<id|name>] [CI_PIPELINE=<id>] [CI_REF=<branch|tag>] [RELEASE_REF=<branch|tag>] [TAG=vX.Y.Z] [WASM_PACK_BUILD_ARGS=\"...\"] [FUZZ_CRASH=path]\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+acorn-image: acorn-image-amd64 acorn-image-arm64 ## Build the ACORN Docker images on native builders.
+
+acorn-image-amd64: ## Build the AMD64 ACORN Docker image on oklahoma.
+	@docker --context $(IMAGE_AMD64_CONTEXT) build $(IMAGE_BUILD_CACHE) --platform linux/amd64 --build-arg DOCKER_HUB_REGISTRY=$(DOCKER_HUB_REGISTRY) --build-arg RUST_VERSION=$(RUST_VERSION) -t acorn:$(VERSION) -t acorn:$(VERSION)-amd64 -t acorn:latest -t $(ACORN_IMAGE_AMD64) -t $(ACORN_DOCKER_AMD64) -t $(ACORN_GHCR_AMD64) -f Dockerfile .
+
+acorn-image-arm64: ## Build the ARM64 ACORN Docker image on dante.
+	@docker --context $(IMAGE_ARM64_CONTEXT) build $(IMAGE_BUILD_CACHE) --platform linux/arm64 --build-arg DOCKER_HUB_REGISTRY=$(DOCKER_HUB_REGISTRY) --build-arg RUST_VERSION=$(RUST_VERSION) -t acorn:$(VERSION)-arm64 -t $(ACORN_IMAGE_ARM64) -t $(ACORN_DOCKER_ARM64) -t $(ACORN_GHCR_ARM64) -f Dockerfile .
+
+acorn-push: acorn-push-savannah acorn-push-docker acorn-push-ghcr ## Push the ACORN images to all configured registries.
+
+acorn-push-amd64: ## Push AMD64 ACORN image tags.
+	@docker --context $(IMAGE_AMD64_CONTEXT) push $(ACORN_IMAGE_AMD64)
+	@docker --context $(IMAGE_AMD64_CONTEXT) push $(ACORN_DOCKER_AMD64)
+	@docker --context $(IMAGE_AMD64_CONTEXT) push $(ACORN_GHCR_AMD64)
+
+acorn-push-arm64: ## Push ARM64 ACORN image tags.
+	@docker --context $(IMAGE_ARM64_CONTEXT) push $(ACORN_IMAGE_ARM64)
+	@docker --context $(IMAGE_ARM64_CONTEXT) push $(ACORN_DOCKER_ARM64)
+	@docker --context $(IMAGE_ARM64_CONTEXT) push $(ACORN_GHCR_ARM64)
+
+acorn-push-docker: ## Push ACORN images to Docker Hub.
+	@docker --context $(IMAGE_AMD64_CONTEXT) push $(ACORN_DOCKER_AMD64)
+	@docker --context $(IMAGE_ARM64_CONTEXT) push $(ACORN_DOCKER_ARM64)
+	@docker buildx imagetools create --tag jhwohlgemuth/acorn:$(VERSION) --tag jhwohlgemuth/acorn:latest $(ACORN_DOCKER_AMD64) $(ACORN_DOCKER_ARM64)
+
+acorn-push-ghcr: ## Push ACORN images to GitHub Container Registry.
+	@docker --context $(IMAGE_AMD64_CONTEXT) push $(ACORN_GHCR_AMD64)
+	@docker --context $(IMAGE_ARM64_CONTEXT) push $(ACORN_GHCR_ARM64)
+	@docker buildx imagetools create --tag ghcr.io/jhwohlgemuth/acorn:$(VERSION) --tag ghcr.io/jhwohlgemuth/acorn:latest $(ACORN_GHCR_AMD64) $(ACORN_GHCR_ARM64)
+
+acorn-push-savannah: ## Push ACORN images to the Savannah registry.
+	@docker --context $(IMAGE_AMD64_CONTEXT) push $(ACORN_IMAGE_AMD64)
+	@docker --context $(IMAGE_ARM64_CONTEXT) push $(ACORN_IMAGE_ARM64)
+	@docker buildx imagetools create --tag $(REGISTRY)/acorn/runner:$(VERSION) --tag $(REGISTRY)/acorn/runner:latest $(ACORN_IMAGE_AMD64) $(ACORN_IMAGE_ARM64)
 
 audit: ## Run dependency and security audits for the project.
 	@cargo +nightly udeps
@@ -55,6 +90,51 @@ book: ## Build the documentation site with mdBook.
 book-write: ## Serve the documentation site locally for preview.
 	@mdbook serve --open docs
 
+bucket-clean: ## Remove bucket Docker images from the local registry.
+	@docker rmi -f bucket:$(VERSION)
+	@docker rmi -f bucket:latest
+	@docker rmi -f $(REGISTRY)/bucket/runner:$(VERSION)
+	@docker rmi -f $(REGISTRY)/bucket/runner:latest
+	@docker rmi -f jhwohlgemuth/bucket:$(VERSION)
+	@docker rmi -f jhwohlgemuth/bucket:latest
+	@docker rmi -f ghcr.io/jhwohlgemuth/bucket:$(VERSION)
+	@docker rmi -f ghcr.io/jhwohlgemuth/bucket:latest
+
+bucket-image: bucket-image-amd64 bucket-image-arm64 ## Build the bucket Docker images on native builders.
+
+bucket-image-amd64: acorn-image-amd64 ## Build the AMD64 bucket Docker image on oklahoma.
+	@docker --context $(IMAGE_AMD64_CONTEXT) build $(IMAGE_BUILD_CACHE) --platform linux/amd64 --build-arg DOCKER_HUB_REGISTRY=$(DOCKER_HUB_REGISTRY) --build-arg ACORN_IMAGE=acorn:$(VERSION)-amd64 -t bucket:$(VERSION) -t bucket:$(VERSION)-amd64 -t bucket:latest -t $(BUCKET_IMAGE_AMD64) -t $(BUCKET_DOCKER_AMD64) -t $(BUCKET_GHCR_AMD64) -f Dockerfile.bucket .
+
+bucket-image-arm64: acorn-image-arm64 ## Build the ARM64 bucket Docker image on dante.
+	@docker --context $(IMAGE_ARM64_CONTEXT) build $(IMAGE_BUILD_CACHE) --platform linux/arm64 --build-arg DOCKER_HUB_REGISTRY=$(DOCKER_HUB_REGISTRY) --build-arg ACORN_IMAGE=acorn:$(VERSION)-arm64 -t bucket:$(VERSION)-arm64 -t $(BUCKET_IMAGE_ARM64) -t $(BUCKET_DOCKER_ARM64) -t $(BUCKET_GHCR_ARM64) -f Dockerfile.bucket .
+
+bucket-push: bucket-push-savannah bucket-push-docker bucket-push-ghcr ## Push the bucket images to all configured registries.
+
+bucket-push-amd64: ## Push AMD64 bucket image tags.
+	@docker --context $(IMAGE_AMD64_CONTEXT) push $(BUCKET_IMAGE_AMD64)
+	@docker --context $(IMAGE_AMD64_CONTEXT) push $(BUCKET_DOCKER_AMD64)
+	@docker --context $(IMAGE_AMD64_CONTEXT) push $(BUCKET_GHCR_AMD64)
+
+bucket-push-arm64: ## Push ARM64 bucket image tags.
+	@docker --context $(IMAGE_ARM64_CONTEXT) push $(BUCKET_IMAGE_ARM64)
+	@docker --context $(IMAGE_ARM64_CONTEXT) push $(BUCKET_DOCKER_ARM64)
+	@docker --context $(IMAGE_ARM64_CONTEXT) push $(BUCKET_GHCR_ARM64)
+
+bucket-push-docker: ## Push bucket images to Docker Hub.
+	@docker --context $(IMAGE_AMD64_CONTEXT) push $(BUCKET_DOCKER_AMD64)
+	@docker --context $(IMAGE_ARM64_CONTEXT) push $(BUCKET_DOCKER_ARM64)
+	@docker buildx imagetools create --tag jhwohlgemuth/bucket:$(VERSION) --tag jhwohlgemuth/bucket:latest $(BUCKET_DOCKER_AMD64) $(BUCKET_DOCKER_ARM64)
+
+bucket-push-ghcr: ## Push bucket images to GitHub Container Registry.
+	@docker --context $(IMAGE_AMD64_CONTEXT) push $(BUCKET_GHCR_AMD64)
+	@docker --context $(IMAGE_ARM64_CONTEXT) push $(BUCKET_GHCR_ARM64)
+	@docker buildx imagetools create --tag ghcr.io/jhwohlgemuth/bucket:$(VERSION) --tag ghcr.io/jhwohlgemuth/bucket:latest $(BUCKET_GHCR_AMD64) $(BUCKET_GHCR_ARM64)
+
+bucket-push-savannah: ## Push bucket images to the Savannah registry.
+	@docker --context $(IMAGE_AMD64_CONTEXT) push $(BUCKET_IMAGE_AMD64)
+	@docker --context $(IMAGE_ARM64_CONTEXT) push $(BUCKET_IMAGE_ARM64)
+	@docker buildx imagetools create --tag $(REGISTRY)/bucket/runner:$(VERSION) --tag $(REGISTRY)/bucket/runner:latest $(BUCKET_IMAGE_AMD64) $(BUCKET_IMAGE_ARM64)
+
 build: ## Build release binaries for the CLI.
 ifeq ($(OS),Windows_NT)
 	@$(CLEAN_BIN_CMD)
@@ -67,6 +147,10 @@ else
 	@$(MAKE) build-linux-amd64 build-windows-amd64
 endif
 
+build-in-image: clean ## Build the project in a Docker image environment.
+	@docker image inspect $(REGISTRY)/acorn/rust:$(VERSION) > /dev/null 2>&1 || $(MAKE) rust-image
+	@MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' docker run --rm -e CARGO_TARGET_DIR=/app/target/acorn -v "$(CURDIR):/app" -v acorn-target:/app/target -w /app $(REGISTRY)/acorn/rust:$(VERSION) make build
+
 build-linux-amd64: ## Build the AMD64 Linux release binary.
 	@mkdir -p ./bin
 	@$(MUSL_BUILD) --release --package acorn-cli --target $(DEFAULT_TARGET)
@@ -75,34 +159,6 @@ build-linux-amd64: ## Build the AMD64 Linux release binary.
 build-linux-arm64: ## Build the ARM64 Linux release binary.
 	@mkdir -p ./bin
 	@$(MUSL_BUILD) --release --package acorn-cli --target $(DEFAULT_ARM64_TARGET)
-
-build-windows-amd64: ## Build the AMD64 Windows release binary.
-	@mkdir -p ./bin
-	@cargo build --release --package acorn-cli --target $(DEFAULT_WINDOWS_TARGET)
-	@pwsh -NoProfile -File scripts/check-windows-runtime.ps1 -Binary "$(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe" -Objdump x86_64-w64-mingw32-objdump
-	@cp $(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe ./bin/acorn-v$(VERSION).exe
-
-build-in-image: clean ## Build the project in a Docker image environment.
-	@docker image inspect $(REGISTRY)/acorn/rust:$(VERSION) > /dev/null 2>&1 || $(MAKE) rust-image
-	@MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' docker run --rm -e CARGO_TARGET_DIR=/app/target/acorn -v "$(CURDIR):/app" -v acorn-target:/app/target -w /app $(REGISTRY)/acorn/rust:$(VERSION) make build
-
-mcpb: ## Build the MCP bundle artifacts for release packaging.
-	@./bin/acorn-v$(VERSION) create mcp --binary ./bin/acorn-v$(VERSION) --platform linux --output ./bin/acorn-v$(VERSION)-x86_64-unknown-linux-musl.mcpb --clobber
-	@./bin/acorn-v$(VERSION) create mcp --binary ./bin/acorn-v$(VERSION).exe --platform win32 --output ./bin/acorn-v$(VERSION)-x86_64-pc-windows-gnu.mcpb --clobber
-	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION)-x86_64-unknown-linux-musl.mcpb)
-	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION)-x86_64-pc-windows-gnu.mcpb)
-
-linux-package-amd64: build-linux-amd64 ## Build the AMD64 AppImage and Debian release packages.
-	@sh scripts/package-linux.sh $(VERSION) $(DEFAULT_TARGET) amd64 x86_64
-
-linux-package-arm64: build-linux-arm64 ## Build the ARM64 AppImage and Debian release packages.
-	@sh scripts/package-linux.sh $(VERSION) $(DEFAULT_ARM64_TARGET) arm64 aarch64
-
-linux-packages: linux-package-amd64 linux-package-arm64 ## Build AMD64 and ARM64 AppImage and Debian release packages.
-
-release-checksums: ## Generate SHA256 checksums for release artifacts.
-	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION))
-	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION).exe)
 
 build-wasm: ## Build and test the WebAssembly package.
 	@wasm-pack build $(WASM_PACK_BUILD_ARGS) crates/acorn-wasm --target web --out-dir ../../target/acorn-wasm/pkg --out-name acorn
@@ -115,9 +171,11 @@ build-wasm: ## Build and test the WebAssembly package.
 	@$(MAKE) test-webmcp-package
 	@wasm-pack test --node crates/acorn-wasm
 
-clean: ## Remove build artifacts and generated binaries.
-	@cargo clean
-	@$(CLEAN_BIN_CMD)
+build-windows-amd64: ## Build the AMD64 Windows release binary.
+	@mkdir -p ./bin
+	@cargo build --release --package acorn-cli --target $(DEFAULT_WINDOWS_TARGET)
+	@pwsh -NoProfile -File scripts/check-windows-runtime.ps1 -Binary "$(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe" -Objdump x86_64-w64-mingw32-objdump
+	@cp $(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe ./bin/acorn-v$(VERSION).exe
 
 changelog: ## Generate the changelog from git tags and metadata.
 	@git pull origin main --tags
@@ -126,12 +184,6 @@ changelog: ## Generate the changelog from git tags and metadata.
 changelog-release: ## Generate the latest release changelog entry.
 	@git pull origin main --tags
 	@git-cliff --output CHANGELOG.md --gitlab-token ${GITLAB_TOKEN} --latest
-
-ci-retry: ## Retry a GitLab CI job, selecting interactively unless CI_JOB is set.
-	@glab ci retry $(if $(CI_JOB),"$(CI_JOB)") $(if $(CI_PIPELINE),--pipeline-id "$(CI_PIPELINE)",$(if $(CI_REF),--branch "$(CI_REF)"))
-
-ci-watch: ## Watch the latest GitLab CI pipeline for CI_REF or the current branch.
-	@glab ci status $(if $(CI_REF),--branch "$(CI_REF)") --live
 
 check: check-dependencies check-portable check-host ## Run the full validation suite for the project.
 
@@ -199,6 +251,12 @@ check-portable: ## Validate portable/core feature builds and compatibility check
 	@$(MAKE) build-wasm WASM_PACK_BUILD_ARGS=--dev
 	@bash scripts/check-portable-dependencies.sh
 
+check-release-crates: ## Verify that every crates.io workspace crate is in the release list.
+	@bash scripts/publish-crates.sh --check
+
+check-version: ## Validate the workspace version metadata.
+	@cargo xtask check-version
+
 check-wasm: ## Validate the WebAssembly target compatibility of the workspace.
 	@cargo check -p acorn-diff --no-default-features --features alloc --target wasm32-unknown-unknown
 	@cargo check -p acorn-core --no-default-features --features core --target wasm32-unknown-unknown
@@ -210,6 +268,16 @@ check-wasm: ## Validate the WebAssembly target compatibility of the workspace.
 	@cargo check -p acorn-service --no-default-features --features alloc --target wasm32-unknown-unknown
 	@cargo check -p acorn-lib --no-default-features --features wasm --target wasm32-unknown-unknown
 	@cargo check -p acorn-wasm --target wasm32-unknown-unknown
+
+ci-retry: ## Retry a GitLab CI job, selecting interactively unless CI_JOB is set.
+	@glab ci retry $(if $(CI_JOB),"$(CI_JOB)") $(if $(CI_PIPELINE),--pipeline-id "$(CI_PIPELINE)",$(if $(CI_REF),--branch "$(CI_REF)"))
+
+ci-watch: ## Watch the latest GitLab CI pipeline for CI_REF or the current branch.
+	@glab ci status $(if $(CI_REF),--branch "$(CI_REF)") --live
+
+clean: ## Remove build artifacts and generated binaries.
+	@cargo clean
+	@$(CLEAN_BIN_CMD)
 
 cover: ## Run coverage analysis with tarpaulin.
 	@cargo tarpaulin $(COVER_JOBS) --out lcov --line --force-clean --no-dead-code --engine llvm --profile coverage --locked --timeout 300
@@ -227,67 +295,6 @@ doc: ## Build the Rust documentation for the workspace.
 doctest: ## Run the project doctests.
 	@cargo test --doc
 
-lint: protolint shellcheck sqlcheck ## Format and lint the entire workspace.
-	@cargo fmt --all
-	@cargo clippy --fix --allow-dirty --workspace --no-deps --all-features --all-targets -- -D warnings
-
-protolint: ## Lint protobuf definitions with buf.
-	@command -v buf >/dev/null 2>&1 || (echo "buf not found; install it from https://buf.build/docs/cli/installation/" >&2; exit 1)
-	@buf lint
-
-shellcheck: ## Run shellcheck across the project scripts.
-	@if command -v shellcheck >/dev/null 2>&1; then \
-		for file in $$(find scripts -type f -name '*.sh'); do tr -d '\r' < "$$file" > "$$file.tmp" && mv "$$file.tmp" "$$file"; done; \
-		find scripts -type f -name '*.sh' -print0 | sort -z | xargs -0 shellcheck; \
-	else echo "shellcheck not found, skipping"; fi
-
-sqlcheck: ## Run SQL linting and formatting for migrations.
-	@if command -v sqruff >/dev/null 2>&1; then \
-		sqruff fix crates/acorn-lib/assets/migrations && sqruff lint crates/acorn-lib/assets/migrations; \
-	else echo "sqruff not found, skipping"; fi
-
-publish-book: book ## Publish the built docs site to the configured destination.
-	@git clone "https://user:${ACCESS_TOKEN}@code-int.ornl.gov/sites/acorn.git" site
-	@rm -rf ./site/html
-	@mv docs/book ./site/html
-	@cd ./site && git add html && (git diff --cached --quiet || (git commit -m "Publish ACORN Book" && git push))
-
-test: ## Run the main test suite with nextest.
-	@cargo nextest run
-
-test-all: ## Run the full suite including ignored tests.
-	@cargo nextest run --run-ignored all
-
-test-acp: ## Run interoperability tests for ACP_AGENT=opencode|codex.
-	@case "$(ACP_AGENT)" in codex|opencode) ;; *) echo "Unsupported ACP_AGENT '$(ACP_AGENT)'; expected codex or opencode"; exit 2;; esac
-	@if [ "$(ACP_AGENT)" = codex ] && ! command -v codex-acp >/dev/null 2>&1; then \
-		echo "codex-acp is required for ACP_AGENT=codex but was not found on PATH."; \
-		echo "Install it with: npm install -g @agentclientprotocol/codex-acp"; \
-		echo "The global install does not require npx. If npm is unavailable, install Node.js/npm or download a standalone binary:"; \
-		echo "https://github.com/agentclientprotocol/codex-acp/releases"; \
-		exit 2; \
-	fi
-	@ACORN_TEST_ACP_AGENT="$(ACP_AGENT)" cargo nextest run -p acorn-lib --test acp_interoperability --no-default-features --features acp,analysis --run-ignored only --success-output final
-
-test-ci: lint ## Run the CI-style test workflow.
-	@XDG_CACHE_HOME=$(CURDIR)/.cache cargo test --lib --bins --tests
-	@XDG_CACHE_HOME=$(CURDIR)/.cache cargo test --lib --bins --tests --no-default-features
-
-test-ollama: ## Run configured Ollama interoperability tests.
-	@test -n "$(TEST_OLLAMA_MODEL)" || (echo "TEST_OLLAMA_MODEL must be set in .env or the make environment"; exit 2)
-	@ACORN_TEST_OLLAMA=1 ACORN_TEST_OLLAMA_BASE_URL="$(TEST_OLLAMA_BASE_URL)" ACORN_TEST_OLLAMA_MODEL="$(TEST_OLLAMA_MODEL)" cargo nextest run -p acorn-lib --test ollama_interoperability --no-default-features --features analysis --run-ignored only --success-output final
-
-test-openai: ## Run configured OpenAI-compatible interoperability tests.
-	@test -n "$(TEST_OPENAI_BASE_URL)" || (echo "TEST_OPENAI_BASE_URL must be set in .env or the make environment"; exit 2)
-	@test -n "$(TEST_OPENAI_MODEL)" || (echo "TEST_OPENAI_MODEL must be set in .env or the make environment"; exit 2)
-	@ACORN_TEST_OPENAI_COMPATIBLE=1 ACORN_TEST_OPENAI_BASE_URL="$(TEST_OPENAI_BASE_URL)" ACORN_TEST_OPENAI_MODEL="$(TEST_OPENAI_MODEL)" OPENAI_API_KEY="$(TEST_OPENAI_API_KEY)" cargo nextest run -p acorn-lib --test openai_interoperability --no-default-features --features analysis --run-ignored only --success-output final
-
-test-webmcp: ## Run the WebMCP adapter contract tests.
-	@node --test crates/acorn-wasm/web/webmcp.test.mjs
-
-test-webmcp-package: ## Verify the staged WebMCP package contents.
-	@node -e 'const assert = require("node:assert/strict"); const fs = require("node:fs"); const path = require("node:path"); const root = "target/acorn-wasm/pkg"; const manifest = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")); const required = ["acorn.d.ts", "acorn.js", "acorn_bg.wasm", "webmcp.d.ts", "webmcp.js"]; assert.equal(manifest.main, "acorn.js"); assert.equal(manifest.types, "acorn.d.ts"); assert.deepEqual(required.filter((file) => !manifest.files.includes(file)), []); required.forEach((file) => assert.ok(fs.existsSync(path.join(root, file)), `Missing package file: $${file}`));'
-
 fuzz: ## Run the configured fuzz target.
 	@cargo +nightly fuzz run --fuzz-dir fuzz $(FUZZ_TARGET) $(FUZZ_ARGS)
 
@@ -301,6 +308,9 @@ fuzz-smoke: ## Run lightweight fuzz smoke checks for the project.
 	@sh -c 'if command -v timeout >/dev/null 2>&1; then timeout --foreground --kill-after=30 180 cargo +nightly fuzz run --fuzz-dir fuzz powerpoint fuzz/corpus/powerpoint -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1; else cargo +nightly fuzz run --fuzz-dir fuzz powerpoint fuzz/corpus/powerpoint -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1; fi'
 	@sh -c 'if command -v timeout >/dev/null 2>&1; then timeout --foreground --kill-after=30 180 cargo +nightly fuzz run --fuzz-dir fuzz research_activity fuzz/corpus/research_activity -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1; else cargo +nightly fuzz run --fuzz-dir fuzz research_activity fuzz/corpus/research_activity -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1; fi'
 
+help: ## Show the available development tasks.
+	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target> [VERSION=x.y.z] [ACP_AGENT=opencode|codex] [BENCH_ARGS=\"...\"] [BENCH_BASELINE=x.y.z] [BENCH_HISTORY=...] [CI_JOB=<id|name>] [CI_PIPELINE=<id>] [CI_REF=<branch|tag>] [RELEASE_REF=<branch|tag>] [TAG=vX.Y.Z] [WASM_PACK_BUILD_ARGS=\"...\"] [FUZZ_CRASH=path]\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
 help-cli: ## Regenerate the ACORN CLI markdown help reference.
 	@cargo run --bin acorn -- --markdown-help | awk 'length($$0) > 0 { while (blank > 0) { print ""; blank-- } print; next } { blank++ }' > CommandLineHelp.md
 	@printf "Updated CommandLineHelp.md with the current ACORN CLI help.\n"
@@ -308,21 +318,51 @@ help-cli: ## Regenerate the ACORN CLI markdown help reference.
 homebrew-formula: ## Generate the Homebrew formula for the CLI.
 	@./scripts/homebrew/generate-formula.sh $(VERSION) ./Formula/acorn-cli.rb
 
-version: ## Print the project version string.
-	@echo $(VERSION)
+images-publish-manifests: ## Publish all AMD64 and ARM64 release manifests.
+	@docker buildx imagetools create --tag $(REGISTRY)/acorn/runner:$(VERSION) --tag $(REGISTRY)/acorn/runner:latest $(ACORN_IMAGE_AMD64) $(ACORN_IMAGE_ARM64)
+	@docker buildx imagetools create --tag jhwohlgemuth/acorn:$(VERSION) --tag jhwohlgemuth/acorn:latest $(ACORN_DOCKER_AMD64) $(ACORN_DOCKER_ARM64)
+	@docker buildx imagetools create --tag ghcr.io/jhwohlgemuth/acorn:$(VERSION) --tag ghcr.io/jhwohlgemuth/acorn:latest $(ACORN_GHCR_AMD64) $(ACORN_GHCR_ARM64)
+	@docker buildx imagetools create --tag $(REGISTRY)/bucket/runner:$(VERSION) --tag $(REGISTRY)/bucket/runner:latest $(BUCKET_IMAGE_AMD64) $(BUCKET_IMAGE_ARM64)
+	@docker buildx imagetools create --tag jhwohlgemuth/bucket:$(VERSION) --tag jhwohlgemuth/bucket:latest $(BUCKET_DOCKER_AMD64) $(BUCKET_DOCKER_ARM64)
+	@docker buildx imagetools create --tag ghcr.io/jhwohlgemuth/bucket:$(VERSION) --tag ghcr.io/jhwohlgemuth/bucket:latest $(BUCKET_GHCR_AMD64) $(BUCKET_GHCR_ARM64)
+	@docker buildx imagetools create --tag $(REGISTRY)/acorn/rust:$(VERSION) --tag $(REGISTRY)/acorn/rust:latest $(RUST_IMAGE_AMD64) $(RUST_IMAGE_ARM64)
+	@docker buildx imagetools create --tag $(RUST_IMAGE_GHCR_VERSION) --tag $(RUST_IMAGE_GHCR_LATEST) $(RUST_IMAGE_GHCR_AMD64) $(RUST_IMAGE_GHCR_ARM64)
 
-rust-version: ## Print the Rust toolchain version string.
-	@echo $(RUST_VERSION)
+images-push-amd64: acorn-push-amd64 bucket-push-amd64 rust-push-amd64 ## Push all AMD64 release images from their native builder.
 
-check-release-crates: ## Verify that every crates.io workspace crate is in the release list.
-	@bash scripts/publish-crates.sh --check
+images-push-arm64: acorn-push-arm64 bucket-push-arm64 rust-push-arm64 ## Push all ARM64 release images from their native builder.
 
-check-version: ## Validate the workspace version metadata.
-	@cargo xtask check-version
+lint: protolint shellcheck sqlcheck ## Format and lint the entire workspace.
+	@cargo fmt --all
+	@cargo clippy --fix --allow-dirty --workspace --no-deps --all-features --all-targets -- -D warnings
 
-release-version: ## Bump the release version and verify it.
-	@cargo xtask release-version $(VERSION)
-	@$(MAKE) check-release-crates check-version
+linux-package-amd64: build-linux-amd64 ## Build the AMD64 AppImage and Debian release packages.
+	@sh scripts/package-linux.sh $(VERSION) $(DEFAULT_TARGET) amd64 x86_64
+
+linux-package-arm64: build-linux-arm64 ## Build the ARM64 AppImage and Debian release packages.
+	@sh scripts/package-linux.sh $(VERSION) $(DEFAULT_ARM64_TARGET) arm64 aarch64
+
+linux-packages: linux-package-amd64 linux-package-arm64 ## Build AMD64 and ARM64 AppImage and Debian release packages.
+
+mcpb: ## Build the MCP bundle artifacts for release packaging.
+	@./bin/acorn-v$(VERSION) create mcp --binary ./bin/acorn-v$(VERSION) --platform linux --output ./bin/acorn-v$(VERSION)-x86_64-unknown-linux-musl.mcpb --clobber
+	@./bin/acorn-v$(VERSION) create mcp --binary ./bin/acorn-v$(VERSION).exe --platform win32 --output ./bin/acorn-v$(VERSION)-x86_64-pc-windows-gnu.mcpb --clobber
+	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION)-x86_64-unknown-linux-musl.mcpb)
+	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION)-x86_64-pc-windows-gnu.mcpb)
+
+protolint: ## Lint protobuf definitions with buf.
+	@command -v buf >/dev/null 2>&1 || (echo "buf not found; install it from https://buf.build/docs/cli/installation/" >&2; exit 1)
+	@buf lint
+
+publish-book: book ## Publish the built docs site to the configured destination.
+	@git clone "https://user:${ACCESS_TOKEN}@code-int.ornl.gov/sites/acorn.git" site
+	@rm -rf ./site/html
+	@mv docs/book ./site/html
+	@cd ./site && git add html && (git diff --cached --quiet || (git commit -m "Publish ACORN Book" && git push))
+
+release-checksums: ## Generate SHA256 checksums for release artifacts.
+	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION))
+	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION).exe)
 
 release-download: ## Download TAG release assets into the release-artifacts directory.
 	@glab release download "$(TAG)" --dir release-artifacts
@@ -333,81 +373,15 @@ release-list: ## List recent GitLab releases.
 release-retry: ## Retry a job in the latest RELEASE_REF pipeline.
 	@$(MAKE) ci-retry CI_JOB="$(CI_JOB)" CI_PIPELINE="$(CI_PIPELINE)" CI_REF="$(RELEASE_REF)"
 
+release-version: ## Bump the release version and verify it.
+	@cargo xtask release-version $(VERSION)
+	@$(MAKE) check-release-crates check-version
+
 release-view: ## Show the GitLab release and assets for TAG.
 	@glab release view "$(TAG)"
 
 release-watch: ## Watch the latest RELEASE_REF pipeline used to publish a release.
 	@$(MAKE) ci-watch CI_REF="$(RELEASE_REF)"
-
-acorn-clean: ## Remove ACORN Docker images from the local registry.
-	@docker rmi -f acorn:$(VERSION)
-	@docker rmi -f acorn:latest
-	@docker rmi -f $(REGISTRY)/acorn/runner:$(VERSION)
-	@docker rmi -f $(REGISTRY)/acorn/runner:latest
-	@docker rmi -f jhwohlgemuth/acorn:$(VERSION)
-	@docker rmi -f jhwohlgemuth/acorn:latest
-	@docker rmi -f ghcr.io/jhwohlgemuth/acorn:$(VERSION)
-	@docker rmi -f ghcr.io/jhwohlgemuth/acorn:latest
-
-acorn-image: acorn-image-amd64 acorn-image-arm64 ## Build the ACORN Docker images on native builders.
-
-acorn-image-amd64: ## Build the AMD64 ACORN Docker image on oklahoma.
-	@docker --context $(IMAGE_AMD64_CONTEXT) build $(IMAGE_BUILD_CACHE) --platform linux/amd64 --build-arg DOCKER_HUB_REGISTRY=$(DOCKER_HUB_REGISTRY) --build-arg RUST_VERSION=$(RUST_VERSION) -t acorn:$(VERSION) -t acorn:$(VERSION)-amd64 -t acorn:latest -t $(ACORN_IMAGE_AMD64) -t $(ACORN_DOCKER_AMD64) -t $(ACORN_GHCR_AMD64) -f Dockerfile .
-
-acorn-image-arm64: ## Build the ARM64 ACORN Docker image on dante.
-	@docker --context $(IMAGE_ARM64_CONTEXT) build $(IMAGE_BUILD_CACHE) --platform linux/arm64 --build-arg DOCKER_HUB_REGISTRY=$(DOCKER_HUB_REGISTRY) --build-arg RUST_VERSION=$(RUST_VERSION) -t acorn:$(VERSION)-arm64 -t $(ACORN_IMAGE_ARM64) -t $(ACORN_DOCKER_ARM64) -t $(ACORN_GHCR_ARM64) -f Dockerfile .
-
-acorn-push: acorn-push-savannah acorn-push-docker acorn-push-ghcr ## Push the ACORN images to all configured registries.
-
-acorn-push-savannah: ## Push ACORN images to the Savannah registry.
-	@docker --context $(IMAGE_AMD64_CONTEXT) push $(ACORN_IMAGE_AMD64)
-	@docker --context $(IMAGE_ARM64_CONTEXT) push $(ACORN_IMAGE_ARM64)
-	@docker buildx imagetools create --tag $(REGISTRY)/acorn/runner:$(VERSION) --tag $(REGISTRY)/acorn/runner:latest $(ACORN_IMAGE_AMD64) $(ACORN_IMAGE_ARM64)
-
-acorn-push-docker: ## Push ACORN images to Docker Hub.
-	@docker --context $(IMAGE_AMD64_CONTEXT) push $(ACORN_DOCKER_AMD64)
-	@docker --context $(IMAGE_ARM64_CONTEXT) push $(ACORN_DOCKER_ARM64)
-	@docker buildx imagetools create --tag jhwohlgemuth/acorn:$(VERSION) --tag jhwohlgemuth/acorn:latest $(ACORN_DOCKER_AMD64) $(ACORN_DOCKER_ARM64)
-
-acorn-push-ghcr: ## Push ACORN images to GitHub Container Registry.
-	@docker --context $(IMAGE_AMD64_CONTEXT) push $(ACORN_GHCR_AMD64)
-	@docker --context $(IMAGE_ARM64_CONTEXT) push $(ACORN_GHCR_ARM64)
-	@docker buildx imagetools create --tag ghcr.io/jhwohlgemuth/acorn:$(VERSION) --tag ghcr.io/jhwohlgemuth/acorn:latest $(ACORN_GHCR_AMD64) $(ACORN_GHCR_ARM64)
-
-bucket-clean: ## Remove bucket Docker images from the local registry.
-	@docker rmi -f bucket:$(VERSION)
-	@docker rmi -f bucket:latest
-	@docker rmi -f $(REGISTRY)/bucket/runner:$(VERSION)
-	@docker rmi -f $(REGISTRY)/bucket/runner:latest
-	@docker rmi -f jhwohlgemuth/bucket:$(VERSION)
-	@docker rmi -f jhwohlgemuth/bucket:latest
-	@docker rmi -f ghcr.io/jhwohlgemuth/bucket:$(VERSION)
-	@docker rmi -f ghcr.io/jhwohlgemuth/bucket:latest
-
-bucket-image: bucket-image-amd64 bucket-image-arm64 ## Build the bucket Docker images on native builders.
-
-bucket-image-amd64: acorn-image-amd64 ## Build the AMD64 bucket Docker image on oklahoma.
-	@docker --context $(IMAGE_AMD64_CONTEXT) build $(IMAGE_BUILD_CACHE) --platform linux/amd64 --build-arg DOCKER_HUB_REGISTRY=$(DOCKER_HUB_REGISTRY) --build-arg ACORN_IMAGE=acorn:$(VERSION)-amd64 -t bucket:$(VERSION) -t bucket:$(VERSION)-amd64 -t bucket:latest -t $(BUCKET_IMAGE_AMD64) -t $(BUCKET_DOCKER_AMD64) -t $(BUCKET_GHCR_AMD64) -f Dockerfile.bucket .
-
-bucket-image-arm64: acorn-image-arm64 ## Build the ARM64 bucket Docker image on dante.
-	@docker --context $(IMAGE_ARM64_CONTEXT) build $(IMAGE_BUILD_CACHE) --platform linux/arm64 --build-arg DOCKER_HUB_REGISTRY=$(DOCKER_HUB_REGISTRY) --build-arg ACORN_IMAGE=acorn:$(VERSION)-arm64 -t bucket:$(VERSION)-arm64 -t $(BUCKET_IMAGE_ARM64) -t $(BUCKET_DOCKER_ARM64) -t $(BUCKET_GHCR_ARM64) -f Dockerfile.bucket .
-
-bucket-push: bucket-push-savannah bucket-push-docker bucket-push-ghcr ## Push the bucket images to all configured registries.
-
-bucket-push-savannah: ## Push bucket images to the Savannah registry.
-	@docker --context $(IMAGE_AMD64_CONTEXT) push $(BUCKET_IMAGE_AMD64)
-	@docker --context $(IMAGE_ARM64_CONTEXT) push $(BUCKET_IMAGE_ARM64)
-	@docker buildx imagetools create --tag $(REGISTRY)/bucket/runner:$(VERSION) --tag $(REGISTRY)/bucket/runner:latest $(BUCKET_IMAGE_AMD64) $(BUCKET_IMAGE_ARM64)
-
-bucket-push-docker: ## Push bucket images to Docker Hub.
-	@docker --context $(IMAGE_AMD64_CONTEXT) push $(BUCKET_DOCKER_AMD64)
-	@docker --context $(IMAGE_ARM64_CONTEXT) push $(BUCKET_DOCKER_ARM64)
-	@docker buildx imagetools create --tag jhwohlgemuth/bucket:$(VERSION) --tag jhwohlgemuth/bucket:latest $(BUCKET_DOCKER_AMD64) $(BUCKET_DOCKER_ARM64)
-
-bucket-push-ghcr: ## Push bucket images to GitHub Container Registry.
-	@docker --context $(IMAGE_AMD64_CONTEXT) push $(BUCKET_GHCR_AMD64)
-	@docker --context $(IMAGE_ARM64_CONTEXT) push $(BUCKET_GHCR_ARM64)
-	@docker buildx imagetools create --tag ghcr.io/jhwohlgemuth/bucket:$(VERSION) --tag ghcr.io/jhwohlgemuth/bucket:latest $(BUCKET_GHCR_AMD64) $(BUCKET_GHCR_ARM64)
 
 rust-clean: ## Remove Rust toolchain Docker images from the local registry.
 	@docker rmi -f $(REGISTRY)/acorn/rust:$(VERSION)
@@ -428,6 +402,14 @@ rust-publish-ghcr: rust-image ## Build and publish the multi-platform Rust toolc
 
 rust-push: rust-push-savannah rust-push-ghcr ## Push the Rust toolchain images to all configured registries.
 
+rust-push-amd64: ## Push AMD64 Rust image tags.
+	@docker --context $(RUST_AMD64_CONTEXT) push $(RUST_IMAGE_AMD64)
+	@docker --context $(RUST_AMD64_CONTEXT) push $(RUST_IMAGE_GHCR_AMD64)
+
+rust-push-arm64: ## Push ARM64 Rust image tags.
+	@docker --context $(RUST_ARM64_CONTEXT) push $(RUST_IMAGE_ARM64)
+	@docker --context $(RUST_ARM64_CONTEXT) push $(RUST_IMAGE_GHCR_ARM64)
+
 rust-push-ghcr: ## Push Rust toolchain images to GitHub Container Registry.
 	@docker --context $(RUST_AMD64_CONTEXT) push $(RUST_IMAGE_GHCR_AMD64)
 	@docker --context $(RUST_ARM64_CONTEXT) push $(RUST_IMAGE_GHCR_ARM64)
@@ -438,94 +420,123 @@ rust-push-savannah: ## Push Rust toolchain images to the Savannah registry.
 	@docker --context $(RUST_ARM64_CONTEXT) push $(RUST_IMAGE_ARM64)
 	@docker buildx imagetools create --tag $(REGISTRY)/acorn/rust:$(VERSION) --tag $(REGISTRY)/acorn/rust:latest $(RUST_IMAGE_AMD64) $(RUST_IMAGE_ARM64)
 
-images-push-amd64: acorn-push-amd64 bucket-push-amd64 rust-push-amd64 ## Push all AMD64 release images from their native builder.
+rust-version: ## Print the Rust toolchain version string.
+	@echo $(RUST_VERSION)
 
-acorn-push-amd64: ## Push AMD64 ACORN image tags.
-	@docker --context $(IMAGE_AMD64_CONTEXT) push $(ACORN_IMAGE_AMD64)
-	@docker --context $(IMAGE_AMD64_CONTEXT) push $(ACORN_DOCKER_AMD64)
-	@docker --context $(IMAGE_AMD64_CONTEXT) push $(ACORN_GHCR_AMD64)
+setup: ## Install the Rust toolchain and project development dependencies.
+	@rustup update stable
+	@cargo install $(DEV_DEPENDENCIES) --locked
+	@rustup target add $(TARGETS)
 
-bucket-push-amd64: ## Push AMD64 bucket image tags.
-	@docker --context $(IMAGE_AMD64_CONTEXT) push $(BUCKET_IMAGE_AMD64)
-	@docker --context $(IMAGE_AMD64_CONTEXT) push $(BUCKET_DOCKER_AMD64)
-	@docker --context $(IMAGE_AMD64_CONTEXT) push $(BUCKET_GHCR_AMD64)
+shellcheck: ## Run shellcheck across the project scripts.
+	@if command -v shellcheck >/dev/null 2>&1; then \
+		for file in $$(find scripts -type f -name '*.sh'); do tr -d '\r' < "$$file" > "$$file.tmp" && mv "$$file.tmp" "$$file"; done; \
+		find scripts -type f -name '*.sh' -print0 | sort -z | xargs -0 shellcheck; \
+	else echo "shellcheck not found, skipping"; fi
 
-rust-push-amd64: ## Push AMD64 Rust image tags.
-	@docker --context $(RUST_AMD64_CONTEXT) push $(RUST_IMAGE_AMD64)
-	@docker --context $(RUST_AMD64_CONTEXT) push $(RUST_IMAGE_GHCR_AMD64)
+sqlcheck: ## Run SQL linting and formatting for migrations.
+	@if command -v sqruff >/dev/null 2>&1; then \
+		sqruff fix crates/acorn-lib/assets/migrations && sqruff lint crates/acorn-lib/assets/migrations; \
+	else echo "sqruff not found, skipping"; fi
 
-images-push-arm64: acorn-push-arm64 bucket-push-arm64 rust-push-arm64 ## Push all ARM64 release images from their native builder.
+test: ## Run the main test suite with nextest.
+	@cargo nextest run
 
-acorn-push-arm64: ## Push ARM64 ACORN image tags.
-	@docker --context $(IMAGE_ARM64_CONTEXT) push $(ACORN_IMAGE_ARM64)
-	@docker --context $(IMAGE_ARM64_CONTEXT) push $(ACORN_DOCKER_ARM64)
-	@docker --context $(IMAGE_ARM64_CONTEXT) push $(ACORN_GHCR_ARM64)
+test-acp: ## Run interoperability tests for ACP_AGENT=opencode|codex.
+	@case "$(ACP_AGENT)" in codex|opencode) ;; *) echo "Unsupported ACP_AGENT '$(ACP_AGENT)'; expected codex or opencode"; exit 2;; esac
+	@if [ "$(ACP_AGENT)" = codex ] && ! command -v codex-acp >/dev/null 2>&1; then \
+		echo "codex-acp is required for ACP_AGENT=codex but was not found on PATH."; \
+		echo "Install it with: npm install -g @agentclientprotocol/codex-acp"; \
+		echo "The global install does not require npx. If npm is unavailable, install Node.js/npm or download a standalone binary:"; \
+		echo "https://github.com/agentclientprotocol/codex-acp/releases"; \
+		exit 2; \
+	fi
+	@ACORN_TEST_ACP_AGENT="$(ACP_AGENT)" cargo nextest run -p acorn-lib --test acp_interoperability --no-default-features --features acp,analysis --run-ignored only --success-output final
 
-bucket-push-arm64: ## Push ARM64 bucket image tags.
-	@docker --context $(IMAGE_ARM64_CONTEXT) push $(BUCKET_IMAGE_ARM64)
-	@docker --context $(IMAGE_ARM64_CONTEXT) push $(BUCKET_DOCKER_ARM64)
-	@docker --context $(IMAGE_ARM64_CONTEXT) push $(BUCKET_GHCR_ARM64)
+test-all: ## Run the full suite including ignored tests.
+	@cargo nextest run --run-ignored all
 
-rust-push-arm64: ## Push ARM64 Rust image tags.
-	@docker --context $(RUST_ARM64_CONTEXT) push $(RUST_IMAGE_ARM64)
-	@docker --context $(RUST_ARM64_CONTEXT) push $(RUST_IMAGE_GHCR_ARM64)
+test-ci: lint ## Run the CI-style test workflow.
+	@XDG_CACHE_HOME=$(CURDIR)/.cache cargo test --lib --bins --tests
+	@XDG_CACHE_HOME=$(CURDIR)/.cache cargo test --lib --bins --tests --no-default-features
 
-images-publish-manifests: ## Publish all AMD64 and ARM64 release manifests.
-	@docker buildx imagetools create --tag $(REGISTRY)/acorn/runner:$(VERSION) --tag $(REGISTRY)/acorn/runner:latest $(ACORN_IMAGE_AMD64) $(ACORN_IMAGE_ARM64)
-	@docker buildx imagetools create --tag jhwohlgemuth/acorn:$(VERSION) --tag jhwohlgemuth/acorn:latest $(ACORN_DOCKER_AMD64) $(ACORN_DOCKER_ARM64)
-	@docker buildx imagetools create --tag ghcr.io/jhwohlgemuth/acorn:$(VERSION) --tag ghcr.io/jhwohlgemuth/acorn:latest $(ACORN_GHCR_AMD64) $(ACORN_GHCR_ARM64)
-	@docker buildx imagetools create --tag $(REGISTRY)/bucket/runner:$(VERSION) --tag $(REGISTRY)/bucket/runner:latest $(BUCKET_IMAGE_AMD64) $(BUCKET_IMAGE_ARM64)
-	@docker buildx imagetools create --tag jhwohlgemuth/bucket:$(VERSION) --tag jhwohlgemuth/bucket:latest $(BUCKET_DOCKER_AMD64) $(BUCKET_DOCKER_ARM64)
-	@docker buildx imagetools create --tag ghcr.io/jhwohlgemuth/bucket:$(VERSION) --tag ghcr.io/jhwohlgemuth/bucket:latest $(BUCKET_GHCR_AMD64) $(BUCKET_GHCR_ARM64)
-	@docker buildx imagetools create --tag $(REGISTRY)/acorn/rust:$(VERSION) --tag $(REGISTRY)/acorn/rust:latest $(RUST_IMAGE_AMD64) $(RUST_IMAGE_ARM64)
-	@docker buildx imagetools create --tag $(RUST_IMAGE_GHCR_VERSION) --tag $(RUST_IMAGE_GHCR_LATEST) $(RUST_IMAGE_GHCR_AMD64) $(RUST_IMAGE_GHCR_ARM64)
-#
-# Variables
-#
-ifeq ($(OS),Windows_NT)
-CLEAN_BIN_CMD = pwsh -NoProfile -Command "if (Test-Path ./bin) { Remove-Item -Recurse -Force ./bin }"
-COVER_JOBS ?= --jobs 1
-WRITE_SHA256 = pwsh -NoProfile -Command "(Get-FileHash -Algorithm SHA256 -LiteralPath '$(1)').Hash.ToLowerInvariant() + '  $(1)' | Set-Content -Encoding ascii -LiteralPath '$(1).sha256'"
-else
-CLEAN_BIN_CMD = rm -rf ./bin
-COVER_JOBS ?=
-WRITE_SHA256 = if command -v sha256sum >/dev/null 2>&1; then sha256sum "$(1)" > "$(1).sha256"; elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$(1)" > "$(1).sha256"; else echo "A SHA-256 utility (sha256sum or shasum) is required" >&2; exit 1; fi
-endif
-PLATFORM = linux/amd64
-VERSION = `awk -F ' = ' '$$1 ~ /^version/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
-RUST_VERSION = `awk -F ' = ' '$$1 ~ /rust-version/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
-IMAGE_AMD64_CONTEXT ?= oklahoma
-IMAGE_ARM64_CONTEXT ?= dante
-IMAGE_BUILD_CACHE ?= --no-cache
-RUST_AMD64_CONTEXT ?= $(IMAGE_AMD64_CONTEXT)
-RUST_ARM64_CONTEXT ?= $(IMAGE_ARM64_CONTEXT)
-ACORN_IMAGE_AMD64 = $(REGISTRY)/acorn/runner:$(VERSION)-amd64
-ACORN_IMAGE_ARM64 = $(REGISTRY)/acorn/runner:$(VERSION)-arm64
+test-ollama: ## Run configured Ollama interoperability tests.
+	@test -n "$(TEST_OLLAMA_MODEL)" || (echo "TEST_OLLAMA_MODEL must be set in .env or the make environment"; exit 2)
+	@ACORN_TEST_OLLAMA=1 ACORN_TEST_OLLAMA_BASE_URL="$(TEST_OLLAMA_BASE_URL)" ACORN_TEST_OLLAMA_MODEL="$(TEST_OLLAMA_MODEL)" cargo nextest run -p acorn-lib --test ollama_interoperability --no-default-features --features analysis --run-ignored only --success-output final
+
+test-openai: ## Run configured OpenAI-compatible interoperability tests.
+	@test -n "$(TEST_OPENAI_BASE_URL)" || (echo "TEST_OPENAI_BASE_URL must be set in .env or the make environment"; exit 2)
+	@test -n "$(TEST_OPENAI_MODEL)" || (echo "TEST_OPENAI_MODEL must be set in .env or the make environment"; exit 2)
+	@ACORN_TEST_OPENAI_COMPATIBLE=1 ACORN_TEST_OPENAI_BASE_URL="$(TEST_OPENAI_BASE_URL)" ACORN_TEST_OPENAI_MODEL="$(TEST_OPENAI_MODEL)" OPENAI_API_KEY="$(TEST_OPENAI_API_KEY)" cargo nextest run -p acorn-lib --test openai_interoperability --no-default-features --features analysis --run-ignored only --success-output final
+
+test-webmcp: ## Run WebMCP adapter and browser lifecycle tests.
+	@node --test crates/acorn-wasm/web/webmcp.test.mjs crates/acorn-web/assets/effects.test.mjs
+
+test-webmcp-package: ## Verify the staged WebMCP package contents.
+	@node -e 'const assert = require("node:assert/strict"); const fs = require("node:fs"); const path = require("node:path"); const root = "target/acorn-wasm/pkg"; const manifest = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")); const required = ["acorn.d.ts", "acorn.js", "acorn_bg.wasm", "webmcp.d.ts", "webmcp.js"]; assert.equal(manifest.main, "acorn.js"); assert.equal(manifest.types, "acorn.d.ts"); assert.deepEqual(required.filter((file) => !manifest.files.includes(file)), []); required.forEach((file) => assert.ok(fs.existsSync(path.join(root, file)), `Missing package file: $${file}`));'
+
+version: ## Print the project version string.
+	@echo $(VERSION)
+
+web-build: web-prepare ## Build the release browser and verify its single WASM payload.
+	@python3 crates/acorn-web/scripts/clean-output.py
+	@$(DIOXUS) build --package acorn-web --platform web --release --profile web-release
+	@node crates/acorn-web/scripts/check-package.mjs $(WEB_PUBLIC)
+
+web-check: web-prepare ## Check browser Rust, WASM portability, formatting and lint.
+	@cargo fmt -p acorn-web -- --check
+	@cargo check -p acorn-web --target wasm32-unknown-unknown
+	@cargo clippy -p acorn-web --all-targets -- -D warnings
+	@cargo clippy -p acorn-web --target wasm32-unknown-unknown -- -D warnings
+
+web-dev: web-prepare ## Run the ACORN browser with Dioxus hot reload on loopback.
+	@$(DIOXUS) serve --package acorn-web --platform web --addr 127.0.0.1 --port $(WEB_PORT) --open false
+
+web-prepare: ## Stage canonical documentation artwork and the WebMCP adapter.
+	@mkdir -p crates/acorn-web/assets/generated
+	@cp docs/src/_assets/acorn.svg crates/acorn-web/assets/generated/acorn.svg
+	@cp crates/acorn-wasm/web/webmcp.js crates/acorn-web/assets/generated/webmcp.js
+
+web-preview: ## Serve the built browser locally for review (run web-build first).
+	@python3 crates/acorn-web/scripts/preview.py $(WEB_PUBLIC) --port $(WEB_PORT)
+
+web-setup: ## Install the pinned Dioxus CLI locally and the WASM target.
+	@rustup target add wasm32-unknown-unknown
+	@cargo install dioxus-cli --version 0.7.3 --locked --root target/tools/dioxus
+
+web-test: web-prepare ## Test browser bounds, nine real WASM operations and WebMCP.
+	@cargo test -p acorn-web
+	@$(MAKE) test-webmcp
+	@$(MAKE) web-test-wasm
+
+web-test-wasm: web-prepare ## Run all nine browser operations in the real WASM runtime.
+	@wasm-pack test --node crates/acorn-web --lib
+
+.DEFAULT_GOAL := setup
 ACORN_DOCKER_AMD64 = jhwohlgemuth/acorn:$(VERSION)-amd64
 ACORN_DOCKER_ARM64 = jhwohlgemuth/acorn:$(VERSION)-arm64
 ACORN_GHCR_AMD64 = ghcr.io/jhwohlgemuth/acorn:$(VERSION)-amd64
 ACORN_GHCR_ARM64 = ghcr.io/jhwohlgemuth/acorn:$(VERSION)-arm64
-BUCKET_IMAGE_AMD64 = $(REGISTRY)/bucket/runner:$(VERSION)-amd64
-BUCKET_IMAGE_ARM64 = $(REGISTRY)/bucket/runner:$(VERSION)-arm64
+ACORN_IMAGE_AMD64 = $(REGISTRY)/acorn/runner:$(VERSION)-amd64
+ACORN_IMAGE_ARM64 = $(REGISTRY)/acorn/runner:$(VERSION)-arm64
+ACP_AGENT ?= opencode
+ARTIFACT_TARGET_DIR = $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),target)
+BENCH_BASELINE = $(VERSION)
+BENCH_HISTORY =
+BENCH_OUTPUT = $(ARTIFACT_TARGET_DIR)/benchmark-results
 BUCKET_DOCKER_AMD64 = jhwohlgemuth/bucket:$(VERSION)-amd64
 BUCKET_DOCKER_ARM64 = jhwohlgemuth/bucket:$(VERSION)-arm64
 BUCKET_GHCR_AMD64 = ghcr.io/jhwohlgemuth/bucket:$(VERSION)-amd64
 BUCKET_GHCR_ARM64 = ghcr.io/jhwohlgemuth/bucket:$(VERSION)-arm64
-RUST_IMAGE_AMD64 = $(REGISTRY)/acorn/rust:$(VERSION)-amd64
-RUST_IMAGE_ARM64 = $(REGISTRY)/acorn/rust:$(VERSION)-arm64
-RUST_IMAGE_GHCR = ghcr.io/jhwohlgemuth/acorn
-RUST_IMAGE_GHCR_AMD64 = $(RUST_IMAGE_GHCR):rust-$(VERSION)-amd64
-RUST_IMAGE_GHCR_ARM64 = $(RUST_IMAGE_GHCR):rust-$(VERSION)-arm64
-RUST_IMAGE_GHCR_LATEST = $(RUST_IMAGE_GHCR):rust-latest
-RUST_IMAGE_GHCR_VERSION = $(RUST_IMAGE_GHCR):rust-$(VERSION)
-DOCKER_HUB_REGISTRY = mirror.gcr.io/library
-ORNL_HUB_PROXY = regproxy.ornl.gov/hub_proxy
-REGISTRY = savannah.ornl.gov/research-enablement
+BUCKET_IMAGE_AMD64 = $(REGISTRY)/bucket/runner:$(VERSION)-amd64
+BUCKET_IMAGE_ARM64 = $(REGISTRY)/bucket/runner:$(VERSION)-arm64
+CARGO_SHEAR_VERSION = 1.14.0
+CI_JOB =
+CI_PIPELINE =
+CI_REF =
 DEFAULT_ARM64_TARGET = aarch64-unknown-linux-musl
 DEFAULT_TARGET = `awk -F ' = ' '$$1 ~ /default-target/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml | tr . _`
 DEFAULT_WINDOWS_TARGET = x86_64-pc-windows-gnu
-MUSL_BUILD ?= cargo build
-ARTIFACT_TARGET_DIR = $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),target)
 DEV_DEPENDENCIES = \
 	cargo-audit \
 	cargo-auditable \
@@ -543,6 +554,30 @@ DEV_DEPENDENCIES = \
 	mdbook-pikchr \
 	sqruff \
 	wasm-pack
+# Use a dedicated Dioxus executable: some environments map `dx` to Deno.
+DIOXUS ?= $(CURDIR)/target/tools/dioxus/bin/dx
+DOCKER_HUB_REGISTRY = mirror.gcr.io/library
+FUZZ_ARGS =
+FUZZ_TARGET = research_activity
+IMAGE_AMD64_CONTEXT ?= oklahoma
+IMAGE_ARM64_CONTEXT ?= dante
+IMAGE_BUILD_CACHE ?= --no-cache
+MUSL_BUILD ?= cargo build
+ORNL_HUB_PROXY = regproxy.ornl.gov/hub_proxy
+PLATFORM = linux/amd64
+REGISTRY = savannah.ornl.gov/research-enablement
+RELEASE_REF ?= main
+RUST_AMD64_CONTEXT ?= $(IMAGE_AMD64_CONTEXT)
+RUST_ARM64_CONTEXT ?= $(IMAGE_ARM64_CONTEXT)
+RUST_IMAGE_AMD64 = $(REGISTRY)/acorn/rust:$(VERSION)-amd64
+RUST_IMAGE_ARM64 = $(REGISTRY)/acorn/rust:$(VERSION)-arm64
+RUST_IMAGE_GHCR = ghcr.io/jhwohlgemuth/acorn
+RUST_IMAGE_GHCR_AMD64 = $(RUST_IMAGE_GHCR):rust-$(VERSION)-amd64
+RUST_IMAGE_GHCR_ARM64 = $(RUST_IMAGE_GHCR):rust-$(VERSION)-arm64
+RUST_IMAGE_GHCR_LATEST = $(RUST_IMAGE_GHCR):rust-latest
+RUST_IMAGE_GHCR_VERSION = $(RUST_IMAGE_GHCR):rust-$(VERSION)
+RUST_VERSION = `awk -F ' = ' '$$1 ~ /rust-version/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
+TAG ?= v$(VERSION)
 TARGETS = \
 	i586-unknown-linux-musl \
 	i686-unknown-linux-gnu \
@@ -554,52 +589,68 @@ TARGETS = \
 	x86_64-unknown-linux-musl \
 	x86_64-pc-windows-gnu \
 	wasm32-unknown-unknown
-FUZZ_TARGET = research_activity
-FUZZ_ARGS =
-BENCH_BASELINE = $(VERSION)
-BENCH_OUTPUT = $(ARTIFACT_TARGET_DIR)/benchmark-results
-BENCH_HISTORY =
-CARGO_SHEAR_VERSION = 1.14.0
-CI_JOB =
-CI_PIPELINE =
-CI_REF =
-RELEASE_REF ?= main
-TAG ?= v$(VERSION)
-WASM_PACK_BUILD_ARGS =
 TASKS = \
+	acorn-build-in-image \
+	acorn-clean \
+	acorn-image \
+	acorn-push \
+	acorn-push-docker \
+	acorn-push-ghcr \
 	audit \
+	bench \
+	bench-baseline \
+	bench-compare \
+	bench-report \
 	book \
+	bucket-clean \
+	bucket-image \
+	bucket-push \
+	bucket-push-docker \
+	bucket-push-ghcr \
 	build \
 	build-linux-amd64 \
 	build-linux-arm64 \
-	build-windows-amd64 \
 	build-wasm \
-	linux-package-amd64 \
-	linux-package-arm64 \
-	linux-packages \
-	mcpb \
-	release-checksums \
+	build-windows-amd64 \
 	changelog \
 	changelog-release \
+	check-dependencies \
+	check-release-crates \
+	check-version \
+	check-wasm \
 	ci-retry \
 	ci-watch \
 	clean \
 	cover \
 	doc \
-	bench \
-	bench-baseline \
-	bench-compare \
-	bench-report \
-	lint \
-	shellcheck \
-	sqlcheck \
 	fuzz \
 	fuzz-repro \
 	help \
 	help-cli \
 	homebrew-formula \
+	lint \
+	linux-package-amd64 \
+	linux-package-arm64 \
+	linux-packages \
+	mcpb \
 	publish-book \
+	release-checksums \
+	release-download \
+	release-list \
+	release-retry \
+	release-version \
+	release-view \
+	release-watch \
+	rust-image \
+	rust-image-amd64 \
+	rust-image-arm64 \
+	rust-publish-ghcr \
+	rust-push \
+	rust-push-ghcr \
+	rust-push-savannah \
 	setup \
+	shellcheck \
+	sqlcheck \
 	test \
 	test-acp \
 	test-ci \
@@ -607,34 +658,29 @@ TASKS = \
 	test-openai \
 	test-webmcp \
 	test-webmcp-package \
-	check-dependencies \
-	check-release-crates \
-	check-wasm \
 	version \
-	release-download \
-	release-list \
-	release-retry \
-	release-version \
-	release-view \
-	release-watch \
-	check-version \
-	acorn-clean \
-	acorn-build-in-image \
-	acorn-image \
-	acorn-push \
-	acorn-push-docker \
-	acorn-push-ghcr \
-	bucket-clean \
-	bucket-image \
-	bucket-push \
-	bucket-push-docker \
-	bucket-push-ghcr \
-	rust-image \
-	rust-image-amd64 \
-	rust-image-arm64 \
-	rust-publish-ghcr \
-	rust-push \
-	rust-push-ghcr \
-	rust-push-savannah
+	web-build \
+	web-check \
+	web-dev \
+	web-prepare \
+	web-preview \
+	web-setup \
+	web-test \
+	web-test-wasm
+TEST_OLLAMA_BASE_URL ?= http://localhost:11434
+VERSION = `awk -F ' = ' '$$1 ~ /^version/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
+WASM_PACK_BUILD_ARGS =
+WEB_PORT ?= 8080
+WEB_PUBLIC = target/dx/acorn-web/release/web/public
+
+ifeq ($(OS),Windows_NT)
+CLEAN_BIN_CMD = pwsh -NoProfile -Command "if (Test-Path ./bin) { Remove-Item -Recurse -Force ./bin }"
+COVER_JOBS ?= --jobs 1
+WRITE_SHA256 = pwsh -NoProfile -Command "(Get-FileHash -Algorithm SHA256 -LiteralPath '$(1)').Hash.ToLowerInvariant() + '  $(1)' | Set-Content -Encoding ascii -LiteralPath '$(1).sha256'"
+else
+CLEAN_BIN_CMD = rm -rf ./bin
+COVER_JOBS ?=
+WRITE_SHA256 = if command -v sha256sum >/dev/null 2>&1; then sha256sum "$(1)" > "$(1).sha256"; elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$(1)" > "$(1).sha256"; else echo "A SHA-256 utility (sha256sum or shasum) is required" >&2; exit 1; fi
+endif
 
 .PHONY: $(TASKS)

@@ -1,6 +1,13 @@
 //! Explicit CLI, environment, and default server configuration.
-use crate::ServerResult;
+use crate::{
+    util::constants::env::{
+        SERVER_ALLOW_MUTATION, SERVER_GRPC_BIND, SERVER_GRPC_ENABLED, SERVER_JSON_RPC_BIND, SERVER_JSON_RPC_ENABLED, SERVER_MAX_REQUEST_BYTES,
+        SERVER_REQUEST_TIMEOUT_SECONDS, SERVER_SHUTDOWN_GRACE_SECONDS, SERVER_TLS_CERT, SERVER_TLS_KEY, SERVER_TRACING_LEVEL, SERVICE_TOKEN,
+    },
+    ServerResult,
+};
 use clap::Parser;
+use core::fmt;
 use core::net::{IpAddr, Ipv4Addr, SocketAddr};
 use core::time::Duration;
 use std::env;
@@ -49,7 +56,7 @@ pub struct ServerArgs {
     pub tracing_level: Option<String>,
 }
 /// Validated server configuration after applying CLI-over-environment precedence.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ServerConfig {
     /// Whether mutation-gated operations may run.
     pub allow_mutation: bool,
@@ -71,47 +78,70 @@ pub struct ServerConfig {
     pub tracing_level: String,
     token: String,
 }
+impl fmt::Debug for ServerConfig {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ServerConfig")
+            .field("allow_mutation", &self.allow_mutation)
+            .field("grpc_bind", &self.grpc_bind)
+            .field("json_rpc_bind", &self.json_rpc_bind)
+            .field("max_request_bytes", &self.max_request_bytes)
+            .field("request_timeout", &self.request_timeout)
+            .field("shutdown_grace", &self.shutdown_grace)
+            .field("tls_cert", &self.tls_cert)
+            .field("tls_key", &self.tls_key)
+            .field("tracing_level", &self.tracing_level)
+            .field("token", &"[redacted]")
+            .finish()
+    }
+}
 impl ServerConfig {
     /// Resolve and validate configuration from explicit arguments and the environment.
     pub fn resolve(args: ServerArgs) -> ServerResult<Self> {
-        let token: ServerResult<String> = env::var("ACORN_SERVICE_TOKEN")
+        let token: ServerResult<String> = env::var(SERVICE_TOKEN)
             .ok()
             .filter(|value| !value.trim().is_empty())
-            .ok_or_else(|| "ACORN_SERVICE_TOKEN is required and cannot be empty".into());
-        let json_rpc_enabled = Self::environment_boolean("ACORN_SERVER_JSON_RPC_ENABLED").map(|value| value.unwrap_or(!args.disable_json_rpc));
-        let grpc_enabled = Self::environment_boolean("ACORN_SERVER_GRPC_ENABLED").map(|value| value.unwrap_or(!args.disable_grpc));
+            .ok_or_else(|| format!("{SERVICE_TOKEN} is required and cannot be empty").into());
+        token.and_then(|token| Self::resolve_with_token(args, token))
+    }
+    /// Resolve configuration with an explicitly supplied bearer secret.
+    pub fn resolve_with_token(args: ServerArgs, token: impl Into<String>) -> ServerResult<Self> {
+        let token = token.into();
+        let token: ServerResult<String> = (!token.trim().is_empty())
+            .then_some(token)
+            .ok_or_else(|| "Server bearer secret cannot be empty".into());
+        let json_rpc_enabled = Self::environment_boolean(SERVER_JSON_RPC_ENABLED).map(|value| value.unwrap_or(!args.disable_json_rpc));
+        let grpc_enabled = Self::environment_boolean(SERVER_GRPC_ENABLED).map(|value| value.unwrap_or(!args.disable_grpc));
         let listeners: ServerResult<(Option<SocketAddr>, Option<SocketAddr>)> = json_rpc_enabled.and_then(|json_rpc_enabled| {
             grpc_enabled.and_then(|grpc_enabled| match json_rpc_enabled || grpc_enabled {
                 | true => json_rpc_enabled
-                    .then(|| address(args.json_rpc_bind, "ACORN_SERVER_JSON_RPC_BIND", DEFAULT_JSON_RPC_BIND))
+                    .then(|| address(args.json_rpc_bind, SERVER_JSON_RPC_BIND, DEFAULT_JSON_RPC_BIND))
                     .transpose()
                     .and_then(|json_rpc_bind| {
                         grpc_enabled
-                            .then(|| address(args.grpc_bind, "ACORN_SERVER_GRPC_BIND", DEFAULT_GRPC_BIND))
+                            .then(|| address(args.grpc_bind, SERVER_GRPC_BIND, DEFAULT_GRPC_BIND))
                             .transpose()
                             .map(|grpc_bind| (json_rpc_bind, grpc_bind))
                     }),
                 | false => Err("At least one server listener must be enabled".into()),
             })
         });
-        let tls_cert = args.tls_cert.or_else(|| env::var_os("ACORN_SERVER_TLS_CERT").map(PathBuf::from));
-        let tls_key = args.tls_key.or_else(|| env::var_os("ACORN_SERVER_TLS_KEY").map(PathBuf::from));
+        let tls_cert = args.tls_cert.or_else(|| env::var_os(SERVER_TLS_CERT).map(PathBuf::from));
+        let tls_key = args.tls_key.or_else(|| env::var_os(SERVER_TLS_KEY).map(PathBuf::from));
         let tls: ServerResult<(Option<PathBuf>, Option<PathBuf>)> = match tls_cert.is_some() == tls_key.is_some() {
             | true => Ok((tls_cert, tls_key)),
             | false => Err("Both TLS certificate and private-key paths are required".into()),
         };
-        let max_request_bytes = positive_usize(args.max_request_bytes, "ACORN_SERVER_MAX_REQUEST_BYTES", DEFAULT_MAX_REQUEST_BYTES);
-        let request_timeout =
-            positive_u64(args.request_timeout_seconds, "ACORN_SERVER_REQUEST_TIMEOUT_SECONDS", DEFAULT_SECONDS).map(Duration::from_secs);
-        let shutdown_grace =
-            positive_u64(args.shutdown_grace_seconds, "ACORN_SERVER_SHUTDOWN_GRACE_SECONDS", DEFAULT_SECONDS).map(Duration::from_secs);
+        let max_request_bytes = positive_usize(args.max_request_bytes, SERVER_MAX_REQUEST_BYTES, DEFAULT_MAX_REQUEST_BYTES);
+        let request_timeout = positive_u64(args.request_timeout_seconds, SERVER_REQUEST_TIMEOUT_SECONDS, DEFAULT_SECONDS).map(Duration::from_secs);
+        let shutdown_grace = positive_u64(args.shutdown_grace_seconds, SERVER_SHUTDOWN_GRACE_SECONDS, DEFAULT_SECONDS).map(Duration::from_secs);
         let allow_mutation = match args.allow_mutation {
             | true => Ok(true),
-            | false => Self::environment_boolean("ACORN_SERVER_ALLOW_MUTATION").map(|value| value.unwrap_or(false)),
+            | false => Self::environment_boolean(SERVER_ALLOW_MUTATION).map(|value| value.unwrap_or(false)),
         };
         let tracing_level = args
             .tracing_level
-            .or_else(|| env::var("ACORN_SERVER_TRACING_LEVEL").ok())
+            .or_else(|| env::var(SERVER_TRACING_LEVEL).ok())
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| "info".to_string());
         token

@@ -285,6 +285,18 @@
       ]
     },
     {
+      "name": "graph",
+      "domain": "graph.microsoft.com",
+      "root": "v1.0",
+      "resources": [
+        {
+          "name": "metadata",
+          "method": "get",
+          "template": "{{ base }}/{{ path }}"
+        }
+      ]
+    },
+    {
       "name": "handle",
       "domain": "hdl.handle.net",
       "resources": [

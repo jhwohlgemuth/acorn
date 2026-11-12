@@ -1,0 +1,9 @@
+[application]
+name = "acorn-web"
+default_platform = "web"
+
+[web.app]
+title = "ACORN · Research workspace"
+
+[web.watcher]
+watch_path = ["src", "assets"]

@@ -102,11 +102,11 @@ PA-40 technical acceptance used accepted PA-37B, PA-40S, [PA-38B TEST ONLY expor
 
 - Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: [accepted isolated technical chain](../_assets/sharepoint/intake-approval/acceptance/end-to-end.md); approved uncoached contributor and reviewer participants. The [November 11 automated checkpoint](../_assets/sharepoint/intake-approval/acceptance/usability.md) records App Checker, published-player correction navigation, and current desktop/tablet/375-pixel visual captures, but the owner deferred the contributor walkthrough. Exact Approved-batch canvas-to-PDF comparison remains unverified.
-- Exact write set: TEST ONLY apps `[PROTOTYPE] Intake Approval` and `Sponsor Highlights Intake UI TEST ONLY`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/usability.md`; `.wiki/features/powerapps-jsonl-intake/pilot-runbook.md`
+- Prerequisites: [accepted isolated technical chain](../_assets/sharepoint/intake-approval/acceptance/end-to-end.md); two approved participants who did not build the apps (the owner is arranging them); and a read-only path to the accepted Approved batch for exact canvas-to-PDF comparison. The [November 11 acceptance record](../_assets/sharepoint/intake-approval/acceptance/usability.md) preserves the automated checkpoint and published TEST ONLY UX repairs. The updated participant guide maps the published controls and clearly labels older reference screenshots.
+- Exact write set: TEST ONLY apps `[PROTOTYPE] Intake Approval` and `Sponsor Highlights Intake UI TEST ONLY`; TEST ONLY component library `Sponsor Highlights UI TEST ONLY` used by the contributor app; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/usability.md` and its participant guide and rollback copies; `.wiki/features/powerapps-jsonl-intake/pilot-runbook.md`
 - Primary integration lock: Power Platform user acceptance
 - Outcome: Accept both primary user journeys, cross-app consistency, and preview-to-PDF expectations with no material coaching or semantic discrepancy. Further accessibility features and checks remain deferred by user direction.
-- Focused validation: Two uncoached walkthroughs, task/error observations, formula/runtime App Checker, desktop/tablet/375-pixel captures, and page-by-page PDF comparison.
+- Focused validation: Two uncoached walkthroughs and task/error observations; post-repair App Checker and desktop/tablet/375-pixel visual checks; live review-save behavior; and page-by-page Approved-batch PDF comparison. Fresh durable player captures remain unavailable through the browser; the guide uses owner-approved labeled references.
 - Handoff: Record signed go/no-go, accepted renderer differences, required support wording, and any bounded repair phases. PA-41 remains blocked without go.
 
 ## PA-41 — Back up and cut over the operational approval gate

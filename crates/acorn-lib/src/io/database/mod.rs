@@ -27,12 +27,14 @@ use std::{
 };
 use tracing::{debug, info};
 
+pub mod artifact;
 pub mod backend;
 mod candidate;
 mod logbook;
 pub(crate) mod macros;
 pub mod schema;
 
+pub use artifact::ArtifactSource;
 pub(crate) use candidate::Provenance;
 pub use candidate::{CandidateAction, CandidatePersistence, ResearchActivityCandidate};
 pub use logbook::LogbookGraduationPersistence;

@@ -19,7 +19,8 @@ Let users create the same supported artifacts from ACORN's maintained research a
 
 - `crates/acorn-lib/src/io/database/logbook.rs` provides typed retrieval of current `ResearchActivity` data, linked logbook entries, and immutable revisions.
 - Existing `InputOutput`, crosswalk, logbook-update, PDF, PowerPoint, and template paths already transform supplied typed data; most renderers do not need database awareness.
-- Export entry points currently begin with a source file or in-memory activity. There is no shared selector for canonical activity ID versus revision ID, no database-source artifact manifest, and no end-to-end database export test. The existing GitLab `ReportManifest` lives in `crates/acorn-lib/src/io/api/gitlab/package.rs`; it already records source commit, project, window, entry IDs, package version, checksum and CI provenance, but not database revision identity, ACORN version or rendering options.
+- `crates/acorn-lib/src/io/database/artifact.rs` now defines a validated source selector for one file, current canonical activity ID, or immutable revision ID. Focused selector tests passed with `cargo test -p acorn-lib --features analysis artifact_source` on November 11, 2026 (3 passed). No backend resolution or renderer dispatch is attached yet.
+- Export entry points currently begin with a source file or in-memory activity. There is no database-source artifact manifest or end-to-end database export test. The existing GitLab `ReportManifest` lives in `crates/acorn-lib/src/io/api/gitlab/package.rs`; it already records source commit, project, window, entry IDs, package version, checksum and CI provenance, but not database revision identity, ACORN version or rendering options.
 
 # Project code boundaries
 
@@ -56,22 +57,11 @@ The implemented canonical database contract supplies typed lookup, revision iden
 
 # Execution phases
 
-## DBA-01 — Define the database artifact selector
+## DBA-02 — Resolve SQLite current and historical sources
 
 - Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: none
-- Exact write set: `crates/acorn-lib/src/io/database/artifact.rs`, `crates/acorn-lib/src/io/database/mod.rs`, `crates/acorn-lib/src/io/database/tests/mod.rs`
-- Primary integration lock: database artifact API
-- Outcome: Represent file, current activity, and immutable revision sources with unambiguous validation.
-- Focused validation: Run focused selector construction and invalid-identity tests.
-- Handoff: Remove DBA-01 and expose the selector to backend resolution.
-
-## DBA-02 — Resolve SQLite current and historical sources
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: DBA-01
+- Prerequisites: The accepted `ArtifactSource` selector contract in `crates/acorn-lib/src/io/database/artifact.rs`.
 - Exact write set: `crates/acorn-lib/src/io/database/artifact.rs`
 - Primary integration lock: database artifact API
 - Outcome: Resolve a portable activity ID or revision ID to typed activity data and exact provenance.

@@ -1,0 +1,37 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": true,
+    "identifier": "watershed-observations",
+    "keywords": [],
+    "technology": []
+  },
+  "title": "Mapping Seasonal Watershed Changes",
+  "sections": {
+    "mission": "Measure how seasonal rainfall changes water availability.",
+    "challenge": "Sparse observations make it difficult to compare stream conditions between seasons.",
+    "approach": [
+      "Collect field observations at fixed locations.",
+      "Compare observations using a consistent measurement protocol."
+    ],
+    "impact": [
+      "Provide a repeatable method for describing local water conditions."
+    ],
+    "research": {
+      "focus": "Seasonal changes in stream conditions",
+      "areas": [
+        "Environmental observations"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Researcher",
+    "givenName": "Alex",
+    "familyName": "Rivera",
+    "email": "alex.rivera@example.org",
+    "telephone": "123-456-7890",
+    "url": "https://example.com",
+    "organization": "Example Organization"
+  },
+  "subtitle": "An introductory research summary"
+}

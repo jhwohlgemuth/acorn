@@ -105,6 +105,10 @@ The remaining critical portability edges are agent source resolution, embedded t
 
 `acorn-wasm` is the JavaScript adapter for portable ACORN behavior. Its initial API parses and validates supplied Research Activity JSON and calculates readability checks over supplied text. It owns `wasm-bindgen` DTO conversion and package generation without enabling native host services. Browser HTTP, storage, document, process, and persistence adapters remain deferred until concrete service workflows prove narrow consumer-owned ports.
 
+### `acorn-web`
+
+`acorn-web` is the Dioxus browser presentation root. It links `acorn-wasm` into one application payload and reuses its portable operations for manual tools and optional WebMCP. It imports neither `acorn-lib` nor `acorn-host`. DOM-local file selection, clipboard and download effects belong to this concrete UI consumer; they do not introduce native capabilities or duplicate domain algorithms. See `crates/acorn-web/README.md` for the browser scope and local Make workflow.
+
 ### Interface crates
 
 `acorn-cli` and `acorn-tui` are composition roots. They select concrete runtime capabilities and translate library results into terminal or application behavior. CLI argument parsing and exit/report presentation stay outside portable domain crates.

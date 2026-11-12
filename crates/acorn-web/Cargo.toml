@@ -1,0 +1,25 @@
+[package]
+name = "acorn-web"
+publish = false
+version.workspace = true
+edition = "2021"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Local-first ACORN browser workspace"
+
+[dependencies]
+acorn-wasm = { path = "../acorn-wasm" }
+dioxus = { version = "=0.7.3", features = ["web", "router"] }
+serde.workspace = true
+serde-wasm-bindgen = "0.6.5"
+serde_json.workspace = true
+strum.workspace = true
+wasm-bindgen = "0.2.128"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.78"

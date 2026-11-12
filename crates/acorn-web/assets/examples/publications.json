@@ -1,0 +1,90 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": true,
+    "identifier": "open-watershed-methods",
+    "keywords": [],
+    "technology": [],
+    "doi": "https://doi.org/10.5072/acorn-example",
+    "dates": [
+      {
+        "dateType": "Issued",
+        "date": "2026-09-17T12:30:00-04:00"
+      }
+    ],
+    "organizations": [
+      {
+        "name": "Example Repository",
+        "identifiers": [
+          {
+            "value": "https://ror.org/01qz5mb56",
+            "scheme": "ROR",
+            "schemeUri": "https://ror.org"
+          }
+        ],
+        "roles": [
+          {
+            "organization": {
+              "value": "https://ror.org/01qz5mb56",
+              "scheme": "ROR",
+              "schemeUri": "https://ror.org"
+            },
+            "role": "Publisher"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "title": "Watershed observation protocol",
+        "type": "dataset",
+        "doi": "10.5072/acorn-example",
+        "publicationYear": 2026,
+        "identifier": "https://example.org/datasets/watershed",
+        "keywords": []
+      },
+      {
+        "title": "Observation processing tools",
+        "type": "software",
+        "identifier": "https://example.org/software/watershed",
+        "keywords": []
+      }
+    ],
+    "languages": [
+      {
+        "id": "eng"
+      }
+    ],
+    "publications": [
+      "https://example.org/publications/watershed"
+    ]
+  },
+  "title": "Open Methods for Watershed Observations",
+  "sections": {
+    "mission": "Measure how seasonal rainfall changes water availability.",
+    "challenge": "Sparse observations make it difficult to compare stream conditions between seasons.",
+    "approach": [
+      "Collect field observations at fixed locations.",
+      "Compare observations using a consistent measurement protocol."
+    ],
+    "impact": [
+      "Provide a repeatable method for describing local water conditions."
+    ],
+    "research": {
+      "focus": "Seasonal changes in stream conditions",
+      "areas": [
+        "Environmental observations"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Researcher",
+    "givenName": "Alex",
+    "familyName": "Rivera",
+    "email": "alex.rivera@example.org",
+    "telephone": "123-456-7890",
+    "url": "https://example.com",
+    "organization": "Example Organization"
+  },
+  "subtitle": "Publications, affiliations, dates and reusable outputs"
+}

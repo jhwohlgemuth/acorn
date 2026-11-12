@@ -1,11 +1,11 @@
 ---
 type: Plan
 title: Rust browser and Tauri desktop workspace for ACORN tools
-description: Ship one accessible local-first Dioxus workspace, patterned after the OKF Plan Browser shell, in browsers and a least-privilege Tauri desktop app with a loaded Research Activity portfolio, all eight current ACORN WebMCP operations, and a hot-reloadable Resium/CesiumJS research-organization map.
+description: Ship an OKF Browser-aligned Dioxus workspace and Tauri desktop app with coordinated ACORN skill releases, WinGet, Scoop, Debian, AppImage, and Homebrew cask publication, loaded Research Activity views, and local ACORN tools.
 difficulty: high
 impact: high
-package: [workspace, acorn-web, acorn-desktop, acorn-wasm, acorn-host, acorn-service, acorn-analysis, acorn-schema]
-tags: [feature, browser, desktop, tauri, rust, wasm, webmcp, dioxus, resium, cesiumjs, geospatial, accessibility, ornl, os:windows, os:macos, os:linux]
+package: [workspace, acorn-web, acorn-desktop, acorn-wasm, acorn-host, acorn-service, acorn-analysis, acorn-schema, acorn-cli]
+tags: [feature, browser, desktop, tauri, rust, wasm, webmcp, dioxus, resium, cesiumjs, geospatial, accessibility, ornl, os:windows, os:macos, os:linux, os:debian, packaging, winget, scoop, appimage, homebrew, skills]
 status: planned
 execution: phased
 phase_budget_hours: 5
@@ -13,58 +13,131 @@ phase_budget_hours: 5
 
 # Goal
 
-Add one Rust-authored ACORN workspace that turns the current eight-operation WebAssembly demo into a coherent local product in two delivery modes: a browser application and a local Tauri 2 desktop application. Both modes use the same Dioxus Web route tree, components, state model, ACORN artwork, and OKF-inspired design. Tauri embeds the built static frontend and adds only explicit user-mediated local file, folder, and save capabilities; it does not fork the UI or domain logic.
+Add one Rust-authored ACORN workspace that turns the existing WebAssembly demo into a coherent local product in two delivery modes: a browser application and a local Tauri 2 desktop application. Both modes use the same Dioxus Web route tree, components, state model, ACORN artwork, and the OKF Browser design. Tauri embeds the built static frontend and adds only explicit user-mediated local file, folder, and save capabilities; it does not fork the UI or domain logic.
 
-The application uses the [OKF Plan Browser home](https://www.jasonwohlgemuth.com/okf-plan-browser/home) as its layout reference: a dark full-height shell, collapsible grouped sidebar, concise home dashboard, status and metric cards, routed detail views, and compact responsive behavior. ACORN content and workflows replace all planning-specific concepts.
+The application uses the [OKF Plan Browser home](https://www.jasonwohlgemuth.com/okf-plan-browser/home) as its design authority: the same shell proportions, typography hierarchy, spacing, navigation treatment, centered Home loading flow, restrained cards, and responsive behavior, adapted to ACORN content and green branding. The [November 11 design review](design-review.md) records the revised design specifications and remaining ABW-20 acceptance gate. ACORN content and workflows replace all planning-specific concepts.
 
-The first release provides a visual portfolio for loaded Research Activity Data, manual interfaces for Research Activity validation, metadata-standard validation, persistent-identifier discovery and inspection, content diff, FAIR assessment, metadata crosswalk, readability, and a geospatial view of referenced organization locations. The same application explicitly installs the existing eight read-only WebMCP tools when `document.modelContext` is supported; every manual workflow remains available when WebMCP is absent.
+The first release provides a visual portfolio for loaded Research Activity Data, manual interfaces for Research Activity validation, metadata-standard validation, persistent-identifier discovery and inspection, content diff, FAIR assessment, metadata crosswalk, readability, Big-O comparison, and a geospatial view of referenced organization locations. The same application explicitly installs the existing read-only WebMCP tools when `document.modelContext` is supported; every manual workflow remains available when WebMCP is absent.
 
 # Design preview
 
-## Home workspace
+**Updated November 11:** Every one of the 16 sidebar tabs has an individual editable SVG at 1440×900, plus a 32 px sample-state annotation strip. All use the OKF Browser shell and page hierarchy. Settings also has a separate light-theme SVG; responsive, drawer and collapsed-navigation boards supplement the desktop views. These are static specifications; ABW-20 retains exceptional-state preview coverage and final comparison evidence.
 
-![Latest ACORN browser and Tauri desktop home preview](_assets/acorn-browser-workspace-preview.svg)
+| Tab | Route | Individual SVG |
+|---|---|---|
+| Home | `/home` | [Home](_assets/acorn-browser-workspace-preview.svg) |
+| Portfolio | `/portfolio` | [Portfolio](_assets/acorn-browser-portfolio-preview.svg) |
+| Research activity | `/validate/activity` | [Research activity](_assets/acorn-browser-research-activity-preview.svg) |
+| Metadata standard | `/validate/standard` | [Metadata standard](_assets/acorn-browser-metadata-standard-preview.svg) |
+| Crosswalk | `/crosswalk` | [Crosswalk](_assets/acorn-browser-crosswalk-preview.svg) |
+| FAIR metadata | `/fair` | [FAIR metadata](_assets/acorn-browser-fair-preview.svg) |
+| Readability | `/readability` | [Readability](_assets/acorn-browser-readability-preview.svg) |
+| Content diff | `/diff` | [Content diff](_assets/acorn-browser-diff-preview.svg) |
+| Big-O comparison | `/big-o` | [Big-O comparison](_assets/acorn-browser-big-o-preview.svg) |
+| Geospatial | `/geospatial` | [Geospatial](_assets/acorn-browser-geospatial-preview.svg) |
+| Discover | `/identifiers/discover` | [Discover](_assets/acorn-browser-discover-preview.svg) |
+| Inspect | `/identifiers/inspect` | [Inspect](_assets/acorn-browser-inspect-preview.svg) |
+| Install | `/install` | [Install](_assets/acorn-browser-install-preview.svg) |
+| ACORN Skill | `/skill` | [ACORN Skill](_assets/acorn-browser-skill-preview.svg) |
+| Settings | `/settings` | [Settings](_assets/acorn-browser-settings-dark-preview.svg) |
+| About | `/about` | [About](_assets/acorn-browser-about-preview.svg) |
 
-## Research Activity portfolio
+## Home
 
-![Latest ACORN Research Activity portfolio preview](_assets/acorn-browser-portfolio-preview.svg)
+![ACORN Home tab](_assets/acorn-browser-workspace-preview.svg)
 
-## Validation and crosswalk pages
+## Portfolio
 
-![Latest ACORN Research Activity validation, metadata-standard validation, and crosswalk previews](_assets/acorn-browser-validation-preview.svg)
+![ACORN Portfolio tab](_assets/acorn-browser-portfolio-preview.svg)
 
-## FAIR, readability, and diff pages
+## Research activity
 
-![Latest ACORN FAIR assessment, readability, and content diff previews](_assets/acorn-browser-analysis-preview.svg)
+![ACORN Research activity tab](_assets/acorn-browser-research-activity-preview.svg)
 
-## Persistent-identifier pages
+## Metadata standard
 
-![Latest ACORN identifier discovery and inspection previews](_assets/acorn-browser-identifiers-preview.svg)
+![ACORN Metadata standard tab](_assets/acorn-browser-metadata-standard-preview.svg)
 
-## Geospatial page
+## Crosswalk
 
-![Latest ACORN research-organization map preview](_assets/acorn-browser-geospatial-preview.svg)
+![ACORN Crosswalk tab](_assets/acorn-browser-crosswalk-preview.svg)
 
-## Settings page
+## FAIR metadata
 
-![Latest ACORN browser and Tauri desktop Settings preview](_assets/acorn-browser-settings-preview.svg)
+![ACORN FAIR metadata tab](_assets/acorn-browser-fair-preview.svg)
 
-## About page
+## Readability
 
-![Latest ACORN browser and Tauri desktop About preview](_assets/acorn-browser-about-preview.svg)
+![ACORN Readability tab](_assets/acorn-browser-readability-preview.svg)
 
-These SVGs are the canonical plan-level previews for every first-release route. The grouped validation, analysis, and identifier boards give each related route its own complete page state; the Home, Portfolio, Geospatial, Settings, and About boards also include narrow-screen intent. Every desktop preview uses the same Home sidebar hierarchy, dimensions, labels, runtime/version block, and icon treatment; only the current route receives the active style. Composite boards scale that sidebar without changing its information architecture. Any browser or desktop UX, branding, navigation, theme, responsive-layout, visualization, or native-shell decision that changes an intended view must update the corresponding asset in the same planning change so the embedded images never trail the plan.
+## Content diff
+
+![ACORN Content diff tab](_assets/acorn-browser-diff-preview.svg)
+
+## Big-O comparison
+
+![ACORN Big-O comparison tab](_assets/acorn-browser-big-o-preview.svg)
+
+## Geospatial
+
+![ACORN Geospatial tab](_assets/acorn-browser-geospatial-preview.svg)
+
+## Discover
+
+![ACORN Discover tab](_assets/acorn-browser-discover-preview.svg)
+
+## Inspect
+
+![ACORN Inspect tab](_assets/acorn-browser-inspect-preview.svg)
+
+## Install
+
+![ACORN Install tab](_assets/acorn-browser-install-preview.svg)
+
+## ACORN Skill
+
+![ACORN ACORN Skill tab](_assets/acorn-browser-skill-preview.svg)
+
+## Settings
+
+![ACORN Settings tab](_assets/acorn-browser-settings-dark-preview.svg)
+
+## About
+
+![ACORN About tab](_assets/acorn-browser-about-preview.svg)
+
+## Charts and diagrams
+
+Portfolio shows activity-type and status counts from the same filtered records as its table, plus a selected-record diagram linking contributor and organization counts. FAIR uses proportion bars with explicit satisfied/available counts. Readability plots the returned score against the selected metric’s configured target. Content diff pairs a before/after diagram with field or line counts appropriate to the selected diff mode. Big-O includes a labeled illustration of `n` and `n²` alongside the authoritative symbolic comparison.
+
+Keep labels and numeric or tabular equivalents visible; do not require color, hover or a chart to understand a result. Stack charts on narrow screens. Missing values, zero denominators, off-scale scores and unsupported plot inputs need explicit states. Big-O finite samples illustrate growth and never determine symbolic dominance; the initial plot is a bundled `n`/`n²` example, not a new general expression evaluator. Other comparisons retain their structured symbolic result without suggesting the example plots their inputs.
+
+## Theme and responsive variants
+
+![ACORN Settings in light mode](_assets/acorn-browser-settings-light-preview.svg)
+
+![Portrait and landscape ACORN layouts](_assets/acorn-browser-responsive-preview.svg)
+
+![Collapsed desktop navigation](_assets/acorn-browser-collapsed-preview.svg)
+
+![Mobile navigation drawer](_assets/acorn-browser-drawer-preview.svg)
+
+Grouped comparison boards remain available for [validation and crosswalk](_assets/acorn-browser-validation-preview.svg), [analysis](_assets/acorn-browser-analysis-preview.svg), [identifiers](_assets/acorn-browser-identifiers-preview.svg), and [Settings themes](_assets/acorn-browser-settings-preview.svg). Update the matching individual and grouped SVGs together when a design changes.
+
+The SVGs specify a 220 px desktop sidebar, 420 px Home column, 848 px tool/Install/Skill content column, 624 px About column and 464 px Settings column. Shared navigation, outlined icons, muted charcoal surfaces, green selection and action styles, 10 px card corners and 24 px section spacing follow the reference with documented ACORN adaptations. Version numbers and loaded data are examples, not release or runtime acceptance evidence.
 
 # Current evidence
 
-- Repository baseline `10b17f22` has a clean worktree on November 7, 2026. `crates/acorn-wasm/src/lib.rs` exposes the eight browser operations and `crates/acorn-wasm/web/webmcp.js` registers their bounded read-only WebMCP adapters without import-time registration or network side effects.
+- Initial browser review: `acorn-web` inherits the workspace package version. `Display` and `EnumIter` own tool presentation/iteration, documentation artwork is staged from its canonical source, and bundled RAD examples cover summary, publication/organization/output and compute-resource fields. ACRE 2.0.0 is a separate downloadable CLI configuration, not a browser validation tool.
+
+- November 11 implementation evidence: `acorn-web` now provides a local nine-operation Dioxus initial browser release with one WASM payload and unchanged `acorn-wasm` computation/adapter ownership. `acorn-desktop` remains planned. [Browser README](../../../crates/acorn-web/README.md) records commands, measured sizes, passing tests, observed Safari/Chrome behavior and unverified release rows. Concurrent design and unrelated implementation edits are preserved. ABW-02/20/35 are ready; tool phases retain only presentation and acceptance gaps.
 - `crates/acorn-wasm/examples/webmcp/` already supplies accessible manual controls, adapter invocation feedback, an unsupported-browser fallback, and a native smoke route. It proves the operations, but it is a test/demo page rather than a routed product workspace.
 - `docs/src/_assets/acorn.svg`, `banner_dark_mode.png`, and `banner_light_mode.png` are the current repository-owned ACORN mark and theme banners. The shared workspace reuses those assets rather than drawing a substitute logo, and every canonical route preview embeds the exact brown vector mark from `acorn.svg`. The live OKF Plan Browser audit on November 8, 2026 confirms transferable chrome: collapsible sidebar, icon-rich navigation, version display, guided tour, theme choices, notification region, Settings/About routes, local file/drop and sample-data entry points, and the made-with-heart credit. Its About route uses a narrow left-aligned content column, prominent source/contribution card, short labeled narrative sections and cards, a three-column technology grid, and a bordered AI-disclosure card; ACORN adopts that hierarchy for its applicable project, local-first, delivery-target, source, technology, and disclosure content while keeping the tour entry point on Home rather than copying every OKF control.
 - `docs/src/_assets/schema-logos/rust.svg` and `webassembly.svg` already provide repository-held Rust and WebAssembly marks. The technology credit may also use the unchanged icon-only Tauri artwork from the official `create-tauri-app` repository and the unchanged `dioxus_color.svg` from the official Dioxus brand repository, subject to retaining their provenance and license notices and without implying endorsement: [Tauri template asset](https://github.com/tauri-apps/create-tauri-app/blob/dev/templates/_assets_/tauri.svg), [Tauri trademark guidance](https://v2.tauri.app/about/trademark/), and [Dioxus brand resources](https://github.com/DioxusLabs/brand).
 - The About-page AI-use disclosure identifies the tools with the official Codex login mark from the [`openai/codex` login asset](https://github.com/openai/codex/blob/main/codex-rs/login/src/assets/error.html), the official [GitHub Copilot Octicon](https://github.com/primer/octicons/blob/main/icons/copilot-24.svg), and the repository-held `docs/src/_assets/artifact-logos/microsoft.svg` vendor mark beside the Microsoft 365 Copilot label. Imported marks remain unchanged, linked labels identify the exact products, provenance and license notices are retained, and the disclosure does not imply endorsement. Home and non-About chrome identify only the human author; About has no made-with-heart line.
 - The official [AI Assisted badge](https://www.aihonestybadge.com/ai-assisted-badge) describes work led and shaped by a person with AI helping, including cases where AI produced most of the code. The publisher allows personal or commercial use, hotlinking without attribution, and provides a single light/dark-compatible image with no script or tracking. ACORN bundles the unchanged [small SVG](https://www.aihonestybadge.com/badges/ai-assisted-small.svg) for offline/static delivery, links it to the badge explanation, gives it an accessible name, and keeps the more specific agent/tool disclosure beside it. The preview copy retrieved November 8, 2026 has SHA-256 `E5342204B418C42AE9F5E981E558CCEE71754252E52FCEF9A9B7ED8B4A52D5A6`.
 - Driver.js 1.10.2 is the selected guided-tour implementation. Its official configuration exposes ordered steps, progress, keyboard control, close labels, reduced-animation control, and destroy hooks; the application bundles a pinned local copy of its JavaScript and CSS so the tour does not introduce a runtime CDN dependency: [Driver.js configuration](https://driverjs.com/docs/configuration), [installation](https://driverjs.com/docs/installation), and [changelog](https://driverjs.com/docs/changelog).
-- `crates/acorn-service` owns portable supplied-content validation, readability, and repository-processing contracts; `acorn-analysis`, `acorn-schema`, `acorn-core`, and `acorn-diff` provide the remaining in-memory behavior. `ARCHITECTURE.md` keeps browser composition in `acorn-wasm` and excludes native host adapters from the portable graph.
+- `crates/acorn-service` owns portable supplied-content validation, readability, and repository-processing contracts; `acorn-analysis`, `acorn-schema`, `acorn-core`, and `acorn-diff` provide the remaining in-memory behavior. `ARCHITECTURE.md` keeps reusable browser adapters in `acorn-wasm` and UI composition in `acorn-web` and excludes native host adapters from the portable graph.
 - The active [crate-boundary architecture](../../refactors/crate-boundary-architecture.md) is the ownership authority for this plan: portable computation stays in `acorn-core`, `acorn-schema`, `acorn-analysis`, `acorn-diff`, and `acorn-service`; reusable JavaScript bindings stay in `acorn-wasm`; native filesystem effects stay in `acorn-host`; and interface crates select those capabilities without importing `acorn-lib`. The [portability coordination record](../../refactors/portability/index.md) requires a concrete browser workflow before adding a narrow browser adapter contract; this workspace is that concrete consumer and must extend the matrix rather than bypass it.
 - The current WebMCP adapter bounds metadata documents to 256 KiB, each diff side to 128 KiB, prose and discovery text to 16 KiB, identifier/resource values to 2 KiB, output to 256 KiB, diagnostics to 100, and discovered identifiers to 100. Both delivery modes consume those limits rather than inventing broader ones.
 - The active [WebMCP and MCP interoperability plan](../../testing/webmcp-evaluations.md) owns independent evaluation data, external evaluator tooling, agent-selection evidence, layered MCP checks, and compatible-runner CI. It does not own the ACORN product workspace.
@@ -78,6 +151,11 @@ These SVGs are the canonical plan-level previews for every first-release route. 
 - Tauri 2 is frontend-agnostic and can embed a static HTML/CSS/JavaScript/WASM directory through `frontendDist`, so the built Dioxus Web output can be reused instead of creating a second renderer: [Tauri frontend configuration](https://v2.tauri.app/start/frontend/) and [Tauri configuration](https://v2.tauri.app/reference/config/). Its capability files constrain which windows may invoke commands, and production builds generate platform-specific bundles: [Tauri capabilities](https://v2.tauri.app/security/capabilities/) and [Tauri distribution](https://v2.tauri.app/distribute/).
 - ORNL publicly identifies green as its signature color, but the public page does not publish a machine-readable ACORN token: [OLCF media assets](https://www.olcf.ornl.gov/about-olcf/media-assets/). The initial theme therefore uses `#00662C` only as a provisional ORNL-inspired accent unless an approved ORNL source confirms a production value. No ORNL logo or implied official endorsement is in scope.
 
+- The November 11 [design review](design-review.md) inspected all eight rendered ACORN boards and the live OKF Home, About, Install and Planning Skill pages. The reference now makes skill discovery and app/skill acquisition prominent. The revised SVGs now include those routes. A follow-up live comparison also inspected loaded Portfolio, Settings in both themes, 390×844 portrait and 844×390 landscape. Full exceptional-state and interaction acceptance remains separate.
+- `crates/acorn-cli/assets/skills/acorn/SKILL.md` is the existing canonical authored ACORN skill. `crates/acorn-cli/src/commands/skill/mod.rs` embeds it and extracts it to the platform cache; [CLI documentation](../../../docs/src/cli-reference/commands/skill.md) explains this behavior. No browser/desktop skill bundle, compatibility manifest, or coordinated UI release is evidenced yet.
+- `.gitlab-ci.yml` defines CLI release publication including Debian and AppImage links; this review did not run that pipeline or verify published binaries. Those entries do not establish publication of the proposed Tauri GUI. Desktop package identity, launch target and artifact provenance must be distinct from the CLI while remaining compatible when installed together.
+- Primary distribution references inspected November 11: [WinGet submission](https://learn.microsoft.com/en-us/windows/package-manager/package/) requires a package manifest and repository submission; [Scoop manifests](https://github.com/ScoopInstaller/Scoop/wiki/App-Manifests) support versioned URLs, hashes, architecture and lifecycle fields; [Homebrew casks](https://docs.brew.sh/Cask-Cookbook) describe version, hash, URL and app artifacts. Tauri documents [Debian bundles](https://v2.tauri.app/distribute/debian/), [AppImage bundles and Linux baseline constraints](https://v2.tauri.app/distribute/appimage/), and [macOS signing/notarization](https://v2.tauri.app/distribute/sign/macos/). Publication credentials, public artifact access, signing identities, bucket/tap ownership and native release hosts remain unverified prerequisites.
+
 # Boundaries and decisions
 
 ## In scope
@@ -85,10 +163,11 @@ These SVGs are the canonical plan-level previews for every first-release route. 
 - A new `crates/acorn-web` Dioxus Web composition root targeting `wasm32-unknown-unknown`.
 - A new `crates/acorn-desktop` Tauri 2 shell that embeds the release output from `acorn-web`, opens the same routes in a system webview, and contains no second ACORN UI or computation implementation.
 - A light/dark/system-aware OKF-inspired application shell using the repository ACORN mark and matching theme banner, grouped routes, collapsible desktop sidebar, accessible narrow-screen drawer, home callout, runtime status, and one icon-labeled entry per tool. The persistent chrome presents theme state as a real native toggle button with a visible switch track, light/dark label, and accessible pressed state rather than two decorative icon buttons; the Settings route may restore system preference.
-- Applicable OKF Plan Browser affordances adapted to ACORN: icon-rich navigation, sidebar version and runtime summary, a Home-only Driver.js guided tour with **Try sample data** immediately to its right, an ACORN-specific Research Activity Portfolio, Settings and About routes, session-only theme control, polite notification region, one combined **Open file or folder** action beside the retained drop-zone loader, bundled sample data, visible WebMCP status, tooltips for collapsed icon controls, and the linked Home/non-About credit “Made with ❤️ by [**jhwohlgemuth**](https://github.com/jhwohlgemuth)”. About has no tour control or made-with-heart line; its AI-use disclosure uses the unchanged linked AI Assisted honesty badge and incorporates linked Codex, GitHub Copilot, and Microsoft 365 Copilot names and marks alongside the human-review explanation. The About technology cards use the Rust, WebAssembly, Tauri, and Dioxus marks with visible names, without a second “official project marks” strip. OKF planning-domain portfolio semantics, dependency graphs, repository tokens, install flows, and planning-skill workflows do not carry over.
-- Manual routed workflows for the eight tool names frozen by the current adapter:
+- Applicable OKF Plan Browser affordances adapted to ACORN: icon-rich navigation, sidebar version and runtime summary, a Home-only Driver.js guided tour with **Try sample data** immediately to its right, an ACORN-specific Research Activity Portfolio, Settings and About routes, session-only theme control, polite notification region, one combined **Open file or folder** action beside the retained drop-zone loader, bundled sample data, visible WebMCP status, tooltips for collapsed icon controls, and the linked Home/non-About credit “Made with ❤️ by [**jhwohlgemuth**](https://github.com/jhwohlgemuth)”. About has no tour control or made-with-heart line; its AI-use disclosure uses the unchanged linked AI Assisted honesty badge and incorporates linked Codex, GitHub Copilot, and Microsoft 365 Copilot names and marks alongside the human-review explanation. The About technology cards use the Rust, WebAssembly, Tauri, and Dioxus marks with visible names, without a second “official project marks” strip. OKF planning-domain semantics, dependency graphs, repository tokens, and planning-specific prompts do not carry over. Its Install and Skill presentation patterns do carry over, with ACORN-specific distribution and workflows.
+- Manual routed workflows for the nine tool names frozen by the current adapter:
   - `acorn_assess_fair_metadata`
   - `acorn_check_readability`
+  - `acorn_compare_big_o`
   - `acorn_crosswalk_metadata`
   - `acorn_diff_content`
   - `acorn_discover_persistent_identifiers`
@@ -96,7 +175,7 @@ These SVGs are the canonical plan-level previews for every first-release route. 
   - `acorn_validate_metadata_standard`
   - `acorn_validate_research_activity`
 - Typed Rust state and result presentation over the same portable operations used by the JavaScript bindings. UI mappings may be new; domain algorithms, validation rules, limits, and result semantics are reused.
-- One generated Dioxus/WASM application module that links the `acorn-wasm` rlib and retains its `wasm-bindgen` exports. ABW-01 must prove this packaging seam before product pages build on it; a silent second copy of the ACORN WASM graph is not an accepted fallback.
+- One generated Dioxus/WASM application module that links the `acorn-wasm` rlib and retains its `wasm-bindgen` exports. The initial browser release export inspection proves this packaging seam; a silent second copy of the ACORN WASM graph is not an accepted fallback.
 - Explicit `createAcornWebMcpAdapter(...)` installation, status, invocation feedback, and disposal. Importing the application or adapter remains side-effect free until the page installs it.
 - Platform effects behind one typed UI boundary: native browser file/folder selection and download in browser builds and user-mediated Tauri file/folder open plus file-save dialogs in desktop builds. A loaded folder becomes a deterministic session-only tree of supported text files; selecting a leaf supplies that file to a manual tool and never runs tools automatically. The desktop backend traverses only the root returned by its native folder dialog inside a bounded Rust command, so the webview receives sanitized relative paths and content but never a reusable filesystem capability, absolute path, persisted directory grant, or ambient home-directory access.
 - Structured results before optional raw JSON: ordered diagnostics, FAIR profiles/findings, readability checks, conversion warnings, unified diff or JSON Patch, and normalized identifier states.
@@ -112,17 +191,16 @@ These SVGs are the canonical plan-level previews for every first-release route. 
 - Unprompted filesystem access, traversal outside the explicitly selected folder, symlink following, directory watching, PDF or PowerPoint rendering, databases, shell/process execution, inference, `doctor`, authenticated repository operations, a server requirement, or remote persistence.
 - A TypeScript/React application shell, server-side rendering, a separate desktop UI, a Freya or Rune production renderer, or a generic dynamic-form framework. The bounded Resium map island is the only React-owned surface.
 - Cesium ion credentials, remote terrain or imagery, geocoding, automatic ROR API calls, network-fetched map data, user tracking, or making the WebGL globe the only way to inspect organization locations.
-- Auto-update, background startup, tray integration, global shortcuts, deep links, remote content, mobile Tauri targets, store publication, production code signing, and macOS notarization. The first desktop release produces local unsigned developer bundles; distribution credentials and governed release channels require a separate authorized plan.
+- In-app auto-update, background startup, tray integration, global shortcuts, deep links, remote content, mobile Tauri targets, Microsoft Store/App Store publication, and admission to the Debian archive. Production signing/notarization and the five requested distribution channels are in scope; credentials and authorized release hosts are external prerequisites. Unsigned local bundles are development evidence only. Package-manager updates do not require an updater plugin.
 - Automatic clipboard writes, automatic downloads, tool execution on page load, telemetry, or ACORN-originated network requests.
 - Copying OKF Plan Browser source, planning content, portfolio concepts, or product name. The reference governs information architecture and visual rhythm only.
 - Using an ORNL logo, DOE mark, trademarked asset, or claim of official branding without an approved repository asset and authorization.
-- Adding Big-O UI to this eight-tool workspace scope before its navigation and preview are reconciled with the now nine-tool adapter.
 
 ## Product and architecture decisions
 
 1. **Use Dioxus Web and the DOM.** The product requires native inputs, semantic navigation, browser file controls, text-heavy results, and screen-reader evidence. Canvas-first rendering is not the first-release accessibility risk profile.
 2. **Keep one UI composition root.** `acorn-web` owns routes, presentation state, and a typed platform-effect interface; portable ACORN crates own computation; `acorn-wasm` owns JavaScript DTO conversion and WebMCP bindings. `acorn-desktop` embeds the compiled frontend and implements only the native side of approved effects. Browser, webview, and Tauri types do not cross into portable crates.
-3. **Prove one WASM payload before page work.** Link the existing `acorn-wasm` rlib into the Dioxus module and verify the generated JavaScript exports all eight bindings. If current tooling cannot preserve those exports, ABW-01 remains incomplete and a bounded repair phase must decide the packaging change; do not ship two unmeasured copies.
+3. **Prove one WASM payload before page work.** Link the existing `acorn-wasm` rlib into the Dioxus module and verify the generated JavaScript exports all nine bindings. If a future build cannot preserve those exports, a bounded repair phase must decide the packaging change; do not ship two unmeasured copies.
 4. **Manual controls are the baseline.** WebMCP status is `initializing`, `installed`, `unsupported`, `failed`, or `disposed`; unsupported WebMCP never disables the manual tools.
 5. **Use structured Rust presentation state.** Distinguish idle, running, valid/success, invalid input, bounded rejection, operation failure, and unsupported capability. Invalid metadata is not an application crash.
 6. **Stay local by default.** Session state may survive route changes in memory. The first release uses no cookies, local storage, IndexedDB, service worker cache, remote API, or analytics.
@@ -143,7 +221,7 @@ These SVGs are the canonical plan-level previews for every first-release route. 
 | Package | Role in this plan | Forbidden ownership |
 |---|---|---|
 | `acorn-core`, `acorn-schema`, `acorn-analysis`, `acorn-diff`, `acorn-service` | Existing portable values, codecs, operations, findings, and orchestration consumed directly by first-party interfaces | DOM, Tauri, filesystem, WebMCP registration, presentation state, or duplicated UI-specific result models |
-| `acorn-wasm` | Reusable `wasm-bindgen` ABI, JavaScript DTO conversion, and the existing eight-tool WebMCP adapter | Dioxus routes/components, CSS, Tauri commands, native host effects, or a dependency on `acorn-web` |
+| `acorn-wasm` | Reusable `wasm-bindgen` ABI, JavaScript DTO conversion, and the existing nine-tool WebMCP adapter | Dioxus routes/components, CSS, Tauri commands, native host effects, or a dependency on `acorn-web` |
 | `acorn-web` | Static Dioxus interface composition root: routes, components, presentation state, accessibility, ephemeral DOM effects, and the narrow bridge to a route-local Resium map island | Portable domain policy, duplicate JS DTO/adapter logic, a React application shell, ACORN logic inside the map island, native filesystem/process dependencies, `acorn-host`, or `acorn-lib` |
 | `acorn-host` | Existing narrow native filesystem owner; ABW-12 may add the missing explicit text-write primitive beside `read_text`, and ABW-17 may add bounded selected-root traversal, each with focused tests | Tauri window/dialog types, Dioxus state, product routing, or WebMCP policy |
 | `acorn-desktop` | Thin Tauri interface composition root that embeds `acorn-web`, owns native file/folder dialog selection and IPC authorization, and delegates selected-file reads/writes plus selected-root traversal to `acorn-host` | Reimplemented ACORN operations, direct `std::fs` policy, a second UI tree, reusable browser adapters, reusable path authority, or privileged WebMCP bridging |
@@ -155,34 +233,38 @@ These SVGs are the canonical plan-level previews for every first-release route. 
 
 | Route | Manual workflow | Required presentation |
 |---|---|---|
-| `/home` | Choose the Portfolio, a tool, geospatial view, local file, recursively loaded local folder, dropped content, or bundled sample and inspect runtime state | ACORN artwork, adjacent **Take a tour** and **Try sample data** actions in that order, privacy callout, combined file-or-folder loader, retained drop zone, session file tree, Portfolio entry, eight icon-labeled WebMCP tools plus geospatial navigation, theme toggle button, notification region, WebMCP status, version, and author-only made-with-heart credit |
-| `/portfolio` | Explore and filter the Research Activity Data loaded in this session | Deterministic activity, organization, contributor, and PID metrics; activity-type distribution with an equivalent text/table representation; type/status/text filters; sortable semantic activity table; selected-record details; empty and single-record states; narrow-screen list-first reflow |
+| `/home` | Choose the Portfolio, a tool, geospatial view, local file, recursively loaded local folder, dropped content, or bundled sample and inspect runtime state | ACORN artwork, adjacent **Take a tour** and **Try sample data** actions in that order, prominent ACORN Skill card, Install/Skill navigation, supporting privacy copy, combined file-or-folder loader, retained drop zone, session file tree, Portfolio entry, nine icon-labeled WebMCP tools plus geospatial navigation, theme toggle button, notification region, WebMCP status, version, and author-only made-with-heart credit |
+| `/portfolio` | Explore and filter the Research Activity Data loaded in this session | Deterministic activity, organization, contributor, and PID metrics; activity-type/status bar charts and selected-record relationship diagram with equivalent text/table values; type/status/text filters; sortable semantic activity table; selected-record details; empty and single-record states; narrow-screen list-first reflow |
 | `/validate/activity` | Validate Research Activity JSON and optional local file | Validity, effective fuzzy policy, ordered/truncated diagnostics |
 | `/validate/standard` | Validate supplied content/format/standard | Validity, supported-combination errors, ordered diagnostics |
 | `/crosswalk` | Run a supported typed crosswalk | Converted content, output format, mandatory loss warnings, copy/download |
-| `/fair` | Assess supported JSON metadata | 41 findings, profile and per-principle counts, no-resolution notice |
-| `/readability` | Run one supported metric | Score, threshold, acceptable/excessive state, returned summary |
-| `/diff` | Compare before/after content | Unified or RFC 6902 result, changed state, copy/download |
+| `/fair` | Assess supported JSON metadata | 41 findings, profile and per-principle proportion bars with counts, no-resolution notice |
+| `/readability` | Run one supported metric | Score, metric-specific target gauge, threshold, acceptable/excessive state, returned summary |
+| `/big-o` | Compare two Big-O expressions with explicit symbol assumptions | Normalized expressions, assumptions, left/right/equivalent/incomparable/undetermined dominance, structured invalid-input feedback, and optional raw result; 256 UTF-8 bytes per expression/assumption name and at most 64 assumptions |
+| `/diff` | Compare before/after content | Unified or RFC 6902 result, before/after diagram and mode-appropriate change counts, changed state, copy/download |
 | `/identifiers/discover` | Discover identifiers in text | Ordered normalized identifiers, count, truncation |
 | `/identifiers/inspect` | Inspect one identifier and optional kind | Valid, invalid, or ambiguous state and deterministic candidates |
 | `/geospatial` | Map organizations referenced by ROR identifiers in loaded Research Activity Data | Token-free Resium/CesiumJS globe, deduplicated local markers, unresolved/locationless summary, selected-organization details, synchronized accessible table, WebGL fallback, and ROR dataset version/provenance |
+| `/install` | Acquire or update the desktop app and matching skill | OKF-style app/skill entry cards, five-channel platform table, exact supported architectures, versioned artifact links/checksums, explicit publication status, upgrade/removal instructions, and a link to `/skill` |
+| `/skill` | Read, copy or download the release-matched ACORN skill | Canonical source link, app/skill version and digest, workflow guide, raw definition, complete folder download, compatibility and manual install/update/removal instructions; works offline from bundled content |
 | `/settings` | Configure session-only appearance and reset transient state | Dark, light, and system choices; current version/runtime; no persistence claim |
 | `/about` | Explain boundaries, authorship, AI use, and implementation technology | Narrow OKF-inspired content column with source card and no tour control, project narrative, local-first and delivery-target cards, three-column technology grid with labeled marks and no duplicate mark strip, version/runtime and WebMCP boundaries, bordered AI-use disclosure with the linked AI Assisted badge plus linked agent names and marks, and no made-with-heart footer |
 
 # Dependencies and coordination
 
-- The [crate-boundary architecture](../../refactors/crate-boundary-architecture.md) is an upstream coordination dependency, and this plan is its concrete atomic browser/desktop consumer. That record remains authoritative for ownership direction; this plan owns the bounded implementation phases. The [portability coordination record](../../refactors/portability/index.md) supplies the existing WASM/feature gates and gains the accepted `acorn-web` composition row when ABW-01 lands.
-- ABW-01 is ready against the current eight-operation contract. It claims the workspace manifest/lockfile and browser build seam, so it must not overlap another phase editing `Cargo.toml` or `Cargo.lock`.
-- ABW-02 follows ABW-01 and freezes the branded shell; ABW-10 then completes the applicable OKF home/chrome affordances. ABW-03 follows both. ABW-04 and ABW-05 own disjoint page and operation modules and may proceed in parallel only after ABW-03 freezes the shared result/input components and their listed files remain disjoint.
+- The [crate-boundary architecture](../../refactors/crate-boundary-architecture.md) is an upstream coordination dependency, and this plan is its concrete atomic browser/desktop consumer. That record remains authoritative for ownership direction; this plan owns the bounded implementation phases. The [portability coordination record](../../refactors/portability/index.md) supplies the existing WASM/feature gates records the accepted single-payload `acorn-web` composition.
+- ABW-20 remains ready for exceptional-state preview coverage and final visual comparison; the shared shell, Install/Skill pages and nine-tool inventory are already reflected in the revised SVGs. The browser composition is accepted; exceptional-state design does not block local review. Future manifest/lockfile edits still require exclusive ownership.
+- ABW-02 completes acceptance of the branded shell; ABW-10 then completes the applicable OKF home/chrome affordances. ABW-03 follows both. ABW-04 and ABW-05 currently share `src/ui.rs` and `src/operations.rs`, so they serialize. Parallel leaf work requires an explicit module extraction and named disjoint write sets first.
 - ABW-06 follows the tool pages because single-file/copy/download behavior must be accepted against real result types, not speculative abstractions. ABW-16 then adds the bounded recursive browser folder workspace over that frozen effect contract. ABW-19 follows ABW-03 and ABW-16 so the Portfolio consumes accepted validated RAD and session-tree state rather than creating a parallel loader or domain model.
 - ABW-18 follows ABW-05 and ABW-19 so it can consume the accepted portfolio state and normalized ROR identifiers. It exclusively owns the React/Resium/CesiumJS island, coordinated Dioxus/Vite development workflow, Vite staging, and generated ROR location index; no other phase may introduce React or change `Makefile`, frontend watchers, or final static-asset assembly concurrently.
-- ABW-07 follows ABW-01 and all tool groups. It serializes WebMCP staging and `Makefile` changes with WME-02, WME-04, and any other owner of `webmcp.js` or WASM package assembly. It consumes the adapter unchanged unless a separate evidence-backed repair expands its write set.
+- ABW-07 completes workspace integration acceptance after all tool groups. It serializes WebMCP staging and `Makefile` changes with WME-02, WME-04, and any other owner of `webmcp.js` or WASM package assembly. It consumes the adapter unchanged unless a separate evidence-backed repair expands its write set.
 - ABW-08 requires the complete manual and geospatial route matrix, including the map island's static assets, WebGL fallback, and accessible table. Live WebMCP registration requires a supported Chrome build and flag/configuration; missing support blocks only that matrix row, not manual browser acceptance.
 - ABW-11 follows ABW-18 as well as the frozen browser build seam and shell, then claims the workspace manifest/lockfile alone to add the Tauri shell and connect `cargo tauri dev` to the accepted coordinated hot-reload workflow. ABW-12 follows the accepted browser effects, serializes the `acorn-host` filesystem leaf, and adds bounded native single-file open/save commands without a general filesystem permission or direct filesystem implementation in `acorn-desktop`. ABW-17 then adds one selected-folder command against the ABW-16 tree contract and the same `acorn-host` ownership boundary.
 - ABW-13, ABW-14, and ABW-15 validate local bundles on Windows, macOS, and Linux respectively after ABW-17 and ABW-08. Their platform-specific files are disjoint and may proceed in parallel on authorized native hosts; each unavailable host remains unverified rather than passing by inference.
-- ABW-09 follows all browser and desktop behavior and acceptance phases. It owns final documentation, broad gates, and plan retirement.
+- ABW-21 stages the canonical skill against the accepted composition; ABW-22 exposes it after the shared chrome and browser/native file effects exist. ABW-23 freezes release identities and manifests after ABW-11/21; ABW-31 consumes that contract for Install UI before ABW-08. ABW-24/25 produce signed Windows/macOS releases after their native acceptance; ABW-26/27 publish separate Debian/AppImage artifacts after Linux acceptance. ABW-28/29 consume the Windows release for WinGet/Scoop; ABW-30 consumes the notarized macOS release for Homebrew cask. Missing hosts, signing, public URLs or channel ownership block only the dependent publication phases.
+- ABW-09 follows all browser and desktop behavior, skill lifecycle, and five-channel publication acceptance phases. It owns final documentation, broad gates, and plan retirement.
 - The [WebMCP and MCP interoperability plan](../../testing/webmcp-evaluations.md) remains authoritative for external evaluator, model-selection, MCP Inspector/conformance, public MCP control, and required-CI decisions. This plan owns the product page and manual parity.
-- BGO has added a ninth Big-O tool and passed its interactive Chrome smoke. Before ABW implementation, reconcile this plan's eight-tool UI scope and previews with the nine-tool adapter in a bounded planning update.
+- ABW-32 completes Big-O visualization and edge-case acceptance after ABW-03. It must pass before file/result effects ABW-06 and WebMCP product installation ABW-07; the existing adapter is unchanged.
 
 # Validation strategy
 
@@ -202,7 +284,7 @@ make test-webmcp-package
 make build-wasm
 ```
 
-The Dioxus production build must record generated JavaScript/WASM sizes and prove that the eight `wasm-bindgen` exports and routed application share one payload. Generated output stays under `target/`.
+The Dioxus production build must record generated JavaScript/WASM sizes and prove that the nine `wasm-bindgen` exports and routed application share one payload. Generated output stays under `target/`.
 
 The Tauri build must consume that exact release asset directory through `frontendDist`; it must not fetch a remote page or stage another UI. `cargo tauri build` runs on each native desktop host because platform bundles are host-specific. Generated binaries, installers, and Tauri schemas stay under ignored build output.
 
@@ -237,9 +319,13 @@ Static, unit, or headless checks do not count as live desktop/portrait/landscape
 - Native open and save dialogs cover success, cancel, invalid extension, invalid UTF-8, oversized input, safe suggested filename, write failure, and preservation of current editor/result state.
 - Capability inspection proves the bundled main window only loads local assets and cannot invoke filesystem, shell, process, updater, or remote-content APIs. The three custom file/folder commands reject forged paths because callers never submit paths; the folder result exposes only normalized relative paths beneath the dialog-selected root.
 - WebMCP status reflects the embedded webview's real support. Unsupported is an accepted desktop state; no native IPC shim or elevated tool registration is present.
-- Platform-specific packaging checks run on their native hosts. Missing signing or notarization is documented as an intentional local-developer limitation, not silently reported as a distributable release.
+- Platform-specific packaging checks run on their native hosts. Unsigned local acceptance does not satisfy publication. Production releases need the channel-specific signing/notarization, immutable public downloads, manifest validation and installed-app evidence defined below.
 
 # Acceptance criteria
+
+- ABW-20 closes the [design-review findings](design-review.md): all route previews match the live OKF shell/layout at equal viewports with documented ACORN adaptations, Install and Skill are included, and remaining exceptional-state behavior is accepted before full release.
+- The canonical ACORN skill is bundled from the same release revision into CLI, browser and desktop artifacts. Build checks prove byte/hash and version compatibility; install, upgrade, rollback and removal follow the lifecycle contract below without silently changing user-managed agent folders.
+- The desktop GUI is published and installable through WinGet, Scoop, a Debian `.deb`, an AppImage, and a Homebrew cask. Each channel records public artifact/manifest URLs, exact version/architecture/checksums and native install/launch/update/removal evidence. A local bundle, pending upstream PR, or inaccessible URL does not satisfy publication.
 
 - `crates/acorn-web` is the documented Rust/Dioxus composition root and compiles for `wasm32-unknown-unknown` without native ACORN host dependencies; `crates/acorn-desktop` embeds that exact static build in Tauri 2 without duplicating routes, components, or domain logic.
 - `cargo tree` and target checks prove `acorn-web` has no `acorn-host` or `acorn-lib` edge, `acorn-wasm` has no UI or native-host edge, and `acorn-desktop` delegates selected-path filesystem work to the narrowly enabled `acorn-host/fs` capability rather than owning direct filesystem policy.
@@ -248,96 +334,267 @@ Static, unit, or headless checks do not count as live desktop/portrait/landscape
 - The About page displays unchanged Rust, WebAssembly, Tauri, and Dioxus marks inside their existing technology cards with adjacent text labels, useful alternative text, provenance, and retained license notices. It does not repeat them in a separate “official project marks” strip. The marks do not appear in the persistent footer, remain secondary technology credits, are not recolored or combined into a new logo, and do not imply project endorsement.
 - The About page follows the live OKF reference hierarchy closely while using ACORN content: narrow left-aligned column, source/contribution card, project and local-first sections, delivery-target cards, three-column technology grid, and bordered AI-use disclosure. It contains no tour action; the guided-tour entry point remains on Home. The disclosure leads with the AI Assisted honesty badge, incorporates linked names and marks for the three agent products, explains the maintainer's direction/review/testing role, and advises review of AI-generated code; no separate attribution footer is present.
 - The accent system uses an approved ORNL signature-green value or explicitly labels `#00662C` and its derived variants as ORNL-inspired/provisional. Purple and blue are not the primary interactive accent; no unapproved logo is present.
-- All eight current manual operations are reachable from the home page and sidebar, use existing ACORN computation, enforce current bounds, and render structured results before optional raw JSON.
+- All manual operations accepted in ABW-20 are reachable from the home page and sidebar, use existing ACORN computation, enforce current bounds, and render structured results before optional raw JSON.
 - The Portfolio is reachable from Home and the sidebar, derives all counts, filters, distribution, table rows, and selected details from the same loaded Research Activity session state, provides semantic equivalents for every visual summary, and handles empty, single-record, multi-record, and narrow-screen states without network requests or persistence.
-- One Dioxus/WASM payload contains the application and all eight JavaScript bindings, with recorded release size and no silent duplicated ACORN module.
+- One Dioxus/WASM payload contains the application and all nine JavaScript bindings, with recorded release size and no silent duplicated ACORN module.
 - `/geospatial` plots deduplicated ROR-backed organization locations from loaded RAD using the isolated Resium/CesiumJS island while Dioxus retains all ACORN state and an equivalent accessible table. The production build includes Cesium workers/widgets, its locally served Natural Earth II imagery, and a lazy, pinned, digest-verified ROR 2.1 location subset with license/provenance; makes no external map or ROR request by default; requires no ion token; and reports unresolved/locationless records plus WebGL failure without losing the table.
 - The documented browser and Tauri development commands start one coordinated Dioxus/Vite feedback loop: supported Dioxus UI/style/asset edits hot reload, and compatible Resium TSX/map-style edits use React Fast Refresh without rebuilding the WASM application. Watcher startup, failure, and shutdown are deterministic; production output contains no HMR client, refresh preamble, localhost URL, or development-only CSP allowance.
-- The page explicitly installs exactly eight WebMCP tools when supported, reports installation state, routes invocation feedback safely, disposes registrations, and keeps manual controls functional when unsupported.
+- The page explicitly installs exactly nine WebMCP tools when supported, reports installation state, routes invocation feedback safely, disposes registrations, and keeps manual controls functional when unsupported.
 - Local file or folder selection never uploads content, failed reads preserve the current editor, and the session tree contains only normalized relative paths and supported UTF-8 content under the 500-file/20-segment/256-KiB-per-file/16-MiB-total limits. Unsupported and rejected entries are summarized; no operation runs until the user selects a leaf and invokes it. Copy/download/save actions require explicit user action, object URLs are revoked, and generated filenames are safe. Desktop file/folder open and save occur inside bounded Rust commands after native dialog selection, delegate filesystem work to `acorn-host`, never follow symlinks, and grant no ambient filesystem or absolute-path access to the webview.
 - Route changes set a useful document title and focus; navigation, tools, disclosures, results, copy/download, and the responsive drawer pass keyboard acceptance with visible focus and semantic DOM controls.
 - Desktop, phone portrait, and phone landscape pass without horizontal page overflow. The globe yields space or collapses behind the accessible organization list at narrow sizes without hiding data. Manual-tool acceptance records the browsers actually observed; WebMCP acceptance records the exact supported Chrome version/configuration.
 - Unsigned local Tauri bundles launch and pass the shared manual-tool contract on observed Windows, macOS, and Linux hosts. Each platform row records native evidence; an unavailable host remains a named blocker. The desktop app works offline, loads only bundled assets, exposes only the three approved file/folder dialog commands, and does not elevate WebMCP.
 - Focused Rust, WASM, adapter, browser, Tauri, capability, and native-package checks pass. Final `make lint`, `make test`, `make check-wasm`, documentation build, `git diff --check`, and wiki validation pass without unrelated changes.
-- Durable user/developer documentation records browser installation and serving, Tauri prerequisites and local build commands, static-host base paths, privacy/network/native-capability boundaries, supported tools, WebMCP limitations, browser and native-platform evidence, build sizes, unsigned-bundle limitations, and brand-token status.
+- Durable user/developer documentation records browser installation and serving, Tauri prerequisites and local build commands, static-host base paths, privacy/network/native-capability boundaries, supported tools, WebMCP limitations, browser and native-platform evidence, build sizes, unsigned-bundle limitations, and brand-token status, plus public channel commands and the coordinated skill lifecycle.
 - After all criteria pass, ABW-09 deletes this plan and removes its feature-index, portfolio, dependency-network, and parallel-lane entries.
+
+# Desktop distribution and ACORN skill lifecycle
+
+## Release contract
+
+Publish the **Tauri desktop GUI**, using one workspace-versioned frontend/skill payload. Keep the desktop package name, application identifier, executable and install paths distinct from the existing CLI artifacts; installing or removing the GUI must not replace `acorn` on PATH or remove a separately installed CLI. ABW-23 freezes collision-checked channel identifiers, concrete public download origin, supported architecture/OS rows, publisher identity, maintainer-owned Scoop bucket and Homebrew tap URLs, and the release manifest schema before packaging proceeds. Prefer existing ACORN release infrastructure after proving anonymous access; private GitLab package URLs cannot be advertised as public downloads.
+
+| Channel | Required artifact and publication outcome | Acceptance evidence |
+|---|---|---|
+| WinGet | Signed Windows installer, versioned installer URLs and SHA-256 values, application identity and silent install/uninstall metadata; accepted manifest in `microsoft/winget-pkgs` | Manifest validation, public source discovery, clean install/launch, upgrade from a prior accepted version and uninstall without CLI collision |
+| Scoop | Windows desktop archive with the complete runtime/resources and Start Menu shortcut in a maintainer-owned public bucket; pinned hashes and architecture mapping | Bucket add/install/update/uninstall; GUI launch and WebView2 prerequisites; `checkver`/`autoupdate` resolve verified assets rather than mutable bytes |
+| Debian | Desktop `.deb` and checksum published as immutable release assets; GUI desktop entry/icon, runtime dependencies, architecture and license metadata | Install with dependency resolution on the oldest declared Debian baseline, offline launch, upgrade and remove/purge behavior; no claim of Debian archive or apt-repository inclusion |
+| AppImage | Desktop `.AppImage` and checksum published as immutable release assets per supported architecture | Launch on the oldest declared Linux baseline and a second declared distribution, documented FUSE/extraction requirements, executable permission, manual replacement/rollback/removal; no universal-portability claim |
+| Homebrew cask | Signed and notarized macOS app in a DMG/ZIP, published through a maintainer-owned public tap with version/architecture hashes and `app` stanza | Cask audit/style, tap install/launch, upgrade and uninstall with Gatekeeper enabled; no assumption that admission to `homebrew/cask` is automatic |
+
+ABW-13/14/15 retain their value as local functional acceptance. ABW-24–30 add production artifacts and public channel acceptance. Signing keys, Apple credentials, public release access, bucket/tap ownership, native hosts and upstream review are external prerequisites; do not invent their availability or count waiting as active implementation time. A pending WinGet submission remains a blocker to that channel's completion. Additional architecture rows require their own native evidence; x86_64/ARM64 are never implied merely by listing an OS.
+
+Release jobs verify the shared frontend and skill digests before publishing versioned artifacts; channel manifests must reference those bytes. Publish channel availability separately from intended support so `/install` can represent pending/unavailable channels truthfully. Upgrades use the package manager or explicit replacement; no background network checks, updater plugin, agent execution, credential collection or extra IPC capability is added.
+
+## Skill lifecycle contract
+
+1. **Author and review:** retain `crates/acorn-cli/assets/skills/acorn/` as the single authored source. Update the skill whenever UI routes, available operations, limits, WebMCP behavior or desktop capabilities change. Distinguish browser manual operations, optional WebMCP and CLI-only host operations; the GUI does not execute the agent skill.
+2. **Build and release:** derive the raw definition, complete skill archive and a manifest containing app version, source revision, skill digest and compatibility information from that source at build time. Bundle the same bytes in browser and Tauri output, retain the CLI embedding, and publish the archive with the same release. CI rejects stale staging, missing referenced files, mismatched hashes/versions and undocumented operation drift. Skill-only changes still produce a coordinated app/skill release; no independently floating skill download.
+3. **Discover and install:** Home links prominently to `/skill`; shared navigation includes `/install` and `/skill`; About explains their relationship. The skill page reads bundled content offline, offers explicit copy/download actions and complete repository-skill installation instructions, and links to canonical source and the matching versioned release. Browser builds may download the full archive through the existing content-only download boundary; desktop builds export the current raw definition through the existing `save_text` dialog and link to the matching public archive for full-folder acquisition. Do not add binary-save, shell, updater or agent-install commands to IPC. A downloaded skill may be used independently in a compatible agent; it grants no additional permission or app access.
+4. **Upgrade and rollback:** replacing the app replaces its bundled skill atomically. User-exported or agent-installed copies remain user-managed; show their version/digest and instructions to compare and explicitly replace them. Do not claim the UI can detect external skill copies without user-supplied evidence. Retain prior versioned app/skill artifacts for rollback; never pair an older app with a silently fetched latest skill.
+5. **Remove:** uninstall removes package-owned bundled skill resources with the app. Preserve separately exported skills, repository copies, the separately installed CLI and user data; describe explicit optional cleanup rather than deleting agent directories from package scripts. Browser session clearing does not remove or reinstall any skill.
+
+## Additional validation
+
+For every native channel, record the exact OS/architecture, artifact URL/hash, app version, skill manifest/digest, GUI launch, offline manual operation and file-dialog smoke, install/upgrade/removal result, and preservation of unrelated CLI/agent files. Exercise version mismatch and rollback from a previous release. Check the skill source, CLI-embedded definition, browser download, desktop-bundled download and published archive for equality. The browser and desktop Install/Skill routes also enter the normal keyboard, focus, dark/light and responsive matrix. Availability of a build or manifest alone is not successful publication.
+
+# Browser execution milestone — November 11, 2026
+
+The authorized implementation milestone is a locally runnable browser for use, review and testing. It includes the shared Dioxus shell, nine manual operations, structured results, explicit local input and result download, theme/responsive navigation, and optional WebMCP installation. `make web-dev`, `make web-build`, `make web-preview`, `make web-check` and `make web-test` provide reproducible entry points. Product completion still requires the remaining exceptional-state design, full Portfolio/folder/map, skill lifecycle, desktop and publication phases below; none is implied by initial browser release acceptance.
+
+The single-payload composition and nine-operation initial browser release are implemented and exercised. Durable evidence is in [the browser README](../../../crates/acorn-web/README.md). Completed initial browser release phases have been pruned; remaining phase outcomes below cover full-release work only. The browser milestone does not wait for desktop signing, channel identities, native save dialogs or geospatial assets. ABW-22's desktop-only export and ABW-31's published-channel metadata remain release prerequisites, while initial browser release navigation can truthfully identify their pending status.
+
+One integration owner edits manifests/lockfile, `Makefile`, route and module registration, shared components and planning indexes. Parallel page assignments own only their named operation/page/test leaves after ABW-03 freezes the shared result contract; ABW-04 and ABW-05 must not concurrently edit `pages/mod.rs`, `route.rs` or this plan. ABW-11/12 serialize with ACD-03, SPD-24 and dependency-audit manifest work. ABW-07/18 serialize with WebMCP and other build owners. Final broad gates serialize after the implementation batch.
 
 # Execution phases
 
-## ABW-01 — Prove the Rust browser composition and single-WASM seam
+## ABW-20 — Complete exceptional-state preview acceptance
 
 - Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: current eight-operation `acorn-wasm` contract and installed `wasm32-unknown-unknown` target
-- Exact write set: `Cargo.toml`, `Cargo.lock`, `ARCHITECTURE.md`, `crates/acorn-web/Cargo.toml` (new), `crates/acorn-web/Dioxus.toml` (new), `crates/acorn-web/index.html` (new), `crates/acorn-web/src/main.rs` (new), `crates/acorn-web/src/lib.rs` (new), `crates/acorn-web/README.md` (new), `.wiki/features/acorn-browser-workspace/index.md`, `.wiki/refactors/crate-boundary-architecture.md`, `.wiki/refactors/portability/index.md`
-- Primary integration lock: workspace manifest and browser build graph
-- Outcome: Add the minimal Dioxus Web interface composition root, consume portable owners directly plus the `acorn-wasm` rlib, build one browser payload, and update the crate-boundary/portability records to show `acorn-web` above rather than inside the reusable adapter layer. Prove all eight generated JavaScript bindings remain exported without `acorn-lib`, native host dependencies, reversed package edges, or a second staged ACORN WASM module.
-- Focused validation: `cargo test -p acorn-web`; `cargo check -p acorn-web --target wasm32-unknown-unknown`; rerun `cargo check -p acorn-wasm --target wasm32-unknown-unknown`; inspect `cargo tree -p acorn-web --target wasm32-unknown-unknown` for direct narrow portable owners and absence of `acorn-host`/`acorn-lib`; run the documented Dioxus development and release builds; prove representative RSX, CSS, and static-asset edits hot reload through `dx serve`; inspect generated exports, network-free blank shell, and JS/WASM sizes; validate the wiki and dependency diagrams together.
-- Handoff: Remove ABW-01, preserve the accepted build/export commands and measured baseline in `crates/acorn-web/README.md`, and mark ABW-02 ready. If the single-module seam fails, keep the phase open and add a bounded repair phase instead of silently staging duplicate payloads.
+- Prerequisites: revised November 11 SVGs and reconciled nine-tool inventory; live OKF reference available
+- Exact write set: `.wiki/features/acorn-browser-workspace/index.md`, `.wiki/features/acorn-browser-workspace/design-review.md`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-workspace-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-portfolio-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-validation-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-analysis-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-identifiers-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-geospatial-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-settings-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-about-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-install-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-skill-preview.svg`, `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
+- Primary integration lock: browser design and route contract
+- Outcome: Add the remaining empty/single-record Portfolio, invalid/oversized tool input, WebGL-unavailable map and skill version-mismatch visual states. Verify the revised normal-state boards and these exceptional states against the shared design contract without rebuilding the already updated shell or reopening the settled nine-tool inventory.
+- Focused validation: Render every new/changed state, inspect full-size text and card bounds, and finish the dated equal-viewport comparison record. Normal-state desktop, dark/light Settings, portrait/landscape composition, collapsed navigation and drawer drawings already exist. Static preview checks do not count as live application accessibility or behavioral tests; those remain in ABW-08.
+- Handoff: Remove ABW-20 only after the remaining state previews and final visual comparison pass; preserve design measurements and acceptance evidence in the remaining plan, retain the accepted composition evidence, and carry any unaccepted defect into a bounded repair phase.
 
-## ABW-02 — Build the accessible OKF-inspired shell and green theme
+## ABW-21 — Bundle the canonical skill with the application release
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ABW-01
-- Exact write set: `crates/acorn-web/assets/app.css` (new), `crates/acorn-web/assets/acorn.svg` (new from `docs/src/_assets/acorn.svg`), `crates/acorn-web/assets/banner_dark_mode.png` (new from docs), `crates/acorn-web/assets/banner_light_mode.png` (new from docs), `crates/acorn-web/assets/technology/rust.svg` (new from docs), `crates/acorn-web/assets/technology/webassembly.svg` (new from docs), `crates/acorn-web/assets/technology/tauri.svg` (new from official `create-tauri-app`), `crates/acorn-web/assets/technology/dioxus.svg` (new from official Dioxus brand resources), `crates/acorn-web/assets/technology/README.md` (new provenance/license record), `crates/acorn-web/src/app.rs` (new), `crates/acorn-web/src/route.rs` (new), `crates/acorn-web/src/components/mod.rs` (new), `crates/acorn-web/src/components/app_shell.rs` (new), `crates/acorn-web/src/components/sidebar.rs` (new), `crates/acorn-web/src/components/tool_card.rs` (new), `crates/acorn-web/src/pages/mod.rs` (new), `crates/acorn-web/src/pages/home.rs` (new), `crates/acorn-web/src/pages/portfolio.rs` (new placeholder), `crates/acorn-web/src/pages/about.rs` (new), `crates/acorn-web/src/tests.rs` (new), `.wiki/features/acorn-browser-workspace/index.md`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-workspace-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-portfolio-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-about-preview.svg`
+- Prerequisites: accepted browser composition; accepted route/tool inventory; no concurrent skill-source or Makefile owner
+- Exact write set: `crates/acorn-cli/assets/skills/acorn/SKILL.md`, `scripts/package-acorn-skill.py` (new), `scripts/tests/test_package_acorn_skill.py` (new), `Makefile`, `crates/acorn-web/README.md`, `docs/src/cli-reference/commands/skill.md`, `.wiki/features/acorn-browser-workspace/index.md`
+- Primary integration lock: canonical ACORN skill and static asset staging
+- Outcome: Extend the existing skill with browser/desktop workflows and capability distinctions, then deterministically stage its complete authored folder, raw definition, archive and version/revision/hash manifest into ignored build output consumed by the UI. Preserve the CLI's existing source/embedding path and record the workspace release version and skill revision for every delivery mode.
+- Focused validation: Package twice and compare archive contents/digests; missing-reference and stale-version rejection tests; compare source and CLI-extracted definition with staged bytes; inspect all documented operation names/limits against accepted contracts; verify no user paths, credentials or generated cache files enter the archive.
+- Handoff: Remove ABW-21 after recording reproducible commands and manifest contract in the web README; make ABW-22 eligible. Later source changes must regenerate the bundle through this same path.
+
+## ABW-22 — Expose the release-matched ACORN Skill workflow
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ABW-06, ABW-10, ABW-12 and ABW-21
+- Exact write set: `crates/acorn-web/src/pages/skill.rs` (new), `crates/acorn-web/src/pages/mod.rs`, `crates/acorn-web/src/pages/home.rs`, `crates/acorn-web/src/pages/about.rs`, `crates/acorn-web/src/pages/settings.rs`, `crates/acorn-web/src/components/sidebar.rs`, `crates/acorn-web/src/route.rs`, `crates/acorn-web/src/tests/skill.rs` (new), `crates/acorn-web/assets/app.css`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-skill-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-workspace-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-about-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-settings-preview.svg`
+- Primary integration lock: shared Skill route and application chrome
+- Outcome: Implement the OKF-aligned skill guide, prominent Home card and shared navigation using bundled content; expose app/skill version, source and digest, explicit raw/copy/archive actions, and manual install/update/rollback/removal instructions. Show only bundled compatibility facts; never inspect or overwrite agent folders or run the skill.
+- Focused validation: Offline route and download smoke; browser archive and raw bytes match ABW-21; desktop raw export uses `save_text` and full-folder acquisition links to the exact versioned archive; explicit-action clipboard/download tests; missing/corrupt/mismatched manifest rejection; keyboard/focus and dark/light responsive checks; About/Settings links and Home hierarchy match accepted previews; browser and Tauri use the same route.
+- Handoff: Remove ABW-22 and retain lifecycle documentation plus parity tests; include Skill in ABW-08 and every native package acceptance row.
+
+## ABW-23 — Freeze desktop release identity and publication metadata
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ABW-11 and ABW-21; maintainer-confirmed public release origin, publisher identity, Scoop bucket and Homebrew tap destinations; no concurrent CI/build owner
+- Exact write set: `crates/acorn-desktop/release/contract.md` (new), `crates/acorn-desktop/release/manifest.schema.json` (new), `scripts/validate-desktop-release.py` (new), `scripts/tests/test_validate_desktop_release.py` (new), `.gitlab-ci.yml`, `crates/acorn-desktop/README.md`, `.wiki/features/acorn-browser-workspace/index.md`
+- Primary integration lock: desktop release manifest and CI integration
+- Outcome: Freeze collision-checked desktop identities, exact supported OS/architecture rows, immutable asset naming/URLs, channel ownership, signing requirements and publication-state metadata. Wire validation of app/frontend/skill version and digest consistency into existing release CI without relabeling CLI packages as GUI artifacts. Identify native runners and protected signing inputs without storing credentials in the repository.
+- Focused validation: Schema tests reject mismatched versions, missing skill digests, mutable or authenticated asset URLs, duplicate identifiers and unsupported architecture claims; verify public origin anonymously and bucket/tap ownership; inspect existing CLI release behavior for regressions; CI configuration validation and release dry run.
+- Handoff: Remove ABW-23 only with concrete destinations and release contract recorded; make platform publishing and ABW-31 eligible. Missing external identities/access keep this phase blocked, without speculative credentials or made-up package IDs.
+
+## ABW-24 — Publish signed Windows desktop release artifacts
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ABW-13 and ABW-23; authorized native Windows release host, provisioned signing identity and public release access
+- Exact write set: `crates/acorn-desktop/tauri.windows.conf.json`, `crates/acorn-desktop/release/windows.ps1` (new), `crates/acorn-desktop/acceptance/windows-release.md` (new), `.gitlab-ci.yml`, `.wiki/features/acorn-browser-workspace/index.md`; external system: ACORN public desktop release origin frozen by ABW-23
+- Primary integration lock: Windows desktop release publication
+- Outcome: Build/sign/publish a Windows installer for WinGet and a complete signed desktop archive for Scoop, with versioned URLs, SHA-256 sidecars and matching frontend/skill metadata. Preserve the current CLI package and PATH behavior.
+- Focused validation: Signature and timestamp verification; anonymous download/hash check; clean installer and archive launch on each declared architecture; WebView2 prerequisites; offline tool/skill and native-dialog smoke; upgrade/rollback/removal and coexistence with installed CLI; complete resource coverage.
+- Handoff: Remove ABW-24 after recording public artifact and installed-app evidence; release ABW-28/29. Missing signing, hosts or publication access remain explicit blockers.
+
+## ABW-25 — Publish signed and notarized macOS desktop artifacts
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ABW-14 and ABW-23; authorized native macOS hosts for declared architectures, Apple signing/notarization credentials and public release access
+- Exact write set: `crates/acorn-desktop/tauri.macos.conf.json`, `crates/acorn-desktop/release/macos.sh` (new), `crates/acorn-desktop/acceptance/macos-release.md` (new), `.gitlab-ci.yml`, `.wiki/features/acorn-browser-workspace/index.md`; external systems: Apple notarization service and ACORN public desktop release origin frozen by ABW-23
+- Primary integration lock: macOS desktop release publication
+- Outcome: Build/sign/notarize and publish the macOS app in the release contract's DMG/ZIP format with architecture-specific hashes and the matching skill payload. Retain verification evidence and package identity for the cask.
+- Focused validation: Code-signature verification, notarization result, stapling where applicable, Gatekeeper assessment and normal downloaded-app launch without bypasses; public hash verification; offline tool/skill/dialog smoke; upgrade/rollback/removal and preservation of unrelated CLI/agent files.
+- Handoff: Remove ABW-25 after accepted public macOS artifacts exist; release ABW-30. Apple service waiting and unavailable credentials do not count as active phase time.
+
+## ABW-26 — Publish the Debian desktop package
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ABW-15 and ABW-23; authorized declared Debian baseline/architecture hosts and public release access
+- Exact write set: `crates/acorn-desktop/tauri.debian.conf.json` (new), `crates/acorn-desktop/release/debian.sh` (new), `crates/acorn-desktop/acceptance/debian-release.md` (new), `.gitlab-ci.yml`, `.wiki/features/acorn-browser-workspace/index.md`; external system: ACORN public desktop release origin frozen by ABW-23
+- Primary integration lock: Debian desktop package publication
+- Outcome: Build and publish the Tauri GUI `.deb` and checksum with correct dependencies, architecture, desktop entry/icon, license, package identity and bundled skill, independently of existing CLI Debian packages.
+- Focused validation: Package metadata/content inspection and Debian package lint; anonymous fetch/hash check; clean dependency-resolving install on the oldest supported baseline; GUI/offline skill/manual-tool/native-dialog smoke; upgrade, rollback, remove and purge with unrelated CLI/agent files preserved. Record the exact distribution and architecture tested.
+- Handoff: Remove ABW-26 after published package and native acceptance evidence are retained; do not claim an apt repository or Debian archive acceptance from a downloadable `.deb`.
+
+## ABW-27 — Publish the portable desktop AppImage
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ABW-15 and ABW-23; native build hosts for declared architectures, oldest supported Linux build baseline, second declared Linux runtime host and public release access
+- Exact write set: `crates/acorn-desktop/tauri.appimage.conf.json` (new), `crates/acorn-desktop/release/appimage.sh` (new), `crates/acorn-desktop/acceptance/appimage-release.md` (new), `.gitlab-ci.yml`, `.wiki/features/acorn-browser-workspace/index.md`; external system: ACORN public desktop release origin frozen by ABW-23
+- Primary integration lock: desktop AppImage publication
+- Outcome: Publish versioned GUI AppImages and checksums containing the accepted frontend, local map resources and matching skill. Document minimum runtime, FUSE/extraction requirements and explicit replacement/rollback/removal behavior.
+- Focused validation: Anonymous download/hash check; execute on the oldest declared baseline and a second declared distribution per supported architecture; offline GUI/skill/map/dialog smoke, resource paths and executable permissions; replace with newer and retained prior versions; remove without changing exported skills or the CLI. No inference of universal Linux support.
+- Handoff: Remove ABW-27 after public assets and exact tested runtime rows are recorded; retain all unsupported/unavailable rows honestly in release documentation.
+
+## ABW-28 — Publish the desktop app through WinGet
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ABW-24; collision-checked publisher/package ID from ABW-23; authorized submission account and native Windows host; upstream review completion is external waiting
+- Exact write set: `crates/acorn-desktop/release/winget/` (new, generated versioned manifest set), `crates/acorn-desktop/acceptance/winget.md` (new), `.wiki/features/acorn-browser-workspace/index.md`; external system: `microsoft/winget-pkgs`
+- Primary integration lock: WinGet desktop package publication
+- Outcome: Generate validated version/installer/locale manifests against the signed release bytes, submit them to WinGet and establish public installability of the ACORN GUI with correct silent install, upgrade and uninstall metadata.
+- Focused validation: `winget validate` on the manifest set; local-manifest installation before submission; after acceptance refresh the public source, find the exact ID/version, install/launch/upgrade/uninstall and verify app/skill version plus preservation of the standalone CLI. Record submission URL, accepted revision and public source result.
+- Handoff: Remove ABW-28 only after public-source installation succeeds. A submitted or pending PR remains incomplete and blocked on upstream acceptance; preserve the exact next check without claiming publication.
+
+## ABW-29 — Publish the desktop app through Scoop
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ABW-24; authorized maintainer-owned public bucket frozen by ABW-23; native Windows host
+- Exact write set: `crates/acorn-desktop/release/scoop/acorn-desktop.json` (new), `crates/acorn-desktop/acceptance/scoop.md` (new), `.wiki/features/acorn-browser-workspace/index.md`; external system: ACORN public Scoop bucket frozen by ABW-23
+- Primary integration lock: Scoop desktop package publication
+- Outcome: Publish an architecture-aware desktop manifest for the complete Windows archive, verified SHA-256 values, GUI shortcut, WebView2 prerequisite and pinned update metadata. Keep executable shims distinct from `acorn` and avoid scripts that edit user agent folders.
+- Focused validation: Manifest/schema validation and update detection; add the public bucket on a clean Windows account, install, launch, update and uninstall; check published hashes, app/skill version, offline operations, resource paths, shortcut cleanup and preservation of CLI/exported skills.
+- Handoff: Remove ABW-29 after public bucket installation and lifecycle evidence are recorded; document bucket add and exact package commands without claiming Scoop main/extras admission.
+
+## ABW-30 — Publish a Homebrew cask for the desktop app
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ABW-25; authorized maintainer-owned public tap and collision-checked cask token frozen by ABW-23; native macOS hosts for declared architectures
+- Exact write set: `crates/acorn-desktop/release/homebrew/acorn-desktop.rb` (new), `crates/acorn-desktop/acceptance/homebrew.md` (new), `.wiki/features/acorn-browser-workspace/index.md`; external system: ACORN public Homebrew tap frozen by ABW-23
+- Primary integration lock: Homebrew desktop cask publication
+- Outcome: Publish a cask with immutable versioned DMG/ZIP URLs, architecture-specific SHA-256 values, app identity, supported macOS floor and update metadata. Preserve the CLI formula and avoid unrequested agent-directory cleanup.
+- Focused validation: `brew style` and `brew audit --cask` for the exact token; fresh public tap install, normal Gatekeeper-enabled app launch, offline skill/tool/dialog smoke, upgrade and uninstall on each supported architecture; verify version/hash parity and retained CLI/user-managed skill files.
+- Handoff: Remove ABW-30 after public tap installability and lifecycle evidence are recorded; document exact tap/cask commands and distinguish this publication from admission to the Homebrew core cask repository.
+
+## ABW-31 — Present desktop and skill installation channels in the UI
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ABW-10, ABW-22 and ABW-23; accepted Install preview from ABW-20
+- Exact write set: `crates/acorn-web/src/pages/install.rs` (new), `crates/acorn-web/src/pages/mod.rs`, `crates/acorn-web/src/pages/skill.rs`, `crates/acorn-web/src/pages/about.rs`, `crates/acorn-web/src/components/sidebar.rs`, `crates/acorn-web/src/route.rs`, `crates/acorn-web/src/tests/install.rs` (new), `crates/acorn-web/assets/app.css`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-install-preview.svg`
+- Primary integration lock: shared Install route and release presentation
+- Outcome: Implement OKF-style desktop/skill entry cards and a platform/channel table for WinGet, Scoop, Debian, AppImage and Homebrew cask, driven by bundled release metadata. Show exact published versions/architectures, checksum and install/update/removal instructions and pending/unavailable states. The page does not execute installation commands or make background release queries.
+- Focused validation: Available/pending/unavailable fixtures for all five channels; exact version/URL/hash rendering; explicit copy actions and safe external links; no fictitious successful install state; offline load, keyboard/focus, dark/light and all three viewports; shared browser/Tauri route parity. Recheck published metadata during ABW-09 after channel acceptance.
+- Handoff: Remove ABW-31 after route and fixture checks pass; add Install to ABW-08. Final release acceptance still waits for real channel publication and verified metadata, not UI fixtures.
+
+## ABW-32 — Complete Big-O illustration and acceptance
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ABW-03 shared input/result components
+- Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/assets/`, `crates/acorn-web/tests/`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`
+- Primary integration lock: browser Big-O operation and route
+- Outcome: Add the planned labeled n/n² example illustration with distinct line styles and visible sample values. Complete equivalent/incomparable/undetermined, malformed assumptions, maximum-bound and keyboard/error-focus coverage against the working comparison form; preserve existing portable semantics and keep sampled curves separate from symbolic dominance.
+- Focused validation: Compare manual and adapter results for left/right/equivalent/incomparable/undetermined cases; reject malformed expressions, invalid assumptions and oversized inputs; keyboard/error focus checks; verify the illustration values and labels, preserve structured results for inputs outside that example, and inspect the accepted SVG and prove no network or native capability is added.
+- Handoff: Remove ABW-32 after focused tests pass and record manual/adapter parity; unblock ABW-06 and ABW-07 once their other prerequisites pass.
+
+
+## ABW-02 — Complete shell fidelity and accessibility acceptance
+
+- Status: ready
+- Budget: 5 active hours maximum
+- Prerequisites: accepted browser composition
+- Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/assets/`, `crates/acorn-web/tests/`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`
 - Primary integration lock: `acorn-web` shell and theme contract
-- Outcome: Deliver the routed shell with actual repository ACORN artwork, grouped icon-rich collapsible sidebar, responsive drawer, version/runtime block, centered home workflow, privacy callout, Portfolio and geospatial route placeholders, eight WebMCP tool entries, an About page containing a labeled Rust/WebAssembly/Tauri/Dioxus technology grid using unchanged sourced marks inside the cards without a duplicate marks strip, semantic landmarks, skip link, route-title/focus behavior, provisional green token family, and no blue/purple primary accent or unapproved mark.
-- Focused validation: Component/state tests for routes, active navigation, icon labels/tooltips, collapse/drawer semantics, version/runtime truth, artwork selection, technology-logo labels/alternatives/provenance, absence of a duplicate technology-mark strip, document titles, eight-tool coverage, and the geospatial navigation placeholder; inspect upstream mark hashes and retained notices; Dioxus browser build; keyboard smoke at desktop and both phone orientations; automated contrast checks for normal, hover, selected, disabled, and focus tokens; compare the implementation with the canonical SVG and update that SVG in the same change if the accepted design changes.
+- Outcome: Complete the accepted-design gaps: sourced technology-mark grid and notices, repository banner selection, final icon system, route-focus behavior, contrast verification and full keyboard/zoom checks. Preserve the working responsive shell, navigation and local theme toggle.
+- Focused validation: Component/state tests for routes, active navigation, icon labels/tooltips, collapse/drawer semantics, version/runtime truth, artwork selection, technology-logo labels/alternatives/provenance, absence of a duplicate technology-mark strip, document titles, nine-tool coverage, and the geospatial navigation placeholder; inspect upstream mark hashes and retained notices; Dioxus browser build; keyboard smoke at desktop and both phone orientations; automated contrast checks for normal, hover, selected, disabled, and focus tokens; compare the implementation with the canonical SVG and update that SVG in the same change if the accepted design changes.
 - Handoff: Remove ABW-02, preserve the branded shell and navigation contract in code and README, and mark ABW-10 ready.
 
-## ABW-10 — Complete applicable OKF home and chrome affordances
+## ABW-10 — Complete home and chrome release behavior
 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: ABW-02
-- Exact write set: `crates/acorn-web/assets/app.css`, `crates/acorn-web/assets/sample_research_activity.json` (new), `crates/acorn-web/assets/vendor/driver.js` (new, pinned 1.10.2 distribution), `crates/acorn-web/assets/vendor/driver.css` (new, pinned 1.10.2 distribution), `crates/acorn-web/assets/vendor/driver.LICENSE` (new), `crates/acorn-web/assets/vendor/README.md` (new provenance record), `crates/acorn-web/assets/credits/ai-assisted-badge.svg` (new, unchanged from AI Honesty Badge), `crates/acorn-web/assets/credits/codex.svg` (new from `openai/codex`), `crates/acorn-web/assets/credits/github-copilot.svg` (new from Primer Octicons), `crates/acorn-web/assets/credits/microsoft.svg` (new from docs), `crates/acorn-web/assets/credits/README.md` (new provenance/license record), `crates/acorn-web/src/theme.rs` (new), `crates/acorn-web/src/components/tour.rs` (new), `crates/acorn-web/src/components/theme_toggle.rs` (new), `crates/acorn-web/src/components/notification.rs` (new), `crates/acorn-web/src/components/sidebar.rs`, `crates/acorn-web/src/pages/home.rs`, `crates/acorn-web/src/pages/settings.rs` (new), `crates/acorn-web/src/pages/about.rs`, `crates/acorn-web/src/route.rs`, `crates/acorn-web/src/tests/chrome.rs` (new), `.wiki/features/acorn-browser-workspace/index.md`, `.wiki/features/acorn-browser-workspace/_assets/ai-assisted-badge.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-workspace-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-settings-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-about-preview.svg`
+- Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/assets/`, `crates/acorn-web/tests/`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`
 - Primary integration lock: browser home and application-chrome behavior
-- Outcome: Add a native session-only dark/light toggle button that initializes from and can return to system preference through Settings; integrate locally bundled Driver.js 1.10.2 for the guided tour with stable targets, progress, dismiss/done teardown, return focus, themed popovers, and reduced-motion configuration; place **Try sample data** immediately to the right of **Take a tour** at desktop and narrow widths; and add polite notifications, local open/drop entry points, collapsed-icon tooltips, WebMCP/version display, the author-only Home/non-About credit, and one About AI-use disclosure containing the unchanged AI Assisted honesty badge plus linked Codex/GitHub Copilot/Microsoft 365 Copilot names and marks, without persistent storage or runtime network access.
+- Outcome: Add system-theme initialization/reset/change handling, locally bundled Driver.js tour with teardown/focus/reduced-motion support, file drop, notification lifecycle, final Home action order and sourced About badges/credits. Preserve the working sample action, quick-start dialog, explicit dark/light toggle and version/WebMCP status until replacements pass acceptance.
 - Focused validation: Component/state tests for toggle semantics (`button`, visible label, switch state, `aria-pressed`), both explicit themes, system initialization/reset/change, and banner/token synchronization; Driver.js asset version/license/provenance and offline loading; tour target order, progress, keyboard controls, close labels, dismissal/done reason, teardown, missing target, focus return, and reduced motion; notification replacement/expiry, adjacent Home tour/sample action order and responsive wrapping, absence of a tour control on About, file/drop/sample entry routing, Settings/About links, version derivation, collapsed tooltips, WebMCP status, exact author-only non-About footer text, absence of agent names/marks outside About, absence of any made-with-heart line on About, exact AI Assisted badge asset/hash/link/accessible name, exact AI-disclosure agent labels and URLs, inline-mark alternatives/provenance, safe external-link behavior, responsive wrapping, and proof that the badge loads from the local static bundle without a runtime request; keyboard smoke in desktop and both phone orientations; compare every applicable chrome element with the live OKF reference and both canonical SVGs.
 - Handoff: Remove ABW-10, preserve the accepted chrome behavior and asset provenance in code/README, and mark ABW-03 ready.
 
-## ABW-03 — Add validation and crosswalk workspaces
+## ABW-03 — Complete metadata presentation acceptance
 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: ABW-02, ABW-10
-- Exact write set: `crates/acorn-web/src/operations/mod.rs` (new), `crates/acorn-web/src/operations/metadata.rs` (new), `crates/acorn-web/src/components/content_input.rs` (new), `crates/acorn-web/src/components/diagnostic_list.rs` (new), `crates/acorn-web/src/components/result_panel.rs` (new), `crates/acorn-web/src/pages/validate_activity.rs` (new), `crates/acorn-web/src/pages/validate_standard.rs` (new), `crates/acorn-web/src/pages/crosswalk.rs` (new), `crates/acorn-web/src/pages/mod.rs`, `crates/acorn-web/src/route.rs`, `crates/acorn-web/src/tests/metadata.rs` (new), `.wiki/features/acorn-browser-workspace/index.md`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-validation-preview.svg`
+- Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/assets/`, `crates/acorn-web/tests/`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`
 - Primary integration lock: browser metadata operation and shared result contract
-- Outcome: Add complete manual Research Activity validation, metadata-standard validation, and loss-aware crosswalk pages with typed Rust state, current input bounds, ordered diagnostics, supported-combination feedback, explicit conversion warnings, and optional raw results.
+- Outcome: Refine the working validation/crosswalk forms and structured result tree into the accepted diagnostic presentation. Complete ordered/truncated/missing-path diagnostics, unsupported combinations, fuzzy policy, conversion-seed and loss-warning coverage, and live result-announcement/error-focus acceptance.
 - Focused validation: Tests for valid/invalid/empty/oversized input, fuzzy policy, ordered and truncated diagnostics, missing paths, unsupported format/standard pairs, required crosswalk seeds, loss warnings, and operation errors; focused Rust/WASM checks; live keyboard and result-announcement smoke for the three routes.
 - Handoff: Remove ABW-03 and preserve stable shared input/result component behavior for the remaining tool groups.
 
-## ABW-04 — Add FAIR, readability, and diff workspaces
+## ABW-04 — Complete analysis visualization and acceptance
 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: ABW-02; ABW-03 shared result contract frozen
-- Exact write set: `crates/acorn-web/src/operations/analysis.rs` (new), `crates/acorn-web/src/pages/fair.rs` (new), `crates/acorn-web/src/pages/readability.rs` (new), `crates/acorn-web/src/pages/diff.rs` (new), `crates/acorn-web/src/pages/mod.rs`, `crates/acorn-web/src/route.rs`, `crates/acorn-web/src/tests/analysis.rs` (new), `.wiki/features/acorn-browser-workspace/index.md`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-analysis-preview.svg`
+- Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/assets/`, `crates/acorn-web/tests/`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`
 - Primary integration lock: browser analysis pages
-- Outcome: Add FAIR, readability, and diff pages that retain all 41 FAIR findings and profile counts, all seven readability metrics and returned thresholds/summaries, and both unified and RFC 6902 diff modes with changed state and safe structured rendering.
-- Focused validation: Tests for every metric, non-finite/error handling, 41 ordered findings, supported FAIR standards, no-resolution notice, equal/changed diff states, invalid JSON Patch inputs, escaped unified output, input limits, and optional raw results; focused Rust/WASM checks and live keyboard smoke.
+- Outcome: Add the planned FAIR proportion bars, metric-specific readability target gauge and diff before/after diagram with numeric equivalents. Preserve the working FAIR/readability/diff operations and complete every metric, 41-finding, non-finite, mode, escaping and boundary case in the focused matrix.
+- Focused validation: Tests for every metric, non-finite/error handling, 41 ordered findings, supported FAIR standards, no-resolution notice, equal/changed diff states, invalid JSON Patch inputs, escaped unified output, input limits, optional raw results, chart/result consistency, zero denominators, missing or non-finite scores, unclipped off-scale score labels, non-color equivalents and narrow reflow; focused Rust/WASM checks and live keyboard smoke.
 - Handoff: Remove ABW-04 and record any rendering performance threshold needed by ABW-08 without changing portable result semantics.
 
-## ABW-05 — Add identifier discovery and inspection workspaces
+## ABW-05 — Complete identifier presentation acceptance
 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: ABW-02; ABW-03 shared result contract frozen
-- Exact write set: `crates/acorn-web/src/operations/identifiers.rs` (new), `crates/acorn-web/src/pages/discover_identifiers.rs` (new), `crates/acorn-web/src/pages/inspect_identifier.rs` (new), `crates/acorn-web/src/pages/mod.rs`, `crates/acorn-web/src/route.rs`, `crates/acorn-web/src/tests/identifiers.rs` (new), `.wiki/features/acorn-browser-workspace/index.md`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-identifiers-preview.svg`
+- Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/assets/`, `crates/acorn-web/tests/`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`
 - Primary integration lock: browser identifier pages
-- Outcome: Add discovery and one-identifier inspection pages with supported-kind selection, normalized ordered results, deduplication/count/truncation state, and visibly distinct valid, invalid, and deterministic ambiguous outcomes without resolving identifiers.
+- Outcome: Refine the working discovery/inspection result tree into the accepted identifier cards with explicit deduplication/count/truncation and ambiguous-candidate presentation. Complete the supported-kind, invalid, mismatch, ordering and 100-result boundary matrix without identifier resolution.
 - Focused validation: Representative ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, patent, RAiD, ROR, RRID, and SWHID cases; invalid and explicit-kind mismatch; ambiguous ISNI/ORCID candidate ordering; discovery deduplication and 100-result limit; focused Rust/WASM checks and live keyboard smoke.
-- Handoff: Remove ABW-05 and confirm all eight home/sidebar entries resolve to complete manual pages before ABW-06/07.
+- Handoff: Remove ABW-05 and confirm all nine home/sidebar entries resolve to complete manual pages before ABW-06/07.
 
-## ABW-06 — Add single-file, copy, and download effects
+## ABW-06 — Complete browser file and output acceptance
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ABW-03, ABW-04, ABW-05
-- Exact write set: `crates/acorn-web/src/effects/mod.rs` (new), `crates/acorn-web/src/effects/browser_file.rs` (new), `crates/acorn-web/src/effects/clipboard.rs` (new), `crates/acorn-web/src/effects/download.rs` (new), `crates/acorn-web/src/components/content_input.rs`, `crates/acorn-web/src/components/result_panel.rs`, `crates/acorn-web/src/pages/validate_activity.rs`, `crates/acorn-web/src/pages/validate_standard.rs`, `crates/acorn-web/src/pages/crosswalk.rs`, `crates/acorn-web/src/pages/diff.rs`, `crates/acorn-web/src/tests/effects.rs` (new), `.wiki/features/acorn-browser-workspace/index.md`
+- Prerequisites: ABW-03, ABW-04, ABW-05 and ABW-32
+- Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/assets/`, `crates/acorn-web/tests/`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`
 - Primary integration lock: browser-local presentation-effect boundary
-- Outcome: Add explicit local file selection where meaningful, user-initiated copy feedback, and safe converted/diff downloads as UI-local DOM mechanics without upload, persistence, automatic clipboard writes, leaked object URLs, browser types in portable crates, or a competing reusable adapter surface beside `acorn-wasm`.
+- Outcome: Complete failure and lifecycle acceptance for the implemented local file reader, copy feedback and JSON download. Verify UTF-8/size failure preservation, copy denial, downloaded bytes/name/MIME and object-URL cleanup across supported browsers. Add format-specific converted/diff exports where required by accepted previews; preserve user-mediated local-only effects.
 - Focused validation: Unit tests for accepted extensions, UTF-8/size rejection, failure preservation, filename normalization, MIME selection, and effect state; live file chooser, failed read, copy success/failure, download bytes/name, object-URL cleanup, and network-panel observation in supported browsers.
 - Handoff: Remove ABW-06, retain the accepted browser-effect boundary, and mark ABW-16 ready.
 
@@ -359,7 +616,7 @@ Static, unit, or headless checks do not count as live desktop/portrait/landscape
 - Prerequisites: ABW-03 and ABW-16; accepted validated RAD and session-tree state; no concurrent owner of shared route assembly or portfolio state
 - Exact write set: `crates/acorn-web/assets/app.css`, `crates/acorn-web/src/state/mod.rs` (new), `crates/acorn-web/src/state/portfolio.rs` (new), `crates/acorn-web/src/components/metric_card.rs` (new), `crates/acorn-web/src/components/activity_table.rs` (new), `crates/acorn-web/src/pages/portfolio.rs`, `crates/acorn-web/src/pages/mod.rs`, `crates/acorn-web/src/route.rs`, `crates/acorn-web/src/components/sidebar.rs`, `crates/acorn-web/src/pages/home.rs`, `crates/acorn-web/src/tests/portfolio.rs` (new), `.wiki/features/acorn-browser-workspace/index.md`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-portfolio-preview.svg`
 - Primary integration lock: loaded Research Activity session state and Portfolio route
-- Outcome: Replace the Portfolio placeholder with a deterministic, read-only view model derived from the same validated Research Activity records already loaded in the session. Present activity, organization, contributor, and persistent-identifier metrics; activity-type distribution; text, type, and status filters; a sortable semantic activity table; and selected-record details. Visual bars and summary cards supplement rather than replace text and table values. Preserve source ordering only where semantically required, use stable normalized keys for deduplication and selection, expose empty and single-record states, and add no persistence, network access, dashboard dependency, new domain state, or automatic tool execution.
+- Outcome: Replace the Portfolio placeholder with a deterministic, read-only view model derived from the same validated Research Activity records already loaded in the session. Present activity, organization, contributor, and persistent-identifier metrics; activity-type/status bar charts and selected-record contributor/organization relationship diagram; text, type, and status filters; a sortable semantic activity table; and selected-record details. Visual bars and summary cards supplement rather than replace text and table values. Preserve source ordering only where semantically required, use stable normalized keys for deduplication and selection, expose empty and single-record states, and add no persistence, network access, dashboard dependency, new domain state, or automatic tool execution.
 - Focused validation: Unit tests for empty, single-record, multi-record, duplicate organization/contributor/PID, missing optional fields, mixed activity types/statuses, stable metric and distribution counts, deterministic filter/sort/selection behavior, selected-record removal, and bounded rendering from the 500-file session limit; component tests for semantic headings, table headers and sort state, text equivalents for charts, route title/focus, Home/sidebar entry, and empty-state recovery; keyboard-only selection, 200% zoom, phone portrait/landscape list-first reflow, no horizontal overflow, no raw absolute paths, no external requests, and visual comparison with the canonical SVG.
 - Handoff: Remove ABW-19, preserve the accepted portfolio view-model and semantic-visualization contract in tests/README, and make ABW-18 and ABW-08 eligible without duplicating loaded RAD state.
 
@@ -374,23 +631,23 @@ Static, unit, or headless checks do not count as live desktop/portrait/landscape
 - Focused validation: Pin and audit npm versions/licenses; regenerate the ROR index from the recorded dump version and SHA-256 and compare deterministic output; test valid/duplicate/invalid/unresolved/locationless ROR values, coordinate bounds, stable ordering, source counts, empty RAD, oversized marker sets, lazy-load failure, and escaped labels; React bridge contract tests for mount/update/select/error/unmount and theme changes; start `make web-dev`, verify both servers become ready and stop together, then edit representative map TSX and CSS and observe React Fast Refresh in the existing route without a Dioxus/WASM rebuild or navigation reset; document edits that correctly require a full reload; Cesium asset/base-path inspection for root and nested Pages paths, including successful Natural Earth II `tilemapresource.xml` and tile loads; prove no ion token or external request; WebGL-on and forced-WebGL-off browser smokes; marker/table selection parity; keyboard access to every organization through the table; 200% zoom and phone reflow; Dioxus/WASM build plus Tauri offline smoke; inspect release output for absence of Vite HMR/React Refresh/localhost development artifacts; measure the route's compressed/uncompressed JS, worker, widget, Natural Earth II, and ROR-index sizes and record a reviewed budget before acceptance.
 - Handoff: Remove ABW-18, preserve the bridge schema, hot-reload/full-reload boundary, coordinated watcher commands, dataset refresh/provenance procedure, measured asset budget, no-network Cesium configuration, and accessible-table fallback in `crates/acorn-web/README.md`; make ABW-08 and ABW-11 eligible. Any request for ion, remote tiles, geocoding, or a broader React surface requires a separate privacy/security plan.
 
-## ABW-07 — Install the existing eight-tool WebMCP adapter in the workspace
+## ABW-07 — Complete WebMCP workspace lifecycle acceptance
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ABW-01, ABW-03, ABW-04, ABW-05, ABW-10; no concurrent WME-02/WME-04 or other WASM package-staging owner
-- Exact write set: `crates/acorn-web/index.html`, `crates/acorn-web/assets/webmcp-bootstrap.js` (new), `crates/acorn-web/src/webmcp.rs` (new), `crates/acorn-web/src/app.rs`, `crates/acorn-web/src/components/sidebar.rs`, `crates/acorn-web/src/pages/home.rs`, `crates/acorn-web/tests/webmcp-workspace.test.mjs` (new), `Makefile`, `.wiki/features/acorn-browser-workspace/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
+- Prerequisites: accepted browser composition, ABW-03, ABW-04, ABW-05, ABW-10, ABW-32; no concurrent WME-02/WME-04 or other WASM package-staging owner
+- Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/assets/`, `crates/acorn-web/tests/`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`, `Makefile`
 - Primary integration lock: WebMCP application installation and WASM package staging
-- Outcome: Initialize the generated bindings, create and explicitly install the unchanged adapter, expose `initializing/installed/unsupported/failed/disposed` status, route invocation feedback without overwriting unrelated pages, dispose on page teardown, and keep all manual routes usable without `document.modelContext`.
-- Focused validation: `make test-webmcp`; new workspace integration test with fake supported/unsupported contexts; exactly eight registered names and schemas; representative manual/adapter parity for every operation; busy, cancellation, bounded rejection, failure-envelope, duplicate-install, and disposal cases; `make test-webmcp-package`; Dioxus build export inspection; live supported-Chrome registration/discovery/invocation/cleanup when available.
+- Outcome: Complete fake-context application integration tests and live supported-Chrome discovery/invocation/cleanup for the implemented unchanged nine-tool adapter installation. Verify busy/cancellation/failure/disposal and duplicate-install behavior at the workspace boundary, keeping manual routes available when unsupported.
+- Focused validation: `make test-webmcp`; new workspace integration test with fake supported/unsupported contexts; exactly nine registered names and schemas; representative manual/adapter parity for every operation; busy, cancellation, bounded rejection, failure-envelope, duplicate-install, and disposal cases; `make test-webmcp-package`; Dioxus build export inspection; live supported-Chrome registration/discovery/invocation/cleanup when available.
 - Handoff: Remove ABW-07 and record the exact supported Chrome/configuration evidence. Missing native support remains an explicit ABW-08 matrix blocker, not a reason to weaken adapter tests.
 
 ## ABW-08 — Accept responsive, accessible, and bounded browser behavior
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ABW-02 through ABW-07, ABW-10, ABW-16, ABW-18, and ABW-19
-- Exact write set: `crates/acorn-web/assets/app.css`, `crates/acorn-web/src/theme.rs`, `crates/acorn-web/src/components/app_shell.rs`, `crates/acorn-web/src/components/sidebar.rs`, `crates/acorn-web/src/components/tour.rs`, `crates/acorn-web/src/components/theme_toggle.rs`, `crates/acorn-web/src/components/notification.rs`, `crates/acorn-web/src/components/content_input.rs`, `crates/acorn-web/src/components/file_tree.rs`, `crates/acorn-web/src/effects/browser_folder.rs`, `crates/acorn-web/src/components/result_panel.rs`, `crates/acorn-web/src/pages/home.rs`, `crates/acorn-web/src/pages/portfolio.rs`, `crates/acorn-web/src/pages/geospatial.rs`, `crates/acorn-web/src/pages/settings.rs`, `crates/acorn-web/geospatial/src/map.tsx`, `crates/acorn-web/tests/browser-smoke.mjs` (new), `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-workspace-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-portfolio-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-validation-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-analysis-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-identifiers-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-geospatial-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-settings-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-about-preview.svg`
+- Prerequisites: ABW-02 through ABW-07, ABW-10, ABW-16, ABW-18, ABW-19, ABW-22, ABW-31 and ABW-32
+- Exact write set: `crates/acorn-web/assets/app.css`, `crates/acorn-web/src/theme.rs`, `crates/acorn-web/src/components/app_shell.rs`, `crates/acorn-web/src/components/sidebar.rs`, `crates/acorn-web/src/components/tour.rs`, `crates/acorn-web/src/components/theme_toggle.rs`, `crates/acorn-web/src/components/notification.rs`, `crates/acorn-web/src/components/content_input.rs`, `crates/acorn-web/src/components/file_tree.rs`, `crates/acorn-web/src/effects/browser_folder.rs`, `crates/acorn-web/src/components/result_panel.rs`, `crates/acorn-web/src/pages/home.rs`, `crates/acorn-web/src/pages/portfolio.rs`, `crates/acorn-web/src/pages/geospatial.rs`, `crates/acorn-web/src/pages/settings.rs`, `crates/acorn-web/src/pages/install.rs`, `crates/acorn-web/src/pages/skill.rs`, `crates/acorn-web/geospatial/src/map.tsx`, `crates/acorn-web/tests/browser-smoke.mjs` (new), `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-workspace-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-portfolio-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-validation-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-analysis-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-identifiers-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-geospatial-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-settings-preview.svg`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-about-preview.svg`
 - Primary integration lock: browser workspace acceptance matrix
 - Outcome: Close responsive, keyboard, focus, zoom, reduced-motion, semantic, contrast, performance, WebGL-fallback, and bounded-error defects across the complete route matrix at desktop, phone portrait, and phone landscape without changing operation or geospatial bridge contracts.
 - Focused validation: Run the complete manual-tool and geospatial matrix in available Chrome, Firefox, and Safari/WebKit; supported-Chrome WebMCP matrix separately; keyboard-only navigation, organization-table use, and drawer focus return; 200% zoom; reduced motion; automated accessibility/contrast scan; no horizontal overflow at all three viewports; forced WebGL failure; console/network inspection proving no external map/ROR request; maximum-bound timing and interaction responsiveness; rerun focused Rust/WASM, Resium bridge, and WebMCP tests after repairs.
@@ -400,7 +657,7 @@ Static, unit, or headless checks do not count as live desktop/portrait/landscape
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ABW-01, ABW-02, ABW-10, and ABW-18; no concurrent workspace-manifest, frontend-development-server, or lockfile owner
+- Prerequisites: accepted browser composition, ABW-02, ABW-10, and ABW-18; no concurrent workspace-manifest, frontend-development-server, or lockfile owner
 - Exact write set: `Cargo.toml`, `Cargo.lock`, `crates/acorn-desktop/Cargo.toml` (new), `crates/acorn-desktop/build.rs` (new), `crates/acorn-desktop/tauri.conf.json` (new), `crates/acorn-desktop/capabilities/main.json` (new), `crates/acorn-desktop/icons/` (new, derived from repository ACORN artwork), `crates/acorn-desktop/src/main.rs` (new), `crates/acorn-desktop/README.md` (new), `.wiki/features/acorn-browser-workspace/index.md`, `.wiki/features/acorn-browser-workspace/_assets/acorn-browser-workspace-preview.svg`
 - Primary integration lock: workspace manifest and Tauri application shell
 - Outcome: Add a flat interface workspace member for Tauri 2, point `frontendDist` at the accepted static `acorn-web` output, set `devUrl` to the loopback Dioxus development server, and use `beforeDevCommand` to start the accepted coordinated Dioxus/Vite workflow. Open one labeled main window with the repository-derived ACORN icon, inject restrictive production and development Content Security Policies, and prove browser and desktop load the same route/component build. Development policy permits only the documented loopback HMR origins; production permits neither. The shell exposes no custom command or plugin permission yet, imports neither `acorn-lib` nor portable operation crates, and never loads a remote production URL.
@@ -437,7 +694,7 @@ Static, unit, or headless checks do not count as live desktop/portrait/landscape
 - Exact write set: `crates/acorn-desktop/tauri.windows.conf.json` (new), `crates/acorn-desktop/acceptance/windows.md` (new), `.wiki/features/acorn-browser-workspace/index.md`
 - Primary integration lock: Windows Tauri bundle acceptance
 - Outcome: Produce and launch an unsigned local Windows bundle, prove shared UI/manual-tool parity and bounded native dialogs under WebView2, and record OS, architecture, WebView2, artifact, size, capability, accessibility, and offline evidence without claiming production signing or Store readiness.
-- Focused validation: Native `cargo tauri build`; clean install/launch/uninstall smoke for the selected local bundle type; complete eight-tool and geospatial representative matrix; keyboard, 200% zoom, theme toggle/system reset, Driver.js tour, notification, icon, footer, offline Resium/Cesium assets and ROR markers/table, forced WebGL fallback, file/folder open/cancel/partial/error and save flows, nested tree selection, symlink exclusion, offline, console, network, capability-negative, and actual WebMCP-support checks; record hashes and artifact paths without committing generated bundles.
+- Focused validation: Native `cargo tauri build`; clean install/launch/uninstall smoke for the selected local bundle type; complete nine-tool and geospatial representative matrix; keyboard, 200% zoom, theme toggle/system reset, Driver.js tour, notification, icon, footer, offline Resium/Cesium assets and ROR markers/table, forced WebGL fallback, file/folder open/cancel/partial/error and save flows, nested tree selection, symlink exclusion, offline, console, network, capability-negative, and actual WebMCP-support checks; record hashes and artifact paths without committing generated bundles.
 - Handoff: Remove ABW-13 and retain the dated Windows evidence in `crates/acorn-desktop/acceptance/windows.md`. Defects outside the write set open a bounded repair phase; a missing authorized host keeps this phase blocked.
 
 ## ABW-14 — Accept the local macOS desktop bundle
@@ -448,7 +705,7 @@ Static, unit, or headless checks do not count as live desktop/portrait/landscape
 - Exact write set: `crates/acorn-desktop/tauri.macos.conf.json` (new), `crates/acorn-desktop/acceptance/macos.md` (new), `.wiki/features/acorn-browser-workspace/index.md`
 - Primary integration lock: macOS Tauri bundle acceptance
 - Outcome: Produce and launch an unsigned local macOS application bundle, prove shared UI/manual-tool parity and bounded native dialogs under the system webview, and record OS, architecture, WebKit, artifact, size, capability, accessibility, and offline evidence without claiming signing, notarization, or App Store readiness.
-- Focused validation: Native `cargo tauri build --bundles app`; launch/quarantine limitation smoke for the local app bundle; complete eight-tool and geospatial representative matrix; keyboard, 200% zoom, theme toggle/system reset, Driver.js tour, notification, icon, footer, offline Resium/Cesium assets and ROR markers/table, forced WebGL fallback, file/folder open/cancel/partial/error and save flows including security-scoped selection, nested tree selection, symlink exclusion, offline, console, network, capability-negative, and actual WebMCP-support checks; record hashes and artifact paths without committing generated bundles.
+- Focused validation: Native `cargo tauri build --bundles app`; launch/quarantine limitation smoke for the local app bundle; complete nine-tool and geospatial representative matrix; keyboard, 200% zoom, theme toggle/system reset, Driver.js tour, notification, icon, footer, offline Resium/Cesium assets and ROR markers/table, forced WebGL fallback, file/folder open/cancel/partial/error and save flows including security-scoped selection, nested tree selection, symlink exclusion, offline, console, network, capability-negative, and actual WebMCP-support checks; record hashes and artifact paths without committing generated bundles.
 - Handoff: Remove ABW-14 and retain the dated macOS evidence in `crates/acorn-desktop/acceptance/macos.md`. Defects outside the write set open a bounded repair phase; a missing authorized host keeps this phase blocked.
 
 ## ABW-15 — Accept the local Linux desktop bundle
@@ -459,16 +716,27 @@ Static, unit, or headless checks do not count as live desktop/portrait/landscape
 - Exact write set: `crates/acorn-desktop/tauri.linux.conf.json` (new), `crates/acorn-desktop/acceptance/linux.md` (new), `.wiki/features/acorn-browser-workspace/index.md`
 - Primary integration lock: Linux Tauri bundle acceptance
 - Outcome: Produce and launch one unsigned local Linux bundle, prove shared UI/manual-tool parity and bounded native dialogs under WebKitGTK, and record distribution, architecture, WebKitGTK, artifact, size, capability, accessibility, and offline evidence without claiming repository, package-manager, or store publication.
-- Focused validation: Native `cargo tauri build` for the selected local bundle type; clean launch/removal smoke; complete eight-tool and geospatial representative matrix; keyboard, 200% zoom, theme toggle/system reset, Driver.js tour, notification, icon, footer, offline Resium/Cesium assets and ROR markers/table, forced WebGL fallback, file/folder open/cancel/partial/error and save flows, nested tree selection, symlink exclusion, offline, console, network, capability-negative, and actual WebMCP-support checks; record hashes, dynamic-library prerequisites, and artifact paths without committing generated bundles.
+- Focused validation: Native `cargo tauri build` for the selected local bundle type; clean launch/removal smoke; complete nine-tool and geospatial representative matrix; keyboard, 200% zoom, theme toggle/system reset, Driver.js tour, notification, icon, footer, offline Resium/Cesium assets and ROR markers/table, forced WebGL fallback, file/folder open/cancel/partial/error and save flows, nested tree selection, symlink exclusion, offline, console, network, capability-negative, and actual WebMCP-support checks; record hashes, dynamic-library prerequisites, and artifact paths without committing generated bundles.
 - Handoff: Remove ABW-15 and retain the dated Linux evidence in `crates/acorn-desktop/acceptance/linux.md`. Defects outside the write set open a bounded repair phase; a missing authorized host keeps this phase blocked.
 
 ## ABW-09 — Publish the browser and desktop workspace workflows and retire
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ABW-01 through ABW-08 and ABW-10 through ABW-19
-- Exact write set: `Makefile`, `crates/acorn-web/README.md`, `crates/acorn-desktop/README.md`, `docs/src/packages/acorn-web.md`, `docs/src/packages/acorn-desktop.md` (new), `docs/src/SUMMARY.md`, `.wiki/features/acorn-browser-workspace/index.md` (delete after acceptance), `.wiki/features/acorn-browser-workspace/_assets/` (delete plan-specific previews after acceptance), `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
+- Prerequisites: ABW-02 through ABW-08 and ABW-10 through ABW-32 and ABW-35
+- Exact write set: `Makefile`, `crates/acorn-web/README.md`, `crates/acorn-desktop/README.md`, `docs/src/packages/acorn-web.md`, `docs/src/packages/acorn-desktop.md` (new), `docs/src/SUMMARY.md`, `.wiki/features/acorn-browser-workspace/index.md` (delete after acceptance), `.wiki/features/acorn-browser-workspace/_assets/` (delete plan-specific previews after acceptance), `.wiki/features/acorn-browser-workspace/design-review.md` (delete after preserving durable design requirements), `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
 - Primary integration lock: browser/desktop build documentation and wiki retirement
-- Outcome: Publish copy/paste browser and Tauri development/build workflows, including the coordinated Dioxus/Vite hot-reload loop, supported hot-reload versus full-reload boundaries, deterministic watcher shutdown, local serving and local-bundle prerequisites, static-host base paths, privacy and capability boundaries, Portfolio and supported-tool behavior, WebMCP behavior, geospatial data/provenance/no-network behavior, ROR refresh procedure, browser/native evidence, measured WASM/map/dataset and bundle sizes, unsigned-distribution limitations, and brand-token guidance; add stable focused Make targets; run final integration gates; remove the completed plan from every wiki surface.
-- Focused validation: Clean focused and release Dioxus builds; `cargo test -p acorn-web`; `cargo check -p acorn-web --target wasm32-unknown-unknown`; run the documented `make web-dev` and `cargo tauri dev` hot-reload smokes and confirm watcher cleanup; `npm ci && npm test && npm run build` from `crates/acorn-web/geospatial`; deterministic ROR-index regeneration/digest check; `cargo test -p acorn-host --features fs`; `cargo test -p acorn-desktop`; `cargo check -p acorn-desktop`; dependency-tree checks for every forbidden edge in the crate-boundary contract; local `cargo tauri build --no-bundle`; inspect retained Windows/macOS/Linux native evidence; `make test-webmcp`; `make test-webmcp-package`; `make build-wasm`; `make lint`; `make test`; `make check-wasm`; documentation build and link check; `git diff --check`; planning-wiki validation; verify generated files remain under ignored build output and no HMR client, React Refresh preamble, loopback URL, development-only CSP source, ion token, unapproved brand asset, signing material, or secret is committed.
-- Handoff: Delete the plan and its index/network/lane entries after preserving all durable browser/desktop commands, native evidence, measured asset and bundle data, privacy/capability boundaries, unsigned-distribution limitations, and brand status in product documentation and tests.
+- Outcome: Publish copy/paste browser and Tauri development/build workflows, including the coordinated Dioxus/Vite hot-reload loop, supported hot-reload versus full-reload boundaries, deterministic watcher shutdown, local serving and local-bundle prerequisites, static-host base paths, privacy and capability boundaries, Portfolio and supported-tool behavior, WebMCP behavior, geospatial data/provenance/no-network behavior, ROR refresh procedure, browser/native evidence, measured WASM/map/dataset and bundle sizes, published install/update/removal commands, skill compatibility and rollback, signing/notarization status, and brand-token guidance; add stable focused Make targets; run final integration gates; remove the completed plan from every wiki surface.
+- Focused validation: Clean focused and release Dioxus builds; `cargo test -p acorn-web`; `cargo check -p acorn-web --target wasm32-unknown-unknown`; run the documented `make web-dev` and `cargo tauri dev` hot-reload smokes and confirm watcher cleanup; `npm ci && npm test && npm run build` from `crates/acorn-web/geospatial`; deterministic ROR-index regeneration/digest check; `cargo test -p acorn-host --features fs`; `cargo test -p acorn-desktop`; `cargo check -p acorn-desktop`; dependency-tree checks for every forbidden edge in the crate-boundary contract; local `cargo tauri build --no-bundle`; inspect retained Windows/macOS/Linux native and all five public-channel evidence; verify source/CLI/browser/desktop/published skill hashes, manifest versions, upgrade/rollback/removal checks and Install availability metadata; `make test-webmcp`; `make test-webmcp-package`; `make build-wasm`; `make lint`; `make test`; `make check-wasm`; documentation build and link check; `git diff --check`; planning-wiki validation; verify generated files remain under ignored build output and no HMR client, React Refresh preamble, loopback URL, development-only CSP source, ion token, unapproved brand asset, signing material, or secret is committed.
+- Handoff: Delete the plan and its index/network/lane entries after preserving all durable browser/desktop commands, published channel evidence, skill lifecycle, measured asset and bundle data, privacy/capability boundaries, signing and compatibility requirements, and brand status in product documentation and tests.
+
+## ABW-35 — Harden the browser build and development loop
+
+- Status: ready
+- Budget: 5 active hours maximum
+- Prerequisites: accepted browser build; exclusive browser staging ownership
+- Exact write set: `crates/acorn-web/Dioxus.toml`, `crates/acorn-web/scripts/`, `crates/acorn-web/README.md`, `Makefile`, `.wiki/features/acorn-browser-workspace/index.md`
+- Primary integration lock: browser build, watcher and static staging
+- Outcome: Resolve the pinned Dioxus/Binaryen DWARF optimizer warning while retaining all nine exports and one WASM payload; finish representative RSX, CSS and static-asset hot-reload acceptance and arbitrary-prefix static hosting acceptance. Current root-hosted release preview is usable with the unoptimized valid payload.
+- Focused validation: Clean release build without optimizer fallback; export/payload check; actual browser reload observations for each edit category; root and prefixed route refresh; focused browser checks.
+- Handoff: Preserve tool versions, commands, sizes and observed watcher/base-path behavior in the README and remove this phase.

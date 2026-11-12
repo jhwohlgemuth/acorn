@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "2.0.0",
+  "members": [
+    "researcher@example.org"
+  ],
+  "buckets": [
+    {
+      "name": "watershed",
+      "description": "Example research activities",
+      "codeRepository": {
+        "provider": "gitlab",
+        "id": 42,
+        "location": "https://gitlab.example/research/watershed"
+      }
+    }
+  ],
+  "folders": [
+    {
+      "id": "watershed-observations",
+      "bucket": "watershed"
+    },
+    {
+      "id": "open-watershed-methods",
+      "bucket": "watershed"
+    },
+    {
+      "id": "watershed-simulation",
+      "bucket": "watershed"
+    }
+  ],
+  "options": {
+    "folders": {
+      "root": "file:///example/research/"
+    }
+  }
+}

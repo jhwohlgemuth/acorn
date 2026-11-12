@@ -23,6 +23,44 @@ mod discovery;
 mod display;
 mod logbook;
 
+mod artifact {
+    use crate::io::database::ArtifactSource;
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn test_artifact_source_accepts_each_unambiguous_input() {
+        let file = ArtifactSource::from_inputs(Some(PathBuf::from("activity.json")), None, None).expect("file source");
+        assert_eq!(file.as_file(), Some(Path::new("activity.json")));
+        assert_eq!(file.as_current_activity(), None);
+        assert_eq!(file.as_revision(), None);
+
+        let current = ArtifactSource::from_inputs(None, Some("activity_01".to_string()), None).expect("current activity source");
+        assert_eq!(current.as_current_activity(), Some("activity_01"));
+        assert_eq!(current.as_file(), None);
+        assert_eq!(current.as_revision(), None);
+
+        let revision = ArtifactSource::from_inputs(None, None, Some("revision-01".to_string())).expect("revision source");
+        assert_eq!(revision.as_revision(), Some("revision-01"));
+        assert_eq!(revision.as_file(), None);
+        assert_eq!(revision.as_current_activity(), None);
+    }
+    #[test]
+    fn test_artifact_source_rejects_missing_and_ambiguous_inputs() {
+        assert!(ArtifactSource::from_inputs(None, None, None).is_err());
+        assert!(ArtifactSource::from_inputs(Some(PathBuf::from("activity.json")), Some("activity_01".to_string()), None).is_err());
+        assert!(ArtifactSource::from_inputs(None, Some("activity_01".to_string()), Some("revision-01".to_string())).is_err());
+        assert!(ArtifactSource::from_inputs(Some(PathBuf::from("activity.json")), None, Some("revision-01".to_string())).is_err());
+    }
+    #[test]
+    fn test_artifact_source_rejects_invalid_path_and_identifiers() {
+        assert!(ArtifactSource::file(PathBuf::new()).is_err());
+        for iid in ["", " activity", "activity ", "activity/id", "activity.id", "é"] {
+            assert!(ArtifactSource::current_activity(iid).is_err(), "current activity accepted {iid:?}");
+            assert!(ArtifactSource::revision(iid).is_err(), "revision accepted {iid:?}");
+        }
+        assert!(ArtifactSource::revision("a".repeat(129)).is_err());
+    }
+}
 #[test]
 fn test_activity_insert_round_trip_with_database_handle() {
     let unique = SystemTime::now()

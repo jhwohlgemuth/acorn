@@ -1104,8 +1104,18 @@ fn test_endpoint_parse() {
     assert!(status.overall);
 }
 #[test]
-fn test_endpoints_length() {
-    assert_eq!(INCLUDED_ENDPOINTS.len(), 19);
+fn test_endpoints_catalog() {
+    assert_eq!(INCLUDED_ENDPOINTS.len(), 20);
+    let graph = Endpoint::from_template("graph").expect("included Graph endpoint");
+    assert_eq!(graph.base(), "https://graph.microsoft.com/v1.0");
+    let params = Params::new()
+        .with_template("path", Some("sites/site-1/drives?$skiptoken=a%2Bb%3D"))
+        .build();
+    let url = graph
+        .with_domain("https://graph.microsoft.us")
+        .resource_url("metadata", Some(params))
+        .expect("Graph metadata resource");
+    assert_eq!(url, "https://graph.microsoft.us/v1.0/sites/site-1/drives?$skiptoken=a%2Bb%3D");
 }
 #[test]
 fn test_extract_template_keys() {

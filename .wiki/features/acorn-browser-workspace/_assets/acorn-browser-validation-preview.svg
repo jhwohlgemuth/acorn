@@ -1,213 +1,357 @@
-<?xml version="1.0"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1100" role="img" aria-labelledby="title description">
-  <title id="title">ACORN validation and crosswalk page previews</title>
-  <desc id="description">Dark desktop previews for Research Activity validation, metadata-standard validation, and metadata crosswalk routes. Each page uses the shared OKF-inspired ACORN shell, local content controls, structured results, and ORNL-inspired green actions.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="2796" viewBox="0 0 1440 2796" role="img" aria-labelledby="title description">
+  <title id="title">Validation and Crosswalk</title>
+  <desc id="description">Editable ACORN design preview following the OKF Browser layout. Sample state; package publication is pending.</desc>
   <defs>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="12" result="b"/>
-      <feOffset in="b" dy="8" result="o"/>
-      <feFlood flood-color="#050706" flood-opacity=".35"/>
-      <feComposite in2="o" operator="in"/>
-      <feMerge>
-        <feMergeNode/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-    <style>
-      text{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}.title{fill:#f3f6f4;font-size:18px;font-weight:650}.body{fill:#dce3de;font-size:12px}.muted{fill:#8d9790;font-size:11px}.eyebrow{fill:#707a73;font-size:9px;font-weight:700;letter-spacing:1.1px}.nav{fill:#a9b1ac;font-size:10px}.label{fill:#dce3de;font-size:10px;font-weight:600}.mono{font-family:"Cascadia Code",Consolas,monospace;fill:#b7c0ba;font-size:9px}.stroke{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-    </style>
     <symbol id="acorn-mark" viewBox="280 200 480 640">
       <g transform="translate(0 1024) scale(.1 -.1)" fill="#80350E" stroke="none">
-        <path d="M5347 7985c-142-54-311-263-383-472-33-98-64-246-64-309 0-30-3-34-32-38-282-43-411-71-607-132-401-125-752-352-974-630-184-229-259-412-258-633 0-271 181-462 491-519 246-46 594-83 950-102 251-13 1097-13 1361 0 343 17 863 75 1035 115 420 97 565 463 353 892-195 395-594 707-1129 883-187 62-554 134-722 142l-58 3v43c0 65 28 179 63 252 23 51 52 86 128 160 78 77 99 102 104 133 27 143-121 264-258 212zm145-1215c63-18 106-97 87-162-14-50-203-292-332-425-157-161-293-281-483-424-114-86-166-119-195-124-86-15-159 43-159 125 0 59 26 94 119 160 279 200 592 495 736 695 64 88 111 138 140 151 37 16 41 16 87 4zm-771-31c41-20 78-79 79-124 0-38-39-84-117-136-214-144-378-282-588-494-71-73-140-137-152-143-65-35-146 1-177 78-24 62-13 91 79 193 234 262 720 646 818 647 10 0 36-9 58-21zm1447-139c36-22 62-72 62-119 0-59-135-285-271-457-95-119-338-357-391-382-73-36-135-23-176 35-55 78-36 130 86 240 209 188 375 394 495 613 46 85 124 113 195 70zm533-325c40-21 69-71 69-121 0-82-172-380-273-475-62-57-165-42-205 30-38 67-25 129 43 201 42 45 107 152 141 231 14 34 33 73 42 87 38 57 121 79 183 47z"/>
-        <path d="M3287 4973c-13-13-7-381 8-500 49-371 190-743 402-1060 261-390 583-679 1057-948 174-99 284-189 351-290 31-48 40-55 68-55 28 0 35 6 55 43 57 107 144 181 373 315 390 229 655 443 886 717 281 332 487 793 554 1240 22 139 33 488 17 526-5 14-20 14-145-6-76-13-159-26-185-29l-48-7v-75c0-355-132-859-311-1187-104-189-269-417-342-471-68-50-184-10-207 72-14 56 0 92 72 180 168 205 277 401 371 667 99 282 132 431 144 664l6 123-39-6c-189-29-620-46-1164-46-654 0-1032 17-1450 66-127 14-416 59-451 69-8 3-18 2-22-2z"/>
+        <path d="M5347 7985c-142-54-311-263-383-472-33-98-64-246-64-309 0-30-3-34-32-38-282-43-411-71-607-132-401-125-752-352-974-630-184-229-259-412-258-633 0-271 181-462 491-519 246-46 594-83 950-102 251-13 1097-13 1361 0 343 17 863 75 1035 115 420 97 565 463 353 892-195 395-594 707-1129 883-187 62-554 134-722 142l-58 3v43c0 65 28 179 63 252 23 51 52 86 128 160 78 77 99 102 104 133 27 143-121 264-258 212zm145-1215c63-18 106-97 87-162-14-50-203-292-332-425-157-161-293-281-483-424-114-86-166-119-195-124-86-15-159 43-159 125 0 59 26 94 119 160 279 200 592 495 736 695 64 88 111 138 140 151 37 16 41 16 87 4zm-771-31c41-20 78-79 79-124 0-38-39-84-117-136-214-144-378-282-588-494-71-73-140-137-152-143-65-35-146 1-177 78-24 62-13 91 79 193 234 262 720 646 818 647 10 0 36-9 58-21zm1447-139c36-22 62-72 62-119 0-59-135-285-271-457-95-119-338-357-391-382-73-36-135-23-176 35-55 78-36 130 86 240 209 188 375 394 495 613 46 85 124 113 195 70zm533-325c40-21 69-71 69-121 0-82-172-380-273-475-62-57-165-42-205 30-38 67-25 129 43 201 42 45 107 152 141 231 14 34 33 73 42 87 38 57 121 79 183 47z" />
+        <path d="M3287 4973c-13-13-7-381 8-500 49-371 190-743 402-1060 261-390 583-679 1057-948 174-99 284-189 351-290 31-48 40-55 68-55 28 0 35 6 55 43 57 107 144 181 373 315 390 229 655 443 886 717 281 332 487 793 554 1240 22 139 33 488 17 526-5 14-20 14-145-6-76-13-159-26-185-29l-48-7v-75c0-355-132-859-311-1187-104-189-269-417-342-471-68-50-184-10-207 72-14 56 0 92 72 180 168 205 277 401 371 667 99 282 132 431 144 664l6 123-39-6c-189-29-620-46-1164-46-654 0-1032 17-1450 66-127 14-416 59-451 69-8 3-18 2-22-2z" />
       </g>
     </symbol>
-    <symbol id="nav-about" viewBox="0 0 24 24"><circle class="stroke" cx="12" cy="12" r="9"/><path class="stroke" d="M9.5 9a2.7 2.7 0 1 1 4.8 1.7c-1.4 1.2-2.3 1.7-2.3 3.3M12 17h.01"/></symbol>
-    <symbol id="nav-activity" viewBox="0 0 24 24"><path class="stroke" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path class="stroke" d="M14 2v6h6M9 15l2 2 4-4"/></symbol>
-    <symbol id="nav-crosswalk" viewBox="0 0 24 24"><path class="stroke" d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></symbol>
-    <symbol id="nav-diff" viewBox="0 0 24 24"><path class="stroke" d="M18 3v18M6 8V3M3 6l3-3 3 3M3 18l3 3 3-3M6 21v-5M15 7h6M15 17h6"/></symbol>
-    <symbol id="nav-discover" viewBox="0 0 24 24"><circle class="stroke" cx="11" cy="11" r="7"/><path class="stroke" d="m20 20-4-4M11 8v6M8 11h6"/></symbol>
-    <symbol id="nav-fair" viewBox="0 0 24 24"><path class="stroke" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path class="stroke" d="m9 12 2 2 4-4"/></symbol>
-    <symbol id="nav-geospatial" viewBox="0 0 24 24"><circle class="stroke" cx="12" cy="12" r="9"/><path class="stroke" d="m16 8-2.5 5.5L8 16l2.5-5.5Z"/></symbol>
-    <symbol id="nav-home" viewBox="0 0 24 24"><path class="stroke" d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></symbol>
-    <symbol id="nav-inspect" viewBox="0 0 24 24"><circle class="stroke" cx="12" cy="12" r="9"/><path class="stroke" d="M12 11v5M12 8h.01"/></symbol>
-    <symbol id="nav-panel" viewBox="0 0 24 24"><rect class="stroke" x="3" y="4" width="18" height="16" rx="2"/><path class="stroke" d="M9 4v16M14 8l-3 4 3 4"/></symbol>
-    <symbol id="nav-portfolio" viewBox="0 0 24 24"><rect class="stroke" x="3" y="3" width="7" height="7" rx="1"/><rect class="stroke" x="14" y="3" width="7" height="7" rx="1"/><rect class="stroke" x="3" y="14" width="7" height="7" rx="1"/><rect class="stroke" x="14" y="14" width="7" height="7" rx="1"/></symbol>
-    <symbol id="nav-readability" viewBox="0 0 24 24"><path class="stroke" d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5Z"/><path class="stroke" d="M4 6.5v13M9 10l2 2 4-4"/></symbol>
-    <symbol id="nav-settings" viewBox="0 0 24 24"><circle class="stroke" cx="12" cy="12" r="3"/><path class="stroke" d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></symbol>
-    <symbol id="nav-standard" viewBox="0 0 24 24"><path class="stroke" d="m12 2 3 2 3.6.4.4 3.6 2 3-2 3-.4 3.6-3.6.4-3 2-3-2-3.6-.4-.4-3.6-2-3 2-3 .4-3.6L9 4Z"/><path class="stroke" d="m9 12 2 2 4-4"/></symbol>
-    <symbol id="file" viewBox="0 0 24 24">
-      <path class="stroke" d="M6 3h8l4 4v14H6zM14 3v5h5M9 13h6M9 17h5"/>
+    <symbol id="badge" viewBox="0 0 24 24">
+      <path class="s" d="m12 2 3 2 3.6.4.4 3.6 2 3-2 3-.4 3.6-3.6.4-3 2-3-2-3.6-.4-.4-3.6-2-3 2-3 .4-3.6L9 4Z" />
+      <path class="s" d="m9 12 2 2 4-4" />
     </symbol>
-    <symbol id="check" viewBox="0 0 24 24">
-      <path class="stroke" d="m5 12 4 4 10-10"/>
+    <symbol id="book" viewBox="0 0 24 24">
+      <path class="s" d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5Z" />
+      <path class="s" d="M4 6.5v13M9 10l2 2 4-4" />
+    </symbol>
+    <symbol id="chart" viewBox="0 0 24 24">
+      <path d="M4 3v17h17M7 16l4-3 4-5 5-4" fill="none" stroke="currentColor" stroke-width="1.6" />
+    </symbol>
+    <symbol id="copy" viewBox="0 0 24 24">
+      <rect x="8" y="8" width="12" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.5" />
+      <path d="M16 8V3H3v13h5" fill="none" stroke="currentColor" stroke-width="1.5" />
+    </symbol>
+    <symbol id="diff" viewBox="0 0 24 24">
+      <path class="s" d="M18 3v18M6 8V3M3 6l3-3 3 3M3 18l3 3 3-3M6 21v-5M15 7h6M15 17h6" />
+    </symbol>
+    <symbol id="download" viewBox="0 0 24 24">
+      <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+    </symbol>
+    <symbol id="filecheck" viewBox="0 0 24 24">
+      <path class="s" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+      <path class="s" d="M14 2v6h6M9 15l2 2 4-4" />
+    </symbol>
+    <symbol id="globe" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5" />
+      <ellipse cx="12" cy="12" rx="4" ry="9" fill="none" stroke="currentColor" stroke-width="1.5" />
+      <path d="M3 12h18" stroke="currentColor" />
+    </symbol>
+    <symbol id="home" viewBox="0 0 24 24">
+      <path class="s" d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z" />
+    </symbol>
+    <symbol id="info" viewBox="0 0 24 24">
+      <circle class="s" cx="12" cy="12" r="9" />
+      <path class="s" d="M12 11v5M12 8h.01" />
+    </symbol>
+    <symbol id="moon" viewBox="0 0 24 24">
+      <path class="s" d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z" />
+    </symbol>
+    <symbol id="panel" viewBox="0 0 24 24">
+      <rect class="s" x="3" y="4" width="18" height="16" rx="2" />
+      <path class="s" d="M9 4v16M14 8l-3 4 3 4" />
+    </symbol>
+    <symbol id="portfolio" viewBox="0 0 24 24">
+      <rect class="s" x="3" y="3" width="7" height="7" rx="1" />
+      <rect class="s" x="14" y="3" width="7" height="7" rx="1" />
+      <rect class="s" x="3" y="14" width="7" height="7" rx="1" />
+      <rect class="s" x="14" y="14" width="7" height="7" rx="1" />
+    </symbol>
+    <symbol id="search" viewBox="0 0 24 24">
+      <circle class="stroke" cx="11" cy="11" r="7" />
+      <path class="stroke" d="m20 20-4-4" />
+    </symbol>
+    <symbol id="settings" viewBox="0 0 24 24">
+      <circle class="s" cx="12" cy="12" r="3" />
+      <path class="s" d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
+    </symbol>
+    <symbol id="shield" viewBox="0 0 24 24">
+      <path class="s" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+      <path class="s" d="m9 12 2 2 4-4" />
     </symbol>
     <symbol id="shuffle" viewBox="0 0 24 24">
-      <path class="stroke" d="M4 7h4c5 0 5 10 10 10h2M17 14l3 3-3 3M4 17h4c2 0 3-2 4-4M17 4l3 3-3 3"/>
+      <path class="s" d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />
     </symbol>
-    <symbol id="sun" viewBox="0 0 24 24">
-      <circle class="stroke" cx="12" cy="12" r="4"/>
-      <path class="stroke" d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4m11.4-11.4 1.4-1.4"/>
-    </symbol>
-    <g id="frame">
-      <rect width="520" height="860" rx="18" fill="#1f2229" stroke="#3c414e"/>
-      <path d="M18 0h126v860H18A18 18 0 0 1 0 842V18A18 18 0 0 1 18 0Z" fill="#252931"/>
-      <line x1="144" x2="144" y2="860" stroke="#3c414e"/>
-      <image href="../../../../docs/src/_assets/banner_dark_mode.png" x="14" y="12" width="94" height="40" preserveAspectRatio="xMinYMid meet"/>
-      <rect x="110" y="18" width="24" height="24" rx="6" fill="#2b3039" stroke="#3c414e"/>
-      <use href="#nav-panel" x="115" y="23" width="14" height="14" color="#a9b1ac"/>
-      <text x="14" y="68" class="muted" font-size="7">8 WebMCP tools &#xB7; map &#xB7; local</text>
-      <text x="14" y="88" class="eyebrow">WORKSPACE</text>
-      <use href="#nav-home" x="18" y="105" width="14" height="14" color="#a9b1ac"/><text x="42" y="117" class="nav">Home</text>
-      <use href="#nav-portfolio" x="18" y="135" width="14" height="14" color="#a9b1ac"/><text x="42" y="147" class="nav">Portfolio</text>
-      <text x="14" y="174" class="eyebrow">VALIDATE</text>
-      <use href="#nav-activity" x="18" y="191" width="14" height="14" color="#a9b1ac"/><text x="42" y="203" class="nav">Research activity</text>
-      <use href="#nav-standard" x="18" y="221" width="14" height="14" color="#a9b1ac"/><text x="42" y="233" class="nav">Metadata standard</text>
-      <text x="14" y="260" class="eyebrow">ANALYZE</text>
-      <use href="#nav-crosswalk" x="18" y="277" width="14" height="14" color="#a9b1ac"/><text x="42" y="289" class="nav">Crosswalk</text>
-      <use href="#nav-fair" x="18" y="307" width="14" height="14" color="#a9b1ac"/><text x="42" y="319" class="nav">FAIR metadata</text>
-      <use href="#nav-readability" x="18" y="337" width="14" height="14" color="#a9b1ac"/><text x="42" y="349" class="nav">Readability</text>
-      <use href="#nav-diff" x="18" y="367" width="14" height="14" color="#a9b1ac"/><text x="42" y="379" class="nav">Content diff</text>
-      <use href="#nav-geospatial" x="18" y="397" width="14" height="14" color="#a9b1ac"/><text x="42" y="409" class="nav">Geospatial</text>
-      <text x="14" y="436" class="eyebrow">IDENTIFIERS</text>
-      <use href="#nav-discover" x="18" y="453" width="14" height="14" color="#a9b1ac"/><text x="42" y="465" class="nav">Discover</text>
-      <use href="#nav-inspect" x="18" y="483" width="14" height="14" color="#a9b1ac"/><text x="42" y="495" class="nav">Inspect</text>
-      <text x="14" y="522" class="eyebrow">APPLICATION</text>
-      <use href="#nav-settings" x="18" y="539" width="14" height="14" color="#a9b1ac"/><text x="42" y="551" class="nav">Settings</text>
-      <use href="#nav-about" x="18" y="569" width="14" height="14" color="#a9b1ac"/><text x="42" y="581" class="nav">About</text>
-      <line x1="14" y1="760" x2="130" y2="760" stroke="#3c414e"/>
-      <circle cx="24" cy="790" r="4" fill="#d6a94a"/>
-      <text x="35" y="794" class="muted" font-size="7">WebMCP unsupported &#xB7; manual ready</text>
-      <text x="14" y="820" class="muted">v0.6.3</text>
-      <rect x="455" y="18" width="45" height="24" rx="12" fill="#2b3039" stroke="#3c414e"/>
-      <use href="#sun" x="461" y="23" width="14" height="14" color="#a9b1ac"/>
-      <circle cx="488" cy="30" r="8" fill="#00662c"/>
-    </g>
   </defs>
-  <rect width="1800" height="1100" fill="#151816"/>
-  <circle cx="1650" cy="120" r="270" fill="#00662c" opacity=".08"/>
-  <circle cx="120" cy="1040" r="300" fill="#00b38f" opacity=".035"/>
-  <text x="60" y="54" fill="#dce3de" font-size="14" font-weight="650" letter-spacing="1.5">ACORN WORKSPACE &#xB7; VALIDATION &amp; CROSSWALK</text>
-  <text x="1740" y="54" fill="#7f8982" font-size="12" text-anchor="end">Browser + Tauri desktop &#xB7; design preview &#xB7; 2026-11-10</text>
-  <g transform="translate(60 100)" filter="url(#shadow)">
-    <use href="#frame"/>
-    <rect x="10" y="184" width="124" height="28" rx="6" fill="#00662c"/>
-    <use href="#nav-activity" x="18" y="191" width="14" height="14" color="#fff"/><text x="42" y="203" fill="#fff" font-size="10" font-weight="600">Research activity</text>
-    <g transform="translate(172 0)">
-      <text x="0" y="80" class="title">Validate Research Activity</text>
-      <text x="0" y="102" class="muted">Check local JSON against ACORN&#x2019;s RAD schema.</text>
-      <rect x="0" y="128" width="318" height="50" rx="8" fill="#252931" stroke="#3c414e"/>
-      <use href="#file" x="14" y="142" width="20" height="20" color="#00b38f"/>
-      <text x="45" y="149" class="label">research-activity.json</text>
-      <text x="45" y="165" class="muted">12.4 KiB &#xB7; session only</text>
-      <text x="0" y="207" class="eyebrow">RESEARCH ACTIVITY JSON</text>
-      <rect x="0" y="219" width="318" height="206" rx="9" fill="#181b21" stroke="#3c414e"/>
-      <text x="14" y="242" class="mono">{</text>
-      <text x="24" y="260" class="mono">"title": "Neutron imaging study",</text>
-      <text x="24" y="278" class="mono">"organizations": [</text>
-      <text x="34" y="296" class="mono">{ "ror": "https://ror.org/01qz5mb56" }</text>
-      <text x="24" y="314" class="mono">],</text>
-      <text x="24" y="332" class="mono">"description": "&#x2026;"</text>
-      <text x="14" y="350" class="mono">}</text>
-      <text x="14" y="403" class="muted">12,742 / 262,144 bytes</text>
-      <rect x="0" y="445" width="14" height="14" rx="3" fill="#00662c"/>
-      <use href="#check" x="2" y="447" width="10" height="10" color="#fff"/>
-      <text x="23" y="456" class="body">Allow fuzzy field matching</text>
-      <rect x="197" y="440" width="121" height="30" rx="7" fill="#00662c"/>
-      <text x="258" y="459" fill="#fff" font-size="10" font-weight="650" text-anchor="middle">Validate activity</text>
-      <rect x="0" y="492" width="318" height="198" rx="10" fill="#252931" stroke="#3c414e"/>
-      <circle cx="28" cy="523" r="15" fill="#173624"/>
-      <use href="#check" x="18" y="513" width="20" height="20" color="#00b38f"/>
-      <text x="54" y="519" class="label">Valid with 2 diagnostics</text>
-      <text x="54" y="536" class="muted">Fuzzy policy: enabled &#xB7; 100 result limit</text>
-      <line x1="16" x2="302" y1="554" y2="554" stroke="#3c414e"/>
-      <text x="18" y="577" fill="#e8b85c" font-size="10">Warning</text>
-      <text x="79" y="577" class="body">$.organizations[0].name</text>
-      <text x="18" y="595" class="muted">Normalized &#x201C;Oak Ridge National Laboratory&#x201D;.</text>
-      <text x="18" y="626" fill="#e8b85c" font-size="10">Warning</text>
-      <text x="79" y="626" class="body">$.description</text>
-      <text x="18" y="644" class="muted">Plain-language summary is recommended.</text>
-      <text x="159" y="728" class="muted" text-anchor="middle">Made with &#x2665; by jhwohlgemuth</text>
+  <g font-family="Inter,Arial,Helvetica,sans-serif">
+    <g transform="translate(0 0)">
+      <rect x="0" y="0" width="1440" height="900" rx="0" fill="#20232a" stroke="none" />
+      <rect x="0" y="0" width="220" height="900" rx="0" fill="#262932" stroke="none" />
+      <path d="M220 0L220 900" fill="none" stroke="#3c424e" />
+      <use href="#acorn-mark" x="16" y="19" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="54" y="38" font-size="16" fill="#e4e7ed" font-weight="700" text-anchor="start">ACORN</text>
+      <text x="120" y="38" font-size="12" fill="#a0a7b4" font-weight="500" text-anchor="start">Browser</text>
+      <use href="#panel" x="190" y="24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="16" y="65" font-size="11" fill="#a0a7b4" font-weight="400" text-anchor="start">9 tools · local workspace</text>
+      <path d="M0 82H220" fill="none" stroke="#3c424e" />
+      <text x="16" y="104" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">WORKSPACE</text>
+      <use href="#home" x="20" y="121" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="135" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Home</text>
+      <use href="#portfolio" x="20" y="154" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="168" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Portfolio</text>
+      <text x="16" y="197" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">VALIDATE</text>
+      <rect x="8" y="207" width="204" height="31" rx="6" fill="#294337" stroke="none" />
+      <use href="#filecheck" x="20" y="214" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#8fd4ab" />
+      <text x="48" y="228" font-size="13" fill="#8fd4ab" font-weight="500" text-anchor="start">Research activity</text>
+      <use href="#badge" x="20" y="247" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="261" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Metadata standard</text>
+      <use href="#shuffle" x="20" y="280" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="294" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Crosswalk</text>
+      <text x="16" y="323" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">ANALYZE</text>
+      <use href="#shield" x="20" y="340" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="354" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">FAIR metadata</text>
+      <use href="#book" x="20" y="373" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="387" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Readability</text>
+      <use href="#diff" x="20" y="406" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="420" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Content diff</text>
+      <use href="#chart" x="20" y="439" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="453" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Big-O comparison</text>
+      <use href="#globe" x="20" y="472" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="486" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Geospatial</text>
+      <text x="16" y="515" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">IDENTIFIERS</text>
+      <use href="#search" x="20" y="532" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="546" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Discover</text>
+      <use href="#info" x="20" y="565" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="579" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Inspect</text>
+      <text x="16" y="608" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">APPLICATION</text>
+      <use href="#download" x="20" y="625" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="639" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Install</text>
+      <use href="#book" x="20" y="658" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="672" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">ACORN Skill</text>
+      <use href="#settings" x="20" y="691" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="705" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Settings</text>
+      <use href="#info" x="20" y="724" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="738" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">About</text>
+      <path d="M0 828H220" fill="none" stroke="#3c424e" />
+      <circle cx="18" cy="851" r="3" fill="#d8b778" />
+      <text x="28" y="855" font-size="10" fill="#a0a7b4" font-weight="400" text-anchor="start">WebMCP · unsupported</text>
+      <text x="16" y="880" font-size="10" fill="#7d8795" font-weight="400" text-anchor="start" font-family="Menlo,Consolas,monospace">v0.6.3</text>
+      <text x="204" y="880" font-size="10" fill="#7d8795" font-weight="400" text-anchor="end">Browser</text>
+      <rect x="1305" y="20" width="112" height="32" rx="16" fill="#282c34" stroke="#3c424e" />
+      <use href="#moon" x="1315" y="28" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="1337" y="41" font-size="11" fill="#e4e7ed" font-weight="400" text-anchor="start">Dark</text>
+      <rect x="1376" y="29" width="30" height="15" rx="8" fill="#00662c" stroke="none" />
+      <circle cx="1397" cy="36.5" r="5.5" fill="white" />
+      <path d="M494 837H1166" fill="none" stroke="#3c424e" />
+      <text x="830" y="868" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="middle">Made with ♥ by jhwohlgemuth</text>
+      <text x="406" y="62" font-size="25" fill="#e4e7ed" font-weight="650" text-anchor="start">Validate Research Activity</text>
+      <text x="406" y="91" font-size="14" fill="#a0a7b4" font-weight="400" text-anchor="start">Check local JSON against ACORN’s Research Activity schema.</text>
+      <rect x="406" y="132" width="848" height="638" rx="10" fill="#282c34" stroke="#3c424e" />
+      <text x="430" y="166" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">SOURCE METADATA</text>
+      <rect x="430" y="180" width="800" height="40" rx="6" fill="#1e2229" stroke="#3c424e" />
+      <text x="444" y="205" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">research-activity.json     ·     loaded in this session</text>
+      <rect x="430" y="299" width="800" height="160" rx="6" fill="#1e2229" stroke="#3c424e" />
+      <text x="448" y="326" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">{</text>
+      <text x="448" y="351" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">  "title": "Advanced neutron imaging",</text>
+      <text x="448" y="376" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">  "type": "project",</text>
+      <text x="448" y="401" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">  "organizations": [{ "name": "Oak Ridge National Laboratory" }]</text>
+      <text x="448" y="426" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">}</text>
+      <rect x="430" y="479" width="800" height="36" rx="6" fill="#00662c" stroke="#00662c" />
+      <text x="830.0" y="502" font-size="13" fill="#fff" font-weight="500" text-anchor="middle">Validate metadata</text>
+      <rect x="430" y="537" width="800" height="74" rx="8" fill="#294337" stroke="none" />
+      <text x="450" y="566" font-size="16" fill="#8fd4ab" font-weight="600" text-anchor="start">Valid with 2 diagnostics</text>
+      <text x="450" y="591" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">The document is valid. Review the field-level findings below.</text>
+      <text x="430" y="645" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">DIAGNOSTICS</text>
+      <text x="430" y="676" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="start" font-family="Menlo,Consolas,monospace">organizations[0].name</text>
+      <text x="430" y="701" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="start">Field-level findings appear here. Source content is preserved until you save.</text>
+      <rect x="1016" y="714" width="98" height="36" rx="6" fill="#282c34" stroke="#3c424e" />
+      <use href="#copy" x="1028" y="724" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#8fd4ab" />
+      <text x="1074.0" y="737" font-size="13" fill="#e4e7ed" font-weight="500" text-anchor="middle">Copy</text>
+      <rect x="1126" y="714" width="104" height="36" rx="6" fill="#282c34" stroke="#3c424e" />
+      <use href="#download" x="1138" y="724" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#8fd4ab" />
+      <text x="1187.0" y="737" font-size="13" fill="#e4e7ed" font-weight="500" text-anchor="middle">Download</text>
+      <rect x="0" y="900" width="1440" height="32" rx="0" fill="#14181d" stroke="none" />
+      <text x="20" y="921" font-size="10" fill="#a5b1bc" font-weight="400" text-anchor="start">Validate Research Activity · sample result · design preview · sample content</text>
+      <text x="1420" y="921" font-size="10" fill="#a5b1bc" font-weight="400" text-anchor="end">1440 × 900  /  2026-11-11</text>
+    </g>
+    <g transform="translate(0 932)">
+      <rect x="0" y="0" width="1440" height="900" rx="0" fill="#20232a" stroke="none" />
+      <rect x="0" y="0" width="220" height="900" rx="0" fill="#262932" stroke="none" />
+      <path d="M220 0L220 900" fill="none" stroke="#3c424e" />
+      <use href="#acorn-mark" x="16" y="19" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="54" y="38" font-size="16" fill="#e4e7ed" font-weight="700" text-anchor="start">ACORN</text>
+      <text x="120" y="38" font-size="12" fill="#a0a7b4" font-weight="500" text-anchor="start">Browser</text>
+      <use href="#panel" x="190" y="24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="16" y="65" font-size="11" fill="#a0a7b4" font-weight="400" text-anchor="start">9 tools · local workspace</text>
+      <path d="M0 82H220" fill="none" stroke="#3c424e" />
+      <text x="16" y="104" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">WORKSPACE</text>
+      <use href="#home" x="20" y="121" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="135" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Home</text>
+      <use href="#portfolio" x="20" y="154" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="168" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Portfolio</text>
+      <text x="16" y="197" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">VALIDATE</text>
+      <use href="#filecheck" x="20" y="214" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="228" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Research activity</text>
+      <rect x="8" y="240" width="204" height="31" rx="6" fill="#294337" stroke="none" />
+      <use href="#badge" x="20" y="247" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#8fd4ab" />
+      <text x="48" y="261" font-size="13" fill="#8fd4ab" font-weight="500" text-anchor="start">Metadata standard</text>
+      <use href="#shuffle" x="20" y="280" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="294" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Crosswalk</text>
+      <text x="16" y="323" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">ANALYZE</text>
+      <use href="#shield" x="20" y="340" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="354" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">FAIR metadata</text>
+      <use href="#book" x="20" y="373" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="387" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Readability</text>
+      <use href="#diff" x="20" y="406" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="420" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Content diff</text>
+      <use href="#chart" x="20" y="439" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="453" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Big-O comparison</text>
+      <use href="#globe" x="20" y="472" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="486" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Geospatial</text>
+      <text x="16" y="515" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">IDENTIFIERS</text>
+      <use href="#search" x="20" y="532" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="546" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Discover</text>
+      <use href="#info" x="20" y="565" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="579" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Inspect</text>
+      <text x="16" y="608" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">APPLICATION</text>
+      <use href="#download" x="20" y="625" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="639" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Install</text>
+      <use href="#book" x="20" y="658" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="672" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">ACORN Skill</text>
+      <use href="#settings" x="20" y="691" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="705" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Settings</text>
+      <use href="#info" x="20" y="724" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="738" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">About</text>
+      <path d="M0 828H220" fill="none" stroke="#3c424e" />
+      <circle cx="18" cy="851" r="3" fill="#d8b778" />
+      <text x="28" y="855" font-size="10" fill="#a0a7b4" font-weight="400" text-anchor="start">WebMCP · unsupported</text>
+      <text x="16" y="880" font-size="10" fill="#7d8795" font-weight="400" text-anchor="start" font-family="Menlo,Consolas,monospace">v0.6.3</text>
+      <text x="204" y="880" font-size="10" fill="#7d8795" font-weight="400" text-anchor="end">Browser</text>
+      <rect x="1305" y="20" width="112" height="32" rx="16" fill="#282c34" stroke="#3c424e" />
+      <use href="#moon" x="1315" y="28" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="1337" y="41" font-size="11" fill="#e4e7ed" font-weight="400" text-anchor="start">Dark</text>
+      <rect x="1376" y="29" width="30" height="15" rx="8" fill="#00662c" stroke="none" />
+      <circle cx="1397" cy="36.5" r="5.5" fill="white" />
+      <path d="M494 837H1166" fill="none" stroke="#3c424e" />
+      <text x="830" y="868" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="middle">Made with ♥ by jhwohlgemuth</text>
+      <text x="406" y="62" font-size="25" fill="#e4e7ed" font-weight="650" text-anchor="start">Validate metadata standard</text>
+      <text x="406" y="91" font-size="14" fill="#a0a7b4" font-weight="400" text-anchor="start">Validate supplied metadata against a supported standard.</text>
+      <rect x="406" y="132" width="848" height="638" rx="10" fill="#282c34" stroke="#3c424e" />
+      <text x="430" y="166" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">SOURCE METADATA</text>
+      <rect x="430" y="180" width="800" height="40" rx="6" fill="#1e2229" stroke="#3c424e" />
+      <text x="444" y="205" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">datacite.json     ·     loaded in this session</text>
+      <rect x="430" y="238" width="388" height="40" rx="6" fill="#1e2229" stroke="#3c424e" />
+      <text x="444" y="263" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Standard: DataCite 4.5</text>
+      <rect x="834" y="238" width="396" height="40" rx="6" fill="#1e2229" stroke="#3c424e" />
+      <text x="848" y="263" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Format: JSON</text>
+      <rect x="430" y="299" width="800" height="160" rx="6" fill="#1e2229" stroke="#3c424e" />
+      <text x="448" y="326" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">{</text>
+      <text x="448" y="351" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">  "titles": [{ "title": "Advanced neutron imaging" }],</text>
+      <text x="448" y="376" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">  "publisher": "Oak Ridge National Laboratory",</text>
+      <text x="448" y="401" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">  "publicationYear": 2026, …</text>
+      <text x="448" y="426" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">}</text>
+      <rect x="430" y="479" width="800" height="36" rx="6" fill="#00662c" stroke="#00662c" />
+      <text x="830.0" y="502" font-size="13" fill="#fff" font-weight="500" text-anchor="middle">Validate metadata</text>
+      <rect x="430" y="537" width="800" height="74" rx="8" fill="#294337" stroke="none" />
+      <text x="450" y="566" font-size="16" fill="#8fd4ab" font-weight="600" text-anchor="start">Valid with 2 diagnostics</text>
+      <text x="450" y="591" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">The document is valid. Review the field-level findings below.</text>
+      <text x="430" y="645" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">DIAGNOSTICS</text>
+      <text x="430" y="676" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="start" font-family="Menlo,Consolas,monospace">titles[0].title</text>
+      <text x="430" y="701" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="start">Field-level findings appear here. Source content is preserved until you save.</text>
+      <rect x="1016" y="714" width="98" height="36" rx="6" fill="#282c34" stroke="#3c424e" />
+      <use href="#copy" x="1028" y="724" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#8fd4ab" />
+      <text x="1074.0" y="737" font-size="13" fill="#e4e7ed" font-weight="500" text-anchor="middle">Copy</text>
+      <rect x="1126" y="714" width="104" height="36" rx="6" fill="#282c34" stroke="#3c424e" />
+      <use href="#download" x="1138" y="724" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#8fd4ab" />
+      <text x="1187.0" y="737" font-size="13" fill="#e4e7ed" font-weight="500" text-anchor="middle">Download</text>
+      <rect x="0" y="900" width="1440" height="32" rx="0" fill="#14181d" stroke="none" />
+      <text x="20" y="921" font-size="10" fill="#a5b1bc" font-weight="400" text-anchor="start">Validate metadata standard · sample result · design preview · sample content</text>
+      <text x="1420" y="921" font-size="10" fill="#a5b1bc" font-weight="400" text-anchor="end">1440 × 900  /  2026-11-11</text>
+    </g>
+    <g transform="translate(0 1864)">
+      <rect x="0" y="0" width="1440" height="900" rx="0" fill="#20232a" stroke="none" />
+      <rect x="0" y="0" width="220" height="900" rx="0" fill="#262932" stroke="none" />
+      <path d="M220 0L220 900" fill="none" stroke="#3c424e" />
+      <use href="#acorn-mark" x="16" y="19" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="54" y="38" font-size="16" fill="#e4e7ed" font-weight="700" text-anchor="start">ACORN</text>
+      <text x="120" y="38" font-size="12" fill="#a0a7b4" font-weight="500" text-anchor="start">Browser</text>
+      <use href="#panel" x="190" y="24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="16" y="65" font-size="11" fill="#a0a7b4" font-weight="400" text-anchor="start">9 tools · local workspace</text>
+      <path d="M0 82H220" fill="none" stroke="#3c424e" />
+      <text x="16" y="104" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">WORKSPACE</text>
+      <use href="#home" x="20" y="121" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="135" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Home</text>
+      <use href="#portfolio" x="20" y="154" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="168" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Portfolio</text>
+      <text x="16" y="197" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">VALIDATE</text>
+      <use href="#filecheck" x="20" y="214" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="228" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Research activity</text>
+      <use href="#badge" x="20" y="247" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="261" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Metadata standard</text>
+      <rect x="8" y="273" width="204" height="31" rx="6" fill="#294337" stroke="none" />
+      <use href="#shuffle" x="20" y="280" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#8fd4ab" />
+      <text x="48" y="294" font-size="13" fill="#8fd4ab" font-weight="500" text-anchor="start">Crosswalk</text>
+      <text x="16" y="323" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">ANALYZE</text>
+      <use href="#shield" x="20" y="340" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="354" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">FAIR metadata</text>
+      <use href="#book" x="20" y="373" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="387" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Readability</text>
+      <use href="#diff" x="20" y="406" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="420" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Content diff</text>
+      <use href="#chart" x="20" y="439" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="453" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Big-O comparison</text>
+      <use href="#globe" x="20" y="472" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="486" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Geospatial</text>
+      <text x="16" y="515" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">IDENTIFIERS</text>
+      <use href="#search" x="20" y="532" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="546" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Discover</text>
+      <use href="#info" x="20" y="565" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="579" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Inspect</text>
+      <text x="16" y="608" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">APPLICATION</text>
+      <use href="#download" x="20" y="625" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="639" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Install</text>
+      <use href="#book" x="20" y="658" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="672" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">ACORN Skill</text>
+      <use href="#settings" x="20" y="691" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="705" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Settings</text>
+      <use href="#info" x="20" y="724" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="738" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">About</text>
+      <path d="M0 828H220" fill="none" stroke="#3c424e" />
+      <circle cx="18" cy="851" r="3" fill="#d8b778" />
+      <text x="28" y="855" font-size="10" fill="#a0a7b4" font-weight="400" text-anchor="start">WebMCP · unsupported</text>
+      <text x="16" y="880" font-size="10" fill="#7d8795" font-weight="400" text-anchor="start" font-family="Menlo,Consolas,monospace">v0.6.3</text>
+      <text x="204" y="880" font-size="10" fill="#7d8795" font-weight="400" text-anchor="end">Browser</text>
+      <rect x="1305" y="20" width="112" height="32" rx="16" fill="#282c34" stroke="#3c424e" />
+      <use href="#moon" x="1315" y="28" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="1337" y="41" font-size="11" fill="#e4e7ed" font-weight="400" text-anchor="start">Dark</text>
+      <rect x="1376" y="29" width="30" height="15" rx="8" fill="#00662c" stroke="none" />
+      <circle cx="1397" cy="36.5" r="5.5" fill="white" />
+      <path d="M494 837H1166" fill="none" stroke="#3c424e" />
+      <text x="830" y="868" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="middle">Made with ♥ by jhwohlgemuth</text>
+      <text x="406" y="62" font-size="25" fill="#e4e7ed" font-weight="650" text-anchor="start">Crosswalk metadata</text>
+      <text x="406" y="91" font-size="14" fill="#a0a7b4" font-weight="400" text-anchor="start">Convert metadata and review any information lost in translation.</text>
+      <rect x="406" y="132" width="848" height="638" rx="10" fill="#282c34" stroke="#3c424e" />
+      <text x="430" y="166" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">SOURCE METADATA</text>
+      <rect x="430" y="180" width="800" height="40" rx="6" fill="#1e2229" stroke="#3c424e" />
+      <text x="444" y="205" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">datacite.json     ·     loaded in this session</text>
+      <rect x="430" y="238" width="388" height="40" rx="6" fill="#1e2229" stroke="#3c424e" />
+      <text x="444" y="263" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">From: DataCite 4.5</text>
+      <rect x="834" y="238" width="396" height="40" rx="6" fill="#1e2229" stroke="#3c424e" />
+      <text x="848" y="263" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">To: Dublin Core</text>
+      <rect x="430" y="299" width="800" height="160" rx="6" fill="#1e2229" stroke="#3c424e" />
+      <text x="448" y="326" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">{</text>
+      <text x="448" y="351" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">  "titles": [{ "title": "Advanced neutron imaging" }],</text>
+      <text x="448" y="376" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">  "publisher": "Oak Ridge National Laboratory",</text>
+      <text x="448" y="401" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">  "publicationYear": 2026, …</text>
+      <text x="448" y="426" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">}</text>
+      <rect x="430" y="479" width="800" height="36" rx="6" fill="#00662c" stroke="#00662c" />
+      <text x="830.0" y="502" font-size="13" fill="#fff" font-weight="500" text-anchor="middle">Convert metadata</text>
+      <rect x="430" y="537" width="800" height="74" rx="8" fill="#373326" stroke="none" />
+      <text x="450" y="566" font-size="16" fill="#e5c38a" font-weight="600" text-anchor="start">3 conversion warnings</text>
+      <text x="450" y="591" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Review fields that cannot be represented in the selected target.</text>
+      <text x="430" y="645" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">CONVERTED OUTPUT</text>
+      <text x="430" y="676" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="start" font-family="Menlo,Consolas,monospace">{ "title": ["Advanced neutron imaging"], … }</text>
+      <text x="430" y="701" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="start">Output excerpt · review conversion warnings before downloading.</text>
+      <rect x="1016" y="714" width="98" height="36" rx="6" fill="#282c34" stroke="#3c424e" />
+      <use href="#copy" x="1028" y="724" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#8fd4ab" />
+      <text x="1074.0" y="737" font-size="13" fill="#e4e7ed" font-weight="500" text-anchor="middle">Copy</text>
+      <rect x="1126" y="714" width="104" height="36" rx="6" fill="#282c34" stroke="#3c424e" />
+      <use href="#download" x="1138" y="724" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#8fd4ab" />
+      <text x="1187.0" y="737" font-size="13" fill="#e4e7ed" font-weight="500" text-anchor="middle">Download</text>
+      <rect x="0" y="900" width="1440" height="32" rx="0" fill="#14181d" stroke="none" />
+      <text x="20" y="921" font-size="10" fill="#a5b1bc" font-weight="400" text-anchor="start">Crosswalk metadata · sample result · design preview · sample content</text>
+      <text x="1420" y="921" font-size="10" fill="#a5b1bc" font-weight="400" text-anchor="end">1440 × 900  /  2026-11-11</text>
     </g>
   </g>
-  <g transform="translate(640 100)" filter="url(#shadow)">
-    <use href="#frame"/>
-    <rect x="10" y="214" width="124" height="28" rx="6" fill="#00662c"/>
-    <use href="#nav-standard" x="18" y="221" width="14" height="14" color="#fff"/><text x="42" y="233" fill="#fff" font-size="10" font-weight="600">Metadata standard</text>
-    <g transform="translate(172 0)">
-      <text x="0" y="80" class="title">Validate metadata standard</text>
-      <text x="0" y="102" class="muted">Check supplied content and format together.</text>
-      <text x="0" y="142" class="eyebrow">STANDARD</text>
-      <rect x="0" y="154" width="150" height="38" rx="7" fill="#252931" stroke="#3c414e"/>
-      <text x="14" y="178" class="body">DataCite 4.5</text>
-      <text x="134" y="178" class="muted">&#x2304;</text>
-      <text x="168" y="142" class="eyebrow">FORMAT</text>
-      <rect x="168" y="154" width="150" height="38" rx="7" fill="#252931" stroke="#3c414e"/>
-      <text x="182" y="178" class="body">JSON</text>
-      <text x="302" y="178" class="muted">&#x2304;</text>
-      <text x="0" y="222" class="eyebrow">METADATA CONTENT</text>
-      <rect x="0" y="234" width="318" height="226" rx="9" fill="#181b21" stroke="#3c414e"/>
-      <text x="14" y="258" class="mono">{</text>
-      <text x="24" y="276" class="mono">"data": {</text>
-      <text x="34" y="294" class="mono">"type": "dois",</text>
-      <text x="34" y="312" class="mono">"attributes": {</text>
-      <text x="44" y="330" class="mono">"doi": "10.11578/1886479",</text>
-      <text x="44" y="348" class="mono">"titles": [{ "title": "&#x2026;" }]</text>
-      <text x="34" y="366" class="mono">}</text>
-      <text x="24" y="384" class="mono">}</text>
-      <text x="14" y="402" class="mono">}</text>
-      <rect x="0" y="478" width="318" height="32" rx="7" fill="#00662c"/>
-      <text x="159" y="499" fill="#fff" font-size="10" font-weight="650" text-anchor="middle">Validate DataCite metadata</text>
-      <rect x="0" y="530" width="318" height="160" rx="10" fill="#252931" stroke="#3c414e"/>
-      <circle cx="28" cy="561" r="15" fill="#173624"/>
-      <use href="#check" x="18" y="551" width="20" height="20" color="#00b38f"/>
-      <text x="54" y="557" class="label">Metadata is valid</text>
-      <text x="54" y="575" class="muted">DataCite 4.5 &#xB7; JSON</text>
-      <line x1="16" x2="302" y1="594" y2="594" stroke="#3c414e"/>
-      <text x="18" y="620" class="eyebrow">DIAGNOSTICS</text>
-      <text x="18" y="646" class="body">No diagnostics to report.</text>
-      <text x="18" y="669" class="muted">Validation ran locally in 18 ms.</text>
-      <text x="159" y="728" class="muted" text-anchor="middle">Made with &#x2665; by jhwohlgemuth</text>
-    </g>
-  </g>
-  <g transform="translate(1220 100)" filter="url(#shadow)">
-    <use href="#frame"/>
-    <rect x="10" y="270" width="124" height="28" rx="6" fill="#00662c"/>
-    <use href="#nav-crosswalk" x="18" y="277" width="14" height="14" color="#fff"/><text x="42" y="289" fill="#fff" font-size="10" font-weight="600">Crosswalk</text>
-    <g transform="translate(172 0)">
-      <text x="0" y="80" class="title">Crosswalk metadata</text>
-      <text x="0" y="102" class="muted">Convert locally with explicit loss warnings.</text>
-      <text x="0" y="142" class="eyebrow">FROM</text>
-      <rect x="0" y="154" width="150" height="38" rx="7" fill="#252931" stroke="#3c414e"/>
-      <text x="14" y="178" class="body">DataCite JSON</text>
-      <text x="168" y="142" class="eyebrow">TO</text>
-      <rect x="168" y="154" width="150" height="38" rx="7" fill="#252931" stroke="#3c414e"/>
-      <text x="182" y="178" class="body">CITATION.cff</text>
-      <text x="0" y="222" class="eyebrow">SOURCE METADATA</text>
-      <rect x="0" y="234" width="318" height="146" rx="9" fill="#181b21" stroke="#3c414e"/>
-      <text x="14" y="258" class="mono">{ "data": { "attributes": {</text>
-      <text x="24" y="276" class="mono">"doi": "10.11578/1886479",</text>
-      <text x="24" y="294" class="mono">"titles": [{ "title": "ACORN" }],</text>
-      <text x="24" y="312" class="mono">"geoLocations": [ &#x2026; ]</text>
-      <text x="14" y="330" class="mono">} } }</text>
-      <rect x="0" y="398" width="318" height="32" rx="7" fill="#00662c"/>
-      <use href="#shuffle" x="86" y="405" width="18" height="18" color="#fff"/>
-      <text x="178" y="419" fill="#fff" font-size="10" font-weight="650" text-anchor="middle">Convert metadata</text>
-      <rect x="0" y="450" width="318" height="69" rx="9" fill="#3a3021" stroke="#7c6234"/>
-      <text x="16" y="474" fill="#e8b85c" font-size="10" font-weight="650">3 conversion warnings</text>
-      <text x="16" y="496" class="body">Geolocation and funding fields are not represented.</text>
-      <text x="0" y="548" class="eyebrow">CITATION.CFF OUTPUT</text>
-      <rect x="0" y="560" width="318" height="130" rx="9" fill="#181b21" stroke="#3c414e"/>
-      <text x="14" y="584" class="mono">cff-version: 1.2.0</text>
-      <text x="14" y="602" class="mono">title: ACORN</text>
-      <text x="14" y="620" class="mono">identifiers:</text>
-      <text x="24" y="638" class="mono">- type: doi</text>
-      <text x="34" y="656" class="mono">value: 10.11578/1886479</text>
-      <rect x="162" y="704" width="70" height="28" rx="6" fill="#2b3039" stroke="#3c414e"/>
-      <text x="197" y="722" class="body" text-anchor="middle">Copy</text>
-      <rect x="240" y="704" width="78" height="28" rx="6" fill="#00662c"/>
-      <text x="279" y="722" fill="#fff" font-size="10" text-anchor="middle">Download</text>
-    </g>
-  </g>
-  <text x="900" y="1035" fill="#7f8982" font-size="12" text-anchor="middle">Three routed workspaces &#xB7; structured state before raw output &#xB7; explicit bounds and loss &#xB7; local-first by default &#xB7; ORNL-inspired #00662C</text>
 </svg>

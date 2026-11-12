@@ -1,0 +1,217 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="1380" viewBox="0 0 1680 1380" role="img" aria-labelledby="title description">
+  <title id="title">Responsive ACORN layouts</title>
+  <desc id="description">Editable ACORN design preview following the OKF Browser layout. Sample state; package publication is pending.</desc>
+  <defs>
+    <symbol id="acorn-mark" viewBox="280 200 480 640">
+      <g transform="translate(0 1024) scale(.1 -.1)" fill="#80350E" stroke="none">
+        <path d="M5347 7985c-142-54-311-263-383-472-33-98-64-246-64-309 0-30-3-34-32-38-282-43-411-71-607-132-401-125-752-352-974-630-184-229-259-412-258-633 0-271 181-462 491-519 246-46 594-83 950-102 251-13 1097-13 1361 0 343 17 863 75 1035 115 420 97 565 463 353 892-195 395-594 707-1129 883-187 62-554 134-722 142l-58 3v43c0 65 28 179 63 252 23 51 52 86 128 160 78 77 99 102 104 133 27 143-121 264-258 212zm145-1215c63-18 106-97 87-162-14-50-203-292-332-425-157-161-293-281-483-424-114-86-166-119-195-124-86-15-159 43-159 125 0 59 26 94 119 160 279 200 592 495 736 695 64 88 111 138 140 151 37 16 41 16 87 4zm-771-31c41-20 78-79 79-124 0-38-39-84-117-136-214-144-378-282-588-494-71-73-140-137-152-143-65-35-146 1-177 78-24 62-13 91 79 193 234 262 720 646 818 647 10 0 36-9 58-21zm1447-139c36-22 62-72 62-119 0-59-135-285-271-457-95-119-338-357-391-382-73-36-135-23-176 35-55 78-36 130 86 240 209 188 375 394 495 613 46 85 124 113 195 70zm533-325c40-21 69-71 69-121 0-82-172-380-273-475-62-57-165-42-205 30-38 67-25 129 43 201 42 45 107 152 141 231 14 34 33 73 42 87 38 57 121 79 183 47z" />
+        <path d="M3287 4973c-13-13-7-381 8-500 49-371 190-743 402-1060 261-390 583-679 1057-948 174-99 284-189 351-290 31-48 40-55 68-55 28 0 35 6 55 43 57 107 144 181 373 315 390 229 655 443 886 717 281 332 487 793 554 1240 22 139 33 488 17 526-5 14-20 14-145-6-76-13-159-26-185-29l-48-7v-75c0-355-132-859-311-1187-104-189-269-417-342-471-68-50-184-10-207 72-14 56 0 92 72 180 168 205 277 401 371 667 99 282 132 431 144 664l6 123-39-6c-189-29-620-46-1164-46-654 0-1032 17-1450 66-127 14-416 59-451 69-8 3-18 2-22-2z" />
+      </g>
+    </symbol>
+    <symbol id="book" viewBox="0 0 24 24">
+      <path class="s" d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5Z" />
+      <path class="s" d="M4 6.5v13M9 10l2 2 4-4" />
+    </symbol>
+    <symbol id="compass" viewBox="0 0 24 24">
+      <circle class="s" cx="12" cy="12" r="9" />
+      <path class="s" d="m16 8-2.5 5.5L8 16l2.5-5.5Z" />
+    </symbol>
+    <symbol id="copy" viewBox="0 0 24 24">
+      <rect x="8" y="8" width="12" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.5" />
+      <path d="M16 8V3H3v13h5" fill="none" stroke="currentColor" stroke-width="1.5" />
+    </symbol>
+    <symbol id="download" viewBox="0 0 24 24">
+      <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+    </symbol>
+    <symbol id="folder" viewBox="0 0 24 24">
+      <path class="s" d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+    </symbol>
+    <symbol id="menu" viewBox="0 0 24 24">
+      <path class="s" d="M4 7h16M4 12h16M4 17h16" />
+    </symbol>
+    <symbol id="sparkles" viewBox="0 0 24 24">
+      <path class="s" d="m12 3 1.3 3.7L17 8l-3.7 1.3L12 13l-1.3-3.7L7 8l3.7-1.3ZM5 14l.8 2.2L8 17l-2.2.8L5 20l-.8-2.2L2 17l2.2-.8ZM19 13l.8 2.2L22 16l-2.2.8L19 19l-.8-2.2L16 16l2.2-.8Z" />
+    </symbol>
+    <symbol id="upload" viewBox="0 0 24 24">
+      <path class="s" d="M12 16V3M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
+    </symbol>
+  </defs>
+  <g font-family="Inter,Arial,Helvetica,sans-serif">
+    <rect x="0" y="0" width="1680" height="1380" rx="0" fill="#14181d" stroke="none" />
+    <text x="24" y="30" font-size="14" fill="#dbe3ec" font-weight="600" text-anchor="start">Home · light</text>
+    <svg x="24" y="48" width="390" height="844" viewBox="0 0 390 844">
+      <rect x="0" y="0" width="390" height="844" rx="0" fill="#ffffff" stroke="none" />
+      <rect x="0" y="0" width="390" height="54" rx="0" fill="#f8f9fa" stroke="none" />
+      <path d="M0 54H390" fill="none" stroke="#d9dde2" />
+      <use href="#menu" x="18" y="18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <use href="#acorn-mark" x="55" y="14" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="88" y="34" font-size="14" fill="#29323a" font-weight="600" text-anchor="start">ACORN Browser</text>
+      <use href="#acorn-mark" x="179" y="82" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="195" y="148" font-size="23" fill="#29323a" font-weight="650" text-anchor="middle">ACORN Browser</text>
+      <rect x="24" y="171" width="165" height="36" rx="6" fill="#00662c" stroke="#00662c" />
+      <use href="#compass" x="36" y="181" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#fff" />
+      <text x="115.5" y="194" font-size="13" fill="#fff" font-weight="500" text-anchor="middle">Take a tour</text>
+      <rect x="201" y="171" width="165" height="36" rx="6" fill="#f8f9fa" stroke="#d9dde2" />
+      <use href="#sparkles" x="213" y="181" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#00662c" />
+      <text x="292.5" y="194" font-size="13" fill="#29323a" font-weight="500" text-anchor="middle">Try sample data</text>
+      <rect x="24" y="233" width="342" height="151" rx="10" fill="#f8f9fa" stroke="#d9dde2" />
+      <use href="#book" x="42" y="253" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#00662c" />
+      <text x="72" y="268" font-size="14" fill="#29323a" font-weight="600" text-anchor="start">The home of the ACORN skill</text>
+      <text x="42" y="301" font-size="12" fill="#5d6874" font-weight="400" text-anchor="start">Research metadata workflows for your agent,</text>
+      <text x="42" y="322" font-size="12" fill="#5d6874" font-weight="400" text-anchor="start">bundled with the same app release.</text>
+      <text x="42" y="361" font-size="13" fill="#00662c" font-weight="400" text-anchor="start">Explore the skill and download →</text>
+      <text x="195" y="420" font-size="13" fill="#5d6874" font-weight="400" text-anchor="middle">Open research activity data</text>
+      <rect x="24" y="443" width="342" height="76" rx="8" fill="#f8f9fa" stroke="#d9dde2" stroke-dasharray="4 3" />
+      <use href="#folder" x="43" y="468" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#00662c" />
+      <text x="82" y="474" font-size="14" fill="#29323a" font-weight="600" text-anchor="start">Open file or folder</text>
+      <text x="82" y="497" font-size="12" fill="#5d6874" font-weight="400" text-anchor="start">Choose local research content</text>
+      <rect x="24" y="535" width="342" height="76" rx="8" fill="#f8f9fa" stroke="#d9dde2" stroke-dasharray="4 3" />
+      <use href="#upload" x="43" y="560" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#00662c" />
+      <text x="82" y="566" font-size="14" fill="#29323a" font-weight="600" text-anchor="start">Drop content</text>
+      <text x="82" y="589" font-size="12" fill="#5d6874" font-weight="400" text-anchor="start">Files stay on this device</text>
+      <text x="195" y="654" font-size="11" fill="#5d6874" font-weight="400" text-anchor="middle">Local by default · no uploads · no telemetry</text>
+      <text x="195" y="709" font-size="13" fill="#00662c" font-weight="400" text-anchor="middle">View desktop install options →</text>
+      <path d="M24 765H366" fill="none" stroke="#d9dde2" />
+      <text x="195" y="798" font-size="11" fill="#5d6874" font-weight="400" text-anchor="middle">Made with ♥ by jhwohlgemuth</text>
+    </svg>
+    <text x="438" y="30" font-size="14" fill="#dbe3ec" font-weight="600" text-anchor="start">Install · light</text>
+    <svg x="438" y="48" width="390" height="844" viewBox="0 0 390 844">
+      <rect x="0" y="0" width="390" height="844" rx="0" fill="#ffffff" stroke="none" />
+      <rect x="0" y="0" width="390" height="54" rx="0" fill="#f8f9fa" stroke="none" />
+      <path d="M0 54H390" fill="none" stroke="#d9dde2" />
+      <use href="#menu" x="18" y="18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <use href="#acorn-mark" x="55" y="14" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="88" y="34" font-size="14" fill="#29323a" font-weight="600" text-anchor="start">Install</text>
+      <text x="24" y="104" font-size="24" fill="#29323a" font-weight="650" text-anchor="start">Install ACORN</text>
+      <text x="24" y="135" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Choose the desktop app, the skill, or both.</text>
+      <text x="24" y="157" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Desktop channels are not yet published.</text>
+      <rect x="24" y="198" width="342" height="72" rx="10" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="42" y="225" font-size="14" fill="#29323a" font-weight="600" text-anchor="start">WinGet</text>
+      <text x="42" y="249" font-size="11" fill="#5d6874" font-weight="400" text-anchor="start">Windows · signed installer</text>
+      <rect x="269" y="212" width="79" height="24" rx="5" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="279" y="228" font-size="11" fill="#5d6874" font-weight="500" text-anchor="start">Pending</text>
+      <rect x="24" y="282" width="342" height="72" rx="10" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="42" y="309" font-size="14" fill="#29323a" font-weight="600" text-anchor="start">Scoop</text>
+      <text x="42" y="333" font-size="11" fill="#5d6874" font-weight="400" text-anchor="start">Windows · desktop archive</text>
+      <rect x="269" y="296" width="79" height="24" rx="5" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="279" y="312" font-size="11" fill="#5d6874" font-weight="500" text-anchor="start">Pending</text>
+      <rect x="24" y="366" width="342" height="72" rx="10" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="42" y="393" font-size="14" fill="#29323a" font-weight="600" text-anchor="start">Debian package</text>
+      <text x="42" y="417" font-size="11" fill="#5d6874" font-weight="400" text-anchor="start">Debian Linux · .deb</text>
+      <rect x="269" y="380" width="79" height="24" rx="5" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="279" y="396" font-size="11" fill="#5d6874" font-weight="500" text-anchor="start">Pending</text>
+      <rect x="24" y="450" width="342" height="72" rx="10" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="42" y="477" font-size="14" fill="#29323a" font-weight="600" text-anchor="start">AppImage</text>
+      <text x="42" y="501" font-size="11" fill="#5d6874" font-weight="400" text-anchor="start">Linux · portable app</text>
+      <rect x="269" y="464" width="79" height="24" rx="5" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="279" y="480" font-size="11" fill="#5d6874" font-weight="500" text-anchor="start">Pending</text>
+      <rect x="24" y="534" width="342" height="72" rx="10" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="42" y="561" font-size="14" fill="#29323a" font-weight="600" text-anchor="start">Homebrew cask</text>
+      <text x="42" y="585" font-size="11" fill="#5d6874" font-weight="400" text-anchor="start">macOS · notarized app</text>
+      <rect x="269" y="548" width="79" height="24" rx="5" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="279" y="564" font-size="11" fill="#5d6874" font-weight="500" text-anchor="start">Pending</text>
+      <rect x="24" y="640" width="342" height="137" rx="10" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="42" y="672" font-size="17" fill="#29323a" font-weight="600" text-anchor="start">ACORN Skill</text>
+      <text x="42" y="700" font-size="12" fill="#5d6874" font-weight="400" text-anchor="start">Read the bundled definition and keep</text>
+      <text x="42" y="720" font-size="12" fill="#5d6874" font-weight="400" text-anchor="start">your exported skill matched to the app.</text>
+      <text x="42" y="755" font-size="13" fill="#00662c" font-weight="400" text-anchor="start">Open ACORN Skill →</text>
+    </svg>
+    <text x="852" y="30" font-size="14" fill="#dbe3ec" font-weight="600" text-anchor="start">Skill · dark</text>
+    <svg x="852" y="48" width="390" height="844" viewBox="0 0 390 844">
+      <rect x="0" y="0" width="390" height="844" rx="0" fill="#20232a" stroke="none" />
+      <rect x="0" y="0" width="390" height="54" rx="0" fill="#262932" stroke="none" />
+      <path d="M0 54H390" fill="none" stroke="#3c424e" />
+      <use href="#menu" x="18" y="18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <use href="#acorn-mark" x="55" y="14" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="88" y="34" font-size="14" fill="#e4e7ed" font-weight="600" text-anchor="start">ACORN Skill</text>
+      <text x="24" y="104" font-size="24" fill="#e4e7ed" font-weight="650" text-anchor="start">ACORN Skill</text>
+      <text x="24" y="136" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Research metadata workflows for your agent.</text>
+      <text x="24" y="158" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Bundled with app v0.6.3.</text>
+      <rect x="24" y="196" width="342" height="234" rx="10" fill="#282c34" stroke="#3c424e" />
+      <text x="42" y="228" font-size="17" fill="#e4e7ed" font-weight="600" text-anchor="start">Install and start</text>
+      <text x="42" y="261" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">1. Review the skill definition.</text>
+      <text x="42" y="289" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">2. Add the folder to your repository.</text>
+      <text x="42" y="317" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">3. Start a new agent session.</text>
+      <rect x="42" y="347" width="306" height="36" rx="6" fill="#00662c" stroke="#00662c" />
+      <use href="#download" x="54" y="357" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#fff" />
+      <text x="204.0" y="370" font-size="13" fill="#fff" font-weight="500" text-anchor="middle">Download skill folder</text>
+      <text x="42" y="411" font-size="12" fill="#8fd4ab" font-weight="400" text-anchor="start">View SKILL.md →     Canonical source ↗</text>
+      <text x="24" y="476" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">USE THE SKILL</text>
+      <rect x="24" y="498" width="342" height="140" rx="10" fill="#282c34" stroke="#3c424e" />
+      <text x="42" y="530" font-size="15" fill="#e4e7ed" font-weight="600" text-anchor="start">Validate metadata</text>
+      <text x="42" y="560" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Use $acorn to validate this</text>
+      <text x="42" y="581" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">research activity.</text>
+      <rect x="240" y="590" width="108" height="36" rx="6" fill="#282c34" stroke="#3c424e" />
+      <use href="#copy" x="252" y="600" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#8fd4ab" />
+      <text x="303.0" y="613" font-size="13" fill="#e4e7ed" font-weight="500" text-anchor="middle">Copy</text>
+      <rect x="24" y="660" width="342" height="112" rx="10" fill="#282c34" stroke="#3c424e" />
+      <text x="42" y="692" font-size="14" fill="#e4e7ed" font-weight="600" text-anchor="start">Keep versions together</text>
+      <text x="42" y="721" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="start">App updates replace the bundled skill.</text>
+      <text x="42" y="742" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="start">Your exported copies stay under your control.</text>
+    </svg>
+    <text x="1266" y="30" font-size="14" fill="#dbe3ec" font-weight="600" text-anchor="start">Portfolio · light</text>
+    <svg x="1266" y="48" width="390" height="844" viewBox="0 0 390 844">
+      <rect x="0" y="0" width="390" height="844" rx="0" fill="#ffffff" stroke="none" />
+      <rect x="0" y="0" width="390" height="54" rx="0" fill="#f8f9fa" stroke="none" />
+      <path d="M0 54H390" fill="none" stroke="#d9dde2" />
+      <use href="#menu" x="18" y="18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <use href="#acorn-mark" x="55" y="14" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="88" y="34" font-size="14" fill="#29323a" font-weight="600" text-anchor="start">Portfolio</text>
+      <text x="24" y="104" font-size="24" fill="#29323a" font-weight="650" text-anchor="start">Portfolio</text>
+      <text x="24" y="135" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">6 research activities · sample data</text>
+      <rect x="24" y="160" width="342" height="40" rx="6" fill="#ffffff" stroke="#d9dde2" />
+      <text x="38" y="185" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Search activities…</text>
+      <rect x="24" y="220" width="165" height="89" rx="10" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="40" y="246" font-size="11" fill="#5d6874" font-weight="600" text-anchor="start">ACTIVITIES</text>
+      <text x="40" y="284" font-size="28" fill="#29323a" font-weight="600" text-anchor="start">6</text>
+      <rect x="201" y="220" width="165" height="89" rx="10" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="217" y="246" font-size="11" fill="#5d6874" font-weight="600" text-anchor="start">ORGANIZATIONS</text>
+      <text x="217" y="284" font-size="28" fill="#29323a" font-weight="600" text-anchor="start">3</text>
+      <rect x="24" y="329" width="140.60000000000002" height="24" rx="5" fill="#e3f0e8" stroke="#d9dde2" />
+      <text x="34" y="345" font-size="11" fill="#00662c" font-weight="500" text-anchor="start">All activity types</text>
+      <rect x="173" y="329" width="60.2" height="24" rx="5" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="183" y="345" font-size="11" fill="#5d6874" font-weight="500" text-anchor="start">Active</text>
+      <text x="24" y="394" font-size="11" fill="#5d6874" font-weight="600" text-anchor="start">ACTIVITIES</text>
+      <rect x="24" y="414" width="342" height="88" rx="10" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="42" y="446" font-size="14" fill="#29323a" font-weight="600" text-anchor="start">Advanced neutron imaging</text>
+      <text x="42" y="474" font-size="11" fill="#5d6874" font-weight="400" text-anchor="start">Project · Active · 4 contributors</text>
+      <rect x="24" y="518" width="342" height="88" rx="10" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="42" y="550" font-size="14" fill="#29323a" font-weight="600" text-anchor="start">ACORN metadata toolkit</text>
+      <text x="42" y="578" font-size="11" fill="#5d6874" font-weight="400" text-anchor="start">Software · Released · 6 contributors</text>
+      <rect x="24" y="622" width="342" height="88" rx="10" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="42" y="654" font-size="14" fill="#29323a" font-weight="600" text-anchor="start">Quantum materials archive</text>
+      <text x="42" y="682" font-size="11" fill="#5d6874" font-weight="400" text-anchor="start">Dataset · In review · 2 contributors</text>
+      <rect x="24" y="748" width="342" height="36" rx="6" fill="#00662c" stroke="#00662c" />
+      <text x="195.0" y="771" font-size="13" fill="#fff" font-weight="500" text-anchor="middle">Open selected activity</text>
+    </svg>
+    <text x="24" y="936" font-size="14" fill="#dbe3ec" font-weight="600" text-anchor="start">Landscape · 844 × 390 · header navigation keeps the workspace usable at short heights</text>
+    <svg x="24" y="955" width="844" height="390" viewBox="0 0 844 390">
+      <rect x="0" y="0" width="844" height="390" rx="0" fill="#20232a" stroke="none" />
+      <rect x="0" y="0" width="844" height="54" rx="0" fill="#262932" stroke="none" />
+      <use href="#menu" x="20" y="18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="52" y="35" font-size="14" fill="#e4e7ed" font-weight="600" text-anchor="start">ACORN Browser</text>
+      <text x="24" y="99" font-size="24" fill="#e4e7ed" font-weight="600" text-anchor="start">ACORN Skill</text>
+      <text x="24" y="129" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Bundled with the app release. Exported copies stay under your control.</text>
+      <rect x="24" y="153" width="388" height="191" rx="10" fill="#282c34" stroke="#3c424e" />
+      <text x="44" y="184" font-size="17" fill="#e4e7ed" font-weight="600" text-anchor="start">Install and start</text>
+      <text x="44" y="218" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="start">Review the skill, add it to your repository,</text>
+      <text x="44" y="240" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="start">then start a new compatible agent session.</text>
+      <rect x="44" y="283" width="348" height="36" rx="6" fill="#00662c" stroke="#00662c" />
+      <use href="#download" x="56" y="293" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#fff" />
+      <text x="227.0" y="306" font-size="13" fill="#fff" font-weight="500" text-anchor="middle">Download skill folder</text>
+      <rect x="432" y="153" width="388" height="191" rx="10" fill="#282c34" stroke="#3c424e" />
+      <text x="452" y="184" font-size="17" fill="#e4e7ed" font-weight="600" text-anchor="start">Validate metadata</text>
+      <text x="452" y="218" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Use $acorn to validate this</text>
+      <text x="452" y="240" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">research activity.</text>
+      <rect x="452" y="283" width="348" height="36" rx="6" fill="#282c34" stroke="#3c424e" />
+      <use href="#copy" x="464" y="293" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#8fd4ab" />
+      <text x="635.0" y="306" font-size="13" fill="#e4e7ed" font-weight="500" text-anchor="middle">Copy workflow</text>
+    </svg>
+    <text x="920" y="1000" font-size="22" fill="#dbe3ec" font-weight="600" text-anchor="start">Responsive contract</text>
+    <text x="920" y="1040" font-size="15" fill="#a5b1bc" font-weight="400" text-anchor="start">390 × 844 portrait: stacked cards and list-first data.</text>
+    <text x="920" y="1074" font-size="15" fill="#a5b1bc" font-weight="400" text-anchor="start">844 × 390 landscape: top navigation, scrollable content.</text>
+    <text x="920" y="1108" font-size="15" fill="#a5b1bc" font-weight="400" text-anchor="start">No sideways scrolling or scaled-down desktop controls.</text>
+    <text x="920" y="1142" font-size="15" fill="#a5b1bc" font-weight="400" text-anchor="start">Dark / light appearance follows the same component system.</text>
+    <text x="920" y="1176" font-size="15" fill="#a5b1bc" font-weight="400" text-anchor="start">These are static layout previews, not runtime test results.</text>
+  </g>
+</svg>

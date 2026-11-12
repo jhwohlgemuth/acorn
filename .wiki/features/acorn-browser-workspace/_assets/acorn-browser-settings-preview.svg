@@ -1,174 +1,279 @@
-<?xml version="1.0"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1100" role="img" aria-labelledby="title description">
-  <title id="title">ACORN Settings page preview</title>
-  <desc id="description">Dark desktop and light mobile previews of the ACORN Settings route with session-only appearance choices, runtime and WebMCP state, transient workspace reset, and local-first privacy boundaries.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1864" viewBox="0 0 1440 1864" role="img" aria-labelledby="title description">
+  <title id="title">ACORN Settings</title>
+  <desc id="description">Editable ACORN design preview following the OKF Browser layout. Sample state; package publication is pending.</desc>
   <defs>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="18" result="b"/>
-      <feOffset in="b" dy="12" result="o"/>
-      <feFlood flood-color="#050706" flood-opacity=".4"/>
-      <feComposite in2="o" operator="in"/>
-      <feMerge>
-        <feMergeNode/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-    <style>text{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}.title{fill:#f3f6f4;font-size:24px;font-weight:650}.body{fill:#dce3de;font-size:13px}.muted{fill:#8d9790;font-size:12px}.nav{fill:#a9b1ac;font-size:13px}.group{fill:#707a73;font-size:10px;font-weight:700;letter-spacing:1.2px}.label{fill:#dce3de;font-size:12px;font-weight:600}.light-title{fill:#272b28;font-size:18px;font-weight:650}.light-body{fill:#3c4540;font-size:11px}.light-muted{fill:#68736b;font-size:10px}.stroke{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}</style>
     <symbol id="acorn-mark" viewBox="280 200 480 640">
       <g transform="translate(0 1024) scale(.1 -.1)" fill="#80350E" stroke="none">
-        <path d="M5347 7985c-142-54-311-263-383-472-33-98-64-246-64-309 0-30-3-34-32-38-282-43-411-71-607-132-401-125-752-352-974-630-184-229-259-412-258-633 0-271 181-462 491-519 246-46 594-83 950-102 251-13 1097-13 1361 0 343 17 863 75 1035 115 420 97 565 463 353 892-195 395-594 707-1129 883-187 62-554 134-722 142l-58 3v43c0 65 28 179 63 252 23 51 52 86 128 160 78 77 99 102 104 133 27 143-121 264-258 212zm145-1215c63-18 106-97 87-162-14-50-203-292-332-425-157-161-293-281-483-424-114-86-166-119-195-124-86-15-159 43-159 125 0 59 26 94 119 160 279 200 592 495 736 695 64 88 111 138 140 151 37 16 41 16 87 4zm-771-31c41-20 78-79 79-124 0-38-39-84-117-136-214-144-378-282-588-494-71-73-140-137-152-143-65-35-146 1-177 78-24 62-13 91 79 193 234 262 720 646 818 647 10 0 36-9 58-21zm1447-139c36-22 62-72 62-119 0-59-135-285-271-457-95-119-338-357-391-382-73-36-135-23-176 35-55 78-36 130 86 240 209 188 375 394 495 613 46 85 124 113 195 70zm533-325c40-21 69-71 69-121 0-82-172-380-273-475-62-57-165-42-205 30-38 67-25 129 43 201 42 45 107 152 141 231 14 34 33 73 42 87 38 57 121 79 183 47z"/>
-        <path d="M3287 4973c-13-13-7-381 8-500 49-371 190-743 402-1060 261-390 583-679 1057-948 174-99 284-189 351-290 31-48 40-55 68-55 28 0 35 6 55 43 57 107 144 181 373 315 390 229 655 443 886 717 281 332 487 793 554 1240 22 139 33 488 17 526-5 14-20 14-145-6-76-13-159-26-185-29l-48-7v-75c0-355-132-859-311-1187-104-189-269-417-342-471-68-50-184-10-207 72-14 56 0 92 72 180 168 205 277 401 371 667 99 282 132 431 144 664l6 123-39-6c-189-29-620-46-1164-46-654 0-1032 17-1450 66-127 14-416 59-451 69-8 3-18 2-22-2z"/>
+        <path d="M5347 7985c-142-54-311-263-383-472-33-98-64-246-64-309 0-30-3-34-32-38-282-43-411-71-607-132-401-125-752-352-974-630-184-229-259-412-258-633 0-271 181-462 491-519 246-46 594-83 950-102 251-13 1097-13 1361 0 343 17 863 75 1035 115 420 97 565 463 353 892-195 395-594 707-1129 883-187 62-554 134-722 142l-58 3v43c0 65 28 179 63 252 23 51 52 86 128 160 78 77 99 102 104 133 27 143-121 264-258 212zm145-1215c63-18 106-97 87-162-14-50-203-292-332-425-157-161-293-281-483-424-114-86-166-119-195-124-86-15-159 43-159 125 0 59 26 94 119 160 279 200 592 495 736 695 64 88 111 138 140 151 37 16 41 16 87 4zm-771-31c41-20 78-79 79-124 0-38-39-84-117-136-214-144-378-282-588-494-71-73-140-137-152-143-65-35-146 1-177 78-24 62-13 91 79 193 234 262 720 646 818 647 10 0 36-9 58-21zm1447-139c36-22 62-72 62-119 0-59-135-285-271-457-95-119-338-357-391-382-73-36-135-23-176 35-55 78-36 130 86 240 209 188 375 394 495 613 46 85 124 113 195 70zm533-325c40-21 69-71 69-121 0-82-172-380-273-475-62-57-165-42-205 30-38 67-25 129 43 201 42 45 107 152 141 231 14 34 33 73 42 87 38 57 121 79 183 47z" />
+        <path d="M3287 4973c-13-13-7-381 8-500 49-371 190-743 402-1060 261-390 583-679 1057-948 174-99 284-189 351-290 31-48 40-55 68-55 28 0 35 6 55 43 57 107 144 181 373 315 390 229 655 443 886 717 281 332 487 793 554 1240 22 139 33 488 17 526-5 14-20 14-145-6-76-13-159-26-185-29l-48-7v-75c0-355-132-859-311-1187-104-189-269-417-342-471-68-50-184-10-207 72-14 56 0 92 72 180 168 205 277 401 371 667 99 282 132 431 144 664l6 123-39-6c-189-29-620-46-1164-46-654 0-1032 17-1450 66-127 14-416 59-451 69-8 3-18 2-22-2z" />
       </g>
     </symbol>
-    <symbol id="nav-about" viewBox="0 0 24 24"><circle class="stroke" cx="12" cy="12" r="9"/><path class="stroke" d="M9.5 9a2.7 2.7 0 1 1 4.8 1.7c-1.4 1.2-2.3 1.7-2.3 3.3M12 17h.01"/></symbol>
-    <symbol id="nav-activity" viewBox="0 0 24 24"><path class="stroke" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path class="stroke" d="M14 2v6h6M9 15l2 2 4-4"/></symbol>
-    <symbol id="nav-crosswalk" viewBox="0 0 24 24"><path class="stroke" d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></symbol>
-    <symbol id="nav-diff" viewBox="0 0 24 24"><path class="stroke" d="M18 3v18M6 8V3M3 6l3-3 3 3M3 18l3 3 3-3M6 21v-5M15 7h6M15 17h6"/></symbol>
-    <symbol id="nav-discover" viewBox="0 0 24 24"><circle class="stroke" cx="11" cy="11" r="7"/><path class="stroke" d="m20 20-4-4M11 8v6M8 11h6"/></symbol>
-    <symbol id="nav-fair" viewBox="0 0 24 24"><path class="stroke" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path class="stroke" d="m9 12 2 2 4-4"/></symbol>
-    <symbol id="nav-geospatial" viewBox="0 0 24 24"><circle class="stroke" cx="12" cy="12" r="9"/><path class="stroke" d="m16 8-2.5 5.5L8 16l2.5-5.5Z"/></symbol>
-    <symbol id="nav-home" viewBox="0 0 24 24"><path class="stroke" d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></symbol>
-    <symbol id="nav-inspect" viewBox="0 0 24 24"><circle class="stroke" cx="12" cy="12" r="9"/><path class="stroke" d="M12 11v5M12 8h.01"/></symbol>
-    <symbol id="nav-panel" viewBox="0 0 24 24"><rect class="stroke" x="3" y="4" width="18" height="16" rx="2"/><path class="stroke" d="M9 4v16M14 8l-3 4 3 4"/></symbol>
-    <symbol id="nav-portfolio" viewBox="0 0 24 24"><rect class="stroke" x="3" y="3" width="7" height="7" rx="1"/><rect class="stroke" x="14" y="3" width="7" height="7" rx="1"/><rect class="stroke" x="3" y="14" width="7" height="7" rx="1"/><rect class="stroke" x="14" y="14" width="7" height="7" rx="1"/></symbol>
-    <symbol id="nav-readability" viewBox="0 0 24 24"><path class="stroke" d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5Z"/><path class="stroke" d="M4 6.5v13M9 10l2 2 4-4"/></symbol>
-    <symbol id="nav-settings" viewBox="0 0 24 24"><circle class="stroke" cx="12" cy="12" r="3"/><path class="stroke" d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></symbol>
-    <symbol id="nav-standard" viewBox="0 0 24 24"><path class="stroke" d="m12 2 3 2 3.6.4.4 3.6 2 3-2 3-.4 3.6-3.6.4-3 2-3-2-3.6-.4-.4-3.6-2-3 2-3 .4-3.6L9 4Z"/><path class="stroke" d="m9 12 2 2 4-4"/></symbol>
-    <symbol id="sun" viewBox="0 0 24 24">
-      <circle class="stroke" cx="12" cy="12" r="4"/>
-      <path class="stroke" d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2"/>
+    <symbol id="badge" viewBox="0 0 24 24">
+      <path class="s" d="m12 2 3 2 3.6.4.4 3.6 2 3-2 3-.4 3.6-3.6.4-3 2-3-2-3.6-.4-.4-3.6-2-3 2-3 .4-3.6L9 4Z" />
+      <path class="s" d="m9 12 2 2 4-4" />
     </symbol>
-    <symbol id="moon" viewBox="0 0 24 24">
-      <path class="stroke" d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z"/>
+    <symbol id="book" viewBox="0 0 24 24">
+      <path class="s" d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5Z" />
+      <path class="s" d="M4 6.5v13M9 10l2 2 4-4" />
+    </symbol>
+    <symbol id="chart" viewBox="0 0 24 24">
+      <path d="M4 3v17h17M7 16l4-3 4-5 5-4" fill="none" stroke="currentColor" stroke-width="1.6" />
+    </symbol>
+    <symbol id="diff" viewBox="0 0 24 24">
+      <path class="s" d="M18 3v18M6 8V3M3 6l3-3 3 3M3 18l3 3 3-3M6 21v-5M15 7h6M15 17h6" />
+    </symbol>
+    <symbol id="download" viewBox="0 0 24 24">
+      <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+    </symbol>
+    <symbol id="filecheck" viewBox="0 0 24 24">
+      <path class="s" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+      <path class="s" d="M14 2v6h6M9 15l2 2 4-4" />
+    </symbol>
+    <symbol id="globe" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5" />
+      <ellipse cx="12" cy="12" rx="4" ry="9" fill="none" stroke="currentColor" stroke-width="1.5" />
+      <path d="M3 12h18" stroke="currentColor" />
+    </symbol>
+    <symbol id="home" viewBox="0 0 24 24">
+      <path class="s" d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z" />
+    </symbol>
+    <symbol id="info" viewBox="0 0 24 24">
+      <circle class="s" cx="12" cy="12" r="9" />
+      <path class="s" d="M12 11v5M12 8h.01" />
     </symbol>
     <symbol id="monitor" viewBox="0 0 24 24">
-      <rect class="stroke" x="3" y="4" width="18" height="14" rx="2"/>
-      <path class="stroke" d="M8 22h8M12 18v4"/>
+      <rect class="s" x="3" y="4" width="18" height="14" rx="2" />
+      <path class="s" d="M8 22h8M12 18v4" />
+    </symbol>
+    <symbol id="moon" viewBox="0 0 24 24">
+      <path class="s" d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z" />
+    </symbol>
+    <symbol id="panel" viewBox="0 0 24 24">
+      <rect class="s" x="3" y="4" width="18" height="16" rx="2" />
+      <path class="s" d="M9 4v16M14 8l-3 4 3 4" />
+    </symbol>
+    <symbol id="portfolio" viewBox="0 0 24 24">
+      <rect class="s" x="3" y="3" width="7" height="7" rx="1" />
+      <rect class="s" x="14" y="3" width="7" height="7" rx="1" />
+      <rect class="s" x="3" y="14" width="7" height="7" rx="1" />
+      <rect class="s" x="14" y="14" width="7" height="7" rx="1" />
+    </symbol>
+    <symbol id="search" viewBox="0 0 24 24">
+      <circle class="stroke" cx="11" cy="11" r="7" />
+      <path class="stroke" d="m20 20-4-4" />
+    </symbol>
+    <symbol id="settings" viewBox="0 0 24 24">
+      <circle class="s" cx="12" cy="12" r="3" />
+      <path class="s" d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
+    </symbol>
+    <symbol id="shield" viewBox="0 0 24 24">
+      <path class="s" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+      <path class="s" d="m9 12 2 2 4-4" />
+    </symbol>
+    <symbol id="shuffle" viewBox="0 0 24 24">
+      <path class="s" d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />
+    </symbol>
+    <symbol id="sun" viewBox="0 0 24 24">
+      <circle class="s" cx="12" cy="12" r="4" />
+      <path class="s" d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
     </symbol>
   </defs>
-  <rect width="1800" height="1100" fill="#151816"/>
-  <circle cx="1610" cy="100" r="290" fill="#00662c" opacity=".09"/>
-  <text x="70" y="58" fill="#dce3de" font-size="14" font-weight="650" letter-spacing="1.5">ACORN WORKSPACE &#xB7; SETTINGS</text>
-  <text x="1730" y="58" fill="#7f8982" font-size="12" text-anchor="end">Session-only preferences &#xB7; Browser + Tauri desktop &#xB7; 2026-11-10</text>
-  <g transform="translate(70 86)" filter="url(#shadow)">
-    <rect width="1280" height="930" rx="18" fill="#1f2229" stroke="#3c414e"/>
-    <path d="M18 0h250v930H18A18 18 0 0 1 0 912V18A18 18 0 0 1 18 0Z" fill="#252931"/>
-    <line x1="268" x2="268" y2="930" stroke="#3c414e"/>
-    <image href="../../../../docs/src/_assets/banner_dark_mode.png" x="22" y="22" width="168" height="72" preserveAspectRatio="xMinYMid meet"/>
-    <rect x="216" y="38" width="34" height="34" rx="8" fill="#2b3039" stroke="#3c414e"/>
-    <g transform="translate(224 46)" color="#a9b1ac"><use href="#nav-panel" width="18" height="18"/></g>
-    <text x="24" y="108" class="muted">8 WebMCP tools &#xB7; map &#xB7; local</text>
-    <text x="26" y="126" class="group">WORKSPACE</text>
-    <g transform="translate(29 143)" color="#a9b1ac"><use href="#nav-home" width="19" height="19"/></g><text x="61" y="158" class="nav">Home</text>
-    <g transform="translate(29 189)" color="#a9b1ac"><use href="#nav-portfolio" width="19" height="19"/></g><text x="61" y="204" class="nav">Portfolio</text>
-    <text x="26" y="230" class="group">VALIDATE</text>
-    <g transform="translate(29 257)" color="#a9b1ac"><use href="#nav-activity" width="19" height="19"/></g><text x="61" y="272" class="nav">Research activity</text>
-    <g transform="translate(29 295)" color="#a9b1ac"><use href="#nav-standard" width="19" height="19"/></g><text x="61" y="310" class="nav">Metadata standard</text>
-    <text x="26" y="338" class="group">ANALYZE</text>
-    <g transform="translate(29 365)" color="#a9b1ac"><use href="#nav-crosswalk" width="19" height="19"/></g><text x="61" y="380" class="nav">Crosswalk</text>
-    <g transform="translate(29 403)" color="#a9b1ac"><use href="#nav-fair" width="19" height="19"/></g><text x="61" y="418" class="nav">FAIR metadata</text>
-    <g transform="translate(29 441)" color="#a9b1ac"><use href="#nav-readability" width="19" height="19"/></g><text x="61" y="456" class="nav">Readability</text>
-    <g transform="translate(29 479)" color="#a9b1ac"><use href="#nav-diff" width="19" height="19"/></g><text x="61" y="494" class="nav">Content diff</text>
-    <g transform="translate(29 517)" color="#a9b1ac"><use href="#nav-geospatial" width="19" height="19"/></g><text x="61" y="532" class="nav">Geospatial</text>
-    <text x="26" y="560" class="group">IDENTIFIERS</text>
-    <g transform="translate(29 587)" color="#a9b1ac"><use href="#nav-discover" width="19" height="19"/></g><text x="61" y="602" class="nav">Discover</text>
-    <g transform="translate(29 625)" color="#a9b1ac"><use href="#nav-inspect" width="19" height="19"/></g><text x="61" y="640" class="nav">Inspect</text>
-    <text x="26" y="668" class="group">APPLICATION</text>
-    <rect x="14" y="684" width="240" height="42" rx="8" fill="#00662c"/>
-    <g transform="translate(29 695)" color="#fff"><use href="#nav-settings" width="19" height="19"/></g><text x="61" y="710" fill="#fff" font-size="14" font-weight="500">Settings</text>
-    <g transform="translate(29 733)" color="#a9b1ac"><use href="#nav-about" width="19" height="19"/></g><text x="61" y="748" class="nav">About</text>
-    <line x1="22" y1="836" x2="246" y2="836" stroke="#3c414e"/>
-    <circle cx="33" cy="866" r="5" fill="#d6a94a"/><text x="48" y="871" class="muted">WebMCP unsupported &#xB7; manual ready</text>
-    <text x="24" y="900" class="muted">v0.6.3</text>
-    <g transform="translate(310)">
-      <text y="72" class="title">Settings</text>
-      <text y="98" class="muted">Configure this session. Nothing is saved after the workspace closes.</text>
-      <text y="148" class="group">APPEARANCE</text>
-      <rect y="166" width="900" height="176" rx="12" fill="#252931" stroke="#3c414e"/>
-      <text x="22" y="198" class="label">Theme</text>
-      <text x="22" y="220" class="muted">Choose an explicit theme or follow your operating system.</text>
-      <rect x="22" y="246" width="260" height="70" rx="10" fill="#2b3039" stroke="#3c414e"/>
-      <use href="#sun" x="40" y="268" width="22" height="22" color="#a9b1ac"/>
-      <text x="76" y="278" class="label">Light</text>
-      <text x="76" y="298" class="muted">Bright canvas</text>
-      <circle cx="258" cy="281" r="8" fill="none" stroke="#707a73"/>
-      <rect x="302" y="246" width="260" height="70" rx="10" fill="#173624" stroke="#00a879"/>
-      <use href="#moon" x="320" y="268" width="22" height="22" color="#55b985"/>
-      <text x="356" y="278" fill="#f3f6f4" font-size="12" font-weight="600">Dark</text>
-      <text x="356" y="298" class="muted">Current theme</text>
-      <circle cx="538" cy="281" r="8" fill="#00b38f"/>
-      <circle cx="538" cy="281" r="3" fill="#173624"/>
-      <rect x="582" y="246" width="296" height="70" rx="10" fill="#2b3039" stroke="#3c414e"/>
-      <use href="#monitor" x="600" y="268" width="22" height="22" color="#a9b1ac"/>
-      <text x="636" y="278" class="label">System</text>
-      <text x="636" y="298" class="muted">Follow OS preference</text>
-      <circle cx="854" cy="281" r="8" fill="none" stroke="#707a73"/>
-      <text y="398" class="group">RUNTIME</text>
-      <rect y="416" width="440" height="182" rx="12" fill="#252931" stroke="#3c414e"/>
-      <text x="20" y="450" class="label">Workspace runtime</text>
-      <line x1="20" x2="420" y1="468" y2="468" stroke="#3c414e"/>
-      <text x="20" y="496" class="muted">Version</text>
-      <text x="420" y="496" class="label" text-anchor="end">0.6.3</text>
-      <text x="20" y="527" class="muted">Delivery</text>
-      <text x="420" y="527" class="label" text-anchor="end">Tauri desktop</text>
-      <text x="20" y="558" class="muted">WebMCP</text>
-      <text x="420" y="558" fill="#55b985" font-size="12" text-anchor="end">8 tools installed</text>
-      <text x="20" y="580" class="muted">Manual tools remain available without WebMCP.</text>
-      <rect x="460" y="416" width="440" height="182" rx="12" fill="#252931" stroke="#3c414e"/>
-      <text x="480" y="450" class="label">Loaded session</text>
-      <line x1="480" x2="880" y1="468" y2="468" stroke="#3c414e"/>
-      <text x="480" y="496" class="muted">Activities</text>
-      <text x="880" y="496" class="label" text-anchor="end">6</text>
-      <text x="480" y="527" class="muted">Files</text>
-      <text x="880" y="527" class="label" text-anchor="end">12 &#xB7; 4.2 MiB</text>
-      <text x="480" y="558" class="muted">Persistence</text>
-      <text x="880" y="558" class="label" text-anchor="end">None</text>
-      <rect x="740" y="570" width="140" height="28" rx="7" fill="#3a2225" stroke="#74414a"/>
-      <text x="810" y="588" fill="#e57c87" font-size="10" font-weight="600" text-anchor="middle">Clear loaded session</text>
-      <text y="654" class="group">PRIVACY &amp; CAPABILITIES</text>
-      <rect y="672" width="900" height="116" rx="12" fill="#252931" stroke="#3c414e"/>
-      <rect x="20" y="692" width="42" height="42" rx="10" fill="#173624"/>
-      <text x="41" y="719" fill="#55b985" font-size="18" text-anchor="middle">&#x2713;</text>
-      <text x="80" y="705" class="label">Local-first by design</text>
-      <text x="80" y="727" class="muted">No uploads, telemetry, background network access, or persisted file capability.</text>
-      <text x="80" y="749" class="muted">Desktop access is limited to explicit native open, folder, and save dialogs.</text>
-      <text x="450" y="842" class="muted" text-anchor="middle">Made with &#x2665; by jhwohlgemuth</text>
+  <g font-family="Inter,Arial,Helvetica,sans-serif">
+    <g transform="translate(0 0)">
+      <rect x="0" y="0" width="1440" height="900" rx="0" fill="#20232a" stroke="none" />
+      <rect x="0" y="0" width="220" height="900" rx="0" fill="#262932" stroke="none" />
+      <path d="M220 0L220 900" fill="none" stroke="#3c424e" />
+      <use href="#acorn-mark" x="16" y="19" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="54" y="38" font-size="16" fill="#e4e7ed" font-weight="700" text-anchor="start">ACORN</text>
+      <text x="120" y="38" font-size="12" fill="#a0a7b4" font-weight="500" text-anchor="start">Browser</text>
+      <use href="#panel" x="190" y="24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="16" y="65" font-size="11" fill="#a0a7b4" font-weight="400" text-anchor="start">9 tools · local workspace</text>
+      <path d="M0 82H220" fill="none" stroke="#3c424e" />
+      <text x="16" y="104" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">WORKSPACE</text>
+      <use href="#home" x="20" y="121" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="135" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Home</text>
+      <use href="#portfolio" x="20" y="154" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="168" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Portfolio</text>
+      <text x="16" y="197" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">VALIDATE</text>
+      <use href="#filecheck" x="20" y="214" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="228" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Research activity</text>
+      <use href="#badge" x="20" y="247" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="261" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Metadata standard</text>
+      <use href="#shuffle" x="20" y="280" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="294" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Crosswalk</text>
+      <text x="16" y="323" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">ANALYZE</text>
+      <use href="#shield" x="20" y="340" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="354" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">FAIR metadata</text>
+      <use href="#book" x="20" y="373" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="387" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Readability</text>
+      <use href="#diff" x="20" y="406" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="420" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Content diff</text>
+      <use href="#chart" x="20" y="439" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="453" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Big-O comparison</text>
+      <use href="#globe" x="20" y="472" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="486" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Geospatial</text>
+      <text x="16" y="515" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">IDENTIFIERS</text>
+      <use href="#search" x="20" y="532" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="546" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Discover</text>
+      <use href="#info" x="20" y="565" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="579" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Inspect</text>
+      <text x="16" y="608" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">APPLICATION</text>
+      <use href="#download" x="20" y="625" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="639" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Install</text>
+      <use href="#book" x="20" y="658" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="672" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">ACORN Skill</text>
+      <rect x="8" y="684" width="204" height="31" rx="6" fill="#294337" stroke="none" />
+      <use href="#settings" x="20" y="691" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#8fd4ab" />
+      <text x="48" y="705" font-size="13" fill="#8fd4ab" font-weight="500" text-anchor="start">Settings</text>
+      <use href="#info" x="20" y="724" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="48" y="738" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">About</text>
+      <path d="M0 828H220" fill="none" stroke="#3c424e" />
+      <circle cx="18" cy="851" r="3" fill="#d8b778" />
+      <text x="28" y="855" font-size="10" fill="#a0a7b4" font-weight="400" text-anchor="start">WebMCP · unsupported</text>
+      <text x="16" y="880" font-size="10" fill="#7d8795" font-weight="400" text-anchor="start" font-family="Menlo,Consolas,monospace">v0.6.3</text>
+      <text x="204" y="880" font-size="10" fill="#7d8795" font-weight="400" text-anchor="end">Browser</text>
+      <rect x="1305" y="20" width="112" height="32" rx="16" fill="#282c34" stroke="#3c424e" />
+      <use href="#moon" x="1315" y="28" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="1337" y="41" font-size="11" fill="#e4e7ed" font-weight="400" text-anchor="start">Dark</text>
+      <rect x="1376" y="29" width="30" height="15" rx="8" fill="#00662c" stroke="none" />
+      <circle cx="1397" cy="36.5" r="5.5" fill="white" />
+      <path d="M494 837H1166" fill="none" stroke="#3c424e" />
+      <text x="830" y="868" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="middle">Made with ♥ by jhwohlgemuth</text>
+      <text x="598" y="62" font-size="25" fill="#e4e7ed" font-weight="650" text-anchor="start">Settings</text>
+      <text x="598" y="91" font-size="14" fill="#a0a7b4" font-weight="400" text-anchor="start">Appearance, session data and release information.</text>
+      <text x="598" y="147" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">THEME</text>
+      <rect x="598" y="168" width="144" height="80" rx="10" fill="#294337" stroke="#8fd4ab" />
+      <use href="#moon" x="659" y="184" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#8fd4ab" />
+      <text x="670" y="230" font-size="13" fill="#8fd4ab" font-weight="500" text-anchor="middle">Dark</text>
+      <rect x="758" y="168" width="144" height="80" rx="10" fill="#282c34" stroke="#3c424e" />
+      <use href="#sun" x="819" y="184" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="830" y="230" font-size="13" fill="#a0a7b4" font-weight="500" text-anchor="middle">Light</text>
+      <rect x="918" y="168" width="144" height="80" rx="10" fill="#282c34" stroke="#3c424e" />
+      <use href="#monitor" x="979" y="184" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="990" y="230" font-size="13" fill="#a0a7b4" font-weight="500" text-anchor="middle">System</text>
+      <text x="598" y="293" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">LOADED SESSION</text>
+      <rect x="598" y="315" width="464" height="156" rx="10" fill="#282c34" stroke="#3c424e" />
+      <text x="618" y="347" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Activities</text>
+      <text x="1042" y="347" font-size="13" fill="#e4e7ed" font-weight="400" text-anchor="end">6</text>
+      <text x="618" y="377" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Files</text>
+      <text x="1042" y="377" font-size="13" fill="#e4e7ed" font-weight="400" text-anchor="end">12 · 4.2 MiB</text>
+      <text x="618" y="407" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Persistence</text>
+      <text x="1042" y="407" font-size="13" fill="#e4e7ed" font-weight="400" text-anchor="end">None — this session only</text>
+      <rect x="618" y="420" width="150" height="36" rx="6" fill="#282c34" stroke="#3c424e" />
+      <text x="693.0" y="443" font-size="13" fill="#e4e7ed" font-weight="500" text-anchor="middle">Clear loaded session</text>
+      <text x="598" y="514" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">APP AND SKILL</text>
+      <rect x="598" y="536" width="464" height="170" rx="10" fill="#282c34" stroke="#3c424e" />
+      <text x="618" y="568" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">App version</text>
+      <text x="1042" y="568" font-size="12" fill="#e4e7ed" font-weight="400" text-anchor="end">0.6.3</text>
+      <text x="618" y="598" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Bundled skill</text>
+      <text x="1042" y="598" font-size="12" fill="#e4e7ed" font-weight="400" text-anchor="end">0.6.3 · matching release</text>
+      <text x="618" y="628" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Runtime</text>
+      <text x="1042" y="628" font-size="12" fill="#e4e7ed" font-weight="400" text-anchor="end">Browser · manual tools ready</text>
+      <text x="618" y="681" font-size="13" fill="#8fd4ab" font-weight="400" text-anchor="start">ACORN Skill →</text>
+      <text x="818" y="681" font-size="13" fill="#8fd4ab" font-weight="400" text-anchor="start">Install options →</text>
+      <text x="598" y="750" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="start">Appearance changes apply to this session.</text>
+      <text x="598" y="771" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="start">Exported agent skills are never changed by clearing session data.</text>
+      <rect x="0" y="900" width="1440" height="32" rx="0" fill="#14181d" stroke="none" />
+      <text x="20" y="921" font-size="10" fill="#a5b1bc" font-weight="400" text-anchor="start">Settings · dark · design preview · sample content</text>
+      <text x="1420" y="921" font-size="10" fill="#a5b1bc" font-weight="400" text-anchor="end">1440 × 900  /  2026-11-11</text>
+    </g>
+    <g transform="translate(0 932)">
+      <rect x="0" y="0" width="1440" height="900" rx="0" fill="#ffffff" stroke="none" />
+      <rect x="0" y="0" width="220" height="900" rx="0" fill="#f8f9fa" stroke="none" />
+      <path d="M220 0L220 900" fill="none" stroke="#d9dde2" />
+      <use href="#acorn-mark" x="16" y="19" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#a0a7b4" />
+      <text x="54" y="38" font-size="16" fill="#29323a" font-weight="700" text-anchor="start">ACORN</text>
+      <text x="120" y="38" font-size="12" fill="#5d6874" font-weight="500" text-anchor="start">Browser</text>
+      <use href="#panel" x="190" y="24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="16" y="65" font-size="11" fill="#5d6874" font-weight="400" text-anchor="start">9 tools · local workspace</text>
+      <path d="M0 82H220" fill="none" stroke="#d9dde2" />
+      <text x="16" y="104" font-size="11" fill="#5d6874" font-weight="600" text-anchor="start">WORKSPACE</text>
+      <use href="#home" x="20" y="121" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="48" y="135" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Home</text>
+      <use href="#portfolio" x="20" y="154" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="48" y="168" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Portfolio</text>
+      <text x="16" y="197" font-size="11" fill="#5d6874" font-weight="600" text-anchor="start">VALIDATE</text>
+      <use href="#filecheck" x="20" y="214" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="48" y="228" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Research activity</text>
+      <use href="#badge" x="20" y="247" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="48" y="261" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Metadata standard</text>
+      <use href="#shuffle" x="20" y="280" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="48" y="294" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Crosswalk</text>
+      <text x="16" y="323" font-size="11" fill="#5d6874" font-weight="600" text-anchor="start">ANALYZE</text>
+      <use href="#shield" x="20" y="340" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="48" y="354" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">FAIR metadata</text>
+      <use href="#book" x="20" y="373" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="48" y="387" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Readability</text>
+      <use href="#diff" x="20" y="406" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="48" y="420" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Content diff</text>
+      <use href="#chart" x="20" y="439" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="48" y="453" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Big-O comparison</text>
+      <use href="#globe" x="20" y="472" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="48" y="486" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Geospatial</text>
+      <text x="16" y="515" font-size="11" fill="#5d6874" font-weight="600" text-anchor="start">IDENTIFIERS</text>
+      <use href="#search" x="20" y="532" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="48" y="546" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Discover</text>
+      <use href="#info" x="20" y="565" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="48" y="579" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Inspect</text>
+      <text x="16" y="608" font-size="11" fill="#5d6874" font-weight="600" text-anchor="start">APPLICATION</text>
+      <use href="#download" x="20" y="625" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="48" y="639" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Install</text>
+      <use href="#book" x="20" y="658" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="48" y="672" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">ACORN Skill</text>
+      <rect x="8" y="684" width="204" height="31" rx="6" fill="#e3f0e8" stroke="none" />
+      <use href="#settings" x="20" y="691" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#00662c" />
+      <text x="48" y="705" font-size="13" fill="#00662c" font-weight="500" text-anchor="start">Settings</text>
+      <use href="#info" x="20" y="724" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="48" y="738" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">About</text>
+      <path d="M0 828H220" fill="none" stroke="#d9dde2" />
+      <circle cx="18" cy="851" r="3" fill="#d8b778" />
+      <text x="28" y="855" font-size="10" fill="#5d6874" font-weight="400" text-anchor="start">WebMCP · unsupported</text>
+      <text x="16" y="880" font-size="10" fill="#697680" font-weight="400" text-anchor="start" font-family="Menlo,Consolas,monospace">v0.6.3</text>
+      <text x="204" y="880" font-size="10" fill="#697680" font-weight="400" text-anchor="end">Browser</text>
+      <rect x="1305" y="20" width="112" height="32" rx="16" fill="#f8f9fa" stroke="#d9dde2" />
+      <use href="#sun" x="1315" y="28" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="1337" y="41" font-size="11" fill="#29323a" font-weight="400" text-anchor="start">Light</text>
+      <rect x="1376" y="29" width="30" height="15" rx="8" fill="#00662c" stroke="none" />
+      <circle cx="1397" cy="36.5" r="5.5" fill="white" />
+      <path d="M494 837H1166" fill="none" stroke="#d9dde2" />
+      <text x="830" y="868" font-size="12" fill="#5d6874" font-weight="400" text-anchor="middle">Made with ♥ by jhwohlgemuth</text>
+      <text x="598" y="62" font-size="25" fill="#29323a" font-weight="650" text-anchor="start">Settings</text>
+      <text x="598" y="91" font-size="14" fill="#5d6874" font-weight="400" text-anchor="start">Appearance, session data and release information.</text>
+      <text x="598" y="147" font-size="11" fill="#5d6874" font-weight="600" text-anchor="start">THEME</text>
+      <rect x="598" y="168" width="144" height="80" rx="10" fill="#f8f9fa" stroke="#d9dde2" />
+      <use href="#moon" x="659" y="184" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="670" y="230" font-size="13" fill="#5d6874" font-weight="500" text-anchor="middle">Dark</text>
+      <rect x="758" y="168" width="144" height="80" rx="10" fill="#e3f0e8" stroke="#00662c" />
+      <use href="#sun" x="819" y="184" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#00662c" />
+      <text x="830" y="230" font-size="13" fill="#00662c" font-weight="500" text-anchor="middle">Light</text>
+      <rect x="918" y="168" width="144" height="80" rx="10" fill="#f8f9fa" stroke="#d9dde2" />
+      <use href="#monitor" x="979" y="184" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#5d6874" />
+      <text x="990" y="230" font-size="13" fill="#5d6874" font-weight="500" text-anchor="middle">System</text>
+      <text x="598" y="293" font-size="11" fill="#5d6874" font-weight="600" text-anchor="start">LOADED SESSION</text>
+      <rect x="598" y="315" width="464" height="156" rx="10" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="618" y="347" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Activities</text>
+      <text x="1042" y="347" font-size="13" fill="#29323a" font-weight="400" text-anchor="end">6</text>
+      <text x="618" y="377" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Files</text>
+      <text x="1042" y="377" font-size="13" fill="#29323a" font-weight="400" text-anchor="end">12 · 4.2 MiB</text>
+      <text x="618" y="407" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Persistence</text>
+      <text x="1042" y="407" font-size="13" fill="#29323a" font-weight="400" text-anchor="end">None — this session only</text>
+      <rect x="618" y="420" width="150" height="36" rx="6" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="693.0" y="443" font-size="13" fill="#29323a" font-weight="500" text-anchor="middle">Clear loaded session</text>
+      <text x="598" y="514" font-size="11" fill="#5d6874" font-weight="600" text-anchor="start">APP AND SKILL</text>
+      <rect x="598" y="536" width="464" height="170" rx="10" fill="#f8f9fa" stroke="#d9dde2" />
+      <text x="618" y="568" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">App version</text>
+      <text x="1042" y="568" font-size="12" fill="#29323a" font-weight="400" text-anchor="end">0.6.3</text>
+      <text x="618" y="598" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Bundled skill</text>
+      <text x="1042" y="598" font-size="12" fill="#29323a" font-weight="400" text-anchor="end">0.6.3 · matching release</text>
+      <text x="618" y="628" font-size="13" fill="#5d6874" font-weight="400" text-anchor="start">Runtime</text>
+      <text x="1042" y="628" font-size="12" fill="#29323a" font-weight="400" text-anchor="end">Browser · manual tools ready</text>
+      <text x="618" y="681" font-size="13" fill="#00662c" font-weight="400" text-anchor="start">ACORN Skill →</text>
+      <text x="818" y="681" font-size="13" fill="#00662c" font-weight="400" text-anchor="start">Install options →</text>
+      <text x="598" y="750" font-size="12" fill="#5d6874" font-weight="400" text-anchor="start">Appearance changes apply to this session.</text>
+      <text x="598" y="771" font-size="12" fill="#5d6874" font-weight="400" text-anchor="start">Exported agent skills are never changed by clearing session data.</text>
+      <rect x="0" y="900" width="1440" height="32" rx="0" fill="#14181d" stroke="none" />
+      <text x="20" y="921" font-size="10" fill="#a5b1bc" font-weight="400" text-anchor="start">Settings · light · design preview · sample content</text>
+      <text x="1420" y="921" font-size="10" fill="#a5b1bc" font-weight="400" text-anchor="end">1440 × 900  /  2026-11-11</text>
     </g>
   </g>
-  <g transform="translate(1400 160)" filter="url(#shadow)">
-    <rect width="330" height="750" rx="30" fill="#f8faf9" stroke="#d7ddd9"/>
-    <rect width="330" height="60" rx="30" fill="#fff"/>
-    <use href="#acorn-mark" x="18" y="16" width="28" height="28"/>
-    <text x="56" y="35" class="light-body" font-weight="650">Settings</text>
-    <text x="20" y="100" class="light-title">Settings</text>
-    <text x="20" y="122" class="light-muted">Session-only preferences</text>
-    <text x="20" y="158" fill="#68736b" font-size="9" font-weight="700" letter-spacing="1">APPEARANCE</text>
-    <rect x="20" y="174" width="290" height="152" rx="10" fill="#fff" stroke="#d7ddd9"/>
-    <text x="34" y="201" class="light-body" font-weight="650">Theme</text>
-    <rect x="34" y="218" width="76" height="78" rx="9" fill="#f8faf9" stroke="#d7ddd9"/>
-    <use href="#sun" x="60" y="232" width="24" height="24" color="#68736b"/>
-    <text x="72" y="280" class="light-muted" text-anchor="middle">Light</text>
-    <rect x="126" y="218" width="76" height="78" rx="9" fill="#dff3e7" stroke="#00662c"/>
-    <use href="#moon" x="152" y="232" width="24" height="24" color="#00662c"/>
-    <text x="164" y="280" fill="#00662c" font-size="10" font-weight="650" text-anchor="middle">Dark</text>
-    <rect x="218" y="218" width="76" height="78" rx="9" fill="#f8faf9" stroke="#d7ddd9"/>
-    <use href="#monitor" x="244" y="232" width="24" height="24" color="#68736b"/>
-    <text x="256" y="280" class="light-muted" text-anchor="middle">System</text>
-    <text x="20" y="368" fill="#68736b" font-size="9" font-weight="700" letter-spacing="1">RUNTIME</text>
-    <rect x="20" y="384" width="290" height="118" rx="10" fill="#fff" stroke="#d7ddd9"/>
-    <text x="34" y="413" class="light-muted">Version</text>
-    <text x="294" y="413" class="light-body" text-anchor="end">0.6.3</text>
-    <text x="34" y="445" class="light-muted">Delivery</text>
-    <text x="294" y="445" class="light-body" text-anchor="end">Browser</text>
-    <text x="34" y="477" class="light-muted">WebMCP</text>
-    <text x="294" y="477" fill="#00662c" font-size="10" font-weight="650" text-anchor="end">8 installed</text>
-    <text x="20" y="544" fill="#68736b" font-size="9" font-weight="700" letter-spacing="1">LOADED SESSION</text>
-    <rect x="20" y="560" width="290" height="112" rx="10" fill="#fff" stroke="#d7ddd9"/>
-    <text x="34" y="590" class="light-muted">6 activities &#xB7; 12 files &#xB7; 4.2 MiB</text>
-    <text x="34" y="612" class="light-muted">Content is never persisted.</text>
-    <rect x="34" y="632" width="262" height="28" rx="7" fill="#fff4f4" stroke="#d69aa2"/>
-    <text x="165" y="650" fill="#a23f4d" font-size="10" font-weight="600" text-anchor="middle">Clear loaded session</text>
-    <text x="20" y="710" class="light-muted">No uploads &#xB7; No telemetry &#xB7; No persistence</text>
-  </g>
-  <text x="900" y="1060" fill="#7f8982" font-size="12" text-anchor="middle">Explicit Light, Dark, and System choices &#xB7; truthful runtime state &#xB7; transient reset &#xB7; no persistence claim</text>
 </svg>

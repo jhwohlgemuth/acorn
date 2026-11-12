@@ -8,6 +8,7 @@ pub mod grpc;
 pub mod health;
 pub mod http;
 pub mod runtime;
+pub mod util;
 
 /// Generated protobuf wire model for the typed ACORN service.
 pub mod proto {
@@ -21,7 +22,7 @@ pub mod health_proto {
 }
 
 pub use config::{ServerArgs, ServerConfig};
-pub use runtime::{serve, serve_with_durable};
+pub use runtime::{serve, serve_with_durable, serve_with_registry};
 
 /// Server result type with thread-safe error context.
 pub type ServerResult<T> = Result<T, Box<dyn core::error::Error + Send + Sync>>;

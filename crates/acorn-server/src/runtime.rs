@@ -9,6 +9,7 @@ use acorn_service::registry::DurableOperations;
 use acorn_service::{AcornService, InvocationContext, Memory, OperationRegistry};
 use alloc::sync::Arc;
 use axum_server::tls_rustls::RustlsConfig;
+use core::future::Future;
 use core::sync::atomic::{AtomicBool, Ordering};
 use rustls::crypto::ring;
 use std::{fs::read, net::TcpListener};
@@ -28,19 +29,20 @@ async fn drain(listeners: &mut JoinSet<Result<(), String>>) -> ServerResult<()> 
         }
     }
 }
-async fn finish(
+async fn finish<F: Future<Output = ServerResult<()>>>(
     config: &ServerConfig,
     ready: Arc<AtomicBool>,
-    shutdown: watch::Sender<bool>,
+    shutdown: F,
+    stop: watch::Sender<bool>,
     listeners: &mut JoinSet<Result<(), String>>,
 ) -> ServerResult<()> {
     ready.store(true, Ordering::Release);
     let unexpected = tokio::select! {
-        signal = shutdown_signal() => signal.map(|()| None),
+        signal = shutdown => signal.map(|()| None),
         result = listeners.join_next() => Ok(Some(listener_result(result))),
     };
     ready.store(false, Ordering::Release);
-    let _ = shutdown.send(true);
+    let _ = stop.send(true);
     let drained = tokio::time::timeout(config.shutdown_grace, drain(listeners)).await;
     match (unexpected, drained) {
         | (Err(error), _) => Err(error),
@@ -64,37 +66,48 @@ fn listener_result(result: Option<Result<Result<(), String>, tokio::task::JoinEr
 pub async fn serve(config: ServerConfig) -> ServerResult<()> {
     serve_with_durable(config, None).await
 }
-async fn serve_registry(config: ServerConfig, service: AcornService, context: InvocationContext, registry: OperationRegistry) -> ServerResult<()> {
+async fn serve_registry<F: Future<Output = ServerResult<()>>>(
+    config: ServerConfig,
+    service: AcornService,
+    context: InvocationContext,
+    registry: OperationRegistry,
+    shutdown: F,
+) -> ServerResult<()> {
     let ready = Arc::new(AtomicBool::new(false));
-    let (shutdown, receiver) = watch::channel(false);
+    let (stop, receiver) = watch::channel(false);
     let mut listeners = JoinSet::new();
     match spawn_json_rpc(&config, registry, context, Arc::clone(&ready), &receiver, &mut listeners).await {
         | Err(error) => Err(error),
         | Ok(()) => match spawn_grpc(&config, service, Arc::clone(&ready), &receiver, &mut listeners) {
             | Err(error) => Err(error),
-            | Ok(()) => finish(&config, ready, shutdown, &mut listeners).await,
+            | Ok(()) => finish(&config, ready, shutdown, stop, &mut listeners).await,
         },
     }
 }
+/// Serve an injected operation registry until the supplied shutdown future completes.
+pub async fn serve_with_registry<F>(config: ServerConfig, registry: OperationRegistry, shutdown: F) -> ServerResult<()>
+where
+    F: Future<Output = ServerResult<()>>,
+{
+    let _ = ring::default_provider().install_default();
+    let service = AcornService;
+    let max_request = Memory::kb(config.max_request_bytes as f64 / 1024.0);
+    let context = InvocationContext {
+        allow_mutation: config.allow_mutation,
+        max_input: max_request.clone(),
+        max_output: max_request,
+        ..InvocationContext::default()
+    };
+    serve_registry(config, service, context, registry, shutdown).await
+}
 /// Run every enabled listener with an optional durable-operation adapter.
 pub async fn serve_with_durable(config: ServerConfig, durable: Option<Arc<dyn DurableOperations>>) -> ServerResult<()> {
-    let _ = ring::default_provider().install_default();
     match config.allow_mutation && durable.is_none() {
         | true => Err("Mutation requires a configured durable-operation adapter".into()),
-        | false => {
-            let service = AcornService;
-            let max_request = Memory::kb(config.max_request_bytes as f64 / 1024.0);
-            let context = InvocationContext {
-                allow_mutation: config.allow_mutation,
-                max_input: max_request.clone(),
-                max_output: max_request,
-                ..InvocationContext::default()
-            };
-            match OperationRegistry::acorn(service, env!("CARGO_PKG_VERSION"), durable) {
-                | Err(error) => Err(error.into()),
-                | Ok(registry) => serve_registry(config, service, context, registry).await,
-            }
-        }
+        | false => match OperationRegistry::acorn(AcornService, env!("CARGO_PKG_VERSION"), durable) {
+            | Err(error) => Err(error.into()),
+            | Ok(registry) => serve_with_registry(config, registry, shutdown_signal()).await,
+        },
     }
 }
 #[cfg(unix)]
@@ -218,3 +231,6 @@ async fn wait_for_shutdown(receiver: &mut watch::Receiver<bool>) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

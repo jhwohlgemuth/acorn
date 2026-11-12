@@ -38,6 +38,8 @@ For existing local project indexes, `acorn intake stage --batch --source <URI-or
 ## Installation
 See [the ACORN book](https://acorn.ornl.gov) for detailed installation instructions for the [CLI application](https://acorn.ornl.gov/getting-started.html#installation) and [🦀Rust packages](http://acorn.ornl.gov/packages/README.html). Portable integrations can use `acorn-schema`, `acorn-analysis`, and `acorn-service` directly; authenticated JSON-RPC and typed gRPC deployments use `acorn-server`. Python users can use the independently maintained [🐍`acorn-py` companion project](https://code.ornl.gov/research-enablement/acorn-py). Contributors can check the portable Rust surface using the [WebAssembly development guide](http://acorn.ornl.gov/packages/acorn-web.html).
 
+The local [browser](crates/acorn-web/README.md) provides nine research tools without a backend. Run `make web-setup` once, then `make web-dev`; use `make web-check`, `make web-test`, `make web-build` and `make web-preview` for validation and release-preview review.
+
 ## Architecture
 > See [ARCHITECTURE.md](./ARCHITECTURE.md)
 
