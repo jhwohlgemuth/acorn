@@ -56,6 +56,8 @@ PA-39C is accepted with desktop and phone reviewer evidence; the isolated contri
 
 ### Ranked executable plans
 
+The November 11 targeted netrc review at `43284095` adds [opt-in native download authentication](features/netrc-support.md), bringing the current frontmatter inventory to 41 executable plans and three coordination records. Source inspection covered host HTTP policy, library streaming, archive acquisition and CLI composition; no implementation tests or real credential files were used. NTR-01 is ready subject to the workspace-graph lock. Native host availability and Earthdata compatibility remain unverified; Earthdata is outside the initial release claim. The November 7 portfolio-wide review remains current.
+
 | Rank | Plan | Status | Impact | Difficulty | Quality | Value | Assessment |
 |---:|---|---|---|---|---|---|---|
 | 1 | [Intake approval pilot acceptance and cutover](features/powerapps-jsonl-intake/approval-release/index.md) | Planned | Critical | High | A | Highest | PA-40 technical acceptance is complete. PA-40A is blocked on uncoached usability and exact Approved-batch canvas fidelity; operational PA-41/41A require explicit authorization, fresh backup/baseline and tested freeze rollback. |
@@ -92,12 +94,13 @@ PA-39C is accepted with desktop and phone reviewer evidence; the isolated contri
 | 32 | [Grouped report separators](features/grouped-report-separators.md) | Planned | Medium | Medium | A | High | Extend the existing local --combine renderer with explicit group order and office divider pages; retain the current output API. |
 | 33 | [Report PowerPoint visual regression](testing/powerpoint-report-visual-regression.md) | Planned | Medium | Medium | A− | High | Existing OOXML tests and PDF snapshots make the harness tractable; Linux and native Windows baselines require pinned renderers and fonts, and Windows CI waits for GSR-02. |
 | 34 | [ZON codec hardening](refactors/zon-codec-hardening.md) | Planned | Medium | Medium | A | Medium | A contained correctness/maintainability leaf with strong tests and low integration risk. |
-| 35 | [CLI coverage](testing/cli-coverage.md) | Planned | Medium | Medium | A− | Medium | Targets known command and binary failure gaps without reviving obsolete test layout or chasing raw line coverage. |
-| 36 | [WebMCP and MCP interoperability](testing/webmcp-evaluations.md) | Planned | Medium | Medium | A− | Medium | Layers checked-in contracts, Inspector smoke, applicable conformance, live-browser coverage for nine WebMCP tools, and opt-in remote/plugin controls; required CI stays deterministic and independent of the public server. |
-| 37 | [Portable PID verification](testing/pid-verification.md) | Planned | Medium | High | B+ | Medium | PID-06 first proves a small executable MOD 11-2 core with Verus; production ORCID/ISNI wiring, remaining checksum proofs, consolidation, and Miri follow its compatibility gate. |
-| 38 | [Beam inference integration](features/beam-inference-integration.md) | Planned | Medium | High | B | Medium | Release and serving evidence gate an explicit endpoint integration and ACORN evaluation. |
-| 39 | [Coverage throughput](testing/coverage-throughput.md) | Planned | Medium | Medium | A− | Medium | Developer-workflow only; the forced clean stage is the confirmed cost, but every speed claim still needs a measured baseline. |
-| 40 | [Mise development-tool integration](migrations/mise-toolchain-integration.md) | Planned | Medium | Medium | A− | Medium | A locked cross-platform inventory can remove local/CI version drift, but Make, Docker image, CI, and native-host adoption must land serially under the CI/build lock. |
+| 35 | [Opt-in netrc authentication](features/netrc-support.md) | Planned | Medium | Medium | A− | Medium | Seven bounded phases add explicit native credential loading, origin-scoped HTTPS Basic requests and remote BagIt download flags; provider/OAuth precedence and anonymous defaults remain intact. Native validation gates platform claims; Earthdata compatibility is excluded. |
+| 36 | [CLI coverage](testing/cli-coverage.md) | Planned | Medium | Medium | A− | Medium | Targets known command and binary failure gaps without reviving obsolete test layout or chasing raw line coverage. |
+| 37 | [WebMCP and MCP interoperability](testing/webmcp-evaluations.md) | Planned | Medium | Medium | A− | Medium | Layers checked-in contracts, Inspector smoke, applicable conformance, live-browser coverage for nine WebMCP tools, and opt-in remote/plugin controls; required CI stays deterministic and independent of the public server. |
+| 38 | [Portable PID verification](testing/pid-verification.md) | Planned | Medium | High | B+ | Medium | PID-06 first proves a small executable MOD 11-2 core with Verus; production ORCID/ISNI wiring, remaining checksum proofs, consolidation, and Miri follow its compatibility gate. |
+| 39 | [Beam inference integration](features/beam-inference-integration.md) | Planned | Medium | High | B | Medium | Release and serving evidence gate an explicit endpoint integration and ACORN evaluation. |
+| 40 | [Coverage throughput](testing/coverage-throughput.md) | Planned | Medium | Medium | A− | Medium | Developer-workflow only; the forced clean stage is the confirmed cost, but every speed claim still needs a measured baseline. |
+| 41 | [Mise development-tool integration](migrations/mise-toolchain-integration.md) | Planned | Medium | Medium | A− | Medium | A locked cross-platform inventory can remove local/CI version drift, but Make, Docker image, CI, and native-host adoption must land serially under the CI/build lock. |
 
 ### Epics
 

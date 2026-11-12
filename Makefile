@@ -377,7 +377,7 @@ release-list: ## List recent GitLab releases.
 release-retry: ## Retry a job in the latest RELEASE_REF pipeline.
 	@$(MAKE) ci-retry CI_JOB="$(CI_JOB)" CI_PIPELINE="$(CI_PIPELINE)" CI_REF="$(RELEASE_REF)"
 
-release-version: ## Bump the release version and verify it.
+release-version: check-release-apps ## Check application coverage, bump the shared release version and verify it.
 	@cargo xtask release-version $(VERSION)
 	@$(MAKE) check-release-crates check-version
 
